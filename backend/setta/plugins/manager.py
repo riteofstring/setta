@@ -61,6 +61,7 @@ from setta.plugins.models import (
     PluginRegisteredLanguageServer,
     PluginRestartCapability,
     PluginRollbackResponse,
+    PluginRuntimeResponse,
     PluginRuntimeState,
     PluginScope,
     PluginsGlobalStateFile,
@@ -513,7 +514,7 @@ class PluginManager:
     def shutdown_backend_plugins(self) -> None:
         for plugin_id, process in list(self._backend_worker_processes.items()):
             self._shutdown_backend_worker(plugin_id=plugin_id, process=process)
-        self._reset_backend_runtime_state(remove_registered_mcp_tools=True)
+        self._reset_backend_runtime_state()
 
     @_mutation_locked
     def rescan(
@@ -559,7 +560,7 @@ class PluginManager:
             activePlugins=active_count,
         )
 
-    def _reset_backend_runtime_state(self, *, remove_registered_mcp_tools: bool) -> None:
+    def _reset_backend_runtime_state(self) -> None:
         self._backend_worker_processes = {}
         self._backend_worker_request_locks = {}
         self._backend_worker_next_request_ids = {}
@@ -569,10 +570,7 @@ class PluginManager:
         self._backend_loaded_plugin_ids = set()
         self._backend_route_ids_by_plugin_id = {}
         self._backend_listener_endpoint_route_by_name = {}
-        if remove_registered_mcp_tools:
-            self._remove_backend_registered_mcp_tools()
-        else:
-            self._backend_registered_mcp_tools = {}
+        self._remove_backend_registered_mcp_tools()
         self._backend_external_agent_adapters = {}
         self._backend_external_agent_adapter_by_id = {}
         self._backend_language_servers = {}
@@ -669,6 +667,12 @@ class PluginManager:
                 )
                 for entry in ordered
             ],
+        )
+
+    def get_runtime_response(self) -> PluginRuntimeResponse:
+        return PluginRuntimeResponse(
+            list=self.get_list_response(),
+            status=self.get_status_response(),
         )
 
     def _build_status_entry(

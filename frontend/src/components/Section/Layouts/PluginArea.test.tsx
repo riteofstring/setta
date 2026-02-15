@@ -20,6 +20,7 @@ type PluginImplShape = {
 
 let pluginSectionKind: Record<string, unknown> | null = null;
 let fallbackReason = "frontend_load_failed";
+let runtimeStatus = "loaded";
 let currentProjectConfigId = "project-config-1";
 let pluginImpl: PluginImplShape = {
   pluginId: "setta-fixture-plugin",
@@ -35,6 +36,12 @@ const routeDeleteSectionsMock = vi.fn();
 const onOverviewTabClickMock = vi.fn();
 const usePluginSectionKindMock = vi.fn(() => pluginSectionKind);
 const usePluginSectionFallbackReasonMock = vi.fn(() => fallbackReason);
+const usePluginRuntimeStoreMock = vi.fn(
+  (selector: (state: { status: string }) => unknown) =>
+    selector({
+      status: runtimeStatus,
+    }),
+);
 const getCurrEffectiveSectionImplOfTypeMock = vi.fn(() => pluginImpl);
 const getCurrProjectConfigIdMock = vi.fn(() => currentProjectConfigId);
 const useProjectStateMock = vi.fn(
@@ -67,7 +74,8 @@ vi.mock("react", async () => {
 vi.mock("plugins/runtime", () => ({
   usePluginSectionFallbackReason: (...args: unknown[]) =>
     usePluginSectionFallbackReasonMock(...args),
-  usePluginRuntimeStore: vi.fn(),
+  usePluginRuntimeStore: (...args: unknown[]) =>
+    usePluginRuntimeStoreMock(...args),
   usePluginSectionKind: (...args: unknown[]) =>
     usePluginSectionKindMock(...args),
 }));
@@ -183,6 +191,7 @@ describe("PluginArea fallback actions", () => {
     vi.clearAllMocks();
     pluginSectionKind = null;
     fallbackReason = "frontend_load_failed";
+    runtimeStatus = "loaded";
     currentProjectConfigId = "project-config-1";
     pluginImpl = {
       pluginId: "setta-fixture-plugin",
@@ -239,6 +248,21 @@ describe("PluginArea fallback actions", () => {
     const fallbackCard = renderFallbackCard("section-missing-kind");
     expect(collectText(fallbackCard)).toContain(
       "Plugin section kind is no longer registered by this plugin.",
+    );
+  });
+
+  it("shows neutral loading card before plugin runtime is ready", () => {
+    // Bootstrap rendering should stay in loading state until runtime reports loaded.
+    runtimeStatus = "loading";
+
+    const fallbackCard = renderFallbackCard("section-loading");
+
+    expect(collectText(fallbackCard)).toContain("Loading Plugin Section");
+    expect(collectText(fallbackCard)).toContain(
+      "Waiting for plugin runtime initialization.",
+    );
+    expect(collectText(fallbackCard)).not.toContain(
+      "Plugin Section Unavailable",
     );
   });
 

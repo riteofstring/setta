@@ -45,6 +45,7 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
     pluginSectionImplEqual,
   );
   const { pluginId, kind, data, schemaVersion } = pluginImpl;
+  const runtimeStatus = usePluginRuntimeStore((state) => state.status);
   const pluginSectionKind = usePluginSectionKind(pluginId, kind);
   if (pluginSectionKind) {
     return (
@@ -57,6 +58,9 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
         pluginSectionKind={pluginSectionKind}
       />
     );
+  }
+  if (runtimeStatus !== "loaded") {
+    return <PluginSectionLoadingCard pluginId={pluginId} kind={kind} />;
   }
 
   return (
@@ -196,6 +200,46 @@ type PluginSectionFallbackCardProps = {
   schemaVersion: number | null;
   isUserView: boolean;
 };
+
+type PluginSectionLoadingCardProps = {
+  pluginId: string;
+  kind: string;
+};
+
+function PluginSectionLoadingCard({
+  pluginId,
+  kind,
+}: PluginSectionLoadingCardProps) {
+  return (
+    <section className="section-main-full-w flex h-full min-h-0 items-center justify-center p-3">
+      <div className="w-full max-w-[520px] rounded-md border border-setta-200 bg-white/90 p-3 text-xs text-setta-700 dark:border-setta-800 dark:bg-setta-900/70 dark:text-setta-200">
+        <header className="mb-2 flex items-start justify-between gap-2">
+          <div>
+            <h3 className="font-semibold tracking-tight text-setta-900 dark:text-setta-100">
+              Loading Plugin Section
+            </h3>
+            <p className="mt-0.5 text-[11px] text-setta-500 dark:text-setta-400">
+              Waiting for plugin runtime initialization.
+            </p>
+          </div>
+          <span className="rounded bg-setta-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-setta-700 dark:bg-setta-800 dark:text-setta-300">
+            loading
+          </span>
+        </header>
+        <dl className="grid grid-cols-[84px_1fr] gap-x-2 gap-y-1 text-[11px]">
+          <dt className="text-setta-500 dark:text-setta-400">pluginId</dt>
+          <dd className="font-mono text-setta-800 dark:text-setta-100">
+            {pluginId || "(empty)"}
+          </dd>
+          <dt className="text-setta-500 dark:text-setta-400">kind</dt>
+          <dd className="font-mono text-setta-800 dark:text-setta-100">
+            {kind || "(empty)"}
+          </dd>
+        </dl>
+      </div>
+    </section>
+  );
+}
 
 function PluginSectionFallbackCard({
   sectionId,

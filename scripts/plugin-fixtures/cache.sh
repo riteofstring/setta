@@ -128,3 +128,167 @@ build_plugin_fixtures_if_needed() {
   "${root_dir}/scripts/plugin-fixtures/build.sh" all
   printf '%s' "${current_signature}" > "${cache_file}"
 }
+
+_plugin_fixture_path_has_plugin_hint() {
+  local target_path="$1"
+  local normalized_path="${target_path//\\//}"
+  local basename_only="${normalized_path##*/}"
+  if [[ "${normalized_path}" == *"/plugins/"* ]]; then
+    return 0
+  fi
+  if [[ "${normalized_path}" == *"/plugin-"* ]]; then
+    return 0
+  fi
+  if [[ "${normalized_path}" == *"/plugin_"* ]]; then
+    return 0
+  fi
+  if [[ "${basename_only}" == test_plugin*.py ]]; then
+    return 0
+  fi
+  if [[ "${basename_only}" == plugin*.spec.ts ]]; then
+    return 0
+  fi
+  if [[ "${basename_only}" == plugin*.spec.tsx ]]; then
+    return 0
+  fi
+  if [[ "${basename_only}" == *plugin*.spec.ts ]]; then
+    return 0
+  fi
+  if [[ "${basename_only}" == *plugin*.spec.tsx ]]; then
+    return 0
+  fi
+  return 1
+}
+
+_plugin_fixture_resolve_target_path() {
+  local root_dir="$1"
+  local target_path="$2"
+  if [[ "${target_path}" == /* ]]; then
+    printf '%s\n' "${target_path}"
+    return
+  fi
+  printf '%s\n' "${root_dir}/${target_path}"
+}
+
+_plugin_fixture_directory_has_plugin_tests() {
+  local root_dir="$1"
+  local target_path="$2"
+  local mode="$3"
+  local resolved_target
+  local find_name_args=()
+  local candidate_path
+
+  resolved_target="$(_plugin_fixture_resolve_target_path "${root_dir}" "${target_path}")"
+  if [[ ! -d "${resolved_target}" ]]; then
+    return 1
+  fi
+
+  if [[ "${mode}" == "pytest" ]]; then
+    find_name_args=(-name "*.py")
+  elif [[ "${mode}" == "playwright" ]]; then
+    find_name_args=(
+      \( -name "*.spec.ts" -o -name "*.spec.tsx" \)
+    )
+  else
+    return 1
+  fi
+
+  while IFS= read -r candidate_path; do
+    if _plugin_fixture_path_has_plugin_hint "${candidate_path}"; then
+      return 0
+    fi
+  done < <(
+    find "${resolved_target}" -type f "${find_name_args[@]}" 2>/dev/null | sort
+  )
+
+  return 1
+}
+
+should_build_plugin_fixtures_for_targets() {
+  local root_dir="$1"
+  local mode="$2"
+  shift 2
+
+  local has_positional_target=0
+  local has_selector_filter=0
+  local expect_selector_value=0
+  local expect_grep_value=0
+  local arg
+  local target_path
+  local resolved_target
+
+  for arg in "$@"; do
+    if [[ "${expect_selector_value}" == "1" ]]; then
+      expect_selector_value=0
+      continue
+    fi
+    if [[ "${expect_grep_value}" == "1" ]]; then
+      expect_grep_value=0
+      if [[ "${arg}" == *plugin* ]]; then
+        return 0
+      fi
+      continue
+    fi
+
+    if [[ "${mode}" == "pytest" ]]; then
+      case "${arg}" in
+        -k|--keyword|-m|--markers)
+          has_selector_filter=1
+          expect_selector_value=1
+          continue
+          ;;
+        -k=*|--keyword=*|-m=*|--markers=*)
+          has_selector_filter=1
+          continue
+          ;;
+      esac
+    fi
+
+    if [[ "${mode}" == "playwright" ]]; then
+      case "${arg}" in
+        -g|--grep)
+          expect_grep_value=1
+          continue
+          ;;
+        -g=*|--grep=*)
+          if [[ "${arg#*=}" == *plugin* ]]; then
+            return 0
+          fi
+          continue
+          ;;
+      esac
+    fi
+
+    if [[ "${arg}" == -* ]]; then
+      continue
+    fi
+
+    has_positional_target=1
+    target_path="${arg%%::*}"
+    resolved_target="$(_plugin_fixture_resolve_target_path "${root_dir}" "${target_path}")"
+
+    if _plugin_fixture_path_has_plugin_hint "${target_path}"; then
+      return 0
+    fi
+    if _plugin_fixture_path_has_plugin_hint "${resolved_target}"; then
+      return 0
+    fi
+
+    if _plugin_fixture_directory_has_plugin_tests "${root_dir}" "${target_path}" "${mode}"; then
+      return 0
+    fi
+
+    if [[ "${mode}" == "pytest" ]] && [[ ! -d "${resolved_target}" ]] && [[ "${target_path}" != *.py ]]; then
+      # Non-file pytest targets can reference test selectors/modules; stay conservative.
+      return 0
+    fi
+  done
+
+  if [[ "${mode}" == "pytest" ]] && [[ "${has_selector_filter}" == "1" ]]; then
+    return 0
+  fi
+  if [[ "${has_positional_target}" == "0" ]]; then
+    return 0
+  fi
+  return 1
+}

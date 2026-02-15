@@ -287,6 +287,11 @@ describe("plugin runtime helpers", () => {
   beforeEach(() => {
     resetPluginRuntimeStoreForTests();
     vi.restoreAllMocks();
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue({
+      data: undefined,
+      status: undefined,
+      hasResponse: false,
+    });
     useProjectState.setState((state) => {
       state.projectConfig.id = "project-config-before-each";
       state.projectConfig.activeIds = [];
@@ -1057,9 +1062,20 @@ describe("plugin runtime helpers", () => {
     const gate = new Promise<void>((resolve) => {
       releaseRequests = resolve;
     });
+    let runtimeCalls = 0;
     let listCalls = 0;
     let statusCalls = 0;
 
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
+      async () => {
+        runtimeCalls += 1;
+        return {
+          data: undefined,
+          status: undefined,
+          hasResponse: false,
+        };
+      },
+    );
     vi.spyOn(generatedEndpoints, "route_plugins_list").mockImplementation(
       async () => {
         listCalls += 1;
@@ -1087,6 +1103,7 @@ describe("plugin runtime helpers", () => {
     const second = refreshPluginRuntime();
     const third = refreshPluginRuntime();
     await Promise.resolve();
+    expect(runtimeCalls).toBe(1);
     expect(listCalls).toBe(1);
     expect(statusCalls).toBe(1);
 
@@ -1094,6 +1111,7 @@ describe("plugin runtime helpers", () => {
       releaseRequests();
     }
     await Promise.all([first, second, third]);
+    expect(runtimeCalls).toBe(2);
     expect(listCalls).toBe(2);
     expect(statusCalls).toBe(2);
     expect(usePluginRuntimeStore.getState().status).toBe("loaded");
@@ -2592,7 +2610,7 @@ describe("plugin runtime helpers", () => {
     );
   });
 
-  it("returns frontend_load_failed fallback when fallback is reached despite a registered kind", () => {
+  it("returns section_kind_missing fallback when section-kind lookup falls through", () => {
     usePluginRuntimeStore.setState({
       pluginStatusById: {
         "acme.plugin": buildPluginStatusEntry({
@@ -2616,7 +2634,7 @@ describe("plugin runtime helpers", () => {
     });
 
     expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBe(
-      PluginSectionFallbackReasonEnum.frontend_load_failed,
+      PluginSectionFallbackReasonEnum.section_kind_missing,
     );
   });
 });

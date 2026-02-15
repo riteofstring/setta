@@ -8,6 +8,7 @@ import { buildPluginPaneOverviewTabName } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
   route_plugins_list,
+  route_plugins_runtime,
   route_plugins_status,
 } from "utils/generatedEndpoints";
 import {
@@ -340,70 +341,37 @@ async function loadPluginRuntime(): Promise<void> {
     statusMessage: null,
   }));
 
-  const [listResponse, statusResponse] = await Promise.all([
-    route_plugins_list(),
-    route_plugins_status(),
-  ]);
+  let listResponse: Awaited<ReturnType<typeof route_plugins_list>>;
+  let statusResponse: Awaited<ReturnType<typeof route_plugins_status>>;
+
+  const runtimeResponse = await route_plugins_runtime();
+  if (res200(runtimeResponse)) {
+    listResponse = {
+      data: runtimeResponse.data.list,
+      status: 200,
+      hasResponse: true,
+    };
+    statusResponse = {
+      data: runtimeResponse.data.status,
+      status: 200,
+      hasResponse: true,
+    };
+  } else {
+    [listResponse, statusResponse] = await Promise.all([
+      route_plugins_list(),
+      route_plugins_status(),
+    ]);
+  }
   if (!res200(listResponse)) {
-    runAllPluginCleanup();
-    frontendSignatureByPluginId.clear();
-    removeAllPluginStyles();
-    const message = buildPluginRequestErrorMessage(
-      "plugins list",
-      listResponse,
+    setPluginRuntimeLoadError(
+      buildPluginRequestErrorMessage("plugins list", listResponse),
     );
-    usePluginRuntimeStore.setState((state) => ({
-      ...state,
-      status: "error",
-      statusMessage: message,
-      schemaVersion: null,
-      serverMode: null,
-      restartCapability: null,
-      pluginListById: {},
-      sortedPluginListEntries: [],
-      pluginStatusById: {},
-      statusEntries: [],
-      sectionKindsByKey: {},
-      sortedSectionKinds: [],
-      panesByPluginId: {},
-      sortedPaneTabs: [],
-      commandsByPluginId: {},
-      sortedCommands: [],
-      topNavBarItemsByPluginId: {},
-      sortedTopNavBarItems: [],
-      frontendErrorsByPluginId: {},
-    }));
     return;
   }
   if (!res200(statusResponse)) {
-    runAllPluginCleanup();
-    frontendSignatureByPluginId.clear();
-    removeAllPluginStyles();
-    const message = buildPluginRequestErrorMessage(
-      "plugins status",
-      statusResponse,
+    setPluginRuntimeLoadError(
+      buildPluginRequestErrorMessage("plugins status", statusResponse),
     );
-    usePluginRuntimeStore.setState((state) => ({
-      ...state,
-      status: "error",
-      statusMessage: message,
-      schemaVersion: null,
-      serverMode: null,
-      restartCapability: null,
-      pluginListById: {},
-      sortedPluginListEntries: [],
-      pluginStatusById: {},
-      statusEntries: [],
-      sectionKindsByKey: {},
-      sortedSectionKinds: [],
-      panesByPluginId: {},
-      sortedPaneTabs: [],
-      commandsByPluginId: {},
-      sortedCommands: [],
-      topNavBarItemsByPluginId: {},
-      sortedTopNavBarItems: [],
-      frontendErrorsByPluginId: {},
-    }));
     return;
   }
 
@@ -513,6 +481,33 @@ async function loadPluginRuntime(): Promise<void> {
     sortedTopNavBarItems,
     frontendErrorsByPluginId,
     loadGeneration: state.loadGeneration + 1,
+  }));
+}
+
+function setPluginRuntimeLoadError(message: string): void {
+  runAllPluginCleanup();
+  frontendSignatureByPluginId.clear();
+  removeAllPluginStyles();
+  usePluginRuntimeStore.setState((state) => ({
+    ...state,
+    status: "error",
+    statusMessage: message,
+    schemaVersion: null,
+    serverMode: null,
+    restartCapability: null,
+    pluginListById: {},
+    sortedPluginListEntries: [],
+    pluginStatusById: {},
+    statusEntries: [],
+    sectionKindsByKey: {},
+    sortedSectionKinds: [],
+    panesByPluginId: {},
+    sortedPaneTabs: [],
+    commandsByPluginId: {},
+    sortedCommands: [],
+    topNavBarItemsByPluginId: {},
+    sortedTopNavBarItems: [],
+    frontendErrorsByPluginId: {},
   }));
 }
 
@@ -2013,7 +2008,7 @@ export function computePluginSectionFallbackReason(
     return PluginSectionFallbackReasonEnum.section_kind_missing;
   }
 
-  return PluginSectionFallbackReasonEnum.frontend_load_failed;
+  return PluginSectionFallbackReasonEnum.section_kind_missing;
 }
 
 function isCapabilityBlocked(

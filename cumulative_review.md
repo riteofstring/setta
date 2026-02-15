@@ -191,3 +191,16 @@
 - Reduced plugin runtime/UI churn by making frontend runtime refresh incremental (changed/removed plugins only) and deduplicating Plugins pane enable/disable action plumbing.
 - Improved fixture/test runner reliability: reset script now parses structured JSON from stdout with separate stderr handling; backend/Playwright runners now use safer target-aware fixture-build/prepare gating.
 - Added/updated backend unit/integration coverage, frontend unit/integration coverage, and Playwright coverage for all changed paths; executed targeted pytest/vitest/playwright runs, plus CDP verification of the Settings/Plugins UI after changes.
+
+## 2026-02-16T11:05:47-08:00
+
+- Implemented the current top-level `review*.md` findings end-to-end, explicitly excluding backward-compatibility additions.
+- Fixed deployment/share plugin isolation by passing deployment runtime `setta_home` to plugin manager initialization; added share-state coverage to assert host `SETTA_HOME/plugins` entries are ignored in deployment mode.
+- Added a consolidated plugin runtime API contract (`/plugins/runtime`) on backend and switched frontend runtime loading to prefer the consolidated payload with fallback to legacy list/status requests.
+- Deduplicated frontend plugin runtime load-error handling into a shared reset helper and clarified fallback-reason mapping to explicit `section_kind_missing`.
+- Improved plugin section bootstrap UX by gating fallback error cards on runtime readiness and rendering a neutral loading card while plugin runtime is initializing.
+- Prevented overlapping same-plugin card mutations in the Plugins pane by gating all card write actions on per-plugin busy state.
+- Refactored repeated CLI plugin mutation command plumbing (`install`, `uninstall`, `update`/`pin`, `rollback`, `link`) behind shared scoped-mutation execution logic.
+- Removed dead backend runtime reset branching by making shutdown state reset unconditionally clear registered backend MCP tools.
+- Unified plugin fixture-target selection heuristics in shared script helpers and updated both backend and Playwright test runners to consume the shared logic for path/selector-aware fixture preparation.
+- Added/updated backend pytest, frontend Vitest, and Playwright E2E coverage for all changed paths (including runtime endpoint assertions and new fixture-target selection tests), and completed CDP verification of plugin loading/fallback behavior.

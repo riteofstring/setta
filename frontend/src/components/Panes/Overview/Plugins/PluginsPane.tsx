@@ -792,14 +792,18 @@ function PluginListEntryCard({
           label="Enable"
           onClick={() => runEnablePlugin(plugin.pluginId)}
           disabled={
-            writeActionsLocked || isActionBusy(`enable:${plugin.pluginId}`)
+            writeActionsLocked ||
+            pluginActionBusy ||
+            isActionBusy(`enable:${plugin.pluginId}`)
           }
         />
         <ActionButton
           label="Disable"
           onClick={() => runDisablePlugin(plugin.pluginId)}
           disabled={
-            writeActionsLocked || isActionBusy(`disable:${plugin.pluginId}`)
+            writeActionsLocked ||
+            pluginActionBusy ||
+            isActionBusy(`disable:${plugin.pluginId}`)
           }
         />
         <ActionButton
@@ -807,6 +811,7 @@ function PluginListEntryCard({
           onClick={onUpdate}
           disabled={
             writeActionsLocked ||
+            pluginActionBusy ||
             packageManagerManaged ||
             linkedLocalSource ||
             isActionBusy(`update:${plugin.pluginId}`)
@@ -817,6 +822,7 @@ function PluginListEntryCard({
           onClick={onRollback}
           disabled={
             writeActionsLocked ||
+            pluginActionBusy ||
             packageManagerManaged ||
             linkedLocalSource ||
             isActionBusy(`rollback:${plugin.pluginId}`)
@@ -827,6 +833,7 @@ function PluginListEntryCard({
           onClick={onUninstall}
           disabled={
             writeActionsLocked ||
+            pluginActionBusy ||
             packageManagerManaged ||
             isActionBusy(`uninstall:${plugin.pluginId}`)
           }

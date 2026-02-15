@@ -143,7 +143,7 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
                         yield ExternalAgentStreamEvent(
                             raw={"type": "message_start", "messageId": message_id},
                             stream_chunk=MessageStartEvent(message=start_message),
-                    )
+                        )
                     message_text_parts.append(text)
                     message_text_part_is_plain_fallback.append(False)
                     yield ExternalAgentStreamEvent(

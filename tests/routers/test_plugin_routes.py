@@ -130,6 +130,18 @@ def test_plugin_routes_link_and_asset_roundtrip() -> None:
             assert status_payload["plugins"][0]["state"] == "active"
             assert status_payload["plugins"][0]["sourceScopeLabel"] == "workspace"
 
+            runtime_response = client.get(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RUNTIME.value}"
+            )
+            assert runtime_response.status_code == 200
+            runtime_payload = runtime_response.json()
+            assert runtime_payload["list"]["plugins"][0]["pluginId"] == (
+                "setta-fixture-frontend"
+            )
+            assert runtime_payload["status"]["plugins"][0]["pluginId"] == (
+                "setta-fixture-frontend"
+            )
+
             restart_capability_response = client.get(
                 f"{Route.PREFIX.value}{Route.PLUGINS_RESTART_CAPABILITY.value}"
             )

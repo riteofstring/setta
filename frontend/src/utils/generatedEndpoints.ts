@@ -1385,6 +1385,12 @@ export async function route_plugins_status(): Promise<
   return await get("/plugins/status");
 }
 
+export async function route_plugins_runtime(): Promise<
+  ResponseDataAndStatus<gt.PluginRuntimeResponse>
+> {
+  return await get("/plugins/runtime");
+}
+
 export async function route_plugins_rescan(): Promise<
   ResponseDataAndStatus<gt.PluginsRescanResponse>
 > {

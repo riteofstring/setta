@@ -9,7 +9,7 @@ import sys
 import webbrowser
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import click
 import requests
@@ -1092,9 +1092,30 @@ def _rescan_plugin_manager_for_lookup(
     manager: PluginManager, *, scope: str | None
 ) -> None:
     include_package_manager_plugins = scope in (None, "setta_files")
-    manager.rescan(
-        include_package_manager_plugins=include_package_manager_plugins
+    manager.rescan(include_package_manager_plugins=include_package_manager_plugins)
+
+
+def _run_scoped_plugin_mutation_for_cli(
+    *,
+    scope: str | None,
+    global_scope: bool,
+    setta_files_scope: bool,
+    rescan_for_lookup: bool,
+    operation: Callable[[PluginManager, str | None], Any],
+) -> Any:
+    manager = _build_plugin_manager_for_cli(auto_rescan=False)
+    resolved_scope = _plugin_scope_choice_to_value(
+        scope=scope,
+        global_scope=global_scope,
+        setta_files_scope=setta_files_scope,
     )
+    if rescan_for_lookup:
+        _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
+    try:
+        result = operation(manager, resolved_scope)
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
+    return result
 
 
 @click.command()
@@ -2500,22 +2521,19 @@ def plugins_install(
     force: bool,
     json_output: bool,
 ) -> None:
-    manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    resolved_scope = _plugin_scope_choice_to_value(
+    result = _run_scoped_plugin_mutation_for_cli(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
-    )
-    try:
-        result = manager.install_plugin(
+        rescan_for_lookup=False,
+        operation=lambda manager, resolved_scope: manager.install_plugin(
             source_spec=source_spec,
             scope=resolved_scope,
             installer=installer,
             enable=not no_enable,
             force=force,
-        )
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
+        ),
+    )
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))
         return
@@ -2545,17 +2563,16 @@ def plugins_uninstall(
     setta_files_scope: bool,
     json_output: bool,
 ) -> None:
-    manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    resolved_scope = _plugin_scope_choice_to_value(
+    result = _run_scoped_plugin_mutation_for_cli(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
+        rescan_for_lookup=True,
+        operation=lambda manager, resolved_scope: manager.uninstall_plugin(
+            plugin_id=plugin_id,
+            scope=resolved_scope,
+        ),
     )
-    _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
-    try:
-        result = manager.uninstall_plugin(plugin_id=plugin_id, scope=resolved_scope)
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))
         return
@@ -2623,21 +2640,18 @@ def _run_plugin_update_like_command(
     setta_files_scope: bool,
     to_target: str | None,
 ):
-    manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    resolved_scope = _plugin_scope_choice_to_value(
+    result = _run_scoped_plugin_mutation_for_cli(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
-    )
-    _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
-    try:
-        return manager.update_plugin(
+        rescan_for_lookup=True,
+        operation=lambda manager, resolved_scope: manager.update_plugin(
             plugin_id=plugin_id,
             scope=resolved_scope,
             to=to_target,
-        )
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
+        ),
+    )
+    return result
 
 
 @plugins.command(name="update")
@@ -2725,17 +2739,16 @@ def plugins_rollback(
     setta_files_scope: bool,
     json_output: bool,
 ) -> None:
-    manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    resolved_scope = _plugin_scope_choice_to_value(
+    result = _run_scoped_plugin_mutation_for_cli(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
+        rescan_for_lookup=True,
+        operation=lambda manager, resolved_scope: manager.rollback_plugin(
+            plugin_id=plugin_id,
+            scope=resolved_scope,
+        ),
     )
-    _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
-    try:
-        result = manager.rollback_plugin(plugin_id=plugin_id, scope=resolved_scope)
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))
         return
@@ -2874,21 +2887,18 @@ def plugins_link(
     force: bool,
     json_output: bool,
 ) -> None:
-    manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    resolved_scope = _plugin_scope_choice_to_value(
+    result = _run_scoped_plugin_mutation_for_cli(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
-    )
-    try:
-        result = manager.link_plugin(
+        rescan_for_lookup=False,
+        operation=lambda manager, resolved_scope: manager.link_plugin(
             local_plugin_root=str(local_plugin_root),
             scope=resolved_scope,
             enable=not no_enable,
             force=force,
-        )
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
+        ),
+    )
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))
         return

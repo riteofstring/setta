@@ -24,6 +24,7 @@ class Route(str, Enum):
     GET_SETTA_HOME_INFO = "/settaHomeInfo"
     PLUGINS_LIST = "/plugins/list"
     PLUGINS_STATUS = "/plugins/status"
+    PLUGINS_RUNTIME = "/plugins/runtime"
     PLUGINS_INSTALL = "/plugins/install"
     PLUGINS_UNINSTALL = "/plugins/uninstall"
     PLUGINS_LINK = "/plugins/link"

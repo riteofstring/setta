@@ -13,10 +13,14 @@ def _build_backend_test_runner_sandbox(tmp_path: Path) -> tuple[Path, Path]:
     plugin_fixture_scripts = scripts_dir / "plugin-fixtures"
     fixture_root = sandbox_root / "tests" / "fixtures" / "plugins" / "fixture-a"
     fixture_frontend_src = fixture_root / "frontend" / "src"
+    non_plugin_tests_dir = sandbox_root / "tests" / "start"
+    plugin_tests_dir = sandbox_root / "tests" / "plugins"
     bin_dir = sandbox_root / "bin"
 
     plugin_fixture_scripts.mkdir(parents=True, exist_ok=True)
     fixture_frontend_src.mkdir(parents=True, exist_ok=True)
+    non_plugin_tests_dir.mkdir(parents=True, exist_ok=True)
+    plugin_tests_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
     (sandbox_root / "frontend").mkdir(parents=True, exist_ok=True)
 
@@ -45,6 +49,14 @@ def _build_backend_test_runner_sandbox(tmp_path: Path) -> tuple[Path, Path]:
     )
     (fixture_frontend_src / "index.js").write_text(
         "export const fixture = true;\n",
+        encoding="utf-8",
+    )
+    (non_plugin_tests_dir / "test_example.py").write_text(
+        "def test_example() -> None:\n    assert True\n",
+        encoding="utf-8",
+    )
+    (plugin_tests_dir / "test_plugin_example.py").write_text(
+        "def test_plugin_example() -> None:\n    assert True\n",
         encoding="utf-8",
     )
 
@@ -324,15 +336,30 @@ def test_run_backend_tests_skips_fixture_build_for_non_plugin_targets(
     ).exists()
 
 
-def test_run_backend_tests_builds_fixtures_for_directory_targets(
+def test_run_backend_tests_skips_fixture_build_for_non_plugin_directory_targets(
     tmp_path: Path,
 ) -> None:
-    # Directory targets are treated as unknown scope and should build fixtures.
+    # Directory targets that do not include plugin tests should skip fixture prep.
     sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
 
     result = _run_backend_test_runner(
         sandbox_root,
         pytest_args=["tests/start"],
+    )
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert "Skipping plugin fixture build for selected pytest targets." in result.stdout
+    assert not build_count_file.exists()
+
+
+def test_run_backend_tests_builds_fixtures_for_plugin_directory_targets(
+    tmp_path: Path,
+) -> None:
+    # Plugin-directory targets should still trigger fixture prep.
+    sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+
+    result = _run_backend_test_runner(
+        sandbox_root,
+        pytest_args=["tests/plugins"],
     )
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
     assert build_count_file.read_text(encoding="utf-8").strip() == "1"

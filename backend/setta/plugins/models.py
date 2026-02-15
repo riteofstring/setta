@@ -287,6 +287,14 @@ class PluginStatusResponse(BaseModel):
     plugins: list[PluginStatusEntry]
 
 
+class PluginRuntimeResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schemaVersion: int = 1
+    list: PluginListResponse
+    status: PluginStatusResponse
+
+
 class PluginInstallResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

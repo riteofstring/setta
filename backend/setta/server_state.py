@@ -242,10 +242,15 @@ class SettaFastAPIState:
             if self.share_deployment_root is not None
             else self.paths.setta_files_root
         )
+        plugin_setta_home = (
+            self.share_runtime_root
+            if self.share_runtime_root is not None
+            else resolve_setta_home()
+        )
         self.plugin_manager = PluginManager(
             workspace_root=plugin_workspace_root,
             setta_files_root=plugin_setta_files_root,
-            setta_home=resolve_setta_home(),
+            setta_home=plugin_setta_home,
             server_mode=self._resolve_server_mode(),
             setta_version=__version__,
             auto_rescan=False,

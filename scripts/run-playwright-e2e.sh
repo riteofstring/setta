@@ -140,38 +140,17 @@ log() {
   echo "[$(date +"%Y-%m-%d %H:%M:%S")] $*"
 }
 
-should_prepare_plugin_fixtures() {
-  if [[ -n "${SETTA_E2E_BUILD_PLUGIN_FIXTURES:-}" ]]; then
-    [[ "${SETTA_E2E_BUILD_PLUGIN_FIXTURES}" == "1" ]]
-    return
-  fi
-  if [[ -n "${SETTA_BUILD_PLUGIN_FIXTURES:-}" ]]; then
-    [[ "${SETTA_BUILD_PLUGIN_FIXTURES}" == "1" ]]
-    return
-  fi
+if [[ -n "${SETTA_E2E_BUILD_PLUGIN_FIXTURES:-}" ]]; then
+  SHOULD_PREPARE_PLUGIN_FIXTURES="${SETTA_E2E_BUILD_PLUGIN_FIXTURES}"
+elif [[ -n "${SETTA_BUILD_PLUGIN_FIXTURES:-}" ]]; then
+  SHOULD_PREPARE_PLUGIN_FIXTURES="${SETTA_BUILD_PLUGIN_FIXTURES}"
+elif should_build_plugin_fixtures_for_targets "${ROOT_DIR}" "playwright" "$@"; then
+  SHOULD_PREPARE_PLUGIN_FIXTURES="1"
+else
+  SHOULD_PREPARE_PLUGIN_FIXTURES="0"
+fi
 
-  local has_positional_target=0
-  local arg
-  for arg in "$@"; do
-    if [[ "${arg}" == -* ]]; then
-      if [[ "${arg}" == *plugin* ]]; then
-        return 0
-      fi
-      continue
-    fi
-    has_positional_target=1
-    if [[ "${arg}" == *plugin* ]]; then
-      return 0
-    fi
-  done
-
-  if [[ "${has_positional_target}" == "0" ]]; then
-    return 0
-  fi
-  return 1
-}
-
-if should_prepare_plugin_fixtures "$@"; then
+if [[ "${SHOULD_PREPARE_PLUGIN_FIXTURES}" == "1" ]]; then
   while IFS= read -r log_line; do
     log "${log_line}"
   done < <(
