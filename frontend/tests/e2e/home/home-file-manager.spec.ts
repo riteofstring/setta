@@ -124,7 +124,9 @@ test("home page renders pane rails and toggles side panes", async ({
   const favoriteToggle = page
     .getByTestId("home-project-favorite-toggle")
     .first();
+  const defaultToggle = page.getByTestId("home-project-default-toggle").first();
   await expect(favoriteToggle).toBeVisible();
+  await expect(defaultToggle).toBeVisible();
   await favoriteToggle.click();
   await expect(
     page.getByTestId("home-project-favourites-section").first(),
@@ -176,35 +178,24 @@ test("home browser marks Setta-initialized folders", async ({ page }) => {
       .getByTestId("file-browser-row")
       .filter({ hasText: "plain-folder" })
       .first();
-    const settaBadgeToggle = page
-      .getByTestId("home-file-browser-setta-badges-toggle")
-      .first();
 
     await expect(initializedRow).toBeVisible();
     await expect(plainRow).toBeVisible();
+    await expect(
+      initializedRow.getByTestId("setta-initialized-folder-icon"),
+    ).toBeVisible();
+    await expect(
+      plainRow.getByTestId("setta-initialized-folder-icon"),
+    ).toHaveCount(0);
     await expect(plainRow.getByTestId("setta-initialized-badge")).toHaveCount(
       0,
     );
     await expect(
       initializedRow.getByTestId("setta-initialized-badge"),
-    ).toHaveCount(0);
+    ).toBeHidden();
     await initializedRow.getByLabel("Expand folder").click();
     await expect(nestedRow).toBeVisible();
     await nestedRow.click();
-    await expect(nestedRow).toHaveClass(/bg-blue-50/);
-
-    await settaBadgeToggle.click();
-    await expect(
-      initializedRow.getByTestId("setta-initialized-badge"),
-    ).toBeVisible();
-    await expect(nestedRow).toBeVisible();
-    await expect(nestedRow).toHaveClass(/bg-blue-50/);
-
-    await settaBadgeToggle.click();
-    await expect(
-      initializedRow.getByTestId("setta-initialized-badge"),
-    ).toHaveCount(0);
-    await expect(nestedRow).toBeVisible();
     await expect(nestedRow).toHaveClass(/bg-blue-50/);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
@@ -277,8 +268,19 @@ test("home project items select on single click and open on double click", async
     const secondRowFavoriteToggle = secondRow
       .getByTestId("home-project-favorite-toggle")
       .first();
+    const secondRowDefaultToggle = secondRow
+      .getByTestId("home-project-default-toggle")
+      .first();
     await expect(secondRowFavoriteToggle).toBeVisible();
+    await expect(secondRowDefaultToggle).toBeVisible();
     await secondRowFavoriteToggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(HOME_URL);
+    if (firstRowName) {
+      await expect(detailsPanel).toContainText(firstRowName);
+    }
+
+    await secondRowDefaultToggle.focus();
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(HOME_URL);
     if (firstRowName) {
