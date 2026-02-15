@@ -1,7 +1,6 @@
 # Auto-generated UserDefault classes - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -22,10 +21,10 @@ from setta.types.id import ID
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatPermissionMode,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
-    CodeLanguageKey,
     CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
     PromptFormat,
@@ -159,7 +158,7 @@ class UserDefaultGlobalVariablesSectionImpl(
 
 
 class UserDefaultCodeSectionImpl(UserDefaultBaseCodeSectionImpl, extra="forbid"):
-    codeLanguage: CodeLanguageKey = CodeLanguage.python
+    codeLanguage: CodeLanguage = CodeLanguage.python
     diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState = Field(
         default_factory=CodeSectionDiagnosticsIgnoreState
     )
@@ -196,6 +195,8 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     agentProfileId: ID | None = None
     chatId: ID | None = None
     thinking: bool = True
+    permissionMode: ChatPermissionMode = ChatPermissionMode.minimal
+    searchEnabled: bool = True
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False
@@ -214,13 +215,6 @@ class UserDefaultBrowserSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     typesColumnWidth: float | None = None
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
     savedSearches: list[BrowserSavedSearch] = Field(default_factory=list)
-
-
-class UserDefaultPluginSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
-    pluginId: str = ""
-    kind: str = "default"
-    data: dict[str, Any] = Field(default_factory=dict)
-    schemaVersion: int | None = None
 
 
 class UserDefaultBaseCodeObjImpl(BaseModel, extra="forbid"):

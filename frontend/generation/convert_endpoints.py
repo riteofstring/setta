@@ -38,7 +38,6 @@ basic_type_map = {
 }
 
 GENERATED_TYPE_ALIAS = "gt"
-EXCLUDED_ENDPOINT_FUNCTION_NAMES = {"route_plugin_asset"}
 
 
 def get_path_input_output_types():
@@ -269,6 +268,12 @@ export async function {fn_name}(form: FormData): Promise<ResponseDataAndStatus<{
     return await post("{endpoint_path_without_prefix}", form)
 }}
 """
+    if fn_name == "route_transcribe_chat_audio":
+        return f"""
+export async function {fn_name}(form: FormData): Promise<ResponseDataAndStatus<{output_annotation}>> {{
+    return await post("{endpoint_path_without_prefix}", form)
+}}
+"""
     if method == "POST":
         path_param_names = re.findall(r"{(.*?)}", endpoint_path_without_prefix)
         path_params = [arg for arg in args if arg in path_param_names]
@@ -313,8 +318,6 @@ def main(output_path):
     specs = get_path_input_output_types()
     ts_code = create_imports()
     for endpoint_fn_name, s in specs.items():
-        if endpoint_fn_name in EXCLUDED_ENDPOINT_FUNCTION_NAMES:
-            continue
         output_annotation = python_type_to_ts(s["output"], {}, set())
         args, args_with_annotations = create_args(s["inputs"])
         ts_code += create_ts_fn_def(
