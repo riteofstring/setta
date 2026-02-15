@@ -30,9 +30,9 @@ import {
   type PluginPaneIconName,
 } from "./paneIcons";
 
-export { PluginPaneIconNameEnum, type PluginPaneIconName } from "./paneIcons";
+export { type PluginPaneIconName } from "./paneIcons";
 
-export const PLUGIN_FRONTEND_API_VERSION = 1;
+const PLUGIN_FRONTEND_API_VERSION = 1;
 
 export const PluginFrontendErrorCodeEnum = {
   RegistrationInvalid: "PLUGIN_FRONTEND_REGISTRATION_INVALID",

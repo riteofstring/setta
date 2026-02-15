@@ -7954,6 +7954,64 @@ const PluginLinkRequestSchema = z.object({
 
 export type PluginLinkRequestInput = z.input<typeof PluginLinkRequestSchema>;
 
+const PluginLockApplyRequestSchema = z.object({
+  check: z.boolean().default(false),
+});
+
+export type PluginLockApplyRequestInput = z.input<
+  typeof PluginLockApplyRequestSchema
+>;
+
+const PluginLockApplyResponseSchema = z.object({
+  lockfilePath: z.string(),
+  plannedChanges: z.array(z.string()),
+  applied: z.boolean(),
+});
+
+export type PluginLockApplyResponse = z.infer<
+  typeof PluginLockApplyResponseSchema
+>;
+
+const PluginLockWriteResponseSchema = z.object({
+  lockfilePath: z.string(),
+  pluginCount: z.int(),
+});
+
+export type PluginLockWriteResponse = z.infer<
+  typeof PluginLockWriteResponseSchema
+>;
+
+const PluginRestartResponseSchema = z.object({
+  accepted: z.boolean(),
+  mode: z.literal(["programmatic", "manual"]),
+  command: z.union([z.string(), z.null()]).default(null),
+  reason: z.union([z.string(), z.null()]).default(null),
+});
+
+export type PluginRestartResponse = z.infer<typeof PluginRestartResponseSchema>;
+
+const PluginRollbackRequestSchema = z.object({
+  pluginId: z.string(),
+  scope: z
+    .union([z.literal(["workspace", "setta_files", "global"]), z.null()])
+    .default(null),
+});
+
+export type PluginRollbackRequestInput = z.input<
+  typeof PluginRollbackRequestSchema
+>;
+
+const PluginRollbackResponseSchema = z.object({
+  pluginId: z.string(),
+  restoredVersion: z.string(),
+  sourceDigestSha256: z.union([z.string(), z.null()]),
+  restartRequired: z.boolean(),
+});
+
+export type PluginRollbackResponse = z.infer<
+  typeof PluginRollbackResponseSchema
+>;
+
 const PluginRestartCapabilitySchema = z.object({
   mode: z.literal(["programmatic", "manual"]),
   command: z.union([z.string(), z.null()]).default(null),
@@ -8031,64 +8089,6 @@ const PluginListResponseSchema = z.object({
 });
 
 export type PluginListResponse = z.infer<typeof PluginListResponseSchema>;
-
-const PluginLockApplyRequestSchema = z.object({
-  check: z.boolean().default(false),
-});
-
-export type PluginLockApplyRequestInput = z.input<
-  typeof PluginLockApplyRequestSchema
->;
-
-const PluginLockApplyResponseSchema = z.object({
-  lockfilePath: z.string(),
-  plannedChanges: z.array(z.string()),
-  applied: z.boolean(),
-});
-
-export type PluginLockApplyResponse = z.infer<
-  typeof PluginLockApplyResponseSchema
->;
-
-const PluginLockWriteResponseSchema = z.object({
-  lockfilePath: z.string(),
-  pluginCount: z.int(),
-});
-
-export type PluginLockWriteResponse = z.infer<
-  typeof PluginLockWriteResponseSchema
->;
-
-const PluginRestartResponseSchema = z.object({
-  accepted: z.boolean(),
-  mode: z.literal(["programmatic", "manual"]),
-  command: z.union([z.string(), z.null()]).default(null),
-  reason: z.union([z.string(), z.null()]).default(null),
-});
-
-export type PluginRestartResponse = z.infer<typeof PluginRestartResponseSchema>;
-
-const PluginRollbackRequestSchema = z.object({
-  pluginId: z.string(),
-  scope: z
-    .union([z.literal(["workspace", "setta_files", "global"]), z.null()])
-    .default(null),
-});
-
-export type PluginRollbackRequestInput = z.input<
-  typeof PluginRollbackRequestSchema
->;
-
-const PluginRollbackResponseSchema = z.object({
-  pluginId: z.string(),
-  restoredVersion: z.string(),
-  sourceDigestSha256: z.union([z.string(), z.null()]),
-  restartRequired: z.boolean(),
-});
-
-export type PluginRollbackResponse = z.infer<
-  typeof PluginRollbackResponseSchema
->;
 
 const BlockedCapabilityReasonEnum = {
   mode_policy: "mode_policy",

@@ -1338,10 +1338,10 @@ class BaseProjectManager(ABC):
             if previous_state is not None and previous_state[0] == target_fingerprint:
                 cached_outputs_exist, output_stats_by_relative_path = (
                     self._cached_plugin_codegen_outputs_exist(
-                    target_root=target_root,
-                    output_hashes_by_relative_path=previous_state[1],
-                    output_stats_by_relative_path=previous_state[2],
-                )
+                        target_root=target_root,
+                        output_hashes_by_relative_path=previous_state[1],
+                        output_stats_by_relative_path=previous_state[2],
+                    )
                 )
                 if cached_outputs_exist:
                     next_target_state[target_language] = (
@@ -1500,7 +1500,9 @@ class BaseProjectManager(ABC):
         target_root: Path,
         expected_relative_paths: set[str],
     ) -> None:
-        existing_relative_paths = self._collect_plugin_codegen_relative_paths(target_root)
+        existing_relative_paths = self._collect_plugin_codegen_relative_paths(
+            target_root
+        )
         stale_relative_paths = existing_relative_paths - expected_relative_paths
         for relative_path in stale_relative_paths:
             stale_path = self._resolve_plugin_codegen_output_path(
