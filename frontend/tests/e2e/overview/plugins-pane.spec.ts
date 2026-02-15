@@ -1498,11 +1498,7 @@ test("plugins pane shows restart rejection and request-failure messaging", async
   await restartButton.click();
   await expect.poll(() => restartRequestCount).toBe(2);
   await expect(
-    page
-      .getByText(/Restart plugins runtime failed/, {
-        exact: false,
-      })
-      .first(),
+    page.getByText("Restart request failed: restart endpoint failed").first(),
   ).toBeVisible();
 });
 

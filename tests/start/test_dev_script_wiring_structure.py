@@ -81,8 +81,17 @@ def test_playwright_runner_uses_single_workspace_seed_fixture_list() -> None:
         encoding="utf-8"
     )
     assert "readonly WORKSPACE_SEED_FIXTURES=(" in script
-    assert '"${python_bin}" - "${root_dir}" "${WORKSPACE_SEED_FIXTURES[@]}"' in script
-    assert 'local fixtures=("${WORKSPACE_SEED_FIXTURES[@]}")' in script
+    assert "compute_named_plugin_fixture_signature" in script
+    assert "compute_named_plugin_fixture_change_stamp" in script
+
+
+def test_plugin_fixture_cache_exports_named_fixture_signature_helpers() -> None:
+    root = repo_root()
+    cache_script = (root / "scripts" / "plugin-fixtures" / "cache.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "compute_named_plugin_fixture_signature()" in cache_script
+    assert "compute_named_plugin_fixture_change_stamp()" in cache_script
 
 
 def test_playwright_runner_uses_local_artifact_stamp_short_circuit() -> None:

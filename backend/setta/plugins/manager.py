@@ -16,7 +16,8 @@ import time
 import tomllib
 import zipfile
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import wraps
@@ -307,6 +308,12 @@ class _StatusEntryRuntimeDigestCacheEntry:
     digest: str
 
 
+@dataclass(slots=True)
+class _RuntimePathLockEntry:
+    lock: threading.Lock
+    waiter_count: int
+
+
 def _mutation_locked(method: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(method)
     def wrapped(self: "PluginManager", *args: Any, **kwargs: Any) -> Any:
@@ -412,7 +419,7 @@ class PluginManager:
         self._backend_operation_timeout_seconds = backend_operation_timeout_seconds
         self._package_manager_search_paths = package_manager_search_paths
         self._mutation_lock = threading.RLock()
-        self._runtime_path_locks: dict[Path, threading.Lock] = {}
+        self._runtime_path_locks: dict[Path, _RuntimePathLockEntry] = {}
         self._runtime_path_locks_guard = threading.Lock()
 
         self._manifest_schema_path = (
@@ -631,7 +638,7 @@ class PluginManager:
         self,
         *,
         entries: list[DiscoveredPlugin],
-        plugins_state: PluginsStateFile,
+        plugins_state: PluginsStateFile | None,
         redact_source_details: bool,
         redact_config_details: bool,
     ) -> list[PluginListEntry]:
@@ -654,9 +661,15 @@ class PluginManager:
                 else None,
             )
             content = self._build_content_descriptor(entry)
-            config = self._build_config_descriptor(entry, plugins_state=plugins_state)
             if redact_config_details:
-                config = self._redact_config_descriptor(config)
+                config = self._build_redacted_config_descriptor(entry)
+            else:
+                if plugins_state is None:
+                    raise PluginManagerError(
+                        "PLUGIN_RUNTIME_STATE_INVALID",
+                        "Plugin runtime list requires plugins state for config details.",
+                    )
+                config = self._build_config_descriptor(entry, plugins_state=plugins_state)
             list_entries.append(
                 PluginListEntry(
                     pluginId=entry.plugin_id,
@@ -707,7 +720,7 @@ class PluginManager:
         self,
         *,
         entries: list[DiscoveredPlugin],
-        plugins_state: PluginsStateFile,
+        plugins_state: PluginsStateFile | None,
         restart_capability: PluginRestartCapability,
         redact_source_details: bool,
         redact_config_details: bool,
@@ -773,7 +786,9 @@ class PluginManager:
             redacted_source_path_by_path = self._build_redacted_source_path_map(
                 ordered_entries
             )
-        plugins_state = self._load_plugins_state()
+        plugins_state: PluginsStateFile | None = None
+        if not redact_config_details:
+            plugins_state = self._load_plugins_state()
         return PluginRuntimeResponse(
             list=self._build_plugin_list_response(
                 entries=active_entries,
@@ -940,10 +955,20 @@ class PluginManager:
     def _should_redact_config_details(self) -> bool:
         return self.server_mode != "ide"
 
-    def _redact_config_descriptor(
-        self, descriptor: PluginConfigDescriptor
+    def _build_redacted_config_descriptor(
+        self, entry: DiscoveredPlugin
     ) -> PluginConfigDescriptor:
-        return PluginConfigDescriptor(hasSchema=descriptor.hasSchema)
+        has_schema = False
+        manifest = entry.manifest
+        if manifest is not None and manifest.configSchemaPath is not None:
+            schema_path = self._resolve_relative_path(
+                entry.source_path,
+                manifest.configSchemaPath,
+                code="PLUGIN_MANIFEST_PATH_NOT_FOUND",
+                message_prefix="Invalid configSchemaPath",
+            )
+            has_schema = schema_path.exists() and schema_path.is_file()
+        return PluginConfigDescriptor(hasSchema=has_schema)
 
     def _compute_json_payload_digest(self, value: Any) -> str:
         encoded_value = jsonable_encoder(value)
@@ -2124,6 +2149,8 @@ class PluginManager:
             version=entry.version,
             source_digest_sha256=entry.source_digest_sha256,
             plugin_root=entry.source_path,
+            dependencies=dependencies,
+            worker_dependencies=worker_dependencies,
         )
 
     def _prepare_backend_runtime(
@@ -2133,34 +2160,43 @@ class PluginManager:
         version: str,
         source_digest_sha256: str | None,
         plugin_root: Path,
+        dependencies: list[str] | None = None,
+        worker_dependencies: list[str] | None = None,
     ) -> None:
         if source_digest_sha256 is None:
             raise PluginManagerError(
                 "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
                 f"Missing source digest for backend plugin runtime: {plugin_id}",
             )
-        dependencies = self._read_backend_dependencies(plugin_root)
-        worker_dependencies = self._build_backend_worker_runtime_dependencies()
+        resolved_dependencies = (
+            dependencies
+            if dependencies is not None
+            else self._read_backend_dependencies(plugin_root)
+        )
+        resolved_worker_dependencies = (
+            worker_dependencies
+            if worker_dependencies is not None
+            else self._build_backend_worker_runtime_dependencies()
+        )
         install_requirements = self._dedupe_backend_runtime_requirements(
-            [*worker_dependencies, *dependencies]
+            [*resolved_worker_dependencies, *resolved_dependencies]
         )
         runtime_path = self._runtime_path(
             plugin_id=plugin_id,
             version=version,
             source_digest_sha256=source_digest_sha256,
         )
-        runtime_lock = self._runtime_lock_for_path(runtime_path)
-        with runtime_lock:
+        with self._acquire_runtime_path_lock(runtime_path):
             if self._runtime_marker_matches_expected(
                 plugin_id=plugin_id,
                 version=version,
                 source_digest_sha256=source_digest_sha256,
-                dependencies=dependencies,
-                worker_dependencies=worker_dependencies,
+                dependencies=resolved_dependencies,
+                worker_dependencies=resolved_worker_dependencies,
             ):
                 return
             runtime_path.mkdir(parents=True, exist_ok=True)
-            if len(dependencies) > 0:
+            if len(resolved_dependencies) > 0:
                 venv_path = runtime_path / ".venv"
                 if not venv_path.exists():
                     create_venv = subprocess.run(
@@ -2200,8 +2236,8 @@ class PluginManager:
                 plugin_id=plugin_id,
                 version=version,
                 source_digest_sha256=source_digest_sha256,
-                dependencies=dependencies,
-                worker_dependencies=worker_dependencies,
+                dependencies=resolved_dependencies,
+                worker_dependencies=resolved_worker_dependencies,
             )
 
     def _build_backend_worker_runtime_dependencies(self) -> list[str]:
@@ -2278,14 +2314,26 @@ class PluginManager:
         digest_token = self._sanitize_runtime_token(source_digest_sha256)
         return self._runtime_root / plugin_id / version_token / digest_token
 
-    def _runtime_lock_for_path(self, runtime_path: Path) -> threading.Lock:
+    @contextmanager
+    def _acquire_runtime_path_lock(self, runtime_path: Path) -> Iterator[None]:
         with self._runtime_path_locks_guard:
-            existing_lock = self._runtime_path_locks.get(runtime_path)
-            if existing_lock is not None:
-                return existing_lock
-            runtime_lock = threading.Lock()
-            self._runtime_path_locks[runtime_path] = runtime_lock
-            return runtime_lock
+            existing_lock_entry = self._runtime_path_locks.get(runtime_path)
+            if existing_lock_entry is None:
+                existing_lock_entry = _RuntimePathLockEntry(
+                    lock=threading.Lock(),
+                    waiter_count=0,
+                )
+                self._runtime_path_locks[runtime_path] = existing_lock_entry
+            existing_lock_entry.waiter_count += 1
+        try:
+            existing_lock_entry.lock.acquire()
+            yield
+        finally:
+            existing_lock_entry.lock.release()
+            with self._runtime_path_locks_guard:
+                existing_lock_entry.waiter_count -= 1
+                if existing_lock_entry.waiter_count == 0:
+                    self._runtime_path_locks.pop(runtime_path, None)
 
     def _runtime_marker_path(
         self,
@@ -2420,6 +2468,7 @@ class PluginManager:
             raw_route_id = raw_route.get("routeId")
             raw_path = raw_route.get("path")
             raw_methods = raw_route.get("methods")
+            raw_needs_raw_body = raw_route.get("needsRawBody")
             if not isinstance(raw_route_id, str) or raw_route_id.strip() == "":
                 raise PluginManagerError(
                     "PLUGIN_BACKEND_REGISTER_FAILED",
@@ -2439,6 +2488,17 @@ class PluginManager:
                 route_id=route_id,
                 raw_methods=raw_methods,
             )
+            needs_raw_body = True
+            if raw_needs_raw_body is not None:
+                if not isinstance(raw_needs_raw_body, bool):
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_REGISTER_FAILED",
+                        (
+                            "Plugin worker route descriptor needsRawBody must be "
+                            f"a boolean for route {route_id}."
+                        ),
+                    )
+                needs_raw_body = raw_needs_raw_body
             known_route_ids.add(route_id)
 
             async def route_proxy(
@@ -2446,6 +2506,7 @@ class PluginManager:
                 *,
                 _plugin_id: str = entry.plugin_id,
                 _route_id: str = route_id,
+                _needs_raw_body: bool = needs_raw_body,
             ):
                 process = self._backend_worker_processes.get(_plugin_id)
                 if process is None or process.poll() is not None:
@@ -2465,7 +2526,8 @@ class PluginManager:
                 if request.method not in {"GET", "HEAD", "OPTIONS"}:
                     raw_body = await request.body()
                     if len(raw_body) > 0:
-                        raw_body_base64 = base64.b64encode(raw_body).decode("ascii")
+                        if _needs_raw_body:
+                            raw_body_base64 = base64.b64encode(raw_body).decode("ascii")
                         content_type = request.headers.get("content-type")
                         if self._worker_route_content_type_is_json(content_type):
                             try:
@@ -4290,7 +4352,6 @@ class PluginManager:
             restartRequired=restart_required,
         )
 
-    @_mutation_locked
     def link_plugin(
         self,
         *,
@@ -4311,56 +4372,73 @@ class PluginManager:
         self._validate_plugin_config_schema_file(source_root, manifest)
         source_digest = self._compute_directory_digest(source_root)
         resolved_scope = normalize_scope(scope)
-        existing_entry = self._find_entry(
-            manifest.id,
-            resolved_scope,
-            include_shadowed=True,
-        )
-        had_backend_before = (
-            existing_entry.has_backend if existing_entry is not None else False
-        )
         target = self._target_plugin_path(resolved_scope, manifest.id)
-        self._ensure_target_path_available(target_path=target, force=force)
-        if manifest.backend is not None:
-            self._prepare_backend_runtime(
-                plugin_id=manifest.id,
-                version=manifest.version,
-                source_digest_sha256=source_digest,
-                plugin_root=source_root,
-            )
-        target.parent.mkdir(parents=True, exist_ok=True)
-        if target.exists() or target.is_symlink():
-            self._backup_existing_plugin(manifest.id, resolved_scope, target)
-            if target.is_dir() and not target.is_symlink():
-                shutil.rmtree(target)
-            else:
-                target.unlink()
-        os.symlink(source_root, target, target_is_directory=True)
+        reservation_acquired = False
+        had_backend_before = False
+        try:
+            with self._mutation_lock:
+                existing_entry = self._find_entry(
+                    manifest.id,
+                    resolved_scope,
+                    include_shadowed=True,
+                )
+                had_backend_before = (
+                    existing_entry.has_backend if existing_entry is not None else False
+                )
+                self._reserve_install_target_path(
+                    target_path=target,
+                    force=force,
+                )
+                reservation_acquired = True
 
-        self._set_install_metadata(
-            plugin_id=manifest.id,
-            scope=resolved_scope,
-            source_spec=f"local:{source_root}",
-            installer_backend=None,
-            canonical_source_key=f"local:{source_root}",
-            version=manifest.version,
-            source_digest_sha256=source_digest,
-        )
-        self._apply_enablement_after_install(
-            plugin_id=manifest.id,
-            scope=resolved_scope,
-            enable=enable,
-        )
-        self._pending_restart_removed_backend_plugins.pop(manifest.id, None)
-        restart_required = manifest.backend is not None or had_backend_before
-        if restart_required:
-            self._add_pending_restart_backend_id(manifest.id)
-        self.rescan()
-        entry = self._find_entry(
-            manifest.id,
-            resolved_scope,
-            include_shadowed=True,
-        )
+            if manifest.backend is not None:
+                self._prepare_backend_runtime(
+                    plugin_id=manifest.id,
+                    version=manifest.version,
+                    source_digest_sha256=source_digest,
+                    plugin_root=source_root,
+                )
+
+            with self._mutation_lock:
+                self._ensure_target_path_available(target_path=target, force=force)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if target.exists() or target.is_symlink():
+                    self._backup_existing_plugin(manifest.id, resolved_scope, target)
+                    if target.is_dir() and not target.is_symlink():
+                        shutil.rmtree(target)
+                    else:
+                        target.unlink()
+                os.symlink(source_root, target, target_is_directory=True)
+
+                self._set_install_metadata(
+                    plugin_id=manifest.id,
+                    scope=resolved_scope,
+                    source_spec=f"local:{source_root}",
+                    installer_backend=None,
+                    canonical_source_key=f"local:{source_root}",
+                    version=manifest.version,
+                    source_digest_sha256=source_digest,
+                )
+                self._apply_enablement_after_install(
+                    plugin_id=manifest.id,
+                    scope=resolved_scope,
+                    enable=enable,
+                )
+                self._pending_restart_removed_backend_plugins.pop(manifest.id, None)
+                restart_required = manifest.backend is not None or had_backend_before
+                if restart_required:
+                    self._add_pending_restart_backend_id(manifest.id)
+            self.rescan()
+            with self._mutation_lock:
+                entry = self._find_entry(
+                    manifest.id,
+                    resolved_scope,
+                    include_shadowed=True,
+                )
+        finally:
+            if reservation_acquired:
+                with self._mutation_lock:
+                    self._release_install_target_path_reservation(target_path=target)
         if entry is None:
             raise PluginManagerError(
                 "PLUGIN_LINK_FAILED",
@@ -4685,7 +4763,6 @@ class PluginManager:
             restartRequired=restart_required,
         )
 
-    @_mutation_locked
     def rollback_plugin(
         self,
         *,
@@ -4693,77 +4770,136 @@ class PluginManager:
         scope: str | PluginScope | None = None,
         rescan: bool = True,
     ) -> PluginRollbackResponse:
-        resolved_scope = self._resolve_uninstall_scope(plugin_id, scope)
-        current_entry = self._find_entry(
-            plugin_id,
-            resolved_scope,
-            include_shadowed=True,
-        )
-        metadata = self._load_install_metadata()
-        metadata_key = self._metadata_key(plugin_id, resolved_scope)
-        entry = metadata.entries.get(metadata_key)
-        if entry is not None and self._source_spec_is_local(entry.sourceSpec):
-            raise PluginManagerError(
-                "PLUGIN_ROLLBACK_UNAVAILABLE",
-                (
-                    "Rollback is unavailable for linked local plugins. "
-                    f"Unlink and relink the desired local source for {plugin_id}."
-                ),
-            )
-        if entry is None or len(entry.history) == 0:
-            raise PluginManagerError(
-                "PLUGIN_ROLLBACK_UNAVAILABLE",
-                f"No rollback history exists for plugin: {plugin_id}",
-            )
-        if current_entry is not None:
-            self._ensure_setta_managed_for_write(
-                entry=current_entry,
-                operation="rollback",
-            )
-        previous = entry.history.pop()
-        snapshot_path = Path(previous.snapshotPath)
-        if not snapshot_path.exists():
-            raise PluginManagerError(
-                "PLUGIN_ROLLBACK_UNAVAILABLE",
-                f"Rollback snapshot missing for plugin: {plugin_id}",
-            )
-        snapshot_manifest = self._load_and_validate_manifest(
-            snapshot_path / "setta.plugin.json"
-        )
-        snapshot_digest = self._compute_directory_digest(snapshot_path)
-        if snapshot_manifest.backend is not None:
-            self._prepare_backend_runtime(
-                plugin_id=plugin_id,
-                version=snapshot_manifest.version,
-                source_digest_sha256=snapshot_digest,
-                plugin_root=snapshot_path,
-            )
+        resolved_scope: PluginScope | None = None
+        target: Path | None = None
+        snapshot_path: Path | None = None
+        snapshot_manifest: PluginManifest | None = None
+        current_entry_had_backend = False
+        reservation_acquired = False
+        try:
+            with self._mutation_lock:
+                resolved_scope = self._resolve_uninstall_scope(plugin_id, scope)
+                current_entry = self._find_entry(
+                    plugin_id,
+                    resolved_scope,
+                    include_shadowed=True,
+                )
+                current_entry_had_backend = (
+                    current_entry.has_backend if current_entry is not None else False
+                )
+                metadata = self._load_install_metadata()
+                metadata_key = self._metadata_key(plugin_id, resolved_scope)
+                metadata_entry = metadata.entries.get(metadata_key)
+                if metadata_entry is not None and self._source_spec_is_local(
+                    metadata_entry.sourceSpec
+                ):
+                    raise PluginManagerError(
+                        "PLUGIN_ROLLBACK_UNAVAILABLE",
+                        (
+                            "Rollback is unavailable for linked local plugins. "
+                            f"Unlink and relink the desired local source for {plugin_id}."
+                        ),
+                    )
+                if metadata_entry is None or len(metadata_entry.history) == 0:
+                    raise PluginManagerError(
+                        "PLUGIN_ROLLBACK_UNAVAILABLE",
+                        f"No rollback history exists for plugin: {plugin_id}",
+                    )
+                if current_entry is not None:
+                    self._ensure_setta_managed_for_write(
+                        entry=current_entry,
+                        operation="rollback",
+                    )
+                previous = metadata_entry.history[-1]
+                snapshot_path = Path(previous.snapshotPath)
+                if not snapshot_path.exists():
+                    raise PluginManagerError(
+                        "PLUGIN_ROLLBACK_UNAVAILABLE",
+                        f"Rollback snapshot missing for plugin: {plugin_id}",
+                    )
+                snapshot_manifest = self._load_and_validate_manifest(
+                    snapshot_path / "setta.plugin.json"
+                )
+                target = self._target_plugin_path(resolved_scope, plugin_id)
+                self._reserve_install_target_path(target_path=target, force=True)
+                reservation_acquired = True
 
-        target = self._target_plugin_path(resolved_scope, plugin_id)
-        if target.exists() and target.is_dir() and not target.is_symlink():
-            shutil.rmtree(target)
-        elif target.exists() or target.is_symlink():
-            target.unlink()
-        shutil.copytree(snapshot_path, target)
+            if snapshot_path is None or snapshot_manifest is None:
+                raise PluginManagerError(
+                    "PLUGIN_ROLLBACK_UNAVAILABLE",
+                    f"Rollback snapshot metadata is missing for plugin: {plugin_id}",
+                )
+            snapshot_digest = self._compute_directory_digest(snapshot_path)
+            if snapshot_manifest.backend is not None:
+                self._prepare_backend_runtime(
+                    plugin_id=plugin_id,
+                    version=snapshot_manifest.version,
+                    source_digest_sha256=snapshot_digest,
+                    plugin_root=snapshot_path,
+                )
 
-        entry.version = snapshot_manifest.version
-        entry.sourceDigestSha256 = snapshot_digest
-        metadata.entries[metadata_key] = entry
-        self._save_install_metadata(metadata)
-        restart_required = snapshot_manifest.backend is not None or (
-            current_entry is not None and current_entry.has_backend
-        )
-        if restart_required:
-            self._add_pending_restart_backend_id(plugin_id)
-            self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
-        if rescan:
-            self.rescan()
-        return PluginRollbackResponse(
-            pluginId=plugin_id,
-            restoredVersion=snapshot_manifest.version,
-            sourceDigestSha256=snapshot_digest,
-            restartRequired=restart_required,
-        )
+            with self._mutation_lock:
+                if resolved_scope is None or target is None:
+                    raise PluginManagerError(
+                        "PLUGIN_ROLLBACK_UNAVAILABLE",
+                        f"Rollback target state is missing for plugin: {plugin_id}",
+                    )
+                metadata_key = self._metadata_key(plugin_id, resolved_scope)
+                metadata = self._load_install_metadata()
+                metadata_entry = metadata.entries.get(metadata_key)
+                if metadata_entry is not None and self._source_spec_is_local(
+                    metadata_entry.sourceSpec
+                ):
+                    raise PluginManagerError(
+                        "PLUGIN_ROLLBACK_UNAVAILABLE",
+                        (
+                            "Rollback is unavailable for linked local plugins. "
+                            f"Unlink and relink the desired local source for {plugin_id}."
+                        ),
+                    )
+                if metadata_entry is None or len(metadata_entry.history) == 0:
+                    raise PluginManagerError(
+                        "PLUGIN_ROLLBACK_UNAVAILABLE",
+                        f"No rollback history exists for plugin: {plugin_id}",
+                    )
+                latest_history = metadata_entry.history[-1]
+                if latest_history.snapshotPath != str(snapshot_path):
+                    raise PluginManagerError(
+                        "PLUGIN_ROLLBACK_UNAVAILABLE",
+                        (
+                            "Rollback history changed while preparing rollback for "
+                            f"plugin: {plugin_id}"
+                        ),
+                    )
+                metadata_entry.history.pop()
+                if target.exists() and target.is_dir() and not target.is_symlink():
+                    shutil.rmtree(target)
+                elif target.exists() or target.is_symlink():
+                    target.unlink()
+                shutil.copytree(snapshot_path, target)
+
+                metadata_entry.version = snapshot_manifest.version
+                metadata_entry.sourceDigestSha256 = snapshot_digest
+                metadata.entries[metadata_key] = metadata_entry
+                self._save_install_metadata(metadata)
+                restart_required = (
+                    snapshot_manifest.backend is not None or current_entry_had_backend
+                )
+                if restart_required:
+                    self._add_pending_restart_backend_id(plugin_id)
+                    self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
+            if rescan:
+                self.rescan()
+            return PluginRollbackResponse(
+                pluginId=plugin_id,
+                restoredVersion=snapshot_manifest.version,
+                sourceDigestSha256=snapshot_digest,
+                restartRequired=restart_required,
+            )
+        finally:
+            if reservation_acquired and target is not None:
+                with self._mutation_lock:
+                    self._release_install_target_path_reservation(target_path=target)
 
     def _source_spec_is_local(self, source_spec: str) -> bool:
         return source_spec.strip().lower().startswith("local:")
@@ -4781,6 +4917,8 @@ class PluginManager:
             ),
         ):
             if entry.shadowed_by_source_path is not None:
+                continue
+            if entry.source_manager == PluginSourceManager.package_manager:
                 continue
             if entry.manifest is None:
                 continue
@@ -4857,9 +4995,27 @@ class PluginManager:
             for entry in self._discovered_plugins
             if entry.shadowed_by_source_path is None
         ]
-        current_by_scope_plugin = {
-            (entry.scope, entry.plugin_id): entry for entry in current_primary_entries
+        current_external_by_scope_plugin = {
+            (entry.scope, entry.plugin_id): entry
+            for entry in current_primary_entries
+            if entry.source_manager == PluginSourceManager.package_manager
         }
+        current_by_scope_plugin = {
+            (entry.scope, entry.plugin_id): entry
+            for entry in current_primary_entries
+            if entry.source_manager != PluginSourceManager.package_manager
+        }
+
+        def _lock_entry_is_external_managed(entry: PluginLockEntry) -> bool:
+            if entry.scope != PluginScope.setta_files:
+                return False
+            if entry.sourceSpec is not None:
+                return False
+            if entry.installerBackend is not None:
+                return False
+            return entry.canonicalSourceKey.startswith("pypi:") or entry.canonicalSourceKey.startswith(
+                "python-env:"
+            )
 
         def _source_reconcile_required(
             *,
@@ -4879,6 +5035,10 @@ class PluginManager:
 
         planned_changes: list[str] = []
         for key, desired in desired_by_scope_plugin.items():
+            if key in current_external_by_scope_plugin or _lock_entry_is_external_managed(
+                desired
+            ):
+                continue
             current = current_by_scope_plugin.get(key)
             if current is None:
                 planned_changes.append(
@@ -4916,6 +5076,10 @@ class PluginManager:
             )
 
         for key, desired in desired_by_scope_plugin.items():
+            if key in current_external_by_scope_plugin or _lock_entry_is_external_managed(
+                desired
+            ):
+                continue
             current = current_by_scope_plugin.get(key)
             if current is not None:
                 source_reconcile_required = _source_reconcile_required(
@@ -5414,6 +5578,7 @@ class PluginManager:
             digest = self._compute_package_manager_source_digest(
                 distribution=distribution,
                 plugin_root=plugin_root,
+                manifest=manifest,
             )
             entries.append(
                 DiscoveredPlugin(
@@ -5469,6 +5634,7 @@ class PluginManager:
         *,
         distribution: importlib.metadata.Distribution,
         plugin_root: Path,
+        manifest: PluginManifest | None = None,
     ) -> str:
         distribution_name = self._distribution_name(distribution) or "unknown"
         distribution_version = self._distribution_version(distribution)
@@ -5480,9 +5646,21 @@ class PluginManager:
             record_fingerprint = (
                 f"{record_path}:{record_stat.st_mtime_ns}:{record_stat.st_size}"
             )
+        include_plugin_root_change_stamp = not self._distribution_record_has_hashes(
+            record_path
+        )
+        plugin_root_change_stamp_digest = "none"
+        if include_plugin_root_change_stamp:
+            plugin_root_change_stamp_digest = (
+                self._package_manager_plugin_root_change_stamp_digest(
+                    plugin_root=plugin_root,
+                    manifest=manifest,
+                )
+            )
         cache_key = (
             f"{distribution_name}|{distribution_version}|"
-            f"{plugin_root_resolved}|{record_fingerprint}"
+            f"{plugin_root_resolved}|{record_fingerprint}|"
+            f"{plugin_root_change_stamp_digest}"
         )
         cached_digest = self._package_manager_source_digest_cache.get(cache_key)
         if cached_digest is not None:
@@ -5501,6 +5679,8 @@ class PluginManager:
                     if not chunk:
                         break
                     hasher.update(chunk)
+        if include_plugin_root_change_stamp:
+            hasher.update(plugin_root_change_stamp_digest.encode("utf-8"))
         digest = hasher.hexdigest()
         self._package_manager_source_digest_cache[cache_key] = digest
         self._package_manager_source_digest_cache.move_to_end(cache_key)
@@ -5510,6 +5690,140 @@ class PluginManager:
         ):
             self._package_manager_source_digest_cache.popitem(last=False)
         return digest
+
+    def _distribution_record_has_hashes(self, record_path: Path | None) -> bool:
+        if record_path is None or not record_path.exists() or not record_path.is_file():
+            return False
+        has_non_record_entries = False
+        try:
+            for line in record_path.read_text(encoding="utf-8").splitlines():
+                if line.strip() == "":
+                    continue
+                row = line.split(",", 2)
+                if len(row) < 2:
+                    continue
+                relative_path = row[0].strip()
+                if relative_path.endswith(".dist-info/RECORD"):
+                    continue
+                has_non_record_entries = True
+                if row[1].strip() == "":
+                    return False
+        except OSError:
+            return False
+        return has_non_record_entries
+
+    def _package_manager_plugin_root_change_stamp_digest(
+        self,
+        *,
+        plugin_root: Path,
+        manifest: PluginManifest | None,
+    ) -> str:
+        plugin_root_resolved = plugin_root.resolve(strict=False)
+        resolved_manifest = manifest
+        if resolved_manifest is None:
+            manifest_path = plugin_root_resolved / "setta.plugin.json"
+            if manifest_path.exists() and manifest_path.is_file():
+                try:
+                    resolved_manifest = self._load_and_validate_manifest(manifest_path)
+                except PluginManagerError:
+                    resolved_manifest = None
+        tracked_paths: set[Path] = {plugin_root_resolved / "setta.plugin.json"}
+        if resolved_manifest is not None:
+            tracked_paths.update(
+                self._package_manager_manifest_tracked_paths(
+                    plugin_root=plugin_root_resolved,
+                    manifest=resolved_manifest,
+                )
+            )
+
+        change_stamp: list[tuple[str, int, int]] = []
+        for tracked_path in sorted(tracked_paths, key=lambda item: str(item)):
+            tracked_path_resolved = tracked_path.resolve(strict=False)
+            if tracked_path_resolved.is_dir():
+                directory_change_stamp = self._directory_change_stamp(tracked_path_resolved)
+                if tracked_path_resolved.is_relative_to(plugin_root_resolved):
+                    tracked_path_label = tracked_path_resolved.relative_to(
+                        plugin_root_resolved
+                    ).as_posix()
+                else:
+                    tracked_path_label = str(tracked_path_resolved)
+                for relative_path, modified_ns, size_bytes in directory_change_stamp:
+                    change_stamp.append(
+                        (
+                            f"{tracked_path_label}/{relative_path}",
+                            modified_ns,
+                            size_bytes,
+                        )
+                    )
+                continue
+            if not tracked_path_resolved.exists() or not tracked_path_resolved.is_file():
+                continue
+            file_stat = tracked_path_resolved.stat()
+            if tracked_path_resolved.is_relative_to(plugin_root_resolved):
+                relative_path = tracked_path_resolved.relative_to(
+                    plugin_root_resolved
+                ).as_posix()
+            else:
+                relative_path = str(tracked_path_resolved)
+            change_stamp.append((relative_path, file_stat.st_mtime_ns, file_stat.st_size))
+        change_stamp.sort(key=lambda item: item[0])
+        return self._digest_change_stamp(tuple(change_stamp))
+
+    def _package_manager_manifest_tracked_paths(
+        self,
+        *,
+        plugin_root: Path,
+        manifest: PluginManifest,
+    ) -> set[Path]:
+        tracked_paths: set[Path] = set()
+
+        def _append_manifest_path(path_value: str | None, message_prefix: str) -> None:
+            if path_value is None:
+                return
+            try:
+                tracked_paths.add(
+                    self._resolve_relative_path(
+                        plugin_root,
+                        path_value,
+                        code="PLUGIN_MANIFEST_PATH_NOT_FOUND",
+                        message_prefix=message_prefix,
+                    )
+                )
+            except PluginManagerError:
+                return
+
+        _append_manifest_path(
+            manifest.configSchemaPath,
+            "Invalid configSchemaPath",
+        )
+        if manifest.backend is not None:
+            _append_manifest_path(
+                manifest.backend.entrypoint,
+                "Invalid plugin backend entrypoint path",
+            )
+        if manifest.frontend is not None:
+            _append_manifest_path(
+                manifest.frontend.entrypoint,
+                "Invalid plugin frontend entrypoint path",
+            )
+            _append_manifest_path(
+                manifest.frontend.style,
+                "Invalid plugin frontend style path",
+            )
+        if manifest.content is not None:
+            _append_manifest_path(
+                manifest.content.blueprintsDir,
+                "Invalid plugin content blueprintsDir path",
+            )
+            _append_manifest_path(
+                manifest.content.projectTemplatesDir,
+                "Invalid plugin content projectTemplatesDir path",
+            )
+            _append_manifest_path(
+                manifest.content.promptsDir,
+                "Invalid plugin content promptsDir path",
+            )
+        return tracked_paths
 
     def _existing_scope_plugin_has_backend(
         self, *, plugin_id: str, scope: PluginScope
@@ -6354,7 +6668,9 @@ class PluginManager:
             )
 
     def _install_target_path_key(self, target_path: Path) -> Path:
-        return target_path.resolve(strict=False)
+        # Keep reservation keys stable before/after symlink creation by avoiding
+        # symlink-following path resolution.
+        return Path(os.path.abspath(os.path.normpath(str(target_path.expanduser()))))
 
     def _reserve_install_target_path(self, *, target_path: Path, force: bool) -> None:
         self._ensure_target_path_available(target_path=target_path, force=force)

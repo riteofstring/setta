@@ -79,6 +79,49 @@ for file_arg in sys.argv[2:]:
 PY
 }
 
+compute_named_plugin_fixture_signature() {
+  local root_dir="$1"
+  shift
+  local fixture_name fixture_file
+  for fixture_name in "$@"; do
+    local fixture_root="${root_dir}/tests/fixtures/plugins/${fixture_name}"
+    if [[ ! -d "${fixture_root}" ]]; then
+      printf '%s|missing\n' "${fixture_name}"
+      continue
+    fi
+    printf '%s|\n' "${fixture_name}"
+    while IFS= read -r fixture_file; do
+      printf '%s|' "${fixture_file#${root_dir}/}"
+      cksum < "${fixture_file}"
+    done < <(find "${fixture_root}" -type f | sort)
+  done
+}
+
+compute_named_plugin_fixture_change_stamp() {
+  local root_dir="$1"
+  shift
+  local python_bin
+  python_bin="$(resolve_plugin_fixture_python_bin)" || return 1
+  "${python_bin}" - "${root_dir}" "$@" <<'PY'
+import sys
+from pathlib import Path
+
+root_dir = Path(sys.argv[1]).resolve(strict=False)
+fixtures = tuple(sys.argv[2:])
+
+for fixture_name in fixtures:
+    fixture_root = root_dir / "tests" / "fixtures" / "plugins" / fixture_name
+    if not fixture_root.is_dir():
+        print(f"{fixture_name}|missing")
+        continue
+    print(f"{fixture_name}|")
+    for file_path in sorted(path for path in fixture_root.rglob("*") if path.is_file()):
+        stat_result = file_path.stat()
+        relative_path = file_path.relative_to(root_dir).as_posix()
+        print(f"{relative_path}|{stat_result.st_mtime_ns}:{stat_result.st_size}")
+PY
+}
+
 resolve_plugin_fixture_python_bin() {
   if [[ -n "${PYTHON_BIN:-}" ]]; then
     if [[ -x "${PYTHON_BIN}" ]]; then
@@ -117,28 +160,157 @@ plugin_fixture_frontend_outputs_complete() {
   fi
   "${python_bin}" - "${manifests[@]}" <<'PY'
 import json
+import re
 import sys
 from pathlib import Path
+
+
+def _fail(message: str) -> None:
+    print(message, file=sys.stderr)
+    raise SystemExit(1)
+
+
+def _relative_asset_exists(
+    *,
+    fixture_root: Path,
+    relative_path: str,
+    context: str,
+) -> Path:
+    candidate = fixture_root / relative_path
+    if not candidate.is_file():
+        _fail(f"Missing fixture asset for {context}: {candidate}")
+    return candidate
+
+
+def _ensure_js_import_targets_exist(entrypoint_path: Path, fixture_root: Path) -> None:
+    try:
+        entrypoint_text = entrypoint_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        _fail(f"Failed to read fixture entrypoint {entrypoint_path}: {exc}")
+    import_patterns = [
+        r'from\s+["\']([^"\']+)["\']',
+        r'import\(\s*["\']([^"\']+)["\']\s*\)',
+    ]
+    for pattern in import_patterns:
+        for match in re.findall(pattern, entrypoint_text):
+            target = match.strip()
+            if not target.startswith("."):
+                continue
+            resolved_target = (entrypoint_path.parent / target).resolve(strict=False)
+            if not resolved_target.exists() or not resolved_target.is_file():
+                _fail(
+                    (
+                        "Missing imported chunk for fixture entrypoint "
+                        f"{entrypoint_path}: {target}"
+                    )
+                )
+            if not resolved_target.is_relative_to(fixture_root.resolve(strict=False)):
+                _fail(
+                    (
+                        "Fixture import target escapes fixture root "
+                        f"{fixture_root}: {target}"
+                    )
+                )
+
+
+def _ensure_vite_manifest_assets_exist(
+    *,
+    fixture_root: Path,
+    entrypoint_path: Path,
+) -> None:
+    dist_root = fixture_root / "frontend" / "dist"
+    vite_manifest_path = dist_root / ".vite" / "manifest.json"
+    if not vite_manifest_path.is_file():
+        _ensure_js_import_targets_exist(entrypoint_path, fixture_root)
+        return
+    try:
+        vite_manifest_payload = json.loads(vite_manifest_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        _fail(f"Failed to parse Vite manifest {vite_manifest_path}: {exc}")
+    if not isinstance(vite_manifest_payload, dict):
+        _fail(f"Invalid Vite manifest payload (expected object): {vite_manifest_path}")
+    for entry_key, raw_entry in vite_manifest_payload.items():
+        if not isinstance(raw_entry, dict):
+            _fail(
+                (
+                    "Invalid Vite manifest entry payload (expected object): "
+                    f"{vite_manifest_path}#{entry_key}"
+                )
+            )
+        file_value = raw_entry.get("file")
+        if isinstance(file_value, str) and file_value.strip() != "":
+            _relative_asset_exists(
+                fixture_root=dist_root,
+                relative_path=file_value.strip(),
+                context=f"{vite_manifest_path}#{entry_key}.file",
+            )
+        for list_key in ("css", "assets"):
+            raw_list = raw_entry.get(list_key)
+            if raw_list is None:
+                continue
+            if not isinstance(raw_list, list):
+                _fail(
+                    (
+                        "Invalid Vite manifest entry list payload (expected array): "
+                        f"{vite_manifest_path}#{entry_key}.{list_key}"
+                    )
+                )
+            for index, raw_item in enumerate(raw_list):
+                if not isinstance(raw_item, str) or raw_item.strip() == "":
+                    _fail(
+                        (
+                            "Invalid Vite manifest asset path (expected non-empty string): "
+                            f"{vite_manifest_path}#{entry_key}.{list_key}[{index}]"
+                        )
+                    )
+                _relative_asset_exists(
+                    fixture_root=dist_root,
+                    relative_path=raw_item.strip(),
+                    context=f"{vite_manifest_path}#{entry_key}.{list_key}[{index}]",
+                )
+        for import_key in ("imports", "dynamicImports"):
+            raw_imports = raw_entry.get(import_key)
+            if raw_imports is None:
+                continue
+            if not isinstance(raw_imports, list):
+                _fail(
+                    (
+                        "Invalid Vite manifest import payload (expected array): "
+                        f"{vite_manifest_path}#{entry_key}.{import_key}"
+                    )
+                )
+            for raw_import_entry in raw_imports:
+                if not isinstance(raw_import_entry, str) or raw_import_entry.strip() == "":
+                    _fail(
+                        (
+                            "Invalid Vite manifest import reference: "
+                            f"{vite_manifest_path}#{entry_key}.{import_key}"
+                        )
+                    )
+                import_reference = raw_import_entry.strip()
+                if import_reference not in vite_manifest_payload:
+                    _fail(
+                        (
+                            "Missing Vite manifest import reference target: "
+                            f"{vite_manifest_path}#{entry_key}.{import_key} -> "
+                            f"{import_reference}"
+                        )
+                    )
+
 
 for manifest_arg in sys.argv[1:]:
     manifest_path = Path(manifest_arg)
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except Exception as exc:
-        print(
-            (
-                "Failed to parse plugin fixture manifest "
-                f"{manifest_path}: {exc}"
-            ),
-            file=sys.stderr,
-        )
-        raise SystemExit(1)
+        _fail(f"Failed to parse plugin fixture manifest {manifest_path}: {exc}")
 
     frontend = manifest.get("frontend")
     if not isinstance(frontend, dict):
         continue
 
     fixture_root = manifest_path.parent
+    entrypoint_path: Path | None = None
     for key in ("entrypoint", "style"):
         raw_output_path = frontend.get(key)
         if not isinstance(raw_output_path, str):
@@ -146,9 +318,19 @@ for manifest_arg in sys.argv[1:]:
         output_path = raw_output_path.strip()
         if output_path == "":
             continue
-        resolved_output_path = fixture_root / output_path
-        if not resolved_output_path.is_file():
-            raise SystemExit(1)
+        resolved_output_path = _relative_asset_exists(
+            fixture_root=fixture_root,
+            relative_path=output_path,
+            context=f"{manifest_path}:{key}",
+        )
+        if key == "entrypoint":
+            entrypoint_path = resolved_output_path
+
+    if entrypoint_path is not None:
+        _ensure_vite_manifest_assets_exist(
+            fixture_root=fixture_root,
+            entrypoint_path=entrypoint_path,
+        )
 PY
 }
 

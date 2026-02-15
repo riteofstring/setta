@@ -1,10 +1,15 @@
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import {
+  getErrorDetail,
+  res200,
+  type ResponseDataAndStatus,
+} from "utils/endpointUtils";
 import type {
   PluginListEntry,
   PluginRestartCapability,
   PluginRestartResponse,
   PluginStatusEntry,
 } from "utils/generatedTypes";
+import { route_plugins_restart } from "utils/generatedEndpoints";
 
 type PluginRestartActionPlan =
   | {
@@ -38,6 +43,7 @@ type PluginRestartRequestResult =
     }
   | {
       kind: "request_failed";
+      message: string;
     };
 
 export function getRestartRequiredPluginIds(
@@ -102,8 +108,15 @@ export function mapPluginRestartResponse(
   response: ResponseDataAndStatus<PluginRestartResponse>,
 ): PluginRestartRequestResult {
   if (!res200(response) || !response.data) {
+    const detail =
+      getErrorDetail(response.data) ?? getErrorDetail(response) ?? "";
+    const message =
+      detail.length > 0
+        ? `Restart request failed: ${detail}`
+        : "Restart request failed.";
     return {
       kind: "request_failed",
+      message,
     };
   }
   if (response.data.accepted) {
@@ -121,6 +134,14 @@ export function mapPluginRestartResponse(
     reason: manualPlan.reason,
     message: manualPlan.message,
   };
+}
+
+export async function requestPluginRestart(
+  runRestartRequest: () => Promise<ResponseDataAndStatus<PluginRestartResponse>> = () =>
+    route_plugins_restart(),
+): Promise<PluginRestartRequestResult> {
+  const response = await runRestartRequest();
+  return mapPluginRestartResponse(response);
 }
 
 function assertUnexpectedRestartCapabilityMode(mode: never): never {

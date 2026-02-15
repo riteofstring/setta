@@ -285,43 +285,12 @@ PY
 
 compute_workspace_seed_fixture_signature() {
   local root_dir="$1"
-  local fixture_name fixture_file
-  for fixture_name in "${WORKSPACE_SEED_FIXTURES[@]}"; do
-    local fixture_root="${root_dir}/tests/fixtures/plugins/${fixture_name}"
-    if [[ ! -d "${fixture_root}" ]]; then
-      printf '%s|missing\n' "${fixture_name}"
-      continue
-    fi
-    printf '%s|\n' "${fixture_name}"
-    while IFS= read -r fixture_file; do
-      printf '%s|' "${fixture_file#${root_dir}/}"
-      cksum < "${fixture_file}"
-    done < <(find "${fixture_root}" -type f | sort)
-  done
+  compute_named_plugin_fixture_signature "${root_dir}" "${WORKSPACE_SEED_FIXTURES[@]}"
 }
 
 compute_workspace_seed_fixture_change_stamp() {
   local root_dir="$1"
-  local python_bin
-  python_bin="$(resolve_plugin_fixture_python_bin)" || return 1
-  "${python_bin}" - "${root_dir}" "${WORKSPACE_SEED_FIXTURES[@]}" <<'PY'
-import sys
-from pathlib import Path
-
-root_dir = Path(sys.argv[1]).resolve(strict=False)
-fixtures = tuple(sys.argv[2:])
-
-for fixture_name in fixtures:
-    fixture_root = root_dir / "tests" / "fixtures" / "plugins" / fixture_name
-    if not fixture_root.is_dir():
-        print(f"{fixture_name}|missing")
-        continue
-    print(f"{fixture_name}|")
-    for file_path in sorted(path for path in fixture_root.rglob("*") if path.is_file()):
-        stat_result = file_path.stat()
-        relative_path = file_path.relative_to(root_dir).as_posix()
-        print(f"{relative_path}|{stat_result.st_mtime_ns}:{stat_result.st_size}")
-PY
+  compute_named_plugin_fixture_change_stamp "${root_dir}" "${WORKSPACE_SEED_FIXTURES[@]}"
 }
 
 seeded_plugin_fixture_is_complete() {

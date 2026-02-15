@@ -360,9 +360,11 @@ test("header plugin restart banner handles rejected and failed restart requests"
       method: "POST",
       count: 1,
     });
-    await restartButton.click();
-    await expect.poll(() => restartRequestCount).toBe(2);
-    await expect(page.getByText("Restart request failed.")).toBeVisible();
+  await restartButton.click();
+  await expect.poll(() => restartRequestCount).toBe(2);
+  await expect(
+    page.getByText("Restart request failed: restart failed"),
+  ).toBeVisible();
   } finally {
     await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-backend",

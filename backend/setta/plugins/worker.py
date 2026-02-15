@@ -150,6 +150,7 @@ def _ensure_json_serializable(
 class _WorkerRouteHandler:
     path: str
     endpoint: Callable[..., Any]
+    needs_raw_body: bool
 
 
 @dataclass(slots=True)
@@ -253,9 +254,11 @@ class _WorkerState:
             if len(methods) == 0:
                 continue
             route_id = self._allocate_route_id()
+            needs_raw_body = self._route_endpoint_requires_raw_body(route.endpoint)
             self.route_handlers[route_id] = _WorkerRouteHandler(
                 path=route.path,
                 endpoint=route.endpoint,
+                needs_raw_body=needs_raw_body,
             )
             endpoint_name = route.endpoint.__name__
             if endpoint_name not in self.route_ids_by_endpoint_name:
@@ -266,6 +269,7 @@ class _WorkerState:
                     "routeId": route_id,
                     "path": route.path,
                     "methods": methods,
+                    "needsRawBody": needs_raw_body,
                 }
             )
         host_call(
@@ -778,6 +782,13 @@ class _WorkerState:
                 return True
         return False
 
+    def _route_endpoint_requires_raw_body(self, endpoint: Callable[..., Any]) -> bool:
+        signature = inspect.signature(endpoint)
+        for parameter in signature.parameters.values():
+            if self._route_param_expects_request(parameter):
+                return True
+        return False
+
     def _coerce_route_parameter_value(
         self,
         *,
@@ -927,7 +938,7 @@ class _WorkerState:
                 "plugin.invoke_route queryParams must be an object.",
             )
         route_raw_body: bytes | None = None
-        if raw_body_base64 is not None:
+        if raw_body_base64 is not None and route_handler.needs_raw_body:
             if not isinstance(raw_body_base64, str):
                 raise WorkerError(
                     "PLUGIN_BACKEND_ROUTE_CALL_INVALID",

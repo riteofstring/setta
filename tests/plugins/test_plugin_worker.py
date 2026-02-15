@@ -2023,6 +2023,105 @@ def test_worker_invoke_route_prefers_raw_body_for_request_payload(
         _stop_worker(worker)
 
 
+def test_worker_register_reports_needs_raw_body_by_route_signature(
+    tmp_path: Path,
+) -> None:
+    # Route registration should expose raw-body needs for request-injected handlers only.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "from fastapi import APIRouter, Body, Request\n\n"
+        "def register(plugin):\n"
+        "    router = APIRouter()\n\n"
+        "    @router.post('/raw-body')\n"
+        "    async def raw_body(request: Request) -> dict[str, bool]:\n"
+        "        await request.body()\n"
+        "        return {'ok': True}\n\n"
+        "    @router.post('/json-body')\n"
+        "    def json_body(payload: dict[str, object] = Body(default_factory=dict)) -> dict[str, object]:\n"
+        "        return payload\n\n"
+        "    plugin.register_router(router)\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(worker, request_id=1, method="plugin.initialize")
+        host_requests: list[dict[str, Any]] = []
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_requests=host_requests,
+        )
+        router_registration = next(
+            payload
+            for payload in host_requests
+            if payload.get("method") == "host.register_router"
+        )
+        routes = router_registration["params"]["routes"]
+        needs_raw_body_by_path = {
+            route["path"]: route.get("needsRawBody")
+            for route in routes
+        }
+        assert needs_raw_body_by_path["/raw-body"] is True
+        assert needs_raw_body_by_path["/json-body"] is False
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_invoke_route_skips_raw_body_decode_when_not_needed(
+    tmp_path: Path,
+) -> None:
+    # Non-request route handlers should not decode rawBodyBase64 inputs.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "from fastapi import APIRouter, Body\n\n"
+        "def register(plugin):\n"
+        "    router = APIRouter()\n\n"
+        "    @router.post('/json-body')\n"
+        "    def json_body(payload: dict[str, object] = Body(default_factory=dict)) -> dict[str, object]:\n"
+        "        return payload\n\n"
+        "    plugin.register_router(router)\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(worker, request_id=1, method="plugin.initialize")
+        host_requests: list[dict[str, Any]] = []
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_requests=host_requests,
+        )
+        router_registration = next(
+            payload
+            for payload in host_requests
+            if payload.get("method") == "host.register_router"
+        )
+        route_id = next(
+            route["routeId"]
+            for route in router_registration["params"]["routes"]
+            if route["path"] == "/json-body"
+        )
+
+        response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id,
+                "pathParams": {},
+                "queryParams": {},
+                "jsonBody": {"value": "hello"},
+                "rawBodyBase64": "not-valid-base64",
+            },
+        )
+        assert response["result"]["statusCode"] == 200
+        assert response["result"]["body"] == {"value": "hello"}
+    finally:
+        _stop_worker(worker)
+
+
 def test_worker_invoke_codegen_target_validates_handler_and_payload(
     tmp_path: Path,
 ) -> None:

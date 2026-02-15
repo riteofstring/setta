@@ -262,7 +262,9 @@ describe("PluginRestartBanner", () => {
     routePluginsRestartMock.mockResolvedValue({
       status: 500,
       hasResponse: true,
-      data: undefined,
+      data: {
+        detail: "restart failed",
+      },
     });
 
     const banner = PluginRestartBanner();
@@ -271,7 +273,7 @@ describe("PluginRestartBanner", () => {
     await drainMicrotasks();
 
     expect(addTemporaryNotificationMock).toHaveBeenCalledWith(
-      "Restart request failed.",
+      "Restart request failed: restart failed",
       "error",
     );
     expect(refreshPluginRuntimeMock).toHaveBeenCalledTimes(1);

@@ -1,7 +1,7 @@
 import {
   buildPluginRestartActionPlan,
   getRestartRequiredPluginIds,
-  mapPluginRestartResponse,
+  requestPluginRestart,
 } from "plugins/restart";
 import {
   refreshPluginRuntime,
@@ -29,7 +29,6 @@ import {
   route_plugins_enable,
   route_plugins_install,
   route_plugins_rescan,
-  route_plugins_restart,
   route_plugins_rollback,
   route_plugins_uninstall,
   route_plugins_update,
@@ -37,14 +36,10 @@ import {
 } from "utils/generatedEndpoints";
 import type {
   PluginBlockedCapability,
-  PluginInstallRequestInput,
   PluginInstallResponse,
   PluginListEntry,
   PluginRestartCapability,
-  PluginRollbackRequestInput,
   PluginStatusEntry,
-  PluginUninstallRequestInput,
-  PluginUpdateRequestInput,
   SettingsState,
 } from "utils/generatedTypes";
 import { onOverviewTabClick } from "../../paneFns";
@@ -57,9 +52,8 @@ import {
   buildSourceManagerGuidanceMessage,
   formatLanguageServerSettingsDraft,
   formatPluginConfigDraft,
-  getBlockedCapabilityReason,
   getLanguageServerSettingsValue,
-  getPluginCapabilityStatus,
+  type PluginCapabilityStatus,
   getRegisteredCodegenTargets,
   getRegisteredExternalAgentAdapters,
   getRegisteredLanguageServers,
@@ -249,6 +243,11 @@ export function PluginsPane() {
         message: `${actionLabel} completed.`,
       });
       return response;
+    } catch (error) {
+      const message = buildPluginActionThrownError(actionLabel, error);
+      setActionStatus({ type: "error", message });
+      addTemporaryNotification(message, "error");
+      return null;
     } finally {
       inFlightActionKeysRef.current.delete(actionKey);
       setBusyActionKeys((previous) => {
@@ -315,14 +314,15 @@ export function PluginsPane() {
     }
     setInstallSummary(null);
     const trimmedSourceSpec = sourceSpec.trim();
+    const installRequest = {
+      sourceSpec: trimmedSourceSpec,
+      scope,
+      installer,
+      enable: enableAfterInstall,
+      force: false,
+    };
     const response = await runAction("install", "Install plugin", async () =>
-      route_plugins_install({
-        sourceSpec: trimmedSourceSpec,
-        scope,
-        installer,
-        enable: enableAfterInstall,
-        force: false,
-      } as PluginInstallRequestInput),
+      route_plugins_install(installRequest),
     );
     if (!response || !response.data) {
       return;
@@ -344,6 +344,9 @@ export function PluginsPane() {
     if (writeActionsLocked) {
       return;
     }
+    if (inFlightActionKeysRef.current.has("restart")) {
+      return;
+    }
     if (restartActionPlan.mode === "unavailable") {
       setActionStatus({
         type: "warning",
@@ -362,36 +365,54 @@ export function PluginsPane() {
       );
       return;
     }
-    const response = await runAction(
-      "restart",
-      "Restart plugins runtime",
-      async () => route_plugins_restart(),
-      { refreshRuntimeOnSuccess: false },
-    );
-    if (!response || !response.data) {
-      return;
-    }
-    const restartResult = mapPluginRestartResponse(response);
-    if (restartResult.kind === "accepted") {
-      setActionStatus({
-        type: "success",
-        message: "Restart request accepted.",
-      });
-      addTemporaryNotification("Restart request accepted.", "info");
-      return;
-    }
-    if (restartResult.kind === "request_failed") {
-      setActionStatus({
-        type: "error",
-        message: "Restart request failed.",
-      });
-      return;
-    }
-    setActionStatus({
-      type: "warning",
-      message: restartResult.message,
+    inFlightActionKeysRef.current.add("restart");
+    setBusyActionKeys((previous) => {
+      if (previous.has("restart")) {
+        return previous;
+      }
+      const next = new Set(previous);
+      next.add("restart");
+      return next;
     });
-    addTemporaryNotification(restartResult.message, "warning");
+    setActionStatus(null);
+    try {
+      const restartResult = await requestPluginRestart();
+      if (restartResult.kind === "accepted") {
+        setActionStatus({
+          type: "success",
+          message: "Restart request accepted.",
+        });
+        addTemporaryNotification("Restart request accepted.", "info");
+        return;
+      }
+      if (restartResult.kind === "request_failed") {
+        setActionStatus({
+          type: "error",
+          message: restartResult.message,
+        });
+        addTemporaryNotification(restartResult.message, "error");
+        return;
+      }
+      setActionStatus({
+        type: "warning",
+        message: restartResult.message,
+      });
+      addTemporaryNotification(restartResult.message, "warning");
+    } catch (error) {
+      const message = buildPluginActionThrownError("Restart plugins runtime", error);
+      setActionStatus({ type: "error", message });
+      addTemporaryNotification(message, "error");
+    } finally {
+      inFlightActionKeysRef.current.delete("restart");
+      setBusyActionKeys((previous) => {
+        if (!previous.has("restart")) {
+          return previous;
+        }
+        const next = new Set(previous);
+        next.delete("restart");
+        return next;
+      });
+    }
   }
 
   return (
@@ -698,36 +719,37 @@ function PluginListEntryCard({
     runtimeState;
 
   async function onUpdate() {
+    const updateRequest = {
+      pluginId: plugin.pluginId,
+      scope: plugin.sourceScope,
+      to: null,
+    };
     await runAction(`update:${plugin.pluginId}`, "Update plugin", async () =>
-      route_plugins_update({
-        pluginId: plugin.pluginId,
-        scope: plugin.sourceScope,
-        to: null,
-      } as PluginUpdateRequestInput),
+      route_plugins_update(updateRequest),
     );
   }
 
   async function onRollback() {
+    const rollbackRequest = {
+      pluginId: plugin.pluginId,
+      scope: plugin.sourceScope,
+    };
     await runAction(
       `rollback:${plugin.pluginId}`,
       "Rollback plugin",
-      async () =>
-        route_plugins_rollback({
-          pluginId: plugin.pluginId,
-          scope: plugin.sourceScope,
-        } as PluginRollbackRequestInput),
+      async () => route_plugins_rollback(rollbackRequest),
     );
   }
 
   async function onUninstall() {
+    const uninstallRequest = {
+      pluginId: plugin.pluginId,
+      scope: plugin.sourceScope,
+    };
     await runAction(
       `uninstall:${plugin.pluginId}`,
       "Uninstall plugin",
-      async () =>
-        route_plugins_uninstall({
-          pluginId: plugin.pluginId,
-          scope: plugin.sourceScope,
-        } as PluginUninstallRequestInput),
+      async () => route_plugins_uninstall(uninstallRequest),
     );
   }
 
@@ -745,51 +767,78 @@ function PluginListEntryCard({
   const registeredExternalAgentAdapters =
     getRegisteredExternalAgentAdapters(pluginStatus);
   const registeredCodegenTargets = getRegisteredCodegenTargets(pluginStatus);
-  const commandCapabilityStatus = getPluginCapabilityStatus(
-    pluginStatus,
-    plugin,
-    "registerCommand",
-  );
-  const paneCapabilityStatus = getPluginCapabilityStatus(
-    pluginStatus,
-    plugin,
-    "registerPane",
-  );
-  const commandCapabilityReason = getBlockedCapabilityReason(
-    blockedCapabilities,
-    "registerCommand",
-  );
-  const paneCapabilityReason = getBlockedCapabilityReason(
-    blockedCapabilities,
-    "registerPane",
-  );
-  const languageServerCapabilityStatus = getPluginCapabilityStatus(
-    pluginStatus,
-    plugin,
-    "registerLanguageServer",
-  );
-  const languageServerCapabilityReason = getBlockedCapabilityReason(
-    blockedCapabilities,
-    "registerLanguageServer",
-  );
-  const externalAgentCapabilityStatus = getPluginCapabilityStatus(
-    pluginStatus,
-    plugin,
-    "registerExternalAgentAdapter",
-  );
-  const externalAgentCapabilityReason = getBlockedCapabilityReason(
-    blockedCapabilities,
-    "registerExternalAgentAdapter",
-  );
-  const codegenCapabilityStatus = getPluginCapabilityStatus(
-    pluginStatus,
-    plugin,
-    "registerCodegenTarget",
-  );
-  const codegenCapabilityReason = getBlockedCapabilityReason(
-    blockedCapabilities,
-    "registerCodegenTarget",
-  );
+  const capabilityStatusByCapability = useMemo(() => {
+    const requestedCapabilitySet = new Set(requestedCapabilities);
+    const effectiveCapabilitySet = new Set(effectiveCapabilities);
+    const blockedReasonByCapability = new Map<string, string>();
+    for (const blockedCapability of blockedCapabilities) {
+      blockedReasonByCapability.set(
+        blockedCapability.capability,
+        blockedCapability.reason,
+      );
+    }
+    const capabilityStatusMap = new Map<string, PluginCapabilityStatus>();
+    const capabilityList = [
+      "registerCommand",
+      "registerPane",
+      "registerLanguageServer",
+      "registerExternalAgentAdapter",
+      "registerCodegenTarget",
+    ] as const;
+    for (const capability of capabilityList) {
+      if (!requestedCapabilitySet.has(capability)) {
+        capabilityStatusMap.set(capability, "not_requested");
+        continue;
+      }
+      if (effectiveCapabilitySet.has(capability)) {
+        capabilityStatusMap.set(capability, "effective");
+        continue;
+      }
+      if (blockedReasonByCapability.has(capability)) {
+        capabilityStatusMap.set(capability, "blocked");
+        continue;
+      }
+      capabilityStatusMap.set(capability, "requested_unavailable");
+    }
+    return {
+      capabilityStatusMap,
+      blockedReasonByCapability,
+    };
+  }, [blockedCapabilities, effectiveCapabilities, requestedCapabilities]);
+  const commandCapabilityStatus =
+    capabilityStatusByCapability.capabilityStatusMap.get("registerCommand") ??
+    "not_requested";
+  const paneCapabilityStatus =
+    capabilityStatusByCapability.capabilityStatusMap.get("registerPane") ??
+    "not_requested";
+  const commandCapabilityReason =
+    capabilityStatusByCapability.blockedReasonByCapability.get("registerCommand") ??
+    null;
+  const paneCapabilityReason =
+    capabilityStatusByCapability.blockedReasonByCapability.get("registerPane") ??
+    null;
+  const languageServerCapabilityStatus =
+    capabilityStatusByCapability.capabilityStatusMap.get("registerLanguageServer") ??
+    "not_requested";
+  const languageServerCapabilityReason =
+    capabilityStatusByCapability.blockedReasonByCapability.get(
+      "registerLanguageServer",
+    ) ?? null;
+  const externalAgentCapabilityStatus =
+    capabilityStatusByCapability.capabilityStatusMap.get(
+      "registerExternalAgentAdapter",
+    ) ?? "not_requested";
+  const externalAgentCapabilityReason =
+    capabilityStatusByCapability.blockedReasonByCapability.get(
+      "registerExternalAgentAdapter",
+    ) ?? null;
+  const codegenCapabilityStatus =
+    capabilityStatusByCapability.capabilityStatusMap.get("registerCodegenTarget") ??
+    "not_requested";
+  const codegenCapabilityReason =
+    capabilityStatusByCapability.blockedReasonByCapability.get(
+      "registerCodegenTarget",
+    ) ?? null;
 
   function onOpenPane(paneId: string) {
     onOverviewTabClick(buildPluginPaneOverviewTabName(plugin.pluginId, paneId));
@@ -1880,6 +1929,16 @@ function buildPluginActionError<T>(
     }
   }
   return `${actionLabel} failed (status ${response.status ?? "unknown"}).`;
+}
+
+function buildPluginActionThrownError(actionLabel: string, error: unknown): string {
+  if (error instanceof Error) {
+    const message = error.message.trim();
+    if (message.length > 0) {
+      return `${actionLabel} failed: ${message}`;
+    }
+  }
+  return `${actionLabel} failed: unexpected error.`;
 }
 
 function formatCapabilitiesForTable(capabilities: string[]): string {

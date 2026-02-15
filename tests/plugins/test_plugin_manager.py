@@ -1227,6 +1227,151 @@ def test_package_manager_plugins_reject_setta_write_lifecycle_actions(
     assert update_error.value.code == "PLUGIN_MANAGED_EXTERNALLY"
 
 
+def test_write_lockfile_excludes_package_manager_managed_plugins(tmp_path: Path) -> None:
+    # Lockfiles should include only Setta-managed lifecycle entries.
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    site_packages = _install_fixture_distribution_in_site_packages(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    manager = _make_manager(
+        tmp_path,
+        package_manager_search_paths=[site_packages],
+    )
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("backend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+
+    lock_write = manager.write_lockfile()
+    payload = json.loads(manager._lockfile_path.read_text(encoding="utf-8"))
+    lock_plugins = payload.get("plugins", [])
+
+    assert lock_write.pluginCount == 1
+    assert len(lock_plugins) == 1
+    assert lock_plugins[0]["pluginId"] == "setta-fixture-backend"
+    assert lock_plugins[0]["scope"] == "workspace"
+    assert lock_plugins[0]["sourceSpec"].startswith("local:")
+
+
+def test_apply_lockfile_skips_package_manager_drift(tmp_path: Path) -> None:
+    # Lockfile convergence should ignore package-manager managed entries in current runtime.
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    site_packages = _install_fixture_distribution_in_site_packages(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    manager = _make_manager(
+        tmp_path,
+        package_manager_search_paths=[site_packages],
+    )
+    lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
+    lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+    lockfile_path.write_text(json.dumps({"plugins": []}), encoding="utf-8")
+
+    check_result = manager.apply_lockfile(check=True)
+    assert check_result.plannedChanges == []
+
+    apply_result = manager.apply_lockfile(check=False)
+    assert apply_result.applied is True
+    assert apply_result.plannedChanges == []
+
+    remaining_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == package_name
+        and entry.sourceScope == PluginScope.setta_files
+        and entry.sourceManager == "package_manager"
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(remaining_entries) == 1
+
+
+def test_apply_lockfile_skips_external_managed_lock_entries_without_source_spec(
+    tmp_path: Path,
+) -> None:
+    # External-managed setta_files lock entries should never trigger install attempts.
+    manager = _make_manager(tmp_path)
+    lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
+    lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+    lockfile_path.write_text(
+        json.dumps(
+            {
+                "plugins": [
+                    {
+                        "pluginId": "setta-fixture-frontend",
+                        "version": "0.1.0",
+                        "canonicalSourceKey": "pypi:setta-fixture-frontend",
+                        "scope": "setta_files",
+                        "sourceDigestSha256": None,
+                        "sourceSpec": None,
+                        "installerBackend": None,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    check_result = manager.apply_lockfile(check=True)
+    assert check_result.plannedChanges == []
+
+    apply_result = manager.apply_lockfile(check=False)
+    assert apply_result.applied is True
+    assert apply_result.plannedChanges == []
+
+
+def test_package_manager_source_digest_tracks_plugin_root_when_record_has_no_hashes(
+    tmp_path: Path,
+) -> None:
+    # Editable/no-hash distributions should include plugin-root change stamps in source digest.
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    site_packages = _install_fixture_distribution_in_site_packages(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    manager = _make_manager(
+        tmp_path,
+        package_manager_search_paths=[site_packages],
+    )
+    distribution = next(
+        item
+        for item in importlib.metadata.distributions(path=[str(site_packages)])
+        if item.metadata.get("Name") == package_name
+    )
+    plugin_root = site_packages / package_name
+    manifest = manager._load_and_validate_manifest(plugin_root / "setta.plugin.json")
+
+    first_digest = manager._compute_package_manager_source_digest(
+        distribution=distribution,
+        plugin_root=plugin_root,
+        manifest=manifest,
+    )
+    frontend_entrypoint = plugin_root / "frontend" / "dist" / "index.js"
+    frontend_entrypoint.write_text(
+        frontend_entrypoint.read_text(encoding="utf-8") + "\n// digest-change\n",
+        encoding="utf-8",
+    )
+    second_digest = manager._compute_package_manager_source_digest(
+        distribution=distribution,
+        plugin_root=plugin_root,
+        manifest=manifest,
+    )
+
+    assert first_digest != second_digest
+
+
 def test_update_plugin_marks_pending_restart_for_backend_only(
     tmp_path: Path,
 ) -> None:
@@ -3699,6 +3844,36 @@ def test_list_response_redacts_config_payload_outside_ide(
         plugin_id="setta-fixture-full",
         config={"enabled": True, "label": "secret-value"},
     )
+
+    list_entry = next(
+        plugin
+        for plugin in manager.get_runtime_response().list.plugins
+        if plugin.pluginId == "setta-fixture-full"
+    )
+    assert list_entry.config.hasSchema is True
+    assert list_entry.config.schemaJson is None
+    assert list_entry.config.currentConfig == {}
+
+
+@pytest.mark.parametrize("server_mode", ["share", "app"])
+def test_runtime_response_redacted_config_does_not_load_plugin_state(
+    tmp_path: Path,
+    server_mode: Literal["share", "app"],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Redacted runtime payloads should avoid plugin-state reads in non-IDE server modes.
+    manager = _make_manager(tmp_path, server_mode=server_mode)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("full")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+
+    def _fail_load_plugins_state() -> Any:
+        raise AssertionError("plugins state should not be loaded for redacted config payloads")
+
+    monkeypatch.setattr(manager, "_load_plugins_state", _fail_load_plugins_state)
 
     list_entry = next(
         plugin
@@ -6280,6 +6455,39 @@ def test_prepare_backend_runtime_is_serialized_per_runtime_path(
     assert overlap_detected is False
     assert venv_call_count == 1
     assert pip_call_count == 1
+    assert manager._runtime_path_locks == {}
+
+
+def test_prepare_backend_runtime_uses_precomputed_dependency_inputs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Precomputed dependency payloads should bypass duplicate dependency resolution reads.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "runtime-precompute-fixture"
+    shutil.copytree(_fixture_path("backend"), plugin_root)
+
+    def _fail_read_backend_dependencies(_root: Path) -> list[str]:
+        raise AssertionError("backend dependency file read should be bypassed")
+
+    def _fail_build_worker_dependencies() -> list[str]:
+        raise AssertionError("worker dependency build should be bypassed")
+
+    monkeypatch.setattr(manager, "_read_backend_dependencies", _fail_read_backend_dependencies)
+    monkeypatch.setattr(
+        manager,
+        "_build_backend_worker_runtime_dependencies",
+        _fail_build_worker_dependencies,
+    )
+
+    manager._prepare_backend_runtime(
+        plugin_id="setta-fixture-backend",
+        version="0.1.0",
+        source_digest_sha256="runtime-precompute-digest",
+        plugin_root=plugin_root,
+        dependencies=[],
+        worker_dependencies=[],
+    )
 
 
 def test_validate_plugin_folder_rejects_missing_manifest(tmp_path: Path) -> None:
@@ -7760,6 +7968,99 @@ def test_worker_route_proxy_handles_plain_text_body_and_head_options_requests(
     assert request_context.get("method") == "POST"
     assert request_context.get("path") == route_path
     assert isinstance(request_context.get("headers"), list)
+
+
+def test_worker_route_proxy_skips_raw_body_when_route_does_not_require_request(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Route descriptors that opt out of raw body transport should avoid base64 payload forwarding.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    manager._register_backend_router_from_worker_request(
+        app=app,
+        entry=entry,
+        params={
+            "prefix": "/proxy",
+            "routes": [
+                {
+                    "routeId": "route_0",
+                    "path": "/echo",
+                    "methods": ["POST"],
+                    "needsRawBody": False,
+                }
+            ],
+        },
+    )
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    captured_params: list[dict[str, object]] = []
+
+    def _capture_call(**kwargs):
+        params = kwargs["params"]
+        assert isinstance(params, dict)
+        captured_params.append(params)
+        return {"statusCode": 200, "body": {"ok": True}}
+
+    monkeypatch.setattr(manager, "_call_backend_worker_method", _capture_call)
+    route_path = "/api/plugins/setta-fixture-backend/proxy/echo"
+
+    with TestClient(app) as client:
+        response = client.post(
+            route_path,
+            content="plain-text-body",
+            headers={"Content-Type": "text/plain"},
+        )
+    assert response.status_code == 200
+    assert captured_params[0]["jsonBody"] == "plain-text-body"
+    assert captured_params[0].get("rawBodyBase64") is None
+
+
+def test_register_backend_router_rejects_non_boolean_needs_raw_body_descriptor(
+    tmp_path: Path,
+) -> None:
+    # Worker router descriptors must use boolean needsRawBody values.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._register_backend_router_from_worker_request(
+            app=app,
+            entry=entry,
+            params={
+                "prefix": "/proxy",
+                "routes": [
+                    {
+                        "routeId": "route_0",
+                        "path": "/echo",
+                        "methods": ["POST"],
+                        "needsRawBody": "yes",
+                    }
+                ],
+            },
+        )
+    assert exc_info.value.code == "PLUGIN_BACKEND_REGISTER_FAILED"
 
 
 def test_worker_route_proxy_preserves_non_utf8_request_payloads(

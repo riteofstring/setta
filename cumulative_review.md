@@ -397,3 +397,17 @@
 - Improved runner DX/perf by deduplicating Playwright seeded fixture constants, adding stamp-based short-circuiting for local plugin artifact signatures, and reusing the shared Python resolver in backend test runner setup.
 - Removed the redundant top-level `scripts/plugin-fixtures/unlink.sh` wrapper and updated docs/tests to use canonical `setta plugins uninstall`.
 - Added/updated backend pytest, frontend Vitest, and Playwright coverage for all changed paths; completed CDP visual verification and appended perf notes/artifacts under `perf/`.
+
+## 2026-02-17 12:38:56 PST
+
+- Implemented the latest top-level `review*.md` fixes end-to-end, explicitly excluding backward-compatibility additions.
+- Fixed lockfile portability for package-manager plugins by excluding/skipping external-managed entries during lockfile write/apply convergence.
+- Reduced plugin-mutation lock contention by staging `link_plugin`/`rollback_plugin` work: reserve/validate under lock, runtime preparation outside lock, final mutation under lock.
+- Added lifecycle-scoped runtime-path locking (refcounted lock entries with cleanup) and removed duplicate backend dependency resolution by reusing precomputed dependency inputs in runtime prep.
+- Optimized non-IDE runtime payload generation by short-circuiting redacted config descriptor construction without loading plugin state.
+- Improved package-manager source digest correctness for editable/no-hash installs by including plugin-root change stamps tied to tracked manifest paths.
+- Made backend route raw-body transport conditional (`needsRawBody`) and updated worker registration/invocation to skip base64 decode when routes do not require `Request`.
+- Consolidated CLI plugin manager operation error mapping in `start.py` via a shared operation wrapper helper.
+- Unified frontend restart behavior via shared `requestPluginRestart(...)`, improved request-failure detail mapping, added thrown-error handling in Plugins pane actions, removed payload type-assertion casts, and reduced per-card capability scan overhead.
+- Consolidated fixture signature/change-stamp helpers and hardened fixture completeness checks to validate Vite manifest/import-referenced assets before allowing cache skips.
+- Added/updated backend unit/integration tests, frontend Vitest tests, and Playwright E2E coverage for these changes; targeted verification passed (`pytest`: 396 passed, `vitest`: 37 passed, targeted Playwright: 22 passed), and CDP visual verification was completed for Plugins restart/pane behavior.

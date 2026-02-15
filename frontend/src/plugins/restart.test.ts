@@ -2,13 +2,14 @@ import {
   buildPluginRestartActionPlan,
   getRestartRequiredPluginIds,
   mapPluginRestartResponse,
+  requestPluginRestart,
 } from "plugins/restart";
 import {
   createPluginListEntry,
   createPluginStatusEntry,
   type PluginListEntry,
 } from "utils/generatedTypes";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 function buildPluginListEntry(
   overrides: Partial<PluginListEntry>,
@@ -150,6 +151,45 @@ describe("plugin restart helpers", () => {
       }),
     ).toEqual({
       kind: "request_failed",
+      message: "Restart request failed.",
     });
+  });
+
+  it("maps error detail from restart endpoint payloads", () => {
+    expect(
+      mapPluginRestartResponse({
+        status: 500,
+        hasResponse: true,
+        data: {
+          detail: "restart endpoint failed",
+        } as unknown as {
+          accepted: boolean;
+          mode: "programmatic" | "manual";
+          command: string | null;
+          reason: string | null;
+        },
+      }),
+    ).toEqual({
+      kind: "request_failed",
+      message: "Restart request failed: restart endpoint failed",
+    });
+  });
+
+  it("requests restart through injected route caller", async () => {
+    const requestMock = vi.fn(async () => ({
+      status: 200,
+      hasResponse: true,
+      data: {
+        accepted: true,
+        mode: "programmatic" as const,
+        command: null,
+        reason: null,
+      },
+    }));
+
+    const result = await requestPluginRestart(requestMock);
+
+    expect(requestMock).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ kind: "accepted" });
   });
 });

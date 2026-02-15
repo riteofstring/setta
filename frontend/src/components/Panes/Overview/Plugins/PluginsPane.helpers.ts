@@ -25,7 +25,7 @@ const cachedCodegenTargetsByStatus = new WeakMap<
   PluginRegisteredCodegenTarget[]
 >();
 
-type PluginCapabilityStatus =
+export type PluginCapabilityStatus =
   | "effective"
   | "blocked"
   | "requested_unavailable"
