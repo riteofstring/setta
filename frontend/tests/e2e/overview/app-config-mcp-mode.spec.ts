@@ -1,6 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { ensureAppReady, ensureManagedChatEngine, seedLocalStorage } from "../helpers";
+import {
+  ensureAppReady,
+  ensureManagedChatEngine,
+  seedLocalStorage,
+} from "../helpers";
 
 async function captureGetLlmResponseRequests(
   page: Page,
@@ -48,6 +52,7 @@ test("mcp mode sends hidden app generation request without app-config browser co
     expect(capturedRequests.length).toBe(1);
     const request = capturedRequests[0];
     expect(request.appGenerationMode).toBe("mcp_server");
+    expect(request).not.toHaveProperty("skillsEnabled");
     const message = request.message as {
       content?: Array<{ type?: string; text?: string }>;
     };

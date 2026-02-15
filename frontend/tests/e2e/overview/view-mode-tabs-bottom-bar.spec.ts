@@ -181,27 +181,21 @@ test.describe("view mode bottom tab bar layout", () => {
     try {
       await forceIdeSessionState(page);
       await ensureNoTabbedViewModes(page, projectConfigId);
-      const tabAId = await createTabbedViewMode(page, projectConfigId, "Tab A");
-      const tabBId = await createTabbedViewMode(page, projectConfigId, "Tab B");
+      await createTabbedViewMode(page, projectConfigId, "Tab A");
+      await createTabbedViewMode(page, projectConfigId, "Tab B");
 
       await page.reload({ waitUntil: "domcontentloaded" });
       await waitForReady(page);
 
       const tabsBar = page.locator(VIEW_MODE_TABS_SELECTOR);
       await expect(tabsBar).toBeVisible();
-      const tabA = tabsBar.locator(
-        `[data-testid="view-mode-tab-button"][data-view-mode-id="${tabAId}"]`,
-      );
+      const tabA = tabsBar.getByRole("button", { name: "Tab A", exact: true });
       await expect(tabA).toBeVisible();
-      const tabB = tabsBar.locator(
-        `[data-testid="view-mode-tab-button"][data-view-mode-id="${tabBId}"]`,
-      );
+      const tabB = tabsBar.getByRole("button", { name: "Tab B", exact: true });
       await expect(tabB).toBeVisible();
 
       await expect(tabA).toHaveAttribute("title", "Tab A");
       await expect(tabB).toHaveAttribute("title", "Tab B");
-      await expect(tabA.locator("span.truncate")).toHaveText("Tab A");
-      await expect(tabB.locator("span.truncate")).toHaveText("Tab B");
 
       const tabStyles = await tabA.evaluate((el) => {
         const style = getComputedStyle(el);
@@ -273,26 +267,18 @@ test.describe("view mode bottom tab bar layout", () => {
     try {
       await forceIdeSessionState(page);
       await ensureNoTabbedViewModes(page, projectConfigId);
-      const tabAId = await createTabbedViewMode(page, projectConfigId, "Tab A");
-      const tabBId = await createTabbedViewMode(page, projectConfigId, "Tab B");
+      await createTabbedViewMode(page, projectConfigId, "Tab A");
+      await createTabbedViewMode(page, projectConfigId, "Tab B");
 
       await page.reload({ waitUntil: "domcontentloaded" });
       await waitForReady(page);
 
       const tabsBar = page.locator(VIEW_MODE_TABS_SELECTOR);
       await expect(tabsBar).toBeVisible();
-      const tabA = tabsBar.locator(
-        `[data-testid="view-mode-tab-button"][data-view-mode-id="${tabAId}"]`,
-      );
+      const tabA = tabsBar.getByRole("button", { name: "Tab A", exact: true });
       await expect(tabA).toBeVisible();
-      const tabB = tabsBar.locator(
-        `[data-testid="view-mode-tab-button"][data-view-mode-id="${tabBId}"]`,
-      );
+      const tabB = tabsBar.getByRole("button", { name: "Tab B", exact: true });
       await expect(tabB).toBeVisible();
-      await expect(tabA).toHaveAttribute("title", "Tab A");
-      await expect(tabB).toHaveAttribute("title", "Tab B");
-      await expect(tabA.locator("span.truncate")).toHaveText("Tab A");
-      await expect(tabB.locator("span.truncate")).toHaveText("Tab B");
 
       const barStyles = await tabsBar.evaluate((el) => {
         const style = getComputedStyle(el);

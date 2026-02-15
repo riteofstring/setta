@@ -39,6 +39,7 @@ from setta.agentic.chat_view import (
     build_chat_state_from_run,
     get_run_last_updated,
 )
+from setta.agentic.completion_guard import apply_completion_guard
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.run_outputs import build_run_outputs
 from setta.agentic.store import (
@@ -485,6 +486,7 @@ class AgentRunner:
                         context,
                         parsed_tool_calls,
                     )
+                    self._apply_completion_guard(messages, assistant_message)
                     if assistant_message.tool_calls:
                         await self._apply_actions(
                             [
@@ -532,6 +534,7 @@ class AgentRunner:
                             context,
                             parsed_tool_calls,
                         )
+                        self._apply_completion_guard(messages, assistant_message)
                         messages.append(assistant_message)
                         await self._apply_actions(
                             [
@@ -612,6 +615,7 @@ class AgentRunner:
                             context,
                             parsed_tool_calls,
                         )
+                        self._apply_completion_guard(messages, assistant_message)
                         messages.append(assistant_message)
                         await self._apply_actions(
                             [
@@ -2471,6 +2475,13 @@ class AgentRunner:
         if assistant_message.tool_calls:
             return True
         return False
+
+    @staticmethod
+    def _apply_completion_guard(
+        prior_messages: list[BaseChatMessageUnion],
+        assistant_message: AssistantChatMessage,
+    ) -> None:
+        apply_completion_guard(prior_messages, assistant_message)
 
     def _record_event(
         self, run: AgentRun, event_type: str, payload: dict[str, Any]
