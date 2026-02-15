@@ -1,3 +1,3 @@
-from setta.binary.store import BinaryStore
+from setta.binary.store import BinaryPayloadTooLargeError, BinaryStore
 
-__all__ = ["BinaryStore"]
+__all__ = ["BinaryPayloadTooLargeError", "BinaryStore"]

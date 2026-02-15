@@ -29,6 +29,7 @@ from setta.agentic.external_agent_runner import (
     ExternalAgentRunState,
     ExternalAgentRunner,
 )
+from setta.agentic.completion_guard import MISSING_CHECKS_MESSAGE
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
 from setta.database.db_objs import DBE
@@ -44,6 +45,7 @@ from setta.types.chat_messages import (
     MessageTextContent,
     ToolCall,
     ToolCallFunction,
+    UserChatMessage,
 )
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
@@ -75,7 +77,6 @@ from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
-from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.utils.constants import C
@@ -638,6 +639,30 @@ class TestExternalAgentRunner:
             payload = json.loads(Path(str(config_path)).read_text(encoding="utf-8"))
             assert "permission" not in payload
 
+    def test_context_applies_runtime_approval_policy_override(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="default",
+            )
+
+            context = _build_context_for_test(
+                runner,
+                config,
+                inputs={
+                    "allowUnscoped": True,
+                    "approvalPolicy": "bypassPermissions",
+                },
+            )
+
+            assert context.config.approvalPolicy == "bypassPermissions"
+            assert config.approvalPolicy == "default"
+
     def test_ai_follow_snapshot_normalizes(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1039,82 +1064,6 @@ class TestExternalAgentRunner:
 
             assert env.get("OPENAI_API_KEY") == "secret"
 
-    def test_plugin_adapter_env_whitelist_is_applied_in_runtime_env(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
-            dbe.dot_env = Path(tmpdir) / ".env"
-            dbe.write_dot_env({"FIXTURE_EXTERNAL_AGENT_TOKEN": "secret"})
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            registration = PluginRegisteredExternalAgentAdapter(
-                adapterId="setta-fixture-backend-external-agent:fixture-agent",
-                pluginId="setta-fixture-backend-external-agent",
-                name="Fixture External Agent",
-                runModes=["sdk"],
-                command=sys.executable,
-                args=["-c", "print('fixture')"],
-                envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
-                defaultModel="fixture-model",
-            )
-            runner = ExternalAgentRunner(
-                dbe,
-                frontend_sender,
-                plugin_external_agent_adapters=[registration],
-            )
-            config = ExternalAgentConfig(
-                name="Fixture Plugin Adapter",
-                toolType=ExternalAgentToolType.plugin,
-                pluginAdapterId=registration.adapterId,
-                runMode=ExternalAgentRunMode.sdk,
-                envVarWhitelist=[],
-            )
-
-            env = runner._build_env(config)
-
-            assert env.get("FIXTURE_EXTERNAL_AGENT_TOKEN") == "secret"
-
-    def test_non_plugin_tool_ignores_plugin_adapter_env_whitelist(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
-            dbe.dot_env = Path(tmpdir) / ".env"
-            dbe.write_dot_env(
-                {
-                    "OPENAI_API_KEY": "openai-secret",
-                    "FIXTURE_EXTERNAL_AGENT_TOKEN": "plugin-secret",
-                }
-            )
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            registration = PluginRegisteredExternalAgentAdapter(
-                adapterId="setta-fixture-backend-external-agent:fixture-agent",
-                pluginId="setta-fixture-backend-external-agent",
-                name="Fixture External Agent",
-                runModes=["sdk"],
-                command=sys.executable,
-                args=["-c", "print('fixture')"],
-                envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
-                defaultModel="fixture-model",
-            )
-            runner = ExternalAgentRunner(
-                dbe,
-                frontend_sender,
-                plugin_external_agent_adapters=[registration],
-            )
-            config = ExternalAgentConfig(
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                pluginAdapterId=registration.adapterId,
-                runMode=ExternalAgentRunMode.app_server,
-                envVarWhitelist=["OPENAI_API_KEY"],
-            )
-
-            env = runner._build_env(config)
-
-            assert env.get("OPENAI_API_KEY") == "openai-secret"
-            assert "FIXTURE_EXTERNAL_AGENT_TOKEN" not in env
-
     def test_claude_mcp_config_is_written(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1438,86 +1387,6 @@ class TestExternalAgentRunner:
             assert not context.working_dir.exists()
 
 
-class TestExternalAgentRunnerPluginAdapter:
-    pytestmark = pytest.mark.asyncio
-
-    async def test_plugin_process_adapter_runs_and_streams_text(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        fixture_script = (
-            Path(__file__).resolve().parents[1]
-            / "fixtures"
-            / "plugins"
-            / "backend-external-agent"
-            / "backend"
-            / "mini_external_agent.py"
-        )
-        assert fixture_script.exists()
-
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe)
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            registration = PluginRegisteredExternalAgentAdapter(
-                adapterId="setta-fixture-backend-external-agent:fixture-agent",
-                pluginId="setta-fixture-backend-external-agent",
-                name="Fixture External Agent",
-                runModes=["sdk"],
-                command=sys.executable,
-                args=[str(fixture_script)],
-                envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
-                defaultModel="fixture-model",
-            )
-            runner = ExternalAgentRunner(
-                dbe,
-                frontend_sender,
-                plugin_external_agent_adapters=[registration],
-            )
-            lookup_call_count = 0
-            original_lookup = runner._adapter_registry.lookup
-
-            def _record_lookup(*args, **kwargs):
-                nonlocal lookup_call_count
-                lookup_call_count += 1
-                return original_lookup(*args, **kwargs)
-
-            monkeypatch.setattr(runner._adapter_registry, "lookup", _record_lookup)
-            config = ExternalAgentConfig(
-                name="Fixture Plugin Adapter",
-                toolType=ExternalAgentToolType.plugin,
-                pluginAdapterId=registration.adapterId,
-                runMode=ExternalAgentRunMode.sdk,
-                envVarWhitelist=[],
-            )
-
-            run = runner.start_run(
-                ID("engine-plugin"),
-                config,
-                None,
-                {
-                    "prompt": "hello world",
-                    "allowUnscoped": True,
-                },
-            )
-            completed = await runner.wait_for_run(run.id, timeout=10.0)
-
-            assert completed.status == AgentRunStatus.completed
-            assert completed.outputs is not None
-            assert completed.outputs.get("sessionId") == "fixture-session"
-            final_text = completed.outputs.get("finalText")
-            assert isinstance(final_text, str)
-            assert "fixture external adapter reply: hello world" in final_text
-            metadata = completed.outputs.get("metadata")
-            assert isinstance(metadata, dict)
-            if isinstance(metadata, dict):
-                assert metadata.get("toolType") == "plugin"
-                assert metadata.get("runMode") == "sdk"
-                assert metadata.get("externalAgentConfigId") == str(config.id)
-            assert lookup_call_count == 1
-
-
 class TestExternalAgentRunnerApproval:
     pytestmark = pytest.mark.asyncio
     async def test_approval_request_emits_tool_call(self) -> None:
@@ -1758,6 +1627,70 @@ class TestExternalAgentRunnerQuestion:
             assert state.chat_id == ID("chat-1")
             assert state.section_id == ID("section-1")
             assert state.approval_id is None
+
+    async def test_message_finalized_applies_completion_guard(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                inputs={
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "projectConfigId": str(project_config.id),
+                    "messages": [
+                        UserChatMessage(
+                            id="user-1",
+                            content=[
+                                MessageTextContent(
+                                    text=(
+                                        "Create a new project and scaffold "
+                                        "everything."
+                                    )
+                                )
+                            ],
+                        ).model_dump(mode="json")
+                    ],
+                },
+            )
+            run = context.run
+
+            await runner._handle_stream_chunk(
+                context,
+                run,
+                MessageFinalizedEvent(
+                    message=AssistantChatMessage(
+                        id="assistant-1",
+                        content=[
+                            MessageTextContent(text="Done. Everything is ready.")
+                        ],
+                    )
+                ),
+            )
+
+            updated = load_agent_run(dbe, run.id)
+            assert updated is not None
+            outputs = updated.outputs or {}
+            messages = outputs.get("messages")
+            assert isinstance(messages, list)
+            assistant_messages = [
+                message
+                for message in messages
+                if isinstance(message, dict) and message.get("role") == "assistant"
+            ]
+            assert assistant_messages
+            assistant_content = assistant_messages[-1].get("content")
+            assert isinstance(assistant_content, list)
+            last_text_block = assistant_content[0]
+            assert isinstance(last_text_block, dict)
+            assert last_text_block.get("text") == MISSING_CHECKS_MESSAGE
 
     async def test_question_approval_attaches_after_tool_call(self) -> None:
         with TemporaryDirectory() as tmpdir:

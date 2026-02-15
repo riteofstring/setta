@@ -36,7 +36,6 @@ from setta.agentic.store import (
     save_prompt_template,
 )
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
-from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.agentic import (
@@ -156,7 +155,6 @@ class CreateExternalAgentConfigRequest(BaseModel):
     name: str
     description: str = ""
     toolType: ExternalAgentToolType
-    pluginAdapterId: str | None = None
     runMode: ExternalAgentRunMode
     commandPath: str | None = None
     baseUrl: str | None = None
@@ -205,50 +203,6 @@ class GetEngineConfigRequest(BaseModel):
 
 class DeleteEngineConfigRequest(BaseModel):
     configId: ID
-
-
-def _get_plugin_external_agent_adapters(
-    ctx: RuntimeContextFromRequest,
-) -> list[PluginRegisteredExternalAgentAdapter]:
-    return ctx.state.external_agent_runner.get_plugin_external_agent_adapters()
-
-
-def _validate_plugin_external_agent_selection(
-    ctx: RuntimeContextFromRequest,
-    *,
-    tool_type: ExternalAgentToolType,
-    plugin_adapter_id: str | None,
-    run_mode: ExternalAgentRunMode,
-) -> PluginRegisteredExternalAgentAdapter | None:
-    if tool_type != ExternalAgentToolType.plugin:
-        if plugin_adapter_id is not None and plugin_adapter_id.strip() != "":
-            raise HTTPException(
-                status_code=400,
-                detail="pluginAdapterId is only supported for plugin toolType.",
-            )
-        return None
-    normalized_adapter_id = (plugin_adapter_id or "").strip()
-    if normalized_adapter_id == "":
-        raise HTTPException(
-            status_code=400,
-            detail="pluginAdapterId is required when toolType is plugin.",
-        )
-    plugin_adapter = ctx.state.external_agent_runner.get_plugin_external_agent_adapter(
-        normalized_adapter_id
-    )
-    if plugin_adapter is None:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Plugin external agent adapter not found: {normalized_adapter_id}",
-        )
-    if run_mode.value not in plugin_adapter.runModes:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Run mode {run_mode.value} is not supported by {normalized_adapter_id}"
-            ),
-        )
-    return plugin_adapter
 
 
 @router.get(Route.GET_AGENT_PROFILES)
@@ -356,11 +310,7 @@ async def route_start_agent_run(
             raise HTTPException(
                 status_code=500, detail="External agent config not found"
             )
-        status = build_external_agent_preflight_status(
-            ctx.state.dbe,
-            external_config,
-            plugin_external_agent_adapters=_get_plugin_external_agent_adapters(ctx),
-        )
+        status = build_external_agent_preflight_status(ctx.state.dbe, external_config)
         if not status.available:
             issues = "; ".join(status.issues) if status.issues else "preflight failed"
             raise HTTPException(
@@ -626,13 +576,8 @@ async def route_get_external_agent_health(
 ) -> list[ExternalAgentPreflightStatus]:
     await ctx.enforce_llm_allowed()
     configs = load_external_agent_configs(ctx.state.dbe)
-    plugin_external_agent_adapters = _get_plugin_external_agent_adapters(ctx)
     return [
-        build_external_agent_preflight_status(
-            ctx.state.dbe,
-            config,
-            plugin_external_agent_adapters=plugin_external_agent_adapters,
-        )
+        build_external_agent_preflight_status(ctx.state.dbe, config)
         for config in configs
     ]
 
@@ -645,16 +590,6 @@ async def route_create_external_agent_config(
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow creating external agent configs.")
     configs = load_external_agent_configs(ctx.state.dbe)
-    plugin_adapter = _validate_plugin_external_agent_selection(
-        ctx,
-        tool_type=x.toolType,
-        plugin_adapter_id=x.pluginAdapterId,
-        run_mode=x.runMode,
-    )
-    env_var_whitelist = sorted(
-        {name.strip() for name in x.envVarWhitelist if name.strip()}
-    )
-
     approval_policy = x.approvalPolicy
     sandbox_policy = x.sandboxPolicy
     if x.toolType == ExternalAgentToolType.codex:
@@ -672,9 +607,6 @@ async def route_create_external_agent_config(
         name=x.name,
         description=x.description,
         toolType=x.toolType,
-        pluginAdapterId=(
-            plugin_adapter.adapterId if plugin_adapter is not None else None
-        ),
         runMode=x.runMode,
         commandPath=x.commandPath,
         baseUrl=x.baseUrl,
@@ -686,7 +618,7 @@ async def route_create_external_agent_config(
         settingsFilePath=x.settingsFilePath,
         settingsAllowSettaEdits=x.settingsAllowSettaEdits,
         settingsManagedBlock=settings_block,
-        envVarWhitelist=env_var_whitelist,
+        envVarWhitelist=x.envVarWhitelist,
         workingDirStrategy=x.workingDirStrategy,
         workingDir=x.workingDir,
     )
@@ -726,33 +658,15 @@ async def route_update_external_agent_config(
 ) -> ExternalAgentConfig:
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow updating external agent configs.")
-    plugin_adapter = _validate_plugin_external_agent_selection(
-        ctx,
-        tool_type=x.config.toolType,
-        plugin_adapter_id=x.config.pluginAdapterId,
-        run_mode=x.config.runMode,
-    )
-    env_var_whitelist = sorted(
-        {name.strip() for name in x.config.envVarWhitelist if name.strip()}
-    )
-    updated_config = x.config.model_copy(
-        update={
-            "pluginAdapterId": (
-                plugin_adapter.adapterId if plugin_adapter is not None else None
-            ),
-            "envVarWhitelist": env_var_whitelist,
-            "defaultModel": x.config.defaultModel,
-        }
-    )
     configs = load_external_agent_configs(ctx.state.dbe)
     for idx, config in enumerate(configs):
-        if config.id == updated_config.id:
-            configs[idx] = updated_config
+        if config.id == x.config.id:
+            configs[idx] = x.config
             save_external_agent_configs(ctx.state.dbe, configs)
             await ctx.state.wmh_frontend_sender.broadcast_external_agent_configs_update(
                 configs
             )
-            return updated_config
+            return x.config
     raise HTTPException(status_code=404, detail="External agent config not found")
 
 
