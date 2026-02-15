@@ -1,10 +1,16 @@
 import { useHomePageSearch } from "state/definitions";
 
-export function HomePageSearchBar() {
+export function HomePageSearchBar({
+  className = "",
+}: {
+  className?: string;
+}) {
   const value = useHomePageSearch((x) => x.value);
 
   return (
-    <search className="nodrag relative mx-[2px] ml-4 flex w-[clamp(10rem,_30vw,_15rem)] min-w-0 items-center self-center  dark:text-setta-200">
+    <search
+      className={`nodrag relative mx-[2px] flex w-[clamp(10rem,_30vw,_15rem)] min-w-0 items-center self-center dark:text-setta-200 ${className}`}
+    >
       <div className="pointer-events-none absolute left-0 grid select-none place-items-center pl-1">
         <i
           className="gg-sort-az ml-[.4rem] !scale-75 text-setta-300 dark:text-setta-600"
