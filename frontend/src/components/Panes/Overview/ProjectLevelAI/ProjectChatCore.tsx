@@ -33,20 +33,12 @@ import {
 } from "utils/generatedEndpoints";
 import { ChatFileAttachment, EngineTypeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
-import { buildDesignFirstFigmaStarterPrompt } from "./projectChatStarterPrompts";
 
-function EmptyChatState({
-  onDesignFirstPrompt,
-}: {
-  onDesignFirstPrompt: () => void;
-}) {
+function EmptyChatState() {
   return (
     <div className="flex min-h-0 flex-1 flex-wrap content-center items-center justify-center gap-4 overflow-y-auto">
-      <button
-        className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50"
-        onClick={onDesignFirstPrompt}
-      >
-        <TbLayoutDashboard /> Create Project UI (Design First)
+      <button className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50">
+        <TbLayoutDashboard /> Create Project UI
       </button>
     </div>
   );
@@ -304,15 +296,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     () => !waitingForResponse && hasPendingToolInteraction(messages),
     [messages, waitingForResponse],
   );
-  const handleDesignFirstPrompt = useCallback(() => {
-    const starterPrompt = buildDesignFirstFigmaStarterPrompt();
-    setDraftMessage((current) => (current.trim() ? current : starterPrompt));
-  }, []);
 
   return (
     <>
       {showEmptyState ? (
-        <EmptyChatState onDesignFirstPrompt={handleDesignFirstPrompt} />
+        <EmptyChatState />
       ) : (
         <ChatMessageList
           messages={messages}
