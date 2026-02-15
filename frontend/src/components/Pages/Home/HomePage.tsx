@@ -732,8 +732,10 @@ function HomeProjectGallery({
         <h2 className="text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
           Projects
         </h2>
-        <div className="flex min-w-0 flex-1 justify-center px-2">
-          <HomePageSearchBar className="w-full max-w-sm" />
+        <div className="flex min-w-0 flex-1 justify-center">
+          <HomePageSearchBar
+            className={`${HOME_FILE_BROWSER_TITLE_INSET_CLASS} max-w-sm`}
+          />
         </div>
         <div className="flex items-center gap-1">
           <button
