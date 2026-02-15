@@ -82,7 +82,7 @@ Examples mapped to these types:
 
 Proposed search order:
 
-- Workspace plugins: `<workspace>/plugins/*/setta.plugin.json`
+- Workspace plugins: `<workspace>/.setta_plugins/*/setta.plugin.json`
 - Setta-files plugins (workspace-scoped, non-shareable): `<setta_files_root>/plugins/*/setta.plugin.json` (optional; `setta_files_root` can be local or global, see `docs/reference/setta-files.md`)
 - Global user-level plugins: `<setta_home>/plugins/*/setta.plugin.json` (optional; typically `~/.setta/plugins`, resolved via `resolve_setta_home()`, override with `SETTA_HOME`)
 
@@ -92,7 +92,7 @@ Workspace `plugins/` is the primary "drop a folder in" mechanism and is the only
 
 Treat installation location as an explicit scope:
 
-- `workspace`: `<workspace>/plugins/<pluginId>/...`
+- `workspace`: `<workspace>/.setta_plugins/<pluginId>/...`
 - `setta_files`: `<setta_files_root>/plugins/<pluginId>/...` (workspace-scoped but not in git)
 - `global`: `<setta_home>/plugins/<pluginId>/...`
 
@@ -759,7 +759,7 @@ This turns Setta itself into a "plugin authoring" tool for reusable workflows.
 
 Implementation note:
 
-- Today, the backend has APIs like `route_create_file` but does not have a generic "write arbitrary file contents to workspace root" API. Export flows will likely need a dedicated backend route/tool that is explicitly constrained to writing under `<workspace>/plugins/...` (IDE mode only).
+- Today, the backend has APIs like `route_create_file` but does not have a generic "write arbitrary file contents to workspace root" API. Export flows will likely need a dedicated backend route/tool that is explicitly constrained to writing under `<workspace>/.setta_plugins/...` (IDE mode only).
 
 ### Project templates
 
@@ -944,7 +944,7 @@ Recommended behavior:
   - backend plugin if `backend.entrypoint` exists
   - content plugin if `content.*Dir` exists
 - It prints a clear summary including `pluginId`, `version`, detected components, and whether a restart is required.
-- Default install scope is workspace: `<workspace>/plugins/<pluginId>/`.
+- Default install scope is workspace: `<workspace>/.setta_plugins/<pluginId>/`.
 - `--global` installs into `<setta_home>/plugins/<pluginId>/` (using `resolve_setta_home()`, honoring `SETTA_HOME`).
 - Output should include both install scope and target path.
 - `install` enables the plugin by default in the target scope; `--no-enable` skips that.
@@ -1010,7 +1010,7 @@ Required lifecycle commands (normative MVP):
 
 Safety baseline (still assuming trusted plugins):
 
-- Prevent path traversal by ensuring all resolved/copy paths stay within the chosen target root (`<workspace>/plugins` or `<setta_home>/plugins`).
+- Prevent path traversal by ensuring all resolved/copy paths stay within the chosen target root (`<workspace>/.setta_plugins` or `<setta_home>/plugins`).
 - Refuse to overwrite an existing plugin folder in the target scope unless `--force` is provided.
 
 Atomic install semantics (normative MVP):
@@ -1043,7 +1043,7 @@ Rollback semantics (normative MVP):
 
 Setta plugin lockfile (implemented):
 
-- Setta writes `<workspace>/plugins/plugins.lock.json` as a Setta-specific reproducibility layer.
+- Setta writes `<workspace>/.setta_plugins/plugins.lock.json` as a Setta-specific reproducibility layer.
 - Package-manager lockfiles (`uv.lock`, Poetry lock, pinned requirements, etc.) still remain the source of truth for Python dependency reproducibility.
 - Setta lockfile focuses on Setta runtime state (scope/source/provenance) and does not replace package-manager dependency resolution.
 

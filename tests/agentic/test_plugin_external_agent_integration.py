@@ -36,7 +36,7 @@ async def test_plugin_registered_external_agent_runs_through_runner() -> None:
         workspace_root = tmp_root / "workspace"
         setta_files_root = tmp_root / "setta_files"
         setta_home = tmp_root / "setta_home"
-        plugin_root = workspace_root / "plugins" / "setta-fixture-backend-external-agent"
+        plugin_root = workspace_root / ".setta_plugins" / "setta-fixture-backend-external-agent"
         plugin_root.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(FIXTURE_ROOT, plugin_root)
 
@@ -105,7 +105,7 @@ async def test_plugin_external_agent_approval_roundtrip_through_runner() -> None
         workspace_root = tmp_root / "workspace"
         setta_files_root = tmp_root / "setta_files"
         setta_home = tmp_root / "setta_home"
-        plugin_root = workspace_root / "plugins" / "setta-fixture-backend-external-agent"
+        plugin_root = workspace_root / ".setta_plugins" / "setta-fixture-backend-external-agent"
         plugin_root.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(FIXTURE_ROOT, plugin_root)
         (plugin_root / "backend" / "mini_external_agent.py").write_text(

@@ -255,7 +255,7 @@ class TestCodegenTargetsRunCommand:
             setta_version="0.1.0",
         )
         plugin_id = "setta-fixture-backend-codegen"
-        plugin_destination = self._workspace_root / "plugins" / plugin_id
+        plugin_destination = self._workspace_root / ".setta_plugins" / plugin_id
         plugin_destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(FIXTURE_PLUGIN_ROOT / "backend-codegen", plugin_destination)
         plugin_manager.rescan()

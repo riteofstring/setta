@@ -102,7 +102,7 @@ def test_plugin_tools_rescan_and_uninstall_real_fixture(tmp_path: Path) -> None:
         deployment_mode=False,
         server_mode="ide",
     )
-    plugin_root = manager.workspace_root / "plugins" / "setta-fixture-frontend"
+    plugin_root = manager.workspace_root / ".setta_plugins" / "setta-fixture-frontend"
     plugin_root.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(
         FIXTURE_PLUGIN_ROOT / "frontend",
@@ -136,7 +136,7 @@ def test_plugin_tools_load_backend_fixture_registers_multiple_mcp_tools(
         deployment_mode=False,
         server_mode="ide",
     )
-    plugin_root = manager.workspace_root / "plugins" / "setta-fixture-backend-mcp-tools"
+    plugin_root = manager.workspace_root / ".setta_plugins" / "setta-fixture-backend-mcp-tools"
     plugin_root.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(
         FIXTURE_PLUGIN_ROOT / "backend-mcp-tools",

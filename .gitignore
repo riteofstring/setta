@@ -36,7 +36,7 @@ __pycache__/
 build/
 dist/
 # Local workspace plugin fixture links from scripts/plugin-fixtures/*.sh
-plugins/setta-fixture-*
+.setta_plugins/setta-fixture-*
 *.egg-info/
 site/
 venv/

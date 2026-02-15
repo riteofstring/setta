@@ -379,7 +379,9 @@ class PluginManager:
             self.setta_files_root / "plugins_install_metadata.json"
         )
         self._history_root = self.setta_files_root / "plugins_history"
-        self._lockfile_path = self.workspace_root / "plugins" / "plugins.lock.json"
+        self._lockfile_path = (
+            self.workspace_root / ".setta_plugins" / "plugins.lock.json"
+        )
         self._runtime_root = self.setta_files_root / "plugins_runtime"
 
         initial_plugins_state = self._load_plugins_state()
@@ -5073,7 +5075,7 @@ class PluginManager:
 
     def _plugins_root_for_scope(self, scope: PluginScope) -> Path:
         if scope == PluginScope.workspace:
-            return (self.workspace_root / "plugins").resolve(strict=False)
+            return (self.workspace_root / ".setta_plugins").resolve(strict=False)
         if scope == PluginScope.setta_files:
             return (self.setta_files_root / "plugins").resolve(strict=False)
         return (self.setta_home / "plugins").resolve(strict=False)

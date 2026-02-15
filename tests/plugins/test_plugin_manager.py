@@ -73,7 +73,7 @@ def _fixture_manifest(name: str) -> dict:
 
 def _scope_root(manager: PluginManager, scope: PluginScope) -> Path:
     if scope == PluginScope.workspace:
-        return manager.workspace_root / "plugins"
+        return manager.workspace_root / ".setta_plugins"
     if scope == PluginScope.setta_files:
         return manager.setta_files_root / "plugins"
     return manager.setta_home / "plugins"
@@ -2935,7 +2935,7 @@ def test_init_build_install_golden_path_plugin_is_usable(tmp_path: Path) -> None
     marker_payload = json.loads(
         (
             manager.workspace_root
-            / "plugins"
+            / ".setta_plugins"
             / plugin_id
             / "backend"
             / "register.marker.json"
@@ -3011,7 +3011,7 @@ def test_apply_lockfile_fails_when_lockfile_missing(tmp_path: Path) -> None:
 def test_apply_lockfile_fails_on_invalid_json(tmp_path: Path) -> None:
     # Lockfile apply must fail deterministically on malformed lockfile JSON payloads.
     manager = _make_manager(tmp_path)
-    lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+    lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
     lockfile_path.parent.mkdir(parents=True, exist_ok=True)
     lockfile_path.write_text("{not-valid-json", encoding="utf-8")
 
@@ -3023,7 +3023,7 @@ def test_apply_lockfile_fails_on_invalid_json(tmp_path: Path) -> None:
 def test_apply_lockfile_requires_source_spec_for_missing_plugin(tmp_path: Path) -> None:
     # Lockfile apply must reject entries that require install but omit sourceSpec.
     manager = _make_manager(tmp_path)
-    lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+    lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
     lockfile_path.parent.mkdir(parents=True, exist_ok=True)
     lockfile_path.write_text(
         json.dumps(
@@ -3059,7 +3059,7 @@ def test_apply_lockfile_plans_uninstall_for_plugins_missing_from_lockfile(
         enable=True,
         force=False,
     )
-    lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+    lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
     lockfile_path.parent.mkdir(parents=True, exist_ok=True)
     lockfile_path.write_text(
         json.dumps(
@@ -3090,7 +3090,7 @@ def test_apply_lockfile_executes_uninstall_for_plugins_missing_from_lockfile(
         enable=True,
         force=False,
     )
-    lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+    lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
     lockfile_path.parent.mkdir(parents=True, exist_ok=True)
     lockfile_path.write_text(
         json.dumps(
@@ -3152,7 +3152,7 @@ def test_apply_lockfile_reconciles_digest_mismatches_for_existing_plugins(
             enable=True,
             force=False,
         )
-        lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+        lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
         lockfile_path.parent.mkdir(parents=True, exist_ok=True)
         lockfile_path.write_text(
             json.dumps(
@@ -3224,7 +3224,7 @@ def test_apply_lockfile_reconciles_source_spec_changes_for_existing_plugins(
             enable=True,
             force=False,
         )
-        lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+        lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
         lockfile_path.parent.mkdir(parents=True, exist_ok=True)
         lockfile_path.write_text(
             json.dumps(
@@ -3308,7 +3308,7 @@ def test_apply_lockfile_requires_source_spec_for_source_reconcile(
             enable=True,
             force=False,
         )
-        lockfile_path = manager.workspace_root / "plugins" / "plugins.lock.json"
+        lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
         lockfile_path.parent.mkdir(parents=True, exist_ok=True)
         lockfile_path.write_text(
             json.dumps(
