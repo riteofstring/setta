@@ -256,12 +256,18 @@ def python_type_to_ts(
 def create_ts_fn_def(
     endpoint_path, method, fn_name, args, args_with_annotations, output_annotation
 ):
-    definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<ResponseDataAndStatus<{output_annotation}>>"
     endpoint_path_without_prefix = endpoint_path
     if endpoint_path_without_prefix.startswith(Route.PREFIX.value):
         endpoint_path_without_prefix = endpoint_path_without_prefix[
             len(Route.PREFIX.value) :
         ]
+    if fn_name == "route_binary_download":
+        return f"""
+export async function {fn_name}(contentId: string): Promise<ResponseDataAndStatus<Uint8Array>> {{
+    return await getBinary("{endpoint_path_without_prefix}", {{ contentId }})
+}}
+"""
+    definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<ResponseDataAndStatus<{output_annotation}>>"
     if fn_name == "route_binary_upload":
         return f"""
 export async function {fn_name}(form: FormData): Promise<ResponseDataAndStatus<{output_annotation}>> {{
@@ -303,7 +309,7 @@ export async function {fn_name}(form: FormData): Promise<ResponseDataAndStatus<{
 def create_imports():
     return f"""
 import * as {GENERATED_TYPE_ALIAS} from "./generatedTypes"
-import {{ get, post, ResponseDataAndStatus }} from "./endpointUtils"
+import {{ get, getBinary, post, ResponseDataAndStatus }} from "./endpointUtils"
 
 """
 

@@ -1,59 +1,33 @@
-## 2026-02-17 09:04:23 PST
+## 2026-02-17 09:31:46 PST
 
-- Fixed Overview rail regression by restoring stable tab `data-testid` hooks, restoring chat-first ordering, and restoring `overview-tab-content-shell` for overflow/inset checks.
-- Fixed project-config reorder UX defects by persisting order in local storage (`overviewProjectConfigOrder`) and preventing drag-handle clicks from triggering navigation.
-- Fixed Home selected-project section count to use object keys and reduced per-item favorite subscriptions by passing favorite state from parent sections.
-- Removed redundant view-mode ordering utility code and consolidated `ViewModeTabs` sorting to a single pass.
-- Hardened backend init status response by removing exposed worktree paths, removing duplicate `worktreeOptions`, and eliminating duplicate git worktree-list calls per snapshot.
-- Added/updated coverage across backend pytest, frontend Vitest, and Playwright overview E2E flows for rail order, pane overflow, view-mode/project-config reordering, and drag-handle behavior.
+- Consolidated findings from top-level branch reviews were implemented without backward compatibility, legacy shims, or migration layers.
+- Fixed share-policy enforcement gap by adding layout guard coverage to list-root view mode mutation routes.
+- Reworked file-browser spreadsheet disk-change handling to use a dedicated single-file stat route and integer nanosecond mtimes end-to-end.
+- Optimized spreadsheet edit/update paths to avoid full-grid cloning on localized cell edits.
+- Scoped file-browser copy/cut/paste shortcuts so editable targets (inputs, contenteditable, CodeMirror) preserve native clipboard behavior.
+- Made spreadsheet section rename flow consistent with other file-open flows via sanitized naming and explicit rename response handling.
+- Removed race-prone polling for calendar preset application by returning `metaControlParamId` from section creation and applying config deterministically.
+- Removed legacy TextParam date/time compatibility branches and unreachable combobox branches, keeping DateParam/TimeParam as canonical behavior.
+- Removed database migration/auto-expansion behavior so project loading uses strict model validation with no payload rewrites.
+- Added/updated backend, Vitest, and Playwright coverage for these changes and verified targeted suites pass.
 
-## 2026-02-17 09:41:34 PST
+## 2026-02-17 10:18:34 PST
 
-- Fixed Home initial-load width clamping so persisted left/right panel widths are only clamped after desktop width is measured, preventing silent layout collapse on reload.
-- Fixed Project Config ordering robustness by deduping persisted IDs, sanitizing writes to `overviewProjectConfigOrder`, and fully gating reorder/drag behavior behind `canEditProjectConfigs`.
-- Restored drag affordance clarity for tabbed view modes by rendering the visible handle glyph and adding explicit drag handle accessibility labels.
-- Removed low-value branching and selector cost by dropping deep `_.isEqual` subscription in file-menu metadata hook and removing obsolete array fallback in project-config preview rendering.
-- Updated stale perf-report assertion text to match current automated perf coverage.
-- Added/updated Vitest and Playwright coverage for Home width persistence, read-only reorder lock, duplicate-order sanitization, tab handle affordance visibility, file-menu selector behavior, and project-config preview rendering.
+- Replaced file-browser base64 payload contracts with binary content-id contracts: read responses now return `contentId`, and writes now accept `contentId`.
+- Updated backend file-browser routes to persist/read temporary binary payloads through `BinaryStore` while preserving existing size and mtime conflict behavior.
+- Updated frontend spreadsheet preview/save and native file import flows to upload/download binary payloads directly instead of converting bytes to/from base64 strings.
+- Added a dedicated `getBinary` endpoint utility path so binary endpoint parsing always returns raw bytes regardless of MIME type.
+- Synced endpoint generator behavior so regenerated `route_binary_download` uses binary fetch semantics and `Uint8Array` typing.
+- Added/updated tests across backend pytest, frontend Vitest, and Playwright E2E to cover the new binary content flow and verify end-to-end read/write behavior.
 
-## 2026-02-17 10:10:48 PST
+## 2026-02-17 11:33:24 PST
 
-- Fixed keyboard propagation regressions in Home list rows and Overview Project Config edit rows by scoping row key handlers to direct-target events and stopping nested action-button keydown bubbling.
-- Restored accessible Home project-card keyboard open behavior by supporting both `Enter` and `Space` on the thumbnail focus surface while preserving single-click select and double-click open.
-- Reduced default Home file-browser overhead by making Setta initialization badges opt-in via a new UI toggle and forcing a root refresh only when the toggle state changes.
-- Removed duplicate frontend ID dedupe implementations by introducing a shared `dedupeStringIds` utility and reusing it in local-storage ordering and project-config merge logic.
-- Removed stale worktree helper surface (`get_dev_worktree_name`) and deleted its dedicated test.
-- Simplified backend sort-order validation by removing redundant post-loop set-equivalence checks while keeping length, membership, and duplicate guards intact.
-- Added/updated Vitest, pytest, and Playwright coverage for dedupe utility behavior, file-browser default badge payload behavior, sort-order duplicate rejection, Home keyboard interactions, and project-config delete-button keyboard bubbling.
-- Added an append-only perf report documenting before/after Home file-browser request behavior for `includeSettaInitialized`.
-
-## 2026-02-17 11:00:08 PST
-
-- Removed unused backend init-status payload surface by dropping `worktreeOptionDetails` and deriving `worktreeName` directly from repo root to avoid per-poll `git worktree list` subprocess work.
-- Fixed Home list-view keyboard parity so `Enter` opens the active project while `Space` keeps selection behavior.
-- Optimized Home project partitioning to a single-pass favorite/non-favorite split and removed temporary concat-based counting.
-- Fixed Home file-browser Setta badge toggle behavior to refresh loaded folders in place without resetting `selectedPath` or collapsing expanded folders.
-- Removed legacy Overview `ProjectConfigs` compatibility remap and standardized View Modes initial-pane routing to current behavior only.
-- Removed duplicate Save/Load modal close transitions by keeping one close path.
-- Updated backend pytest, frontend Vitest, and Playwright coverage for init-status/worktree behavior, Home keyboard interactions, Home badge-toggle state retention, and new partition logic.
-- Added a new append-only frontend perf report for Home project partitioning (`single-pass` vs legacy filtering).
-
-## 2026-02-17 11:33:40 PST
-
-- Fixed file-browser request invalidation cleanup so `loadingPaths` cannot stay stuck after Setta-badge refresh cancels in-flight folder requests; cleanup now runs through ownership-checked `finally` behavior.
-- Removed dead Overview tab surface by dropping `ProjectConfigs` from `OverviewTabNameEnum` and simplifying `ViewingEditingMode` to a single supported entry path.
-- Hardened persisted local-storage tab handling by validating `overviewTab` and falling back to `Overview` for invalid values.
-- Removed unused backend worktree option-listing surface (`DevWorktreeOption`, porcelain parser, and list API), keeping only active worktree-name resolution used in runtime.
-- Simplified view-mode reorder validation by removing redundant second-pass membership checks while preserving length, membership, and duplicate guards.
-- Improved Save/Load modal affordance by changing selectable thumbnail cards and list rows to `cursor-pointer`.
-- Updated tests across pytest, Vitest, and Playwright for worktree utility scope, file-browser loading ownership, invalid overview-tab fallback, and current view-modes/project-config pane flows.
-
-## 2026-02-17 12:06:23 PST
-
-- Fixed new sort-order route error handling to return explicit HTTP validation/domain errors (`422`/`404`) instead of generic `500` responses for invalid reorder payloads.
-- Fixed active view-mode delete fallback determinism by selecting the next mode from persisted sorted order (backend) and mirroring the same sorted fallback and layout/viewport transfer in frontend optimistic state updates.
-- Removed redundant `ProjectConfigs` reorder reconciliation pass so ordered configs now resolve in a single deterministic ID->config pass with explicit invariant failure on missing IDs.
-- Reduced Setta-badge refresh request bursts by replacing unbounded `Promise.all` fan-out with a bounded-concurrency scheduler (`limit=8`) for expanded-folder refreshes.
-- Aligned Save/Load modal E2E contract with shipped affordance by asserting `cursor: pointer` for selectable cards/rows.
-- Added/updated focused coverage across pytest, router integration tests, Vitest, and Playwright for sort-order route status mapping, active-mode delete fallback behavior, bounded concurrency utility behavior, and Save/Load cursor expectations.
-- Added an append-only frontend perf report documenting before/after metrics for Overview project-config ordering path and Setta-badge refresh concurrency bounds.
+- Removed silent project payload coercion in `read_project`; non-object `project.json` payloads now fail fast with a deterministic type error.
+- Tightened file-browser write semantics so `expectedMtimeNs: null` is treated as create-only: writes can create missing files but now return conflict when target files already exist.
+- Reworked native file import to avoid create-before-upload residue and N network existence checks: it now resolves names from one folder listing, uploads first, then writes with conflict retry suffixing.
+- Fixed file-browser transfer no-op churn by short-circuiting same-folder moves, reducing unnecessary refreshes (including root refresh only when root listings are affected), and removing redundant clipboard render state.
+- Added spreadsheet editor stale-load guards and save-target validation so rapid file switching cannot apply stale loads or save to a mismatched selected file; also deduplicated duplicated toolbar/dropdown sort/filter handlers.
+- Added explicit error-notification paths for calendar preset and post-create meta-control config failures to prevent silent partial-application states.
+- Simplified task board normalization contract by removing redundant recurrence fallback coercions and double-normalization lane building; lane builder now requires normalized state.
+- Made spreadsheet section open behavior consistent by preserving focus navigation even when rename responses fail.
+- Added/updated backend, Vitest, and Playwright coverage for all affected flows and verified targeted suites pass.
