@@ -42,7 +42,9 @@ describe("codeLanguage helpers", () => {
   });
 
   it("preserves built-in keys and accepts plugin language strings", () => {
-    expect(toCodeLanguage(CodeLanguageEnum.python)).toBe(CodeLanguageEnum.python);
+    expect(toCodeLanguage(CodeLanguageEnum.python)).toBe(
+      CodeLanguageEnum.python,
+    );
     expect(toCodeLanguage("fixturedsl")).toBe("fixturedsl");
   });
 });

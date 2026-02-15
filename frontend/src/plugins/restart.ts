@@ -3,13 +3,13 @@ import {
   res200,
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
+import { route_plugins_restart } from "utils/generatedEndpoints";
 import type {
   PluginListEntry,
   PluginRestartCapability,
   PluginRestartResponse,
   PluginStatusEntry,
 } from "utils/generatedTypes";
-import { route_plugins_restart } from "utils/generatedEndpoints";
 
 type PluginRestartActionPlan =
   | {
@@ -137,8 +137,9 @@ export function mapPluginRestartResponse(
 }
 
 export async function requestPluginRestart(
-  runRestartRequest: () => Promise<ResponseDataAndStatus<PluginRestartResponse>> = () =>
-    route_plugins_restart(),
+  runRestartRequest: () => Promise<
+    ResponseDataAndStatus<PluginRestartResponse>
+  > = () => route_plugins_restart(),
 ): Promise<PluginRestartRequestResult> {
   const response = await runRestartRequest();
   return mapPluginRestartResponse(response);

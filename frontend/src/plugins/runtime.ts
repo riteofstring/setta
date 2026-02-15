@@ -2180,7 +2180,9 @@ function canReusePluginStatusEntry(
 function getPluginStatusRuntimePayloadDigest(
   statusEntry: PluginStatusEntry,
 ): string {
-  const normalizedDigest = normalizeDigest(statusEntry.runtimePayloadDigestSha256);
+  const normalizedDigest = normalizeDigest(
+    statusEntry.runtimePayloadDigestSha256,
+  );
   return normalizedDigest ?? "";
 }
 

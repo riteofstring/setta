@@ -25,13 +25,13 @@ const cachedCodegenTargetsByStatus = new WeakMap<
   PluginRegisteredCodegenTarget[]
 >();
 
-export type PluginCapabilityStatus =
+type PluginCapabilityStatus =
   | "effective"
   | "blocked"
   | "requested_unavailable"
   | "not_requested";
 
-export type PluginCapabilityStatusIndex = {
+type PluginCapabilityStatusIndex = {
   capabilityStatusByCapability: Map<string, PluginCapabilityStatus>;
   blockedReasonByCapability: Map<string, string>;
 };
@@ -56,7 +56,10 @@ export function buildCapabilityStatusIndex({
       blockedCapability.reason,
     );
   }
-  const capabilityStatusByCapability = new Map<string, PluginCapabilityStatus>();
+  const capabilityStatusByCapability = new Map<
+    string,
+    PluginCapabilityStatus
+  >();
   for (const capability of capabilityList) {
     if (!requestedCapabilitySet.has(capability)) {
       capabilityStatusByCapability.set(capability, "not_requested");
@@ -280,7 +283,8 @@ export function getPluginCapabilityStatus(
   const capabilityStatusIndex = buildCapabilityStatusIndex({
     requestedCapabilities: pluginStatus?.requestedCapabilities ?? [],
     effectiveCapabilities:
-      pluginStatus?.effectiveCapabilities ?? pluginListEntry.effectiveCapabilities,
+      pluginStatus?.effectiveCapabilities ??
+      pluginListEntry.effectiveCapabilities,
     blockedCapabilities: pluginStatus?.blockedCapabilities ?? [],
     capabilityList: [capability],
   });
@@ -300,7 +304,9 @@ export function getBlockedCapabilityReason(
     blockedCapabilities,
     capabilityList: [capability],
   });
-  return capabilityStatusIndex.blockedReasonByCapability.get(capability) ?? null;
+  return (
+    capabilityStatusIndex.blockedReasonByCapability.get(capability) ?? null
+  );
 }
 
 export function buildCapabilityUnavailableMessage({

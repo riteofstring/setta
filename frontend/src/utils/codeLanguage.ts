@@ -1,9 +1,9 @@
 import { CodeLanguageEnum } from "utils/generatedTypes";
 
-export type BuiltinCodeLanguage =
+type BuiltinCodeLanguage =
   (typeof CodeLanguageEnum)[keyof typeof CodeLanguageEnum];
 declare const pluginCodeLanguageBrand: unique symbol;
-export type PluginCodeLanguage = string & {
+type PluginCodeLanguage = string & {
   readonly [pluginCodeLanguageBrand]: "PluginCodeLanguage";
 };
 export type CodeLanguage = BuiltinCodeLanguage | PluginCodeLanguage;

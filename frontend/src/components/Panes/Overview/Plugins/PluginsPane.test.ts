@@ -330,26 +330,28 @@ describe("plugins pane helpers", () => {
   });
 
   it("builds capability status indexes with shared blocked-reason mapping", () => {
-    const capabilityStatusIndex = pluginsPaneTestApi.buildCapabilityStatusIndex({
-      requestedCapabilities: [
-        "registerCommand",
-        "registerPane",
-        "registerLanguageServer",
-      ],
-      effectiveCapabilities: ["registerPane"],
-      blockedCapabilities: [
-        {
-          capability: "registerCommand",
-          reason: "mode_policy",
-        },
-      ],
-      capabilityList: [
-        "registerCommand",
-        "registerPane",
-        "registerLanguageServer",
-        "registerCodegenTarget",
-      ],
-    });
+    const capabilityStatusIndex = pluginsPaneTestApi.buildCapabilityStatusIndex(
+      {
+        requestedCapabilities: [
+          "registerCommand",
+          "registerPane",
+          "registerLanguageServer",
+        ],
+        effectiveCapabilities: ["registerPane"],
+        blockedCapabilities: [
+          {
+            capability: "registerCommand",
+            reason: "mode_policy",
+          },
+        ],
+        capabilityList: [
+          "registerCommand",
+          "registerPane",
+          "registerLanguageServer",
+          "registerCodegenTarget",
+        ],
+      },
+    );
 
     expect(
       capabilityStatusIndex.capabilityStatusByCapability.get("registerCommand"),

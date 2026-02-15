@@ -399,7 +399,10 @@ export function PluginsPane() {
       });
       addTemporaryNotification(restartResult.message, "warning");
     } catch (error) {
-      const message = buildPluginActionThrownError("Restart plugins runtime", error);
+      const message = buildPluginActionThrownError(
+        "Restart plugins runtime",
+        error,
+      );
       setActionStatus({ type: "error", message });
       addTemporaryNotification(message, "error");
     } finally {
@@ -791,13 +794,11 @@ function PluginListEntryCard({
     capabilityStatusIndex.blockedReasonByCapability.get("registerCommand") ??
     null;
   const paneCapabilityReason =
-    capabilityStatusIndex.blockedReasonByCapability.get("registerPane") ??
-    null;
+    capabilityStatusIndex.blockedReasonByCapability.get("registerPane") ?? null;
   const languageServerCapabilityStatus =
     capabilityStatusIndex.capabilityStatusByCapability.get(
       "registerLanguageServer",
-    ) ??
-    "not_requested";
+    ) ?? "not_requested";
   const languageServerCapabilityReason =
     capabilityStatusIndex.blockedReasonByCapability.get(
       "registerLanguageServer",
@@ -813,8 +814,7 @@ function PluginListEntryCard({
   const codegenCapabilityStatus =
     capabilityStatusIndex.capabilityStatusByCapability.get(
       "registerCodegenTarget",
-    ) ??
-    "not_requested";
+    ) ?? "not_requested";
   const codegenCapabilityReason =
     capabilityStatusIndex.blockedReasonByCapability.get(
       "registerCodegenTarget",
@@ -1911,7 +1911,10 @@ function buildPluginActionError<T>(
   return `${actionLabel} failed (status ${response.status ?? "unknown"}).`;
 }
 
-function buildPluginActionThrownError(actionLabel: string, error: unknown): string {
+function buildPluginActionThrownError(
+  actionLabel: string,
+  error: unknown,
+): string {
   if (error instanceof Error) {
     const message = error.message.trim();
     if (message.length > 0) {
