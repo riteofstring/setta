@@ -1228,13 +1228,12 @@ export function AppConfigPane() {
           true,
           engineSelection.engineConfigId,
           engineSelection.isExternalEngine,
-          undefined,
-          null,
-          null,
           {
-            mode,
-            referenceImageUrl: null,
-            referenceImageNotes: null,
+            appGeneration: {
+              mode,
+              referenceImageUrl: null,
+              referenceImageNotes: null,
+            },
           },
         );
         if (targetChatId === null) {

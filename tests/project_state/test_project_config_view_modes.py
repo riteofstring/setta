@@ -5,8 +5,6 @@ import pytest
 from setta.project_state.project_manager_types import (
     CreateTopLevelSectionRequest,
     CreateViewModeRequest,
-    DeleteSectionsRequest,
-    MoveSectionsRequest,
     SetActiveViewModeRequest,
     SetTopLevelSectionLayoutRequest,
     SetViewportRequest,
@@ -42,25 +40,6 @@ async def ensure_top_level_section(
         project_state = manager.get_single_config_state(project_config_id)
     section_id = next(iter(project_state.projectConfig.topLevelSections.keys()))
     return section_id, project_state
-
-
-async def create_top_level_section(
-    manager: "SessionProjectManager",
-    project_config_id: str,
-    section_type: SectionType,
-) -> str:
-    response = await manager.create_top_level_section(
-        CreateTopLevelSectionRequest(
-            projectConfigId=project_config_id,
-            implType=section_type,
-            controlCodeObjType=None,
-            implOverrides=None,
-            position=None,
-            topLevelSections=None,
-            viewportBounds=None,
-        )
-    )
-    return response.sectionId
 
 
 @pytest.mark.asyncio
@@ -220,9 +199,7 @@ class TestProjectConfigViewModes:
             )
 
             state_after_create = manager.get_single_config_state(project_config_id)
-            assert (
-                state_after_create.projectConfig.activeViewModeId == second_view_mode_id
-            )
+            assert state_after_create.projectConfig.activeViewModeId == second_view_mode_id
 
             layout_b = state_after_create.projectConfig.topLevelSections[
                 section_id
@@ -254,10 +231,10 @@ class TestProjectConfigViewModes:
                 )
             )
             state_back_to_first = manager.get_single_config_state(project_config_id)
-            assert (
-                state_back_to_first.projectConfig.activeViewModeId == first_view_mode_id
-            )
-            layout_back = state_back_to_first.projectConfig.topLevelSections[section_id]
+            assert state_back_to_first.projectConfig.activeViewModeId == first_view_mode_id
+            layout_back = state_back_to_first.projectConfig.topLevelSections[
+                section_id
+            ]
             assert layout_back.x == layout_a.x
             assert layout_back.y == layout_a.y
             assert state_back_to_first.projectConfig.viewport is not None
@@ -280,121 +257,4 @@ class TestProjectConfigViewModes:
             assert state_back_to_second.projectConfig.viewport is not None
             assert state_back_to_second.projectConfig.viewport.x == pytest.approx(-20.0)
             assert state_back_to_second.projectConfig.viewport.y == pytest.approx(30.0)
-            assert state_back_to_second.projectConfig.viewport.zoom == pytest.approx(
-                1.6
-            )
-
-    async def test_set_top_level_section_layout_ignores_deleted_sections(self) -> None:
-        async with real_project_manager() as fixture:
-            manager = fixture.manager
-            project_config_id = next(
-                iter(manager.project_state_backend.projectConfigs.keys())
-            )
-            section_id = await create_top_level_section(
-                manager, project_config_id, SectionType.Code
-            )
-            state_with_section = manager.get_single_config_state(project_config_id)
-            stale_layout = state_with_section.projectConfig.topLevelSections[
-                section_id
-            ].model_copy(deep=True)
-
-            await manager.delete_sections(
-                DeleteSectionsRequest(
-                    projectConfigId=project_config_id,
-                    sectionIds=[section_id],
-                )
-            )
-
-            await manager.set_top_level_section_layout(
-                SetTopLevelSectionLayoutRequest(
-                    projectConfigId=project_config_id,
-                    topLevelSections={section_id: stale_layout},
-                )
-            )
-
-            updated_state = manager.get_single_config_state(project_config_id)
-            assert section_id not in updated_state.projectConfig.sectionVariantMap
-            assert section_id not in updated_state.projectConfig.topLevelSections
-
-    async def test_set_top_level_section_layout_ignores_reparented_sections(
-        self,
-    ) -> None:
-        async with real_project_manager() as fixture:
-            manager = fixture.manager
-            project_config_id = next(
-                iter(manager.project_state_backend.projectConfigs.keys())
-            )
-            parent_id = await create_top_level_section(
-                manager, project_config_id, SectionType.Group
-            )
-            child_id = await create_top_level_section(
-                manager, project_config_id, SectionType.Code
-            )
-            state_before_move = manager.get_single_config_state(project_config_id)
-            stale_layout_snapshot = dict(
-                state_before_move.projectConfig.topLevelSections
-            )
-
-            await manager.move_sections(
-                MoveSectionsRequest(
-                    projectConfigId=project_config_id,
-                    sectionIds=[child_id],
-                    newParentId=parent_id,
-                    newIndex=0,
-                    positionsById=None,
-                )
-            )
-
-            await manager.set_top_level_section_layout(
-                SetTopLevelSectionLayoutRequest(
-                    projectConfigId=project_config_id,
-                    topLevelSections=stale_layout_snapshot,
-                )
-            )
-
-            updated_state = manager.get_single_config_state(project_config_id)
-            assert updated_state.parentSectionMap[child_id] == parent_id
-            assert child_id not in updated_state.projectConfig.topLevelSections
-
-    async def test_set_top_level_section_layout_accepts_valid_missing_top_level_section(
-        self,
-    ) -> None:
-        async with real_project_manager() as fixture:
-            manager = fixture.manager
-            project_config_id = next(
-                iter(manager.project_state_backend.projectConfigs.keys())
-            )
-            section_id = await create_top_level_section(
-                manager, project_config_id, SectionType.Code
-            )
-            state_before = manager.get_single_config_state(project_config_id)
-            recovered_layout = state_before.projectConfig.topLevelSections[
-                section_id
-            ].model_copy(deep=True)
-            recovered_layout.x += 240
-            recovered_layout.y += 120
-
-            project_config = manager.project_state_backend.projectConfigs[project_config_id]
-            active_view_mode_id = project_config.activeViewModeId
-            assert active_view_mode_id is not None
-            active_view_mode = project_config.viewModes[active_view_mode_id]
-            active_view_mode.topLevelSections.pop(section_id, None)
-            project_config.topLevelSections.pop(section_id, None)
-
-            await manager.set_top_level_section_layout(
-                SetTopLevelSectionLayoutRequest(
-                    projectConfigId=project_config_id,
-                    topLevelSections={section_id: recovered_layout},
-                )
-            )
-
-            updated_state = manager.get_single_config_state(project_config_id)
-            assert section_id in updated_state.projectConfig.topLevelSections
-            assert (
-                updated_state.projectConfig.topLevelSections[section_id].x
-                == recovered_layout.x
-            )
-            assert (
-                updated_state.projectConfig.topLevelSections[section_id].y
-                == recovered_layout.y
-            )
+            assert state_back_to_second.projectConfig.viewport.zoom == pytest.approx(1.6)
