@@ -42,7 +42,8 @@ _CREATION_CLARIFICATION_CONTEXT_RE = re.compile(
         r"create|build|scaffold|setup|set up|initialize|generate|implement|"
         r"projects?|sections?|workspaces?|apps?|codebases?|"
         r"folders?|structure|architecture|module|component|feature|"
-        r"framework|language"
+        r"framework|language|"
+        r"check|checks|test|tests|testing|lint|verify|verification|errors?"
         r")\b"
     ),
     re.IGNORECASE,
@@ -51,11 +52,24 @@ _QUESTION_PIVOT_RE = re.compile(
     r"^\s*(?:how|what|why|where|when|who)\b", re.IGNORECASE
 )
 _PASS_RE = re.compile(
-    r"\b(pass(?:ed)?|success(?:ful(?:ly)?)?|no errors?)\b",
+    (
+        r"\b("
+        r"pass(?:ed)?|success(?:ful(?:ly)?)?|no errors?|"
+        r"(?:0|zero)\s+(?:fail(?:ed|ing)?|errors?\s+found)"
+        r")\b"
+    ),
     re.IGNORECASE,
 )
 _FAIL_RE = re.compile(
-    r"\b(fail(?:ed|ing)?|did not pass|found errors?|(?<!no )errors? found|failing checks?)\b",
+    (
+        r"\b("
+        r"(?<!\b0\s)(?<!\bzero\s)fail(?:ed|ing)?|"
+        r"did not pass|"
+        r"found errors?|"
+        r"(?<!\bno\s)(?<!\b0\s)(?<!\bzero\s)errors?\s+found|"
+        r"failing checks?"
+        r")\b"
+    ),
     re.IGNORECASE,
 )
 

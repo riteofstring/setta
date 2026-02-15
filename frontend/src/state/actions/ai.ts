@@ -58,6 +58,8 @@ import {
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
+  route_stop_external_agent_run,
+  route_stop_llm_chat,
   route_transcribe_chat_audio,
   route_update_agent_profile,
   route_update_engine_config,
@@ -663,6 +665,45 @@ export function stopChatResponseLocally(chatId: string | null | undefined) {
     updatePendingChatDetails(stopDetails);
   }
   clearAllAppSpecPatchStreams();
+}
+
+export async function stopProjectChatResponse(
+  chatId: string | null | undefined,
+  isExternalEngine: boolean,
+): Promise<boolean> {
+  stopChatResponseLocally(chatId);
+  if (typeof chatId !== "string") {
+    return true;
+  }
+
+  if (isExternalEngine) {
+    const runId = await findLatestRunningExternalRunId(chatId, null);
+    if (!runId) {
+      return true;
+    }
+    const response = await route_stop_external_agent_run({ runId });
+    if (res200(response)) {
+      void loadAgentRuns();
+      return true;
+    }
+    await getExternalAgentChat(chatId, null);
+    addTemporaryNotification(
+      "Failed to stop project chat.",
+      SettaNotificationTypeEnum.warning,
+    );
+    return false;
+  }
+
+  const response = await route_stop_llm_chat({ chatId });
+  if (res200(response)) {
+    return true;
+  }
+  await getLLMChat(chatId);
+  addTemporaryNotification(
+    "Failed to stop project chat.",
+    SettaNotificationTypeEnum.warning,
+  );
+  return false;
 }
 
 function mergeChatSectionState(

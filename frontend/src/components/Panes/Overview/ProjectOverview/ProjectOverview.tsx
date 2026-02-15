@@ -37,11 +37,26 @@ const DEFAULT_SECTION_TAG_COLOR_CHOICES: ColorPickerChoice[] =
 
 const TAG_FILTER_ALL = "__all__" as const;
 const TAG_FILTER_UNTAGGED = "__untagged__" as const;
+const AGENT_RUNS_FAST_POLL_MS = 2500;
+const AGENT_RUNS_IDLE_POLL_MS = 20000;
 
 type TagFilterValue =
   | typeof TAG_FILTER_ALL
   | typeof TAG_FILTER_UNTAGGED
   | string;
+
+export function resolveAgentRunsPollIntervalMs({
+  hasLoadError,
+  hasRunningRuns,
+}: {
+  hasLoadError: boolean;
+  hasRunningRuns: boolean;
+}): number {
+  if (hasLoadError || hasRunningRuns) {
+    return AGENT_RUNS_FAST_POLL_MS;
+  }
+  return AGENT_RUNS_IDLE_POLL_MS;
+}
 
 export function ProjectOverview() {
   const sectionList = useOverviewListing();
@@ -262,15 +277,6 @@ function useActiveAgentSectionIds(): ReadonlySet<string> {
       void loadAgentRuns();
     }
   }, [agentRunsInitialLoadComplete]);
-  useEffect(() => {
-    if (!agentRunsLoadError) {
-      return;
-    }
-    const intervalId = setInterval(() => {
-      void loadAgentRuns();
-    }, 2500);
-    return () => clearInterval(intervalId);
-  }, [agentRunsLoadError]);
 
   const activeSectionIds = useMemo(
     () => getActiveSectionIdsFromRuns(agentRuns, projectConfigId),
@@ -279,14 +285,21 @@ function useActiveAgentSectionIds(): ReadonlySet<string> {
   const hasRunningRuns = activeSectionIds.size > 0;
 
   useEffect(() => {
-    if (!hasRunningRuns) {
+    if (!agentRunsInitialLoadComplete) {
       return;
     }
+    const intervalMs = resolveAgentRunsPollIntervalMs({
+      hasLoadError: Boolean(agentRunsLoadError),
+      hasRunningRuns,
+    });
     const intervalId = setInterval(() => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
       void loadAgentRuns();
-    }, 2500);
+    }, intervalMs);
     return () => clearInterval(intervalId);
-  }, [hasRunningRuns]);
+  }, [agentRunsInitialLoadComplete, agentRunsLoadError, hasRunningRuns]);
 
   return activeSectionIds;
 }

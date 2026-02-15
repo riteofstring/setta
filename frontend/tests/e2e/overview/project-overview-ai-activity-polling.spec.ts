@@ -98,3 +98,34 @@ test("project overview retries getAgentRuns after an initial load failure", asyn
     await cleanupIsolatedProject(page, projectContext);
   }
 });
+
+test("project overview keeps a slow idle poll so new runs can be discovered", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  let getAgentRunsRequestCount = 0;
+  await page.route("**/api/getAgentRuns", async (route) => {
+    getAgentRunsRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await page.waitForSelector(".react-flow__pane");
+    await expect
+      .poll(() => getAgentRunsRequestCount, { timeout: 10000 })
+      .toBeGreaterThan(0);
+
+    const baselineRequestCount = getAgentRunsRequestCount;
+    await expect
+      .poll(() => getAgentRunsRequestCount, { timeout: 30000 })
+      .toBeGreaterThan(baselineRequestCount);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});

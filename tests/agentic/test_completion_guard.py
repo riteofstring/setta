@@ -246,6 +246,39 @@ def test_completion_guard_treats_no_errors_found_as_passed_checks() -> None:
     assert _assistant_text(assistant_message) == "Done."
 
 
+def test_completion_guard_treats_zero_failed_and_zero_errors_as_passed_checks() -> (
+    None
+):
+    # Common zero-count summaries should be treated as passing verification.
+    prior_messages = [
+        _user_message("Create a new project setup."),
+        _assistant_message("pytest: 5 passed, 0 failed in 1.2s"),
+        _assistant_message("Ran lint: zero errors found."),
+    ]
+    assistant_message = _assistant_message("Done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Done."
+
+
+def test_completion_guard_keeps_creation_flow_open_for_verification_question_followups() -> (
+    None
+):
+    # Verification follow-up questions should keep creation-flow gating active.
+    prior_messages = [
+        _user_message("Create a new project structure."),
+        _user_message("What tests did you run?"),
+    ]
+    assistant_message = _assistant_message("All done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+
+
 def test_completion_guard_ignores_older_creation_task_when_latest_user_is_non_creation() -> (
     None
 ):

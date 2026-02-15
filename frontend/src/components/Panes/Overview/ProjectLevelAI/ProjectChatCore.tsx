@@ -26,13 +26,12 @@ import { TbLayoutDashboard } from "react-icons/tb";
 import {
   clearPendingChatDetails,
   finalizePendingChatDetails,
-  findLatestRunningExternalRunId,
   getDefaultChatDetails,
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
   loadAgentRuns,
-  stopChatResponseLocally,
+  stopProjectChatResponse,
   submitEditedMessage,
   submitMessage,
   transcribeChatAudio,
@@ -49,8 +48,6 @@ import { hasPendingToolInteraction } from "utils/claudeTools";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
-  route_stop_external_agent_run,
-  route_stop_llm_chat,
 } from "utils/generatedEndpoints";
 import {
   AgentRun,
@@ -649,22 +646,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
 
   const handleStop = useCallback(async () => {
-    stopChatResponseLocally(chatId);
-    if (isExternalEngine) {
-      if (typeof chatId !== "string") {
-        return;
-      }
-      const runId = await findLatestRunningExternalRunId(chatId, null);
-      if (!runId) {
-        return;
-      }
-      await route_stop_external_agent_run({ runId });
-      return;
-    }
-    if (typeof chatId !== "string") {
-      return;
-    }
-    await route_stop_llm_chat({ chatId });
+    await stopProjectChatResponse(chatId, isExternalEngine);
   }, [chatId, isExternalEngine]);
 
   const handleEditMessage = useCallback(

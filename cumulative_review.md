@@ -188,3 +188,25 @@ Implemented the latest consolidated review fixes across completion-guard stale-v
 - Frontend Vitest: targeted suites passed (`chatAreaPlanModeBadge`, `projectChatExecutionSettings`, `ChatMessages`).
 - Playwright: targeted e2e suites passed (`project-ai-chat-root-scan`, `project-overview-ai-activity-polling`, `chat-streaming-resize`).
 - CDP visual verification completed in a live session (Project AI Chat empty-state controls + reasoning-card alignment checks at small and large viewport sizes).
+
+## 2026-02-17 13:37:14 PST
+
+### Summary
+Implemented the consolidated fixes from the latest top-level reviews across queue serialization correctness, multipart endpoint contract stability, completion-guard pass/fail detection, project-chat stop consistency, and overview activity polling behavior, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Removed duplicated queue decoration on `set_callable_hide_params` to prevent nested enqueue/deadlock risk.
+- Made `/binary/upload` explicitly multipart (`UploadFile` + `Form`) so endpoint codegen reliably generates `FormData` clients.
+- Updated completion guard parsing to treat zero-count success phrases (`0 failed`, `0 errors found`, `zero errors found`) as pass and avoid false-fail classification.
+- Expanded completion-flow clarification context so verification follow-up questions (tests/lint/checks) do not prematurely exit create/scaffold gating.
+- Added `stopProjectChatResponse` to make stop handling backend-status-aware with rollback rehydration + user warning when stop fails.
+- Switched Project Chat stop action to use the new shared stop handler.
+- Unified overview agent-run polling into one interval policy with fast mode for running/error and slow idle mode (visibility-aware), removing duplicate interval loops and preserving discovery of newly started runs.
+
+### Test and verification status
+- Backend pytest: targeted suites passed (`tests/project_state/test_enqueue_method.py`, `tests/code_gen/test_convert_endpoints.py`, `tests/agentic/test_completion_guard.py`, `tests/llm/test_agent_runner.py`, binary-upload cases in `tests/routers/test_file_browser_routes.py`).
+- Frontend Vitest: targeted suites passed (`aiStopProjectChat`, `projectOverviewPolling`).
+- Playwright: targeted e2e suite passed (`project-overview-ai-activity-polling`, including new idle-poll assertion).
+- Ruff check on changed backend/test files passed.
+- ESLint targeted run remains blocked in this environment due missing `@eslint/js` resolution from `frontend/eslint.config.js`.
+- CDP visual verification completed in a live app session (Overview and Project AI Chat panes rendered and navigated successfully).

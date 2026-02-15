@@ -273,6 +273,51 @@ class TestAgentRunner:
 
         assert assistant_message.content[0].text == "All done."
 
+    def test_completion_guard_allows_zero_failed_and_zero_errors_pass_status(self) -> (
+        None
+    ):
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(text="pytest: 5 passed, 0 failed in 1.2s")
+                ]
+            ),
+            AssistantChatMessage(
+                content=[MessageTextContent(text="Ran lint: zero errors found.")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="All done.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "All done."
+
+    def test_completion_guard_keeps_creation_scope_for_verification_followup_question(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[
+                    MessageTextContent(text="Create a new project structure.")
+                ]
+            ),
+            UserChatMessage(
+                content=[MessageTextContent(text="What tests did you run?")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="All done.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
     def test_completion_guard_requires_explicit_status_when_done_message_mentions_checks(
         self,
     ) -> None:
