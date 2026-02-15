@@ -32,7 +32,7 @@ The initial scope is Setta-only enable/disable (do not try to "install skills" i
 
 - Marketplace, remote skill discovery, auto-updates, ratings.
 - Running arbitrary skill-provided code/scripts automatically.
-- A general plugin system (see `docs/plans/plugin-system-plan.md` for the broader approach).
+- A general plugin system (see `docs/guides/plugin-authoring-golden-path.md` for the broader plugin guidance).
 - Modifying external agent configuration folders. Setta should be a consumer, not an editor, by default.
 
 ## Current Constraints / Context (Feb 2026)
@@ -293,4 +293,3 @@ Note: whether this project setting is committed or stored in `setta_files` is a 
 - Should skills be enabled globally for all chats, or only for project chat initially?
 - Do we want a manifest format immediately, or defer until we need richer metadata and permissions?
 - Should the left pane have separate "Skills" and "MCP" tabs, or one "Extensions" tab with internal subtabs?
-
