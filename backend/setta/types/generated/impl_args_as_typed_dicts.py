@@ -27,7 +27,6 @@ from setta.types.edges import Edge, EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
 from setta.types.id import ID
 from setta.types.project_config import (
-    ProjectCodegenPluginTarget,
     ProjectCodegenPythonTarget,
     TopLevelSectionLayout,
     ViewModeConfig,
@@ -38,6 +37,7 @@ from setta.types.project_config import (
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatPermissionMode,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
@@ -90,7 +90,6 @@ class CoreArgs(TypedDict):
                 "configLanguage",
                 "coreNameEditable",
                 "coreNameType",
-                "data",
                 "dataPath",
                 "defaultVal",
                 "description",
@@ -120,7 +119,6 @@ class CoreArgs(TypedDict):
                 "isPreset",
                 "jsonSourceKeys",
                 "jsonSourceMissing",
-                "kind",
                 "label",
                 "layers",
                 "managed",
@@ -136,9 +134,9 @@ class CoreArgs(TypedDict):
                 "overflowMode",
                 "paramFilter",
                 "passingStyle",
+                "permissionMode",
                 "pinnedParams",
                 "placeholder",
-                "pluginId",
                 "positionAndSizeLocked",
                 "renderError",
                 "renderedImagePath",
@@ -149,10 +147,11 @@ class CoreArgs(TypedDict):
                 "requestMethod",
                 "requestUrl",
                 "savedSearches",
-                "schemaVersion",
+                "searchEnabled",
                 "selectedParams",
                 "showSectionTitle",
                 "size",
+                "skillsEnabled",
                 "step",
                 "styleColor",
                 "tagColor",
@@ -184,9 +183,7 @@ class ProjectConfigArgs(TypedDict):
     viewModes: NotRequired[dict[ID, ViewModeConfig]]
     activeViewModeId: NotRequired[ID | None]
     isEditingViewMode: NotRequired[bool]
-    codegenTargets: NotRequired[
-        list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]
-    ]
+    codegenTargets: NotRequired[list[ProjectCodegenPythonTarget]]
     entryCodeBlockId: NotRequired[ID | None]
     topLevelSections: NotRequired[dict[ID, TopLevelSectionLayout]]
     sectionVariantMap: NotRequired[dict[ID, ID]]
@@ -542,7 +539,7 @@ class GlobalVariablesSectionImplArgsWithCallable(BaseDictSectionImplArgsWithCall
 
 class CodeSectionImplArgs(BaseCodeSectionImplArgs):
     type: NotRequired[Literal[SectionType.Code]]
-    codeLanguage: NotRequired[CodeLanguage | str]
+    codeLanguage: NotRequired[CodeLanguage]
     diagnosticsIgnoreState: NotRequired[CodeSectionDiagnosticsIgnoreState]
 
 
@@ -551,9 +548,7 @@ class CodeSectionImplArgsWithCallable(BaseCodeSectionImplArgsWithCallable):
         Literal[SectionType.Code]
         | Callable[[Literal[SectionType.Code]], Literal[SectionType.Code]]
     ]
-    codeLanguage: NotRequired[
-        CodeLanguage | str | Callable[[CodeLanguage | str], CodeLanguage | str]
-    ]
+    codeLanguage: NotRequired[CodeLanguage | Callable[[CodeLanguage], CodeLanguage]]
     diagnosticsIgnoreState: NotRequired[
         CodeSectionDiagnosticsIgnoreState
         | Callable[
@@ -618,6 +613,9 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     agentProfileId: NotRequired[ID | None]
     chatId: NotRequired[ID | None]
     thinking: NotRequired[bool]
+    permissionMode: NotRequired[ChatPermissionMode]
+    searchEnabled: NotRequired[bool]
+    skillsEnabled: NotRequired[bool]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -640,6 +638,11 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     thinking: NotRequired[bool | Callable[[bool], bool]]
+    permissionMode: NotRequired[
+        ChatPermissionMode | Callable[[ChatPermissionMode], ChatPermissionMode]
+    ]
+    searchEnabled: NotRequired[bool | Callable[[bool], bool]]
+    skillsEnabled: NotRequired[bool | Callable[[bool], bool]]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -699,25 +702,6 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         list[BrowserSavedSearch]
         | Callable[[list[BrowserSavedSearch]], list[BrowserSavedSearch]]
     ]
-
-
-class PluginSectionImplArgs(BaseSectionImplArgs):
-    type: NotRequired[Literal[SectionType.Plugin]]
-    pluginId: NotRequired[str]
-    kind: NotRequired[str]
-    data: NotRequired[dict[str, Any]]
-    schemaVersion: NotRequired[int | None]
-
-
-class PluginSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
-    type: NotRequired[
-        Literal[SectionType.Plugin]
-        | Callable[[Literal[SectionType.Plugin]], Literal[SectionType.Plugin]]
-    ]
-    pluginId: NotRequired[str | Callable[[str], str]]
-    kind: NotRequired[str | Callable[[str], str]]
-    data: NotRequired[dict[str, Any] | Callable[[dict[str, Any]], dict[str, Any]]]
-    schemaVersion: NotRequired[int | None | Callable[[int | None], int | None]]
 
 
 class BaseCodeObjImplArgs(TypedDict):

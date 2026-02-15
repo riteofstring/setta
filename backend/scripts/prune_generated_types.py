@@ -139,17 +139,7 @@ def collect_definitions(
 
 def iter_python_files(root: Path) -> Iterator[Path]:
     for dirpath, dirnames, filenames in os.walk(root):
-        base_dir = Path(dirpath)
-        filtered_dirnames: list[str] = []
-        for dirname in dirnames:
-            if dirname in SKIP_DIR_NAMES:
-                continue
-            # Built/install helpers can create additional venvs with custom names
-            # (for example .venv_for_built_setta). Avoid scanning any virtualenv.
-            if (base_dir / dirname / "pyvenv.cfg").is_file():
-                continue
-            filtered_dirnames.append(dirname)
-        dirnames[:] = filtered_dirnames
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIR_NAMES]
         for filename in filenames:
             if filename.endswith(".py"):
                 yield Path(dirpath, filename)

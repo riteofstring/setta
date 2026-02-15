@@ -118,6 +118,7 @@ from setta.types.section_impls import (
     BrowserSavedSearch,
     BrowserSectionImpl,
     CallableSectionImpl,
+    ChatPermissionMode,
     ChatSectionImpl,
     ChatSectionState,
     CodeFileBinding,
@@ -3010,6 +3011,8 @@ def set_chat_section_settings(
     engineConfigId: ID | None,
     agentProfileId: ID | None,
     thinking: bool,
+    permissionMode: ChatPermissionMode,
+    searchEnabled: bool,
 ):
     get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
     set_curr_effective_section_impl_value(
@@ -3020,6 +3023,9 @@ def set_chat_section_settings(
             engineConfigId=engineConfigId,
             agentProfileId=agentProfileId,
             thinking=thinking,
+            permissionMode=permissionMode,
+            searchEnabled=searchEnabled,
+            skillsEnabled=True,
         ),
     )
 

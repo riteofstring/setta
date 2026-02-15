@@ -1,10 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { C } from "utils/c";
 import {
   BaseChatMessageUnion,
   ChatRoleEnum,
+  createMessageThinkingContent,
   createMessageTextContent,
   createSharePolicy,
   type SharePolicy,
@@ -94,11 +94,11 @@ describe("ChatMessages assistant error rendering", () => {
         id: "m1",
         role: ChatRoleEnum.assistant,
         content: [
-          {
-            type: C.LLM_TEXT,
+          createMessageTextContent({
             text: "[Error] Your credit balance is too low.",
-          },
+          }),
         ],
+        attachments: [],
         tool_calls: null,
       },
     ];
@@ -110,5 +110,71 @@ describe("ChatMessages assistant error rendering", () => {
     expect(markup).toContain('data-chat-assistant-error="true"');
     expect(markup).toContain("AI request failed");
     expect(markup).toContain("Your credit balance is too low.");
+  });
+});
+
+describe("ChatMessages tool call status", () => {
+  it("does not render loading spinners for unresolved tool calls once streaming stops", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-tool-1",
+        role: ChatRoleEnum.assistant,
+        content: [createMessageTextContent({ text: "Working on it..." })],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "tool-1",
+            type: "function",
+            function: {
+              name: "setta__create_app",
+              arguments: { prompt: "Create the app" },
+            },
+          },
+        ],
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("Pending");
+    expect(markup).not.toContain("gg-spinner");
+  });
+});
+
+describe("ChatMessages assistant reasoning layout", () => {
+  it("renders reasoning cards separately from assistant bubble content", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-1",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "Analyzing requirements before generating code.",
+            summary: "Planning",
+          }),
+          createMessageTextContent({
+            text: "I created a complete front-to-back app scaffold.",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    const reasoningIndex = markup.indexOf(
+      'data-chat-assistant-reasoning-card="true"',
+    );
+    const bubbleIndex = markup.indexOf('data-chat-assistant-bubble="true"');
+
+    expect(reasoningIndex).toBeGreaterThan(-1);
+    expect(bubbleIndex).toBeGreaterThan(-1);
+    expect(reasoningIndex).toBeLessThan(bubbleIndex);
+    expect(markup).toContain("border-setta-100");
   });
 });

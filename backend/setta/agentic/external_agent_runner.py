@@ -26,6 +26,7 @@ from setta.agentic.chat_view import (
     get_run_project_config_id,
     is_external_agent_run,
 )
+from setta.agentic.completion_guard import apply_completion_guard
 from setta.agentic.external_adapters.base import (
     ExternalAgentAdapter,
     ExternalAgentRunContext,
@@ -34,9 +35,6 @@ from setta.agentic.external_adapters.base import (
 from setta.agentic.external_adapters.claude_sdk import ClaudeSdkAdapter
 from setta.agentic.external_adapters.codex_app_server import CodexAppServerAdapter
 from setta.agentic.external_adapters.opencode_sdk import OpenCodeSdkAdapter
-from setta.agentic.external_adapters.plugin_process import (
-    PluginProcessExternalAgentAdapter,
-)
 from setta.agentic.external_adapters.registry import ExternalAgentAdapterRegistry
 from setta.agentic.external_agent_settings import (
     build_codex_settings_file,
@@ -76,7 +74,6 @@ from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
 from setta.mcp.tool_metadata import FollowIdType
 from setta.mcp.utils import convert_canonical_ids_to_temporary
-from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.types.agentic import AgentProfile, AgentRun, AgentRunStatus, RunEvent
 from setta.types.chat_messages import (
     AssistantChatMessage,
@@ -92,7 +89,6 @@ from setta.types.chat_stream_events import (
 )
 from setta.types.external_agents import (
     ExternalAgentConfig,
-    ExternalAgentRunMode,
     ExternalAgentToolType,
     ExternalAgentWorkingDirStrategy,
 )
@@ -169,9 +165,6 @@ class ExternalAgentRunner:
         share_session_id: str | None = None,
         share_mode: bool = False,
         adapter_registry: ExternalAgentAdapterRegistry | None = None,
-        plugin_external_agent_adapters: (
-            list[PluginRegisteredExternalAgentAdapter] | None
-        ) = None,
         mcp_client: MultiMCPClient | None = None,
     ) -> None:
         self.dbe = dbe
@@ -185,12 +178,6 @@ class ExternalAgentRunner:
                 CodexAppServerAdapter(),
                 OpenCodeSdkAdapter(),
             ]
-        )
-        self._plugin_external_agent_adapters_by_id: dict[
-            str, PluginRegisteredExternalAgentAdapter
-        ] = {}
-        self._register_plugin_external_agent_adapters(
-            plugin_external_agent_adapters or []
         )
         self._tasks: dict[ID, asyncio.Task[Any]] = {}
         self._runs: dict[ID, AgentRun] = {}
@@ -249,7 +236,6 @@ class ExternalAgentRunner:
         adapter = self._adapter_registry.lookup(
             config.toolType,
             config.runMode,
-            config.pluginAdapterId,
         ).adapter
         context, is_new = self._build_context(
             engine_config_id,
@@ -275,7 +261,7 @@ class ExternalAgentRunner:
                 },
             )
         task = spawn_background_task(
-            lambda: self._run_external_agent(context, adapter),
+            lambda: self._run_external_agent(context),
             label="external-agent-run",
             project_config_id=str(context.project_config_id),
             extra_values={"run_id": str(run.id)},
@@ -338,36 +324,41 @@ class ExternalAgentRunner:
             raise KeyError(f"External agent run {run_id} not found")
         return run
 
-    async def _run_external_agent(
-        self, context: ExternalAgentRunContext, adapter: ExternalAgentAdapter
-    ) -> None:
+    async def _run_external_agent(self, context: ExternalAgentRunContext) -> None:
         run = context.run
         handle: ExternalAgentRunHandle | None = None
-        current_adapter: ExternalAgentAdapter | None = adapter
+        adapter: ExternalAgentAdapter | None = None
         try:
+            adapter = self._adapter_registry.lookup(
+                context.config.toolType,
+                context.config.runMode,
+            ).adapter
             if context.agentic_context_section_ids:
                 await self._broadcast_ai_follow_update(
                     context.project_config_id,
                     context.chat_id,
                     {"section": list(context.agentic_context_section_ids)},
                 )
-            handle = await current_adapter.start_run(context)
+            handle = await adapter.start_run(context)
             self._run_state[run.id] = ExternalAgentRunState(
-                handle=handle, adapter=current_adapter
+                handle=handle, adapter=adapter
             )
-            async for event in current_adapter.stream_events(handle, context):
+            async for event in adapter.stream_events(handle, context):
                 if self._is_approval_request(event.raw):
                     await self._handle_approval_request(context, run, event.raw)
                     continue
                 if event.stream_chunk is not None:
+                    chunk = self._prepare_stream_chunk_for_delivery(
+                        run, event.stream_chunk
+                    )
                     await self.websocket_msg_handler.send_streaming_response(
                         context.chat_id,
-                        event.stream_chunk,
+                        chunk,
                         section_id=context.section_id,
                         project_config_id=context.project_config_id,
                         share_session_id=self.share_session_id,
                     )
-                    await self._handle_stream_chunk(context, run, event.stream_chunk)
+                    await self._handle_stream_chunk(context, run, chunk)
             self._persist_external_session_metadata(run, handle)
             return_code = handle.return_code
             if return_code not in (None, 0):
@@ -378,7 +369,7 @@ class ExternalAgentRunner:
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_completed", {})
         except asyncio.CancelledError:
-            await self._cancel_external_run(current_adapter, handle)
+            await self._cancel_external_run(adapter, handle)
             self._persist_external_session_metadata(run, handle)
             self._persist_outputs_from_state(run, context.config)
             was_cancelled = run.status == AgentRunStatus.cancelled
@@ -390,7 +381,7 @@ class ExternalAgentRunner:
                 self._record_event(run, "run_cancelled", {})
             raise
         except Exception as exc:
-            await self._cancel_external_run(current_adapter, handle)
+            await self._cancel_external_run(adapter, handle)
             error_payload: dict[str, Any] = {"error": str(exc)}
             stderr_lines = None
             if handle is not None:
@@ -436,50 +427,6 @@ class ExternalAgentRunner:
                 exc_info=exc,
             )
 
-    def _register_plugin_external_agent_adapters(
-        self,
-        registrations: list[PluginRegisteredExternalAgentAdapter],
-    ) -> None:
-        for registration in registrations:
-            run_modes: set[ExternalAgentRunMode] = {
-                ExternalAgentRunMode(raw_run_mode)
-                for raw_run_mode in registration.runModes
-            }
-            adapter = PluginProcessExternalAgentAdapter(
-                adapter_id=registration.adapterId,
-                name=registration.name,
-                supported_run_modes=run_modes,
-                command=registration.command,
-                args=tuple(registration.args),
-                default_model=registration.defaultModel,
-            )
-            self._adapter_registry.register_plugin_adapter(
-                registration.adapterId,
-                adapter,
-            )
-            self._plugin_external_agent_adapters_by_id[registration.adapterId] = (
-                registration
-            )
-
-    def get_plugin_external_agent_adapters(
-        self,
-    ) -> list[PluginRegisteredExternalAgentAdapter]:
-        return sorted(
-            self._plugin_external_agent_adapters_by_id.values(),
-            key=lambda registration: registration.adapterId,
-        )
-
-    def get_plugin_external_agent_adapter(
-        self,
-        adapter_id: str | None,
-    ) -> PluginRegisteredExternalAgentAdapter | None:
-        if adapter_id is None:
-            return None
-        normalized_adapter_id = adapter_id.strip()
-        if normalized_adapter_id == "":
-            return None
-        return self._plugin_external_agent_adapters_by_id.get(normalized_adapter_id)
-
     def _build_context(
         self,
         engine_config_id: ID,
@@ -519,12 +466,24 @@ class ExternalAgentRunner:
         if profile is not None:
             payload_inputs.setdefault("agentProfileId", str(profile.id))
         payload_inputs.setdefault("runType", EXTERNAL_AGENT_RUN_TYPE)
+        effective_config = config
+        raw_approval_policy = payload_inputs.get("approvalPolicy")
+        if isinstance(raw_approval_policy, str):
+            stripped_policy = raw_approval_policy.strip()
+            if stripped_policy:
+                effective_config = config.model_copy(
+                    update={"approvalPolicy": stripped_policy}
+                )
 
         chat_id = self._resolve_id_input(inputs, "chatId")
         if chat_id is not None:
             payload_inputs["chatId"] = str(chat_id)
             self._apply_session_history(
-                payload_inputs, config, engine_config_id, chat_id, project_config_id
+                payload_inputs,
+                effective_config,
+                engine_config_id,
+                chat_id,
+                project_config_id,
             )
         attachment_payload = self._build_attachment_payload(
             payload_inputs,
@@ -546,6 +505,14 @@ class ExternalAgentRunner:
             allow_unscoped=allow_unscoped,
         )
         system_prompt = self._build_system_prompt(profile, project_config_id)
+        raw_system_prompt = payload_inputs.pop("systemPrompt", None)
+        if isinstance(raw_system_prompt, str) and raw_system_prompt.strip():
+            merged_system_prompt = raw_system_prompt.strip()
+            system_prompt = (
+                f"{system_prompt}\n\n{merged_system_prompt}".strip()
+                if system_prompt.strip()
+                else merged_system_prompt
+            )
         agentic_context_section_ids: tuple[ID, ...] = ()
         temporary_to_canonical, canonical_to_temporary = (
             self.dbe.read_temporary_id_map()
@@ -589,11 +556,11 @@ class ExternalAgentRunner:
         )
         if len(canonical_to_temporary) != map_size_before:
             self.dbe.write_temporary_id_map(canonical_to_temporary)
-        working_dir = self._resolve_working_dir(config)
-        env = self._build_env(config)
+        working_dir = self._resolve_working_dir(effective_config)
+        env = self._build_env(effective_config)
         cleanup_paths: list[Path] = []
         self._configure_external_tools(
-            config=config,
+            config=effective_config,
             profile=profile,
             payload_inputs=payload_inputs,
             env=env,
@@ -606,7 +573,7 @@ class ExternalAgentRunner:
         runtime_inputs.update(attachment_payload)
         return ExternalAgentRunContext(
             run=run,
-            config=config,
+            config=effective_config,
             profile=profile,
             project_config_id=project_config_id,
             chat_id=chat_id,
@@ -1238,15 +1205,7 @@ class ExternalAgentRunner:
             value = os.environ.get(key)
             if value:
                 env[key] = value
-        allowed = {name.strip() for name in config.envVarWhitelist if name.strip()}
-        plugin_adapter = self.get_plugin_external_agent_adapter(config.pluginAdapterId)
-        if (
-            config.toolType == ExternalAgentToolType.plugin
-            and plugin_adapter is not None
-        ):
-            allowed.update(
-                name.strip() for name in plugin_adapter.envVarWhitelist if name.strip()
-            )
+        allowed = set(config.envVarWhitelist)
         if not allowed:
             return env
         dot_env = self.dbe.read_dot_env()
@@ -1304,6 +1263,7 @@ class ExternalAgentRunner:
     async def _handle_stream_chunk(
         self, context: ExternalAgentRunContext, run: AgentRun, chunk: Any
     ) -> None:
+        chunk = self._prepare_stream_chunk_for_delivery(run, chunk)
         state = self._apply_stream_chunk_to_state(run, chunk)
         if isinstance(chunk, ToolCallDeltaEvent):
             self._store_tool_call_delta(run.id, chunk)
@@ -1360,6 +1320,15 @@ class ExternalAgentRunner:
                 },
             )
             self._persist_outputs_from_state(run, context.config, state)
+
+    def _prepare_stream_chunk_for_delivery(self, run: AgentRun, chunk: Any) -> Any:
+        if not isinstance(chunk, MessageFinalizedEvent):
+            return chunk
+        if not isinstance(chunk.message, AssistantChatMessage):
+            return chunk
+        prior_messages = list(self._ensure_chat_state(run).messages)
+        apply_completion_guard(prior_messages, chunk.message)
+        return chunk
 
     def _store_tool_call_delta(self, run_id: ID, chunk: ToolCallDeltaEvent) -> None:
         buffers = self._tool_call_buffers.setdefault(run_id, {})

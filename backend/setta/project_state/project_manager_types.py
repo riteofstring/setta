@@ -38,6 +38,7 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatPermissionMode,
     ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
@@ -1067,6 +1068,15 @@ class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     engineConfigId: ID | None
     agentProfileId: ID | None
     thinking: bool
+    permissionMode: ChatPermissionMode
+    searchEnabled: bool
+    skillsEnabled: bool = Field(
+        default=True,
+        description=(
+            "Deprecated advisory setting. This value is ignored and kept only for "
+            "backward compatibility."
+        ),
+    )
 
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):

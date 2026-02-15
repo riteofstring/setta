@@ -9,8 +9,6 @@ import {
 import { getUIEditorTab } from "state/hooks/uiTypes";
 import {
   CLOSED_PANE_WIDTH,
-  OverviewTabKey,
-  OverviewTabNameEnum,
   PaneName,
   PaneNameEnum,
   UIEditorTabName,
@@ -93,7 +91,7 @@ function visToggle(
   }
 }
 
-export function onOverviewTabClick(tabValue: OverviewTabKey) {
+export function onOverviewTabClick(tabValue) {
   const vis = useLocalStorage.getState().overviewVis;
   const tab = useLocalStorage.getState().overviewTab;
   if (tab !== tabValue) {
@@ -158,5 +156,5 @@ export function showParamUITypeTab() {
 }
 
 export function showProjectOverviewTab() {
-  onOverviewTabClick(OverviewTabNameEnum.Overview);
+  onOverviewTabClick("tab1");
 }
