@@ -25,8 +25,6 @@ import { ImageArea } from "../Layouts/ImageArea";
 import { MetaControlArea } from "../Layouts/MetaControlArea";
 import { PromptArea } from "../Layouts/PromptArea";
 import { SocialArea } from "../Layouts/SocialArea";
-import { SpreadsheetArea } from "../Layouts/SpreadsheetArea";
-import { TaskBoardArea } from "../Layouts/TaskBoardArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
@@ -216,10 +214,6 @@ function AreaSwitch({
       return <ChatArea sectionId={sectionId} />;
     case SectionTypeEnum.Browser:
       return <BrowserArea sectionId={sectionId} />;
-    case SectionTypeEnum.TaskBoard:
-      return <TaskBoardArea sectionId={sectionId} />;
-    case SectionTypeEnum.Spreadsheet:
-      return <SpreadsheetArea sectionId={sectionId} />;
     case SectionTypeEnum.ListRoot:
     case SectionTypeEnum.Group:
       return null;

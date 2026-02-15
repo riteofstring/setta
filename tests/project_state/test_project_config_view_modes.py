@@ -3,10 +3,14 @@ from typing import TYPE_CHECKING
 import pytest
 
 from setta.project_state.project_manager_types import (
+    CreateNewSectionVariantRequest,
     CreateTopLevelSectionRequest,
     CreateViewModeRequest,
+    DeleteViewModeRequest,
     SetActiveViewModeRequest,
+    SetSectionVariantSortOrderRequest,
     SetTopLevelSectionLayoutRequest,
+    SetViewModeSortOrderRequest,
     SetViewportRequest,
     ToggleViewModeTabRequest,
 )
@@ -258,3 +262,132 @@ class TestProjectConfigViewModes:
             assert state_back_to_second.projectConfig.viewport.x == pytest.approx(-20.0)
             assert state_back_to_second.projectConfig.viewport.y == pytest.approx(30.0)
             assert state_back_to_second.projectConfig.viewport.zoom == pytest.approx(1.6)
+
+    async def test_set_view_mode_sort_order_rejects_duplicate_ids(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            initial_state = manager.get_single_config_state(project_config_id)
+            first_view_mode_id = initial_state.projectConfig.activeViewModeId
+            assert first_view_mode_id is not None
+            second_view_mode_id = await manager.create_view_mode(
+                CreateViewModeRequest(projectConfigId=project_config_id)
+            )
+
+            with pytest.raises(
+                ValueError,
+                match="orderedViewModeIds must not contain duplicate view mode IDs.",
+            ):
+                await manager.set_view_mode_sort_order(
+                    SetViewModeSortOrderRequest(
+                        projectConfigId=project_config_id,
+                        orderedViewModeIds=[first_view_mode_id, first_view_mode_id],
+                    )
+                )
+
+            updated_state = manager.get_single_config_state(project_config_id)
+            assert second_view_mode_id in updated_state.projectConfig.viewModes
+
+    async def test_set_section_variant_sort_order_rejects_duplicate_ids(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            section_id, _ = await ensure_top_level_section(manager, project_config_id)
+            await manager.create_new_section_variant(
+                CreateNewSectionVariantRequest(
+                    projectConfigId=project_config_id,
+                    sectionId=section_id,
+                )
+            )
+
+            project_state = manager.get_single_config_state(project_config_id)
+            variant_ids = list(project_state.sections[section_id].variants)
+            assert len(variant_ids) >= 2
+
+            with pytest.raises(
+                ValueError,
+                match="orderedVariantIds must not contain duplicate variant IDs.",
+            ):
+                await manager.set_section_variant_sort_order(
+                    SetSectionVariantSortOrderRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=section_id,
+                        orderedVariantIds=[variant_ids[0], variant_ids[0]],
+                    )
+                )
+
+    async def test_set_section_variant_sort_order_raises_for_missing_section(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+
+            with pytest.raises(
+                KeyError, match="Section missing-section-id not found"
+            ):
+                await manager.set_section_variant_sort_order(
+                    SetSectionVariantSortOrderRequest(
+                        projectConfigId=project_config_id,
+                        sectionId="missing-section-id",
+                        orderedVariantIds=[],
+                    )
+                )
+
+    async def test_delete_active_view_mode_uses_sorted_order_fallback(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+            initial_state = manager.get_single_config_state(project_config_id)
+            first_view_mode_id = initial_state.projectConfig.activeViewModeId
+            assert first_view_mode_id is not None
+
+            second_view_mode_id = await manager.create_view_mode(
+                CreateViewModeRequest(projectConfigId=project_config_id)
+            )
+            third_view_mode_id = await manager.create_view_mode(
+                CreateViewModeRequest(projectConfigId=project_config_id)
+            )
+
+            # Keep insertion order as [first, second, third], but sorted order as
+            # [second, third, first] so delete fallback must use sorted order.
+            await manager.set_view_mode_sort_order(
+                SetViewModeSortOrderRequest(
+                    projectConfigId=project_config_id,
+                    orderedViewModeIds=[
+                        second_view_mode_id,
+                        third_view_mode_id,
+                        first_view_mode_id,
+                    ],
+                )
+            )
+            await manager.set_active_view_mode(
+                SetActiveViewModeRequest(
+                    projectConfigId=project_config_id,
+                    activeViewModeId=third_view_mode_id,
+                )
+            )
+
+            await manager.delete_view_mode(
+                DeleteViewModeRequest(
+                    projectConfigId=project_config_id,
+                    viewModeId=third_view_mode_id,
+                )
+            )
+
+            updated_state = manager.get_single_config_state(project_config_id)
+            assert updated_state.projectConfig.activeViewModeId == second_view_mode_id
+            assert (
+                updated_state.projectConfig.viewModes[second_view_mode_id].sortIndex
+                == 0
+            )
+            assert (
+                updated_state.projectConfig.viewModes[first_view_mode_id].sortIndex
+                == 1
+            )

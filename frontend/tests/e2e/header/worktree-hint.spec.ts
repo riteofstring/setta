@@ -40,4 +40,3 @@ test("worktree hint shows (when available), is dismissible, and returns on refre
   await expect(hint).toBeVisible();
   await expect(hint).toContainText(expected);
 });
-

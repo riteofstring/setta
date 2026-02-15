@@ -70,7 +70,6 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     GenPythonMetadataSectionImplArgsWithCallable,
     GroupSectionImplArgsWithCallable,
     ImageSectionImplArgsWithCallable,
-    ListRootSectionImplArgsWithCallable,
     MetaControlSectionImplArgsWithCallable,
     PromptSectionImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
@@ -128,19 +127,12 @@ from setta.types.section_impls import (
     DrawSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
-    ListRootViewMode,
     MetaControlSectionImpl,
     PromptFormat,
     PromptSectionImpl,
     SectionSize,
     SectionSizeMode,
     SectionType,
-    SpreadsheetGridDensity,
-    SpreadsheetSectionImpl,
-    TaskBoardColumn,
-    TaskBoardSectionImpl,
-    TaskBoardTask,
-    TaskBoardViewMode,
     TerminalSectionImpl,
     TextBlockDisplayMode,
     TextBlockFormat,
@@ -168,15 +160,6 @@ if TYPE_CHECKING:
 
 class ProjectNotFound(Exception):
     pass
-
-
-DISALLOWED_PARENT_DEFAULT_CHILD_SECTION_TYPES = frozenset(
-    {
-        SectionType.GlobalVariables,
-        SectionType.GenPythonCode,
-        SectionType.GenPythonMetadata,
-    }
-)
 
 
 def get_curr_section_callable_code_obj(p: "ProjectStateSingleConfig", section_id: ID):
@@ -1421,13 +1404,11 @@ def create_child_sections_via_incrementer(
         parentId = p.parentSectionMap[calledBy]
         if not parentId:
             raise ValueError
-        parent_impl = get_curr_effective_section_impl_with_type_guard(
+        parentImpl = get_curr_effective_section_impl_with_type_guard(
             p, parentId, BaseParentSectionImpl
         )
-        startIdx = parent_impl.children.index(calledBy) + 1
-    create_child_sections(
-        settings, p, parentId, impl_type, numChildren, startIdx
-    )
+        startIdx = parentImpl.children.index(calledBy) + 1
+    create_child_sections(settings, p, parentId, impl_type, numChildren, startIdx)
 
 
 def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[ID]):
@@ -1795,7 +1776,6 @@ def change_param_impl(
                 coreNameEditable=old_effective_impl.coreNameEditable,
                 coreNameType=old_effective_impl.coreNameType,
                 passingStyle=old_effective_impl.passingStyle,
-                typeAnnotation=old_effective_impl.typeAnnotation,
             ),
         )
 
@@ -1863,8 +1843,6 @@ def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
         case (
             CodeObjType.CodeParam
             | CodeObjType.TextParam
-            | CodeObjType.DateParam
-            | CodeObjType.TimeParam
             | CodeObjType.DropdownParam
             | CodeObjType.PasswordParam
             | CodeObjType.TextAreaParam
@@ -2344,138 +2322,6 @@ def set_text_block_heading_as_section_name(
                 set_section_name(p, sectionId, first_heading)
             except InvalidSectionName:
                 pass
-
-
-def set_text_block_master_font_size(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    masterFontSizePx: float,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, TextBlockSectionImpl)
-    clamped_size = max(8.0, min(48.0, float(masterFontSizePx)))
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        TextBlockSectionImplArgsWithCallable(masterFontSizePx=clamped_size),
-    )
-
-
-def set_parent_default_child_section_type(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    defaultChildSectionType: SectionType,
-):
-    if defaultChildSectionType in DISALLOWED_PARENT_DEFAULT_CHILD_SECTION_TYPES:
-        raise ValueError(
-            f"Section type {defaultChildSectionType} cannot be a default child type."
-        )
-    section_impl = get_curr_effective_section_impl(p, sectionId)
-    if isinstance(section_impl, ListRootSectionImpl):
-        set_curr_effective_section_impl_value(
-            p,
-            sectionId,
-            ListRootSectionImplArgsWithCallable(
-                defaultChildSectionType=defaultChildSectionType
-            ),
-        )
-        return
-    if isinstance(section_impl, GroupSectionImpl):
-        set_curr_effective_section_impl_value(
-            p,
-            sectionId,
-            GroupSectionImplArgsWithCallable(
-                defaultChildSectionType=defaultChildSectionType
-            ),
-        )
-        return
-    raise TypeError(f"Section {sectionId} does not support default child section type.")
-
-
-def set_list_root_view_mode(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    viewMode: ListRootViewMode,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, ListRootSectionImpl)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        ListRootSectionImplArgsWithCallable(viewMode=viewMode),
-    )
-
-
-def set_task_board_section_state(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    viewMode: TaskBoardViewMode,
-    columns: list[TaskBoardColumn],
-    tasks: list[TaskBoardTask],
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, TaskBoardSectionImpl)
-    normalized_columns: list[TaskBoardColumn] = []
-    seen_column_ids: set[ID] = set()
-    for column in columns:
-        if column.id in seen_column_ids:
-            continue
-        seen_column_ids.add(column.id)
-        normalized_columns.append(column.model_copy(deep=True))
-    normalized_tasks: list[TaskBoardTask] = []
-    for task in tasks:
-        normalized = task.model_copy(deep=True)
-        if normalized.columnId not in seen_column_ids:
-            normalized.columnId = None
-        normalized_tasks.append(normalized)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        {
-            "viewMode": viewMode,
-            "columns": normalized_columns,
-            "tasks": normalized_tasks,
-        },
-    )
-
-
-def set_spreadsheet_file_path(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    filePath: str,
-    activeSheet: str | None,
-):
-    get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, SpreadsheetSectionImpl
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        {
-            "filePath": filePath.strip(),
-            "activeSheet": activeSheet,
-        },
-    )
-
-
-def set_spreadsheet_section_settings(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    readOnly: bool,
-    showRowNumbers: bool,
-    density: SpreadsheetGridDensity,
-    autoReloadOnExternalChange: bool,
-):
-    get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, SpreadsheetSectionImpl
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        {
-            "readOnly": readOnly,
-            "showRowNumbers": showRowNumbers,
-            "density": density,
-            "autoReloadOnExternalChange": autoReloadOnExternalChange,
-        },
-    )
 
 
 def get_first_heading_or_text(markdown: str):

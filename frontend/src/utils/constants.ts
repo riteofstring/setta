@@ -22,7 +22,6 @@ export const OverviewTabNameEnum = {
   WatchCode: "WatchCode",
   App: "App",
   RunInstructions: "RunInstructions",
-  ProjectConfigs: "ProjectConfigs",
   ViewModes: "ViewModes",
   Notifications: "Notifications",
   BackendLogs: "BackendLogs",
@@ -31,6 +30,13 @@ export const OverviewTabNameEnum = {
 } as const;
 
 export type OverviewTabName = ObjectValues<typeof OverviewTabNameEnum>;
+const overviewTabNameValues = new Set<string>(
+  Object.values(OverviewTabNameEnum),
+);
+
+export function isOverviewTabName(value: unknown): value is OverviewTabName {
+  return typeof value === "string" && overviewTabNameValues.has(value);
+}
 
 export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.Overview]: "Overview",
@@ -39,7 +45,6 @@ export const OverviewTabNamePrettified = {
   [OverviewTabNameEnum.WatchCode]: "Watch Code",
   [OverviewTabNameEnum.App]: "App",
   [OverviewTabNameEnum.RunInstructions]: "Custom Runs",
-  [OverviewTabNameEnum.ProjectConfigs]: "Project Configs",
   [OverviewTabNameEnum.ViewModes]: "View Modes",
   [OverviewTabNameEnum.Notifications]: "Notifications",
   [OverviewTabNameEnum.BackendLogs]: "Backend Logs",
@@ -110,8 +115,6 @@ export const REQUIRED_UI_EDITOR_TABS = {
   [SectionTypeEnum.IFrame]: [],
   [SectionTypeEnum.Chat]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Browser]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.TaskBoard]: [UIEditorTabNameEnum.SectionConfig],
-  [SectionTypeEnum.Spreadsheet]: [UIEditorTabNameEnum.SectionConfig],
 } as const satisfies Record<SectionType, readonly UIEditorTabName[]>;
 
 export type UIEditorTabLocalStorage = Record<SectionType, UIEditorTabName>;

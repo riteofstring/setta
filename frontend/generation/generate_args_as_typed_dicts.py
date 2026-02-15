@@ -108,10 +108,6 @@ from setta.types.section_impls import (
     SectionSize,
     CodeLanguage,
     ConfigLanguage,
-    ListRootViewMode,
-    CalendarWeekStart,
-    SpreadsheetGridDensity,
-    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     PromptFormat,
@@ -124,8 +120,6 @@ from setta.types.section_impls import (
     TypeErrorIgnoreState,
     CodeSectionDiagnosticsIgnoreState,
     ChatSectionBranch,
-    TaskBoardColumn,
-    TaskBoardTask,
 )
 from setta.types.code_obj_impls import (
     ParameterPassingStyle,
@@ -135,14 +129,6 @@ from setta.types.code_obj_impls import (
     ButtonActionMode,
     HttpRequestMethod,
     DropzoneMode,
-    TextParamInputUIType,
-    TimeControlMode,
-    TimeDisplayFormat,
-    TimeDisplayFont,
-    DateDisplayFormat,
-    DateControlMode,
-    DateSelectionMode,
-    DateCalendarWeekStart,
 )
 from setta.types.agentic_edges import AgenticEdge
 from setta.types.edges import Edge, EdgePort

@@ -9,10 +9,7 @@ import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { useSortable as useDndKitSortable } from "@dnd-kit/react/sortable";
 import { useContext, useEffect, useMemo, useRef } from "react";
-import {
-  getSectionInfo,
-  getSectionIsHorizontalOrientation,
-} from "state/actions/sectionInfos";
+import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { useDndProviderContext } from "./DndProviderContext";
 import { Context } from "./SortableContext";
 import {
@@ -88,6 +85,7 @@ export function useSortable({
   const shouldTrackSorting = sortingEnabled && isDragActive;
   const itemType =
     typeof customData?.type === "string" ? customData.type : null;
+  const sortablePlugins = [SortableKeyboardPlugin];
   const disableFeedback =
     sortingEnabled || isMovingFree || itemType === "param";
   const feedback = disableFeedback ? "none" : undefined;
@@ -95,7 +93,6 @@ export function useSortable({
   let dragModifiers;
   if (isSortingMode) {
     const containerIsHorizontal =
-      getSectionInfo(containerId) !== undefined &&
       getSectionIsHorizontalOrientation(containerId);
     dragModifiers = [
       containerIsHorizontal ? RestrictToHorizontalAxis : RestrictToVerticalAxis,
@@ -135,8 +132,9 @@ export function useSortable({
     modifiers: dragModifiers,
     collisionDetector,
     transition: sortableTransition,
-    // Skip OptimisticSortingPlugin; Setta controls reorder/placeholder behavior.
-    plugins: [SortableKeyboardPlugin],
+    // Keep Setta's custom transform-based sortable behavior for list sortables.
+    // Optimistic DOM reordering can cause scroll jumps in constrained panes.
+    plugins: sortablePlugins,
   });
   const listeners = {};
   const isOver = isDropTarget;
