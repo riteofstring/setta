@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildFileBrowserLoadingPathOwner,
   flattenFileBrowserTree,
+  getSettaBadgeRefreshFolderPaths,
+  isOwnedFileBrowserLoadingPath,
   sortChildPaths,
   type FileNode,
 } from "./FileBrowserPane";
@@ -261,5 +264,78 @@ describe("flattenFileBrowserTree", () => {
       rootPath,
       "/root/README.md",
     ]);
+  });
+});
+
+describe("getSettaBadgeRefreshFolderPaths", () => {
+  it("includes the root path and expanded folder paths only", () => {
+    const nodesByPath: Record<string, FileNode> = {
+      "/root": {
+        name: "root",
+        fullPath: "/root",
+        type: "folder",
+        parentPath: null,
+      },
+      "/root/folder-a": {
+        name: "folder-a",
+        fullPath: "/root/folder-a",
+        type: "folder",
+        parentPath: "/root",
+      },
+      "/root/file-a.txt": {
+        name: "file-a.txt",
+        fullPath: "/root/file-a.txt",
+        type: "file",
+        parentPath: "/root",
+      },
+      "/root/folder-b": {
+        name: "folder-b",
+        fullPath: "/root/folder-b",
+        type: "folder",
+        parentPath: "/root",
+      },
+    };
+    const expandedPaths = {
+      "/root/folder-a": true,
+      "/root/file-a.txt": true,
+      "/root/folder-b": false,
+    };
+
+    expect(
+      getSettaBadgeRefreshFolderPaths({
+        rootPath: "/root",
+        expandedPaths,
+        nodesByPath,
+      }),
+    ).toEqual(["/root", "/root/folder-a"]);
+  });
+});
+
+describe("file browser loading path ownership", () => {
+  it("builds an owner token from root and folder request ids", () => {
+    expect(
+      buildFileBrowserLoadingPathOwner({
+        rootRequestId: 7,
+        folderRequestId: 3,
+      }),
+    ).toBe("7:3");
+  });
+
+  it("matches ownership only when the latest request owner is unchanged", () => {
+    const loadingPathOwnerByPath = { "/root/folder": "2:1" };
+    expect(
+      isOwnedFileBrowserLoadingPath({
+        loadingPathOwnerByPath,
+        folderPath: "/root/folder",
+        requestOwner: "2:1",
+      }),
+    ).toBe(true);
+    expect(
+      isOwnedFileBrowserLoadingPath({
+        loadingPathOwnerByPath,
+        folderPath: "/root/folder",
+        requestOwner: "3:1",
+      }),
+    ).toBe(false);
   });
 });

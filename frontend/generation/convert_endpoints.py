@@ -20,8 +20,6 @@ from typing import (
 
 from fastapi import BackgroundTasks, Request, Response, UploadFile
 from fastapi.params import Depends as DependsParam
-from fastapi.params import File as FileParam
-from fastapi.params import Form as FormParam
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from setta.server import app
@@ -57,8 +55,6 @@ def get_path_input_output_types():
             "inputs": {},
             "output": None,
             "path": route.path,
-            "uses_form_data": False,
-            "has_request_param": False,
         }
 
         # Get function signature and type hints
@@ -67,9 +63,6 @@ def get_path_input_output_types():
 
         # Extract input parameters (excluding Depends)
         for param_name, param in sig.parameters.items():
-            if param.annotation is Request:
-                route_info["has_request_param"] = True
-
             # Skip if it's a Depends parameter
             if (
                 type(param.default).__name__ == "Depends"
@@ -83,10 +76,6 @@ def get_path_input_output_types():
                 continue
             if param_type is inspect.Parameter.empty:
                 param_type = type(None)
-            if _is_form_data_param_default(param.default) or _is_form_data_annotation(
-                param_type
-            ):
-                route_info["uses_form_data"] = True
 
             route_info["inputs"][param_name] = param_type
 
@@ -108,26 +97,6 @@ def _is_depends_annotation(param_type) -> bool:
         for meta in args[1:]:
             if isinstance(meta, DependsParam):
                 return True
-    return False
-
-
-def _is_form_data_param_default(default: Any) -> bool:
-    return isinstance(default, (FormParam, FileParam))
-
-
-def _is_form_data_annotation(param_type) -> bool:
-    if param_type is UploadFile:
-        return True
-    if get_origin(param_type) is not Annotated:
-        return False
-    args = get_args(param_type)
-    if not args:
-        return False
-    if args[0] is UploadFile:
-        return True
-    for meta in args[1:]:
-        if isinstance(meta, (FormParam, FileParam)):
-            return True
     return False
 
 
@@ -285,15 +254,7 @@ def python_type_to_ts(
 
 
 def create_ts_fn_def(
-    endpoint_path,
-    method,
-    fn_name,
-    args,
-    args_with_annotations,
-    output_annotation,
-    *,
-    uses_form_data: bool = False,
-    has_request_param: bool = False,
+    endpoint_path, method, fn_name, args, args_with_annotations, output_annotation
 ):
     definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<ResponseDataAndStatus<{output_annotation}>>"
     endpoint_path_without_prefix = endpoint_path
@@ -301,12 +262,7 @@ def create_ts_fn_def(
         endpoint_path_without_prefix = endpoint_path_without_prefix[
             len(Route.PREFIX.value) :
         ]
-    if _should_generate_form_data_wrapper(
-        method=method,
-        endpoint_path=endpoint_path_without_prefix,
-        uses_form_data=uses_form_data,
-        has_request_param=has_request_param,
-    ):
+    if fn_name == "route_binary_upload":
         return f"""
 export async function {fn_name}(form: FormData): Promise<ResponseDataAndStatus<{output_annotation}>> {{
     return await post("{endpoint_path_without_prefix}", form)
@@ -344,20 +300,6 @@ export async function {fn_name}(form: FormData): Promise<ResponseDataAndStatus<{
     return definition
 
 
-def _should_generate_form_data_wrapper(
-    *,
-    method: str,
-    endpoint_path: str,
-    uses_form_data: bool,
-    has_request_param: bool,
-) -> bool:
-    if method != "POST":
-        return False
-    if uses_form_data:
-        return True
-    return has_request_param and "upload" in endpoint_path.lower()
-
-
 def create_imports():
     return f"""
 import * as {GENERATED_TYPE_ALIAS} from "./generatedTypes"
@@ -379,8 +321,6 @@ def main(output_path):
             args,
             args_with_annotations,
             output_annotation,
-            uses_form_data=s.get("uses_form_data", False),
-            has_request_param=s.get("has_request_param", False),
         )
 
     with open(output_path, "w") as f:

@@ -6,8 +6,20 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { createProjectConfig } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewModeTabs } from "./ViewModeTabs";
+
+vi.mock("./ViewModeDnd", () => ({
+  ViewModeSortableProvider: ({ children }: { children: unknown }) => children,
+  useViewModeSortableItem: () => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: () => {},
+    setActivatorNodeRef: () => {},
+    style: {},
+    isDragging: false,
+  }),
+}));
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -190,5 +202,36 @@ describe("ViewModeTabs", () => {
     expect(secondIdx).toBeGreaterThan(-1);
     expect(firstIdx).toBeLessThan(thirdIdx);
     expect(thirdIdx).toBeLessThan(secondIdx);
+  });
+
+  it("renders a visible drag handle for tabbed view modes", () => {
+    const tabId = "view-1";
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      activeViewModeId: tabId,
+      viewModes: {
+        [tabId]: {
+          id: tabId,
+          name: "Tab View",
+          sortIndex: 0,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: {},
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: false,
+          topLevelSections: {},
+        },
+      },
+    });
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+    });
+    syncStoreInitialState(useProjectState);
+
+    const markup = renderToStaticMarkup(<ViewModeTabs />);
+    expect(markup).toContain('data-testid="view-mode-tab-drag-handle"');
+    expect(markup).toContain('aria-label="Reorder view mode tab"');
+    expect(markup).toContain("<svg");
   });
 });
