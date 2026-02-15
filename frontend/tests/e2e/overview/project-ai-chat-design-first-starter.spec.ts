@@ -31,7 +31,8 @@ test("project ai design-first starter button prefills the first prompt draft", a
     // Clicking the starter control should inject the design-first scaffold
     // directly into the chat composer for immediate refinement.
     await starterButton.click();
-    const input = overviewPane.getByPlaceholder("Type a message...");
+    const input = overviewPane.getByRole("textbox").first();
+    await expect(input).toBeVisible();
     await expect(input).toHaveValue(
       /I want to run a design-first workflow before implementation\./,
     );

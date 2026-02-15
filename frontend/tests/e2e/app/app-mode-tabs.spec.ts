@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import {
   ensureAppReady,
@@ -12,9 +12,7 @@ type ProjectMetadataResponse = {
   projectMetadata: Array<{ id: string; name: string }>;
 };
 
-async function syncAppDefinitionState(page: Page): Promise<void> {
-  await syncAppDefinitionStateWithExpectedRootKey(page, null);
-}
+const APP_PREVIEW_SYNC_TIMEOUT_MS = 20_000;
 
 async function syncAppDefinitionStateWithExpectedRootKey(
   page: Page,
@@ -27,7 +25,9 @@ async function syncAppDefinitionStateWithExpectedRootKey(
           "/src/utils/generatedEndpoints.ts"
         );
         const { res200 } = await import("/src/utils/endpointUtils.ts");
-        const { useAppDefinition } = await import("/src/state/definitions.ts");
+        const { useAppDefinition, useAppPreview } = await import(
+          "/src/state/definitions.ts"
+        );
         const res = await route_get_app_definition({});
         if (!res200(res)) {
           return false;
@@ -54,15 +54,112 @@ async function syncAppDefinitionStateWithExpectedRootKey(
           appSpec,
           appDefinition,
         });
+        useAppPreview.setState({
+          previewSpecOverride: undefined,
+          aiPreviewSpecOverride: undefined,
+        });
         return true;
       }, { expectedKey: expectedRootKey });
+    }, {
+      timeout: APP_PREVIEW_SYNC_TIMEOUT_MS,
+      intervals: [200, 500, 1000],
     })
     .toBe(true);
+
+  // Let the preview consume the synced store state before DOM assertions.
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  });
+  await clearPreviewSpecOverrides(page);
+}
+
+async function clearPreviewSpecOverrides(page: Page): Promise<void> {
+  await expect
+    .poll(async () => {
+      await page.evaluate(async () => {
+        const { useAppPreview } = await import("/src/state/definitions.ts");
+        useAppPreview.setState({
+          previewSpecOverride: undefined,
+          aiPreviewSpecOverride: undefined,
+        });
+      });
+
+      const isCleared = await page.evaluate(async () => {
+        const { useAppPreview } = await import("/src/state/definitions.ts");
+        const state = useAppPreview.getState();
+        return (
+          state.previewSpecOverride === undefined &&
+          state.aiPreviewSpecOverride === undefined
+        );
+      });
+      if (!isCleared) {
+        return false;
+      }
+
+      await page.waitForTimeout(200);
+      return await page.evaluate(async () => {
+        const { useAppPreview } = await import("/src/state/definitions.ts");
+        const state = useAppPreview.getState();
+        return (
+          state.previewSpecOverride === undefined &&
+          state.aiPreviewSpecOverride === undefined
+        );
+      });
+    }, {
+      timeout: APP_PREVIEW_SYNC_TIMEOUT_MS,
+      intervals: [200, 500, 1000],
+    })
+    .toBe(true);
+}
+
+function getAppPreviewContainer(page: Page): Locator {
+  return page
+    .getByText("App Preview", { exact: true })
+    .first()
+    .locator("xpath=ancestor::div[2]");
+}
+
+async function waitForPreviewTabButton(
+  page: Page,
+  tabTitle: string,
+): Promise<void> {
+  const tabButton = getAppPreviewContainer(page).getByRole("button", {
+    name: tabTitle,
+  });
+  await expect
+    .poll(async () => await tabButton.count(), {
+      timeout: APP_PREVIEW_SYNC_TIMEOUT_MS,
+      intervals: [200, 500, 1000],
+    })
+    .toBeGreaterThan(0);
+  await expect(tabButton.first()).toBeVisible({
+    timeout: APP_PREVIEW_SYNC_TIMEOUT_MS,
+  });
+}
+
+async function waitForPreviewText(
+  page: Page,
+  text: string,
+): Promise<void> {
+  const paragraph = getAppPreviewContainer(page).getByText(text, {
+    exact: true,
+  });
+  await expect
+    .poll(async () => await paragraph.count(), {
+      timeout: APP_PREVIEW_SYNC_TIMEOUT_MS,
+      intervals: [200, 500, 1000],
+    })
+    .toBeGreaterThan(0);
+  await expect(paragraph.first()).toBeVisible({
+    timeout: APP_PREVIEW_SYNC_TIMEOUT_MS,
+  });
 }
 
 test("app tabs scope outputs per config", async ({ page }) => {
   await seedLocalStorage(page, { overviewTab: "App", overviewVis: true });
   await ensureAppReady(page);
+  await clearPreviewSpecOverrides(page);
 
   const initialMetadata = await postBackend<ProjectMetadataResponse>(
     page,
@@ -198,7 +295,7 @@ test("app tabs scope outputs per config", async ({ page }) => {
   await postBackend(page, "/setAppDefinition", {
     appSpec,
   });
-  await syncAppDefinitionState(page);
+  await syncAppDefinitionStateWithExpectedRootKey(page, "app-root");
   await page.evaluate(
     async ({ defaultConfigName, newConfigName, sectionAId, sectionBId }) => {
       const { route_load_project_config } = await import(
@@ -302,16 +399,16 @@ test("app tabs scope outputs per config", async ({ page }) => {
   }
 
   await expect(page.getByText("App Preview")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: defaultConfig.name }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: newConfig.name }),
-  ).toBeVisible();
+  await waitForPreviewTabButton(page, defaultConfig.name);
+  await waitForPreviewTabButton(page, newConfig.name);
 
-  await expect(page.getByText("Alpha output")).toBeVisible();
-  await page.getByRole("button", { name: newConfig.name }).click();
-  await expect(page.getByText("Beta output")).toBeVisible();
+  await waitForPreviewText(page, "Alpha output");
+  await waitForPreviewTabButton(page, newConfig.name);
+  await getAppPreviewContainer(page)
+    .getByRole("button", { name: newConfig.name })
+    .first()
+    .click({ timeout: APP_PREVIEW_SYNC_TIMEOUT_MS });
+  await waitForPreviewText(page, "Beta output");
 });
 
 test("app tabs remain stable when app definition transitions between non-empty and empty tabs", async ({
@@ -319,6 +416,7 @@ test("app tabs remain stable when app definition transitions between non-empty a
 }) => {
   await seedLocalStorage(page, { overviewTab: "App", overviewVis: true });
   await ensureAppReady(page);
+  await clearPreviewSpecOverrides(page);
 
   const previewToggle = page.getByRole("button", {
     name: /Show Preview|Hide Preview/,
@@ -353,8 +451,8 @@ test("app tabs remain stable when app definition transitions between non-empty a
     },
   });
   await syncAppDefinitionStateWithExpectedRootKey(page, "root-tabs");
-  await expect(page.getByRole("button", { name: "Tab One" })).toBeVisible();
-  await expect(page.getByText("First tab content")).toBeVisible();
+  await waitForPreviewTabButton(page, "Tab One");
+  await waitForPreviewText(page, "First tab content");
 
   await postBackend(page, "/setAppDefinition", {
     appSpec: {
@@ -367,8 +465,12 @@ test("app tabs remain stable when app definition transitions between non-empty a
     },
   });
   await syncAppDefinitionStateWithExpectedRootKey(page, "root-tabs-empty");
-  await expect(page.getByRole("button", { name: "Tab One" })).toHaveCount(0);
-  await expect(page.getByText("First tab content")).toHaveCount(0);
+  await expect(
+    getAppPreviewContainer(page).getByRole("button", { name: "Tab One" }),
+  ).toHaveCount(0);
+  await expect(
+    getAppPreviewContainer(page).getByText("First tab content", { exact: true }),
+  ).toHaveCount(0);
   await expect(page.getByText("App Preview")).toBeVisible();
 
   await postBackend(page, "/setAppDefinition", {
@@ -395,8 +497,6 @@ test("app tabs remain stable when app definition transitions between non-empty a
     },
   });
   await syncAppDefinitionStateWithExpectedRootKey(page, "root-tabs-restored");
-  await expect(
-    page.getByRole("button", { name: "Recovered Tab" }),
-  ).toBeVisible();
-  await expect(page.getByText("Recovered content")).toBeVisible();
+  await waitForPreviewTabButton(page, "Recovered Tab");
+  await waitForPreviewText(page, "Recovered content");
 });
