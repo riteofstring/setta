@@ -383,27 +383,12 @@ def _resolve_missing_setting_error(
         )
 
     plugin_id, _ = parsed_plugin_setting
-    plugin_manager = getattr(ctx.fastmcp.state, "plugin_manager", None)
-    if plugin_manager is None:
-        return UISettingToolError(
-            code="plugin_unavailable",
-            message=f"Plugin {plugin_id} is unavailable.",
-        )
-
-    runtime_response = plugin_manager.get_runtime_response()
-    for status_entry in runtime_response.status.plugins:
-        if status_entry.pluginId != plugin_id:
-            continue
-        state_value = status_entry.state
-        state_label = (
-            state_value.value if hasattr(state_value, "value") else str(state_value)
-        )
-        if state_label != "active":
-            return UISettingToolError(
-                code="plugin_unavailable",
-                message=f"Plugin {plugin_id} is unavailable (state={state_label}).",
-            )
-        break
+    plugin_error = _resolve_plugin_runtime_support_error(
+        ctx=ctx,
+        plugin_id=plugin_id,
+    )
+    if plugin_error is not None:
+        return plugin_error
 
     return UISettingToolError(
         code="setting_not_found",
@@ -447,6 +432,27 @@ async def _reveal_settings(
         )
 
     location = runtime_entry.metadata.location
+    plugin_id = runtime_entry.metadata.pluginId
+    if plugin_id is not None:
+        plugin_error = _resolve_plugin_runtime_support_error(
+            ctx=ctx,
+            plugin_id=plugin_id,
+        )
+        if plugin_error is not None:
+            return RevealUISettingResult(
+                requestId=request_id,
+                projectConfigId=project_config_id,
+                durationMs=bounded_duration_ms,
+                emittedRevealCount=0,
+                statuses=[
+                    RevealUISettingStatus(
+                        settingId=setting_id,
+                        status="failed",
+                        error=plugin_error,
+                    )
+                ],
+            )
+
     if location.side == "right" and location.requiresSectionSelection:
         if section_id_to_activate is not None:
             section_error = await _activate_section_for_reveal(
@@ -527,6 +533,70 @@ async def _reveal_settings(
             )
         ],
     )
+
+
+def _resolve_plugin_runtime_support_error(
+    *,
+    ctx: Context,
+    plugin_id: str,
+) -> UISettingToolError | None:
+    plugin_manager = getattr(ctx.fastmcp.state, "plugin_manager", None)
+    if plugin_manager is None:
+        return UISettingToolError(
+            code="plugin_unavailable",
+            message=f"Plugin {plugin_id} is unavailable.",
+        )
+
+    runtime_response = plugin_manager.get_runtime_response()
+    plugin_state: str | None = None
+    for status_entry in runtime_response.status.plugins:
+        if status_entry.pluginId != plugin_id:
+            continue
+        state_value = status_entry.state
+        plugin_state = (
+            state_value.value if hasattr(state_value, "value") else str(state_value)
+        )
+        break
+    if plugin_state != "active":
+        if plugin_state is None:
+            return UISettingToolError(
+                code="plugin_unavailable",
+                message=f"Plugin {plugin_id} is unavailable.",
+            )
+        return UISettingToolError(
+            code="plugin_unavailable",
+            message=f"Plugin {plugin_id} is unavailable (state={plugin_state}).",
+        )
+
+    plugin_entry = None
+    for candidate in runtime_response.list.plugins:
+        if candidate.pluginId == plugin_id:
+            plugin_entry = candidate
+            break
+    if plugin_entry is None:
+        return UISettingToolError(
+            code="plugin_unavailable",
+            message=f"Plugin {plugin_id} is unavailable (active runtime entry missing).",
+        )
+    if "registerPane" not in plugin_entry.effectiveCapabilities:
+        return UISettingToolError(
+            code="plugin_unavailable",
+            message=(
+                f"Plugin {plugin_id} is unavailable for UI setting reveal "
+                "(registerPane capability not effective)."
+            ),
+        )
+
+    entrypoint_url = plugin_entry.frontend.entrypointUrl
+    if not isinstance(entrypoint_url, str) or entrypoint_url.strip() == "":
+        return UISettingToolError(
+            code="plugin_unavailable",
+            message=(
+                f"Plugin {plugin_id} is unavailable for UI setting reveal "
+                "(frontend entrypoint not available)."
+            ),
+        )
+    return None
 
 
 async def _activate_section_for_reveal(

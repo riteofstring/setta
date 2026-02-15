@@ -78,7 +78,7 @@ def _copy_fixture_plugin_to_workspace(
     *,
     manager: PluginManager,
     fixture_name: str,
-) -> str:
+) -> tuple[str, Path]:
     source_root = FIXTURE_PLUGIN_ROOT / fixture_name
     manifest_path = source_root / "setta.plugin.json"
     manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -87,7 +87,7 @@ def _copy_fixture_plugin_to_workspace(
     destination_root.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(source_root, destination_root)
     _prepare_fixture_frontend_dist(destination_root)
-    return plugin_id
+    return plugin_id, destination_root
 
 
 def _prepare_fixture_frontend_dist(plugin_root: Path) -> None:
@@ -304,7 +304,7 @@ async def test_plugin_ui_setting_flow_from_config_schema_metadata(
 ) -> None:
     async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
         plugin_manager = _build_plugin_manager(tmp_path)
-        plugin_id = _copy_fixture_plugin_to_workspace(
+        plugin_id, _ = _copy_fixture_plugin_to_workspace(
             manager=plugin_manager,
             fixture_name="full",
         )
@@ -386,7 +386,7 @@ async def test_plugin_ui_setting_returns_plugin_unavailable_when_disabled(
 ) -> None:
     async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
         plugin_manager = _build_plugin_manager(tmp_path)
-        plugin_id = _copy_fixture_plugin_to_workspace(
+        plugin_id, _ = _copy_fixture_plugin_to_workspace(
             manager=plugin_manager,
             fixture_name="full",
         )
@@ -436,3 +436,74 @@ async def test_plugin_ui_setting_returns_plugin_unavailable_when_disabled(
         assert len(reveal_result.statuses) == 1
         assert reveal_result.statuses[0].error is not None
         assert reveal_result.statuses[0].error.code == "plugin_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_plugin_ui_setting_returns_plugin_unavailable_when_register_pane_not_effective(
+    tmp_path: Path,
+) -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        manifest_path = plugin_root / "setta.plugin.json"
+        manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_payload["capabilities"] = ["registerSectionKinds", "registerCommand"]
+        manifest_path.write_text(
+            json.dumps(manifest_payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        # Plugin IDs should report capability-gated unavailability for UI setting tools.
+        get_result = await get_ui_setting_value(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert get_result.error is not None
+        assert get_result.error.code == "plugin_unavailable"
+        assert "registerPane capability not effective" in get_result.error.message
+
+        set_result = await set_ui_setting_value(
+            settingId=plugin_setting_id,
+            value=True,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is not None
+        assert set_result.error.code == "plugin_unavailable"
+        assert "registerPane capability not effective" in set_result.error.message
+
+        reveal_result = await reveal_ui_setting(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert reveal_result.emittedRevealCount == 0
+        assert len(reveal_result.statuses) == 1
+        assert reveal_result.statuses[0].status == "failed"
+        assert reveal_result.statuses[0].error is not None
+        assert reveal_result.statuses[0].error.code == "plugin_unavailable"
+        assert (
+            "registerPane capability not effective"
+            in reveal_result.statuses[0].error.message
+        )
