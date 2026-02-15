@@ -14,9 +14,13 @@ export type RunInstructionsAccordionItem = {
 export function RunInstructionsAccordion({
   items,
   defaultOpenValues,
+  openValues,
+  onOpenValuesChange,
 }: {
   items: Array<RunInstructionsAccordionItem>;
   defaultOpenValues: Array<string>;
+  openValues?: Array<string>;
+  onOpenValuesChange?: (openValues: Array<string>) => void;
 }) {
   const disabledItemValues = new Set(
     items.filter((item) => item.disabled).map((item) => item.value),
@@ -24,11 +28,24 @@ export function RunInstructionsAccordion({
   const resolvedDefaultOpenValues = defaultOpenValues.filter(
     (value) => !disabledItemValues.has(value),
   );
+  const hasControlledOpenValues = openValues !== undefined;
+  const resolvedOpenValues =
+    openValues?.filter((value) => !disabledItemValues.has(value)) ?? [];
+  const handleOpenValuesChange = (nextOpenValues: Array<string>) => {
+    if (!onOpenValuesChange) {
+      return;
+    }
+    onOpenValuesChange(
+      nextOpenValues.filter((value) => !disabledItemValues.has(value)),
+    );
+  };
 
   return (
     <Accordion.Root
       type="multiple"
-      defaultValue={resolvedDefaultOpenValues}
+      value={hasControlledOpenValues ? resolvedOpenValues : undefined}
+      defaultValue={hasControlledOpenValues ? undefined : resolvedDefaultOpenValues}
+      onValueChange={handleOpenValuesChange}
       className="flex min-h-0 flex-col gap-2"
     >
       {items.map((item) => {

@@ -10,7 +10,7 @@ import {
 } from "../helpers";
 
 test.describe.serial("run instructions accordion hierarchy", () => {
-  test("custom run sections are grouped in accordions with empty-state disable behavior", async ({
+  test("major custom-run categories are accordionized with persisted open state", async ({
     page,
   }) => {
     await seedLocalStorage(page, {
@@ -41,30 +41,89 @@ test.describe.serial("run instructions accordion hierarchy", () => {
       const addFromCodeBlocksTrigger = page.getByTestId(
         "run-instructions-accordion-add-from-code-blocks",
       );
+      const runSnapshotModeTrigger = page.getByTestId(
+        "run-instructions-accordion-run-snapshot-mode",
+      );
+      const codegenTargetsTrigger = page.getByTestId(
+        "run-instructions-accordion-codegen-targets",
+      );
+      const codegenPolicyTrigger = page.getByTestId(
+        "run-instructions-accordion-codegen-policy",
+      );
 
-      await expect(customRunsTrigger).toHaveAttribute("aria-expanded", "true");
-      await expect(addFromCodeBlocksTrigger).toHaveAttribute(
+      await expect(runSnapshotModeTrigger).toHaveAttribute(
         "aria-expanded",
         "false",
       );
+      await expect(codegenTargetsTrigger).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
+      await expect(codegenPolicyTrigger).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
+      await expect(customRunsTrigger).toHaveAttribute("aria-expanded", "true");
 
       const addFromCodeBlocksDisabled =
         (await addFromCodeBlocksTrigger.getAttribute("disabled")) !== null;
+      const addFromCodeBlocksExpandedBefore =
+        (await addFromCodeBlocksTrigger.getAttribute("aria-expanded")) ===
+        "true";
       if (addFromCodeBlocksDisabled) {
+        await expect(addFromCodeBlocksTrigger).toHaveAttribute(
+          "aria-expanded",
+          "false",
+        );
         await expect(addFromCodeBlocksTrigger).toHaveAttribute(
           "title",
           "No runnable code blocks are available",
         );
       } else {
-        await addFromCodeBlocksTrigger.click();
         await expect(addFromCodeBlocksTrigger).toHaveAttribute(
           "aria-expanded",
           "true",
         );
       }
 
+      await runSnapshotModeTrigger.click();
+      await codegenPolicyTrigger.click();
       await customRunsTrigger.click();
       await expect(customRunsTrigger).toHaveAttribute("aria-expanded", "false");
+      await expect(runSnapshotModeTrigger).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+      await expect(codegenPolicyTrigger).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await ensureAppReady(page);
+
+      await expect(
+        page.getByTestId("run-instructions-accordion-run-snapshot-mode"),
+      ).toHaveAttribute("aria-expanded", "true");
+      await expect(
+        page.getByTestId("run-instructions-accordion-codegen-policy"),
+      ).toHaveAttribute("aria-expanded", "true");
+      await expect(
+        page.getByTestId("run-instructions-accordion-custom-runs"),
+      ).toHaveAttribute("aria-expanded", "false");
+
+      if (addFromCodeBlocksDisabled) {
+        await expect(
+          page.getByTestId("run-instructions-accordion-add-from-code-blocks"),
+        ).toHaveAttribute("aria-expanded", "false");
+      } else {
+        await expect(
+          page.getByTestId("run-instructions-accordion-add-from-code-blocks"),
+        ).toHaveAttribute(
+          "aria-expanded",
+          addFromCodeBlocksExpandedBefore ? "true" : "false",
+        );
+      }
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

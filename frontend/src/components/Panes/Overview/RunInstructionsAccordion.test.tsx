@@ -70,4 +70,39 @@ describe("RunInstructionsAccordion", () => {
       'title="No runnable code blocks are available"',
     );
   });
+
+  it("supports controlled open values for persisted accordion state", () => {
+    const markup = renderToStaticMarkup(
+      <RunInstructionsAccordion
+        defaultOpenValues={["custom-runs"]}
+        openValues={["codegen"]}
+        items={[
+          {
+            value: "codegen",
+            title: "Codegen Policy",
+            triggerTestId: "run-instructions-accordion-codegen-policy",
+            content: <div>Codegen content</div>,
+          },
+          {
+            value: "custom-runs",
+            title: "Run Button Dropdown Items",
+            triggerTestId: "run-instructions-accordion-custom-runs",
+            content: <div>Run items</div>,
+          },
+        ]}
+      />,
+    );
+
+    const codegenTriggerTag =
+      markup.match(
+        /<button[^>]*data-testid="run-instructions-accordion-codegen-policy"[^>]*>/,
+      )?.[0] ?? "";
+    const customRunsTriggerTag =
+      markup.match(
+        /<button[^>]*data-testid="run-instructions-accordion-custom-runs"[^>]*>/,
+      )?.[0] ?? "";
+
+    expect(codegenTriggerTag).toContain('aria-expanded="true"');
+    expect(customRunsTriggerTag).toContain('aria-expanded="false"');
+  });
 });
