@@ -32,12 +32,21 @@ import {
   BinaryDependencyValue,
   ButtonActionModeEnum,
   CodeObjTypeEnum,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
+  DateDisplayFormatEnum,
+  DateSelectionModeEnum,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   DropzoneModeEnum,
   HttpRequestMethodEnum,
   LiteralDependencyValue,
   SectionTypeEnum,
+  TextParamInputUIType,
+  TextParamInputUITypeEnum,
+  TimeControlModeEnum,
+  TimeDisplayFontEnum,
+  TimeDisplayFormatEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
 import { shouldEmitRealtimeValue } from "utils/paramValue";
@@ -98,6 +107,17 @@ function MetaControlValueArea({
     dropzoneMode,
     dropzoneMaxAttachments,
     dropzonePlaceholder,
+    legacyTextParamUiType,
+    timeControlMode,
+    timeDisplayFormat,
+    timeDisplayTransparent,
+    timeDisplayScale,
+    timeDisplayFont,
+    dateDisplayFormat,
+    dateControlMode,
+    dateSelectionMode,
+    dateCalendarWeekStart,
+    dateIncludesTime,
   } = useProjectState((x) => {
     const sectionName = getSectionCore(x, sectionId).name;
     const paramDisplayName = getParamDisplayName(x, sectionId, controlParamId);
@@ -130,6 +150,17 @@ function MetaControlValueArea({
         dropzoneMode: null,
         dropzoneMaxAttachments: null,
         dropzonePlaceholder: null,
+        legacyTextParamUiType: null,
+        timeControlMode: TimeControlModeEnum.display,
+        timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
+        timeDisplayTransparent: false,
+        timeDisplayScale: 1,
+        timeDisplayFont: TimeDisplayFontEnum.monospace,
+        dateDisplayFormat: DateDisplayFormatEnum.iso,
+        dateControlMode: DateControlModeEnum.input,
+        dateSelectionMode: DateSelectionModeEnum.single,
+        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
+        dateIncludesTime: false,
       };
     }
     const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
@@ -139,6 +170,23 @@ function MetaControlValueArea({
       isBaseChildlessCodeObjImpl,
     );
     const isDropzone = childlessImpl.type === CodeObjTypeEnum.DropzoneParam;
+    const isTextParam = childlessImpl.type === CodeObjTypeEnum.TextParam;
+    const isDateParam = childlessImpl.type === CodeObjTypeEnum.DateParam;
+    const isTimeParam = childlessImpl.type === CodeObjTypeEnum.TimeParam;
+    const isLegacyDateTextParam =
+      isTextParam &&
+      "uiType" in childlessImpl &&
+      childlessImpl.uiType === "date";
+    const isLegacyTimeTextParam =
+      isTextParam &&
+      "uiType" in childlessImpl &&
+      childlessImpl.uiType === "time";
+    let legacyTextParamUiType: TextParamInputUIType | null = null;
+    if (isLegacyDateTextParam) {
+      legacyTextParamUiType = TextParamInputUITypeEnum.date;
+    } else if (isLegacyTimeTextParam) {
+      legacyTextParamUiType = TextParamInputUITypeEnum.time;
+    }
     return {
       codeObjType: childlessImpl.type,
       baseValue: childlessImpl.value,
@@ -151,6 +199,47 @@ function MetaControlValueArea({
         ? childlessImpl.maxAttachments ?? null
         : null,
       dropzonePlaceholder: isDropzone ? childlessImpl.placeholder : null,
+      legacyTextParamUiType,
+      timeControlMode:
+        isTimeParam || isLegacyTimeTextParam
+          ? childlessImpl.timeControlMode
+          : TimeControlModeEnum.display,
+      timeDisplayFormat:
+        isTimeParam || isLegacyTimeTextParam
+          ? childlessImpl.timeDisplayFormat
+          : TimeDisplayFormatEnum.twenty_four_hour,
+      timeDisplayTransparent:
+        isTimeParam || isLegacyTimeTextParam
+          ? childlessImpl.timeDisplayTransparent
+          : false,
+      timeDisplayScale:
+        isTimeParam || isLegacyTimeTextParam
+          ? childlessImpl.timeDisplayScale
+          : 1,
+      timeDisplayFont:
+        isTimeParam || isLegacyTimeTextParam
+          ? childlessImpl.timeDisplayFont
+          : TimeDisplayFontEnum.monospace,
+      dateDisplayFormat:
+        isDateParam || isLegacyDateTextParam
+          ? childlessImpl.dateDisplayFormat
+          : DateDisplayFormatEnum.iso,
+      dateControlMode:
+        isDateParam || isLegacyDateTextParam
+          ? childlessImpl.dateControlMode
+          : DateControlModeEnum.input,
+      dateSelectionMode:
+        isDateParam || isLegacyDateTextParam
+          ? childlessImpl.dateSelectionMode
+          : DateSelectionModeEnum.single,
+      dateCalendarWeekStart:
+        isDateParam || isLegacyDateTextParam
+          ? childlessImpl.dateCalendarWeekStart
+          : DateCalendarWeekStartEnum.sunday,
+      dateIncludesTime:
+        isDateParam || isLegacyDateTextParam
+          ? childlessImpl.dateIncludesTime
+          : false,
     };
   }, _.isEqual);
 
@@ -313,6 +402,17 @@ function MetaControlValueArea({
           dropzoneMode={dropzoneMode ?? DropzoneModeEnum.STATEFUL}
           dropzoneMaxAttachments={dropzoneMaxAttachments}
           dropzonePlaceholder={dropzonePlaceholder ?? undefined}
+          legacyTextParamUiType={legacyTextParamUiType ?? undefined}
+          timeControlMode={timeControlMode}
+          timeDisplayFormat={timeDisplayFormat}
+          timeDisplayTransparent={timeDisplayTransparent}
+          timeDisplayScale={timeDisplayScale}
+          timeDisplayFont={timeDisplayFont}
+          dateDisplayFormat={dateDisplayFormat}
+          dateControlMode={dateControlMode}
+          dateSelectionMode={dateSelectionMode}
+          dateCalendarWeekStart={dateCalendarWeekStart}
+          dateIncludesTime={dateIncludesTime}
           showSectionTitle={showSectionTitle}
         />
       )}

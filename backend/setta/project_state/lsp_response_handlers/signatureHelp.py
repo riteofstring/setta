@@ -36,6 +36,7 @@ class ParamProposal:
     name: str
     default: str | None
     description: str | None
+    typeAnnotation: str | None = None
 
 
 class SignatureHelpStatus(str, Enum):
@@ -126,6 +127,7 @@ def wrapper_parse_signature(
         name = paramProposal.name
         default = paramProposal.default
         description = paramProposal.description
+        type_annotation = paramProposal.typeAnnotation
         if paramProposal.name in [None, "/", "*", "", "..."]:
             continue
 
@@ -153,6 +155,7 @@ def wrapper_parse_signature(
                 "defaultVal": default,
                 "description": description,
                 "passingStyle": passingStyle,
+                "typeAnnotation": type_annotation or "",
             },
         )
         codeObj = Core(name=name.lstrip("*"))
@@ -179,11 +182,16 @@ def get_pyright_param_proposals(signature: LSPTypes.SignatureInformation, _):
         params.append((p.label, lsp_documentation_to_str(p.documentation)))
 
     for label, documentation in params:
-        name, _, default = parse_param_name(label)
+        name, type_annotation, default = parse_param_name(label)
         if not name:
             continue
         proposals.append(
-            ParamProposal(name=name, default=default, description=documentation)
+            ParamProposal(
+                name=name,
+                default=default,
+                description=documentation,
+                typeAnnotation=type_annotation,
+            )
         )
 
     return proposals
