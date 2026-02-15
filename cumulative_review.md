@@ -1,12 +1,9 @@
-## 2026-02-17 09:31:46 PST
+## 2026-02-17 09:04:23 PST
 
-- Consolidated findings from top-level branch reviews were implemented without backward compatibility, legacy shims, or migration layers.
-- Fixed share-policy enforcement gap by adding layout guard coverage to list-root view mode mutation routes.
-- Reworked file-browser spreadsheet disk-change handling to use a dedicated single-file stat route and integer nanosecond mtimes end-to-end.
-- Optimized spreadsheet edit/update paths to avoid full-grid cloning on localized cell edits.
-- Scoped file-browser copy/cut/paste shortcuts so editable targets (inputs, contenteditable, CodeMirror) preserve native clipboard behavior.
-- Made spreadsheet section rename flow consistent with other file-open flows via sanitized naming and explicit rename response handling.
-- Removed race-prone polling for calendar preset application by returning `metaControlParamId` from section creation and applying config deterministically.
-- Removed legacy TextParam date/time compatibility branches and unreachable combobox branches, keeping DateParam/TimeParam as canonical behavior.
-- Removed database migration/auto-expansion behavior so project loading uses strict model validation with no payload rewrites.
-- Added/updated backend, Vitest, and Playwright coverage for these changes and verified targeted suites pass.
+- Fixed Overview rail regression by restoring stable tab `data-testid` hooks, restoring chat-first ordering, and restoring `overview-tab-content-shell` for overflow/inset checks.
+- Fixed project-config reorder UX defects by persisting order in local storage (`overviewProjectConfigOrder`) and preventing drag-handle clicks from triggering navigation.
+- Fixed Home selected-project section count to use object keys and reduced per-item favorite subscriptions by passing favorite state from parent sections.
+- Removed redundant view-mode ordering utility code and consolidated `ViewModeTabs` sorting to a single pass.
+- Hardened backend init status response by removing exposed worktree paths, removing duplicate `worktreeOptions`, and eliminating duplicate git worktree-list calls per snapshot.
+- Added/updated coverage across backend pytest, frontend Vitest, and Playwright overview E2E flows for rail order, pane overflow, view-mode/project-config reordering, and drag-handle behavior.
+
