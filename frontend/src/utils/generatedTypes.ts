@@ -2651,7 +2651,24 @@ const TaskBoardSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
-  columns: z.array(TaskBoardColumnSchema).default([]),
+  columns: z.array(TaskBoardColumnSchema).default(() => [
+    createTaskBoardColumn({
+      id: "b82b660e-6479-4e06-8bb3-759a0ed16fc2" as const,
+      name: "Todo" as const,
+    }),
+    createTaskBoardColumn({
+      id: "67795cdb-d80a-4842-854c-d535ab397a62" as const,
+      name: "Doing" as const,
+      color: "#a855f7" as const,
+      sortIndex: 1,
+    }),
+    createTaskBoardColumn({
+      id: "f82b50cc-61dd-47f8-9f78-fb666c8a0eb5" as const,
+      name: "Done" as const,
+      color: "#10b981" as const,
+      sortIndex: 2,
+    }),
+  ]),
   tasks: z.array(TaskBoardTaskSchema).default([]),
 });
 
@@ -5102,7 +5119,6 @@ const SettingsBackendSchema = z.object({
   runSnapshotMode: z
     .enum(RunSnapshotModeEnum)
     .default(RunSnapshotModeEnum.ephemeral),
-  completionGuardEnabled: z.boolean().default(true),
 });
 
 type SettingsBackend = z.infer<typeof SettingsBackendSchema>;
@@ -6023,7 +6039,24 @@ const UserDefaultTaskBoardSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
-  columns: z.array(TaskBoardColumnSchema).default([]),
+  columns: z.array(TaskBoardColumnSchema).default(() => [
+    createTaskBoardColumn({
+      id: "885a1622-5b8b-4725-ac09-e8b1b6b71e06" as const,
+      name: "Todo" as const,
+    }),
+    createTaskBoardColumn({
+      id: "196a95f6-ce33-43fc-b526-9ab1ab322f36" as const,
+      name: "Doing" as const,
+      color: "#a855f7" as const,
+      sortIndex: 1,
+    }),
+    createTaskBoardColumn({
+      id: "f5163822-0c56-47c5-abed-09bb4e43e229" as const,
+      name: "Done" as const,
+      color: "#10b981" as const,
+      sortIndex: 2,
+    }),
+  ]),
   tasks: z.array(TaskBoardTaskSchema).default([]),
 });
 

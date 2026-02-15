@@ -76,25 +76,6 @@ def _seed_engine_config(dbe: DBE, engine_config_id: ID, llm_config_id: str) -> N
     save_engine_configs(dbe, [engine_config])
 
 
-def _completion_report_tool_message(
-    *,
-    completion_intent: bool,
-    requires_verification: bool,
-    check_results: list[dict[str, object]] | None = None,
-) -> ToolChatMessage:
-    return ToolChatMessage(
-        tool_call_id="tool-report",
-        tool_name="setta__report_completion_status",
-        result={
-            "structuredContent": {
-                "completionIntent": completion_intent,
-                "requiresVerification": requires_verification,
-                "checkResults": list(check_results or []),
-            }
-        },
-    )
-
-
 class _StubAgentRunner(AgentRunner):
     async def _run_agent(self, context) -> None:
         if context.emit_stream or context.emit_ai_follow:
@@ -145,148 +126,282 @@ class TestAgentRunner:
 
             assert allowlist is not None
             assert allowlist.tool_names == {"server-a__tool.alpha"}
-            assert allowlist.tool_basenames == {
-                "report_completion_status",
-                "tool.beta",
-            }
+            assert allowlist.tool_basenames == {"tool.beta"}
             assert allowlist.server_ids == {"server-a", "server-b"}
 
-    def test_completion_guard_blocks_missing_report_when_enabled(self) -> None:
+    def test_completion_guard_rewrites_done_claim_when_checks_missing(self) -> None:
         prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Implement task A.")])
+            UserChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="Create a new project and scaffold all sections."
+                    )
+                ],
+            )
         ]
         assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="Task A is done.")]
+            content=[MessageTextContent(text="Done. Everything is complete.")]
         )
 
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=True,
-        )
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
 
         assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
 
-    def test_completion_guard_allows_when_disabled(self) -> None:
+    def test_completion_guard_rewrites_done_claim_when_checks_failed(self) -> None:
         prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Implement task A.")])
-        ]
-        assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="Task A is done.")]
-        )
-
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=False,
-        )
-
-        assert assistant_message.content[0].text == "Task A is done."
-
-    def test_completion_guard_blocks_failed_required_checks(self) -> None:
-        prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Implement task A.")]),
-            _completion_report_tool_message(
-                completion_intent=True,
-                requires_verification=True,
-                check_results=[
-                    {
-                        "checkName": "pytest",
-                        "required": True,
-                        "status": "failed",
-                    }
-                ],
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            AssistantChatMessage(
+                content=[MessageTextContent(text="I ran checks and tests failed.")]
             ),
         ]
         assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="Task A is done.")]
+            content=[MessageTextContent(text="All done.")]
         )
 
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=True,
-        )
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
 
         assert assistant_message.content[0].text == FAILED_CHECKS_MESSAGE
 
-    def test_completion_guard_allows_when_required_checks_pass(self) -> None:
+    def test_completion_guard_keeps_creation_flows_open_across_clarification_turns(
+        self,
+    ) -> None:
         prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Implement task A.")]),
-            _completion_report_tool_message(
-                completion_intent=True,
-                requires_verification=True,
-                check_results=[
-                    {
-                        "checkName": "pytest",
-                        "required": True,
-                        "status": "passed",
-                    },
-                    {
-                        "checkName": "ruff",
-                        "required": True,
-                        "status": "passed",
-                    },
-                ],
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a new project scaffold.")]
+            ),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="Which language and framework should I use?"
+                    )
+                ]
+            ),
+            UserChatMessage(content=[MessageTextContent(text="Python + FastAPI.")]),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Ready to ship.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
+    def test_completion_guard_keeps_creation_flow_open_for_question_clarifications(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a new project scaffold.")]
+            ),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="Which language and framework should I use?"
+                    )
+                ]
+            ),
+            UserChatMessage(
+                content=[
+                    MessageTextContent(text="How should we structure auth folders?")
+                ]
             ),
         ]
         assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="Task A is done.")]
+            content=[MessageTextContent(text="Done. Ready to ship.")]
         )
 
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=True,
-        )
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
 
-        assert assistant_message.content[0].text == "Task A is done."
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
 
-    def test_completion_guard_allows_non_completion_intent_reports(self) -> None:
+    def test_completion_guard_keeps_creation_flow_open_for_implement_followup(
+        self,
+    ) -> None:
         prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Investigate bug B.")]),
-            _completion_report_tool_message(
-                completion_intent=False,
-                requires_verification=False,
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a new project scaffold.")]
+            ),
+            UserChatMessage(
+                content=[MessageTextContent(text="Implement the remaining sections.")]
             ),
         ]
         assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="I need one clarification.")]
+            content=[MessageTextContent(text="Done. Ready to ship.")]
         )
 
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=True,
-        )
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
 
-        assert assistant_message.content[0].text == "I need one clarification."
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
 
-    def test_completion_guard_ignores_report_from_previous_task_scope(self) -> None:
+    def test_completion_guard_ignores_non_scaffolding_implement_app_requests(
+        self,
+    ) -> None:
         prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Implement task A.")]),
-            _completion_report_tool_message(
-                completion_intent=True,
-                requires_verification=True,
-                check_results=[
-                    {
-                        "checkName": "pytest",
-                        "required": True,
-                        "status": "passed",
-                    }
-                ],
+            UserChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="Implement app settings page and wire it to existing state."
+                    )
+                ]
             ),
-            UserChatMessage(content=[MessageTextContent(text="Implement task B.")]),
         ]
         assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="Task B is done.")]
+            content=[MessageTextContent(text="Done. Ready to ship.")]
         )
 
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=True,
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "Done. Ready to ship."
+
+    def test_completion_guard_closes_scope_for_unrelated_question_pivot(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a new project scaffold.")]
+            ),
+            UserChatMessage(
+                content=[MessageTextContent(text="What time is it in Tokyo?")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Ready to ship.")]
         )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "Done. Ready to ship."
+
+    def test_completion_guard_allows_no_errors_found_pass_status(self) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(text="Verification passed with no errors found.")
+                ]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="All done.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "All done."
+
+    def test_completion_guard_allows_zero_failed_and_zero_errors_pass_status(self) -> (
+        None
+    ):
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(text="pytest: 5 passed, 0 failed in 1.2s")
+                ]
+            ),
+            AssistantChatMessage(
+                content=[MessageTextContent(text="Ran lint: zero errors found.")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="All done.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "All done."
+
+    def test_completion_guard_keeps_creation_scope_for_verification_followup_question(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[
+                    MessageTextContent(text="Create a new project structure.")
+                ]
+            ),
+            UserChatMessage(
+                content=[MessageTextContent(text="What tests did you run?")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="All done.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
+    def test_completion_guard_requires_explicit_status_when_done_message_mentions_checks(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            AssistantChatMessage(
+                content=[MessageTextContent(text="I ran checks and tests passed.")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[
+                MessageTextContent(
+                    text="Done. I referenced tests but have not rerun checks yet."
+                )
+            ]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
+    def test_completion_guard_ignores_non_verification_check_wording_in_done_message(
+        self,
+    ) -> None:
+        # Generic "check the docs" prose should not override a prior explicit pass result.
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            AssistantChatMessage(
+                content=[MessageTextContent(text="I ran checks and tests passed.")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Check the docs for details.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert (
+            assistant_message.content[0].text == "Done. Check the docs for details."
+        )
+
+    def test_completion_guard_treats_checks_not_run_with_no_failures_as_missing(
+        self,
+    ) -> None:
+        # "no failures" must not pass verification when checks are explicitly not run.
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(text="Checks were not run yet, no failures.")
+                ]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="All done.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
 
         assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
 

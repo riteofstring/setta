@@ -26,11 +26,7 @@ from setta.agentic.chat_view import (
     get_run_project_config_id,
     is_external_agent_run,
 )
-from setta.agentic.completion_guard import (
-    apply_completion_guard,
-    load_completion_guard_enabled,
-)
-from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
+from setta.agentic.completion_guard import apply_completion_guard
 from setta.agentic.external_adapters.base import (
     ExternalAgentAdapter,
     ExternalAgentRunContext,
@@ -1224,13 +1220,9 @@ class ExternalAgentRunner:
                     tools.append(f"mcp__{server_id}__{tool_name}")
                     continue
             tools.append(normalized)
-        required_tools = (
-            f"mcp__{SETTA_MCP_SERVER_ID}__set_agentic_context",
-            f"mcp__{SETTA_MCP_SERVER_ID}__{REPORT_COMPLETION_STATUS_TOOL_NAME}",
-        )
-        for required_tool in required_tools:
-            if required_tool not in tools:
-                tools.append(required_tool)
+        required_tool = f"mcp__{SETTA_MCP_SERVER_ID}__set_agentic_context"
+        if required_tool not in tools:
+            tools.append(required_tool)
         return tools or None
 
     def _resolve_working_dir(self, config: ExternalAgentConfig) -> Path:
@@ -1391,11 +1383,7 @@ class ExternalAgentRunner:
         if not isinstance(chunk.message, AssistantChatMessage):
             return chunk
         prior_messages = list(self._ensure_chat_state(run).messages)
-        apply_completion_guard(
-            prior_messages,
-            chunk.message,
-            completion_guard_enabled=load_completion_guard_enabled(self.dbe),
-        )
+        apply_completion_guard(prior_messages, chunk.message)
         return chunk
 
     def _store_tool_call_delta(self, run_id: ID, chunk: ToolCallDeltaEvent) -> None:
