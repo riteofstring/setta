@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class LSPFileWatcher:
-    def __init__(self, notify_callback, *, loop: asyncio.AbstractEventLoop):
+    def __init__(self, notify_callback):
         """
         Initialize the file watcher.
 
@@ -34,7 +34,7 @@ class LSPFileWatcher:
         self.watched_paths: set[str] = set()
         self.handler = LSPEventHandler(
             notify_callback,
-            loop,
+            asyncio.get_event_loop(),
             _default_ignore_paths(),
         )
 
@@ -77,12 +77,7 @@ class LSPFileWatcher:
 
 
 class LSPEventHandler(FileSystemEventHandler):
-    def __init__(
-        self,
-        callback,
-        loop: asyncio.AbstractEventLoop,
-        ignore_paths: list[Path] | None = None,
-    ):
+    def __init__(self, callback, loop, ignore_paths: list[Path] | None = None):
         self.callback = callback
         self.loop = loop
         self.ignore_paths = [path.resolve() for path in (ignore_paths or [])]

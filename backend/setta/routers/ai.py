@@ -96,9 +96,9 @@ def _ensure_external_chat_id_compatible(
     chat_id: ID | None,
     engine_config_id: ID,
     project_config_id: ID,
-) -> list[AgentRun]:
+) -> None:
     if chat_id is None:
-        return []
+        return
     llm_runs = _get_llm_chat_runs(dbe=dbe, chat_id=chat_id)
     if llm_runs:
         raise HTTPException(
@@ -107,7 +107,7 @@ def _ensure_external_chat_id_compatible(
         )
     external_runs = _get_external_agent_chat_runs(dbe=dbe, chat_id=chat_id)
     if not external_runs:
-        return []
+        return
     for run in external_runs:
         existing_engine = get_run_engine_config_id(run)
         if existing_engine != engine_config_id:
@@ -121,7 +121,6 @@ def _ensure_external_chat_id_compatible(
                 status_code=409,
                 detail="Chat project config mismatch; start a new chat.",
             )
-    return external_runs
 
 
 def _get_prior_messages_for_engine(
@@ -130,14 +129,21 @@ def _get_prior_messages_for_engine(
     engine_type: EngineType,
     chat_id: ID,
     project_config_id: ID | None,
-    external_runs: list[AgentRun] | None = None,
 ) -> list[BaseChatMessageUnion]:
     if engine_type == EngineType.external_agent:
-        if external_runs is None:
-            raise ValueError(
-                "external_runs is required when loading prior messages for external-agent chats."
-            )
+        external_runs = _get_external_agent_chat_runs(
+            dbe=dbe,
+            chat_id=chat_id,
+            project_config_id=project_config_id,
+        )
         latest_run = _select_latest_run(external_runs)
+        if latest_run is None:
+            llm_runs = _get_llm_chat_runs(
+                dbe=dbe,
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+            )
+            latest_run = _select_latest_run(llm_runs)
     else:
         llm_runs = _get_llm_chat_runs(
             dbe=dbe,
@@ -485,14 +491,6 @@ async def route_get_llm_response(
     resolved = resolve_engine_config(
         ctx.state.dbe, ctx.state.agent_runner.config, x.engineConfigId
     )
-    external_runs_for_chat_id: list[AgentRun] | None = None
-    if resolved.engine_config.engineType == EngineType.external_agent:
-        external_runs_for_chat_id = _ensure_external_chat_id_compatible(
-            dbe=ctx.state.dbe,
-            chat_id=x.branchParentChatId if is_branch_request else x.chatId,
-            engine_config_id=x.engineConfigId,
-            project_config_id=x.projectConfigId,
-        )
     prior_messages: list[BaseChatMessageUnion] = []
     parent_run: AgentRun | None = None
     if is_branch_request:
@@ -519,19 +517,11 @@ async def route_get_llm_response(
             ) from exc
     else:
         if x.chatId is not None:
-            if (
-                resolved.engine_config.engineType == EngineType.external_agent
-                and external_runs_for_chat_id is None
-            ):
-                raise RuntimeError(
-                    "Expected prefetched external runs before loading external-agent chat history."
-                )
             prior_messages = _get_prior_messages_for_engine(
                 dbe=ctx.state.dbe,
                 engine_type=resolved.engine_config.engineType,
                 chat_id=chat_id,
                 project_config_id=x.projectConfigId,
-                external_runs=external_runs_for_chat_id,
             )
         combined_messages = _build_inputs_messages(
             prior_messages=prior_messages,
@@ -607,17 +597,18 @@ async def route_get_llm_response(
             raise HTTPException(
                 status_code=503, detail="External agent runner is not available"
             )
+        _ensure_external_chat_id_compatible(
+            dbe=ctx.state.dbe,
+            chat_id=x.branchParentChatId if is_branch_request else x.chatId,
+            engine_config_id=x.engineConfigId,
+            project_config_id=x.projectConfigId,
+        )
         external_config = resolved.external_agent_config
         if external_config is None:
             raise HTTPException(
                 status_code=500, detail="External agent config not found"
             )
-        plugin_external_agent_adapters = runner.get_plugin_external_agent_adapters()
-        status = build_external_agent_preflight_status(
-            ctx.state.dbe,
-            external_config,
-            plugin_external_agent_adapters=plugin_external_agent_adapters,
-        )
+        status = build_external_agent_preflight_status(ctx.state.dbe, external_config)
         if not status.available:
             issues = "; ".join(status.issues) if status.issues else "preflight failed"
             raise HTTPException(
@@ -741,8 +732,8 @@ async def route_get_external_agent_chat(
         raise HTTPException(status_code=404, detail="Chat not found")
     state = build_chat_state_from_run(latest_run)
     if latest_run.status == AgentRunStatus.running:
-        runner = ctx.state.external_agent_runner
-        if not runner.disabled:
+        runner = getattr(ctx.state, "external_agent_runner", None)
+        if runner is not None and not runner.disabled:
             live_state = runner.get_live_chat_state(latest_run.id)
             if live_state is not None:
                 state = live_state
