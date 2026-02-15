@@ -4,9 +4,6 @@ AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER = "x-setta-project-config-id"
 AGENTIC_CONTEXT_CHAT_ID_HEADER = "x-setta-chat-id"
 AGENTIC_CONTEXT_SECTION_ID_HEADER = "x-setta-section-id"
 AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER = "x-setta-allow-unscoped"
-AGENTIC_CONTEXT_SETTA_TOOL_APPROVAL_POLICY_HEADER = (
-    "x-setta-tool-approval-policy"
-)
 
 
 def build_agentic_context_headers(
@@ -15,7 +12,6 @@ def build_agentic_context_headers(
     chat_id: ID | None,
     section_id: ID | None,
     allow_unscoped: bool = False,
-    setta_tool_approval_policy: str | None = None,
 ) -> dict[str, str]:
     headers: dict[str, str] = {
         AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER: str(project_config_id),
@@ -26,8 +22,4 @@ def build_agentic_context_headers(
         headers[AGENTIC_CONTEXT_SECTION_ID_HEADER] = str(section_id)
     if allow_unscoped:
         headers[AGENTIC_CONTEXT_ALLOW_UNSCOPED_HEADER] = "true"
-    if isinstance(setta_tool_approval_policy, str):
-        normalized = setta_tool_approval_policy.strip()
-        if normalized:
-            headers[AGENTIC_CONTEXT_SETTA_TOOL_APPROVAL_POLICY_HEADER] = normalized
     return headers

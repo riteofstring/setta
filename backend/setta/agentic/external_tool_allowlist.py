@@ -1,8 +1,12 @@
 from dataclasses import dataclass
 
+from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
 
-_REQUIRED_EXTERNAL_TOOLS: tuple[str, ...] = ("set_agentic_context",)
+_REQUIRED_EXTERNAL_TOOLS: tuple[str, ...] = (
+    "set_agentic_context",
+    REPORT_COMPLETION_STATUS_TOOL_NAME,
+)
 
 
 @dataclass(frozen=True)
