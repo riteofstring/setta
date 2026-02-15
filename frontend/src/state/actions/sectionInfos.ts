@@ -351,7 +351,10 @@ export function getTopLevelSectionIdsForDisplay(
     if (parentId !== null) {
       return false;
     }
-    const sectionImpl = getEffectiveSectionImplIfPresent(projectState, sectionId);
+    const sectionImpl = getEffectiveSectionImplIfPresent(
+      projectState,
+      sectionId,
+    );
     return sectionImpl !== null;
   });
 }

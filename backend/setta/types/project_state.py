@@ -429,7 +429,9 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
         section_ids = set(self.sections.keys())
         top_level_sections = project_config.topLevelSections
         stale_top_level_ids = [
-            section_id for section_id in top_level_sections if section_id not in section_ids
+            section_id
+            for section_id in top_level_sections
+            if section_id not in section_ids
         ]
         for section_id in stale_top_level_ids:
             del top_level_sections[section_id]

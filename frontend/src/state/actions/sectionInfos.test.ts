@@ -477,7 +477,9 @@ describe("createNodesMapFromProjectConfigChildren", () => {
       projectConfig,
       sections: {
         [sectionVisible]: createCore({ id: sectionVisible }),
-        [sectionMissingVisibility]: createCore({ id: sectionMissingVisibility }),
+        [sectionMissingVisibility]: createCore({
+          id: sectionMissingVisibility,
+        }),
       },
       sectionImpls: {
         [sectionVisibleImplId]: createTerminalSectionImpl({
