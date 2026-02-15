@@ -120,6 +120,8 @@ def default_section_allowlist() -> list[SectionType]:
         SectionType.TextBlock,
         SectionType.Draw,
         SectionType.MetaControl,
+        SectionType.TaskBoard,
+        SectionType.Spreadsheet,
     ]
 
 
