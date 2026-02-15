@@ -94,3 +94,21 @@ def test_create_top_level_task_board_populates_default_columns() -> None:
     ]
     assert [column.sortIndex for column in task_board_impl.columns] == [0, 1, 2]
     assert len({column.id for column in task_board_impl.columns}) == 3
+
+
+def test_create_top_level_task_board_respects_explicit_empty_columns_override() -> None:
+    settings = SettingsState()
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="test"))
+    section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.TaskBoard,
+        Position(),
+        impl_overrides={"columns": []},
+    )
+    task_board_impl = get_curr_effective_section_impl_with_type_guard(
+        project_state,
+        section_id,
+        TaskBoardSectionImpl,
+    )
+    assert task_board_impl.columns == []

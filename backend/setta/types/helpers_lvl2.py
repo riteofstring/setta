@@ -507,6 +507,19 @@ def create_default_task_board_columns() -> list[TaskBoardColumn]:
     ]
 
 
+def _task_board_columns_explicitly_overridden(
+    impl_overrides: BaseSectionImplArgsUnion | None,
+) -> bool:
+    if impl_overrides is None:
+        return False
+    if isinstance(impl_overrides, dict):
+        return "columns" in impl_overrides
+    fields_set = getattr(impl_overrides, "model_fields_set", None)
+    if isinstance(fields_set, set):
+        return "columns" in fields_set
+    return hasattr(impl_overrides, "columns")
+
+
 def create_section(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
@@ -520,7 +533,11 @@ def create_section(
         get_user_default_section_from_settings(settings, impl_type),  # type: ignore
         impl_overrides,  # type: ignore
     )
-    if isinstance(impl, TaskBoardSectionImpl) and len(impl.columns) == 0:
+    if (
+        isinstance(impl, TaskBoardSectionImpl)
+        and len(impl.columns) == 0
+        and not _task_board_columns_explicitly_overridden(impl_overrides)
+    ):
         impl.columns = create_default_task_board_columns()
     impl.size = normalize_section_size(settings, impl.type, impl.id, impl.size)
     variant = Variant(impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl))

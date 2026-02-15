@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Route } from "@playwright/test";
 import {
+  allowExpectedApiError,
   cleanupIsolatedProject,
   openIsolatedProject,
   postBackend,
@@ -272,7 +273,7 @@ test.describe.serial("project ai settings accordion layout", () => {
         "project-ai-settings-completion-guard-toggle",
       );
       await expect(completionGuardToggle).toBeVisible();
-      await expect(completionGuardToggle).toBeChecked();
+      const initiallyChecked = await completionGuardToggle.isChecked();
       await completionGuardToggle.click();
       await expect(completionGuardToggle).not.toBeChecked();
 
@@ -290,6 +291,63 @@ test.describe.serial("project ai settings accordion layout", () => {
         "project-ai-settings-completion-guard-toggle",
       );
       await expect(reloadedToggle).not.toBeChecked();
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("guardrails completion toggle rolls back when save fails", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAISettings");
+    const projectContext = await openIsolatedProject(page);
+    try {
+      const guardrailsTrigger = page.getByTestId(
+        "project-ai-settings-accordion-guardrails",
+      );
+      if ((await guardrailsTrigger.getAttribute("aria-expanded")) !== "true") {
+        await guardrailsTrigger.click();
+      }
+
+      const completionGuardToggle = page.getByTestId(
+        "project-ai-settings-completion-guard-toggle",
+      );
+      await expect(completionGuardToggle).toBeVisible();
+      const initiallyChecked = await completionGuardToggle.isChecked();
+
+      allowExpectedApiError(page, {
+        path: "/api/saveSettings",
+        statuses: [500],
+        method: "POST",
+      });
+      let shouldFailSave = true;
+      const failSaveSettings = async (route: Route) => {
+        if (!shouldFailSave) {
+          await route.continue();
+          return;
+        }
+        shouldFailSave = false;
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "saveSettings failed in test" }),
+        });
+      };
+      await page.route("**/api/saveSettings", failSaveSettings);
+      const saveResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/saveSettings") &&
+          response.request().method() === "POST",
+      );
+      await completionGuardToggle.click();
+      const saveResponse = await saveResponsePromise;
+      expect(saveResponse.status()).toBe(500);
+      if (initiallyChecked) {
+        await expect(completionGuardToggle).toBeChecked();
+      } else {
+        await expect(completionGuardToggle).not.toBeChecked();
+      }
+      await page.unroute("**/api/saveSettings", failSaveSettings);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

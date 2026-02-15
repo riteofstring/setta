@@ -19,6 +19,7 @@ import {
   updateExternalAgentConfig,
   updatePromptTemplate,
 } from "state/actions/ai";
+import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useAIStore,
   useLocalStorage,
@@ -26,6 +27,7 @@ import {
   useSettings,
   useShareSession,
 } from "state/definitions";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_save_settings } from "utils/generatedEndpoints";
 import {
   AgentProfile,
@@ -308,6 +310,9 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
 
   const handleCompletionGuardEnabledChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
+      if (!canEdit) {
+        return;
+      }
       const checked = event.target.checked;
       const currentSettings = createSettingsState(useSettings.getState());
       const nextSettings = {
@@ -317,11 +322,18 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
           completionGuardEnabled: checked,
         },
       };
-      useSettings.setState(nextSettings);
-      if (!canEdit) {
-        return;
-      }
-      void route_save_settings({ settings: nextSettings });
+      void (async () => {
+        const response = await route_save_settings({ settings: nextSettings });
+        if (!res200(response)) {
+          const detail = getErrorDetail(response.data);
+          addTemporaryNotification(
+            detail ?? "Failed to save completion guard setting.",
+            "error",
+          );
+          return;
+        }
+        useSettings.setState(nextSettings);
+      })();
     },
     [canEdit],
   );

@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   ensureAppReady,
+  loadProjectConfig,
   openIsolatedProject,
+  postBackend,
 } from "../helpers";
 
 test.describe("task board generated defaults", () => {
@@ -55,6 +57,51 @@ test.describe("task board generated defaults", () => {
       expect(result.sharedSectionTasks).toBe(false);
       expect(result.secondSectionColumns).toBe(0);
       expect(result.secondSectionTasks).toBe(0);
+    } finally {
+      await cleanupIsolatedProject(page, isolated);
+    }
+  });
+
+  test("explicit empty task board columns override is preserved", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const isolated = await openIsolatedProject(page);
+    try {
+      const created = await postBackend<{ sectionId?: string }>(
+        page,
+        "/createTopLevelSection",
+        {
+          projectConfigId: isolated.projectConfigId,
+          implType: "TaskBoard",
+          implOverrides: { type: "TaskBoard", columns: [] },
+        },
+      );
+      if (!created?.sectionId) {
+        throw new Error("Missing sectionId when creating task board section.");
+      }
+      const sectionId = created.sectionId;
+      const projectConfig = await loadProjectConfig(page);
+      const variantId = projectConfig.projectConfig.sectionVariantMap[sectionId];
+      if (typeof variantId !== "string" || variantId.length === 0) {
+        throw new Error("Missing task board variant id.");
+      }
+      const variant = projectConfig.sectionVariants[variantId];
+      if (!variant) {
+        throw new Error("Missing task board variant.");
+      }
+      const implId = variant.impl;
+      if (typeof implId !== "string" || implId.length === 0) {
+        throw new Error("Missing task board impl id.");
+      }
+      const sectionImpls = projectConfig.sectionImpls as Record<
+        string,
+        { type: string; columns?: unknown[] }
+      >;
+      const impl = sectionImpls[implId];
+      expect(impl?.type).toBe("TaskBoard");
+      expect(Array.isArray(impl?.columns)).toBe(true);
+      expect(impl?.columns).toHaveLength(0);
     } finally {
       await cleanupIsolatedProject(page, isolated);
     }

@@ -39,3 +39,26 @@
   - `pytest -q tests/agentic/test_external_agent_runner.py tests/agentic/test_external_tool_allowlist.py tests/mcp/test_mcp_agentic_project_state_summary_filtering.py tests/types/test_section_defaults.py` passed (`81 passed`).
   - `pnpm -C frontend exec vitest run src/utils/generatedTypes.taskBoardDefaults.test.ts` passed (`1 file, 2 tests`).
   - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/task-board-generated-defaults.spec.ts` passed (`1 passed`).
+
+## 2026-02-18 23:45:28 PST
+
+- Implemented completion-guard strictness and same-turn verification plumbing:
+  - `backend/setta/agentic/completion_guard.py` now enforces completion checks only on actual completion-claim text and fail-closes when no valid structured report is present.
+  - Added explicit inconsistent-intent blocking when latest report sets `completionIntent=false`.
+  - Guard now considers same-turn tool results before finalizing assistant output, preventing false blocks when report tool returns in the same turn.
+- Wired `completionGuardEnabled` consistently through internal and external runners:
+  - `backend/setta/llm/agent_runner.py` now computes required completion-report tool injection conditionally on the toggle, threads toggle state through system prompt/tool payload construction, and applies completion guard using same-turn tool results.
+  - `backend/setta/agentic/system_prompt.py` now removes the `## Completion Reporting Contract` section when the guard is disabled.
+  - `backend/setta/agentic/external_tool_allowlist.py` and `backend/setta/agentic/external_agent_runner.py` now include `report_completion_status` only when the guard is enabled for Claude/Codex/OpenCode tool configs.
+- Fixed TaskBoard explicit-empty-override behavior:
+  - `backend/setta/types/helpers_lvl2.py` now preserves explicit empty TaskBoard `columns` overrides instead of re-injecting generated defaults.
+- Fixed Guardrails toggle persistence UX path in settings:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` now updates store state only after successful `route_save_settings` response and shows an error notification on failure.
+- Added regression coverage:
+  - Backend tests updated/added in `tests/agentic/test_completion_guard.py`, `tests/llm/test_agent_runner.py`, `tests/agentic/test_external_tool_allowlist.py`, `tests/agentic/test_external_agent_runner.py`, and `tests/types/test_section_defaults.py`.
+  - Frontend E2E tests added/updated in `frontend/tests/e2e/overview/project-ai/project-ai-settings-agent-profiles.spec.ts` and `frontend/tests/e2e/editor/task-board-generated-defaults.spec.ts`.
+- Validation:
+  - `source activate.sh && pytest -q tests/agentic/test_completion_guard.py tests/llm/test_agent_runner.py tests/agentic/test_external_tool_allowlist.py tests/agentic/test_external_agent_runner.py tests/types/test_section_defaults.py` passed (`122 passed`).
+  - `pnpm -C frontend exec vitest run src/components/Panes/Overview/Overview.test.tsx src/utils/generatedTypes.taskBoardDefaults.test.ts` passed (`2 files, 8 tests`).
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-settings-agent-profiles.spec.ts frontend/tests/e2e/editor/task-board-generated-defaults.spec.ts` passed (`6 passed`).
+  - Frontend eslint command remains blocked in this environment due missing package resolution for `@eslint/js` from `frontend/eslint.config.js`.

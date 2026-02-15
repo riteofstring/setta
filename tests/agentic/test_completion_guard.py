@@ -1,5 +1,6 @@
 from setta.agentic.completion_guard import (
     FAILED_CHECKS_MESSAGE,
+    INCONSISTENT_COMPLETION_INTENT_MESSAGE,
     MISSING_CHECKS_MESSAGE,
     apply_completion_guard,
     load_completion_guard_enabled,
@@ -72,14 +73,14 @@ def _assistant_text(message: AssistantChatMessage) -> str:
     return block.text if isinstance(block, MessageTextContent) else ""
 
 
-def test_completion_guard_allows_when_report_is_missing() -> None:
+def test_completion_guard_blocks_completion_claim_when_report_is_missing() -> None:
     prior_messages = [_user_message("Implement task A.")]
     assistant_message = _assistant_message("Task A is done.")
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
-    assert replacement is None
-    assert _assistant_text(assistant_message) == "Task A is done."
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
 
 
 def test_completion_guard_keeps_non_completion_text_when_report_is_missing() -> None:
@@ -197,8 +198,8 @@ def test_completion_guard_allows_when_report_says_not_completion_intent() -> Non
     assert _assistant_text(assistant_message) == "I need one clarification."
 
 
-def test_completion_guard_allows_when_report_intent_is_false() -> None:
-    # Completion guard only enforces verification for explicit completion-intent reports.
+def test_completion_guard_blocks_when_report_intent_is_false() -> None:
+    # Completion claims require a completion-intent report in the active task scope.
     prior_messages = [
         _user_message("Implement task A."),
         _completion_report_tool_message(
@@ -210,8 +211,8 @@ def test_completion_guard_allows_when_report_intent_is_false() -> None:
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
-    assert replacement is None
-    assert _assistant_text(assistant_message) == "Task A is done."
+    assert replacement == INCONSISTENT_COMPLETION_INTENT_MESSAGE
+    assert _assistant_text(assistant_message) == INCONSISTENT_COMPLETION_INTENT_MESSAGE
 
 
 def test_completion_guard_allows_when_verification_not_required() -> None:
@@ -246,8 +247,8 @@ def test_completion_guard_uses_only_active_task_scope() -> None:
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
-    assert replacement is None
-    assert _assistant_text(assistant_message) == "Task B is done."
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
 
 
 def test_completion_guard_requires_fresh_report_after_latest_assistant() -> None:
@@ -267,19 +268,64 @@ def test_completion_guard_requires_fresh_report_after_latest_assistant() -> None
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
-    assert replacement is None
-    assert _assistant_text(assistant_message) == "Task A is complete."
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
 
 
-def test_completion_guard_evaluates_completion_text_with_tool_calls() -> None:
-    # Text-only completion wording no longer triggers guard behavior.
+def test_completion_guard_blocks_completion_text_with_tool_calls_without_report() -> None:
     prior_messages = [_user_message("Implement task A.")]
     assistant_message = _assistant_message_with_tool_call("Task A is done.")
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+
+
+def test_completion_guard_uses_same_turn_tool_results_for_completion_claims() -> None:
+    prior_messages = [_user_message("Implement task A.")]
+    assistant_message = _assistant_message_with_tool_call("Task A is done.")
+    same_turn_results = [
+        _completion_report_tool_message(
+            completion_intent=True,
+            requires_verification=True,
+            check_results=[
+                {"checkName": "pytest", "required": True, "status": "passed"},
+            ],
+        )
+    ]
+
+    replacement = apply_completion_guard(
+        prior_messages,
+        assistant_message,
+        same_turn_tool_results=same_turn_results,
+    )
+
     assert replacement is None
     assert _assistant_text(assistant_message) == "Task A is done."
+
+
+def test_completion_guard_blocks_when_same_turn_tool_results_fail_checks() -> None:
+    prior_messages = [_user_message("Implement task A.")]
+    assistant_message = _assistant_message_with_tool_call("Task A is done.")
+    same_turn_results = [
+        _completion_report_tool_message(
+            completion_intent=True,
+            requires_verification=True,
+            check_results=[
+                {"checkName": "pytest", "required": True, "status": "failed"},
+            ],
+        )
+    ]
+
+    replacement = apply_completion_guard(
+        prior_messages,
+        assistant_message,
+        same_turn_tool_results=same_turn_results,
+    )
+
+    assert replacement == FAILED_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == FAILED_CHECKS_MESSAGE
 
 
 def test_completion_guard_accepts_direct_result_payload_and_mcp_prefix() -> None:
@@ -303,7 +349,7 @@ def test_completion_guard_accepts_direct_result_payload_and_mcp_prefix() -> None
     assert _assistant_text(assistant_message) == "Task A is done."
 
 
-def test_completion_guard_ignores_malformed_completion_report_payload() -> None:
+def test_completion_guard_blocks_when_completion_report_payload_is_malformed() -> None:
     prior_messages = [
         _user_message("Implement task A."),
         ToolChatMessage(
@@ -322,8 +368,8 @@ def test_completion_guard_ignores_malformed_completion_report_payload() -> None:
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
-    assert replacement is None
-    assert _assistant_text(assistant_message) == "Task A is done."
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
 
 
 def test_load_completion_guard_enabled_reads_backend_toggle(tmp_path) -> None:

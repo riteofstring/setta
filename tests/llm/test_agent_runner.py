@@ -154,6 +154,44 @@ class TestAgentRunner:
             assert allowlist.tool_basenames == {"tool.beta"}
             assert allowlist.server_ids == {"server-a", "server-b"}
 
+    def test_allowlist_does_not_force_report_tool_when_guard_disabled(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[SETTA_MCP_SERVER_ID],
+                    )
+                },
+                mcpServers={
+                    SETTA_MCP_SERVER_ID: MCPServerConfig(
+                        transport="sse",
+                        url="http://localhost:8000/mcp",
+                    )
+                },
+            )
+            runner = _build_runner(dbe, config)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(
+                name="Alpha",
+                engineConfigId=engine_config_id,
+                toolAllowlist=["setta__getProjectState"],
+            )
+
+            allowlist = runner._normalize_tool_allowlist(
+                profile,
+                completion_guard_enabled=False,
+            )
+
+            assert allowlist is not None
+            assert "setta__report_completion_status" not in allowlist.tool_names
+
     def test_allowlist_does_not_allow_report_completion_status_on_other_servers(
         self,
     ) -> None:
@@ -237,7 +275,7 @@ class TestAgentRunner:
 
             assert filtered == [completion_tool_name]
 
-    def test_completion_guard_allows_missing_report_when_enabled(self) -> None:
+    def test_completion_guard_blocks_missing_report_when_enabled(self) -> None:
         prior_messages = [
             UserChatMessage(content=[MessageTextContent(text="Implement task A.")])
         ]
@@ -251,7 +289,7 @@ class TestAgentRunner:
             completion_guard_enabled=True,
         )
 
-        assert assistant_message.content[0].text == "Task A is done."
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
 
     def test_completion_guard_allows_when_disabled(self) -> None:
         prior_messages = [
@@ -348,7 +386,37 @@ class TestAgentRunner:
 
         assert assistant_message.content[0].text == "I need one clarification."
 
-    def test_completion_guard_ignores_report_from_previous_task_scope(self) -> None:
+    def test_completion_guard_uses_same_turn_tool_results(self) -> None:
+        prior_messages = [
+            UserChatMessage(content=[MessageTextContent(text="Implement task A.")])
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Task A is done.")]
+        )
+        same_turn_tool_results = [
+            _completion_report_tool_message(
+                completion_intent=True,
+                requires_verification=True,
+                check_results=[
+                    {
+                        "checkName": "pytest",
+                        "required": True,
+                        "status": "passed",
+                    }
+                ],
+            )
+        ]
+
+        AgentRunner._apply_completion_guard(
+            prior_messages,
+            assistant_message,
+            completion_guard_enabled=True,
+            same_turn_tool_results=same_turn_tool_results,
+        )
+
+        assert assistant_message.content[0].text == "Task A is done."
+
+    def test_completion_guard_blocks_when_latest_task_scope_has_no_report(self) -> None:
         prior_messages = [
             UserChatMessage(content=[MessageTextContent(text="Implement task A.")]),
             _completion_report_tool_message(
@@ -374,7 +442,7 @@ class TestAgentRunner:
             completion_guard_enabled=True,
         )
 
-        assert assistant_message.content[0].text == "Task B is done."
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
 
     def test_allowlist_rejects_unknown_server(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -622,6 +690,42 @@ class TestAgentRunner:
             assert f"- name: {profile.name}" in prompt
             assert f"- description: {profile.description}" in prompt
             assert profile.systemPrompt in prompt
+
+    def test_system_prompt_omits_completion_contract_when_guard_disabled(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = ProjectConfig()
+            _write_project_state(dbe, [project_config])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            runner = _build_runner(dbe, config)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(
+                name="Alpha",
+                description="Primary profile",
+                systemPrompt="You are alpha.",
+                engineConfigId=engine_config_id,
+            )
+
+            prompt = runner._build_system_prompt(
+                profile,
+                project_config.id,
+                completion_guard_enabled=False,
+            )
+
+            assert "## Completion Reporting Contract" not in prompt
+            assert "report_completion_status" not in prompt
 
     def test_build_outputs_returns_final_text(self) -> None:
         with TemporaryDirectory() as tmpdir:
