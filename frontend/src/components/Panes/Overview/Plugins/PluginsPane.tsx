@@ -425,7 +425,8 @@ export function PluginsPane() {
           </div>
         </header>
         <p className="text-[11px] text-setta-600 dark:text-setta-300">
-          mode={runtimeSummary.serverMode ?? "unknown"} status={runtimeSummary.status}
+          mode={runtimeSummary.serverMode ?? "unknown"} status=
+          {runtimeSummary.status}
         </p>
         {runtimeSummary.restartCapability ? (
           <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">

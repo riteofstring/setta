@@ -1711,7 +1711,8 @@ class BaseProjectManager(ABC):
         valid_top_level_section_ids = {
             section_id
             for section_id in existing_section_ids
-            if section_id in parent_section_map and parent_section_map[section_id] is None
+            if section_id in parent_section_map
+            and parent_section_map[section_id] is None
         }
         merged_layouts = {
             section_id: layout
