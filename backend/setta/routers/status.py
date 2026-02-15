@@ -29,7 +29,7 @@ _REVEAL_PATH_COMMAND_TIMEOUT_SECONDS = 5
 class SettaHomeInfoResponse(BaseModel):
     settaHome: str
     globalSettaFilesBase: str
-    activeSettaFilesLocation: str
+    activeSettaFilesLocation: str | None
     llmConfigPath: str
 
 
@@ -63,13 +63,14 @@ def _build_allowed_reveal_roots_cache_key(
     *,
     workspace_root: Path,
     setta_files_root: Path,
-) -> tuple[str, str, str, str, str]:
+) -> tuple[str, str, str, str, str, str]:
     return (
         str(workspace_root.resolve(strict=False)),
         str(setta_files_root.resolve(strict=False)),
         str(Path.home().expanduser().resolve(strict=False)),
         os.environ.get("AGENTS_HOME", ""),
         os.environ.get("CODEX_HOME", ""),
+        os.environ.get("XDG_CONFIG_HOME", ""),
     )
 
 
