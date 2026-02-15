@@ -170,3 +170,89 @@ test("project ai chat shows inline skills endpoint error when routes are missing
     ),
   ).toBeVisible();
 });
+
+test("project ai chat shows loading states before skills and mcp data arrive", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_skills::ui-layout",
+          name: "ui-layout",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
+          relativePath: "ui-layout",
+          skillPath: "/workspace/skills/ui-layout/SKILL.md",
+          description: "Create dense dashboard layouts.",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {
+          setta: {
+            transport: "sse",
+            url: "http://127.0.0.1:8000/mcp",
+          },
+        },
+        defaultMcpServerIds: ["setta"],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await page.route("**/api/settaHomeInfo", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        settaHome: "/home/test/.setta",
+        globalSettaFilesBase: "/home/test/.setta/files",
+        activeSettaFilesRoot: "/workspace/setta_files",
+        activeSettaFilesLocation: "local",
+        llmConfigPath: "/workspace/setta_files/llm_config.json",
+      }),
+    });
+  });
+
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: payload.skillId ?? "workspace_skills::ui-layout",
+        content: "# UI Layout\n\nCreate dense dashboard layouts.",
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+
+  await expect(page.getByText("Loading skills...")).toBeVisible();
+  await expect(page.getByText("No skills found.")).toHaveCount(0);
+  await expect(page.getByText("Loading MCP servers...")).toBeVisible();
+  await expect(page.getByText("No MCP servers configured.")).toHaveCount(0);
+
+  await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
+  await expect(page.getByText("Loading skills...")).toHaveCount(0);
+  await expect(page.getByText("Loading MCP servers...")).toHaveCount(0);
+});

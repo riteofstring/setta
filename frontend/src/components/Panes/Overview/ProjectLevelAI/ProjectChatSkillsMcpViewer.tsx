@@ -83,9 +83,12 @@ function PathGroupHeader({
 
 export function ProjectChatSkillsMcpViewer() {
   const allLLMConfigs = useAIStore((state) => state.allLLMConfigs);
+  const allLLMConfigsInitialLoadComplete = useAIStore(
+    (state) => state.allLLMConfigsInitialLoadComplete,
+  );
   const codeMirrorTheme = useCodeMirrorStyle();
   const [skills, setSkills] = useState<AppGenSkillEntry[]>([]);
-  const [skillsLoading, setSkillsLoading] = useState(false);
+  const [skillsLoading, setSkillsLoading] = useState(true);
   const [skillsError, setSkillsError] = useState<string | null>(null);
   const [skillFilter, setSkillFilter] = useState("");
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
@@ -105,6 +108,7 @@ export function ProjectChatSkillsMcpViewer() {
   const [settaFilesLocation, setSettaFilesLocation] = useState<string | null>(
     null,
   );
+  const [mcpConfigInfoLoading, setMcpConfigInfoLoading] = useState(true);
 
   const refreshSkillsBrowser = useCallback(async () => {
     setSkillsLoading(true);
@@ -161,10 +165,12 @@ export function ProjectChatSkillsMcpViewer() {
 
   useEffect(() => {
     async function loadMcpConfigPath() {
+      setMcpConfigInfoLoading(true);
       const res = await route_get_setta_home_info();
       if (!res200(res)) {
         setMcpConfigPath(null);
         setSettaFilesLocation(null);
+        setMcpConfigInfoLoading(false);
         return;
       }
       const path =
@@ -177,6 +183,7 @@ export function ProjectChatSkillsMcpViewer() {
           ? res.data.activeSettaFilesLocation
           : null;
       setSettaFilesLocation(location);
+      setMcpConfigInfoLoading(false);
     }
     void loadMcpConfigPath();
   }, []);
@@ -215,6 +222,13 @@ export function ProjectChatSkillsMcpViewer() {
       indentWithTab: false,
     });
   }, []);
+
+  const mcpServersLoading =
+    !allLLMConfigsInitialLoadComplete || mcpConfigInfoLoading;
+  const skillPreviewContent =
+    skillContentLoading || (skillsLoading && !selectedSkillId)
+      ? "Loading skill content..."
+      : selectedSkillContent || "Select a skill to preview SKILL.md.";
 
   const copyPathToClipboard = useCallback((path: string) => {
     if (!isActionablePath(path)) {
@@ -352,12 +366,7 @@ export function ProjectChatSkillsMcpViewer() {
                         aria-label="Skill Markdown Content"
                         className="h-full"
                         height="100%"
-                        value={
-                          skillContentLoading
-                            ? "Loading skill content..."
-                            : selectedSkillContent ||
-                              "Select a skill to preview SKILL.md."
-                        }
+                        value={skillPreviewContent}
                         theme={codeMirrorTheme}
                         extensions={markdownViewerExtensions}
                         basicSetup={{
@@ -379,7 +388,11 @@ export function ProjectChatSkillsMcpViewer() {
             MCP Servers
           </div>
           <div className="max-h-[220px] min-h-[110px] min-w-0 overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
-            {mcpServerGroups.length === 0 ? (
+            {mcpServersLoading ? (
+              <div className="text-setta-500 dark:text-setta-400">
+                Loading MCP servers...
+              </div>
+            ) : mcpServerGroups.length === 0 ? (
               <div className="text-setta-500 dark:text-setta-400">
                 No MCP servers configured.
               </div>
