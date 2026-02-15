@@ -34,6 +34,7 @@ import {
   useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
+import type { AppGenerationMode } from "state/types/appGenerationMode";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_create_agent_profile,
@@ -757,12 +758,7 @@ export async function submitMessage(
   agentProfileId?: string | null,
   sectionId?: string | null,
   appGeneration?: {
-    mode:
-      | "json_render"
-      | "json_render_with_image"
-      | "prompt_builder"
-      | "mcp_server"
-      | null;
+    mode: AppGenerationMode | null;
     referenceImageUrl?: string | null;
     referenceImageNotes?: string | null;
   },

@@ -143,4 +143,49 @@ describe("submitMessage", () => {
       ),
     ).rejects.toThrow("Chat request failed (status 503).");
   });
+
+  it("passes app-generation mode context through to the backend request", async () => {
+    const route_get_llm_response = (await import("utils/generatedEndpoints"))
+      .route_get_llm_response as unknown as vi.Mock;
+    route_get_llm_response.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    await expect(
+      submitMessage(
+        null,
+        "Generate from MCP context.",
+        [],
+        true,
+        "engine-primary",
+        false,
+        undefined,
+        null,
+        null,
+        {
+          mode: "mcp_server",
+          referenceImageUrl: "https://example.com/reference.png",
+          referenceImageNotes: "Preserve hierarchy first.",
+        },
+      ),
+    ).resolves.toBeNull();
+
+    expect(route_get_llm_response).toHaveBeenCalledTimes(1);
+    const [payload] = route_get_llm_response.mock.calls[0] as [
+      {
+        appGenerationMode: string | null;
+        appGenerationReferenceImageUrl: string | null;
+        appGenerationReferenceImageNotes: string | null;
+      },
+    ];
+    expect(payload.appGenerationMode).toBe("mcp_server");
+    expect(payload.appGenerationReferenceImageUrl).toBe(
+      "https://example.com/reference.png",
+    );
+    expect(payload.appGenerationReferenceImageNotes).toBe(
+      "Preserve hierarchy first.",
+    );
+  });
 });

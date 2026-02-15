@@ -120,9 +120,9 @@ export function ProjectChatSkillsMcpViewer() {
   );
   const [mcpConfigInfoLoading, setMcpConfigInfoLoading] = useState(true);
   const [skillsRevision, setSkillsRevision] = useState(0);
-  const skillsRequestSequence = useRef(0);
   const skillsRefreshInFlight = useRef(false);
   const skillContentRequestSequence = useRef(0);
+  const selectedSkillIdRef = useRef<string | null>(null);
   const skillContentCache = useRef(
     new Map<
       string,
@@ -139,15 +139,10 @@ export function ProjectChatSkillsMcpViewer() {
       return;
     }
     skillsRefreshInFlight.current = true;
-    const requestSequence = skillsRequestSequence.current + 1;
-    skillsRequestSequence.current = requestSequence;
     setSkillsLoading(true);
     setSkillsError(null);
     try {
       const res = await route_get_app_gen_skills();
-      if (requestSequence !== skillsRequestSequence.current) {
-        return;
-      }
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
         setSkillsError(detail ?? "Failed to load skills.");
@@ -166,9 +161,7 @@ export function ProjectChatSkillsMcpViewer() {
           : nextSkills[0].skillId;
       });
     } finally {
-      if (requestSequence === skillsRequestSequence.current) {
-        setSkillsLoading(false);
-      }
+      setSkillsLoading(false);
       skillsRefreshInFlight.current = false;
     }
   }, []);
@@ -176,6 +169,10 @@ export function ProjectChatSkillsMcpViewer() {
   useEffect(() => {
     void refreshSkillsBrowser();
   }, [refreshSkillsBrowser]);
+
+  useEffect(() => {
+    selectedSkillIdRef.current = selectedSkillId;
+  }, [selectedSkillId]);
 
   useEffect(() => {
     async function loadSkillContent() {
@@ -188,7 +185,11 @@ export function ProjectChatSkillsMcpViewer() {
         return;
       }
       if (!isSkillMarkdownViewerOpen) {
+        skillContentRequestSequence.current += 1;
         setSkillContentLoading(false);
+        setSelectedSkillContent("");
+        setSelectedSkillContentTruncated(false);
+        setSelectedSkillOriginalSizeBytes(null);
         return;
       }
       const cacheKey = `${skillsRevision}:${selectedSkillId}`;
@@ -200,13 +201,17 @@ export function ProjectChatSkillsMcpViewer() {
         setSelectedSkillOriginalSizeBytes(cached.originalSizeBytes);
         return;
       }
+      const requestedSkillId = selectedSkillId;
       const requestSequence = skillContentRequestSequence.current + 1;
       skillContentRequestSequence.current = requestSequence;
       setSkillContentLoading(true);
       const res = await route_get_app_gen_skill_content({
-        skillId: selectedSkillId,
+        skillId: requestedSkillId,
       });
-      if (requestSequence !== skillContentRequestSequence.current) {
+      if (
+        requestSequence !== skillContentRequestSequence.current ||
+        requestedSkillId !== selectedSkillIdRef.current
+      ) {
         return;
       }
       setSkillContentLoading(false);
@@ -421,9 +426,7 @@ export function ProjectChatSkillsMcpViewer() {
                 type="single"
                 collapsible
                 value={
-                  isSkillMarkdownViewerOpen
-                    ? SKILL_MARKDOWN_VIEWER_VALUE
-                    : undefined
+                  isSkillMarkdownViewerOpen ? SKILL_MARKDOWN_VIEWER_VALUE : ""
                 }
                 onValueChange={(value) =>
                   setIsSkillMarkdownViewerOpen(

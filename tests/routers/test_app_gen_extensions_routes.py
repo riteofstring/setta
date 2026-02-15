@@ -54,6 +54,28 @@ class TestAppGenExtensionsRoutes:
             assert row.description == "Create dense dashboard layouts."
             assert not hasattr(row, "skillPath")
 
+    def test_lists_workspace_skills_when_description_file_is_invalid_utf8(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            skill_dir = workspace_root / "skills" / "broken-encoding"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            # Invalid UTF-8 payload should not fail the entire skill listing route.
+            (skill_dir / "SKILL.md").write_bytes(b"\xff\xfe\xfd")
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+            rows = list_app_gen_skills(workspace_root)
+
+            assert len(rows) == 1
+            row = rows[0]
+            assert row.skillId == "workspace_skills::broken-encoding"
+            assert row.description == ""
+
     def test_reads_skill_content_by_skill_id(
         self,
         monkeypatch: pytest.MonkeyPatch,

@@ -1,6 +1,7 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
 import type { AIFollowMode } from "state/types/aiFollow";
+import type { AppGenerationMode } from "state/types/appGenerationMode";
 import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
@@ -842,11 +843,6 @@ export const useToolArgumentPreview = withProjectState(
 );
 
 export type ColorModePreference = "dark" | "light" | "auto";
-type AppGenerationModePreference =
-  | "json_render"
-  | "json_render_with_image"
-  | "prompt_builder"
-  | "mcp_server";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
@@ -857,7 +853,7 @@ type ZustandLocalStorage = {
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
-  appGenerationMode: AppGenerationModePreference;
+  appGenerationMode: AppGenerationMode;
   appGenerationPrompt: string;
   appGenerationReferenceImageUrl: string;
   appGenerationReferenceImageNotes: string;

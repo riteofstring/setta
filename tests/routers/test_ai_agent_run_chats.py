@@ -628,6 +628,57 @@ class TestAgentRunChatRoutes:
             if not isinstance(profile, AgentProfile):
                 return
             assert "mode: mcp_server" in profile.systemPrompt
+            assert "setta__set_app_definition" in profile.systemPrompt
+            assert "setta__stream_app_definition" not in profile.systemPrompt
+
+    async def test_get_llm_response_mcp_mode_respects_streaming_toggle(self) -> None:
+        # Integration check: route-level prompt assembly should keep MCP tool guidance deterministic.
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            captured: dict[str, object] = {}
+
+            def _fake_start_run(profile, inputs):
+                captured["profile"] = profile
+                captured["inputs"] = inputs
+
+            runner.start_run = _fake_start_run  # type: ignore[method-assign]
+
+            with runtime_context(state) as ctx:
+                await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        message=UserChatMessage(
+                            content=[
+                                MessageTextContent(
+                                    text="Build from MCP design context.",
+                                )
+                            ],
+                        ),
+                        engineConfigId=engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=ID("project-1"),
+                        allowUnscoped=True,
+                        appGenerationMode="mcp_server",
+                        appSpecStreamingEnabled=True,
+                    ),
+                    ctx,
+                )
+
+            profile = captured.get("profile")
+            assert isinstance(profile, AgentProfile)
+            if not isinstance(profile, AgentProfile):
+                return
+            assert "setta__stream_app_definition" in profile.systemPrompt
+            assert "setta__set_app_definition" not in profile.systemPrompt
 
     async def test_get_llm_response_rejects_oversized_reference_image_url_outside_image_mode(
         self,

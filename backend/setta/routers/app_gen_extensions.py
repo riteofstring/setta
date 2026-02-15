@@ -45,7 +45,7 @@ def _extract_skill_description(skill_doc: Path) -> str:
                 if not trimmed or trimmed.startswith("#"):
                     continue
                 return trimmed[:240]
-    except OSError:
+    except (OSError, UnicodeError):
         return ""
     return ""
 

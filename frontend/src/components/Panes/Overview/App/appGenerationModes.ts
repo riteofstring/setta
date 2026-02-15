@@ -1,8 +1,6 @@
-export type AppGenerationMode =
-  | "json_render"
-  | "json_render_with_image"
-  | "prompt_builder"
-  | "mcp_server";
+import { type AppGenerationMode } from "state/types/appGenerationMode";
+
+export type { AppGenerationMode };
 
 type AppGenerationModeOption = {
   mode: AppGenerationMode;

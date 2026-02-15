@@ -24,6 +24,10 @@ from setta.agentic.store import (
 from setta.database.utils import create_new_id
 from setta.logging.project_id_route import require_project_context
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
+from setta.routers.app_generation_limits import (
+    MAX_REFERENCE_IMAGE_NOTES_CHARS,
+    MAX_REFERENCE_IMAGE_URL_CHARS,
+)
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.agentic import (
@@ -50,8 +54,6 @@ AppGenerationMode = Literal[
     "prompt_builder",
     "mcp_server",
 ]
-_MAX_REFERENCE_IMAGE_URL_CHARS = 4096
-_MAX_REFERENCE_IMAGE_NOTES_CHARS = 100_000
 
 
 def _get_llm_chat_runs(
@@ -302,9 +304,16 @@ def _build_app_generation_mode_prompt(
                 "- For Figma-oriented requests, support both paths:",
                 "  - Pull an existing Figma design into a JSON-render appSpec.",
                 "  - Generate/update in Figma first, then pull the resulting design back into Setta.",
-                "- After MCP design retrieval, persist into Setta via `setta__set_app_definition` or `setta__stream_app_definition`.",
             ]
         )
+        if app_spec_streaming_enabled:
+            lines.append(
+                "- After MCP design retrieval, persist into Setta via `setta__stream_app_definition`."
+            )
+        else:
+            lines.append(
+                "- After MCP design retrieval, persist into Setta via `setta__set_app_definition`."
+            )
 
     if mode == "json_render_with_image" and reference_image_url:
         lines.extend(
@@ -330,12 +339,12 @@ def _normalize_reference_image_inputs(
     normalized_notes = (
         reference_image_notes.strip() if isinstance(reference_image_notes, str) else ""
     )
-    if len(normalized_url) > _MAX_REFERENCE_IMAGE_URL_CHARS:
+    if len(normalized_url) > MAX_REFERENCE_IMAGE_URL_CHARS:
         raise HTTPException(
             status_code=400,
             detail="appGenerationReferenceImageUrl is too large. Reduce it or omit it.",
         )
-    if len(normalized_notes) > _MAX_REFERENCE_IMAGE_NOTES_CHARS:
+    if len(normalized_notes) > MAX_REFERENCE_IMAGE_NOTES_CHARS:
         raise HTTPException(
             status_code=400,
             detail="appGenerationReferenceImageNotes is too large. Reduce it or omit it.",

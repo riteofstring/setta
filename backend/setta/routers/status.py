@@ -1,6 +1,8 @@
+import os
 import shutil
 import subprocess
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi import Depends, HTTPException
@@ -50,11 +52,38 @@ def _build_reveal_path_command(path: Path) -> list[str]:
 
 def _build_allowed_reveal_roots() -> list[Path]:
     paths = get_setta_paths()
+    cache_key = _build_allowed_reveal_roots_cache_key(
+        workspace_root=paths.workspace_root,
+        setta_files_root=paths.setta_files_root,
+    )
+    return list(_build_allowed_reveal_roots_for_cache_key(cache_key))
+
+
+def _build_allowed_reveal_roots_cache_key(
+    *,
+    workspace_root: Path,
+    setta_files_root: Path,
+) -> tuple[str, str, str, str, str]:
+    return (
+        str(workspace_root.resolve(strict=False)),
+        str(setta_files_root.resolve(strict=False)),
+        str(Path.home().expanduser().resolve(strict=False)),
+        os.environ.get("AGENTS_HOME", ""),
+        os.environ.get("CODEX_HOME", ""),
+    )
+
+
+@lru_cache(maxsize=32)
+def _build_allowed_reveal_roots_for_cache_key(
+    cache_key: tuple[str, str, str, str, str],
+) -> tuple[Path, ...]:
+    workspace_root = Path(cache_key[0])
+    setta_files_root = Path(cache_key[1])
     roots = [
-        paths.workspace_root.resolve(strict=False),
-        paths.setta_files_root.resolve(strict=False),
+        workspace_root.resolve(strict=False),
+        setta_files_root.resolve(strict=False),
     ]
-    for _, _, skill_root in iter_skill_roots(paths.workspace_root):
+    for _, _, skill_root in iter_skill_roots(workspace_root):
         roots.append(skill_root.resolve(strict=False))
     unique_roots: list[Path] = []
     seen: set[Path] = set()
@@ -63,7 +92,7 @@ def _build_allowed_reveal_roots() -> list[Path]:
             continue
         seen.add(root)
         unique_roots.append(root)
-    return unique_roots
+    return tuple(unique_roots)
 
 
 def _is_path_within_allowed_reveal_roots(path: Path) -> bool:

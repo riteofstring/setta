@@ -144,3 +144,28 @@ Test and verification coverage added/updated:
 - Added Playwright coverage that markdown content is not fetched while the Skills markdown viewer is collapsed.
 - Added Playwright coverage that skills refresh failures preserve prior visible skill/preview state while surfacing inline error feedback.
 - Re-ran targeted frontend Vitest, backend pytest router suites, and Playwright overview specs; all passing.
+
+## 2026-02-17T04:33:03Z
+
+Status: Implemented
+
+Accepted findings fixed in this batch:
+- Made `mcp_server` app-generation prompt guidance honor the streaming toggle with a single deterministic persistence tool path.
+- Centralized reference-image URL/notes limits in shared router constants and applied the same contract across `/getLLMResponse` and `/streamAppSpec`.
+- Hardened app-gen skills listing so malformed UTF-8 in `SKILL.md` descriptions no longer fails the entire response.
+- Cached reveal-path allowlist roots by workspace/home/env context to avoid recomputing root normalization on every request.
+- Unified frontend app-generation mode literals into one shared `AppGenerationMode` type used by app-mode helpers, local-storage state, and message submit payloads.
+- Removed unreachable hidden-generation null-chat-id error branch after `submitMessage`.
+- Simplified Skills/MCP refresh concurrency handling to a single in-flight refresh guard.
+- Fixed the remaining stale markdown race when the skills viewer is collapsed by invalidating in-flight requests on close, clearing preview state, and gating response apply by both sequence and selected skill id.
+- Made the skills markdown accordion close state explicitly controlled (`\"\"` when closed) for deterministic collapse/reopen behavior.
+
+Test and verification coverage added/updated:
+- Added backend unit coverage for `mcp_server` prompt persistence-tool selection under streaming enabled/disabled states.
+- Added backend route integration coverage for `/getLLMResponse` MCP-mode prompt guidance honoring `appSpecStreamingEnabled`.
+- Added backend route coverage ensuring invalid-UTF8 `SKILL.md` description files are tolerated in skill listing.
+- Added backend reveal-path route coverage for cached allowlist root reuse across repeated requests.
+- Added frontend unit coverage that `submitMessage` forwards app-generation mode and reference-image context payloads.
+- Added Playwright regression coverage for stale markdown suppression after collapsing the Skills viewer during an in-flight markdown request.
+- Re-ran targeted backend pytest router suites, frontend Vitest suites, and Playwright Skills/MCP viewer coverage; all passing.
+- CDP visual verification completed for Project AI Skills/MCP viewer collapse/reopen and markdown content behavior.

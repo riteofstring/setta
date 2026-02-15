@@ -1237,10 +1237,6 @@ export function AppConfigPane() {
             referenceImageNotes: null,
           },
         );
-        if (!chatId) {
-          setErrorMessage("Failed to send generation request to chat.");
-          return;
-        }
         if (targetChatId === null) {
           clearPendingChatDetails();
         }

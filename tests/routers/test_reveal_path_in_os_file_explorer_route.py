@@ -116,6 +116,49 @@ def test_reveal_path_allows_discovered_skill_root_path(
     assert _mock_reveal_command == [["mock-open", str(skill_doc)]]
 
 
+def test_reveal_path_reuses_cached_allowlist_between_requests(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    _mock_reveal_command: list[list[str]],
+) -> None:
+    # Repeated requests for the same workspace/env context should reuse the cached root set.
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+    clear_setta_paths_cache()
+    status_module._build_allowed_reveal_roots_for_cache_key.cache_clear()
+
+    workspace_file_one = workspace_root / "docs" / "one.txt"
+    workspace_file_one.parent.mkdir(parents=True, exist_ok=True)
+    workspace_file_one.write_text("one", encoding="utf-8")
+    workspace_file_two = workspace_root / "docs" / "two.txt"
+    workspace_file_two.write_text("two", encoding="utf-8")
+
+    skill_root_calls = 0
+
+    def fake_iter_skill_roots(_: Path) -> list[tuple[str, str, Path]]:
+        nonlocal skill_root_calls
+        skill_root_calls += 1
+        return []
+
+    monkeypatch.setattr(status_module, "iter_skill_roots", fake_iter_skill_roots)
+
+    with _build_client() as client:
+        first = client.post(
+            f"{Route.PREFIX.value}{Route.REVEAL_PATH_IN_OS_FILE_EXPLORER.value}",
+            json={"path": str(workspace_file_one)},
+        )
+        second = client.post(
+            f"{Route.PREFIX.value}{Route.REVEAL_PATH_IN_OS_FILE_EXPLORER.value}",
+            json={"path": str(workspace_file_two)},
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert skill_root_calls == 1
+    status_module._build_allowed_reveal_roots_for_cache_key.cache_clear()
+
+
 def test_reveal_path_rejects_paths_outside_allowlist(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

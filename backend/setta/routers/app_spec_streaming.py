@@ -11,6 +11,10 @@ from litellm.types.utils import ModelResponseStream
 from pydantic import BaseModel, Field
 
 from setta.app.spec_patch_stream import ALLOWED_PATCH_OPS, parse_patch_line_with_error
+from setta.routers.app_generation_limits import (
+    MAX_REFERENCE_IMAGE_NOTES_CHARS,
+    MAX_REFERENCE_IMAGE_URL_CHARS,
+)
 from setta.routers.dependencies import RuntimeContextFromRequest, require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.llm_config import AllLLMConfigs
@@ -289,12 +293,12 @@ async def route_stream_app_spec(
     reference_image_notes = (
         x.referenceImageNotes.strip() if isinstance(x.referenceImageNotes, str) else ""
     )
-    if len(reference_image_url) > 4096:
+    if len(reference_image_url) > MAX_REFERENCE_IMAGE_URL_CHARS:
         return _json_error(
             status_code=status.HTTP_400_BAD_REQUEST,
             message="referenceImageUrl is too large. Reduce it or omit it.",
         )
-    if len(reference_image_notes) > _MAX_CONTEXT_SUMMARY_CHARS:
+    if len(reference_image_notes) > MAX_REFERENCE_IMAGE_NOTES_CHARS:
         return _json_error(
             status_code=status.HTTP_400_BAD_REQUEST,
             message="referenceImageNotes is too large. Reduce it or omit it.",

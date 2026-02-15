@@ -46,6 +46,36 @@ class TestAIAppGenerationModeHelpers:
         assert "Reference image URL" not in prompt
         assert "Ignore this outside image mode." not in prompt
 
+    def test_build_prompt_mcp_mode_uses_stream_tool_when_streaming_enabled(
+        self,
+    ) -> None:
+        # MCP mode should follow the same stream-vs-full-spec contract as json_render.
+        prompt = _build_app_generation_mode_prompt(
+            mode="mcp_server",
+            app_spec_streaming_enabled=True,
+            reference_image_url=None,
+            reference_image_notes=None,
+        )
+        if prompt is None:
+            raise AssertionError("Expected an app-generation mode prompt")
+        assert "setta__stream_app_definition" in prompt
+        assert "setta__set_app_definition" not in prompt
+
+    def test_build_prompt_mcp_mode_uses_full_spec_tool_when_streaming_disabled(
+        self,
+    ) -> None:
+        # Disabled streaming should never advertise stream persistence in MCP mode.
+        prompt = _build_app_generation_mode_prompt(
+            mode="mcp_server",
+            app_spec_streaming_enabled=False,
+            reference_image_url=None,
+            reference_image_notes=None,
+        )
+        if prompt is None:
+            raise AssertionError("Expected an app-generation mode prompt")
+        assert "setta__set_app_definition" in prompt
+        assert "setta__stream_app_definition" not in prompt
+
     def test_reference_image_inputs_are_trimmed_and_empty_values_are_normalized(
         self,
     ) -> None:

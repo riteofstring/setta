@@ -354,6 +354,95 @@ test("project ai chat keeps skills list stable during selection and ignores stal
   await expect(markdown).not.toContainText("workspace_skills::alpha-skill");
 });
 
+test("project ai chat clears stale markdown when viewer is collapsed during an in-flight request", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_skills::alpha-skill",
+          name: "alpha-skill",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
+          relativePath: "alpha-skill",
+          description: "Alpha skill",
+        },
+        {
+          skillId: "workspace_skills::beta-skill",
+          name: "beta-skill",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
+          relativePath: "beta-skill",
+          description: "Beta skill",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    const skillId = payload.skillId ?? "";
+    if (skillId.endsWith("alpha-skill")) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId,
+        content: `# ${skillId}`,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await expect(page.getByRole("button", { name: /beta-skill/i })).toBeVisible();
+
+  const viewerToggle = page.getByRole("button", {
+    name: "Skill Markdown Viewer",
+  });
+  await viewerToggle.click();
+  await expect(viewerToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByLabel("Skill Markdown Content")).toBeVisible();
+  await viewerToggle.click();
+  await expect(viewerToggle).toHaveAttribute("aria-expanded", "false");
+  await page.getByRole("button", { name: /beta-skill/i }).click();
+
+  // Allow the stale alpha response to resolve while the viewer is closed.
+  await page.waitForTimeout(700);
+
+  await viewerToggle.click();
+  await expect(viewerToggle).toHaveAttribute("aria-expanded", "true");
+  const markdown = page.getByLabel("Skill Markdown Content");
+  await expect(markdown).toBeVisible();
+  const immediateText = (await markdown.textContent()) ?? "";
+  expect(immediateText).not.toContain("workspace_skills::alpha-skill");
+  await expect(markdown).toContainText("workspace_skills::beta-skill");
+  await expect(markdown).not.toContainText("workspace_skills::alpha-skill");
+});
+
 test("project ai chat refresh updates selected markdown content without requiring reselection", async ({
   page,
 }) => {
