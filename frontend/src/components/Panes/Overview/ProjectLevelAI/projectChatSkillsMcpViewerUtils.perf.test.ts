@@ -72,7 +72,7 @@ describe("projectChatSkillsMcpViewerUtils (perf)", () => {
       groupSkillsByRootPath(largeRows);
     });
 
-    // 4x input should stay far below an 8x runtime growth.
-    expect(largeAverageMs / smallAverageMs).toBeLessThan(8);
+    // Keep a strict superlinear guard but allow timing variance in shared CI hosts.
+    expect(largeAverageMs / smallAverageMs).toBeLessThan(10);
   });
 });

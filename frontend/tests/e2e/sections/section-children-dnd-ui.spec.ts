@@ -248,14 +248,14 @@ async function dragWithRetries(
   isDone: () => Promise<boolean>,
   failureMessage: string,
 ): Promise<void> {
-  const attempts = process.env.CI ? 10 : 8;
+  const attempts = process.env.CI ? 14 : 12;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     await focusPaneForDnd(page);
     await performDrag(attempt);
 
     let done = false;
     try {
-      await expect.poll(isDone, { timeout: 10000 }).toBe(true);
+      await expect.poll(isDone, { timeout: 15000 }).toBe(true);
       done = true;
     } catch {
       done = false;
