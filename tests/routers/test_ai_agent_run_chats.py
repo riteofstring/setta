@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from fastapi import FastAPI, HTTPException
 import pytest
 
+import setta.routers.ai as ai_module
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
 from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.agentic.store import (
@@ -232,11 +233,23 @@ class _TestState:
     dbe: DBE
     agent_runner: AgentRunner
     wmh_frontend_sender: WMHFrontendSender
-    external_agent_runner: ExternalAgentRunner | None = None
+    external_agent_runner: object = field(
+        default_factory=lambda: _DisabledExternalAgentRunner()
+    )
     share_mode: bool = False
     deployment_mode: bool = False
     share_runtime_state: None = None
     chat_manager: None = None
+
+
+class _DisabledExternalAgentRunner:
+    disabled = True
+
+    def get_live_chat_state(self, _run_id: ID):
+        return None
+
+    def get_ai_follow_snapshot(self, _project_config_id: ID) -> list:
+        return []
 
 
 class TestAgentRunChatRoutes:
@@ -759,16 +772,19 @@ class TestAgentRunChatRoutes:
             )
             save_external_agent_configs(dbe, [external_config])
             save_engine_configs(dbe, [external_engine_config])
-            monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
-                lambda _dbe, _config: ExternalAgentPreflightStatus(
+            def _preflight_status_stub(_dbe, _config, **_kwargs):
+                return ExternalAgentPreflightStatus(
                     configId=external_config.id,
                     name=external_config.name,
                     toolType=external_config.toolType,
                     runMode=external_config.runMode,
                     supported=True,
                     available=True,
-                ),
+                )
+
+            monkeypatch.setattr(
+                "setta.routers.ai.build_external_agent_preflight_status",
+                _preflight_status_stub,
             )
             captured: dict[str, object] = {}
 
@@ -924,12 +940,14 @@ class TestAgentRunChatRoutes:
             )
             save_agent_run(dbe, run)
 
-            _ensure_external_chat_id_compatible(
+            compatible_runs = _ensure_external_chat_id_compatible(
                 dbe=dbe,
                 chat_id=chat_id,
                 engine_config_id=engine_config_id,
                 project_config_id=project_config_id,
             )
+            assert len(compatible_runs) == 1
+            assert compatible_runs[0].id == run.id
 
     async def test_get_external_agent_chat_from_outputs(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1036,10 +1054,97 @@ class TestAgentRunChatRoutes:
                 engine_type=EngineType.external_agent,
                 chat_id=chat_id,
                 project_config_id=project_config_id,
+                external_runs=[external_run],
             )
 
             assert len(prior_messages) == 2
             assert prior_messages[1].content[0].text == "External reply"
+
+    async def test_external_agent_prior_messages_do_not_fallback_to_llm_runs(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            chat_id = ID("external-chat-llm-only")
+            project_config_id = ID("project-ext-llm-only")
+            user_message = UserChatMessage(
+                content=[MessageTextContent(text="Hello from LLM")],
+            )
+            llm_reply = AssistantChatMessage(
+                id="assistant-llm-only",
+                content=[MessageTextContent(text="LLM-only history")],
+            )
+            llm_run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=ID("engine-primary"),
+                started_at=datetime(2024, 1, 7, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message, llm_reply],
+            )
+            save_agent_run(dbe, llm_run)
+
+            prior_messages = _get_prior_messages_for_engine(
+                dbe=dbe,
+                engine_type=EngineType.external_agent,
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                external_runs=[],
+            )
+
+            assert prior_messages == []
+
+    async def test_external_agent_prior_messages_can_use_prefetched_runs(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        user_message = UserChatMessage(
+            content=[MessageTextContent(text="Hello external")],
+        )
+        external_reply = AssistantChatMessage(
+            id="assistant-prefetched",
+            content=[MessageTextContent(text="External prefetched reply")],
+        )
+        external_run = _build_external_run(
+            chat_id=ID("chat-prefetched"),
+            project_config_id=ID("project-prefetched"),
+            started_at=datetime(2024, 1, 8, tzinfo=timezone.utc),
+            status=AgentRunStatus.completed,
+            input_messages=[user_message],
+            output_messages=[user_message, external_reply],
+        )
+
+        def _fail_external_lookup(**_kwargs):
+            raise AssertionError("Expected prefetched external runs to avoid lookup.")
+
+        monkeypatch.setattr(
+            ai_module,
+            "_get_external_agent_chat_runs",
+            _fail_external_lookup,
+        )
+
+        prior_messages = _get_prior_messages_for_engine(
+            dbe=None,
+            engine_type=EngineType.external_agent,
+            chat_id=ID("chat-prefetched"),
+            project_config_id=ID("project-prefetched"),
+            external_runs=[external_run],
+        )
+
+        assert len(prior_messages) == 2
+        assert prior_messages[1].content[0].text == "External prefetched reply"
+
+    async def test_external_agent_prior_messages_require_prefetched_runs(self) -> None:
+        with pytest.raises(ValueError) as exc_info:
+            _get_prior_messages_for_engine(
+                dbe=None,
+                engine_type=EngineType.external_agent,
+                chat_id=ID("missing-prefetched-runs"),
+                project_config_id=ID("missing-prefetched-project"),
+            )
+
+        assert "external_runs is required" in str(exc_info.value)
 
     async def test_stop_llm_chat(self) -> None:
         with TemporaryDirectory() as tmpdir:

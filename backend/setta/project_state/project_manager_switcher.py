@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from setta.database.settings_file import SettingsFile
     from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
     from setta.lsp.managers import LSPWriters
+    from setta.plugins.manager import PluginManager
     from setta.project_state.share_runtime_state import ShareRuntimeState
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
     from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
@@ -31,6 +32,7 @@ class ProjectManagerSwitcher:
         lsp_writers: "LSPWriters | None" = None,
         frontend_sender: "WMHFrontendSender | None" = None,
         specific_file_watcher: "SpecificFileWatcher | None" = None,
+        plugin_manager: "PluginManager | None" = None,
     ):
         self.share_runtime_state = share_runtime_state
         self._session_managers: dict[str, SessionProjectManager] = {}
@@ -48,6 +50,7 @@ class ProjectManagerSwitcher:
             self.lsp_writers = lsp_writers
             self.frontend_sender = frontend_sender
             self.specific_file_watcher = specific_file_watcher
+            self.plugin_manager = plugin_manager
             self.main = None
             self.settings = None
         else:
@@ -150,6 +153,7 @@ class ProjectManagerSwitcher:
             lsp_writers=self.lsp_writers,
             share_runtime_state=self.share_runtime_state,
             share_session_id=share_session_id,
+            plugin_manager=self.plugin_manager,
         )
         self._session_managers[share_session_id] = manager
         return manager

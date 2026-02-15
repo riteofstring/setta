@@ -4,7 +4,9 @@ from setta.code_gen.python.code_generator import (
     GEN_CODE_MULTILINE_CONTINUATION_INDENT,
     PythonCodeGenerator,
 )
+from setta.types.dependency_key import create_dep_key
 from setta.types.generated.settings_state import SettingsState
+from setta.types.helpers_lvl1 import set_curr_effective_section_impl_value
 from setta.types.helpers_lvl2 import (
     add_kwarg,
     create_top_level_section,
@@ -253,3 +255,42 @@ class TestCodeGeneratorFormatting:
                 f"{expected_key}: state.{expected_full_path},"
             )
             assert expected_line in generated_lines
+
+    def test_plugin_section_renders_to_python_literal_assignment(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+        section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Plugin,
+            Position(),
+            core_overrides={"name": "plugin_data"},
+        )
+        set_curr_effective_section_impl_value(
+            project_state,
+            section_id,
+            {
+                "data": {
+                    "alpha": 1,
+                    "beta": "ok",
+                },
+            },
+        )
+        python_target = get_python_codegen_target_with_type_guard(
+            project_state.projectConfig
+        )
+        python_target.sectionPolicy.allowlist = None
+
+        dep_graph = DependencyGraph(project_state)
+        generator = PythonCodeGenerator(
+            dep_graph,
+            python_target.genCodePrefix,
+            python_target.genCodeSuffix,
+        )
+        generator.generate_code()
+
+        section_dep_key = create_dep_key(sectionId=section_id)
+        assert section_dep_key in generator.var_name_mapping
+        assert "state.plugin_data = {'alpha': 1, 'beta': 'ok'}" in generator.generated_code
