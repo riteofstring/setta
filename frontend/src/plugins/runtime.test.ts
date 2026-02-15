@@ -2057,16 +2057,14 @@ describe("plugin runtime helpers", () => {
     );
 
     await refreshPluginRuntime();
-    const firstEntry = usePluginRuntimeStore.getState().pluginListById[
-      plugin.pluginId
-    ];
+    const firstEntry =
+      usePluginRuntimeStore.getState().pluginListById[plugin.pluginId];
     const firstCapabilities = firstEntry?.effectiveCapabilities;
     expect(firstCapabilities).toBeDefined();
 
     await refreshPluginRuntime();
-    const secondEntry = usePluginRuntimeStore.getState().pluginListById[
-      plugin.pluginId
-    ];
+    const secondEntry =
+      usePluginRuntimeStore.getState().pluginListById[plugin.pluginId];
     const secondCapabilities = secondEntry?.effectiveCapabilities;
     expect(secondEntry).toBe(firstEntry);
     expect(secondCapabilities).toBe(firstCapabilities);
@@ -2105,14 +2103,12 @@ describe("plugin runtime helpers", () => {
     );
 
     await refreshPluginRuntime();
-    const firstEntry = usePluginRuntimeStore.getState().pluginListById[
-      firstPlugin.pluginId
-    ];
+    const firstEntry =
+      usePluginRuntimeStore.getState().pluginListById[firstPlugin.pluginId];
 
     await refreshPluginRuntime();
-    const secondEntry = usePluginRuntimeStore.getState().pluginListById[
-      firstPlugin.pluginId
-    ];
+    const secondEntry =
+      usePluginRuntimeStore.getState().pluginListById[firstPlugin.pluginId];
 
     expect(secondEntry).not.toBe(firstEntry);
     expect(secondEntry?.sourceDigestSha256).toBe("sha256:second");

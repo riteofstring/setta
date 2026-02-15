@@ -3953,7 +3953,9 @@ class PluginManager:
                         plugin_id=candidate.manifest.id,
                         scope=resolved_scope,
                     )
-                    self._ensure_target_path_available(target_path=target_path, force=force)
+                    self._ensure_target_path_available(
+                        target_path=target_path, force=force
+                    )
 
                     self._install_candidate(
                         candidate,
