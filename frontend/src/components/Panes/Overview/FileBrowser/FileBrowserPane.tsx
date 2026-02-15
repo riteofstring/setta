@@ -57,6 +57,7 @@ const MAX_ENTRIES = 5000;
 const FILTER_RECURSIVE_MIN_CHARS = 2;
 const FILTER_RECURSIVE_MAX_FOLDERS = 600;
 const FILE_URL_REFRESH_BUFFER_MS = 30_000;
+const SETTA_BADGE_REFRESH_CONCURRENCY_LIMIT = 8;
 
 type NodeKind = "folder" | "file";
 
@@ -74,6 +75,7 @@ export type FileNode = {
   type: NodeKind;
   parentPath: string | null;
   mtime?: number | null;
+  isSettaInitialized?: boolean;
 };
 
 type FlattenedNode = FileNode & {
@@ -81,6 +83,95 @@ type FlattenedNode = FileNode & {
 };
 
 type FlattenedFileNode = FlattenedNode;
+
+export function getSettaBadgeRefreshFolderPaths({
+  rootPath,
+  expandedPaths,
+  nodesByPath,
+}: {
+  rootPath: string;
+  expandedPaths: Record<string, boolean>;
+  nodesByPath: Record<string, FileNode>;
+}): string[] {
+  const paths = new Set<string>([rootPath]);
+  for (const [path, isExpanded] of Object.entries(expandedPaths)) {
+    if (!isExpanded) {
+      continue;
+    }
+    const node = nodesByPath[path];
+    if (node?.type === "folder") {
+      paths.add(path);
+    }
+  }
+  return Array.from(paths);
+}
+
+export function shouldRefreshSettaBadgeDataOnToggleChange({
+  previousIncludeSettaInitializedFolders,
+  nextIncludeSettaInitializedFolders,
+}: {
+  previousIncludeSettaInitializedFolders: boolean;
+  nextIncludeSettaInitializedFolders: boolean;
+}): boolean {
+  return (
+    !previousIncludeSettaInitializedFolders &&
+    nextIncludeSettaInitializedFolders
+  );
+}
+
+export function buildFileBrowserLoadingPathOwner({
+  rootRequestId,
+  folderRequestId,
+}: {
+  rootRequestId: number;
+  folderRequestId: number;
+}): string {
+  return `${rootRequestId}:${folderRequestId}`;
+}
+
+export function isOwnedFileBrowserLoadingPath({
+  loadingPathOwnerByPath,
+  folderPath,
+  requestOwner,
+}: {
+  loadingPathOwnerByPath: Record<string, string>;
+  folderPath: string;
+  requestOwner: string;
+}): boolean {
+  return loadingPathOwnerByPath[folderPath] === requestOwner;
+}
+
+export async function forEachWithConcurrencyLimit<T>({
+  items,
+  limit,
+  run,
+}: {
+  items: T[];
+  limit: number;
+  run: (item: T) => Promise<unknown>;
+}): Promise<void> {
+  if (limit < 1) {
+    throw new RangeError("Concurrency limit must be at least 1.");
+  }
+  const workerCount = Math.min(limit, items.length);
+  if (workerCount === 0) {
+    return;
+  }
+  let nextIndex = 0;
+  const workers: Promise<void>[] = [];
+  for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
+    workers.push(
+      (async () => {
+        while (nextIndex < items.length) {
+          const currentIndex = nextIndex;
+          nextIndex += 1;
+          await run(items[currentIndex]);
+        }
+      })(),
+    );
+  }
+  await Promise.all(workers);
+}
 
 export function flattenFileBrowserTree({
   rootPath,
@@ -242,6 +333,7 @@ type RowData = {
   errorByPath: Record<string, string>;
   columnWidth: string;
   listInsetLeft: number;
+  showSettaInitializedBadge: boolean;
   onToggle: (path: string) => void;
   onSelect: (path: string) => void;
   onOpen: (path: string) => void;
@@ -258,6 +350,7 @@ type FileBrowserPaneProps = {
   onSelectionChange?: (node: FileNode | null) => void;
   useFileBrowserStateHook?: typeof useFileBrowserState;
   showFilter?: boolean;
+  includeSettaInitializedFolders?: boolean;
   metaPaddingClassName?: string;
   listInsetLeft?: number;
   columnWidthConfig?: {
@@ -272,6 +365,7 @@ export function FileBrowserPane({
   onSelectionChange,
   useFileBrowserStateHook,
   showFilter = true,
+  includeSettaInitializedFolders = false,
   metaPaddingClassName,
   listInsetLeft = 0,
   columnWidthConfig,
@@ -306,6 +400,7 @@ export function FileBrowserPane({
     childrenByPathRef.current = childrenByPath;
   }, [childrenByPath]);
   const [loadingPaths, setLoadingPaths] = useState<Record<string, boolean>>({});
+  const loadingPathOwnerByPathRef = useRef<Record<string, string>>({});
   const [errorByPath, setErrorByPath] = useState<Record<string, string>>({});
   const [ignorePatterns, setIgnorePatterns] = useState<string[]>([]);
   const [pathSeparator, setPathSeparator] = useState("/");
@@ -328,6 +423,7 @@ export function FileBrowserPane({
   const folderRequestIdRef = useRef<Record<string, number>>({});
   const filterRequestIdRef = useRef(0);
   const appliedRootRef = useRef<string | null>(null);
+  const includeSettaInitializedRef = useRef(includeSettaInitializedFolders);
   const applyRootPathRef =
     useRef<
       (
@@ -394,44 +490,25 @@ export function FileBrowserPane({
       const activeIgnorePatterns = ignoreOverride ?? ignorePatterns;
       const activeRootRequestId = rootRequestId ?? rootRequestIdRef.current;
       const nextRequestId = (folderRequestIdRef.current[folderPath] ?? 0) + 1;
-      folderRequestIdRef.current[folderPath] = nextRequestId;
-      setLoadingPaths((prev) => ({ ...prev, [folderPath]: true }));
-      const res = await route_get_folder_contents({
-        folderPath,
-        ignorePatterns: activeIgnorePatterns,
-        maxEntries: MAX_ENTRIES,
-        includeMtime: true,
-        missingFolderBehavior: "empty",
+      const requestOwner = buildFileBrowserLoadingPathOwner({
+        rootRequestId: activeRootRequestId,
+        folderRequestId: nextRequestId,
       });
-      if (rootRequestIdRef.current !== activeRootRequestId) {
-        return null;
-      }
-      if (folderRequestIdRef.current[folderPath] !== nextRequestId) {
-        return null;
-      }
-      let loadedNodes: FileNode[] | null = null;
-      if (res200(res)) {
-        const items = res.data;
-        loadedNodes = items.map((item) => ({
-          name: item.name,
-          fullPath: item.fullPath,
-          type: item.type,
-          parentPath: folderPath,
-          mtime: item.mtime ?? null,
-        }));
-        const childPaths = loadedNodes.map((node) => node.fullPath);
-        setNodesByPath((prev) => {
-          const next = { ...prev };
-          for (const node of loadedNodes ?? []) {
-            next[node.fullPath] = node;
-          }
-          return next;
-        });
-        setChildrenByPath((prev) => ({
-          ...prev,
-          [folderPath]: childPaths,
-        }));
-        setErrorByPath((prev) => {
+      folderRequestIdRef.current[folderPath] = nextRequestId;
+      loadingPathOwnerByPathRef.current[folderPath] = requestOwner;
+      setLoadingPaths((prev) => ({ ...prev, [folderPath]: true }));
+      const clearLoadingPathForRequest = () => {
+        if (
+          !isOwnedFileBrowserLoadingPath({
+            loadingPathOwnerByPath: loadingPathOwnerByPathRef.current,
+            folderPath,
+            requestOwner,
+          })
+        ) {
+          return;
+        }
+        delete loadingPathOwnerByPathRef.current[folderPath];
+        setLoadingPaths((prev) => {
           if (!(folderPath in prev)) {
             return prev;
           }
@@ -439,27 +516,69 @@ export function FileBrowserPane({
           delete next[folderPath];
           return next;
         });
-      } else {
-        let errorMessage = "Failed to load folder contents.";
-        const detail = getErrorDetail(res.data);
-        if (detail) {
-          errorMessage = detail;
-        } else if (res.hasResponse && res.status !== undefined) {
-          errorMessage = `Failed to load folder contents (${res.status}).`;
+      };
+      try {
+        const res = await route_get_folder_contents({
+          folderPath,
+          ignorePatterns: activeIgnorePatterns,
+          maxEntries: MAX_ENTRIES,
+          includeMtime: true,
+          includeSettaInitialized: includeSettaInitializedFolders,
+          missingFolderBehavior: "empty",
+        });
+        if (rootRequestIdRef.current !== activeRootRequestId) {
+          return null;
         }
-        setErrorByPath((prev) => ({ ...prev, [folderPath]: errorMessage }));
+        if (folderRequestIdRef.current[folderPath] !== nextRequestId) {
+          return null;
+        }
+        let loadedNodes: FileNode[] | null = null;
+        if (res200(res)) {
+          const items = res.data;
+          loadedNodes = items.map((item) => ({
+            name: item.name,
+            fullPath: item.fullPath,
+            type: item.type,
+            parentPath: folderPath,
+            mtime: item.mtime ?? null,
+            isSettaInitialized: item.isSettaInitialized ?? false,
+          }));
+          const childPaths = loadedNodes.map((node) => node.fullPath);
+          setNodesByPath((prev) => {
+            const next = { ...prev };
+            for (const node of loadedNodes ?? []) {
+              next[node.fullPath] = node;
+            }
+            return next;
+          });
+          setChildrenByPath((prev) => ({
+            ...prev,
+            [folderPath]: childPaths,
+          }));
+          setErrorByPath((prev) => {
+            if (!(folderPath in prev)) {
+              return prev;
+            }
+            const next = { ...prev };
+            delete next[folderPath];
+            return next;
+          });
+        } else {
+          let errorMessage = "Failed to load folder contents.";
+          const detail = getErrorDetail(res.data);
+          if (detail) {
+            errorMessage = detail;
+          } else if (res.hasResponse && res.status !== undefined) {
+            errorMessage = `Failed to load folder contents (${res.status}).`;
+          }
+          setErrorByPath((prev) => ({ ...prev, [folderPath]: errorMessage }));
+        }
+        return loadedNodes;
+      } finally {
+        clearLoadingPathForRequest();
       }
-      setLoadingPaths((prev) => {
-        if (!(folderPath in prev)) {
-          return prev;
-        }
-        const next = { ...prev };
-        delete next[folderPath];
-        return next;
-      });
-      return loadedNodes;
     },
-    [ignorePatterns],
+    [ignorePatterns, includeSettaInitializedFolders],
   );
 
   const applyRootPath = useCallback(
@@ -479,6 +598,7 @@ export function FileBrowserPane({
       rootRequestIdRef.current += 1;
       const rootRequestId = rootRequestIdRef.current;
       folderRequestIdRef.current = {};
+      loadingPathOwnerByPathRef.current = {};
       setRootError(null);
       fileBrowserState.setState({
         rootPath: trimmed,
@@ -500,6 +620,27 @@ export function FileBrowserPane({
     },
     [fetchFolderContents, fileBrowserState, pathSeparator],
   );
+
+  const refreshLoadedFoldersForSettaBadges = useCallback(async () => {
+    if (!rootPath) {
+      return;
+    }
+    rootRequestIdRef.current += 1;
+    const refreshRequestId = rootRequestIdRef.current;
+    folderRequestIdRef.current = {};
+    const folderPaths = getSettaBadgeRefreshFolderPaths({
+      rootPath,
+      expandedPaths,
+      nodesByPath: nodesByPathRef.current,
+    });
+    await forEachWithConcurrencyLimit({
+      items: folderPaths,
+      limit: SETTA_BADGE_REFRESH_CONCURRENCY_LIMIT,
+      run: async (path) => {
+        await fetchFolderContents(path, undefined, refreshRequestId);
+      },
+    });
+  }, [expandedPaths, fetchFolderContents, rootPath]);
 
   const handleSort = useCallback((nextKey: SortKey) => {
     setSortKey((prevKey) => {
@@ -545,6 +686,34 @@ export function FileBrowserPane({
     }
     applyRootPath(rootPath, pathSeparator, ignorePatterns);
   }, [applyRootPath, ignorePatterns, pathSeparator, rootPath]);
+
+  useEffect(() => {
+    if (!rootPath) {
+      includeSettaInitializedRef.current = includeSettaInitializedFolders;
+      return;
+    }
+    const previousIncludeSettaInitializedFolders =
+      includeSettaInitializedRef.current;
+    if (
+      previousIncludeSettaInitializedFolders === includeSettaInitializedFolders
+    ) {
+      return;
+    }
+    includeSettaInitializedRef.current = includeSettaInitializedFolders;
+    if (
+      !shouldRefreshSettaBadgeDataOnToggleChange({
+        previousIncludeSettaInitializedFolders,
+        nextIncludeSettaInitializedFolders: includeSettaInitializedFolders,
+      })
+    ) {
+      return;
+    }
+    void refreshLoadedFoldersForSettaBadges();
+  }, [
+    includeSettaInitializedFolders,
+    refreshLoadedFoldersForSettaBadges,
+    rootPath,
+  ]);
 
   useEffect(() => {
     if (didLoadRootRef.current) {
@@ -969,7 +1138,7 @@ export function FileBrowserPane({
         onKeyDown={handleKeyDown}
       >
         <div
-          className="group grid h-7 items-center border-b border-setta-100/80 bg-setta-50/70 px-2 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800/80 dark:bg-setta-900/40 dark:text-setta-400"
+          className="group box-border grid h-7 items-center border-b border-setta-100/80 bg-setta-50/70 px-2 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800/80 dark:bg-setta-900/40 dark:text-setta-400"
           style={{
             gridTemplateColumns,
           }}
@@ -1038,13 +1207,13 @@ export function FileBrowserPane({
             </button>
           </div>
         </div>
-        <div className="h-full w-full">
+        <div className="h-full w-full overflow-x-hidden">
           <List
             listRef={listRef}
             rowComponent={FileBrowserRow}
             rowCount={displayedItems.length}
             rowHeight={ROW_HEIGHT}
-            className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag`}
+            className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag overflow-x-hidden`}
             onRowsRendered={(visibleRows) => {
               if (displayedItems.length === 0) {
                 return;
@@ -1087,6 +1256,7 @@ export function FileBrowserPane({
               errorByPath,
               columnWidth,
               listInsetLeft,
+              showSettaInitializedBadge: includeSettaInitializedFolders,
               onToggle: handleToggle,
               onSelect: handleSelect,
               onOpen: handleOpen,
@@ -1112,6 +1282,7 @@ function FileBrowserRow({
   errorByPath,
   columnWidth,
   listInsetLeft,
+  showSettaInitializedBadge,
   onToggle,
   onSelect,
   onOpen,
@@ -1164,12 +1335,14 @@ function FileBrowserRow({
   return (
     <button
       type="button"
+      data-testid="file-browser-row"
+      data-path={item.fullPath}
       style={{
         ...style,
         display: "grid",
         gridTemplateColumns: `minmax(${FILE_BROWSER_FILE_COLUMN_MIN_WIDTH}px, min(${columnWidth}, calc(100% - ${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px))) minmax(${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px, 1fr)`,
       }}
-      className={`cursor-pointer items-center gap-2 pr-2 text-left text-xs ${rowClasses}`}
+      className={`box-border cursor-pointer items-center gap-2 pr-2 text-left text-xs ${rowClasses}`}
       {...(tooltipHandlers ?? {})}
       onMouseDown={(event) => {
         event.stopPropagation();
@@ -1233,6 +1406,16 @@ function FileBrowserRow({
         >
           {item.name}
         </span>
+        {showSettaInitializedBadge &&
+          isFolder &&
+          item.isSettaInitialized === true && (
+            <span
+              data-testid="setta-initialized-badge"
+              className="rounded-full border border-blue-200 bg-blue-50 px-1.5 py-[1px] text-[9px] font-semibold uppercase tracking-[0.08em] text-blue-700 dark:border-blue-900/80 dark:bg-blue-950/40 dark:text-blue-200"
+            >
+              Setta
+            </span>
+          )}
         {isLoading && (
           <span className="h-3 w-3 animate-spin rounded-full border border-setta-300 border-t-transparent" />
         )}
