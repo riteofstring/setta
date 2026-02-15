@@ -331,6 +331,10 @@ def _resolve_request_meta(ctx: Context) -> dict[str, Any]:
     meta = request_context.meta
     if isinstance(meta, dict):
         return meta
+    if isinstance(meta, BaseModel):
+        dumped = meta.model_dump()
+        if isinstance(dumped, dict):
+            return dumped
     return {}
 
 

@@ -5,6 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 from mcp.server.fastmcp.server import Context
+from mcp.shared.context import RequestContext
+from pydantic import BaseModel
 
 from setta.mcp.tools.ui_settings import (
     get_ui_setting_value,
@@ -39,12 +41,17 @@ class _RecordingFrontendSender:
         self.reveal_messages.append((content, share_session_id))
 
 
+class _RequestMetaModel(BaseModel):
+    projectConfigId: ID
+
+
 def _build_ctx(
     *,
     main_manager,
     settings_manager,
     frontend_sender: _RecordingFrontendSender,
     plugin_manager: PluginManager | None = None,
+    request_meta: BaseModel | dict[str, object] | None = None,
 ) -> Context:
     switcher = ProjectManagerSwitcher(
         main_manager=main_manager,
@@ -55,7 +62,19 @@ def _build_ctx(
         wmh_frontend_sender=frontend_sender,
         plugin_manager=plugin_manager,
     )
-    return Context(fastmcp=SimpleNamespace(state=state))
+    if request_meta is None:
+        return Context(fastmcp=SimpleNamespace(state=state))
+    request_context = RequestContext(
+        request_id="test-request-id",
+        meta=request_meta,
+        session=object(),
+        lifespan_context=object(),
+        request=None,
+    )
+    return Context(
+        fastmcp=SimpleNamespace(state=state),
+        request_context=request_context,
+    )
 
 
 def _build_plugin_manager(tmp_path: Path) -> PluginManager:
@@ -267,6 +286,75 @@ async def test_reveal_right_pane_setting_activates_section_from_argument() -> No
         assert frontend_sender.reveal_messages
         reveal_content, _ = frontend_sender.reveal_messages[0]
         assert reveal_content.reveals[0].settingId == "core.project.show_param_display_names"
+
+
+@pytest.mark.asyncio
+async def test_reveal_right_pane_uses_model_request_meta_project_config_id() -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        frontend_sender = _RecordingFrontendSender()
+        manager = project_fixture.manager
+        old_default_project_config_id = ID(
+            manager.project_state_backend.defaultProjectConfigId
+        )
+        existing_project_config_ids = set(
+            manager.project_state_backend.projectConfigs.keys()
+        )
+        await manager.create_project_config("bg-blue-500/60 dark:bg-blue-600/30")
+        project_config_ids_after_create = set(
+            manager.project_state_backend.projectConfigs.keys()
+        )
+        new_project_config_ids = (
+            project_config_ids_after_create - existing_project_config_ids
+        )
+        assert len(new_project_config_ids) == 1
+        created_project_config_id = ID(next(iter(new_project_config_ids)))
+        current_default_project_config_id = ID(
+            manager.project_state_backend.defaultProjectConfigId
+        )
+        target_project_config_id = (
+            old_default_project_config_id
+            if current_default_project_config_id == created_project_config_id
+            else created_project_config_id
+        )
+
+        create_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=target_project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        section_id = create_result.sectionId
+
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=target_project_config_id,
+                activeIds=[],
+            )
+        )
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta=_RequestMetaModel(projectConfigId=target_project_config_id),
+        )
+
+        # MCP /__setta__/tools/call passes model meta; reveal must respect that project.
+        result = await reveal_ui_setting(
+            settingId="core.project.show_param_display_names",
+            sectionIdToActivate=section_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 1
+        assert len(result.statuses) == 1
+        assert result.statuses[0].status == "revealed"
+
+        updated_state = manager.get_single_config_state(target_project_config_id)
+        assert updated_state.projectConfig.activeIds == [section_id]
 
 
 @pytest.mark.asyncio
