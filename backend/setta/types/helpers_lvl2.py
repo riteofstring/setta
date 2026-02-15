@@ -3025,7 +3025,6 @@ def set_chat_section_settings(
             thinking=thinking,
             permissionMode=permissionMode,
             searchEnabled=searchEnabled,
-            skillsEnabled=True,
         ),
     )
 

@@ -367,7 +367,6 @@ class ChatSectionImpl(BaseSectionImpl):
     thinking: bool = True
     permissionMode: ChatPermissionMode = ChatPermissionMode.minimal
     searchEnabled: bool = True
-    skillsEnabled: bool = True
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False

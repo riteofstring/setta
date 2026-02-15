@@ -586,7 +586,6 @@ class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
     thinking: bool
     permissionMode: ChatPermissionMode
     searchEnabled: bool
-    skillsEnabled: NotRequired[bool]
 
 
 class ListenerSetChatSectionStateRequestPayload(TypedDict):

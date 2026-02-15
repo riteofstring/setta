@@ -141,7 +141,6 @@ class SharedModifier(TypedDict):
     selectedParams: NotRequired[list[ID]]
     showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]
-    skillsEnabled: NotRequired[bool]
     step: NotRequired[float | int]
     styleColor: NotRequired[str | None]
     tagColor: NotRequired[str | None]

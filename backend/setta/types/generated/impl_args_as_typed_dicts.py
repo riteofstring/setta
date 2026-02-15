@@ -151,7 +151,6 @@ class CoreArgs(TypedDict):
                 "selectedParams",
                 "showSectionTitle",
                 "size",
-                "skillsEnabled",
                 "step",
                 "styleColor",
                 "tagColor",
@@ -615,7 +614,6 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     thinking: NotRequired[bool]
     permissionMode: NotRequired[ChatPermissionMode]
     searchEnabled: NotRequired[bool]
-    skillsEnabled: NotRequired[bool]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -642,7 +640,6 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         ChatPermissionMode | Callable[[ChatPermissionMode], ChatPermissionMode]
     ]
     searchEnabled: NotRequired[bool | Callable[[bool], bool]]
-    skillsEnabled: NotRequired[bool | Callable[[bool], bool]]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage

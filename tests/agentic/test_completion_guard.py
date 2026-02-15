@@ -75,3 +75,29 @@ def test_completion_guard_ignores_non_creation_conversations() -> None:
 
     assert replacement is None
     assert _assistant_text(assistant_message) == "Done."
+
+
+def test_completion_guard_ignores_conversational_ready_phrases() -> None:
+    # Conversational readiness should not be interpreted as a completion claim.
+    prior_messages = [_user_message("Create a new project setup.")]
+    assistant_message = _assistant_message("Ready when you are. I can start now.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Ready when you are. I can start now."
+
+
+def test_completion_guard_uses_latest_explicit_verification_result() -> None:
+    # A newer pass result should override older failed-check text.
+    prior_messages = [
+        _user_message("Create a new project setup."),
+        _assistant_message("I ran tests and checks failed."),
+        _assistant_message("I reran tests and verification passed cleanly."),
+    ]
+    assistant_message = _assistant_message("Done. Ready to ship.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Done. Ready to ship."

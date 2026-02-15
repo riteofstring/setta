@@ -27,7 +27,6 @@ import {
 import { shallow } from "zustand/shallow";
 import {
   getActiveSectionIdsFromRuns,
-  hasRunningAgentRuns,
   isChatSectionWaitingForResponse,
 } from "./aiActivity";
 import { ProjectName } from "./ProjectName";
@@ -261,10 +260,11 @@ function useActiveAgentSectionIds(): ReadonlySet<string> {
     }
   }, [agentRunsInitialLoadComplete]);
 
-  const hasRunningRuns = useMemo(
-    () => hasRunningAgentRuns(agentRuns),
+  const activeSectionIds = useMemo(
+    () => getActiveSectionIdsFromRuns(agentRuns),
     [agentRuns],
   );
+  const hasRunningRuns = activeSectionIds.size > 0;
 
   useEffect(() => {
     if (!hasRunningRuns) {
@@ -276,7 +276,7 @@ function useActiveAgentSectionIds(): ReadonlySet<string> {
     return () => clearInterval(intervalId);
   }, [hasRunningRuns]);
 
-  return useMemo(() => getActiveSectionIdsFromRuns(agentRuns), [agentRuns]);
+  return activeSectionIds;
 }
 
 function getDepthListingHelper(

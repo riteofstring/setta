@@ -41,18 +41,26 @@ describe("aiActivity", () => {
   });
 
   it("reports whether any run is currently running", () => {
-    // Polling should only continue while at least one run is still active.
+    // Polling should only continue while badge-relevant section runs are active.
     const idleRuns = [
       createAgentRun({ status: AgentRunStatusEnum.completed }),
       createAgentRun({ status: AgentRunStatusEnum.failed }),
     ];
-    const activeRuns = [
+    const unscopedRunningRuns = [
       ...idleRuns,
-      createAgentRun({ status: AgentRunStatusEnum.running }),
+      createAgentRun({ status: AgentRunStatusEnum.running, inputs: null }),
+    ];
+    const sectionScopedRunningRuns = [
+      ...idleRuns,
+      createAgentRun({
+        status: AgentRunStatusEnum.running,
+        inputs: { sectionId: "section-a" },
+      }),
     ];
 
     expect(hasRunningAgentRuns(idleRuns)).toBe(false);
-    expect(hasRunningAgentRuns(activeRuns)).toBe(true);
+    expect(hasRunningAgentRuns(unscopedRunningRuns)).toBe(false);
+    expect(hasRunningAgentRuns(sectionScopedRunningRuns)).toBe(true);
   });
 
   it("maps chat waiting state to overview activity", () => {

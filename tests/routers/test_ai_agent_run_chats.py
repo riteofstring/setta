@@ -1,11 +1,13 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import io
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 from fastapi import FastAPI, HTTPException
 import pytest
+from starlette.datastructures import Headers, UploadFile
 
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
 from setta.agentic.external_agent_runner import ExternalAgentRunner
@@ -24,7 +26,6 @@ from setta.routers.ai import (
     GetLLMResponseRequest,
     GetLLMChatRequest,
     StopLLMChatRequest,
-    TranscribeChatAudioRequest,
     _build_branch_messages,
     _ensure_external_chat_id_compatible,
     _get_prior_messages_for_engine,
@@ -579,7 +580,7 @@ class TestAgentRunChatRoutes:
                         allowUnscoped=True,
                         permissionMode=ChatPermissionMode.yolo,
                         searchEnabled=False,
-                        skillsEnabled=False,  # Deprecated; accepted but ignored.
+                        appGenerationMode="json_render",
                         appSpecStreamingEnabled=True,
                     ),
                     ctx,
@@ -680,7 +681,6 @@ class TestAgentRunChatRoutes:
                         allowUnscoped=True,
                         permissionMode=ChatPermissionMode.minimal,
                         searchEnabled=False,
-                        skillsEnabled=True,  # Deprecated; accepted but ignored.
                     ),
                     ctx,
                 )
@@ -697,6 +697,53 @@ class TestAgentRunChatRoutes:
             assert "## Runtime execution settings" in system_prompt
             assert "- permissionMode: minimal" in system_prompt
             assert "## Required completion gate for create/scaffold work" in system_prompt
+
+    async def test_get_llm_response_does_not_infer_app_mode_from_streaming_flag(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            captured: dict[str, object] = {}
+
+            def _capture_start_run(profile, inputs, **_kwargs):
+                captured["profile"] = profile
+                captured["inputs"] = inputs
+                return create_agent_run(profile_id=profile.id, inputs=inputs)
+
+            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+
+            with runtime_context(state) as ctx:
+                await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        message=UserChatMessage(
+                            content=[MessageTextContent(text="Create a new project.")],
+                        ),
+                        engineConfigId=engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=ID("project-policy"),
+                        allowUnscoped=True,
+                        appSpecStreamingEnabled=True,
+                        appGenerationMode=None,
+                    ),
+                    ctx,
+                )
+
+            captured_profile = captured.get("profile")
+            assert captured_profile is not None
+            system_prompt = captured_profile.systemPrompt
+            assert "App generation mode" not in system_prompt
+            assert "streamingPreview: enabled" not in system_prompt
 
     async def test_transcribe_chat_audio_uses_litellm_transcription(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -738,14 +785,15 @@ class TestAgentRunChatRoutes:
                         "setta.llm.transcription.litellm.atranscription",
                         _capture_transcription,
                     )
+                    upload = UploadFile(
+                        io.BytesIO(b"hello"),
+                        filename="voice.webm",
+                        headers=Headers({"content-type": "audio/webm"}),
+                    )
                     response = await route_transcribe_chat_audio(
-                        TranscribeChatAudioRequest(
-                            engineConfigId=engine_config_id,
-                            audioBase64="aGVsbG8=",
-                            mimeType="audio/webm",
-                            fileName="voice.webm",
-                        ),
-                        ctx,
+                        ctx=ctx,
+                        engineConfigId=engine_config_id,
+                        file=upload,
                     )
 
             assert response.text == "hello from provider"
@@ -789,20 +837,81 @@ class TestAgentRunChatRoutes:
 
             with runtime_context(state) as ctx:
                 with pytest.raises(HTTPException) as exc:
+                    upload = UploadFile(
+                        io.BytesIO(b"hello"),
+                        filename="voice.webm",
+                        headers=Headers({"content-type": "audio/webm"}),
+                    )
                     await route_transcribe_chat_audio(
-                        TranscribeChatAudioRequest(
-                            engineConfigId=external_engine_config_id,
-                            audioBase64="aGVsbG8=",
-                            mimeType="audio/webm",
-                            fileName="voice.webm",
-                        ),
-                        ctx,
+                        ctx=ctx,
+                        engineConfigId=external_engine_config_id,
+                        file=upload,
                     )
 
             assert exc.value.status_code == 400
             assert "Provider dictation is available only for managed LLM engines." in str(
                 exc.value.detail
             )
+
+    async def test_transcribe_chat_audio_rejects_empty_payload(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    upload = UploadFile(
+                        io.BytesIO(b""),
+                        filename="voice.webm",
+                        headers=Headers({"content-type": "audio/webm"}),
+                    )
+                    await route_transcribe_chat_audio(
+                        ctx=ctx,
+                        engineConfigId=engine_config_id,
+                        file=upload,
+                    )
+
+            assert exc.value.status_code == 400
+            assert exc.value.detail == "Audio payload is empty."
+
+    async def test_transcribe_chat_audio_rejects_oversized_payload(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            monkeypatch.setattr("setta.routers.ai._TRANSCRIBE_AUDIO_MAX_BYTES", 4)
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    upload = UploadFile(
+                        io.BytesIO(b"hello"),
+                        filename="voice.webm",
+                        headers=Headers({"content-type": "audio/webm"}),
+                    )
+                    await route_transcribe_chat_audio(
+                        ctx=ctx,
+                        engineConfigId=engine_config_id,
+                        file=upload,
+                    )
+
+            assert exc.value.status_code == 413
+            assert exc.value.detail == "Audio payload is too large. Maximum size is 4 bytes."
 
     async def test_external_runner_maps_permission_mode_per_framework(
         self,
@@ -885,7 +994,6 @@ class TestAgentRunChatRoutes:
                         allowUnscoped=True,
                         permissionMode=ChatPermissionMode.yolo,
                         searchEnabled=True,
-                        skillsEnabled=True,
                     ),
                     ctx,
                 )

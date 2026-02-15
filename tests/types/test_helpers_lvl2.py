@@ -343,7 +343,6 @@ class TestChatSectionChatId:
         assert section_impl.thinking
         assert section_impl.permissionMode == ChatPermissionMode.yolo
         assert not section_impl.searchEnabled
-        assert section_impl.skillsEnabled
 
 
 class TestPromptSection:

@@ -1418,6 +1418,10 @@ const ChatMessage = memo(function ChatMessage({
   const spinnerDelayMs =
     assistantContent.length === 0 ? 0 : IDLE_SPINNER_DELAY_MS;
   const toolCalls = isAssistant ? message.tool_calls ?? [] : [];
+  const thinkingItems = useMemo(
+    () => (isAssistant ? message.content.filter(isThinkingContentItem) : []),
+    [isAssistant, message.content],
+  );
   const showAssistantSpinner = useIdleStreamSpinner(
     isAssistant && isStreaming && toolCalls.length === 0,
     activityKey,
@@ -1425,7 +1429,7 @@ const ChatMessage = memo(function ChatMessage({
   );
 
   useEffect(() => {
-    if (!isAssistant) {
+    if (!isAssistant || thinkingItems.length === 0) {
       setAssistantBubbleWidth(null);
       return;
     }
@@ -1448,11 +1452,10 @@ const ChatMessage = memo(function ChatMessage({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [isAssistant, message.id]);
+  }, [isAssistant, message.id, thinkingItems.length]);
 
   if (message.role === ChatRoleEnum.assistant) {
     const showTypingIndicator = showAssistantSpinner;
-    const thinkingItems = message.content.filter(isThinkingContentItem);
     return (
       <>
         {thinkingItems.map((item, idx) => (

@@ -36,7 +36,7 @@ def test_default_section_sizes_meet_policy_minimums(impl, policy_entry) -> None:
     assert impl.size.height >= policy_entry.minHeight
 
 
-def test_chat_section_normalizes_deprecated_skills_setting() -> None:
+def test_chat_section_settings_round_trip_without_legacy_skills_field() -> None:
     settings = SettingsState()
     project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="test"))
     section_id = create_top_level_section(
@@ -50,7 +50,7 @@ def test_chat_section_normalizes_deprecated_skills_setting() -> None:
         section_id,
         ChatSectionImpl,
     )
-    chat_impl.skillsEnabled = False
+    assert "skillsEnabled" not in chat_impl.model_dump(mode="python")
 
     reloaded = ProjectStateSingleConfig.model_validate(
         project_state.model_dump(mode="python")
@@ -60,4 +60,4 @@ def test_chat_section_normalizes_deprecated_skills_setting() -> None:
         section_id,
         ChatSectionImpl,
     )
-    assert reloaded_chat_impl.skillsEnabled is True
+    assert "skillsEnabled" not in reloaded_chat_impl.model_dump(mode="python")

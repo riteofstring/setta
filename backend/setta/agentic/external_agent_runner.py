@@ -358,7 +358,9 @@ class ExternalAgentRunner:
                         project_config_id=context.project_config_id,
                         share_session_id=self.share_session_id,
                     )
-                    await self._handle_stream_chunk(context, run, chunk)
+                    await self._handle_stream_chunk(
+                        context, run, chunk, prepared=True
+                    )
             self._persist_external_session_metadata(run, handle)
             return_code = handle.return_code
             if return_code not in (None, 0):
@@ -1261,9 +1263,15 @@ class ExternalAgentRunner:
         save_agent_run(self.dbe, run)
 
     async def _handle_stream_chunk(
-        self, context: ExternalAgentRunContext, run: AgentRun, chunk: Any
+        self,
+        context: ExternalAgentRunContext,
+        run: AgentRun,
+        chunk: Any,
+        *,
+        prepared: bool = False,
     ) -> None:
-        chunk = self._prepare_stream_chunk_for_delivery(run, chunk)
+        if not prepared:
+            chunk = self._prepare_stream_chunk_for_delivery(run, chunk)
         state = self._apply_stream_chunk_to_state(run, chunk)
         if isinstance(chunk, ToolCallDeltaEvent):
             self._store_tool_call_delta(run.id, chunk)

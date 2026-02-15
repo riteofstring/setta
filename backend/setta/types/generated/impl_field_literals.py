@@ -90,7 +90,6 @@ AllImplFields = Literal[
     "selectedParams",
     "showSectionTitle",
     "size",
-    "skillsEnabled",
     "step",
     "styleColor",
     "tagColor",

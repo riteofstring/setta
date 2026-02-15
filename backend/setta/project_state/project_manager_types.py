@@ -1070,13 +1070,6 @@ class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     thinking: bool
     permissionMode: ChatPermissionMode
     searchEnabled: bool
-    skillsEnabled: bool = Field(
-        default=True,
-        description=(
-            "Deprecated advisory setting. This value is ignored and kept only for "
-            "backward compatibility."
-        ),
-    )
 
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):

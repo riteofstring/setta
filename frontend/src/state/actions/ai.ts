@@ -123,6 +123,8 @@ const scopeViolationToastTimeouts = new Map<
 >();
 let llmConfigLoadPromise: Promise<void> | null = null;
 let llmApiKeysLoadPromise: Promise<void> | null = null;
+let agentRunsLoadPromise: Promise<void> | null = null;
+const MAX_TRANSCRIBE_AUDIO_BYTES = 10 * 1024 * 1024;
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
@@ -151,17 +153,6 @@ function isChatExecutionSettings(
   );
 }
 
-function encodeArrayBufferAsBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  let binary = "";
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    const chunk = bytes.subarray(index, index + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-  return btoa(binary);
-}
-
 export async function transcribeChatAudio(
   engineConfigId: string,
   audioBlob: Blob,
@@ -169,13 +160,17 @@ export async function transcribeChatAudio(
   if (!engineConfigId || audioBlob.size === 0) {
     return null;
   }
-  const audioBase64 = encodeArrayBufferAsBase64(await audioBlob.arrayBuffer());
-  const res = await route_transcribe_chat_audio({
-    engineConfigId,
-    audioBase64,
-    mimeType: audioBlob.type || "audio/webm",
-    fileName: "dictation.webm",
-  });
+  if (audioBlob.size > MAX_TRANSCRIBE_AUDIO_BYTES) {
+    addTemporaryNotification(
+      "Recording is too large. Maximum size is 10 MB.",
+      SettaNotificationTypeEnum.warning,
+    );
+    return null;
+  }
+  const form = new FormData();
+  form.set("engineConfigId", engineConfigId);
+  form.set("file", audioBlob, "dictation.webm");
+  const res = await route_transcribe_chat_audio(form);
   if (!res200(res)) {
     const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
     addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
@@ -281,14 +276,25 @@ export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
 }
 
 export async function loadAgentRuns() {
-  const res = await route_get_agent_runs();
-  if (res200(res)) {
-    receiveAgentRunsUpdate(res.data);
-  } else {
-    useAIStore.setState({
-      agentRunsInitialLoadComplete: true,
-      agentRunsLoadError: "Failed to load agent runs",
-    });
+  if (agentRunsLoadPromise) {
+    await agentRunsLoadPromise;
+    return;
+  }
+  agentRunsLoadPromise = (async () => {
+    const res = await route_get_agent_runs();
+    if (res200(res)) {
+      receiveAgentRunsUpdate(res.data);
+    } else {
+      useAIStore.setState({
+        agentRunsInitialLoadComplete: true,
+        agentRunsLoadError: "Failed to load agent runs",
+      });
+    }
+  })();
+  try {
+    await agentRunsLoadPromise;
+  } finally {
+    agentRunsLoadPromise = null;
   }
 }
 

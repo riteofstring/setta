@@ -1,9 +1,7 @@
-import base64
-import binascii
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import HTTPException
+from fastapi import File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 
 from setta.agentic.chat_view import (
@@ -51,6 +49,7 @@ from setta.types.llm_config import LLMConfig
 from setta.types.routes import Route
 from setta.types.section_impls import ChatPermissionMode
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
+from setta.utils.constants import C
 
 router = SettaProjectContextAPIRouter()
 
@@ -66,6 +65,9 @@ _REQUIRED_ERROR_CHECK_PROMPT = (
     "- For project creation, section creation, or scaffolding tasks: do not claim completion until you run error checks.\n"
     "- Report check outcomes explicitly as pass/fail before any completion claim.\n"
     "- If checks were not run or checks failed, state that explicitly instead of saying the work is done.\n"
+)
+_TRANSCRIBE_AUDIO_MAX_BYTES = (
+    C.REALTIME_BINARY_MAX_BYTES if C.REALTIME_BINARY_MAX_BYTES > 0 else 10 * 1024 * 1024
 )
 
 
@@ -483,12 +485,6 @@ class GetLLMResponseRequest(BaseModel):
     )
     permissionMode: ChatPermissionMode = ChatPermissionMode.minimal
     searchEnabled: bool = True
-    skillsEnabled: bool = Field(
-        default=True,
-        description=(
-            "Deprecated advisory toggle. This value is ignored and kept only for old clients."
-        ),
-    )
     appGenerationMode: AppGenerationMode | None = Field(
         default=None,
         description="Optional app generation mode selected in the UI.",
@@ -506,14 +502,6 @@ class GetLLMResponseRequest(BaseModel):
 class GetLLMChatRequest(BaseModel):
     chatId: ID
     projectConfigId: ID | None
-
-
-class TranscribeChatAudioRequest(BaseModel):
-    engineConfigId: ID
-    audioBase64: str
-    mimeType: str = "audio/webm"
-    fileName: str = "dictation.webm"
-    language: str | None = None
 
 
 class TranscribeChatAudioResponse(BaseModel):
@@ -622,9 +610,6 @@ async def route_get_llm_response(
 
     resolved_mode = x.appGenerationMode
     prompt_mode: AppGenerationMode | None = resolved_mode
-    if prompt_mode is None and x.appSpecStreamingEnabled:
-        # Keep legacy streaming-preview guidance when old clients do not send mode.
-        prompt_mode = "json_render"
     normalized_reference_image_url, normalized_reference_image_notes = (
         _normalize_reference_image_inputs(
             reference_image_url=x.appGenerationReferenceImageUrl,
@@ -787,14 +772,16 @@ async def route_get_llm_response(
 
 @router.post(Route.TRANSCRIBE_CHAT_AUDIO)
 async def route_transcribe_chat_audio(
-    x: TranscribeChatAudioRequest,
     ctx: RuntimeContextFromRequest,
+    engineConfigId: ID = Form(...),
+    file: UploadFile = File(...),
+    language: str | None = Form(default=None),
 ) -> TranscribeChatAudioResponse:
     await ctx.enforce_llm_allowed()
     if ctx.state.agent_runner.disabled:
         raise HTTPException(status_code=503, detail="Agent runner is not available")
     resolved = resolve_engine_config(
-        ctx.state.dbe, ctx.state.agent_runner.config, x.engineConfigId
+        ctx.state.dbe, ctx.state.agent_runner.config, engineConfigId
     )
     if resolved.engine_config.engineType != EngineType.setta_llm:
         raise HTTPException(
@@ -809,19 +796,27 @@ async def route_transcribe_chat_audio(
         raise HTTPException(
             status_code=400, detail="No LLM config available for engine"
         )
-    audio_base64 = x.audioBase64.strip()
-    if not audio_base64:
-        raise HTTPException(status_code=400, detail="audioBase64 is required.")
+
     try:
-        audio_bytes = base64.b64decode(audio_base64, validate=True)
-    except (binascii.Error, ValueError) as exc:
-        raise HTTPException(
-            status_code=400, detail="audioBase64 must be valid base64."
-        ) from exc
+        audio_bytes = await file.read(_TRANSCRIBE_AUDIO_MAX_BYTES + 1)
+    finally:
+        await file.close()
+
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="Audio payload is empty.")
-    mime_type = x.mimeType.strip() if x.mimeType.strip() else "audio/webm"
-    file_name = x.fileName.strip() if x.fileName.strip() else "dictation.webm"
+    if len(audio_bytes) > _TRANSCRIBE_AUDIO_MAX_BYTES:
+        if _TRANSCRIBE_AUDIO_MAX_BYTES >= 1024 * 1024:
+            limit_label = f"{_TRANSCRIBE_AUDIO_MAX_BYTES // (1024 * 1024)} MB"
+        else:
+            limit_label = f"{_TRANSCRIBE_AUDIO_MAX_BYTES} bytes"
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Audio payload is too large. Maximum size is {limit_label}.",
+        )
+
+    mime_type = (file.content_type or "").strip() or "audio/webm"
+    file_name = (file.filename or "").strip() or "dictation.webm"
+
     try:
         text = await transcribe_audio_with_llm(
             config=ctx.state.agent_runner.config,
@@ -830,7 +825,7 @@ async def route_transcribe_chat_audio(
             audio_bytes=audio_bytes,
             mime_type=mime_type,
             file_name=file_name,
-            language=x.language,
+            language=language,
         )
     except Exception as exc:
         detail = (

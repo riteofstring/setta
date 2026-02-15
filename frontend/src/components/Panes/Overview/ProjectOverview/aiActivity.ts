@@ -25,9 +25,14 @@ export function getActiveSectionIdsFromRuns(
 
 export function hasRunningAgentRuns(runs: Array<AgentRun>): boolean {
   for (const run of runs) {
-    if (run.status === AgentRunStatusEnum.running) {
-      return true;
+    if (run.status !== AgentRunStatusEnum.running) {
+      continue;
     }
+    const sectionId = getRunInputString(run, "sectionId");
+    if (!sectionId) {
+      continue;
+    }
+    return true;
   }
   return false;
 }

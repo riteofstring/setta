@@ -10,7 +10,7 @@ _CREATION_OBJECT_RE = re.compile(
     r"\b(project|section|workspace|app|codebase)\b", re.IGNORECASE
 )
 _COMPLETION_CLAIM_RE = re.compile(
-    r"\b(done|completed?|finished|all set|ready to ship|ready)\b", re.IGNORECASE
+    r"\b(done|completed?|finished|all set|ready to ship)\b", re.IGNORECASE
 )
 _CHECK_RE = re.compile(
     r"\b(check|checks|test|tests|lint|type ?check|verify|verification|error check)\b",
@@ -81,7 +81,7 @@ def _resolve_verification_status(
     assistant_text: str,
 ) -> str:
     candidate_texts = [assistant_text]
-    for message in prior_messages:
+    for message in reversed(prior_messages):
         role = _normalize_role(message)
         if role == "user":
             continue
