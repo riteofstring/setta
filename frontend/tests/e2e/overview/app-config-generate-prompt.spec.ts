@@ -113,7 +113,14 @@ test("prompt-builder waits for in-flight resource loads and uses default managed
     appGenerationMode: "prompt_builder",
   });
 
+  let releaseLlmConfig: (() => void) | null = null;
+  const llmConfigGate = new Promise<void>((resolve) => {
+    releaseLlmConfig = resolve;
+  });
+  let llmConfigRequestCount = 0;
   await page.route("**/api/llm/config", async (route) => {
+    llmConfigRequestCount += 1;
+    await llmConfigGate;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -133,7 +140,14 @@ test("prompt-builder waits for in-flight resource loads and uses default managed
       }),
     });
   });
+  let releaseApiKeys: (() => void) | null = null;
+  const apiKeysGate = new Promise<void>((resolve) => {
+    releaseApiKeys = resolve;
+  });
+  let apiKeysRequestCount = 0;
   await page.route("**/api/llm/apiKeys", async (route) => {
+    apiKeysRequestCount += 1;
+    await apiKeysGate;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -196,6 +210,8 @@ test("prompt-builder waits for in-flight resource loads and uses default managed
 
   await ensureAppReady(page);
   await expect(page.getByText("App Config")).toBeVisible();
+  await expect.poll(() => llmConfigRequestCount).toBeGreaterThan(0);
+  await expect.poll(() => apiKeysRequestCount).toBeGreaterThan(0);
   await expect.poll(() => engineConfigsRequestCount).toBeGreaterThan(0);
   await expect.poll(() => externalHealthRequestCount).toBeGreaterThan(0);
 
@@ -203,6 +219,8 @@ test("prompt-builder waits for in-flight resource loads and uses default managed
   await sendButton.click();
   expect(capturedRequests.length).toBe(0);
 
+  releaseLlmConfig?.();
+  releaseApiKeys?.();
   releaseEngineConfigs?.();
   releaseExternalHealth?.();
 
@@ -211,6 +229,8 @@ test("prompt-builder waits for in-flight resource loads and uses default managed
   ).toBeVisible();
   expect(capturedRequests.length).toBe(1);
   expect(capturedRequests[0].engineConfigId).toBe("engine-primary");
+  expect(llmConfigRequestCount).toBe(1);
+  expect(apiKeysRequestCount).toBe(1);
 });
 
 test("prompt-builder mode ignores stale reference-image context from image mode", async ({

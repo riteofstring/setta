@@ -21,6 +21,7 @@ vi.mock("utils/generatedEndpoints", async () => {
 });
 
 let useAIStore: typeof import("state/definitions").useAIStore;
+let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let submitMessage: typeof import("state/actions/ai").submitMessage;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
 let memoryStorage: Storage;
@@ -48,6 +49,7 @@ describe("submitMessage", () => {
 
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
+    useLocalStorage = definitions.useLocalStorage;
     const ai = await import("state/actions/ai");
     submitMessage = ai.submitMessage;
     getDefaultChatDetails = ai.getDefaultChatDetails;
@@ -187,5 +189,39 @@ describe("submitMessage", () => {
     expect(payload.appGenerationReferenceImageNotes).toBe(
       "Preserve hierarchy first.",
     );
+  });
+
+  it("does not send app-spec streaming guidance for normal chat submits", async () => {
+    useLocalStorage.setState({
+      appSpecStreamingEnabled: true,
+    });
+    const route_get_llm_response = (await import("utils/generatedEndpoints"))
+      .route_get_llm_response as unknown as vi.Mock;
+    route_get_llm_response.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    await expect(
+      submitMessage(
+        null,
+        "Just answer this question.",
+        [],
+        true,
+        "engine-primary",
+        false,
+      ),
+    ).resolves.toBeNull();
+
+    expect(route_get_llm_response).toHaveBeenCalledTimes(1);
+    const [payload] = route_get_llm_response.mock.calls[0] as [
+      {
+        appSpecStreamingEnabled: boolean;
+        appGenerationMode: string | null;
+      },
+    ];
+    expect(payload.appSpecStreamingEnabled).toBe(false);
+    expect(payload.appGenerationMode).toBeNull();
   });
 });

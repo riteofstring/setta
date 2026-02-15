@@ -41,6 +41,7 @@ from setta.types.agentic import (
 )
 from setta.types.external_agents import (
     ExternalAgentConfig,
+    ExternalAgentPreflightStatus,
     ExternalAgentRunMode,
     ExternalAgentToolType,
 )
@@ -583,6 +584,50 @@ class TestAgentRunChatRoutes:
                 return
             assert profile.systemPrompt == ""
 
+    async def test_get_llm_response_does_not_apply_streaming_prompt_without_mode(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            captured: dict[str, object] = {}
+
+            def _fake_start_run(profile, inputs):
+                captured["profile"] = profile
+                captured["inputs"] = inputs
+
+            runner.start_run = _fake_start_run  # type: ignore[method-assign]
+
+            with runtime_context(state) as ctx:
+                await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        message=UserChatMessage(
+                            content=[MessageTextContent(text="Regular project chat")]
+                        ),
+                        engineConfigId=engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=ID("project-1"),
+                        allowUnscoped=True,
+                        appSpecStreamingEnabled=True,
+                    ),
+                    ctx,
+                )
+
+            profile = captured.get("profile")
+            assert isinstance(profile, AgentProfile)
+            if not isinstance(profile, AgentProfile):
+                return
+            assert profile.systemPrompt == ""
+
     async def test_get_llm_response_uses_explicit_app_generation_mode(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -677,6 +722,85 @@ class TestAgentRunChatRoutes:
             assert isinstance(profile, AgentProfile)
             if not isinstance(profile, AgentProfile):
                 return
+            assert "setta__stream_app_definition" in profile.systemPrompt
+            assert "setta__set_app_definition" not in profile.systemPrompt
+
+    async def test_get_llm_response_external_engine_uses_explicit_app_generation_mode(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = ProjectConfig()
+            project_state = ProjectStateBackend(
+                projectConfigs={project_config.id: project_config},
+                defaultProjectConfigId=project_config.id,
+            )
+            dbe.write_project(project_state)
+            runner = _build_runner(dbe)
+            external_runner = ExternalAgentRunner(dbe, runner.websocket_msg_handler)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+                external_agent_runner=external_runner,
+            )
+            external_config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            external_engine_config_id = ID("engine-external")
+            external_engine_config = EngineConfig(
+                id=external_engine_config_id,
+                name="External Engine",
+                engineType=EngineType.external_agent,
+                externalAgentConfigId=external_config.id,
+            )
+            save_external_agent_configs(dbe, [external_config])
+            save_engine_configs(dbe, [external_engine_config])
+            monkeypatch.setattr(
+                "setta.routers.ai.build_external_agent_preflight_status",
+                lambda _dbe, _config: ExternalAgentPreflightStatus(
+                    configId=external_config.id,
+                    name=external_config.name,
+                    toolType=external_config.toolType,
+                    runMode=external_config.runMode,
+                    supported=True,
+                    available=True,
+                ),
+            )
+            captured: dict[str, object] = {}
+
+            def _fake_start_run(_engine_config_id, _config, profile, inputs):
+                captured["profile"] = profile
+                captured["inputs"] = inputs
+
+            external_runner.start_run = _fake_start_run  # type: ignore[method-assign]
+
+            with runtime_context(state) as ctx:
+                await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        message=UserChatMessage(
+                            content=[MessageTextContent(text="Use MCP tools for app spec")]
+                        ),
+                        engineConfigId=external_engine_config_id,
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=project_config.id,
+                        allowUnscoped=True,
+                        appGenerationMode="mcp_server",
+                        appSpecStreamingEnabled=True,
+                    ),
+                    ctx,
+                )
+
+            profile = captured.get("profile")
+            assert isinstance(profile, AgentProfile)
+            if not isinstance(profile, AgentProfile):
+                return
+            assert "mode: mcp_server" in profile.systemPrompt
             assert "setta__stream_app_definition" in profile.systemPrompt
             assert "setta__set_app_definition" not in profile.systemPrompt
 

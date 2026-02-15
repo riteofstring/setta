@@ -1221,7 +1221,7 @@ export function AppConfigPane() {
         const targetChatId = engineSelection.forceNewChat
           ? null
           : activeChatId ?? null;
-        const chatId = await submitMessage(
+        await submitMessage(
           targetChatId,
           prompt,
           [],

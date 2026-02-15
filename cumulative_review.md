@@ -169,3 +169,21 @@ Test and verification coverage added/updated:
 - Added Playwright regression coverage for stale markdown suppression after collapsing the Skills viewer during an in-flight markdown request.
 - Re-ran targeted backend pytest router suites, frontend Vitest suites, and Playwright Skills/MCP viewer coverage; all passing.
 - CDP visual verification completed for Project AI Skills/MCP viewer collapse/reopen and markdown content behavior.
+
+## 2026-02-17T04:57:12Z
+
+Status: Implemented
+
+Accepted findings fixed in this batch:
+- Applied app-generation mode system-prompt guidance consistently across managed and external-agent chat runs.
+- Removed app-generation prompt injection when `appGenerationMode` is unset, even if streaming is enabled, so normal chat no longer inherits app-spec tool guidance.
+- Added in-flight request deduplication for App Config AI bootstrap calls to avoid duplicate `llm/config` and `llm/apiKeys` fetches.
+- Removed unused hidden-generation `chatId` binding in App Config submit flow.
+
+Test and verification coverage added/updated:
+- Added backend route coverage for explicit no-mode/no-injection behavior and external-agent app-generation prompt propagation.
+- Added backend helper coverage for the explicit `mode=None` prompt contract.
+- Added frontend unit coverage for normal-chat streaming-flag gating and in-flight dedupe of LLM bootstrap loaders.
+- Updated Playwright App Config prompt-builder coverage to assert no duplicate LLM bootstrap calls during blocked in-flight loads.
+- Re-ran targeted backend pytest suites, frontend Vitest suites, and Playwright overview App Config suite; all passing.
+- CDP visual verification completed for App Config prompt-builder flow and generated in-pane status messaging.

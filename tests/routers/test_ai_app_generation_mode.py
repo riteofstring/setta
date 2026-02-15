@@ -33,6 +33,17 @@ class TestAIAppGenerationModeHelpers:
         )
         assert prompt is None
 
+    def test_build_prompt_returns_none_when_mode_is_missing_even_if_streaming_enabled(
+        self,
+    ) -> None:
+        prompt = _build_app_generation_mode_prompt(
+            mode=None,
+            app_spec_streaming_enabled=True,
+            reference_image_url=None,
+            reference_image_notes=None,
+        )
+        assert prompt is None
+
     def test_build_prompt_ignores_reference_image_for_non_image_modes(self) -> None:
         prompt = _build_app_generation_mode_prompt(
             mode="prompt_builder",

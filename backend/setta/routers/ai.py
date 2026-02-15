@@ -246,7 +246,7 @@ def _build_app_generation_mode_prompt(
     reference_image_url: str | None,
     reference_image_notes: str | None,
 ) -> str | None:
-    if mode is None and not app_spec_streaming_enabled:
+    if mode is None:
         return None
 
     lines = [
@@ -326,6 +326,49 @@ def _build_app_generation_mode_prompt(
             lines.append(f"- Reference image notes: {reference_image_notes}")
 
     return "\n".join(lines)
+
+
+def _merge_app_generation_system_prompt(
+    *,
+    existing_system_prompt: str,
+    app_generation_mode_prompt: str | None,
+) -> str:
+    if app_generation_mode_prompt is None:
+        return existing_system_prompt
+    normalized_existing_prompt = existing_system_prompt.strip()
+    normalized_mode_prompt = app_generation_mode_prompt.strip()
+    if normalized_existing_prompt:
+        return f"{normalized_existing_prompt}\n\n{normalized_mode_prompt}"
+    return normalized_mode_prompt
+
+
+def _build_chat_profile_with_app_generation_mode(
+    *,
+    profile: AgentProfile | None,
+    engine_config_id: ID,
+    app_generation_mode_prompt: str | None,
+    default_name: str,
+    require_profile: bool,
+) -> AgentProfile | None:
+    if profile is None and (require_profile or app_generation_mode_prompt is not None):
+        profile = AgentProfile(
+            name=default_name,
+            description="",
+            systemPrompt="",
+            engineConfigId=engine_config_id,
+        )
+    if profile is None:
+        return None
+    combined_system_prompt = _merge_app_generation_system_prompt(
+        existing_system_prompt=profile.systemPrompt or "",
+        app_generation_mode_prompt=app_generation_mode_prompt,
+    )
+    return profile.model_copy(
+        update={
+            "engineConfigId": engine_config_id,
+            "systemPrompt": combined_system_prompt,
+        }
+    )
 
 
 def _normalize_reference_image_inputs(
@@ -512,27 +555,15 @@ async def route_get_llm_response(
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")
-        if profile is None:
-            profile = AgentProfile(
-                name="Managed chat",
-                description="",
-                systemPrompt="",
-                engineConfigId=x.engineConfigId,
-            )
-        existing_system_prompt = profile.systemPrompt or ""
-        combined_system_prompt = existing_system_prompt
-        if app_generation_mode_prompt is not None:
-            combined_system_prompt = (
-                f"{existing_system_prompt.strip()}\n\n{app_generation_mode_prompt}".strip()
-                if existing_system_prompt.strip()
-                else app_generation_mode_prompt.strip()
-            )
-        profile = profile.model_copy(
-            update={
-                "engineConfigId": x.engineConfigId,
-                "systemPrompt": combined_system_prompt,
-            }
+        profile = _build_chat_profile_with_app_generation_mode(
+            profile=profile,
+            engine_config_id=x.engineConfigId,
+            app_generation_mode_prompt=app_generation_mode_prompt,
+            default_name="Managed chat",
+            require_profile=True,
         )
+        if profile is None:
+            raise HTTPException(status_code=500, detail="Managed profile not found")
         inputs = {
             "chatId": str(chat_id),
             "projectConfigId": str(x.projectConfigId),
@@ -584,6 +615,13 @@ async def route_get_llm_response(
                 status_code=503,
                 detail=f"External agent config is not available: {issues}",
             )
+        profile = _build_chat_profile_with_app_generation_mode(
+            profile=profile,
+            engine_config_id=x.engineConfigId,
+            app_generation_mode_prompt=app_generation_mode_prompt,
+            default_name="External chat",
+            require_profile=False,
+        )
         if profile is not None and profile.toolAllowlist:
             _, error = build_external_tool_allowlist(
                 profile.toolAllowlist,
