@@ -6,12 +6,12 @@ import {
   executeManagedChatSlashCommand,
   formatSlashCommandHelp,
   getSlashCommandSuggestions,
-  type ManagedChatExecutionSettings,
   parseSlashCommand,
   resolvePermissionModeArg,
   resolveToggleArg,
   shouldTreatInputAsSlashCommand,
   type ChatSlashCommandDefinition,
+  type ManagedChatExecutionSettings,
 } from "./chatComposerControls";
 
 describe("chatComposerControls", () => {

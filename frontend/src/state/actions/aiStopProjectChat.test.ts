@@ -163,7 +163,7 @@ describe("stopProjectChatResponse", () => {
           ...getDefaultChatDetails(),
           waitingForResponse: true,
           toolCallArguments: {
-            "tool-call-1": "{\"path\":\"/tmp/file.py\"}",
+            "tool-call-1": '{"path":"/tmp/file.py"}',
           },
         },
       },
@@ -191,7 +191,7 @@ describe("stopProjectChatResponse", () => {
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
     expect(details?.toolCallArguments).toEqual({
-      "tool-call-1": "{\"path\":\"/tmp/file.py\"}",
+      "tool-call-1": '{"path":"/tmp/file.py"}',
     });
   });
 
@@ -283,7 +283,7 @@ describe("stopProjectChatResponse", () => {
           ...getDefaultChatDetails(),
           waitingForResponse: true,
           toolCallArguments: {
-            "tool-call-2": "{\"action\":\"continue\"}",
+            "tool-call-2": '{"action":"continue"}',
           },
         },
       },
@@ -328,7 +328,7 @@ describe("stopProjectChatResponse", () => {
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
     expect(details?.toolCallArguments).toEqual({
-      "tool-call-2": "{\"action\":\"continue\"}",
+      "tool-call-2": '{"action":"continue"}',
     });
   });
 
@@ -515,7 +515,7 @@ describe("stopProjectChatResponse", () => {
           ...getDefaultChatDetails(),
           waitingForResponse: true,
           toolCallArguments: {
-            "tool-call-3": "{\"question\":\"proceed\"}",
+            "tool-call-3": '{"question":"proceed"}',
           },
         },
       },
@@ -548,7 +548,7 @@ describe("stopProjectChatResponse", () => {
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
     expect(details?.toolCallArguments).toEqual({
-      "tool-call-3": "{\"question\":\"proceed\"}",
+      "tool-call-3": '{"question":"proceed"}',
     });
   });
 });

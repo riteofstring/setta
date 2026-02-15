@@ -1412,8 +1412,10 @@ const ChatMessage = memo(function ChatMessage({
     const nextThinkingItems: Array<
       Extract<ChatContentItem, { type: typeof C.LLM_THINKING }>
     > = [];
-    const nextDisplayItems: Array<{ item: ChatContentItem; fullIndex: number }> =
-      [];
+    const nextDisplayItems: Array<{
+      item: ChatContentItem;
+      fullIndex: number;
+    }> = [];
     if (!isAssistant) {
       return {
         thinkingItems: nextThinkingItems,
