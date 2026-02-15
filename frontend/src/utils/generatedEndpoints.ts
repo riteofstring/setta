@@ -421,6 +421,18 @@ export async function route_get_ai_follow_snapshot(
   return await post("/getAIFollowSnapshot", x);
 }
 
+export async function route_get_app_gen_skills(): Promise<
+  ResponseDataAndStatus<Array<gt.AppGenSkillEntry>>
+> {
+  return await get("/getAppGenSkills");
+}
+
+export async function route_get_app_gen_skill_content(
+  x: gt.GetAppGenSkillContentRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppGenSkillContent>> {
+  return await post("/getAppGenSkillContent", x);
+}
+
 export async function route_get_agent_profiles(): Promise<
   ResponseDataAndStatus<Array<gt.AgentProfile>>
 > {
@@ -757,12 +769,6 @@ export async function route_set_view_mode_name(
   x: gt.SetViewModeNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setViewModeName", x);
-}
-
-export async function route_set_view_mode_sort_order(
-  x: gt.SetViewModeSortOrderRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setViewModeSortOrder", x);
 }
 
 export async function route_delete_view_mode(
@@ -1115,12 +1121,6 @@ export async function route_set_default_section_variant(
   return await post("/setDefaultSectionVariant", x);
 }
 
-export async function route_set_section_variant_sort_order(
-  x: gt.SetSectionVariantSortOrderRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionVariantSortOrder", x);
-}
-
 export async function route_toggle_variant_frozen(
   x: gt.ToggleVariantFrozenRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1407,6 +1407,12 @@ export async function route_get_setta_home_info(): Promise<
   ResponseDataAndStatus<gt.SettaHomeInfoResponse>
 > {
   return await get("/settaHomeInfo");
+}
+
+export async function route_reveal_path_in_os_file_explorer(
+  x: gt.RevealPathInOsFileExplorerRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/revealPathInOsFileExplorer", x);
 }
 
 export async function route_list_share_deployments(): Promise<

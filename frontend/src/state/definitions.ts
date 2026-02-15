@@ -387,19 +387,6 @@ export const useFileBrowserState = createWithEqualityFn(
   })),
 );
 
-export const useHomeFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
-  })),
-);
-
 export const useBrowserSectionFileBrowserState = createWithEqualityFn(
   withResetFn<FileBrowserState>(() => ({
     rootPath: null,
@@ -855,7 +842,11 @@ export const useToolArgumentPreview = withProjectState(
 );
 
 export type ColorModePreference = "dark" | "light" | "auto";
-export type HomeProjectGalleryViewMode = "thumbnails" | "list";
+type AppGenerationModePreference =
+  | "json_render"
+  | "json_render_with_image"
+  | "prompt_builder"
+  | "mcp_server";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
@@ -866,10 +857,10 @@ type ZustandLocalStorage = {
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
-  homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
-  favoriteProjectConfigIds: string[];
-  homePageLeftColumnWidth: number;
-  homePageRightColumnWidth: number;
+  appGenerationMode: AppGenerationModePreference;
+  appGenerationPrompt: string;
+  appGenerationReferenceImageUrl: string;
+  appGenerationReferenceImageNotes: string;
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
@@ -900,10 +891,10 @@ export const useLocalStorage = createWithEqualityFn(
       showMinimap: true,
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
-      homeProjectGalleryViewMode: "thumbnails",
-      favoriteProjectConfigIds: [],
-      homePageLeftColumnWidth: 320,
-      homePageRightColumnWidth: 280,
+      appGenerationMode: "json_render",
+      appGenerationPrompt: "",
+      appGenerationReferenceImageUrl: "",
+      appGenerationReferenceImageNotes: "",
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
