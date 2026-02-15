@@ -1,6 +1,5 @@
 import json
 import os
-from base64 import b64encode
 from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -194,6 +193,7 @@ class TestFileBrowserRoutes:
         state = await self._build_state()
         file_path = get_setta_paths().workspace_root / "spreadsheet.csv"
         file_path.write_text("name,done\nTask,false\n", encoding="utf-8")
+        store = BinaryStore.from_dbe(state.dbe)
         with runtime_context(state) as runtime_ctx:
             result = route_get_file_browser_file_content(
                 GetFileBrowserFileContentRequest(path=file_path.as_posix()),
@@ -204,7 +204,8 @@ class TestFileBrowserRoutes:
         assert result.size == file_path.stat().st_size
         assert result.mtimeNs == file_path.stat().st_mtime_ns
         assert result.mimeType == "text/csv"
-        assert result.contentBase64 == b64encode(file_path.read_bytes()).decode("ascii")
+        assert result.contentId
+        assert store.read_bytes(result.contentId) == file_path.read_bytes()
 
     async def test_get_file_browser_file_stat_returns_mtime_ns_and_size(self) -> None:
         state = await self._build_state()
@@ -242,13 +243,18 @@ class TestFileBrowserRoutes:
         file_path = get_setta_paths().workspace_root / "notes.csv"
         file_path.write_text("a,b\n1,2\n", encoding="utf-8")
         before_mtime_ns = file_path.stat().st_mtime_ns
-        payload = b64encode("a,b\n1,9\n".encode("utf-8")).decode("ascii")
+        store = BinaryStore.from_dbe(state.dbe)
+        content_ref = store.store_bytes(
+            "a,b\n1,9\n".encode("utf-8"),
+            mime_type="text/csv",
+            durable=False,
+        )
 
         with runtime_context(state) as runtime_ctx:
             result = route_write_file_browser_file_content(
                 WriteFileBrowserFileContentRequest(
                     path=file_path.as_posix(),
-                    contentBase64=payload,
+                    contentId=content_ref.contentId,
                     expectedMtimeNs=before_mtime_ns,
                 ),
                 runtime_ctx,
@@ -263,20 +269,45 @@ class TestFileBrowserRoutes:
         state = await self._build_state()
         file_path = get_setta_paths().workspace_root / "stale.csv"
         file_path.write_text("x,y\n", encoding="utf-8")
-        payload = b64encode("x,y\n2,3\n".encode("utf-8")).decode("ascii")
+        store = BinaryStore.from_dbe(state.dbe)
+        content_ref = store.store_bytes(
+            "x,y\n2,3\n".encode("utf-8"),
+            mime_type="text/csv",
+            durable=False,
+        )
 
         with runtime_context(state) as runtime_ctx:
             with pytest.raises(HTTPException) as ctx:
                 route_write_file_browser_file_content(
                     WriteFileBrowserFileContentRequest(
                         path=file_path.as_posix(),
-                        contentBase64=payload,
+                        contentId=content_ref.contentId,
                         expectedMtimeNs=file_path.stat().st_mtime_ns - 1,
                     ),
                     runtime_ctx,
                 )
 
         assert ctx.value.status_code == 409
+
+    async def test_write_file_browser_file_content_rejects_missing_binary_payload(
+        self,
+    ) -> None:
+        state = await self._build_state()
+        file_path = get_setta_paths().workspace_root / "missing-payload.csv"
+        file_path.write_text("x,y\n", encoding="utf-8")
+
+        with runtime_context(state) as runtime_ctx:
+            with pytest.raises(HTTPException) as ctx:
+                route_write_file_browser_file_content(
+                    WriteFileBrowserFileContentRequest(
+                        path=file_path.as_posix(),
+                        contentId="missing-content-id",
+                        expectedMtimeNs=None,
+                    ),
+                    runtime_ctx,
+                )
+
+        assert ctx.value.status_code == 400
 
     async def test_get_folder_contents_share_mode_forbidden(self) -> None:
         with TemporaryDirectory() as tmpdir:

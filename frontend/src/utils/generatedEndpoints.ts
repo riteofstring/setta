@@ -1,4 +1,4 @@
-import { get, post, ResponseDataAndStatus } from "./endpointUtils";
+import { get, getBinary, post, ResponseDataAndStatus } from "./endpointUtils";
 import * as gt from "./generatedTypes";
 
 export async function route_bootstrap_page(): Promise<
@@ -313,8 +313,8 @@ export async function route_binary_upload(
 
 export async function route_binary_download(
   contentId: string,
-): Promise<ResponseDataAndStatus<null>> {
-  return await get("/binary/{contentId}", { contentId });
+): Promise<ResponseDataAndStatus<Uint8Array>> {
+  return await getBinary("/binary/{contentId}", { contentId });
 }
 
 export async function route_get_listener_coverage(

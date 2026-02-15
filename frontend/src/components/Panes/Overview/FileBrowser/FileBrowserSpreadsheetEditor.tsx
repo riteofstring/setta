@@ -20,9 +20,11 @@ import {
 } from "react-icons/fi";
 import { List, useListRef } from "react-window";
 import { useLocalStorage } from "state/definitions";
+import { uploadBinaryPayload } from "utils/binaryUpload";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
+  route_binary_download,
   route_get_file_browser_file_content,
   route_get_file_browser_file_stat,
   route_write_file_browser_file_content,
@@ -205,23 +207,6 @@ export function getSpreadsheetGridWidth(
     (showRowNumbers ? metrics.indexColumnWidth : 0) +
     columnCount * metrics.dataColumnWidth
   );
-}
-
-function encodeBytesToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary);
-}
-
-function decodeBase64ToBytes(contentBase64: string): Uint8Array {
-  const binary = atob(contentBase64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
 }
 
 function withColumnCount(row: string[], columnCount: number): string[] {
@@ -474,36 +459,44 @@ export function FileBrowserSpreadsheetEditor({
     setIsLoading(true);
     setErrorText(null);
     setStatusText(null);
-    const response = await route_get_file_browser_file_content({
-      path,
-      maxBytes: MAX_FILE_BYTES,
-    });
-    if (!res200(response)) {
-      const detail = getErrorDetail(response.data);
-      setErrorText(detail ?? "Failed to load spreadsheet file.");
+    try {
+      const response = await route_get_file_browser_file_content({
+        path,
+        maxBytes: MAX_FILE_BYTES,
+      });
+      if (!res200(response)) {
+        const detail = getErrorDetail(response.data);
+        setErrorText(detail ?? "Failed to load spreadsheet file.");
+        return;
+      }
+      const binaryResponse = await route_binary_download(response.data.contentId);
+      if (!res200(binaryResponse) || !binaryResponse.data) {
+        const detail = getErrorDetail(binaryResponse.data);
+        setErrorText(detail ?? "Failed to load spreadsheet file payload.");
+        return;
+      }
+      const parsed = parseSpreadsheetBytes(path, binaryResponse.data);
+      setSheet({
+        path,
+        sheetName: parsed.sheetName,
+        rows: parsed.rows,
+        rowCount: parsed.rowCount,
+        columnCount: parsed.columnCount,
+        mtimeNs: response.data.mtimeNs,
+      });
+      setIsDirty(false);
+      setHasExternalDiskChange(false);
+      setFilterQuery("");
+      setSortState(null);
+      setColumnWidths({});
+      setGridSelection(undefined);
+      setSelectionSummary("No selection");
+      listRef.current?.scrollToRow({ index: 0, align: "start" });
+    } catch {
+      setErrorText("Failed to load spreadsheet file.");
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    const bytes = decodeBase64ToBytes(response.data.contentBase64);
-    const parsed = parseSpreadsheetBytes(path, bytes);
-    setSheet({
-      path,
-      sheetName: parsed.sheetName,
-      rows: parsed.rows,
-      rowCount: parsed.rowCount,
-      columnCount: parsed.columnCount,
-      mtimeNs: response.data.mtimeNs,
-    });
-    setIsDirty(false);
-    setHasExternalDiskChange(false);
-    setFilterQuery("");
-    setSortState(null);
-    setColumnWidths({});
-    setGridSelection(undefined);
-    setSelectionSummary("No selection");
-    setIsLoading(false);
-    listRef.current?.scrollToRow({ index: 0, align: "start" });
   }, []);
 
   useEffect(() => {
@@ -823,35 +816,48 @@ export function FileBrowserSpreadsheetEditor({
     setIsSaving(true);
     setErrorText(null);
     setStatusText(null);
-    const bytes = serializeSpreadsheetBytes(
-      sheet.path,
-      sheet.sheetName,
-      sheet.rows,
-    );
-    const response = await route_write_file_browser_file_content({
-      path: sheet.path,
-      contentBase64: encodeBytesToBase64(bytes),
-      expectedMtimeNs: sheet.mtimeNs,
-    });
-    if (!res200(response)) {
-      const detail = getErrorDetail(response.data);
-      setErrorText(detail ?? "Failed to save spreadsheet file.");
-      setIsSaving(false);
-      return;
-    }
-    setSheet((prev) => {
-      if (!prev) {
-        return prev;
+    try {
+      const bytes = serializeSpreadsheetBytes(
+        sheet.path,
+        sheet.sheetName,
+        sheet.rows,
+      );
+      const uploadResult = await uploadBinaryPayload({
+        bytes,
+        fileName: sheet.path.split(/[\\/]/).pop() ?? "spreadsheet.bin",
+        mimeType: null,
+      });
+      if (uploadResult.status === "failed") {
+        setErrorText(uploadResult.error);
+        return;
       }
-      return {
-        ...prev,
-        mtimeNs: response.data.mtimeNs,
-      };
-    });
-    setStatusText("Saved.");
-    setIsDirty(false);
-    setHasExternalDiskChange(false);
-    setIsSaving(false);
+      const response = await route_write_file_browser_file_content({
+        path: sheet.path,
+        contentId: uploadResult.contentId,
+        expectedMtimeNs: sheet.mtimeNs,
+      });
+      if (!res200(response)) {
+        const detail = getErrorDetail(response.data);
+        setErrorText(detail ?? "Failed to save spreadsheet file.");
+        return;
+      }
+      setSheet((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        return {
+          ...prev,
+          mtimeNs: response.data.mtimeNs,
+        };
+      });
+      setStatusText("Saved.");
+      setIsDirty(false);
+      setHasExternalDiskChange(false);
+    } catch {
+      setErrorText("Failed to save spreadsheet file.");
+    } finally {
+      setIsSaving(false);
+    }
   }, [readOnly, sheet]);
 
   const onReload = useCallback(() => {

@@ -3,8 +3,6 @@ import mimetypes
 import os
 import shutil
 import stat
-from base64 import b64decode, b64encode
-from binascii import Error as BinasciiError
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
@@ -104,7 +102,7 @@ class GetFileBrowserFileContentRequest(BaseModel):
 class FileBrowserFileContentResponse(BaseModel):
     path: str
     mimeType: str
-    contentBase64: str
+    contentId: str
     mtimeNs: int
     size: int
 
@@ -121,7 +119,7 @@ class FileBrowserFileStatResponse(BaseModel):
 
 class WriteFileBrowserFileContentRequest(BaseModel):
     path: str
-    contentBase64: str
+    contentId: str
     expectedMtimeNs: int | None = None
 
 
@@ -612,10 +610,16 @@ def route_get_file_browser_file_content(
             detail=f"Failed to read file: {x.path}",
         ) from exc
     mime_type, _ = mimetypes.guess_type(resolved.as_posix())
+    store = BinaryStore.from_dbe(ctx.state.dbe)
+    ref = store.store_bytes(
+        content,
+        mime_type=mime_type or "application/octet-stream",
+        durable=False,
+    )
     return FileBrowserFileContentResponse(
         path=_format_browser_path(resolved, share_mode=ctx.deployment_mode),
         mimeType=mime_type or "application/octet-stream",
-        contentBase64=b64encode(content).decode("ascii"),
+        contentId=ref.contentId,
         mtimeNs=stat_result.st_mtime_ns,
         size=stat_result.st_size,
     )
@@ -669,12 +673,13 @@ def route_write_file_browser_file_content(
             status_code=status.HTTP_409_CONFLICT,
             detail="File changed on disk since it was loaded.",
         )
+    store = BinaryStore.from_dbe(ctx.state.dbe)
     try:
-        decoded = b64decode(x.contentBase64, validate=True)
-    except (BinasciiError, ValueError) as exc:
+        decoded = store.read_bytes(x.contentId)
+    except (FileNotFoundError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid base64 content payload.",
+            detail="Invalid binary content payload.",
         ) from exc
     if len(decoded) > DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES:
         raise HTTPException(

@@ -1,3 +1,4 @@
+import { uploadBinaryPayload } from "utils/binaryUpload";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_check_if_file_exists,
@@ -9,14 +10,6 @@ import {
 type NativeFileImportResult =
   | { status: "ok"; filePath: string; fileName: string }
   | { status: "failed"; error: string };
-
-function encodeBytesToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-  return btoa(binary);
-}
 
 function sanitizeDroppedFileName(fileName: string): string {
   const trimmed = fileName.trim();
@@ -111,9 +104,21 @@ export async function importNativeFileToWorkspace(
     };
   }
 
+  const uploadResult = await uploadBinaryPayload({
+    bytes,
+    fileName: safeName,
+    mimeType: file.type || null,
+  });
+  if (uploadResult.status === "failed") {
+    return {
+      status: "failed",
+      error: uploadResult.error,
+    };
+  }
+
   const writeRes = await route_write_file_browser_file_content({
     path: targetPath,
-    contentBase64: encodeBytesToBase64(bytes),
+    contentId: uploadResult.contentId,
     expectedMtimeNs: null,
   });
   if (!res200(writeRes)) {

@@ -4,6 +4,7 @@ import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
+  route_binary_download,
   route_get_file_browser_download_urls,
   route_get_file_browser_file_content,
 } from "utils/generatedEndpoints";
@@ -13,15 +14,6 @@ import { FileBrowserSpreadsheetEditor } from "./FileBrowserSpreadsheetEditor";
 
 const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
 const TEXT_PREVIEW_MAX_BYTES = 1024 * 1024;
-
-function decodeBase64ToText(contentBase64: string): string {
-  const binary = atob(contentBase64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return new TextDecoder().decode(bytes);
-}
 
 export function resolveFileBrowserPreviewKind({
   filePath,
@@ -173,7 +165,17 @@ export function FileBrowserUniversalPreview({
           });
           return;
         }
-        const text = decodeBase64ToText(response.data.contentBase64);
+        const binaryResponse = await route_binary_download(response.data.contentId);
+        if (!res200(binaryResponse) || !binaryResponse.data) {
+          setTextPreview({
+            text: "",
+            truncated: false,
+            isLoading: false,
+            error: getErrorDetail(binaryResponse.data) ?? "Preview unavailable.",
+          });
+          return;
+        }
+        const text = new TextDecoder().decode(binaryResponse.data);
         const truncated = text.length > TEXT_PREVIEW_CHAR_LIMIT;
         setTextPreview({
           text: truncated ? text.slice(0, TEXT_PREVIEW_CHAR_LIMIT) : text,

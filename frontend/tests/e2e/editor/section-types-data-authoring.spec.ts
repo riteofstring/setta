@@ -16,6 +16,9 @@ import {
   seedLocalStorage,
 } from "../helpers";
 
+const BACKEND_ORIGIN =
+  process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
 type LatestProjectStateResponse = {
   projectState?: {
     projectConfig?: {
@@ -45,8 +48,32 @@ type FileBrowserRootResponse = {
 };
 
 type FileBrowserFileContentResponse = {
-  contentBase64: string;
+  contentId: string;
 };
+
+async function readFileBrowserText(
+  page: Page,
+  filePath: string,
+): Promise<string> {
+  const fileRead = await postBackend<FileBrowserFileContentResponse>(
+    page,
+    "/getFileBrowserFileContent",
+    { path: filePath },
+  );
+  const contentId = fileRead?.contentId;
+  if (!contentId) {
+    throw new Error("Missing file browser content id.");
+  }
+  const binaryResponse = await page.request.get(
+    `${BACKEND_ORIGIN}/api/binary/${encodeURIComponent(contentId)}`,
+  );
+  if (!binaryResponse.ok()) {
+    throw new Error(
+      `Failed to download binary file payload (${binaryResponse.status()}).`,
+    );
+  }
+  return binaryResponse.text();
+}
 
 async function getLatestProjectState(
   page: Page,
@@ -1030,15 +1057,7 @@ test.describe.serial("section types data authoring", () => {
       await spreadsheetNode.getByTestId("spreadsheet-save").click();
       await expect(spreadsheetNode.getByText("Saved.")).toBeVisible();
 
-      const csvRead = await postBackend<FileBrowserFileContentResponse>(
-        page,
-        "/getFileBrowserFileContent",
-        { path: csvPath },
-      );
-      const csvDecoded = Buffer.from(
-        csvRead?.contentBase64 ?? "",
-        "base64",
-      ).toString("utf-8");
+      const csvDecoded = await readFileBrowserText(page, csvPath);
       expect(csvDecoded).toContain("done");
     } finally {
       page.off("request", handleSetTopLevelLayoutRequest);
@@ -1462,15 +1481,7 @@ test.describe.serial("section types data authoring", () => {
       await page.getByTestId("spreadsheet-save").click();
       await expect(page.getByText("Saved.")).toBeVisible();
 
-      const csvRead = await postBackend<FileBrowserFileContentResponse>(
-        page,
-        "/getFileBrowserFileContent",
-        { path: csvPath },
-      );
-      const csvDecoded = Buffer.from(
-        csvRead?.contentBase64 ?? "",
-        "base64",
-      ).toString("utf-8");
+      const csvDecoded = await readFileBrowserText(page, csvPath);
       expect(csvDecoded).toContain("alpha,done");
 
       const xlsxRow = page

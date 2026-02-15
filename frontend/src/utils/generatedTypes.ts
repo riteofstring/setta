@@ -8384,7 +8384,7 @@ export type FileBrowserDownloadUrlEntry = z.infer<
 const FileBrowserFileContentResponseSchema = z.object({
   path: z.string(),
   mimeType: z.string(),
-  contentBase64: z.string(),
+  contentId: z.string(),
   mtimeNs: z.int(),
   size: z.int(),
 });
@@ -8525,7 +8525,7 @@ export type UpdateArtifactsRequestInput = z.input<
 
 const WriteFileBrowserFileContentRequestSchema = z.object({
   path: z.string(),
-  contentBase64: z.string(),
+  contentId: z.string(),
   expectedMtimeNs: z.union([z.int(), z.null()]).default(null),
 });
 
