@@ -1,5 +1,5 @@
-import logging
 import json
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, replace
@@ -334,9 +334,7 @@ class DependencyGraph:
             full_path_name=ctx.full_path_name,
             type=section_impl.type,
             isTopLevel=ctx.is_top_level,
-            value=LiteralDependencyValue(
-                json.dumps(section_impl.data, sort_keys=True)
-            ),
+            value=LiteralDependencyValue(json.dumps(section_impl.data, sort_keys=True)),
             deps={},
             representation=ctx.codegen_policy.representation,
             include_in_codegen=ctx.codegen_policy.include_in_codegen,

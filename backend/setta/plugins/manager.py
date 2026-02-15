@@ -1,6 +1,6 @@
+import asyncio
 import hashlib
 import importlib.metadata
-import asyncio
 import json
 import os
 import select
@@ -75,12 +75,12 @@ from setta.plugins.models import (
     normalize_scope,
     scope_label,
 )
+from setta.types.external_agents import ExternalAgentRunMode
 from setta.types.helpers_lvl3 import (
     build_project_state_summary,
     convert_backend_to_single_config,
 )
 from setta.types.listener import DependencyEvent
-from setta.types.external_agents import ExternalAgentRunMode
 from setta.types.project_config import ProjectCodegenLanguage
 from setta.types.section_impls import (
     CodeLanguage,
@@ -2014,7 +2014,10 @@ class PluginManager:
         project_config_id = raw_project_config_id.strip()
 
         raw_dependency_events = params.get("dependencyEvents")
-        if not isinstance(raw_dependency_events, list) or len(raw_dependency_events) == 0:
+        if (
+            not isinstance(raw_dependency_events, list)
+            or len(raw_dependency_events) == 0
+        ):
             raise PluginManagerError(
                 "PLUGIN_BACKEND_LISTENER_EMIT_FAILED",
                 (

@@ -1,6 +1,6 @@
+import json
 from ast import literal_eval
 from copy import deepcopy
-import json
 
 from pydantic import ValidationError
 
@@ -214,7 +214,9 @@ def _apply_plugin_section_update(
             next_args["kind"] = raw_kind
         if "schemaVersion" in parsed_payload:
             raw_schema_version = parsed_payload["schemaVersion"]
-            if raw_schema_version is not None and not isinstance(raw_schema_version, int):
+            if raw_schema_version is not None and not isinstance(
+                raw_schema_version, int
+            ):
                 raise ListenerDependencyUpdateError(
                     "listener emit plugin section schemaVersion must be int or null"
                 )

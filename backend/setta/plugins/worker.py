@@ -858,10 +858,7 @@ class _WorkerBackendPluginContext:
             "view": view,
         }
         if share_session_id is not None:
-            if (
-                not isinstance(share_session_id, str)
-                or share_session_id.strip() == ""
-            ):
+            if not isinstance(share_session_id, str) or share_session_id.strip() == "":
                 raise WorkerError(
                     "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
                     "read_project_state share_session_id must be non-empty when set.",
@@ -913,10 +910,7 @@ class _WorkerBackendPluginContext:
             ),
         }
         if share_session_id is not None:
-            if (
-                not isinstance(share_session_id, str)
-                or share_session_id.strip() == ""
-            ):
+            if not isinstance(share_session_id, str) or share_session_id.strip() == "":
                 raise WorkerError(
                     "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
                     (

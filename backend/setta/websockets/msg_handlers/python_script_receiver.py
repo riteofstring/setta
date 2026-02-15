@@ -847,9 +847,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
                     payload=payload_data,
                 )
             except KeyError as exc:
-                raise ValueError(
-                    f"unknown listener endpoint: {endpoint_name}"
-                ) from exc
+                raise ValueError(f"unknown listener endpoint: {endpoint_name}") from exc
 
         spec = specs[endpoint_name]
         state = self._get_listener_state(websocket_id)
