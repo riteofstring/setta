@@ -29,6 +29,7 @@ from setta.types.helpers_lvl2 import (
     create_top_level_section,
     delete_selected_params,
     delete_sections,
+    create_child_sections_via_incrementer,
     get_curr_top_level_param_ids,
     get_first_markdown_heading,
     indent_params,
@@ -40,7 +41,11 @@ from setta.types.helpers_lvl2 import (
     set_prompt_section_format,
     set_prompt_section_inputs,
     set_prompt_section_template,
+    set_list_root_view_mode,
     set_section_param_filter,
+    set_parent_default_child_section_type,
+    set_spreadsheet_section_settings,
+    set_text_block_master_font_size,
     set_text_block_heading_as_section_name,
     set_text_block_text,
     unindent_params,
@@ -60,12 +65,18 @@ from setta.types.id import ID
 from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BaseDictSectionImpl,
+    BaseParentSectionImpl,
+    BaseSectionWithParamsImpl,
     CallableSectionImpl,
     ChatSectionImpl,
+    ListRootSectionImpl,
+    ListRootViewMode,
     MetaControlSectionImpl,
     PromptSectionImpl,
     SectionSize,
     SectionType,
+    SpreadsheetGridDensity,
+    SpreadsheetSectionImpl,
     TextBlockFormat,
     TextBlockSectionImpl,
 )
@@ -482,8 +493,21 @@ class TestChangeParamImpl:
             CodeParamCodeObjImpl,
         )
         assert kwarg_impl.coreNameEditable
+        update_param_impl_config(
+            self.project_state,
+            section_id,
+            kwarg_id,
+            {"typeAnnotation": "str"},
+        )
+        kwarg_impl = get_curr_effective_code_obj_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            kwarg_id,
+            CodeParamCodeObjImpl,
+        )
         old_core_name_type = kwarg_impl.coreNameType
         old_passing_style = kwarg_impl.passingStyle
+        old_type_annotation = kwarg_impl.typeAnnotation
 
         change_param_impl(
             self.settings,
@@ -502,6 +526,7 @@ class TestChangeParamImpl:
         assert updated_impl.coreNameEditable
         assert updated_impl.coreNameType == old_core_name_type
         assert updated_impl.passingStyle == old_passing_style
+        assert updated_impl.typeAnnotation == old_type_annotation
 
 class TestAddChildrenOfCallable:
     def test_refetch_preserves_existing_param_value(self) -> None:
@@ -1149,3 +1174,149 @@ class TestTextBlockDefaults:
             TextBlockSectionImpl,
         )
         assert impl.headingAsSectionName
+
+
+class TestListAndGroupChildDefaults:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_incrementer_uses_list_root_default_child_type(self) -> None:
+        # Configure a list root to create dict children by default.
+        parent_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.ListRoot,
+            Position(),
+        )
+        set_parent_default_child_section_type(
+            self.project_state, parent_id, SectionType.Dict
+        )
+
+        # Incrementer requests Callable as a legacy default token.
+        create_child_sections_via_incrementer(
+            self.settings,
+            self.project_state,
+            parent_id,
+            SectionType.Callable,
+            1,
+        )
+
+        parent_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            parent_id,
+            BaseParentSectionImpl,
+        )
+        assert len(parent_impl.children) == 1
+        child_id = parent_impl.children[0]
+        get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            child_id,
+            BaseDictSectionImpl,
+        )
+
+    def test_disallows_singleton_section_types_as_default_child(self) -> None:
+        parent_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Group,
+            Position(),
+        )
+        with pytest.raises(ValueError):
+            set_parent_default_child_section_type(
+                self.project_state,
+                parent_id,
+                SectionType.GlobalVariables,
+            )
+
+    def test_list_root_view_mode_persists_on_section_impl(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.ListRoot,
+            Position(),
+        )
+        set_list_root_view_mode(
+            self.project_state,
+            section_id,
+            ListRootViewMode.kanban,
+        )
+
+        section_impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            ListRootSectionImpl,
+        )
+        assert section_impl.viewMode == ListRootViewMode.kanban
+
+
+class TestTextBlockFontSize:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_master_font_size_clamps_to_supported_range(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.TextBlock,
+            Position(),
+        )
+
+        set_text_block_master_font_size(self.project_state, section_id, 2.0)
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            TextBlockSectionImpl,
+        )
+        assert impl.masterFontSizePx == 8.0
+
+        set_text_block_master_font_size(self.project_state, section_id, 99.0)
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            TextBlockSectionImpl,
+        )
+        assert impl.masterFontSizePx == 48.0
+
+
+class TestSpreadsheetSectionSettings:
+    @pytest.fixture(autouse=True)
+    def _setup(self) -> None:
+        self.settings = SettingsState()
+        self.project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="test-project")
+        )
+
+    def test_spreadsheet_section_settings_persist(self) -> None:
+        section_id = create_top_level_section(
+            self.settings,
+            self.project_state,
+            SectionType.Spreadsheet,
+            Position(),
+        )
+
+        set_spreadsheet_section_settings(
+            self.project_state,
+            section_id,
+            True,
+            False,
+            SpreadsheetGridDensity.comfortable,
+            False,
+        )
+
+        impl = get_curr_effective_section_impl_with_type_guard(
+            self.project_state,
+            section_id,
+            SpreadsheetSectionImpl,
+        )
+        assert impl.readOnly is True
+        assert impl.showRowNumbers is False
+        assert impl.density == SpreadsheetGridDensity.comfortable
+        assert impl.autoReloadOnExternalChange is False

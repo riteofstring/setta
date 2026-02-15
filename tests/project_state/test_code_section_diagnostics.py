@@ -6,10 +6,9 @@ import pytest
 from setta.database.db_objs import DBE
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.lsp.managers import LSPServers, LSPWriters
-from setta.lsp.registrations import RegisteredLanguageServer
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.lsp_diagnostics_state import ProjectLspDiagnosticsState
-from setta.project_state.project_code import ProjectLSPCode, ProjectPythonCode
+from setta.project_state.project_code import ProjectPythonCode
 from setta.types.lsp import (
     SettaLspDiagnostic,
     SettaLspDiagnosticPosition,
@@ -18,7 +17,7 @@ from setta.types.lsp import (
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.id import ID
 from setta.types.project_config import ProjectConfig, TopLevelSectionLayout
-from setta.types.project_state import CODE_LANGUAGE_EXTENSIONS, ProjectStateSingleConfig
+from setta.types.project_state import ProjectStateSingleConfig
 from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
@@ -34,25 +33,19 @@ def build_code_section_state(
     root: Path,
     *,
     ignore_state: CodeSectionDiagnosticsIgnoreState | None = None,
-    language: CodeLanguage = CodeLanguage.python,
 ):
     section_id = ID("section-1")
     section_impl_id = ID("section-impl-1")
     section_variant_id = ID("section-variant-1")
 
     binding = CodeFileBinding(
-        canonical_path=(
-            root
-            / "code"
-            / "DiagnosticsProject"
-            / f"section.{CODE_LANGUAGE_EXTENSIONS[language]}"
-        ),
+        canonical_path=root / "code" / "DiagnosticsProject" / "section.py",
         access_mode=CodeFileAccessMode.read_write,
     )
     section_impl = CodeSectionImpl(
         id=section_impl_id,
         code="print('hi')",
-        codeLanguage=language,
+        codeLanguage=CodeLanguage.python,
         codeFileBinding=binding,
         diagnosticsIgnoreState=ignore_state or CodeSectionDiagnosticsIgnoreState(),
     )
@@ -316,62 +309,3 @@ async def test_code_section_diagnostics_restore_after_ignore_change() -> None:
 
         stored = diagnostics_state.code_sections[section_id]
         assert len(stored) == 1
-
-
-@pytest.mark.asyncio
-async def test_non_python_lsp_code_section_diagnostics_update_state() -> None:
-    with TemporaryDirectory() as tmpdir:
-        root = Path(tmpdir)
-        dbe = DBE(root)
-        websocket_manager = WebsocketManager()
-        frontend_sender = WMHFrontendSender(websocket_manager)
-        specific_file_watcher = SpecificFileWatcher()
-        code_files = CodeFiles(frontend_sender, specific_file_watcher, dbe)
-        lsps = LSPServers(
-            {},
-            plugin_language_servers=[
-                RegisteredLanguageServer(
-                    plugin_id="plugin.typescript",
-                    name="plugin.typescript:typescript",
-                    language=CodeLanguage.typescript,
-                    command="typescript-language-server",
-                    args=("--stdio",),
-                    settings_key=None,
-                )
-            ],
-        )
-        lsp_writers = LSPWriters(lsps)
-
-        project_state, section_id, binding = build_code_section_state(
-            root,
-            language=CodeLanguage.typescript,
-        )
-        diagnostics_state = ProjectLspDiagnosticsState(
-            project_state.projectConfig.id,
-            frontend_sender,
-        )
-        code = ProjectLSPCode(
-            dbe,
-            code_files,
-            lsp_writers,
-            frontend_sender,
-            diagnostics_state,
-            project_state,
-            section_id,
-            code_language=CodeLanguage.typescript,
-        )
-
-        typescript_writer = lsp_writers.get_for_language(CodeLanguage.typescript)
-        assert typescript_writer is not None
-        uri = typescript_writer.get_uri(binding.canonical_path)
-        code.uri = uri
-        typescript_writer.latest_version_numbers[uri] = 0
-
-        notification = build_notification(uri, [build_diagnostic("reportFoo")])
-        await code.diagnostics_callback(notification)
-
-        stored = diagnostics_state.code_sections[section_id]
-        assert len(stored) == 1
-        assert stored[0].message == "Bad code"
-        assert stored[0].code == "reportFoo"
-        assert stored[0].uri == uri

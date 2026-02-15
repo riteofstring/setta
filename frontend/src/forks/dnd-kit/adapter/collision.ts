@@ -6,7 +6,10 @@ import {
 import type { Draggable } from "@dnd-kit/dom";
 import { Rectangle, type Coordinates } from "@dnd-kit/geometry";
 import { useReactFlow } from "forks/xyflow/core/store";
-import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
+import {
+  getSectionInfo,
+  getSectionIsHorizontalOrientation,
+} from "state/actions/sectionInfos";
 import { useDndChildren } from "../dndChildren";
 import { isTempSection, useDndState } from "../dndState";
 import { isTempParam } from "../paramDndState";
@@ -123,7 +126,8 @@ export function createCollisionTracker({
     const containerId = droppableData?.sortable?.containerId;
     const containerIsHorizontal =
       mode === "section" && containerId
-        ? getSectionIsHorizontalOrientation(containerId)
+        ? getSectionInfo(containerId) !== undefined &&
+          getSectionIsHorizontalOrientation(containerId)
         : false;
 
     const triggerDist = containerIsHorizontal
@@ -232,7 +236,8 @@ export function createCollisionTracker({
     const pointerCoordinates = dragOperation.position?.current ?? null;
     const containerIsHorizontal =
       mode === "section"
-        ? Boolean(getSectionIsHorizontalOrientation(activeContainerId))
+        ? getSectionInfo(activeContainerId) !== undefined &&
+          getSectionIsHorizontalOrientation(activeContainerId)
         : false;
 
     const distance = getEdgeDistance({

@@ -74,4 +74,18 @@ describe("MediaCarousel", () => {
     expect(markup).toContain("nowheel");
     expect(markup).toContain("nopan");
   });
+
+  it("renders stable thumbnail identifiers and optional drag attributes", () => {
+    const markup = renderToStaticMarkup(
+      <MediaCarousel
+        items={imageItems}
+        selectedId="image-1"
+        isThumbnailDraggable={(item) => item.id === "image-1"}
+      />,
+    );
+
+    expect(markup).toContain('data-media-carousel-item-id="image-1"');
+    expect(markup).toContain('data-media-carousel-item-id="image-2"');
+    expect(markup).toContain('draggable="true"');
+  });
 });
