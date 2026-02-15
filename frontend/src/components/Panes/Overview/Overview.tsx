@@ -31,7 +31,7 @@ import {
 } from "../paneFns";
 import { AppConfigPane } from "./App/AppConfigPane";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
-import { FileBrowserWorkspace } from "./FileBrowser/FileBrowserWorkspace";
+import { FileBrowserPane } from "./FileBrowser/FileBrowserPane";
 import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
 import { ProjectConfigs } from "./ProjectConfigs";
@@ -277,7 +277,7 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
       return <ProjectOverview />;
     case OverviewTabNameEnum.FileBrowser:
       return (
-        <FileBrowserWorkspace
+        <FileBrowserPane
           metaPaddingClassName={FILE_BROWSER_META_INSET_CLASS}
           listInsetLeft={FILE_BROWSER_LIST_INSET_LEFT}
         />

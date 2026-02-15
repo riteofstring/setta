@@ -1,57 +1,167 @@
-## 2026-02-17 09:31:46 PST
+## 2026-02-17 08:26:35 PST
 
-- Consolidated findings from top-level branch reviews were implemented without backward compatibility, legacy shims, or migration layers.
-- Fixed share-policy enforcement gap by adding layout guard coverage to list-root view mode mutation routes.
-- Reworked file-browser spreadsheet disk-change handling to use a dedicated single-file stat route and integer nanosecond mtimes end-to-end.
-- Optimized spreadsheet edit/update paths to avoid full-grid cloning on localized cell edits.
-- Scoped file-browser copy/cut/paste shortcuts so editable targets (inputs, contenteditable, CodeMirror) preserve native clipboard behavior.
-- Made spreadsheet section rename flow consistent with other file-open flows via sanitized naming and explicit rename response handling.
-- Removed race-prone polling for calendar preset application by returning `metaControlParamId` from section creation and applying config deterministically.
-- Removed legacy TextParam date/time compatibility branches and unreachable combobox branches, keeping DateParam/TimeParam as canonical behavior.
-- Removed database migration/auto-expansion behavior so project loading uses strict model validation with no payload rewrites.
-- Added/updated backend, Vitest, and Playwright coverage for these changes and verified targeted suites pass.
+### Summary
+Implemented the review findings across backend and frontend, explicitly avoiding backward-compatibility shims.
 
-## 2026-02-17 10:18:34 PST
+### Implemented fixes
+- Completion guard now avoids conversational `ready` false positives and resolves verification status newest-first.
+- External agent stream chunk preparation is applied exactly once per delivered chunk path.
+- Removed deprecated `skillsEnabled` surface from chat request/state/update paths and regenerated generated types/endpoints.
+- Removed implicit app-generation mode inference from `appSpecStreamingEnabled` when `appGenerationMode` is unset.
+- Switched `/transcribeChatAudio` from base64 JSON to multipart binary upload with payload-size limits and clearer errors.
+- Added client-side dictation size guard and `FormData` upload path.
+- Reduced overview polling scope to section-relevant running runs and deduped in-flight `loadAgentRuns` calls.
+- Avoided unnecessary `ResizeObserver` setup for assistant messages without reasoning cards.
 
-- Replaced file-browser base64 payload contracts with binary content-id contracts: read responses now return `contentId`, and writes now accept `contentId`.
-- Updated backend file-browser routes to persist/read temporary binary payloads through `BinaryStore` while preserving existing size and mtime conflict behavior.
-- Updated frontend spreadsheet preview/save and native file import flows to upload/download binary payloads directly instead of converting bytes to/from base64 strings.
-- Added a dedicated `getBinary` endpoint utility path so binary endpoint parsing always returns raw bytes regardless of MIME type.
-- Synced endpoint generator behavior so regenerated `route_binary_download` uses binary fetch semantics and `Uint8Array` typing.
-- Added/updated tests across backend pytest, frontend Vitest, and Playwright E2E to cover the new binary content flow and verify end-to-end read/write behavior.
+### Test and verification status
+- Backend pytest: targeted suites passed (completion guard, external runner, AI chat routes, helper/type tests).
+- Frontend Vitest: targeted suites passed (chat rendering, AI resource load guards, submit/transcribe actions, overview activity).
+- Playwright: targeted e2e suites passed (`agentic-scope`, `app-config-generate-prompt`, `app-config-mcp-mode`).
+- CDP visual verification completed against a live app session.
 
-## 2026-02-17 11:33:24 PST
+## 2026-02-17 08:55:25 PST
 
-- Removed silent project payload coercion in `read_project`; non-object `project.json` payloads now fail fast with a deterministic type error.
-- Tightened file-browser write semantics so `expectedMtimeNs: null` is treated as create-only: writes can create missing files but now return conflict when target files already exist.
-- Reworked native file import to avoid create-before-upload residue and N network existence checks: it now resolves names from one folder listing, uploads first, then writes with conflict retry suffixing.
-- Fixed file-browser transfer no-op churn by short-circuiting same-folder moves, reducing unnecessary refreshes (including root refresh only when root listings are affected), and removing redundant clipboard render state.
-- Added spreadsheet editor stale-load guards and save-target validation so rapid file switching cannot apply stale loads or save to a mismatched selected file; also deduplicated duplicated toolbar/dropdown sort/filter handlers.
-- Added explicit error-notification paths for calendar preset and post-create meta-control config failures to prevent silent partial-application states.
-- Simplified task board normalization contract by removing redundant recurrence fallback coercions and double-normalization lane building; lane builder now requires normalized state.
-- Made spreadsheet section open behavior consistent by preserving focus navigation even when rename responses fail.
-- Added/updated backend, Vitest, and Playwright coverage for all affected flows and verified targeted suites pass.
+### Summary
+Implemented the next review cycle fixes across backend and frontend, excluding backward-compatibility shims and removing top-level review docs.
 
-## 2026-02-17 12:09:42 PST
+### Implemented fixes
+- Completion guard now scopes to the active create/scaffold task window so stale history cannot incorrectly block or unblock completion.
+- Transcription now forwards the full provider request payload from `build_llm_params()` (excluding transcription-config-only keys) and applies transcription options consistently.
+- MCP reconnect retry behavior now retries only read-only tools, preventing duplicate side effects for write/structural tools.
+- Replaced `submitMessage` positional compatibility overload with an explicit options object API and migrated callsites.
+- Project AI chat now lazily performs workspace-root Python detection only in empty state and reuses a session cache.
+- Provider dictation now negotiates supported recorder MIME types, derives blob/file type correctly, and falls back to browser dictation in `auto` mode when provider setup fails.
+- Removed dead/redundant code paths in AI routing and prompt composition, and removed the unused `hasRunningAgentRuns` helper.
 
-- Implemented consolidated branch-review fixes while explicitly avoiding backward-compatibility shims and read-time auto-healing.
-- Fixed `TextParamDateTimeInput` hook-order safety by making hooks unconditional and keeping mode branching render-only.
-- Replaced UTC-derived "today" defaults with local-date ISO generation and reused it in both date/time param UI and task board due-date defaults.
-- Hardened app param rendering by splitting DateParam and TimeParam into explicit typed paths with fail-fast type guards (no fallback field coercion).
-- Removed settings-project section auto-creation during `ensure_settings_code_objs`; missing required settings sections now raise deterministic errors.
-- Added unmount-safe global pointer listener teardown for file-browser preview resize interactions.
-- Optimized spreadsheet editing paths by skipping no-op writes, setting dirty state only on real mutations, and removing eager visible-row rematerialization.
-- Replaced deep-equality task board selector comparison with shallow comparison for lower hot-path store-update overhead.
-- Cleaned up UI-type combobox calendar preset handling by enforcing `filterKey === "control"` invariant and removed redundant spreadsheet rename branching.
-- Added/updated Vitest, pytest, and Playwright coverage for the above behaviors and verified targeted suites pass; completed CDP visual verification for updated date/calendar UI flows.
+### Test and verification status
+- Backend pytest: targeted suites passed (`tests/agentic/test_completion_guard.py`, `tests/mcp/test_multi_mcp_client.py`, transcription-focused cases in `tests/routers/test_ai_agent_run_chats.py`).
+- Frontend Vitest: targeted suites passed (`aiSubmitMessage`, `aiTranscribeChatAudio`, `dictation`, `aiActivity`).
+- Playwright: new targeted e2e suites passed (`chat-dictation-fallback`, `project-ai-chat-root-scan`).
+- Ruff on changed backend/test files passed.
+- ESLint targeted run not executable in this environment due missing `@eslint/js` resolution.
+- CDP visual verification completed in Project AI Chat (composer controls/mic behavior visible after changes).
 
-## 2026-02-17 13:07:50 PST
+## 2026-02-17 09:28:23 PST
 
-- Implemented spreadsheet editor race-condition hardening so save completion only applies to the initiating file path and dirty state clears only when no newer edits happened during save.
-- Added explicit save-time edit locking in spreadsheet handlers (`effectiveReadOnly`) and aligned DOM + Glide editability to prevent in-flight save mutation drift.
-- Optimized spreadsheet row-index derivation with a no-filter/no-sort fast path and extracted deterministic filtered/sorted index computation for large-sheet edit responsiveness.
-- Increased native dropped-file import collision resilience by expanding candidate probe depth and write-conflict retry budget for large workspace roots.
-- Replaced strict contenteditable selector checks with standards-aligned editable detection using `isContentEditable` plus non-false contenteditable matching.
-- Reduced text-block master font slider backend churn by adding local drag-preview state and committing one persisted update at drag end (while preserving keyboard/input commit behavior).
-- Removed dead frontend code by deleting an unused `lodash` import in `TaskBoardArea` and an unused calendar utility helper.
-- Added/updated Vitest and Playwright coverage for spreadsheet save guards/index sorting, native import conflict retries, editable-target detection, and text-block slider commit semantics; verified targeted suites pass.
+### Summary
+Implemented the latest review-cycle fixes across chat UX, dictation reliability, optimistic update correctness, and backend completion/transcription semantics, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Added a shared `resolvePermissionModeArg` parser in `chatComposerControls` and reused it across section chat and project chat to remove duplicate slash-command parsing logic.
+- Fixed optimistic chat section settings updates to pass `frontendOpId` so pending optimistic operations are completed correctly.
+- Updated managed chat history behavior to refresh runs immediately when History opens and poll every 5 seconds while visible.
+- Removed dead `ChatInput` starter-prompt props/branches (`starterPrompts`, `showPythonStarterPrompts`) from the production input component API.
+- Enforced disabled-state consistency in `ChatInput` by disabling permission/search/mic controls and guarding dictation toggles when composer input is disabled.
+- Hardened provider dictation cleanup so recorder/stream/chunks/source are always reset on recorder construction failure, recorder error, start failure, and unmount.
+- Tightened completion guard pass detection by removing overly broad `clean` pass matching.
+- Updated transcription route error mapping: missing local API-key config now returns HTTP 400, while provider/runtime failures remain HTTP 502.
+
+### Test and verification status
+- Frontend Vitest: targeted suites passed (`ChatInput`, `chatComposerControls`).
+- Backend pytest: targeted suites passed (`completion_guard`, transcription route behavior in `test_ai_agent_run_chats`).
+- Playwright: targeted e2e suites passed (`chat-composer-controls`, `chat-dictation-fallback`).
+- CDP visual verification completed in the running app session (Project AI Chat composer/control surface).
+
+## 2026-02-17 09:51:23 PST
+
+### Summary
+Implemented the consolidated review fixes from the top-level review docs across completion-guard behavior, dictation lifecycle/error handling, workspace-root Python prompt detection, and chat rendering performance cleanup, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Completion guard now keeps create/scaffold task scope active across clarification turns and only exits on explicit non-creation task switches.
+- Completion guard verification parsing now resolves pass/fail by the latest signal in text and no longer misclassifies `no errors found` as failure.
+- Added backend and runner regression tests for clarification-turn scoping and pass/fail phrasing edge cases.
+- Project chat workspace Python detection cache is now keyed by `rootPath` rather than a single global boolean.
+- Added focused unit tests for workspace Python-signal detection and per-root cache behavior.
+- `ChatInput` now catches synchronous browser dictation `start()` failures and reports controlled error feedback.
+- `ChatInput` now force-stops active dictation when composer state transitions to disabled.
+- `ChatMessages` now limits assistant-bubble `ResizeObserver` usage to streaming messages with reasoning cards.
+- Removed unused chat message renderer variable (`isSystem`).
+- Added Playwright coverage for dictation start-throw handling and disable-while-listening stop behavior.
+
+### Test and verification status
+- Backend pytest: targeted completion-guard suites passed (`tests/agentic/test_completion_guard.py`, `tests/llm/test_agent_runner.py` with `-k completion_guard`).
+- Frontend Vitest: targeted suites passed (`workspacePythonSignals`, `ChatInput`, `ChatMessages`).
+- Playwright: targeted e2e suites passed (`chat-dictation-fallback`, `chat-streaming-resize`).
+- Ruff check on changed backend/test files passed.
+- `tsc --noEmit` still reports existing repo-wide TypeScript errors outside this change set.
+- CDP visual verification completed in a live session (Project AI Chat composer/control surface and starter/chat layout sanity).
+
+## 2026-02-17 11:26:01 PST
+
+### Summary
+Implemented the latest consolidated review fixes across completion-guard scoping, external-agent execution policy defaults, slash-command handling, workspace Python detection, and endpoint codegen generalization, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Completion guard no longer treats leading `how/what/why` clarification turns as non-creation task switches.
+- Added backend regression coverage for clarification-question completion-gate behavior in both guard-level and runner-level tests.
+- Project AI chat now defaults external engines to `config_toml_custom` and preserves explicit user-selected non-config modes.
+- Added backend integration coverage ensuring external runs with `permissionMode=config_toml_custom` do not inject an `approvalPolicy` override.
+- Workspace Python marker detection now correctly matches `Pipfile` via lowercase normalization.
+- Workspace-root Python signal scanning now re-runs on workspace identity changes while empty-state chat is active.
+- Section chat Plan badge now reflects effective runtime behavior by requiring `permissionMode=config_toml_custom` in addition to external Claude plan config.
+- Removed section-chat nullish fallback shims for `permissionMode` and `searchEnabled` so state/schema issues surface at source.
+- Unknown or unavailable slash commands are now intercepted locally with deterministic feedback instead of being submitted to the model.
+- Playwright coverage now asserts unknown slash input does not issue `getLLMResponse` requests.
+- Endpoint TS generation no longer relies on route-name hardcoding for multipart wrappers; form-data wrappers are now inferred from endpoint metadata/signature.
+- Added generator unit tests for multipart, upload-by-request, and non-upload request POST generation paths.
+
+### Test and verification status
+- Backend pytest: targeted suites passed (`tests/agentic/test_completion_guard.py`, `tests/llm/test_agent_runner.py`, `tests/routers/test_ai_agent_run_chats.py`, `tests/code_gen/test_convert_endpoints.py`).
+- Frontend Vitest: targeted suites passed (`workspacePythonSignals`, `projectChatExecutionSettings`, `chatAreaPlanModeBadge`, `ChatInput`).
+- Playwright: targeted e2e suite passed (`chat-composer-controls`).
+- Ruff check on changed backend/test files passed.
+- ESLint targeted run remains blocked in this environment due missing `@eslint/js` resolution from `frontend/eslint.config.js`.
+- CDP visual verification completed in live app session: unknown slash command shows local feedback and does not trigger `getLLMResponse`.
+
+## 2026-02-17 11:59:35 PST
+
+### Summary
+Implemented the consolidated review fixes from `review1.md`/`review2.md`/`review3.md` across completion-guard correctness, chat history engine compatibility, workspace Python starter reliability, slash-command deduplication, and section-history polling behavior, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Expanded completion-guard verification detection to recognize common check tool names (`pytest`, `ruff`, `pyright`, `mypy`, `vitest`, `playwright`, `jest`, `tsc`) and other common check wording.
+- Reworked completion-guard create/scaffold scope detection to follow active user intent and correctly exit scope on non-creation pivots (`refactor`, `fix`, `optimize`, etc.).
+- Added completion-guard regressions for common check-tool phrasing and non-creation task-switch pivots.
+- Added `runType` and `engineConfigId` metadata to chat history entries and introduced compatibility filtering in history builders.
+- Wired project and section chat history/resume flows to the active compatibility context (run type + engine config), preventing cross-engine history resume mismatches.
+- Added history regression coverage for compatibility filtering and run metadata propagation.
+- Added workspace-root identity tracking for project chat starter prompt scanning and made Python visibility conservative by resetting false at scan start/failure.
+- Added Playwright coverage for workspace-root change behavior where a failed/non-Python scan clears Python-only starter visibility.
+- Gated managed section-history interval polling behind active running-history entries, while preserving immediate refresh when History opens.
+- Added Playwright coverage validating that idle history views do not continue polling.
+- Extracted shared managed-chat slash command execution logic and reused it in both Project Chat and managed Section Chat to reduce duplication/drift risk.
+- Made `ChatInput` search control wiring optional, so hidden/disabled search surfaces no longer require dead `onSearchEnabledChange` handlers.
+
+### Test and verification status
+- Backend pytest: targeted completion-guard suite passed (`tests/agentic/test_completion_guard.py`).
+- Frontend Vitest: targeted suites passed (`chatComposerControls`, `chatHistory`, `ChatInput`, `chatAreaPlanModeBadge`).
+- Playwright: targeted e2e suites passed (`chat-composer-controls`, `project-ai-chat-root-scan`).
+- `tsc --noEmit` still reports existing repo-wide TypeScript errors outside this change set.
+- CDP visual verification completed in a live session (Project AI Chat main state/history toggle/control visibility checks).
+
+## 2026-02-17 12:34:52 PST
+
+### Summary
+Implemented the latest consolidated review fixes across completion-guard intent resolution, contract-driven endpoint codegen, dictation policy alignment, overview activity scoping, and project-chat workspace-root polling behavior, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Completion guard now treats `implement ... project/section` follow-ups as create/scaffold intent when creation objects are present.
+- Completion guard now avoids over-broad clarification matching and closes scope for unrelated question pivots.
+- Added completion-guard regression coverage at guard-level and runner-level for `implement` continuation and unrelated `what` pivot behavior.
+- Removed endpoint codegen multipart fallback based on route-name heuristics (`upload` substring); multipart wrappers are now generated only from explicit form-data contract metadata.
+- Updated endpoint codegen tests to assert deterministic contract-driven multipart generation.
+- Removed stale hardcoded frontend dictation size gate so transcription size policy is enforced by backend runtime config and surfaced through backend error detail.
+- Updated dictation unit tests to assert oversized blobs are submitted and backend response drives user-facing behavior.
+- Scoped overview AI activity extraction to the active `projectConfigId` before deriving active section IDs and polling state.
+- Added/updated overview unit and perf tests for project-scoped run filtering.
+- Reworked Project AI Chat workspace-root polling to be visibility-aware and to back off after repeated stable root detections.
+- Added helper tests for workspace-root polling delay behavior and Playwright coverage for stable-root backoff.
+- Added Playwright coverage validating that running activity from a different project config does not keep Overview polling active.
+
+### Test and verification status
+- Backend pytest: targeted suites passed (`tests/agentic/test_completion_guard.py`, `tests/llm/test_agent_runner.py`, `tests/code_gen/test_convert_endpoints.py`).
+- Frontend Vitest: targeted suites passed (`aiTranscribeChatAudio`, `aiActivity`, `projectChatExecutionSettings`).
+- Playwright: targeted overview suites passed (`project-ai-chat-root-scan`, `project-overview-ai-activity-polling`).
+- `tsc --noEmit` still reports existing repo-wide TypeScript errors outside this change set.
+- CDP visual verification completed in a live session (Project AI Chat and Overview pane render/interaction sanity checks).

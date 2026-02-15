@@ -224,18 +224,6 @@ class MetaControlSizingPolicyByType(BaseModel):
             minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
         )
     )
-    DateParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-        )
-    )
-    TimeParam: MetaControlSizingPolicyTypeEntry = Field(
-        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
-            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
-            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
-        )
-    )
     ButtonParam: MetaControlSizingPolicyTypeEntry = Field(
         default_factory=lambda: MetaControlSizingPolicyTypeEntry(
             minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
@@ -465,22 +453,6 @@ class SectionSizingPolicyByType(BaseModel):
             minHeight=250,
             maxHeight=INFINITE_MAX_HEIGHT,
             minWidth=DEFAULT_MIN_WIDTH,
-            maxWidth=INFINITE_MAX_WIDTH,
-        )
-    )
-    TaskBoard: SectionSizingPolicyTypeEntry = Field(
-        default_factory=lambda: SectionSizingPolicyTypeEntry(
-            minHeight=240,
-            maxHeight=INFINITE_MAX_HEIGHT,
-            minWidth=360,
-            maxWidth=INFINITE_MAX_WIDTH,
-        )
-    )
-    Spreadsheet: SectionSizingPolicyTypeEntry = Field(
-        default_factory=lambda: SectionSizingPolicyTypeEntry(
-            minHeight=260,
-            maxHeight=INFINITE_MAX_HEIGHT,
-            minWidth=420,
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )

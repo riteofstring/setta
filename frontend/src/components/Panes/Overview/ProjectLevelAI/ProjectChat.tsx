@@ -207,6 +207,15 @@ export function ProjectChat() {
     hasLLMConfig,
     noLLMConfigsAvailable: noConfigsAvailable,
   });
+  const projectHistoryRunType = useMemo(() => {
+    if (engineType === EngineTypeEnum.external_agent) {
+      return "external_agent";
+    }
+    if (engineType === EngineTypeEnum.setta_llm) {
+      return "llm_chat";
+    }
+    return null;
+  }, [engineType]);
   const externalStatusMessage = useMemo(() => {
     if (!externalEngineStatus) {
       return null;
@@ -415,7 +424,12 @@ export function ProjectChat() {
         </nav>
 
         {viewHistory ? (
-          <ProjectChatHistory chatId={chatId} setChatId={setChatId} />
+          <ProjectChatHistory
+            chatId={chatId}
+            setChatId={setChatId}
+            runType={projectHistoryRunType}
+            engineConfigId={effectiveEngineId}
+          />
         ) : viewSkillsMcpViewer ? (
           <ProjectChatSkillsMcpViewer />
         ) : (
