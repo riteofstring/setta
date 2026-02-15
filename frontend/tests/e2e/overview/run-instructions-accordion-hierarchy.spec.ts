@@ -51,6 +51,58 @@ test.describe.serial("run instructions accordion hierarchy", () => {
         "run-instructions-accordion-codegen-policy",
       );
 
+      const railAndGapMetrics = await page.evaluate(() => {
+        const triggerIds = [
+          "run-instructions-accordion-run-snapshot-mode",
+          "run-instructions-accordion-codegen-targets",
+          "run-instructions-accordion-codegen-policy",
+          "run-instructions-accordion-custom-runs",
+        ];
+        const rects = triggerIds.map((id) => {
+          const element = document.querySelector(`[data-testid='${id}']`);
+          if (!(element instanceof HTMLElement)) {
+            return null;
+          }
+          const rect = element.getBoundingClientRect();
+          return {
+            left: rect.left,
+            right: rect.right,
+          };
+        });
+        if (rects.some((entry) => entry === null)) {
+          return null;
+        }
+        const lefts = rects.map((entry) => entry!.left);
+        const rights = rects.map((entry) => entry!.right);
+        const codegenPolicyItem = document.querySelector<HTMLElement>(
+          "[data-testid='run-instructions-accordion-codegen-policy-item']",
+        );
+        const customRunsItem = document.querySelector<HTMLElement>(
+          "[data-testid='run-instructions-accordion-custom-runs-item']",
+        );
+        if (
+          !(codegenPolicyItem instanceof HTMLElement) ||
+          !(customRunsItem instanceof HTMLElement)
+        ) {
+          return null;
+        }
+        const codegenPolicyItemRect = codegenPolicyItem.getBoundingClientRect();
+        const customRunsItemRect = customRunsItem.getBoundingClientRect();
+        return {
+          leftSpread: Math.max(...lefts) - Math.min(...lefts),
+          rightSpread: Math.max(...rights) - Math.min(...rights),
+          policyToCustomGap: customRunsItemRect.top - codegenPolicyItemRect.bottom,
+        };
+      });
+      if (!railAndGapMetrics) {
+        throw new Error(
+          "Unable to compute Run Instructions accordion rail and gap metrics.",
+        );
+      }
+      expect(railAndGapMetrics.leftSpread).toBeLessThanOrEqual(2);
+      expect(railAndGapMetrics.rightSpread).toBeLessThanOrEqual(2);
+      expect(railAndGapMetrics.policyToCustomGap).toBeGreaterThanOrEqual(6);
+
       await expect(runSnapshotModeTrigger).toHaveAttribute(
         "aria-expanded",
         "false",

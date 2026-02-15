@@ -28,6 +28,12 @@ describe("RunInstructionsAccordion", () => {
       'data-testid="run-instructions-accordion-codegen-policy"',
     );
     expect(markup).toContain(
+      'data-testid="run-instructions-accordion-codegen-policy-item"',
+    );
+    expect(markup).toContain(
+      'data-testid="run-instructions-accordion-custom-runs-content"',
+    );
+    expect(markup).toContain(
       'data-testid="run-instructions-accordion-custom-runs"',
     );
     expect(markup).toContain("run-instructions-accordion-chevron");

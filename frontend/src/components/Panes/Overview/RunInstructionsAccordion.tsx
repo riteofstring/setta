@@ -57,6 +57,7 @@ export function RunInstructionsAccordion({
           <Accordion.Item
             key={item.value}
             value={item.value}
+            data-testid={`${item.triggerTestId}-item`}
             className="overflow-hidden rounded-lg border border-setta-200/80 bg-white/85 dark:border-setta-800/80 dark:bg-setta-900/70"
           >
             <Accordion.Header>
@@ -76,7 +77,10 @@ export function RunInstructionsAccordion({
               </Accordion.Trigger>
             </Accordion.Header>
             <Accordion.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-              <div className="border-t border-setta-200/70 px-2 py-2 dark:border-setta-800/70">
+              <div
+                data-testid={`${item.triggerTestId}-content`}
+                className="border-t border-setta-200/70 px-2 py-2 dark:border-setta-800/70"
+              >
                 {item.content}
               </div>
             </Accordion.Content>
