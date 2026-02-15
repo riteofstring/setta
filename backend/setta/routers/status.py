@@ -16,8 +16,8 @@ from setta.utils.init_status import (
     get_auth_refresh_status,
 )
 from setta.utils.paths import get_setta_paths
-from setta.utils.skill_roots import iter_skill_roots
 from setta.utils.setta_home import resolve_setta_home
+from setta.utils.skill_roots import iter_skill_roots
 from setta.utils.user_config import load_setta_user_config
 
 router = SettaAPIRouter()

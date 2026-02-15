@@ -7463,6 +7463,8 @@ export type PublishAppDeploymentRequestInput = z.input<
 const AppGenSkillContentSchema = z.object({
   skillId: z.string(),
   content: z.string(),
+  truncated: z.boolean().default(false),
+  originalSizeBytes: z.int(),
 });
 
 export type AppGenSkillContent = z.infer<typeof AppGenSkillContentSchema>;

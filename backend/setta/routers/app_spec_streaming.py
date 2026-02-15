@@ -310,9 +310,7 @@ async def route_stream_app_spec(
         raw_model = request.get("model")
         model = raw_model if isinstance(raw_model, str) else ""
         raw_provider = request.get("custom_llm_provider")
-        custom_llm_provider = (
-            raw_provider if isinstance(raw_provider, str) else None
-        )
+        custom_llm_provider = raw_provider if isinstance(raw_provider, str) else None
         if not _supports_vision(
             model=model,
             custom_llm_provider=custom_llm_provider,
