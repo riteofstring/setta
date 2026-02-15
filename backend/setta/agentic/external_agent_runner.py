@@ -26,6 +26,7 @@ from setta.agentic.chat_view import (
     get_run_project_config_id,
     is_external_agent_run,
 )
+from setta.agentic.completion_guard import apply_completion_guard
 from setta.agentic.external_adapters.base import (
     ExternalAgentAdapter,
     ExternalAgentRunContext,
@@ -347,14 +348,17 @@ class ExternalAgentRunner:
                     await self._handle_approval_request(context, run, event.raw)
                     continue
                 if event.stream_chunk is not None:
+                    chunk = self._prepare_stream_chunk_for_delivery(
+                        run, event.stream_chunk
+                    )
                     await self.websocket_msg_handler.send_streaming_response(
                         context.chat_id,
-                        event.stream_chunk,
+                        chunk,
                         section_id=context.section_id,
                         project_config_id=context.project_config_id,
                         share_session_id=self.share_session_id,
                     )
-                    await self._handle_stream_chunk(context, run, event.stream_chunk)
+                    await self._handle_stream_chunk(context, run, chunk, prepared=True)
             self._persist_external_session_metadata(run, handle)
             return_code = handle.return_code
             if return_code not in (None, 0):
@@ -462,12 +466,24 @@ class ExternalAgentRunner:
         if profile is not None:
             payload_inputs.setdefault("agentProfileId", str(profile.id))
         payload_inputs.setdefault("runType", EXTERNAL_AGENT_RUN_TYPE)
+        effective_config = config
+        raw_approval_policy = payload_inputs.get("approvalPolicy")
+        if isinstance(raw_approval_policy, str):
+            stripped_policy = raw_approval_policy.strip()
+            if stripped_policy:
+                effective_config = config.model_copy(
+                    update={"approvalPolicy": stripped_policy}
+                )
 
         chat_id = self._resolve_id_input(inputs, "chatId")
         if chat_id is not None:
             payload_inputs["chatId"] = str(chat_id)
             self._apply_session_history(
-                payload_inputs, config, engine_config_id, chat_id, project_config_id
+                payload_inputs,
+                effective_config,
+                engine_config_id,
+                chat_id,
+                project_config_id,
             )
         attachment_payload = self._build_attachment_payload(
             payload_inputs,
@@ -489,6 +505,14 @@ class ExternalAgentRunner:
             allow_unscoped=allow_unscoped,
         )
         system_prompt = self._build_system_prompt(profile, project_config_id)
+        raw_system_prompt = payload_inputs.pop("systemPrompt", None)
+        if isinstance(raw_system_prompt, str) and raw_system_prompt.strip():
+            merged_system_prompt = raw_system_prompt.strip()
+            system_prompt = (
+                f"{system_prompt}\n\n{merged_system_prompt}".strip()
+                if system_prompt.strip()
+                else merged_system_prompt
+            )
         agentic_context_section_ids: tuple[ID, ...] = ()
         temporary_to_canonical, canonical_to_temporary = (
             self.dbe.read_temporary_id_map()
@@ -532,11 +556,11 @@ class ExternalAgentRunner:
         )
         if len(canonical_to_temporary) != map_size_before:
             self.dbe.write_temporary_id_map(canonical_to_temporary)
-        working_dir = self._resolve_working_dir(config)
-        env = self._build_env(config)
+        working_dir = self._resolve_working_dir(effective_config)
+        env = self._build_env(effective_config)
         cleanup_paths: list[Path] = []
         self._configure_external_tools(
-            config=config,
+            config=effective_config,
             profile=profile,
             payload_inputs=payload_inputs,
             env=env,
@@ -549,7 +573,7 @@ class ExternalAgentRunner:
         runtime_inputs.update(attachment_payload)
         return ExternalAgentRunContext(
             run=run,
-            config=config,
+            config=effective_config,
             profile=profile,
             project_config_id=project_config_id,
             chat_id=chat_id,
@@ -1042,9 +1066,7 @@ class ExternalAgentRunner:
                 mcp_url,
                 allowlist.tool_names if allowlist is not None else None,
             )
-            codex_prompt = self._resolve_codex_developer_instructions(
-                system_prompt, payload_inputs
-            )
+            codex_prompt = self._resolve_codex_developer_instructions(system_prompt)
             codex_home: Path
             if agentic_headers and chat_id is not None:
                 base_config_path = resolve_codex_settings_path(self.dbe, config)
@@ -1082,22 +1104,9 @@ class ExternalAgentRunner:
             env["CODEX_HOME"] = str(codex_home)
 
     @staticmethod
-    def _resolve_codex_developer_instructions(
-        system_prompt: str, payload_inputs: dict[str, Any] | None
-    ) -> str | None:
+    def _resolve_codex_developer_instructions(system_prompt: str) -> str | None:
         base_prompt = system_prompt.strip()
-        extra_prompt = ""
-        if payload_inputs is not None:
-            raw = payload_inputs.get("systemPrompt")
-            if isinstance(raw, str) and raw.strip():
-                extra_prompt = raw.strip()
-        if base_prompt and extra_prompt:
-            return f"{base_prompt}\n\n{extra_prompt}"
-        if base_prompt:
-            return base_prompt
-        if extra_prompt:
-            return extra_prompt
-        return None
+        return base_prompt if base_prompt else None
 
     @staticmethod
     def _build_setta_mcp_url() -> str:
@@ -1237,8 +1246,15 @@ class ExternalAgentRunner:
         save_agent_run(self.dbe, run)
 
     async def _handle_stream_chunk(
-        self, context: ExternalAgentRunContext, run: AgentRun, chunk: Any
+        self,
+        context: ExternalAgentRunContext,
+        run: AgentRun,
+        chunk: Any,
+        *,
+        prepared: bool = False,
     ) -> None:
+        if not prepared:
+            chunk = self._prepare_stream_chunk_for_delivery(run, chunk)
         state = self._apply_stream_chunk_to_state(run, chunk)
         if isinstance(chunk, ToolCallDeltaEvent):
             self._store_tool_call_delta(run.id, chunk)
@@ -1295,6 +1311,15 @@ class ExternalAgentRunner:
                 },
             )
             self._persist_outputs_from_state(run, context.config, state)
+
+    def _prepare_stream_chunk_for_delivery(self, run: AgentRun, chunk: Any) -> Any:
+        if not isinstance(chunk, MessageFinalizedEvent):
+            return chunk
+        if not isinstance(chunk.message, AssistantChatMessage):
+            return chunk
+        prior_messages = list(self._ensure_chat_state(run).messages)
+        apply_completion_guard(prior_messages, chunk.message)
+        return chunk
 
     def _store_tool_call_delta(self, run_id: ID, chunk: ToolCallDeltaEvent) -> None:
         buffers = self._tool_call_buffers.setdefault(run_id, {})

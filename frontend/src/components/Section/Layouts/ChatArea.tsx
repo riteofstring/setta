@@ -1,6 +1,17 @@
-import { ChatInput } from "components/Chat/ChatInput";
+import {
+  ChatInput,
+  type ChatSlashCommand,
+  type ChatSlashCommandResult,
+} from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
+import {
+  buildChatSlashCommands,
+  executeManagedChatSlashCommand,
+  formatSlashCommandHelp,
+  resolvePermissionModeArg,
+  type ChatPermissionModeValue,
+} from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
   getChatPlaceholderText,
@@ -11,6 +22,7 @@ import {
   countLLMConfigs,
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
+import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
@@ -22,8 +34,10 @@ import {
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
+  loadAgentRuns,
   submitEditedMessage,
   submitMessage,
+  transcribeChatAudio,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
@@ -31,6 +45,11 @@ import {
   buildBranchIndexFromBranches,
   ensureChatBranchState,
 } from "state/actions/chatBranches";
+import {
+  buildChatHistoryEntries,
+  type ChatHistoryCompatibility,
+  type ChatRunType,
+} from "state/actions/chatHistory";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -45,11 +64,13 @@ import { hasPendingToolInteraction } from "utils/claudeTools";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import {
   route_set_chat_section_chat_id,
+  route_set_chat_section_settings,
   route_set_chat_section_state,
   route_stop_external_agent_run,
   route_stop_llm_chat,
 } from "utils/generatedEndpoints";
 import {
+  AgentRun,
   AgenticEdgeKindEnum,
   ChatFileAttachment,
   ChatRoleEnum,
@@ -105,6 +126,17 @@ type EmitChatStopActionArgs = {
   timestampMs: number;
 };
 
+type ChatExecutionSettings = {
+  permissionMode: ChatPermissionModeValue;
+  searchEnabled: boolean;
+};
+
+type ChatSectionHistoryEntry = ReturnType<
+  typeof buildChatHistoryEntries
+>[number];
+
+export { shouldShowPlanModeBadge };
+
 function emitChatAction(payload: ChatActionPayload) {
   const literalPayload: LiteralDependencyValue = {
     payload: JSON.stringify(payload),
@@ -154,12 +186,61 @@ function emitChatStopAction({
   });
 }
 
+function formatHistoryTimestamp(timestampMs: number): string {
+  if (timestampMs <= 0) {
+    return "No timestamp";
+  }
+  return new Date(timestampMs).toLocaleString();
+}
+
+function getHistoryPlaceholderText(
+  initialLoadComplete: boolean,
+  loadError: string | null,
+  entryCount: number,
+): string {
+  if (loadError) {
+    return loadError;
+  }
+  if (!initialLoadComplete) {
+    return "Loading chat history...";
+  }
+  if (entryCount === 0) {
+    return "No chat history yet";
+  }
+  return "";
+}
+
+function toSortedHistoryEntries(
+  runs: Array<AgentRun>,
+  sectionId: string,
+  compatibility: ChatHistoryCompatibility | null,
+): Array<ChatSectionHistoryEntry> {
+  return buildChatHistoryEntries(runs, {
+    sectionId,
+    compatibility,
+  }).sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs);
+}
+
+function resolveManagedChatRunType(
+  engineType: EngineTypeEnum | null,
+): ChatRunType | null {
+  if (engineType === EngineTypeEnum.external_agent) {
+    return "external_agent";
+  }
+  if (engineType === EngineTypeEnum.setta_llm) {
+    return "llm_chat";
+  }
+  return null;
+}
+
 export function ChatArea({ sectionId }: { sectionId: string }) {
   const {
     managed,
     engineConfigId,
     agentProfileId,
     thinking,
+    permissionMode,
+    searchEnabled,
     messages,
     inputText,
     waitingForResponse,
@@ -178,6 +259,8 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       engineConfigId: impl.engineConfigId,
       agentProfileId: impl.agentProfileId,
       thinking: impl.thinking,
+      permissionMode: impl.permissionMode,
+      searchEnabled: impl.searchEnabled,
       messages: impl.messages,
       inputText: impl.inputText,
       waitingForResponse: impl.waitingForResponse,
@@ -195,6 +278,8 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
         engineConfigId={engineConfigId}
         agentProfileId={agentProfileId}
         thinking={thinking}
+        permissionMode={permissionMode}
+        searchEnabled={searchEnabled}
       />
     );
   }
@@ -202,6 +287,9 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
   return (
     <ScriptableChatArea
       sectionId={sectionId}
+      engineConfigId={engineConfigId}
+      agentProfileId={agentProfileId}
+      thinking={thinking}
       messages={messages}
       inputText={inputText}
       waitingForResponse={waitingForResponse}
@@ -209,12 +297,17 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       activeBranchId={activeBranchId}
       branches={branches}
       isFrozen={isFrozen}
+      permissionMode={permissionMode}
+      searchEnabled={searchEnabled}
     />
   );
 }
 
 type ScriptableChatAreaProps = {
   sectionId: string;
+  engineConfigId: string | null;
+  agentProfileId: string | null;
+  thinking: boolean;
   messages: Array<ChatSectionState["messages"][number]>;
   inputText: string;
   waitingForResponse: boolean;
@@ -222,10 +315,15 @@ type ScriptableChatAreaProps = {
   activeBranchId: string | null;
   branches: ChatSectionState["branches"];
   isFrozen: boolean;
+  permissionMode: ChatPermissionModeValue;
+  searchEnabled: boolean;
 };
 
 function ScriptableChatArea({
   sectionId,
+  engineConfigId,
+  agentProfileId,
+  thinking,
   messages,
   inputText,
   waitingForResponse,
@@ -233,6 +331,8 @@ function ScriptableChatArea({
   activeBranchId,
   branches,
   isFrozen,
+  permissionMode,
+  searchEnabled,
 }: ScriptableChatAreaProps) {
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = getCurrProjectConfigId();
@@ -463,6 +563,137 @@ function ScriptableChatArea({
     toolCallArguments,
   ]);
 
+  const updateExecutionSettings = useCallback(
+    (
+      nextSettings: ChatExecutionSettings,
+      feedback: string,
+    ): ChatSlashCommandResult => {
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+            permissionMode: nextSettings.permissionMode,
+            searchEnabled: nextSettings.searchEnabled,
+          });
+        },
+        send: (frontendOpId) =>
+          route_set_chat_section_settings({
+            projectConfigId,
+            sectionId,
+            managed: false,
+            engineConfigId,
+            agentProfileId,
+            thinking,
+            permissionMode: nextSettings.permissionMode,
+            searchEnabled: nextSettings.searchEnabled,
+            frontendOpId,
+          }),
+      });
+      return { feedback };
+    },
+    [agentProfileId, engineConfigId, projectConfigId, sectionId, thinking],
+  );
+  const slashCommands = useMemo(
+    () =>
+      buildChatSlashCommands({
+        model: false,
+        permissions: true,
+        search: false,
+      }),
+    [],
+  );
+
+  const resetScriptableConversation = useCallback(async () => {
+    const nextState: ChatSectionState = {
+      messages: [],
+      inputText: "",
+      waitingForResponse: false,
+      toolCallArguments: {},
+      activeBranchId: null,
+      branches: {},
+    };
+    const sendPromise = applyChatStateWithAck(nextState);
+    if (sendPromise) {
+      await sendPromise;
+    }
+  }, [applyChatStateWithAck]);
+
+  const resumeLatestScriptableBranch =
+    useCallback(async (): Promise<boolean> => {
+      const latestBranch = Object.entries(effectiveBranches)
+        .sort(
+          (left, right) => (right[1].createdAt ?? 0) - (left[1].createdAt ?? 0),
+        )
+        .at(0);
+      const branchId = latestBranch?.[0] ?? null;
+      if (!branchId) {
+        return false;
+      }
+      const nextBranch = effectiveBranches[branchId];
+      if (!nextBranch) {
+        return false;
+      }
+      const nextState: ChatSectionState = {
+        ...effectiveState,
+        activeBranchId: branchId,
+        messages: [...(nextBranch.messages ?? [])],
+        waitingForResponse: false,
+        inputText: "",
+      };
+      const sendPromise = applyChatStateWithAck(nextState);
+      if (sendPromise) {
+        await sendPromise;
+      }
+      return true;
+    }, [applyChatStateWithAck, effectiveBranches, effectiveState]);
+
+  const handleSlashCommand = useCallback(
+    async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
+      if (command.action === "new") {
+        await resetScriptableConversation();
+        return { feedback: "Started a new scriptable chat." };
+      }
+      if (command.action === "resume") {
+        const resumed = await resumeLatestScriptableBranch();
+        return resumed
+          ? { feedback: "Resumed the latest branch." }
+          : {
+              feedback: "No previous branch found to resume.",
+              keepInput: true,
+            };
+      }
+      if (command.action === "permissions") {
+        const nextMode = resolvePermissionModeArg(command.args[0]);
+        if (!nextMode) {
+          return {
+            feedback: "Usage: /permissions minimal|yolo|config_toml_custom",
+            keepInput: true,
+          };
+        }
+        return updateExecutionSettings(
+          {
+            permissionMode: nextMode,
+            searchEnabled,
+          },
+          `Permissions set to ${nextMode}.`,
+        );
+      }
+      if (command.action === "help") {
+        return {
+          feedback: formatSlashCommandHelp(slashCommands),
+        };
+      }
+      return false;
+    },
+    [
+      permissionMode,
+      resetScriptableConversation,
+      resumeLatestScriptableBranch,
+      searchEnabled,
+      slashCommands,
+      updateExecutionSettings,
+    ],
+  );
+
   const branchIndex = useMemo(
     () => buildBranchIndexFromBranches(effectiveBranches),
     [effectiveBranches],
@@ -588,6 +819,31 @@ function ScriptableChatArea({
       hasPendingToolInteraction(effectiveMessages),
     [effectiveMessages, effectiveState.waitingForResponse],
   );
+  const executionControls = useMemo(
+    () => ({
+      permissionMode,
+      searchEnabled,
+      onPermissionModeChange: (nextMode: ChatPermissionModeValue) => {
+        updateExecutionSettings(
+          {
+            permissionMode: nextMode,
+            searchEnabled,
+          },
+          `Permissions set to ${nextMode}.`,
+        );
+      },
+      onSearchEnabledChange: (nextValue: boolean) => {
+        updateExecutionSettings(
+          {
+            permissionMode,
+            searchEnabled: nextValue,
+          },
+          `Search ${nextValue ? "enabled" : "disabled"}.`,
+        );
+      },
+    }),
+    [permissionMode, searchEnabled, updateExecutionSettings],
+  );
 
   return (
     <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
@@ -602,16 +858,102 @@ function ScriptableChatArea({
         onBranchSwitch={handleBranchSwitch}
         branchInfoByMessage={branchInfoByMessage}
       />
-      <ChatInput
-        placeholderText="Type a message..."
-        waitingForResponse={effectiveState.waitingForResponse}
-        submitDisabled={submitDisabled}
-        disabled={isFrozen}
-        value={effectiveInputText}
-        onChange={handleInputChange}
-        onSubmit={handleSubmit}
-        onStop={handleStop}
-      />
+      <div className="px-2.5 pb-1">
+        <ChatInput
+          placeholderText="Type a message..."
+          waitingForResponse={effectiveState.waitingForResponse}
+          submitDisabled={submitDisabled}
+          disabled={isFrozen}
+          value={effectiveInputText}
+          onChange={handleInputChange}
+          onSubmit={handleSubmit}
+          onStop={handleStop}
+          slashCommands={slashCommands}
+          onSlashCommand={handleSlashCommand}
+          executionControls={executionControls}
+          executionControlVisibility={{
+            permissionMode: true,
+            search: false,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ChatSectionHistoryList({
+  entries,
+  activeChatId,
+  initialLoadComplete,
+  loadError,
+  onSelect,
+}: {
+  entries: Array<ChatSectionHistoryEntry>;
+  activeChatId: string | null;
+  initialLoadComplete: boolean;
+  loadError: string | null;
+  onSelect: (chatId: string) => void;
+}) {
+  const placeholderText = useMemo(
+    () =>
+      getHistoryPlaceholderText(initialLoadComplete, loadError, entries.length),
+    [entries.length, initialLoadComplete, loadError],
+  );
+
+  if (entries.length === 0) {
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center px-4">
+        <p className="text-center text-xs text-setta-400">{placeholderText}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2 pt-1">
+      <div className="flex flex-col gap-2">
+        {entries.map((entry) => (
+          <button
+            key={entry.chatId}
+            type="button"
+            className={`group/historyitem flex w-full items-center justify-between gap-2 rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:bg-white hover:shadow-sm dark:hover:bg-setta-800 ${
+              entry.chatId === activeChatId
+                ? "bg-blue-600 dark:bg-blue-700"
+                : ""
+            }`}
+            onClick={() => onSelect(entry.chatId)}
+          >
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <p
+                className={`truncate text-xs font-semibold text-setta-600 dark:text-setta-100 ${
+                  entry.chatId === activeChatId
+                    ? "text-white dark:text-white"
+                    : ""
+                }`}
+              >
+                {entry.label}
+              </p>
+              <p
+                className={`truncate text-[11px] text-setta-500 dark:text-setta-300 ${
+                  entry.chatId === activeChatId
+                    ? "text-white/90 dark:text-white/90"
+                    : ""
+                }`}
+              >
+                {formatHistoryTimestamp(entry.lastUpdatedMs)}
+              </p>
+            </div>
+            {entry.waitingForResponse ? (
+              <i
+                className={`gg-spinner single-cell-child !scale-75 ${
+                  entry.chatId === activeChatId
+                    ? "text-white dark:text-white"
+                    : "text-setta-500/70"
+                }`}
+              />
+            ) : null}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -621,6 +963,8 @@ type ManagedChatAreaProps = {
   engineConfigId: string | null;
   agentProfileId: string | null;
   thinking: boolean;
+  permissionMode: ChatPermissionModeValue;
+  searchEnabled: boolean;
 };
 
 function ManagedChatArea({
@@ -628,6 +972,8 @@ function ManagedChatArea({
   engineConfigId,
   agentProfileId,
   thinking,
+  permissionMode,
+  searchEnabled,
 }: ManagedChatAreaProps) {
   useHydrateLLMState();
   useHydrateAgenticState();
@@ -665,12 +1011,22 @@ function ManagedChatArea({
     );
     return impl.chatId;
   });
+  const [showHistory, setShowHistory] = useState(false);
   const lastChatIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (typeof chatId === "string") {
       lastChatIdRef.current = chatId;
     }
   }, [chatId]);
+  const { agentRuns, agentRunsInitialLoadComplete, agentRunsLoadError } =
+    useAIStore(
+      (state) => ({
+        agentRuns: state.agentRuns,
+        agentRunsInitialLoadComplete: state.agentRunsInitialLoadComplete,
+        agentRunsLoadError: state.agentRunsLoadError,
+      }),
+      shallow,
+    );
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
     (state) => {
       if (chatId === null) {
@@ -743,6 +1099,24 @@ function ManagedChatArea({
   }, [effectiveEngineConfigId, engineConfigs]);
   const engineType = selectedEngineConfig?.engineType ?? null;
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
+    const runType = resolveManagedChatRunType(engineType);
+    if (!runType) {
+      return null;
+    }
+    return {
+      runType,
+      engineConfigId: effectiveEngineConfigId ?? null,
+    };
+  }, [effectiveEngineConfigId, engineType]);
+  const sectionHistoryEntries = useMemo(
+    () => toSortedHistoryEntries(agentRuns, sectionId, historyCompatibility),
+    [agentRuns, historyCompatibility, sectionId],
+  );
+  const hasRunningHistoryEntry = useMemo(
+    () => sectionHistoryEntries.some((entry) => entry.waitingForResponse),
+    [sectionHistoryEntries],
+  );
   const selectedLLMConfigId = useMemo(() => {
     if (!selectedEngineConfig) {
       return null;
@@ -783,10 +1157,12 @@ function ManagedChatArea({
       ) ?? null
     );
   }, [externalAgentConfigs, selectedEngineConfig]);
-  const showPlanModeBadge =
-    engineType === EngineTypeEnum.external_agent &&
-    externalAgentConfig?.toolType === "claude_code" &&
-    externalAgentConfig.approvalPolicy === "plan";
+  const showPlanModeBadge = shouldShowPlanModeBadge({
+    engineType,
+    externalAgentToolType: externalAgentConfig?.toolType ?? null,
+    approvalPolicy: externalAgentConfig?.approvalPolicy ?? null,
+    permissionMode,
+  });
 
   const placeholderText = getChatPlaceholderText({
     engineType,
@@ -835,6 +1211,26 @@ function ManagedChatArea({
     getLLMChat(chatId);
   }, [chatId, isExternalEngine, projectConfigId]);
 
+  useEffect(() => {
+    void loadAgentRuns();
+  }, []);
+
+  useEffect(() => {
+    if (!showHistory) {
+      return;
+    }
+    void loadAgentRuns();
+    if (!hasRunningHistoryEntry) {
+      return;
+    }
+    const intervalId = window.setInterval(() => {
+      void loadAgentRuns();
+    }, 5000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [hasRunningHistoryEntry, showHistory]);
+
   const setChatId = useCallback(
     (next: ChatSectionChatIdUpdate) => {
       const currentState = useProjectState.getState();
@@ -867,6 +1263,7 @@ function ManagedChatArea({
   const handleNewChatStart = useCallback(() => {
     initializePendingChatDetails();
     setChatId(null);
+    setShowHistory(false);
   }, [setChatId]);
 
   const handleNewChatSettled = useCallback(
@@ -883,6 +1280,52 @@ function ManagedChatArea({
       });
     },
     [setChatId],
+  );
+  const canConfigureExecutionSettings =
+    hasEngineConfig &&
+    (isExternalEngine
+      ? externalEngineAvailable
+      : hasLLMConfig && !noConfigsAvailable);
+  const showPermissionExecutionControl = canConfigureExecutionSettings;
+  const showSearchExecutionControl = false;
+
+  const updateExecutionSettings = useCallback(
+    (
+      nextSettings: ChatExecutionSettings,
+      feedback: string,
+    ): ChatSlashCommandResult => {
+      dispatchOptimisticProjectStateUpdate({
+        apply: (state) => {
+          setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+            permissionMode: nextSettings.permissionMode,
+            searchEnabled: nextSettings.searchEnabled,
+          });
+        },
+        send: (frontendOpId) =>
+          route_set_chat_section_settings({
+            projectConfigId,
+            sectionId,
+            managed: true,
+            engineConfigId,
+            agentProfileId,
+            thinking,
+            permissionMode: nextSettings.permissionMode,
+            searchEnabled: nextSettings.searchEnabled,
+            frontendOpId,
+          }),
+      });
+      return { feedback };
+    },
+    [agentProfileId, engineConfigId, projectConfigId, sectionId, thinking],
+  );
+  const slashCommands = useMemo(
+    () =>
+      buildChatSlashCommands({
+        model: true,
+        permissions: showPermissionExecutionControl,
+        search: showSearchExecutionControl,
+      }),
+    [showPermissionExecutionControl, showSearchExecutionControl],
   );
 
   const handleSubmit = useCallback(
@@ -929,9 +1372,15 @@ function ManagedChatArea({
           thinking,
           effectiveEngineConfigId,
           isExternalEngine,
-          messageId,
-          agentProfileId,
-          sectionId,
+          {
+            messageId,
+            agentProfileId,
+            sectionId,
+            executionSettings: {
+              permissionMode,
+              searchEnabled,
+            },
+          },
         );
         succeeded = Boolean(submittedChatId);
       } catch (err) {
@@ -953,7 +1402,8 @@ function ManagedChatArea({
       externalEngineAvailable,
       hasLLMConfig,
       agentProfileId,
-      messages,
+      permissionMode,
+      searchEnabled,
       sectionId,
       thinking,
     ],
@@ -1010,6 +1460,10 @@ function ManagedChatArea({
         isExternalEngine,
         agentProfileId,
         sectionId,
+        executionSettings: {
+          permissionMode,
+          searchEnabled,
+        },
       });
       return Boolean(nextChatId);
     },
@@ -1020,6 +1474,8 @@ function ManagedChatArea({
       externalEngineAvailable,
       isExternalEngine,
       messages,
+      permissionMode,
+      searchEnabled,
       sectionId,
       thinking,
     ],
@@ -1031,8 +1487,68 @@ function ManagedChatArea({
         return;
       }
       setChatId(nextChatId);
+      setShowHistory(false);
     },
     [chatId, setChatId],
+  );
+
+  const handleSelectHistoryChat = useCallback(
+    (nextChatId: string) => {
+      if (!nextChatId) {
+        return;
+      }
+      setChatId(nextChatId);
+      setShowHistory(false);
+    },
+    [setChatId],
+  );
+
+  const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
+    await loadAgentRuns();
+    const latestEntry = toSortedHistoryEntries(
+      useAIStore.getState().agentRuns,
+      sectionId,
+      historyCompatibility,
+    ).find((entry) => entry.chatId !== chatId);
+    if (!latestEntry) {
+      return false;
+    }
+    setChatId(latestEntry.chatId);
+    setShowHistory(false);
+    return true;
+  }, [chatId, historyCompatibility, sectionId, setChatId]);
+
+  const handleSlashCommand = useCallback(
+    async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
+      return executeManagedChatSlashCommand({
+        command,
+        slashCommands,
+        onStartNewChat: handleNewChatStart,
+        onResumeLatestChat: handleResumeLatestChat,
+        resumeFeedback: {
+          success: "Resumed the latest section chat.",
+          notFound: "No previous section chat found to resume.",
+        },
+        onSetPermissionMode: (nextMode) => {
+          updateExecutionSettings(
+            {
+              permissionMode: nextMode,
+              searchEnabled,
+            },
+            `Permissions set to ${nextMode}.`,
+          );
+        },
+        modelFeedback:
+          "Model selection is configured in chat settings for this section.",
+      });
+    },
+    [
+      handleNewChatStart,
+      handleResumeLatestChat,
+      searchEnabled,
+      slashCommands,
+      updateExecutionSettings,
+    ],
   );
 
   const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
@@ -1060,6 +1576,50 @@ function ManagedChatArea({
   const submitDisabled = useMemo(
     () => !waitingForResponse && hasPendingToolInteraction(messages),
     [messages, waitingForResponse],
+  );
+  const executionControls = useMemo(() => {
+    const baseControls = {
+      permissionMode,
+      searchEnabled,
+      onPermissionModeChange: (nextMode: ChatPermissionModeValue) => {
+        updateExecutionSettings(
+          {
+            permissionMode: nextMode,
+            searchEnabled,
+          },
+          `Permissions set to ${nextMode}.`,
+        );
+      },
+    };
+    if (!showSearchExecutionControl) {
+      return baseControls;
+    }
+    return {
+      ...baseControls,
+      onSearchEnabledChange: (nextValue: boolean) => {
+        updateExecutionSettings(
+          {
+            permissionMode,
+            searchEnabled: nextValue,
+          },
+          `Search ${nextValue ? "enabled" : "disabled"}.`,
+        );
+      },
+    };
+  }, [
+    permissionMode,
+    searchEnabled,
+    showSearchExecutionControl,
+    updateExecutionSettings,
+  ]);
+  const handleProviderDictationTranscribe = useCallback(
+    async (audioBlob: Blob) => {
+      if (!effectiveEngineConfigId || isExternalEngine) {
+        return null;
+      }
+      return transcribeChatAudio(effectiveEngineConfigId, audioBlob);
+    },
+    [effectiveEngineConfigId, isExternalEngine],
   );
 
   return (
@@ -1092,25 +1652,64 @@ function ManagedChatArea({
           </div>
         </div>
       ) : null}
-      <ChatMessageList
-        messages={messages}
-        waitingForResponse={waitingForResponse}
-        toolCallArguments={toolCallArguments}
-        className={scrollClassName}
-        scrollRef={ref}
-        editDisabledReason={editDisabledReason}
-        onEditMessage={handleEditMessage}
-        onBranchSwitch={handleBranchSwitch}
-        branchInfoByMessage={branchInfoByMessage}
-      />
-      <ChatInput
-        placeholderText={placeholderText}
-        waitingForResponse={waitingForResponse}
-        submitDisabled={submitDisabled}
-        disabled={isDisabled}
-        onSubmit={handleSubmit}
-        onStop={handleStop}
-      />
+      <div className="flex items-center justify-end gap-2 px-4 pt-2">
+        <button
+          type="button"
+          className="rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+          onClick={() => setShowHistory((current) => !current)}
+        >
+          {showHistory ? "Back" : "History"}
+        </button>
+        <button
+          type="button"
+          className="rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+          onClick={handleNewChatStart}
+        >
+          New Chat
+        </button>
+      </div>
+      {showHistory ? (
+        <ChatSectionHistoryList
+          entries={sectionHistoryEntries}
+          activeChatId={chatId}
+          initialLoadComplete={agentRunsInitialLoadComplete}
+          loadError={agentRunsLoadError}
+          onSelect={handleSelectHistoryChat}
+        />
+      ) : (
+        <ChatMessageList
+          messages={messages}
+          waitingForResponse={waitingForResponse}
+          toolCallArguments={toolCallArguments}
+          className={scrollClassName}
+          scrollRef={ref}
+          editDisabledReason={editDisabledReason}
+          onEditMessage={handleEditMessage}
+          onBranchSwitch={handleBranchSwitch}
+          branchInfoByMessage={branchInfoByMessage}
+        />
+      )}
+      <div className="px-2.5 pb-1">
+        <ChatInput
+          placeholderText={placeholderText}
+          waitingForResponse={waitingForResponse}
+          submitDisabled={submitDisabled}
+          disabled={isDisabled}
+          onSubmit={handleSubmit}
+          onStop={handleStop}
+          slashCommands={slashCommands}
+          onSlashCommand={handleSlashCommand}
+          executionControls={executionControls}
+          executionControlVisibility={{
+            permissionMode: showPermissionExecutionControl,
+            search: showSearchExecutionControl,
+          }}
+          dictationEnabledByProvider={hasEngineConfig}
+          onProviderDictationTranscribe={
+            isExternalEngine ? undefined : handleProviderDictationTranscribe
+          }
+        />
+      </div>
     </div>
   );
 }
