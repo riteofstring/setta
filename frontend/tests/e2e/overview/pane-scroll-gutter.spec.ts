@@ -46,6 +46,7 @@ async function assertScrollRegionUsesStableGutter(
     return {
       overflowY: computed.overflowY,
       overflowX: computed.overflowX,
+      paddingLeft: Number.parseFloat(computed.paddingLeft),
       paddingRight: Number.parseFloat(computed.paddingRight),
       marginRight: Number.parseFloat(computed.marginRight),
     };
@@ -53,8 +54,10 @@ async function assertScrollRegionUsesStableGutter(
 
   expect(style.overflowY).toBe("scroll");
   expect(style.overflowX).toBe("hidden");
-  expect(style.paddingRight).toBeGreaterThanOrEqual(0);
-  expect(style.paddingRight).toBeLessThanOrEqual(1);
+  expect(style.paddingLeft).toBeGreaterThanOrEqual(5);
+  expect(style.paddingLeft).toBeLessThanOrEqual(7);
+  expect(style.paddingRight).toBeGreaterThanOrEqual(5);
+  expect(style.paddingRight).toBeLessThanOrEqual(7);
   expect(style.marginRight).toBeGreaterThanOrEqual(0);
   expect(style.marginRight).toBeLessThanOrEqual(1);
 }

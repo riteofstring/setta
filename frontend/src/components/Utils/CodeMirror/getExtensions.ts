@@ -14,6 +14,8 @@ import { json } from "@codemirror/lang-json";
 import { markdown } from "@codemirror/lang-markdown";
 import { python } from "@codemirror/lang-python";
 import { yaml } from "@codemirror/lang-yaml";
+import { StreamLanguage } from "@codemirror/language";
+import { toml as tomlMode } from "@codemirror/legacy-modes/mode/toml";
 import { EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
@@ -33,6 +35,7 @@ const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
     borderRight: "0",
   },
 });
+const TOML_LANGUAGE = StreamLanguage.define(tomlMode);
 
 type GetExtensionsOptions = {
   parent?: HTMLElement | null;
@@ -220,6 +223,9 @@ export function getLanguageExtensions(
   }
   if (language === "yaml") {
     return [yaml()];
+  }
+  if (language === "toml") {
+    return [TOML_LANGUAGE];
   }
   if (language === "markdown") {
     return [markdown()];

@@ -90,6 +90,18 @@ export function buildBackendLogGridTemplateColumns(
   return `${columnWidths.timestamp}px ${columnWidths.severity}px ${columnWidths.project}px minmax(${BACKEND_LOG_MESSAGE_COLUMN_MIN_WIDTH_PX}px, 1fr) ${BACKEND_LOG_COPY_COLUMN_WIDTH_PX}px`;
 }
 
+export function getBackendLogGridMinWidth(
+  columnWidths: BackendLogColumnWidths,
+): number {
+  return (
+    columnWidths.timestamp +
+    columnWidths.severity +
+    columnWidths.project +
+    BACKEND_LOG_MESSAGE_COLUMN_MIN_WIDTH_PX +
+    BACKEND_LOG_COPY_COLUMN_WIDTH_PX
+  );
+}
+
 export async function copyBackendLogMessage(
   writeText: (value: string) => Promise<void>,
   message: string,
@@ -165,6 +177,10 @@ export function BackendLogEventsArea() {
 
   const gridTemplateColumns = useMemo(
     () => buildBackendLogGridTemplateColumns(columnWidths),
+    [columnWidths],
+  );
+  const gridMinWidth = useMemo(
+    () => getBackendLogGridMinWidth(columnWidths),
     [columnWidths],
   );
 
@@ -260,7 +276,7 @@ export function BackendLogEventsArea() {
         onUpdate={(patch) => setBackendLogEventsFilter(patch)}
       />
 
-      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden rounded-md border border-setta-200 bg-white font-mono text-[11px] leading-4 text-setta-900 dark:border-setta-850 dark:bg-setta-900 dark:text-setta-100">
+      <div className="min-h-0 flex-1 overflow-hidden rounded-md border border-setta-200 bg-white font-mono text-[11px] leading-4 text-setta-900 dark:border-setta-850 dark:bg-setta-900 dark:text-setta-100">
         {filteredEvents.length === 0 ? (
           <div className="flex h-full items-center justify-center text-xs text-setta-400 dark:text-setta-500">
             No matching backend log events
@@ -270,6 +286,7 @@ export function BackendLogEventsArea() {
             events={filteredEvents}
             projectNameById={projectNameById}
             gridTemplateColumns={gridTemplateColumns}
+            gridMinWidth={gridMinWidth}
             copyFeedback={copyFeedback}
             onResizeColumn={beginColumnResizeDrag}
             onCopyMessage={handleCopyMessage}
@@ -381,6 +398,7 @@ function LogLines({
   events,
   projectNameById,
   gridTemplateColumns,
+  gridMinWidth,
   copyFeedback,
   onResizeColumn,
   onCopyMessage,
@@ -388,6 +406,7 @@ function LogLines({
   events: Array<SettaBackendLogEvent>;
   projectNameById: Record<string, string>;
   gridTemplateColumns: string;
+  gridMinWidth: number;
   copyFeedback: CopyFeedback | null;
   onResizeColumn: (
     column: BackendLogColumnWidthName,
@@ -411,10 +430,7 @@ function LogLines({
         return;
       }
       const nextHeight = Math.max(1, Math.floor(entry.contentRect.height));
-      const nextWidth = Math.max(
-        BACKEND_LOG_MIN_GRID_WIDTH_PX,
-        Math.floor(entry.contentRect.width),
-      );
+      const nextWidth = Math.max(1, Math.floor(entry.contentRect.width));
       setListSize((current) =>
         current.height === nextHeight && current.width === nextWidth
           ? current
@@ -431,31 +447,36 @@ function LogLines({
   }, []);
 
   const listHeight = Math.max(1, listSize.height);
-  const listWidth = Math.max(BACKEND_LOG_MIN_GRID_WIDTH_PX, listSize.width);
+  const listWidth = Math.max(gridMinWidth, listSize.width);
 
   return (
-    <div className="flex min-h-0 min-w-[640px] flex-1 flex-col">
-      <LogColumnHeader
-        gridTemplateColumns={gridTemplateColumns}
-        onResizeColumn={onResizeColumn}
-      />
-      <div ref={listWrapperRef} className="min-h-0 flex-1">
-        <List
-          data-testid="backend-log-virtual-list"
-          rowComponent={BackendLogRow}
-          rowCount={events.length}
-          rowHeight={BACKEND_LOG_ROW_HEIGHT_PX}
-          overscanCount={8}
-          className="nodrag"
-          rowProps={{
-            events,
-            projectNameById,
-            gridTemplateColumns,
-            copyFeedback,
-            onCopyMessage,
-          }}
-          style={{ height: listHeight, width: listWidth }}
+    <div
+      data-testid="backend-log-grid-scroll-shell"
+      className="flex min-h-0 flex-1 overflow-x-auto overflow-y-hidden"
+    >
+      <div className="flex min-h-0 flex-1 flex-col" style={{ minWidth: listWidth }}>
+        <LogColumnHeader
+          gridTemplateColumns={gridTemplateColumns}
+          onResizeColumn={onResizeColumn}
         />
+        <div ref={listWrapperRef} className="min-h-0 flex-1">
+          <List
+            data-testid="backend-log-virtual-list"
+            rowComponent={BackendLogRow}
+            rowCount={events.length}
+            rowHeight={BACKEND_LOG_ROW_HEIGHT_PX}
+            overscanCount={8}
+            className="nodrag"
+            rowProps={{
+              events,
+              projectNameById,
+              gridTemplateColumns,
+              copyFeedback,
+              onCopyMessage,
+            }}
+            style={{ height: listHeight, width: listWidth, overflowX: "hidden" }}
+          />
+        </div>
       </div>
     </div>
   );
@@ -591,7 +612,7 @@ function BackendLogRow({
   );
   const singleLineMessage = formatSingleLineMessage(event.message);
   let copyStatusTitle = "Copy message";
-  let copyButtonClassName = "text-setta-500 dark:text-setta-400";
+  let copyButtonClassName = "text-setta-700 dark:text-setta-200";
   if (copyStatus === "failed") {
     copyStatusTitle = "Copy failed";
     copyButtonClassName = "text-red-600 dark:text-red-400";
@@ -620,15 +641,17 @@ function BackendLogRow({
         type="button"
         data-testid="backend-log-copy-message"
         data-copy-status={copyStatus ?? "idle"}
-        className={`inline-flex items-center justify-end rounded p-1 opacity-0 pointer-events-none transition-opacity duration-100 group-hover/backend-log-row:opacity-100 group-hover/backend-log-row:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto hover:bg-setta-100 hover:text-setta-900 dark:hover:bg-setta-700 dark:hover:text-setta-100 ${copyButtonClassName}`}
+        className={`inline-flex items-center justify-end rounded p-1 opacity-0 pointer-events-none transition-opacity duration-100 group-hover/backend-log-row:opacity-100 group-hover/backend-log-row:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto hover:bg-setta-100 hover:text-setta-950 dark:hover:bg-setta-700 dark:hover:text-setta-50 ${copyButtonClassName} ${
+          copyStatus ? "opacity-100 pointer-events-auto" : ""
+        }`}
         onClick={() => onCopyMessage(event.id, event.message)}
         title={copyStatusTitle}
         aria-label={copyStatusTitle}
       >
         {copyStatus === "copied" ? (
-          <IoCheckmark size={12} />
+          <IoCheckmark size={14} />
         ) : (
-          <IoCopyOutline size={11} />
+          <IoCopyOutline size={14} />
         )}
       </button>
     </div>

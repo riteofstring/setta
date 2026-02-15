@@ -7,6 +7,7 @@ import {
   clampBackendLogColumnWidth,
   copyBackendLogMessage,
   filterEvents,
+  getBackendLogGridMinWidth,
 } from "./BackendLogEventsArea";
 
 describe("BackendLogEventsArea column sizing helpers", () => {
@@ -36,6 +37,16 @@ describe("BackendLogEventsArea column sizing helpers", () => {
         project: 200,
       }),
     ).toBe("80px 90px 200px minmax(220px, 1fr) 56px");
+  });
+
+  it("derives a minimum grid width from fixed columns and message floor", () => {
+    expect(
+      getBackendLogGridMinWidth({
+        timestamp: 80,
+        severity: 90,
+        project: 200,
+      }),
+    ).toBe(646);
   });
 });
 

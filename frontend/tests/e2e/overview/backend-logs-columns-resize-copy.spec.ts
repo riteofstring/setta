@@ -74,6 +74,17 @@ test("backend logs pane supports column resize handles and copy feedback", async
   );
   await expect(copyButton).toHaveAttribute("data-copy-status", "idle");
   await expect(copyButton).toHaveText("");
+  const copyIconBox = await copyButton.evaluate((button) => {
+    const icon = button.querySelector("svg");
+    if (!(icon instanceof SVGElement)) {
+      return null;
+    }
+    const rect = icon.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  });
+  expect(copyIconBox).not.toBeNull();
+  expect(copyIconBox?.width ?? 0).toBeGreaterThan(8);
+  expect(copyIconBox?.height ?? 0).toBeGreaterThan(8);
 
   await copyButton.evaluate((button) => {
     if (!(button instanceof HTMLButtonElement)) {
@@ -82,4 +93,22 @@ test("backend logs pane supports column resize handles and copy feedback", async
     button.click();
   });
   await expect(copyButton).toHaveAttribute("data-copy-status", /copied|failed/);
+
+  const gridScrollShell = page.getByTestId("backend-log-grid-scroll-shell");
+  await expect(gridScrollShell).toBeVisible();
+  const overflowState = await page.evaluate(() => {
+    const shell = document.querySelector('[data-testid="backend-log-grid-scroll-shell"]');
+    const virtualList = document.querySelector('[data-testid="backend-log-virtual-list"]');
+    if (!(shell instanceof HTMLElement) || !(virtualList instanceof HTMLElement)) {
+      throw new Error("Missing backend logs scroller elements.");
+    }
+    const shellStyle = getComputedStyle(shell);
+    const listStyle = getComputedStyle(virtualList);
+    return {
+      shellOverflowX: shellStyle.overflowX,
+      listOverflowX: listStyle.overflowX,
+    };
+  });
+  expect(overflowState.shellOverflowX).toBe("auto");
+  expect(overflowState.listOverflowX).toBe("hidden");
 });

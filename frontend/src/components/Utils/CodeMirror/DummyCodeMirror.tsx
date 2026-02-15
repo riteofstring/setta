@@ -1,5 +1,7 @@
 import { javascriptLanguage } from "@codemirror/lang-javascript";
 import { jsonLanguage } from "@codemirror/lang-json";
+import { StreamLanguage } from "@codemirror/language";
+import { toml as tomlMode } from "@codemirror/legacy-modes/mode/toml";
 import { pythonLanguage } from "@codemirror/lang-python";
 import { yamlLanguage } from "@codemirror/lang-yaml";
 import { RangeSetBuilder, Text } from "@codemirror/state";
@@ -18,6 +20,7 @@ const singleLineStyle = {
   textOverflow: "ellipsis",
   flexShrink: 1,
 };
+const TOML_LANGUAGE = StreamLanguage.define(tomlMode);
 
 //https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
 //https://github.com/jamischarles/codemirror-server-render
@@ -177,6 +180,8 @@ function getLanguageParser(language) {
       return jsonLanguage;
     case "yaml":
       return yamlLanguage;
+    case "toml":
+      return TOML_LANGUAGE;
     default:
       return null;
   }

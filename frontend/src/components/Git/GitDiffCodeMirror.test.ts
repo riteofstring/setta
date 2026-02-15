@@ -41,14 +41,16 @@ describe("shouldSyntaxHighlightLine", () => {
 });
 
 describe("parserForPath", () => {
-  it("resolves JSON and YAML parser implementations from file extensions", () => {
+  it("resolves JSON, YAML, and TOML parser implementations from file extensions", () => {
     const jsonParser = parserForPath("configs/app-config.json");
     const yamlParser = parserForPath("configs/app-config.yaml");
     const ymlParser = parserForPath("configs/app-config.yml");
+    const tomlParser = parserForPath("configs/app-config.toml");
 
     expect(jsonParser).not.toBeNull();
     expect(yamlParser).not.toBeNull();
     expect(ymlParser).not.toBeNull();
+    expect(tomlParser).not.toBeNull();
     expect(yamlParser).toBe(ymlParser);
     expect(jsonParser).not.toBe(yamlParser);
   });

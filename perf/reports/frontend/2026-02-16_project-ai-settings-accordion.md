@@ -62,7 +62,7 @@ Change summary:
   - `overflow-y: scroll` (always-on vertical scroll region for stable width)
   - `scrollbar-gutter: stable`
 - Applied utility to pane-level scroll containers so scrollbar reservation is stable and content does not shift as content height changes.
-- Follow-up tweak: removed explicit right padding/margin from the utility after visual feedback, so right edge spacing remains consistent with existing pane insets while preserving stable gutter behavior.
+- Follow-up tweak: switched to symmetric inline padding (`6px` left/right, no margins) so overlay scrollbars do not touch controls while keeping perceived edge spacing balanced.
 
 Verification:
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/pane-scroll-gutter.spec.ts frontend/tests/e2e/overview/project-ai-settings-agent-profiles.spec.ts frontend/tests/e2e/overview/pane-content-overflow.spec.ts` (pass)
