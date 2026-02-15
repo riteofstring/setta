@@ -28,6 +28,8 @@ let restartCapability: Record<string, unknown> | null = {
   command: null,
   reason: null,
 };
+let runtimeServerMode: "ide" | "share" | "app" | null = "ide";
+let isDeploymentMode = false;
 
 const addTemporaryNotificationMock = vi.fn();
 const routePluginsRestartMock = vi.fn();
@@ -36,8 +38,13 @@ const refreshPluginRuntimeMock = vi.fn(async () => undefined);
 const usePluginListEntriesMock = vi.fn(() => []);
 const usePluginStatusEntriesMock = vi.fn(() => []);
 const usePluginRuntimeStoreMock = vi.fn(
-  (selector?: (state: { restartCapability: unknown }) => unknown) => {
-    const state = { restartCapability };
+  (
+    selector?: (state: {
+      restartCapability: unknown;
+      serverMode: "ide" | "share" | "app" | null;
+    }) => unknown,
+  ) => {
+    const state = { restartCapability, serverMode: runtimeServerMode };
     if (typeof selector === "function") {
       return selector(state);
     }
@@ -89,6 +96,15 @@ vi.mock("plugins/runtime", () => ({
 vi.mock("state/actions/notifications", () => ({
   addTemporaryNotification: (...args: unknown[]) =>
     addTemporaryNotificationMock(...args),
+}));
+
+vi.mock("state/definitions", () => ({
+  useShareSession: (
+    selector: (state: { isDeploymentMode: boolean }) => unknown,
+  ) =>
+    selector({
+      isDeploymentMode,
+    }),
 }));
 
 vi.mock("utils/generatedEndpoints", () => ({
@@ -174,6 +190,8 @@ describe("PluginRestartBanner", () => {
       command: null,
       reason: null,
     };
+    runtimeServerMode = "ide";
+    isDeploymentMode = false;
   });
 
   afterEach(() => {
@@ -187,8 +205,8 @@ describe("PluginRestartBanner", () => {
     expect(PluginRestartBanner()).toBeNull();
   });
 
-  it("sends restart request, reports acceptance, and refreshes runtime", async () => {
-    // Programmatic restart acceptance must surface info notification and runtime refresh.
+  it("sends restart request and does not force refresh when restart is accepted", async () => {
+    // Programmatic restart acceptance should avoid immediate runtime refresh races.
     routePluginsRestartMock.mockResolvedValue({
       status: 200,
       hasResponse: true,
@@ -208,7 +226,7 @@ describe("PluginRestartBanner", () => {
       "Restart request accepted.",
       "info",
     );
-    expect(refreshPluginRuntimeMock).toHaveBeenCalledTimes(1);
+    expect(refreshPluginRuntimeMock).toHaveBeenCalledTimes(0);
   });
 
   it("shows manual restart warning when restart endpoint rejects request", async () => {
@@ -252,6 +270,20 @@ describe("PluginRestartBanner", () => {
       "error",
     );
     expect(refreshPluginRuntimeMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not render banner outside IDE mode", () => {
+    // Operator restart controls should stay hidden in non-IDE runtime modes.
+    runtimeServerMode = "share";
+
+    expect(PluginRestartBanner()).toBeNull();
+  });
+
+  it("does not render banner in deployment mode", () => {
+    // Deployment contexts should not expose restart controls in the header.
+    isDeploymentMode = true;
+
+    expect(PluginRestartBanner()).toBeNull();
   });
 
   it("opens Plugins overview tab from banner action", () => {

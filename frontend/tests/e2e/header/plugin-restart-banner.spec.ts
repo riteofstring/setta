@@ -16,8 +16,7 @@ test("header plugin restart banner supports restart action and plugins shortcut"
     "../tests/fixtures/plugins/backend",
   );
 
-  let pluginListRequestCount = 0;
-  let pluginStatusRequestCount = 0;
+  let pluginRuntimeRequestCount = 0;
   let restartRequestCount = 0;
 
   await setOverviewTab(page, "Overview");
@@ -31,17 +30,19 @@ test("header plugin restart banner supports restart action and plugins shortcut"
     });
     await postBackend(page, "/plugins/rescan", {});
 
-    await page.route("**/api/plugins/list", async (route) => {
-      pluginListRequestCount += 1;
+    await page.route("**/api/plugins/runtime", async (route) => {
+      pluginRuntimeRequestCount += 1;
       const response = await route.fetch();
       const payload = await response.json();
-      const plugins = Array.isArray(payload.plugins) ? payload.plugins : [];
-      payload.restartCapability = {
+      const plugins = Array.isArray(payload.list?.plugins)
+        ? payload.list.plugins
+        : [];
+      payload.list.restartCapability = {
         mode: "programmatic",
         command: null,
         reason: null,
       };
-      payload.plugins = plugins.map((plugin: { pluginId?: string }) => {
+      payload.list.plugins = plugins.map((plugin: { pluginId?: string }) => {
         if (plugin.pluginId !== "setta-fixture-backend") {
           return plugin;
         }
@@ -51,12 +52,6 @@ test("header plugin restart banner supports restart action and plugins shortcut"
         };
       });
       await route.fulfill({ response, json: payload });
-    });
-
-    await page.route("**/api/plugins/status", async (route) => {
-      pluginStatusRequestCount += 1;
-      const response = await route.fetch();
-      await route.fulfill({ response });
     });
 
     await page.route("**/api/plugins/restart", async (route) => {
@@ -82,19 +77,14 @@ test("header plugin restart banner supports restart action and plugins shortcut"
     await expect(restartBannerText).toBeVisible();
     const restartBanner = restartBannerText.locator("xpath=ancestor::div[1]");
 
-    const listCountBeforeRestart = pluginListRequestCount;
-    const statusCountBeforeRestart = pluginStatusRequestCount;
+    const runtimeCountBeforeRestart = pluginRuntimeRequestCount;
     await restartBanner
       .getByRole("button", { name: "Restart", exact: true })
       .click();
 
     await expect.poll(() => restartRequestCount).toBe(1);
-    await expect
-      .poll(() => pluginListRequestCount)
-      .toBeGreaterThan(listCountBeforeRestart);
-    await expect
-      .poll(() => pluginStatusRequestCount)
-      .toBeGreaterThan(statusCountBeforeRestart);
+    await page.waitForTimeout(300);
+    expect(pluginRuntimeRequestCount).toBe(runtimeCountBeforeRestart);
     await expect(page.getByText("Restart request accepted.")).toBeVisible();
 
     await restartBanner
@@ -119,17 +109,11 @@ test("header plugin restart banner remains visible for status-only restart tombs
   await setOverviewTab(page, "Overview");
   const projectContext = await openIsolatedProject(page);
   try {
-    await page.route("**/api/plugins/list", async (route) => {
+    await page.route("**/api/plugins/runtime", async (route) => {
       const response = await route.fetch();
       const payload = await response.json();
-      payload.plugins = [];
-      await route.fulfill({ response, json: payload });
-    });
-
-    await page.route("**/api/plugins/status", async (route) => {
-      const response = await route.fetch();
-      const payload = await response.json();
-      payload.plugins = [
+      payload.list.plugins = [];
+      payload.status.plugins = [
         {
           pluginId: "setta-fixture-backend",
           name: "Setta Fixture Backend",
@@ -164,6 +148,61 @@ test("header plugin restart banner remains visible for status-only restart tombs
   }
 });
 
+test("header plugin restart banner is hidden in non-IDE runtime modes", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await page.route("**/api/plugins/runtime", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.list.serverMode = "share";
+      payload.status.serverMode = "share";
+      payload.list.plugins = [
+        {
+          pluginId: "setta-fixture-backend",
+          name: "Setta Fixture Backend",
+          version: "0.1.0",
+          sourceScope: "workspace",
+          sourceScopeLabel: "workspace",
+          sourceManager: "setta",
+          sourceManagerHint: null,
+          canonicalSourceKey: "local:/tmp/setta-fixture-backend",
+          sourceDigestSha256: "digest",
+          frontend: {
+            entrypointUrl: null,
+            styleUrl: null,
+          },
+          content: {
+            hasBlueprints: false,
+            hasProjectTemplates: false,
+            hasPrompts: false,
+          },
+          config: {
+            hasSchema: false,
+            schemaJson: null,
+            currentConfig: {},
+          },
+          effectiveCapabilities: [],
+          enablementSource: "workspace_enabled",
+          restartRequired: true,
+        },
+      ];
+      await route.fulfill({ response, json: payload });
+    });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await expect(
+      page.getByText(/^Restart required for \d+ plugins?$/),
+    ).toHaveCount(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("header plugin restart banner shows manual command when capability is manual", async ({
   page,
 }) => {
@@ -183,16 +222,18 @@ test("header plugin restart banner shows manual command when capability is manua
     });
     await postBackend(page, "/plugins/rescan", {});
 
-    await page.route("**/api/plugins/list", async (route) => {
+    await page.route("**/api/plugins/runtime", async (route) => {
       const response = await route.fetch();
       const payload = await response.json();
-      const plugins = Array.isArray(payload.plugins) ? payload.plugins : [];
-      payload.restartCapability = {
+      const plugins = Array.isArray(payload.list?.plugins)
+        ? payload.list.plugins
+        : [];
+      payload.list.restartCapability = {
         mode: "manual",
         command: "setta --restart",
         reason: "Programmatic restart disabled in fixture.",
       };
-      payload.plugins = plugins.map((plugin: { pluginId?: string }) => {
+      payload.list.plugins = plugins.map((plugin: { pluginId?: string }) => {
         if (plugin.pluginId !== "setta-fixture-backend") {
           return plugin;
         }
@@ -249,16 +290,18 @@ test("header plugin restart banner handles rejected and failed restart requests"
     });
     await postBackend(page, "/plugins/rescan", {});
 
-    await page.route("**/api/plugins/list", async (route) => {
+    await page.route("**/api/plugins/runtime", async (route) => {
       const response = await route.fetch();
       const payload = await response.json();
-      const plugins = Array.isArray(payload.plugins) ? payload.plugins : [];
-      payload.restartCapability = {
+      const plugins = Array.isArray(payload.list?.plugins)
+        ? payload.list.plugins
+        : [];
+      payload.list.restartCapability = {
         mode: "programmatic",
         command: null,
         reason: null,
       };
-      payload.plugins = plugins.map((plugin: { pluginId?: string }) => {
+      payload.list.plugins = plugins.map((plugin: { pluginId?: string }) => {
         if (plugin.pluginId !== "setta-fixture-backend") {
           return plugin;
         }
@@ -268,11 +311,6 @@ test("header plugin restart banner handles rejected and failed restart requests"
         };
       });
       await route.fulfill({ response, json: payload });
-    });
-
-    await page.route("**/api/plugins/status", async (route) => {
-      const response = await route.fetch();
-      await route.fulfill({ response });
     });
 
     await page.route("**/api/plugins/restart", async (route) => {

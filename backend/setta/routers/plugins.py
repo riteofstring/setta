@@ -93,12 +93,12 @@ def _raise_http(exc: PluginManagerError) -> None:
 
 @router.get(Route.PLUGINS_LIST)
 def route_plugins_list(state: AppStateFromRequest) -> PluginListResponse:
-    return _manager(state).get_list_response()
+    return _manager(state).get_runtime_response().list
 
 
 @router.get(Route.PLUGINS_STATUS)
 def route_plugins_status(state: AppStateFromRequest) -> PluginStatusResponse:
-    return _manager(state).get_status_response()
+    return _manager(state).get_runtime_response().status
 
 
 @router.get(Route.PLUGINS_RUNTIME)

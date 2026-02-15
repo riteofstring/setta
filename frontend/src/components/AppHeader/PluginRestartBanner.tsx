@@ -11,6 +11,7 @@ import {
 } from "plugins/runtime";
 import { useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { useShareSession } from "state/definitions";
 import { OverviewTabNameEnum } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_plugins_restart } from "utils/generatedEndpoints";
@@ -19,9 +20,11 @@ export function PluginRestartBanner() {
   const [isRestarting, setIsRestarting] = useState(false);
   const pluginListEntries = usePluginListEntries();
   const pluginStatusEntries = usePluginStatusEntries();
-  const restartCapability = usePluginRuntimeStore(
-    (state) => state.restartCapability,
-  );
+  const { restartCapability, serverMode } = usePluginRuntimeStore((state) => ({
+    restartCapability: state.restartCapability,
+    serverMode: state.serverMode,
+  }));
+  const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
 
   const restartRequiredPluginIds = useMemo(
     () => getRestartRequiredPluginIds(pluginListEntries, pluginStatusEntries),
@@ -36,11 +39,16 @@ export function PluginRestartBanner() {
     return null;
   }
 
+  if (isDeploymentMode || serverMode !== "ide") {
+    return null;
+  }
+
   async function onRestart() {
     if (restartActionPlan.mode !== "programmatic" || isRestarting) {
       return;
     }
     setIsRestarting(true);
+    let shouldRefreshRuntime = true;
     try {
       const response = await route_plugins_restart();
       if (!res200(response)) {
@@ -48,6 +56,7 @@ export function PluginRestartBanner() {
         return;
       }
       if (response.data.accepted) {
+        shouldRefreshRuntime = false;
         addTemporaryNotification("Restart request accepted.", "info");
         return;
       }
@@ -58,7 +67,9 @@ export function PluginRestartBanner() {
       );
     } finally {
       setIsRestarting(false);
-      await refreshPluginRuntime();
+      if (shouldRefreshRuntime) {
+        await refreshPluginRuntime();
+      }
     }
   }
 

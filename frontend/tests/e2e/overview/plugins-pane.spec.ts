@@ -403,6 +403,46 @@ test("plugins pane fails fast on runtime endpoint errors without list/status fal
   expect(statusCalls).toBe(0);
 });
 
+test("plugins pane reports partial success when runtime refresh fails after an action", async ({
+  page,
+}) => {
+  let runtimeCalls = 0;
+  allowExpectedApiError(page, {
+    path: "/api/plugins/runtime",
+    method: "GET",
+    statuses: [503],
+    count: 1,
+  });
+
+  await page.route("**/api/plugins/runtime", async (route) => {
+    runtimeCalls += 1;
+    if (runtimeCalls === 1) {
+      const response = await route.fetch();
+      await route.fulfill({ response });
+      return;
+    }
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: "PLUGIN_RUNTIME_UNAVAILABLE",
+        message: "Runtime endpoint unavailable.",
+      }),
+    });
+  });
+
+  await setOverviewTab(page, "Plugins");
+  await openIsolatedProject(page);
+  await expect(page.getByText("Plugin Runtime")).toBeVisible();
+
+  await page.getByRole("button", { name: "Rescan", exact: true }).click();
+  await expect(
+    page.getByText(
+      "Rescan plugins completed, but runtime refresh failed: Failed to fetch plugins runtime: status 503.",
+    ),
+  ).toBeVisible();
+});
+
 test("plugins pane shows package-manager guidance and disables managed write actions", async ({
   page,
 }) => {
@@ -2069,7 +2109,9 @@ test("opening plugins tab does not trigger redundant plugin runtime refresh", as
     const runtimeCountBeforePluginsTab = pluginRuntimeRequestCount;
 
     await page.locator("#overview-tab-plugins").click();
-    await expect(page.getByText("Plugin Runtime", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Plugin Runtime", { exact: true }),
+    ).toBeVisible();
     await page.waitForTimeout(250);
 
     expect(pluginRuntimeRequestCount).toBe(runtimeCountBeforePluginsTab);

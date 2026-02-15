@@ -443,6 +443,14 @@ _R = TypeVar("_R")
 _T = TypeVar("_T")
 _EnqueueCallable = Callable[Concatenate["BaseProjectManager", _P], Awaitable[_R]]
 
+PluginCodegenHashesByRelativePath = dict[str, str]
+PluginCodegenStatsByRelativePath = dict[str, tuple[int, int]]
+PluginCodegenTargetState = tuple[
+    str,
+    PluginCodegenHashesByRelativePath,
+    PluginCodegenStatsByRelativePath,
+]
+
 
 def _parse_param_override_key(key: str) -> SectionParamDependencyKey:
     pieces = key.split(":", 1)
@@ -580,7 +588,7 @@ class BaseProjectManager(ABC):
             ],
         ] = {}
         self._plugin_codegen_target_state_by_project_config: dict[
-            ID, dict[str, tuple[str, dict[str, str]]]
+            ID, dict[str, PluginCodegenTargetState]
         ] = {}
         self._plugin_codegen_output_root_by_project_config: dict[ID, Path] = {}
         self.lsp_diagnostics_state_by_project_config: dict[
@@ -1311,7 +1319,7 @@ class BaseProjectManager(ABC):
         previous_target_state = self._plugin_codegen_target_state_by_project_config.get(
             project_config_id, {}
         )
-        next_target_state: dict[str, tuple[str, dict[str, str]]] = {}
+        next_target_state: dict[str, PluginCodegenTargetState] = {}
 
         for target in plugin_targets:
             target_language = target.language
@@ -1328,11 +1336,19 @@ class BaseProjectManager(ABC):
             )
             previous_state = previous_target_state.get(target_language)
             if previous_state is not None and previous_state[0] == target_fingerprint:
-                if self._cached_plugin_codegen_outputs_exist(
+                cached_outputs_exist, output_stats_by_relative_path = (
+                    self._cached_plugin_codegen_outputs_exist(
                     target_root=target_root,
                     output_hashes_by_relative_path=previous_state[1],
-                ):
-                    next_target_state[target_language] = previous_state
+                    output_stats_by_relative_path=previous_state[2],
+                )
+                )
+                if cached_outputs_exist:
+                    next_target_state[target_language] = (
+                        target_fingerprint,
+                        previous_state[1],
+                        output_stats_by_relative_path,
+                    )
                     continue
 
             if previous_state is None and target_root.exists():
@@ -1392,9 +1408,18 @@ class BaseProjectManager(ABC):
                     directory=stale_path.parent,
                     stop_root=target_root,
                 )
+            self._prune_unexpected_plugin_codegen_outputs(
+                target_root=target_root,
+                expected_relative_paths=set(generated_contents_by_relative_path.keys()),
+            )
+            generated_output_stats = self._collect_plugin_codegen_output_stats(
+                target_root=target_root,
+                relative_paths=set(generated_contents_by_relative_path.keys()),
+            )
             next_target_state[target_language] = (
                 target_fingerprint,
                 generated_contents_by_relative_path,
+                generated_output_stats,
             )
         self._plugin_codegen_target_state_by_project_config[project_config_id] = (
             next_target_state
@@ -1404,19 +1429,91 @@ class BaseProjectManager(ABC):
         self,
         *,
         target_root: Path,
-        output_hashes_by_relative_path: dict[str, str],
-    ) -> bool:
+        output_hashes_by_relative_path: PluginCodegenHashesByRelativePath,
+        output_stats_by_relative_path: PluginCodegenStatsByRelativePath,
+    ) -> tuple[bool, PluginCodegenStatsByRelativePath]:
         if not target_root.exists() or not target_root.is_dir():
-            return False
-        for relative_path, expected_hash in output_hashes_by_relative_path.items():
+            return (False, {})
+        expected_hashes_by_relative_path: PluginCodegenHashesByRelativePath = {
+            self._normalize_plugin_codegen_relative_path(relative_path): expected_hash
+            for relative_path, expected_hash in output_hashes_by_relative_path.items()
+        }
+        expected_relative_paths = set(expected_hashes_by_relative_path.keys())
+        discovered_relative_paths = self._collect_plugin_codegen_relative_paths(
+            target_root
+        )
+        if discovered_relative_paths != expected_relative_paths:
+            return (False, {})
+        observed_output_stats = self._collect_plugin_codegen_output_stats(
+            target_root=target_root,
+            relative_paths=expected_relative_paths,
+        )
+        expected_output_stats = {
+            self._normalize_plugin_codegen_relative_path(relative_path): stats
+            for relative_path, stats in output_stats_by_relative_path.items()
+        }
+        if observed_output_stats == expected_output_stats:
+            return (True, observed_output_stats)
+        for relative_path, expected_hash in expected_hashes_by_relative_path.items():
             output_path = target_root / relative_path
             if not output_path.exists() or not output_path.is_file():
-                return False
+                return (False, {})
             output_content = output_path.read_text(encoding="utf-8")
             output_hash = self._hash_plugin_codegen_content(output_content)
             if output_hash != expected_hash:
-                return False
-        return True
+                return (False, {})
+        return (True, observed_output_stats)
+
+    def _collect_plugin_codegen_relative_paths(self, target_root: Path) -> set[str]:
+        relative_paths: set[str] = set()
+        for output_path in target_root.rglob("*"):
+            if not output_path.is_file():
+                continue
+            relative_path = output_path.relative_to(target_root).as_posix()
+            normalized_relative_path = self._normalize_plugin_codegen_relative_path(
+                relative_path
+            )
+            relative_paths.add(normalized_relative_path)
+        return relative_paths
+
+    def _collect_plugin_codegen_output_stats(
+        self,
+        *,
+        target_root: Path,
+        relative_paths: set[str],
+    ) -> PluginCodegenStatsByRelativePath:
+        output_stats: PluginCodegenStatsByRelativePath = {}
+        for relative_path in relative_paths:
+            output_path = self._resolve_plugin_codegen_output_path(
+                target_root=target_root,
+                relative_path=relative_path,
+            )
+            if not output_path.exists() or not output_path.is_file():
+                return {}
+            stat = output_path.stat()
+            output_stats[relative_path] = (stat.st_size, stat.st_mtime_ns)
+        return output_stats
+
+    def _prune_unexpected_plugin_codegen_outputs(
+        self,
+        *,
+        target_root: Path,
+        expected_relative_paths: set[str],
+    ) -> None:
+        existing_relative_paths = self._collect_plugin_codegen_relative_paths(target_root)
+        stale_relative_paths = existing_relative_paths - expected_relative_paths
+        for relative_path in stale_relative_paths:
+            stale_path = self._resolve_plugin_codegen_output_path(
+                target_root=target_root,
+                relative_path=relative_path,
+            )
+            if not stale_path.exists() or not stale_path.is_file():
+                continue
+            stale_path.unlink()
+            self._prune_empty_codegen_directories(
+                directory=stale_path.parent,
+                stop_root=target_root,
+            )
 
     def _hash_plugin_codegen_content(self, content: str) -> str:
         return hashlib.sha256(content.encode("utf-8")).hexdigest()

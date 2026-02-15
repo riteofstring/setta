@@ -45,7 +45,12 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
     pluginSectionImplEqual,
   );
   const { pluginId, kind, data, schemaVersion } = pluginImpl;
-  const runtimeStatus = usePluginRuntimeStore((state) => state.status);
+  const { runtimeStatus, runtimeStatusMessage } = usePluginRuntimeStore(
+    (state) => ({
+      runtimeStatus: state.status,
+      runtimeStatusMessage: state.statusMessage,
+    }),
+  );
   const pluginSectionKind = usePluginSectionKind(pluginId, kind);
   if (pluginSectionKind) {
     return (
@@ -59,8 +64,17 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
       />
     );
   }
-  if (runtimeStatus !== "loaded") {
+  if (runtimeStatus === "idle" || runtimeStatus === "loading") {
     return <PluginSectionLoadingCard pluginId={pluginId} kind={kind} />;
+  }
+  if (runtimeStatus === "error") {
+    return (
+      <PluginSectionRuntimeErrorCard
+        pluginId={pluginId}
+        kind={kind}
+        runtimeStatusMessage={runtimeStatusMessage}
+      />
+    );
   }
 
   return (
@@ -206,6 +220,12 @@ type PluginSectionLoadingCardProps = {
   kind: string;
 };
 
+type PluginSectionRuntimeErrorCardProps = {
+  pluginId: string;
+  kind: string;
+  runtimeStatusMessage: string | null;
+};
+
 function PluginSectionLoadingCard({
   pluginId,
   kind,
@@ -236,6 +256,56 @@ function PluginSectionLoadingCard({
             {kind || "(empty)"}
           </dd>
         </dl>
+      </div>
+    </section>
+  );
+}
+
+function PluginSectionRuntimeErrorCard({
+  pluginId,
+  kind,
+  runtimeStatusMessage,
+}: PluginSectionRuntimeErrorCardProps) {
+  const errorMessage =
+    runtimeStatusMessage && runtimeStatusMessage.trim().length > 0
+      ? runtimeStatusMessage
+      : "Plugin runtime failed to initialize.";
+
+  return (
+    <section className="section-main-full-w flex h-full min-h-0 items-center justify-center p-3">
+      <div className="w-full max-w-[520px] rounded-md border border-red-300 bg-red-50/80 p-3 text-xs text-red-800 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-200">
+        <header className="mb-2 flex items-start justify-between gap-2">
+          <div>
+            <h3 className="font-semibold tracking-tight text-red-900 dark:text-red-100">
+              Plugin Runtime Error
+            </h3>
+            <p className="mt-0.5 text-[11px] text-red-700 dark:text-red-300">
+              {errorMessage}
+            </p>
+          </div>
+          <span className="rounded bg-red-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-red-800 dark:bg-red-900/70 dark:text-red-200">
+            error
+          </span>
+        </header>
+        <dl className="grid grid-cols-[84px_1fr] gap-x-2 gap-y-1 text-[11px]">
+          <dt className="text-red-700 dark:text-red-300">pluginId</dt>
+          <dd className="font-mono text-red-900 dark:text-red-100">
+            {pluginId || "(empty)"}
+          </dd>
+          <dt className="text-red-700 dark:text-red-300">kind</dt>
+          <dd className="font-mono text-red-900 dark:text-red-100">
+            {kind || "(empty)"}
+          </dd>
+        </dl>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="rounded border border-red-400 bg-white px-2 py-1 text-[11px] font-medium text-red-800 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/40 dark:text-red-200 dark:hover:bg-red-900/60"
+            onClick={() => onOverviewTabClick(OverviewTabNameEnum.Plugins)}
+          >
+            Open Plugins
+          </button>
+        </div>
       </div>
     </section>
   );

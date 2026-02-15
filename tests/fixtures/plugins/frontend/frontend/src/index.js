@@ -541,22 +541,26 @@ async function runBackendRoundtripForFixtureCommand(_host) {
       headers: init?.headers,
     });
   };
-  const [listResponse, statusResponse] = await Promise.all([
-    fetchBackend("/plugins/list", {
-      headers: {
-        "X-Fixture-Command": "list",
-      },
-    }),
-    fetchBackend("/plugins/status", {
-      headers: {
-        "X-Fixture-Command": "status",
-      },
-    }),
-  ]);
+  const runtimeResponse = await fetchBackend("/plugins/runtime", {
+    headers: {
+      "X-Fixture-Command": "runtime",
+    },
+  });
 
   let listedPluginCount = 0;
-  if (listResponse.ok) {
-    const listPayload = await listResponse.json();
+  let activePluginCount = 0;
+  let backendFixtureState = "missing";
+  let shouldCheckBackendFixtureHealth = false;
+  if (runtimeResponse.ok) {
+    const runtimePayload = await runtimeResponse.json();
+    const listPayload =
+      runtimePayload && typeof runtimePayload === "object"
+        ? runtimePayload.list
+        : null;
+    const statusPayload =
+      runtimePayload && typeof runtimePayload === "object"
+        ? runtimePayload.status
+        : null;
     if (
       listPayload &&
       typeof listPayload === "object" &&
@@ -564,13 +568,6 @@ async function runBackendRoundtripForFixtureCommand(_host) {
     ) {
       listedPluginCount = listPayload.plugins.length;
     }
-  }
-
-  let activePluginCount = 0;
-  let backendFixtureState = "missing";
-  let shouldCheckBackendFixtureHealth = false;
-  if (statusResponse.ok) {
-    const statusPayload = await statusResponse.json();
     if (
       statusPayload &&
       typeof statusPayload === "object" &&
@@ -610,15 +607,16 @@ async function runBackendRoundtripForFixtureCommand(_host) {
 
   const backendSummary =
     "backend " +
-    `list:${listResponse.status} ` +
-    `status:${statusResponse.status} ` +
+    `list:${runtimeResponse.status} ` +
+    `status:${runtimeResponse.status} ` +
     `plugins:${listedPluginCount}/${activePluginCount} ` +
     `fixture-backend:${backendFixtureState} ` +
     `health:${backendFixtureHealthStatus}`;
   setFixtureRuntimeState({
     lastBackendCommandResult: {
-      listStatus: listResponse.status,
-      statusStatus: statusResponse.status,
+      listStatus: runtimeResponse.status,
+      statusStatus: runtimeResponse.status,
+      runtimeStatus: runtimeResponse.status,
       listedPluginCount,
       activePluginCount,
       backendFixtureState,

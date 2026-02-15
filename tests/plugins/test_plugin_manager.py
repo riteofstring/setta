@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 from setta.mcp.tool_metadata import get_tool_access
 from setta.mcp.tool_setup import SETTA_MCP_TOOLS
 from setta.plugins.errors import PluginManagerError
-from setta.plugins.manager import PluginManager
+from setta.plugins.manager import CandidatePlugin, PluginManager
 from setta.plugins.models import (
     BlockedCapabilityReason,
     PluginInstallerBackend,
@@ -5367,6 +5367,100 @@ def test_link_plugin_rejects_existing_target_without_force(tmp_path: Path) -> No
     assert exc_info.value.code == "PLUGIN_TARGET_EXISTS"
 
 
+def test_link_plugin_conflict_fails_before_backend_runtime_prepare(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Existing-target link failures should not prepare backend runtime side effects.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("backend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+
+    prepare_calls = 0
+
+    def _patched_prepare_backend_runtime(**_kwargs):
+        nonlocal prepare_calls
+        prepare_calls += 1
+        raise AssertionError("backend runtime prepare should not run on target conflicts")
+
+    monkeypatch.setattr(
+        manager,
+        "_prepare_backend_runtime",
+        _patched_prepare_backend_runtime,
+    )
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.link_plugin(
+            local_plugin_root=str(_fixture_path("backend")),
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+    assert exc_info.value.code == "PLUGIN_TARGET_EXISTS"
+    assert prepare_calls == 0
+
+
+def test_install_plugin_conflict_fails_before_backend_runtime_prepare(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Existing-target install failures should not prepare backend runtime side effects.
+    manager = _make_manager(tmp_path)
+    fixture_root = tmp_path / "fixture-install-candidate"
+    shutil.copytree(_fixture_path("backend"), fixture_root)
+    manifest = manager._load_and_validate_manifest(fixture_root / "setta.plugin.json")
+    source_digest = manager._compute_directory_digest(fixture_root)
+    candidate = CandidatePlugin(
+        root=fixture_root,
+        manifest=manifest,
+        canonical_source_key="pypi:setta-fixture-backend==0.1.0",
+        source_spec="pypi:setta-fixture-backend==0.1.0",
+        source_digest_sha256=source_digest,
+    )
+    existing_target = _scope_root(manager, PluginScope.workspace) / manifest.id
+    existing_target.parent.mkdir(parents=True, exist_ok=True)
+    existing_target.mkdir(parents=True, exist_ok=True)
+
+    def _patched_candidate_from_pypi(
+        _parsed_spec,
+        _tmp_dir,
+        *,
+        installer_backend: PluginInstallerBackend,
+    ) -> CandidatePlugin:
+        _ = installer_backend
+        return candidate
+
+    prepare_calls = 0
+
+    def _patched_prepare_backend_runtime(**_kwargs):
+        nonlocal prepare_calls
+        prepare_calls += 1
+        raise AssertionError("backend runtime prepare should not run on target conflicts")
+
+    monkeypatch.setattr(manager, "_candidate_from_pypi", _patched_candidate_from_pypi)
+    monkeypatch.setattr(
+        manager,
+        "_prepare_backend_runtime",
+        _patched_prepare_backend_runtime,
+    )
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.install_plugin(
+            source_spec="pypi:setta-fixture-backend==0.1.0",
+            scope=PluginScope.workspace,
+            installer=PluginInstallerBackend.auto,
+            enable=True,
+            force=False,
+            rescan=False,
+        )
+    assert exc_info.value.code == "PLUGIN_TARGET_EXISTS"
+    assert prepare_calls == 0
+
+
 def test_validate_plugin_folder_rejects_missing_manifest(tmp_path: Path) -> None:
     # Plugin folder validation must reject roots without setta.plugin.json.
     manager = _make_manager(tmp_path)
@@ -6674,6 +6768,11 @@ def test_worker_route_proxy_handles_plain_text_body_and_head_options_requests(
 
     assert len(captured_params) >= 1
     assert captured_params[0]["jsonBody"] == "plain-text-body"
+    request_context = captured_params[0].get("requestContext")
+    assert isinstance(request_context, dict)
+    assert request_context.get("method") == "POST"
+    assert request_context.get("path") == route_path
+    assert isinstance(request_context.get("headers"), list)
 
 
 def test_scoped_link_and_uninstall_work_for_shadowed_entries(tmp_path: Path) -> None:

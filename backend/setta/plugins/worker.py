@@ -6,7 +6,10 @@ import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Literal, get_args, get_origin
+from urllib.parse import urlencode
+
+from pydantic import TypeAdapter
 
 BACKEND_PLUGIN_API_VERSION = 1
 SUPPORTED_RPC_METHODS: tuple[str, ...] = (
@@ -509,22 +512,52 @@ class _WorkerState:
         path_params: dict[str, Any],
         query_params: dict[str, Any],
         json_body: Any,
+        request_context: dict[str, Any] | None,
+        route_path: str,
         route_id: str,
     ) -> dict[str, Any]:
         signature = inspect.signature(endpoint)
         kwargs: dict[str, Any] = {}
+        request_object: Any = None
         for param_name, parameter in signature.parameters.items():
+            if self._route_param_expects_request(parameter):
+                if request_object is None:
+                    request_object = self._build_route_request(
+                        route_path=route_path,
+                        path_params=path_params,
+                        query_params=query_params,
+                        json_body=json_body,
+                        request_context=request_context,
+                    )
+                kwargs[param_name] = request_object
+                continue
             if param_name in path_params:
-                kwargs[param_name] = path_params[param_name]
+                kwargs[param_name] = self._coerce_route_parameter_value(
+                    parameter=parameter,
+                    value=path_params[param_name],
+                    route_id=route_id,
+                )
                 continue
             if param_name in query_params:
-                kwargs[param_name] = query_params[param_name]
+                kwargs[param_name] = self._coerce_route_parameter_value(
+                    parameter=parameter,
+                    value=query_params[param_name],
+                    route_id=route_id,
+                )
                 continue
             if isinstance(json_body, dict) and param_name in json_body:
-                kwargs[param_name] = json_body[param_name]
+                kwargs[param_name] = self._coerce_route_parameter_value(
+                    parameter=parameter,
+                    value=json_body[param_name],
+                    route_id=route_id,
+                )
                 continue
             if param_name == "body" and json_body is not None:
-                kwargs[param_name] = json_body
+                kwargs[param_name] = self._coerce_route_parameter_value(
+                    parameter=parameter,
+                    value=json_body,
+                    route_id=route_id,
+                )
                 continue
             if parameter.default is inspect.Signature.empty:
                 raise WorkerError(
@@ -535,6 +568,130 @@ class _WorkerState:
                     ),
                 )
         return kwargs
+
+    def _route_param_expects_request(self, parameter: inspect.Parameter) -> bool:
+        annotation = parameter.annotation
+        if annotation is inspect.Signature.empty:
+            return False
+        from starlette.requests import Request
+
+        if inspect.isclass(annotation) and issubclass(annotation, Request):
+            return True
+        origin = get_origin(annotation)
+        if origin is None:
+            return False
+        for option in get_args(annotation):
+            if inspect.isclass(option) and issubclass(option, Request):
+                return True
+        return False
+
+    def _coerce_route_parameter_value(
+        self,
+        *,
+        parameter: inspect.Parameter,
+        value: Any,
+        route_id: str,
+    ) -> Any:
+        annotation = parameter.annotation
+        if annotation is inspect.Signature.empty or annotation is Any:
+            return value
+        try:
+            return TypeAdapter(annotation).validate_python(value)
+        except Exception as exc:
+            raise WorkerError(
+                "PLUGIN_BACKEND_ROUTE_CALL_INVALID",
+                (
+                    f"Invalid value for parameter {parameter.name!r} for plugin "
+                    f"route {route_id} in {self.plugin_id}: {exc}"
+                ),
+            ) from exc
+
+    def _build_route_request(
+        self,
+        *,
+        route_path: str,
+        path_params: dict[str, Any],
+        query_params: dict[str, Any],
+        json_body: Any,
+        request_context: dict[str, Any] | None,
+    ) -> Any:
+        from starlette.requests import Request
+
+        context = request_context if isinstance(request_context, dict) else {}
+        raw_method = context.get("method")
+        method = raw_method if isinstance(raw_method, str) else "GET"
+        raw_path = context.get("path")
+        path = raw_path if isinstance(raw_path, str) and raw_path else route_path
+        raw_query_string = context.get("queryString")
+        if isinstance(raw_query_string, str):
+            query_string = raw_query_string.encode("utf-8")
+        else:
+            query_items: list[tuple[str, str]] = []
+            for key, raw_value in query_params.items():
+                if isinstance(raw_value, list):
+                    for list_item in raw_value:
+                        query_items.append((str(key), str(list_item)))
+                    continue
+                query_items.append((str(key), str(raw_value)))
+            query_string = urlencode(query_items).encode("utf-8")
+        raw_headers = context.get("headers")
+        headers: list[tuple[bytes, bytes]] = []
+        if isinstance(raw_headers, list):
+            for item in raw_headers:
+                if (
+                    isinstance(item, (tuple, list))
+                    and len(item) == 2
+                    and isinstance(item[0], str)
+                    and isinstance(item[1], str)
+                ):
+                    headers.append(
+                        (item[0].lower().encode("utf-8"), item[1].encode("utf-8"))
+                    )
+        if len(headers) == 0:
+            headers.append((b"content-type", b"application/json"))
+
+        body_bytes = self._encode_route_request_body(json_body)
+        body_sent = False
+
+        async def _receive() -> dict[str, Any]:
+            nonlocal body_sent
+            if body_sent:
+                return {
+                    "type": "http.request",
+                    "body": b"",
+                    "more_body": False,
+                }
+            body_sent = True
+            return {
+                "type": "http.request",
+                "body": body_bytes,
+                "more_body": False,
+            }
+
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.3"},
+            "http_version": "1.1",
+            "method": method.upper(),
+            "scheme": "http",
+            "path": path,
+            "raw_path": path.encode("utf-8"),
+            "query_string": query_string,
+            "headers": headers,
+            "client": ("127.0.0.1", 0),
+            "server": ("setta-plugin-worker", 80),
+            "path_params": path_params,
+        }
+        return Request(scope, _receive)
+
+    def _encode_route_request_body(self, json_body: Any) -> bytes:
+        if json_body is None:
+            return b""
+        if isinstance(json_body, bytes):
+            return json_body
+        if isinstance(json_body, str):
+            return json_body.encode("utf-8")
+        return json.dumps(json_body).encode("utf-8")
 
     def _invoke_route(self, params: Any) -> dict[str, Any]:
         if not isinstance(params, dict):
@@ -558,6 +715,7 @@ class _WorkerState:
         raw_path_params = params.get("pathParams", {})
         raw_query_params = params.get("queryParams", {})
         json_body = params.get("jsonBody")
+        raw_request_context = params.get("requestContext")
 
         if not isinstance(raw_path_params, dict):
             raise WorkerError(
@@ -569,12 +727,22 @@ class _WorkerState:
                 "PLUGIN_BACKEND_ROUTE_CALL_INVALID",
                 "plugin.invoke_route queryParams must be an object.",
             )
+        request_context: dict[str, Any] | None = None
+        if raw_request_context is not None:
+            if not isinstance(raw_request_context, dict):
+                raise WorkerError(
+                    "PLUGIN_BACKEND_ROUTE_CALL_INVALID",
+                    "plugin.invoke_route requestContext must be an object.",
+                )
+            request_context = raw_request_context
 
         kwargs = self._build_route_call_kwargs(
             route_handler.endpoint,
             path_params=raw_path_params,
             query_params=raw_query_params,
             json_body=json_body,
+            request_context=request_context,
+            route_path=route_handler.path,
             route_id=route_id,
         )
         try:

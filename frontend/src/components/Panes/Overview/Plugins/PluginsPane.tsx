@@ -192,7 +192,11 @@ export function PluginsPane() {
     actionKey: string,
     actionLabel: string,
     operation: () => Promise<ResponseDataAndStatus<T>>,
+    options?: {
+      refreshRuntimeOnSuccess?: boolean;
+    },
   ): Promise<ResponseDataAndStatus<T> | null> {
+    const refreshRuntimeOnSuccess = options?.refreshRuntimeOnSuccess ?? true;
     if (inFlightActionKeysRef.current.has(actionKey)) {
       return null;
     }
@@ -214,11 +218,26 @@ export function PluginsPane() {
         addTemporaryNotification(message, "error");
         return null;
       }
+      if (refreshRuntimeOnSuccess) {
+        await refreshPluginRuntime();
+        const runtimeState = usePluginRuntimeStore.getState();
+        if (runtimeState.status === "error") {
+          const runtimeStatusMessage = runtimeState.statusMessage?.trim();
+          const detail =
+            runtimeStatusMessage && runtimeStatusMessage.length > 0
+              ? runtimeStatusMessage
+              : "unknown runtime error.";
+          setActionStatus({
+            type: "warning",
+            message: `${actionLabel} completed, but runtime refresh failed: ${detail}`,
+          });
+          return response;
+        }
+      }
       setActionStatus({
         type: "success",
         message: `${actionLabel} completed.`,
       });
-      await refreshPluginRuntime();
       return response;
     } finally {
       inFlightActionKeysRef.current.delete(actionKey);
@@ -339,6 +358,7 @@ export function PluginsPane() {
       "restart",
       "Restart plugins runtime",
       async () => route_plugins_restart(),
+      { refreshRuntimeOnSuccess: false },
     );
     if (!response || !response.data) {
       return;

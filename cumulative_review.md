@@ -217,3 +217,16 @@
 - Optimized backend runtime response assembly with a single runtime snapshot build path instead of constructing list/status independently via duplicated top-level calls.
 - Improved fixture/test-runner target gating: pytest selector handling now avoids forced plugin-fixture builds for explicit non-plugin targets, and Playwright fixture/artifact seeding now follows one shared target-aware gating decision.
 - Added/updated backend unit/integration tests, frontend Vitest tests, and Playwright E2E coverage for all changed paths (including no-fallback runtime error behavior); verified with targeted runs (`pytest` subset: 357 passed, `vitest` subset: 89 passed, targeted Playwright spec: passing) and completed CDP visual verification of the Plugins pane runtime error/loaded states.
+
+## 2026-02-16T12:53:16-08:00
+
+- Implemented the latest top-level `review*.md` findings end-to-end, explicitly excluding backward-compatibility additions.
+- Preserved FastAPI-like backend plugin route invocation semantics by adding typed parameter coercion and `Request` injection support in worker route calls, with host-forwarded request context in route proxy RPC payloads.
+- Removed duplicated plugin list projection logic in plugin manager by extracting shared list-entry assembly for list/runtime responses.
+- Fixed plugin mutation ordering so `install_plugin` and `link_plugin` now fail fast on target conflicts before backend runtime preparation, avoiding unnecessary side effects.
+- Standardized plugin API shaping by making `/plugins/list` and `/plugins/status` thin projections from `/plugins/runtime`.
+- Hardened plugin codegen cache determinism/performance by enforcing exact output file-set matching, pruning unexpected stale outputs, and using metadata (size/mtime) fast paths before content rehashing.
+- Improved restart UX in frontend header/plugins pane by skipping immediate runtime refresh on accepted restart requests, adding explicit partial-success messaging when post-action runtime refresh fails, and hiding restart banner controls outside IDE/deployment-inappropriate contexts.
+- Improved plugin section runtime UX by showing an explicit runtime error card (with status message and `Open Plugins`) instead of indefinite loading when runtime state is `error`.
+- Removed dead frontend plugin SDK surface (`frontend/src/plugins/sdk.ts` and its test) and updated fixture frontend command backend roundtrip to consume runtime endpoint payloads.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for all changed paths; validated with targeted runs (`pytest` subset: 5 passed, `vitest` subset: 37 passed, Playwright targeted specs: 22 passed) and completed CDP verification of restart-banner visibility gating and plugin runtime error-card rendering.

@@ -21,6 +21,7 @@ type PluginImplShape = {
 let pluginSectionKind: Record<string, unknown> | null = null;
 let fallbackReason = "frontend_load_failed";
 let runtimeStatus = "loaded";
+let runtimeStatusMessage: string | null = null;
 let currentProjectConfigId = "project-config-1";
 let pluginImpl: PluginImplShape = {
   pluginId: "setta-fixture-plugin",
@@ -37,9 +38,15 @@ const onOverviewTabClickMock = vi.fn();
 const usePluginSectionKindMock = vi.fn(() => pluginSectionKind);
 const usePluginSectionFallbackReasonMock = vi.fn(() => fallbackReason);
 const usePluginRuntimeStoreMock = vi.fn(
-  (selector: (state: { status: string }) => unknown) =>
+  (
+    selector: (state: {
+      status: string;
+      statusMessage: string | null;
+    }) => unknown,
+  ) =>
     selector({
       status: runtimeStatus,
+      statusMessage: runtimeStatusMessage,
     }),
 );
 const getCurrEffectiveSectionImplOfTypeMock = vi.fn(() => pluginImpl);
@@ -192,6 +199,7 @@ describe("PluginArea fallback actions", () => {
     pluginSectionKind = null;
     fallbackReason = "frontend_load_failed";
     runtimeStatus = "loaded";
+    runtimeStatusMessage = null;
     currentProjectConfigId = "project-config-1";
     pluginImpl = {
       pluginId: "setta-fixture-plugin",
@@ -264,6 +272,20 @@ describe("PluginArea fallback actions", () => {
     expect(collectText(fallbackCard)).not.toContain(
       "Plugin Section Unavailable",
     );
+  });
+
+  it("shows runtime error card when plugin runtime fails to load", () => {
+    // Runtime failures should render explicit error fallback instead of perpetual loading.
+    runtimeStatus = "error";
+    runtimeStatusMessage = "Failed to fetch plugins runtime: status 503.";
+
+    const fallbackCard = renderFallbackCard("section-runtime-error");
+
+    expect(collectText(fallbackCard)).toContain("Plugin Runtime Error");
+    expect(collectText(fallbackCard)).toContain(
+      "Failed to fetch plugins runtime: status 503.",
+    );
+    expect(collectText(fallbackCard)).toContain("Open Plugins");
   });
 
   it("copies plugin section JSON payload and notifies success", async () => {

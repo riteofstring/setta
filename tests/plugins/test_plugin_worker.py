@@ -1516,6 +1516,103 @@ def test_worker_invoke_route_supports_json_body_and_async_handlers(
         _stop_worker(worker)
 
 
+def test_worker_invoke_route_coerces_typed_params_and_supports_request_injection(
+    tmp_path: Path,
+) -> None:
+    # Route invocation should coerce typed params and inject Request objects.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "from fastapi import APIRouter, Request\n\n"
+        "def register(plugin):\n"
+        "    router = APIRouter()\n\n"
+        "    @router.get('/typed/{itemId}')\n"
+        "    def typed(\n"
+        "        itemId: int,\n"
+        "        limit: int,\n"
+        "        values: list[int],\n"
+        "        request: Request,\n"
+        "    ) -> dict[str, object]:\n"
+        "        return {\n"
+        "            'itemId': itemId,\n"
+        "            'itemIdType': type(itemId).__name__,\n"
+        "            'limit': limit,\n"
+        "            'limitType': type(limit).__name__,\n"
+        "            'values': values,\n"
+        "            'valuesType': type(values[0]).__name__,\n"
+        "            'method': request.method,\n"
+        "            'headerValue': request.headers.get('x-test'),\n"
+        "        }\n\n"
+        "    plugin.register_router(router)\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        host_requests: list[dict[str, Any]] = []
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_requests=host_requests,
+        )
+        router_registration = next(
+            payload
+            for payload in host_requests
+            if payload.get("method") == "host.register_router"
+        )
+        routes = router_registration["params"]["routes"]
+        route_id_by_path = {route["path"]: route["routeId"] for route in routes}
+
+        invoke_response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id_by_path["/typed/{itemId}"],
+                "pathParams": {"itemId": "7"},
+                "queryParams": {
+                    "limit": "5",
+                    "values": ["1", "2", "3"],
+                },
+                "requestContext": {
+                    "method": "GET",
+                    "path": "/typed/7",
+                    "queryString": "limit=5&values=1&values=2&values=3",
+                    "headers": [["x-test", "fixture"]],
+                },
+            },
+        )
+        assert invoke_response["result"]["statusCode"] == 200
+        assert invoke_response["result"]["body"] == {
+            "itemId": 7,
+            "itemIdType": "int",
+            "limit": 5,
+            "limitType": "int",
+            "values": [1, 2, 3],
+            "valuesType": "int",
+            "method": "GET",
+            "headerValue": "fixture",
+        }
+
+        invalid_response = _rpc_call(
+            worker,
+            request_id=4,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id_by_path["/typed/{itemId}"],
+                "pathParams": {"itemId": "7"},
+                "queryParams": {"limit": "not-an-int", "values": ["1"]},
+            },
+        )
+        assert invalid_response["error"]["code"] == "PLUGIN_BACKEND_ROUTE_CALL_INVALID"
+    finally:
+        _stop_worker(worker)
+
+
 def test_worker_invoke_codegen_target_validates_handler_and_payload(
     tmp_path: Path,
 ) -> None:

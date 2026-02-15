@@ -578,14 +578,16 @@ class PluginManager:
         self._backend_codegen_targets = {}
         self._backend_codegen_target_by_id = {}
 
-    def get_list_response(self) -> PluginListResponse:
-        plugins: list[PluginListEntry] = []
-        plugins_state = self._load_plugins_state()
-        redact_source_details = self._should_redact_source_details()
-        redact_config_details = self._should_redact_config_details()
-        for entry in sorted(
-            self._active_plugin_by_id.values(), key=lambda item: item.plugin_id
-        ):
+    def _build_list_entries(
+        self,
+        *,
+        entries: list[DiscoveredPlugin],
+        plugins_state: PluginsStateFile,
+        redact_source_details: bool,
+        redact_config_details: bool,
+    ) -> list[PluginListEntry]:
+        list_entries: list[PluginListEntry] = []
+        for entry in entries:
             if entry.manifest is None:
                 continue
             frontend = PluginFrontendDescriptor(
@@ -599,16 +601,14 @@ class PluginManager:
                     entry,
                     entry.manifest.frontend.style,
                 )
-                if entry.manifest is not None
-                and entry.manifest.frontend is not None
-                and entry.manifest.frontend.style
+                if entry.manifest.frontend is not None and entry.manifest.frontend.style
                 else None,
             )
             content = self._build_content_descriptor(entry)
             config = self._build_config_descriptor(entry, plugins_state=plugins_state)
             if redact_config_details:
                 config = self._redact_config_descriptor(config)
-            plugins.append(
+            list_entries.append(
                 PluginListEntry(
                     pluginId=entry.plugin_id,
                     name=entry.name,
@@ -636,6 +636,21 @@ class PluginManager:
                     restartRequired=entry.restart_required,
                 )
             )
+        return list_entries
+
+    def get_list_response(self) -> PluginListResponse:
+        plugins_state = self._load_plugins_state()
+        redact_source_details = self._should_redact_source_details()
+        redact_config_details = self._should_redact_config_details()
+        active_entries = sorted(
+            self._active_plugin_by_id.values(), key=lambda item: item.plugin_id
+        )
+        plugins = self._build_list_entries(
+            entries=active_entries,
+            plugins_state=plugins_state,
+            redact_source_details=redact_source_details,
+            redact_config_details=redact_config_details,
+        )
         return PluginListResponse(
             serverMode=self.server_mode,
             restartCapability=self.get_restart_capability(),
@@ -692,56 +707,12 @@ class PluginManager:
                 ordered_entries
             )
 
-        list_plugins: list[PluginListEntry] = []
-        for entry in active_entries:
-            if entry.manifest is None:
-                continue
-            frontend = PluginFrontendDescriptor(
-                entrypointUrl=self._build_plugin_asset_url(
-                    entry,
-                    entry.manifest.frontend.entrypoint,
-                )
-                if entry.manifest.frontend is not None
-                else None,
-                styleUrl=self._build_plugin_asset_url(
-                    entry,
-                    entry.manifest.frontend.style,
-                )
-                if entry.manifest.frontend is not None and entry.manifest.frontend.style
-                else None,
-            )
-            content = self._build_content_descriptor(entry)
-            config = self._build_config_descriptor(entry, plugins_state=plugins_state)
-            if redact_config_details:
-                config = self._redact_config_descriptor(config)
-            list_plugins.append(
-                PluginListEntry(
-                    pluginId=entry.plugin_id,
-                    name=entry.name,
-                    version=entry.version,
-                    sourceScope=entry.scope,
-                    sourceScopeLabel=scope_label(entry.scope),
-                    sourceManager=entry.source_manager,
-                    sourceManagerHint=entry.source_manager_hint,
-                    canonicalSourceKey=(
-                        self._redacted_canonical_source_key(
-                            entry.plugin_id,
-                            entry.scope,
-                            entry.source_manager,
-                            entry.source_path,
-                        )
-                        if redact_source_details
-                        else entry.canonical_source_key
-                    ),
-                    sourceDigestSha256=entry.source_digest_sha256,
-                    frontend=frontend,
-                    content=content,
-                    config=config,
-                    effectiveCapabilities=entry.effective_capabilities,
-                    enablementSource=entry.enablement_source,
-                    restartRequired=entry.restart_required,
-                )
-            )
+        list_plugins = self._build_list_entries(
+            entries=active_entries,
+            plugins_state=plugins_state,
+            redact_source_details=redact_source_details,
+            redact_config_details=redact_config_details,
+        )
 
         status_plugins = [
             self._build_status_entry(
@@ -2271,6 +2242,12 @@ class PluginManager:
                             json_body = json.loads(raw_body.decode("utf-8"))
                         except (UnicodeDecodeError, json.JSONDecodeError):
                             json_body = raw_body.decode("utf-8", errors="ignore")
+                request_context = {
+                    "method": request.method,
+                    "path": request.url.path,
+                    "queryString": request.url.query,
+                    "headers": list(request.headers.items()),
+                }
                 try:
                     route_response = self._call_backend_worker_method(
                         process=process,
@@ -2286,6 +2263,7 @@ class PluginManager:
                             "pathParams": path_params,
                             "queryParams": query_params,
                             "jsonBody": json_body,
+                            "requestContext": request_context,
                         },
                     )
                 except PluginManagerError as exc:
@@ -3668,6 +3646,7 @@ class PluginManager:
                 plugin_id=candidate.manifest.id,
                 scope=resolved_scope,
             )
+            self._ensure_target_path_available(target_path=target_path, force=force)
             if candidate.manifest.backend is not None:
                 self._prepare_backend_runtime(
                     plugin_id=candidate.manifest.id,
@@ -3764,13 +3743,6 @@ class PluginManager:
         self._validate_setta_version_range(manifest)
         self._validate_plugin_config_schema_file(source_root, manifest)
         source_digest = self._compute_directory_digest(source_root)
-        if manifest.backend is not None:
-            self._prepare_backend_runtime(
-                plugin_id=manifest.id,
-                version=manifest.version,
-                source_digest_sha256=source_digest,
-                plugin_root=source_root,
-            )
         resolved_scope = normalize_scope(scope)
         existing_entry = self._find_entry(
             manifest.id,
@@ -3781,13 +3753,16 @@ class PluginManager:
             existing_entry.has_backend if existing_entry is not None else False
         )
         target = self._target_plugin_path(resolved_scope, manifest.id)
+        self._ensure_target_path_available(target_path=target, force=force)
+        if manifest.backend is not None:
+            self._prepare_backend_runtime(
+                plugin_id=manifest.id,
+                version=manifest.version,
+                source_digest_sha256=source_digest,
+                plugin_root=source_root,
+            )
         target.parent.mkdir(parents=True, exist_ok=True)
         if target.exists() or target.is_symlink():
-            if not force:
-                raise PluginManagerError(
-                    "PLUGIN_TARGET_EXISTS",
-                    f"Plugin already exists at {target}. Use force to overwrite.",
-                )
             self._backup_existing_plugin(manifest.id, resolved_scope, target)
             if target.is_dir() and not target.is_symlink():
                 shutil.rmtree(target)
@@ -5688,12 +5663,8 @@ class PluginManager:
         installer_backend: PluginInstallerBackend,
     ) -> None:
         target_path.parent.mkdir(parents=True, exist_ok=True)
+        self._ensure_target_path_available(target_path=target_path, force=force)
         if target_path.exists() or target_path.is_symlink():
-            if not force:
-                raise PluginManagerError(
-                    "PLUGIN_TARGET_EXISTS",
-                    f"Plugin already exists at {target_path}. Use force to overwrite.",
-                )
             self._backup_existing_plugin(candidate.manifest.id, scope, target_path)
             if target_path.is_dir() and not target_path.is_symlink():
                 shutil.rmtree(target_path)
@@ -5716,6 +5687,15 @@ class PluginManager:
             version=candidate.manifest.version,
             source_digest_sha256=candidate.source_digest_sha256,
         )
+
+    def _ensure_target_path_available(self, *, target_path: Path, force: bool) -> None:
+        if force:
+            return
+        if target_path.exists() or target_path.is_symlink():
+            raise PluginManagerError(
+                "PLUGIN_TARGET_EXISTS",
+                f"Plugin already exists at {target_path}. Use force to overwrite.",
+            )
 
     def _backup_existing_plugin(
         self,

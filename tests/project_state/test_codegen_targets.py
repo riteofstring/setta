@@ -794,6 +794,127 @@ class TestCodegenTargetsRunCommand:
             manager.shutdown()
             plugin_manager.shutdown_backend_plugins()
 
+    async def test_refresh_codegen_state_regenerates_when_cached_target_has_extra_files(
+        self,
+    ) -> None:
+        # Cache hits should fail when extra outputs are present so stale files are removed.
+        plugin_manager = self._create_loaded_codegen_plugin_manager()
+        project_config = ProjectConfig(
+            name="PluginCodegenExtraFile",
+            codegenTargets=[
+                ProjectCodegenPluginTarget(
+                    language="setta-fixture-backend-codegen:typescript",
+                    options={"className": "PluginState"},
+                )
+            ],
+        )
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=plugin_manager,
+        )
+        generation_calls = 0
+        original_generate = plugin_manager.generate_backend_codegen_target
+
+        def _counting_generate_backend_codegen_target(
+            *,
+            target_id: str,
+            project_state: dict,
+            target_options: dict[str, Any],
+        ) -> list[tuple[str, str]]:
+            nonlocal generation_calls
+            generation_calls += 1
+            return original_generate(
+                target_id=target_id,
+                project_state=project_state,
+                target_options=target_options,
+            )
+
+        plugin_manager.generate_backend_codegen_target = (  # type: ignore[method-assign]
+            _counting_generate_backend_codegen_target
+        )
+        try:
+            await manager._refresh_codegen_state(project_state)
+            assert generation_calls == 1
+
+            target_dir = manager._plugin_codegen_target_dir_name(
+                "setta-fixture-backend-codegen:typescript"
+            )
+            output_root = (
+                build_project_sections_dir(C.CODE_FOLDER, project_config.name)
+                / "plugin_codegen"
+                / target_dir
+            )
+            stale_output = output_root / "stale-extra.ts"
+            stale_output.write_text("// stale output\n", encoding="utf-8")
+            assert stale_output.exists()
+
+            await manager._refresh_codegen_state(project_state)
+            assert generation_calls == 2
+            assert not stale_output.exists()
+        finally:
+            manager.shutdown()
+            plugin_manager.shutdown_backend_plugins()
+
+    async def test_refresh_codegen_state_uses_output_metadata_to_skip_rehashing(
+        self,
+    ) -> None:
+        # Unchanged cached outputs should short-circuit on metadata without content rehashing.
+        plugin_manager = self._create_loaded_codegen_plugin_manager()
+        project_config = ProjectConfig(
+            name="PluginCodegenMetadataFastPath",
+            codegenTargets=[
+                ProjectCodegenPluginTarget(
+                    language="setta-fixture-backend-codegen:typescript",
+                    options={"className": "PluginState"},
+                )
+            ],
+        )
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=plugin_manager,
+        )
+        try:
+            await manager._refresh_codegen_state(project_state)
+
+            hash_calls = 0
+            original_hash = manager._hash_plugin_codegen_content
+
+            def _counting_hash_plugin_codegen_content(content: str) -> str:
+                nonlocal hash_calls
+                hash_calls += 1
+                return original_hash(content)
+
+            manager._hash_plugin_codegen_content = (  # type: ignore[method-assign]
+                _counting_hash_plugin_codegen_content
+            )
+            await manager._refresh_codegen_state(project_state)
+            assert hash_calls == 0
+        finally:
+            manager.shutdown()
+            plugin_manager.shutdown_backend_plugins()
+
     async def test_refresh_codegen_state_handles_dir_to_file_path_transitions(
         self,
     ) -> None:
