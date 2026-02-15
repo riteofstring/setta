@@ -64,8 +64,8 @@ export function PaneContainer({
   const style = `${!right ? "-" : ""}${width - CLOSED_PANE_WIDTH}px`;
 
   const rightCondition = right
-    ? "justify-self-end left-auto border-l pr-7 place-items-center"
-    : "justify-self-start right-auto border-r pl-9 place-items-center";
+    ? "justify-self-end left-auto border-l pr-7"
+    : "justify-self-start right-auto border-r pl-9";
   const paddingClasses = paddingClassName ?? "py-2.5";
 
   // flex flex-grow flex-col
@@ -87,7 +87,7 @@ export function PaneContainer({
         bottomLeft: false,
         topLeft: false,
       }}
-      className={`single-cell-container z-10 col-start-1 col-end-2 row-start-2 row-end-3  min-h-0 min-w-0 border-setta-200 bg-setta-50 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${paddingClasses} ${rightCondition} overflow-clip`}
+      className={`single-cell-container z-10 col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 border-setta-200 bg-setta-50 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${paddingClasses} ${rightCondition} overflow-x-hidden overflow-y-hidden`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
     >
       {children}
