@@ -176,7 +176,6 @@ describe("Overview rail offsets", () => {
     });
     syncStoreInitialState(useProjectState);
     syncStoreInitialState(useLocalStorage);
-
     const markup = renderToStaticMarkup(
       <MemoryRouter>
         <Overview />
@@ -189,5 +188,22 @@ describe("Overview rail offsets", () => {
     expect(markup).toContain("view-modes-project-configs-resize-handle");
     expect(markup).toContain("view-modes-project-configs-section");
     expect(markup).toContain("Toggle config previews.");
+  });
+
+  it("renders the project ai chat icon before the overview icon by default", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <Overview />
+      </MemoryRouter>,
+    );
+
+    const chatIndex = markup.indexOf(
+      'data-testid="overview-tab-project-ai-chat"',
+    );
+    const overviewIndex = markup.indexOf('data-testid="overview-tab-overview"');
+
+    expect(chatIndex).toBeGreaterThanOrEqual(0);
+    expect(overviewIndex).toBeGreaterThanOrEqual(0);
+    expect(chatIndex).toBeLessThan(overviewIndex);
   });
 });

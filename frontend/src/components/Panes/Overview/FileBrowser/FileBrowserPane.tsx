@@ -405,6 +405,7 @@ export function FileBrowserPane({
         maxEntries: MAX_ENTRIES,
         includeMtime: true,
         includeSettaInitialized: includeSettaInitializedFolders,
+        missingFolderBehavior: "empty",
       });
       if (rootRequestIdRef.current !== activeRootRequestId) {
         return null;
