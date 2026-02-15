@@ -328,6 +328,127 @@ test("project chat keeps browser fallback dictation active until the user stops"
   }
 });
 
+test("project chat streams provider transcription before mic stop", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "SpeechRecognition", {
+      value: undefined,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitSpeechRecognition", {
+      value: undefined,
+      configurable: true,
+    });
+
+    class MockMediaRecorder {
+      static isTypeSupported(_mimeType: string) {
+        return true;
+      }
+
+      mimeType = "audio/webm";
+      state: "inactive" | "recording" = "inactive";
+      ondataavailable: ((event: { data?: Blob }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      onstop: (() => void) | null = null;
+      private _intervalId: ReturnType<typeof setInterval> | null = null;
+      private _chunkIndex = 0;
+
+      start(timeslice?: number) {
+        this.state = "recording";
+        const intervalMs =
+          typeof timeslice === "number" && timeslice > 0 ? timeslice : 120;
+        this._intervalId = setInterval(() => {
+          if (this.state !== "recording") {
+            return;
+          }
+          this._chunkIndex += 1;
+          if (this.ondataavailable) {
+            this.ondataavailable({
+              data: new Blob([`chunk-${this._chunkIndex}`], {
+                type: "audio/webm",
+              }),
+            });
+          }
+        }, intervalMs);
+      }
+
+      stop() {
+        this.state = "inactive";
+        if (this._intervalId) {
+          clearInterval(this._intervalId);
+          this._intervalId = null;
+        }
+        if (this.onstop) {
+          this.onstop();
+        }
+      }
+    }
+
+    Object.defineProperty(window, "MediaRecorder", {
+      value: MockMediaRecorder,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: {
+        getUserMedia: () =>
+          Promise.resolve({
+            getTracks: () => [{ stop: () => undefined }],
+          }),
+      },
+      configurable: true,
+    });
+  });
+
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+  const transcriptionCleanup = await configureProjectChatTranscriptionProfile({
+    page,
+    dictationMode: "provider",
+  });
+
+  let transcriptionCallCount = 0;
+  await page.route(`${BACKEND_ORIGIN}/api/transcribeChatAudio`, async (route) => {
+    transcriptionCallCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ text: `streamed-${transcriptionCallCount}` }),
+    });
+  });
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    const micButton = overviewPane.getByRole("button", { name: "Mic" });
+    await expect(micButton).toBeVisible();
+    await micButton.click();
+
+    await expect(
+      overviewPane.getByRole("button", { name: "Stop Mic" }),
+    ).toBeVisible();
+    await expect
+      .poll(() => transcriptionCallCount, { timeout: 10_000 })
+      .toBeGreaterThanOrEqual(1);
+    await expect(overviewPane.locator("textarea")).toHaveValue(/streamed-1/);
+
+    await overviewPane.getByRole("button", { name: "Stop Mic" }).click();
+    await expect(overviewPane.locator("textarea")).toHaveValue(/streamed-1/);
+  } finally {
+    await transcriptionCleanup();
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project chat releases provider mic stream when recorder start fails", async ({
   page,
 }) => {
@@ -409,7 +530,7 @@ test("project chat releases provider mic stream when recorder start fails", asyn
     await micButton.click();
 
     await expect(
-      overviewPane.getByText("Microphone access was denied."),
+      overviewPane.getByText("Provider dictation is not available."),
     ).toBeVisible();
     await expect
       .poll(async () => {
