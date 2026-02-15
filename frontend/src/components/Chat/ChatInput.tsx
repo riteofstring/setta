@@ -48,7 +48,8 @@ const SLASH_SUGGESTIONS_EDGE_PADDING_PX = 8;
 const SLASH_SUGGESTIONS_BASE_HEIGHT_PX = 12;
 const SLASH_SUGGESTIONS_ROW_HEIGHT_PX = 36;
 const SLASH_SUGGESTIONS_INPUT_INSET_PX = 4;
-const UNKNOWN_SLASH_COMMAND_FEEDBACK = "Unknown or unavailable command. Use /help.";
+const UNKNOWN_SLASH_COMMAND_FEEDBACK =
+  "Unknown or unavailable command. Use /help.";
 
 type ChatExecutionControls = {
   permissionMode: ChatPermissionModeValue;

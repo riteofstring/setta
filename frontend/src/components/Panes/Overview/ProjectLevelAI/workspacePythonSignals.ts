@@ -1,4 +1,4 @@
-export type WorkspaceRootEntry = {
+type WorkspaceRootEntry = {
   name: string;
   type: string;
 };

@@ -8,8 +8,8 @@ import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import {
   buildChatSlashCommands,
   formatSlashCommandHelp,
-  type ChatPermissionModeValue,
   resolvePermissionModeArg,
+  type ChatPermissionModeValue,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { EngineTypeEnum } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
 import { getDefaultProjectChatPermissionMode } from "./ProjectChatCore";
 
 describe("getDefaultProjectChatPermissionMode", () => {
