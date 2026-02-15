@@ -14,6 +14,7 @@ import {
   type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
+import { useProviderTranscriptionSessionHandlers } from "components/Chat/useProviderTranscriptionSessionHandlers";
 import {
   Dispatch,
   SetStateAction,
@@ -27,8 +28,6 @@ import {
 import { TbLayoutDashboard } from "react-icons/tb";
 import { getRunInputString } from "state/actions/agentRunUtils";
 import {
-  appendTranscriptionAudio,
-  cancelTranscriptionSession,
   clearPendingChatDetails,
   finalizePendingChatDetails,
   getDefaultChatDetails,
@@ -36,9 +35,7 @@ import {
   getLLMChat,
   initializePendingChatDetails,
   loadAgentRuns,
-  startTranscriptionSession,
   stopProjectChatResponse,
-  stopTranscriptionSession,
   submitEditedMessage,
   submitMessage,
 } from "state/actions/ai";
@@ -57,6 +54,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   AgentRun,
+  ChatDictationMode,
   ChatFileAttachment,
   EngineTypeEnum,
 } from "utils/generatedTypes";
@@ -433,7 +431,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   externalEngineAvailable: boolean;
   noLLMConfigsAvailable: boolean;
   transcriptionProfileId: string | null;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
   providerDictationAvailable: boolean;
   providerDictationUnavailableReason: string;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
@@ -819,51 +817,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     const starterPrompt = buildDesignFirstFigmaStarterPrompt();
     setDraftMessage((current) => (current.trim() ? current : starterPrompt));
   }, []);
-  const handleProviderTranscriptionSessionStart = useCallback(async () => {
-    if (!transcriptionProfileId) {
-      return null;
-    }
-    return startTranscriptionSession(transcriptionProfileId);
-  }, [transcriptionProfileId]);
-
-  const handleProviderTranscriptionSessionAppend = useCallback(
-    async (
-      sessionId: string,
-      audioPcm16: ArrayBuffer,
-      sampleRateHz: number,
-      channels: number,
-    ) => {
-      const response = await appendTranscriptionAudio(
-        sessionId,
-        audioPcm16,
-        sampleRateHz,
-        channels,
-      );
-      if (!response) {
-        return null;
-      }
-      return response.appendText || null;
-    },
-    [],
-  );
-
-  const handleProviderTranscriptionSessionStop = useCallback(
-    async (sessionId: string) => {
-      const response = await stopTranscriptionSession(sessionId);
-      if (!response) {
-        return null;
-      }
-      return response.appendText || null;
-    },
-    [],
-  );
-
-  const handleProviderTranscriptionSessionCancel = useCallback(
-    async (sessionId: string) => {
-      await cancelTranscriptionSession(sessionId);
-    },
-    [],
-  );
+  const {
+    onProviderTranscriptionSessionStart: handleProviderTranscriptionSessionStart,
+    onProviderTranscriptionSessionAppend: handleProviderTranscriptionSessionAppend,
+    onProviderTranscriptionSessionStop: handleProviderTranscriptionSessionStop,
+    onProviderTranscriptionSessionCancel: handleProviderTranscriptionSessionCancel,
+  } = useProviderTranscriptionSessionHandlers({
+    transcriptionProfileId,
+    suppressStartNotification: dictationMode === "auto",
+  });
 
   return (
     <>

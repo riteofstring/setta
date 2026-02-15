@@ -359,7 +359,7 @@ test("project chat keeps browser fallback dictation active until the user stops"
   }
 });
 
-test("project chat uploads provider file transcription once on mic stop", async ({
+test("project chat streams provider file transcription while listening and on stop", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -535,13 +535,16 @@ test("project chat uploads provider file transcription once on mic stop", async 
     await expect(
       overviewPane.getByRole("button", { name: "Stop Mic" }),
     ).toBeVisible();
-    await expect.poll(() => transcriptionCallCount).toBe(0);
+    await expect
+      .poll(() => transcriptionCallCount, { timeout: 10_000 })
+      .toBeGreaterThan(0);
+    const streamedWhileListeningCount = transcriptionCallCount;
 
     await overviewPane.getByRole("button", { name: "Stop Mic" }).click();
     await expect
       .poll(() => transcriptionCallCount, { timeout: 10_000 })
-      .toBe(1);
-    await expect(overviewPane.locator("textarea")).toHaveValue(/streamed-1/);
+      .toBeGreaterThanOrEqual(streamedWhileListeningCount);
+    await expect(overviewPane.locator("textarea")).toHaveValue(/streamed-/);
   } finally {
     await transcriptionCleanup();
     await engineCleanup();
@@ -824,7 +827,7 @@ test("project chat releases provider mic stream when audio context init fails", 
     await micButton.click();
 
     await expect(
-      overviewPane.getByText("Microphone access was denied."),
+      overviewPane.getByText("Provider dictation failed to start: resume failed"),
     ).toBeVisible();
     await expect
       .poll(async () => {

@@ -29,6 +29,7 @@ import {
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
+  ChatDictationMode,
   ChartDataMapping,
   createProjectConfig,
   createSingletonSections,
@@ -722,7 +723,7 @@ type ZustandAIStore = {
   transcriptionProfilesLoadError: string | null;
   transcriptionProfilesLoading: boolean;
   pendingProjectChatPrompt: string | null;
-  projectChatDictationMode: "auto" | "browser" | "provider";
+  projectChatDictationMode: ChatDictationMode;
   projectChatTranscriptionProfileId: string | null;
 };
 

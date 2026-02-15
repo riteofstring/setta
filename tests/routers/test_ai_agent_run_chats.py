@@ -1150,6 +1150,30 @@ class TestAgentRunChatRoutes:
                 == "Missing API key for 'OPENAI_API_KEY'. Configure it in LLM API Keys."
             )
 
+    async def test_start_transcription_session_missing_profile_returns_404(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_start_transcription_session(
+                        StartTranscriptionSessionRequest(
+                            transcriptionProfileId=ID("missing-profile"),
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 404
+            assert exc.value.detail == "Transcription profile missing-profile not found"
+
     async def test_transcription_session_scope_mismatch_does_not_remove_owner_session(
         self,
     ) -> None:

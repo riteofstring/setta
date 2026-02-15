@@ -81,6 +81,7 @@ DEFAULT_SHARE_RUN_TTL_SECONDS = 60 * 30
 DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS = 60 * 5
 DEFAULT_SHARE_SESSION_TTL_SECONDS = 60 * 30
 DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS = 60 * 5
+DEFAULT_TRANSCRIPTION_SESSION_CLEANUP_INTERVAL_SECONDS = 60
 
 
 def cleanup_share_run_output(
@@ -162,6 +163,16 @@ async def run_share_session_cleanup_loop(
             terminals,
             realtime_event_hub,
         )
+        await asyncio.sleep(interval_seconds)
+
+
+async def run_transcription_session_cleanup_loop(
+    transcription_session_manager: TranscriptionSessionManager,
+    *,
+    interval_seconds: int = DEFAULT_TRANSCRIPTION_SESSION_CLEANUP_INTERVAL_SECONDS,
+) -> None:
+    while True:
+        await transcription_session_manager.prune_expired_sessions()
         await asyncio.sleep(interval_seconds)
 
 
@@ -280,6 +291,7 @@ class SettaFastAPIState:
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
         self.transcription_session_manager = TranscriptionSessionManager()
+        self.transcription_session_cleanup_task: asyncio.Task[None] | None = None
 
         self.lsps: LSPServers | None = self._defer_attr("lsps")
         self.lsp_writers: LSPWriters | None = self._defer_attr("lsp_writers")
@@ -565,11 +577,13 @@ class SettaFastAPIState:
                 await start_lsps(self.lsps, self.lsp_readers, self.lsp_writers)
             if self.specific_file_watcher:
                 self.specific_file_watcher.start()
+            self._start_transcription_session_cleanup_loop()
 
             self._ready_event.set()
             self.init_status.record("Backend ready")
             self.init_status.mark_ready()
         except Exception as exc:
+            await self.stop_transcription_session_cleanup_loop()
             try:
                 self.plugin_manager.shutdown_backend_plugins()
             except Exception:
@@ -698,6 +712,7 @@ class SettaFastAPIState:
         self.plugin_manager.load_backend_plugins(app=app)
         if self.specific_file_watcher:
             self.specific_file_watcher.start()
+        self._start_transcription_session_cleanup_loop()
         self._ready_event.set()
         self.init_status.record(
             "App backend ready" if self.app_mode else "Share backend ready"
@@ -707,6 +722,29 @@ class SettaFastAPIState:
     async def wait_until_ready(self) -> None:
         await self._initialization_task
         await self._ready_event.wait()
+
+    def _start_transcription_session_cleanup_loop(self) -> None:
+        if self.transcription_session_cleanup_task is not None:
+            return
+        self.transcription_session_cleanup_task = spawn_background_task(
+            run_transcription_session_cleanup_loop(
+                self.transcription_session_manager,
+                interval_seconds=DEFAULT_TRANSCRIPTION_SESSION_CLEANUP_INTERVAL_SECONDS,
+            ),
+            label="transcription-session-cleanup",
+            extra_values={"mode": self._resolve_server_mode()},
+        )
+
+    async def stop_transcription_session_cleanup_loop(self) -> None:
+        task = self.transcription_session_cleanup_task
+        if task is None:
+            return
+        self.transcription_session_cleanup_task = None
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            return
 
     def _resolve_deployment_root(
         self, deployment_mode: bool, deployment_root: Path | None

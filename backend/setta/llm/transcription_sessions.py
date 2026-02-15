@@ -407,6 +407,9 @@ class TranscriptionSessionManager:
         chunk_ms = profile.chunkMs if resolved_transport_mode == "realtime" else 0
         return session_id, resolved_transport_mode, chunk_ms
 
+    async def prune_expired_sessions(self) -> None:
+        await self._close_expired_sessions(time.monotonic())
+
     async def append_audio(
         self,
         *,

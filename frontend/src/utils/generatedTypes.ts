@@ -379,11 +379,13 @@ export const BrowserAreaViewModeEnum = {
 
 export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
 
-const ChatDictationModeEnum = {
+export const ChatDictationModeEnum = {
   auto: "auto",
   browser: "browser",
   provider: "provider",
 } as const;
+
+export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
 
 export const ChatPermissionModeEnum = {
   minimal: "minimal",

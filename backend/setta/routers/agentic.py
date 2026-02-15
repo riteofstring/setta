@@ -237,6 +237,29 @@ def _get_plugin_external_agent_adapters(
     return ctx.state.external_agent_runner.get_plugin_external_agent_adapters()
 
 
+def _require_valid_transcription_llm_config_id(
+    ctx: RuntimeContextFromRequest,
+    transcription_llm_config_id: str,
+) -> str:
+    normalized_config_id = transcription_llm_config_id.strip()
+    if not normalized_config_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Transcription profile requires a transcription LLM config id.",
+        )
+    try:
+        ctx.state.agent_runner.config.resolve_config(normalized_config_id)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Transcription profile references unknown transcription "
+                f"LLM config '{normalized_config_id}'."
+            ),
+        ) from exc
+    return normalized_config_id
+
+
 def _validate_plugin_external_agent_selection(
     ctx: RuntimeContextFromRequest,
     *,
@@ -902,10 +925,13 @@ async def route_create_transcription_profile(
 ) -> TranscriptionProfile:
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow creating transcription profiles.")
+    transcription_llm_config_id = _require_valid_transcription_llm_config_id(
+        ctx, x.transcriptionLlmConfigId
+    )
     profiles = load_transcription_profiles(ctx.state.dbe)
     profile = TranscriptionProfile(
         name=x.name,
-        transcriptionLlmConfigId=x.transcriptionLlmConfigId,
+        transcriptionLlmConfigId=transcription_llm_config_id,
         transportMode=x.transportMode,
         chunkMs=x.chunkMs,
         language=x.language,
@@ -925,15 +951,21 @@ async def route_update_transcription_profile(
 ) -> TranscriptionProfile:
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow updating transcription profiles.")
+    transcription_llm_config_id = _require_valid_transcription_llm_config_id(
+        ctx, x.profile.transcriptionLlmConfigId
+    )
     profiles = load_transcription_profiles(ctx.state.dbe)
+    next_profile = x.profile.model_copy(
+        update={"transcriptionLlmConfigId": transcription_llm_config_id}
+    )
     for idx, profile in enumerate(profiles):
-        if profile.id == x.profile.id:
-            profiles[idx] = x.profile
+        if profile.id == next_profile.id:
+            profiles[idx] = next_profile
             save_transcription_profiles(ctx.state.dbe, profiles)
             await ctx.state.wmh_frontend_sender.broadcast_transcription_profiles_update(
                 profiles
             )
-            return x.profile
+            return next_profile
     raise HTTPException(status_code=404, detail="Transcription profile not found")
 
 

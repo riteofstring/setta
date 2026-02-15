@@ -173,6 +173,7 @@ function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
 export async function startTranscriptionSession(
   transcriptionProfileId: string,
   language: string | null = null,
+  options: { suppressNotification?: boolean } = {},
 ): Promise<StartTranscriptionSessionResponse | null> {
   if (!transcriptionProfileId) {
     return null;
@@ -183,7 +184,9 @@ export async function startTranscriptionSession(
   });
   if (!res200(res)) {
     const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    if (!options.suppressNotification) {
+      addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    }
     return null;
   }
   return res.data;

@@ -160,7 +160,7 @@ _DEFAULT_TRANSCRIPTION_PROFILES: list[TranscriptionProfile] = [
         id="transcription-openai-whisper-1",
         name="OpenAI Whisper 1",
         transcriptionLlmConfigId="openai-whisper-1",
-        transportMode=TranscriptionTransportMode.auto,
+        transportMode=TranscriptionTransportMode.file,
         chunkMs=1200,
         language=None,
     ),

@@ -23,7 +23,7 @@ import {
   IoStop,
 } from "react-icons/io5";
 import { formatBytes } from "utils/attachments";
-import { ChatFileAttachment } from "utils/generatedTypes";
+import { ChatDictationMode, ChatFileAttachment } from "utils/generatedTypes";
 import {
   CHAT_SLASH_COMMANDS,
   type ChatPermissionModeValue,
@@ -108,27 +108,6 @@ function int16ToArrayBuffer(samples: Int16Array): ArrayBuffer {
   return view.slice().buffer;
 }
 
-function mergeArrayBuffers(chunks: ArrayBuffer[]): ArrayBuffer {
-  if (chunks.length === 0) {
-    return new ArrayBuffer(0);
-  }
-  if (chunks.length === 1) {
-    return chunks[0];
-  }
-  let totalBytes = 0;
-  for (const chunk of chunks) {
-    totalBytes += chunk.byteLength;
-  }
-  const merged = new Uint8Array(totalBytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    const bytes = new Uint8Array(chunk);
-    merged.set(bytes, offset);
-    offset += bytes.byteLength;
-  }
-  return merged.buffer;
-}
-
 export function areSlashSuggestionsPortalStylesEqual(
   current: CSSProperties | null,
   next: CSSProperties | null,
@@ -180,7 +159,7 @@ export function resolveDictationStartPath({
   canProviderDictate,
   canBrowserDictate,
 }: {
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
   canProviderDictate: boolean;
   canBrowserDictate: boolean;
 }): DictationStartPath {
@@ -203,13 +182,42 @@ export function resolveDictationUnavailableFeedback({
   dictationMode,
   providerUnavailableMessage,
 }: {
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
   providerUnavailableMessage: string;
 }): string {
   if (dictationMode === "provider") {
     return providerUnavailableMessage;
   }
   return "Dictation is not available.";
+}
+
+function isMicrophonePermissionError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  const normalizedName = error.name.toLowerCase();
+  const normalizedMessage = error.message.toLowerCase();
+  if (
+    normalizedName.includes("notallowed") ||
+    normalizedName.includes("permissiondenied")
+  ) {
+    return true;
+  }
+  return (
+    normalizedMessage.includes("permission denied") ||
+    normalizedMessage.includes("permission") ||
+    normalizedMessage.includes("microphone access was denied")
+  );
+}
+
+function resolveProviderStartFailureFeedback(error: unknown): string {
+  if (isMicrophonePermissionError(error)) {
+    return "Microphone access was denied.";
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return `Provider dictation failed to start: ${error.message.trim()}`;
+  }
+  return "Provider dictation failed to start.";
 }
 
 type ChatInputProps = {
@@ -231,7 +239,7 @@ type ChatInputProps = {
     command: ChatSlashCommand,
   ) => Promise<ChatSlashCommandResult | void> | ChatSlashCommandResult | void;
   slashSuggestionsPlacement?: "auto" | "above" | "below";
-  dictationMode?: "auto" | "browser" | "provider";
+  dictationMode?: ChatDictationMode;
   onProviderTranscriptionSessionStart?: () => Promise<ProviderTranscriptionSessionStart | null>;
   onProviderTranscriptionSessionAppend?: (
     sessionId: string,
@@ -294,7 +302,6 @@ export const ChatInput = memo(function ChatInput({
   const providerProcessorNodeRef = useRef<ScriptProcessorNode | null>(null);
   const providerStreamRef = useRef<MediaStream | null>(null);
   const providerPcmPendingRef = useRef<Int16Array>(new Int16Array(0));
-  const providerFilePcmChunksRef = useRef<ArrayBuffer[]>([]);
   const providerPcmQueueRef = useRef<ArrayBuffer[]>([]);
   const providerTranscriptionInFlightRef = useRef(false);
   const providerStopRequestedRef = useRef(false);
@@ -786,7 +793,6 @@ export const ChatInput = memo(function ChatInput({
 
   const resetProviderCaptureSession = useCallback(() => {
     providerPcmPendingRef.current = new Int16Array(0);
-    providerFilePcmChunksRef.current = [];
     providerPcmQueueRef.current = [];
     providerTranscriptionInFlightRef.current = false;
     providerStopRequestedRef.current = false;
@@ -980,12 +986,6 @@ export const ChatInput = memo(function ChatInput({
         providerPcmQueueRef.current.push(int16ToArrayBuffer(pending));
         providerPcmPendingRef.current = new Int16Array(0);
       }
-    } else {
-      const mergedChunk = mergeArrayBuffers(providerFilePcmChunksRef.current);
-      providerFilePcmChunksRef.current = [];
-      if (mergedChunk.byteLength > 0) {
-        providerPcmQueueRef.current.push(mergedChunk);
-      }
     }
     teardownProviderAudioCapture();
     setDictationState("transcribing");
@@ -1150,7 +1150,6 @@ export const ChatInput = memo(function ChatInput({
           ? Math.max(200, startedSession.chunkMs || PROVIDER_DEFAULT_CHUNK_MS)
           : PROVIDER_DEFAULT_CHUNK_MS;
       providerPcmPendingRef.current = new Int16Array(0);
-      providerFilePcmChunksRef.current = [];
       providerPcmQueueRef.current = [];
       providerTranscriptionInFlightRef.current = false;
       providerStopRequestedRef.current = false;
@@ -1211,11 +1210,12 @@ export const ChatInput = memo(function ChatInput({
           flushProviderPcmQueue(sessionId);
           return;
         }
-        providerFilePcmChunksRef.current.push(int16ToArrayBuffer(pcmChunk));
+        providerPcmQueueRef.current.push(int16ToArrayBuffer(pcmChunk));
+        flushProviderPcmQueue(sessionId);
       };
       setDictationState("listening");
       setDictationFeedback("Listening...");
-    } catch {
+    } catch (error) {
       if (backendSessionId) {
         await onProviderTranscriptionSessionCancel(backendSessionId);
       }
@@ -1224,7 +1224,7 @@ export const ChatInput = memo(function ChatInput({
         return;
       }
       setDictationState("error");
-      setDictationFeedback("Microphone access was denied.");
+      setDictationFeedback(resolveProviderStartFailureFeedback(error));
     }
   }, [
     canProviderDictate,

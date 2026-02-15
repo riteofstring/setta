@@ -625,6 +625,8 @@ def _raise_transcription_key_error(exc: KeyError) -> None:
         if exc.args and isinstance(exc.args[0], str)
         else "Transcription session error."
     )
+    if "Transcription profile" in detail and "not found" in detail:
+        raise HTTPException(status_code=404, detail=detail) from exc
     if "Transcription session" in detail and "not found" in detail:
         raise HTTPException(status_code=404, detail=detail) from exc
     raise HTTPException(status_code=400, detail=detail) from exc
@@ -906,7 +908,7 @@ async def route_start_transcription_session(
             x.transcriptionProfileId,
         )
     except KeyError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _raise_transcription_key_error(exc)
     try:
         (
             session_id,

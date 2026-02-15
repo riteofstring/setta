@@ -164,4 +164,19 @@ describe("transcription session actions", () => {
       SettaNotificationTypeEnum.warning,
     );
   });
+
+  it("suppresses start-session warnings when requested", async () => {
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
+      status: 400,
+      hasResponse: true,
+      data: { detail: "Missing API key for OPENAI_API_KEY." },
+    });
+
+    const response = await startTranscriptionSession("transcription-1", null, {
+      suppressNotification: true,
+    });
+
+    expect(response).toBeNull();
+    expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+  });
 });

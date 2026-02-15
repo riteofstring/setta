@@ -976,7 +976,7 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
                 </Field>
                 <Field
                   label="Chunk (ms)"
-                  hint="Used by file transport and capture batching."
+                  hint="Used for realtime transport chunking. File mode ignores this value."
                 >
                   <input
                     value={draft.chunkMs}
@@ -986,7 +986,10 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
                       )
                     }
                     className={INPUT_CLASS_NAME}
-                    disabled={!canEdit}
+                    disabled={
+                      !canEdit ||
+                      draft.transportMode === TranscriptionTransportModeEnum.file
+                    }
                   />
                 </Field>
                 <Field

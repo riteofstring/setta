@@ -30,6 +30,16 @@ class TestAgenticExampleConfigSeeding:
                 item.get("id") == "transcription-openai-whisper-1"
                 for item in transcription_profiles
             )
+            whisper_profile = next(
+                (
+                    item
+                    for item in transcription_profiles
+                    if item.get("id") == "transcription-openai-whisper-1"
+                ),
+                None,
+            )
+            assert whisper_profile is not None
+            assert whisper_profile.get("transportMode") == "file"
 
     def test_seed_agentic_config_files_preserves_existing_files(self) -> None:
         with TemporaryDirectory() as tmpdir:

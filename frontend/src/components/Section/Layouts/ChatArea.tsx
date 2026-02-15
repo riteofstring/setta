@@ -15,6 +15,7 @@ import {
   type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
+import { resolveProviderDictationAvailability } from "components/Chat/dictationMode";
 import {
   getChatPlaceholderText,
   getExternalEngineStatus,
@@ -25,22 +26,19 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
+import { useProviderTranscriptionSessionHandlers } from "components/Chat/useProviderTranscriptionSessionHandlers";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  appendTranscriptionAudio,
-  cancelTranscriptionSession,
   clearPendingChatDetails,
   getDefaultChatDetails,
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
   loadAgentRuns,
-  startTranscriptionSession,
   stopManagedSectionChatResponse,
-  stopTranscriptionSession,
   submitEditedMessage,
   submitMessage,
 } from "state/actions/ai";
@@ -75,6 +73,7 @@ import {
 import {
   AgentRun,
   AgenticEdgeKindEnum,
+  ChatDictationMode,
   ChatFileAttachment,
   ChatRoleEnum,
   ChatSectionState,
@@ -342,7 +341,7 @@ type ScriptableChatAreaProps = {
   isFrozen: boolean;
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
 };
 
 function ScriptableChatArea({
@@ -1083,7 +1082,7 @@ type ManagedChatAreaProps = {
   thinking: boolean;
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
 };
 
 function ManagedChatArea({
@@ -1245,21 +1244,18 @@ function ManagedChatArea({
       ) ?? null
     );
   }, [transcriptionProfileId, transcriptionProfiles]);
-  const selectedTranscriptionLLMConfigId =
-    selectedTranscriptionProfile?.transcriptionLlmConfigId ?? null;
-  const providerDictationAvailable = Boolean(
-    selectedTranscriptionLLMConfigId &&
-      allLLMConfigs?.configs?.[selectedTranscriptionLLMConfigId],
+  const {
+    providerDictationAvailable,
+    providerDictationUnavailableReason,
+  } = useMemo(
+    () =>
+      resolveProviderDictationAvailability({
+        selectedTranscriptionProfile,
+        allLLMConfigs,
+        apiKeys,
+      }),
+    [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
   );
-  const providerDictationUnavailableReason = useMemo(() => {
-    if (!selectedTranscriptionProfile) {
-      return "Provider dictation requires a transcription profile.";
-    }
-    if (!providerDictationAvailable) {
-      return "Selected transcription profile has an invalid transcription config.";
-    }
-    return "Provider dictation is not available.";
-  }, [providerDictationAvailable, selectedTranscriptionProfile]);
   const hasEngineConfig = Boolean(selectedEngineConfig);
   const hasLLMConfig = Boolean(selectedLLMConfigId);
   const externalEngineStatus = useMemo(
@@ -1702,51 +1698,15 @@ function ManagedChatArea({
     }),
     [executionControlHandlers.onPermissionModeChange, permissionMode],
   );
-  const handleProviderTranscriptionSessionStart = useCallback(async () => {
-    if (!transcriptionProfileId) {
-      return null;
-    }
-    return startTranscriptionSession(transcriptionProfileId);
-  }, [transcriptionProfileId]);
-
-  const handleProviderTranscriptionSessionAppend = useCallback(
-    async (
-      sessionId: string,
-      audioPcm16: ArrayBuffer,
-      sampleRateHz: number,
-      channels: number,
-    ) => {
-      const response = await appendTranscriptionAudio(
-        sessionId,
-        audioPcm16,
-        sampleRateHz,
-        channels,
-      );
-      if (!response) {
-        return null;
-      }
-      return response.appendText || null;
-    },
-    [],
-  );
-
-  const handleProviderTranscriptionSessionStop = useCallback(
-    async (sessionId: string) => {
-      const response = await stopTranscriptionSession(sessionId);
-      if (!response) {
-        return null;
-      }
-      return response.appendText || null;
-    },
-    [],
-  );
-
-  const handleProviderTranscriptionSessionCancel = useCallback(
-    async (sessionId: string) => {
-      await cancelTranscriptionSession(sessionId);
-    },
-    [],
-  );
+  const {
+    onProviderTranscriptionSessionStart: handleProviderTranscriptionSessionStart,
+    onProviderTranscriptionSessionAppend: handleProviderTranscriptionSessionAppend,
+    onProviderTranscriptionSessionStop: handleProviderTranscriptionSessionStop,
+    onProviderTranscriptionSessionCancel: handleProviderTranscriptionSessionCancel,
+  } = useProviderTranscriptionSessionHandlers({
+    transcriptionProfileId,
+    suppressStartNotification: dictationMode === "auto",
+  });
 
   return (
     <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>

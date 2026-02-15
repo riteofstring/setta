@@ -12,6 +12,10 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
+import {
+  DICTATION_MODE_ITEMS,
+  resolveProviderDictationAvailability,
+} from "components/Chat/dictationMode";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
@@ -33,6 +37,7 @@ import { updateEngineConfig } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import {
   AllLLMConfigs,
+  ChatDictationMode,
   EngineConfig,
   EngineTypeEnum,
   ExternalAgentPreflightStatus,
@@ -53,7 +58,7 @@ type ProjectAISettingsPopoverProps = {
   selectedEngineId: string | null;
   selectedLLMConfigId: string | null;
   selectedTranscriptionProfileId: string | null;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
   engineType: EngineTypeEnum | null;
   noConfigsAvailable: boolean;
   onEngineChange: (value: string | null) => void;
@@ -61,17 +66,6 @@ type ProjectAISettingsPopoverProps = {
   onTranscriptionProfileChange: (value: string | null) => void;
   onDictationModeChange: (value: string | null) => void;
 };
-
-const DICTATION_MODE_ITEMS: AllItemsType<string> = [
-  {
-    group: "Dictation Modes",
-    items: [
-      { id: "auto", name: "Auto" },
-      { id: "browser", name: "Browser" },
-      { id: "provider", name: "Provider" },
-    ],
-  },
-];
 
 export function ProjectChat() {
   const chatId = useAIStore((state) => state.activeChatId);
@@ -223,22 +217,18 @@ export function ProjectChat() {
       ) ?? null
     );
   }, [projectChatTranscriptionProfileId, transcriptionProfiles]);
-  const selectedTranscriptionLLMConfigId =
-    selectedTranscriptionProfile?.transcriptionLlmConfigId ?? null;
-  const hasValidTranscriptionConfig = Boolean(
-    selectedTranscriptionLLMConfigId &&
-      allLLMConfigs?.configs?.[selectedTranscriptionLLMConfigId],
+  const {
+    providerDictationAvailable,
+    providerDictationUnavailableReason,
+  } = useMemo(
+    () =>
+      resolveProviderDictationAvailability({
+        selectedTranscriptionProfile,
+        allLLMConfigs,
+        apiKeys,
+      }),
+    [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
   );
-  const providerDictationAvailable = hasValidTranscriptionConfig;
-  const providerDictationUnavailableReason = useMemo(() => {
-    if (!selectedTranscriptionProfile) {
-      return "Provider dictation requires a transcription profile.";
-    }
-    if (!providerDictationAvailable) {
-      return "Selected transcription profile has an invalid transcription config.";
-    }
-    return "Provider dictation is not available.";
-  }, [providerDictationAvailable, selectedTranscriptionProfile]);
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
   );

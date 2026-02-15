@@ -4,8 +4,10 @@ import pytest
 
 from setta.llm.transcription_sessions import (
     OpenAIRealtimeTranscriptionEngine,
+    TranscriptionSessionManager,
     _is_realtime_fallback_error,
 )
+from setta.types.agentic import TranscriptionProfile, TranscriptionTransportMode
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 
 
@@ -44,6 +46,20 @@ class _BetaClient:
 class _FakeAsyncOpenAI:
     def __init__(self, *, manager: _ConnectionManager, **_kwargs) -> None:
         self.beta = _BetaClient(manager)
+
+
+class _ClosableFileEngine:
+    def __init__(self) -> None:
+        self.close_calls = 0
+
+    async def append_audio(self, *_args, **_kwargs):
+        raise RuntimeError("append_audio should not be called in this test")
+
+    async def stop(self):
+        raise RuntimeError("stop should not be called in this test")
+
+    async def close(self) -> None:
+        self.close_calls += 1
 
 
 @pytest.mark.asyncio
@@ -101,3 +117,46 @@ def test_realtime_fallback_error_accepts_capability_failures() -> None:
         )
         is True
     )
+
+
+@pytest.mark.asyncio
+async def test_prune_expired_sessions_closes_expired_engines(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Session pruning should close expired engines even without follow-up API traffic.
+    manager = TranscriptionSessionManager(session_ttl_seconds=1)
+    llm_config = LLMConfig(
+        id="openai-transcribe",
+        model="whisper-1",
+        provider="openai",
+        api_key_env="OPENAI_API_KEY",
+        mcpServerIds=[],
+    )
+    profile = TranscriptionProfile(
+        id="profile-1",
+        name="File Profile",
+        transcriptionLlmConfigId="openai-transcribe",
+        transportMode=TranscriptionTransportMode.file,
+        chunkMs=1200,
+        language=None,
+    )
+    file_engine = _ClosableFileEngine()
+
+    monkeypatch.setattr(
+        "setta.llm.transcription_sessions._build_file_engine",
+        lambda **_kwargs: file_engine,
+    )
+
+    session_id, _, _ = await manager.start_session(
+        scope_id="scope-1",
+        resolved_profile=SimpleNamespace(profile=profile, llm_config=llm_config),
+        config=AllLLMConfigs(configs={"openai-transcribe": llm_config}, mcpServers={}),
+        api_keys={},
+        language_override=None,
+    )
+    manager._sessions[session_id].last_activity_monotonic -= 5
+
+    await manager.prune_expired_sessions()
+
+    assert session_id not in manager._sessions
+    assert file_engine.close_calls == 1

@@ -2,6 +2,7 @@ import {
   buildEngineGroups,
   getExternalEngineStatus,
 } from "components/Chat/engineUtils";
+import { DICTATION_MODE_ITEMS } from "components/Chat/dictationMode";
 import {
   buildLLMConfigGroups,
   countLLMConfigs,
@@ -43,6 +44,7 @@ import {
   AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
   AgenticSummaryCacheStatus,
+  ChatDictationMode,
   EngineTypeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -59,19 +61,8 @@ type ChatSectionSettingsPayload = {
   thinking: boolean;
   permissionMode: "minimal" | "yolo" | "config_toml_custom";
   searchEnabled: boolean;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
 };
-
-const DICTATION_MODE_ITEMS: AllItemsType<string> = [
-  {
-    group: "Dictation Modes",
-    items: [
-      { id: "auto", name: "Auto" },
-      { id: "browser", name: "Browser" },
-      { id: "provider", name: "Provider" },
-    ],
-  },
-];
 
 export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   useHydrateLLMState();
