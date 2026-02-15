@@ -21,7 +21,7 @@ async def iter_stream_lines(reader: asyncio.StreamReader) -> AsyncIterator[str]:
         chunk = await reader.read(65536)
         if not chunk:
             if buffer:
-                yield _decode_stream_line(bytes(buffer))
+                yield buffer.decode("utf-8", errors="ignore").strip()
             break
         buffer.extend(chunk)
         while True:
@@ -30,14 +30,7 @@ async def iter_stream_lines(reader: asyncio.StreamReader) -> AsyncIterator[str]:
                 break
             line = bytes(buffer[:newline_index])
             del buffer[: newline_index + 1]
-            yield _decode_stream_line(line)
-
-
-def _decode_stream_line(raw_line: bytes) -> str:
-    decoded = raw_line.decode("utf-8", errors="ignore")
-    if decoded.endswith("\r"):
-        return decoded[:-1]
-    return decoded
+            yield line.decode("utf-8", errors="ignore").strip()
 
 
 async def collect_stream_lines(reader: asyncio.StreamReader) -> list[str]:

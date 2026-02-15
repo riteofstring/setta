@@ -18,16 +18,6 @@ def _try_get_git_toplevel(dir_path: Path) -> Path | None:
     return Path(raw)
 
 
-def derive_dev_worktree_name(path: Path) -> str:
-    dirname = path.name
-    if dirname == "setta":
-        return "main"
-    prefix = "setta."
-    if dirname.startswith(prefix) and len(dirname) > len(prefix):
-        return dirname[len(prefix) :]
-    return dirname
-
-
 @lru_cache(maxsize=1)
 def get_repo_root_dir() -> Path | None:
     # Prefer resolving from the source tree (works even if cwd is elsewhere, e.g. tests).
@@ -39,8 +29,15 @@ def get_repo_root_dir() -> Path | None:
     return None
 
 
-def get_active_dev_worktree_name() -> str | None:
+@lru_cache(maxsize=1)
+def get_dev_worktree_name() -> str | None:
     repo_root = get_repo_root_dir()
     if repo_root is None:
         return None
-    return derive_dev_worktree_name(repo_root.resolve(strict=False))
+    dirname = repo_root.name
+    if dirname == "setta":
+        return None
+    prefix = "setta."
+    if dirname.startswith(prefix) and len(dirname) > len(prefix):
+        return dirname[len(prefix) :]
+    return None

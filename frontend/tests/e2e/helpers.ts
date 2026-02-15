@@ -1,9 +1,4 @@
-import {
-  request as playwrightRequest,
-  type ConsoleMessage,
-  type Page,
-  type Response,
-} from "@playwright/test";
+import type { ConsoleMessage, Page, Response } from "@playwright/test";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -332,41 +327,17 @@ export async function cleanupIsolatedProject(
   if (!context) {
     return;
   }
-  // Isolated configs are created for tests only; deleting the config is enough
-  // and avoids an extra metadata write call that has proven flaky under CI load.
-  await postBackendUsingFreshContext(page, "/deleteProjectConfigs", {
+  if (
+    context.defaultProjectConfigId &&
+    context.defaultProjectConfigId !== context.projectConfigId
+  ) {
+    await postBackend(page, "/setAsDefaultProject", {
+      projectConfigId: context.defaultProjectConfigId,
+    });
+  }
+  await postBackend(page, "/deleteProjectConfigs", {
     ids: [context.projectConfigId],
   });
-}
-
-async function postBackendUsingFreshContext<T>(
-  page: Page,
-  path: string,
-  payload: Record<string, unknown> | null,
-): Promise<T | null> {
-  installUnexpectedApiErrorGuard(page);
-  throwIfUnexpectedApiError(page);
-  const storageState = await page.context().storageState();
-  const apiContext = await playwrightRequest.newContext({ storageState });
-  try {
-    const response = await apiContext.post(`${BACKEND_ORIGIN}/api${path}`, {
-      data: payload,
-      timeout: 30_000,
-    });
-    const text = await response.text();
-    if (!response.ok()) {
-      const detail = text ? ` ${text}` : "";
-      throw new Error(
-        `Backend request failed (${response.status()}): ${path}${detail}`,
-      );
-    }
-    if (!text) {
-      return null;
-    }
-    return JSON.parse(text) as T;
-  } finally {
-    await apiContext.dispose();
-  }
 }
 
 export async function ensureManagedChatEngine(
@@ -817,11 +788,7 @@ function consumeExpectedApiErrorOverride(
   method: HttpMethod,
 ): boolean {
   const now = Date.now();
-  for (
-    let index = 0;
-    index < guard.expectedApiErrorOverrides.length;
-    index += 1
-  ) {
+  for (let index = 0; index < guard.expectedApiErrorOverrides.length; index += 1) {
     const override = guard.expectedApiErrorOverrides[index];
     if (override.expiresAtMs < now) {
       guard.expectedApiErrorOverrides.splice(index, 1);
@@ -988,10 +955,7 @@ async function navigateToDefaultProject(page: Page): Promise<void> {
       return;
     }
 
-    const targetUrl = new URL(
-      encodeURIComponent(targetName),
-      BASE_URL,
-    ).toString();
+    const targetUrl = new URL(encodeURIComponent(targetName), BASE_URL).toString();
     await page.goto(withBackendOriginOverride(targetUrl), {
       waitUntil: "domcontentloaded",
     });

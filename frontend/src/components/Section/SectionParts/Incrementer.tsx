@@ -1,6 +1,11 @@
+import _ from "lodash";
 import { useState } from "react";
 import { TbSortDescendingSmallBig } from "react-icons/tb";
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImpl,
+  getCurrProjectConfigId,
+} from "state/actions/sectionInfos";
+import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   route_create_child_sections_via_incrementer,
@@ -17,8 +22,18 @@ export function Incrementer({
   isRoot: boolean;
   popover?: boolean;
 }) {
-  // const variantIsFrozen = useSectionVariantIsFrozen(sectionId);
-  const variantIsFrozen = false;
+  const { variantIsFrozen, defaultChildSectionType } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
+    const defaultChildSectionType =
+      impl.type === SectionTypeEnum.ListRoot ||
+      impl.type === SectionTypeEnum.Group
+        ? impl.defaultChildSectionType
+        : SectionTypeEnum.Callable;
+    return {
+      variantIsFrozen: impl.isFrozen,
+      defaultChildSectionType,
+    };
+  }, _.isEqual);
   const { canEditStructure } = useShareCapabilities();
 
   const [numSections, setNumSections] = useState<number | "">(1);
@@ -49,7 +64,7 @@ export function Incrementer({
     route_create_child_sections_via_incrementer({
       projectConfigId: getCurrProjectConfigId(),
       calledBy: sectionId,
-      implType: SectionTypeEnum.Callable,
+      implType: defaultChildSectionType,
       numChildren: numSections,
     });
   };

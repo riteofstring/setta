@@ -9,7 +9,7 @@ export function FileNameInput({
 }) {
   return (
     <input
-      className="h-8 w-full flex-grow cursor-auto rounded-md border border-setta-200 bg-white px-2 text-xs text-setta-700 placeholder-setta-300 outline-0 focus:border-blue-500 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:placeholder-setta-600"
+      className="w-full flex-grow cursor-auto border-b border-solid border-setta-300 bg-transparent py-1 text-setta-500 placeholder-setta-200 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:border-setta-600 dark:text-setta-200 dark:placeholder-setta-600"
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
