@@ -771,12 +771,6 @@ export async function route_set_view_mode_name(
   return await post("/setViewModeName", x);
 }
 
-export async function route_set_view_mode_sort_order(
-  x: gt.SetViewModeSortOrderRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setViewModeSortOrder", x);
-}
-
 export async function route_delete_view_mode(
   x: gt.DeleteViewModeRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1125,12 +1119,6 @@ export async function route_set_default_section_variant(
   x: gt.SetDefaultSectionVariantRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setDefaultSectionVariant", x);
-}
-
-export async function route_set_section_variant_sort_order(
-  x: gt.SetSectionVariantSortOrderRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionVariantSortOrder", x);
 }
 
 export async function route_toggle_variant_frozen(

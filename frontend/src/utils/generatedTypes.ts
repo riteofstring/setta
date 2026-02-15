@@ -515,7 +515,6 @@ export const RouteEnum = {
   TOGGLE_VIEW_MODE_USER_FACING: "/toggleViewModeUserFacing",
   TOGGLE_VIEW_MODE_TAB: "/toggleViewModeTab",
   SET_VIEW_MODE_NAME: "/setViewModeName",
-  SET_VIEW_MODE_SORT_ORDER: "/setViewModeSortOrder",
   DELETE_VIEW_MODE: "/deleteViewMode",
   UNDO: "/undo",
   REDO: "/redo",
@@ -578,7 +577,6 @@ export const RouteEnum = {
   SET_AGENTIC_EDGES: "/setAgenticEdges",
   SET_SECTION_VARIANT: "/setSectionVariant",
   SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
-  SET_SECTION_VARIANT_SORT_ORDER: "/setSectionVariantSortOrder",
   SET_SECTION_VARIANT_NAME: "setSectionVariantName",
   TOGGLE_VARIANT_FROZEN: "/toggleVariantFrozen",
   SET_SECTION_SIZES: "/setSectionSizes",
@@ -3877,12 +3875,6 @@ const ViewModeConfigSchema = z.object({
 
 export type ViewModeConfig = z.infer<typeof ViewModeConfigSchema>;
 
-export function createViewModeConfig(
-  options: Partial<ViewModeConfig> = {},
-): ViewModeConfig {
-  return ViewModeConfigSchema.parse(options);
-}
-
 const SectionTypeCodegenPolicySchema = z.object({
   mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
   representation: z
@@ -4960,7 +4952,7 @@ type UserDefaultCodeSectionImpl = z.infer<
   typeof UserDefaultCodeSectionImplSchema
 >;
 
-export function createUserDefaultCodeSectionImpl(
+function createUserDefaultCodeSectionImpl(
   options: Partial<UserDefaultCodeSectionImpl> = {},
 ): UserDefaultCodeSectionImpl {
   return UserDefaultCodeSectionImplSchema.parse(options);
@@ -6245,7 +6237,6 @@ const FolderContentItemSchema = z.object({
   fullPath: z.string(),
   mtime: z.number().optional(),
   size: z.int().optional(),
-  isSettaInitialized: z.boolean().optional(),
 });
 
 export type FolderContentItem = z.infer<typeof FolderContentItemSchema>;
@@ -7585,7 +7576,6 @@ const GetFolderContentsRequestSchema = z.object({
   includeMtime: z.boolean().default(false),
   includeSize: z.boolean().default(false),
   includeHidden: z.boolean().default(false),
-  includeSettaInitialized: z.boolean().default(false),
   ignorePatterns: z.union([z.array(z.string()), z.null()]).default(null),
   maxEntries: z.union([z.int(), z.null()]).default(null),
   missingFolderBehavior: z
@@ -8936,17 +8926,6 @@ export type SetSectionVariantRequestInput = z.input<
   typeof SetSectionVariantRequestSchema
 >;
 
-const SetSectionVariantSortOrderRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  orderedVariantIds: z.array(IDSchema),
-});
-
-export type SetSectionVariantSortOrderRequestInput = z.input<
-  typeof SetSectionVariantSortOrderRequestSchema
->;
-
 const SetShowParamDisplayNamesRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -9066,16 +9045,6 @@ const SetViewModeNameRequestSchema = z.object({
 
 export type SetViewModeNameRequestInput = z.input<
   typeof SetViewModeNameRequestSchema
->;
-
-const SetViewModeSortOrderRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  orderedViewModeIds: z.array(IDSchema),
-});
-
-export type SetViewModeSortOrderRequestInput = z.input<
-  typeof SetViewModeSortOrderRequestSchema
 >;
 
 const SetViewportRequestSchema = z.object({
