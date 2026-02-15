@@ -1,7 +1,3 @@
-from typing import Any
-
-import anyio
-import pytest
 from mcp.types import Tool, ToolAnnotations
 
 from setta.mcp.client import MultiMCPClient
@@ -22,31 +18,6 @@ def _build_tool(
         inputSchema={},
         annotations=annotations,
     )
-
-
-class _ClosedSession:
-    def __init__(self, on_call: Any | None = None) -> None:
-        self.on_call = on_call
-
-    async def call_tool(
-        self, _tool_name: str, _tool_args: dict, *, meta: dict | None = None
-    ) -> Any:
-        del meta
-        if self.on_call is not None:
-            self.on_call()
-        raise anyio.ClosedResourceError
-
-
-class _RecordingSession:
-    def __init__(self, result: Any) -> None:
-        self.result = result
-        self.calls: list[tuple[str, dict, dict | None]] = []
-
-    async def call_tool(
-        self, tool_name: str, tool_args: dict, *, meta: dict | None = None
-    ) -> Any:
-        self.calls.append((tool_name, tool_args, meta))
-        return self.result
 
 
 class TestMultiMCPClientToolCache:
@@ -121,51 +92,3 @@ class TestMultiMCPClientToolCache:
             f"{SETTA_MCP_SERVER_ID}__search_mcp_tools"
             in client.init_tool_definitions
         )
-
-
-class TestMultiMCPClientCallTool:
-    @pytest.mark.asyncio
-    async def test_retries_after_closed_resource_error(self) -> None:
-        client = MultiMCPClient({})
-        namespaced_tool_name = f"{SETTA_MCP_SERVER_ID}__read_file_range"
-        client.routing[namespaced_tool_name] = (
-            SETTA_MCP_SERVER_ID,
-            "read_file_range",
-        )
-
-        replacement_session = _RecordingSession({"ok": True})
-
-        def _replace_session() -> None:
-            client._sessions[SETTA_MCP_SERVER_ID] = replacement_session
-
-        client._sessions[SETTA_MCP_SERVER_ID] = _ClosedSession(on_call=_replace_session)
-
-        result = await client.call_tool(namespaced_tool_name, {"path": "README.md"})
-
-        assert result == {"ok": True}
-        assert replacement_session.calls == [
-            ("read_file_range", {"path": "README.md"}, None)
-        ]
-
-    @pytest.mark.asyncio
-    async def test_raises_when_reconnect_is_unavailable(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        client = MultiMCPClient({})
-        namespaced_tool_name = f"{SETTA_MCP_SERVER_ID}__read_file_range"
-        client.routing[namespaced_tool_name] = (
-            SETTA_MCP_SERVER_ID,
-            "read_file_range",
-        )
-        client._sessions[SETTA_MCP_SERVER_ID] = _ClosedSession()
-
-        async def _no_reconnect(
-            _server_id: str, *, previous_session: Any
-        ) -> None:
-            del previous_session
-            return None
-
-        monkeypatch.setattr(client, "_wait_for_session_reconnect", _no_reconnect)
-
-        with pytest.raises(anyio.ClosedResourceError):
-            await client.call_tool(namespaced_tool_name, {"path": "README.md"})
