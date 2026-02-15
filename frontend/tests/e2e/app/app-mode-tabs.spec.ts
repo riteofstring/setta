@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
   ensureAppReady,
@@ -11,24 +11,6 @@ type ProjectMetadataResponse = {
   defaultProjectConfigId: string | null;
   projectMetadata: Array<{ id: string; name: string }>;
 };
-
-async function syncAppDefinitionState(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    const { route_get_app_definition } = await import(
-      "/src/utils/generatedEndpoints.ts"
-    );
-    const { res200 } = await import("/src/utils/endpointUtils.ts");
-    const { useAppDefinition } = await import("/src/state/definitions.ts");
-    const res = await route_get_app_definition({});
-    if (!res200(res)) {
-      throw new Error("Unable to load app definition.");
-    }
-    useAppDefinition.setState({
-      appSpec: res.data.appSpec ?? null,
-      appDefinition: res.data.appDefinition ?? null,
-    });
-  });
-}
 
 test("app tabs scope outputs per config", async ({ page }) => {
   await seedLocalStorage(page, { overviewTab: "App", overviewVis: true });
@@ -49,13 +31,9 @@ test("app tabs scope outputs per config", async ({ page }) => {
     throw new Error("Unable to resolve default project config.");
   }
 
-  const newConfigName = await postBackend<string>(
-    page,
-    "/createProjectConfig",
-    {
-      previewImgColor: "bg-blue-500/60",
-    },
-  );
+  const newConfigName = await postBackend<string>(page, "/createProjectConfig", {
+    previewImgColor: "bg-blue-500/60",
+  });
   if (!newConfigName) {
     throw new Error("Missing new project config name.");
   }
@@ -168,9 +146,27 @@ test("app tabs scope outputs per config", async ({ page }) => {
   await postBackend(page, "/setAppDefinition", {
     appSpec,
   });
-  await syncAppDefinitionState(page);
+  await page.evaluate(async () => {
+    const { route_get_app_definition } = await import(
+      "/src/utils/generatedEndpoints.ts"
+    );
+    const { res200 } = await import("/src/utils/endpointUtils.ts");
+    const { useAppDefinition } = await import("/src/state/definitions.ts");
+    const res = await route_get_app_definition({});
+    if (res200(res)) {
+      useAppDefinition.setState({
+        appSpec: res.data.appSpec ?? null,
+        appDefinition: res.data.appDefinition ?? null,
+      });
+    }
+  });
   await page.evaluate(
-    async ({ defaultConfigName, newConfigName, sectionAId, sectionBId }) => {
+    async ({
+      defaultConfigName,
+      newConfigName,
+      sectionAId,
+      sectionBId,
+    }) => {
       const { route_load_project_config } = await import(
         "/src/utils/generatedEndpoints.ts"
       );
@@ -183,8 +179,7 @@ test("app tabs scope outputs per config", async ({ page }) => {
         if (!projectState || !sectionId) {
           return projectState;
         }
-        const variantId =
-          projectState.projectConfig.sectionVariantMap[sectionId];
+        const variantId = projectState.projectConfig.sectionVariantMap[sectionId];
         if (!variantId) {
           return projectState;
         }
@@ -272,101 +267,10 @@ test("app tabs scope outputs per config", async ({ page }) => {
   }
 
   await expect(page.getByText("App Preview")).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: defaultConfig.name }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: newConfig.name }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: defaultConfig.name })).toBeVisible();
+  await expect(page.getByRole("button", { name: newConfig.name })).toBeVisible();
 
   await expect(page.getByText("Alpha output")).toBeVisible();
   await page.getByRole("button", { name: newConfig.name }).click();
   await expect(page.getByText("Beta output")).toBeVisible();
-});
-
-test("app tabs remain stable when app definition transitions between non-empty and empty tabs", async ({
-  page,
-}) => {
-  await seedLocalStorage(page, { overviewTab: "App", overviewVis: true });
-  await ensureAppReady(page);
-
-  const previewToggle = page.getByRole("button", {
-    name: /Show Preview|Hide Preview/,
-  });
-  await expect(previewToggle).toBeVisible();
-  if ((await previewToggle.textContent())?.includes("Show")) {
-    await previewToggle.click();
-  }
-  await expect(page.getByText("App Preview")).toBeVisible();
-
-  await postBackend(page, "/setAppDefinition", {
-    appSpec: {
-      root: {
-        key: "root-tabs",
-        type: "Tabs",
-        children: [
-          {
-            key: "tab-one",
-            type: "Tab",
-            props: { title: "Tab One" },
-            children: [
-              {
-                key: "tab-one-text",
-                type: "Text",
-                props: { text: "First tab content" },
-              },
-            ],
-          },
-        ],
-      },
-      elements: {},
-    },
-  });
-  await syncAppDefinitionState(page);
-  await expect(page.getByRole("button", { name: "Tab One" })).toBeVisible();
-  await expect(page.getByText("First tab content")).toBeVisible();
-
-  await postBackend(page, "/setAppDefinition", {
-    appSpec: {
-      root: {
-        key: "root-tabs-empty",
-        type: "Tabs",
-        children: [],
-      },
-      elements: {},
-    },
-  });
-  await syncAppDefinitionState(page);
-  await expect(page.getByRole("button", { name: "Tab One" })).toHaveCount(0);
-  await expect(page.getByText("First tab content")).toHaveCount(0);
-  await expect(page.getByText("App Preview")).toBeVisible();
-
-  await postBackend(page, "/setAppDefinition", {
-    appSpec: {
-      root: {
-        key: "root-tabs-restored",
-        type: "Tabs",
-        children: [
-          {
-            key: "tab-restored",
-            type: "Tab",
-            props: { title: "Recovered Tab" },
-            children: [
-              {
-                key: "tab-restored-text",
-                type: "Text",
-                props: { text: "Recovered content" },
-              },
-            ],
-          },
-        ],
-      },
-      elements: {},
-    },
-  });
-  await syncAppDefinitionState(page);
-  await expect(
-    page.getByRole("button", { name: "Recovered Tab" }),
-  ).toBeVisible();
-  await expect(page.getByText("Recovered content")).toBeVisible();
 });

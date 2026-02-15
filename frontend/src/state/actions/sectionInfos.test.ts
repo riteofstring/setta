@@ -5,6 +5,7 @@ import {
   createTopLevelSectionLayoutDict,
   getAttachedTerminalParentIdForTerminalSection,
   getCurrShownParamIds,
+  getDisplayedSectionIdToChildren,
   getEmbeddedAttachedTerminalForCodeSection,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
   processProjectStateUpdateFromBackend,
@@ -361,6 +362,139 @@ describe("createNodesMapFromProjectConfigChildren", () => {
 
     expect(nodesMap.has(sectionVisible)).toBe(true);
     expect(nodesMap.has(sectionHidden)).toBe(false);
+  });
+});
+
+describe("getDisplayedSectionIdToChildren", () => {
+  it("skips top-level sections that cannot resolve to an effective impl", () => {
+    const validSectionId = "section-valid";
+    const missingVariantSectionId = "section-missing-variant";
+    const validVariantId = "variant-valid";
+    const validImplId = "impl-valid";
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+
+    const state = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        topLevelSections: {
+          [validSectionId]: { ...layout },
+          [missingVariantSectionId]: { ...layout },
+        },
+        sectionVariantMap: {
+          [validSectionId]: validVariantId,
+        },
+      }),
+      sections: {
+        [validSectionId]: createCore({ id: validSectionId }),
+        [missingVariantSectionId]: createCore({ id: missingVariantSectionId }),
+      },
+      sectionImpls: {
+        [validImplId]: createTerminalSectionImpl({
+          id: validImplId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      sectionVariants: {
+        [validVariantId]: createVariant({
+          id: validVariantId,
+          impl: validImplId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [validSectionId]: null,
+        [missingVariantSectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    // Missing variant links should not crash app readiness selectors.
+    expect(() => getDisplayedSectionIdToChildren(state)).not.toThrow();
+    expect(getDisplayedSectionIdToChildren(state)).toEqual({
+      [validSectionId]: [],
+    });
+  });
+
+  it("filters child ids that cannot resolve to an effective impl", () => {
+    const parentSectionId = "section-parent";
+    const validChildId = "section-child-valid";
+    const missingChildVariantId = "section-child-missing-variant";
+    const parentVariantId = "variant-parent";
+    const validChildVariantId = "variant-child-valid";
+    const parentImplId = "impl-parent";
+    const validChildImplId = "impl-child-valid";
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+
+    const state = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        topLevelSections: {
+          [parentSectionId]: { ...layout },
+        },
+        sectionVariantMap: {
+          [parentSectionId]: parentVariantId,
+          [validChildId]: validChildVariantId,
+        },
+      }),
+      sections: {
+        [parentSectionId]: createCore({
+          id: parentSectionId,
+          sharedModifier: {
+            children: [validChildId, missingChildVariantId],
+          },
+        }),
+        [validChildId]: createCore({ id: validChildId }),
+        [missingChildVariantId]: createCore({ id: missingChildVariantId }),
+      },
+      sectionImpls: {
+        [parentImplId]: createCodeSectionImpl({
+          id: parentImplId,
+          type: SectionTypeEnum.Code,
+        }),
+        [validChildImplId]: createTerminalSectionImpl({
+          id: validChildImplId,
+          type: SectionTypeEnum.Terminal,
+        }),
+      },
+      sectionVariants: {
+        [parentVariantId]: createVariant({
+          id: parentVariantId,
+          impl: parentImplId,
+          nonPresetImpls: [],
+        }),
+        [validChildVariantId]: createVariant({
+          id: validChildVariantId,
+          impl: validChildImplId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [parentSectionId]: null,
+        [validChildId]: parentSectionId,
+        [missingChildVariantId]: parentSectionId,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    // Invalid children are dropped so DnD and readiness selectors stay stable.
+    expect(getDisplayedSectionIdToChildren(state)).toEqual({
+      [parentSectionId]: [validChildId],
+      [validChildId]: [],
+    });
   });
 });
 
