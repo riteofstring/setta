@@ -216,6 +216,44 @@ class TestAgentRunner:
 
         assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
 
+    def test_completion_guard_keeps_creation_flow_open_for_implement_followup(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a new project scaffold.")]
+            ),
+            UserChatMessage(
+                content=[MessageTextContent(text="Implement the remaining sections.")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Ready to ship.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
+    def test_completion_guard_closes_scope_for_unrelated_question_pivot(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a new project scaffold.")]
+            ),
+            UserChatMessage(
+                content=[MessageTextContent(text="What time is it in Tokyo?")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Ready to ship.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "Done. Ready to ship."
+
     def test_completion_guard_allows_no_errors_found_pass_status(self) -> None:
         prior_messages = [
             UserChatMessage(

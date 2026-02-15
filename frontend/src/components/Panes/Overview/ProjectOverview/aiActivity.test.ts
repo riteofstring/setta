@@ -39,6 +39,28 @@ describe("aiActivity", () => {
     expect([...activeSectionIds].sort()).toEqual(["section-a", "section-c"]);
   });
 
+  it("scopes running section activity to the active project config", () => {
+    // Running runs from other project configs should not activate this overview.
+    const runs = [
+      createAgentRun({
+        status: AgentRunStatusEnum.running,
+        inputs: { sectionId: "section-a", projectConfigId: "project-a" },
+      }),
+      createAgentRun({
+        status: AgentRunStatusEnum.running,
+        inputs: { sectionId: "section-b", projectConfigId: "project-b" },
+      }),
+      createAgentRun({
+        status: AgentRunStatusEnum.completed,
+        inputs: { sectionId: "section-c", projectConfigId: "project-a" },
+      }),
+    ];
+
+    const activeSectionIds = getActiveSectionIdsFromRuns(runs, "project-a");
+
+    expect([...activeSectionIds]).toEqual(["section-a"]);
+  });
+
   it("maps chat waiting state to overview activity", () => {
     // Chat sections with a pending response should show active work immediately.
     const waitingChat = createChatSectionImpl(

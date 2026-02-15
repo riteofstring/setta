@@ -253,6 +253,7 @@ function useActiveAgentSectionIds(): ReadonlySet<string> {
     }),
     shallow,
   );
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
 
   useEffect(() => {
     if (!agentRunsInitialLoadComplete) {
@@ -261,8 +262,8 @@ function useActiveAgentSectionIds(): ReadonlySet<string> {
   }, [agentRunsInitialLoadComplete]);
 
   const activeSectionIds = useMemo(
-    () => getActiveSectionIdsFromRuns(agentRuns),
-    [agentRuns],
+    () => getActiveSectionIdsFromRuns(agentRuns, projectConfigId),
+    [agentRuns, projectConfigId],
   );
   const hasRunningRuns = activeSectionIds.size > 0;
 

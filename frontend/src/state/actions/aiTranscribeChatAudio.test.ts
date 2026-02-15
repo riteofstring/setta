@@ -65,19 +65,21 @@ describe("transcribeChatAudio", () => {
     expect((uploadedFile as File).type).toBe("audio/mp4");
   });
 
-  it("rejects oversized dictation files before upload", async () => {
+  it("does not enforce a stale client-side audio size cap", async () => {
+    mockedRouteTranscribeChatAudio.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: { text: "oversized accepted by server policy" },
+    });
     const oversizedBlob = new Blob([new Uint8Array(10 * 1024 * 1024 + 1)], {
       type: "audio/webm",
     });
 
     const text = await transcribeChatAudio("engine-1", oversizedBlob);
 
-    expect(text).toBeNull();
-    expect(mockedRouteTranscribeChatAudio).not.toHaveBeenCalled();
-    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
-      "Recording is too large. Maximum size is 10 MB.",
-      SettaNotificationTypeEnum.warning,
-    );
+    expect(text).toBe("oversized accepted by server policy");
+    expect(mockedRouteTranscribeChatAudio).toHaveBeenCalledTimes(1);
+    expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
   });
 
   it("shows backend transcription errors", async () => {

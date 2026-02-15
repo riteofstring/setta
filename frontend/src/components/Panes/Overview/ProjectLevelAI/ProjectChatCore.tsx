@@ -66,6 +66,9 @@ import {
 } from "./workspacePythonSignals";
 
 const hasPythonInWorkspaceRootCache = new Map<string, boolean>();
+const WORKSPACE_ROOT_FAST_POLL_MS = 5000;
+const WORKSPACE_ROOT_BACKOFF_POLL_MS = 30000;
+const WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF = 2;
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionModeValue;
@@ -97,6 +100,13 @@ function resolveProjectChatRunType(
   return null;
 }
 
+export function resolveWorkspaceRootPollDelayMs(stablePollCount: number): number {
+  if (stablePollCount >= WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF) {
+    return WORKSPACE_ROOT_BACKOFF_POLL_MS;
+  }
+  return WORKSPACE_ROOT_FAST_POLL_MS;
+}
+
 function useWorkspaceRootIdentity(
   enabled: boolean,
   projectConfigId: string,
@@ -111,36 +121,81 @@ function useWorkspaceRootIdentity(
       return;
     }
     let cancelled = false;
+    let inFlight = false;
+    let stablePollCount = 0;
+    let lastResolvedRoot: string | null = null;
+    let timeoutId: number | null = null;
+
+    const clearScheduledPoll = () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    const scheduleNextPoll = () => {
+      if (cancelled || document.visibilityState !== "visible") {
+        return;
+      }
+      const delay = resolveWorkspaceRootPollDelayMs(stablePollCount);
+      clearScheduledPoll();
+      timeoutId = window.setTimeout(() => {
+        void refreshRootIdentity();
+      }, delay);
+    };
 
     const refreshRootIdentity = async () => {
-      const rootResponse = await route_get_file_browser_root();
+      if (cancelled || inFlight) {
+        return;
+      }
+      inFlight = true;
+      try {
+        const rootResponse = await route_get_file_browser_root();
+        if (cancelled) {
+          return;
+        }
+        let nextRoot: string | null = null;
+        if (rootResponse && rootResponse.status === 200 && rootResponse.data) {
+          const rootPath = rootResponse.data.rootPath.trim();
+          if (rootPath) {
+            nextRoot = rootPath;
+          }
+        }
+        if (nextRoot === lastResolvedRoot) {
+          stablePollCount += 1;
+        } else {
+          lastResolvedRoot = nextRoot;
+          stablePollCount = 0;
+        }
+        setWorkspaceRootIdentity((current) => {
+          if (current === nextRoot) {
+            return current;
+          }
+          return nextRoot;
+        });
+        scheduleNextPoll();
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
       if (cancelled) {
         return;
       }
-      if (!rootResponse || rootResponse.status !== 200 || !rootResponse.data) {
-        setWorkspaceRootIdentity(null);
+      if (document.visibilityState !== "visible") {
+        clearScheduledPoll();
         return;
       }
-      const rootPath = rootResponse.data.rootPath.trim();
-      if (!rootPath) {
-        setWorkspaceRootIdentity(null);
-        return;
-      }
-      setWorkspaceRootIdentity((current) => {
-        if (current === rootPath) {
-          return current;
-        }
-        return rootPath;
-      });
+      void refreshRootIdentity();
     };
 
     void refreshRootIdentity();
-    const intervalId = window.setInterval(() => {
-      void refreshRootIdentity();
-    }, 5000);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
+      clearScheduledPoll();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [enabled, projectConfigId]);
 

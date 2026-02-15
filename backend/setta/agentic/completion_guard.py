@@ -4,10 +4,11 @@ from typing import Any
 from setta.types.chat_messages import AssistantChatMessage, MessageTextContent
 
 _CREATION_VERB_RE = re.compile(
-    r"\b(create|build|scaffold|setup|set up|initialize|generate)\b", re.IGNORECASE
+    r"\b(create|build|scaffold|setup|set up|initialize|generate|implement)\b",
+    re.IGNORECASE,
 )
 _CREATION_OBJECT_RE = re.compile(
-    r"\b(project|section|workspace|app|codebase)\b", re.IGNORECASE
+    r"\b(projects?|sections?|workspaces?|apps?|codebases?)\b", re.IGNORECASE
 )
 _COMPLETION_CLAIM_RE = re.compile(
     r"\b(done|completed?|finished|all set|ready to ship)\b", re.IGNORECASE
@@ -32,7 +33,23 @@ _NON_CREATION_TASK_SWITCH_RE = re.compile(
     ),
     re.IGNORECASE,
 )
-_CREATION_CLARIFICATION_RE = re.compile(r"^\s*(?:how|what|why)\b", re.IGNORECASE)
+_CREATION_CLARIFICATION_RE = re.compile(
+    r"^\s*(?:how|what|why|where|when|who)\b", re.IGNORECASE
+)
+_CREATION_CLARIFICATION_CONTEXT_RE = re.compile(
+    (
+        r"\b("
+        r"create|build|scaffold|setup|set up|initialize|generate|implement|"
+        r"projects?|sections?|workspaces?|apps?|codebases?|"
+        r"folders?|structure|architecture|module|component|feature|"
+        r"framework|language"
+        r")\b"
+    ),
+    re.IGNORECASE,
+)
+_QUESTION_PIVOT_RE = re.compile(
+    r"^\s*(?:how|what|why|where|when|who)\b", re.IGNORECASE
+)
 _PASS_RE = re.compile(
     r"\b(pass(?:ed)?|success(?:ful(?:ly)?)?|no errors?)\b",
     re.IGNORECASE,
@@ -99,7 +116,11 @@ def _resolve_creation_flow_start_index(messages: list[Any]) -> int | None:
             continue
         if creation_start_index is None:
             continue
-        if _is_creation_clarification(text):
+        prior_assistant_text = _resolve_adjacent_assistant_text(messages, index)
+        if _is_creation_clarification(text, prior_assistant_text):
+            continue
+        if _is_question_pivot(text):
+            creation_start_index = None
             continue
         if _is_explicit_non_creation_task_switch(text):
             creation_start_index = None
@@ -111,11 +132,38 @@ def _is_creation_intent(text: str) -> bool:
 
 
 def _is_explicit_non_creation_task_switch(text: str) -> bool:
+    if _is_creation_intent(text):
+        return False
     return bool(_NON_CREATION_TASK_SWITCH_RE.search(text))
 
 
-def _is_creation_clarification(text: str) -> bool:
-    return bool(_CREATION_CLARIFICATION_RE.search(text))
+def _is_creation_clarification(
+    text: str,
+    prior_assistant_text: str | None = None,
+) -> bool:
+    if not _CREATION_CLARIFICATION_RE.search(text):
+        return False
+    if _CREATION_CLARIFICATION_CONTEXT_RE.search(text):
+        return True
+    if not prior_assistant_text:
+        return False
+    if "?" not in prior_assistant_text:
+        return False
+    return bool(_CREATION_CLARIFICATION_CONTEXT_RE.search(prior_assistant_text))
+
+
+def _resolve_adjacent_assistant_text(messages: list[Any], index: int) -> str | None:
+    if index <= 0:
+        return None
+    prior_message = messages[index - 1]
+    if _normalize_role(prior_message) != "assistant":
+        return None
+    text = _extract_text_from_message(prior_message)
+    return text or None
+
+
+def _is_question_pivot(text: str) -> bool:
+    return bool(_QUESTION_PIVOT_RE.search(text))
 
 
 def _resolve_verification_status(

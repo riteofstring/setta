@@ -200,3 +200,54 @@ test("project chat clears python starter visibility when a new root scan cannot 
     await cleanupIsolatedProject(page, projectContext);
   }
 });
+
+test("project chat backs off root polling after repeated stable root scans", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+
+  let getRootCalls = 0;
+  await page.route("**/api/getFileBrowserRoot", async (route) => {
+    getRootCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        rootPath: "/tmp/workspace-stable",
+        pathSeparator: "/",
+        ignorePatterns: [],
+      }),
+    });
+  });
+  await page.route("**/api/getFolderContents", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    await expect
+      .poll(() => getRootCalls, { timeout: 15000 })
+      .toBeGreaterThanOrEqual(3);
+    await page.waitForTimeout(6200);
+    const postBackoffTransitionCalls = getRootCalls;
+    await page.waitForTimeout(6200);
+    expect(getRootCalls).toBe(postBackoffTransitionCalls);
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});

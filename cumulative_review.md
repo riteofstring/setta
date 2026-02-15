@@ -139,3 +139,29 @@ Implemented the consolidated review fixes from `review1.md`/`review2.md`/`review
 - Playwright: targeted e2e suites passed (`chat-composer-controls`, `project-ai-chat-root-scan`).
 - `tsc --noEmit` still reports existing repo-wide TypeScript errors outside this change set.
 - CDP visual verification completed in a live session (Project AI Chat main state/history toggle/control visibility checks).
+
+## 2026-02-17 12:34:52 PST
+
+### Summary
+Implemented the latest consolidated review fixes across completion-guard intent resolution, contract-driven endpoint codegen, dictation policy alignment, overview activity scoping, and project-chat workspace-root polling behavior, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Completion guard now treats `implement ... project/section` follow-ups as create/scaffold intent when creation objects are present.
+- Completion guard now avoids over-broad clarification matching and closes scope for unrelated question pivots.
+- Added completion-guard regression coverage at guard-level and runner-level for `implement` continuation and unrelated `what` pivot behavior.
+- Removed endpoint codegen multipart fallback based on route-name heuristics (`upload` substring); multipart wrappers are now generated only from explicit form-data contract metadata.
+- Updated endpoint codegen tests to assert deterministic contract-driven multipart generation.
+- Removed stale hardcoded frontend dictation size gate so transcription size policy is enforced by backend runtime config and surfaced through backend error detail.
+- Updated dictation unit tests to assert oversized blobs are submitted and backend response drives user-facing behavior.
+- Scoped overview AI activity extraction to the active `projectConfigId` before deriving active section IDs and polling state.
+- Added/updated overview unit and perf tests for project-scoped run filtering.
+- Reworked Project AI Chat workspace-root polling to be visibility-aware and to back off after repeated stable root detections.
+- Added helper tests for workspace-root polling delay behavior and Playwright coverage for stable-root backoff.
+- Added Playwright coverage validating that running activity from a different project config does not keep Overview polling active.
+
+### Test and verification status
+- Backend pytest: targeted suites passed (`tests/agentic/test_completion_guard.py`, `tests/llm/test_agent_runner.py`, `tests/code_gen/test_convert_endpoints.py`).
+- Frontend Vitest: targeted suites passed (`aiTranscribeChatAudio`, `aiActivity`, `projectChatExecutionSettings`).
+- Playwright: targeted overview suites passed (`project-ai-chat-root-scan`, `project-overview-ai-activity-polling`).
+- `tsc --noEmit` still reports existing repo-wide TypeScript errors outside this change set.
+- CDP visual verification completed in a live session (Project AI Chat and Overview pane render/interaction sanity checks).

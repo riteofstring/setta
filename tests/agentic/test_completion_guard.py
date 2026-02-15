@@ -152,6 +152,36 @@ def test_completion_guard_keeps_creation_flow_open_for_how_what_why_clarificatio
         assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
 
 
+def test_completion_guard_keeps_creation_flow_open_for_implement_section_followups() -> (
+    None
+):
+    # Creation continuation phrased as "implement sections" must keep gating active.
+    prior_messages = [
+        _user_message("Create a new project scaffold."),
+        _user_message("Implement the remaining sections."),
+    ]
+    assistant_message = _assistant_message("Done. Ready to ship.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+
+
+def test_completion_guard_closes_creation_scope_for_unrelated_question_pivot() -> None:
+    # Unrelated question pivots should close prior creation scope.
+    prior_messages = [
+        _user_message("Create a new project scaffold."),
+        _user_message("What time is it in Tokyo?"),
+    ]
+    assistant_message = _assistant_message("Done. Ready to ship.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Done. Ready to ship."
+
+
 def test_completion_guard_uses_latest_explicit_verification_result() -> None:
     # A newer pass result should override older failed-check text.
     prior_messages = [

@@ -58,7 +58,6 @@ def get_path_input_output_types():
             "output": None,
             "path": route.path,
             "uses_form_data": False,
-            "has_request_param": False,
         }
 
         # Get function signature and type hints
@@ -67,9 +66,6 @@ def get_path_input_output_types():
 
         # Extract input parameters (excluding Depends)
         for param_name, param in sig.parameters.items():
-            if param.annotation is Request:
-                route_info["has_request_param"] = True
-
             # Skip if it's a Depends parameter
             if (
                 type(param.default).__name__ == "Depends"
@@ -293,7 +289,6 @@ def create_ts_fn_def(
     output_annotation,
     *,
     uses_form_data: bool = False,
-    has_request_param: bool = False,
 ):
     definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<ResponseDataAndStatus<{output_annotation}>>"
     endpoint_path_without_prefix = endpoint_path
@@ -303,9 +298,7 @@ def create_ts_fn_def(
         ]
     if _should_generate_form_data_wrapper(
         method=method,
-        endpoint_path=endpoint_path_without_prefix,
         uses_form_data=uses_form_data,
-        has_request_param=has_request_param,
     ):
         return f"""
 export async function {fn_name}(form: FormData): Promise<ResponseDataAndStatus<{output_annotation}>> {{
@@ -347,15 +340,11 @@ export async function {fn_name}(form: FormData): Promise<ResponseDataAndStatus<{
 def _should_generate_form_data_wrapper(
     *,
     method: str,
-    endpoint_path: str,
     uses_form_data: bool,
-    has_request_param: bool,
 ) -> bool:
     if method != "POST":
         return False
-    if uses_form_data:
-        return True
-    return has_request_param and "upload" in endpoint_path.lower()
+    return uses_form_data
 
 
 def create_imports():
@@ -380,7 +369,6 @@ def main(output_path):
             args_with_annotations,
             output_annotation,
             uses_form_data=s.get("uses_form_data", False),
-            has_request_param=s.get("has_request_param", False),
         )
 
     with open(output_path, "w") as f:

@@ -12,14 +12,17 @@ describe("aiActivity (perf)", () => {
             : AgentRunStatusEnum.completed,
         inputs:
           index % 5 === 0
-            ? { sectionId: `section-${index % 400}` }
-            : { sectionId: null },
+            ? {
+                sectionId: `section-${index % 400}`,
+                projectConfigId: index % 2 === 0 ? "project-main" : "project-alt",
+              }
+            : { sectionId: null, projectConfigId: "project-main" },
       }),
     );
 
     const start = performance.now();
     for (let index = 0; index < 120; index += 1) {
-      getActiveSectionIdsFromRuns(runs);
+      getActiveSectionIdsFromRuns(runs, "project-main");
     }
     const elapsedMs = performance.now() - start;
 

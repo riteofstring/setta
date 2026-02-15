@@ -8,11 +8,18 @@ import {
 
 export function getActiveSectionIdsFromRuns(
   runs: Array<AgentRun>,
+  projectConfigId: string | null = null,
 ): Set<string> {
   const activeSectionIds = new Set<string>();
   for (const run of runs) {
     if (run.status !== AgentRunStatusEnum.running) {
       continue;
+    }
+    if (projectConfigId !== null) {
+      const runProjectConfigId = getRunInputString(run, "projectConfigId");
+      if (runProjectConfigId !== projectConfigId) {
+        continue;
+      }
     }
     const sectionId = getRunInputString(run, "sectionId");
     if (!sectionId) {

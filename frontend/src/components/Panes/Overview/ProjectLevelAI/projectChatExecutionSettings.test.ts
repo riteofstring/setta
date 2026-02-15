@@ -1,6 +1,9 @@
 import { EngineTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { getDefaultProjectChatPermissionMode } from "./ProjectChatCore";
+import {
+  getDefaultProjectChatPermissionMode,
+  resolveWorkspaceRootPollDelayMs,
+} from "./ProjectChatCore";
 
 describe("getDefaultProjectChatPermissionMode", () => {
   it("defaults external engines to config_toml_custom", () => {
@@ -16,5 +19,17 @@ describe("getDefaultProjectChatPermissionMode", () => {
       "minimal",
     );
     expect(getDefaultProjectChatPermissionMode(null)).toBe("minimal");
+  });
+});
+
+describe("resolveWorkspaceRootPollDelayMs", () => {
+  it("keeps fast polling before stability threshold", () => {
+    expect(resolveWorkspaceRootPollDelayMs(0)).toBe(5000);
+    expect(resolveWorkspaceRootPollDelayMs(1)).toBe(5000);
+  });
+
+  it("backs off polling once the root is stable", () => {
+    expect(resolveWorkspaceRootPollDelayMs(2)).toBe(30000);
+    expect(resolveWorkspaceRootPollDelayMs(5)).toBe(30000);
   });
 });

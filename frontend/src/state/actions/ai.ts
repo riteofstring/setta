@@ -124,7 +124,6 @@ const scopeViolationToastTimeouts = new Map<
 let llmConfigLoadPromise: Promise<void> | null = null;
 let llmApiKeysLoadPromise: Promise<void> | null = null;
 let agentRunsLoadPromise: Promise<void> | null = null;
-const MAX_TRANSCRIBE_AUDIO_BYTES = 10 * 1024 * 1024;
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
@@ -171,13 +170,6 @@ export async function transcribeChatAudio(
   audioBlob: Blob,
 ): Promise<string | null> {
   if (!engineConfigId || audioBlob.size === 0) {
-    return null;
-  }
-  if (audioBlob.size > MAX_TRANSCRIBE_AUDIO_BYTES) {
-    addTemporaryNotification(
-      "Recording is too large. Maximum size is 10 MB.",
-      SettaNotificationTypeEnum.warning,
-    );
     return null;
   }
   const form = new FormData();
