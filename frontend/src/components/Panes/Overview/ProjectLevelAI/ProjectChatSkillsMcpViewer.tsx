@@ -10,7 +10,7 @@ import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
-  route_get_setta_home_info,
+  route_get_mcp_server_runtime_status,
   route_reveal_path_in_os_file_explorer,
 } from "utils/generatedEndpoints";
 import {
@@ -18,8 +18,11 @@ import {
   type BaseChatMessageUnion,
   type EngineType,
   type ExternalAgentToolType,
+  type MCPServerRuntimeState,
+  type MCPServerRuntimeStatus,
 } from "utils/generatedTypes";
 import {
+  buildMcpStatusSummary,
   buildSkillStatusBySkillId,
   filterSkills,
   groupMcpServersByConfigPath,
@@ -35,6 +38,7 @@ type PathGroupHeaderProps = {
 
 type ProjectChatSkillsMcpViewerProps = {
   chatId: string | null | undefined;
+  engineConfigId: string | null;
   engineType: EngineType | null;
   externalAgentToolType: ExternalAgentToolType | null;
 };
@@ -98,15 +102,63 @@ function PathGroupHeader({
   );
 }
 
+function formatMcpStatusLabel(state: MCPServerRuntimeState): string {
+  if (state === "connected") {
+    return "Connected";
+  }
+  if (state === "connecting") {
+    return "Connecting";
+  }
+  if (state === "retrying") {
+    return "Retrying";
+  }
+  if (state === "error") {
+    return "Error";
+  }
+  if (state === "disabled") {
+    return "Disabled";
+  }
+  return "Unknown";
+}
+
+function getMcpStatusBadgeClassName(state: MCPServerRuntimeState): string {
+  if (state === "connected") {
+    return "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
+  }
+  if (state === "connecting") {
+    return "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-900/30 dark:text-sky-300";
+  }
+  if (state === "retrying") {
+    return "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
+  }
+  if (state === "error") {
+    return "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300";
+  }
+  if (state === "disabled") {
+    return "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-300";
+  }
+  return "border-setta-300 bg-setta-100 text-setta-700 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-200";
+}
+
+function buildMcpServerDetail(server: MCPServerRuntimeStatus): string {
+  if (server.state === "connected") {
+    return `${server.transport} · ${server.endpoint} · tools ${server.toolCount}`;
+  }
+  if (server.lastError) {
+    return `${server.transport} · ${server.endpoint} · ${server.lastError}`;
+  }
+  if (server.missingEnvVar) {
+    return `${server.transport} · ${server.endpoint} · missing ${server.missingEnvVar}`;
+  }
+  return `${server.transport} · ${server.endpoint}`;
+}
+
 export function ProjectChatSkillsMcpViewer({
   chatId,
+  engineConfigId,
   engineType,
   externalAgentToolType,
 }: ProjectChatSkillsMcpViewerProps) {
-  const allLLMConfigs = useAIStore((state) => state.allLLMConfigs);
-  const allLLMConfigsInitialLoadComplete = useAIStore(
-    (state) => state.allLLMConfigsInitialLoadComplete,
-  );
   const chatMessages = useAIStore((state): BaseChatMessageUnion[] | null => {
     if (!chatId) {
       return null;
@@ -144,9 +196,17 @@ export function ProjectChatSkillsMcpViewer({
   const [settaFilesLocation, setSettaFilesLocation] = useState<string | null>(
     null,
   );
-  const [mcpConfigInfoLoading, setMcpConfigInfoLoading] = useState(true);
+  const [mcpRuntimeStatuses, setMcpRuntimeStatuses] = useState<
+    MCPServerRuntimeStatus[]
+  >([]);
+  const [externalMcpRuntimeStatuses, setExternalMcpRuntimeStatuses] = useState<
+    MCPServerRuntimeStatus[]
+  >([]);
+  const [mcpServersLoading, setMcpServersLoading] = useState(true);
+  const [mcpServersError, setMcpServersError] = useState<string | null>(null);
   const [skillsRevision, setSkillsRevision] = useState(0);
   const skillsRefreshInFlight = useRef(false);
+  const mcpStatusRefreshInFlight = useRef(false);
   const skillContentRequestSequence = useRef(0);
   const selectedSkillIdRef = useRef<string | null>(null);
   const skillContentCache = useRef(
@@ -192,9 +252,44 @@ export function ProjectChatSkillsMcpViewer({
     }
   }, []);
 
+  const refreshMcpServerStatuses = useCallback(async () => {
+    if (mcpStatusRefreshInFlight.current) {
+      return;
+    }
+    mcpStatusRefreshInFlight.current = true;
+    setMcpServersLoading(true);
+    setMcpServersError(null);
+    try {
+      const res = await route_get_mcp_server_runtime_status({
+        chatId: chatId ?? null,
+        engineConfigId: engineConfigId ?? null,
+      });
+      if (!res200(res)) {
+        const detail = getErrorDetail(res.data);
+        setMcpServersError(detail ?? "Failed to load MCP runtime status.");
+        setMcpRuntimeStatuses([]);
+        setExternalMcpRuntimeStatuses([]);
+        setMcpConfigPath(null);
+        setSettaFilesLocation(null);
+        return;
+      }
+      setMcpRuntimeStatuses(res.data.servers);
+      setExternalMcpRuntimeStatuses(res.data.externalServers);
+      setMcpConfigPath(res.data.llmConfigPath);
+      setSettaFilesLocation(res.data.activeSettaFilesLocation);
+    } finally {
+      setMcpServersLoading(false);
+      mcpStatusRefreshInFlight.current = false;
+    }
+  }, [chatId, engineConfigId]);
+
   useEffect(() => {
     void refreshSkillsBrowser();
   }, [refreshSkillsBrowser]);
+
+  useEffect(() => {
+    void refreshMcpServerStatuses();
+  }, [refreshMcpServerStatuses]);
 
   useEffect(() => {
     selectedSkillIdRef.current = selectedSkillId;
@@ -263,23 +358,6 @@ export function ProjectChatSkillsMcpViewer({
   }, [isSkillMarkdownViewerOpen, selectedSkillId, skillsRevision]);
 
   useEffect(() => {
-    async function loadMcpConfigPath() {
-      setMcpConfigInfoLoading(true);
-      const res = await route_get_setta_home_info();
-      if (!res200(res)) {
-        setMcpConfigPath(null);
-        setSettaFilesLocation(null);
-        setMcpConfigInfoLoading(false);
-        return;
-      }
-      setMcpConfigPath(res.data.llmConfigPath);
-      setSettaFilesLocation(res.data.activeSettaFilesLocation);
-      setMcpConfigInfoLoading(false);
-    }
-    void loadMcpConfigPath();
-  }, []);
-
-  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -306,11 +384,20 @@ export function ProjectChatSkillsMcpViewer({
 
   const mcpServerGroups = useMemo(() => {
     return groupMcpServersByConfigPath({
-      mcpServers: allLLMConfigs?.mcpServers,
+      mcpRuntimeStatuses,
+      externalMcpRuntimeStatuses,
       mcpConfigPath,
       settaFilesLocation,
     });
-  }, [allLLMConfigs?.mcpServers, mcpConfigPath, settaFilesLocation]);
+  }, [
+    externalMcpRuntimeStatuses,
+    mcpConfigPath,
+    mcpRuntimeStatuses,
+    settaFilesLocation,
+  ]);
+  const mcpStatusSummary = useMemo(() => {
+    return buildMcpStatusSummary(mcpServerGroups);
+  }, [mcpServerGroups]);
 
   const markdownViewerExtensions = useMemo(() => {
     return getExtensions({
@@ -322,8 +409,6 @@ export function ProjectChatSkillsMcpViewer({
     });
   }, []);
 
-  const mcpServersLoading =
-    !allLLMConfigsInitialLoadComplete || mcpConfigInfoLoading;
   const showSkillsLoadingState = skillsLoading && skills.length === 0;
   const skillPreviewContent =
     skillContentLoading || (skillsLoading && !selectedSkillId)
@@ -382,8 +467,11 @@ export function ProjectChatSkillsMcpViewer({
               </div>
               <button
                 className="absolute right-0 top-0 cursor-pointer rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-                onClick={() => void refreshSkillsBrowser()}
-                disabled={skillsLoading}
+                onClick={() => {
+                  void refreshSkillsBrowser();
+                  void refreshMcpServerStatuses();
+                }}
+                disabled={skillsLoading || mcpServersLoading}
               >
                 Refresh
               </button>
@@ -550,23 +638,33 @@ export function ProjectChatSkillsMcpViewer({
           <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
             MCP Servers
           </div>
+          <p className="text-[11px] text-setta-500 dark:text-setta-400">
+            {mcpStatusSummary.total === 0
+              ? "No runtime MCP status available yet."
+              : `${mcpStatusSummary.connected} connected · ${mcpStatusSummary.connecting} connecting · ${mcpStatusSummary.retrying} retrying · ${mcpStatusSummary.error} error · ${mcpStatusSummary.unknown} unknown`}
+          </p>
           <div className="max-h-[220px] min-h-[110px] min-w-0 overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
+            {mcpServersError ? (
+              <div className="mb-2 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                MCP runtime status unavailable ({mcpServersError}).
+              </div>
+            ) : null}
             {mcpServersLoading ? (
               <div className="text-setta-500 dark:text-setta-400">
                 Loading MCP servers...
               </div>
             ) : mcpServerGroups.length === 0 ? (
               <div className="text-setta-500 dark:text-setta-400">
-                No MCP servers configured.
+                No MCP runtime status available.
               </div>
             ) : (
               mcpServerGroups.map((group, groupIndex) => (
                 <div
-                  key={group.configPath ?? "unavailable"}
+                  key={`${group.sourceLabel}:${group.configPath ?? "unavailable"}`}
                   className={groupIndex === 0 ? "" : "mt-3"}
                 >
                   <PathGroupHeader
-                    title={group.configLabel}
+                    title={`${group.configLabel} · ${group.sourceLabel}`}
                     path={group.configPath}
                     onCopyPath={copyPathToClipboard}
                     onRevealPath={(path) => void revealPathInFileExplorer(path)}
@@ -574,9 +672,19 @@ export function ProjectChatSkillsMcpViewer({
                   <div className="mt-1 grid gap-1 px-1">
                     {group.servers.map((server) => (
                       <div key={server.serverId} className="pb-1 last:pb-0">
-                        <div className="font-semibold">{server.serverId}</div>
-                        <div className="font-mono text-setta-500 dark:text-setta-400">
-                          {server.transport} · {server.endpoint}
+                        <div className="flex items-center gap-1">
+                          <div className="font-semibold">{server.serverId}</div>
+                          <span
+                            className={`rounded border px-1 py-[1px] text-[10px] font-semibold ${getMcpStatusBadgeClassName(server.state)}`}
+                          >
+                            {formatMcpStatusLabel(server.state)}
+                          </span>
+                        </div>
+                        <div
+                          className="truncate font-mono text-setta-500 dark:text-setta-400"
+                          title={buildMcpServerDetail(server)}
+                        >
+                          {buildMcpServerDetail(server)}
                         </div>
                       </div>
                     ))}

@@ -7,6 +7,8 @@ from mcp.types import Tool, ToolAnnotations
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
+from setta.types.llm_config import MCPServerConfig
+from setta.types.mcp_runtime_status import MCPServerRuntimeState
 from setta.utils.constants import C
 
 
@@ -202,3 +204,92 @@ class TestMultiMCPClientCallTool:
 
         with pytest.raises(anyio.ClosedResourceError):
             await client.call_tool(namespaced_tool_name, {"path": "README.md"})
+
+
+class TestMultiMCPClientRuntimeStatus:
+    def test_initial_statuses_include_configured_servers(self) -> None:
+        client = MultiMCPClient(
+            {
+                SETTA_MCP_SERVER_ID: MCPServerConfig(
+                    transport="sse",
+                    url="http://127.0.0.1:8000/mcp",
+                ),
+                "local_stdio": MCPServerConfig(
+                    transport="stdio",
+                    command="node",
+                    args=["server.js"],
+                ),
+            }
+        )
+
+        statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
+        assert set(statuses.keys()) == {SETTA_MCP_SERVER_ID, "local_stdio"}
+        assert statuses[SETTA_MCP_SERVER_ID].state == MCPServerRuntimeState.unknown
+        assert statuses["local_stdio"].endpoint == "node"
+
+    def test_status_transitions_capture_failures_and_retries(self) -> None:
+        client = MultiMCPClient(
+            {
+                "github": MCPServerConfig(
+                    transport="streamable_http",
+                    url="http://localhost:9000/mcp",
+                )
+            }
+        )
+
+        client._mark_connecting("github")
+        statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
+        assert statuses["github"].state == MCPServerRuntimeState.connecting
+        assert statuses["github"].lastAttemptAt is not None
+
+        client._mark_failure(
+            "github",
+            error=RuntimeError("connect failed"),
+            missing_env_var="GITHUB_TOKEN",
+        )
+        statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
+        assert statuses["github"].state == MCPServerRuntimeState.error
+        assert statuses["github"].lastError == "connect failed"
+        assert statuses["github"].missingEnvVar == "GITHUB_TOKEN"
+        assert statuses["github"].consecutiveFailures == 1
+
+        client._mark_retrying("github")
+        statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
+        assert statuses["github"].state == MCPServerRuntimeState.retrying
+
+    def test_connected_resets_failure_metadata(self) -> None:
+        client = MultiMCPClient(
+            {
+                "github": MCPServerConfig(
+                    transport="streamable_http",
+                    url="http://localhost:9000/mcp",
+                )
+            }
+        )
+
+        client._mark_failure("github", error=RuntimeError("fail"))
+        client._mark_connected("github", tool_count=5)
+
+        statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
+        assert statuses["github"].state == MCPServerRuntimeState.connected
+        assert statuses["github"].toolCount == 5
+        assert statuses["github"].lastError is None
+        assert statuses["github"].consecutiveFailures == 0
+
+    @pytest.mark.asyncio
+    async def test_stop_marks_servers_disabled(self) -> None:
+        client = MultiMCPClient(
+            {
+                "github": MCPServerConfig(
+                    transport="streamable_http",
+                    url="http://localhost:9000/mcp",
+                )
+            }
+        )
+
+        client._mark_connected("github", tool_count=2)
+        await client.stop()
+
+        statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
+        assert statuses["github"].state == MCPServerRuntimeState.disabled
+        assert statuses["github"].toolCount == 0

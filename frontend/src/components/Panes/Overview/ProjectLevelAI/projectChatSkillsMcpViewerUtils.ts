@@ -1,9 +1,10 @@
 import {
-  type AllLLMConfigs,
   type AppGenSkillEntry,
   type BaseChatMessageUnion,
   type EngineType,
   type ExternalAgentToolType,
+  type MCPServerRuntimeState,
+  type MCPServerRuntimeStatus,
   EngineTypeEnum,
   ExternalAgentToolTypeEnum,
 } from "utils/generatedTypes";
@@ -408,29 +409,27 @@ export function groupSkillsByRootPath(
     .sort((a, b) => a.rootPath.localeCompare(b.rootPath));
 }
 
-type McpServerListEntry = {
+export type McpServerListEntry = {
   serverId: string;
+  source: string;
   transport: string;
   endpoint: string;
+  state: MCPServerRuntimeState;
+  lastAttemptAt: string | null;
+  lastConnectedAt: string | null;
+  lastFailureAt: string | null;
+  consecutiveFailures: number;
+  lastError: string | null;
+  missingEnvVar: string | null;
+  toolCount: number;
 };
 
-type McpServersByConfigPath = {
+export type McpServersByConfigPath = {
   configPath: string | null;
   configLabel: string;
+  sourceLabel: string;
   servers: McpServerListEntry[];
 };
-
-function resolveMcpServerEndpoint(
-  config: AllLLMConfigs["mcpServers"][string],
-): string {
-  if (typeof config.url === "string" && config.url.length > 0) {
-    return config.url;
-  }
-  if (typeof config.command === "string" && config.command.length > 0) {
-    return config.command;
-  }
-  return "(no endpoint)";
-}
 
 function resolveMcpConfigLabel(settaFilesLocation: string | null): string {
   if (!settaFilesLocation) {
@@ -439,35 +438,138 @@ function resolveMcpConfigLabel(settaFilesLocation: string | null): string {
   return `Active ${settaFilesLocation} setta_files`;
 }
 
+function mcpStatusPriority(state: MCPServerRuntimeState): number {
+  if (state === "error") {
+    return 0;
+  }
+  if (state === "retrying") {
+    return 1;
+  }
+  if (state === "connecting") {
+    return 2;
+  }
+  if (state === "connected") {
+    return 3;
+  }
+  if (state === "unknown") {
+    return 4;
+  }
+  return 5;
+}
+
+function toMcpListEntry(server: MCPServerRuntimeStatus): McpServerListEntry {
+  return {
+    serverId: server.serverId,
+    source: server.source,
+    transport: server.transport,
+    endpoint: server.endpoint,
+    state: server.state,
+    lastAttemptAt: server.lastAttemptAt,
+    lastConnectedAt: server.lastConnectedAt,
+    lastFailureAt: server.lastFailureAt,
+    consecutiveFailures: server.consecutiveFailures,
+    lastError: server.lastError,
+    missingEnvVar: server.missingEnvVar,
+    toolCount: server.toolCount,
+  };
+}
+
 export function groupMcpServersByConfigPath({
-  mcpServers,
+  mcpRuntimeStatuses,
+  externalMcpRuntimeStatuses,
   mcpConfigPath,
   settaFilesLocation,
 }: {
-  mcpServers: AllLLMConfigs["mcpServers"] | undefined;
+  mcpRuntimeStatuses: MCPServerRuntimeStatus[];
+  externalMcpRuntimeStatuses: MCPServerRuntimeStatus[];
   mcpConfigPath: string | null;
   settaFilesLocation: string | null;
 }): McpServersByConfigPath[] {
-  if (!mcpServers) {
-    return [];
-  }
-  const serverEntries = Object.entries(mcpServers)
-    .map(([serverId, config]) => {
-      return {
-        serverId,
-        transport: config.transport,
-        endpoint: resolveMcpServerEndpoint(config),
-      };
-    })
-    .sort((a, b) => a.serverId.localeCompare(b.serverId));
-  if (serverEntries.length === 0) {
-    return [];
-  }
-  return [
-    {
+  const groups: McpServersByConfigPath[] = [];
+  const sortedSettaServers = [...mcpRuntimeStatuses]
+    .map(toMcpListEntry)
+    .sort((a, b) => {
+      const priorityDiff = mcpStatusPriority(a.state) - mcpStatusPriority(b.state);
+      if (priorityDiff !== 0) {
+        return priorityDiff;
+      }
+      return a.serverId.localeCompare(b.serverId);
+    });
+  if (sortedSettaServers.length > 0) {
+    groups.push({
       configPath: mcpConfigPath,
       configLabel: resolveMcpConfigLabel(settaFilesLocation),
-      servers: serverEntries,
-    },
-  ];
+      sourceLabel: "Setta MCP",
+      servers: sortedSettaServers,
+    });
+  }
+  const sortedExternalServers = [...externalMcpRuntimeStatuses]
+    .map(toMcpListEntry)
+    .sort((a, b) => {
+      const priorityDiff = mcpStatusPriority(a.state) - mcpStatusPriority(b.state);
+      if (priorityDiff !== 0) {
+        return priorityDiff;
+      }
+      return a.serverId.localeCompare(b.serverId);
+    });
+  if (sortedExternalServers.length > 0) {
+    groups.push({
+      configPath: null,
+      configLabel: "Active external runtime",
+      sourceLabel: "External Runtime",
+      servers: sortedExternalServers,
+    });
+  }
+  return groups;
+}
+
+export type McpStatusSummary = {
+  total: number;
+  connected: number;
+  connecting: number;
+  retrying: number;
+  error: number;
+  disabled: number;
+  unknown: number;
+};
+
+export function buildMcpStatusSummary(
+  groups: McpServersByConfigPath[],
+): McpStatusSummary {
+  const summary: McpStatusSummary = {
+    total: 0,
+    connected: 0,
+    connecting: 0,
+    retrying: 0,
+    error: 0,
+    disabled: 0,
+    unknown: 0,
+  };
+  for (const group of groups) {
+    for (const server of group.servers) {
+      summary.total += 1;
+      if (server.state === "connected") {
+        summary.connected += 1;
+        continue;
+      }
+      if (server.state === "connecting") {
+        summary.connecting += 1;
+        continue;
+      }
+      if (server.state === "retrying") {
+        summary.retrying += 1;
+        continue;
+      }
+      if (server.state === "error") {
+        summary.error += 1;
+        continue;
+      }
+      if (server.state === "disabled") {
+        summary.disabled += 1;
+        continue;
+      }
+      summary.unknown += 1;
+    }
+  }
+  return summary;
 }

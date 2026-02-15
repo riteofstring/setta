@@ -6,6 +6,7 @@ import {
   type BaseChatMessageUnion,
 } from "utils/generatedTypes";
 import {
+  buildMcpStatusSummary,
   buildSkillStatusBySkillId,
   filterSkills,
   groupMcpServersByConfigPath,
@@ -78,21 +79,96 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(groups[1]?.rootPath).toBe("/workspace/.agents/skills");
   });
 
-  it("keeps missing MCP config path nullable instead of using a sentinel string", () => {
+  it("groups MCP runtime statuses and keeps missing config path nullable", () => {
     const groups = groupMcpServersByConfigPath({
-      mcpServers: {
-        setta: {
+      mcpRuntimeStatuses: [
+        {
+          serverId: "setta",
+          source: "setta_mcp",
           transport: "sse",
-          url: "http://127.0.0.1:8000/mcp",
+          endpoint: "http://127.0.0.1:8000/mcp",
+          state: "connected",
+          lastAttemptAt: null,
+          lastConnectedAt: null,
+          lastFailureAt: null,
+          consecutiveFailures: 0,
+          lastError: null,
+          missingEnvVar: null,
+          toolCount: 12,
         },
-      },
+      ],
+      externalMcpRuntimeStatuses: [
+        {
+          serverId: "filesystem",
+          source: "external_runtime",
+          transport: "stdio",
+          endpoint: "npx @modelcontextprotocol/server-filesystem",
+          state: "unknown",
+          lastAttemptAt: null,
+          lastConnectedAt: null,
+          lastFailureAt: null,
+          consecutiveFailures: 0,
+          lastError: null,
+          missingEnvVar: null,
+          toolCount: 0,
+        },
+      ],
       mcpConfigPath: null,
       settaFilesLocation: "local",
     });
 
-    expect(groups).toHaveLength(1);
+    expect(groups).toHaveLength(2);
     expect(groups[0]?.configPath).toBeNull();
+    expect(groups[0]?.sourceLabel).toBe("Setta MCP");
     expect(groups[0]?.servers[0]?.endpoint).toBe("http://127.0.0.1:8000/mcp");
+    expect(groups[1]?.sourceLabel).toBe("External Runtime");
+    expect(groups[1]?.servers[0]?.state).toBe("unknown");
+  });
+
+  it("builds MCP status summary counts", () => {
+    const summary = buildMcpStatusSummary([
+      {
+        configPath: "/tmp/llm_config.json",
+        configLabel: "Active local setta_files",
+        sourceLabel: "Setta MCP",
+        servers: [
+          {
+            serverId: "setta",
+            source: "setta_mcp",
+            transport: "sse",
+            endpoint: "http://127.0.0.1:8000/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 8,
+          },
+          {
+            serverId: "github",
+            source: "setta_mcp",
+            transport: "streamable_http",
+            endpoint: "http://localhost:8100/mcp",
+            state: "retrying",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 2,
+            lastError: "connection failed",
+            missingEnvVar: null,
+            toolCount: 0,
+          },
+        ],
+      },
+    ]);
+
+    expect(summary.total).toBe(2);
+    expect(summary.connected).toBe(1);
+    expect(summary.retrying).toBe(1);
+    expect(summary.error).toBe(0);
+    expect(summary.unknown).toBe(0);
   });
 
   it("marks applicability from root ids based on selected engine tool type", () => {

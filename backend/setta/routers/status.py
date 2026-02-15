@@ -10,6 +10,10 @@ from pydantic import BaseModel
 
 from setta.routers.dependencies import AppStateFromRequest, require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
+from setta.types.mcp_runtime_status import (
+    GetMCPServerRuntimeStatusRequest,
+    MCPServerRuntimeStatusResponse,
+)
 from setta.types.routes import Route
 from setta.types.server_mode import ServerModeResponse
 from setta.utils.init_status import (
@@ -134,6 +138,30 @@ def route_get_setta_home_info() -> SettaHomeInfoResponse:
         globalSettaFilesBase=str(config.global_setta_files_base),
         activeSettaFilesLocation=paths.setta_files_location,
         llmConfigPath=str(paths.setta_files_root / "llm_config.json"),
+    )
+
+
+@router.post(
+    Route.GET_MCP_SERVER_RUNTIME_STATUS,
+    dependencies=[Depends(require_ide_mode)],
+)
+def route_get_mcp_server_runtime_status(
+    x: GetMCPServerRuntimeStatusRequest,
+    state: AppStateFromRequest,
+) -> MCPServerRuntimeStatusResponse:
+    paths = get_setta_paths()
+    external_servers = []
+    external_runner = state.external_agent_runner
+    if not external_runner.disabled:
+        external_servers = external_runner.get_mcp_server_runtime_statuses(
+            chat_id=x.chatId,
+            engine_config_id=x.engineConfigId,
+        )
+    return MCPServerRuntimeStatusResponse(
+        llmConfigPath=str(paths.setta_files_root / "llm_config.json"),
+        activeSettaFilesLocation=paths.setta_files_location,
+        servers=state.mcp_client.get_server_runtime_statuses(),
+        externalServers=external_servers,
     )
 
 

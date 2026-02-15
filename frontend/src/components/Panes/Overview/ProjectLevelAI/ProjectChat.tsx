@@ -445,6 +445,7 @@ export function ProjectChat() {
         ) : viewSkillsMcpViewer ? (
           <ProjectChatSkillsMcpViewer
             chatId={chatId}
+            engineConfigId={effectiveEngineId}
             engineType={engineType}
             externalAgentToolType={externalAgentConfig?.toolType ?? null}
           />
