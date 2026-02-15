@@ -283,10 +283,10 @@ def test_plugin_tools_install_update_rollback_and_uninstall_lifecycle(
             os.environ["PIP_FIND_LINKS"] = old_find_links
 
 
-def test_plugin_tools_environment_scope_alias_lifecycle(
+def test_plugin_tools_setta_files_scope_lifecycle(
     tmp_path: Path,
 ) -> None:
-    # Environment scope alias should map to setta_files across plugin lifecycle tools.
+    # setta_files scope should work across plugin lifecycle tools.
     _, ctx = _build_ctx(
         tmp_path,
         deployment_mode=False,
@@ -308,7 +308,7 @@ def test_plugin_tools_environment_scope_alias_lifecycle(
     try:
         installed = install_plugin(
             sourceSpec=f"pypi:{package_name}=={version}",
-            scope="environment",
+            scope="setta_files",
             ctx=ctx,
         )
         assert installed.pluginId == package_name
@@ -316,7 +316,7 @@ def test_plugin_tools_environment_scope_alias_lifecycle(
 
         updated = update_plugin(
             pluginId=package_name,
-            scope="environment",
+            scope="setta_files",
             ctx=ctx,
         )
         assert updated.pluginId == package_name
@@ -325,7 +325,7 @@ def test_plugin_tools_environment_scope_alias_lifecycle(
 
         rolled_back = rollback_plugin(
             pluginId=package_name,
-            scope="environment",
+            scope="setta_files",
             ctx=ctx,
         )
         assert rolled_back.pluginId == package_name
@@ -333,7 +333,7 @@ def test_plugin_tools_environment_scope_alias_lifecycle(
 
         removed = uninstall_plugin(
             pluginId=package_name,
-            scope="environment",
+            scope="setta_files",
             ctx=ctx,
         )
         assert removed.pluginId == package_name

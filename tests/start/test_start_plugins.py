@@ -212,12 +212,34 @@ def test_plugins_uninstall_cli_rejects_multiple_scope_shortcuts(
             "uninstall",
             "setta-fixture-frontend",
             "--global",
+            "--setta-files",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Use only one of --global or --setta-files." in result.output
+
+
+def test_plugins_install_cli_rejects_removed_environment_flag(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Install CLI should reject removed legacy scope flags.
+    manager = _build_manager(tmp_path)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        plugins,
+        [
+            "install",
+            "pypi:setta-fixture-frontend==0.1.0",
             "--environment",
         ],
     )
 
     assert result.exit_code != 0
-    assert "Use only one of --global, --setta-files, or --environment." in result.output
+    assert "No such option: --environment" in result.output
 
 
 def test_plugins_list_cli_text_reports_no_plugins(tmp_path: Path, monkeypatch) -> None:

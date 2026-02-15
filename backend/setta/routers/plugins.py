@@ -28,7 +28,7 @@ from setta.types.routes import Route
 router = SettaAPIRouter()
 assets_router = APIRouter()
 
-ScopeValue = Literal["workspace", "setta_files", "environment", "global"]
+ScopeValue = Literal["workspace", "setta_files", "global"]
 InstallerValue = Literal["auto", "pip", "uv"]
 
 

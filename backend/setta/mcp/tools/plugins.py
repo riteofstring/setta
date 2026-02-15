@@ -12,7 +12,7 @@ from setta.plugins.models import (
     PluginUpdateResponse,
 )
 
-PluginScopeValue = Literal["workspace", "setta_files", "environment", "global"]
+PluginScopeValue = Literal["workspace", "setta_files", "global"]
 
 
 def _require_ide_mode(ctx: Context) -> None:
@@ -34,7 +34,7 @@ def install_plugin(
 
     Args:
         sourceSpec: Plugin source spec (for example github:owner/repo#ref or pypi:pkg==x.y.z).
-        scope: Installation scope (workspace, setta_files/environment, global).
+        scope: Installation scope (workspace, setta_files, global).
         enable: Whether to enable after install.
         force: Whether to overwrite existing install target.
     """

@@ -7906,10 +7906,7 @@ export type PluginEnableDisableResponse = z.infer<
 const PluginInstallRequestSchema = z.object({
   sourceSpec: z.string(),
   scope: z
-    .union([
-      z.literal(["workspace", "setta_files", "environment", "global"]),
-      z.null(),
-    ])
+    .union([z.literal(["workspace", "setta_files", "global"]), z.null()])
     .default(null),
   installer: z.literal(["auto", "pip", "uv"]).default("auto" as const),
   enable: z.boolean().default(true),
@@ -7934,7 +7931,7 @@ const PluginInstallResponseSchema = z.object({
   pluginId: z.string(),
   version: z.string(),
   sourceScope: z.enum(PluginScopeEnum),
-  sourceScopeLabel: z.literal(["workspace", "environment", "global"]),
+  sourceScopeLabel: z.literal(["workspace", "setta_files", "global"]),
   sourcePath: z.string(),
   canonicalSourceKey: z.string(),
   sourceDigestSha256: z.union([z.string(), z.null()]).default(null),
@@ -7951,10 +7948,7 @@ export type PluginInstallResponse = z.infer<typeof PluginInstallResponseSchema>;
 const PluginLinkRequestSchema = z.object({
   localPluginRoot: z.string(),
   scope: z
-    .union([
-      z.literal(["workspace", "setta_files", "environment", "global"]),
-      z.null(),
-    ])
+    .union([z.literal(["workspace", "setta_files", "global"]), z.null()])
     .default(null),
   enable: z.boolean().default(true),
   force: z.boolean().default(false),
@@ -8006,7 +8000,7 @@ const PluginListEntrySchema = z.object({
   name: z.string(),
   version: z.string(),
   sourceScope: z.enum(PluginScopeEnum),
-  sourceScopeLabel: z.literal(["workspace", "environment", "global"]),
+  sourceScopeLabel: z.literal(["workspace", "setta_files", "global"]),
   sourceManager: z
     .enum(PluginSourceManagerEnum)
     .default(PluginSourceManagerEnum.setta),
@@ -8079,10 +8073,7 @@ export type PluginRestartResponse = z.infer<typeof PluginRestartResponseSchema>;
 const PluginRollbackRequestSchema = z.object({
   pluginId: z.string(),
   scope: z
-    .union([
-      z.literal(["workspace", "setta_files", "environment", "global"]),
-      z.null(),
-    ])
+    .union([z.literal(["workspace", "setta_files", "global"]), z.null()])
     .default(null),
 });
 
@@ -8143,7 +8134,7 @@ const PluginStatusEntrySchema = z.object({
   version: z.string(),
   state: z.enum(PluginRuntimeStateEnum),
   sourceScope: z.enum(PluginScopeEnum),
-  sourceScopeLabel: z.literal(["workspace", "environment", "global"]),
+  sourceScopeLabel: z.literal(["workspace", "setta_files", "global"]),
   sourceManager: z
     .enum(PluginSourceManagerEnum)
     .default(PluginSourceManagerEnum.setta),
@@ -8191,10 +8182,7 @@ export type PluginStatusResponse = z.infer<typeof PluginStatusResponseSchema>;
 const PluginUninstallRequestSchema = z.object({
   pluginId: z.string(),
   scope: z
-    .union([
-      z.literal(["workspace", "setta_files", "environment", "global"]),
-      z.null(),
-    ])
+    .union([z.literal(["workspace", "setta_files", "global"]), z.null()])
     .default(null),
 });
 
@@ -8215,10 +8203,7 @@ export type PluginUninstallResponse = z.infer<
 const PluginUpdateRequestSchema = z.object({
   pluginId: z.string(),
   scope: z
-    .union([
-      z.literal(["workspace", "setta_files", "environment", "global"]),
-      z.null(),
-    ])
+    .union([z.literal(["workspace", "setta_files", "global"]), z.null()])
     .default(null),
   to: z.union([z.string(), z.null()]).default(null),
 });

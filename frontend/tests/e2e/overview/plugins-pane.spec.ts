@@ -55,8 +55,8 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   await expect(
     page
       .getByTestId("plugin-install-scope")
-      .locator("option[value='environment']"),
-  ).toHaveText("environment");
+      .locator("option[value='setta_files']"),
+  ).toHaveText("setta_files");
   await expect(
     page.getByTestId("plugin-install-scope").locator("option[value='global']"),
   ).toHaveText("global");
@@ -255,8 +255,8 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
       body: JSON.stringify({
         pluginId: "setta-fixture-install",
         version: "0.1.0",
-        sourceScope: "global",
-        sourceScopeLabel: "global",
+        sourceScope: "setta_files",
+        sourceScopeLabel: "setta_files",
         sourcePath: "/tmp/setta-fixture-install",
         canonicalSourceKey: "pypi:setta-fixture-install",
         sourceDigestSha256: "sha256:fixture",
@@ -270,7 +270,7 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
     });
   });
 
-  await page.getByTestId("plugin-install-scope").selectOption("global");
+  await page.getByTestId("plugin-install-scope").selectOption("setta_files");
   await page.getByTestId("plugin-install-installer").selectOption("uv");
   await page
     .getByPlaceholder("github:owner/repo[#ref] or pypi:package[==version]")
@@ -278,7 +278,7 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
   await page.getByRole("button", { name: "Install", exact: true }).click();
 
   await expect.poll(() => installRequests.length).toBe(1);
-  expect(installRequests[0].scope).toBe("global");
+  expect(installRequests[0].scope).toBe("setta_files");
   expect(installRequests[0].installer).toBe("uv");
 
   const confirmation = page.getByTestId("plugin-install-confirmation");
@@ -288,7 +288,9 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
     confirmation.getByText("setta-fixture-install@0.1.0"),
   ).toBeVisible();
   await expect(
-    confirmation.getByText("scope=global source=pypi:setta-fixture-install"),
+    confirmation.getByText(
+      "scope=setta_files source=pypi:setta-fixture-install",
+    ),
   ).toBeVisible();
   await expect(
     confirmation.getByText("requested=registerMcpTools, registerPane"),
@@ -318,7 +320,7 @@ test("plugins pane shows package-manager guidance and disables managed write act
         name: "Setta Package Managed",
         version: "0.1.0",
         sourceScope: "setta_files",
-        sourceScopeLabel: "environment",
+        sourceScopeLabel: "setta_files",
         sourceManager: "package_manager",
         sourceManagerHint:
           "Managed by Python package manager in active environment. Use uv/pip/Poetry to install, update, or remove.",
@@ -353,7 +355,7 @@ test("plugins pane shows package-manager guidance and disables managed write act
         version: "0.1.0",
         state: "active",
         sourceScope: "setta_files",
-        sourceScopeLabel: "environment",
+        sourceScopeLabel: "setta_files",
         sourceManager: "package_manager",
         sourceManagerHint:
           "Managed by Python package manager in active environment. Use uv/pip/Poetry to install, update, or remove.",

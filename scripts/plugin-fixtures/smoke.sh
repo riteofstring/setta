@@ -32,7 +32,7 @@ link_fixture "backend-codegen" "workspace"
 
 # Scope/precedence fixtures.
 link_fixture "scope-shadowing" "global"
-link_fixture "scope-shadowing" "environment"
+link_fixture "scope-shadowing" "setta_files"
 link_fixture "scope-shadowing" "workspace"
 
 echo "[smoke] rescanning plugins..."
@@ -62,5 +62,5 @@ Suggested manual checks:
 7. Validate scope precedence:
    - `setta plugins list`
    - `setta-fixture-scope-shadowing` should resolve from workspace and shadow
-     environment/global copies.
+     setta_files/global copies.
 CHECKLIST

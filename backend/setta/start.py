@@ -1068,20 +1068,17 @@ def _plugin_scope_choice_to_value(
     scope: str | None,
     global_scope: bool,
     setta_files_scope: bool,
-    environment_scope: bool,
 ) -> str | None:
-    explicit_flags = [global_scope, setta_files_scope, environment_scope]
+    explicit_flags = [global_scope, setta_files_scope]
     if sum(1 for flag in explicit_flags if flag) > 1:
-        raise click.ClickException(
-            "Use only one of --global, --setta-files, or --environment."
-        )
+        raise click.ClickException("Use only one of --global or --setta-files.")
     if scope and any(explicit_flags):
         raise click.ClickException(
             "Use either --scope or scope shortcut flags, not both."
         )
     if global_scope:
         return "global"
-    if setta_files_scope or environment_scope:
+    if setta_files_scope:
         return "setta_files"
     return scope
 
@@ -2459,7 +2456,7 @@ def plugins_list(json_output: bool) -> None:
 @click.argument("source_spec")
 @click.option(
     "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
+    type=click.Choice(["workspace", "setta_files", "global"]),
     default=None,
 )
 @click.option("--global", "global_scope", is_flag=True, help="Install globally")
@@ -2468,12 +2465,6 @@ def plugins_list(json_output: bool) -> None:
     "setta_files_scope",
     is_flag=True,
     help="Install into setta_files scope",
-)
-@click.option(
-    "--environment",
-    "environment_scope",
-    is_flag=True,
-    help="Alias for --setta-files",
 )
 @click.option(
     "--no-enable",
@@ -2494,7 +2485,6 @@ def plugins_install(
     scope: str | None,
     global_scope: bool,
     setta_files_scope: bool,
-    environment_scope: bool,
     no_enable: bool,
     installer: str,
     force: bool,
@@ -2505,7 +2495,6 @@ def plugins_install(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
     )
     try:
         result = manager.install_plugin(
@@ -2533,19 +2522,17 @@ def plugins_install(
 @click.argument("plugin_id")
 @click.option(
     "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
+    type=click.Choice(["workspace", "setta_files", "global"]),
     default=None,
 )
 @click.option("--global", "global_scope", is_flag=True)
 @click.option("--setta-files", "setta_files_scope", is_flag=True)
-@click.option("--environment", "environment_scope", is_flag=True)
 @click.option("--json", "json_output", is_flag=True)
 def plugins_uninstall(
     plugin_id: str,
     scope: str | None,
     global_scope: bool,
     setta_files_scope: bool,
-    environment_scope: bool,
     json_output: bool,
 ) -> None:
     manager = _build_plugin_manager_for_cli()
@@ -2553,7 +2540,6 @@ def plugins_uninstall(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
     )
     try:
         result = manager.uninstall_plugin(plugin_id=plugin_id, scope=resolved_scope)
@@ -2620,12 +2606,11 @@ def plugins_rescan(json_output: bool) -> None:
 @click.argument("plugin_id")
 @click.option(
     "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
+    type=click.Choice(["workspace", "setta_files", "global"]),
     default=None,
 )
 @click.option("--global", "global_scope", is_flag=True)
 @click.option("--setta-files", "setta_files_scope", is_flag=True)
-@click.option("--environment", "environment_scope", is_flag=True)
 @click.option("--to", "to_target", default=None)
 @click.option("--json", "json_output", is_flag=True)
 def plugins_update(
@@ -2633,7 +2618,6 @@ def plugins_update(
     scope: str | None,
     global_scope: bool,
     setta_files_scope: bool,
-    environment_scope: bool,
     to_target: str | None,
     json_output: bool,
 ) -> None:
@@ -2642,7 +2626,6 @@ def plugins_update(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
     )
     try:
         result = manager.update_plugin(
@@ -2665,12 +2648,11 @@ def plugins_update(
 @click.argument("source_spec_or_version")
 @click.option(
     "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
+    type=click.Choice(["workspace", "setta_files", "global"]),
     default=None,
 )
 @click.option("--global", "global_scope", is_flag=True)
 @click.option("--setta-files", "setta_files_scope", is_flag=True)
-@click.option("--environment", "environment_scope", is_flag=True)
 @click.option("--json", "json_output", is_flag=True)
 def plugins_pin(
     plugin_id: str,
@@ -2678,7 +2660,6 @@ def plugins_pin(
     scope: str | None,
     global_scope: bool,
     setta_files_scope: bool,
-    environment_scope: bool,
     json_output: bool,
 ) -> None:
     manager = _build_plugin_manager_for_cli()
@@ -2686,7 +2667,6 @@ def plugins_pin(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
     )
     try:
         result = manager.update_plugin(
@@ -2708,19 +2688,17 @@ def plugins_pin(
 @click.argument("plugin_id")
 @click.option(
     "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
+    type=click.Choice(["workspace", "setta_files", "global"]),
     default=None,
 )
 @click.option("--global", "global_scope", is_flag=True)
 @click.option("--setta-files", "setta_files_scope", is_flag=True)
-@click.option("--environment", "environment_scope", is_flag=True)
 @click.option("--json", "json_output", is_flag=True)
 def plugins_rollback(
     plugin_id: str,
     scope: str | None,
     global_scope: bool,
     setta_files_scope: bool,
-    environment_scope: bool,
     json_output: bool,
 ) -> None:
     manager = _build_plugin_manager_for_cli()
@@ -2728,7 +2706,6 @@ def plugins_rollback(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
     )
     try:
         result = manager.rollback_plugin(plugin_id=plugin_id, scope=resolved_scope)
@@ -2852,12 +2829,11 @@ def plugins_restart_required(json_output: bool) -> None:
 @click.argument("local_plugin_root", type=click.Path(path_type=Path))
 @click.option(
     "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
+    type=click.Choice(["workspace", "setta_files", "global"]),
     default=None,
 )
 @click.option("--global", "global_scope", is_flag=True)
 @click.option("--setta-files", "setta_files_scope", is_flag=True)
-@click.option("--environment", "environment_scope", is_flag=True)
 @click.option("--no-enable", is_flag=True)
 @click.option("--force", is_flag=True)
 @click.option("--json", "json_output", is_flag=True)
@@ -2866,7 +2842,6 @@ def plugins_link(
     scope: str | None,
     global_scope: bool,
     setta_files_scope: bool,
-    environment_scope: bool,
     no_enable: bool,
     force: bool,
     json_output: bool,
@@ -2876,7 +2851,6 @@ def plugins_link(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
     )
     try:
         result = manager.link_plugin(
@@ -2901,19 +2875,17 @@ def plugins_link(
 @click.argument("plugin_id")
 @click.option(
     "--scope",
-    type=click.Choice(["workspace", "setta_files", "environment", "global"]),
+    type=click.Choice(["workspace", "setta_files", "global"]),
     default=None,
 )
 @click.option("--global", "global_scope", is_flag=True)
 @click.option("--setta-files", "setta_files_scope", is_flag=True)
-@click.option("--environment", "environment_scope", is_flag=True)
 @click.option("--json", "json_output", is_flag=True)
 def plugins_unlink(
     plugin_id: str,
     scope: str | None,
     global_scope: bool,
     setta_files_scope: bool,
-    environment_scope: bool,
     json_output: bool,
 ) -> None:
     manager = _build_plugin_manager_for_cli()
@@ -2921,7 +2893,6 @@ def plugins_unlink(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
-        environment_scope=environment_scope,
     )
     try:
         result = manager.unlink_plugin(plugin_id=plugin_id, scope=resolved_scope)

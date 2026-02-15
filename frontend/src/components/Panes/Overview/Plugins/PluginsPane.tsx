@@ -48,7 +48,7 @@ import type {
 } from "utils/generatedTypes";
 import { onOverviewTabClick } from "../../paneFns";
 
-type InstallScope = "workspace" | "environment" | "global";
+type InstallScope = "workspace" | "setta_files" | "global";
 type InstallBackend = "auto" | "pip" | "uv";
 
 type PluginActionStatus = {
@@ -314,7 +314,7 @@ export function PluginsPane() {
               disabled={writeActionsLocked || busyActionKey !== null}
             >
               <option value="workspace">workspace</option>
-              <option value="environment">environment</option>
+              <option value="setta_files">setta_files</option>
               <option value="global">global</option>
             </select>
             <select

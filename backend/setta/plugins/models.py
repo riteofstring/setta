@@ -224,7 +224,7 @@ class PluginListEntry(BaseModel):
     name: str
     version: str
     sourceScope: PluginScope
-    sourceScopeLabel: Literal["workspace", "environment", "global"]
+    sourceScopeLabel: Literal["workspace", "setta_files", "global"]
     sourceManager: PluginSourceManager = PluginSourceManager.setta
     sourceManagerHint: str | None = None
     canonicalSourceKey: str
@@ -254,7 +254,7 @@ class PluginStatusEntry(BaseModel):
     version: str
     state: PluginRuntimeState
     sourceScope: PluginScope
-    sourceScopeLabel: Literal["workspace", "environment", "global"]
+    sourceScopeLabel: Literal["workspace", "setta_files", "global"]
     sourceManager: PluginSourceManager = PluginSourceManager.setta
     sourceManagerHint: str | None = None
     sourcePath: str
@@ -293,7 +293,7 @@ class PluginInstallResponse(BaseModel):
     pluginId: str
     version: str
     sourceScope: PluginScope
-    sourceScopeLabel: Literal["workspace", "environment", "global"]
+    sourceScopeLabel: Literal["workspace", "setta_files", "global"]
     sourcePath: str
     canonicalSourceKey: str
     sourceDigestSha256: str | None = None
@@ -458,16 +458,16 @@ def normalize_scope(
         return default_scope
     if normalized == "workspace":
         return PluginScope.workspace
-    if normalized in {"setta_files", "environment"}:
+    if normalized == "setta_files":
         return PluginScope.setta_files
     if normalized == "global":
         return PluginScope.global_scope
     raise ValueError(f"Invalid plugin scope: {raw_scope!r}")
 
 
-def scope_label(scope: PluginScope) -> Literal["workspace", "environment", "global"]:
+def scope_label(scope: PluginScope) -> Literal["workspace", "setta_files", "global"]:
     if scope == PluginScope.workspace:
         return "workspace"
     if scope == PluginScope.setta_files:
-        return "environment"
+        return "setta_files"
     return "global"

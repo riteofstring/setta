@@ -218,6 +218,38 @@ def test_plugin_routes_backend_static_router_fixture_roundtrip() -> None:
             }
 
 
+def test_plugin_install_route_rejects_removed_environment_scope() -> None:
+    # Install route should reject removed legacy scope labels.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_INSTALL.value}",
+                json={
+                    "sourceSpec": "pypi:setta-fixture-frontend==0.1.0",
+                    "scope": "environment",
+                    "installer": "pip",
+                },
+            )
+            assert response.status_code == 422
+            assert "setta_files" in response.text
+
+
 def test_plugin_restart_routes_support_programmatic_mode() -> None:
     # Restart contract routes should expose programmatic mode when callback support exists.
     with TemporaryDirectory() as tmpdir:
@@ -685,7 +717,7 @@ def test_plugin_routes_install_enable_rescan_and_uninstall_roundtrip() -> None:
                     f"{Route.PREFIX.value}{Route.PLUGINS_INSTALL.value}",
                     json={
                         "sourceSpec": f"pypi:{package_name}=={version}",
-                        "scope": "environment",
+                        "scope": "setta_files",
                         "installer": "pip",
                         "enable": False,
                         "force": False,
@@ -713,7 +745,7 @@ def test_plugin_routes_install_enable_rescan_and_uninstall_roundtrip() -> None:
 
                 uninstall_response = client.post(
                     f"{Route.PREFIX.value}{Route.PLUGINS_UNINSTALL.value}",
-                    json={"pluginId": package_name, "scope": "environment"},
+                    json={"pluginId": package_name, "scope": "setta_files"},
                 )
                 assert uninstall_response.status_code == 200
                 assert uninstall_response.json()["pluginId"] == package_name

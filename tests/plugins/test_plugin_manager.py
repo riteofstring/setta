@@ -701,7 +701,7 @@ def test_discovery_respects_scope_precedence_and_shadowing(tmp_path: Path) -> No
 def test_package_manager_plugins_are_discovered_from_environment_search_paths(
     tmp_path: Path,
 ) -> None:
-    # Plugins shipped inside active environment distributions should be discovered as environment-scoped.
+    # Plugins shipped inside active environment distributions should be discovered as setta_files-scoped.
     package_name = "setta-fixture-frontend"
     version = "0.1.0"
     site_packages = _install_fixture_distribution_in_site_packages(
@@ -724,7 +724,7 @@ def test_package_manager_plugins_are_discovered_from_environment_search_paths(
     ]
     assert len(entries) == 1
     entry = entries[0]
-    assert entry.sourceScopeLabel == "environment"
+    assert entry.sourceScopeLabel == "setta_files"
     assert entry.sourceManager == "package_manager"
     assert entry.canonicalSourceKey == "pypi:setta-fixture-frontend"
     assert entry.sourceManagerHint is not None
@@ -737,7 +737,7 @@ def test_package_manager_plugins_are_discovered_from_environment_search_paths(
     ]
     assert len(list_entries) == 1
     assert list_entries[0].sourceManager == "package_manager"
-    assert list_entries[0].sourceScopeLabel == "environment"
+    assert list_entries[0].sourceScopeLabel == "setta_files"
 
 
 def test_package_manager_discovery_marks_multiple_manifest_roots_invalid(
@@ -1087,9 +1087,10 @@ def test_update_plugin_with_explicit_target_persists_source_metadata(
     assert metadata.canonicalSourceKey == replacement_canonical_source_key
 
 
-def test_scope_alias_environment_maps_to_setta_files() -> None:
-    # The user-facing "environment" alias should normalize to canonical setta_files.
-    assert normalize_scope("environment") == PluginScope.setta_files
+def test_scope_environment_is_rejected() -> None:
+    # Scope normalization should reject removed aliases so callers use canonical scope labels.
+    with pytest.raises(ValueError, match="Invalid plugin scope"):
+        normalize_scope("environment")
 
 
 def test_enablement_source_tracks_workspace_overrides(tmp_path: Path) -> None:
