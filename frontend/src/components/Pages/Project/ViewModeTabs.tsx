@@ -159,6 +159,7 @@ function ViewModeTabButton({
       ref={sortable.setNodeRef}
       data-testid="view-mode-tab-button"
       data-view-mode-id={modeId}
+      aria-label={label}
       className={tabClasses}
       style={sortable.style}
       onClick={canEditVariants ? () => onSelect(modeId) : undefined}

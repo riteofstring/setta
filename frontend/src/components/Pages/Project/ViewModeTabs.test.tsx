@@ -123,6 +123,7 @@ describe("ViewModeTabs", () => {
 
     const markup = renderToStaticMarkup(<ViewModeTabs />);
     expect(markup).toContain("Tab View");
+    expect(markup).toContain('aria-label="Tab View"');
     expect(markup).not.toContain("Hidden View");
     expect(latestProviderEnabled).toBe(false);
     expect(markup).not.toContain('data-testid="view-mode-tab-drag-handle"');
