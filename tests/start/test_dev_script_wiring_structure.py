@@ -26,3 +26,94 @@ def test_reset_setta_state_uses_shared_setta_path_flag_parser() -> None:
     )
     assert "scripts/lib/setta_path_flags.sh" in reset_script
     assert "setta_path_flags_try_parse" in reset_script
+
+
+def test_playwright_runner_gates_plugin_seeding_with_target_selection() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert 'SHOULD_SEED_PLUGIN_FIXTURES="${SHOULD_PREPARE_PLUGIN_FIXTURES}"' in script
+    assert 'SHOULD_SEED_PLUGIN_ARTIFACTS="${SHOULD_PREPARE_PLUGIN_FIXTURES}"' in script
+    assert 'if [[ "${SHOULD_SEED_PLUGIN_FIXTURES}" == "1" ]]; then' in script
+    assert 'if [[ "${SHOULD_SEED_PLUGIN_ARTIFACTS}" == "1" ]]; then' in script
+
+
+def test_playwright_runner_writes_non_empty_record_manifest_for_seeded_wheels() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "record_lines = []" in script
+    assert 'record_lines.append(f"{dist_info_name}/RECORD,,")' in script
+    assert (
+        'zipf.writestr(f"{dist_info_name}/RECORD", "\\n".join(record_lines) + "\\n")'
+        in script
+    )
+
+
+def test_playwright_runner_validates_seeded_fixture_completeness_before_skip() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "seeded_plugin_fixture_is_complete()" in script
+    assert (
+        'if ! seeded_plugin_fixture_is_complete "${fixture_root}" "${seeded_fixture_root}"; then'
+        in script
+    )
+
+
+def test_playwright_runner_uses_seed_fixture_stamp_short_circuit() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "compute_workspace_seed_fixture_change_stamp()" in script
+    assert 'seed_stamp_cache_file="${seed_cache_file}.stamp"' in script
+    assert 'cached_stamp="$(<"${seed_stamp_cache_file}")"' in script
+    assert 'if [[ -n "${cached_signature}" && "${cached_stamp}" == "${current_stamp}" ]]; then' in script
+
+
+def test_playwright_runner_uses_single_workspace_seed_fixture_list() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "readonly WORKSPACE_SEED_FIXTURES=(" in script
+    assert '"${python_bin}" - "${root_dir}" "${WORKSPACE_SEED_FIXTURES[@]}"' in script
+    assert 'local fixtures=("${WORKSPACE_SEED_FIXTURES[@]}")' in script
+
+
+def test_playwright_runner_uses_local_artifact_stamp_short_circuit() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "compute_local_plugin_artifact_change_stamp()" in script
+    assert 'artifact_stamp_cache_file="${PLUGIN_ARTIFACT_CACHE_FILE}.stamp"' in script
+    assert 'cached_stamp="$(<"${artifact_stamp_cache_file}")"' in script
+    assert 'if [[ -n "${cached_signature}" && "${cached_stamp}" == "${current_stamp}" ]]; then' in script
+
+
+def test_playwright_runner_reseeds_plugin_fixtures_for_reused_workspaces() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    existing_workspace_line = script.find("Workspace already seeded")
+    fixture_seed_guard_line = script.find(
+        'if [[ "${SHOULD_SEED_PLUGIN_FIXTURES}" == "1" ]]; then'
+    )
+    assert existing_workspace_line != -1
+    assert fixture_seed_guard_line != -1
+    assert existing_workspace_line < fixture_seed_guard_line
+
+
+def test_plugin_fixture_link_script_defaults_to_no_rescan_and_unlink_wrapper_removed() -> None:
+    root = repo_root()
+    link_script = (root / "scripts" / "plugin-fixtures" / "link.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "rescan_after_link=0" in link_script
+    assert not (root / "scripts" / "plugin-fixtures" / "unlink.sh").exists()
