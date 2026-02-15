@@ -106,6 +106,19 @@ export function getSettaBadgeRefreshFolderPaths({
   return Array.from(paths);
 }
 
+export function shouldRefreshSettaBadgeDataOnToggleChange({
+  previousIncludeSettaInitializedFolders,
+  nextIncludeSettaInitializedFolders,
+}: {
+  previousIncludeSettaInitializedFolders: boolean;
+  nextIncludeSettaInitializedFolders: boolean;
+}): boolean {
+  return (
+    !previousIncludeSettaInitializedFolders &&
+    nextIncludeSettaInitializedFolders
+  );
+}
+
 export function buildFileBrowserLoadingPathOwner({
   rootRequestId,
   folderRequestId,
@@ -320,6 +333,7 @@ type RowData = {
   errorByPath: Record<string, string>;
   columnWidth: string;
   listInsetLeft: number;
+  showSettaInitializedBadge: boolean;
   onToggle: (path: string) => void;
   onSelect: (path: string) => void;
   onOpen: (path: string) => void;
@@ -678,10 +692,22 @@ export function FileBrowserPane({
       includeSettaInitializedRef.current = includeSettaInitializedFolders;
       return;
     }
-    if (includeSettaInitializedRef.current === includeSettaInitializedFolders) {
+    const previousIncludeSettaInitializedFolders =
+      includeSettaInitializedRef.current;
+    if (
+      previousIncludeSettaInitializedFolders === includeSettaInitializedFolders
+    ) {
       return;
     }
     includeSettaInitializedRef.current = includeSettaInitializedFolders;
+    if (
+      !shouldRefreshSettaBadgeDataOnToggleChange({
+        previousIncludeSettaInitializedFolders,
+        nextIncludeSettaInitializedFolders: includeSettaInitializedFolders,
+      })
+    ) {
+      return;
+    }
     void refreshLoadedFoldersForSettaBadges();
   }, [
     includeSettaInitializedFolders,
@@ -1230,6 +1256,7 @@ export function FileBrowserPane({
               errorByPath,
               columnWidth,
               listInsetLeft,
+              showSettaInitializedBadge: includeSettaInitializedFolders,
               onToggle: handleToggle,
               onSelect: handleSelect,
               onOpen: handleOpen,
@@ -1255,6 +1282,7 @@ function FileBrowserRow({
   errorByPath,
   columnWidth,
   listInsetLeft,
+  showSettaInitializedBadge,
   onToggle,
   onSelect,
   onOpen,
@@ -1378,14 +1406,16 @@ function FileBrowserRow({
         >
           {item.name}
         </span>
-        {isFolder && item.isSettaInitialized === true && (
-          <span
-            data-testid="setta-initialized-badge"
-            className="rounded-full border border-blue-200 bg-blue-50 px-1.5 py-[1px] text-[9px] font-semibold uppercase tracking-[0.08em] text-blue-700 dark:border-blue-900/80 dark:bg-blue-950/40 dark:text-blue-200"
-          >
-            Setta
-          </span>
-        )}
+        {showSettaInitializedBadge &&
+          isFolder &&
+          item.isSettaInitialized === true && (
+            <span
+              data-testid="setta-initialized-badge"
+              className="rounded-full border border-blue-200 bg-blue-50 px-1.5 py-[1px] text-[9px] font-semibold uppercase tracking-[0.08em] text-blue-700 dark:border-blue-900/80 dark:bg-blue-950/40 dark:text-blue-200"
+            >
+              Setta
+            </span>
+          )}
         {isLoading && (
           <span className="h-3 w-3 animate-spin rounded-full border border-setta-300 border-t-transparent" />
         )}

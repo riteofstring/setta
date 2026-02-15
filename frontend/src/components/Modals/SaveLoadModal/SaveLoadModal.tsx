@@ -15,6 +15,7 @@ type SaveLoadConfigEntry = Pick<
 >;
 const SAVE_LOAD_CONFIG_GRID_TEMPLATE_COLUMNS =
   "repeat(auto-fill, minmax(10.5rem, 14rem))";
+export const SAVE_LOAD_DEFAULT_VIEW_MODE: HomeProjectGalleryViewMode = "list";
 
 export function SaveLoadModal({
   open,
@@ -25,7 +26,7 @@ export function SaveLoadModal({
   buttonText,
   placeholder,
 }: {
-  open?: boolean;
+  open: boolean;
   modalMode: SaveLoadModalMode;
   files: Array<SaveLoadConfigEntry>;
   onClickActionButton: (info: {
@@ -41,7 +42,7 @@ export function SaveLoadModal({
   );
   const [filename, setFilename] = useState("");
   const [configViewMode, setConfigViewMode] =
-    useState<HomeProjectGalleryViewMode>("thumbnails");
+    useState<HomeProjectGalleryViewMode>(SAVE_LOAD_DEFAULT_VIEW_MODE);
 
   const sortedFiles = useMemo(
     () => [...files].sort((a, b) => a.name.localeCompare(b.name)),
@@ -54,7 +55,7 @@ export function SaveLoadModal({
     }
     setSelectedConfigName(null);
     setFilename("");
-    setConfigViewMode("thumbnails");
+    setConfigViewMode(SAVE_LOAD_DEFAULT_VIEW_MODE);
   }, [open]);
 
   const existingByTypedName = useMemo(() => {
@@ -70,7 +71,7 @@ export function SaveLoadModal({
   function onClose() {
     setSelectedConfigName(null);
     setFilename("");
-    setConfigViewMode("thumbnails");
+    setConfigViewMode(SAVE_LOAD_DEFAULT_VIEW_MODE);
   }
 
   function onPickConfig(configName: string) {

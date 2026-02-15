@@ -2,8 +2,10 @@ import { createProjectConfig } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   getHomeMaxTotalSideWidth,
+  getHomeProjectConfigsSectionTitle,
   getProjectTopLevelSectionCount,
   partitionProjectsByFavoriteStatus,
+  shouldOpenProjectOnListRowSpace,
 } from "./HomePage";
 
 describe("HomePage", () => {
@@ -45,5 +47,17 @@ describe("HomePage", () => {
       partitioned.nonFavoriteProjects.map((project) => project.id),
     ).toEqual(["project-b"]);
     expect(partitioned.totalProjectsCount).toBe(3);
+  });
+
+  it("labels the non-favorite section as 'Other' when favorites are present", () => {
+    expect(getHomeProjectConfigsSectionTitle(true)).toBe(
+      "Other Project Configs",
+    );
+    expect(getHomeProjectConfigsSectionTitle(false)).toBe("Project Configs");
+  });
+
+  it("opens from keyboard Space in list rows only when selection is disabled", () => {
+    expect(shouldOpenProjectOnListRowSpace(true)).toBe(false);
+    expect(shouldOpenProjectOnListRowSpace(false)).toBe(true);
   });
 });

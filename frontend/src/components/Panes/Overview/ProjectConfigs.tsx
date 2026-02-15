@@ -111,11 +111,14 @@ export function ProjectConfigs() {
     [incomingIds, persistedOrder],
   );
   useEffect(() => {
+    if (!canEditProjectConfigs) {
+      return;
+    }
     if (areIdArraysEqual(persistedOrder, orderedProjectConfigIds)) {
       return;
     }
     setOverviewProjectConfigOrder(orderedProjectConfigIds);
-  }, [orderedProjectConfigIds, persistedOrder]);
+  }, [canEditProjectConfigs, orderedProjectConfigIds, persistedOrder]);
   useEffect(() => {
     const clearReorderingState = () => {
       isReorderingRef.current = false;
@@ -226,7 +229,6 @@ export function ProjectConfigs() {
                     currProjectConfigId={currProjectConfigId}
                     currProjectConfigName={currProjectConfigName}
                     isDeploymentMode={isDeploymentMode}
-                    previewEnabled={hoverPreviewEnabled}
                     sortableEnabled={sortableEnabled}
                     deletable={orderedProjectConfigs.length > 1}
                     canEditProjectConfigs={canEditProjectConfigs}
@@ -240,7 +242,6 @@ export function ProjectConfigs() {
                     currProjectConfigId={currProjectConfigId}
                     currProjectConfigName={currProjectConfigName}
                     isDeploymentMode={isDeploymentMode}
-                    previewEnabled={hoverPreviewEnabled}
                     sortableEnabled={sortableEnabled}
                     onStartReordering={onStartReordering}
                     canShowHoverPreview={canShowHoverPreview}
@@ -260,23 +261,28 @@ type ProjectConfigRowProps = {
   currProjectConfigId: string;
   currProjectConfigName: string;
   isDeploymentMode: boolean;
-  previewEnabled: boolean;
   sortableEnabled: boolean;
   onStartReordering: () => void;
   canShowHoverPreview: () => boolean;
 };
 
 function ProjectConfigRow({
+  sortableEnabled,
+  ...props
+}: ProjectConfigRowProps) {
+  if (!sortableEnabled) {
+    return <ProjectConfigRowStatic {...props} sortableEnabled={false} />;
+  }
+  return <ProjectConfigRowSortable {...props} sortableEnabled />;
+}
+
+function ProjectConfigRowStatic({
   config,
   currProjectConfigId,
   currProjectConfigName,
   isDeploymentMode,
-  previewEnabled,
-  sortableEnabled,
-  onStartReordering,
   canShowHoverPreview,
 }: ProjectConfigRowProps) {
-  const sortable = useSortableListItem(config.id, !sortableEnabled, "vertical");
   const navigate = useNavigate();
   const isActive = config.id === currProjectConfigId;
   const baseClasses =
@@ -288,13 +294,63 @@ function ProjectConfigRow({
   const rowClasses = isActive
     ? `${baseClasses} ${activeClasses}`
     : `${baseClasses} ${inactiveClasses}`;
-  function onRowMouseEnter() {
-    onMouseEnter(
-      config,
-      currProjectConfigName,
-      previewEnabled && canShowHoverPreview(),
-    );
+  function onOpenConfig() {
+    if (isDeploymentMode) {
+      if (config.id === currProjectConfigId) {
+        return;
+      }
+      void loadShareProjectConfig({
+        projectConfigId: config.id,
+      });
+      return;
+    }
+    navigate(pathRelativeToProject(config.name), {
+      state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+    });
   }
+
+  return (
+    <button
+      type="button"
+      data-testid="overview-project-config-row"
+      data-project-config-id={config.id}
+      className={rowClasses}
+      onMouseEnter={() =>
+        onMouseEnter(config, currProjectConfigName, canShowHoverPreview())
+      }
+      onClick={onOpenConfig}
+    >
+      <span
+        data-testid="overview-project-config-drag-handle"
+        className="text-transparent"
+      >
+        <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
+      </span>
+      <p className="min-w-0 flex-1 truncate text-left">{config.name}</p>
+    </button>
+  );
+}
+
+function ProjectConfigRowSortable({
+  config,
+  currProjectConfigId,
+  currProjectConfigName,
+  isDeploymentMode,
+  onStartReordering,
+  canShowHoverPreview,
+}: ProjectConfigRowProps) {
+  const sortable = useSortableListItem(config.id, false, "vertical");
+  const navigate = useNavigate();
+  const isActive = config.id === currProjectConfigId;
+  const baseClasses =
+    "flex h-8 w-full min-w-0 items-center gap-2 rounded px-2 text-xs transition-colors";
+  const activeClasses =
+    "bg-white text-blue-600 shadow-sm dark:bg-setta-800 dark:text-blue-300";
+  const inactiveClasses =
+    "text-setta-700 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800/50";
+  const rowClasses = isActive
+    ? `${baseClasses} ${activeClasses}`
+    : `${baseClasses} ${inactiveClasses}`;
   function onOpenConfig() {
     if (isDeploymentMode) {
       if (config.id === currProjectConfigId) {
@@ -326,21 +382,19 @@ function ProjectConfigRow({
       data-project-config-id={config.id}
       className={rowClasses}
       style={sortable.style}
-      onMouseEnter={onRowMouseEnter}
+      onMouseEnter={() =>
+        onMouseEnter(config, currProjectConfigName, canShowHoverPreview())
+      }
       onClick={onOpenConfig}
     >
       <span
-        ref={sortableEnabled ? sortable.setActivatorNodeRef : undefined}
+        ref={sortable.setActivatorNodeRef}
         data-testid="overview-project-config-drag-handle"
-        className={
-          sortableEnabled
-            ? "inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
-            : "text-transparent"
-        }
-        {...(sortableEnabled ? sortable.attributes : {})}
-        {...(sortableEnabled ? sortable.listeners : {})}
-        onPointerDown={sortableEnabled ? stopDragPointerDown : undefined}
-        onClick={sortableEnabled ? stopDragClick : undefined}
+        className="inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
+        {...sortable.attributes}
+        {...sortable.listeners}
+        onPointerDown={stopDragPointerDown}
+        onClick={stopDragClick}
       >
         <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
       </span>
@@ -354,7 +408,6 @@ type ProjectConfigEditingRowProps = {
   currProjectConfigId: string;
   currProjectConfigName: string;
   isDeploymentMode: boolean;
-  previewEnabled: boolean;
   sortableEnabled: boolean;
   deletable: boolean;
   canEditProjectConfigs: boolean;
@@ -363,18 +416,119 @@ type ProjectConfigEditingRowProps = {
 };
 
 function ProjectConfigEditingRow({
+  sortableEnabled,
+  ...props
+}: ProjectConfigEditingRowProps) {
+  if (!sortableEnabled) {
+    return <ProjectConfigEditingRowStatic {...props} sortableEnabled={false} />;
+  }
+  return <ProjectConfigEditingRowSortable {...props} sortableEnabled />;
+}
+
+function ProjectConfigEditingRowStatic({
   config,
   currProjectConfigId,
   currProjectConfigName,
   isDeploymentMode,
-  previewEnabled,
-  sortableEnabled,
+  deletable,
+  canEditProjectConfigs,
+  canShowHoverPreview,
+}: ProjectConfigEditingRowProps) {
+  const navigate = useNavigate();
+  const isActive = config.id === currProjectConfigId;
+  const rowClasses = `group/project-config-edit flex h-8 w-full min-w-0 items-center gap-2 rounded border px-2 text-xs transition-colors ${
+    isActive
+      ? "border-blue-500/70 bg-blue-500/10 text-blue-700 dark:text-blue-300"
+      : "border-setta-200 text-setta-600 hover:border-setta-500/70 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500/70"
+  }`;
+
+  function onOpenConfig() {
+    if (isDeploymentMode) {
+      if (config.id === currProjectConfigId) {
+        return;
+      }
+      void loadShareProjectConfig({
+        projectConfigId: config.id,
+      });
+      return;
+    }
+    navigate(pathRelativeToProject(config.name), {
+      state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+    });
+  }
+
+  function onDelete(event: React.MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    if (!deletable || !canEditProjectConfigs) {
+      return;
+    }
+    openDeleteProjectWarningModal({
+      selectedProjectsIdName: [{ id: config.id, name: config.name }],
+    });
+  }
+
+  function onStopActionPointerDown(event: React.PointerEvent<HTMLElement>) {
+    event.stopPropagation();
+  }
+
+  function onRowKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    onOpenConfig();
+  }
+
+  return (
+    <div
+      data-testid="overview-project-config-row"
+      data-project-config-id={config.id}
+      className={rowClasses}
+      onClick={onOpenConfig}
+      onKeyDown={onRowKeyDown}
+      onMouseEnter={() =>
+        onMouseEnter(config, currProjectConfigName, canShowHoverPreview())
+      }
+      role="button"
+      tabIndex={0}
+    >
+      <span
+        data-testid="overview-project-config-drag-handle"
+        className="text-transparent"
+      >
+        <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
+      </span>
+      <p className="min-w-0 flex-1 truncate text-left">{config.name}</p>
+      {deletable && canEditProjectConfigs && (
+        <button
+          className="cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/project-config-edit:text-setta-400/50"
+          onClick={onDelete}
+          onKeyDown={(event) => event.stopPropagation()}
+          onPointerDown={onStopActionPointerDown}
+          title="Delete project config"
+          aria-label="Delete project config"
+        >
+          <i className="gg-trash" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ProjectConfigEditingRowSortable({
+  config,
+  currProjectConfigId,
+  currProjectConfigName,
+  isDeploymentMode,
   deletable,
   canEditProjectConfigs,
   onStartReordering,
   canShowHoverPreview,
 }: ProjectConfigEditingRowProps) {
-  const sortable = useSortableListItem(config.id, !sortableEnabled, "vertical");
+  const sortable = useSortableListItem(config.id, false, "vertical");
   const navigate = useNavigate();
   const isActive = config.id === currProjectConfigId;
   const rowClasses = `group/project-config-edit flex h-8 w-full min-w-0 items-center gap-2 rounded border px-2 text-xs transition-colors ${
@@ -438,27 +592,19 @@ function ProjectConfigEditingRow({
       onClick={onOpenConfig}
       onKeyDown={onRowKeyDown}
       onMouseEnter={() =>
-        onMouseEnter(
-          config,
-          currProjectConfigName,
-          previewEnabled && canShowHoverPreview(),
-        )
+        onMouseEnter(config, currProjectConfigName, canShowHoverPreview())
       }
       role="button"
       tabIndex={0}
     >
       <span
-        ref={sortableEnabled ? sortable.setActivatorNodeRef : undefined}
+        ref={sortable.setActivatorNodeRef}
         data-testid="overview-project-config-drag-handle"
-        className={
-          sortableEnabled
-            ? "inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
-            : "text-transparent"
-        }
-        {...(sortableEnabled ? sortable.attributes : {})}
-        {...(sortableEnabled ? sortable.listeners : {})}
-        onPointerDown={sortableEnabled ? stopDragPointerDown : undefined}
-        onClick={sortableEnabled ? stopDragClick : undefined}
+        className="inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
+        {...sortable.attributes}
+        {...sortable.listeners}
+        onPointerDown={stopDragPointerDown}
+        onClick={stopDragClick}
       >
         <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
       </span>

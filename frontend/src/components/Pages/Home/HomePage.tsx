@@ -96,6 +96,21 @@ export function getHomeMaxTotalSideWidth(desktopColumnsWidth: number): number {
   );
 }
 
+export function getHomeProjectConfigsSectionTitle(
+  hasFavorites: boolean,
+): string {
+  if (hasFavorites) {
+    return "Other Project Configs";
+  }
+  return "Project Configs";
+}
+
+export function shouldOpenProjectOnListRowSpace(
+  selectionEnabled: boolean,
+): boolean {
+  return !selectionEnabled;
+}
+
 export function HomePage() {
   const { projectMetadata, defaultProjectConfigId } = useAllProjectMetadata(
     (x) => x,
@@ -871,11 +886,7 @@ function HomeProjectGallery({
         )}
 
         <ProjectGallerySection
-          title={
-            favoriteProjects.length > 0
-              ? "All Project Configs"
-              : "Project Configs"
-          }
+          title={getHomeProjectConfigsSectionTitle(favoriteProjects.length > 0)}
         >
           {galleryViewMode === "thumbnails" ? (
             <ProjectGridItems
@@ -1337,6 +1348,10 @@ function ProjectListItem({
       return;
     }
     event.preventDefault();
+    if (shouldOpenProjectOnListRowSpace(selectionEnabled)) {
+      openProjectFromRow();
+      return;
+    }
     onSelectProject(project.id);
   }
 

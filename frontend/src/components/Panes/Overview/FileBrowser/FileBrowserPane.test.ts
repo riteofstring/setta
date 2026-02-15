@@ -5,6 +5,7 @@ import {
   forEachWithConcurrencyLimit,
   getSettaBadgeRefreshFolderPaths,
   isOwnedFileBrowserLoadingPath,
+  shouldRefreshSettaBadgeDataOnToggleChange,
   sortChildPaths,
   type FileNode,
 } from "./FileBrowserPane";
@@ -309,6 +310,29 @@ describe("getSettaBadgeRefreshFolderPaths", () => {
         nodesByPath,
       }),
     ).toEqual(["/root", "/root/folder-a"]);
+  });
+});
+
+describe("shouldRefreshSettaBadgeDataOnToggleChange", () => {
+  it("refreshes only when toggling from off to on", () => {
+    expect(
+      shouldRefreshSettaBadgeDataOnToggleChange({
+        previousIncludeSettaInitializedFolders: false,
+        nextIncludeSettaInitializedFolders: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRefreshSettaBadgeDataOnToggleChange({
+        previousIncludeSettaInitializedFolders: true,
+        nextIncludeSettaInitializedFolders: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRefreshSettaBadgeDataOnToggleChange({
+        previousIncludeSettaInitializedFolders: true,
+        nextIncludeSettaInitializedFolders: true,
+      }),
+    ).toBe(false);
   });
 });
 

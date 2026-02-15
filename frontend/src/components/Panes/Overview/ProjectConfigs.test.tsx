@@ -18,6 +18,7 @@ import {
 
 let latestOnReorder: ((orderedIds: string[]) => void) | null = null;
 let latestSortableEnabled: boolean | undefined;
+let sortableHookCallCount = 0;
 
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
   SortableListProvider: ({
@@ -33,14 +34,17 @@ vi.mock("components/Pages/Project/ViewModeDnd", () => ({
     latestSortableEnabled = enabled;
     return children;
   },
-  useSortableListItem: () => ({
-    attributes: {},
-    listeners: {},
-    setNodeRef: () => {},
-    setActivatorNodeRef: () => {},
-    style: {},
-    isDragging: false,
-  }),
+  useSortableListItem: () => {
+    sortableHookCallCount += 1;
+    return {
+      attributes: {},
+      listeners: {},
+      setNodeRef: () => {},
+      setActivatorNodeRef: () => {},
+      style: {},
+      isDragging: false,
+    };
+  },
 }));
 
 function syncStoreInitialState(store: {
@@ -75,6 +79,7 @@ describe("ProjectConfigs", () => {
     resetProjectStores();
     latestOnReorder = null;
     latestSortableEnabled = undefined;
+    sortableHookCallCount = 0;
     memoryStorage.reset();
     useSettings.setState(createSettingsState());
     useLocalStorage.persist.setOptions({
@@ -167,6 +172,7 @@ describe("ProjectConfigs", () => {
     expect(alphaIndex).toBeGreaterThanOrEqual(0);
     expect(betaIndex).toBeLessThan(alphaIndex);
     expect(latestSortableEnabled).toBe(true);
+    expect(sortableHookCallCount).toBeGreaterThan(0);
   });
 
   it("ignores reorder callbacks in read-only mode", () => {
@@ -205,6 +211,7 @@ describe("ProjectConfigs", () => {
     );
     expect(markup).toContain('class="text-transparent"');
     expect(latestSortableEnabled).toBe(false);
+    expect(sortableHookCallCount).toBe(0);
 
     if (!latestOnReorder) {
       throw new Error(
@@ -217,5 +224,40 @@ describe("ProjectConfigs", () => {
       configA.id,
       configB.id,
     ]);
+  });
+
+  it("does not rewrite persisted order in deployment mode", () => {
+    const configA = createProjectConfig({
+      id: "config-a",
+      name: "Config Alpha",
+    });
+    const configB = createProjectConfig({
+      id: "config-b",
+      name: "Config Beta",
+    });
+
+    useShareSession.setState({ isDeploymentMode: true });
+    useProjectState.setState((state) => {
+      state.projectConfig = configA;
+    });
+    useAllProjectMetadata.setState({
+      defaultProjectConfigId: configA.id,
+      projectMetadata: [configA, configB],
+    });
+    useLocalStorage.setState({
+      overviewProjectConfigOrder: [],
+    });
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useAllProjectMetadata);
+    syncStoreInitialState(useLocalStorage);
+    syncStoreInitialState(useShareSession);
+
+    renderToStaticMarkup(
+      <MemoryRouter>
+        <ProjectConfigs />
+      </MemoryRouter>,
+    );
+
+    expect(useLocalStorage.getState().overviewProjectConfigOrder).toEqual([]);
   });
 });

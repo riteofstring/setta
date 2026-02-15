@@ -13,6 +13,7 @@ import { syncStoreInitialState } from "../../paneTestUtils";
 import { VariantList } from "./VariantList";
 
 let latestSortableEnabled: boolean | undefined;
+let sortableHookCallCount = 0;
 
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
   SortableListProvider: ({
@@ -25,14 +26,17 @@ vi.mock("components/Pages/Project/ViewModeDnd", () => ({
     latestSortableEnabled = enabled;
     return children;
   },
-  useSortableListItem: () => ({
-    attributes: {},
-    listeners: {},
-    setNodeRef: () => {},
-    setActivatorNodeRef: () => {},
-    style: {},
-    isDragging: false,
-  }),
+  useSortableListItem: () => {
+    sortableHookCallCount += 1;
+    return {
+      attributes: {},
+      listeners: {},
+      setNodeRef: () => {},
+      setActivatorNodeRef: () => {},
+      style: {},
+      isDragging: false,
+    };
+  },
 }));
 
 function extractHandleClass(markup: string): string {
@@ -54,6 +58,7 @@ describe("VariantList drag handle visibility", () => {
   beforeEach(() => {
     resetProjectStores();
     latestSortableEnabled = undefined;
+    sortableHookCallCount = 0;
     useShareSession.setState({ isDeploymentMode: false, sharePolicy: null });
     useProjectState.setState((state) => {
       state.sections = {
@@ -101,6 +106,7 @@ describe("VariantList drag handle visibility", () => {
     expect(handleClass).toContain("opacity-60");
     expect(handleClass).not.toContain("text-transparent");
     expect(latestSortableEnabled).toBe(false);
+    expect(sortableHookCallCount).toBe(0);
   });
 
   it("enables sorting only when the section has more than one variant", () => {
@@ -118,5 +124,6 @@ describe("VariantList drag handle visibility", () => {
     renderToStaticMarkup(<VariantList sectionId={sectionId} />);
 
     expect(latestSortableEnabled).toBe(true);
+    expect(sortableHookCallCount).toBeGreaterThan(0);
   });
 });

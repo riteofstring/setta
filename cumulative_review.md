@@ -80,3 +80,15 @@
 - Tightened typing on `FileMenuSaveProjectConfigAsModal` by removing the implicit `any` prop.
 - Added/updated Vitest and Playwright coverage for sortable-provider gating signals, metadata-load success/failure behavior, view-mode sort-index compaction, and Home metadata-failure favorite-retention regression.
 - Completed CDP visual verification on the running app for impacted Home/project flows after these changes.
+
+## 2026-02-17 13:46:49 PST
+
+- Fixed Home list-row keyboard parity in deployment/read-only mode so `Space` now opens the focused project (matching click/Enter button semantics) while editable mode keeps selection behavior.
+- Fixed Home section semantics by renaming the non-favorites section heading to `Other Project Configs` when favorites are present.
+- Reduced Save/Load modal open cost by defaulting to list mode (and resetting back to list on open/close), and removed the optional `open` prop shim by requiring `open: boolean`.
+- Prevented read-only sessions from mutating persisted Project Config order by gating order-persistence writes behind edit capability.
+- Removed redundant hover-preview gating in Overview project-config rows by using a single `canShowHoverPreview()` path.
+- Fixed File Browser Setta badge toggle behavior so disabling badges is render-only (no refresh fan-out), while refreshes occur only on `false -> true` transitions; badge rendering is now explicitly toggle-gated.
+- Removed non-sortable drag-hook overhead by splitting sortable/static row variants in Overview Project Config rows, Overview View Mode rows, and Section Variant rows so disabled states do not instantiate sortable hooks.
+- Added/updated targeted coverage across Vitest and Playwright for Home heading/keyboard behavior, Save/Load default list mode flows, read-only order persistence, Setta badge toggle transitions, and non-sortable drag-hook bypass behavior.
+- Completed CDP visual verification for impacted Home and Save/Load behavior (Home shows `OTHER PROJECT CONFIGS`, deployment-mode list-row `Space` navigates, and Save/Load defaults to list view).

@@ -194,12 +194,8 @@ function VariantListCore({
 }
 
 function OneVariant({
-  sectionId,
-  id,
-  isCurr,
-  isDefault,
-  canEditVariants,
   sortableEnabled,
+  ...props
 }: {
   sectionId: string;
   id: string;
@@ -208,7 +204,56 @@ function OneVariant({
   canEditVariants: boolean;
   sortableEnabled: boolean;
 }) {
-  const sortable = useSortableListItem(id, !sortableEnabled, "vertical");
+  if (!sortableEnabled) {
+    return <OneVariantContent {...props} sortable={null} />;
+  }
+  return <OneVariantSortable {...props} sortableEnabled />;
+}
+
+function OneVariantSortable({
+  sectionId,
+  id,
+  isCurr,
+  isDefault,
+  canEditVariants,
+}: {
+  sectionId: string;
+  id: string;
+  isCurr: boolean;
+  isDefault: boolean;
+  canEditVariants: boolean;
+  sortableEnabled: boolean;
+}) {
+  const sortable = useSortableListItem(id, false, "vertical");
+  return (
+    <OneVariantContent
+      sectionId={sectionId}
+      id={id}
+      isCurr={isCurr}
+      isDefault={isDefault}
+      canEditVariants={canEditVariants}
+      sortable={sortable}
+    />
+  );
+}
+
+type VariantSortableItem = ReturnType<typeof useSortableListItem>;
+
+function OneVariantContent({
+  sectionId,
+  id,
+  isCurr,
+  isDefault,
+  canEditVariants,
+  sortable,
+}: {
+  sectionId: string;
+  id: string;
+  isCurr: boolean;
+  isDefault: boolean;
+  canEditVariants: boolean;
+  sortable: VariantSortableItem | null;
+}) {
   const { name, isFrozen, isJsonSource, canUseJsonSource } = useProjectState(
     (x) => {
       const { variant, impl } = getVariantBaseAndEffectiveSectionImpl(
@@ -235,7 +280,7 @@ function OneVariant({
       ? "bg-white text-blue-600 shadow-sm dark:bg-setta-800"
       : "text-setta-700 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800/50"
   }`;
-  const dragHandleClasses = sortableEnabled
+  const dragHandleClasses = sortable
     ? "inline-flex h-full w-4 shrink-0 cursor-grab items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
     : "inline-flex h-full w-4 shrink-0 cursor-default items-center justify-center text-setta-400 opacity-60 dark:text-setta-600";
   const labelClassName = `section-key min-w-0 flex-1 truncate text-left ${
@@ -249,10 +294,10 @@ function OneVariant({
 
   return (
     <li
-      ref={sortable.setNodeRef}
+      ref={sortable?.setNodeRef}
       data-testid="section-variant-row"
       data-variant-id={id}
-      style={sortable.style}
+      style={sortable?.style}
       onMouseEnter={() =>
         useProjectState.setState((x) => {
           x.previewSectionVariantMap[sectionId] = id;
@@ -279,11 +324,11 @@ function OneVariant({
       className={rowClasses}
     >
       <span
-        ref={sortableEnabled ? sortable.setActivatorNodeRef : undefined}
+        ref={sortable?.setActivatorNodeRef}
         data-testid="section-variant-drag-handle"
         className={`${dragHandleClasses} touch-none`}
-        {...(sortableEnabled ? sortable.attributes : {})}
-        {...(sortableEnabled ? sortable.listeners : {})}
+        {...(sortable ? sortable.attributes : {})}
+        {...(sortable ? sortable.listeners : {})}
         onClick={(event) => event.stopPropagation()}
       >
         <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
@@ -404,12 +449,8 @@ function OneVariant({
 }
 
 function OneVariantEditing({
-  sectionId,
-  id,
-  deletable,
-  canEditVariants,
-  allowVariantDeletion,
   sortableEnabled,
+  ...props
 }: {
   sectionId: string;
   id: string;
@@ -418,7 +459,54 @@ function OneVariantEditing({
   allowVariantDeletion: boolean;
   sortableEnabled: boolean;
 }) {
-  const sortable = useSortableListItem(id, !sortableEnabled, "vertical");
+  if (!sortableEnabled) {
+    return <OneVariantEditingContent {...props} sortable={null} />;
+  }
+  return <OneVariantEditingSortable {...props} sortableEnabled />;
+}
+
+function OneVariantEditingSortable({
+  sectionId,
+  id,
+  deletable,
+  canEditVariants,
+  allowVariantDeletion,
+}: {
+  sectionId: string;
+  id: string;
+  deletable: boolean;
+  canEditVariants: boolean;
+  allowVariantDeletion: boolean;
+  sortableEnabled: boolean;
+}) {
+  const sortable = useSortableListItem(id, false, "vertical");
+  return (
+    <OneVariantEditingContent
+      sectionId={sectionId}
+      id={id}
+      deletable={deletable}
+      canEditVariants={canEditVariants}
+      allowVariantDeletion={allowVariantDeletion}
+      sortable={sortable}
+    />
+  );
+}
+
+function OneVariantEditingContent({
+  sectionId,
+  id,
+  deletable,
+  canEditVariants,
+  allowVariantDeletion,
+  sortable,
+}: {
+  sectionId: string;
+  id: string;
+  deletable: boolean;
+  canEditVariants: boolean;
+  allowVariantDeletion: boolean;
+  sortable: VariantSortableItem | null;
+}) {
   const name = useProjectState((x) => getSectionVariant(x, id).name);
 
   function onSetName(v: string) {
@@ -477,22 +565,22 @@ function OneVariantEditing({
 
   return (
     <li
-      ref={sortable.setNodeRef}
+      ref={sortable?.setNodeRef}
       data-testid="section-variant-edit-row"
       data-variant-id={id}
-      style={sortable.style}
+      style={sortable?.style}
       className="section-key-value group/versionitem flex h-8 cursor-pointer items-center gap-2 rounded border border-setta-200 px-2 text-xs transition-colors focus-within:!border-blue-500 hover:border-setta-500/70 dark:border-setta-700 dark:hover:border-setta-500/70"
     >
       <span
-        ref={sortableEnabled ? sortable.setActivatorNodeRef : undefined}
+        ref={sortable?.setActivatorNodeRef}
         data-testid="section-variant-edit-drag-handle"
         className={
-          sortableEnabled
+          sortable
             ? "inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
             : "inline-flex h-full w-4 shrink-0 cursor-default touch-none items-center justify-center text-setta-400 opacity-60 dark:text-setta-600"
         }
-        {...(sortableEnabled ? sortable.attributes : {})}
-        {...(sortableEnabled ? sortable.listeners : {})}
+        {...(sortable ? sortable.attributes : {})}
+        {...(sortable ? sortable.listeners : {})}
         onClick={(event) => event.stopPropagation()}
       >
         <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />

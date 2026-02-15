@@ -136,6 +136,7 @@ test("home page renders the three-column file manager layout", async ({
   await expect(
     page.getByTestId("home-project-favourites-section").first(),
   ).toBeVisible();
+  await expect(page.getByText("Other Project Configs")).toBeVisible();
 });
 
 test("home browser marks Setta-initialized folders", async ({ page }) => {
@@ -199,6 +200,13 @@ test("home browser marks Setta-initialized folders", async ({ page }) => {
     await expect(
       initializedRow.getByTestId("setta-initialized-badge"),
     ).toBeVisible();
+    await expect(nestedRow).toBeVisible();
+    await expect(nestedRow).toHaveClass(/bg-blue-50/);
+
+    await settaBadgeToggle.click();
+    await expect(
+      initializedRow.getByTestId("setta-initialized-badge"),
+    ).toHaveCount(0);
     await expect(nestedRow).toBeVisible();
     await expect(nestedRow).toHaveClass(/bg-blue-50/);
   } finally {
@@ -393,6 +401,21 @@ test("home opens projects on single click in deployment mode", async ({
 
   await page.getByTestId("home-project-view-list").first().click();
   const firstRow = page.getByTestId("home-project-list-row").first();
+  await expect(firstRow).toBeVisible();
+  await firstRow.focus();
+  await page.keyboard.press("Space");
+  await expect.poll(() => new URL(page.url()).pathname).not.toBe(homePathname);
+
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+  await page.evaluate(async () => {
+    const { useShareSession } = await import("/src/state/definitions.ts");
+    useShareSession.setState({
+      isDeploymentMode: true,
+      sharePolicy: null,
+    });
+  });
+  await expect(page.getByText("Sharing mode is read-only")).toBeVisible();
+  await page.getByTestId("home-project-view-list").first().click();
   await expect(firstRow).toBeVisible();
   await firstRow.click();
   await expect.poll(() => new URL(page.url()).pathname).not.toBe(homePathname);

@@ -443,18 +443,42 @@ type ViewModeRowProps = {
   sortableEnabled: boolean;
 };
 
-function ViewModeRow({
+function ViewModeRow({ sortableEnabled, ...props }: ViewModeRowProps) {
+  if (!sortableEnabled) {
+    return <ViewModeRowContent {...props} sortable={null} />;
+  }
+  return <ViewModeRowSortable {...props} sortableEnabled />;
+}
+
+function ViewModeRowSortable({
   mode,
   isActive,
   onSelect,
   disabled,
-  sortableEnabled,
 }: ViewModeRowProps) {
-  const sortable = useViewModeSortableItem(
-    mode.id,
-    !sortableEnabled,
-    "vertical",
+  const sortable = useViewModeSortableItem(mode.id, false, "vertical");
+  return (
+    <ViewModeRowContent
+      mode={mode}
+      isActive={isActive}
+      onSelect={onSelect}
+      disabled={disabled}
+      sortable={sortable}
+    />
   );
+}
+
+type ViewModeSortableItem = ReturnType<typeof useViewModeSortableItem>;
+
+function ViewModeRowContent({
+  mode,
+  isActive,
+  onSelect,
+  disabled,
+  sortable,
+}: Omit<ViewModeRowProps, "sortableEnabled"> & {
+  sortable: ViewModeSortableItem | null;
+}) {
   let modeLabel = mode.name;
   if (!modeLabel) {
     modeLabel = "Untitled View";
@@ -477,16 +501,16 @@ function ViewModeRow({
     : "text-setta-500 dark:text-setta-400";
   return (
     <button
-      ref={sortable.setNodeRef}
+      ref={sortable?.setNodeRef}
       data-testid="overview-view-mode-row"
       data-view-mode-id={mode.id}
       className={rowClasses}
-      style={sortable.style}
+      style={sortable?.style}
       onClick={disabled ? undefined : () => onSelect(mode.id)}
       title={modeLabel}
       disabled={disabled}
     >
-      {sortableEnabled && (
+      {sortable && (
         <span
           ref={sortable.setActivatorNodeRef}
           data-testid="overview-view-mode-drag-handle"
@@ -520,6 +544,16 @@ type ViewModeEditingRowProps = {
 };
 
 function ViewModeEditingRow({
+  sortableEnabled,
+  ...props
+}: ViewModeEditingRowProps) {
+  if (!sortableEnabled) {
+    return <ViewModeEditingRowContent {...props} sortable={null} />;
+  }
+  return <ViewModeEditingRowSortable {...props} sortableEnabled />;
+}
+
+function ViewModeEditingRowSortable({
   mode,
   isActive,
   isDeletable,
@@ -529,13 +563,38 @@ function ViewModeEditingRow({
   onToggleUserFacing,
   canEditVariants,
   canEditStructure,
-  sortableEnabled,
 }: ViewModeEditingRowProps) {
-  const sortable = useViewModeSortableItem(
-    mode.id,
-    !sortableEnabled,
-    "vertical",
+  const sortable = useViewModeSortableItem(mode.id, false, "vertical");
+  return (
+    <ViewModeEditingRowContent
+      mode={mode}
+      isActive={isActive}
+      isDeletable={isDeletable}
+      projectConfigId={projectConfigId}
+      onSelect={onSelect}
+      onToggleTab={onToggleTab}
+      onToggleUserFacing={onToggleUserFacing}
+      canEditVariants={canEditVariants}
+      canEditStructure={canEditStructure}
+      sortable={sortable}
+    />
   );
+}
+
+function ViewModeEditingRowContent({
+  mode,
+  isActive,
+  isDeletable,
+  projectConfigId,
+  onSelect,
+  onToggleTab,
+  onToggleUserFacing,
+  canEditVariants,
+  canEditStructure,
+  sortable,
+}: Omit<ViewModeEditingRowProps, "sortableEnabled"> & {
+  sortable: ViewModeSortableItem | null;
+}) {
   const normalizeName = (value: string) => value.trim();
 
   function onSetName(name: string) {
@@ -699,16 +758,16 @@ function ViewModeEditingRow({
   const rowClick = canEditVariants ? () => onSelect(mode.id) : undefined;
   return (
     <div
-      ref={sortable.setNodeRef}
+      ref={sortable?.setNodeRef}
       data-testid="overview-view-mode-edit-row"
       data-view-mode-id={mode.id}
-      style={sortable.style}
+      style={sortable?.style}
       className={`${rowClasses} ${
         canEditVariants ? "" : "cursor-not-allowed opacity-60"
       }`}
       onClick={rowClick}
     >
-      {sortableEnabled && (
+      {sortable && (
         <span
           ref={sortable.setActivatorNodeRef}
           data-testid="overview-view-mode-edit-drag-handle"
