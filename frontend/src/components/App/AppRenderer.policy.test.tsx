@@ -212,6 +212,34 @@ describe("AppRenderer policy enforcement", () => {
     expect(linkMarkup).toContain("External links are disabled by policy.");
   });
 
+  it("does not render empty tabs", () => {
+    const Tabs = appRegistry.Tabs;
+    const Tab = appRegistry.Tab;
+
+    const markup = renderToStaticMarkup(
+      <Tabs element={{ props: {} }}>
+        <Tab
+          element={{
+            key: "tab-empty",
+            props: { title: "Tab 1" },
+          }}
+        />
+        <Tab
+          element={{
+            key: "tab-with-content",
+            props: { title: "Details" },
+          }}
+        >
+          <div>Has content</div>
+        </Tab>
+      </Tabs>,
+    );
+
+    expect(markup).toContain("Details");
+    expect(markup).toContain("Has content");
+    expect(markup).not.toContain("Tab 1");
+  });
+
   it("resolves text output using config scope", () => {
     const sectionId = "section-1";
     const variantAId = "variant-a";
