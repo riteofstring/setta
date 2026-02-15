@@ -86,7 +86,6 @@ import {
   initializeShareSessionFromCurrentDeployment,
   resetShareSessionState,
 } from "./share";
-import { receiveUISettingReveal } from "./uiSettingReveal";
 
 let wss: WebSocket | null;
 let wasOpen = false;
@@ -470,8 +469,6 @@ function receiveMessage(message: string) {
       return receiveAIFollowToolArgumentsUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
       return receiveAIFollowToolResultUpdate(m.content);
-    case WebsocketMsgTypeForFrontendEnum.UISettingReveal:
-      return receiveUISettingReveal(m.content);
     case WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated:
       return receiveAgentProfilesUpdate(m.content.profiles);
     case WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated:
