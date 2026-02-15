@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar, cast
 
+from setta import __version__
 from setta.agentic.engine_config_watcher import EngineConfigWatcher
 from setta.agentic.example_config import seed_agentic_config_files
 from setta.agentic.external_agent_runner import ExternalAgentRunner
@@ -24,10 +25,17 @@ from setta.llm.config_watcher import LLMConfigWatcher
 from setta.llm.dotenv_watcher import DotEnvWatcher
 from setta.llm.example_config import seed_llm_config_example_file
 from setta.logging.tasks import spawn_background_task
-from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
+from setta.lsp.managers import (
+    LSPReaders,
+    LSPServers,
+    LSPWriters,
+    start_lsps,
+    stop_lsps,
+)
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.fastmcp_patch import apply_fastmcp_preparse_patch
 from setta.mcp.server import SettaFastMCP
+from setta.plugins.manager import PluginManager
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.code_files import CodeFiles
 from setta.project_state.jsonSource.jsonSource import JSONSource
@@ -48,6 +56,7 @@ from setta.utils.paths import (
     clear_setta_paths_cache,
     get_setta_paths,
 )
+from setta.utils.setta_home import resolve_setta_home
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
@@ -189,6 +198,9 @@ class SettaFastAPIState:
         self.app_mode = app_mode
         self.share_mode = share_mode
         self.deployment_mode = share_mode or app_mode
+        # Register runtime state on the app before startup work begins so backend
+        # plugin register-time host calls can resolve app.state.setta.
+        app.state.setta = self
         self._enable_mcp_connections = enable_mcp_connections
         self._enable_language_server = enable_language_server
         self.paths = get_setta_paths()
@@ -220,6 +232,24 @@ class SettaFastAPIState:
             self.paths = get_setta_paths()
         else:
             os.environ.setdefault(RUNTIME_ROOT_ENV, str(self.dbe.runtime_root))
+        plugin_workspace_root = (
+            self.share_deployment_root
+            if self.share_deployment_root is not None
+            else self.paths.workspace_root
+        )
+        plugin_setta_files_root = (
+            self.share_deployment_root
+            if self.share_deployment_root is not None
+            else self.paths.setta_files_root
+        )
+        self.plugin_manager = PluginManager(
+            workspace_root=plugin_workspace_root,
+            setta_files_root=plugin_setta_files_root,
+            setta_home=resolve_setta_home(),
+            server_mode=self._resolve_server_mode(),
+            setta_version=__version__,
+            auto_rescan=False,
+        )
         if not self.deployment_mode:
             seed_llm_config_example_file(self.dbe)
             if IS_DEV_MODE:
@@ -322,7 +352,7 @@ class SettaFastAPIState:
     async def _initialize_async(self, app):
         try:
             if self.deployment_mode:
-                await self._initialize_deployment_async()
+                await self._initialize_deployment_async(app)
                 return
             from setta.project_state.project_manager_switcher import (
                 ProjectManagerSwitcher,
@@ -358,17 +388,8 @@ class SettaFastAPIState:
 
             self.init_status.record("Loading project state")
             await self._maybe_delay()
-            lsp_writers = None
-            if self._enable_language_server:
-                self.lsps = LSPServers(
-                    self.settings_file.settings.languageServer,
-                    workspace_root=self.paths.workspace_root,
-                )
-                self.lsp_writers = LSPWriters(self.lsps)
-                lsp_writers = self.lsp_writers
-            else:
-                self.lsps = None
-                self.lsp_writers = None
+            self.lsps = None
+            self.lsp_writers = None
             project_manager = SessionProjectManager(
                 persistence_mode=SessionPersistenceMode.ide_main,
                 frontend_sender=self.wmh_frontend_sender,
@@ -379,7 +400,8 @@ class SettaFastAPIState:
                 artifacts=self.artifacts,
                 json_source=self.json_source,
                 code_files=self.code_files,
-                lsp_writers=lsp_writers,
+                lsp_writers=None,
+                plugin_manager=self.plugin_manager,
             )
             settings_project_manager = SessionProjectManager(
                 persistence_mode=SessionPersistenceMode.ide_settings,
@@ -391,12 +413,28 @@ class SettaFastAPIState:
                 artifacts=self.artifacts,
                 json_source=self.json_source,
                 code_files=self.settings_code_files,
-                lsp_writers=lsp_writers,
+                lsp_writers=None,
+                plugin_manager=self.plugin_manager,
             )
             self.project_manager_switcher = ProjectManagerSwitcher(
                 main_manager=project_manager,
                 settings_manager=settings_project_manager,
             )
+
+            self.init_status.record("Loading backend plugins")
+            await self._maybe_delay()
+            self.plugin_manager.load_backend_plugins(app=app)
+            if self._enable_language_server:
+                self.lsps = LSPServers(
+                    self.settings_file.settings.languageServer,
+                    workspace_root=self.paths.workspace_root,
+                    plugin_language_servers=(
+                        self.plugin_manager.get_backend_language_servers()
+                    ),
+                )
+                self.lsp_writers = LSPWriters(self.lsps)
+                project_manager.lsp_writers = self.lsp_writers
+                settings_project_manager.lsp_writers = self.lsp_writers
 
             self.init_status.record("Preparing websocket handlers")
             await self._maybe_delay()
@@ -484,6 +522,9 @@ class SettaFastAPIState:
                 self.dbe,
                 self.wmh_frontend_sender,
                 share_mode=self.deployment_mode,
+                plugin_external_agent_adapters=(
+                    self.plugin_manager.get_backend_external_agent_adapters()
+                ),
                 mcp_client=self.mcp_client,
             )
             self.run_chain_runner = RunChainRunner(
@@ -504,12 +545,8 @@ class SettaFastAPIState:
                     extra_values={"service": "mcp-client"},
                 )
             if self.lsps and self.lsp_readers and self.lsp_writers:
-                spawn_background_task(
-                    start_lsps(self.lsps, self.lsp_readers, self.lsp_writers),
-                    label="lsp-startup",
-                    request_id="boot",
-                    extra_values={"service": "language-servers"},
-                )
+                self.init_status.record("Starting language servers")
+                await start_lsps(self.lsps, self.lsp_readers, self.lsp_writers)
             if self.specific_file_watcher:
                 self.specific_file_watcher.start()
 
@@ -517,11 +554,29 @@ class SettaFastAPIState:
             self.init_status.record("Backend ready")
             self.init_status.mark_ready()
         except Exception as exc:
+            try:
+                self.plugin_manager.shutdown_backend_plugins()
+            except Exception:
+                logger.exception(
+                    "Failed to clean up backend plugins after initialization error."
+                )
+            if self.lsps is not None:
+                try:
+                    if self.lsp_writers is not None:
+                        self.lsp_writers.file_watcher.stop()
+                    if self.lsp_readers is not None:
+                        await stop_lsps(self.lsps, self.lsp_readers)
+                    else:
+                        self.lsps.stop()
+                except Exception:
+                    logger.exception(
+                        "Failed to clean up language servers after initialization error."
+                    )
             self.init_status.record("Backend initialization failed")
             self.init_status.mark_error(str(exc))
             raise
 
-    async def _initialize_deployment_async(self) -> None:
+    async def _initialize_deployment_async(self, app) -> None:
         from setta.websockets.msg_handlers.frontend_receiver import (
             WMHFrontendReceiver,
         )
@@ -562,6 +617,7 @@ class SettaFastAPIState:
             lsp_writers=lsp_writers,
             frontend_sender=self.wmh_frontend_sender,
             specific_file_watcher=self.specific_file_watcher,
+            plugin_manager=self.plugin_manager,
         )
         if self.share_runtime_state.share_policy.allowRun:
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
@@ -621,6 +677,9 @@ class SettaFastAPIState:
                 "deployment_version": self.share_runtime_state.deployment_version,
             },
         )
+        self.init_status.record("Loading backend plugins")
+        await self._maybe_delay()
+        self.plugin_manager.load_backend_plugins(app=app)
         if self.specific_file_watcher:
             self.specific_file_watcher.start()
         self._ready_event.set()
@@ -676,6 +735,13 @@ class SettaFastAPIState:
         delay = C.BACKEND_INIT_DELAY_SECONDS
         if delay and delay > 0:
             await asyncio.sleep(delay)
+
+    def _resolve_server_mode(self) -> str:
+        if self.app_mode:
+            return "app"
+        if self.share_mode:
+            return "share"
+        return "ide"
 
     def _defer_attr(self, name: str) -> _T:
         return cast("_T", _UninitializedAttribute(name))

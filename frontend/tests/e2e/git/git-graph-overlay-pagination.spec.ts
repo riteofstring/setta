@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { allowExpectedApiError } from "../helpers";
 import {
   cleanupGitOverlayFixture,
   getWorkspaceRootOrThrow,
@@ -178,6 +179,12 @@ test("git graph pauses auto-pagination after a load-more error until Retry is cl
 
   try {
     await openGitOverview(page);
+    allowExpectedApiError(page, {
+      path: "/api/git/log",
+      statuses: [500],
+      method: "POST",
+      count: 2,
+    });
     await page.getByRole("button", { name: "Graph" }).click();
     const graphFilter = page.getByPlaceholder(/Filter commits/);
     await expect(graphFilter).toBeVisible();

@@ -10,7 +10,6 @@ from setta.utils.init_status import (
     BackendInitStatusResponse,
     get_auth_refresh_status,
 )
-from setta.utils.paths import get_setta_paths
 from setta.utils.setta_home import resolve_setta_home
 from setta.utils.user_config import load_setta_user_config
 
@@ -20,9 +19,6 @@ router = SettaAPIRouter()
 class SettaHomeInfoResponse(BaseModel):
     settaHome: str
     globalSettaFilesBase: str
-    activeSettaFilesRoot: str
-    activeSettaFilesLocation: str
-    llmConfigPath: str
 
 
 @router.get(Route.GET_BACKEND_INIT_STATUS)
@@ -50,11 +46,7 @@ def route_get_server_mode(state: AppStateFromRequest) -> ServerModeResponse:
 def route_get_setta_home_info() -> SettaHomeInfoResponse:
     home = resolve_setta_home()
     config = load_setta_user_config(setta_home=home)
-    paths = get_setta_paths()
     return SettaHomeInfoResponse(
         settaHome=str(home),
         globalSettaFilesBase=str(config.global_setta_files_base),
-        activeSettaFilesRoot=str(paths.setta_files_root),
-        activeSettaFilesLocation=paths.setta_files_location,
-        llmConfigPath=str(paths.setta_files_root / "llm_config.json"),
     )
