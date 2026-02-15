@@ -85,7 +85,12 @@ run_playwright_ci_suites() {
   if ! suites_output="$(discover_playwright_suites)"; then
     return 1
   fi
-  mapfile -t suites <<<"${suites_output}"
+  local suites=()
+  local suite_line
+  while IFS= read -r suite_line; do
+    [[ -z "${suite_line}" ]] && continue
+    suites+=("${suite_line}")
+  done <<< "${suites_output}"
   if [[ ${#suites[@]} -eq 0 ]]; then
     echo "No Playwright suites discovered."
     return 0
