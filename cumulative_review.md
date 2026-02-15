@@ -307,3 +307,28 @@ Implemented the latest review-driven fixes across completion-guard verification 
 - Playwright passed: full `frontend/tests/e2e/overview/project-ai-chat-root-scan.spec.ts` (`7 passed`) plus focused new-race regression run.
 - Ruff check on touched backend/test Python files passed.
 - CDP visual verification completed on Project AI Chat surface (chat controls + composer + execution controls visible and stable in live session).
+
+## 2026-02-17 17:15:00 PST
+
+### Summary
+Implemented the consolidated fixes from the latest top-level review cycle across TypeScript stability, multipart contract correctness, execution-policy strictness, slash-layout render churn, and managed chat control deduplication, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Restored the missing React `Ref` import in `ChatMessages` to resolve the compile regression.
+- Removed implicit defaults for `permissionMode` and `searchEnabled` in `GetLLMResponseRequest`; callers/tests now pass both explicitly.
+- Refactored `/transcribeChatAudio` to a single multipart parse path and added explicit OpenAPI multipart `requestBody` metadata.
+- Replaced endpoint-name multipart forcing in endpoint codegen with metadata-driven multipart detection from route contract (`openapi_extra.requestBody.content`).
+- Added backend regression coverage for required execution-policy fields and multipart contract exposure in OpenAPI.
+- Added multipart-form request helpers in transcription route tests and updated route tests to validate the single multipart path.
+- Reduced slash suggestion portal churn by diffing computed style before committing React state updates.
+- Added unit coverage for slash suggestion portal style equality behavior.
+- Extracted shared managed chat execution-control handlers (`createManagedExecutionControlHandlers`) and reused them in Project Chat and managed Section Chat to reduce duplicated policy wiring.
+- Added unit coverage for shared managed execution-control handlers.
+- Extended Playwright composer-controls coverage to verify `/search on|off` toggles in Project AI Chat.
+
+### Test and verification status
+- Backend pytest: targeted suites passed (`tests/code_gen/test_convert_endpoints.py`, `tests/routers/test_multipart_route_limits.py`, `tests/routers/test_ai_agent_run_chats.py`, `tests/routers/test_share_policy_routes.py`).
+- Frontend Vitest: targeted suites passed (`ChatInput`, `chatComposerControls`, `aiTranscribeChatAudio`, `projectChatExecutionSettings`).
+- Playwright: targeted e2e suite passed (`frontend/tests/e2e/chat/chat-composer-controls.spec.ts`, all 7 tests).
+- `pnpm -C frontend exec tsc --noEmit` still reports existing repo-wide TypeScript issues outside this change set.
+- CDP visual verification completed in a live session (Project AI Chat slash suggestions visible and `/search off` feedback/state verified).

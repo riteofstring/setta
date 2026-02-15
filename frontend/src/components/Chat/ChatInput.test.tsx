@@ -1,10 +1,10 @@
-import { type ComponentProps } from "react";
+import { type ComponentProps, type CSSProperties } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ChatInput } from "./ChatInput";
+import { ChatInput, areSlashSuggestionsPortalStylesEqual } from "./ChatInput";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
   return {
@@ -13,6 +13,9 @@ function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
     allowLayoutChanges: true,
     allowRun: false,
     allowLLM: false,
+    allowExternalLinks: false,
+    allowFileDownloads: false,
+    allowMultipleRuns: false,
     runSnapshotMode: "ephemeral",
     ...overrides,
   };
@@ -233,5 +236,49 @@ describe("ChatInput composer controls", () => {
 
     expect(markup).toContain("bottom-[calc(100%+4px)]");
     expect(markup).toContain("overflow-x-hidden");
+  });
+});
+
+describe("areSlashSuggestionsPortalStylesEqual", () => {
+  it("returns true when both styles are null", () => {
+    expect(areSlashSuggestionsPortalStylesEqual(null, null)).toBe(true);
+  });
+
+  it("returns true for equal geometry values", () => {
+    const first: CSSProperties = {
+      left: "12px",
+      width: "340px",
+      maxHeight: "180px",
+      top: "44px",
+      bottom: undefined,
+    };
+    const second: CSSProperties = {
+      left: "12px",
+      width: "340px",
+      maxHeight: "180px",
+      top: "44px",
+      bottom: undefined,
+    };
+
+    expect(areSlashSuggestionsPortalStylesEqual(first, second)).toBe(true);
+  });
+
+  it("returns false when any tracked value changes", () => {
+    const first: CSSProperties = {
+      left: "12px",
+      width: "340px",
+      maxHeight: "180px",
+      top: "44px",
+      bottom: undefined,
+    };
+    const second: CSSProperties = {
+      left: "14px",
+      width: "340px",
+      maxHeight: "180px",
+      top: "44px",
+      bottom: undefined,
+    };
+
+    expect(areSlashSuggestionsPortalStylesEqual(first, second)).toBe(false);
   });
 });

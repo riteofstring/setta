@@ -6,8 +6,9 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 from fastapi import FastAPI, HTTPException
+from pydantic import ValidationError
 import pytest
-from starlette.datastructures import Headers, UploadFile
+from starlette.datastructures import FormData, Headers, UploadFile
 from starlette.requests import Request
 
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
@@ -128,6 +129,30 @@ def _build_test_request(*, content_type: str | None = None) -> Request:
         }
 
     return Request(scope, _receive)
+
+
+def _build_test_request_with_form(
+    *,
+    engine_config_id: ID,
+    file: UploadFile,
+    language: str | None = None,
+) -> Request:
+    request = _build_test_request(content_type="multipart/form-data")
+    form_values: dict[str, object] = {
+        "engineConfigId": str(engine_config_id),
+        "file": file,
+    }
+    if language is not None:
+        form_values["language"] = language
+
+    async def _form(
+        *_args: object,
+        **_kwargs: object,
+    ) -> FormData:
+        return FormData(form_values)
+
+    request.form = _form  # type: ignore[method-assign]
+    return request
 
 
 def _build_share_deployment_root(
@@ -272,6 +297,27 @@ class _TestState:
     chat_manager: None = None
 
 
+def test_get_llm_response_request_requires_execution_policy_fields() -> None:
+    with pytest.raises(ValidationError) as exc:
+        GetLLMResponseRequest(
+            chatId=None,
+            message=UserChatMessage(
+                content=[MessageTextContent(text="Hello")],
+            ),
+            engineConfigId=ID("engine-1"),
+            agentProfileId=None,
+            thinking=False,
+            projectConfigId=ID("project-1"),
+        )
+    error_fields = {
+        error["loc"][-1]
+        for error in exc.value.errors()
+        if error.get("type") == "missing"
+    }
+    assert "permissionMode" in error_fields
+    assert "searchEnabled" in error_fields
+
+
 class TestAgentRunChatRoutes:
     pytestmark = pytest.mark.asyncio
 
@@ -305,6 +351,8 @@ class TestAgentRunChatRoutes:
                             agentProfileId=None,
                             thinking=False,
                             projectConfigId=project_config_id,
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
                         ),
                         runtime_ctx,
                     )
@@ -493,6 +541,8 @@ class TestAgentRunChatRoutes:
                             thinking=False,
                             projectConfigId=project_config_id,
                             allowUnscoped=True,
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
                         ),
                         ctx,
                     )
@@ -545,6 +595,8 @@ class TestAgentRunChatRoutes:
                             allowUnscoped=True,
                             branchParentChatId=parent_chat_id,
                             branchFromMessageId=ID("missing"),
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
                         ),
                         ctx,
                     )
@@ -577,6 +629,8 @@ class TestAgentRunChatRoutes:
                             agentProfileId=None,
                             thinking=False,
                             projectConfigId=ID("project-1"),
+                            permissionMode=ChatPermissionMode.minimal,
+                            searchEnabled=True,
                         ),
                         ctx,
                     )
@@ -867,6 +921,8 @@ class TestAgentRunChatRoutes:
                         thinking=False,
                         projectConfigId=ID("project-policy"),
                         allowUnscoped=True,
+                        permissionMode=ChatPermissionMode.minimal,
+                        searchEnabled=True,
                         appSpecStreamingEnabled=True,
                         appGenerationMode=None,
                     ),
@@ -934,9 +990,10 @@ class TestAgentRunChatRoutes:
                     )
                     response = await route_transcribe_chat_audio(
                         ctx=ctx,
-                        request=_build_test_request(),
-                        engineConfigId=engine_config_id,
-                        file=upload,
+                        request=_build_test_request_with_form(
+                            engine_config_id=engine_config_id,
+                            file=upload,
+                        ),
                     )
 
             assert response.text == "hello from provider"
@@ -977,9 +1034,10 @@ class TestAgentRunChatRoutes:
                     )
                     await route_transcribe_chat_audio(
                         ctx=ctx,
-                        request=_build_test_request(),
-                        engineConfigId=engine_config_id,
-                        file=upload,
+                        request=_build_test_request_with_form(
+                            engine_config_id=engine_config_id,
+                            file=upload,
+                        ),
                     )
 
             assert exc.value.status_code == 400
@@ -1020,9 +1078,10 @@ class TestAgentRunChatRoutes:
                     )
                     await route_transcribe_chat_audio(
                         ctx=ctx,
-                        request=_build_test_request(),
-                        engineConfigId=engine_config_id,
-                        file=upload,
+                        request=_build_test_request_with_form(
+                            engine_config_id=engine_config_id,
+                            file=upload,
+                        ),
                     )
 
             assert exc.value.status_code == 502
@@ -1066,9 +1125,10 @@ class TestAgentRunChatRoutes:
                     )
                     await route_transcribe_chat_audio(
                         ctx=ctx,
-                        request=_build_test_request(),
-                        engineConfigId=external_engine_config_id,
-                        file=upload,
+                        request=_build_test_request_with_form(
+                            engine_config_id=external_engine_config_id,
+                            file=upload,
+                        ),
                     )
 
             assert exc.value.status_code == 400
@@ -1097,9 +1157,10 @@ class TestAgentRunChatRoutes:
                     )
                     await route_transcribe_chat_audio(
                         ctx=ctx,
-                        request=_build_test_request(),
-                        engineConfigId=engine_config_id,
-                        file=upload,
+                        request=_build_test_request_with_form(
+                            engine_config_id=engine_config_id,
+                            file=upload,
+                        ),
                     )
 
             assert exc.value.status_code == 400
@@ -1130,9 +1191,10 @@ class TestAgentRunChatRoutes:
                     )
                     await route_transcribe_chat_audio(
                         ctx=ctx,
-                        request=_build_test_request(),
-                        engineConfigId=engine_config_id,
-                        file=upload,
+                        request=_build_test_request_with_form(
+                            engine_config_id=engine_config_id,
+                            file=upload,
+                        ),
                     )
 
             assert exc.value.status_code == 413

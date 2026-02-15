@@ -7,7 +7,9 @@ import { ChatMessageList } from "components/Chat/ChatMessages";
 import {
   CHAT_STARTER_PROMPTS,
   buildChatSlashCommands,
+  createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
+  type ManagedChatExecutionSettings,
   type ChatPermissionModeValue,
   type ChatStarterPrompt,
 } from "components/Chat/chatComposerControls";
@@ -69,10 +71,7 @@ const WORKSPACE_ROOT_BACKOFF_POLL_MS = 30000;
 const WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF = 2;
 const WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS = 5000;
 
-type ChatExecutionSettings = {
-  permissionMode: ChatPermissionModeValue;
-  searchEnabled: boolean;
-};
+type ChatExecutionSettings = ManagedChatExecutionSettings;
 
 type ProjectChatHistoryEntry = ReturnType<
   typeof buildChatHistoryEntries
@@ -594,6 +593,18 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [],
   );
+  const executionControlHandlers = useMemo(
+    () =>
+      createManagedExecutionControlHandlers(
+        executionSettings,
+        updateExecutionSettings,
+      ),
+    [
+      executionSettings.permissionMode,
+      executionSettings.searchEnabled,
+      updateExecutionSettings,
+    ],
+  );
 
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
     await loadAgentRuns();
@@ -620,33 +631,19 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           success: "Resumed the latest project chat.",
           notFound: "No previous project chat found to resume.",
         },
-        onSetPermissionMode: (nextMode) => {
-          updateExecutionSettings(
-            {
-              permissionMode: nextMode,
-              searchEnabled: executionSettings.searchEnabled,
-            },
-          );
-        },
+        onSetPermissionMode: executionControlHandlers.onPermissionModeChange,
         modelFeedback: "Use the model selector in the Project AI Chat toolbar.",
         searchEnabled: executionSettings.searchEnabled,
-        onSetSearchEnabled: (nextValue) => {
-          updateExecutionSettings(
-            {
-              permissionMode: executionSettings.permissionMode,
-              searchEnabled: nextValue,
-            },
-          );
-        },
+        onSetSearchEnabled: executionControlHandlers.onSearchEnabledChange,
       });
     },
     [
-      executionSettings.permissionMode,
       executionSettings.searchEnabled,
+      executionControlHandlers.onPermissionModeChange,
+      executionControlHandlers.onSearchEnabledChange,
       handleNewChatStart,
       handleResumeLatestChat,
       slashCommands,
-      updateExecutionSettings,
     ],
   );
 
@@ -798,27 +795,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     () => ({
       permissionMode: executionSettings.permissionMode,
       searchEnabled: executionSettings.searchEnabled,
-      onPermissionModeChange: (nextMode: ChatPermissionModeValue) => {
-        updateExecutionSettings(
-          {
-            permissionMode: nextMode,
-            searchEnabled: executionSettings.searchEnabled,
-          },
-        );
-      },
-      onSearchEnabledChange: (nextValue: boolean) => {
-        updateExecutionSettings(
-          {
-            permissionMode: executionSettings.permissionMode,
-            searchEnabled: nextValue,
-          },
-        );
-      },
+      onPermissionModeChange: executionControlHandlers.onPermissionModeChange,
+      onSearchEnabledChange: executionControlHandlers.onSearchEnabledChange,
     }),
     [
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
-      updateExecutionSettings,
+      executionControlHandlers.onPermissionModeChange,
+      executionControlHandlers.onSearchEnabledChange,
     ],
   );
   const handleDesignFirstPrompt = useCallback(() => {

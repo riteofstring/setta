@@ -96,9 +96,6 @@ test.describe.serial("chat composer controls", () => {
         .toBe(true);
       await input.fill("/search off");
       await input.press("Enter");
-      await expect(
-        section.getByText("Unknown or unavailable command. Use /help."),
-      ).toBeVisible();
       expect(llmSubmitCount).toBe(0);
 
       await section
@@ -215,6 +212,12 @@ test.describe.serial("chat composer controls", () => {
       const searchButton = overviewPane.getByRole("button", { name: "Search" });
       await expect(searchButton).toBeVisible();
       await searchButton.click();
+      await expect(searchButton).toHaveAttribute("aria-pressed", "false");
+      await input.fill("/search on");
+      await input.press("Enter");
+      await expect(searchButton).toHaveAttribute("aria-pressed", "true");
+      await input.fill("/search off");
+      await input.press("Enter");
       await expect(searchButton).toHaveAttribute("aria-pressed", "false");
     } finally {
       await engineCleanup();

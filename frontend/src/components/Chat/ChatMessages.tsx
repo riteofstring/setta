@@ -6,6 +6,7 @@ import {
   type MediaCarouselItem,
 } from "components/Utils/MediaCarousel";
 import {
+  Ref,
   ReactNode,
   memo,
   useCallback,

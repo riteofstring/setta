@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildChatSlashCommands,
+  createManagedExecutionControlHandlers,
   CREATE_PROJECT_STARTER_PROMPT,
   executeManagedChatSlashCommand,
   formatSlashCommandHelp,
@@ -9,6 +10,7 @@ import {
   resolvePermissionModeArg,
   resolveToggleArg,
   shouldTreatInputAsSlashCommand,
+  type ChatSlashCommandDefinition,
 } from "./chatComposerControls";
 
 describe("chatComposerControls", () => {
@@ -56,7 +58,7 @@ describe("chatComposerControls", () => {
   });
 
   it("ignores ambiguous slash prefixes that do not map to one command", () => {
-    const commands = [
+    const commands: ChatSlashCommandDefinition[] = [
       {
         command: "/run",
         action: "new",
@@ -113,6 +115,29 @@ describe("chatComposerControls", () => {
       "/permissions",
       "/help",
     ]);
+  });
+
+  it("creates shared managed execution setting handlers", () => {
+    const updateExecutionSettings = vi.fn();
+    const handlers = createManagedExecutionControlHandlers(
+      {
+        permissionMode: "minimal",
+        searchEnabled: true,
+      },
+      updateExecutionSettings,
+    );
+
+    handlers.onPermissionModeChange("yolo");
+    expect(updateExecutionSettings).toHaveBeenNthCalledWith(1, {
+      permissionMode: "yolo",
+      searchEnabled: true,
+    });
+
+    handlers.onSearchEnabledChange(false);
+    expect(updateExecutionSettings).toHaveBeenNthCalledWith(2, {
+      permissionMode: "minimal",
+      searchEnabled: false,
+    });
   });
 
   it("formats help text from command definitions", () => {

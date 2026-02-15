@@ -7,9 +7,11 @@ import { ChatMessageList } from "components/Chat/ChatMessages";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import {
   buildChatSlashCommands,
+  createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
   formatSlashCommandHelp,
   resolvePermissionModeArg,
+  type ManagedChatExecutionSettings,
   type ChatPermissionModeValue,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
@@ -142,10 +144,7 @@ type EmitChatStopActionArgs = {
   timestampMs: number;
 };
 
-type ChatExecutionSettings = {
-  permissionMode: ChatPermissionModeValue;
-  searchEnabled: boolean;
-};
+type ChatExecutionSettings = ManagedChatExecutionSettings;
 
 type ChatSectionHistoryEntry = ReturnType<
   typeof buildChatHistoryEntries
@@ -602,6 +601,14 @@ function ScriptableChatArea({
     },
     [agentProfileId, engineConfigId, projectConfigId, sectionId, thinking],
   );
+  const executionControlHandlers = useMemo(
+    () =>
+      createManagedExecutionControlHandlers(
+        { permissionMode, searchEnabled },
+        updateExecutionSettings,
+      ),
+    [permissionMode, searchEnabled, updateExecutionSettings],
+  );
   const slashCommands = useMemo(
     () =>
       buildChatSlashCommands({
@@ -679,10 +686,7 @@ function ScriptableChatArea({
             keepInput: true,
           };
         }
-        updateExecutionSettings({
-          permissionMode: nextMode,
-          searchEnabled,
-        });
+        executionControlHandlers.onPermissionModeChange(nextMode);
         return { feedback: `Permissions set to ${nextMode}.` };
       }
       if (command.action === "help") {
@@ -695,9 +699,8 @@ function ScriptableChatArea({
     [
       resetScriptableConversation,
       resumeLatestScriptableBranch,
-      searchEnabled,
+      executionControlHandlers.onPermissionModeChange,
       slashCommands,
-      updateExecutionSettings,
     ],
   );
 
@@ -829,16 +832,9 @@ function ScriptableChatArea({
   const executionControls = useMemo(
     () => ({
       permissionMode,
-      onPermissionModeChange: (nextMode: ChatPermissionModeValue) => {
-        updateExecutionSettings(
-          {
-            permissionMode: nextMode,
-            searchEnabled,
-          },
-        );
-      },
+      onPermissionModeChange: executionControlHandlers.onPermissionModeChange,
     }),
-    [permissionMode, searchEnabled, updateExecutionSettings],
+    [executionControlHandlers.onPermissionModeChange, permissionMode],
   );
 
   return (
@@ -1356,6 +1352,14 @@ function ManagedChatArea({
     },
     [agentProfileId, engineConfigId, projectConfigId, sectionId, thinking],
   );
+  const executionControlHandlers = useMemo(
+    () =>
+      createManagedExecutionControlHandlers(
+        { permissionMode, searchEnabled },
+        updateExecutionSettings,
+      ),
+    [permissionMode, searchEnabled, updateExecutionSettings],
+  );
   const slashCommands = useMemo(
     () =>
       buildChatSlashCommands({
@@ -1555,24 +1559,16 @@ function ManagedChatArea({
           success: "Resumed the latest section chat.",
           notFound: "No previous section chat found to resume.",
         },
-        onSetPermissionMode: (nextMode) => {
-          updateExecutionSettings(
-            {
-              permissionMode: nextMode,
-              searchEnabled,
-            },
-          );
-        },
+        onSetPermissionMode: executionControlHandlers.onPermissionModeChange,
         modelFeedback:
           "Model selection is configured in chat settings for this section.",
       });
     },
     [
+      executionControlHandlers.onPermissionModeChange,
       handleNewChatStart,
       handleResumeLatestChat,
-      searchEnabled,
       slashCommands,
-      updateExecutionSettings,
     ],
   );
 
@@ -1605,16 +1601,9 @@ function ManagedChatArea({
   const executionControls = useMemo(
     () => ({
       permissionMode,
-      onPermissionModeChange: (nextMode: ChatPermissionModeValue) => {
-        updateExecutionSettings(
-          {
-            permissionMode: nextMode,
-            searchEnabled,
-          },
-        );
-      },
+      onPermissionModeChange: executionControlHandlers.onPermissionModeChange,
     }),
-    [permissionMode, searchEnabled, updateExecutionSettings],
+    [executionControlHandlers.onPermissionModeChange, permissionMode],
   );
   const handleProviderDictationTranscribe = useCallback(
     async (audioBlob: Blob) => {

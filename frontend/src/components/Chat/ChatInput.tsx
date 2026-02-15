@@ -51,6 +51,31 @@ const SLASH_SUGGESTIONS_ROW_HEIGHT_PX = 36;
 const SLASH_SUGGESTIONS_INPUT_INSET_PX = 4;
 const UNKNOWN_SLASH_COMMAND_FEEDBACK =
   "Unknown or unavailable command. Use /help.";
+const SLASH_SUGGESTIONS_PORTAL_STYLE_KEYS = [
+  "left",
+  "width",
+  "maxHeight",
+  "top",
+  "bottom",
+] as const;
+
+export function areSlashSuggestionsPortalStylesEqual(
+  current: CSSProperties | null,
+  next: CSSProperties | null,
+): boolean {
+  if (current === next) {
+    return true;
+  }
+  if (!current || !next) {
+    return false;
+  }
+  for (const key of SLASH_SUGGESTIONS_PORTAL_STYLE_KEYS) {
+    if (current[key] !== next[key]) {
+      return false;
+    }
+  }
+  return true;
+}
 
 type ChatExecutionControls = {
   permissionMode: ChatPermissionModeValue;
@@ -382,12 +407,18 @@ export const ChatInput = memo(function ChatInput({
             ),
           )
         : undefined;
-    setSlashSuggestionsPortalStyle({
+    const nextStyle: CSSProperties = {
       left: `${left}px`,
       width: `${width}px`,
       maxHeight: `${maxHeight}px`,
       top: clampedTop !== undefined ? `${clampedTop}px` : undefined,
       bottom: clampedBottom !== undefined ? `${clampedBottom}px` : undefined,
+    };
+    setSlashSuggestionsPortalStyle((current) => {
+      if (areSlashSuggestionsPortalStylesEqual(current, nextStyle)) {
+        return current;
+      }
+      return nextStyle;
     });
   }, [
     shouldShowSlashSuggestions,
@@ -397,7 +428,9 @@ export const ChatInput = memo(function ChatInput({
 
   useEffect(() => {
     if (!shouldShowSlashSuggestions) {
-      setSlashSuggestionsPortalStyle(null);
+      setSlashSuggestionsPortalStyle((current) =>
+        current === null ? current : null,
+      );
       setResolvedSlashPlacement(
         slashSuggestionsPlacement === "above" ? "above" : "below",
       );

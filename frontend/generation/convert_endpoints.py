@@ -40,9 +40,6 @@ basic_type_map = {
 }
 
 GENERATED_TYPE_ALIAS = "gt"
-_FORCE_FORM_DATA_ENDPOINTS = {
-    "route_transcribe_chat_audio",
-}
 
 
 def get_path_input_output_types():
@@ -96,12 +93,29 @@ def get_path_input_output_types():
 
         route_info["output"] = return_type
 
-        if route.endpoint.__name__ in _FORCE_FORM_DATA_ENDPOINTS:
+        if _route_declares_multipart_request_body(route):
             route_info["uses_form_data"] = True
 
         output[route.endpoint.__name__] = route_info
 
     return output
+
+
+def _route_declares_multipart_request_body(route: APIRoute) -> bool:
+    if not isinstance(route.openapi_extra, dict):
+        return False
+    request_body = route.openapi_extra.get("requestBody")
+    if not isinstance(request_body, dict):
+        return False
+    content = request_body.get("content")
+    if not isinstance(content, dict):
+        return False
+    for content_type in content:
+        if not isinstance(content_type, str):
+            continue
+        if "multipart/form-data" in content_type.lower():
+            return True
+    return False
 
 
 def _is_depends_annotation(param_type) -> bool:

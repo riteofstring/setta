@@ -497,8 +497,8 @@ class GetLLMResponseRequest(BaseModel):
             "Whether the UI is configured to stream app spec patches for live preview."
         ),
     )
-    permissionMode: ChatPermissionMode = ChatPermissionMode.minimal
-    searchEnabled: bool = True
+    permissionMode: ChatPermissionMode
+    searchEnabled: bool
     appGenerationMode: AppGenerationMode | None = Field(
         default=None,
         description="Optional app generation mode selected in the UI.",
@@ -545,6 +545,28 @@ class StopLLMChatRequest(BaseModel):
 
 class GetAIFollowSnapshotRequest(BaseModel):
     projectConfigId: ID
+
+
+async def _parse_transcribe_audio_form(
+    request: Request,
+) -> tuple[ID, StarletteUploadFile, str | None]:
+    form = await request.form()
+    engine_config_id_value = form.get("engineConfigId")
+    if not isinstance(engine_config_id_value, str):
+        raise HTTPException(status_code=400, detail="engineConfigId is required.")
+    stripped_engine_config_id = engine_config_id_value.strip()
+    if not stripped_engine_config_id:
+        raise HTTPException(status_code=400, detail="engineConfigId is required.")
+    file_value = form.get("file")
+    if not isinstance(file_value, StarletteUploadFile):
+        raise HTTPException(status_code=400, detail="Audio payload is required.")
+    language_value = form.get("language")
+    if isinstance(language_value, str):
+        stripped_language = language_value.strip()
+        language = stripped_language or None
+    else:
+        language = None
+    return ID(stripped_engine_config_id), file_value, language
 
 
 @router.post(Route.GET_LLM_RESPONSE)
@@ -781,48 +803,38 @@ async def route_get_llm_response(
     raise HTTPException(status_code=400, detail="Unsupported engine config")
 
 
-@router.post(Route.TRANSCRIBE_CHAT_AUDIO)
+@router.post(
+    Route.TRANSCRIBE_CHAT_AUDIO,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "multipart/form-data": {
+                    "schema": {
+                        "type": "object",
+                        "required": ["engineConfigId", "file"],
+                        "properties": {
+                            "engineConfigId": {"type": "string"},
+                            "file": {"type": "string", "format": "binary"},
+                            "language": {"type": "string"},
+                        },
+                    }
+                }
+            },
+        }
+    },
+)
 async def route_transcribe_chat_audio(
     ctx: RuntimeContextFromRequest,
     request: Request,
-    engineConfigId: ID | None = None,
-    file: object | None = None,
-    language: str | None = None,
 ) -> TranscribeChatAudioResponse:
     await ctx.enforce_llm_allowed()
     await _enforce_transcribe_audio_multipart_limit(request)
-
-    resolved_engine_config_id = engineConfigId
-    resolved_file: StarletteUploadFile | None = (
-        file if isinstance(file, StarletteUploadFile) else None
-    )
-    resolved_language = language
-
-    if resolved_engine_config_id is None or resolved_file is None:
-        form = await request.form()
-        if resolved_engine_config_id is None:
-            engine_config_id_value = form.get("engineConfigId")
-            if not isinstance(engine_config_id_value, str):
-                raise HTTPException(status_code=400, detail="engineConfigId is required.")
-            stripped_engine_config_id = engine_config_id_value.strip()
-            if not stripped_engine_config_id:
-                raise HTTPException(status_code=400, detail="engineConfigId is required.")
-            resolved_engine_config_id = ID(stripped_engine_config_id)
-        if resolved_file is None:
-            file_value = form.get("file")
-            if not isinstance(file_value, StarletteUploadFile):
-                raise HTTPException(status_code=400, detail="Audio payload is required.")
-            resolved_file = file_value
-        if resolved_language is None:
-            language_value = form.get("language")
-            if isinstance(language_value, str):
-                stripped_language = language_value.strip()
-                resolved_language = stripped_language or None
-
-    if resolved_engine_config_id is None:
-        raise HTTPException(status_code=400, detail="engineConfigId is required.")
-    if resolved_file is None:
-        raise HTTPException(status_code=400, detail="Audio payload is required.")
+    (
+        resolved_engine_config_id,
+        resolved_file,
+        resolved_language,
+    ) = await _parse_transcribe_audio_form(request)
 
     if ctx.state.agent_runner.disabled:
         raise HTTPException(status_code=503, detail="Agent runner is not available")

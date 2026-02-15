@@ -156,6 +156,37 @@ class TestMultipartRouteLimits:
         assert response.json() == {"text": "hello from provider"}
         assert len(captured_audio["bytes"]) == len(payload)
 
+    async def test_transcribe_chat_audio_openapi_declares_multipart_request_body(
+        self,
+    ) -> None:
+        # OpenAPI must describe multipart fields so generated clients and docs stay aligned.
+        self.app.include_router(ai_router, prefix=Route.PREFIX.value)
+        transport = ASGITransport(app=self.app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/openapi.json")
+
+        assert response.status_code == 200
+        payload = response.json()
+        path_key = f"{Route.PREFIX.value}{Route.TRANSCRIBE_CHAT_AUDIO.value}"
+        assert path_key in payload["paths"]
+        post_operation = payload["paths"][path_key]["post"]
+        request_body = post_operation.get("requestBody")
+        assert isinstance(request_body, dict)
+        content = request_body.get("content")
+        assert isinstance(content, dict)
+        multipart_content = content.get("multipart/form-data")
+        assert isinstance(multipart_content, dict)
+        schema = multipart_content.get("schema")
+        assert isinstance(schema, dict)
+        required_fields = schema.get("required")
+        assert required_fields == ["engineConfigId", "file"]
+        properties = schema.get("properties")
+        assert isinstance(properties, dict)
+        assert properties["engineConfigId"]["type"] == "string"
+        assert properties["file"]["type"] == "string"
+        assert properties["file"]["format"] == "binary"
+        assert properties["language"]["type"] == "string"
+
     async def test_transcribe_chat_audio_rejects_unauthorized_requests_before_parsing_multipart(
         self,
         monkeypatch: pytest.MonkeyPatch,

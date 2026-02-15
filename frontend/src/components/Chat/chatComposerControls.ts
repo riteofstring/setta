@@ -6,6 +6,36 @@ const CHAT_PERMISSION_MODES = [
 
 export type ChatPermissionModeValue = (typeof CHAT_PERMISSION_MODES)[number];
 
+export type ManagedChatExecutionSettings = {
+  permissionMode: ChatPermissionModeValue;
+  searchEnabled: boolean;
+};
+
+type ManagedExecutionControlHandlers = {
+  onPermissionModeChange: (nextMode: ChatPermissionModeValue) => void;
+  onSearchEnabledChange: (nextValue: boolean) => void;
+};
+
+export function createManagedExecutionControlHandlers(
+  executionSettings: ManagedChatExecutionSettings,
+  updateExecutionSettings: (nextSettings: ManagedChatExecutionSettings) => void,
+): ManagedExecutionControlHandlers {
+  return {
+    onPermissionModeChange: (nextMode) => {
+      updateExecutionSettings({
+        permissionMode: nextMode,
+        searchEnabled: executionSettings.searchEnabled,
+      });
+    },
+    onSearchEnabledChange: (nextValue) => {
+      updateExecutionSettings({
+        permissionMode: executionSettings.permissionMode,
+        searchEnabled: nextValue,
+      });
+    },
+  };
+}
+
 export function resolvePermissionModeArg(
   rawArg: string | undefined,
 ): ChatPermissionModeValue | null {
