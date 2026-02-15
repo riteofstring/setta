@@ -1,10 +1,15 @@
 import { expect, test } from "@playwright/test";
 
-import { ensureAppReady, seedLocalStorage } from "../helpers";
+import { ensureAppReady, postBackend, seedLocalStorage } from "../helpers";
 
 type AppSpecPayload = {
   root: Record<string, unknown>;
   elements: Record<string, unknown>;
+};
+
+type AppDefinitionResponse = {
+  appSpec: unknown | null;
+  appDefinition: unknown | null;
 };
 
 test("app action buttons respect policy gating", async ({ page }) => {
@@ -43,12 +48,23 @@ test("app action buttons respect policy gating", async ({ page }) => {
   await specEditor.fill(JSON.stringify(appSpec, null, 2));
   const saveButton = page.getByRole("button", { name: "Save" });
   await expect(saveButton).toBeEnabled();
-  await Promise.all([
-    page.waitForResponse((response) => {
-      return response.url().includes("/setAppDefinition") && response.ok();
-    }),
-    saveButton.click(),
-  ]);
+  await saveButton.click();
+
+  await expect
+    .poll(
+      async () => {
+        const response = await postBackend<AppDefinitionResponse>(
+          page,
+          "/getAppDefinition",
+          {},
+        );
+        return JSON.stringify(response?.appSpec ?? null);
+      },
+      {
+        timeout: 30_000,
+      },
+    )
+    .toContain("Download Report");
 
   const previewToggle = page.getByRole("button", {
     name: /Show Preview|Hide Preview/,
