@@ -11,7 +11,7 @@ from watchdog.observers.polling import PollingObserver
 import setta.file_watchers.lsp as lsp_file_watcher
 import setta.file_watchers.specific_file_watcher as specific_file_watcher
 import setta.mcp.tools  # noqa: F401
-from setta.agentic.agentic_scope import AgenticContext, AgenticScope
+from setta.agentic.agentic_scope import AgenticContext
 from setta.llm.chat_toolkit.history import ChatHistory
 from setta.llm.chat_toolkit.managed.action_executor import ManagedActionExecutor
 from setta.llm.chat_toolkit.managed.actions import EmitChunkAction
@@ -20,7 +20,6 @@ from setta.llm.chat_store import AgentRunChatStore
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.server import SettaFastMCP
-from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.mcp.tools.tool_search import search_mcp_tools
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.terminals.terminals import Terminals
@@ -243,7 +242,6 @@ class TestMCPServerToolRegistration:
             )
 
             chat_id = ID("chat-uuid")
-            scope_section_id = ID("scope-section")
             execute_action = build_execute_tool_calls_action(
                 project_config_id=ID(
                     fixture.manager.project_state_backend.defaultProjectConfigId
@@ -259,6 +257,7 @@ class TestMCPServerToolRegistration:
                     chat_id=chat_id,
                     section_id=None,
                 ),
+                setta_tool_approval_policy=None,
             )
             if execute_action is None:
                 raise AssertionError("Expected tool execution action")

@@ -443,11 +443,7 @@ export function ProjectChat() {
             engineConfigId={effectiveEngineId}
           />
         ) : viewSkillsMcpViewer ? (
-          <ProjectChatSkillsMcpViewer
-            chatId={chatId}
-            engineType={engineType}
-            externalAgentToolType={externalAgentConfig?.toolType ?? null}
-          />
+          <ProjectChatSkillsMcpViewer />
         ) : (
           <>
             {externalStatusMessage ? (

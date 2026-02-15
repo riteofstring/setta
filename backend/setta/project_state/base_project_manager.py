@@ -3405,6 +3405,7 @@ class BaseProjectManager(ABC):
             pathsByIdType={"section": ["sectionIds"]}
         ),
         access_type="structural",
+        approval_level="destructive",
     )
     async def delete_sections(self, x: DeleteSectionsRequest):
         """Remove the specified sections and broadcast the updated project."""
@@ -3419,6 +3420,7 @@ class BaseProjectManager(ABC):
             pathsByIdType={"section": ["calledBy"]}
         ),
         access_type="structural",
+        approval_level="destructive",
     )
     async def delete_child_sections_via_decrementer(
         self, x: DeleteChildSectionsViaDecrementerRequest
