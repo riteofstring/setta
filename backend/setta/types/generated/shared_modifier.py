@@ -38,6 +38,7 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatDictationMode,
     ChatPermissionMode,
     ChatSectionBranch,
     CodeFileBinding,
@@ -106,6 +107,7 @@ class SharedModifier(TypedDict):
     density: NotRequired[SpreadsheetGridDensity]
     description: NotRequired[str]
     diagnosticsIgnoreState: NotRequired[CodeSectionDiagnosticsIgnoreState]
+    dictationMode: NotRequired[ChatDictationMode]
     drawThrottleDelay: NotRequired[int]
     edgeInputParams: NotRequired[list[ID]]
     edgeOutputPorts: NotRequired[list[EdgePort]]

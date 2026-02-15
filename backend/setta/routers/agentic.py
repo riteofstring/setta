@@ -191,6 +191,7 @@ class CreateEngineConfigRequest(BaseModel):
     name: str
     engineType: EngineType
     settaLlmConfigId: str | None = None
+    transcriptionLlmConfigId: str | None = None
     externalAgentConfigId: ID | None = None
     defaults: EngineConfigDefaults = Field(default_factory=EngineConfigDefaults)
 
@@ -807,6 +808,7 @@ async def route_create_engine_config(
         name=x.name,
         engineType=x.engineType,
         settaLlmConfigId=x.settaLlmConfigId,
+        transcriptionLlmConfigId=x.transcriptionLlmConfigId,
         externalAgentConfigId=x.externalAgentConfigId,
         defaults=x.defaults,
     )
