@@ -169,7 +169,6 @@ export function ParamUI({
     dropzoneMode,
     dropzoneMaxAttachments,
     dropzonePlaceholder,
-    dateTimeUiType,
     timeControlMode,
     timeDisplayFormat,
     timeDisplayTransparent,
@@ -199,24 +198,9 @@ export function ParamUI({
       codeObjImpl.type === CodeObjTypeEnum.PasswordParam
         ? codeObjImpl.hasSecret
         : false;
-    const isTextParam = codeObjImpl.type === CodeObjTypeEnum.TextParam;
     const isDateParam = codeObjImpl.type === CodeObjTypeEnum.DateParam;
     const isTimeParam = codeObjImpl.type === CodeObjTypeEnum.TimeParam;
-    const isLegacyDateTextParam =
-      isTextParam &&
-      "uiType" in codeObjImpl &&
-      codeObjImpl.uiType === TextParamInputUITypeEnum.date;
-    const isLegacyTimeTextParam =
-      isTextParam &&
-      "uiType" in codeObjImpl &&
-      codeObjImpl.uiType === TextParamInputUITypeEnum.time;
     const isCodeParam = codeObjImpl.type === CodeObjTypeEnum.CodeParam;
-    let dateTimeUiType: TextParamInputUIType | null = null;
-    if (isDateParam || isLegacyDateTextParam) {
-      dateTimeUiType = TextParamInputUITypeEnum.date;
-    } else if (isTimeParam || isLegacyTimeTextParam) {
-      dateTimeUiType = TextParamInputUITypeEnum.time;
-    }
     return {
       codeObjType: codeObjImpl.type,
       passwordHasSecret: hasPasswordSecret,
@@ -228,45 +212,37 @@ export function ParamUI({
         ? codeObjImpl.maxAttachments ?? null
         : null,
       dropzonePlaceholder: isDropzone ? codeObjImpl.placeholder : null,
-      dateTimeUiType,
       timeControlMode:
-        isTimeParam || isLegacyTimeTextParam
-          ? codeObjImpl.timeControlMode
-          : TimeControlModeEnum.display,
+        isTimeParam ? codeObjImpl.timeControlMode : TimeControlModeEnum.display,
       timeDisplayFormat:
-        isTimeParam || isLegacyTimeTextParam
+        isTimeParam
           ? codeObjImpl.timeDisplayFormat
           : TimeDisplayFormatEnum.twenty_four_hour,
       timeDisplayTransparent:
-        isTimeParam || isLegacyTimeTextParam
-          ? codeObjImpl.timeDisplayTransparent
-          : false,
-      timeDisplayScale:
-        isTimeParam || isLegacyTimeTextParam ? codeObjImpl.timeDisplayScale : 1,
+        isTimeParam ? codeObjImpl.timeDisplayTransparent : false,
+      timeDisplayScale: isTimeParam ? codeObjImpl.timeDisplayScale : 1,
       timeDisplayFont:
-        isTimeParam || isLegacyTimeTextParam
+        isTimeParam
           ? codeObjImpl.timeDisplayFont
           : TimeDisplayFontEnum.monospace,
       dateDisplayFormat:
-        isDateParam || isLegacyDateTextParam
+        isDateParam
           ? codeObjImpl.dateDisplayFormat
           : DateDisplayFormatEnum.iso,
       dateControlMode:
-        isDateParam || isLegacyDateTextParam
+        isDateParam
           ? codeObjImpl.dateControlMode
           : DateControlModeEnum.input,
       dateSelectionMode:
-        isDateParam || isLegacyDateTextParam
+        isDateParam
           ? codeObjImpl.dateSelectionMode
           : DateSelectionModeEnum.single,
       dateCalendarWeekStart:
-        isDateParam || isLegacyDateTextParam
+        isDateParam
           ? codeObjImpl.dateCalendarWeekStart
           : DateCalendarWeekStartEnum.sunday,
       dateIncludesTime:
-        isDateParam || isLegacyDateTextParam
-          ? codeObjImpl.dateIncludesTime
-          : false,
+        isDateParam ? codeObjImpl.dateIncludesTime : false,
       allowUnquotedStringArgs: impl.allowUnquotedStringArgs,
       typeAnnotation: isCodeParam ? codeObjImpl.typeAnnotation : "",
     };
@@ -320,41 +296,20 @@ export function ParamUI({
         />
       );
     case CodeObjTypeEnum.TextParam:
-      if (!dateTimeUiType) {
-        return (
-          <TextParamConfigured
-            sectionId={sectionId}
-            paramInfoId={paramInfoId}
-            value={value}
-            defaultVal={defaultVal}
-            onChange={onChange}
-            onEscape={onEscape}
-            maybeErrorMessage={maybeErrorMessage}
-            isDisabled={isDisabled}
-            configLanguage={configLanguage}
-            waitingForResult={waitingForResult}
-            isSelectingParams={isSelectingParams}
-            showUnquotedStringHint={false}
-          />
-        );
-      }
       return (
-        <TextParamDateTimeConfigured
+        <TextParamConfigured
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
           value={value}
+          defaultVal={defaultVal}
           onChange={onChange}
           onEscape={onEscape}
+          maybeErrorMessage={maybeErrorMessage}
           isDisabled={isDisabled}
-          uiType={dateTimeUiType}
-          timeControlMode={timeControlMode}
-          timeDisplayFormat={timeDisplayFormat}
-          timeDisplayTransparent={timeDisplayTransparent}
-          timeDisplayScale={timeDisplayScale}
-          timeDisplayFont={timeDisplayFont}
-          dateDisplayFormat={dateDisplayFormat}
-          dateControlMode={dateControlMode}
-          dateSelectionMode={dateSelectionMode}
-          dateCalendarWeekStart={dateCalendarWeekStart}
-          dateIncludesTime={dateIncludesTime}
+          configLanguage={configLanguage}
+          waitingForResult={waitingForResult}
+          isSelectingParams={isSelectingParams}
+          showUnquotedStringHint={false}
         />
       );
     case CodeObjTypeEnum.DateParam:

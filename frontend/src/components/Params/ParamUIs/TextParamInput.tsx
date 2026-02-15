@@ -256,14 +256,13 @@ export function TimeParamInputConfigForParam({
       ...config,
       ...nextConfig,
     };
-    const configClone = _.cloneDeep(merged);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         setCurrEffectiveCodeObjImplValue<"TimeParamCodeObj">(
           state,
           sectionId,
           paramInfoId,
-          configClone,
+          merged,
         );
       },
       send: (frontendOpId) =>
@@ -271,7 +270,7 @@ export function TimeParamInputConfigForParam({
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
           paramInfoId,
-          newConfig: configClone,
+          newConfig: merged,
           frontendOpId,
         }),
     });
@@ -408,14 +407,13 @@ export function DateParamInputConfigForParam({
     if (merged.dateIncludesTime) {
       merged.dateSelectionMode = DateSelectionModeEnum.single;
     }
-    const configClone = _.cloneDeep(merged);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         setCurrEffectiveCodeObjImplValue<"DateParamCodeObj">(
           state,
           sectionId,
           paramInfoId,
-          configClone,
+          merged,
         );
       },
       send: (frontendOpId) =>
@@ -423,7 +421,7 @@ export function DateParamInputConfigForParam({
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
           paramInfoId,
-          newConfig: configClone,
+          newConfig: merged,
           frontendOpId,
         }),
     });

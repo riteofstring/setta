@@ -1243,6 +1243,7 @@ async def route_set_list_root_view_mode(
     x: SetListRootViewModeRequest, ctx: RuntimeContextFromRequest
 ):
     await _deny_deployment_mode_structural(ctx)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_list_root_view_mode(x)
 

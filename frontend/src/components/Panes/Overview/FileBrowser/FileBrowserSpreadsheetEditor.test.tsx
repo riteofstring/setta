@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
+  applySpreadsheetCellUpdates,
   getSpreadsheetDensityMetrics,
   getSpreadsheetGlideDensityMultiplier,
   getSpreadsheetGlideTheme,
@@ -98,5 +99,33 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
     expect(markup).toContain("min-w-0");
     expect(markup).toContain("dark:bg-setta-950/70");
     expect(markup).toContain("dark:focus:bg-blue-900/30");
+  });
+
+  it("applies edits by cloning only touched rows", () => {
+    const rowA = ["a0", "a1"];
+    const rowB = ["b0", "b1"];
+    const rows = [rowA, rowB];
+    const next = applySpreadsheetCellUpdates({
+      rows,
+      columnCount: 2,
+      edits: [{ rowIndex: 1, columnIndex: 0, value: "b0-updated" }],
+    });
+
+    expect(next).not.toBe(rows);
+    expect(next[0]).toBe(rowA);
+    expect(next[1]).not.toBe(rowB);
+    expect(next[1]?.[0]).toBe("b0-updated");
+    expect(rows[1]?.[0]).toBe("b0");
+  });
+
+  it("returns the same rows reference when no valid edits are provided", () => {
+    const rows = [["a0", "a1"]];
+    const next = applySpreadsheetCellUpdates({
+      rows,
+      columnCount: 2,
+      edits: [{ rowIndex: 0, columnIndex: 5, value: "ignored" }],
+    });
+
+    expect(next).toBe(rows);
   });
 });

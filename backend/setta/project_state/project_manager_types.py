@@ -366,6 +366,12 @@ class CreateTopLevelSectionResponse(BaseModel):
     sectionId: ID = Field(
         description="Identifier for the newly created top-level section.",
     )
+    metaControlParamId: ID | None = Field(
+        default=None,
+        description=(
+            "Meta control param identifier created with this section when applicable."
+        ),
+    )
     panTo: Position | None = Field(
         default=None,
         description="Optional viewport center for panning to the new section.",

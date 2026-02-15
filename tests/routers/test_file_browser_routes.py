@@ -17,6 +17,7 @@ from setta.routers.artifact import (
     DeleteArtifactRequestItem,
     DeleteArtifactsRequest,
     GetFileBrowserFileContentRequest,
+    GetFileBrowserFileStatRequest,
     GetFolderContentsRequest,
     ImportFilesToArtifactsRequest,
     TransferFileBrowserEntryRequest,
@@ -25,6 +26,7 @@ from setta.routers.artifact import (
     WriteFileBrowserFileContentRequest,
     route_delete_artifacts,
     route_get_file_browser_file_content,
+    route_get_file_browser_file_stat,
     route_get_file_browser_root,
     route_get_folder_contents,
     route_import_files_to_artifacts,
@@ -200,8 +202,24 @@ class TestFileBrowserRoutes:
 
         assert result.path == file_path.resolve().as_posix()
         assert result.size == file_path.stat().st_size
+        assert result.mtimeNs == file_path.stat().st_mtime_ns
         assert result.mimeType == "text/csv"
         assert result.contentBase64 == b64encode(file_path.read_bytes()).decode("ascii")
+
+    async def test_get_file_browser_file_stat_returns_mtime_ns_and_size(self) -> None:
+        state = await self._build_state()
+        file_path = get_setta_paths().workspace_root / "file-stat.txt"
+        file_path.write_text("hello", encoding="utf-8")
+
+        with runtime_context(state) as runtime_ctx:
+            result = route_get_file_browser_file_stat(
+                GetFileBrowserFileStatRequest(path=file_path.as_posix()),
+                runtime_ctx,
+            )
+
+        assert result.path == file_path.resolve().as_posix()
+        assert result.mtimeNs == file_path.stat().st_mtime_ns
+        assert result.size == file_path.stat().st_size
 
     async def test_get_file_browser_file_content_rejects_oversized_file(self) -> None:
         state = await self._build_state()
@@ -223,7 +241,7 @@ class TestFileBrowserRoutes:
         state = await self._build_state()
         file_path = get_setta_paths().workspace_root / "notes.csv"
         file_path.write_text("a,b\n1,2\n", encoding="utf-8")
-        before_mtime = file_path.stat().st_mtime
+        before_mtime_ns = file_path.stat().st_mtime_ns
         payload = b64encode("a,b\n1,9\n".encode("utf-8")).decode("ascii")
 
         with runtime_context(state) as runtime_ctx:
@@ -231,7 +249,7 @@ class TestFileBrowserRoutes:
                 WriteFileBrowserFileContentRequest(
                     path=file_path.as_posix(),
                     contentBase64=payload,
-                    expectedMtime=before_mtime,
+                    expectedMtimeNs=before_mtime_ns,
                 ),
                 runtime_ctx,
             )
@@ -239,7 +257,7 @@ class TestFileBrowserRoutes:
         assert result.path == file_path.resolve().as_posix()
         assert file_path.read_text(encoding="utf-8") == "a,b\n1,9\n"
         assert result.size == file_path.stat().st_size
-        assert result.mtime >= before_mtime
+        assert result.mtimeNs >= before_mtime_ns
 
     async def test_write_file_browser_file_content_rejects_stale_mtime(self) -> None:
         state = await self._build_state()
@@ -253,7 +271,7 @@ class TestFileBrowserRoutes:
                     WriteFileBrowserFileContentRequest(
                         path=file_path.as_posix(),
                         contentBase64=payload,
-                        expectedMtime=file_path.stat().st_mtime - 1,
+                        expectedMtimeNs=file_path.stat().st_mtime_ns - 1,
                     ),
                     runtime_ctx,
                 )

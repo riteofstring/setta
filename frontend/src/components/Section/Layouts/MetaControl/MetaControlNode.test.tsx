@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MetaControlContent } from "./MetaControlNode";
 
 describe("MetaControlContent date/time param rendering", () => {
-  it("renders a date input for date params", () => {
+  it("renders a formatted date text input for date params", () => {
     const markup = renderToStaticMarkup(
       <MetaControlContent
         sectionId="section-1"
@@ -28,7 +28,7 @@ describe("MetaControlContent date/time param rendering", () => {
       />,
     );
 
-    expect(markup).toContain('type="date"');
+    expect(markup).toContain('type="text"');
     expect(markup).toContain('value="2026-02-15"');
   });
 

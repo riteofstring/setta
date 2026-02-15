@@ -114,7 +114,7 @@ export async function importNativeFileToWorkspace(
   const writeRes = await route_write_file_browser_file_content({
     path: targetPath,
     contentBase64: encodeBytesToBase64(bytes),
-    expectedMtime: null,
+    expectedMtimeNs: null,
   });
   if (!res200(writeRes)) {
     return {

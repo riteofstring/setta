@@ -24,7 +24,7 @@ import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_get_file_browser_file_content,
-  route_get_folder_contents,
+  route_get_file_browser_file_stat,
   route_write_file_browser_file_content,
 } from "utils/generatedEndpoints";
 import {
@@ -54,7 +54,7 @@ type SpreadsheetDraft = {
   rows: string[][];
   rowCount: number;
   columnCount: number;
-  mtime: number;
+  mtimeNs: number;
 };
 
 type SpreadsheetRowData = {
@@ -164,20 +164,6 @@ export function getSpreadsheetGlideTheme({
   };
 }
 
-function getPathFolderAndName(
-  fullPath: string,
-): { folderPath: string; fileName: string } | null {
-  const normalizedPath = fullPath.replace(/\\/g, "/");
-  const separatorIndex = normalizedPath.lastIndexOf("/");
-  if (separatorIndex <= 0 || separatorIndex >= normalizedPath.length - 1) {
-    return null;
-  }
-  return {
-    folderPath: normalizedPath.slice(0, separatorIndex),
-    fileName: normalizedPath.slice(separatorIndex + 1),
-  };
-}
-
 export function getSpreadsheetDensityMetrics(
   density: SpreadsheetDensityMode,
 ): SpreadsheetDensityMetrics {
@@ -247,6 +233,52 @@ function withColumnCount(row: string[], columnCount: number): string[] {
     next[i] = row[i] ?? "";
   }
   return next;
+}
+
+type SpreadsheetCellEdit = {
+  rowIndex: number;
+  columnIndex: number;
+  value: string;
+};
+
+export function applySpreadsheetCellUpdates({
+  rows,
+  columnCount,
+  edits,
+}: {
+  rows: string[][];
+  columnCount: number;
+  edits: readonly SpreadsheetCellEdit[];
+}): string[][] {
+  if (edits.length === 0) {
+    return rows;
+  }
+  let nextRows = rows;
+  const touchedRows = new Map<number, string[]>();
+  for (const edit of edits) {
+    if (
+      edit.rowIndex < 0 ||
+      edit.columnIndex < 0 ||
+      edit.columnIndex >= columnCount
+    ) {
+      continue;
+    }
+    let editableRow = touchedRows.get(edit.rowIndex);
+    if (!editableRow) {
+      const normalizedRow = withColumnCount(
+        rows[edit.rowIndex] ?? [],
+        columnCount,
+      );
+      editableRow = [...normalizedRow];
+      if (nextRows === rows) {
+        nextRows = [...rows];
+      }
+      nextRows[edit.rowIndex] = editableRow;
+      touchedRows.set(edit.rowIndex, editableRow);
+    }
+    editableRow[edit.columnIndex] = edit.value;
+  }
+  return nextRows;
 }
 
 function compareSpreadsheetCellValues(a: string, b: string): number {
@@ -461,7 +493,7 @@ export function FileBrowserSpreadsheetEditor({
       rows: parsed.rows,
       rowCount: parsed.rowCount,
       columnCount: parsed.columnCount,
-      mtime: response.data.mtime,
+      mtimeNs: response.data.mtimeNs,
     });
     setIsDirty(false);
     setHasExternalDiskChange(false);
@@ -508,32 +540,16 @@ export function FileBrowserSpreadsheetEditor({
     ) {
       return;
     }
-    const folderInfo = getPathFolderAndName(selectedPath);
-    if (!folderInfo) {
-      return;
-    }
-    const loadedMtime = sheet.mtime;
+    const loadedMtimeNs = sheet.mtimeNs;
     let isCancelled = false;
     const pollForExternalChanges = async () => {
-      const response = await route_get_folder_contents({
-        folderPath: folderInfo.folderPath,
-        includeMtime: true,
-        includeHidden: true,
-        maxEntries: 10000,
+      const response = await route_get_file_browser_file_stat({
+        path: selectedPath,
       });
       if (!res200(response) || isCancelled) {
         return;
       }
-      const currentEntry = response.data.find(
-        (entry) =>
-          entry.type === "file" &&
-          entry.name === folderInfo.fileName &&
-          typeof entry.mtime === "number",
-      );
-      if (!currentEntry || typeof currentEntry.mtime !== "number") {
-        return;
-      }
-      if (currentEntry.mtime === loadedMtime) {
+      if (response.data.mtimeNs === loadedMtimeNs) {
         setHasExternalDiskChange(false);
         return;
       }
@@ -563,7 +579,7 @@ export function FileBrowserSpreadsheetEditor({
     isSaving,
     loadFile,
     selectedPath,
-    sheet?.mtime,
+    sheet?.mtimeNs,
   ]);
 
   const displayedRowIndexes = useMemo(() => {
@@ -629,13 +645,14 @@ export function FileBrowserSpreadsheetEditor({
         if (!prev) {
           return prev;
         }
-        const nextRows = prev.rows.map((row) =>
-          withColumnCount([...row], prev.columnCount),
-        );
-        const existing = nextRows[sourceRowIndex] ?? [];
-        const nextRow = [...existing];
-        nextRow[columnIndex] = value;
-        nextRows[sourceRowIndex] = withColumnCount(nextRow, prev.columnCount);
+        const nextRows = applySpreadsheetCellUpdates({
+          rows: prev.rows,
+          columnCount: prev.columnCount,
+          edits: [{ rowIndex: sourceRowIndex, columnIndex, value }],
+        });
+        if (nextRows === prev.rows) {
+          return prev;
+        }
         return {
           ...prev,
           rows: nextRows,
@@ -663,9 +680,7 @@ export function FileBrowserSpreadsheetEditor({
         if (!prev) {
           return prev;
         }
-        const nextRows = prev.rows.map((row) =>
-          withColumnCount([...row], prev.columnCount),
-        );
+        const edits: SpreadsheetCellEdit[] = [];
         for (const edit of newValues) {
           if (edit.value.kind !== GridCellKind.Text) {
             continue;
@@ -681,12 +696,19 @@ export function FileBrowserSpreadsheetEditor({
           ) {
             continue;
           }
-          const nextRow = [
-            ...(nextRows[sourceRowIndex] ??
-              Array.from({ length: prev.columnCount }, () => "")),
-          ];
-          nextRow[columnIndex] = edit.value.data;
-          nextRows[sourceRowIndex] = withColumnCount(nextRow, prev.columnCount);
+          edits.push({
+            rowIndex: sourceRowIndex,
+            columnIndex,
+            value: edit.value.data,
+          });
+        }
+        const nextRows = applySpreadsheetCellUpdates({
+          rows: prev.rows,
+          columnCount: prev.columnCount,
+          edits,
+        });
+        if (nextRows === prev.rows) {
+          return prev;
         }
         return {
           ...prev,
@@ -713,9 +735,7 @@ export function FileBrowserSpreadsheetEditor({
         if (!prev) {
           return prev;
         }
-        const nextRows = prev.rows.map((row) =>
-          withColumnCount([...row], prev.columnCount),
-        );
+        const edits: SpreadsheetCellEdit[] = [];
         const xStart = Math.max(0, range.x);
         const yStart = Math.max(0, range.y);
         const xEnd = Math.min(prev.columnCount, range.x + range.width);
@@ -732,14 +752,17 @@ export function FileBrowserSpreadsheetEditor({
           if (sourceRowIndex === undefined) {
             continue;
           }
-          const nextRow = [
-            ...(nextRows[sourceRowIndex] ??
-              Array.from({ length: prev.columnCount }, () => "")),
-          ];
           for (let columnIndex = xStart; columnIndex < xEnd; columnIndex += 1) {
-            nextRow[columnIndex] = "";
+            edits.push({ rowIndex: sourceRowIndex, columnIndex, value: "" });
           }
-          nextRows[sourceRowIndex] = nextRow;
+        }
+        const nextRows = applySpreadsheetCellUpdates({
+          rows: prev.rows,
+          columnCount: prev.columnCount,
+          edits,
+        });
+        if (nextRows === prev.rows) {
+          return prev;
         }
         return {
           ...prev,
@@ -808,7 +831,7 @@ export function FileBrowserSpreadsheetEditor({
     const response = await route_write_file_browser_file_content({
       path: sheet.path,
       contentBase64: encodeBytesToBase64(bytes),
-      expectedMtime: sheet.mtime,
+      expectedMtimeNs: sheet.mtimeNs,
     });
     if (!res200(response)) {
       const detail = getErrorDetail(response.data);
@@ -822,7 +845,7 @@ export function FileBrowserSpreadsheetEditor({
       }
       return {
         ...prev,
-        mtime: response.data.mtime,
+        mtimeNs: response.data.mtimeNs,
       };
     });
     setStatusText("Saved.");

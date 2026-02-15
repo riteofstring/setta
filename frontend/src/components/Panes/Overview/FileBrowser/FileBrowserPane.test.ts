@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   flattenFileBrowserTree,
+  isEditableFileBrowserTarget,
   sortChildPaths,
   type FileNode,
 } from "./FileBrowserPane";
@@ -261,5 +262,42 @@ describe("flattenFileBrowserTree", () => {
       rootPath,
       "/root/README.md",
     ]);
+  });
+});
+
+describe("isEditableFileBrowserTarget", () => {
+  it("detects native form fields and contenteditable targets", () => {
+    const input = {
+      closest: (selector: string) =>
+        selector === "input, textarea, select" ? {} : null,
+    };
+    const textarea = {
+      closest: (selector: string) =>
+        selector === "input, textarea, select" ? {} : null,
+    };
+    const editable = {
+      closest: (selector: string) =>
+        selector === '[contenteditable="true"]' ? {} : null,
+    };
+
+    expect(isEditableFileBrowserTarget(input)).toBe(true);
+    expect(isEditableFileBrowserTarget(textarea)).toBe(true);
+    expect(isEditableFileBrowserTarget(editable)).toBe(true);
+  });
+
+  it("detects CodeMirror editor descendants", () => {
+    const content = {
+      closest: (selector: string) => (selector === ".cm-editor" ? {} : null),
+    };
+
+    expect(isEditableFileBrowserTarget(content)).toBe(true);
+  });
+
+  it("returns false for non-editable targets", () => {
+    const node = {
+      closest: () => null,
+    };
+    expect(isEditableFileBrowserTarget(node)).toBe(false);
+    expect(isEditableFileBrowserTarget(null)).toBe(false);
   });
 });

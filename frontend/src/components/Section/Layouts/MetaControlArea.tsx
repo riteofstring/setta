@@ -42,8 +42,6 @@ import {
   HttpRequestMethodEnum,
   LiteralDependencyValue,
   SectionTypeEnum,
-  TextParamInputUIType,
-  TextParamInputUITypeEnum,
   TimeControlModeEnum,
   TimeDisplayFontEnum,
   TimeDisplayFormatEnum,
@@ -107,7 +105,6 @@ function MetaControlValueArea({
     dropzoneMode,
     dropzoneMaxAttachments,
     dropzonePlaceholder,
-    legacyTextParamUiType,
     timeControlMode,
     timeDisplayFormat,
     timeDisplayTransparent,
@@ -150,7 +147,6 @@ function MetaControlValueArea({
         dropzoneMode: null,
         dropzoneMaxAttachments: null,
         dropzonePlaceholder: null,
-        legacyTextParamUiType: null,
         timeControlMode: TimeControlModeEnum.display,
         timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
         timeDisplayTransparent: false,
@@ -170,23 +166,8 @@ function MetaControlValueArea({
       isBaseChildlessCodeObjImpl,
     );
     const isDropzone = childlessImpl.type === CodeObjTypeEnum.DropzoneParam;
-    const isTextParam = childlessImpl.type === CodeObjTypeEnum.TextParam;
     const isDateParam = childlessImpl.type === CodeObjTypeEnum.DateParam;
     const isTimeParam = childlessImpl.type === CodeObjTypeEnum.TimeParam;
-    const isLegacyDateTextParam =
-      isTextParam &&
-      "uiType" in childlessImpl &&
-      childlessImpl.uiType === "date";
-    const isLegacyTimeTextParam =
-      isTextParam &&
-      "uiType" in childlessImpl &&
-      childlessImpl.uiType === "time";
-    let legacyTextParamUiType: TextParamInputUIType | null = null;
-    if (isLegacyDateTextParam) {
-      legacyTextParamUiType = TextParamInputUITypeEnum.date;
-    } else if (isLegacyTimeTextParam) {
-      legacyTextParamUiType = TextParamInputUITypeEnum.time;
-    }
     return {
       codeObjType: childlessImpl.type,
       baseValue: childlessImpl.value,
@@ -199,47 +180,37 @@ function MetaControlValueArea({
         ? childlessImpl.maxAttachments ?? null
         : null,
       dropzonePlaceholder: isDropzone ? childlessImpl.placeholder : null,
-      legacyTextParamUiType,
       timeControlMode:
-        isTimeParam || isLegacyTimeTextParam
-          ? childlessImpl.timeControlMode
-          : TimeControlModeEnum.display,
+        isTimeParam ? childlessImpl.timeControlMode : TimeControlModeEnum.display,
       timeDisplayFormat:
-        isTimeParam || isLegacyTimeTextParam
+        isTimeParam
           ? childlessImpl.timeDisplayFormat
           : TimeDisplayFormatEnum.twenty_four_hour,
       timeDisplayTransparent:
-        isTimeParam || isLegacyTimeTextParam
-          ? childlessImpl.timeDisplayTransparent
-          : false,
-      timeDisplayScale:
-        isTimeParam || isLegacyTimeTextParam
-          ? childlessImpl.timeDisplayScale
-          : 1,
+        isTimeParam ? childlessImpl.timeDisplayTransparent : false,
+      timeDisplayScale: isTimeParam ? childlessImpl.timeDisplayScale : 1,
       timeDisplayFont:
-        isTimeParam || isLegacyTimeTextParam
+        isTimeParam
           ? childlessImpl.timeDisplayFont
           : TimeDisplayFontEnum.monospace,
       dateDisplayFormat:
-        isDateParam || isLegacyDateTextParam
+        isDateParam
           ? childlessImpl.dateDisplayFormat
           : DateDisplayFormatEnum.iso,
       dateControlMode:
-        isDateParam || isLegacyDateTextParam
+        isDateParam
           ? childlessImpl.dateControlMode
           : DateControlModeEnum.input,
       dateSelectionMode:
-        isDateParam || isLegacyDateTextParam
+        isDateParam
           ? childlessImpl.dateSelectionMode
           : DateSelectionModeEnum.single,
       dateCalendarWeekStart:
-        isDateParam || isLegacyDateTextParam
+        isDateParam
           ? childlessImpl.dateCalendarWeekStart
           : DateCalendarWeekStartEnum.sunday,
       dateIncludesTime:
-        isDateParam || isLegacyDateTextParam
-          ? childlessImpl.dateIncludesTime
-          : false,
+        isDateParam ? childlessImpl.dateIncludesTime : false,
     };
   }, _.isEqual);
 
@@ -402,7 +373,6 @@ function MetaControlValueArea({
           dropzoneMode={dropzoneMode ?? DropzoneModeEnum.STATEFUL}
           dropzoneMaxAttachments={dropzoneMaxAttachments}
           dropzonePlaceholder={dropzonePlaceholder ?? undefined}
-          legacyTextParamUiType={legacyTextParamUiType ?? undefined}
           timeControlMode={timeControlMode}
           timeDisplayFormat={timeDisplayFormat}
           timeDisplayTransparent={timeDisplayTransparent}

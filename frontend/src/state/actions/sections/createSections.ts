@@ -45,17 +45,22 @@ type CreateTopLevelSectionArgs = {
   position?: Position | null;
 };
 
+export type CreateTopLevelSectionResult = {
+  sectionId: string;
+  metaControlParamId: string | null;
+};
+
 type SmartPlacementContext = {
   topLevelSections: Record<string, TopLevelSectionLayout>;
   viewportBounds: ViewportBounds | null;
 };
 
-export async function createTopLevelSection({
+export async function createTopLevelSectionWithResult({
   implType,
   implOverrides,
   controlCodeObjType = null,
   position = null,
-}: CreateTopLevelSectionArgs) {
+}: CreateTopLevelSectionArgs): Promise<CreateTopLevelSectionResult | null> {
   if (useShareSession.getState().isDeploymentMode) {
     return null;
   }
@@ -77,7 +82,7 @@ export async function createTopLevelSection({
   if (!res200(res)) {
     return null;
   }
-  const { sectionId, panTo } = res.data;
+  const { sectionId, panTo, metaControlParamId } = res.data;
   if (panTo) {
     const currentZoom = useReactFlow.getState().transform[2];
     setCenter(panTo.x, panTo.y, { zoom: currentZoom, duration: 200 });
@@ -90,7 +95,28 @@ export async function createTopLevelSection({
   ) {
     focusOnSectionTextInput(sectionId);
   }
-  return sectionId;
+  return {
+    sectionId,
+    metaControlParamId: metaControlParamId ?? null,
+  };
+}
+
+export async function createTopLevelSection({
+  implType,
+  implOverrides,
+  controlCodeObjType = null,
+  position = null,
+}: CreateTopLevelSectionArgs): Promise<string | null> {
+  const created = await createTopLevelSectionWithResult({
+    implType,
+    implOverrides,
+    controlCodeObjType,
+    position,
+  });
+  if (!created) {
+    return null;
+  }
+  return created.sectionId;
 }
 
 function ensureSectionOnTop(sectionId: string, attempt = 0) {
@@ -424,11 +450,14 @@ export async function openFileInSpreadsheetSection({
   if (!newSectionId) {
     return null;
   }
-  await route_set_section_name({
+  const renameResponse = await route_set_section_name({
     projectConfigId: getCurrProjectConfigId(),
     sectionId: newSectionId,
-    name: fileName,
+    name: getValidSectionNameForOpenedFile(fileName),
   });
+  if (!res200(renameResponse)) {
+    return newSectionId;
+  }
   if (focusOnSection) {
     goToSection(newSectionId);
   }

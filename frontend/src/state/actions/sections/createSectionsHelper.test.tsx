@@ -4,17 +4,14 @@ import { resetProjectStores } from "state/utils";
 import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
-  createCore,
   createProjectConfig,
-  createVariant,
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateSelectionModeEnum,
-  MetaControlSectionImplSchema,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createTopLevelSection } from "./createSections";
+import { createTopLevelSectionWithResult } from "./createSections";
 import {
   createTopLevelSectionFromImplSpecs,
   useCreateSectionsList,
@@ -25,7 +22,7 @@ vi.mock("utils/generatedEndpoints", () => ({
 }));
 
 vi.mock("./createSections", () => ({
-  createTopLevelSection: vi.fn(),
+  createTopLevelSectionWithResult: vi.fn(),
 }));
 
 function Probe({
@@ -110,10 +107,8 @@ describe("useCreateSectionsList", () => {
     );
   });
 
-  it("applies preset config when meta control param id is provided via shared modifier", async () => {
+  it("applies preset config when create response includes a meta control param id", async () => {
     const sectionId = "section-1";
-    const sectionVariantId = "section-variant-1";
-    const sectionImplId = "section-impl-1";
     const controlParamId = "param-1";
     const controlConfig = {
       dateControlMode: DateControlModeEnum.calendar,
@@ -124,29 +119,13 @@ describe("useCreateSectionsList", () => {
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({
         id: "project-1",
-        sectionVariantMap: {
-          [sectionId]: sectionVariantId,
-        },
-      });
-      state.sections[sectionId] = createCore({
-        id: sectionId,
-        sharedModifier: {
-          metaControlParamId: controlParamId,
-        },
-      });
-      state.sectionImpls[sectionImplId] = MetaControlSectionImplSchema.parse({
-        id: sectionImplId,
-        codeObjVariantMap: {},
-        metaControlParamId: null,
-      });
-      state.sectionVariants[sectionVariantId] = createVariant({
-        id: sectionVariantId,
-        impl: sectionImplId,
-        nonPresetImpls: [sectionImplId],
       });
     });
 
-    vi.mocked(createTopLevelSection).mockResolvedValue(sectionId);
+    vi.mocked(createTopLevelSectionWithResult).mockResolvedValue({
+      sectionId,
+      metaControlParamId: controlParamId,
+    });
 
     createTopLevelSectionFromImplSpecs({
       name: "Calendar",

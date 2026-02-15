@@ -123,7 +123,7 @@ test("meta control time defaults to display and can switch to input mode", async
       projectConfigId: context.projectConfigId,
       sectionId,
       paramInfoId,
-      selectedId: "TextParam",
+      selectedId: "TimeParam",
     });
 
     await postBackend(page, "/updateParamImplConfig", {
@@ -131,7 +131,6 @@ test("meta control time defaults to display and can switch to input mode", async
       sectionId,
       paramInfoId,
       newConfig: {
-        uiType: "time",
         timeControlMode: "display",
         timeDisplayFormat: "twelve_hour",
       },
@@ -155,7 +154,6 @@ test("meta control time defaults to display and can switch to input mode", async
       sectionId,
       paramInfoId,
       newConfig: {
-        uiType: "time",
         timeControlMode: "input",
         timeDisplayFormat: "twelve_hour",
       },
@@ -196,7 +194,7 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
       projectConfigId: context.projectConfigId,
       sectionId,
       paramInfoId,
-      selectedId: "TextParam",
+      selectedId: "DateParam",
     });
 
     await postBackend(page, "/updateParamImplConfig", {
@@ -204,7 +202,6 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
       sectionId,
       paramInfoId,
       newConfig: {
-        uiType: "date",
         dateControlMode: "calendar",
         dateSelectionMode: "multiple",
         dateCalendarWeekStart: "monday",

@@ -99,6 +99,23 @@ type FlattenedNode = FileNode & {
 
 type FlattenedFileNode = FlattenedNode;
 
+export function isEditableFileBrowserTarget(target: EventTarget | null): boolean {
+  if (
+    !target ||
+    typeof target !== "object" ||
+    !("closest" in target) ||
+    typeof (target as { closest?: unknown }).closest !== "function"
+  ) {
+    return false;
+  }
+  const closest = (target as { closest: (selector: string) => unknown }).closest;
+  return (
+    closest("input, textarea, select") !== null ||
+    closest('[contenteditable="true"]') !== null ||
+    closest(".cm-editor") !== null
+  );
+}
+
 export function flattenFileBrowserTree({
   rootPath,
   nodesByPath,
@@ -336,6 +353,12 @@ export function FileBrowserPane({
   const [listSize, setListSize] = useState({ height: 320, width: 320 });
   const [clipboardEntry, setClipboardEntry] =
     useState<FileBrowserClipboardEntry | null>(null);
+  const clipboardEntryRef = useRef<FileBrowserClipboardEntry | null>(
+    clipboardEntry,
+  );
+  useEffect(() => {
+    clipboardEntryRef.current = clipboardEntry;
+  }, [clipboardEntry]);
   const [dragTargetFolderPath, setDragTargetFolderPath] = useState<
     string | null
   >(null);
@@ -929,7 +952,8 @@ export function FileBrowserPane({
   );
 
   const handlePasteClipboard = useCallback(() => {
-    if (!clipboardEntry) {
+    const activeClipboardEntry = clipboardEntryRef.current;
+    if (!activeClipboardEntry) {
       return;
     }
     const selectedNode = selectedPath ? nodesByPath[selectedPath] : null;
@@ -941,25 +965,20 @@ export function FileBrowserPane({
       return;
     }
     void transferEntryToFolder({
-      sourcePath: clipboardEntry.sourcePath,
-      sourceType: clipboardEntry.sourceType,
+      sourcePath: activeClipboardEntry.sourcePath,
+      sourceType: activeClipboardEntry.sourceType,
       destinationFolderPath,
-      operation: clipboardEntry.operation,
+      operation: activeClipboardEntry.operation,
     }).then((destinationPath) => {
       if (!destinationPath) {
         return;
       }
-      if (clipboardEntry.operation === "move") {
+      if (activeClipboardEntry.operation === "move") {
+        clipboardEntryRef.current = null;
         setClipboardEntry(null);
       }
     });
-  }, [
-    clipboardEntry,
-    nodesByPath,
-    rootPath,
-    selectedPath,
-    transferEntryToFolder,
-  ]);
+  }, [nodesByPath, rootPath, selectedPath, transferEntryToFolder]);
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -968,6 +987,11 @@ export function FileBrowserPane({
       }
       const hasModifier = event.metaKey || event.ctrlKey;
       const lowerKey = event.key.toLowerCase();
+      if (hasModifier && (lowerKey === "c" || lowerKey === "x" || lowerKey === "v")) {
+        if (isEditableFileBrowserTarget(event.target)) {
+          return;
+        }
+      }
       if (hasModifier && (lowerKey === "c" || lowerKey === "x")) {
         if (selectedIndex < 0) {
           return;
@@ -977,11 +1001,13 @@ export function FileBrowserPane({
           return;
         }
         event.preventDefault();
-        setClipboardEntry({
+        const nextClipboardEntry = {
           sourcePath: selectedItem.fullPath,
           sourceType: selectedItem.type,
           operation: lowerKey === "x" ? "move" : "copy",
-        });
+        } as const;
+        clipboardEntryRef.current = nextClipboardEntry;
+        setClipboardEntry(nextClipboardEntry);
         return;
       }
       if (hasModifier && lowerKey === "v") {

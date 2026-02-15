@@ -292,6 +292,7 @@ from setta.types.helpers_lvl2 import (
     ensure_code_section_attached_terminal,
     ensure_code_section_embedded_terminal_size,
     get_curr_section_callable_code_obj,
+    get_meta_control_param_id,
     group_sections,
     indent_params,
     maybe_update_gen_python_code_section,
@@ -2753,8 +2754,17 @@ class BaseProjectManager(ABC):
             x.implOverrides,
             control_code_obj_type=x.controlCodeObjType,
         )
+        meta_control_param_id = (
+            get_meta_control_param_id(project_state, sectionId)
+            if x.implType == SectionType.MetaControl
+            else None
+        )
         await self.update_and_broadcast_project_state(project_state)
-        return CreateTopLevelSectionResponse(sectionId=sectionId, panTo=pan_to)
+        return CreateTopLevelSectionResponse(
+            sectionId=sectionId,
+            metaControlParamId=meta_control_param_id,
+            panTo=pan_to,
+        )
 
     @enqueue_method
     @project_state_tool(

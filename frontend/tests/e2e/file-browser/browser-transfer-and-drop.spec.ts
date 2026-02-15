@@ -520,7 +520,7 @@ test.describe.serial("file browser transfer and drag/drop", () => {
     }
   });
 
-  test("browser list moves files/folders by drag and copies with keyboard paste", async ({
+  test("browser list moves files/folders by drag and ignores file shortcuts while filter is focused", async ({
     page,
   }) => {
     await seedLocalStorage(page, {
@@ -532,6 +532,13 @@ test.describe.serial("file browser transfer and drag/drop", () => {
     });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
+    let transferRequestCount = 0;
+    const onRequest = (request: { url: () => string }) => {
+      if (request.url().includes("/transferFileBrowserEntry")) {
+        transferRequestCount += 1;
+      }
+    };
+    page.on("request", onRequest);
 
     try {
       const root = await postBackend<FileBrowserRootResponse>(
@@ -644,23 +651,16 @@ test.describe.serial("file browser transfer and drag/drop", () => {
         .first();
       await expect(movedFileRow).toBeVisible({ timeout: 15000 });
       await movedFileRow.click();
+
+      const transferRequestsBeforeFilterShortcuts = transferRequestCount;
+      await fillCodeMirror(sectionFilter, page, "pw-transfer");
+      await page.keyboard.press(SELECT_ALL_SHORTCUT);
       await page.keyboard.press(COPY_SHORTCUT);
       await page.keyboard.press(PASTE_SHORTCUT);
-
-      const copiedFilePath = path.join(
-        destinationFolderPath,
-        "pw-transfer-file copy.txt",
-      );
-      await expect
-        .poll(async () => await pathExists(copiedFilePath))
-        .toBe(true);
-      await expect(
-        explorer
-          .locator("button")
-          .filter({ hasText: "pw-transfer-file copy.txt" })
-          .first(),
-      ).toBeVisible({ timeout: 15000 });
+      await page.waitForTimeout(250);
+      expect(transferRequestCount).toBe(transferRequestsBeforeFilterShortcuts);
     } finally {
+      page.off("request", onRequest);
       await cleanupIsolatedProject(page, projectContext);
     }
   });

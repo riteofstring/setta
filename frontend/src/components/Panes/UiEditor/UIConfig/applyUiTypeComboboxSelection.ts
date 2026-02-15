@@ -17,18 +17,8 @@ export async function applyUiTypeComboboxSelection(args: {
   selectedId: string;
   filterKey: CodeObjTypeFilterKey;
 }) {
-  const { projectConfigId, sectionId, paramInfoId, selectedId, filterKey } =
-    args;
+  const { projectConfigId, sectionId, paramInfoId, selectedId } = args;
   if (selectedId === CALENDAR_PRESET_ID) {
-    if (filterKey !== "control") {
-      await route_change_param_impl({
-        projectConfigId,
-        sectionId,
-        paramInfoId,
-        selectedId: CodeObjTypeEnum.DateParam,
-      });
-      return;
-    }
     await route_change_param_impl({
       projectConfigId,
       sectionId,

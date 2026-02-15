@@ -105,20 +105,30 @@ class FileBrowserFileContentResponse(BaseModel):
     path: str
     mimeType: str
     contentBase64: str
-    mtime: float
+    mtimeNs: int
+    size: int
+
+
+class GetFileBrowserFileStatRequest(BaseModel):
+    path: str
+
+
+class FileBrowserFileStatResponse(BaseModel):
+    path: str
+    mtimeNs: int
     size: int
 
 
 class WriteFileBrowserFileContentRequest(BaseModel):
     path: str
     contentBase64: str
-    expectedMtime: float | None = None
+    expectedMtimeNs: int | None = None
 
 
 class WriteFileBrowserFileContentResponse(BaseModel):
     path: str
     mimeType: str
-    mtime: float
+    mtimeNs: int
     size: int
 
 
@@ -606,7 +616,32 @@ def route_get_file_browser_file_content(
         path=_format_browser_path(resolved, share_mode=ctx.deployment_mode),
         mimeType=mime_type or "application/octet-stream",
         contentBase64=b64encode(content).decode("ascii"),
-        mtime=stat_result.st_mtime,
+        mtimeNs=stat_result.st_mtime_ns,
+        size=stat_result.st_size,
+    )
+
+
+@router.post(Route.GET_FILE_BROWSER_FILE_STAT)
+def route_get_file_browser_file_stat(
+    x: GetFileBrowserFileStatRequest,
+    ctx: RuntimeContextFromRequest,
+) -> FileBrowserFileStatResponse:
+    if ctx.deployment_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="File browsing is disabled in deployment mode.",
+        )
+    resolved = _resolve_file_path_for_edit(x.path)
+    try:
+        stat_result = resolved.stat()
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to stat file: {x.path}",
+        ) from exc
+    return FileBrowserFileStatResponse(
+        path=_format_browser_path(resolved, share_mode=ctx.deployment_mode),
+        mtimeNs=stat_result.st_mtime_ns,
         size=stat_result.st_size,
     )
 
@@ -629,7 +664,7 @@ def route_write_file_browser_file_content(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to stat file: {x.path}",
         ) from exc
-    if x.expectedMtime is not None and stat_result.st_mtime != x.expectedMtime:
+    if x.expectedMtimeNs is not None and stat_result.st_mtime_ns != x.expectedMtimeNs:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="File changed on disk since it was loaded.",
@@ -661,7 +696,7 @@ def route_write_file_browser_file_content(
     return WriteFileBrowserFileContentResponse(
         path=_format_browser_path(resolved, share_mode=ctx.deployment_mode),
         mimeType=mime_type or "application/octet-stream",
-        mtime=updated_stat.st_mtime,
+        mtimeNs=updated_stat.st_mtime_ns,
         size=updated_stat.st_size,
     )
 

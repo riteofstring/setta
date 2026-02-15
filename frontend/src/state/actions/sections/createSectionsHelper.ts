@@ -1,8 +1,5 @@
 import _ from "lodash";
-import {
-  getCurrEffectiveSectionImplOfType,
-  getCurrProjectConfigId,
-} from "state/actions/sectionInfos";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
   getPythonCodegenTarget,
@@ -24,7 +21,7 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
-import { createTopLevelSection } from "./createSections";
+import { createTopLevelSectionWithResult } from "./createSections";
 
 type ControlParamConfig = {
   dateControlMode?: DateControlMode;
@@ -284,18 +281,20 @@ export function createTopLevelSectionFromImplSpecs(
   menuItem: CreateSectionsContextMenuInfo,
   position: Position | null = null,
 ) {
-  void createTopLevelSection({
+  void createTopLevelSectionWithResult({
     implType: menuItem.implSpecs.type,
     controlCodeObjType: menuItem.controlCodeObjType,
     implOverrides: menuItem.implSpecs,
     position,
-  }).then((sectionId) => {
-    if (!sectionId) {
+  }).then((createdSection) => {
+    if (!createdSection) {
       return;
     }
+    const { sectionId, metaControlParamId } = createdSection;
     if (menuItem.controlParamConfig) {
       void applyMetaControlParamConfigAfterCreate(
         sectionId,
+        metaControlParamId,
         menuItem.controlParamConfig,
       );
     }
@@ -305,49 +304,11 @@ export function createTopLevelSectionFromImplSpecs(
   });
 }
 
-function getMetaControlParamId(sectionId: string): string | null {
-  const state = useProjectState.getState();
-  const variantId = state.projectConfig.sectionVariantMap[sectionId];
-  if (!variantId) {
-    return null;
-  }
-  const variant = state.sectionVariants[variantId];
-  if (!variant) {
-    return null;
-  }
-  if (!state.sectionImpls[variant.impl]) {
-    return null;
-  }
-  if (!state.sections[sectionId]) {
-    return null;
-  }
-  const impl = getCurrEffectiveSectionImplOfType(
-    state,
-    sectionId,
-    SectionTypeEnum.MetaControl,
-  );
-  return impl.metaControlParamId;
-}
-
-async function waitForMetaControlParamId(
-  sectionId: string,
-): Promise<string | null> {
-  const attempts = 45;
-  for (let idx = 0; idx < attempts; idx += 1) {
-    const paramId = getMetaControlParamId(sectionId);
-    if (paramId) {
-      return paramId;
-    }
-    await new Promise((resolve) => window.setTimeout(resolve, 16));
-  }
-  return null;
-}
-
 async function applyMetaControlParamConfigAfterCreate(
   sectionId: string,
+  controlParamId: string | null,
   config: ControlParamConfig,
 ) {
-  const controlParamId = await waitForMetaControlParamId(sectionId);
   if (!controlParamId) {
     return;
   }

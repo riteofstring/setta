@@ -249,6 +249,7 @@ class Route(str, Enum):
     GET_FOLDER_CONTENTS = "/getFolderContents"
     GET_FILE_BROWSER_DOWNLOAD_URLS = "/getFileBrowserDownloadUrls"
     GET_FILE_BROWSER_FILE_CONTENT = "/getFileBrowserFileContent"
+    GET_FILE_BROWSER_FILE_STAT = "/getFileBrowserFileStat"
     WRITE_FILE_BROWSER_FILE_CONTENT = "/writeFileBrowserFileContent"
     TRANSFER_FILE_BROWSER_ENTRY = "/transferFileBrowserEntry"
     FILE_BROWSER_DOWNLOAD = "/fileBrowser/{token}"

@@ -80,7 +80,6 @@ type MetaControlContentValueProps = {
   dropzoneMaxAttachments?: number | null;
   dropzonePlaceholder?: string;
   onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
-  legacyTextParamUiType?: TextParamInputUIType;
   timeControlMode?: TimeControlMode;
   timeDisplayFormat?: TimeDisplayFormat;
   timeDisplayTransparent?: boolean;
@@ -138,42 +137,6 @@ export function MetaControlContent(props: MetaControlContentProps) {
         />
       );
     case CodeObjTypeEnum.TextParam:
-      if (
-        props.legacyTextParamUiType &&
-        props.legacyTextParamUiType !== TextParamInputUITypeEnum.plain
-      ) {
-        return (
-          <DateTimeControl
-            sectionName={sectionName}
-            value={value}
-            showSectionTitle={showSectionTitle}
-            onValueChange={onValueChange}
-            uiType={props.legacyTextParamUiType}
-            timeControlMode={
-              props.timeControlMode ?? TimeControlModeEnum.display
-            }
-            timeDisplayFormat={
-              props.timeDisplayFormat ?? TimeDisplayFormatEnum.twenty_four_hour
-            }
-            timeDisplayTransparent={props.timeDisplayTransparent ?? false}
-            timeDisplayScale={props.timeDisplayScale ?? 1}
-            timeDisplayFont={
-              props.timeDisplayFont ?? TimeDisplayFontEnum.monospace
-            }
-            dateDisplayFormat={
-              props.dateDisplayFormat ?? DateDisplayFormatEnum.iso
-            }
-            dateControlMode={props.dateControlMode ?? DateControlModeEnum.input}
-            dateSelectionMode={
-              props.dateSelectionMode ?? DateSelectionModeEnum.single
-            }
-            dateCalendarWeekStart={
-              props.dateCalendarWeekStart ?? DateCalendarWeekStartEnum.sunday
-            }
-            dateIncludesTime={props.dateIncludesTime ?? false}
-          />
-        );
-      }
       return (
         <TextInputControl
           sectionId={sectionId}

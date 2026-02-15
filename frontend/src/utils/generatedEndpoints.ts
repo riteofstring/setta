@@ -187,6 +187,12 @@ export async function route_get_file_browser_file_content(
   return await post("/getFileBrowserFileContent", x);
 }
 
+export async function route_get_file_browser_file_stat(
+  x: gt.GetFileBrowserFileStatRequestInput,
+): Promise<ResponseDataAndStatus<gt.FileBrowserFileStatResponse>> {
+  return await post("/getFileBrowserFileStat", x);
+}
+
 export async function route_write_file_browser_file_content(
   x: gt.WriteFileBrowserFileContentRequestInput,
 ): Promise<ResponseDataAndStatus<gt.WriteFileBrowserFileContentResponse>> {

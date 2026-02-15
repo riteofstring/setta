@@ -54,20 +54,6 @@ describe("applyUiTypeComboboxSelection", () => {
     });
   });
 
-  it("switches to DateParam without calendar config for section params", async () => {
-    await applyUiTypeComboboxSelection({
-      ...baseArgs,
-      filterKey: "sectionParam",
-      selectedId: CALENDAR_PRESET_ID,
-    });
-
-    expect(route_change_param_impl).toHaveBeenCalledWith({
-      ...endpointBaseArgs,
-      selectedId: CodeObjTypeEnum.DateParam,
-    });
-    expect(route_update_param_impl_config).not.toHaveBeenCalled();
-  });
-
   it("passes through regular type/impl selection without config override", async () => {
     await applyUiTypeComboboxSelection({
       ...baseArgs,
