@@ -387,19 +387,6 @@ export const useFileBrowserState = createWithEqualityFn(
   })),
 );
 
-export const useHomeFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
-  })),
-);
-
 export const useBrowserSectionFileBrowserState = createWithEqualityFn(
   withResetFn<FileBrowserState>(() => ({
     rootPath: null,
@@ -855,7 +842,6 @@ export const useToolArgumentPreview = withProjectState(
 );
 
 export type ColorModePreference = "dark" | "light" | "auto";
-export type HomeProjectGalleryViewMode = "thumbnails" | "list";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
@@ -866,10 +852,6 @@ type ZustandLocalStorage = {
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
-  homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
-  favoriteProjectConfigIds: string[];
-  homePageLeftColumnWidth: number;
-  homePageRightColumnWidth: number;
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
@@ -887,6 +869,14 @@ type ZustandLocalStorage = {
   tooltipWidth: number;
   customRunsByProjectConfigId: Record<string, Array<CustomRunItem>>;
   runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
+  runInstructionsAccordionOpenValuesByProjectConfigId: Record<
+    string,
+    Array<string>
+  >;
+  projectAiSettingsAccordionOpenValuesByProjectConfigId: Record<
+    string,
+    Array<string>
+  >;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -900,10 +890,6 @@ export const useLocalStorage = createWithEqualityFn(
       showMinimap: true,
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
-      homeProjectGalleryViewMode: "thumbnails",
-      favoriteProjectConfigIds: [],
-      homePageLeftColumnWidth: 320,
-      homePageRightColumnWidth: 280,
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
@@ -921,6 +907,8 @@ export const useLocalStorage = createWithEqualityFn(
       tooltipWidth: 256,
       customRunsByProjectConfigId: {},
       runSnapshotModeByProjectConfigId: {},
+      runInstructionsAccordionOpenValuesByProjectConfigId: {},
+      projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
