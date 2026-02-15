@@ -571,7 +571,6 @@ function HomeFileBrowserColumn() {
     _.isEqual,
   );
   const [pathInput, setPathInput] = useState("");
-  const [showSettaBadges, setShowSettaBadges] = useState(false);
   const completionSource = useMemo(
     () =>
       createFolderPathCompletionSource({
@@ -625,7 +624,7 @@ function HomeFileBrowserColumn() {
   }
 
   return (
-    <section className="flex h-full min-h-0 w-full min-w-0 flex-col pb-2">
+    <section className="flex h-full min-h-0 w-full min-w-0 flex-col pb-2 [&_[data-testid='setta-initialized-badge']]:hidden [&_[data-testid='setta-initialized-folder-icon']]:text-blue-500 dark:[&_[data-testid='setta-initialized-folder-icon']]:text-blue-400">
       <div
         className={`flex flex-col gap-2 ${HOME_FILE_BROWSER_META_INSET_CLASS}`}
       >
@@ -671,21 +670,11 @@ function HomeFileBrowserColumn() {
             Go
           </button>
         </div>
-        <label className="inline-flex items-center gap-2 text-[11px] text-setta-500 dark:text-setta-400">
-          <input
-            type="checkbox"
-            className="h-3.5 w-3.5 rounded border-setta-300 text-blue-500 focus-visible:ring-2 dark:border-setta-700"
-            checked={showSettaBadges}
-            onChange={(event) => setShowSettaBadges(event.target.checked)}
-            data-testid="home-file-browser-setta-badges-toggle"
-          />
-          Show Setta badges
-        </label>
       </div>
       <div className="min-h-[220px] min-w-0 flex-1">
         <FileBrowserPane
           useFileBrowserStateHook={useHomeFileBrowserState}
-          includeSettaInitializedFolders={showSettaBadges}
+          includeSettaInitializedFolders
           metaPaddingClassName={HOME_FILE_BROWSER_META_INSET_CLASS}
           listInsetLeft={HOME_FILE_BROWSER_LIST_INSET_LEFT}
         />
