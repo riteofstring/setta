@@ -4,8 +4,10 @@ import _ from "lodash";
 import { BiPaint } from "react-icons/bi";
 import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
 import { FaChartPie, FaLayerGroup, FaSquareXTwitter } from "react-icons/fa6";
+import { FiColumns } from "react-icons/fi";
 import { GoDotFill } from "react-icons/go";
 import { IoChatbox } from "react-icons/io5";
+import { MdViewKanban } from "react-icons/md";
 import { PiTextTFill } from "react-icons/pi";
 import { RiGlobalFill } from "react-icons/ri";
 import {
@@ -14,7 +16,6 @@ import {
   SiJson,
   SiMarkdown,
   SiPython,
-  SiToml,
   SiTypescript,
   SiYaml,
 } from "react-icons/si";
@@ -204,6 +205,24 @@ export function HeaderIcon({
           }
         />
       );
+    case SectionTypeEnum.TaskBoard:
+      return (
+        <MdViewKanban
+          className={
+            themedIconClassName ??
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+          }
+        />
+      );
+    case SectionTypeEnum.Spreadsheet:
+      return (
+        <FiColumns
+          className={
+            themedIconClassName ??
+            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
+          }
+        />
+      );
     default:
       return (
         <i
@@ -317,8 +336,6 @@ function CodeLanguageIcon({ sectionId, classes }) {
       return <SiJson className={classes} />;
     case CodeLanguageEnum.yaml:
       return <SiYaml className={classes} />;
-    case CodeLanguageEnum.toml:
-      return <SiToml className={classes} />;
     case CodeLanguageEnum.markdown:
       return <SiMarkdown className={classes} />;
     case CodeLanguageEnum.plaintext:

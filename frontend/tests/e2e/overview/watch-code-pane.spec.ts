@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { ensureAppReady, seedLocalStorage } from "../helpers";
 
-const MIN_EXPECTED_PADDING = 6;
+const MIN_EXPECTED_PADDING = 12;
 
 test("watch code pane has right padding and visible toggle button", async ({
   page,

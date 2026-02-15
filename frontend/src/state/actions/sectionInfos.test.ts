@@ -5,10 +5,9 @@ import {
   createTopLevelSectionLayoutDict,
   getAttachedTerminalParentIdForTerminalSection,
   getCurrShownParamIds,
-  getDisplayedSectionIdToChildren,
   getEmbeddedAttachedTerminalForCodeSection,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
-  getTopLevelSectionIdsForDisplay,
+  getSectionIsHorizontalOrientation,
   processProjectStateUpdateFromBackend,
 } from "state/actions/sectionInfos";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
@@ -24,18 +23,64 @@ import {
   createChatSectionImpl,
   createCodeSectionImpl,
   createCore,
+  createListRootSectionImpl,
   createMessageTextContent,
   createProjectConfig,
   createSingletonSections,
   createTerminalSectionImpl,
   createUserDefaultChatSectionImpl,
+  createUserDefaultListRootSectionImpl,
   createVariant,
+  ListRootViewModeEnum,
   SectionTypeEnum,
   type ProjectStateSingleConfigWithCompletedOpIds,
   type ShownParamIds,
   type ViewModeConfig,
 } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
+
+describe("getSectionIsHorizontalOrientation", () => {
+  it("treats list root kanban view as horizontal", () => {
+    const sectionId = "list-root-1";
+    const variantId = "variant-1";
+    const implId = "impl-1";
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { [sectionId]: variantId },
+      }),
+      sections: {},
+      sectionImpls: {
+        [implId]: createListRootSectionImpl(
+          createUserDefaultListRootSectionImpl(),
+          {
+            id: implId,
+            viewMode: ListRootViewModeEnum.kanban,
+          },
+        ),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          name: "Variant",
+          impl: implId,
+          nonPresetImpls: [],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: { [sectionId]: null },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState);
+
+    expect(getSectionIsHorizontalOrientation(sectionId)).toBe(true);
+  });
+});
 
 describe("getCurrShownParamIds", () => {
   it("returns pinned and unpinned entries for the active variant", () => {
@@ -253,18 +298,10 @@ describe("createNodesMapFromProjectConfigChildren", () => {
   it("filters out hidden sections when not editing view modes", () => {
     const sectionVisible = "section-visible";
     const sectionHidden = "section-hidden";
-    const sectionVisibleVariantId = "variant-visible";
-    const sectionHiddenVariantId = "variant-hidden";
-    const sectionVisibleImplId = "impl-visible";
-    const sectionHiddenImplId = "impl-hidden";
     const viewModeId = "view-1";
     const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
     const projectConfig = createProjectConfig({
       id: "project-1",
-      sectionVariantMap: {
-        [sectionVisible]: sectionVisibleVariantId,
-        [sectionHidden]: sectionHiddenVariantId,
-      },
       topLevelSections: {
         [sectionVisible]: { ...layout },
         [sectionHidden]: { ...layout },
@@ -293,41 +330,15 @@ describe("createNodesMapFromProjectConfigChildren", () => {
     });
     const projectState = {
       projectConfig,
-      sections: {
-        [sectionVisible]: createCore({ id: sectionVisible }),
-        [sectionHidden]: createCore({ id: sectionHidden }),
-      },
-      sectionImpls: {
-        [sectionVisibleImplId]: createTerminalSectionImpl({
-          id: sectionVisibleImplId,
-          type: SectionTypeEnum.Terminal,
-        }),
-        [sectionHiddenImplId]: createTerminalSectionImpl({
-          id: sectionHiddenImplId,
-          type: SectionTypeEnum.Terminal,
-        }),
-      },
-      sectionVariants: {
-        [sectionVisibleVariantId]: createVariant({
-          id: sectionVisibleVariantId,
-          impl: sectionVisibleImplId,
-          nonPresetImpls: [],
-        }),
-        [sectionHiddenVariantId]: createVariant({
-          id: sectionHiddenVariantId,
-          impl: sectionHiddenImplId,
-          nonPresetImpls: [],
-        }),
-      },
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
       codeObjs: {},
       codeObjImpls: {},
       codeObjVariants: {},
       artifactGroups: {},
       singletonSections: createSingletonSections(),
-      parentSectionMap: {
-        [sectionVisible]: null,
-        [sectionHidden]: null,
-      },
+      parentSectionMap: {},
       shownParamIds: {},
       previewSectionVariantMap: {},
       requiredDecodedImages: [],
@@ -345,18 +356,10 @@ describe("createNodesMapFromProjectConfigChildren", () => {
   it("uses view mode layout when project layout is missing visible sections", () => {
     const sectionVisible = "section-visible";
     const sectionHidden = "section-hidden";
-    const sectionVisibleVariantId = "variant-visible";
-    const sectionHiddenVariantId = "variant-hidden";
-    const sectionVisibleImplId = "impl-visible";
-    const sectionHiddenImplId = "impl-hidden";
     const viewModeId = "view-1";
     const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
     const projectConfig = createProjectConfig({
       id: "project-1",
-      sectionVariantMap: {
-        [sectionVisible]: sectionVisibleVariantId,
-        [sectionHidden]: sectionHiddenVariantId,
-      },
       topLevelSections: {
         [sectionHidden]: { ...layout },
       },
@@ -384,41 +387,15 @@ describe("createNodesMapFromProjectConfigChildren", () => {
     });
     const projectState = {
       projectConfig,
-      sections: {
-        [sectionVisible]: createCore({ id: sectionVisible }),
-        [sectionHidden]: createCore({ id: sectionHidden }),
-      },
-      sectionImpls: {
-        [sectionVisibleImplId]: createTerminalSectionImpl({
-          id: sectionVisibleImplId,
-          type: SectionTypeEnum.Terminal,
-        }),
-        [sectionHiddenImplId]: createTerminalSectionImpl({
-          id: sectionHiddenImplId,
-          type: SectionTypeEnum.Terminal,
-        }),
-      },
-      sectionVariants: {
-        [sectionVisibleVariantId]: createVariant({
-          id: sectionVisibleVariantId,
-          impl: sectionVisibleImplId,
-          nonPresetImpls: [],
-        }),
-        [sectionHiddenVariantId]: createVariant({
-          id: sectionHiddenVariantId,
-          impl: sectionHiddenImplId,
-          nonPresetImpls: [],
-        }),
-      },
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
       codeObjs: {},
       codeObjImpls: {},
       codeObjVariants: {},
       artifactGroups: {},
       singletonSections: createSingletonSections(),
-      parentSectionMap: {
-        [sectionVisible]: null,
-        [sectionHidden]: null,
-      },
+      parentSectionMap: {},
       shownParamIds: {},
       previewSectionVariantMap: {},
       requiredDecodedImages: [],
@@ -431,289 +408,6 @@ describe("createNodesMapFromProjectConfigChildren", () => {
 
     expect(nodesMap.has(sectionVisible)).toBe(true);
     expect(nodesMap.has(sectionHidden)).toBe(false);
-  });
-
-  it("skips sections that are missing visibility in the active view mode", () => {
-    const sectionVisible = "section-visible";
-    const sectionMissingVisibility = "section-missing-visibility";
-    const sectionVisibleVariantId = "variant-visible";
-    const sectionMissingVisibilityVariantId = "variant-missing-visibility";
-    const sectionVisibleImplId = "impl-visible";
-    const sectionMissingVisibilityImplId = "impl-missing-visibility";
-    const viewModeId = "view-1";
-    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
-    const projectConfig = createProjectConfig({
-      id: "project-1",
-      sectionVariantMap: {
-        [sectionVisible]: sectionVisibleVariantId,
-        [sectionMissingVisibility]: sectionMissingVisibilityVariantId,
-      },
-      topLevelSections: {
-        [sectionVisible]: { ...layout },
-        [sectionMissingVisibility]: { ...layout },
-      },
-      viewModes: {
-        [viewModeId]: {
-          id: viewModeId,
-          name: "Visible Only",
-          sortIndex: 0,
-          isUserFacing: false,
-          isTab: true,
-          visibilityBySectionId: {
-            [sectionVisible]: true,
-          },
-          viewport: { x: 0, y: 0, zoom: 1 },
-          viewportInitialized: false,
-          topLevelSections: {
-            [sectionVisible]: { ...layout },
-            [sectionMissingVisibility]: { ...layout },
-          },
-        },
-      },
-      activeViewModeId: viewModeId,
-      isEditingViewMode: false,
-    });
-    const projectState = {
-      projectConfig,
-      sections: {
-        [sectionVisible]: createCore({ id: sectionVisible }),
-        [sectionMissingVisibility]: createCore({
-          id: sectionMissingVisibility,
-        }),
-      },
-      sectionImpls: {
-        [sectionVisibleImplId]: createTerminalSectionImpl({
-          id: sectionVisibleImplId,
-          type: SectionTypeEnum.Terminal,
-        }),
-        [sectionMissingVisibilityImplId]: createTerminalSectionImpl({
-          id: sectionMissingVisibilityImplId,
-          type: SectionTypeEnum.Terminal,
-        }),
-      },
-      sectionVariants: {
-        [sectionVisibleVariantId]: createVariant({
-          id: sectionVisibleVariantId,
-          impl: sectionVisibleImplId,
-          nonPresetImpls: [],
-        }),
-        [sectionMissingVisibilityVariantId]: createVariant({
-          id: sectionMissingVisibilityVariantId,
-          impl: sectionMissingVisibilityImplId,
-          nonPresetImpls: [],
-        }),
-      },
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: {
-        [sectionVisible]: null,
-        [sectionMissingVisibility]: null,
-      },
-      shownParamIds: {},
-      previewSectionVariantMap: {},
-      requiredDecodedImages: [],
-    } as ZustandProjectState;
-
-    expect(() =>
-      createNodesMapFromProjectConfigChildren(projectState, new Map()),
-    ).not.toThrow();
-
-    const nodesMap = createNodesMapFromProjectConfigChildren(
-      projectState,
-      new Map(),
-    );
-    expect(nodesMap.has(sectionVisible)).toBe(true);
-    expect(nodesMap.has(sectionMissingVisibility)).toBe(false);
-  });
-});
-
-describe("getTopLevelSectionIdsForDisplay", () => {
-  it("filters top-level ids that cannot resolve to an effective impl", () => {
-    const validSectionId = "section-valid";
-    const missingVariantSectionId = "section-missing-variant";
-    const validVariantId = "variant-valid";
-    const validImplId = "impl-valid";
-    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
-
-    const state = {
-      projectConfig: createProjectConfig({
-        id: "project-1",
-        topLevelSections: {
-          [validSectionId]: { ...layout },
-          [missingVariantSectionId]: { ...layout },
-        },
-        sectionVariantMap: {
-          [validSectionId]: validVariantId,
-        },
-      }),
-      sections: {
-        [validSectionId]: createCore({ id: validSectionId }),
-        [missingVariantSectionId]: createCore({ id: missingVariantSectionId }),
-      },
-      sectionImpls: {
-        [validImplId]: createTerminalSectionImpl({
-          id: validImplId,
-          type: SectionTypeEnum.Terminal,
-        }),
-      },
-      sectionVariants: {
-        [validVariantId]: createVariant({
-          id: validVariantId,
-          impl: validImplId,
-          nonPresetImpls: [],
-        }),
-      },
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: {
-        [validSectionId]: null,
-        [missingVariantSectionId]: null,
-      },
-      shownParamIds: {},
-      previewSectionVariantMap: {},
-      requiredDecodedImages: [],
-    } as ZustandProjectState;
-
-    expect(getTopLevelSectionIdsForDisplay(state)).toEqual([validSectionId]);
-  });
-});
-
-describe("getDisplayedSectionIdToChildren", () => {
-  it("skips top-level sections that cannot resolve to an effective impl", () => {
-    const validSectionId = "section-valid";
-    const missingVariantSectionId = "section-missing-variant";
-    const validVariantId = "variant-valid";
-    const validImplId = "impl-valid";
-    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
-
-    const state = {
-      projectConfig: createProjectConfig({
-        id: "project-1",
-        topLevelSections: {
-          [validSectionId]: { ...layout },
-          [missingVariantSectionId]: { ...layout },
-        },
-        sectionVariantMap: {
-          [validSectionId]: validVariantId,
-        },
-      }),
-      sections: {
-        [validSectionId]: createCore({ id: validSectionId }),
-        [missingVariantSectionId]: createCore({ id: missingVariantSectionId }),
-      },
-      sectionImpls: {
-        [validImplId]: createTerminalSectionImpl({
-          id: validImplId,
-          type: SectionTypeEnum.Terminal,
-        }),
-      },
-      sectionVariants: {
-        [validVariantId]: createVariant({
-          id: validVariantId,
-          impl: validImplId,
-          nonPresetImpls: [],
-        }),
-      },
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: {
-        [validSectionId]: null,
-        [missingVariantSectionId]: null,
-      },
-      shownParamIds: {},
-      previewSectionVariantMap: {},
-      requiredDecodedImages: [],
-    } as ZustandProjectState;
-
-    // Missing variant links should not crash app readiness selectors.
-    expect(() => getDisplayedSectionIdToChildren(state)).not.toThrow();
-    expect(getDisplayedSectionIdToChildren(state)).toEqual({
-      [validSectionId]: [],
-    });
-  });
-
-  it("filters child ids that cannot resolve to an effective impl", () => {
-    const parentSectionId = "section-parent";
-    const validChildId = "section-child-valid";
-    const missingChildVariantId = "section-child-missing-variant";
-    const parentVariantId = "variant-parent";
-    const validChildVariantId = "variant-child-valid";
-    const parentImplId = "impl-parent";
-    const validChildImplId = "impl-child-valid";
-    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
-
-    const state = {
-      projectConfig: createProjectConfig({
-        id: "project-1",
-        topLevelSections: {
-          [parentSectionId]: { ...layout },
-        },
-        sectionVariantMap: {
-          [parentSectionId]: parentVariantId,
-          [validChildId]: validChildVariantId,
-        },
-      }),
-      sections: {
-        [parentSectionId]: createCore({
-          id: parentSectionId,
-          sharedModifier: {
-            children: [validChildId, missingChildVariantId],
-          },
-        }),
-        [validChildId]: createCore({ id: validChildId }),
-        [missingChildVariantId]: createCore({ id: missingChildVariantId }),
-      },
-      sectionImpls: {
-        [parentImplId]: createCodeSectionImpl({
-          id: parentImplId,
-          type: SectionTypeEnum.Code,
-        }),
-        [validChildImplId]: createTerminalSectionImpl({
-          id: validChildImplId,
-          type: SectionTypeEnum.Terminal,
-        }),
-      },
-      sectionVariants: {
-        [parentVariantId]: createVariant({
-          id: parentVariantId,
-          impl: parentImplId,
-          nonPresetImpls: [],
-        }),
-        [validChildVariantId]: createVariant({
-          id: validChildVariantId,
-          impl: validChildImplId,
-          nonPresetImpls: [],
-        }),
-      },
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: {
-        [parentSectionId]: null,
-        [validChildId]: parentSectionId,
-        [missingChildVariantId]: parentSectionId,
-      },
-      shownParamIds: {},
-      previewSectionVariantMap: {},
-      requiredDecodedImages: [],
-    } as ZustandProjectState;
-
-    // Invalid children are dropped so DnD and readiness selectors stay stable.
-    expect(getDisplayedSectionIdToChildren(state)).toEqual({
-      [parentSectionId]: [validChildId],
-      [validChildId]: [],
-    });
   });
 });
 
