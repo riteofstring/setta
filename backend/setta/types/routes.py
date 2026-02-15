@@ -22,6 +22,7 @@ class Route(str, Enum):
     GET_AUTH_REFRESH_STATUS = "/authRefreshStatus"
     GET_SERVER_MODE = "/serverMode"
     GET_SETTA_HOME_INFO = "/settaHomeInfo"
+    REVEAL_PATH_IN_OS_FILE_EXPLORER = "/revealPathInOsFileExplorer"
     LAUNCH = "/launch"
     SAVE_SETTINGS_PROJECT = "/saveSettingsProject"
     LOAD_SETTINGS_PROJECT = "/loadSettingsProject"

@@ -74,7 +74,9 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
 
   await ensureAppReady(page);
 
-  const toggleButton = page.getByRole("button", { name: "View Skills and MCP" });
+  const toggleButton = page.getByRole("button", {
+    name: "View Skills and MCP",
+  });
   await expect(toggleButton).toBeVisible();
   await toggleButton.click();
 
@@ -85,7 +87,8 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await expect(
     page.getByRole("button", { name: /frontend-design/i }),
   ).toBeVisible();
-  await expect(page.getByLabel("Skill Preview")).toContainText(
+  await expect(page.getByText("Skill Markdown Viewer")).toBeVisible();
+  await expect(page.getByLabel("Skill Markdown Viewer")).toContainText(
     "Create dense dashboard layouts.",
   );
   await expect(page.getByText(/setta_files\/llm_config\.json/)).toBeVisible();
@@ -94,6 +97,12 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   ).toBeVisible();
   await expect(page.getByText(/setta.*sse/i)).toBeVisible();
   await expect(page.getByText(/context7.*stdio/i)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Copy path for Workspace skills/i }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Reveal path for Workspace skills/i }),
+  ).toBeVisible();
   await expect(page.getByLabel("Filter MCP tools")).toHaveCount(0);
   await expect(page.getByText("Viewer only:")).toHaveCount(0);
   await expect(page.getByText("MCP tools discovered:")).toHaveCount(0);

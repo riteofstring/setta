@@ -1409,6 +1409,12 @@ export async function route_get_setta_home_info(): Promise<
   return await get("/settaHomeInfo");
 }
 
+export async function route_reveal_path_in_os_file_explorer(
+  x: gt.RevealPathInOsFileExplorerRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/revealPathInOsFileExplorer", x);
+}
+
 export async function route_list_share_deployments(): Promise<
   ResponseDataAndStatus<Array<gt.ShareDeploymentMetadata>>
 > {

@@ -1,3 +1,6 @@
+import CodeMirror from "@uiw/react-codemirror";
+import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
+import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAIStore } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
@@ -5,6 +8,7 @@ import {
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
   route_get_setta_home_info,
+  route_reveal_path_in_os_file_explorer,
 } from "utils/generatedEndpoints";
 import { type AppGenSkillEntry } from "utils/generatedTypes";
 import {
@@ -13,8 +17,67 @@ import {
   groupSkillsByRootPath,
 } from "./projectChatSkillsMcpViewerUtils";
 
+type PathGroupHeaderProps = {
+  title: string;
+  path: string;
+  onCopyPath: (path: string) => void;
+  onRevealPath: (path: string) => void;
+};
+
+function isActionablePath(path: string): boolean {
+  const normalizedPath = path.trim().toLowerCase();
+  return normalizedPath !== "" && normalizedPath !== "unavailable";
+}
+
+function PathGroupHeader({
+  title,
+  path,
+  onCopyPath,
+  onRevealPath,
+}: PathGroupHeaderProps) {
+  const actionablePath = isActionablePath(path);
+  const iconButtonClassName =
+    "grid h-5 w-5 place-items-center rounded border border-setta-200 text-setta-500 opacity-0 transition-all duration-150 group-hover/header:opacity-100 group-focus-within/header:opacity-100 hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200";
+  return (
+    <div className="group/header flex min-w-0 items-start justify-between gap-2 border-b border-setta-200/70 px-1 pb-1 dark:border-setta-700/70">
+      <div className="min-w-0 flex-1">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-setta-700 dark:text-setta-200">
+          {title}
+        </div>
+        <div
+          className="truncate font-mono text-[10px] text-setta-400 dark:text-setta-500"
+          title={path}
+        >
+          {path}
+        </div>
+      </div>
+      <div className="flex flex-none items-center gap-1">
+        <button
+          aria-label={`Copy path for ${title}`}
+          title="Copy path"
+          className={`${iconButtonClassName} cursor-pointer`}
+          disabled={!actionablePath}
+          onClick={() => onCopyPath(path)}
+        >
+          <i className="gg-file !scale-[0.55]" />
+        </button>
+        <button
+          aria-label={`Reveal path for ${title}`}
+          title="Reveal in OS file explorer"
+          className={`${iconButtonClassName} cursor-pointer`}
+          disabled={!actionablePath}
+          onClick={() => onRevealPath(path)}
+        >
+          <i className="gg-folder !scale-[0.55]" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ProjectChatSkillsMcpViewer() {
   const allLLMConfigs = useAIStore((state) => state.allLLMConfigs);
+  const codeMirrorTheme = useCodeMirrorStyle();
   const [skills, setSkills] = useState<AppGenSkillEntry[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(false);
   const [skillsError, setSkillsError] = useState<string | null>(null);
@@ -117,6 +180,33 @@ export function ProjectChatSkillsMcpViewer() {
     });
   }, [allLLMConfigs?.mcpServers, mcpConfigPath, settaFilesLocation]);
 
+  const markdownViewerExtensions = useMemo(() => {
+    return getExtensions({
+      language: "markdown",
+      wrapLines: true,
+      isDisabled: true,
+      tabToAutocomplete: false,
+      indentWithTab: false,
+    });
+  }, []);
+
+  const copyPathToClipboard = useCallback((path: string) => {
+    if (!isActionablePath(path)) {
+      return;
+    }
+    void navigator.clipboard.writeText(path);
+  }, []);
+
+  const revealPathInFileExplorer = useCallback(async (path: string) => {
+    if (!isActionablePath(path)) {
+      return;
+    }
+    const res = await route_reveal_path_in_os_file_explorer({ path });
+    if (!res200(res)) {
+      return;
+    }
+  }, []);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4 text-sm text-setta-600 dark:text-setta-300">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -124,7 +214,7 @@ export function ProjectChatSkillsMcpViewer() {
           Skills / MCP Viewer
         </div>
         <button
-          className="rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+          className="cursor-pointer rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
           onClick={() => void refreshSkillsBrowser()}
         >
           Refresh
@@ -160,32 +250,36 @@ export function ProjectChatSkillsMcpViewer() {
                   No skills found.
                 </div>
               ) : (
-                groupedSkills.map((group) => (
+                groupedSkills.map((group, groupIndex) => (
                   <div
                     key={group.rootPath}
-                    className="mb-2 border-b border-setta-100 pb-2 last:mb-0 last:border-b-0 last:pb-0 dark:border-setta-800"
+                    className={groupIndex === 0 ? "" : "mt-3"}
                   >
-                    <div className="px-1 font-mono text-[11px] text-setta-500 dark:text-setta-400">
-                      {group.rootPath}
-                    </div>
-                    <div className="px-1 text-[11px] text-setta-500 dark:text-setta-400">
-                      {group.rootLabel}
-                    </div>
-                    <div className="mt-1 grid gap-1">
+                    <PathGroupHeader
+                      title={group.rootLabel}
+                      path={group.rootPath}
+                      onCopyPath={copyPathToClipboard}
+                      onRevealPath={(path) =>
+                        void revealPathInFileExplorer(path)
+                      }
+                    />
+                    <div className="mt-1 grid gap-1 px-1">
                       {group.skills.slice(0, 200).map((skill) => {
                         const selected = skill.skillId === selectedSkillId;
                         return (
                           <button
                             key={skill.skillId}
-                            className={`flex w-full flex-col items-start gap-0.5 rounded px-2 py-1 text-left transition-colors ${
+                            className={`flex min-w-0 max-w-full cursor-pointer flex-col items-start gap-0.5 overflow-hidden rounded pl-1 pr-2 py-1 text-left transition-colors ${
                               selected
-                                ? "bg-blue-600 text-white"
+                                ? "-ml-px bg-blue-600 text-white"
                                 : "hover:bg-setta-100 dark:hover:bg-setta-800"
                             }`}
                             onClick={() => setSelectedSkillId(skill.skillId)}
                           >
-                            <span className="font-semibold">{skill.name}</span>
-                            <span className="text-[11px] opacity-80">
+                            <span className="block w-full truncate font-semibold">
+                              {skill.name}
+                            </span>
+                            <span className="block w-full truncate text-[11px] opacity-80">
                               {skill.relativePath}
                             </span>
                           </button>
@@ -196,45 +290,58 @@ export function ProjectChatSkillsMcpViewer() {
                 ))
               )}
             </div>
-            <textarea
-              aria-label="Skill Preview"
-              className="min-h-[220px] w-full resize-y rounded-lg border border-setta-200 bg-white/90 px-3 py-2 font-mono text-[11px] text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
-              readOnly
-              value={
-                skillContentLoading
-                  ? "Loading skill content..."
-                  : selectedSkillContent ||
-                    "Select a skill to preview SKILL.md."
-              }
-            />
+            <div className="grid min-h-[220px] gap-1">
+              <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+                Skill Markdown Viewer
+              </div>
+              <div className="min-h-[220px] overflow-y-auto rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950">
+                <CodeMirror
+                  aria-label="Skill Markdown Viewer"
+                  value={
+                    skillContentLoading
+                      ? "Loading skill content..."
+                      : selectedSkillContent ||
+                        "Select a skill to preview SKILL.md."
+                  }
+                  theme={codeMirrorTheme}
+                  extensions={markdownViewerExtensions}
+                  basicSetup={{
+                    lineNumbers: false,
+                    foldGutter: false,
+                    highlightActiveLine: false,
+                    tabSize: 4,
+                  }}
+                />
+              </div>
+            </div>
           </div>
         </section>
         <section className="grid gap-2">
           <div className="text-xs text-setta-500 dark:text-setta-400">
             MCP Servers
           </div>
-          <div className="max-h-[220px] min-h-[110px] overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 font-mono text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
+          <div className="max-h-[220px] min-h-[110px] overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
             {mcpServerGroups.length === 0 ? (
               <div className="text-setta-500 dark:text-setta-400">
                 No MCP servers configured.
               </div>
             ) : (
-              mcpServerGroups.map((group) => (
+              mcpServerGroups.map((group, groupIndex) => (
                 <div
                   key={group.configPath}
-                  className="mb-2 border-b border-setta-100 pb-2 last:mb-0 last:border-b-0 last:pb-0 dark:border-setta-800"
+                  className={groupIndex === 0 ? "" : "mt-3"}
                 >
-                  <div className="break-all px-1 font-mono text-[11px] text-setta-500 dark:text-setta-400">
-                    {group.configPath}
-                  </div>
-                  <div className="px-1 text-[11px] text-setta-500 dark:text-setta-400">
-                    {group.configLabel}
-                  </div>
+                  <PathGroupHeader
+                    title={group.configLabel}
+                    path={group.configPath}
+                    onCopyPath={copyPathToClipboard}
+                    onRevealPath={(path) => void revealPathInFileExplorer(path)}
+                  />
                   <div className="mt-1 grid gap-1 px-1">
                     {group.servers.map((server) => (
                       <div key={server.serverId} className="pb-1 last:pb-0">
                         <div className="font-semibold">{server.serverId}</div>
-                        <div className="text-setta-500 dark:text-setta-400">
+                        <div className="font-mono text-setta-500 dark:text-setta-400">
                           {server.transport} · {server.endpoint}
                         </div>
                       </div>
