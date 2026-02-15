@@ -499,14 +499,6 @@ def set_project_config_name(
     p.projectConfigs[projectConfigId].name = normalized
 
 
-def create_default_task_board_columns() -> list[TaskBoardColumn]:
-    return [
-        TaskBoardColumn(name="Todo", color="#3b82f6", sortIndex=0),
-        TaskBoardColumn(name="Doing", color="#a855f7", sortIndex=1),
-        TaskBoardColumn(name="Done", color="#10b981", sortIndex=2),
-    ]
-
-
 def create_section(
     settings: SettingsState,
     p: "ProjectStateSingleConfig",
@@ -520,8 +512,6 @@ def create_section(
         get_user_default_section_from_settings(settings, impl_type),  # type: ignore
         impl_overrides,  # type: ignore
     )
-    if isinstance(impl, TaskBoardSectionImpl) and len(impl.columns) == 0:
-        impl.columns = create_default_task_board_columns()
     impl.size = normalize_section_size(settings, impl.type, impl.id, impl.size)
     variant = Variant(impl=impl.id, nonPresetImpls=compute_initial_nonPresetImpls(impl))
     default_core_args: CoreArgs = {

@@ -1,153 +1,233 @@
 import re
 from typing import Any
 
-from setta.agentic.completion_report import (
-    CompletionStatusReport,
-    VerificationStatus,
-    coerce_completion_status_report,
-    is_report_completion_status_tool,
-)
-from setta.database.db_objs import DBE
 from setta.types.chat_messages import AssistantChatMessage, MessageTextContent
-from setta.types.generated.settings_state import SettingsState
 
-MISSING_CHECKS_MESSAGE = (
-    "I cannot mark this complete yet. I need a structured completion report "
-    "that includes explicit error-check pass/fail results."
-)
-FAILED_CHECKS_MESSAGE = (
-    "I cannot mark this complete because required error checks are failing. "
-    "I need to report failing checks and fixes before completion."
-)
-_COMPLETION_WORD_PATTERN = re.compile(
-    r"\b(done|complete|completed|finished|all set|shipped)\b",
+_CREATION_VERB_RE = re.compile(
+    r"\b(create|build|scaffold|setup|set up|initialize|generate|implement)\b",
     re.IGNORECASE,
 )
-_NEGATED_COMPLETION_PATTERN = re.compile(
+_CREATION_OBJECT_RE = re.compile(
+    r"\b(projects?|sections?|workspaces?|codebases?)\b", re.IGNORECASE
+)
+_COMPLETION_CLAIM_RE = re.compile(
+    r"\b(done|completed?|finished|all set|ready to ship)\b", re.IGNORECASE
+)
+_CHECK_RE = re.compile(
     (
-        r"\b(not|isn't|isnt|aren't|arent|cannot|can't|cant|won't|wont|pending|incomplete)\b"
-        r".{0,24}\b(done|complete|completed|finished|all set|shipped)\b"
+        r"\b("
+        r"test|tests|testing|lint|type ?check|verify|verification|error check|"
+        r"(?:run|ran|reran)\s+checks?|"
+        r"(?:failed|failing)\s+checks?|"
+        r"checks?\s+(?:pass(?:ed)?|fail(?:ed|ing|ures?)|did\s+not\s+pass|"
+        r"not\s+run|not\s+rerun|completed?|results?)|"
+        r"pytest|ruff|pyright|mypy|vitest|playwright|jest|tsc"
+        r")\b"
     ),
     re.IGNORECASE,
+)
+_NON_CREATION_TASK_SWITCH_RE = re.compile(
+    (
+        r"^\s*(?:can you|could you|would you|please)?\s*"
+        r"(?:"
+        r"explain|summari[sz]e|describe|review|debug|investigate|analy[sz]e|"
+        r"fix|refactor|rename|optimi[sz]e|rewrite|improve|clean(?:\s+up)?|"
+        r"document|test|profile|migrate|update|modify|implement|remove|delete|move"
+        r")\b"
+    ),
+    re.IGNORECASE,
+)
+_CREATION_CLARIFICATION_RE = re.compile(
+    r"^\s*(?:how|what|why|where|when|who)\b", re.IGNORECASE
+)
+_CREATION_CLARIFICATION_CONTEXT_RE = re.compile(
+    (
+        r"\b("
+        r"create|build|scaffold|setup|set up|initialize|generate|implement|"
+        r"projects?|sections?|workspaces?|codebases?|"
+        r"folders?|structure|architecture|"
+        r"check|checks|test|tests|testing|lint|verify|verification|errors?"
+        r")\b"
+    ),
+    re.IGNORECASE,
+)
+_QUESTION_PIVOT_RE = re.compile(r"^\s*(?:how|what|why|where|when|who)\b", re.IGNORECASE)
+_PASS_RE = re.compile(
+    (
+        r"\b("
+        r"(?:tests?|checks?|verification)\s+pass(?:ed)?|"
+        r"pass(?:ed)?\s+(?:tests?|checks?|verification)|"
+        r"(?:run|ran|reran|completed|finished)\s+(?:tests?|checks?|verification)\s+"
+        r"(?:with(?:out)?|with\s+no)\s+failures?|"
+        r"(?:tests?|checks?|verification)\s+(?:were\s+)?(?:run|ran|rerun|completed|finished)\s+"
+        r"(?:with(?:out)?|with\s+no)\s+failures?|"
+        r"no\s+errors?\s+found|"
+        r"no\s+failed\s+tests?|"
+        r"no\s+failing\s+checks?|"
+        r"(?:0|zero)\s+(?:fail(?:ed|ing)?|errors?\s+found)"
+        r")\b"
+    ),
+    re.IGNORECASE,
+)
+_FAIL_RE = re.compile(
+    (
+        r"\b("
+        r"(?<!\b0\s)(?<!\bzero\s)(?<!\bno\s)(?<!\bwithout\s)fail(?:ed|ing|ures?)|"
+        r"did not pass|"
+        r"(?<!\bno\s)found errors?|"
+        r"(?<!\bno\s)(?<!\b0\s)(?<!\bzero\s)errors?\s+found|"
+        r"(?<!\bno\s)failing checks?"
+        r")\b"
+    ),
+    re.IGNORECASE,
+)
+
+MISSING_CHECKS_MESSAGE = (
+    "I cannot mark this complete yet. I still need to run error checks "
+    "(for example tests/lint/type-check) and report explicit pass/fail results."
+)
+FAILED_CHECKS_MESSAGE = (
+    "I cannot mark this complete because error checks are failing. "
+    "I need to report the failing checks and fixes before completion."
 )
 
 
 def apply_completion_guard(
     prior_messages: list[Any],
     assistant_message: AssistantChatMessage,
-    *,
-    completion_guard_enabled: bool = True,
 ) -> str | None:
-    if not completion_guard_enabled:
+    assistant_text = _extract_text_from_message(assistant_message)
+    if not assistant_text:
         return None
-    assistant_text = _extract_assistant_text(assistant_message)
-    has_user_visible_text = bool(assistant_text.strip())
-    if assistant_message.tool_calls and not has_user_visible_text:
+    if not _assistant_claims_completion(assistant_text):
         return None
-    scoped_messages = _resolve_active_task_messages(prior_messages)
-    if scoped_messages is None:
+    creation_start_index = _resolve_creation_flow_start_index(prior_messages)
+    if creation_start_index is None:
         return None
-    report = _resolve_latest_completion_report(scoped_messages)
-    is_completion_attempt = _is_completion_claim_text(assistant_text) or (
-        report is not None and report.completionIntent
+    scoped_prior_messages = prior_messages[creation_start_index:]
+
+    verification_status = _resolve_verification_status(
+        scoped_prior_messages,
+        assistant_text,
     )
-    if not is_completion_attempt:
+    if verification_status == "passed":
         return None
-    if report is None:
-        _replace_assistant_text(assistant_message, MISSING_CHECKS_MESSAGE)
-        return MISSING_CHECKS_MESSAGE
-    if not report.completionIntent:
-        _replace_assistant_text(assistant_message, MISSING_CHECKS_MESSAGE)
-        return MISSING_CHECKS_MESSAGE
-    if not report.requiresVerification:
-        return None
-    if report.verificationStatus == VerificationStatus.passed:
-        return None
+
     replacement_text = (
         FAILED_CHECKS_MESSAGE
-        if report.verificationStatus == VerificationStatus.failed
+        if verification_status == "failed"
         else MISSING_CHECKS_MESSAGE
     )
     _replace_assistant_text(assistant_message, replacement_text)
     return replacement_text
 
 
-def is_completion_guard_enabled(settings: SettingsState) -> bool:
-    return settings.backend.completionGuardEnabled
+def _assistant_claims_completion(text: str) -> bool:
+    return bool(_COMPLETION_CLAIM_RE.search(text))
 
 
-def load_completion_guard_enabled(dbe: DBE) -> bool:
-    payload = dbe.read_json(dbe.settings)
-    if not isinstance(payload, dict):
-        raise TypeError("setta-settings.json must contain a JSON object at the root.")
-    settings = SettingsState.model_validate(payload)
-    return is_completion_guard_enabled(settings)
-
-
-def _resolve_active_task_messages(messages: list[Any]) -> list[Any] | None:
-    for index in range(len(messages) - 1, -1, -1):
-        if _normalize_role(messages[index]) != "user":
+def _resolve_creation_flow_start_index(messages: list[Any]) -> int | None:
+    creation_start_index: int | None = None
+    for index, message in enumerate(messages):
+        if _normalize_role(message) != "user":
             continue
-        return messages[index:]
-    return None
-
-
-def _resolve_latest_completion_report(
-    messages: list[Any],
-) -> CompletionStatusReport | None:
-    candidate_messages = _messages_after_latest_assistant(messages)
-    for message in reversed(candidate_messages):
-        if _normalize_role(message) != "tool":
+        text = _extract_text_from_message(message)
+        if not text:
             continue
-        tool_name = getattr(message, "tool_name", None)
-        if not is_report_completion_status_tool(tool_name):
+        if _is_creation_intent(text):
+            creation_start_index = index
             continue
-        for candidate in _extract_report_candidates(message):
-            report = coerce_completion_status_report(candidate)
-            if report is not None:
-                return report
-    return None
-
-
-def _extract_report_candidates(message: Any) -> list[object]:
-    result = getattr(message, "result", None)
-    if not isinstance(result, dict):
-        return []
-    candidates: list[object] = []
-    structured_content = result.get("structuredContent")
-    if isinstance(structured_content, dict):
-        candidates.append(structured_content)
-    candidates.append(result)
-    return candidates
-
-
-def _messages_after_latest_assistant(messages: list[Any]) -> list[Any]:
-    for index in range(len(messages) - 1, -1, -1):
-        if _normalize_role(messages[index]) == "assistant":
-            return messages[index + 1 :]
-    return messages
-
-
-def _extract_assistant_text(message: AssistantChatMessage) -> str:
-    text_blocks: list[str] = []
-    for block in message.content:
-        if block.type != "text":
+        if creation_start_index is None:
             continue
-        normalized = block.text.strip()
-        if normalized:
-            text_blocks.append(normalized)
-    return "\n".join(text_blocks)
+        prior_assistant_text = _resolve_adjacent_assistant_text(messages, index)
+        if _is_creation_clarification(text, prior_assistant_text):
+            continue
+        if _is_question_pivot(text):
+            creation_start_index = None
+            continue
+        if _is_explicit_non_creation_task_switch(text):
+            creation_start_index = None
+    return creation_start_index
 
 
-def _is_completion_claim_text(text: str) -> bool:
-    normalized = text.strip()
-    if not normalized:
+def _is_creation_intent(text: str) -> bool:
+    return bool(_CREATION_VERB_RE.search(text) and _CREATION_OBJECT_RE.search(text))
+
+
+def _is_explicit_non_creation_task_switch(text: str) -> bool:
+    if _is_creation_intent(text):
         return False
-    if normalized.lower().startswith("[error]"):
+    return bool(_NON_CREATION_TASK_SWITCH_RE.search(text))
+
+
+def _is_creation_clarification(
+    text: str,
+    prior_assistant_text: str | None = None,
+) -> bool:
+    if not _CREATION_CLARIFICATION_RE.search(text):
         return False
-    if _NEGATED_COMPLETION_PATTERN.search(normalized):
+    if _CREATION_CLARIFICATION_CONTEXT_RE.search(text):
+        return True
+    if not prior_assistant_text:
         return False
-    return _COMPLETION_WORD_PATTERN.search(normalized) is not None
+    if "?" not in prior_assistant_text:
+        return False
+    return bool(_CREATION_CLARIFICATION_CONTEXT_RE.search(prior_assistant_text))
+
+
+def _resolve_adjacent_assistant_text(messages: list[Any], index: int) -> str | None:
+    if index <= 0:
+        return None
+    prior_message = messages[index - 1]
+    if _normalize_role(prior_message) != "assistant":
+        return None
+    text = _extract_text_from_message(prior_message)
+    return text or None
+
+
+def _is_question_pivot(text: str) -> bool:
+    return bool(_QUESTION_PIVOT_RE.search(text))
+
+
+def _resolve_verification_status(
+    prior_messages: list[Any],
+    assistant_text: str,
+) -> str:
+    if _CHECK_RE.search(assistant_text):
+        assistant_status = _resolve_text_verification_status(assistant_text)
+        if assistant_status is None:
+            return "missing"
+        return assistant_status
+
+    candidate_texts: list[str] = []
+    for message in reversed(prior_messages):
+        role = _normalize_role(message)
+        if role == "user":
+            continue
+        text = _extract_text_from_message(message)
+        if text:
+            candidate_texts.append(text)
+
+    for text in candidate_texts:
+        if not _CHECK_RE.search(text):
+            continue
+        status = _resolve_text_verification_status(text)
+        if status is not None:
+            return status
+    return "missing"
+
+
+def _resolve_text_verification_status(text: str) -> str | None:
+    latest_signal: tuple[int, str] | None = None
+    for match in _FAIL_RE.finditer(text):
+        if latest_signal is None or match.start() >= latest_signal[0]:
+            latest_signal = (match.start(), "failed")
+    for match in _PASS_RE.finditer(text):
+        if latest_signal is None or match.start() >= latest_signal[0]:
+            latest_signal = (match.start(), "passed")
+    if latest_signal is None:
+        return None
+    return latest_signal[1]
 
 
 def _replace_assistant_text(
@@ -160,6 +240,21 @@ def _replace_assistant_text(
         assistant_message.content[index] = MessageTextContent(text=next_text)
         return
     assistant_message.content.insert(0, MessageTextContent(text=next_text))
+
+
+def _extract_text_from_message(message: Any) -> str:
+    content = getattr(message, "content", None)
+    if not isinstance(content, list):
+        return ""
+    text_blocks: list[str] = []
+    for block in content:
+        block_type = getattr(block, "type", None)
+        if block_type != "text":
+            continue
+        text = getattr(block, "text", None)
+        if isinstance(text, str) and text.strip():
+            text_blocks.append(text.strip())
+    return "\n".join(text_blocks)
 
 
 def _normalize_role(message: Any) -> str | None:
