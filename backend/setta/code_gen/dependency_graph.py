@@ -1,6 +1,6 @@
 import logging
+import json
 from abc import ABC, abstractmethod
-from ast import literal_eval
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from itertools import islice
@@ -57,78 +57,19 @@ from setta.types.project_state import (
 from setta.types.section_impls import (
     BaseParentSectionImpl,
     BaseSectionImpl,
-    BaseSectionWithParamsImpl,
     ChatSectionImpl,
     ChatSectionState,
     DrawSectionImpl,
     ImageSectionImpl,
+    PluginSectionImpl,
     PromptSectionImpl,
     SectionType,
-    SpreadsheetSectionImpl,
-    TaskBoardSectionImpl,
     TextBlockSectionImpl,
 )
 from setta.utils.constants import C
 from setta.utils.utils import replace_at_positions
 
 logger = logging.getLogger(__name__)
-
-
-_STRING_TYPE_ANNOTATION_TOKENS = frozenset({"str", "builtins.str"})
-_NONE_TYPE_ANNOTATION_TOKENS = frozenset({"none", "nonetype", "types.nonetype"})
-
-
-def _is_string_type_annotation(type_annotation: str) -> bool:
-    normalized = type_annotation.replace(" ", "").lower()
-    if normalized in _STRING_TYPE_ANNOTATION_TOKENS:
-        return True
-
-    annotated_prefixes = ("annotated[", "typing.annotated[")
-    for prefix in annotated_prefixes:
-        if normalized.startswith(prefix) and normalized.endswith("]"):
-            first_arg = normalized[len(prefix) : -1].split(",", 1)[0]
-            return first_arg in _STRING_TYPE_ANNOTATION_TOKENS
-
-    optional_prefixes = ("optional[", "typing.optional[")
-    for prefix in optional_prefixes:
-        if normalized.startswith(prefix) and normalized.endswith("]"):
-            inner = normalized[len(prefix) : -1]
-            return inner in _STRING_TYPE_ANNOTATION_TOKENS
-
-    union_prefixes = ("union[", "typing.union[")
-    for prefix in union_prefixes:
-        if normalized.startswith(prefix) and normalized.endswith("]"):
-            members = [member for member in normalized[len(prefix) : -1].split(",")]
-            return any(
-                member in _STRING_TYPE_ANNOTATION_TOKENS for member in members
-            ) and all(
-                member in _STRING_TYPE_ANNOTATION_TOKENS
-                or member in _NONE_TYPE_ANNOTATION_TOKENS
-                for member in members
-            )
-
-    if "|" in normalized:
-        members = normalized.split("|")
-        return any(
-            member in _STRING_TYPE_ANNOTATION_TOKENS for member in members
-        ) and all(
-            member in _STRING_TYPE_ANNOTATION_TOKENS
-            or member in _NONE_TYPE_ANNOTATION_TOKENS
-            for member in members
-        )
-
-    return False
-
-
-def _is_quoted_string_literal(value: str) -> bool:
-    stripped = value.strip()
-    if stripped == "":
-        return False
-    try:
-        parsed = literal_eval(stripped)
-    except (ValueError, SyntaxError):
-        return False
-    return isinstance(parsed, str)
 
 
 @dataclass
@@ -218,10 +159,9 @@ class DependencyGraph:
             SectionType.Prompt: self._export_prompt_section,
             SectionType.Draw: self._export_draw_section,
             SectionType.Image: self._export_image_section,
+            SectionType.Plugin: self._export_plugin_section,
             SectionType.MetaControl: self._export_meta_control_section,
             SectionType.Chat: self._export_chat_section,
-            SectionType.TaskBoard: self._export_task_board_section,
-            SectionType.Spreadsheet: self._export_spreadsheet_section,
         }
         self.section_policy = get_section_codegen_policy(p.projectConfig)
         self.code_obj_value_policy = get_code_obj_value_policy(p.projectConfig)
@@ -384,6 +324,25 @@ class DependencyGraph:
         )
         self.add_to_graph(ctx.dep_key, node)
 
+    def _export_plugin_section(self, ctx: SectionExportContext):
+        section_impl = ctx.section_impl
+        if not isinstance(section_impl, PluginSectionImpl):
+            return
+        node = SectionNode(
+            id=ctx.section_id,
+            name=ctx.section_name,
+            full_path_name=ctx.full_path_name,
+            type=section_impl.type,
+            isTopLevel=ctx.is_top_level,
+            value=LiteralDependencyValue(
+                json.dumps(section_impl.data, sort_keys=True)
+            ),
+            deps={},
+            representation=ctx.codegen_policy.representation,
+            include_in_codegen=ctx.codegen_policy.include_in_codegen,
+        )
+        self.add_to_graph(ctx.dep_key, node)
+
     def _export_prompt_section(self, ctx: SectionExportContext):
         section_impl = ctx.section_impl
         if not isinstance(section_impl, PromptSectionImpl):
@@ -524,74 +483,6 @@ class DependencyGraph:
         )
         self.add_to_graph(ctx.dep_key, node)
 
-    def _export_task_board_section(self, ctx: SectionExportContext):
-        section_impl = ctx.section_impl
-        if not isinstance(section_impl, TaskBoardSectionImpl):
-            return
-        payload = {
-            "viewMode": section_impl.viewMode.value,
-            "columns": [
-                {
-                    "id": str(column.id),
-                    "name": column.name,
-                    "color": column.color,
-                    "sortIndex": column.sortIndex,
-                }
-                for column in section_impl.columns
-            ],
-            "tasks": [
-                {
-                    "id": str(task.id),
-                    "title": task.title,
-                    "description": task.description,
-                    "completed": task.completed,
-                    "columnId": str(task.columnId)
-                    if task.columnId is not None
-                    else None,
-                    "dueDateIso": task.dueDateIso,
-                    "sortIndex": task.sortIndex,
-                }
-                for task in section_impl.tasks
-            ],
-        }
-        node = SectionNode(
-            id=ctx.section_id,
-            name=ctx.section_name,
-            full_path_name=ctx.full_path_name,
-            type=section_impl.type,
-            isTopLevel=ctx.is_top_level,
-            value=LiteralDependencyValue(repr(payload)),
-            deps={},
-            representation=ctx.codegen_policy.representation,
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
-        )
-        self.add_to_graph(ctx.dep_key, node)
-
-    def _export_spreadsheet_section(self, ctx: SectionExportContext):
-        section_impl = ctx.section_impl
-        if not isinstance(section_impl, SpreadsheetSectionImpl):
-            return
-        payload = {
-            "filePath": section_impl.filePath,
-            "activeSheet": section_impl.activeSheet,
-            "readOnly": section_impl.readOnly,
-            "showRowNumbers": section_impl.showRowNumbers,
-            "density": section_impl.density.value,
-            "autoReloadOnExternalChange": section_impl.autoReloadOnExternalChange,
-        }
-        node = SectionNode(
-            id=ctx.section_id,
-            name=ctx.section_name,
-            full_path_name=ctx.full_path_name,
-            type=section_impl.type,
-            isTopLevel=ctx.is_top_level,
-            value=LiteralDependencyValue(repr(payload)),
-            deps={},
-            representation=ctx.codegen_policy.representation,
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
-        )
-        self.add_to_graph(ctx.dep_key, node)
-
     def _export_meta_control_section(self, ctx: SectionExportContext):
         section_impl = get_curr_meta_control_impl_with_type_guard(
             ctx.project_state, ctx.section_id
@@ -674,11 +565,6 @@ class DependencyGraph:
         include_in_codegen: bool = True,
     ):
         output_deps = {}
-        section_impl = get_curr_effective_section_impl(p, sectionId)
-        allow_unquoted_string_args = (
-            isinstance(section_impl, BaseSectionWithParamsImpl)
-            and section_impl.allowUnquotedStringArgs
-        )
         for idx, pid in enumerate(paramIds):
             dep_key = create_dep_key(sectionId=sectionId, codeObjId=pid)
             param_node = self.get_node(dep_key)
@@ -701,15 +587,6 @@ class DependencyGraph:
                     pid,
                     code_obj_impl.type,
                 ).representation
-                if (
-                    allow_unquoted_string_args
-                    and code_obj_impl.type is CodeObjType.CodeParam
-                    and value_representation
-                    is CodeObjValueRepresentationMode.expression
-                    and _is_string_type_annotation(code_obj_impl.typeAnnotation)
-                    and not _is_quoted_string_literal(raw_value)
-                ):
-                    value_representation = CodeObjValueRepresentationMode.string
                 has_secret = False
                 if code_obj_impl.type is CodeObjType.PasswordParam:
                     secret_key = str(code_obj_impl.id)

@@ -10,8 +10,8 @@ import { useProjectState } from "state/definitions";
 import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
 import { useShareCapabilities } from "state/hooks/share";
 import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
+import { route_change_param_impl } from "utils/generatedEndpoints";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
-import { applyUiTypeComboboxSelection } from "./applyUiTypeComboboxSelection";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 import type { CodeObjTypeFilterKey } from "./UITypeCombobox";
 
@@ -98,7 +98,7 @@ function _UIElement({
     if (!selectedId) {
       throw new Error();
     }
-    void applyUiTypeComboboxSelection({
+    route_change_param_impl({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
       paramInfoId,

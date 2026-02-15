@@ -1,4 +1,3 @@
-import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import _ from "lodash";
@@ -27,7 +26,6 @@ import { C } from "utils/c";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_output_accessor_completion,
-  route_set_section_allow_unquoted_string_args,
   route_set_section_edge_inputs,
   route_set_section_edge_outputs,
   route_set_variant_json_source_keys,
@@ -96,7 +94,6 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     isJsonSource,
     variantId,
     allowJsonSourceKeyEdits,
-    allowUnquotedStringArgs,
   } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       state,
@@ -131,7 +128,6 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
       isJsonSource,
       variantId,
       allowJsonSourceKeyEdits: state.projectConfig.allowJsonSourceKeyEdits,
-      allowUnquotedStringArgs: impl.allowUnquotedStringArgs,
     };
   }, _.isEqual);
 
@@ -373,48 +369,8 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
   );
   const tooltipParentDivId = `edge-output-ports-${sectionId}`;
 
-  function onToggleAllowUnquotedStringArgs(value: boolean) {
-    if (!canEditStructure) {
-      return;
-    }
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        setCurrEffectiveSectionImplValue<"BaseSectionWithParams">(
-          state,
-          sectionId,
-          { allowUnquotedStringArgs: value },
-        );
-      },
-      send: (frontendOpId) =>
-        route_set_section_allow_unquoted_string_args({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          allowUnquotedStringArgs: value,
-          frontendOpId,
-        }),
-    });
-  }
-
   return (
     <section className="flex flex-col gap-4">
-      <div className="rounded-md border border-blue-100 bg-blue-50/60 p-3 dark:border-setta-700/40 dark:bg-blue-950/30">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-blue-600/70 dark:text-blue-300/60">
-              String Args
-            </h4>
-            <p className="mt-1 text-[0.7rem] text-blue-700/70 dark:text-blue-200/70">
-              When enabled, string-typed code params accept unquoted values.
-            </p>
-          </div>
-          <SwitchInput
-            value={allowUnquotedStringArgs}
-            onChange={onToggleAllowUnquotedStringArgs}
-            isDisabled={!canEditStructure}
-            outerDivClassName="flex items-center"
-          />
-        </div>
-      </div>
       {isJsonSource && (
         <div className="rounded-md border border-orange-100 bg-orange-50/60 p-3 dark:border-setta-700/40 dark:bg-orange-950/30">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-orange-600/70 dark:text-orange-300/70">
