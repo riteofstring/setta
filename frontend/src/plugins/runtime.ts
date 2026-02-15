@@ -1,6 +1,7 @@
 import _ from "lodash";
 import { useEffect } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
+import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
 import { useProjectState, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
@@ -10,6 +11,10 @@ import {
   route_plugins_status,
 } from "utils/generatedEndpoints";
 import {
+  BaseDependencyKeyUnion,
+  BaseDependencyValueUnion,
+  DependencyKeyTypeEnum,
+  DependencyValueTypeEnum,
   PluginBlockedCapability,
   PluginListEntry,
   PluginListResponse,
@@ -17,19 +22,20 @@ import {
   PluginRuntimeStateEnum,
   PluginStatusEntry,
   PluginStatusResponse,
+  SectionDependencyKey,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { createWithEqualityFn } from "zustand/traditional";
+import { createStore, type StateCreator, type StoreApi } from "zustand/vanilla";
 import {
   isPluginPaneIconName,
   PluginPaneIconNameEnum,
   type PluginPaneIconName,
 } from "./paneIcons";
-import { createStore, type StateCreator, type StoreApi } from "zustand/vanilla";
 
 export { type PluginPaneIconName } from "./paneIcons";
 
-const PLUGIN_FRONTEND_API_VERSION = 1;
+export const PLUGIN_FRONTEND_API_VERSION = 1;
 
 export const PluginFrontendErrorCodeEnum = {
   RegistrationInvalid: "PLUGIN_FRONTEND_REGISTRATION_INVALID",
@@ -51,9 +57,9 @@ export const PluginSectionFallbackReasonEnum = {
 type PluginSectionFallbackReason =
   (typeof PluginSectionFallbackReasonEnum)[keyof typeof PluginSectionFallbackReasonEnum];
 
-type PluginServerMode = "ide" | "share" | "app";
+export type PluginServerMode = "ide" | "share" | "app";
 
-type PluginSectionProps = {
+export type PluginSectionProps = {
   sectionId: string;
   pluginId: string;
   kind: string;
@@ -63,13 +69,13 @@ type PluginSectionProps = {
   effectiveCapabilities: string[];
 };
 
-type PluginSectionRenderer = {
+export type PluginSectionRenderer = {
   mount: (el: HTMLElement, props: PluginSectionProps) => void;
   update?: (el: HTMLElement, props: PluginSectionProps) => void;
   unmount?: (el: HTMLElement) => void;
 };
 
-type PluginSectionKindDefinition = {
+export type PluginSectionKindDefinition = {
   kind: string;
   title: string;
   description?: string;
@@ -81,7 +87,7 @@ export type RegisteredPluginSectionKind = PluginSectionKindDefinition & {
   pluginId: string;
 };
 
-type PluginPaneProps = {
+export type PluginPaneProps = {
   pluginId: string;
   serverMode: PluginServerMode;
   effectiveCapabilities: string[];
@@ -93,7 +99,7 @@ type PluginPaneRenderer = {
   unmount?: (el: HTMLElement) => void;
 };
 
-type PluginPaneDefinition = {
+export type PluginPaneDefinition = {
   id: string;
   title: string;
   description?: string;
@@ -105,7 +111,7 @@ export type RegisteredPluginPane = PluginPaneDefinition & {
   pluginId: string;
 };
 
-type PluginCommandDefinition = {
+export type PluginCommandDefinition = {
   id: string;
   title: string;
   description?: string;
@@ -147,7 +153,31 @@ type PluginProjectContext = {
   serverMode: PluginServerMode;
 };
 
-type SettaPluginHost = {
+export type PluginProjectStateSelector =
+  | { kind: "projectConfig" }
+  | { kind: "activeSectionIds" }
+  | { kind: "section"; sectionId: string }
+  | { kind: "sections"; sectionIds: string[] }
+  | { kind: "singletonSections" }
+  | { kind: "full" };
+
+export type PluginProjectStateSubscriptionOptions = {
+  fireImmediately?: boolean;
+  throttleMs?: number;
+};
+
+export type PluginRealtimeDependencyEvent = {
+  dependencyKey: BaseDependencyKeyUnion;
+  payload?: BaseDependencyValueUnion | null;
+  binaryPayload?: ArrayBuffer;
+  timestampMs?: number;
+};
+
+export type PluginSectionRealtimeEmitOptions = {
+  timestampMs?: number;
+};
+
+export type SettaPluginHost = {
   apiVersion: number;
   pluginId: string;
   serverMode: PluginServerMode;
@@ -164,6 +194,18 @@ type SettaPluginHost = {
   subscribeProjectContext: (
     listener: (context: PluginProjectContext) => void,
   ) => () => void;
+  readProjectState: (selector: PluginProjectStateSelector) => unknown;
+  subscribeProjectState: (
+    selector: Exclude<PluginProjectStateSelector, { kind: "full" }>,
+    listener: (nextValue: unknown, prevValue: unknown | null) => void,
+    options?: PluginProjectStateSubscriptionOptions,
+  ) => () => void;
+  emitRealtimeDependencyEvent: (event: PluginRealtimeDependencyEvent) => void;
+  emitSectionRealtimeValue: (
+    sectionId: string,
+    value: unknown,
+    options?: PluginSectionRealtimeEmitOptions,
+  ) => void;
   readSection: (sectionId: string) => Record<string, unknown>;
   updateSection: (
     sectionId: string,
@@ -234,9 +276,13 @@ const sectionKindCapability = "registerSectionKinds";
 const paneCapability = "registerPane";
 const commandCapability = "registerCommand";
 const topNavBarCapability = "registerTopNavBarItem";
+const readProjectStateCapability = "readProjectState";
+const subscribeProjectStateCapability = "subscribeProjectState";
+const emitListenerEventsCapability = "emitListenerEvents";
 
 const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
+const cleanupByPluginId = new Map<string, Set<() => void>>();
 let pluginRuntimeLoadPromise: Promise<void> | null = null;
 
 export const usePluginRuntimeStore = createWithEqualityFn<PluginRuntimeStore>(
@@ -265,6 +311,7 @@ export async function refreshPluginRuntime(): Promise<void> {
 }
 
 async function loadPluginRuntime(): Promise<void> {
+  runAllPluginCleanup();
   usePluginRuntimeStore.setState((state) => ({
     ...state,
     status: "loading",
@@ -419,11 +466,239 @@ async function loadPluginFrontendModule(
       registryDelta,
     };
   } catch (error) {
+    runPluginCleanup(plugin.pluginId);
     return {
       error: toPluginFrontendLoadError(plugin.pluginId, error),
       registryDelta: null,
     };
   }
+}
+
+function registerPluginCleanup(
+  pluginId: string,
+  cleanup: () => void,
+): () => void {
+  let cleanups = cleanupByPluginId.get(pluginId);
+  if (!cleanups) {
+    cleanups = new Set<() => void>();
+    cleanupByPluginId.set(pluginId, cleanups);
+  }
+  cleanups.add(cleanup);
+  return () => {
+    const existing = cleanupByPluginId.get(pluginId);
+    if (!existing) {
+      return;
+    }
+    existing.delete(cleanup);
+    if (existing.size === 0) {
+      cleanupByPluginId.delete(pluginId);
+    }
+  };
+}
+
+function runPluginCleanup(pluginId: string): void {
+  const cleanups = cleanupByPluginId.get(pluginId);
+  if (!cleanups) {
+    return;
+  }
+  cleanupByPluginId.delete(pluginId);
+  for (const cleanup of cleanups) {
+    cleanup();
+  }
+}
+
+function runAllPluginCleanup(): void {
+  if (cleanupByPluginId.size === 0) {
+    return;
+  }
+  for (const pluginId of Array.from(cleanupByPluginId.keys())) {
+    runPluginCleanup(pluginId);
+  }
+}
+
+function normalizeProjectStateSelector(
+  pluginId: string,
+  selector: PluginProjectStateSelector,
+): PluginProjectStateSelector {
+  if (!selector || typeof selector !== "object" || Array.isArray(selector)) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} provided an invalid project state selector.`,
+    );
+  }
+  const rawKind = (selector as { kind?: unknown }).kind;
+  if (typeof rawKind !== "string" || rawKind.trim() === "") {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `Plugin ${pluginId} project state selector is missing kind.`,
+    );
+  }
+  const kind = rawKind.trim();
+  if (kind === "projectConfig" || kind === "activeSectionIds") {
+    return { kind };
+  }
+  if (kind === "singletonSections" || kind === "full") {
+    return { kind };
+  }
+  if (kind === "section") {
+    const sectionId = requireNonEmptyString(
+      (selector as { sectionId?: unknown }).sectionId,
+      `Plugin ${pluginId} section selector missing sectionId.`,
+    );
+    return {
+      kind,
+      sectionId,
+    };
+  }
+  if (kind === "sections") {
+    const sectionIdsRaw = (selector as { sectionIds?: unknown }).sectionIds;
+    if (!Array.isArray(sectionIdsRaw)) {
+      throw new PluginRuntimeError(
+        PluginFrontendErrorCodeEnum.RegistrationInvalid,
+        `Plugin ${pluginId} sections selector must provide sectionIds array.`,
+      );
+    }
+    const sectionIds: string[] = [];
+    for (const rawSectionId of sectionIdsRaw) {
+      sectionIds.push(
+        requireNonEmptyString(
+          rawSectionId,
+          `Plugin ${pluginId} sections selector contains invalid sectionId.`,
+        ),
+      );
+    }
+    return {
+      kind,
+      sectionIds,
+    };
+  }
+  throw new PluginRuntimeError(
+    PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    `Plugin ${pluginId} project state selector kind ${kind} is unsupported.`,
+  );
+}
+
+function getRawSelectedProjectState(
+  state: ReturnType<typeof useProjectState.getState>,
+  selector: PluginProjectStateSelector,
+): unknown {
+  if (selector.kind === "projectConfig") {
+    return state.projectConfig;
+  }
+  if (selector.kind === "activeSectionIds") {
+    return state.projectConfig.activeIds;
+  }
+  if (selector.kind === "singletonSections") {
+    return state.singletonSections;
+  }
+  if (selector.kind === "full") {
+    return state;
+  }
+  if (selector.kind === "section") {
+    const sectionId = selector.sectionId;
+    const variantId = state.projectConfig.sectionVariantMap[sectionId];
+    if (!variantId) {
+      return null;
+    }
+    const variant = state.sectionVariants[variantId];
+    if (!variant) {
+      return null;
+    }
+    const impl = state.sectionImpls[variant.impl];
+    if (!impl) {
+      return null;
+    }
+    return impl;
+  }
+  return selector.sectionIds.map((sectionId) => {
+    const variantId = state.projectConfig.sectionVariantMap[sectionId];
+    if (!variantId) {
+      return null;
+    }
+    const variant = state.sectionVariants[variantId];
+    if (!variant) {
+      return null;
+    }
+    const impl = state.sectionImpls[variant.impl];
+    if (!impl) {
+      return null;
+    }
+    return impl;
+  });
+}
+
+function projectStateSubscriptionEquality(
+  selector: Exclude<PluginProjectStateSelector, { kind: "full" }>,
+): ((left: unknown, right: unknown) => boolean) | undefined {
+  if (selector.kind !== "sections") {
+    return undefined;
+  }
+  return (left, right) => {
+    if (!Array.isArray(left) || !Array.isArray(right)) {
+      return false;
+    }
+    if (left.length !== right.length) {
+      return false;
+    }
+    for (let index = 0; index < left.length; index += 1) {
+      if (left[index] !== right[index]) {
+        return false;
+      }
+    }
+    return true;
+  };
+}
+
+function toProjectStateReadValue(
+  selector: PluginProjectStateSelector,
+  rawValue: unknown,
+): unknown {
+  if (selector.kind !== "sections") {
+    return structuredClone(rawValue);
+  }
+  if (!Array.isArray(rawValue)) {
+    return {};
+  }
+  const snapshot: Record<string, unknown> = {};
+  for (let index = 0; index < selector.sectionIds.length; index += 1) {
+    const sectionId = selector.sectionIds[index];
+    const value = rawValue[index] ?? null;
+    snapshot[sectionId] = value === null ? null : structuredClone(value);
+  }
+  return snapshot;
+}
+
+function toProjectStateSubscriptionValue(
+  selector: Exclude<PluginProjectStateSelector, { kind: "full" }>,
+  rawValue: unknown,
+): unknown {
+  if (selector.kind !== "sections") {
+    if (rawValue === undefined) {
+      return null;
+    }
+    return structuredClone(rawValue);
+  }
+  if (!Array.isArray(rawValue)) {
+    return {};
+  }
+  const snapshot: Record<string, unknown> = {};
+  for (let index = 0; index < selector.sectionIds.length; index += 1) {
+    const sectionId = selector.sectionIds[index];
+    const value = rawValue[index] ?? null;
+    snapshot[sectionId] = value === null ? null : structuredClone(value);
+  }
+  return snapshot;
+}
+
+function toLiteralRealtimePayload(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  const serialized = JSON.stringify(value);
+  if (typeof serialized === "string") {
+    return serialized;
+  }
+  return "null";
 }
 
 function registerPluginModule({
@@ -576,9 +851,204 @@ function registerPluginModule({
     subscribeProjectContext: (listener) => {
       const emit = () => listener(host.getProjectContext());
       const unsubscribe = useProjectState.subscribe(emit);
+      const unregisterCleanup = registerPluginCleanup(
+        plugin.pluginId,
+        unsubscribe,
+      );
       return () => {
+        unregisterCleanup();
         unsubscribe();
       };
+    },
+    readProjectState: (selector) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        readProjectStateCapability,
+        "readProjectState",
+      );
+      const normalizedSelector = normalizeProjectStateSelector(
+        plugin.pluginId,
+        selector,
+      );
+      const rawValue = getRawSelectedProjectState(
+        useProjectState.getState(),
+        normalizedSelector,
+      );
+      return toProjectStateReadValue(normalizedSelector, rawValue);
+    },
+    subscribeProjectState: (selector, listener, options) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        subscribeProjectStateCapability,
+        "subscribeProjectState",
+      );
+      const normalizedSelector = normalizeProjectStateSelector(
+        plugin.pluginId,
+        selector,
+      );
+      if (normalizedSelector.kind === "full") {
+        throw new PluginRuntimeError(
+          PluginFrontendErrorCodeEnum.RegistrationInvalid,
+          `Plugin ${plugin.pluginId} cannot subscribe with selector kind full.`,
+        );
+      }
+      const fireImmediately = options?.fireImmediately ?? true;
+      const throttleMs = options?.throttleMs ?? 0;
+      if (!Number.isFinite(throttleMs) || throttleMs < 0) {
+        throw new PluginRuntimeError(
+          PluginFrontendErrorCodeEnum.RegistrationInvalid,
+          `Plugin ${plugin.pluginId} subscribeProjectState throttleMs must be ` +
+            "a non-negative finite number.",
+        );
+      }
+
+      let notify = (nextRawValue: unknown, prevRawValue: unknown): void => {
+        const nextValue = toProjectStateSubscriptionValue(
+          normalizedSelector,
+          nextRawValue,
+        );
+        let prevValue: unknown | null = null;
+        if (prevRawValue !== undefined) {
+          prevValue = toProjectStateSubscriptionValue(
+            normalizedSelector,
+            prevRawValue,
+          );
+        }
+        listener(nextValue, prevValue);
+      };
+      let cancelThrottle: (() => void) | null = null;
+      if (throttleMs > 0) {
+        const throttledNotify = _.throttle(notify, throttleMs, {
+          leading: true,
+          trailing: true,
+        });
+        notify = throttledNotify;
+        cancelThrottle = () => throttledNotify.cancel();
+      }
+      const unsubscribe = useProjectState.subscribe(
+        (state) => getRawSelectedProjectState(state, normalizedSelector),
+        (nextRawValue, prevRawValue) => notify(nextRawValue, prevRawValue),
+        {
+          fireImmediately,
+          equalityFn: projectStateSubscriptionEquality(normalizedSelector),
+        },
+      );
+      const cleanup = () => {
+        unsubscribe();
+        if (cancelThrottle) {
+          cancelThrottle();
+        }
+      };
+      const unregisterCleanup = registerPluginCleanup(plugin.pluginId, cleanup);
+      return () => {
+        unregisterCleanup();
+        cleanup();
+      };
+    },
+    emitRealtimeDependencyEvent: (event) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        emitListenerEventsCapability,
+        "emitRealtimeDependencyEvent",
+      );
+      if (!event || typeof event !== "object" || Array.isArray(event)) {
+        throw new PluginRuntimeError(
+          PluginFrontendErrorCodeEnum.RegistrationInvalid,
+          `Plugin ${plugin.pluginId} emitRealtimeDependencyEvent requires an object payload.`,
+        );
+      }
+      const dependencyKey = (event as { dependencyKey?: unknown })
+        .dependencyKey;
+      if (!dependencyKey || typeof dependencyKey !== "object") {
+        throw new PluginRuntimeError(
+          PluginFrontendErrorCodeEnum.RegistrationInvalid,
+          `Plugin ${plugin.pluginId} emitRealtimeDependencyEvent requires a ` +
+            "dependencyKey object.",
+        );
+      }
+      const payload = (event as { payload?: unknown }).payload;
+      const binaryPayload = (event as { binaryPayload?: unknown })
+        .binaryPayload;
+      if (
+        binaryPayload !== undefined &&
+        !(binaryPayload instanceof ArrayBuffer)
+      ) {
+        throw new PluginRuntimeError(
+          PluginFrontendErrorCodeEnum.RegistrationInvalid,
+          `Plugin ${plugin.pluginId} emitRealtimeDependencyEvent binaryPayload must be ` +
+            "an ArrayBuffer.",
+        );
+      }
+      if (
+        payload &&
+        typeof payload === "object" &&
+        "type" in payload &&
+        (payload as { type?: unknown }).type ===
+          DependencyValueTypeEnum.Binary &&
+        !(binaryPayload instanceof ArrayBuffer)
+      ) {
+        throw new PluginRuntimeError(
+          PluginFrontendErrorCodeEnum.RegistrationInvalid,
+          `Plugin ${plugin.pluginId} emitRealtimeDependencyEvent requires ` +
+            "binaryPayload for Binary payloads.",
+        );
+      }
+      const timestampMs = (event as { timestampMs?: unknown }).timestampMs;
+      if (
+        timestampMs !== undefined &&
+        (!Number.isFinite(timestampMs) || Number.isNaN(timestampMs))
+      ) {
+        throw new PluginRuntimeError(
+          PluginFrontendErrorCodeEnum.RegistrationInvalid,
+          `Plugin ${plugin.pluginId} emitRealtimeDependencyEvent timestampMs must be ` +
+            "a finite number.",
+        );
+      }
+      sendRealtimeDependencyEvent({
+        dependencyKey: dependencyKey as BaseDependencyKeyUnion,
+        payload:
+          (payload as BaseDependencyValueUnion | null | undefined) ?? null,
+        binaryPayload: binaryPayload as ArrayBuffer | undefined,
+        timestampMs: timestampMs as number | undefined,
+      });
+    },
+    emitSectionRealtimeValue: (sectionId, value, options) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        emitListenerEventsCapability,
+        "emitSectionRealtimeValue",
+      );
+      const normalizedSectionId = requireNonEmptyString(
+        sectionId,
+        `Plugin ${plugin.pluginId} emitSectionRealtimeValue requires sectionId.`,
+      );
+      const timestampMs = options?.timestampMs;
+      if (
+        timestampMs !== undefined &&
+        (!Number.isFinite(timestampMs) || Number.isNaN(timestampMs))
+      ) {
+        throw new PluginRuntimeError(
+          PluginFrontendErrorCodeEnum.RegistrationInvalid,
+          `Plugin ${plugin.pluginId} emitSectionRealtimeValue timestampMs must be ` +
+            "a finite number.",
+        );
+      }
+      const dependencyKey: SectionDependencyKey = {
+        type: DependencyKeyTypeEnum.Section,
+        sectionId: normalizedSectionId,
+      };
+      host.emitRealtimeDependencyEvent({
+        dependencyKey,
+        payload: {
+          type: DependencyValueTypeEnum.Literal,
+          payload: toLiteralRealtimePayload(value),
+        },
+        timestampMs,
+      });
     },
     readSection: (sectionId) => {
       const state = useProjectState.getState();
@@ -1254,6 +1724,7 @@ function isCapabilityBlocked(
 }
 
 export function resetPluginRuntimeStoreForTests(): void {
+  runAllPluginCleanup();
   for (const link of styleElementByPluginId.values()) {
     link.remove();
   }

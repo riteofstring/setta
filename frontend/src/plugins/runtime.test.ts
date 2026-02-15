@@ -20,6 +20,7 @@ import {
 } from "plugins/runtime";
 import React from "react";
 import { renderToString } from "react-dom/server";
+import * as websocketReceive from "state/actions/websocketReceive";
 import { useProjectState, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import * as generatedEndpoints from "utils/generatedEndpoints";
@@ -30,6 +31,8 @@ import {
   createPluginStatusEntry,
   createUserDefaultDictSectionImpl,
   createVariant,
+  DependencyKeyTypeEnum,
+  DependencyValueTypeEnum,
   PluginRuntimeStateEnum,
   SectionTypeEnum,
   type PluginListEntry,
@@ -135,6 +138,23 @@ type CapturedPluginHost = {
       serverMode: string;
     }) => void,
   ) => () => void;
+  readProjectState: (selector: Record<string, unknown>) => unknown;
+  subscribeProjectState: (
+    selector: Record<string, unknown>,
+    listener: (nextValue: unknown, prevValue: unknown | null) => void,
+    options?: {
+      fireImmediately?: boolean;
+      throttleMs?: number;
+    },
+  ) => () => void;
+  emitRealtimeDependencyEvent: (event: Record<string, unknown>) => void;
+  emitSectionRealtimeValue: (
+    sectionId: string,
+    value: unknown,
+    options?: {
+      timestampMs?: number;
+    },
+  ) => void;
   readSection: (sectionId: string) => Record<string, unknown>;
   updateSection: (
     sectionId: string,
@@ -268,6 +288,7 @@ describe("plugin runtime helpers", () => {
     vi.restoreAllMocks();
     useProjectState.setState((state) => {
       state.projectConfig.id = "project-config-before-each";
+      state.projectConfig.activeIds = [];
       state.projectConfig.sectionVariantMap = {};
       state.sections = {};
       state.sectionImpls = {};
@@ -286,10 +307,15 @@ describe("plugin runtime helpers", () => {
     vi.unstubAllGlobals();
     const globalScope = globalThis as {
       __settaCapturedPluginHost?: CapturedPluginHost;
+      __settaCleanupProbe?: {
+        callCount: number;
+      };
     };
     delete globalScope.__settaCapturedPluginHost;
+    delete globalScope.__settaCleanupProbe;
     useProjectState.setState((state) => {
       state.projectConfig.id = "project-config-after-each";
+      state.projectConfig.activeIds = [];
       state.projectConfig.sectionVariantMap = {};
       state.sections = {};
       state.sectionImpls = {};
@@ -1107,6 +1133,413 @@ describe("plugin runtime helpers", () => {
         serverMode: "ide",
       },
     ]);
+  });
+
+  it("supports readProjectState selectors and returns cloned snapshots", async () => {
+    const sectionId = "section-runtime-plugin-read";
+    seedRuntimePluginSectionState(sectionId);
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = [sectionId];
+    });
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["readProjectState"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    const projectConfigSnapshot = host.readProjectState({
+      kind: "projectConfig",
+    }) as {
+      id: string;
+      activeIds: string[];
+    };
+    expect(projectConfigSnapshot.id).toBe("project-config-plugin-initial");
+    projectConfigSnapshot.id = "mutated-client-only";
+    projectConfigSnapshot.activeIds.push("mutated");
+    const refreshedProjectConfig = host.readProjectState({
+      kind: "projectConfig",
+    }) as {
+      id: string;
+      activeIds: string[];
+    };
+    expect(refreshedProjectConfig.id).toBe("project-config-plugin-initial");
+    expect(refreshedProjectConfig.activeIds).toEqual([sectionId]);
+
+    const sectionSnapshot = host.readProjectState({
+      kind: "section",
+      sectionId,
+    }) as {
+      data: {
+        text: string;
+      };
+    };
+    sectionSnapshot.data.text = "mutated-client-only";
+    const refreshedSectionSnapshot = host.readProjectState({
+      kind: "section",
+      sectionId,
+    }) as {
+      data: {
+        text: string;
+      };
+    };
+    expect(refreshedSectionSnapshot.data.text).toBe("initial");
+
+    const sectionsSnapshot = host.readProjectState({
+      kind: "sections",
+      sectionIds: [sectionId, "missing-section"],
+    }) as Record<string, unknown>;
+    expect(sectionsSnapshot[sectionId]).toBeTypeOf("object");
+    expect(sectionsSnapshot["missing-section"]).toBeNull();
+  });
+
+  it("supports subscribeProjectState updates and unsubscribes cleanly", async () => {
+    const sectionId = "section-runtime-plugin-subscribe";
+    seedRuntimePluginSectionState(sectionId);
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = [];
+    });
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["subscribeProjectState"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    const updates: Array<{
+      nextValue: unknown;
+      prevValue: unknown | null;
+    }> = [];
+    const unsubscribe = host.subscribeProjectState(
+      { kind: "activeSectionIds" },
+      (nextValue, prevValue) => {
+        updates.push({
+          nextValue,
+          prevValue,
+        });
+      },
+      {
+        fireImmediately: false,
+      },
+    );
+
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = [sectionId];
+    });
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = [sectionId, "section-next"];
+    });
+    unsubscribe();
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = ["section-after-unsubscribe"];
+    });
+
+    expect(updates).toHaveLength(2);
+    expect(updates[0]).toEqual({
+      nextValue: [sectionId],
+      prevValue: [],
+    });
+    expect(updates[1]).toEqual({
+      nextValue: [sectionId, "section-next"],
+      prevValue: [sectionId],
+    });
+  });
+
+  it("rejects subscribeProjectState full selectors and invalid throttle options", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["subscribeProjectState"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    expectPluginFrontendErrorCode(
+      () =>
+        host.subscribeProjectState({ kind: "full" }, () => undefined, {
+          fireImmediately: false,
+        }),
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
+    expectPluginFrontendErrorCode(
+      () =>
+        host.subscribeProjectState(
+          { kind: "activeSectionIds" },
+          () => undefined,
+          {
+            throttleMs: -1,
+          },
+        ),
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
+  });
+
+  it("enforces capability checks for project-state and realtime emit host APIs", async () => {
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: [],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    expectPluginFrontendErrorCode(
+      () => host.readProjectState({ kind: "projectConfig" }),
+      PluginFrontendErrorCodeEnum.CapabilityDenied,
+    );
+    expectPluginFrontendErrorCode(
+      () =>
+        host.subscribeProjectState(
+          { kind: "activeSectionIds" },
+          () => undefined,
+          {
+            fireImmediately: false,
+          },
+        ),
+      PluginFrontendErrorCodeEnum.CapabilityDenied,
+    );
+    expectPluginFrontendErrorCode(
+      () =>
+        host.emitRealtimeDependencyEvent({
+          dependencyKey: {
+            type: DependencyKeyTypeEnum.Section,
+            sectionId: "section-capability",
+          },
+          payload: {
+            type: DependencyValueTypeEnum.Literal,
+            payload: "value",
+          },
+        }),
+      PluginFrontendErrorCodeEnum.CapabilityDenied,
+    );
+    expectPluginFrontendErrorCode(
+      () =>
+        host.emitSectionRealtimeValue("section-capability", {
+          signal: 1,
+        }),
+      PluginFrontendErrorCodeEnum.CapabilityDenied,
+    );
+  });
+
+  it("emits realtime dependency events through websocket action helpers", async () => {
+    const realtimeSpy = vi
+      .spyOn(websocketReceive, "sendRealtimeDependencyEvent")
+      .mockImplementation(() => undefined);
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["emitListenerEvents"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    host.emitSectionRealtimeValue(
+      "section-emit-wrapper",
+      { status: "ok", index: 3 },
+      {
+        timestampMs: 1234,
+      },
+    );
+    host.emitRealtimeDependencyEvent({
+      dependencyKey: {
+        type: DependencyKeyTypeEnum.Section,
+        sectionId: "section-emit-direct",
+      },
+      payload: {
+        type: DependencyValueTypeEnum.Literal,
+        payload: "direct",
+      },
+      timestampMs: 4321,
+    });
+
+    expect(realtimeSpy).toHaveBeenCalledTimes(2);
+    expect(realtimeSpy.mock.calls[0]?.[0]).toEqual({
+      dependencyKey: {
+        type: DependencyKeyTypeEnum.Section,
+        sectionId: "section-emit-wrapper",
+      },
+      payload: {
+        type: DependencyValueTypeEnum.Literal,
+        payload: '{"status":"ok","index":3}',
+      },
+      binaryPayload: undefined,
+      timestampMs: 1234,
+    });
+    expect(realtimeSpy.mock.calls[1]?.[0]).toEqual({
+      dependencyKey: {
+        type: DependencyKeyTypeEnum.Section,
+        sectionId: "section-emit-direct",
+      },
+      payload: {
+        type: DependencyValueTypeEnum.Literal,
+        payload: "direct",
+      },
+      binaryPayload: undefined,
+      timestampMs: 4321,
+    });
+
+    expectPluginFrontendErrorCode(
+      () =>
+        host.emitRealtimeDependencyEvent({
+          dependencyKey: {
+            type: DependencyKeyTypeEnum.Section,
+            sectionId: "section-invalid-binary",
+          },
+          payload: {
+            type: DependencyValueTypeEnum.Binary,
+            payload: {
+              contentId: "content-1",
+              byteLength: 12,
+              mimeType: "image/png",
+            },
+          },
+        }),
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
+  });
+
+  it("cleans active plugin subscriptions when runtime reloads", async () => {
+    const globalScope = globalThis as {
+      __settaCleanupProbe?: {
+        callCount: number;
+      };
+    };
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCleanupProbe = { callCount: 0 };\n" +
+          "  host.subscribeProjectState(\n" +
+          "    { kind: 'activeSectionIds' },\n" +
+          "    () => {\n" +
+          "      globalThis.__settaCleanupProbe.callCount += 1;\n" +
+          "    },\n" +
+          "    { fireImmediately: false }\n" +
+          "  );\n" +
+          "}\n",
+      );
+
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["subscribeProjectState"],
+    });
+    const pluginStatus = buildPluginStatusEntry({
+      pluginId: plugin.pluginId,
+      requestedCapabilities: ["subscribeProjectState"],
+      effectiveCapabilities: ["subscribeProjectState"],
+      blockedCapabilities: [],
+    });
+    let listPayload = buildPluginListResponse([plugin]);
+    let statusPayload = buildPluginStatusResponse([pluginStatus]);
+    vi.spyOn(generatedEndpoints, "route_plugins_list").mockImplementation(
+      async () => ({
+        data: listPayload,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+    vi.spyOn(generatedEndpoints, "route_plugins_status").mockImplementation(
+      async () => ({
+        data: statusPayload,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+
+    await refreshPluginRuntime();
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = ["section-after-first-load"];
+    });
+    expect(globalScope.__settaCleanupProbe?.callCount).toBe(1);
+
+    listPayload = buildPluginListResponse([]);
+    statusPayload = buildPluginStatusResponse([]);
+    await refreshPluginRuntime();
+    useProjectState.setState((state) => {
+      state.projectConfig.activeIds = ["section-after-cleanup"];
+    });
+    expect(globalScope.__settaCleanupProbe?.callCount).toBe(1);
   });
 
   it("rejects updateSection calls for non-plugin sections", async () => {
