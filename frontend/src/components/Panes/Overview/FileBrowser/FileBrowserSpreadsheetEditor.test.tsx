@@ -2,11 +2,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import {
   applySpreadsheetCellUpdates,
+  canSaveSpreadsheetDraft,
   getSpreadsheetDensityMetrics,
   getSpreadsheetGlideDensityMultiplier,
   getSpreadsheetGlideTheme,
   getSpreadsheetGridTemplateColumns,
   getSpreadsheetGridWidth,
+  isSpreadsheetLoadRequestStale,
   SPREADSHEET_DATA_COLUMN_WIDTH,
   SPREADSHEET_FILTER_INPUT_CLASS_NAME,
   SPREADSHEET_HEADER_HEIGHT,
@@ -127,5 +129,53 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
     });
 
     expect(next).toBe(rows);
+  });
+
+  it("identifies stale spreadsheet load completions", () => {
+    expect(
+      isSpreadsheetLoadRequestStale({
+        activeRequestId: 2,
+        requestId: 1,
+        currentSelectedPath: "/tmp/a.csv",
+        requestedPath: "/tmp/a.csv",
+      }),
+    ).toBe(true);
+    expect(
+      isSpreadsheetLoadRequestStale({
+        activeRequestId: 1,
+        requestId: 1,
+        currentSelectedPath: "/tmp/b.csv",
+        requestedPath: "/tmp/a.csv",
+      }),
+    ).toBe(true);
+    expect(
+      isSpreadsheetLoadRequestStale({
+        activeRequestId: 1,
+        requestId: 1,
+        currentSelectedPath: "/tmp/a.csv",
+        requestedPath: "/tmp/a.csv",
+      }),
+    ).toBe(false);
+  });
+
+  it("allows save only when the loaded sheet path matches selection", () => {
+    expect(
+      canSaveSpreadsheetDraft({
+        sheetPath: "/tmp/a.csv",
+        selectedPath: "/tmp/a.csv",
+      }),
+    ).toBe(true);
+    expect(
+      canSaveSpreadsheetDraft({
+        sheetPath: "/tmp/a.csv",
+        selectedPath: "/tmp/b.csv",
+      }),
+    ).toBe(false);
+    expect(
+      canSaveSpreadsheetDraft({
+        sheetPath: "/tmp/a.csv",
+        selectedPath: null,
+      }),
+    ).toBe(false);
   });
 });

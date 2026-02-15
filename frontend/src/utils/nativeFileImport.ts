@@ -1,9 +1,8 @@
 import { uploadBinaryPayload } from "utils/binaryUpload";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  route_check_if_file_exists,
-  route_create_file,
   route_get_file_browser_root,
+  route_get_folder_contents,
   route_write_file_browser_file_content,
 } from "utils/generatedEndpoints";
 
@@ -42,27 +41,28 @@ function joinPath(
   return `${rootPath}${pathSeparator}${fileName}`;
 }
 
-async function resolveUniqueWorkspacePath(
+function resolveUniqueWorkspacePath(
   rootPath: string,
   pathSeparator: string,
+  existingNames: Set<string>,
   fileName: string,
-): Promise<string> {
+): { filePath: string; fileName: string } {
   const { stem, extension } = splitFileNameExtension(fileName);
   for (let index = 0; index < 500; index += 1) {
     const candidateName =
       index === 0 ? fileName : `${stem}-${index}${extension}`;
-    const candidatePath = joinPath(rootPath, pathSeparator, candidateName);
-    const existsRes = await route_check_if_file_exists({
-      filepath: candidatePath,
-    });
-    if (!res200(existsRes)) {
-      return candidatePath;
-    }
-    if (!existsRes.data) {
-      return candidatePath;
+    if (!existingNames.has(candidateName)) {
+      return {
+        filePath: joinPath(rootPath, pathSeparator, candidateName),
+        fileName: candidateName,
+      };
     }
   }
-  return joinPath(rootPath, pathSeparator, `${stem}-${Date.now()}${extension}`);
+  const fallbackName = `${stem}-${Date.now()}${extension}`;
+  return {
+    filePath: joinPath(rootPath, pathSeparator, fallbackName),
+    fileName: fallbackName,
+  };
 }
 
 export async function importNativeFileToWorkspace(
@@ -79,9 +79,26 @@ export async function importNativeFileToWorkspace(
   const rootPath = rootRes.data.rootPath;
   const pathSeparator = rootRes.data.pathSeparator;
   const safeName = sanitizeDroppedFileName(file.name);
-  const targetPath = await resolveUniqueWorkspacePath(
+  const existingNames = new Set<string>();
+  const folderRes = await route_get_folder_contents({
+    folderPath: rootPath,
+    ignorePatterns: rootRes.data.ignorePatterns,
+    includeHidden: true,
+    includeMtime: false,
+    includeSize: false,
+    maxEntries: 5000,
+    missingFolderBehavior: "error",
+  });
+  if (res200(folderRes)) {
+    for (const item of folderRes.data) {
+      existingNames.add(item.name);
+    }
+  }
+
+  let target = resolveUniqueWorkspacePath(
     rootPath,
     pathSeparator,
+    existingNames,
     safeName,
   );
   let bytes: Uint8Array;
@@ -91,16 +108,6 @@ export async function importNativeFileToWorkspace(
     return {
       status: "failed",
       error: "Failed to read dropped file data.",
-    };
-  }
-
-  const createRes = await route_create_file({ filepath: targetPath });
-  if (!res200(createRes)) {
-    return {
-      status: "failed",
-      error:
-        getErrorDetail(createRes.data) ??
-        "Failed to create the workspace file for the dropped content.",
     };
   }
 
@@ -116,20 +123,37 @@ export async function importNativeFileToWorkspace(
     };
   }
 
-  const writeRes = await route_write_file_browser_file_content({
-    path: targetPath,
-    contentId: uploadResult.contentId,
-    expectedMtimeNs: null,
-  });
-  if (!res200(writeRes)) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const writeRes = await route_write_file_browser_file_content({
+      path: target.filePath,
+      contentId: uploadResult.contentId,
+      expectedMtimeNs: null,
+    });
+    if (res200(writeRes)) {
+      return {
+        status: "ok",
+        filePath: writeRes.data.path,
+        fileName: target.fileName,
+      };
+    }
+    if (writeRes.status === 409) {
+      existingNames.add(target.fileName);
+      target = resolveUniqueWorkspacePath(
+        rootPath,
+        pathSeparator,
+        existingNames,
+        safeName,
+      );
+      continue;
+    }
     return {
       status: "failed",
       error: getErrorDetail(writeRes.data) ?? "Failed to import dropped file.",
     };
   }
+
   return {
-    status: "ok",
-    filePath: writeRes.data.path,
-    fileName: safeName,
+    status: "failed",
+    error: "Failed to allocate a unique file path for the dropped file.",
   };
 }

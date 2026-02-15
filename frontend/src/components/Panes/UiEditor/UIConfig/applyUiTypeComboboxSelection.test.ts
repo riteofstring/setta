@@ -7,14 +7,20 @@ import {
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateSelectionModeEnum,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CALENDAR_PRESET_ID } from "./UITypeCombobox";
 import { applyUiTypeComboboxSelection } from "./applyUiTypeComboboxSelection";
+import { addTemporaryNotification } from "state/actions/notifications";
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_change_param_impl: vi.fn(),
   route_update_param_impl_config: vi.fn(),
+}));
+
+vi.mock("state/actions/notifications", () => ({
+  addTemporaryNotification: vi.fn(),
 }));
 
 describe("applyUiTypeComboboxSelection", () => {
@@ -32,6 +38,16 @@ describe("applyUiTypeComboboxSelection", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(route_change_param_impl).mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
+    vi.mocked(route_update_param_impl_config).mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
   });
 
   it("switches to DateParam calendar config for meta control calendar preset selection", async () => {
@@ -64,6 +80,43 @@ describe("applyUiTypeComboboxSelection", () => {
       ...endpointBaseArgs,
       selectedId: CodeObjTypeEnum.SliderParam,
     });
+    expect(route_update_param_impl_config).not.toHaveBeenCalled();
+  });
+
+  it("shows an error notification when calendar preset config update fails", async () => {
+    vi.mocked(route_update_param_impl_config).mockResolvedValue({
+      data: { detail: "preset failed" },
+      status: 400,
+      hasResponse: true,
+    });
+
+    await applyUiTypeComboboxSelection({
+      ...baseArgs,
+      selectedId: CALENDAR_PRESET_ID,
+    });
+
+    expect(addTemporaryNotification).toHaveBeenCalledWith(
+      "preset failed",
+      SettaNotificationTypeEnum.error,
+    );
+  });
+
+  it("shows an error notification when changing a regular type fails", async () => {
+    vi.mocked(route_change_param_impl).mockResolvedValue({
+      data: { detail: "change failed" },
+      status: 400,
+      hasResponse: true,
+    });
+
+    await applyUiTypeComboboxSelection({
+      ...baseArgs,
+      selectedId: CodeObjTypeEnum.SliderParam,
+    });
+
+    expect(addTemporaryNotification).toHaveBeenCalledWith(
+      "change failed",
+      SettaNotificationTypeEnum.error,
+    );
     expect(route_update_param_impl_config).not.toHaveBeenCalled();
   });
 });

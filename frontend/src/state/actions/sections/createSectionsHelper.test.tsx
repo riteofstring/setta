@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { addTemporaryNotification } from "state/actions/notifications";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { route_update_param_impl_config } from "utils/generatedEndpoints";
@@ -8,6 +9,7 @@ import {
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateSelectionModeEnum,
+  SettaNotificationTypeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -19,6 +21,10 @@ import {
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_update_param_impl_config: vi.fn(),
+}));
+
+vi.mock("state/actions/notifications", () => ({
+  addTemporaryNotification: vi.fn(),
 }));
 
 vi.mock("./createSections", () => ({
@@ -39,6 +45,11 @@ describe("useCreateSectionsList", () => {
   beforeEach(() => {
     resetProjectStores();
     vi.clearAllMocks();
+    vi.mocked(route_update_param_impl_config).mockResolvedValue({
+      data: null,
+      status: 200,
+      hasResponse: true,
+    });
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
     });
@@ -141,6 +152,39 @@ describe("useCreateSectionsList", () => {
         paramInfoId: controlParamId,
         newConfig: controlConfig,
       });
+    });
+  });
+
+  it("shows a notification when post-create preset config update fails", async () => {
+    const sectionId = "section-1";
+    const controlParamId = "param-1";
+
+    vi.mocked(route_update_param_impl_config).mockResolvedValue({
+      data: { detail: "config failed" },
+      status: 400,
+      hasResponse: true,
+    });
+    vi.mocked(createTopLevelSectionWithResult).mockResolvedValue({
+      sectionId,
+      metaControlParamId: controlParamId,
+    });
+
+    createTopLevelSectionFromImplSpecs({
+      name: "Calendar",
+      implSpecs: { type: SectionTypeEnum.MetaControl },
+      controlCodeObjType: CodeObjTypeEnum.DateParam,
+      controlParamConfig: {
+        dateControlMode: DateControlModeEnum.calendar,
+        dateSelectionMode: DateSelectionModeEnum.multiple,
+        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
+      },
+    });
+
+    await vi.waitFor(() => {
+      expect(addTemporaryNotification).toHaveBeenCalledWith(
+        "config failed",
+        SettaNotificationTypeEnum.error,
+      );
     });
   });
 });

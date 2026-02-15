@@ -1,3 +1,5 @@
+import { addTemporaryNotification } from "state/actions/notifications";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_change_param_impl,
   route_update_param_impl_config,
@@ -7,6 +9,7 @@ import {
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateSelectionModeEnum,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { CALENDAR_PRESET_ID, CodeObjTypeFilterKey } from "./UITypeCombobox";
 
@@ -19,13 +22,20 @@ export async function applyUiTypeComboboxSelection(args: {
 }) {
   const { projectConfigId, sectionId, paramInfoId, selectedId } = args;
   if (selectedId === CALENDAR_PRESET_ID) {
-    await route_change_param_impl({
+    const changeRes = await route_change_param_impl({
       projectConfigId,
       sectionId,
       paramInfoId,
       selectedId: CodeObjTypeEnum.DateParam,
     });
-    await route_update_param_impl_config({
+    if (!res200(changeRes)) {
+      addTemporaryNotification(
+        getErrorDetail(changeRes.data) ?? "Failed to update parameter type.",
+        SettaNotificationTypeEnum.error,
+      );
+      return;
+    }
+    const configRes = await route_update_param_impl_config({
       projectConfigId,
       sectionId,
       paramInfoId,
@@ -35,12 +45,26 @@ export async function applyUiTypeComboboxSelection(args: {
         dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
       },
     });
+    if (!res200(configRes)) {
+      addTemporaryNotification(
+        getErrorDetail(configRes.data) ??
+          "Failed to apply calendar preset configuration.",
+        SettaNotificationTypeEnum.error,
+      );
+      return;
+    }
     return;
   }
-  await route_change_param_impl({
+  const changeRes = await route_change_param_impl({
     projectConfigId,
     sectionId,
     paramInfoId,
     selectedId,
   });
+  if (!res200(changeRes)) {
+    addTemporaryNotification(
+      getErrorDetail(changeRes.data) ?? "Failed to update parameter type.",
+      SettaNotificationTypeEnum.error,
+    );
+  }
 }

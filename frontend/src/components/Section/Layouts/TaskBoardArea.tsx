@@ -725,15 +725,8 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
   const dragTaskHeightRef = useRef<number | null>(null);
   const latestDropTargetRef = useRef<TaskDropTarget | null>(null);
   const lanes = useMemo(
-    () =>
-      buildTaskBoardLanes(
-        toTaskBoardState({
-          viewMode: normalizedState.viewMode,
-          columns: normalizedState.columns,
-          tasks: normalizedState.tasks,
-        }),
-      ),
-    [normalizedState.columns, normalizedState.tasks, normalizedState.viewMode],
+    () => buildTaskBoardLanes(normalizedState),
+    [normalizedState],
   );
   const fallbackColumnId = normalizedState.columns[0]?.id ?? null;
   const taskBoardSensors = useTaskBoardSensors(isDisabled);

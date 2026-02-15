@@ -1,7 +1,6 @@
 import {
   createTaskBoardColumn,
   createTaskBoardTask,
-  TaskBoardTaskRecurrenceEnum,
   TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
@@ -82,7 +81,7 @@ describe("taskBoard utils", () => {
       name: "Done",
       sortIndex: 1,
     });
-    const lanes = buildTaskBoardLanes({
+    const normalized = normalizeTaskBoardState({
       viewMode: TaskBoardViewModeEnum.kanban,
       columns: [todo, done],
       tasks: [
@@ -100,43 +99,21 @@ describe("taskBoard utils", () => {
         }),
       ],
     });
+    const lanes = buildTaskBoardLanes(normalized);
 
     expect(lanes).toHaveLength(2);
     expect(lanes[0]?.tasks.map((task) => task.id)).toEqual(["a"]);
     expect(lanes[1]?.tasks.map((task) => task.id)).toEqual(["b"]);
   });
 
-  it("normalizes missing recurrence fields from persisted tasks", () => {
-    const todo = createTaskBoardColumn({
-      id: "todo",
-      name: "Todo",
-      sortIndex: 0,
-    });
-    // Some persisted tasks can be missing recurrence fields if saved before
-    // the recurrence metadata was introduced.
-    // @ts-expect-error intentionally validating runtime normalization behavior
-    const persistedTask = {
-      id: "legacy-task",
-      title: "Legacy",
-      description: "",
-      completed: false,
-      columnId: "todo",
-      dueDateIso: "",
-      sortIndex: 0,
-    };
-
-    const normalized = normalizeTaskBoardState({
-      viewMode: TaskBoardViewModeEnum.kanban,
-      columns: [todo],
-      tasks: [persistedTask],
-    });
-
-    expect(normalized.tasks[0]?.recurrence).toBe(
-      TaskBoardTaskRecurrenceEnum.none,
-    );
-    expect(normalized.tasks[0]?.recurrenceDays).toEqual([]);
-    expect(normalized.tasks[0]?.recurrenceMonths).toEqual([]);
-    expect(normalized.tasks[0]?.recurrenceYears).toEqual([]);
+  it("requires normalized columns when building lanes", () => {
+    expect(() =>
+      buildTaskBoardLanes({
+        viewMode: TaskBoardViewModeEnum.kanban,
+        columns: [],
+        tasks: [],
+      }),
+    ).toThrowError("buildTaskBoardLanes requires normalized columns.");
   });
 
   it("computes next sort indexes", () => {

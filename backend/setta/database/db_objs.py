@@ -208,7 +208,7 @@ class DBE:
     def read_project(self):
         payload = self.read_json(self.project)
         if not isinstance(payload, dict):
-            payload = {}
+            raise TypeError("Project payload must be a JSON object.")
         return ProjectStateBackend.model_validate(payload)
 
     def write_project(self, project: ProjectStateBackend):

@@ -2,7 +2,6 @@ import {
   createTaskBoardColumn,
   TaskBoardColumn,
   TaskBoardTask,
-  TaskBoardTaskRecurrenceEnum,
   TaskBoardViewMode,
 } from "utils/generatedTypes";
 
@@ -70,16 +69,6 @@ function normalizeTasks({
       task.columnId && validColumnIds.has(task.columnId)
         ? task.columnId
         : fallbackColumnId,
-    recurrence: task.recurrence ?? TaskBoardTaskRecurrenceEnum.none,
-    recurrenceDays: Array.isArray(task.recurrenceDays)
-      ? task.recurrenceDays
-      : [],
-    recurrenceMonths: Array.isArray(task.recurrenceMonths)
-      ? task.recurrenceMonths
-      : [],
-    recurrenceYears: Array.isArray(task.recurrenceYears)
-      ? task.recurrenceYears
-      : [],
     sortIndex: index,
   }));
 }
@@ -101,19 +90,21 @@ export function normalizeTaskBoardState(state: TaskBoardState): TaskBoardState {
 }
 
 export function buildTaskBoardLanes(state: TaskBoardState): TaskBoardLane[] {
-  const normalized = normalizeTaskBoardState(state);
+  if (state.columns.length === 0) {
+    throw new Error("buildTaskBoardLanes requires normalized columns.");
+  }
   const tasksByColumnId = new Map<string, TaskBoardTask[]>();
-  for (const column of normalized.columns) {
+  for (const column of state.columns) {
     tasksByColumnId.set(column.id, []);
   }
-  for (const task of normalized.tasks) {
-    const columnId = task.columnId ?? normalized.columns[0].id;
+  for (const task of state.tasks) {
+    const columnId = task.columnId ?? state.columns[0].id;
     const list = tasksByColumnId.get(columnId);
     if (list) {
       list.push(task);
     }
   }
-  return normalized.columns.map((column) => ({
+  return state.columns.map((column) => ({
     column,
     tasks: tasksByColumnId.get(column.id) ?? [],
   }));

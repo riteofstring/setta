@@ -305,9 +305,11 @@ def _resolve_file_path_for_download(path_str: str) -> Path | None:
     return resolved
 
 
-def _resolve_file_path_for_edit(path_str: str) -> Path:
+def _resolve_file_path_for_edit(path_str: str, *, allow_missing: bool = False) -> Path:
     resolved = _resolve_file_path(path_str)
     if not resolved.exists():
+        if allow_missing:
+            return resolved
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"File does not exist: {path_str}",
@@ -660,19 +662,33 @@ def route_write_file_browser_file_content(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="File browsing is disabled in deployment mode.",
         )
-    resolved = _resolve_file_path_for_edit(x.path)
+    resolved = _resolve_file_path_for_edit(x.path, allow_missing=True)
+    existing_mtime_ns: int | None = None
     try:
         stat_result = resolved.stat()
+        existing_mtime_ns = stat_result.st_mtime_ns
+    except FileNotFoundError:
+        if x.expectedMtimeNs is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="File changed on disk since it was loaded.",
+            ) from None
     except OSError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to stat file: {x.path}",
         ) from exc
-    if x.expectedMtimeNs is not None and stat_result.st_mtime_ns != x.expectedMtimeNs:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="File changed on disk since it was loaded.",
-        )
+    if existing_mtime_ns is not None:
+        if x.expectedMtimeNs is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="File already exists.",
+            )
+        if existing_mtime_ns != x.expectedMtimeNs:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="File changed on disk since it was loaded.",
+            )
     store = BinaryStore.from_dbe(ctx.state.dbe)
     try:
         decoded = store.read_bytes(x.contentId)
@@ -690,6 +706,7 @@ def route_write_file_browser_file_content(
             ),
         )
     try:
+        resolved.parent.mkdir(parents=True, exist_ok=True)
         resolved.write_bytes(decoded)
         updated_stat = resolved.stat()
     except OSError as exc:

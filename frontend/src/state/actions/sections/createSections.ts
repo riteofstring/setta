@@ -455,11 +455,11 @@ export async function openFileInSpreadsheetSection({
     sectionId: newSectionId,
     name: getValidSectionNameForOpenedFile(fileName),
   });
-  if (!res200(renameResponse)) {
-    return newSectionId;
-  }
   if (focusOnSection) {
     goToSection(newSectionId);
+  }
+  if (!res200(renameResponse)) {
+    return newSectionId;
   }
   return newSectionId;
 }

@@ -1,10 +1,12 @@
 import _ from "lodash";
+import { addTemporaryNotification } from "state/actions/notifications";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
   getPythonCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
@@ -18,6 +20,7 @@ import {
   DateSelectionMode,
   DateSelectionModeEnum,
   Position,
+  SettaNotificationTypeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
@@ -312,10 +315,17 @@ async function applyMetaControlParamConfigAfterCreate(
   if (!controlParamId) {
     return;
   }
-  await route_update_param_impl_config({
+  const response = await route_update_param_impl_config({
     projectConfigId: getCurrProjectConfigId(),
     sectionId,
     paramInfoId: controlParamId,
     newConfig: config,
   });
+  if (!res200(response)) {
+    addTemporaryNotification(
+      getErrorDetail(response.data) ??
+        "Failed to apply meta control configuration after section creation.",
+      SettaNotificationTypeEnum.error,
+    );
+  }
 }

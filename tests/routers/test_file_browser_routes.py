@@ -265,6 +265,58 @@ class TestFileBrowserRoutes:
         assert result.size == file_path.stat().st_size
         assert result.mtimeNs >= before_mtime_ns
 
+    async def test_write_file_browser_file_content_creates_missing_file(self) -> None:
+        state = await self._build_state()
+        file_path = get_setta_paths().workspace_root / "new-file.csv"
+        store = BinaryStore.from_dbe(state.dbe)
+        content_ref = store.store_bytes(
+            "a,b\n7,8\n".encode("utf-8"),
+            mime_type="text/csv",
+            durable=False,
+        )
+
+        with runtime_context(state) as runtime_ctx:
+            result = route_write_file_browser_file_content(
+                WriteFileBrowserFileContentRequest(
+                    path=file_path.as_posix(),
+                    contentId=content_ref.contentId,
+                    expectedMtimeNs=None,
+                ),
+                runtime_ctx,
+            )
+
+        assert result.path == file_path.resolve().as_posix()
+        assert file_path.read_text(encoding="utf-8") == "a,b\n7,8\n"
+        assert result.size == file_path.stat().st_size
+        assert result.mtimeNs == file_path.stat().st_mtime_ns
+
+    async def test_write_file_browser_file_content_rejects_existing_file_without_mtime(
+        self,
+    ) -> None:
+        state = await self._build_state()
+        file_path = get_setta_paths().workspace_root / "existing.csv"
+        file_path.write_text("a,b\n1,2\n", encoding="utf-8")
+        store = BinaryStore.from_dbe(state.dbe)
+        content_ref = store.store_bytes(
+            "a,b\n9,9\n".encode("utf-8"),
+            mime_type="text/csv",
+            durable=False,
+        )
+
+        with runtime_context(state) as runtime_ctx:
+            with pytest.raises(HTTPException) as ctx:
+                route_write_file_browser_file_content(
+                    WriteFileBrowserFileContentRequest(
+                        path=file_path.as_posix(),
+                        contentId=content_ref.contentId,
+                        expectedMtimeNs=None,
+                    ),
+                    runtime_ctx,
+                )
+
+        # expectedMtimeNs=None now means "create-only", so existing files conflict.
+        assert ctx.value.status_code == 409
+
     async def test_write_file_browser_file_content_rejects_stale_mtime(self) -> None:
         state = await self._build_state()
         file_path = get_setta_paths().workspace_root / "stale.csv"
@@ -302,7 +354,7 @@ class TestFileBrowserRoutes:
                     WriteFileBrowserFileContentRequest(
                         path=file_path.as_posix(),
                         contentId="missing-content-id",
-                        expectedMtimeNs=None,
+                        expectedMtimeNs=file_path.stat().st_mtime_ns,
                     ),
                     runtime_ctx,
                 )

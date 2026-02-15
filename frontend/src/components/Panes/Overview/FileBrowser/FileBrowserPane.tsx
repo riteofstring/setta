@@ -119,6 +119,50 @@ export function isEditableFileBrowserTarget(
   );
 }
 
+export function shouldSkipFileBrowserTransfer(args: {
+  operation: "copy" | "move";
+  sourceParentPath: string | null;
+  destinationFolderPath: string;
+}): boolean {
+  if (args.operation !== "move" || !args.sourceParentPath) {
+    return false;
+  }
+  const normalizedSourceParent = normalizeFileBrowserPathForComparison(
+    args.sourceParentPath,
+  );
+  const normalizedDestination = normalizeFileBrowserPathForComparison(
+    args.destinationFolderPath,
+  );
+  if (!normalizedSourceParent || !normalizedDestination) {
+    return false;
+  }
+  return normalizedSourceParent === normalizedDestination;
+}
+
+export function shouldRefreshRootAfterFileBrowserTransfer(args: {
+  rootPath: string | null;
+  sourceParentPath: string | null;
+  destinationFolderPath: string;
+}): boolean {
+  if (!args.rootPath) {
+    return false;
+  }
+  const normalizedRootPath = normalizeFileBrowserPathForComparison(args.rootPath);
+  const normalizedSourceParent = args.sourceParentPath
+    ? normalizeFileBrowserPathForComparison(args.sourceParentPath)
+    : null;
+  const normalizedDestination = normalizeFileBrowserPathForComparison(
+    args.destinationFolderPath,
+  );
+  if (!normalizedRootPath || !normalizedDestination) {
+    return false;
+  }
+  return (
+    normalizedSourceParent === normalizedRootPath ||
+    normalizedDestination === normalizedRootPath
+  );
+}
+
 export function flattenFileBrowserTree({
   rootPath,
   nodesByPath,
@@ -354,14 +398,7 @@ export function FileBrowserPane({
   const [pathSeparator, setPathSeparator] = useState("/");
   const [rootError, setRootError] = useState<string | null>(null);
   const [listSize, setListSize] = useState({ height: 320, width: 320 });
-  const [clipboardEntry, setClipboardEntry] =
-    useState<FileBrowserClipboardEntry | null>(null);
-  const clipboardEntryRef = useRef<FileBrowserClipboardEntry | null>(
-    clipboardEntry,
-  );
-  useEffect(() => {
-    clipboardEntryRef.current = clipboardEntry;
-  }, [clipboardEntry]);
+  const clipboardEntryRef = useRef<FileBrowserClipboardEntry | null>(null);
   const [dragTargetFolderPath, setDragTargetFolderPath] = useState<
     string | null
   >(null);
@@ -864,16 +901,26 @@ export function FileBrowserPane({
     }): Promise<string | null> => {
       const normalizedSourcePath =
         normalizeFileBrowserPathForComparison(sourcePath);
-      const normalizedDestinationPath = normalizeFileBrowserPathForComparison(
-        destinationFolderPath,
-      );
-      if (!normalizedSourcePath || !normalizedDestinationPath) {
+      const normalizedDestinationFolderPath =
+        normalizeFileBrowserPathForComparison(destinationFolderPath);
+      if (!normalizedSourcePath || !normalizedDestinationFolderPath) {
+        return null;
+      }
+      const sourceNode = nodesByPathRef.current[normalizedSourcePath];
+      const sourceParentPath = sourceNode?.parentPath;
+      if (
+        shouldSkipFileBrowserTransfer({
+          operation,
+          sourceParentPath: sourceParentPath ?? null,
+          destinationFolderPath,
+        })
+      ) {
         return null;
       }
       if (
         sourceType === "folder" &&
         isSameOrDescendantBrowserPath(
-          normalizedDestinationPath,
+          normalizedDestinationFolderPath,
           normalizedSourcePath,
         )
       ) {
@@ -885,7 +932,7 @@ export function FileBrowserPane({
       }
       const response = await route_transfer_file_browser_entry({
         sourcePath: normalizedSourcePath,
-        destinationFolderPath: normalizedDestinationPath,
+        destinationFolderPath: normalizedDestinationFolderPath,
         operation,
       });
       if (!res200(response)) {
@@ -898,14 +945,28 @@ export function FileBrowserPane({
         return null;
       }
       const destinationPath = response.data.destinationPath;
-      const sourceNode = nodesByPathRef.current[normalizedSourcePath];
-      const sourceParentPath = sourceNode?.parentPath;
+      const normalizedDestinationPath = normalizeFileBrowserPathForComparison(
+        destinationPath,
+      );
+      if (
+        operation === "move" &&
+        normalizedDestinationPath === normalizedSourcePath
+      ) {
+        return null;
+      }
       const foldersToRefresh = new Set<string>();
       if (sourceParentPath) {
         foldersToRefresh.add(sourceParentPath);
       }
-      foldersToRefresh.add(normalizedDestinationPath);
-      if (rootPath) {
+      foldersToRefresh.add(normalizedDestinationFolderPath);
+      if (
+        shouldRefreshRootAfterFileBrowserTransfer({
+          rootPath,
+          sourceParentPath: sourceParentPath ?? null,
+          destinationFolderPath: normalizedDestinationFolderPath,
+        })
+        && rootPath
+      ) {
         foldersToRefresh.add(rootPath);
       }
       await Promise.all(
@@ -978,7 +1039,6 @@ export function FileBrowserPane({
       }
       if (activeClipboardEntry.operation === "move") {
         clipboardEntryRef.current = null;
-        setClipboardEntry(null);
       }
     });
   }, [nodesByPath, rootPath, selectedPath, transferEntryToFolder]);
@@ -1013,7 +1073,6 @@ export function FileBrowserPane({
           operation: lowerKey === "x" ? "move" : "copy",
         } as const;
         clipboardEntryRef.current = nextClipboardEntry;
-        setClipboardEntry(nextClipboardEntry);
         return;
       }
       if (hasModifier && lowerKey === "v") {

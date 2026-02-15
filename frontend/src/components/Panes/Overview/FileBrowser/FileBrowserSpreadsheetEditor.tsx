@@ -93,6 +93,28 @@ type SpreadsheetSortState = {
   direction: "asc" | "desc";
 };
 
+export function isSpreadsheetLoadRequestStale(args: {
+  activeRequestId: number;
+  requestId: number;
+  currentSelectedPath: string | null;
+  requestedPath: string;
+}): boolean {
+  return (
+    args.activeRequestId !== args.requestId ||
+    args.currentSelectedPath !== args.requestedPath
+  );
+}
+
+export function canSaveSpreadsheetDraft(args: {
+  sheetPath: string;
+  selectedPath: string | null;
+}): boolean {
+  if (!args.selectedPath) {
+    return false;
+  }
+  return args.sheetPath === args.selectedPath;
+}
+
 export function getSpreadsheetGlideTheme({
   darkMode,
   densityMultiplier,
@@ -419,8 +441,13 @@ export function FileBrowserSpreadsheetEditor({
   const [viewportSize, setViewportSize] = useState({ width: 400, height: 300 });
   const listRef = useListRef();
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const loadRequestIdRef = useRef(0);
   const selectedPath = selectedFile?.fullPath ?? null;
+  const selectedPathRef = useRef<string | null>(selectedPath);
   const selectedName = selectedFile?.name ?? "";
+  useEffect(() => {
+    selectedPathRef.current = selectedPath;
+  }, [selectedPath]);
   const densityMetrics = useMemo(
     () => getSpreadsheetDensityMetrics(density),
     [density],
@@ -456,6 +483,16 @@ export function FileBrowserSpreadsheetEditor({
   }, []);
 
   const loadFile = useCallback(async (path: string) => {
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
+    const isStaleRequest = () =>
+      isSpreadsheetLoadRequestStale({
+        activeRequestId: loadRequestIdRef.current,
+        requestId,
+        currentSelectedPath: selectedPathRef.current,
+        requestedPath: path,
+      });
+
     setIsLoading(true);
     setErrorText(null);
     setStatusText(null);
@@ -464,6 +501,9 @@ export function FileBrowserSpreadsheetEditor({
         path,
         maxBytes: MAX_FILE_BYTES,
       });
+      if (isStaleRequest()) {
+        return;
+      }
       if (!res200(response)) {
         const detail = getErrorDetail(response.data);
         setErrorText(detail ?? "Failed to load spreadsheet file.");
@@ -472,12 +512,18 @@ export function FileBrowserSpreadsheetEditor({
       const binaryResponse = await route_binary_download(
         response.data.contentId,
       );
+      if (isStaleRequest()) {
+        return;
+      }
       if (!res200(binaryResponse) || !binaryResponse.data) {
         const detail = getErrorDetail(binaryResponse.data);
         setErrorText(detail ?? "Failed to load spreadsheet file payload.");
         return;
       }
       const parsed = parseSpreadsheetBytes(path, binaryResponse.data);
+      if (isStaleRequest()) {
+        return;
+      }
       setSheet({
         path,
         sheetName: parsed.sheetName,
@@ -495,24 +541,19 @@ export function FileBrowserSpreadsheetEditor({
       setSelectionSummary("No selection");
       listRef.current?.scrollToRow({ index: 0, align: "start" });
     } catch {
-      setErrorText("Failed to load spreadsheet file.");
+      if (!isStaleRequest()) {
+        setErrorText("Failed to load spreadsheet file.");
+      }
     } finally {
-      setIsLoading(false);
+      if (loadRequestIdRef.current === requestId) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (!selectedPath) {
-      setSheet(null);
-      setIsDirty(false);
-      setHasExternalDiskChange(false);
-      setStatusText(null);
-      setErrorText(null);
-      setGridSelection(undefined);
-      setSelectionSummary("No selection");
-      return;
-    }
-    if (!isSpreadsheetPath(selectedPath)) {
+    if (!selectedPath || !isSpreadsheetPath(selectedPath)) {
+      loadRequestIdRef.current += 1;
       setSheet(null);
       setIsDirty(false);
       setHasExternalDiskChange(false);
@@ -815,6 +856,17 @@ export function FileBrowserSpreadsheetEditor({
     if (!sheet || readOnly) {
       return;
     }
+    if (
+      !canSaveSpreadsheetDraft({
+        sheetPath: sheet.path,
+        selectedPath,
+      })
+    ) {
+      setErrorText(
+        "Selected spreadsheet changed while loading. Reload before saving.",
+      );
+      return;
+    }
     setIsSaving(true);
     setErrorText(null);
     setStatusText(null);
@@ -860,7 +912,7 @@ export function FileBrowserSpreadsheetEditor({
     } finally {
       setIsSaving(false);
     }
-  }, [readOnly, sheet]);
+  }, [readOnly, selectedPath, sheet]);
 
   const onReload = useCallback(() => {
     if (!selectedPath || !isSpreadsheetPath(selectedPath)) {
@@ -879,6 +931,32 @@ export function FileBrowserSpreadsheetEditor({
       }
       return null;
     });
+  }, []);
+  const applySortColumnValue = useCallback((value: string) => {
+    if (value === "") {
+      setSortState(null);
+      return;
+    }
+    const columnIndex = Number(value);
+    if (!Number.isFinite(columnIndex)) {
+      setSortState(null);
+      return;
+    }
+    setSortState({ columnIndex, direction: "asc" });
+  }, []);
+  const toggleSortDirection = useCallback(() => {
+    setSortState((prev) =>
+      prev
+        ? {
+            ...prev,
+            direction: prev.direction === "asc" ? "desc" : "asc",
+          }
+        : prev,
+    );
+  }, []);
+  const clearFilterAndSort = useCallback(() => {
+    setFilterQuery("");
+    setSortState(null);
   }, []);
 
   const gridTemplateColumns = useMemo(
@@ -1012,19 +1090,7 @@ export function FileBrowserSpreadsheetEditor({
                 <select
                   data-testid="spreadsheet-sort-column"
                   value={sortState ? String(sortState.columnIndex) : ""}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    if (value === "") {
-                      setSortState(null);
-                      return;
-                    }
-                    const columnIndex = Number(value);
-                    if (!Number.isFinite(columnIndex)) {
-                      setSortState(null);
-                      return;
-                    }
-                    setSortState({ columnIndex, direction: "asc" });
-                  }}
+                  onChange={(event) => applySortColumnValue(event.target.value)}
                   className="ml-1 rounded border border-setta-300 bg-white px-1.5 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
                 >
                   <option value="">None</option>
@@ -1042,16 +1108,7 @@ export function FileBrowserSpreadsheetEditor({
                 type="button"
                 data-testid="spreadsheet-sort-direction"
                 className="shrink-0 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 transition-colors hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-                onClick={() =>
-                  setSortState((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          direction: prev.direction === "asc" ? "desc" : "asc",
-                        }
-                      : prev,
-                  )
-                }
+                onClick={toggleSortDirection}
                 disabled={!sortState}
               >
                 {sortState?.direction === "desc" ? "Desc" : "Asc"}
@@ -1061,10 +1118,7 @@ export function FileBrowserSpreadsheetEditor({
                   type="button"
                   data-testid="spreadsheet-clear-view"
                   className="inline-flex shrink-0 items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-                  onClick={() => {
-                    setFilterQuery("");
-                    setSortState(null);
-                  }}
+                  onClick={clearFilterAndSort}
                 >
                   <FiX size={12} />
                   Clear
@@ -1156,19 +1210,9 @@ export function FileBrowserSpreadsheetEditor({
                     </label>
                     <select
                       value={sortState ? String(sortState.columnIndex) : ""}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        if (value === "") {
-                          setSortState(null);
-                          return;
-                        }
-                        const columnIndex = Number(value);
-                        if (!Number.isFinite(columnIndex)) {
-                          setSortState(null);
-                          return;
-                        }
-                        setSortState({ columnIndex, direction: "asc" });
-                      }}
+                      onChange={(event) =>
+                        applySortColumnValue(event.target.value)
+                      }
                       className="min-w-0 flex-1 rounded border border-setta-300 bg-white px-1.5 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
                     >
                       <option value="">None</option>
@@ -1184,17 +1228,7 @@ export function FileBrowserSpreadsheetEditor({
                     <button
                       type="button"
                       className="rounded border border-setta-300 px-2 py-1 text-[11px] text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-                      onClick={() =>
-                        setSortState((prev) =>
-                          prev
-                            ? {
-                                ...prev,
-                                direction:
-                                  prev.direction === "asc" ? "desc" : "asc",
-                              }
-                            : prev,
-                        )
-                      }
+                      onClick={toggleSortDirection}
                       disabled={!sortState}
                     >
                       {sortState?.direction === "desc" ? "Desc" : "Asc"}
@@ -1204,10 +1238,7 @@ export function FileBrowserSpreadsheetEditor({
                     <button
                       type="button"
                       className="inline-flex items-center justify-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-                      onClick={() => {
-                        setFilterQuery("");
-                        setSortState(null);
-                      }}
+                      onClick={clearFilterAndSort}
                     >
                       <FiX size={12} />
                       Clear filters

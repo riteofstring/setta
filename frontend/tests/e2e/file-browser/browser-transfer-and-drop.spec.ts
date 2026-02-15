@@ -13,6 +13,7 @@ import {
 const SELECT_ALL_SHORTCUT =
   process.platform === "darwin" ? "Meta+A" : "Control+A";
 const COPY_SHORTCUT = process.platform === "darwin" ? "Meta+C" : "Control+C";
+const CUT_SHORTCUT = process.platform === "darwin" ? "Meta+X" : "Control+X";
 const PASTE_SHORTCUT = process.platform === "darwin" ? "Meta+V" : "Control+V";
 
 type FileBrowserRootResponse = {
@@ -659,6 +660,13 @@ test.describe.serial("file browser transfer and drag/drop", () => {
       await page.keyboard.press(PASTE_SHORTCUT);
       await page.waitForTimeout(250);
       expect(transferRequestCount).toBe(transferRequestsBeforeFilterShortcuts);
+
+      await movedFileRow.click();
+      const transferRequestsBeforeNoopMove = transferRequestCount;
+      await page.keyboard.press(CUT_SHORTCUT);
+      await page.keyboard.press(PASTE_SHORTCUT);
+      await page.waitForTimeout(250);
+      expect(transferRequestCount).toBe(transferRequestsBeforeNoopMove);
     } finally {
       page.off("request", onRequest);
       await cleanupIsolatedProject(page, projectContext);
