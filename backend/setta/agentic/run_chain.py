@@ -261,7 +261,13 @@ class RunChainRunner:
             external_config = resolved.external_agent_config
             if external_config is None:
                 raise KeyError("External agent config not found")
-            status = build_external_agent_preflight_status(self.dbe, external_config)
+            status = build_external_agent_preflight_status(
+                self.dbe,
+                external_config,
+                plugin_external_agent_adapters=(
+                    self.external_agent_runner.get_plugin_external_agent_adapters()
+                ),
+            )
             if not status.available:
                 issues = (
                     "; ".join(status.issues) if status.issues else "preflight failed"
