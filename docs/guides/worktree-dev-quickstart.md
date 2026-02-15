@@ -24,6 +24,9 @@ Run a dev instance (from each worktree root):
 The runner uses the worktree folder name for ports and cookie isolation.
 Examples: `setta.feature-auth-1` -> backend `8001`, frontend `3001`; `setta.fix-realtime-2` -> `8002`/`3002`.
 Use a trailing number if you want predictable port offsets.
+Default dev paths are also isolated per worktree:
+- `SETTA_HOME=~/.setta-development`
+- `SETTA_FILES_ROOT=<worktree>/setta_files_dev`
 
 Optional overrides:
 ```sh
@@ -31,12 +34,22 @@ Optional overrides:
 SETTA_HOST=localhost SETTA_PORT=8100 SETTA_DEV_FRONTEND_PORT=3100 ./scripts/run-dev-instance.sh
 ```
 
+Runtime profile/path overrides:
+```sh
+./scripts/run-dev-instance.sh --profile dev
+./scripts/run-dev-instance.sh --setta-files-root "$PWD/setta_files_dev" --runtime-root "$PWD/setta_files_dev/runtime_dev"
+```
+
+Name constraints:
+- `--setta-home` must end with `.setta` or `.setta-development`.
+- `--setta-files-root` must include a path segment named `setta_files` or `setta_files_dev`.
+
 Centralize `setta_files` outside worktrees (global state):
 
 1. Configure global state base in `<setta_home>/config.json` (see `docs/reference/setta-files.md`). For example:
 ```json
 {
-  "globalSettaFilesBase": "~/setta_state",
+  "globalSettaFilesBase": "~/.setta-development/setta_files_dev",
   "autoMode": "create_global"
 }
 ```

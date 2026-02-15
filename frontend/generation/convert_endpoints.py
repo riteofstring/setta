@@ -38,6 +38,7 @@ basic_type_map = {
 }
 
 GENERATED_TYPE_ALIAS = "gt"
+EXCLUDED_ENDPOINT_FUNCTION_NAMES = {"route_plugin_asset"}
 
 
 def get_path_input_output_types():
@@ -312,6 +313,8 @@ def main(output_path):
     specs = get_path_input_output_types()
     ts_code = create_imports()
     for endpoint_fn_name, s in specs.items():
+        if endpoint_fn_name in EXCLUDED_ENDPOINT_FUNCTION_NAMES:
+            continue
         output_annotation = python_type_to_ts(s["output"], {}, set())
         args, args_with_annotations = create_args(s["inputs"])
         ts_code += create_ts_fn_def(

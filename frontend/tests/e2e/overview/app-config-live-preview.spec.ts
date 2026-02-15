@@ -20,24 +20,21 @@ test("app config draft edits update the app preview without saving", async ({
   await expect(page.getByText("App Preview")).toBeVisible();
 
   const specTextarea = page.getByLabel("App Spec JSON");
-  await expect(specTextarea).toHaveValue(/Standalone App Starter/);
+  await expect(specTextarea).toHaveValue(/App Inputs/);
   const original = await specTextarea.inputValue();
 
-  const updated = original.replace(
-    "Standalone App Starter",
-    "Live Preview Starter",
-  );
+  const updated = original.replace("App Inputs", "Live Preview Inputs");
   await specTextarea.fill(updated);
 
   await expect(
-    page.getByRole("heading", { name: "Live Preview Starter" }),
+    page.getByRole("heading", { name: "Live Preview Inputs" }),
   ).toBeVisible();
 
   await specTextarea.fill(updated.slice(0, -1));
   await expect(page.getByText("Invalid JSON in app spec.")).toBeVisible();
 
   await expect(
-    page.getByRole("heading", { name: "Live Preview Starter" }),
+    page.getByRole("heading", { name: "Live Preview Inputs" }),
   ).toBeVisible();
 
   await specTextarea.fill(updated);

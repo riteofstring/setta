@@ -70,7 +70,7 @@
 
 ## Commit & Pull Request Guidelines
 
-- Commit messages should explain clearly, succinctly, and in detail, the main purposes of the commit.
+- Follow the repository’s short, present-tense commit summaries (`add layers to unsharedKeys`, `delete extra beginPath call`) and add body context only when necessary.
 
 ## Memory Logging
 
