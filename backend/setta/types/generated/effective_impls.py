@@ -14,6 +14,7 @@ from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
+    DateParamCodeObjImpl,
     DropdownParamCodeObjImpl,
     DropzoneParamCodeObjImpl,
     NestedParamCodeObjImpl,
@@ -23,6 +24,7 @@ from setta.types.code_obj_impls import (
     SwitchParamCodeObjImpl,
     TextAreaParamCodeObjImpl,
     TextParamCodeObjImpl,
+    TimeParamCodeObjImpl,
 )
 from setta.types.core import Core, Variant
 from setta.types.generated.impl_args_as_typed_dicts import (
@@ -45,6 +47,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CodeParamCodeObjImplArgsWithCallable,
     CodeSectionImplArgsWithCallable,
     ColorPickerParamCodeObjImplArgsWithCallable,
+    DateParamCodeObjImplArgsWithCallable,
     DictSectionImplArgsWithCallable,
     DrawSectionImplArgsWithCallable,
     DropdownParamCodeObjImplArgsWithCallable,
@@ -64,11 +67,14 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     RotaryParamCodeObjImplArgsWithCallable,
     SliderParamCodeObjImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
+    SpreadsheetSectionImplArgsWithCallable,
     SwitchParamCodeObjImplArgsWithCallable,
+    TaskBoardSectionImplArgsWithCallable,
     TerminalSectionImplArgsWithCallable,
     TextAreaParamCodeObjImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
     TextParamCodeObjImplArgsWithCallable,
+    TimeParamCodeObjImplArgsWithCallable,
 )
 from setta.types.generated.unions import (
     BaseCanvasSectionImplUnion,
@@ -107,6 +113,8 @@ from setta.types.section_impls import (
     PluginSectionImpl,
     PromptSectionImpl,
     SocialSectionImpl,
+    SpreadsheetSectionImpl,
+    TaskBoardSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
 )
@@ -266,6 +274,20 @@ def set_effective_impl_value(
 ) -> PluginSectionImpl: ...
 @overload
 def set_effective_impl_value(
+    impl: TaskBoardSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: TaskBoardSectionImplArgsWithCallable,
+) -> TaskBoardSectionImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: SpreadsheetSectionImpl,
+    core: Core,
+    variant: Variant,
+    args: SpreadsheetSectionImplArgsWithCallable,
+) -> SpreadsheetSectionImpl: ...
+@overload
+def set_effective_impl_value(
     impl: CodeCallableCodeObjImpl,
     core: Core,
     variant: Variant,
@@ -285,6 +307,20 @@ def set_effective_impl_value(
     variant: Variant,
     args: TextParamCodeObjImplArgsWithCallable,
 ) -> TextParamCodeObjImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: DateParamCodeObjImpl,
+    core: Core,
+    variant: Variant,
+    args: DateParamCodeObjImplArgsWithCallable,
+) -> DateParamCodeObjImpl: ...
+@overload
+def set_effective_impl_value(
+    impl: TimeParamCodeObjImpl,
+    core: Core,
+    variant: Variant,
+    args: TimeParamCodeObjImplArgsWithCallable,
+) -> TimeParamCodeObjImpl: ...
 @overload
 def set_effective_impl_value(
     impl: ButtonParamCodeObjImpl,

@@ -162,6 +162,8 @@ export const REQUIRED_UI_EDITOR_TABS = {
   [SectionTypeEnum.Chat]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Browser]: [UIEditorTabNameEnum.SectionConfig],
   [SectionTypeEnum.Plugin]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.TaskBoard]: [UIEditorTabNameEnum.SectionConfig],
+  [SectionTypeEnum.Spreadsheet]: [UIEditorTabNameEnum.SectionConfig],
 } as const satisfies Record<SectionType, readonly UIEditorTabName[]>;
 
 export type UIEditorTabLocalStorage = Record<SectionType, UIEditorTabName>;

@@ -34,11 +34,17 @@ from setta.project_state.project_manager_types import (
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
+    SetListRootViewModeRequest,
     SetParamEnteredValueRequest,
+    SetParentDefaultChildSectionTypeRequest,
     SetSectionNameRequest,
     SetSocialUrlRequest,
+    SetSpreadsheetFilePathRequest,
+    SetSpreadsheetSectionSettingsRequest,
     SetTopLevelSectionLayoutRequest,
     SetSectionVariantNameRequest,
+    SetTaskBoardSectionStateRequest,
+    SetTextBlockMasterFontSizeRequest,
     SetViewModeNameRequest,
     SetTextBlockTextRequest,
     SetTypeErrorIgnoreRequest,
@@ -88,11 +94,17 @@ from setta.routers.project_manager import (
     route_set_gen_code_suffix,
     route_get_password_param_value,
     route_set_image_area_image_path,
+    route_set_list_root_view_mode,
     route_set_param_entered_value,
+    route_set_parent_default_child_section_type,
     route_set_section_name,
     route_set_social_url,
+    route_set_spreadsheet_file_path,
+    route_set_spreadsheet_section_settings,
     route_set_top_level_section_layout,
     route_set_section_variant_name,
+    route_set_task_board_section_state,
+    route_set_text_block_master_font_size,
     route_set_view_mode_name,
     route_set_text_block_text,
     route_set_type_error_ignore,
@@ -929,15 +941,82 @@ class TestSharePolicyRoutes:
             state = await self._build_state(root)
             session = state.share_session_store.create_session()
 
-            request = SetCallableHideParamsRequest(
-                projectConfigId=project_config_id,
-                sectionId=create_new_id(),
-                hideParams=True,
-            )
+            requests = [
+                (
+                    "set_callable_hide_params",
+                    route_set_callable_hide_params,
+                    SetCallableHideParamsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=create_new_id(),
+                        hideParams=True,
+                    ),
+                ),
+                (
+                    "set_list_root_view_mode",
+                    route_set_list_root_view_mode,
+                    SetListRootViewModeRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=create_new_id(),
+                        viewMode="task_list",
+                    ),
+                ),
+                (
+                    "set_parent_default_child_section_type",
+                    route_set_parent_default_child_section_type,
+                    SetParentDefaultChildSectionTypeRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=create_new_id(),
+                        defaultChildSectionType=SectionType.Dict,
+                    ),
+                ),
+                (
+                    "set_task_board_section_state",
+                    route_set_task_board_section_state,
+                    SetTaskBoardSectionStateRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=create_new_id(),
+                        viewMode="task_list",
+                        columns=[],
+                        tasks=[],
+                    ),
+                ),
+                (
+                    "set_spreadsheet_file_path",
+                    route_set_spreadsheet_file_path,
+                    SetSpreadsheetFilePathRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=create_new_id(),
+                        filePath="/tmp/missing.csv",
+                        activeSheet=None,
+                    ),
+                ),
+                (
+                    "set_spreadsheet_section_settings",
+                    route_set_spreadsheet_section_settings,
+                    SetSpreadsheetSectionSettingsRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=create_new_id(),
+                        readOnly=False,
+                        showRowNumbers=True,
+                        density="compact",
+                        autoReloadOnExternalChange=False,
+                    ),
+                ),
+                (
+                    "set_text_block_master_font_size",
+                    route_set_text_block_master_font_size,
+                    SetTextBlockMasterFontSizeRequest(
+                        projectConfigId=project_config_id,
+                        sectionId=create_new_id(),
+                        masterFontSizePx=18.0,
+                    ),
+                ),
+            ]
             with runtime_context(state, session.id) as runtime_ctx:
-                with pytest.raises(HTTPException) as ctx:
-                    await route_set_callable_hide_params(request, runtime_ctx)
-                assert ctx.value.status_code == 403
+                for name, handler, request in requests:
+                    with pytest.raises(HTTPException) as ctx:
+                        await handler(request, runtime_ctx)
+                    assert ctx.value.status_code == 403, name
 
     async def test_param_selection_routes_blocked(self) -> None:
         with TemporaryDirectory() as tmpdir:

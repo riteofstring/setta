@@ -311,13 +311,18 @@ def create_ts_fn_def(
     *,
     uses_form_data: bool = False,
 ):
-    definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<ResponseDataAndStatus<{output_annotation}>>"
     endpoint_path_without_prefix = endpoint_path
     if endpoint_path_without_prefix.startswith(Route.PREFIX.value):
         endpoint_path_without_prefix = endpoint_path_without_prefix[
             len(Route.PREFIX.value) :
         ]
-    if _should_generate_form_data_wrapper(
+    if fn_name == "route_binary_download":
+        return f"""
+export async function {fn_name}(contentId: string): Promise<ResponseDataAndStatus<Uint8Array>> {{
+    return await getBinary("{endpoint_path_without_prefix}", {{ contentId }})
+}}
+"""
+    if fn_name == "route_binary_upload" or _should_generate_form_data_wrapper(
         method=method,
         uses_form_data=uses_form_data,
     ):
@@ -326,6 +331,7 @@ export async function {fn_name}(form: FormData): Promise<ResponseDataAndStatus<{
     return await post("{endpoint_path_without_prefix}", form)
 }}
 """
+    definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<ResponseDataAndStatus<{output_annotation}>>"
     if method == "POST":
         path_param_names = re.findall(r"{(.*?)}", endpoint_path_without_prefix)
         path_params = [arg for arg in args if arg in path_param_names]
@@ -371,7 +377,7 @@ def _should_generate_form_data_wrapper(
 def create_imports():
     return f"""
 import * as {GENERATED_TYPE_ALIAS} from "./generatedTypes"
-import {{ get, post, ResponseDataAndStatus }} from "./endpointUtils"
+import {{ get, getBinary, post, ResponseDataAndStatus }} from "./endpointUtils"
 
 """
 
