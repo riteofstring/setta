@@ -53,7 +53,6 @@ import {
   type SettingsState,
   type ViewModeConfig,
 } from "utils/generatedTypes";
-import { RunInstructionsAccordion } from "./RunInstructionsAccordion";
 
 type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
@@ -1134,60 +1133,47 @@ export function RunInstructions() {
           </div>
         )}
 
-        <RunInstructionsAccordion
-          defaultOpenValues={["run-instructions-custom-runs"]}
-          items={[
-            {
-              value: "run-instructions-custom-runs",
-              title: "Run Button Dropdown Items",
-              triggerTestId: "run-instructions-accordion-custom-runs",
-              content:
-                customRuns.length === 0 ? (
-                  <div
-                    className={`${PANEL_CARD_CLASSES} text-setta-600 dark:text-setta-300`}
-                  >
-                    No custom runs yet.
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {customRuns.map((run) => {
-                      const isActiveContinuousRun =
-                        runMode === "continuous" &&
-                        continuousRunStarted &&
-                        continuousRunCustomRunId === run.id;
+        <h3 className="mb-1 px-1 text-[11px] font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+          Run Button Dropdown Items
+        </h3>
+        {customRuns.length === 0 ? (
+          <div
+            className={`${PANEL_CARD_CLASSES} text-setta-600 dark:text-setta-300`}
+          >
+            No custom runs yet.
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {customRuns.map((run) => {
+              const isActiveContinuousRun =
+                runMode === "continuous" &&
+                continuousRunStarted &&
+                continuousRunCustomRunId === run.id;
 
-                      return (
-                        <CustomRunRow
-                          key={run.id}
-                          run={run}
-                          projectConfigId={projectConfigId}
-                          isActiveContinuousRun={isActiveContinuousRun}
-                        />
-                      );
-                    })}
-                  </div>
-                ),
-            },
-            {
-              value: "run-instructions-add-from-code-blocks",
-              title: "Add From Code Blocks",
-              triggerTestId: "run-instructions-accordion-add-from-code-blocks",
-              disabled: runnableCodeBlocks.length === 0,
-              disabledReason: "No runnable code blocks are available",
-              content: (
-                <div className="space-y-1">
-                  {runnableCodeBlocks.map((item) => (
-                    <AddCodeBlockRow
-                      key={item.sectionId}
-                      projectConfigId={projectConfigId}
-                      item={item}
-                    />
-                  ))}
-                </div>
-              ),
-            },
-          ]}
-        />
+              return (
+                <CustomRunRow
+                  key={run.id}
+                  run={run}
+                  projectConfigId={projectConfigId}
+                  isActiveContinuousRun={isActiveContinuousRun}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        <h3 className="mb-1 mt-4 px-1 text-[11px] font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
+          Add From Code Blocks
+        </h3>
+        <div className="space-y-1">
+          {runnableCodeBlocks.map((item) => (
+            <AddCodeBlockRow
+              key={item.sectionId}
+              projectConfigId={projectConfigId}
+              item={item}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
