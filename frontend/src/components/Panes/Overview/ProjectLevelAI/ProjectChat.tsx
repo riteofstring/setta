@@ -24,7 +24,7 @@ import {
 import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { IoSettingsOutline } from "react-icons/io5";
-import { MdAdd } from "react-icons/md";
+import { MdAdd, MdOutlineExtension } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
 import { updateEngineConfig } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
@@ -36,6 +36,7 @@ import {
 } from "utils/generatedTypes";
 import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
+import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
 
@@ -95,6 +96,7 @@ export function ProjectChat() {
   );
 
   const [selectedEngineId, setSelectedEngineId] = useState<string | null>(null);
+  const [viewSkillsMcpViewer, setViewSkillsMcpViewer] = useState(false);
 
   const availableConfigGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
@@ -244,6 +246,7 @@ export function ProjectChat() {
       setSelectedEngineId(nextEngineId);
       setChatId(undefined);
       useAIStore.setState({ viewHistory: false });
+      setViewSkillsMcpViewer(false);
     },
     [selectedEngineId, setChatId],
   );
@@ -307,6 +310,8 @@ export function ProjectChat() {
     selectedEngineId,
   ]);
 
+  const isAuxView = viewHistory || viewSkillsMcpViewer;
+
   return (
     apiKeysInitialLoadComplete &&
     llmConfigInitialLoadComplete &&
@@ -322,6 +327,7 @@ export function ProjectChat() {
                 useAIStore.setState({
                   viewHistory: false,
                 });
+                setViewSkillsMcpViewer(false);
               }}
             >
               <MdAdd size={15} />
@@ -330,6 +336,7 @@ export function ProjectChat() {
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
               onClick={() => {
+                setViewSkillsMcpViewer(false);
                 useAIStore.setState({ viewHistory: !viewHistory });
               }}
               aria-label="View History"
@@ -346,13 +353,37 @@ export function ProjectChat() {
                 </>
               )}
             </button>
-            {!viewHistory ? (
+            <button
+              className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+              onClick={() => {
+                if (viewSkillsMcpViewer) {
+                  setViewSkillsMcpViewer(false);
+                  return;
+                }
+                useAIStore.setState({ viewHistory: false });
+                setViewSkillsMcpViewer(true);
+              }}
+              aria-label="View Skills and MCP"
+            >
+              {viewSkillsMcpViewer ? (
+                <>
+                  <IoMdArrowRoundBack />
+                  <span>Return to chat</span>
+                </>
+              ) : (
+                <>
+                  <MdOutlineExtension size={15} />
+                  <span className="hidden @[17.5rem]:block">Skills/MCP</span>
+                </>
+              )}
+            </button>
+            {!isAuxView ? (
               <Menubar.Root className="contents">
                 <FollowAIToggleButton />
               </Menubar.Root>
             ) : null}
-            {!viewHistory && showPlanModeBadge ? <PlanModeBadge /> : null}
-            {!viewHistory &&
+            {!isAuxView && showPlanModeBadge ? <PlanModeBadge /> : null}
+            {!isAuxView &&
             (engineType === EngineTypeEnum.setta_llm ||
               engineType === EngineTypeEnum.external_agent) ? (
               <button
@@ -366,7 +397,7 @@ export function ProjectChat() {
                 <span className="hidden @[33.5rem]:block">Thinking</span>
               </button>
             ) : null}
-            {!viewHistory ? (
+            {!isAuxView ? (
               <div className="ml-auto flex items-center">
                 <ProjectAISettingsPopover
                   engineGroups={engineGroups}
@@ -385,6 +416,8 @@ export function ProjectChat() {
 
         {viewHistory ? (
           <ProjectChatHistory chatId={chatId} setChatId={setChatId} />
+        ) : viewSkillsMcpViewer ? (
+          <ProjectChatSkillsMcpViewer />
         ) : (
           <>
             {externalStatusMessage ? (
