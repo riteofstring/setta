@@ -100,7 +100,9 @@ function resolveProjectChatRunType(
   return null;
 }
 
-export function resolveWorkspaceRootPollDelayMs(stablePollCount: number): number {
+export function resolveWorkspaceRootPollDelayMs(
+  stablePollCount: number,
+): number {
   if (stablePollCount >= WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF) {
     return WORKSPACE_ROOT_BACKOFF_POLL_MS;
   }
@@ -154,12 +156,18 @@ function useWorkspaceRootIdentity(
         if (cancelled) {
           return;
         }
+        if (
+          !rootResponse ||
+          rootResponse.status !== 200 ||
+          !rootResponse.data
+        ) {
+          stablePollCount = 0;
+          return;
+        }
         let nextRoot: string | null = null;
-        if (rootResponse && rootResponse.status === 200 && rootResponse.data) {
-          const rootPath = rootResponse.data.rootPath.trim();
-          if (rootPath) {
-            nextRoot = rootPath;
-          }
+        const rootPath = rootResponse.data.rootPath.trim();
+        if (rootPath) {
+          nextRoot = rootPath;
         }
         if (nextRoot === lastResolvedRoot) {
           stablePollCount += 1;
@@ -173,9 +181,11 @@ function useWorkspaceRootIdentity(
           }
           return nextRoot;
         });
-        scheduleNextPoll();
+      } catch {
+        stablePollCount = 0;
       } finally {
         inFlight = false;
+        scheduleNextPoll();
       }
     };
 
@@ -229,33 +239,39 @@ function useHasPythonInWorkspaceRoot(
         setHasPython(cached);
         return;
       }
-      const contentsResponse = await route_get_folder_contents({
-        folderPath: rootPath,
-        includeHidden: false,
-        includeMtime: false,
-        includeSize: false,
-        maxEntries: 5000,
-      });
-      if (
-        !contentsResponse ||
-        contentsResponse.status !== 200 ||
-        !Array.isArray(contentsResponse.data)
-      ) {
+      try {
+        const contentsResponse = await route_get_folder_contents({
+          folderPath: rootPath,
+          includeHidden: false,
+          includeMtime: false,
+          includeSize: false,
+          maxEntries: 5000,
+        });
+        if (
+          !contentsResponse ||
+          contentsResponse.status !== 200 ||
+          !Array.isArray(contentsResponse.data)
+        ) {
+          if (!cancelled) {
+            setHasPython(false);
+          }
+          return;
+        }
+        if (cancelled) {
+          return;
+        }
+        const hasPythonSignals = hasPythonSignalsInRoot(contentsResponse.data);
+        setCachedWorkspacePythonSignal(
+          hasPythonInWorkspaceRootCache,
+          rootPath,
+          hasPythonSignals,
+        );
+        setHasPython(hasPythonSignals);
+      } catch {
         if (!cancelled) {
           setHasPython(false);
         }
-        return;
       }
-      if (cancelled) {
-        return;
-      }
-      const hasPythonSignals = hasPythonSignalsInRoot(contentsResponse.data);
-      setCachedWorkspacePythonSignal(
-        hasPythonInWorkspaceRootCache,
-        rootPath,
-        hasPythonSignals,
-      );
-      setHasPython(hasPythonSignals);
     };
 
     void load();
@@ -326,6 +342,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   externalEngineAvailable,
   noLLMConfigsAvailable,
   setChatId,
+  onPermissionModeChange,
 }: {
   chatId: string | null | undefined;
   placeholderText: string;
@@ -336,6 +353,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   externalEngineAvailable: boolean;
   noLLMConfigsAvailable: boolean;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
+  onPermissionModeChange?: (
+    nextPermissionMode: ChatPermissionModeValue,
+  ) => void;
 }) {
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
     (state) => {
@@ -413,6 +433,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       };
     });
   }, [isExternalEngine]);
+  useEffect(() => {
+    if (!onPermissionModeChange) {
+      return;
+    }
+    onPermissionModeChange(executionSettings.permissionMode);
+  }, [executionSettings.permissionMode, onPermissionModeChange]);
   const canConfigureExecutionSettings =
     Boolean(engineConfigId) &&
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);

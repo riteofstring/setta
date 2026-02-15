@@ -22,6 +22,7 @@ import {
   countLLMConfigs,
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
+import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
@@ -134,26 +135,7 @@ type ChatSectionHistoryEntry = ReturnType<
   typeof buildChatHistoryEntries
 >[number];
 
-type PlanModeBadgeArgs = {
-  engineType: EngineTypeEnum | null;
-  externalAgentToolType: string | null;
-  approvalPolicy: string | null;
-  permissionMode: ChatPermissionModeValue;
-};
-
-export function shouldShowPlanModeBadge({
-  engineType,
-  externalAgentToolType,
-  approvalPolicy,
-  permissionMode,
-}: PlanModeBadgeArgs): boolean {
-  return (
-    engineType === EngineTypeEnum.external_agent &&
-    externalAgentToolType === "claude_code" &&
-    approvalPolicy === "plan" &&
-    permissionMode === "config_toml_custom"
-  );
-}
+export { shouldShowPlanModeBadge };
 
 function emitChatAction(payload: ChatActionPayload) {
   const literalPayload: LiteralDependencyValue = {

@@ -1,3 +1,4 @@
+import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { EngineTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
@@ -31,5 +32,32 @@ describe("resolveWorkspaceRootPollDelayMs", () => {
   it("backs off polling once the root is stable", () => {
     expect(resolveWorkspaceRootPollDelayMs(2)).toBe(30000);
     expect(resolveWorkspaceRootPollDelayMs(5)).toBe(30000);
+  });
+});
+
+describe("project chat plan badge runtime policy", () => {
+  it("shows plan badge when the effective permission mode keeps config policy", () => {
+    const permissionMode = getDefaultProjectChatPermissionMode(
+      EngineTypeEnum.external_agent,
+    );
+    expect(
+      shouldShowPlanModeBadge({
+        engineType: EngineTypeEnum.external_agent,
+        externalAgentToolType: "claude_code",
+        approvalPolicy: "plan",
+        permissionMode,
+      }),
+    ).toBe(true);
+  });
+
+  it("hides plan badge when permission mode overrides plan policy", () => {
+    expect(
+      shouldShowPlanModeBadge({
+        engineType: EngineTypeEnum.external_agent,
+        externalAgentToolType: "claude_code",
+        approvalPolicy: "plan",
+        permissionMode: "minimal",
+      }),
+    ).toBe(false);
   });
 });

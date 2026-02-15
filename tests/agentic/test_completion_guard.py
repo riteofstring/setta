@@ -213,6 +213,25 @@ def test_completion_guard_prefers_latest_verification_signal_in_single_message()
     assert _assistant_text(assistant_message) == "Done."
 
 
+def test_completion_guard_requires_explicit_status_when_latest_done_message_mentions_checks() -> (
+    None
+):
+    # If the current completion message references checks without pass/fail, stale
+    # older results must not be reused.
+    prior_messages = [
+        _user_message("Create a new project setup."),
+        _assistant_message("Ran tests and checks passed."),
+    ]
+    assistant_message = _assistant_message(
+        "Done. I referenced tests but have not rerun checks yet."
+    )
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+
+
 def test_completion_guard_treats_no_errors_found_as_passed_checks() -> None:
     # "no errors found" must not be misclassified as a failure.
     prior_messages = [

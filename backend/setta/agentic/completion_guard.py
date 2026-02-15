@@ -170,7 +170,13 @@ def _resolve_verification_status(
     prior_messages: list[Any],
     assistant_text: str,
 ) -> str:
-    candidate_texts = [assistant_text]
+    if _CHECK_RE.search(assistant_text):
+        assistant_status = _resolve_text_verification_status(assistant_text)
+        if assistant_status is None:
+            return "missing"
+        return assistant_status
+
+    candidate_texts: list[str] = []
     for message in reversed(prior_messages):
         role = _normalize_role(message)
         if role == "user":

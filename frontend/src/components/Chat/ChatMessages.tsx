@@ -1446,15 +1446,12 @@ const ChatMessage = memo(function ChatMessage({
       });
     };
     syncBubbleWidth();
-    if (!isStreaming) {
-      return;
-    }
     const resizeObserver = new ResizeObserver(syncBubbleWidth);
     resizeObserver.observe(bubble);
     return () => {
       resizeObserver.disconnect();
     };
-  }, [isAssistant, isStreaming, message.id, thinkingItems.length]);
+  }, [isAssistant, message.id, thinkingItems.length]);
 
   if (message.role === ChatRoleEnum.assistant) {
     const showTypingIndicator = showAssistantSpinner;

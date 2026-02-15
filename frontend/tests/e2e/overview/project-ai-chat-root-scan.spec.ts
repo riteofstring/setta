@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import {
+  allowExpectedApiError,
   cleanupIsolatedProject,
   ensureAppReady,
   ensureManagedChatEngine,
@@ -246,6 +247,77 @@ test("project chat backs off root polling after repeated stable root scans", asy
     const postBackoffTransitionCalls = getRootCalls;
     await page.waitForTimeout(6200);
     expect(getRootCalls).toBe(postBackoffTransitionCalls);
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project chat recovers root polling after a transient getFileBrowserRoot failure", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+  allowExpectedApiError(page, {
+    path: "/api/getFileBrowserRoot",
+    statuses: [500],
+    method: "POST",
+    count: 1,
+  });
+
+  let getRootCalls = 0;
+  await page.route("**/api/getFileBrowserRoot", async (route) => {
+    getRootCalls += 1;
+    if (getRootCalls === 1) {
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "temporary failure" }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        rootPath: "/tmp/workspace-recover",
+        pathSeparator: "/",
+        ignorePatterns: [],
+      }),
+    });
+  });
+  await page.route("**/api/getFolderContents", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          name: "pyproject.toml",
+          path: "/tmp/workspace-recover/pyproject.toml",
+          type: "file",
+          extension: "toml",
+        },
+      ]),
+    });
+  });
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    await expect
+      .poll(() => getRootCalls, { timeout: 15000 })
+      .toBeGreaterThanOrEqual(2);
+    await expect(
+      overviewPane.getByRole("button", { name: /^Create Project$/ }),
+    ).toBeVisible();
   } finally {
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);

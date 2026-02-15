@@ -246,13 +246,15 @@ export function useOverviewListing() {
 }
 
 function useActiveAgentSectionIds(): ReadonlySet<string> {
-  const { agentRuns, agentRunsInitialLoadComplete } = useAIStore(
-    (state) => ({
-      agentRuns: state.agentRuns,
-      agentRunsInitialLoadComplete: state.agentRunsInitialLoadComplete,
-    }),
-    shallow,
-  );
+  const { agentRuns, agentRunsInitialLoadComplete, agentRunsLoadError } =
+    useAIStore(
+      (state) => ({
+        agentRuns: state.agentRuns,
+        agentRunsInitialLoadComplete: state.agentRunsInitialLoadComplete,
+        agentRunsLoadError: state.agentRunsLoadError,
+      }),
+      shallow,
+    );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
 
   useEffect(() => {
@@ -260,6 +262,15 @@ function useActiveAgentSectionIds(): ReadonlySet<string> {
       void loadAgentRuns();
     }
   }, [agentRunsInitialLoadComplete]);
+  useEffect(() => {
+    if (!agentRunsLoadError) {
+      return;
+    }
+    const intervalId = setInterval(() => {
+      void loadAgentRuns();
+    }, 2500);
+    return () => clearInterval(intervalId);
+  }, [agentRunsLoadError]);
 
   const activeSectionIds = useMemo(
     () => getActiveSectionIdsFromRuns(agentRuns, projectConfigId),

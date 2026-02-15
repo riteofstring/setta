@@ -165,3 +165,26 @@ Implemented the latest consolidated review fixes across completion-guard intent 
 - Playwright: targeted overview suites passed (`project-ai-chat-root-scan`, `project-overview-ai-activity-polling`).
 - `tsc --noEmit` still reports existing repo-wide TypeScript errors outside this change set.
 - CDP visual verification completed in a live session (Project AI Chat and Overview pane render/interaction sanity checks).
+
+## 2026-02-17 13:09:49 PST
+
+### Summary
+Implemented the latest consolidated review fixes across completion-guard stale-verification handling, project-chat runtime policy signaling, workspace-root polling resilience, overview activity retry behavior, and assistant reasoning-card resize alignment, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Completion guard now treats the latest completion message as authoritative when it mentions checks; if no explicit pass/fail is present, status resolves to missing instead of reusing stale historical pass results.
+- Added guard-level and runner-level regressions for stale verification reuse in create/scaffold completion flows.
+- Refactored Plan badge logic into a shared runtime-policy helper and wired Project Chat badge visibility to effective runtime permission mode (including composer overrides), aligning badge display with executed policy.
+- Added project-chat runtime-policy unit coverage for Plan badge visibility with config mode vs permission override mode.
+- Hardened Project AI Chat workspace-root polling: transient `getFileBrowserRoot` failures no longer stop polling, and root-scan failures no longer surface unhandled promise rejections.
+- Added Playwright coverage validating root polling recovery after a transient root-endpoint failure.
+- Updated Project Overview AI activity loading to retry `getAgentRuns` while load error is present, preventing stale overview activity after an initial transient failure.
+- Added Playwright coverage validating overview retries after an initial `getAgentRuns` failure.
+- Kept assistant reasoning width tracking active via `ResizeObserver` whenever reasoning cards are rendered (not just during streaming), preventing post-stream resize drift.
+- Extended Playwright resize coverage to validate reasoning-card/bubble width alignment after layout resize updates.
+
+### Test and verification status
+- Backend pytest: targeted suites passed (`tests/agentic/test_completion_guard.py`, `tests/llm/test_agent_runner.py`).
+- Frontend Vitest: targeted suites passed (`chatAreaPlanModeBadge`, `projectChatExecutionSettings`, `ChatMessages`).
+- Playwright: targeted e2e suites passed (`project-ai-chat-root-scan`, `project-overview-ai-activity-polling`, `chat-streaming-resize`).
+- CDP visual verification completed in a live session (Project AI Chat empty-state controls + reasoning-card alignment checks at small and large viewport sizes).

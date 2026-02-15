@@ -273,6 +273,29 @@ class TestAgentRunner:
 
         assert assistant_message.content[0].text == "All done."
 
+    def test_completion_guard_requires_explicit_status_when_done_message_mentions_checks(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            AssistantChatMessage(
+                content=[MessageTextContent(text="I ran checks and tests passed.")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[
+                MessageTextContent(
+                    text="Done. I referenced tests but have not rerun checks yet."
+                )
+            ]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
     def test_allowlist_rejects_unknown_server(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

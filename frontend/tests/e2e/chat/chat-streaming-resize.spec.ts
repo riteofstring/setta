@@ -103,11 +103,13 @@ test("chat streaming stays visible during resize", async ({ page }) => {
     await expect
       .poll(
         async () =>
-          (await getSectionLayoutFromState(
-            page,
-            projectContext.projectConfigId,
-            sectionId,
-          )).height ?? 0,
+          (
+            await getSectionLayoutFromState(
+              page,
+              projectContext.projectConfigId,
+              sectionId,
+            )
+          ).height ?? 0,
         { timeout: 10000 },
       )
       .toBeGreaterThan(baseHeight);
@@ -177,7 +179,7 @@ test("assistant reasoning card matches bubble width with compact padding", async
               },
               {
                 type: "text",
-                text: "I created a complete app scaffold.",
+                text: "I created a complete app scaffold with multiple backend services, a frontend control plane, and exhaustive validation workflows to force responsive bubble wrapping during pane resize checks.",
               },
             ],
             attachments: [],
@@ -206,7 +208,9 @@ test("assistant reasoning card matches bubble width with compact padding", async
       if (!root) {
         return null;
       }
-      const card = root.querySelector('[data-chat-assistant-reasoning-card="true"]');
+      const card = root.querySelector(
+        '[data-chat-assistant-reasoning-card="true"]',
+      );
       const bubble = root.querySelector('[data-chat-assistant-bubble="true"]');
       if (!card || !bubble) {
         return null;
@@ -233,6 +237,84 @@ test("assistant reasoning card matches bubble width with compact padding", async
     expect(sizing.cardPaddingRight).toBeLessThanOrEqual(6);
     expect(sizing.cardPaddingTop).toBeLessThanOrEqual(4);
     expect(sizing.cardPaddingBottom).toBeLessThanOrEqual(4);
+
+    const initialLayout = await getSectionLayoutFromState(
+      page,
+      projectContext.projectConfigId,
+      sectionId,
+    );
+    const baseWidth = initialLayout.width ?? 400;
+    const targetWidth = Math.max(260, baseWidth - 120);
+    await postBackend(page, "/setTopLevelSectionLayout", {
+      projectConfigId: projectContext.projectConfigId,
+      topLevelSections: {
+        [sectionId]: {
+          x: initialLayout.x ?? 0,
+          y: initialLayout.y ?? 0,
+          zIndex: initialLayout.zIndex ?? 0,
+          w: targetWidth,
+          h: initialLayout.height ?? 220,
+        },
+      },
+    });
+
+    await expect
+      .poll(
+        async () =>
+          await page.evaluate((targetSectionId) => {
+            const root = document.querySelector(
+              `.react-flow__node[data-id="${targetSectionId}"]`,
+            );
+            if (!root) {
+              return Number.POSITIVE_INFINITY;
+            }
+            const card = root.querySelector(
+              '[data-chat-assistant-reasoning-card="true"]',
+            );
+            const bubble = root.querySelector(
+              '[data-chat-assistant-bubble="true"]',
+            );
+            if (!card || !bubble) {
+              return Number.POSITIVE_INFINITY;
+            }
+            const cardRect = card.getBoundingClientRect();
+            const bubbleRect = bubble.getBoundingClientRect();
+            return Math.abs(cardRect.width - bubbleRect.width);
+          }, sectionId),
+        { timeout: 10000 },
+      )
+      .toBeLessThan(1);
+
+    const resizedSizing = await page.evaluate((targetSectionId) => {
+      const root = document.querySelector(
+        `.react-flow__node[data-id="${targetSectionId}"]`,
+      );
+      if (!root) {
+        return null;
+      }
+      const card = root.querySelector(
+        '[data-chat-assistant-reasoning-card="true"]',
+      );
+      const bubble = root.querySelector('[data-chat-assistant-bubble="true"]');
+      if (!card || !bubble) {
+        return null;
+      }
+      const cardRect = card.getBoundingClientRect();
+      const bubbleRect = bubble.getBoundingClientRect();
+      return {
+        cardWidth: cardRect.width,
+        bubbleWidth: bubbleRect.width,
+      };
+    }, sectionId);
+    expect(resizedSizing).not.toBeNull();
+    if (!resizedSizing) {
+      throw new Error(
+        "Missing assistant reasoning sizing metrics after resize.",
+      );
+    }
+    expect(
+      Math.abs(resizedSizing.cardWidth - resizedSizing.bubbleWidth),
+    ).toBeLessThan(1);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -285,7 +367,9 @@ async function getCurrentProjectConfigId(page: Page): Promise<string> {
   throw new Error("Unable to resolve projectConfigId for test.");
 }
 
-async function openIsolatedProject(page: Page): Promise<IsolatedProjectContext> {
+async function openIsolatedProject(
+  page: Page,
+): Promise<IsolatedProjectContext> {
   const metadata = await postBackend<ProjectMetadataResponse>(
     page,
     "/loadAllProjectMetadata",

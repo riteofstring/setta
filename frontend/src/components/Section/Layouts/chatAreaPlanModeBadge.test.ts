@@ -1,6 +1,6 @@
+import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { EngineTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { shouldShowPlanModeBadge } from "./ChatArea";
 
 describe("shouldShowPlanModeBadge", () => {
   it("shows plan badge when runtime policy uses config mode for claude external plan config", () => {
