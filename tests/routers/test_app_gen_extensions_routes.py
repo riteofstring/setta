@@ -33,7 +33,7 @@ class TestAppGenExtensionsRoutes:
     def test_lists_workspace_skills(self, monkeypatch: pytest.MonkeyPatch) -> None:
         with TemporaryDirectory() as tmpdir:
             workspace_root = Path(tmpdir)
-            skill_dir = workspace_root / "skills" / "ui-layout"
+            skill_dir = workspace_root / ".agents" / "skills" / "ui-layout"
             skill_dir.mkdir(parents=True, exist_ok=True)
             (skill_dir / "SKILL.md").write_text(
                 "# UI Layout\n\nCreate dense dashboard layouts.\n",
@@ -49,7 +49,7 @@ class TestAppGenExtensionsRoutes:
 
             assert len(rows) == 1
             row = rows[0]
-            assert row.skillId == "workspace_skills::ui-layout"
+            assert row.skillId == "workspace_agents_skills::ui-layout"
             assert row.name == "ui-layout"
             assert row.description == "Create dense dashboard layouts."
             assert not hasattr(row, "skillPath")
@@ -60,7 +60,7 @@ class TestAppGenExtensionsRoutes:
     ) -> None:
         with TemporaryDirectory() as tmpdir:
             workspace_root = Path(tmpdir)
-            skill_dir = workspace_root / "skills" / "broken-encoding"
+            skill_dir = workspace_root / ".agents" / "skills" / "broken-encoding"
             skill_dir.mkdir(parents=True, exist_ok=True)
             # Invalid UTF-8 payload should not fail the entire skill listing route.
             (skill_dir / "SKILL.md").write_bytes(b"\xff\xfe\xfd")
@@ -73,7 +73,7 @@ class TestAppGenExtensionsRoutes:
 
             assert len(rows) == 1
             row = rows[0]
-            assert row.skillId == "workspace_skills::broken-encoding"
+            assert row.skillId == "workspace_agents_skills::broken-encoding"
             assert row.description == ""
 
     def test_reads_skill_content_by_skill_id(
@@ -106,7 +106,7 @@ class TestAppGenExtensionsRoutes:
     def test_rejects_path_traversal(self, monkeypatch: pytest.MonkeyPatch) -> None:
         with TemporaryDirectory() as tmpdir:
             workspace_root = Path(tmpdir)
-            (workspace_root / "skills").mkdir(parents=True, exist_ok=True)
+            (workspace_root / ".agents" / "skills").mkdir(parents=True, exist_ok=True)
 
             fake_home = workspace_root / "home"
             fake_home.mkdir(parents=True, exist_ok=True)
@@ -115,7 +115,7 @@ class TestAppGenExtensionsRoutes:
             with pytest.raises(ValueError):
                 read_app_gen_skill_content(
                     workspace_root=workspace_root,
-                    skill_id="workspace_skills::../outside",
+                    skill_id="workspace_agents_skills::../outside",
                 )
 
     def test_lists_skills_from_env_home_roots(
@@ -170,7 +170,7 @@ class TestAppGenExtensionsRoutes:
     ) -> None:
         with TemporaryDirectory() as tmpdir:
             workspace_root = Path(tmpdir)
-            root_skills = workspace_root / "skills"
+            root_skills = workspace_root / ".agents" / "skills"
             kept_skill_dir = root_skills / "kept"
             ignored_skill_dir = root_skills / "node_modules" / "ignored"
             kept_skill_dir.mkdir(parents=True, exist_ok=True)
@@ -208,7 +208,7 @@ class TestAppGenExtensionsRoutes:
             rows = list_app_gen_skills(workspace_root)
 
             assert walked_after_prune == ["kept"]
-            assert [row.skillId for row in rows] == ["workspace_skills::kept"]
+            assert [row.skillId for row in rows] == ["workspace_agents_skills::kept"]
 
     def test_lists_skills_without_path_read_text_for_description(
         self,
@@ -216,7 +216,7 @@ class TestAppGenExtensionsRoutes:
     ) -> None:
         with TemporaryDirectory() as tmpdir:
             workspace_root = Path(tmpdir)
-            skill_dir = workspace_root / "skills" / "streamed-description"
+            skill_dir = workspace_root / ".agents" / "skills" / "streamed-description"
             skill_dir.mkdir(parents=True, exist_ok=True)
             (skill_dir / "SKILL.md").write_text(
                 "# Streamed Description\n\nRead only first useful line.\nMore content.\n",
@@ -245,7 +245,7 @@ class TestAppGenExtensionsRoutes:
     ) -> None:
         with TemporaryDirectory() as tmpdir:
             workspace_root = Path(tmpdir)
-            skill_dir = workspace_root / "skills" / "large-doc"
+            skill_dir = workspace_root / ".agents" / "skills" / "large-doc"
             skill_dir.mkdir(parents=True, exist_ok=True)
             oversized_content = "A" * (app_gen_extensions._MAX_SKILL_CONTENT_PREVIEW_BYTES + 5000)
             (skill_dir / "SKILL.md").write_text(oversized_content, encoding="utf-8")
@@ -256,10 +256,10 @@ class TestAppGenExtensionsRoutes:
 
             content = read_app_gen_skill_content(
                 workspace_root=workspace_root,
-                skill_id="workspace_skills::large-doc",
+                skill_id="workspace_agents_skills::large-doc",
             )
 
-            assert content.skillId == "workspace_skills::large-doc"
+            assert content.skillId == "workspace_agents_skills::large-doc"
             assert content.truncated is True
             assert content.originalSizeBytes == len(oversized_content)
             assert len(content.content) == app_gen_extensions._MAX_SKILL_CONTENT_PREVIEW_BYTES
@@ -270,8 +270,8 @@ class TestAppGenExtensionsRoutes:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         workspace_root = tmp_path / "workspace"
-        workspace_skills_root = workspace_root / "skills"
-        workspace_skills_root.mkdir(parents=True, exist_ok=True)
+        workspace_agents_skills_root = workspace_root / ".agents" / "skills"
+        workspace_agents_skills_root.mkdir(parents=True, exist_ok=True)
         monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
         clear_setta_paths_cache()
 
@@ -282,11 +282,11 @@ class TestAppGenExtensionsRoutes:
         with TestClient(app) as client:
             response = client.post(
                 f"{Route.PREFIX.value}{Route.GET_APP_GEN_SKILL_CONTENT.value}",
-                json={"skillId": "workspace_skills::missing-skill"},
+                json={"skillId": "workspace_agents_skills::missing-skill"},
             )
 
         assert response.status_code == 404
         assert response.json()["detail"] == (
-            "Missing SKILL.md for workspace_skills::missing-skill"
+            "Missing SKILL.md for workspace_agents_skills::missing-skill"
         )
         clear_setta_paths_cache()
