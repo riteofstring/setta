@@ -58,9 +58,6 @@ import {
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
-  route_stop_external_agent_run,
-  route_stop_llm_chat,
-  route_transcribe_chat_audio,
   route_update_agent_profile,
   route_update_engine_config,
   route_update_external_agent_config,
@@ -76,8 +73,6 @@ import {
   AssistantChatMessage,
   BaseChatMessageUnion,
   ChatFileAttachment,
-  ChatPermissionMode,
-  ChatPermissionModeEnum,
   ChatRoleEnum,
   ChatSectionBranch,
   ChatSectionState,
@@ -125,71 +120,6 @@ const scopeViolationToastTimeouts = new Map<
 >();
 let llmConfigLoadPromise: Promise<void> | null = null;
 let llmApiKeysLoadPromise: Promise<void> | null = null;
-let agentRunsLoadPromise: Promise<void> | null = null;
-
-type ChatExecutionSettings = {
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-};
-
-type ChatAppGenerationContext = {
-  mode: AppGenerationMode | null;
-  referenceImageUrl?: string | null;
-  referenceImageNotes?: string | null;
-};
-
-const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
-  permissionMode: ChatPermissionModeEnum.minimal,
-  searchEnabled: true,
-};
-
-function resolveTranscriptionFileExtension(mimeType: string): string {
-  const normalized = mimeType.trim().toLowerCase();
-  if (normalized.includes("webm")) {
-    return "webm";
-  }
-  if (normalized.includes("mpeg") || normalized.includes("mp3")) {
-    return "mp3";
-  }
-  if (normalized.includes("ogg")) {
-    return "ogg";
-  }
-  if (normalized.includes("wav")) {
-    return "wav";
-  }
-  if (
-    normalized.includes("mp4") ||
-    normalized.includes("m4a") ||
-    normalized.includes("aac")
-  ) {
-    return "m4a";
-  }
-  return "webm";
-}
-
-export async function transcribeChatAudio(
-  engineConfigId: string,
-  audioBlob: Blob,
-): Promise<string | null> {
-  if (!engineConfigId || audioBlob.size === 0) {
-    return null;
-  }
-  const form = new FormData();
-  form.set("engineConfigId", engineConfigId);
-  const extension = resolveTranscriptionFileExtension(audioBlob.type);
-  form.set("file", audioBlob, `dictation.${extension}`);
-  const res = await route_transcribe_chat_audio(form);
-  if (!res200(res)) {
-    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-    return null;
-  }
-  const text = res.data.text.trim();
-  if (!text) {
-    return null;
-  }
-  return text;
-}
 
 export async function loadLLMConfig() {
   if (llmConfigLoadPromise) {
@@ -284,25 +214,14 @@ export function receiveAgentProfilesUpdate(payload: Array<AgentProfile>) {
 }
 
 export async function loadAgentRuns() {
-  if (agentRunsLoadPromise) {
-    await agentRunsLoadPromise;
-    return;
-  }
-  agentRunsLoadPromise = (async () => {
-    const res = await route_get_agent_runs();
-    if (res200(res)) {
-      receiveAgentRunsUpdate(res.data);
-    } else {
-      useAIStore.setState({
-        agentRunsInitialLoadComplete: true,
-        agentRunsLoadError: "Failed to load agent runs",
-      });
-    }
-  })();
-  try {
-    await agentRunsLoadPromise;
-  } finally {
-    agentRunsLoadPromise = null;
+  const res = await route_get_agent_runs();
+  if (res200(res)) {
+    receiveAgentRunsUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      agentRunsInitialLoadComplete: true,
+      agentRunsLoadError: "Failed to load agent runs",
+    });
   }
 }
 
@@ -654,138 +573,6 @@ export function getDefaultChatDetails(): ChatDetails {
   };
 }
 
-function stopChatResponseLocally(chatId: string | null | undefined) {
-  const stopDetails = (details: ChatDetails): ChatDetails => ({
-    ...details,
-    waitingForResponse: false,
-  });
-  if (typeof chatId === "string") {
-    updateChatDetails(chatId, stopDetails);
-  } else {
-    updatePendingChatDetails(stopDetails);
-  }
-  clearAllAppSpecPatchStreams();
-}
-
-async function resolveLatestRunningExternalRunIdWithRefresh(
-  chatId: string,
-  projectConfigId: string | null,
-): Promise<string | null> {
-  let runId = await findLatestRunningExternalRunId(chatId, projectConfigId);
-  if (runId) {
-    return runId;
-  }
-  await loadAgentRuns();
-  runId = await findLatestRunningExternalRunId(chatId, projectConfigId);
-  return runId;
-}
-
-async function stopExternalChatResponse({
-  chatId,
-  projectConfigId,
-  sectionId,
-  failureMessage,
-}: {
-  chatId: string;
-  projectConfigId: string | null;
-  sectionId?: string;
-  failureMessage: string;
-}): Promise<boolean> {
-  const refreshChatAndResolveWaiting = async (): Promise<{
-    hydrated: boolean;
-    waitingForResponse: boolean;
-  }> => {
-    const hydrated = await getExternalAgentChat(chatId, projectConfigId, sectionId);
-    const waitingForResponse = Boolean(
-      useAIStore.getState().chatDetails[chatId]?.waitingForResponse,
-    );
-    return { hydrated, waitingForResponse };
-  };
-
-  const runId = await resolveLatestRunningExternalRunIdWithRefresh(
-    chatId,
-    projectConfigId,
-  );
-  if (!runId) {
-    const refreshState = await refreshChatAndResolveWaiting();
-    if (refreshState.hydrated && !refreshState.waitingForResponse) {
-      return true;
-    }
-    addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
-    return false;
-  }
-  const response = await route_stop_external_agent_run({ runId });
-  if (res200(response)) {
-    void loadAgentRuns();
-    return true;
-  }
-  const refreshState = await refreshChatAndResolveWaiting();
-  if (refreshState.hydrated && !refreshState.waitingForResponse) {
-    return true;
-  }
-  addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
-  return false;
-}
-
-export async function stopProjectChatResponse(
-  chatId: string | null | undefined,
-  isExternalEngine: boolean,
-): Promise<boolean> {
-  stopChatResponseLocally(chatId);
-  if (typeof chatId !== "string") {
-    return true;
-  }
-
-  if (isExternalEngine) {
-    return stopExternalChatResponse({
-      chatId,
-      projectConfigId: null,
-      failureMessage: "Failed to stop project chat.",
-    });
-  }
-
-  const response = await route_stop_llm_chat({ chatId });
-  if (res200(response)) {
-    return true;
-  }
-  await getLLMChat(chatId);
-  addTemporaryNotification(
-    "Failed to stop project chat.",
-    SettaNotificationTypeEnum.warning,
-  );
-  return false;
-}
-
-export async function stopManagedSectionChatResponse(
-  chatId: string | null | undefined,
-  isExternalEngine: boolean,
-  projectConfigId: string,
-  sectionId: string,
-): Promise<boolean> {
-  stopChatResponseLocally(chatId);
-  if (typeof chatId !== "string") {
-    return true;
-  }
-  if (isExternalEngine) {
-    return stopExternalChatResponse({
-      chatId,
-      projectConfigId,
-      sectionId,
-      failureMessage: "Failed to stop section chat.",
-    });
-  }
-  const response = await route_stop_llm_chat({ chatId });
-  if (res200(response)) {
-    return true;
-  }
-  await getLLMChat(chatId, sectionId);
-  addTemporaryNotification(
-    "Failed to stop section chat.",
-    SettaNotificationTypeEnum.warning,
-  );
-  return false;
-}
-
 function mergeChatSectionState(
   currentState: ChatSectionState,
   incoming: {
@@ -933,7 +720,7 @@ export async function getExternalAgentChat(
   chatId: string,
   projectConfigId: string | null,
   sectionId?: string,
-): Promise<boolean> {
+): Promise<void> {
   const res = await route_get_external_agent_chat({
     chatId,
     projectConfigId,
@@ -981,9 +768,7 @@ export async function getExternalAgentChat(
         reason: "hydrate-external-chat",
       });
     }
-    return true;
   }
-  return false;
 }
 
 export async function submitMessage(
@@ -993,21 +778,19 @@ export async function submitMessage(
   thinking: boolean,
   engineConfigId: string,
   isExternalEngine: boolean,
-  options: {
-    messageId?: string;
-    agentProfileId?: string | null;
-    sectionId?: string | null;
-    executionSettings?: ChatExecutionSettings | null;
-    appGeneration?: ChatAppGenerationContext | null;
-  } = {},
+  messageId?: string,
+  agentProfileId?: string | null,
+  sectionId?: string | null,
+  appGeneration?: {
+    mode: AppGenerationMode | null;
+    referenceImageUrl?: string | null;
+    referenceImageNotes?: string | null;
+  },
 ): Promise<string | null> {
   const trimmed = message.trim();
   if ((!trimmed && attachments.length === 0) || !engineConfigId) {
     return null;
   }
-  const resolvedExecutionSettings =
-    options.executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
-  const appGeneration = options.appGeneration ?? null;
 
   // Add user message immediately for responsive UI
   const content = [];
@@ -1015,7 +798,7 @@ export async function submitMessage(
     content.push(createMessageTextContent({ text: message }));
   }
   const userMessage = {
-    id: options.messageId ?? createNewId(),
+    id: messageId ?? createNewId(),
     role: ChatRoleEnum.user,
     content,
     attachments,
@@ -1036,17 +819,15 @@ export async function submitMessage(
       thinking,
       chatId,
       engineConfigId,
-      agentProfileId: options.agentProfileId ?? null,
+      agentProfileId: agentProfileId ?? null,
       appSpecStreamingEnabled: appSpecStreamingEnabledForSubmit,
       appGenerationMode: appGenerationMode,
       appGenerationReferenceImageUrl: appGeneration?.referenceImageUrl ?? null,
       appGenerationReferenceImageNotes:
         appGeneration?.referenceImageNotes ?? null,
       projectConfigId,
-      sectionId: options.sectionId ?? null,
-      allowUnscoped: options.sectionId == null,
-      permissionMode: resolvedExecutionSettings.permissionMode,
-      searchEnabled: resolvedExecutionSettings.searchEnabled,
+      sectionId: sectionId ?? null,
+      allowUnscoped: sectionId == null,
     });
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;
@@ -1055,10 +836,10 @@ export async function submitMessage(
           await getExternalAgentChat(
             returnedChatId,
             projectConfigId,
-            options.sectionId ?? undefined,
+            sectionId ?? undefined,
           );
         } else {
-          await getLLMChat(returnedChatId, options.sectionId ?? undefined);
+          await getLLMChat(returnedChatId, sectionId ?? undefined);
         }
       }
       return returnedChatId;
@@ -1070,11 +851,6 @@ export async function submitMessage(
         : "Chat request failed.");
     throw new Error(failureDetail);
   } catch (err) {
-    const detail =
-      err instanceof Error && err.message.trim()
-        ? err.message
-        : "AI request failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
     rollbackOptimisticUserMessage(chatId, userMessageId);
     throw err;
   }
@@ -1091,7 +867,6 @@ export async function submitEditedMessage({
   isExternalEngine,
   agentProfileId,
   sectionId,
-  executionSettings,
 }: {
   parentChatId: string;
   messages: Array<BaseChatMessageUnion>;
@@ -1103,14 +878,11 @@ export async function submitEditedMessage({
   isExternalEngine: boolean;
   agentProfileId?: string | null;
   sectionId?: string | null;
-  executionSettings?: ChatExecutionSettings | null;
 }): Promise<string | null> {
   const trimmed = message.trim();
   if (!trimmed && attachments.length === 0) {
     return null;
   }
-  const resolvedExecutionSettings =
-    executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
 
   const content = [];
   if (trimmed) {
@@ -1173,16 +945,8 @@ export async function submitEditedMessage({
       allowUnscoped: sectionId == null,
       branchParentChatId: parentChatId,
       branchFromMessageId: messageId,
-      permissionMode: resolvedExecutionSettings.permissionMode,
-      searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
     if (!res200(res)) {
-      const detail =
-        getErrorDetail(res.data) ??
-        (res.status
-          ? `AI request failed (status ${res.status}).`
-          : "AI request failed.");
-      addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
       clearPendingChatDetails();
       if (sectionId) {
         await setSectionChatId(parentChatId);
@@ -1214,11 +978,6 @@ export async function submitEditedMessage({
     }
     return returnedChatId;
   } catch (err) {
-    const detail =
-      err instanceof Error && err.message.trim()
-        ? err.message
-        : "AI request failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
     clearPendingChatDetails();
     if (sectionId) {
       await setSectionChatId(parentChatId);
@@ -1251,7 +1010,7 @@ export async function respondExternalAgentQuestion(
   return res200(res);
 }
 
-async function findLatestRunningExternalRunId(
+export async function findLatestRunningExternalRunId(
   chatId: string,
   projectConfigId: string | null,
 ): Promise<string | null> {

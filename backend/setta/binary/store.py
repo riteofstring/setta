@@ -13,15 +13,6 @@ from setta.utils.constants import C
 DEFAULT_CHUNK_SIZE = 1024 * 1024
 
 
-class BinaryPayloadTooLargeError(ValueError):
-    def __init__(self, *, max_bytes: int, observed_bytes: int) -> None:
-        super().__init__(
-            f"Binary payload is too large. Maximum size is {max_bytes} bytes."
-        )
-        self.max_bytes = max_bytes
-        self.observed_bytes = observed_bytes
-
-
 @dataclass(frozen=True)
 class BinaryStore:
     root: Path
@@ -140,35 +131,20 @@ class BinaryStore:
         mime_type: str | None = None,
         chunk_size: int = DEFAULT_CHUNK_SIZE,
         durable: bool = False,
-        max_bytes: int | None = None,
     ) -> BinaryContentRef:
         self._ensure_root()
         content_id = uuid4().hex
         path = self._content_path(content_id)
         sha256 = hashlib.sha256()
         total = 0
-        try:
-            with open(path, "wb") as handle:
-                while True:
-                    chunk = stream.read(chunk_size)
-                    if not chunk:
-                        break
-                    next_total = total + len(chunk)
-                    if max_bytes is not None and next_total > max_bytes:
-                        raise BinaryPayloadTooLargeError(
-                            max_bytes=max_bytes,
-                            observed_bytes=next_total,
-                        )
-                    handle.write(chunk)
-                    sha256.update(chunk)
-                    total = next_total
-        except Exception:
-            if path.exists():
-                try:
-                    path.unlink()
-                except OSError:
-                    pass
-            raise
+        with open(path, "wb") as handle:
+            while True:
+                chunk = stream.read(chunk_size)
+                if not chunk:
+                    break
+                handle.write(chunk)
+                sha256.update(chunk)
+                total += len(chunk)
         ref = self._build_ref(
             content_id,
             byte_length=total,

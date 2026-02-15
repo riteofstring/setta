@@ -105,6 +105,10 @@ reparent both sections and params in the project UI.
   resolution during sort drags.
 - `useSortable` applies the configured sorting strategy and optional axis
   restrictions.
+- Collision orientation can now come from sortable item metadata
+  (`sortableOrientation: "horizontal" | "vertical"`), not only section
+  orientation. This is used by list-style sortables outside the canvas section
+  tree.
 
 ## Component wiring
 
@@ -181,6 +185,20 @@ param lists.
 ## Other usage
 
 - `@dnd-kit/helpers/arrayMove` is used in `DrawAreaControls` for layer ordering.
+
+## List-style sortables outside the canvas
+
+- `frontend/src/components/Pages/Project/ViewModeDnd.tsx` adds a shared wrapper
+  (`SortableListProvider` + `useSortableListItem`) for simple list reordering.
+- This wrapper is used for:
+  - view mode tabs (`ViewModeTabs`)
+  - overview view mode rows (`ViewingEditingMode`)
+  - overview project-config rows (`ProjectConfigs`)
+  - section variant rows (`VariantList`)
+- `useSortable` now exposes `setActivatorNodeRef`, so drag handles can be
+  separated from click-to-open row interactions.
+- The list wrapper ignores tiny drags (4px threshold) so clicking a handle does
+  not accidentally trigger a reorder.
 
 ## Extension points
 
