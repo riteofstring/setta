@@ -1,3 +1,12 @@
+import {
+  javascriptLanguage,
+  jsxLanguage,
+  tsxLanguage,
+  typescriptLanguage,
+} from "@codemirror/lang-javascript";
+import { jsonLanguage } from "@codemirror/lang-json";
+import { markdownLanguage } from "@codemirror/lang-markdown";
+import { pythonLanguage } from "@codemirror/lang-python";
 import { highlightingFor } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { EditorState, RangeSetBuilder } from "@codemirror/state";
@@ -10,10 +19,6 @@ import {
 } from "@codemirror/view";
 import { highlightTree, type Highlighter } from "@lezer/highlight";
 import CodeMirror from "@uiw/react-codemirror";
-import {
-  getCodeMirrorLanguageParserForPath,
-  type CodeMirrorParserLike,
-} from "components/Utils/CodeMirror/codeMirrorLanguages";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useMemo } from "react";
 import {
@@ -81,12 +86,43 @@ export function classifyDiffLine(text: string): string | null {
   return null;
 }
 
+type ParserLike = {
+  parse: (input: string) => unknown;
+};
+
 const MAX_SYNTAX_HIGHLIGHT_DOC_LINES = 12000;
 
-export function parserForPath(
-  path: string | null | undefined,
-): CodeMirrorParserLike | null {
-  return getCodeMirrorLanguageParserForPath(path);
+function parserForPath(path: string | null | undefined): ParserLike | null {
+  if (!path) {
+    return null;
+  }
+  const normalized = path.toLowerCase();
+  if (normalized.endsWith(".py")) {
+    return pythonLanguage.parser;
+  }
+  if (normalized.endsWith(".tsx")) {
+    return tsxLanguage.parser;
+  }
+  if (normalized.endsWith(".ts")) {
+    return typescriptLanguage.parser;
+  }
+  if (normalized.endsWith(".jsx")) {
+    return jsxLanguage.parser;
+  }
+  if (
+    normalized.endsWith(".js") ||
+    normalized.endsWith(".mjs") ||
+    normalized.endsWith(".cjs")
+  ) {
+    return javascriptLanguage.parser;
+  }
+  if (normalized.endsWith(".json")) {
+    return jsonLanguage.parser;
+  }
+  if (normalized.endsWith(".md") || normalized.endsWith(".markdown")) {
+    return markdownLanguage.parser;
+  }
+  return null;
 }
 
 export function shouldSyntaxHighlightLine(text: string): boolean {
@@ -128,7 +164,7 @@ function buildCombinedDecorations({
   cache,
 }: {
   view: EditorView;
-  parser: CodeMirrorParserLike | null;
+  parser: ParserLike | null;
   highlighter: Highlighter | null;
   cache: Map<number, SyntaxLineCacheEntry>;
 }): DecorationSet {
@@ -157,12 +193,8 @@ function buildCombinedDecorations({
         pos = line.to + 1;
         continue;
       }
-      if (!parser || !highlighter) {
-        pos = line.to + 1;
-        continue;
-      }
-      const syntaxParser = parser;
-      const syntaxHighlighter = highlighter;
+      const syntaxParser = parser as ParserLike;
+      const syntaxHighlighter = highlighter as Highlighter;
       if (!shouldSyntaxHighlightLine(lineText)) {
         pos = line.to + 1;
         continue;
