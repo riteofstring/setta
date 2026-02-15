@@ -7,7 +7,8 @@ import {
 } from "state/actions/sectionInfos";
 import { useShareCapabilities } from "state/hooks/share";
 import {
-  TextParamConfigForFrontend,
+  DateParamConfigForFrontend,
+  TimeParamConfigForFrontend,
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
 import {
@@ -31,16 +32,23 @@ import {
   TextParamInputUITypeEnum,
   TimeControlMode,
   TimeControlModeEnum,
+  TimeDisplayFont,
+  TimeDisplayFontEnum,
   TimeDisplayFormat,
   TimeDisplayFormatEnum,
 } from "utils/generatedTypes";
 import {
+  combineIsoDateAndTimeParts,
   formatDateForDisplay,
+  formatDateTimeForDisplay,
   formatTimeForDisplay,
+  normalizeDateTimeToLocalIso,
   normalizeDateToIso,
   normalizeTimeTo24Hour,
+  splitIsoDateAndTimeParts,
 } from "utils/textParamDateTime";
 import type { ParamValueChange } from "./ConfiguredParamInputs";
+import { SwitchInput } from "./SwitchInput";
 
 const ROW_CLASS_NAME =
   "flex flex-grow items-center justify-between rounded-full px-3 py-[0.33rem] hover:bg-[#cbd5e02b]";
@@ -48,15 +56,6 @@ const LABEL_CLASS_NAME =
   "flex-1 font-sans text-xs font-semibold text-setta-600 dark:text-setta-400";
 const SELECT_CLASS_NAME =
   "nodrag font-code cursor-pointer border-0 border-b border-solid border-setta-300 bg-transparent text-xs focus:border-blue-400 focus:outline-none focus-visible:border-blue-400 focus-visible:outline-none focus-visible:ring-0 dark:border-setta-700 dark:text-setta-300";
-
-const UI_TYPE_OPTIONS: Array<{
-  value: TextParamInputUIType;
-  label: string;
-}> = [
-  { value: TextParamInputUITypeEnum.plain, label: "Plain text" },
-  { value: TextParamInputUITypeEnum.time, label: "Time picker" },
-  { value: TextParamInputUITypeEnum.date, label: "Date picker" },
-];
 
 const TIME_FORMAT_OPTIONS: Array<{
   value: TimeDisplayFormat;
@@ -73,6 +72,19 @@ const TIME_CONTROL_MODE_OPTIONS: Array<{
   { value: TimeControlModeEnum.display, label: "Display" },
   { value: TimeControlModeEnum.input, label: "Input" },
 ];
+
+const TIME_DISPLAY_FONT_OPTIONS: Array<{
+  value: TimeDisplayFont;
+  label: string;
+}> = [
+  { value: TimeDisplayFontEnum.clock, label: "Clock" },
+  { value: TimeDisplayFontEnum.monospace, label: "Monospace" },
+  { value: TimeDisplayFontEnum.system, label: "System" },
+];
+
+const TIME_DISPLAY_SCALE_MIN = 0.5;
+const TIME_DISPLAY_SCALE_MAX = 3.0;
+const TIME_DISPLAY_SCALE_STEP = 0.1;
 
 const DATE_FORMAT_OPTIONS: Array<{
   value: DateDisplayFormat;
@@ -120,12 +132,36 @@ function getWeekdayLabels(
   return SUNDAY_WEEKDAY_LABELS;
 }
 
+function clampTimeDisplayScale(rawScale: number): number {
+  if (!Number.isFinite(rawScale)) {
+    return 1;
+  }
+  return Math.min(
+    TIME_DISPLAY_SCALE_MAX,
+    Math.max(TIME_DISPLAY_SCALE_MIN, rawScale),
+  );
+}
+
+function getTimeDisplayFontClassName(timeDisplayFont: TimeDisplayFont): string {
+  if (timeDisplayFont === TimeDisplayFontEnum.system) {
+    return "font-sans tabular-nums";
+  }
+  if (timeDisplayFont === TimeDisplayFontEnum.clock) {
+    return "font-semibold tabular-nums tracking-[0.08em]";
+  }
+  return "font-mono tabular-nums";
+}
+
 export function parseCalendarSelectedDates(
   rawValue: string,
   selectionMode: DateSelectionMode,
+  includeTime = false,
 ): Array<string> {
   if (selectionMode === DateSelectionModeEnum.single) {
-    const normalized = normalizeDateToIso(rawValue, DateDisplayFormatEnum.iso);
+    const candidate = includeTime
+      ? splitIsoDateAndTimeParts(rawValue)?.dateIso ?? ""
+      : rawValue;
+    const normalized = normalizeDateToIso(candidate, DateDisplayFormatEnum.iso);
     if (parseIsoDate(normalized) === null) {
       return [];
     }
@@ -153,7 +189,12 @@ export function parseCalendarSelectedDates(
 
   const normalized = candidates
     .map((candidate) =>
-      normalizeDateToIso(candidate, DateDisplayFormatEnum.iso),
+      normalizeDateToIso(
+        includeTime
+          ? splitIsoDateAndTimeParts(candidate)?.dateIso ?? candidate
+          : candidate,
+        DateDisplayFormatEnum.iso,
+      ),
     )
     .filter((candidate) => parseIsoDate(candidate) !== null);
 
@@ -186,7 +227,14 @@ function formatMonthTitle(year: number, monthIndex: number): string {
   }).format(new Date(Date.UTC(year, monthIndex, 1)));
 }
 
-export function TextParamInputConfigForParam({
+export function TextParamInputConfigForParam(_: {
+  sectionId: string;
+  paramInfoId: string;
+}) {
+  return null;
+}
+
+export function TimeParamInputConfigForParam({
   sectionId,
   paramInfoId,
 }: {
@@ -197,21 +245,21 @@ export function TextParamInputConfigForParam({
   const config = useParamCodeObjUIConfig(
     sectionId,
     paramInfoId,
-    CodeObjTypeEnum.TextParam,
+    CodeObjTypeEnum.TimeParam,
   );
 
-  function onConfigChange(nextConfig: Partial<TextParamConfigForFrontend>) {
+  function onConfigChange(nextConfig: Partial<TimeParamConfigForFrontend>) {
     if (!canEditStructure) {
       return;
     }
-    const merged: TextParamConfigForFrontend = {
+    const merged: TimeParamConfigForFrontend = {
       ...config,
       ...nextConfig,
     };
     const configClone = _.cloneDeep(merged);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"TextParamCodeObj">(
+        setCurrEffectiveCodeObjImplValue<"TimeParamCodeObj">(
           state,
           sectionId,
           paramInfoId,
@@ -232,58 +280,95 @@ export function TextParamInputConfigForParam({
   return (
     <div className="mt-1 flex flex-col gap-1">
       <div className={ROW_CLASS_NAME}>
-        <p className={LABEL_CLASS_NAME}>Input UI</p>
+        <p className={LABEL_CLASS_NAME}>Time UI</p>
         <select
           className={SELECT_CLASS_NAME}
-          value={config.uiType}
+          value={config.timeControlMode}
           onChange={(event) =>
             onConfigChange({
-              uiType: event.target.value as TextParamInputUIType,
+              timeControlMode: event.target.value as TimeControlMode,
             })
           }
           disabled={!canEditStructure}
         >
-          {UI_TYPE_OPTIONS.map((option) => (
+          {TIME_CONTROL_MODE_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
         </select>
       </div>
-      {config.uiType === TextParamInputUITypeEnum.time ? (
+      <div className={ROW_CLASS_NAME}>
+        <p className={LABEL_CLASS_NAME}>Time Format</p>
+        <select
+          className={SELECT_CLASS_NAME}
+          value={config.timeDisplayFormat}
+          onChange={(event) =>
+            onConfigChange({
+              timeDisplayFormat: event.target.value as TimeDisplayFormat,
+            })
+          }
+          disabled={!canEditStructure}
+        >
+          {TIME_FORMAT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      {config.timeControlMode === TimeControlModeEnum.display ? (
         <>
           <div className={ROW_CLASS_NAME}>
-            <p className={LABEL_CLASS_NAME}>Time UI</p>
-            <select
-              className={SELECT_CLASS_NAME}
-              value={config.timeControlMode}
+            <p className={LABEL_CLASS_NAME}>Transparent</p>
+            <SwitchInput
+              value={config.timeDisplayTransparent}
+              onChange={(nextValue) =>
+                onConfigChange({ timeDisplayTransparent: nextValue })
+              }
+              isDisabled={!canEditStructure}
+              outerDivClassName="flex items-center"
+            />
+          </div>
+          <div
+            className={`${ROW_CLASS_NAME} flex-col items-stretch gap-1 rounded-xl`}
+          >
+            <div className="flex items-center justify-between">
+              <p className={LABEL_CLASS_NAME}>Clock Scale</p>
+              <span className="font-code text-[11px] text-setta-500 dark:text-setta-400">
+                {clampTimeDisplayScale(config.timeDisplayScale).toFixed(1)}x
+              </span>
+            </div>
+            <input
+              type="range"
+              min={TIME_DISPLAY_SCALE_MIN}
+              max={TIME_DISPLAY_SCALE_MAX}
+              step={TIME_DISPLAY_SCALE_STEP}
+              value={clampTimeDisplayScale(config.timeDisplayScale)}
               onChange={(event) =>
                 onConfigChange({
-                  timeControlMode: event.target.value as TimeControlMode,
+                  timeDisplayScale: clampTimeDisplayScale(
+                    Number(event.target.value),
+                  ),
                 })
               }
               disabled={!canEditStructure}
-            >
-              {TIME_CONTROL_MODE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              className="w-full accent-blue-500"
+            />
           </div>
           <div className={ROW_CLASS_NAME}>
-            <p className={LABEL_CLASS_NAME}>Time Format</p>
+            <p className={LABEL_CLASS_NAME}>Clock Font</p>
             <select
               className={SELECT_CLASS_NAME}
-              value={config.timeDisplayFormat}
+              value={config.timeDisplayFont}
               onChange={(event) =>
                 onConfigChange({
-                  timeDisplayFormat: event.target.value as TimeDisplayFormat,
+                  timeDisplayFont: event.target.value as TimeDisplayFont,
                 })
               }
               disabled={!canEditStructure}
             >
-              {TIME_FORMAT_OPTIONS.map((option) => (
+              {TIME_DISPLAY_FONT_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -292,90 +377,166 @@ export function TextParamInputConfigForParam({
           </div>
         </>
       ) : null}
-      {config.uiType === TextParamInputUITypeEnum.date ? (
+    </div>
+  );
+}
+
+export function DateParamInputConfigForParam({
+  sectionId,
+  paramInfoId,
+  allowCalendarUi = false,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  allowCalendarUi?: boolean;
+}) {
+  const { canEditStructure } = useShareCapabilities();
+  const config = useParamCodeObjUIConfig(
+    sectionId,
+    paramInfoId,
+    CodeObjTypeEnum.DateParam,
+  );
+
+  function onConfigChange(nextConfig: Partial<DateParamConfigForFrontend>) {
+    if (!canEditStructure) {
+      return;
+    }
+    const merged: DateParamConfigForFrontend = {
+      ...config,
+      ...nextConfig,
+    };
+    if (merged.dateIncludesTime) {
+      merged.dateSelectionMode = DateSelectionModeEnum.single;
+    }
+    const configClone = _.cloneDeep(merged);
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveCodeObjImplValue<"DateParamCodeObj">(
+          state,
+          sectionId,
+          paramInfoId,
+          configClone,
+        );
+      },
+      send: (frontendOpId) =>
+        route_update_param_impl_config({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId,
+          newConfig: configClone,
+          frontendOpId,
+        }),
+    });
+  }
+
+  return (
+    <div className="mt-1 flex flex-col gap-1">
+      <div className={ROW_CLASS_NAME}>
+        <p className={LABEL_CLASS_NAME}>Date Display</p>
+        <select
+          className={SELECT_CLASS_NAME}
+          value={config.dateDisplayFormat}
+          onChange={(event) =>
+            onConfigChange({
+              dateDisplayFormat: event.target.value as DateDisplayFormat,
+            })
+          }
+          disabled={!canEditStructure}
+        >
+          {DATE_FORMAT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className={ROW_CLASS_NAME}>
+        <p className={LABEL_CLASS_NAME}>Date UI</p>
+        {allowCalendarUi ? (
+          <select
+            className={SELECT_CLASS_NAME}
+            value={config.dateControlMode}
+            onChange={(event) =>
+              onConfigChange({
+                dateControlMode: event.target.value as DateControlMode,
+              })
+            }
+            disabled={!canEditStructure}
+          >
+            {DATE_CONTROL_MODE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <span className="font-code text-xs text-setta-500 dark:text-setta-400">
+            Date input
+          </span>
+        )}
+      </div>
+      <div className={ROW_CLASS_NAME}>
+        <p className={LABEL_CLASS_NAME}>Include Time</p>
+        <SwitchInput
+          value={config.dateIncludesTime}
+          onChange={(nextValue) =>
+            onConfigChange({ dateIncludesTime: nextValue })
+          }
+          isDisabled={!canEditStructure}
+          outerDivClassName="flex items-center"
+        />
+      </div>
+      {allowCalendarUi &&
+      config.dateControlMode === DateControlModeEnum.calendar ? (
         <>
+          {!config.dateIncludesTime ? (
+            <div className={ROW_CLASS_NAME}>
+              <p className={LABEL_CLASS_NAME}>Selection</p>
+              <select
+                className={SELECT_CLASS_NAME}
+                value={config.dateSelectionMode}
+                onChange={(event) =>
+                  onConfigChange({
+                    dateSelectionMode: event.target.value as DateSelectionMode,
+                  })
+                }
+                disabled={!canEditStructure}
+              >
+                {DATE_SELECTION_MODE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className={ROW_CLASS_NAME}>
+              <p className={LABEL_CLASS_NAME}>Selection</p>
+              <span className="font-code text-xs text-setta-500 dark:text-setta-400">
+                Single date
+              </span>
+            </div>
+          )}
           <div className={ROW_CLASS_NAME}>
-            <p className={LABEL_CLASS_NAME}>Date Display</p>
+            <p className={LABEL_CLASS_NAME}>Week Starts</p>
             <select
               className={SELECT_CLASS_NAME}
-              value={config.dateDisplayFormat}
+              value={config.dateCalendarWeekStart}
               onChange={(event) =>
                 onConfigChange({
-                  dateDisplayFormat: event.target.value as DateDisplayFormat,
+                  dateCalendarWeekStart: event.target
+                    .value as DateCalendarWeekStart,
                 })
               }
               disabled={!canEditStructure}
             >
-              {DATE_FORMAT_OPTIONS.map((option) => (
+              {DATE_WEEK_START_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
             </select>
           </div>
-          <div className={ROW_CLASS_NAME}>
-            <p className={LABEL_CLASS_NAME}>Date UI</p>
-            <select
-              className={SELECT_CLASS_NAME}
-              value={config.dateControlMode}
-              onChange={(event) =>
-                onConfigChange({
-                  dateControlMode: event.target.value as DateControlMode,
-                })
-              }
-              disabled={!canEditStructure}
-            >
-              {DATE_CONTROL_MODE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          {config.dateControlMode === DateControlModeEnum.calendar ? (
-            <>
-              <div className={ROW_CLASS_NAME}>
-                <p className={LABEL_CLASS_NAME}>Selection</p>
-                <select
-                  className={SELECT_CLASS_NAME}
-                  value={config.dateSelectionMode}
-                  onChange={(event) =>
-                    onConfigChange({
-                      dateSelectionMode: event.target
-                        .value as DateSelectionMode,
-                    })
-                  }
-                  disabled={!canEditStructure}
-                >
-                  {DATE_SELECTION_MODE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className={ROW_CLASS_NAME}>
-                <p className={LABEL_CLASS_NAME}>Week Starts</p>
-                <select
-                  className={SELECT_CLASS_NAME}
-                  value={config.dateCalendarWeekStart}
-                  onChange={(event) =>
-                    onConfigChange({
-                      dateCalendarWeekStart: event.target
-                        .value as DateCalendarWeekStart,
-                    })
-                  }
-                  disabled={!canEditStructure}
-                >
-                  {DATE_WEEK_START_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </>
-          ) : null}
         </>
       ) : null}
     </div>
@@ -389,6 +550,9 @@ function DateCalendarInput({
   isDisabled,
   selectionMode,
   weekStart,
+  includeTime,
+  dateDisplayFormat,
+  timeDisplayFormat,
   summaryClassName,
 }: {
   value: string;
@@ -397,11 +561,16 @@ function DateCalendarInput({
   isDisabled: boolean;
   selectionMode: DateSelectionMode;
   weekStart: DateCalendarWeekStart;
+  includeTime: boolean;
+  dateDisplayFormat: DateDisplayFormat;
+  timeDisplayFormat: TimeDisplayFormat;
   summaryClassName: string;
 }) {
+  const splitDateTime = useMemo(() => splitIsoDateAndTimeParts(value), [value]);
+  const selectedTimeValue = splitDateTime?.time24 ?? "00:00";
   const selectedDates = useMemo(
-    () => parseCalendarSelectedDates(value, selectionMode),
-    [value, selectionMode],
+    () => parseCalendarSelectedDates(value, selectionMode, includeTime),
+    [includeTime, selectionMode, value],
   );
   const primarySelectedDate = selectedDates[0] ?? "";
   const [anchor, setAnchor] = useState(() =>
@@ -438,6 +607,12 @@ function DateCalendarInput({
   let summaryText = "No date selected";
   if (selectionMode === DateSelectionModeEnum.multiple) {
     summaryText = `${selectedDates.length} selected`;
+  } else if (includeTime && splitDateTime) {
+    summaryText = formatDateTimeForDisplay({
+      raw: value,
+      dateDisplayFormat,
+      timeDisplayFormat,
+    });
   } else if (selectedDates.length > 0) {
     summaryText = selectedDates[0];
   }
@@ -504,9 +679,18 @@ function DateCalendarInput({
                   );
                   return;
                 }
-                onChange(
-                  serializeCalendarSelectedDates([cell.isoDate], selectionMode),
-                );
+                if (includeTime) {
+                  onChange(
+                    combineIsoDateAndTimeParts(cell.isoDate, selectedTimeValue),
+                  );
+                } else {
+                  onChange(
+                    serializeCalendarSelectedDates(
+                      [cell.isoDate],
+                      selectionMode,
+                    ),
+                  );
+                }
               }}
               onKeyDown={(event) => {
                 if (event.code === "Escape") {
@@ -520,6 +704,29 @@ function DateCalendarInput({
           );
         })}
       </div>
+      {includeTime && selectionMode === DateSelectionModeEnum.single ? (
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+            Time
+          </span>
+          <input
+            type="time"
+            className="w-full rounded border border-setta-300 bg-transparent px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:text-setta-300"
+            value={selectedTimeValue}
+            onChange={(event) => {
+              const nextDate = selectedDates[0] ?? todayIso;
+              const combined = combineIsoDateAndTimeParts(
+                nextDate,
+                event.target.value,
+              );
+              if (combined !== "") {
+                onChange(combined);
+              }
+            }}
+            disabled={isDisabled}
+          />
+        </div>
+      ) : null}
       <span className={summaryClassName}>{summaryText}</span>
     </>
   );
@@ -533,10 +740,14 @@ export function TextParamDateTimeInput({
   uiType,
   timeControlMode,
   timeDisplayFormat,
+  timeDisplayTransparent,
+  timeDisplayScale,
+  timeDisplayFont,
   dateDisplayFormat,
   dateControlMode,
   dateSelectionMode,
   dateCalendarWeekStart,
+  dateIncludesTime,
   wrapperClassName,
   inputClassName,
   formattedValueClassName,
@@ -549,10 +760,14 @@ export function TextParamDateTimeInput({
   uiType: TextParamInputUIType;
   timeControlMode: TimeControlMode;
   timeDisplayFormat: TimeDisplayFormat;
+  timeDisplayTransparent?: boolean;
+  timeDisplayScale?: number;
+  timeDisplayFont?: TimeDisplayFont;
   dateDisplayFormat: DateDisplayFormat;
   dateControlMode: DateControlMode;
   dateSelectionMode: DateSelectionMode;
   dateCalendarWeekStart: DateCalendarWeekStart;
+  dateIncludesTime: boolean;
   wrapperClassName?: string;
   inputClassName?: string;
   formattedValueClassName?: string;
@@ -573,9 +788,19 @@ export function TextParamDateTimeInput({
   const showCalendarDateUi =
     uiType === TextParamInputUITypeEnum.date &&
     dateControlMode === DateControlModeEnum.calendar;
+  const effectiveDateSelectionMode = dateIncludesTime
+    ? DateSelectionModeEnum.single
+    : dateSelectionMode;
   const showDisplayOnlyTime =
     uiType === TextParamInputUITypeEnum.time &&
     timeControlMode === TimeControlModeEnum.display;
+  const effectiveTimeDisplayScale = clampTimeDisplayScale(
+    timeDisplayScale ?? 1,
+  );
+  const effectiveTimeDisplayTransparent = timeDisplayTransparent ?? false;
+  const timeDisplayFontClassName = getTimeDisplayFontClassName(
+    timeDisplayFont ?? TimeDisplayFontEnum.monospace,
+  );
 
   if (showDisplayOnlyTime) {
     const formattedTimeValue = formatTimeForDisplay(value, timeDisplayFormat);
@@ -585,12 +810,18 @@ export function TextParamDateTimeInput({
       <>
         <div className={effectiveWrapperClassName}>
           <span
-            className={`${effectiveInputClassName} flex min-w-0 flex-1 items-center`}
+            className={`${effectiveInputClassName} ${timeDisplayFontClassName} flex min-w-0 flex-1 items-center`}
+            style={{
+              fontSize: `${effectiveTimeDisplayScale}em`,
+              lineHeight: "1.1",
+            }}
           >
             {displayedTimeValue}
           </span>
         </div>
-        <span className={effectiveBorderClassName} />
+        {effectiveTimeDisplayTransparent ? null : (
+          <span className={effectiveBorderClassName} />
+        )}
       </>
     );
   }
@@ -606,8 +837,11 @@ export function TextParamDateTimeInput({
             onChange={onChange}
             onEscape={onEscape}
             isDisabled={isDisabled}
-            selectionMode={dateSelectionMode}
+            selectionMode={effectiveDateSelectionMode}
             weekStart={dateCalendarWeekStart}
+            includeTime={dateIncludesTime}
+            dateDisplayFormat={dateDisplayFormat}
+            timeDisplayFormat={timeDisplayFormat}
             summaryClassName={effectiveFormattedClassName}
           />
         </div>
@@ -616,21 +850,56 @@ export function TextParamDateTimeInput({
     );
   }
 
+  const showFormattedDateInput =
+    uiType === TextParamInputUITypeEnum.date && !dateIncludesTime;
+
   let normalizedValue = "";
   if (uiType === TextParamInputUITypeEnum.time) {
     normalizedValue = normalizeTimeTo24Hour(value);
+  } else if (dateIncludesTime) {
+    const split = splitIsoDateAndTimeParts(value);
+    if (split) {
+      normalizedValue = `${split.dateIso}T${split.time24}`;
+    } else {
+      const normalizedDate = normalizeDateToIso(value, dateDisplayFormat);
+      normalizedValue = normalizedDate === "" ? "" : `${normalizedDate}T00:00`;
+    }
   } else {
     normalizedValue = normalizeDateToIso(value, dateDisplayFormat);
   }
 
+  const [localDateInputValue, setLocalDateInputValue] = useState(() =>
+    formatDateForDisplay(normalizedValue, dateDisplayFormat),
+  );
+  useEffect(() => {
+    if (!showFormattedDateInput) {
+      return;
+    }
+    setLocalDateInputValue(
+      formatDateForDisplay(normalizedValue, dateDisplayFormat),
+    );
+  }, [dateDisplayFormat, normalizedValue, showFormattedDateInput]);
+
   let formattedValue = "";
-  let inputType: "time" | "date" = "date";
+  let inputType: "time" | "date" | "datetime-local" | "text" = "date";
   if (uiType === TextParamInputUITypeEnum.time) {
     formattedValue = formatTimeForDisplay(normalizedValue, timeDisplayFormat);
     inputType = "time";
+  } else if (dateIncludesTime) {
+    formattedValue = formatDateTimeForDisplay({
+      raw: normalizedValue,
+      dateDisplayFormat,
+      timeDisplayFormat,
+    });
+    inputType = "datetime-local";
   } else {
-    formattedValue = formatDateForDisplay(normalizedValue, dateDisplayFormat);
-    inputType = "date";
+    if (showFormattedDateInput) {
+      formattedValue = "";
+      inputType = "text";
+    } else {
+      formattedValue = formatDateForDisplay(normalizedValue, dateDisplayFormat);
+      inputType = "date";
+    }
   }
 
   return (
@@ -639,13 +908,43 @@ export function TextParamDateTimeInput({
         <input
           type={inputType}
           className={effectiveInputClassName}
-          value={normalizedValue}
+          value={showFormattedDateInput ? localDateInputValue : normalizedValue}
           onChange={(event) => {
             if (uiType === TextParamInputUITypeEnum.time) {
               onChange(normalizeTimeTo24Hour(event.target.value));
               return;
             }
+            if (dateIncludesTime) {
+              onChange(normalizeDateTimeToLocalIso(event.target.value));
+              return;
+            }
+            if (showFormattedDateInput) {
+              const rawValue = event.target.value;
+              setLocalDateInputValue(rawValue);
+              const nextIso = normalizeDateToIso(rawValue, dateDisplayFormat);
+              if (nextIso !== "") {
+                onChange(nextIso);
+              }
+              return;
+            }
             onChange(normalizeDateToIso(event.target.value, dateDisplayFormat));
+          }}
+          onBlur={() => {
+            if (!showFormattedDateInput) {
+              return;
+            }
+            const nextIso = normalizeDateToIso(
+              localDateInputValue,
+              dateDisplayFormat,
+            );
+            const fallbackIso = normalizeDateToIso(value, dateDisplayFormat);
+            const resolvedIso = nextIso !== "" ? nextIso : fallbackIso;
+            setLocalDateInputValue(
+              formatDateForDisplay(resolvedIso, dateDisplayFormat),
+            );
+            if (nextIso !== "" && nextIso !== fallbackIso) {
+              onChange(nextIso);
+            }
           }}
           onKeyDown={(event) => {
             if (event.code === "Escape") {

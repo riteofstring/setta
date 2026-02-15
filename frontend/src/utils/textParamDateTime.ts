@@ -6,6 +6,8 @@ import {
 } from "utils/generatedTypes";
 
 const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
+const ISO_DATE_TIME_LOCAL_REGEX =
+  /^(\d{4})-(\d{2})-(\d{2})[T\s]([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?$/;
 const US_DATE_REGEX = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 const EURO_DATE_REGEX = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 const TIME_24H_REGEX = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -56,6 +58,79 @@ export function normalizeTimeTo24Hour(raw: string): string {
     hour += 12;
   }
   return `${pad2(hour)}:${pad2(minute)}`;
+}
+
+function normalizeDateTimeParts(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+): string | null {
+  if (!isValidDateParts(year, month, day)) {
+    return null;
+  }
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null;
+  }
+  return `${year}-${pad2(month)}-${pad2(day)}T${pad2(hour)}:${pad2(minute)}`;
+}
+
+export function normalizeDateTimeToLocalIso(raw: string): string {
+  const value = raw.trim();
+  const localMatch = ISO_DATE_TIME_LOCAL_REGEX.exec(value);
+  if (localMatch) {
+    const year = Number(localMatch[1]);
+    const month = Number(localMatch[2]);
+    const day = Number(localMatch[3]);
+    const hour = Number(localMatch[4]);
+    const minute = Number(localMatch[5]);
+    return normalizeDateTimeParts(year, month, day, hour, minute) ?? "";
+  }
+
+  const fromDate = new Date(value);
+  if (Number.isNaN(fromDate.getTime())) {
+    return "";
+  }
+  return (
+    normalizeDateTimeParts(
+      fromDate.getFullYear(),
+      fromDate.getMonth() + 1,
+      fromDate.getDate(),
+      fromDate.getHours(),
+      fromDate.getMinutes(),
+    ) ?? ""
+  );
+}
+
+export function splitIsoDateAndTimeParts(raw: string): {
+  dateIso: string;
+  time24: string;
+} | null {
+  const normalized = normalizeDateTimeToLocalIso(raw);
+  if (normalized === "") {
+    return null;
+  }
+  const [dateIso, time24] = normalized.split("T");
+  if (!dateIso || !time24) {
+    return null;
+  }
+  return { dateIso, time24 };
+}
+
+export function combineIsoDateAndTimeParts(
+  dateIso: string,
+  timeRaw: string,
+): string {
+  const normalizedDate = normalizeDateToIso(dateIso, DateDisplayFormatEnum.iso);
+  if (normalizedDate === "") {
+    return "";
+  }
+  const normalizedTime = normalizeTimeTo24Hour(timeRaw);
+  if (normalizedTime === "") {
+    return "";
+  }
+  return `${normalizedDate}T${normalizedTime}`;
 }
 
 export function formatTimeForDisplay(
@@ -181,4 +256,18 @@ export function formatDateForDisplay(
     year: "numeric",
     timeZone: "UTC",
   }).format(date);
+}
+
+export function formatDateTimeForDisplay(args: {
+  raw: string;
+  dateDisplayFormat: DateDisplayFormat;
+  timeDisplayFormat: TimeDisplayFormat;
+}): string {
+  const split = splitIsoDateAndTimeParts(args.raw);
+  if (!split) {
+    return args.raw.trim();
+  }
+  const dateText = formatDateForDisplay(split.dateIso, args.dateDisplayFormat);
+  const timeText = formatTimeForDisplay(split.time24, args.timeDisplayFormat);
+  return `${dateText} ${timeText}`.trim();
 }

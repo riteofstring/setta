@@ -61,6 +61,7 @@ export function MetaControlSettings({ sectionId }: { sectionId: string }) {
       sectionId,
       paramInfoId: controlParamId,
       selectedId,
+      filterKey: "control",
     });
   };
 

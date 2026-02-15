@@ -35,10 +35,11 @@ import {
   TextParamInputUITypeEnum,
   TimeControlMode,
   TimeControlModeEnum,
+  TimeDisplayFont,
+  TimeDisplayFontEnum,
   TimeDisplayFormat,
   TimeDisplayFormatEnum,
 } from "utils/generatedTypes";
-import { formatTimeForDisplay } from "utils/textParamDateTime";
 
 type MetaControlCodeObjType =
   | CodeObjTypeEnum.ButtonParam
@@ -51,7 +52,9 @@ type MetaControlCodeObjType =
   | CodeObjTypeEnum.SliderParam
   | CodeObjTypeEnum.SwitchParam
   | CodeObjTypeEnum.TextAreaParam
-  | CodeObjTypeEnum.TextParam;
+  | CodeObjTypeEnum.TextParam
+  | CodeObjTypeEnum.DateParam
+  | CodeObjTypeEnum.TimeParam;
 
 type MetaControlContentButtonProps = {
   sectionId: string;
@@ -77,13 +80,17 @@ type MetaControlContentValueProps = {
   dropzoneMaxAttachments?: number | null;
   dropzonePlaceholder?: string;
   onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
-  textParamUiType?: TextParamInputUIType;
+  legacyTextParamUiType?: TextParamInputUIType;
   timeControlMode?: TimeControlMode;
   timeDisplayFormat?: TimeDisplayFormat;
+  timeDisplayTransparent?: boolean;
+  timeDisplayScale?: number;
+  timeDisplayFont?: TimeDisplayFont;
   dateDisplayFormat?: DateDisplayFormat;
   dateControlMode?: DateControlMode;
   dateSelectionMode?: DateSelectionMode;
   dateCalendarWeekStart?: DateCalendarWeekStart;
+  dateIncludesTime?: boolean;
 };
 
 type MetaControlContentProps =
@@ -127,13 +134,13 @@ export function MetaControlContent(props: MetaControlContentProps) {
           showSectionTitle={showSectionTitle}
           onValueChange={onValueChange}
           language="python"
-          singleLine={true}
+          singleLine={false}
         />
       );
     case CodeObjTypeEnum.TextParam:
       if (
-        props.textParamUiType &&
-        props.textParamUiType !== TextParamInputUITypeEnum.plain
+        props.legacyTextParamUiType &&
+        props.legacyTextParamUiType !== TextParamInputUITypeEnum.plain
       ) {
         return (
           <DateTimeControl
@@ -141,12 +148,17 @@ export function MetaControlContent(props: MetaControlContentProps) {
             value={value}
             showSectionTitle={showSectionTitle}
             onValueChange={onValueChange}
-            uiType={props.textParamUiType}
+            uiType={props.legacyTextParamUiType}
             timeControlMode={
               props.timeControlMode ?? TimeControlModeEnum.display
             }
             timeDisplayFormat={
               props.timeDisplayFormat ?? TimeDisplayFormatEnum.twenty_four_hour
+            }
+            timeDisplayTransparent={props.timeDisplayTransparent ?? false}
+            timeDisplayScale={props.timeDisplayScale ?? 1}
+            timeDisplayFont={
+              props.timeDisplayFont ?? TimeDisplayFontEnum.monospace
             }
             dateDisplayFormat={
               props.dateDisplayFormat ?? DateDisplayFormatEnum.iso
@@ -158,6 +170,7 @@ export function MetaControlContent(props: MetaControlContentProps) {
             dateCalendarWeekStart={
               props.dateCalendarWeekStart ?? DateCalendarWeekStartEnum.sunday
             }
+            dateIncludesTime={props.dateIncludesTime ?? false}
           />
         );
       }
@@ -187,6 +200,56 @@ export function MetaControlContent(props: MetaControlContentProps) {
           language="python"
           singleLine={false}
           minHeightClassName="min-h-24"
+        />
+      );
+    case CodeObjTypeEnum.DateParam:
+      return (
+        <DateTimeControl
+          sectionName={sectionName}
+          value={value}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+          uiType={TextParamInputUITypeEnum.date}
+          timeControlMode={TimeControlModeEnum.display}
+          timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
+          timeDisplayTransparent={false}
+          timeDisplayScale={1}
+          timeDisplayFont={TimeDisplayFontEnum.monospace}
+          dateDisplayFormat={
+            props.dateDisplayFormat ?? DateDisplayFormatEnum.iso
+          }
+          dateControlMode={props.dateControlMode ?? DateControlModeEnum.input}
+          dateSelectionMode={
+            props.dateSelectionMode ?? DateSelectionModeEnum.single
+          }
+          dateCalendarWeekStart={
+            props.dateCalendarWeekStart ?? DateCalendarWeekStartEnum.sunday
+          }
+          dateIncludesTime={props.dateIncludesTime ?? false}
+        />
+      );
+    case CodeObjTypeEnum.TimeParam:
+      return (
+        <DateTimeControl
+          sectionName={sectionName}
+          value={value}
+          showSectionTitle={showSectionTitle}
+          onValueChange={onValueChange}
+          uiType={TextParamInputUITypeEnum.time}
+          timeControlMode={props.timeControlMode ?? TimeControlModeEnum.display}
+          timeDisplayFormat={
+            props.timeDisplayFormat ?? TimeDisplayFormatEnum.twenty_four_hour
+          }
+          timeDisplayTransparent={props.timeDisplayTransparent ?? false}
+          timeDisplayScale={props.timeDisplayScale ?? 1}
+          timeDisplayFont={
+            props.timeDisplayFont ?? TimeDisplayFontEnum.monospace
+          }
+          dateDisplayFormat={DateDisplayFormatEnum.iso}
+          dateControlMode={DateControlModeEnum.input}
+          dateSelectionMode={DateSelectionModeEnum.single}
+          dateCalendarWeekStart={DateCalendarWeekStartEnum.sunday}
+          dateIncludesTime={false}
         />
       );
     case CodeObjTypeEnum.SliderParam:
@@ -620,10 +683,14 @@ function DateTimeControl({
   uiType,
   timeControlMode,
   timeDisplayFormat,
+  timeDisplayTransparent,
+  timeDisplayScale,
+  timeDisplayFont,
   dateDisplayFormat,
   dateControlMode,
   dateSelectionMode,
   dateCalendarWeekStart,
+  dateIncludesTime,
 }: {
   sectionName: string;
   value: string;
@@ -632,17 +699,22 @@ function DateTimeControl({
   uiType: TextParamInputUIType;
   timeControlMode: TimeControlMode;
   timeDisplayFormat: TimeDisplayFormat;
+  timeDisplayTransparent: boolean;
+  timeDisplayScale: number;
+  timeDisplayFont: TimeDisplayFont;
   dateDisplayFormat: DateDisplayFormat;
   dateControlMode: DateControlMode;
   dateSelectionMode: DateSelectionMode;
   dateCalendarWeekStart: DateCalendarWeekStart;
+  dateIncludesTime: boolean;
 }) {
   const isTimeDisplayMode =
     uiType === TextParamInputUITypeEnum.time &&
     timeControlMode === TimeControlModeEnum.display;
-  const formattedTimeValue = formatTimeForDisplay(value, timeDisplayFormat);
-  const displayedTimeValue =
-    formattedTimeValue.trim().length > 0 ? formattedTimeValue : "--:--";
+  const containerClassName =
+    isTimeDisplayMode && timeDisplayTransparent
+      ? "single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto] rounded-lg border border-transparent bg-transparent px-3 py-2"
+      : "single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto] rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-2 dark:border-setta-700 dark:bg-setta-850";
 
   return (
     <MetaControlTitleStack
@@ -650,34 +722,27 @@ function DateTimeControl({
       sectionName={sectionName}
       contentClassName="items-stretch"
     >
-      <div className="single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto] rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-2 dark:border-setta-700 dark:bg-setta-850">
-        {isTimeDisplayMode ? (
-          <>
-            <span
-              className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value single-cell-child flex min-w-0 flex-1 items-center self-center font-mono text-sm text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
-            >
-              {displayedTimeValue}
-            </span>
-            <span className="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30" />
-          </>
-        ) : (
-          <TextParamDateTimeInput
-            value={value}
-            onChange={onValueChange}
-            isDisabled={false}
-            uiType={uiType}
-            timeControlMode={timeControlMode}
-            timeDisplayFormat={timeDisplayFormat}
-            dateDisplayFormat={dateDisplayFormat}
-            dateControlMode={dateControlMode}
-            dateSelectionMode={dateSelectionMode}
-            dateCalendarWeekStart={dateCalendarWeekStart}
-            wrapperClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value single-cell-child flex min-w-0 items-center gap-2`}
-            inputClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 cursor-text self-center font-mono text-xs text-[rgb(3,_47,_98);] selection:bg-blue-500/30 dark:text-[rgb(165,_214,_255)]`}
-            formattedValueClassName="text-[10px] font-mono text-setta-500 dark:text-setta-400"
-            borderClassName="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30 peer-focus-within/textinput:border-blue-400"
-          />
-        )}
+      <div className={containerClassName}>
+        <TextParamDateTimeInput
+          value={value}
+          onChange={onValueChange}
+          isDisabled={false}
+          uiType={uiType}
+          timeControlMode={timeControlMode}
+          timeDisplayFormat={timeDisplayFormat}
+          timeDisplayTransparent={timeDisplayTransparent}
+          timeDisplayScale={timeDisplayScale}
+          timeDisplayFont={timeDisplayFont}
+          dateDisplayFormat={dateDisplayFormat}
+          dateControlMode={dateControlMode}
+          dateSelectionMode={dateSelectionMode}
+          dateCalendarWeekStart={dateCalendarWeekStart}
+          dateIncludesTime={dateIncludesTime}
+          wrapperClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value single-cell-child flex min-w-0 items-center gap-2`}
+          inputClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 cursor-text self-center text-xs text-[rgb(3,_47,_98);] selection:bg-blue-500/30 dark:text-[rgb(165,_214,_255)]`}
+          formattedValueClassName="text-[10px] font-mono text-setta-500 dark:text-setta-400"
+          borderClassName="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30 peer-focus-within/textinput:border-blue-400"
+        />
       </div>
     </MetaControlTitleStack>
   );

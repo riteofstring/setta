@@ -28,6 +28,7 @@ from setta.types.code_obj_impls import (
     ParamNameType,
     TextParamInputUIType,
     TimeControlMode,
+    TimeDisplayFont,
     TimeDisplayFormat,
 )
 from setta.types.edges import Edge, EdgePort
@@ -109,6 +110,7 @@ class CoreArgs(TypedDict):
                 "dateCalendarWeekStart",
                 "dateControlMode",
                 "dateDisplayFormat",
+                "dateIncludesTime",
                 "dateSelectionMode",
                 "defaultChildSectionType",
                 "defaultVal",
@@ -183,7 +185,10 @@ class CoreArgs(TypedDict):
                 "textDisplayMode",
                 "thinking",
                 "timeControlMode",
+                "timeDisplayFont",
                 "timeDisplayFormat",
+                "timeDisplayScale",
+                "timeDisplayTransparent",
                 "toolCallArguments",
                 "topLevelParamId",
                 "type",
@@ -873,10 +878,14 @@ class TextParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     uiType: NotRequired[TextParamInputUIType]
     timeControlMode: NotRequired[TimeControlMode]
     timeDisplayFormat: NotRequired[TimeDisplayFormat]
+    timeDisplayTransparent: NotRequired[bool]
+    timeDisplayScale: NotRequired[float]
+    timeDisplayFont: NotRequired[TimeDisplayFont]
     dateDisplayFormat: NotRequired[DateDisplayFormat]
     dateControlMode: NotRequired[DateControlMode]
     dateSelectionMode: NotRequired[DateSelectionMode]
     dateCalendarWeekStart: NotRequired[DateCalendarWeekStart]
+    dateIncludesTime: NotRequired[bool]
 
 
 class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
@@ -893,6 +902,11 @@ class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
     timeDisplayFormat: NotRequired[
         TimeDisplayFormat | Callable[[TimeDisplayFormat], TimeDisplayFormat]
     ]
+    timeDisplayTransparent: NotRequired[bool | Callable[[bool], bool]]
+    timeDisplayScale: NotRequired[float | Callable[[float], float]]
+    timeDisplayFont: NotRequired[
+        TimeDisplayFont | Callable[[TimeDisplayFont], TimeDisplayFont]
+    ]
     dateDisplayFormat: NotRequired[
         DateDisplayFormat | Callable[[DateDisplayFormat], DateDisplayFormat]
     ]
@@ -904,6 +918,63 @@ class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
     ]
     dateCalendarWeekStart: NotRequired[
         DateCalendarWeekStart | Callable[[DateCalendarWeekStart], DateCalendarWeekStart]
+    ]
+    dateIncludesTime: NotRequired[bool | Callable[[bool], bool]]
+
+
+class DateParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.DateParam]]
+    dateDisplayFormat: NotRequired[DateDisplayFormat]
+    dateControlMode: NotRequired[DateControlMode]
+    dateSelectionMode: NotRequired[DateSelectionMode]
+    dateCalendarWeekStart: NotRequired[DateCalendarWeekStart]
+    dateIncludesTime: NotRequired[bool]
+
+
+class DateParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
+    type: NotRequired[
+        Literal[CodeObjType.DateParam]
+        | Callable[[Literal[CodeObjType.DateParam]], Literal[CodeObjType.DateParam]]
+    ]
+    dateDisplayFormat: NotRequired[
+        DateDisplayFormat | Callable[[DateDisplayFormat], DateDisplayFormat]
+    ]
+    dateControlMode: NotRequired[
+        DateControlMode | Callable[[DateControlMode], DateControlMode]
+    ]
+    dateSelectionMode: NotRequired[
+        DateSelectionMode | Callable[[DateSelectionMode], DateSelectionMode]
+    ]
+    dateCalendarWeekStart: NotRequired[
+        DateCalendarWeekStart | Callable[[DateCalendarWeekStart], DateCalendarWeekStart]
+    ]
+    dateIncludesTime: NotRequired[bool | Callable[[bool], bool]]
+
+
+class TimeParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
+    type: NotRequired[Literal[CodeObjType.TimeParam]]
+    timeControlMode: NotRequired[TimeControlMode]
+    timeDisplayFormat: NotRequired[TimeDisplayFormat]
+    timeDisplayTransparent: NotRequired[bool]
+    timeDisplayScale: NotRequired[float]
+    timeDisplayFont: NotRequired[TimeDisplayFont]
+
+
+class TimeParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
+    type: NotRequired[
+        Literal[CodeObjType.TimeParam]
+        | Callable[[Literal[CodeObjType.TimeParam]], Literal[CodeObjType.TimeParam]]
+    ]
+    timeControlMode: NotRequired[
+        TimeControlMode | Callable[[TimeControlMode], TimeControlMode]
+    ]
+    timeDisplayFormat: NotRequired[
+        TimeDisplayFormat | Callable[[TimeDisplayFormat], TimeDisplayFormat]
+    ]
+    timeDisplayTransparent: NotRequired[bool | Callable[[bool], bool]]
+    timeDisplayScale: NotRequired[float | Callable[[float], float]]
+    timeDisplayFont: NotRequired[
+        TimeDisplayFont | Callable[[TimeDisplayFont], TimeDisplayFont]
     ]
 
 

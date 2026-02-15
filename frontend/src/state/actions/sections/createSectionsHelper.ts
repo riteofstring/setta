@@ -1,5 +1,8 @@
 import _ from "lodash";
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveSectionImplOfType,
+  getCurrProjectConfigId,
+} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
   getPythonCodegenTarget,
@@ -19,17 +22,11 @@ import {
   DateSelectionModeEnum,
   Position,
   SectionTypeEnum,
-  TextParamInputUIType,
-  TextParamInputUITypeEnum,
-  TimeControlMode,
-  TimeControlModeEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { createTopLevelSection } from "./createSections";
 
 type ControlParamConfig = {
-  uiType?: TextParamInputUIType;
-  timeControlMode?: TimeControlMode;
   dateControlMode?: DateControlMode;
   dateSelectionMode?: DateSelectionMode;
   dateCalendarWeekStart?: DateCalendarWeekStart;
@@ -185,23 +182,11 @@ export function useCreateSectionsList() {
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
       },
-      controlCodeObjType: CodeObjTypeEnum.TextParam,
+      controlCodeObjType: CodeObjTypeEnum.DateParam,
       controlParamConfig: {
-        uiType: TextParamInputUITypeEnum.date,
         dateControlMode: DateControlModeEnum.calendar,
         dateSelectionMode: DateSelectionModeEnum.multiple,
         dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
-      },
-    },
-    {
-      name: "Time Display",
-      implSpecs: {
-        type: SectionTypeEnum.MetaControl,
-      },
-      controlCodeObjType: CodeObjTypeEnum.TextParam,
-      controlParamConfig: {
-        uiType: TextParamInputUITypeEnum.time,
-        timeControlMode: TimeControlModeEnum.display,
       },
     },
     {
@@ -210,13 +195,6 @@ export function useCreateSectionsList() {
         type: SectionTypeEnum.MetaControl,
       },
       controlCodeObjType: CodeObjTypeEnum.TextAreaParam,
-    },
-    {
-      name: "Code Input",
-      implSpecs: {
-        type: SectionTypeEnum.MetaControl,
-      },
-      controlCodeObjType: CodeObjTypeEnum.CodeParam,
     },
     {
       name: "Password Field",
@@ -312,10 +290,17 @@ function getMetaControlParamId(sectionId: string): string | null {
   if (!variant) {
     return null;
   }
-  const impl = state.sectionImpls[variant.impl];
-  if (!impl || impl.type !== SectionTypeEnum.MetaControl) {
+  if (!state.sectionImpls[variant.impl]) {
     return null;
   }
+  if (!state.sections[sectionId]) {
+    return null;
+  }
+  const impl = getCurrEffectiveSectionImplOfType(
+    state,
+    sectionId,
+    SectionTypeEnum.MetaControl,
+  );
   return impl.metaControlParamId;
 }
 

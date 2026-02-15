@@ -111,6 +111,10 @@ const PDF_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
 const FILTER_RECURSIVE_MIN_CHARS = 2;
 const FILTER_RECURSIVE_MAX_RESULTS = 600;
 const FILTER_RECURSIVE_MAX_FOLDERS = 600;
+const BROWSER_TYPES_COLUMN_DEFAULT_RATIO = 0.24;
+const BROWSER_TYPES_COLUMN_DEFAULT_MIN_WIDTH = 180;
+const BROWSER_TYPES_COLUMN_DEFAULT_MAX_WIDTH = 260;
+const BROWSER_FILES_COLUMN_DEFAULT_RATIO = 0.72;
 
 type BrowserFileAttachment = {
   id: string;
@@ -318,8 +322,20 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
     outerRef: containerRef,
     widthKey: "typesColumnWidth",
     cssVarName: "--browser-types-column-width",
+    getDefaultWidth: (containerWidth) =>
+      clamp(
+        containerWidth * BROWSER_TYPES_COLUMN_DEFAULT_RATIO,
+        BROWSER_TYPES_COLUMN_DEFAULT_MIN_WIDTH,
+        Math.min(
+          BROWSER_TYPES_COLUMN_DEFAULT_MAX_WIDTH,
+          Math.max(
+            BROWSER_TYPES_COLUMN_DEFAULT_MIN_WIDTH,
+            containerWidth - FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
+          ),
+        ),
+      ),
   });
-  const typesColumnWidth = "var(--browser-types-column-width, 50%)";
+  const typesColumnWidth = "var(--browser-types-column-width, 220px)";
   const handleFilesColumnResizeStart = useBrowserColumnWidth({
     sectionId,
     outerRef: containerRef,
@@ -334,8 +350,17 @@ export function BrowserArea({ sectionId }: { sectionId: string }) {
           containerWidth - FILE_BROWSER_DATE_COLUMN_MIN_WIDTH,
         ),
       ),
+    getDefaultWidth: (containerWidth) =>
+      clamp(
+        containerWidth * BROWSER_FILES_COLUMN_DEFAULT_RATIO,
+        FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
+        Math.max(
+          FILE_BROWSER_FILE_COLUMN_MIN_WIDTH,
+          containerWidth - FILE_BROWSER_DATE_COLUMN_MIN_WIDTH,
+        ),
+      ),
   });
-  const filesColumnWidth = "var(--browser-column-width, 55%)";
+  const filesColumnWidth = "var(--browser-column-width, 72%)";
 
   return (
     <div

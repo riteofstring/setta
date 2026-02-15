@@ -26,6 +26,7 @@ def test_text_param_defaults_date_control_fields():
     assert impl.dateControlMode == DateControlMode.input
     assert impl.dateSelectionMode == DateSelectionMode.single
     assert impl.dateCalendarWeekStart == DateCalendarWeekStart.sunday
+    assert impl.dateIncludesTime is False
 
 
 def test_text_param_accepts_calendar_multi_select_config():
@@ -38,3 +39,11 @@ def test_text_param_accepts_calendar_multi_select_config():
     assert impl.dateControlMode == DateControlMode.calendar
     assert impl.dateSelectionMode == DateSelectionMode.multiple
     assert impl.dateCalendarWeekStart == DateCalendarWeekStart.monday
+
+
+def test_text_param_accepts_date_time_mode():
+    impl = TextParamCodeObjImpl(
+        uiType=TextParamInputUIType.date,
+        dateIncludesTime=True,
+    )
+    assert impl.dateIncludesTime is True

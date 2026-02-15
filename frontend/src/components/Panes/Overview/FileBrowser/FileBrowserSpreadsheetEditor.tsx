@@ -7,6 +7,7 @@ import {
   type Item,
   type Theme,
 } from "@glideapps/glide-data-grid";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -14,6 +15,7 @@ import {
   FiPlus,
   FiRefreshCw,
   FiSave,
+  FiSettings,
   FiX,
 } from "react-icons/fi";
 import { List, useListRef } from "react-window";
@@ -955,109 +957,89 @@ export function FileBrowserSpreadsheetEditor({
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-lg border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/50">
-      <div className="flex items-center justify-between border-b border-setta-200 px-3 py-2 dark:border-setta-800">
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <p className="truncate text-xs font-semibold text-setta-700 dark:text-setta-200">
-              {selectedName}
-            </p>
-            {sheet ? (
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <search
-                  className={`${NO_PAN_CLASS_NAME} nodrag relative flex min-w-0 max-w-[240px] flex-1 items-center`}
+      <div className="@container/spreadsheet-toolbar flex items-center gap-2 border-b border-setta-200 px-3 py-2 dark:border-setta-800">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <p className="min-w-0 flex-1 truncate text-xs font-semibold text-setta-700 dark:text-setta-200">
+            {selectedName}
+          </p>
+          {sheet ? (
+            <div className="hidden min-w-0 flex-1 items-center gap-2 @[480px]/spreadsheet-toolbar:flex">
+              <search
+                className={`${NO_PAN_CLASS_NAME} nodrag relative flex min-w-0 flex-1 items-center`}
+              >
+                <i className="gg-sort-az absolute left-1.5 text-setta-300 dark:text-setta-600" />
+                <input
+                  data-testid="spreadsheet-filter-input"
+                  value={filterQuery}
+                  onChange={(event) => setFilterQuery(event.target.value)}
+                  className={SPREADSHEET_FILTER_INPUT_CLASS_NAME}
+                  placeholder="Filter rows"
+                />
+              </search>
+              <label className="shrink-0 text-[11px] text-setta-500 dark:text-setta-400">
+                Sort
+                <select
+                  data-testid="spreadsheet-sort-column"
+                  value={sortState ? String(sortState.columnIndex) : ""}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (value === "") {
+                      setSortState(null);
+                      return;
+                    }
+                    const columnIndex = Number(value);
+                    if (!Number.isFinite(columnIndex)) {
+                      setSortState(null);
+                      return;
+                    }
+                    setSortState({ columnIndex, direction: "asc" });
+                  }}
+                  className="ml-1 rounded border border-setta-300 bg-white px-1.5 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
                 >
-                  <i className="gg-sort-az absolute left-1.5 text-setta-300 dark:text-setta-600" />
-                  <input
-                    data-testid="spreadsheet-filter-input"
-                    value={filterQuery}
-                    onChange={(event) => setFilterQuery(event.target.value)}
-                    className={SPREADSHEET_FILTER_INPUT_CLASS_NAME}
-                    placeholder="Filter rows"
-                  />
-                </search>
-                <label className="shrink-0 text-[11px] text-setta-500 dark:text-setta-400">
-                  Sort
-                  <select
-                    data-testid="spreadsheet-sort-column"
-                    value={sortState ? String(sortState.columnIndex) : ""}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      if (value === "") {
-                        setSortState(null);
-                        return;
-                      }
-                      const columnIndex = Number(value);
-                      if (!Number.isFinite(columnIndex)) {
-                        setSortState(null);
-                        return;
-                      }
-                      setSortState({ columnIndex, direction: "asc" });
-                    }}
-                    className="ml-1 rounded border border-setta-300 bg-white px-1.5 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-                  >
-                    <option value="">None</option>
-                    {Array.from(
-                      { length: sheet.columnCount },
-                      (_value, index) => (
-                        <option key={`sort-${index}`} value={index}>
-                          {getSpreadsheetColumnLabel(index)}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                </label>
+                  <option value="">None</option>
+                  {Array.from({ length: sheet.columnCount }, (_value, index) => (
+                    <option key={`sort-${index}`} value={index}>
+                      {getSpreadsheetColumnLabel(index)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                data-testid="spreadsheet-sort-direction"
+                className="shrink-0 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 transition-colors hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                onClick={() =>
+                  setSortState((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          direction: prev.direction === "asc" ? "desc" : "asc",
+                        }
+                      : prev,
+                  )
+                }
+                disabled={!sortState}
+              >
+                {sortState?.direction === "desc" ? "Desc" : "Asc"}
+              </button>
+              {(filterQuery.length > 0 || sortState) && (
                 <button
                   type="button"
-                  data-testid="spreadsheet-sort-direction"
-                  className="shrink-0 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 transition-colors hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-                  onClick={() =>
-                    setSortState((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            direction:
-                              prev.direction === "asc" ? "desc" : "asc",
-                          }
-                        : prev,
-                    )
-                  }
-                  disabled={!sortState}
+                  data-testid="spreadsheet-clear-view"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                  onClick={() => {
+                    setFilterQuery("");
+                    setSortState(null);
+                  }}
                 >
-                  {sortState?.direction === "desc" ? "Desc" : "Asc"}
+                  <FiX size={12} />
+                  Clear
                 </button>
-                {(filterQuery.length > 0 || sortState) && (
-                  <button
-                    type="button"
-                    data-testid="spreadsheet-clear-view"
-                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-                    onClick={() => {
-                      setFilterQuery("");
-                      setSortState(null);
-                    }}
-                  >
-                    <FiX size={12} />
-                    Clear
-                  </button>
-                )}
-                <span
-                  data-testid="spreadsheet-selection-summary"
-                  className="ml-auto min-w-0 max-w-[220px] truncate text-right text-[11px] text-setta-500 dark:text-setta-400"
-                  title={selectionSummary}
-                >
-                  {selectionSummary}
-                </span>
-              </div>
-            ) : null}
-          </div>
-          {sheet && (
-            <p className="text-[11px] text-setta-500 dark:text-setta-400">
-              {displayedRowCount === sheet.rowCount
-                ? `${sheet.rowCount} rows · ${sheet.columnCount} columns`
-                : `${displayedRowCount} shown of ${sheet.rowCount} rows · ${sheet.columnCount} columns`}
-            </p>
-          )}
+              )}
+            </div>
+          ) : null}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="hidden items-center gap-1 @[360px]/spreadsheet-toolbar:flex">
           <button
             type="button"
             data-testid="spreadsheet-add-column"
@@ -1066,7 +1048,9 @@ export function FileBrowserSpreadsheetEditor({
             disabled={!sheet || isLoading || isSaving || readOnly}
           >
             <FiColumns size={12} />
-            Column
+            <span className="hidden @[560px]/spreadsheet-toolbar:inline">
+              Column
+            </span>
           </button>
           <button
             type="button"
@@ -1076,7 +1060,7 @@ export function FileBrowserSpreadsheetEditor({
             disabled={!sheet || isLoading || isSaving || readOnly}
           >
             <FiPlus size={12} />
-            Row
+            <span className="hidden @[560px]/spreadsheet-toolbar:inline">Row</span>
           </button>
           <button
             type="button"
@@ -1086,7 +1070,9 @@ export function FileBrowserSpreadsheetEditor({
             disabled={!sheet || isLoading || isSaving}
           >
             <FiRefreshCw size={12} />
-            Reload
+            <span className="hidden @[560px]/spreadsheet-toolbar:inline">
+              Reload
+            </span>
           </button>
           <button
             type="button"
@@ -1096,9 +1082,138 @@ export function FileBrowserSpreadsheetEditor({
             disabled={!sheet || isLoading || isSaving || readOnly || !isDirty}
           >
             <FiSave size={12} />
-            {isSaving ? "Saving…" : "Save"}
+            <span className="hidden @[560px]/spreadsheet-toolbar:inline">
+              {isSaving ? "Saving…" : "Save"}
+            </span>
           </button>
         </div>
+        <DropdownMenu.Root modal={false}>
+          <DropdownMenu.Trigger
+            type="button"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-setta-300 text-setta-600 transition-colors hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 @[480px]/spreadsheet-toolbar:hidden"
+            aria-label="Spreadsheet settings"
+          >
+            <FiSettings size={12} />
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              align="end"
+              sideOffset={5}
+              className="z-30 min-w-[220px] rounded-md border border-setta-200 bg-white p-2 shadow-xl dark:border-setta-700 dark:bg-setta-900"
+            >
+              {sheet ? (
+                <div className="flex flex-col gap-2">
+                  <search className={`${NO_PAN_CLASS_NAME} nodrag relative flex min-w-0 items-center`}>
+                    <i className="gg-sort-az absolute left-1.5 text-setta-300 dark:text-setta-600" />
+                    <input
+                      value={filterQuery}
+                      onChange={(event) => setFilterQuery(event.target.value)}
+                      className={SPREADSHEET_FILTER_INPUT_CLASS_NAME}
+                      placeholder="Filter rows"
+                    />
+                  </search>
+                  <div className="flex items-center gap-2">
+                    <label className="shrink-0 text-[11px] text-setta-500 dark:text-setta-400">
+                      Sort
+                    </label>
+                    <select
+                      value={sortState ? String(sortState.columnIndex) : ""}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        if (value === "") {
+                          setSortState(null);
+                          return;
+                        }
+                        const columnIndex = Number(value);
+                        if (!Number.isFinite(columnIndex)) {
+                          setSortState(null);
+                          return;
+                        }
+                        setSortState({ columnIndex, direction: "asc" });
+                      }}
+                      className="min-w-0 flex-1 rounded border border-setta-300 bg-white px-1.5 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
+                    >
+                      <option value="">None</option>
+                      {Array.from({ length: sheet.columnCount }, (_value, index) => (
+                        <option key={`menu-sort-${index}`} value={index}>
+                          {getSpreadsheetColumnLabel(index)}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="rounded border border-setta-300 px-2 py-1 text-[11px] text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                      onClick={() =>
+                        setSortState((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                direction:
+                                  prev.direction === "asc" ? "desc" : "asc",
+                              }
+                            : prev,
+                        )
+                      }
+                      disabled={!sortState}
+                    >
+                      {sortState?.direction === "desc" ? "Desc" : "Asc"}
+                    </button>
+                  </div>
+                  {(filterQuery.length > 0 || sortState) && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center justify-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                      onClick={() => {
+                        setFilterQuery("");
+                        setSortState(null);
+                      }}
+                    >
+                      <FiX size={12} />
+                      Clear filters
+                    </button>
+                  )}
+                  <DropdownMenu.Separator className="my-1 h-px bg-setta-200 dark:bg-setta-700" />
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                    onClick={onAddColumn}
+                    disabled={isLoading || isSaving || readOnly}
+                  >
+                    <FiColumns size={12} />
+                    Add Column
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                    onClick={onAddRow}
+                    disabled={isLoading || isSaving || readOnly}
+                  >
+                    <FiPlus size={12} />
+                    Add Row
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-1 rounded-md border border-setta-300 px-2 py-1 text-[11px] text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                    onClick={onReload}
+                    disabled={isLoading || isSaving}
+                  >
+                    <FiRefreshCw size={12} />
+                    Reload
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center gap-1 rounded-md border border-blue-300 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100 disabled:opacity-50 dark:border-blue-700 dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60"
+                    onClick={onSave}
+                    disabled={isLoading || isSaving || readOnly || !isDirty}
+                  >
+                    <FiSave size={12} />
+                    {isSaving ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              ) : null}
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
       </div>
       {(statusText ||
         errorText ||
@@ -1283,6 +1398,22 @@ export function FileBrowserSpreadsheetEditor({
           </div>
         )}
       </div>
+      {sheet ? (
+        <div className="flex items-center justify-between gap-2 border-t border-setta-200 px-3 py-1 text-[11px] text-setta-500 dark:border-setta-800 dark:text-setta-400">
+          <span className="min-w-0 truncate">
+            {displayedRowCount === sheet.rowCount
+              ? `${sheet.rowCount} rows · ${sheet.columnCount} columns`
+              : `${displayedRowCount} shown of ${sheet.rowCount} rows · ${sheet.columnCount} columns`}
+          </span>
+          <span
+            data-testid="spreadsheet-selection-summary"
+            className="min-w-0 max-w-[50%] truncate text-right"
+            title={selectionSummary}
+          >
+            {selectionSummary}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }

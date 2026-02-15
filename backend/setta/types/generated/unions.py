@@ -160,6 +160,7 @@ from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
+    DateParamCodeObjImpl,
     DropdownParamCodeObjImpl,
     DropzoneParamCodeObjImpl,
     NestedParamCodeObjImpl,
@@ -169,12 +170,15 @@ from setta.types.code_obj_impls import (
     SwitchParamCodeObjImpl,
     TextAreaParamCodeObjImpl,
     TextParamCodeObjImpl,
+    TimeParamCodeObjImpl,
 )
 
 BaseCodeObjImplUnion = (
     CodeCallableCodeObjImpl
     | CodeParamCodeObjImpl
     | TextParamCodeObjImpl
+    | DateParamCodeObjImpl
+    | TimeParamCodeObjImpl
     | ButtonParamCodeObjImpl
     | SliderParamCodeObjImpl
     | RotaryParamCodeObjImpl
@@ -198,6 +202,8 @@ BaseCodeObjImplTypeSet = set(
         "CodeCallable",
         "CodeParam",
         "TextParam",
+        "DateParam",
+        "TimeParam",
         "ButtonParam",
         "SliderParam",
         "RotaryParam",
@@ -214,6 +220,8 @@ BaseCodeObjImplTypeSet = set(
 BaseParamCodeObjImplUnion = (
     CodeParamCodeObjImpl
     | TextParamCodeObjImpl
+    | DateParamCodeObjImpl
+    | TimeParamCodeObjImpl
     | ButtonParamCodeObjImpl
     | SliderParamCodeObjImpl
     | RotaryParamCodeObjImpl
@@ -238,6 +246,8 @@ BaseParamCodeObjImplTypeSet = set(
     [
         "CodeParam",
         "TextParam",
+        "DateParam",
+        "TimeParam",
         "ButtonParam",
         "SliderParam",
         "RotaryParam",
@@ -254,6 +264,8 @@ BaseParamCodeObjImplTypeSet = set(
 BaseChildlessCodeObjImplUnion = (
     CodeParamCodeObjImpl
     | TextParamCodeObjImpl
+    | DateParamCodeObjImpl
+    | TimeParamCodeObjImpl
     | SliderParamCodeObjImpl
     | RotaryParamCodeObjImpl
     | SwitchParamCodeObjImpl
@@ -276,6 +288,8 @@ BaseChildlessCodeObjImplTypeSet = set(
     [
         "CodeParam",
         "TextParam",
+        "DateParam",
+        "TimeParam",
         "SliderParam",
         "RotaryParam",
         "SwitchParam",
@@ -468,6 +482,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CodeCallableCodeObjImplArgs,
     CodeParamCodeObjImplArgs,
     ColorPickerParamCodeObjImplArgs,
+    DateParamCodeObjImplArgs,
     DropdownParamCodeObjImplArgs,
     DropzoneParamCodeObjImplArgs,
     NestedParamCodeObjImplArgs,
@@ -477,12 +492,15 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     SwitchParamCodeObjImplArgs,
     TextAreaParamCodeObjImplArgs,
     TextParamCodeObjImplArgs,
+    TimeParamCodeObjImplArgs,
 )
 
 BaseCodeObjImplArgsUnion = (
     CodeCallableCodeObjImplArgs
     | CodeParamCodeObjImplArgs
     | TextParamCodeObjImplArgs
+    | DateParamCodeObjImplArgs
+    | TimeParamCodeObjImplArgs
     | ButtonParamCodeObjImplArgs
     | SliderParamCodeObjImplArgs
     | RotaryParamCodeObjImplArgs
@@ -506,6 +524,8 @@ BaseCodeObjImplArgsTypeSet = set(
         "CodeCallable",
         "CodeParam",
         "TextParam",
+        "DateParam",
+        "TimeParam",
         "ButtonParam",
         "SliderParam",
         "RotaryParam",
@@ -522,6 +542,8 @@ BaseCodeObjImplArgsTypeSet = set(
 BaseParamCodeObjImplArgsUnion = (
     CodeParamCodeObjImplArgs
     | TextParamCodeObjImplArgs
+    | DateParamCodeObjImplArgs
+    | TimeParamCodeObjImplArgs
     | ButtonParamCodeObjImplArgs
     | SliderParamCodeObjImplArgs
     | RotaryParamCodeObjImplArgs
@@ -546,6 +568,8 @@ BaseParamCodeObjImplArgsTypeSet = set(
     [
         "CodeParam",
         "TextParam",
+        "DateParam",
+        "TimeParam",
         "ButtonParam",
         "SliderParam",
         "RotaryParam",
@@ -562,6 +586,8 @@ BaseParamCodeObjImplArgsTypeSet = set(
 BaseChildlessCodeObjImplArgsUnion = (
     CodeParamCodeObjImplArgs
     | TextParamCodeObjImplArgs
+    | DateParamCodeObjImplArgs
+    | TimeParamCodeObjImplArgs
     | SliderParamCodeObjImplArgs
     | RotaryParamCodeObjImplArgs
     | SwitchParamCodeObjImplArgs
@@ -584,6 +610,8 @@ BaseChildlessCodeObjImplArgsTypeSet = set(
     [
         "CodeParam",
         "TextParam",
+        "DateParam",
+        "TimeParam",
         "SliderParam",
         "RotaryParam",
         "SwitchParam",

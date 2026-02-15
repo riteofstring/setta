@@ -17,6 +17,7 @@ export const ControlCodeObjTypeSet = new Set([
   "ButtonParam",
   "CodeParam",
   "ColorPickerParam",
+  "DateParam",
   "DropdownParam",
   "DropzoneParam",
   "PasswordParam",
@@ -25,11 +26,13 @@ export const ControlCodeObjTypeSet = new Set([
   "SwitchParam",
   "TextAreaParam",
   "TextParam",
+  "TimeParam",
 ]);
 
 export const SectionParamCodeObjTypeSet = new Set([
   "CodeParam",
   "ColorPickerParam",
+  "DateParam",
   "DropdownParam",
   "DropzoneParam",
   "NestedParam",
@@ -39,6 +42,7 @@ export const SectionParamCodeObjTypeSet = new Set([
   "SwitchParam",
   "TextAreaParam",
   "TextParam",
+  "TimeParam",
 ]);
 
 export const BaseChartSettingsTypeSet = new Set(["line", "scatter"]);
@@ -81,6 +85,7 @@ export const BaseCanvasSectionImplTypeSet = new Set(["Chart", "Draw"]);
 export const BaseChildlessCodeObjImplArgsTypeSet = new Set([
   "CodeParam",
   "ColorPickerParam",
+  "DateParam",
   "DropdownParam",
   "DropzoneParam",
   "PasswordParam",
@@ -89,11 +94,13 @@ export const BaseChildlessCodeObjImplArgsTypeSet = new Set([
   "SwitchParam",
   "TextAreaParam",
   "TextParam",
+  "TimeParam",
 ]);
 
 export const BaseChildlessCodeObjImplTypeSet = new Set([
   "CodeParam",
   "ColorPickerParam",
+  "DateParam",
   "DropdownParam",
   "DropzoneParam",
   "PasswordParam",
@@ -102,6 +109,7 @@ export const BaseChildlessCodeObjImplTypeSet = new Set([
   "SwitchParam",
   "TextAreaParam",
   "TextParam",
+  "TimeParam",
 ]);
 
 export const BaseCodeObjImplArgsTypeSet = new Set([
@@ -109,6 +117,7 @@ export const BaseCodeObjImplArgsTypeSet = new Set([
   "CodeCallable",
   "CodeParam",
   "ColorPickerParam",
+  "DateParam",
   "DropdownParam",
   "DropzoneParam",
   "NestedParam",
@@ -118,6 +127,7 @@ export const BaseCodeObjImplArgsTypeSet = new Set([
   "SwitchParam",
   "TextAreaParam",
   "TextParam",
+  "TimeParam",
 ]);
 
 export const BaseCodeObjImplTypeSet = new Set([
@@ -125,6 +135,7 @@ export const BaseCodeObjImplTypeSet = new Set([
   "CodeCallable",
   "CodeParam",
   "ColorPickerParam",
+  "DateParam",
   "DropdownParam",
   "DropzoneParam",
   "NestedParam",
@@ -134,6 +145,7 @@ export const BaseCodeObjImplTypeSet = new Set([
   "SwitchParam",
   "TextAreaParam",
   "TextParam",
+  "TimeParam",
 ]);
 
 export const BaseCodeSectionImplArgsTypeSet = new Set([
@@ -159,6 +171,7 @@ export const BaseParamCodeObjImplArgsTypeSet = new Set([
   "ButtonParam",
   "CodeParam",
   "ColorPickerParam",
+  "DateParam",
   "DropdownParam",
   "DropzoneParam",
   "NestedParam",
@@ -168,12 +181,14 @@ export const BaseParamCodeObjImplArgsTypeSet = new Set([
   "SwitchParam",
   "TextAreaParam",
   "TextParam",
+  "TimeParam",
 ]);
 
 export const BaseParamCodeObjImplTypeSet = new Set([
   "ButtonParam",
   "CodeParam",
   "ColorPickerParam",
+  "DateParam",
   "DropdownParam",
   "DropzoneParam",
   "NestedParam",
@@ -183,6 +198,7 @@ export const BaseParamCodeObjImplTypeSet = new Set([
   "SwitchParam",
   "TextAreaParam",
   "TextParam",
+  "TimeParam",
 ]);
 
 export const BaseParentCodeObjImplArgsTypeSet = new Set([
@@ -480,6 +496,8 @@ export const CodeObjTypeEnum = {
   CodeCallable: "CodeCallable",
   CodeParam: "CodeParam",
   TextParam: "TextParam",
+  DateParam: "DateParam",
+  TimeParam: "TimeParam",
   ButtonParam: "ButtonParam",
   SliderParam: "SliderParam",
   RotaryParam: "RotaryParam",
@@ -577,6 +595,14 @@ export const TimeControlModeEnum = {
 } as const;
 
 export type TimeControlMode = ObjectValues<typeof TimeControlModeEnum>;
+
+export const TimeDisplayFontEnum = {
+  clock: "clock",
+  monospace: "monospace",
+  system: "system",
+} as const;
+
+export type TimeDisplayFont = ObjectValues<typeof TimeDisplayFontEnum>;
 
 export const TimeDisplayFormatEnum = {
   twenty_four_hour: "twenty_four_hour",
@@ -1138,6 +1164,52 @@ export const BrowserSearchScopeEnum = {
 } as const;
 
 export type BrowserSearchScope = ObjectValues<typeof BrowserSearchScopeEnum>;
+
+export const TaskBoardRecurringMonthEnum = {
+  january: "january",
+  february: "february",
+  march: "march",
+  april: "april",
+  may: "may",
+  june: "june",
+  july: "july",
+  august: "august",
+  september: "september",
+  october: "october",
+  november: "november",
+  december: "december",
+} as const;
+
+export type TaskBoardRecurringMonth = ObjectValues<
+  typeof TaskBoardRecurringMonthEnum
+>;
+
+export const TaskBoardRecurringWeekdayEnum = {
+  monday: "monday",
+  tuesday: "tuesday",
+  wednesday: "wednesday",
+  thursday: "thursday",
+  friday: "friday",
+  saturday: "saturday",
+  sunday: "sunday",
+} as const;
+
+export type TaskBoardRecurringWeekday = ObjectValues<
+  typeof TaskBoardRecurringWeekdayEnum
+>;
+
+export const TaskBoardTaskRecurrenceEnum = {
+  none: "none",
+  hourly: "hourly",
+  daily: "daily",
+  specified_days: "specified_days",
+  specified_months: "specified_months",
+  specified_years: "specified_years",
+} as const;
+
+export type TaskBoardTaskRecurrence = ObjectValues<
+  typeof TaskBoardTaskRecurrenceEnum
+>;
 
 export const BackgroundVariantEnum = {
   lines: "lines",
@@ -2375,6 +2447,7 @@ export const AllImplFieldsSchema = z.literal([
   "dateCalendarWeekStart",
   "dateControlMode",
   "dateDisplayFormat",
+  "dateIncludesTime",
   "dateSelectionMode",
   "defaultChildSectionType",
   "defaultVal",
@@ -2449,7 +2522,10 @@ export const AllImplFieldsSchema = z.literal([
   "textDisplayMode",
   "thinking",
   "timeControlMode",
+  "timeDisplayFont",
   "timeDisplayFormat",
+  "timeDisplayScale",
+  "timeDisplayTransparent",
   "toolCallArguments",
   "topLevelParamId",
   "type",
@@ -2861,6 +2937,12 @@ export const TaskBoardTaskSchema = z.object({
   completed: z.boolean().default(false),
   columnId: z.union([IDSchema, z.null()]).default(null),
   dueDateIso: z.string().default("" as const),
+  recurrence: z
+    .enum(TaskBoardTaskRecurrenceEnum)
+    .default(TaskBoardTaskRecurrenceEnum.none),
+  recurrenceDays: z.array(z.enum(TaskBoardRecurringWeekdayEnum)).default([]),
+  recurrenceMonths: z.array(z.enum(TaskBoardRecurringMonthEnum)).default([]),
+  recurrenceYears: z.array(z.int()).default([]),
   sortIndex: z.int().default(0),
 });
 
@@ -2913,6 +2995,7 @@ export const SharedModifierSchema = z.object({
   dateCalendarWeekStart: z.enum(DateCalendarWeekStartEnum).optional(),
   dateControlMode: z.enum(DateControlModeEnum).optional(),
   dateDisplayFormat: z.enum(DateDisplayFormatEnum).optional(),
+  dateIncludesTime: z.boolean().optional(),
   dateSelectionMode: z.enum(DateSelectionModeEnum).optional(),
   defaultChildSectionType: z.enum(SectionTypeEnum).optional(),
   defaultVal: z.string().optional(),
@@ -2998,7 +3081,10 @@ export const SharedModifierSchema = z.object({
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
   thinking: z.boolean().optional(),
   timeControlMode: z.enum(TimeControlModeEnum).optional(),
+  timeDisplayFont: z.enum(TimeDisplayFontEnum).optional(),
   timeDisplayFormat: z.enum(TimeDisplayFormatEnum).optional(),
+  timeDisplayScale: z.number().optional(),
+  timeDisplayTransparent: z.boolean().optional(),
   toolCallArguments: z.record(z.string(), z.string()).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
   typeAnnotation: z.string().optional(),
@@ -3072,6 +3158,7 @@ export const CoreSchema = z.object({
         "dateCalendarWeekStart",
         "dateControlMode",
         "dateDisplayFormat",
+        "dateIncludesTime",
         "dateSelectionMode",
         "defaultChildSectionType",
         "defaultVal",
@@ -3146,7 +3233,10 @@ export const CoreSchema = z.object({
         "textDisplayMode",
         "thinking",
         "timeControlMode",
+        "timeDisplayFont",
         "timeDisplayFormat",
+        "timeDisplayScale",
+        "timeDisplayTransparent",
         "toolCallArguments",
         "topLevelParamId",
         "type",
@@ -3913,17 +4003,17 @@ export const TaskBoardSectionImplSchema = z.object({
     .array(TaskBoardColumnSchema)
     .default(() => [
       createTaskBoardColumn({
-        id: "32428030-407d-4923-8107-8d9c9cad1ce7" as const,
+        id: "087e8900-d6c9-4921-b6b4-17c47af4dcd9" as const,
         name: "Todo" as const,
       }),
       createTaskBoardColumn({
-        id: "2fea2882-e6fc-4bca-b4e7-d2d6bec36642" as const,
+        id: "c9ed4a04-703d-4831-b33c-0e424a3eb090" as const,
         name: "Doing" as const,
         color: "#a855f7" as const,
         sortIndex: 1,
       }),
       createTaskBoardColumn({
-        id: "6251a3c6-7ed7-434f-8e1b-41c5baff364a" as const,
+        id: "a639593f-0dac-4520-ab7b-ed1a90453283" as const,
         name: "Done" as const,
         color: "#10b981" as const,
         sortIndex: 2,
@@ -4080,6 +4170,11 @@ export const TextParamCodeObjImplSchema = z.object({
   timeDisplayFormat: z
     .enum(TimeDisplayFormatEnum)
     .default(TimeDisplayFormatEnum.twenty_four_hour),
+  timeDisplayTransparent: z.boolean().default(false),
+  timeDisplayScale: z.number().default(1.0),
+  timeDisplayFont: z
+    .enum(TimeDisplayFontEnum)
+    .default(TimeDisplayFontEnum.monospace),
   dateDisplayFormat: z
     .enum(DateDisplayFormatEnum)
     .default(DateDisplayFormatEnum.iso),
@@ -4092,6 +4187,7 @@ export const TextParamCodeObjImplSchema = z.object({
   dateCalendarWeekStart: z
     .enum(DateCalendarWeekStartEnum)
     .default(DateCalendarWeekStartEnum.sunday),
+  dateIncludesTime: z.boolean().default(false),
 });
 
 export type TextParamCodeObjImpl = z.infer<typeof TextParamCodeObjImplSchema>;
@@ -4105,6 +4201,88 @@ export function createTextParamCodeObjImpl(
   overrides: Partial<TextParamCodeObjImpl> = {},
 ): TextParamCodeObjImpl {
   return TextParamCodeObjImplSchema.parse({ ...defaults, ...overrides });
+}
+
+export const DateParamCodeObjImplSchema = z.object({
+  type: z.literal("DateParam").default(CodeObjTypeEnum.DateParam),
+  id: IDSchema.default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  description: z.string().default("" as const),
+  isPreset: z.boolean().default(false),
+  coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
+  coreNameEditable: z.boolean().default(false),
+  passingStyle: z
+    .enum(ParameterPassingStyleEnum)
+    .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
+  dateDisplayFormat: z
+    .enum(DateDisplayFormatEnum)
+    .default(DateDisplayFormatEnum.iso),
+  dateControlMode: z
+    .enum(DateControlModeEnum)
+    .default(DateControlModeEnum.input),
+  dateSelectionMode: z
+    .enum(DateSelectionModeEnum)
+    .default(DateSelectionModeEnum.single),
+  dateCalendarWeekStart: z
+    .enum(DateCalendarWeekStartEnum)
+    .default(DateCalendarWeekStartEnum.sunday),
+  dateIncludesTime: z.boolean().default(false),
+});
+
+export type DateParamCodeObjImpl = z.infer<typeof DateParamCodeObjImplSchema>;
+
+export type DateParamCodeObjImplInput = z.input<
+  typeof DateParamCodeObjImplSchema
+>;
+
+export function createDateParamCodeObjImpl(
+  defaults: UserDefaultDateParamCodeObjImpl,
+  overrides: Partial<DateParamCodeObjImpl> = {},
+): DateParamCodeObjImpl {
+  return DateParamCodeObjImplSchema.parse({ ...defaults, ...overrides });
+}
+
+export const TimeParamCodeObjImplSchema = z.object({
+  type: z.literal("TimeParam").default(CodeObjTypeEnum.TimeParam),
+  id: IDSchema.default(create_new_id),
+  name: z.string().default(generate_memorable_string),
+  description: z.string().default("" as const),
+  isPreset: z.boolean().default(false),
+  coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
+  coreNameEditable: z.boolean().default(false),
+  passingStyle: z
+    .enum(ParameterPassingStyleEnum)
+    .default(ParameterPassingStyleEnum.DEFAULT),
+  typeAnnotation: z.string().default("" as const),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
+  timeControlMode: z
+    .enum(TimeControlModeEnum)
+    .default(TimeControlModeEnum.input),
+  timeDisplayFormat: z
+    .enum(TimeDisplayFormatEnum)
+    .default(TimeDisplayFormatEnum.twenty_four_hour),
+  timeDisplayTransparent: z.boolean().default(false),
+  timeDisplayScale: z.number().default(1.0),
+  timeDisplayFont: z
+    .enum(TimeDisplayFontEnum)
+    .default(TimeDisplayFontEnum.monospace),
+});
+
+export type TimeParamCodeObjImpl = z.infer<typeof TimeParamCodeObjImplSchema>;
+
+export type TimeParamCodeObjImplInput = z.input<
+  typeof TimeParamCodeObjImplSchema
+>;
+
+export function createTimeParamCodeObjImpl(
+  defaults: UserDefaultTimeParamCodeObjImpl,
+  overrides: Partial<TimeParamCodeObjImpl> = {},
+): TimeParamCodeObjImpl {
+  return TimeParamCodeObjImplSchema.parse({ ...defaults, ...overrides });
 }
 
 export const ButtonParamCodeObjImplSchema = z.object({
@@ -4476,6 +4654,8 @@ export const ProjectStateCoreSchema = z.object({
         CodeCallableCodeObjImplSchema,
         CodeParamCodeObjImplSchema,
         TextParamCodeObjImplSchema,
+        DateParamCodeObjImplSchema,
+        TimeParamCodeObjImplSchema,
         ButtonParamCodeObjImplSchema,
         SliderParamCodeObjImplSchema,
         RotaryParamCodeObjImplSchema,
@@ -4725,6 +4905,8 @@ export type BaseCanvasSectionImplUnionInput = z.input<
 export const BaseChildlessCodeObjImplUnionSchema = z.union([
   CodeParamCodeObjImplSchema,
   TextParamCodeObjImplSchema,
+  DateParamCodeObjImplSchema,
+  TimeParamCodeObjImplSchema,
   SliderParamCodeObjImplSchema,
   RotaryParamCodeObjImplSchema,
   SwitchParamCodeObjImplSchema,
@@ -4747,6 +4929,8 @@ export const BaseCodeObjImplUnionSchema = z.union([
   CodeCallableCodeObjImplSchema,
   CodeParamCodeObjImplSchema,
   TextParamCodeObjImplSchema,
+  DateParamCodeObjImplSchema,
+  TimeParamCodeObjImplSchema,
   ButtonParamCodeObjImplSchema,
   SliderParamCodeObjImplSchema,
   RotaryParamCodeObjImplSchema,
@@ -4795,6 +4979,8 @@ export type BaseDictSectionImplUnionInput = z.input<
 export const BaseParamCodeObjImplUnionSchema = z.union([
   CodeParamCodeObjImplSchema,
   TextParamCodeObjImplSchema,
+  DateParamCodeObjImplSchema,
+  TimeParamCodeObjImplSchema,
   ButtonParamCodeObjImplSchema,
   SliderParamCodeObjImplSchema,
   RotaryParamCodeObjImplSchema,
@@ -5066,10 +5252,14 @@ export const TextParamCodeObjImplArgsSchema = z.object({
   uiType: z.enum(TextParamInputUITypeEnum).optional(),
   timeControlMode: z.enum(TimeControlModeEnum).optional(),
   timeDisplayFormat: z.enum(TimeDisplayFormatEnum).optional(),
+  timeDisplayTransparent: z.boolean().optional(),
+  timeDisplayScale: z.number().optional(),
+  timeDisplayFont: z.enum(TimeDisplayFontEnum).optional(),
   dateDisplayFormat: z.enum(DateDisplayFormatEnum).optional(),
   dateControlMode: z.enum(DateControlModeEnum).optional(),
   dateSelectionMode: z.enum(DateSelectionModeEnum).optional(),
   dateCalendarWeekStart: z.enum(DateCalendarWeekStartEnum).optional(),
+  dateIncludesTime: z.boolean().optional(),
 });
 
 export type TextParamCodeObjImplArgs = z.infer<
@@ -5084,6 +5274,72 @@ export function createTextParamCodeObjImplArgs(
   options: Partial<TextParamCodeObjImplArgs> = {},
 ): TextParamCodeObjImplArgs {
   return TextParamCodeObjImplArgsSchema.parse(options);
+}
+
+export const DateParamCodeObjImplArgsSchema = z.object({
+  type: z.literal("DateParam").optional(),
+  id: IDSchema.optional(),
+  name: z.string().optional(),
+  description: z.string().optional(),
+  isPreset: z.boolean().optional(),
+  coreNameType: z.enum(ParamNameTypeEnum).optional(),
+  coreNameEditable: z.boolean().optional(),
+  passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
+  defaultVal: z.string().optional(),
+  value: z.string().optional(),
+  dateDisplayFormat: z.enum(DateDisplayFormatEnum).optional(),
+  dateControlMode: z.enum(DateControlModeEnum).optional(),
+  dateSelectionMode: z.enum(DateSelectionModeEnum).optional(),
+  dateCalendarWeekStart: z.enum(DateCalendarWeekStartEnum).optional(),
+  dateIncludesTime: z.boolean().optional(),
+});
+
+export type DateParamCodeObjImplArgs = z.infer<
+  typeof DateParamCodeObjImplArgsSchema
+>;
+
+export type DateParamCodeObjImplArgsInput = z.input<
+  typeof DateParamCodeObjImplArgsSchema
+>;
+
+export function createDateParamCodeObjImplArgs(
+  options: Partial<DateParamCodeObjImplArgs> = {},
+): DateParamCodeObjImplArgs {
+  return DateParamCodeObjImplArgsSchema.parse(options);
+}
+
+export const TimeParamCodeObjImplArgsSchema = z.object({
+  type: z.literal("TimeParam").optional(),
+  id: IDSchema.optional(),
+  name: z.string().optional(),
+  description: z.string().optional(),
+  isPreset: z.boolean().optional(),
+  coreNameType: z.enum(ParamNameTypeEnum).optional(),
+  coreNameEditable: z.boolean().optional(),
+  passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  typeAnnotation: z.string().optional(),
+  defaultVal: z.string().optional(),
+  value: z.string().optional(),
+  timeControlMode: z.enum(TimeControlModeEnum).optional(),
+  timeDisplayFormat: z.enum(TimeDisplayFormatEnum).optional(),
+  timeDisplayTransparent: z.boolean().optional(),
+  timeDisplayScale: z.number().optional(),
+  timeDisplayFont: z.enum(TimeDisplayFontEnum).optional(),
+});
+
+export type TimeParamCodeObjImplArgs = z.infer<
+  typeof TimeParamCodeObjImplArgsSchema
+>;
+
+export type TimeParamCodeObjImplArgsInput = z.input<
+  typeof TimeParamCodeObjImplArgsSchema
+>;
+
+export function createTimeParamCodeObjImplArgs(
+  options: Partial<TimeParamCodeObjImplArgs> = {},
+): TimeParamCodeObjImplArgs {
+  return TimeParamCodeObjImplArgsSchema.parse(options);
 }
 
 export const SliderParamCodeObjImplArgsSchema = z.object({
@@ -5325,6 +5581,8 @@ export function createDropzoneParamCodeObjImplArgs(
 export const BaseChildlessCodeObjImplArgsUnionSchema = z.union([
   CodeParamCodeObjImplArgsSchema,
   TextParamCodeObjImplArgsSchema,
+  DateParamCodeObjImplArgsSchema,
+  TimeParamCodeObjImplArgsSchema,
   SliderParamCodeObjImplArgsSchema,
   RotaryParamCodeObjImplArgsSchema,
   SwitchParamCodeObjImplArgsSchema,
@@ -5347,6 +5605,8 @@ export const BaseChildlessCodeObjImplArgsUnionWithDiscriminatorSchema =
   z.discriminatedUnion("type", [
     CodeParamCodeObjImplArgsSchema,
     TextParamCodeObjImplArgsSchema,
+    DateParamCodeObjImplArgsSchema,
+    TimeParamCodeObjImplArgsSchema,
     SliderParamCodeObjImplArgsSchema,
     RotaryParamCodeObjImplArgsSchema,
     SwitchParamCodeObjImplArgsSchema,
@@ -5377,6 +5637,8 @@ export const BaseChildlessCodeObjImplUnionWithDiscriminatorSchema =
   z.discriminatedUnion("type", [
     CodeParamCodeObjImplSchema,
     TextParamCodeObjImplSchema,
+    DateParamCodeObjImplSchema,
+    TimeParamCodeObjImplSchema,
     SliderParamCodeObjImplSchema,
     RotaryParamCodeObjImplSchema,
     SwitchParamCodeObjImplSchema,
@@ -5488,6 +5750,8 @@ export const BaseCodeObjImplArgsUnionSchema = z.union([
   CodeCallableCodeObjImplArgsSchema,
   CodeParamCodeObjImplArgsSchema,
   TextParamCodeObjImplArgsSchema,
+  DateParamCodeObjImplArgsSchema,
+  TimeParamCodeObjImplArgsSchema,
   ButtonParamCodeObjImplArgsSchema,
   SliderParamCodeObjImplArgsSchema,
   RotaryParamCodeObjImplArgsSchema,
@@ -5513,6 +5777,8 @@ export const BaseCodeObjImplArgsUnionWithDiscriminatorSchema =
     CodeCallableCodeObjImplArgsSchema,
     CodeParamCodeObjImplArgsSchema,
     TextParamCodeObjImplArgsSchema,
+    DateParamCodeObjImplArgsSchema,
+    TimeParamCodeObjImplArgsSchema,
     ButtonParamCodeObjImplArgsSchema,
     SliderParamCodeObjImplArgsSchema,
     RotaryParamCodeObjImplArgsSchema,
@@ -5545,6 +5811,8 @@ export const BaseCodeObjImplUnionWithDiscriminatorSchema = z.discriminatedUnion(
     CodeCallableCodeObjImplSchema,
     CodeParamCodeObjImplSchema,
     TextParamCodeObjImplSchema,
+    DateParamCodeObjImplSchema,
+    TimeParamCodeObjImplSchema,
     ButtonParamCodeObjImplSchema,
     SliderParamCodeObjImplSchema,
     RotaryParamCodeObjImplSchema,
@@ -5879,6 +6147,8 @@ export function createBaseDictSectionImplUnionWithDiscriminator(
 export const BaseParamCodeObjImplArgsUnionSchema = z.union([
   CodeParamCodeObjImplArgsSchema,
   TextParamCodeObjImplArgsSchema,
+  DateParamCodeObjImplArgsSchema,
+  TimeParamCodeObjImplArgsSchema,
   ButtonParamCodeObjImplArgsSchema,
   SliderParamCodeObjImplArgsSchema,
   RotaryParamCodeObjImplArgsSchema,
@@ -5903,6 +6173,8 @@ export const BaseParamCodeObjImplArgsUnionWithDiscriminatorSchema =
   z.discriminatedUnion("type", [
     CodeParamCodeObjImplArgsSchema,
     TextParamCodeObjImplArgsSchema,
+    DateParamCodeObjImplArgsSchema,
+    TimeParamCodeObjImplArgsSchema,
     ButtonParamCodeObjImplArgsSchema,
     SliderParamCodeObjImplArgsSchema,
     RotaryParamCodeObjImplArgsSchema,
@@ -5933,6 +6205,8 @@ export const BaseParamCodeObjImplUnionWithDiscriminatorSchema =
   z.discriminatedUnion("type", [
     CodeParamCodeObjImplSchema,
     TextParamCodeObjImplSchema,
+    DateParamCodeObjImplSchema,
+    TimeParamCodeObjImplSchema,
     ButtonParamCodeObjImplSchema,
     SliderParamCodeObjImplSchema,
     RotaryParamCodeObjImplSchema,
@@ -7463,6 +7737,8 @@ export const SectionCodegenPolicySchema = z.object({
     .default(() => [
       CodeObjTypeEnum.CodeParam,
       CodeObjTypeEnum.TextParam,
+      CodeObjTypeEnum.DateParam,
+      CodeObjTypeEnum.TimeParam,
       CodeObjTypeEnum.TextAreaParam,
       CodeObjTypeEnum.SliderParam,
       CodeObjTypeEnum.RotaryParam,
@@ -7567,6 +7843,12 @@ export const CodeObjValuePolicySchema = z.object({
       CodeCallable: createCodeObjTypeValuePolicy(),
       CodeParam: createCodeObjTypeValuePolicy(),
       TextParam: createCodeObjTypeValuePolicy({
+        representation: CodeObjValueRepresentationModeEnum.string,
+      }),
+      DateParam: createCodeObjTypeValuePolicy({
+        representation: CodeObjValueRepresentationModeEnum.string,
+      }),
+      TimeParam: createCodeObjTypeValuePolicy({
         representation: CodeObjValueRepresentationModeEnum.string,
       }),
       ButtonParam: createCodeObjTypeValuePolicy(),
@@ -7855,6 +8137,8 @@ export const ProjectStateSingleConfigSchema = z.object({
         CodeCallableCodeObjImplSchema,
         CodeParamCodeObjImplSchema,
         TextParamCodeObjImplSchema,
+        DateParamCodeObjImplSchema,
+        TimeParamCodeObjImplSchema,
         ButtonParamCodeObjImplSchema,
         SliderParamCodeObjImplSchema,
         RotaryParamCodeObjImplSchema,
@@ -8408,6 +8692,18 @@ export const MetaControlSizingPolicyByTypeSchema = z.object({
     }),
   ),
   TextParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  DateParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
+    createMetaControlSizingPolicyTypeEntry({
+      minHeight: 32.0,
+      minWidth: 200.0,
+    }),
+  ),
+  TimeParam: MetaControlSizingPolicyTypeEntrySchema.default(() =>
     createMetaControlSizingPolicyTypeEntry({
       minHeight: 32.0,
       minWidth: 200.0,
@@ -9105,17 +9401,17 @@ export const UserDefaultTaskBoardSectionImplSchema = z.object({
     .array(TaskBoardColumnSchema)
     .default(() => [
       createTaskBoardColumn({
-        id: "252e7bf8-1826-48ca-b826-6a460a4888cd" as const,
+        id: "a95c2407-c7da-424a-b371-9d9245695059" as const,
         name: "Todo" as const,
       }),
       createTaskBoardColumn({
-        id: "319447d9-818c-4953-b34b-c20d0701f0cb" as const,
+        id: "99981650-e3d1-4c8c-9e4b-bd9d41fe98ec" as const,
         name: "Doing" as const,
         color: "#a855f7" as const,
         sortIndex: 1,
       }),
       createTaskBoardColumn({
-        id: "fcc9d472-8f24-4457-a273-24e993f7acbb" as const,
+        id: "471a231b-5e1f-482b-8ec1-eef20b28612d" as const,
         name: "Done" as const,
         color: "#10b981" as const,
         sortIndex: 2,
@@ -9286,6 +9582,41 @@ export function createUserDefaultColorPickerParamCodeObjImpl(
   options: Partial<UserDefaultColorPickerParamCodeObjImpl> = {},
 ): UserDefaultColorPickerParamCodeObjImpl {
   return UserDefaultColorPickerParamCodeObjImplSchema.parse(options);
+}
+
+export const UserDefaultDateParamCodeObjImplSchema = z.object({
+  coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
+  coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
+  dateDisplayFormat: z
+    .enum(DateDisplayFormatEnum)
+    .default(DateDisplayFormatEnum.iso),
+  dateControlMode: z
+    .enum(DateControlModeEnum)
+    .default(DateControlModeEnum.input),
+  dateSelectionMode: z
+    .enum(DateSelectionModeEnum)
+    .default(DateSelectionModeEnum.single),
+  dateCalendarWeekStart: z
+    .enum(DateCalendarWeekStartEnum)
+    .default(DateCalendarWeekStartEnum.sunday),
+  dateIncludesTime: z.boolean().default(false),
+});
+
+export type UserDefaultDateParamCodeObjImpl = z.infer<
+  typeof UserDefaultDateParamCodeObjImplSchema
+>;
+
+export type UserDefaultDateParamCodeObjImplInput = z.input<
+  typeof UserDefaultDateParamCodeObjImplSchema
+>;
+
+export function createUserDefaultDateParamCodeObjImpl(
+  options: Partial<UserDefaultDateParamCodeObjImpl> = {},
+): UserDefaultDateParamCodeObjImpl {
+  return UserDefaultDateParamCodeObjImplSchema.parse(options);
 }
 
 export const UserDefaultDropdownParamCodeObjImplSchema = z.object({
@@ -9488,6 +9819,11 @@ export const UserDefaultTextParamCodeObjImplSchema = z.object({
   timeDisplayFormat: z
     .enum(TimeDisplayFormatEnum)
     .default(TimeDisplayFormatEnum.twenty_four_hour),
+  timeDisplayTransparent: z.boolean().default(false),
+  timeDisplayScale: z.number().default(1.0),
+  timeDisplayFont: z
+    .enum(TimeDisplayFontEnum)
+    .default(TimeDisplayFontEnum.monospace),
   dateDisplayFormat: z
     .enum(DateDisplayFormatEnum)
     .default(DateDisplayFormatEnum.iso),
@@ -9500,6 +9836,7 @@ export const UserDefaultTextParamCodeObjImplSchema = z.object({
   dateCalendarWeekStart: z
     .enum(DateCalendarWeekStartEnum)
     .default(DateCalendarWeekStartEnum.sunday),
+  dateIncludesTime: z.boolean().default(false),
 });
 
 export type UserDefaultTextParamCodeObjImpl = z.infer<
@@ -9514,6 +9851,39 @@ export function createUserDefaultTextParamCodeObjImpl(
   options: Partial<UserDefaultTextParamCodeObjImpl> = {},
 ): UserDefaultTextParamCodeObjImpl {
   return UserDefaultTextParamCodeObjImplSchema.parse(options);
+}
+
+export const UserDefaultTimeParamCodeObjImplSchema = z.object({
+  coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
+  coreNameEditable: z.boolean().default(false),
+  typeAnnotation: z.string().default("" as const),
+  defaultVal: z.string().default("" as const),
+  value: z.string().default("" as const),
+  timeControlMode: z
+    .enum(TimeControlModeEnum)
+    .default(TimeControlModeEnum.input),
+  timeDisplayFormat: z
+    .enum(TimeDisplayFormatEnum)
+    .default(TimeDisplayFormatEnum.twenty_four_hour),
+  timeDisplayTransparent: z.boolean().default(false),
+  timeDisplayScale: z.number().default(1.0),
+  timeDisplayFont: z
+    .enum(TimeDisplayFontEnum)
+    .default(TimeDisplayFontEnum.monospace),
+});
+
+export type UserDefaultTimeParamCodeObjImpl = z.infer<
+  typeof UserDefaultTimeParamCodeObjImplSchema
+>;
+
+export type UserDefaultTimeParamCodeObjImplInput = z.input<
+  typeof UserDefaultTimeParamCodeObjImplSchema
+>;
+
+export function createUserDefaultTimeParamCodeObjImpl(
+  options: Partial<UserDefaultTimeParamCodeObjImpl> = {},
+): UserDefaultTimeParamCodeObjImpl {
+  return UserDefaultTimeParamCodeObjImplSchema.parse(options);
 }
 
 export const SettingsStateSchema = z.object({
@@ -9616,6 +9986,9 @@ export const SettingsStateSchema = z.object({
     UserDefaultColorPickerParamCodeObjImplSchema.default(
       createUserDefaultColorPickerParamCodeObjImpl,
     ),
+  dateParamCodeObjDefault: UserDefaultDateParamCodeObjImplSchema.default(
+    createUserDefaultDateParamCodeObjImpl,
+  ),
   dropdownParamCodeObjDefault:
     UserDefaultDropdownParamCodeObjImplSchema.default(
       createUserDefaultDropdownParamCodeObjImpl,
@@ -9646,6 +10019,9 @@ export const SettingsStateSchema = z.object({
     ),
   textParamCodeObjDefault: UserDefaultTextParamCodeObjImplSchema.default(
     createUserDefaultTextParamCodeObjImpl,
+  ),
+  timeParamCodeObjDefault: UserDefaultTimeParamCodeObjImplSchema.default(
+    createUserDefaultTimeParamCodeObjImpl,
   ),
 });
 
@@ -12087,6 +12463,47 @@ export function createColorPickerParamCodeObjImplArgsWithCallable(
   return ColorPickerParamCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
+export const DateParamCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("DateParam"), z.any()]).optional(),
+  id: z.union([IDSchema, z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.any()]).optional(),
+  coreNameEditable: z.union([z.boolean(), z.any()]).optional(),
+  passingStyle: z
+    .union([z.enum(ParameterPassingStyleEnum), z.any()])
+    .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
+  defaultVal: z.union([z.string(), z.any()]).optional(),
+  value: z.union([z.string(), z.any()]).optional(),
+  dateDisplayFormat: z
+    .union([z.enum(DateDisplayFormatEnum), z.any()])
+    .optional(),
+  dateControlMode: z.union([z.enum(DateControlModeEnum), z.any()]).optional(),
+  dateSelectionMode: z
+    .union([z.enum(DateSelectionModeEnum), z.any()])
+    .optional(),
+  dateCalendarWeekStart: z
+    .union([z.enum(DateCalendarWeekStartEnum), z.any()])
+    .optional(),
+  dateIncludesTime: z.union([z.boolean(), z.any()]).optional(),
+});
+
+export type DateParamCodeObjImplArgsWithCallable = z.infer<
+  typeof DateParamCodeObjImplArgsWithCallableSchema
+>;
+
+export type DateParamCodeObjImplArgsWithCallableInput = z.input<
+  typeof DateParamCodeObjImplArgsWithCallableSchema
+>;
+
+export function createDateParamCodeObjImplArgsWithCallable(
+  options: Partial<DateParamCodeObjImplArgsWithCallable> = {},
+): DateParamCodeObjImplArgsWithCallable {
+  return DateParamCodeObjImplArgsWithCallableSchema.parse(options);
+}
+
 export const DictSectionImplArgsWithCallableSchema = z.object({
   type: z.union([z.literal("Dict"), z.any()]).optional(),
   id: z.union([IDSchema, z.any()]).optional(),
@@ -12950,6 +13367,9 @@ export const TextParamCodeObjImplArgsWithCallableSchema = z.object({
   timeDisplayFormat: z
     .union([z.enum(TimeDisplayFormatEnum), z.any()])
     .optional(),
+  timeDisplayTransparent: z.union([z.boolean(), z.any()]).optional(),
+  timeDisplayScale: z.union([z.number(), z.any()]).optional(),
+  timeDisplayFont: z.union([z.enum(TimeDisplayFontEnum), z.any()]).optional(),
   dateDisplayFormat: z
     .union([z.enum(DateDisplayFormatEnum), z.any()])
     .optional(),
@@ -12960,6 +13380,7 @@ export const TextParamCodeObjImplArgsWithCallableSchema = z.object({
   dateCalendarWeekStart: z
     .union([z.enum(DateCalendarWeekStartEnum), z.any()])
     .optional(),
+  dateIncludesTime: z.union([z.boolean(), z.any()]).optional(),
 });
 
 export type TextParamCodeObjImplArgsWithCallable = z.infer<
@@ -12974,6 +13395,43 @@ export function createTextParamCodeObjImplArgsWithCallable(
   options: Partial<TextParamCodeObjImplArgsWithCallable> = {},
 ): TextParamCodeObjImplArgsWithCallable {
   return TextParamCodeObjImplArgsWithCallableSchema.parse(options);
+}
+
+export const TimeParamCodeObjImplArgsWithCallableSchema = z.object({
+  type: z.union([z.literal("TimeParam"), z.any()]).optional(),
+  id: z.union([IDSchema, z.any()]).optional(),
+  name: z.union([z.string(), z.any()]).optional(),
+  description: z.union([z.string(), z.any()]).optional(),
+  isPreset: z.union([z.boolean(), z.any()]).optional(),
+  coreNameType: z.union([z.enum(ParamNameTypeEnum), z.any()]).optional(),
+  coreNameEditable: z.union([z.boolean(), z.any()]).optional(),
+  passingStyle: z
+    .union([z.enum(ParameterPassingStyleEnum), z.any()])
+    .optional(),
+  typeAnnotation: z.union([z.string(), z.any()]).optional(),
+  defaultVal: z.union([z.string(), z.any()]).optional(),
+  value: z.union([z.string(), z.any()]).optional(),
+  timeControlMode: z.union([z.enum(TimeControlModeEnum), z.any()]).optional(),
+  timeDisplayFormat: z
+    .union([z.enum(TimeDisplayFormatEnum), z.any()])
+    .optional(),
+  timeDisplayTransparent: z.union([z.boolean(), z.any()]).optional(),
+  timeDisplayScale: z.union([z.number(), z.any()]).optional(),
+  timeDisplayFont: z.union([z.enum(TimeDisplayFontEnum), z.any()]).optional(),
+});
+
+export type TimeParamCodeObjImplArgsWithCallable = z.infer<
+  typeof TimeParamCodeObjImplArgsWithCallableSchema
+>;
+
+export type TimeParamCodeObjImplArgsWithCallableInput = z.input<
+  typeof TimeParamCodeObjImplArgsWithCallableSchema
+>;
+
+export function createTimeParamCodeObjImplArgsWithCallable(
+  options: Partial<TimeParamCodeObjImplArgsWithCallable> = {},
+): TimeParamCodeObjImplArgsWithCallable {
+  return TimeParamCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
 export const CoreArgsSchema = z.object({
@@ -13022,6 +13480,7 @@ export const CoreArgsSchema = z.object({
         "dateCalendarWeekStart",
         "dateControlMode",
         "dateDisplayFormat",
+        "dateIncludesTime",
         "dateSelectionMode",
         "defaultChildSectionType",
         "defaultVal",
@@ -13096,7 +13555,10 @@ export const CoreArgsSchema = z.object({
         "textDisplayMode",
         "thinking",
         "timeControlMode",
+        "timeDisplayFont",
         "timeDisplayFormat",
+        "timeDisplayScale",
+        "timeDisplayTransparent",
         "toolCallArguments",
         "topLevelParamId",
         "type",
@@ -14803,6 +15265,8 @@ export const ProjectStateBackendSchema = z.object({
         CodeCallableCodeObjImplSchema,
         CodeParamCodeObjImplSchema,
         TextParamCodeObjImplSchema,
+        DateParamCodeObjImplSchema,
+        TimeParamCodeObjImplSchema,
         ButtonParamCodeObjImplSchema,
         SliderParamCodeObjImplSchema,
         RotaryParamCodeObjImplSchema,
@@ -20678,6 +21142,22 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<
       TextParamCodeObjImplArgs,
       TextParamCodeObjImpl
+    >;
+  };
+
+  DateParamCodeObj: {
+    impl: DateParamCodeObjImpl;
+    args: ImplArgsBundleWithUpdaters<
+      DateParamCodeObjImplArgs,
+      DateParamCodeObjImpl
+    >;
+  };
+
+  TimeParamCodeObj: {
+    impl: TimeParamCodeObjImpl;
+    args: ImplArgsBundleWithUpdaters<
+      TimeParamCodeObjImplArgs,
+      TimeParamCodeObjImpl
     >;
   };
 

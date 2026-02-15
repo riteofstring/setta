@@ -1875,6 +1875,8 @@ def convert_code_obj_value(impl: BaseChildlessCodeObjImplUnion, value: str):
         case (
             CodeObjType.CodeParam
             | CodeObjType.TextParam
+            | CodeObjType.DateParam
+            | CodeObjType.TimeParam
             | CodeObjType.DropdownParam
             | CodeObjType.PasswordParam
             | CodeObjType.TextAreaParam

@@ -166,6 +166,40 @@ class TaskBoardColumn(BaseModel, extra="forbid"):
     sortIndex: int = 0
 
 
+class TaskBoardTaskRecurrence(str, Enum):
+    none = "none"
+    hourly = "hourly"
+    daily = "daily"
+    specified_days = "specified_days"
+    specified_months = "specified_months"
+    specified_years = "specified_years"
+
+
+class TaskBoardRecurringWeekday(str, Enum):
+    monday = "monday"
+    tuesday = "tuesday"
+    wednesday = "wednesday"
+    thursday = "thursday"
+    friday = "friday"
+    saturday = "saturday"
+    sunday = "sunday"
+
+
+class TaskBoardRecurringMonth(str, Enum):
+    january = "january"
+    february = "february"
+    march = "march"
+    april = "april"
+    may = "may"
+    june = "june"
+    july = "july"
+    august = "august"
+    september = "september"
+    october = "october"
+    november = "november"
+    december = "december"
+
+
 class TaskBoardTask(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     title: str = ""
@@ -173,6 +207,10 @@ class TaskBoardTask(BaseModel, extra="forbid"):
     completed: bool = False
     columnId: ID | None = None
     dueDateIso: str = ""
+    recurrence: TaskBoardTaskRecurrence = TaskBoardTaskRecurrence.none
+    recurrenceDays: list[TaskBoardRecurringWeekday] = Field(default_factory=list)
+    recurrenceMonths: list[TaskBoardRecurringMonth] = Field(default_factory=list)
+    recurrenceYears: list[int] = Field(default_factory=list)
     sortIndex: int = 0
 
 

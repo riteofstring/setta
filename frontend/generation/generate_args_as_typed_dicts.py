@@ -138,6 +138,7 @@ from setta.types.code_obj_impls import (
     TextParamInputUIType,
     TimeControlMode,
     TimeDisplayFormat,
+    TimeDisplayFont,
     DateDisplayFormat,
     DateControlMode,
     DateSelectionMode,

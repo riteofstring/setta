@@ -1,4 +1,10 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type Request,
+} from "@playwright/test";
 import fs from "node:fs/promises";
 import * as XLSX from "xlsx";
 import {
@@ -88,6 +94,40 @@ async function dragBrowserRowToTarget(
   await target.dispatchEvent("dragover", { dataTransfer });
   await target.dispatchEvent("drop", { dataTransfer });
   await source.dispatchEvent("dragend", { dataTransfer });
+}
+
+async function dragPointerSurfaceToTarget(
+  source: Locator,
+  target: Locator,
+  options?: {
+    sourcePosition?: { x: number; y: number };
+    targetPosition?: { x: number; y: number };
+  },
+): Promise<void> {
+  const sourcePosition = options?.sourcePosition ?? { x: 3, y: 3 };
+  const targetPosition = options?.targetPosition ?? { x: 3, y: 3 };
+  const page = source.page();
+  const sourceBox = await source.boundingBox();
+  if (!sourceBox) {
+    throw new Error("Source drag surface bounds unavailable.");
+  }
+  const targetBox = await target.boundingBox();
+  if (!targetBox) {
+    throw new Error("Target drag surface bounds unavailable.");
+  }
+  await page.mouse.move(
+    sourceBox.x + sourcePosition.x,
+    sourceBox.y + sourcePosition.y,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    targetBox.x + targetPosition.x,
+    targetBox.y + targetPosition.y,
+    {
+      steps: 12,
+    },
+  );
+  await page.mouse.up();
 }
 
 async function getViewportScale(page: Page): Promise<number> {
@@ -538,6 +578,16 @@ test.describe.serial("section types data authoring", () => {
     });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
+    let setTopLevelLayoutCalls = 0;
+    const handleSetTopLevelLayoutRequest = (request: Request): void => {
+      if (
+        request.method() === "POST" &&
+        request.url().includes("/api/setTopLevelSectionLayout")
+      ) {
+        setTopLevelLayoutCalls += 1;
+      }
+    };
+    page.on("request", handleSetTopLevelLayoutRequest);
 
     try {
       const root = await postBackend<FileBrowserRootResponse>(
@@ -581,18 +631,286 @@ test.describe.serial("section types data authoring", () => {
       await expect(taskBoardNode).toBeVisible();
       await expect(spreadsheetNode).toBeVisible();
       await expect(browserNode).toBeVisible();
+      const taskBoardMainSurface = taskBoardNode
+        .locator(".section-main.section-main-full-w")
+        .first();
+      const taskBoardMainSurfaceMetrics = await taskBoardMainSurface.evaluate(
+        (element) => {
+          const style = window.getComputedStyle(element as HTMLElement);
+          return {
+            borderTop: Number.parseFloat(style.borderTopWidth),
+            borderRight: Number.parseFloat(style.borderRightWidth),
+            borderBottom: Number.parseFloat(style.borderBottomWidth),
+            borderLeft: Number.parseFloat(style.borderLeftWidth),
+            paddingTop: Number.parseFloat(style.paddingTop),
+            paddingRight: Number.parseFloat(style.paddingRight),
+            paddingBottom: Number.parseFloat(style.paddingBottom),
+            paddingLeft: Number.parseFloat(style.paddingLeft),
+          };
+        },
+      );
+      expect(taskBoardMainSurfaceMetrics.borderTop).toBeLessThan(0.5);
+      expect(taskBoardMainSurfaceMetrics.borderRight).toBeLessThan(0.5);
+      expect(taskBoardMainSurfaceMetrics.borderBottom).toBeLessThan(0.5);
+      expect(taskBoardMainSurfaceMetrics.borderLeft).toBeLessThan(0.5);
+      expect(taskBoardMainSurfaceMetrics.paddingTop).toBeLessThan(0.5);
+      expect(taskBoardMainSurfaceMetrics.paddingRight).toBeLessThan(0.5);
+      expect(taskBoardMainSurfaceMetrics.paddingBottom).toBeLessThan(0.5);
+      expect(taskBoardMainSurfaceMetrics.paddingLeft).toBeLessThan(0.5);
 
       await taskBoardNode
         .getByPlaceholder("Add task title")
         .fill("ship task board");
       await taskBoardNode.getByTestId("task-board-add-task").click();
+      await taskBoardNode
+        .getByPlaceholder("Add task title")
+        .fill("schedule followup");
+      await taskBoardNode.getByTestId("task-board-add-task").click();
+      await taskBoardNode.getByTestId("task-board-view-task-list").click();
       await expect(
         taskBoardNode.locator('input[value="ship task board"]').first(),
       ).toBeVisible();
+      const taskListRows = taskBoardNode.locator("[data-task-board-task-id]");
+      await expect(taskListRows).toHaveCount(2);
+      await expect(
+        taskBoardNode.getByTestId("task-board-task-list-header-done"),
+      ).toHaveCount(0);
+      const firstListRow = taskListRows.first();
+      const firstListRowDragHandle = firstListRow.getByTestId(
+        "task-board-task-drag-handle",
+      );
+      const firstListRowDoneCheckbox = firstListRow.getByTestId(
+        "task-board-task-list-done-checkbox",
+      );
+      const firstListRowTaskInput = firstListRow.locator('input[type="text"]').first();
+      const [firstListRowBounds, dragHandleBounds, doneCheckboxBounds, taskInputBounds] =
+        await Promise.all([
+          firstListRow.boundingBox(),
+          firstListRowDragHandle.boundingBox(),
+          firstListRowDoneCheckbox.boundingBox(),
+          firstListRowTaskInput.boundingBox(),
+        ]);
+      if (!firstListRowBounds) {
+        throw new Error("Expected first task list row bounds.");
+      }
+      if (!dragHandleBounds) {
+        throw new Error("Expected first task list drag handle bounds.");
+      }
+      if (!doneCheckboxBounds) {
+        throw new Error("Expected first task list checkbox bounds.");
+      }
+      if (!taskInputBounds) {
+        throw new Error("Expected first task list title input bounds.");
+      }
+      expect(dragHandleBounds.x).toBeLessThan(doneCheckboxBounds.x);
+      expect(dragHandleBounds.x - firstListRowBounds.x).toBeLessThan(16);
+      expect(doneCheckboxBounds.x).toBeLessThan(taskInputBounds.x);
+      expect(taskInputBounds.x - doneCheckboxBounds.x).toBeLessThan(36);
+      const firstTaskRow = taskListRows.nth(0);
+      await firstTaskRow
+        .locator('[data-testid^="task-board-task-schedule-menu-"]')
+        .click();
+      const schedulePopover = page
+        .locator('[data-testid^="task-board-task-schedule-content-"]')
+        .first();
+      await expect(schedulePopover).toBeVisible();
+      await schedulePopover
+        .locator('select[data-testid^="task-board-task-due-mode-"]')
+        .selectOption("date_time");
+      await schedulePopover
+        .locator('input[data-testid^="task-board-task-due-value-"]')
+        .fill("2026-03-01T09:15");
+      await schedulePopover
+        .locator('[data-testid^="task-board-task-recurrence-mode-"]')
+        .selectOption("specified_days");
+      await schedulePopover.getByRole("button", { name: "Mon" }).click();
+      await page.keyboard.press("Escape");
+      const firstTaskDescriptionToggle = firstTaskRow
+        .locator('[data-testid^="task-board-task-description-toggle-"]')
+        .first();
+      await firstTaskDescriptionToggle.click();
+      const firstTaskDescriptionInput = firstTaskRow
+        .locator('[data-testid^="task-board-task-description-input-"]')
+        .first();
+      await expect(firstTaskDescriptionInput).toBeVisible();
+      await firstTaskDescriptionInput.fill("follow-up checklist");
+      await firstTaskDescriptionInput.blur();
+      await firstTaskDescriptionToggle.click();
+      await expect(
+        firstTaskRow.locator('[data-testid^="task-board-task-description-input-"]'),
+      ).toHaveCount(0);
+
+      const firstRowDragSurface = taskListRows.nth(0);
+      const secondRowDragSurface = taskListRows.nth(1);
+      await expect(secondRowDragSurface).toBeVisible();
+      const firstRowDragHandle = firstRowDragSurface.getByTestId(
+        "task-board-task-drag-handle",
+      );
+      const secondRowDragHandle = secondRowDragSurface.getByTestId(
+        "task-board-task-drag-handle",
+      );
+      const setTopLevelLayoutCallsBeforeListDrag = setTopLevelLayoutCalls;
+      await dragPointerSurfaceToTarget(
+        firstRowDragHandle,
+        secondRowDragHandle,
+        {
+          sourcePosition: { x: 8, y: 8 },
+          targetPosition: { x: 8, y: 8 },
+        },
+      );
+      await expect(
+        taskListRows.nth(0).locator('input[type="text"]').first(),
+      ).toHaveValue("ship task board");
+      expect(setTopLevelLayoutCalls).toBe(setTopLevelLayoutCallsBeforeListDrag);
+
       await taskBoardNode.getByTestId("task-board-view-kanban").click();
       await expect(
         taskBoardNode.locator("[data-task-board-column-id]"),
       ).toHaveCount(3);
+      await expect(taskBoardNode.getByTestId("task-board-add-task")).toHaveCount(0);
+      const kanbanAddTaskButtons = taskBoardNode.locator(
+        '[data-testid^="task-board-kanban-add-task-"]',
+      );
+      await expect(kanbanAddTaskButtons).toHaveCount(3);
+      await expect(kanbanAddTaskButtons.first()).toHaveText("Task");
+      const kanbanResizeHandles = taskBoardNode.locator(
+        '[data-testid^="task-board-kanban-resize-handle-"]',
+      );
+      await expect(kanbanResizeHandles).toHaveCount(2);
+      const firstLane = taskBoardNode
+        .locator("[data-task-board-column-id]")
+        .nth(0);
+      const [firstLaneBoundsBeforeResize, firstResizeHandleBounds] =
+        await Promise.all([
+          firstLane.boundingBox(),
+          kanbanResizeHandles.first().boundingBox(),
+        ]);
+      if (!firstLaneBoundsBeforeResize) {
+        throw new Error("First kanban lane bounds unavailable before resize.");
+      }
+      if (!firstResizeHandleBounds) {
+        throw new Error("First kanban resize handle bounds unavailable.");
+      }
+      await page.mouse.move(
+        firstResizeHandleBounds.x + firstResizeHandleBounds.width / 2,
+        firstResizeHandleBounds.y + firstResizeHandleBounds.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        firstResizeHandleBounds.x + firstResizeHandleBounds.width / 2 + 36,
+        firstResizeHandleBounds.y + firstResizeHandleBounds.height / 2,
+        { steps: 10 },
+      );
+      await page.mouse.up();
+      const firstLaneBoundsAfterResize = await firstLane.boundingBox();
+      if (!firstLaneBoundsAfterResize) {
+        throw new Error("First kanban lane bounds unavailable after resize.");
+      }
+      expect(
+        firstLaneBoundsAfterResize.width - firstLaneBoundsBeforeResize.width,
+      ).toBeGreaterThan(8);
+      const firstLaneTasks = firstLane.locator("[data-task-board-task-id]");
+      await expect(firstLaneTasks).toHaveCount(2);
+      const firstKanbanDragSurface = firstLaneTasks.first();
+      const secondKanbanDragSurface = firstLaneTasks.nth(1);
+      const firstKanbanDragHandle = firstKanbanDragSurface.getByTestId(
+        "task-board-task-drag-handle",
+      );
+      const secondKanbanDragHandle = secondKanbanDragSurface.getByTestId(
+        "task-board-task-drag-handle",
+      );
+      const [secondKanbanCardBounds, secondKanbanHandleBounds] = await Promise.all([
+        secondKanbanDragSurface.boundingBox(),
+        secondKanbanDragHandle.boundingBox(),
+      ]);
+      if (!secondKanbanCardBounds) {
+        throw new Error("Second kanban task bounds unavailable.");
+      }
+      if (!secondKanbanHandleBounds) {
+        throw new Error("Second kanban drag handle bounds unavailable.");
+      }
+      expect(secondKanbanHandleBounds.width).toBeGreaterThanOrEqual(26);
+      expect(secondKanbanHandleBounds.x - secondKanbanCardBounds.x).toBeLessThan(12);
+      const kanbanTopInset = secondKanbanHandleBounds.y - secondKanbanCardBounds.y;
+      const kanbanBottomInset =
+        secondKanbanCardBounds.y +
+        secondKanbanCardBounds.height -
+        (secondKanbanHandleBounds.y + secondKanbanHandleBounds.height);
+      expect(Math.abs(kanbanTopInset - kanbanBottomInset)).toBeLessThan(5);
+      const setTopLevelLayoutCallsBeforeKanbanDrag = setTopLevelLayoutCalls;
+      const kanbanSourceBounds = await firstKanbanDragHandle.boundingBox();
+      if (!kanbanSourceBounds) {
+        throw new Error("Kanban source bounds unavailable.");
+      }
+      const kanbanTargetBounds = await secondKanbanDragSurface.boundingBox();
+      if (!kanbanTargetBounds) {
+        throw new Error("Kanban target bounds unavailable.");
+      }
+      await page.mouse.move(
+        kanbanSourceBounds.x + kanbanSourceBounds.width / 2,
+        kanbanSourceBounds.y + kanbanSourceBounds.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        kanbanTargetBounds.x + Math.min(24, kanbanTargetBounds.width - 8),
+        kanbanTargetBounds.y + kanbanTargetBounds.height + 24,
+        {
+          steps: 12,
+        },
+      );
+      await page.mouse.up();
+      const firstLaneTaskTitles = await firstLaneTasks
+        .locator('input[type="text"]')
+        .evaluateAll((elements) =>
+          elements
+            .map((element) => (element as HTMLInputElement).value)
+            .sort((left, right) => left.localeCompare(right)),
+        );
+      expect(firstLaneTaskTitles).toEqual(["schedule followup", "ship task board"]);
+      expect(setTopLevelLayoutCalls).toBe(
+        setTopLevelLayoutCallsBeforeKanbanDrag,
+      );
+
+      await taskBoardNode.getByTestId("task-board-view-task-list").click();
+      const refreshedTaskRows = taskBoardNode.locator(
+        "[data-task-board-task-id]",
+      );
+      const firstRowColumnSelect = refreshedTaskRows
+        .first()
+        .locator("select")
+        .first();
+      const firstRowDoneCheckbox = refreshedTaskRows
+        .first()
+        .getByTestId("task-board-task-list-done-checkbox");
+      await firstRowDoneCheckbox.check();
+      await expect(firstRowDoneCheckbox).toBeChecked();
+      await expect(firstRowColumnSelect.locator("option:checked")).toHaveText(
+        "Done",
+      );
+
+      await taskBoardNode.getByTestId("task-board-view-kanban").click();
+      const doneLane = taskBoardNode
+        .locator("[data-task-board-column-id]")
+        .nth(2);
+      const doneLaneTasks = doneLane.locator("[data-task-board-task-id]");
+      await expect(doneLaneTasks).toHaveCount(1);
+      await expect(
+        doneLaneTasks.first().locator('input[type="checkbox"]'),
+      ).toHaveCount(0);
+      await taskBoardNode.getByTestId("task-board-view-task-list").click();
+      const taskRowsBeforeDelete = taskBoardNode.locator("[data-task-board-task-id]");
+      await expect(taskRowsBeforeDelete).toHaveCount(2);
+      await taskRowsBeforeDelete
+        .nth(1)
+        .locator('[data-testid^="task-board-task-remove-"]')
+        .first()
+        .click();
+      await expect(taskRowsBeforeDelete).toHaveCount(1);
+      await taskBoardNode.getByTestId("task-board-view-kanban").click();
+      const allKanbanTasksAfterDelete = taskBoardNode.locator(
+        "[data-task-board-column-id] [data-task-board-task-id]",
+      );
+      await expect(allKanbanTasksAfterDelete).toHaveCount(1);
 
       await expect(
         spreadsheetNode.getByPlaceholder("/absolute/path/to/file.csv"),
@@ -601,15 +919,18 @@ test.describe.serial("section types data authoring", () => {
         .locator('[role="region"][aria-label="File explorer"]')
         .first();
       await expect(browserExplorer).toBeVisible();
-      const csvRow = browserExplorer
-        .locator("button")
-        .filter({ hasText: "pw-spreadsheet-section.csv" })
-        .first();
-      await expect(csvRow).toBeVisible({ timeout: 15000 });
-      await dragBrowserRowToTarget(
-        csvRow,
-        spreadsheetNode.locator(".section-main").first(),
-      );
+      await expect(
+        browserExplorer
+          .locator("button")
+          .filter({ hasText: "pw-spreadsheet-section.csv" })
+          .first(),
+      ).toBeVisible({ timeout: 15000 });
+      await postBackend(page, "/setSpreadsheetFilePath", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId: spreadsheetSectionId,
+        filePath: csvPath,
+        activeSheet: null,
+      });
       const spreadsheetGlideGrid = spreadsheetNode.getByTestId(
         "spreadsheet-glide-grid",
       );
@@ -720,6 +1041,7 @@ test.describe.serial("section types data authoring", () => {
       ).toString("utf-8");
       expect(csvDecoded).toContain("done");
     } finally {
+      page.off("request", handleSetTopLevelLayoutRequest);
       await cleanupIsolatedProject(page, projectContext);
     }
   });

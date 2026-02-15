@@ -9,6 +9,7 @@ from setta.types.code_obj_impls import (
     CodeObjType,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
+    DateParamCodeObjImpl,
     DropdownParamCodeObjImpl,
     DropzoneParamCodeObjImpl,
     NestedParamCodeObjImpl,
@@ -18,6 +19,7 @@ from setta.types.code_obj_impls import (
     SwitchParamCodeObjImpl,
     TextAreaParamCodeObjImpl,
     TextParamCodeObjImpl,
+    TimeParamCodeObjImpl,
 )
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
@@ -29,6 +31,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     CodeParamCodeObjImplArgs,
     CodeSectionImplArgs,
     ColorPickerParamCodeObjImplArgs,
+    DateParamCodeObjImplArgs,
     DictSectionImplArgs,
     DrawSectionImplArgs,
     DropdownParamCodeObjImplArgs,
@@ -54,6 +57,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     TextAreaParamCodeObjImplArgs,
     TextBlockSectionImplArgs,
     TextParamCodeObjImplArgs,
+    TimeParamCodeObjImplArgs,
 )
 
 # Import user default classes
@@ -67,6 +71,7 @@ from setta.types.generated.user_defaults import (
     UserDefaultCodeParamCodeObjImpl,
     UserDefaultCodeSectionImpl,
     UserDefaultColorPickerParamCodeObjImpl,
+    UserDefaultDateParamCodeObjImpl,
     UserDefaultDictSectionImpl,
     UserDefaultDrawSectionImpl,
     UserDefaultDropdownParamCodeObjImpl,
@@ -92,6 +97,7 @@ from setta.types.generated.user_defaults import (
     UserDefaultTextAreaParamCodeObjImpl,
     UserDefaultTextBlockSectionImpl,
     UserDefaultTextParamCodeObjImpl,
+    UserDefaultTimeParamCodeObjImpl,
 )
 
 # Import implementation classes
@@ -315,6 +321,22 @@ def create_code_obj_impl(
 
 @overload
 def create_code_obj_impl(
+    type: Literal[CodeObjType.DateParam],
+    defaults: UserDefaultDateParamCodeObjImpl,
+    overrides: DateParamCodeObjImplArgs | None = None,
+) -> DateParamCodeObjImpl: ...
+
+
+@overload
+def create_code_obj_impl(
+    type: Literal[CodeObjType.TimeParam],
+    defaults: UserDefaultTimeParamCodeObjImpl,
+    overrides: TimeParamCodeObjImplArgs | None = None,
+) -> TimeParamCodeObjImpl: ...
+
+
+@overload
+def create_code_obj_impl(
     type: Literal[CodeObjType.ButtonParam],
     defaults: UserDefaultButtonParamCodeObjImpl,
     overrides: ButtonParamCodeObjImplArgs | None = None,
@@ -519,6 +541,16 @@ def create_code_obj_impl(type: CodeObjType, defaults: Any, overrides: Any = None
             if overrides is None:
                 overrides = {}
             return TextParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+
+        case CodeObjType.DateParam:
+            if overrides is None:
+                overrides = {}
+            return DateParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
+
+        case CodeObjType.TimeParam:
+            if overrides is None:
+                overrides = {}
+            return TimeParamCodeObjImpl(**{**defaults.model_dump(), **overrides})
 
         case CodeObjType.ButtonParam:
             if overrides is None:

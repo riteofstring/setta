@@ -103,6 +103,7 @@ function _UIElement({
       sectionId,
       paramInfoId,
       selectedId,
+      filterKey: codeObjTypeFilterKey,
     });
   };
 

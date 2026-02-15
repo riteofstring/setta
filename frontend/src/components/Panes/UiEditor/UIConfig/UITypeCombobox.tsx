@@ -24,20 +24,17 @@ const CODE_OBJ_TYPE_FILTERS = {
 } as const;
 
 export const CALENDAR_PRESET_ID = "__setta_text_param_calendar__";
-export const TIME_DISPLAY_PRESET_ID = "__setta_text_param_time_display__";
 
-const TEXT_PARAM_VIRTUAL_PRESET_ITEMS: ComboboxItemArrayType<string> = [
-  { id: CALENDAR_PRESET_ID, name: "Calendar - (TextParam)" },
-  { id: TIME_DISPLAY_PRESET_ID, name: "Time Display - (TextParam)" },
-];
-
-export function getVirtualTextParamPresetItemsForFilter(
+export function getVirtualDateTimePresetItemsForFilter(
   filterKey: CodeObjTypeFilterKey,
 ): ComboboxItemArrayType<string> {
-  if (!CODE_OBJ_TYPE_FILTERS[filterKey].has(CodeObjTypeEnum.TextParam)) {
-    return [];
+  const typeSet = CODE_OBJ_TYPE_FILTERS[filterKey];
+  const hasDateParam = typeSet.has(CodeObjTypeEnum.DateParam);
+  const output: ComboboxItemArrayType<string> = [];
+  if (filterKey === "control" && hasDateParam) {
+    output.push({ id: CALENDAR_PRESET_ID, name: "Calendar - (DateParam)" });
   }
-  return TEXT_PARAM_VIRTUAL_PRESET_ITEMS;
+  return output;
 }
 
 export type CodeObjTypeFilterKey = keyof typeof CODE_OBJ_TYPE_FILTERS;
@@ -122,8 +119,8 @@ function usePresetCodeObjImpls(
   filterKey: CodeObjTypeFilterKey,
 ): ComboboxItemArrayType<string> {
   const typeSet = CODE_OBJ_TYPE_FILTERS[filterKey];
-  const virtualTextParamPresets =
-    getVirtualTextParamPresetItemsForFilter(filterKey);
+  const virtualDateTimePresets =
+    getVirtualDateTimePresetItemsForFilter(filterKey);
   return useProjectState((x) => {
     const output: ComboboxItemArrayType<string> = [];
     for (const c of Object.values(x.codeObjImpls)) {
@@ -138,8 +135,8 @@ function usePresetCodeObjImpls(
         name: `${c.name} - (${c.type})`,
       });
     }
-    if (virtualTextParamPresets.length > 0) {
-      output.push(...virtualTextParamPresets);
+    if (virtualDateTimePresets.length > 0) {
+      output.push(...virtualDateTimePresets);
     }
     return output;
   }, _.isEqual);

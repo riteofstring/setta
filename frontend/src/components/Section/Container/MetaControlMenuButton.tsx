@@ -1,29 +1,17 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import type { ReactNode } from "react";
-import { BiCheck, BiHide, BiShow } from "react-icons/bi";
+import { BiHide, BiShow } from "react-icons/bi";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
-  setCurrEffectiveCodeObjImplValue,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import {
-  route_set_meta_control_show_section_title,
-  route_update_param_impl_config,
-} from "utils/generatedEndpoints";
-import {
-  CodeObjTypeEnum,
-  SectionTypeEnum,
-  TextParamInputUITypeEnum,
-  TimeControlModeEnum,
-  isBaseChildlessCodeObjImpl,
-  type SectionType,
-} from "utils/generatedTypes";
+import { route_set_meta_control_show_section_title } from "utils/generatedEndpoints";
+import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
 import { HeaderIcon } from "../Header/HeaderIcon";
 import { LockPositionButton } from "../Header/LockPositionButton";
@@ -41,36 +29,14 @@ export function MetaControlMenuButton({
   isInOtherProjectConfigs,
 }: MetaControlMenuButtonProps) {
   const isListElement = useIsListElement(sectionId);
-  const { showSectionTitle, timeControlParamId, isTimeDisplayMode } =
-    useProjectState((x) => {
+  const { showSectionTitle } = useProjectState((x) => {
       const impl = getCurrEffectiveSectionImplOfType(
         x,
         sectionId,
         SectionTypeEnum.MetaControl,
       );
-      const controlParamId = impl.metaControlParamId;
-      if (!controlParamId) {
-        return {
-          showSectionTitle: impl.showSectionTitle ?? false,
-          timeControlParamId: null,
-          isTimeDisplayMode: false,
-        };
-      }
-      const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-        x,
-        sectionId,
-        controlParamId,
-        isBaseChildlessCodeObjImpl,
-      );
-      const isTimeTextParam =
-        codeObjImpl.type === CodeObjTypeEnum.TextParam &&
-        codeObjImpl.uiType === TextParamInputUITypeEnum.time;
       return {
         showSectionTitle: impl.showSectionTitle ?? false,
-        timeControlParamId: isTimeTextParam ? controlParamId : null,
-        isTimeDisplayMode: isTimeTextParam
-          ? codeObjImpl.timeControlMode === TimeControlModeEnum.display
-          : false,
       };
     });
 
@@ -106,37 +72,6 @@ export function MetaControlMenuButton({
     });
   }
 
-  function onToggleTimeControlMode() {
-    if (!timeControlParamId) {
-      return;
-    }
-    const nextMode = isTimeDisplayMode
-      ? TimeControlModeEnum.input
-      : TimeControlModeEnum.display;
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"TextParamCodeObj">(
-          state,
-          sectionId,
-          timeControlParamId,
-          {
-            timeControlMode: nextMode,
-          },
-        );
-      },
-      send: (frontendOpId) =>
-        route_update_param_impl_config({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          paramInfoId: timeControlParamId,
-          newConfig: {
-            timeControlMode: nextMode,
-          },
-          frontendOpId,
-        }),
-    });
-  }
-
   return (
     <DropdownMenu.Root modal={false}>
       <DropdownMenu.Trigger className={triggerClassName} type="button">
@@ -166,16 +101,6 @@ export function MetaControlMenuButton({
               <span>Show title</span>
             </span>
           </DropdownMenuItem>
-          {timeControlParamId ? (
-            <DropdownMenuItem onClick={onToggleTimeControlMode}>
-              <span className="flex items-center gap-2">
-                <MenuIcon>
-                  {isTimeDisplayMode ? <BiCheck className="h-4 w-4" /> : null}
-                </MenuIcon>
-                <span>Time display mode</span>
-              </span>
-            </DropdownMenuItem>
-          ) : null}
           <LockPositionButton
             sectionId={sectionId}
             render={({ positionAndSizeLocked, iconClassName, onClick }) => {

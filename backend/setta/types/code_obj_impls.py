@@ -20,6 +20,8 @@ class CodeObjType(str, Enum):
     CodeCallable = "CodeCallable"
     CodeParam = "CodeParam"
     TextParam = "TextParam"
+    DateParam = "DateParam"
+    TimeParam = "TimeParam"
     ButtonParam = "ButtonParam"
     SliderParam = "SliderParam"
     RotaryParam = "RotaryParam"
@@ -72,6 +74,12 @@ class TimeDisplayFormat(str, Enum):
 class TimeControlMode(str, Enum):
     input = "input"
     display = "display"
+
+
+class TimeDisplayFont(str, Enum):
+    clock = "clock"
+    monospace = "monospace"
+    system = "system"
 
 
 class DateDisplayFormat(str, Enum):
@@ -138,10 +146,32 @@ class TextParamCodeObjImpl(BaseChildlessCodeObjImpl):
     uiType: TextParamInputUIType = TextParamInputUIType.plain
     timeControlMode: TimeControlMode = TimeControlMode.display
     timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
+    timeDisplayTransparent: bool = False
+    timeDisplayScale: float = Field(default=1.0, ge=0.5, le=3.0)
+    timeDisplayFont: TimeDisplayFont = TimeDisplayFont.monospace
     dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.iso
     dateControlMode: DateControlMode = DateControlMode.input
     dateSelectionMode: DateSelectionMode = DateSelectionMode.single
     dateCalendarWeekStart: DateCalendarWeekStart = DateCalendarWeekStart.sunday
+    dateIncludesTime: bool = False
+
+
+class DateParamCodeObjImpl(BaseChildlessCodeObjImpl):
+    type: Literal[CodeObjType.DateParam] = CodeObjType.DateParam
+    dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.iso
+    dateControlMode: DateControlMode = DateControlMode.input
+    dateSelectionMode: DateSelectionMode = DateSelectionMode.single
+    dateCalendarWeekStart: DateCalendarWeekStart = DateCalendarWeekStart.sunday
+    dateIncludesTime: bool = False
+
+
+class TimeParamCodeObjImpl(BaseChildlessCodeObjImpl):
+    type: Literal[CodeObjType.TimeParam] = CodeObjType.TimeParam
+    timeControlMode: TimeControlMode = TimeControlMode.input
+    timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
+    timeDisplayTransparent: bool = False
+    timeDisplayScale: float = Field(default=1.0, ge=0.5, le=3.0)
+    timeDisplayFont: TimeDisplayFont = TimeDisplayFont.monospace
 
 
 class ButtonParamCodeObjImpl(BaseParamCodeObjImpl):
@@ -211,6 +241,8 @@ ControlCodeObjTypeSet = frozenset(
     {
         CodeObjType.CodeParam,
         CodeObjType.TextParam,
+        CodeObjType.DateParam,
+        CodeObjType.TimeParam,
         CodeObjType.TextAreaParam,
         CodeObjType.ButtonParam,
         CodeObjType.SliderParam,
@@ -227,6 +259,8 @@ SectionParamCodeObjTypeSet = frozenset(
     {
         CodeObjType.CodeParam,
         CodeObjType.TextParam,
+        CodeObjType.DateParam,
+        CodeObjType.TimeParam,
         CodeObjType.TextAreaParam,
         CodeObjType.SliderParam,
         CodeObjType.RotaryParam,

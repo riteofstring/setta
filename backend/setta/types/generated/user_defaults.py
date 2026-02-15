@@ -20,6 +20,7 @@ from setta.types.code_obj_impls import (
     ParamNameType,
     TextParamInputUIType,
     TimeControlMode,
+    TimeDisplayFont,
     TimeDisplayFormat,
 )
 from setta.types.edges import EdgePort
@@ -297,10 +298,34 @@ class UserDefaultTextParamCodeObjImpl(
     uiType: TextParamInputUIType = TextParamInputUIType.plain
     timeControlMode: TimeControlMode = TimeControlMode.display
     timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
+    timeDisplayTransparent: bool = False
+    timeDisplayScale: float = Field(default=1.0, ge=0.5, le=3.0)
+    timeDisplayFont: TimeDisplayFont = TimeDisplayFont.monospace
     dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.iso
     dateControlMode: DateControlMode = DateControlMode.input
     dateSelectionMode: DateSelectionMode = DateSelectionMode.single
     dateCalendarWeekStart: DateCalendarWeekStart = DateCalendarWeekStart.sunday
+    dateIncludesTime: bool = False
+
+
+class UserDefaultDateParamCodeObjImpl(
+    UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
+):
+    dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.iso
+    dateControlMode: DateControlMode = DateControlMode.input
+    dateSelectionMode: DateSelectionMode = DateSelectionMode.single
+    dateCalendarWeekStart: DateCalendarWeekStart = DateCalendarWeekStart.sunday
+    dateIncludesTime: bool = False
+
+
+class UserDefaultTimeParamCodeObjImpl(
+    UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
+):
+    timeControlMode: TimeControlMode = TimeControlMode.input
+    timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
+    timeDisplayTransparent: bool = False
+    timeDisplayScale: float = Field(default=1.0, ge=0.5, le=3.0)
+    timeDisplayFont: TimeDisplayFont = TimeDisplayFont.monospace
 
 
 class UserDefaultButtonParamCodeObjImpl(

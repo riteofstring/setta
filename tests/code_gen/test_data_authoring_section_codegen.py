@@ -18,7 +18,10 @@ from setta.types.section_impls import (
     SectionType,
     SpreadsheetGridDensity,
     TaskBoardColumn,
+    TaskBoardRecurringMonth,
+    TaskBoardRecurringWeekday,
     TaskBoardTask,
+    TaskBoardTaskRecurrence,
     TaskBoardViewMode,
 )
 
@@ -57,6 +60,10 @@ def test_task_board_section_exports_structured_codegen_payload() -> None:
             completed=False,
             columnId=ID("column-1"),
             dueDateIso="2026-02-15",
+            recurrence=TaskBoardTaskRecurrence.specified_days,
+            recurrenceDays=[TaskBoardRecurringWeekday.monday],
+            recurrenceMonths=[TaskBoardRecurringMonth.january],
+            recurrenceYears=[2026, 2028],
             sortIndex=0,
         )
     ]
@@ -91,6 +98,10 @@ def test_task_board_section_exports_structured_codegen_payload() -> None:
                 "completed": False,
                 "columnId": "column-1",
                 "dueDateIso": "2026-02-15",
+                "recurrence": "specified_days",
+                "recurrenceDays": ["monday"],
+                "recurrenceMonths": ["january"],
+                "recurrenceYears": [2026, 2028],
                 "sortIndex": 0,
             }
         ],

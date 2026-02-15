@@ -318,6 +318,8 @@ class PythonValueCodec:
 
         if param_type in (
             CodeObjType.TextParam,
+            CodeObjType.DateParam,
+            CodeObjType.TimeParam,
             CodeObjType.TextAreaParam,
             CodeObjType.PasswordParam,
         ):

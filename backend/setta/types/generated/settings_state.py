@@ -14,6 +14,7 @@ from setta.types.generated.user_defaults import (
     UserDefaultCodeParamCodeObjImpl,
     UserDefaultCodeSectionImpl,
     UserDefaultColorPickerParamCodeObjImpl,
+    UserDefaultDateParamCodeObjImpl,
     UserDefaultDictSectionImpl,
     UserDefaultDrawSectionImpl,
     UserDefaultDropdownParamCodeObjImpl,
@@ -39,6 +40,7 @@ from setta.types.generated.user_defaults import (
     UserDefaultTextAreaParamCodeObjImpl,
     UserDefaultTextBlockSectionImpl,
     UserDefaultTextParamCodeObjImpl,
+    UserDefaultTimeParamCodeObjImpl,
 )
 from setta.types.settings_state import (
     SectionSizingPolicy,
@@ -136,6 +138,9 @@ class SettingsState(BaseModel, extra="forbid"):
     colorPickerParamCodeObjDefault: UserDefaultColorPickerParamCodeObjImpl = Field(
         default_factory=UserDefaultColorPickerParamCodeObjImpl
     )
+    dateParamCodeObjDefault: UserDefaultDateParamCodeObjImpl = Field(
+        default_factory=UserDefaultDateParamCodeObjImpl
+    )
     dropdownParamCodeObjDefault: UserDefaultDropdownParamCodeObjImpl = Field(
         default_factory=UserDefaultDropdownParamCodeObjImpl
     )
@@ -162,6 +167,9 @@ class SettingsState(BaseModel, extra="forbid"):
     )
     textParamCodeObjDefault: UserDefaultTextParamCodeObjImpl = Field(
         default_factory=UserDefaultTextParamCodeObjImpl
+    )
+    timeParamCodeObjDefault: UserDefaultTimeParamCodeObjImpl = Field(
+        default_factory=UserDefaultTimeParamCodeObjImpl
     )
 
 
@@ -245,6 +253,12 @@ def get_user_default_code_obj_from_settings(settings: SettingsState, type: CodeO
 
         case CodeObjType.TextParam:
             return settings.textParamCodeObjDefault
+
+        case CodeObjType.DateParam:
+            return settings.dateParamCodeObjDefault
+
+        case CodeObjType.TimeParam:
+            return settings.timeParamCodeObjDefault
 
         case CodeObjType.ButtonParam:
             return settings.buttonParamCodeObjDefault

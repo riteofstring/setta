@@ -4,9 +4,13 @@ import {
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
+  combineIsoDateAndTimeParts,
+  formatDateTimeForDisplay,
   formatDateForDisplay,
   formatTimeForDisplay,
+  normalizeDateTimeToLocalIso,
   normalizeDateToIso,
+  splitIsoDateAndTimeParts,
   normalizeTimeTo24Hour,
 } from "./textParamDateTime";
 
@@ -47,5 +51,28 @@ describe("textParamDateTime", () => {
     expect(
       formatDateForDisplay("2026-12-31", DateDisplayFormatEnum.long),
     ).toContain("2026");
+  });
+
+  it("normalizes datetime-local values and preserves date/time parts", () => {
+    expect(normalizeDateTimeToLocalIso("2026-12-31T09:30")).toBe(
+      "2026-12-31T09:30",
+    );
+    expect(splitIsoDateAndTimeParts("2026-12-31T09:30")).toEqual({
+      dateIso: "2026-12-31",
+      time24: "09:30",
+    });
+  });
+
+  it("combines date and time parts and formats datetime display", () => {
+    expect(combineIsoDateAndTimeParts("2026-12-31", "9:30 AM")).toBe(
+      "2026-12-31T09:30",
+    );
+    expect(
+      formatDateTimeForDisplay({
+        raw: "2026-12-31T21:15",
+        dateDisplayFormat: DateDisplayFormatEnum.us,
+        timeDisplayFormat: TimeDisplayFormatEnum.twelve_hour,
+      }),
+    ).toBe("12/31/2026 9:15 PM");
   });
 });

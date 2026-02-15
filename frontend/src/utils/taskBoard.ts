@@ -2,6 +2,7 @@ import {
   createTaskBoardColumn,
   TaskBoardColumn,
   TaskBoardTask,
+  TaskBoardTaskRecurrenceEnum,
   TaskBoardViewMode,
 } from "utils/generatedTypes";
 
@@ -69,6 +70,16 @@ function normalizeTasks({
       task.columnId && validColumnIds.has(task.columnId)
         ? task.columnId
         : fallbackColumnId,
+    recurrence: task.recurrence ?? TaskBoardTaskRecurrenceEnum.none,
+    recurrenceDays: Array.isArray(task.recurrenceDays)
+      ? task.recurrenceDays
+      : [],
+    recurrenceMonths: Array.isArray(task.recurrenceMonths)
+      ? task.recurrenceMonths
+      : [],
+    recurrenceYears: Array.isArray(task.recurrenceYears)
+      ? task.recurrenceYears
+      : [],
     sortIndex: index,
   }));
 }

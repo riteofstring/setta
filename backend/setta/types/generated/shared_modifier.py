@@ -29,6 +29,7 @@ from setta.types.code_obj_impls import (
     ParamNameType,
     TextParamInputUIType,
     TimeControlMode,
+    TimeDisplayFont,
     TimeDisplayFormat,
 )
 from setta.types.edges import EdgePort
@@ -97,6 +98,7 @@ class SharedModifier(TypedDict):
     dateCalendarWeekStart: NotRequired[DateCalendarWeekStart]
     dateControlMode: NotRequired[DateControlMode]
     dateDisplayFormat: NotRequired[DateDisplayFormat]
+    dateIncludesTime: NotRequired[bool]
     dateSelectionMode: NotRequired[DateSelectionMode]
     defaultChildSectionType: NotRequired[SectionType]
     defaultVal: NotRequired[str]
@@ -175,7 +177,10 @@ class SharedModifier(TypedDict):
     textDisplayMode: NotRequired[TextBlockDisplayMode]
     thinking: NotRequired[bool]
     timeControlMode: NotRequired[TimeControlMode]
+    timeDisplayFont: NotRequired[TimeDisplayFont]
     timeDisplayFormat: NotRequired[TimeDisplayFormat]
+    timeDisplayScale: NotRequired[float]
+    timeDisplayTransparent: NotRequired[bool]
     toolCallArguments: NotRequired[dict[str, str]]
     topLevelParamId: NotRequired[ID | None]
     typeAnnotation: NotRequired[str]

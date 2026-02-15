@@ -224,6 +224,18 @@ class MetaControlSizingPolicyByType(BaseModel):
             minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
         )
     )
+    DateParam: MetaControlSizingPolicyTypeEntry = Field(
+        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
+            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
+            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
+        )
+    )
+    TimeParam: MetaControlSizingPolicyTypeEntry = Field(
+        default_factory=lambda: MetaControlSizingPolicyTypeEntry(
+            minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,
+            minWidth=META_CONTROL_DEFAULT_MIN_WIDTH,
+        )
+    )
     ButtonParam: MetaControlSizingPolicyTypeEntry = Field(
         default_factory=lambda: MetaControlSizingPolicyTypeEntry(
             minHeight=META_CONTROL_DEFAULT_MIN_HEIGHT,

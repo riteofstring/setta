@@ -1,24 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   CALENDAR_PRESET_ID,
-  getVirtualTextParamPresetItemsForFilter,
-  TIME_DISPLAY_PRESET_ID,
+  getVirtualDateTimePresetItemsForFilter,
 } from "./UITypeCombobox";
 
-describe("getVirtualTextParamPresetItemsForFilter", () => {
-  it("includes date and time virtual presets for control params", () => {
-    const items = getVirtualTextParamPresetItemsForFilter("control");
+describe("getVirtualDateTimePresetItemsForFilter", () => {
+  it("includes only the calendar virtual preset for control params", () => {
+    const items = getVirtualDateTimePresetItemsForFilter("control");
     expect(items).toEqual([
-      { id: CALENDAR_PRESET_ID, name: "Calendar - (TextParam)" },
-      { id: TIME_DISPLAY_PRESET_ID, name: "Time Display - (TextParam)" },
+      { id: CALENDAR_PRESET_ID, name: "Calendar - (DateParam)" },
     ]);
   });
 
-  it("includes date and time virtual presets for section params", () => {
-    const items = getVirtualTextParamPresetItemsForFilter("sectionParam");
-    expect(items).toEqual([
-      { id: CALENDAR_PRESET_ID, name: "Calendar - (TextParam)" },
-      { id: TIME_DISPLAY_PRESET_ID, name: "Time Display - (TextParam)" },
-    ]);
+  it("does not include calendar presets for section params", () => {
+    const items = getVirtualDateTimePresetItemsForFilter("sectionParam");
+    expect(items).toEqual([]);
   });
 });

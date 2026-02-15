@@ -68,11 +68,11 @@ import {
   TextBlockFormatEnum,
   TextParamInputUITypeEnum,
   TimeControlModeEnum,
+  TimeDisplayFontEnum,
   TimeDisplayFormatEnum,
 } from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
 import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
-import { formatTimeForDisplay } from "utils/textParamDateTime";
 import {
   resolveActionBinding,
   resolveActionType,
@@ -957,42 +957,115 @@ function AppParamUI({
       );
     }
     case CodeObjTypeEnum.TextParam: {
-      const uiType =
+      const textParamUiType =
         "uiType" in codeObjImpl
           ? codeObjImpl.uiType
           : TextParamInputUITypeEnum.plain;
-      if (uiType === TextParamInputUITypeEnum.plain) {
+      if (textParamUiType !== TextParamInputUITypeEnum.plain) {
+        const timeDisplayFormat =
+          "timeDisplayFormat" in codeObjImpl
+            ? codeObjImpl.timeDisplayFormat
+            : TimeDisplayFormatEnum.twenty_four_hour;
+        const timeDisplayTransparent =
+          "timeDisplayTransparent" in codeObjImpl
+            ? codeObjImpl.timeDisplayTransparent
+            : false;
+        const timeDisplayScale =
+          "timeDisplayScale" in codeObjImpl ? codeObjImpl.timeDisplayScale : 1;
+        const timeDisplayFont =
+          "timeDisplayFont" in codeObjImpl
+            ? codeObjImpl.timeDisplayFont
+            : TimeDisplayFontEnum.monospace;
+        const timeControlMode =
+          "timeControlMode" in codeObjImpl
+            ? codeObjImpl.timeControlMode
+            : TimeControlModeEnum.display;
+        const dateDisplayFormat =
+          "dateDisplayFormat" in codeObjImpl
+            ? codeObjImpl.dateDisplayFormat
+            : DateDisplayFormatEnum.iso;
+        const dateControlMode =
+          "dateControlMode" in codeObjImpl
+            ? codeObjImpl.dateControlMode
+            : DateControlModeEnum.input;
+        const dateSelectionMode =
+          "dateSelectionMode" in codeObjImpl
+            ? codeObjImpl.dateSelectionMode
+            : DateSelectionModeEnum.single;
+        const dateCalendarWeekStart =
+          "dateCalendarWeekStart" in codeObjImpl
+            ? codeObjImpl.dateCalendarWeekStart
+            : DateCalendarWeekStartEnum.sunday;
+        const dateIncludesTime =
+          "dateIncludesTime" in codeObjImpl
+            ? codeObjImpl.dateIncludesTime
+            : false;
         return (
-          <>
-            <TextInputCodeMirror
-              dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
-              sectionId={sectionId}
-              paramInfoId={paramInfoId}
-              value={stringValue}
-              defaultVal={_.toString(defaultVal ?? "")}
-              onChange={onChange}
-              onEscape={(completionResult) => {
-                if (!completionResult) {
-                  onEscape();
-                }
-              }}
-              dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
-              realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-[color:var(--app-surface-alt)] [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
-              language={configLanguage}
-              isDisabled={isDisabled}
-              tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
-              autocomplete={false}
-            />
-            <span
-              className={`section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]`}
-            />
-          </>
+          <TextParamDateTimeInput
+            value={stringValue}
+            onChange={onChange}
+            onEscape={onEscape}
+            isDisabled={isDisabled}
+            uiType={textParamUiType}
+            timeControlMode={timeControlMode}
+            timeDisplayFormat={timeDisplayFormat}
+            timeDisplayTransparent={timeDisplayTransparent}
+            timeDisplayScale={timeDisplayScale}
+            timeDisplayFont={timeDisplayFont}
+            dateDisplayFormat={dateDisplayFormat}
+            dateControlMode={dateControlMode}
+            dateSelectionMode={dateSelectionMode}
+            dateCalendarWeekStart={dateCalendarWeekStart}
+            dateIncludesTime={dateIncludesTime}
+            inputClassName={`${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]`}
+            formattedValueClassName="text-[10px] font-mono text-[color:var(--app-muted)]"
+            borderClassName="section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]"
+          />
         );
       }
+      return (
+        <>
+          <TextInputCodeMirror
+            dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
+            sectionId={sectionId}
+            paramInfoId={paramInfoId}
+            value={stringValue}
+            defaultVal={_.toString(defaultVal ?? "")}
+            onChange={onChange}
+            onEscape={(completionResult) => {
+              if (!completionResult) {
+                onEscape();
+              }
+            }}
+            dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+            realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-[color:var(--app-surface-alt)] [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
+            language={configLanguage}
+            isDisabled={isDisabled}
+            tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+            autocomplete={false}
+          />
+          <span
+            className={`section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]`}
+          />
+        </>
+      );
+    }
+    case CodeObjTypeEnum.TimeParam:
+    case CodeObjTypeEnum.DateParam: {
       const timeDisplayFormat =
         "timeDisplayFormat" in codeObjImpl
           ? codeObjImpl.timeDisplayFormat
           : TimeDisplayFormatEnum.twenty_four_hour;
+      const timeDisplayTransparent =
+        "timeDisplayTransparent" in codeObjImpl
+          ? codeObjImpl.timeDisplayTransparent
+          : false;
+      const timeDisplayScale =
+        "timeDisplayScale" in codeObjImpl ? codeObjImpl.timeDisplayScale : 1;
+      const timeDisplayFont =
+        "timeDisplayFont" in codeObjImpl
+          ? codeObjImpl.timeDisplayFont
+          : TimeDisplayFontEnum.monospace;
       const timeControlMode =
         "timeControlMode" in codeObjImpl
           ? codeObjImpl.timeControlMode
@@ -1013,27 +1086,14 @@ function AppParamUI({
         "dateCalendarWeekStart" in codeObjImpl
           ? codeObjImpl.dateCalendarWeekStart
           : DateCalendarWeekStartEnum.sunday;
-      const showDisplayOnlyTime =
-        uiType === TextParamInputUITypeEnum.time &&
-        timeControlMode === TimeControlModeEnum.display;
-      if (showDisplayOnlyTime) {
-        const formattedTimeValue = formatTimeForDisplay(
-          stringValue,
-          timeDisplayFormat,
-        );
-        const displayedTimeValue =
-          formattedTimeValue.trim().length > 0 ? formattedTimeValue : "--:--";
-        return (
-          <>
-            <span className="section-value self-end break-words font-mono text-[color:var(--app-text)] [font-size:var(--app-text-sm)]">
-              {displayedTimeValue}
-            </span>
-            <span
-              className={`section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)]`}
-            />
-          </>
-        );
-      }
+      const dateIncludesTime =
+        "dateIncludesTime" in codeObjImpl
+          ? codeObjImpl.dateIncludesTime
+          : false;
+      const uiType =
+        codeObjType === CodeObjTypeEnum.TimeParam
+          ? TextParamInputUITypeEnum.time
+          : TextParamInputUITypeEnum.date;
       return (
         <TextParamDateTimeInput
           value={stringValue}
@@ -1043,10 +1103,14 @@ function AppParamUI({
           uiType={uiType}
           timeControlMode={timeControlMode}
           timeDisplayFormat={timeDisplayFormat}
+          timeDisplayTransparent={timeDisplayTransparent}
+          timeDisplayScale={timeDisplayScale}
+          timeDisplayFont={timeDisplayFont}
           dateDisplayFormat={dateDisplayFormat}
           dateControlMode={dateControlMode}
           dateSelectionMode={dateSelectionMode}
           dateCalendarWeekStart={dateCalendarWeekStart}
+          dateIncludesTime={dateIncludesTime}
           inputClassName={`${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]`}
           formattedValueClassName="text-[10px] font-mono text-[color:var(--app-muted)]"
           borderClassName="section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]"

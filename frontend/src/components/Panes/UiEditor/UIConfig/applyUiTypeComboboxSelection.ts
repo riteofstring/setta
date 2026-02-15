@@ -7,52 +7,42 @@ import {
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateSelectionModeEnum,
-  TextParamInputUITypeEnum,
-  TimeControlModeEnum,
 } from "utils/generatedTypes";
-import { CALENDAR_PRESET_ID, TIME_DISPLAY_PRESET_ID } from "./UITypeCombobox";
+import { CALENDAR_PRESET_ID, CodeObjTypeFilterKey } from "./UITypeCombobox";
 
 export async function applyUiTypeComboboxSelection(args: {
   projectConfigId: string;
   sectionId: string;
   paramInfoId: string;
   selectedId: string;
+  filterKey: CodeObjTypeFilterKey;
 }) {
-  const { projectConfigId, sectionId, paramInfoId, selectedId } = args;
+  const { projectConfigId, sectionId, paramInfoId, selectedId, filterKey } =
+    args;
   if (selectedId === CALENDAR_PRESET_ID) {
+    if (filterKey !== "control") {
+      await route_change_param_impl({
+        projectConfigId,
+        sectionId,
+        paramInfoId,
+        selectedId: CodeObjTypeEnum.DateParam,
+      });
+      return;
+    }
     await route_change_param_impl({
       projectConfigId,
       sectionId,
       paramInfoId,
-      selectedId: CodeObjTypeEnum.TextParam,
+      selectedId: CodeObjTypeEnum.DateParam,
     });
     await route_update_param_impl_config({
       projectConfigId,
       sectionId,
       paramInfoId,
       newConfig: {
-        uiType: TextParamInputUITypeEnum.date,
         dateControlMode: DateControlModeEnum.calendar,
         dateSelectionMode: DateSelectionModeEnum.multiple,
         dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
-      },
-    });
-    return;
-  }
-  if (selectedId === TIME_DISPLAY_PRESET_ID) {
-    await route_change_param_impl({
-      projectConfigId,
-      sectionId,
-      paramInfoId,
-      selectedId: CodeObjTypeEnum.TextParam,
-    });
-    await route_update_param_impl_config({
-      projectConfigId,
-      sectionId,
-      paramInfoId,
-      newConfig: {
-        uiType: TextParamInputUITypeEnum.time,
-        timeControlMode: TimeControlModeEnum.display,
       },
     });
     return;

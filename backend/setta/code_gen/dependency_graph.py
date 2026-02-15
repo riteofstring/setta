@@ -549,6 +549,12 @@ class DependencyGraph:
                     if task.columnId is not None
                     else None,
                     "dueDateIso": task.dueDateIso,
+                    "recurrence": task.recurrence.value,
+                    "recurrenceDays": [day.value for day in task.recurrenceDays],
+                    "recurrenceMonths": [
+                        month.value for month in task.recurrenceMonths
+                    ],
+                    "recurrenceYears": list(task.recurrenceYears),
                     "sortIndex": task.sortIndex,
                 }
                 for task in section_impl.tasks
