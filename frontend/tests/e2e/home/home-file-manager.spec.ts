@@ -1,10 +1,35 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { ensureAppReady, seedLocalStorage } from "../helpers";
+import { ensureAppReady, postBackend, seedLocalStorage } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const HOME_URL = new URL("/home", BASE_URL).toString();
+
+type ProjectMetadataResponse = {
+  projectMetadata: Array<{ id: string; name: string }>;
+};
+
+async function createProjectConfigAndResolveId(page: Page) {
+  const createdName = await postBackend<string>(page, "/createProjectConfig", {
+    previewImgColor: "bg-indigo-500/60",
+  });
+  if (!createdName) {
+    throw new Error("Missing project config name from /createProjectConfig.");
+  }
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  const match = metadata?.projectMetadata.find(
+    (entry) => entry.name === createdName,
+  );
+  if (!match) {
+    throw new Error(`Unable to resolve project config id for ${createdName}.`);
+  }
+  return match.id;
+}
 
 test("home page renders the three-column file manager layout", async ({
   page,
@@ -133,15 +158,23 @@ test("home browser marks Setta-initialized folders", async ({ page }) => {
       .getByTestId("file-browser-row")
       .filter({ hasText: "plain-folder" })
       .first();
+    const settaBadgeToggle = page
+      .getByTestId("home-file-browser-setta-badges-toggle")
+      .first();
 
     await expect(initializedRow).toBeVisible();
-    await expect(
-      initializedRow.getByTestId("setta-initialized-badge"),
-    ).toBeVisible();
     await expect(plainRow).toBeVisible();
     await expect(plainRow.getByTestId("setta-initialized-badge")).toHaveCount(
       0,
     );
+    await expect(
+      initializedRow.getByTestId("setta-initialized-badge"),
+    ).toHaveCount(0);
+
+    await settaBadgeToggle.click();
+    await expect(
+      initializedRow.getByTestId("setta-initialized-badge"),
+    ).toBeVisible();
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -150,36 +183,78 @@ test("home browser marks Setta-initialized folders", async ({ page }) => {
 test("home project items select on single click and open on double click", async ({
   page,
 }) => {
-  await ensureAppReady(page);
-  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+  const createdProjectIds: string[] = [];
+  try {
+    await ensureAppReady(page);
+    await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
 
-  const firstCard = page.getByTestId("home-project-card").first();
-  await expect(firstCard).toBeVisible();
-  await firstCard.click();
-  await expect(page).toHaveURL(HOME_URL);
+    const firstCard = page.getByTestId("home-project-card").first();
+    await expect(firstCard).toBeVisible();
+    await firstCard.click();
+    await expect(page).toHaveURL(HOME_URL);
 
-  const cardCursor = await firstCard.evaluate(
-    (el) => window.getComputedStyle(el).cursor,
-  );
-  expect(cardCursor).not.toBe("pointer");
+    const cardCursor = await firstCard.evaluate(
+      (el) => window.getComputedStyle(el).cursor,
+    );
+    expect(cardCursor).not.toBe("pointer");
 
-  await firstCard.dblclick();
-  await expect(page).not.toHaveURL(HOME_URL);
+    const firstCardSurface = firstCard.locator('[tabindex="0"]').first();
+    await expect(firstCardSurface).toBeVisible();
+    await firstCardSurface.focus();
+    await page.keyboard.press("Enter");
+    await expect(page).not.toHaveURL(HOME_URL);
 
-  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
-  await page.getByTestId("home-project-view-list").first().click();
-  const firstRow = page.getByTestId("home-project-list-row").first();
-  await expect(firstRow).toBeVisible();
-  await firstRow.click();
-  await expect(page).toHaveURL(HOME_URL);
+    await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+    await expect(firstCard).toBeVisible();
+    await firstCard.dblclick();
+    await expect(page).not.toHaveURL(HOME_URL);
 
-  const listRowCursor = await firstRow.evaluate(
-    (el) => window.getComputedStyle(el).cursor,
-  );
-  expect(listRowCursor).not.toBe("pointer");
+    await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+    await page.getByTestId("home-project-view-list").first().click();
+    if ((await page.getByTestId("home-project-list-row").count()) < 2) {
+      createdProjectIds.push(await createProjectConfigAndResolveId(page));
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.getByTestId("home-project-view-list").first().click();
+    }
+    const firstRow = page.getByTestId("home-project-list-row").first();
+    const secondRow = page.getByTestId("home-project-list-row").nth(1);
+    await expect(firstRow).toBeVisible();
+    await expect(secondRow).toBeVisible();
+    await firstRow.click();
+    const detailsPanel = page.getByTestId("home-selected-project-details").first();
+    const firstRowName = (await firstRow.locator("span").first().textContent())
+      ?.trim()
+      .replace(/\s+/g, " ");
+    if (firstRowName) {
+      await expect(detailsPanel).toContainText(firstRowName);
+    }
+    await expect(page).toHaveURL(HOME_URL);
 
-  await firstRow.dblclick();
-  await expect(page).not.toHaveURL(HOME_URL);
+    const listRowCursor = await firstRow.evaluate(
+      (el) => window.getComputedStyle(el).cursor,
+    );
+    expect(listRowCursor).not.toBe("pointer");
+
+    const secondRowFavoriteToggle = secondRow
+      .getByTestId("home-project-favorite-toggle")
+      .first();
+    await expect(secondRowFavoriteToggle).toBeVisible();
+    await secondRowFavoriteToggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(HOME_URL);
+    if (firstRowName) {
+      await expect(detailsPanel).toContainText(firstRowName);
+    }
+
+    await firstRow.dblclick();
+    await expect(page).not.toHaveURL(HOME_URL);
+  } finally {
+    if (createdProjectIds.length > 0) {
+      await postBackend(page, "/deleteProjectConfigs", {
+        ids: createdProjectIds,
+      });
+    }
+  }
 });
 
 test("home column widths persist across reload when viewport can fit stored widths", async ({

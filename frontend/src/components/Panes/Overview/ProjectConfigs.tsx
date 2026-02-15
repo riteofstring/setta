@@ -22,6 +22,7 @@ import {
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
+import { dedupeStringIds } from "utils/dedupeStringIds";
 import { ProjectConfig } from "utils/generatedTypes";
 
 const TOGGLE_ROOT_CLASSES =
@@ -36,19 +37,6 @@ function areIdArraysEqual(left: string[], right: string[]) {
   return left.every((id, index) => id === right[index]);
 }
 
-function dedupeIds(ids: string[]): string[] {
-  const dedupedIds: string[] = [];
-  const seenIds = new Set<string>();
-  for (const id of ids) {
-    if (seenIds.has(id)) {
-      continue;
-    }
-    seenIds.add(id);
-    dedupedIds.push(id);
-  }
-  return dedupedIds;
-}
-
 export function mergeProjectConfigOrder(
   incomingIds: string[],
   persistedIds: string[],
@@ -60,7 +48,7 @@ export function mergeProjectConfigOrder(
     return incomingIds;
   }
   const incomingIdSet = new Set(incomingIds);
-  const retainedIds = dedupeIds(persistedIds).filter((id) =>
+  const retainedIds = dedupeStringIds(persistedIds).filter((id) =>
     incomingIdSet.has(id),
   );
   const retainedIdSet = new Set(retainedIds);
@@ -381,6 +369,9 @@ function ProjectConfigEditingRow({
   }
 
   function onRowKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
     if (event.key !== "Enter" && event.key !== " ") {
       return;
     }
@@ -423,6 +414,7 @@ function ProjectConfigEditingRow({
         <button
           className="cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/project-config-edit:text-setta-400/50"
           onClick={onDelete}
+          onKeyDown={(event) => event.stopPropagation()}
           onPointerDown={stopDragPointerDown}
           title="Delete project config"
           aria-label="Delete project config"

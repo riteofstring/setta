@@ -333,6 +333,28 @@ class TestFileBrowserRoutes:
         assert flags_by_name["initialized-folder"] is True
         assert flags_by_name["plain-folder"] is False
 
+    async def test_get_folder_contents_omits_setta_initialized_flag_by_default(
+        self,
+    ) -> None:
+        state = await self._build_state()
+        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
+            root_path = Path(tmpdir)
+            initialized = root_path / "initialized-folder"
+            initialized.mkdir()
+            (initialized / "setta_files").mkdir()
+            plain = root_path / "plain-folder"
+            plain.mkdir()
+            with runtime_context(state) as runtime_ctx:
+                items = route_get_folder_contents(
+                    GetFolderContentsRequest(folderPath=str(root_path)),
+                    runtime_ctx,
+                )
+
+        for item in items:
+            if item["type"] != "folder":
+                continue
+            assert "isSettaInitialized" not in item
+
     async def test_get_folder_contents_blocks_outside_cwd(self) -> None:
         state = await self._build_state()
         with TemporaryDirectory() as tmpdir:

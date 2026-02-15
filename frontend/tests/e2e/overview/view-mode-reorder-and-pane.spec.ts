@@ -435,6 +435,57 @@ test("clicking a project config drag handle does not open that config", async ({
     .toEqual(beforeOrder);
 });
 
+test("project config delete button keyboard action does not bubble and open config", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectConfigs",
+    overviewVis: true,
+  });
+  await openIsolatedProject(page);
+  const secondaryConfig = await createProjectConfigAndResolveId(
+    page,
+    "bg-lime-500/60",
+  );
+
+  const projectConfigRows = page.locator(OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR);
+  const hasRowsVisible = await projectConfigRows
+    .first()
+    .isVisible()
+    .catch(() => false);
+  if (!hasRowsVisible) {
+    await page.getByTestId("overview-tab-view-modes").click();
+  }
+
+  const projectConfigsSection = page.getByTestId(
+    "view-modes-project-configs-section",
+  );
+  const editButton = projectConfigsSection.getByRole("button", { name: "Edit" });
+  await expect(editButton).toBeVisible();
+  await editButton.click();
+
+  const secondaryRow = page
+    .locator(
+      `${OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR}[data-project-config-id="${secondaryConfig.id}"]`,
+    )
+    .first();
+  await expect(secondaryRow).toBeVisible();
+
+  const deleteButton = secondaryRow.getByRole("button", {
+    name: "Delete project config",
+  });
+  await expect(deleteButton).toBeVisible();
+
+  const initialPathname = new URL(page.url()).pathname;
+  await deleteButton.focus();
+  await page.keyboard.press("Enter");
+
+  await expect.poll(() => new URL(page.url()).pathname).toBe(initialPathname);
+  await expect(page.getByText("Confirm Project Deletion")).toBeVisible();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByText("Confirm Project Deletion")).toHaveCount(0);
+});
+
 test("project config reorder is disabled in read-only mode", async ({
   page,
 }) => {

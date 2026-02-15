@@ -3,19 +3,7 @@ import {
   type HomeProjectGalleryViewMode,
   useLocalStorage,
 } from "state/definitions";
-
-function dedupeIds(ids: string[]): string[] {
-  const dedupedIds: string[] = [];
-  const seenIds = new Set<string>();
-  for (const id of ids) {
-    if (seenIds.has(id)) {
-      continue;
-    }
-    seenIds.add(id);
-    dedupedIds.push(id);
-  }
-  return dedupedIds;
-}
+import { dedupeStringIds } from "utils/dedupeStringIds";
 
 export function setColorModePreference(colorMode: ColorModePreference) {
   useLocalStorage.setState((state) => ({
@@ -72,6 +60,6 @@ export function toggleFavoriteProjectConfig(projectConfigId: string) {
 
 export function setOverviewProjectConfigOrder(orderedIds: string[]) {
   useLocalStorage.setState({
-    overviewProjectConfigOrder: dedupeIds(orderedIds),
+    overviewProjectConfigOrder: dedupeStringIds(orderedIds),
   });
 }

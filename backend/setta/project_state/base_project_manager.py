@@ -2711,10 +2711,6 @@ class BaseProjectManager(ABC):
                     "orderedVariantIds must not contain duplicate variant IDs."
                 )
             seen.add(variant_id)
-        if seen != existing_ids:
-            raise ValueError(
-                "orderedVariantIds must contain every variant exactly once."
-            )
         section.variants = ordered_ids
         await self.update_and_broadcast_project_state(project_state)
 
@@ -3472,10 +3468,6 @@ class BaseProjectManager(ABC):
                     "orderedViewModeIds must not contain duplicate view mode IDs."
                 )
             seen.add(view_mode_id)
-        if seen != existing_ids:
-            raise ValueError(
-                "orderedViewModeIds must contain every view mode exactly once."
-            )
         for index, view_mode_id in enumerate(ordered_ids):
             view_modes[view_mode_id].sortIndex = index
         await self._update_and_broadcast_project_state_no_name_validation(project_state)

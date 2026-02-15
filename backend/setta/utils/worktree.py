@@ -100,11 +100,3 @@ def list_dev_worktree_options() -> list[DevWorktreeOption]:
             isActive=True,
         )
     ]
-
-
-def get_dev_worktree_name() -> str | None:
-    options = list_dev_worktree_options()
-    for option in options:
-        if option.isActive:
-            return option.name
-    return None

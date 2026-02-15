@@ -15,3 +15,14 @@
 - Removed low-value branching and selector cost by dropping deep `_.isEqual` subscription in file-menu metadata hook and removing obsolete array fallback in project-config preview rendering.
 - Updated stale perf-report assertion text to match current automated perf coverage.
 - Added/updated Vitest and Playwright coverage for Home width persistence, read-only reorder lock, duplicate-order sanitization, tab handle affordance visibility, file-menu selector behavior, and project-config preview rendering.
+
+## 2026-02-17 10:10:48 PST
+
+- Fixed keyboard propagation regressions in Home list rows and Overview Project Config edit rows by scoping row key handlers to direct-target events and stopping nested action-button keydown bubbling.
+- Restored accessible Home project-card keyboard open behavior by supporting both `Enter` and `Space` on the thumbnail focus surface while preserving single-click select and double-click open.
+- Reduced default Home file-browser overhead by making Setta initialization badges opt-in via a new UI toggle and forcing a root refresh only when the toggle state changes.
+- Removed duplicate frontend ID dedupe implementations by introducing a shared `dedupeStringIds` utility and reusing it in local-storage ordering and project-config merge logic.
+- Removed stale worktree helper surface (`get_dev_worktree_name`) and deleted its dedicated test.
+- Simplified backend sort-order validation by removing redundant post-loop set-equivalence checks while keeping length, membership, and duplicate guards intact.
+- Added/updated Vitest, pytest, and Playwright coverage for dedupe utility behavior, file-browser default badge payload behavior, sort-order duplicate rejection, Home keyboard interactions, and project-config delete-button keyboard bubbling.
+- Added an append-only perf report documenting before/after Home file-browser request behavior for `includeSettaInitialized`.

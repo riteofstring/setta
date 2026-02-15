@@ -331,6 +331,7 @@ export function FileBrowserPane({
   const folderRequestIdRef = useRef<Record<string, number>>({});
   const filterRequestIdRef = useRef(0);
   const appliedRootRef = useRef<string | null>(null);
+  const includeSettaInitializedRef = useRef(includeSettaInitializedFolders);
   const applyRootPathRef =
     useRef<
       (
@@ -550,6 +551,26 @@ export function FileBrowserPane({
     }
     applyRootPath(rootPath, pathSeparator, ignorePatterns);
   }, [applyRootPath, ignorePatterns, pathSeparator, rootPath]);
+
+  useEffect(() => {
+    if (!rootPath) {
+      includeSettaInitializedRef.current = includeSettaInitializedFolders;
+      return;
+    }
+    if (
+      includeSettaInitializedRef.current === includeSettaInitializedFolders
+    ) {
+      return;
+    }
+    includeSettaInitializedRef.current = includeSettaInitializedFolders;
+    applyRootPath(rootPath, pathSeparator, ignorePatterns);
+  }, [
+    applyRootPath,
+    ignorePatterns,
+    includeSettaInitializedFolders,
+    pathSeparator,
+    rootPath,
+  ]);
 
   useEffect(() => {
     if (didLoadRootRef.current) {

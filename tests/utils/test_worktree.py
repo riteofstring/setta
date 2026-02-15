@@ -4,7 +4,6 @@ from pathlib import Path
 from setta.utils.worktree import (
     _parse_git_worktree_list_porcelain,
     derive_dev_worktree_name,
-    get_dev_worktree_name,
     get_repo_root_dir,
     list_dev_worktree_options,
 )
@@ -62,15 +61,3 @@ def test_list_dev_worktree_options_falls_back_to_repo_root_when_git_fails(
     assert options[0].name == "feature-b"
     assert options[0].isActive is True
     assert Path(options[0].path) == repo_root.resolve(strict=False)
-
-
-def test_get_dev_worktree_name_returns_active_option(monkeypatch) -> None:
-    # The active worktree label should come from the active option, not list order.
-    monkeypatch.setattr(
-        "setta.utils.worktree.list_dev_worktree_options",
-        lambda: [
-            type("Option", (), {"name": "beta", "isActive": False})(),
-            type("Option", (), {"name": "alpha", "isActive": True})(),
-        ],
-    )
-    assert get_dev_worktree_name() == "alpha"

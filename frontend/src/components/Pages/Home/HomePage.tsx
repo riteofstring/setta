@@ -608,6 +608,7 @@ function HomeWorkspaceLayout({
 function HomeFileBrowserColumn() {
   const rootPath = useHomeFileBrowserState((state) => state.rootPath);
   const [pathInput, setPathInput] = useState("");
+  const [showSettaBadges, setShowSettaBadges] = useState(false);
 
   useEffect(() => {
     if (!rootPath) {
@@ -664,12 +665,22 @@ function HomeFileBrowserColumn() {
             className="h-8"
           />
         </div>
+        <label className="inline-flex items-center gap-2 text-[11px] text-setta-500 dark:text-setta-400">
+          <input
+            type="checkbox"
+            className="h-3.5 w-3.5 rounded border-setta-300 text-blue-500 focus-visible:ring-2 dark:border-setta-700"
+            checked={showSettaBadges}
+            onChange={(event) => setShowSettaBadges(event.target.checked)}
+            data-testid="home-file-browser-setta-badges-toggle"
+          />
+          Show Setta badges
+        </label>
       </div>
       <div className="min-h-0 flex-1">
         <FileBrowserPane
           useFileBrowserStateHook={useHomeFileBrowserState}
           showFilter={false}
-          includeSettaInitializedFolders
+          includeSettaInitializedFolders={showSettaBadges}
         />
       </div>
     </section>
@@ -1067,7 +1078,10 @@ function ThumbnailArea({
   const navigate = useNavigate();
 
   function onThumbnailKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
-    if (event.code !== "Space") {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+    if (event.key !== "Enter" && event.key !== " ") {
       return;
     }
     if (!projectPath) {
@@ -1095,6 +1109,7 @@ function ThumbnailArea({
                 event.stopPropagation();
                 onToggleProjectSelection(project.id);
               }}
+              onKeyDown={(event) => event.stopPropagation()}
             >
               <IoMdCheckmark />
             </button>
@@ -1112,6 +1127,7 @@ function ThumbnailArea({
               event.stopPropagation();
               onToggleFavoriteProjectConfig(project.id);
             }}
+            onKeyDown={(event) => event.stopPropagation()}
             aria-label={
               isFavorite ? "Remove from favourites" : "Add to favourites"
             }
@@ -1236,6 +1252,9 @@ function ProjectListItem({
   }
 
   function onRowKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
     if (event.key !== "Enter" && event.key !== " ") {
       return;
     }
@@ -1268,6 +1287,7 @@ function ProjectListItem({
             event.stopPropagation();
             onToggleProjectSelection(project.id);
           }}
+          onKeyDown={(event) => event.stopPropagation()}
           aria-label={isSelected ? "Unselect config" : "Select config"}
         >
           <IoMdCheckmark size={10} />
@@ -1286,6 +1306,7 @@ function ProjectListItem({
           event.stopPropagation();
           onToggleFavoriteProjectConfig(project.id);
         }}
+        onKeyDown={(event) => event.stopPropagation()}
         aria-label={isFavorite ? "Remove from favourites" : "Add to favourites"}
       >
         {isFavorite ? <IoStar size={13} /> : <IoStarOutline size={13} />}
