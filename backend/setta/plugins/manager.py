@@ -669,7 +669,9 @@ class PluginManager:
                         "PLUGIN_RUNTIME_STATE_INVALID",
                         "Plugin runtime list requires plugins state for config details.",
                     )
-                config = self._build_config_descriptor(entry, plugins_state=plugins_state)
+                config = self._build_config_descriptor(
+                    entry, plugins_state=plugins_state
+                )
             list_entries.append(
                 PluginListEntry(
                     pluginId=entry.plugin_id,
@@ -958,16 +960,7 @@ class PluginManager:
     def _build_redacted_config_descriptor(
         self, entry: DiscoveredPlugin
     ) -> PluginConfigDescriptor:
-        has_schema = False
-        manifest = entry.manifest
-        if manifest is not None and manifest.configSchemaPath is not None:
-            schema_path = self._resolve_relative_path(
-                entry.source_path,
-                manifest.configSchemaPath,
-                code="PLUGIN_MANIFEST_PATH_NOT_FOUND",
-                message_prefix="Invalid configSchemaPath",
-            )
-            has_schema = schema_path.exists() and schema_path.is_file()
+        has_schema, _schema_json = self._build_config_schema_descriptor(entry)
         return PluginConfigDescriptor(hasSchema=has_schema)
 
     def _compute_json_payload_digest(self, value: Any) -> str:
@@ -3637,7 +3630,11 @@ class PluginManager:
                 "PLUGIN_BACKEND_REGISTER_FAILED",
                 "Plugin external agent adapter registration missing command.",
             )
-        command = raw_command.strip()
+        command = self._normalize_and_validate_launch_command(
+            entry=entry,
+            command=raw_command.strip(),
+            registration_kind="external agent adapter",
+        )
 
         raw_args = adapter.get("args")
         args: list[str] = []
@@ -5013,9 +5010,9 @@ class PluginManager:
                 return False
             if entry.installerBackend is not None:
                 return False
-            return entry.canonicalSourceKey.startswith("pypi:") or entry.canonicalSourceKey.startswith(
-                "python-env:"
-            )
+            return entry.canonicalSourceKey.startswith(
+                "pypi:"
+            ) or entry.canonicalSourceKey.startswith("python-env:")
 
         def _source_reconcile_required(
             *,
@@ -5035,8 +5032,9 @@ class PluginManager:
 
         planned_changes: list[str] = []
         for key, desired in desired_by_scope_plugin.items():
-            if key in current_external_by_scope_plugin or _lock_entry_is_external_managed(
-                desired
+            if (
+                key in current_external_by_scope_plugin
+                or _lock_entry_is_external_managed(desired)
             ):
                 continue
             current = current_by_scope_plugin.get(key)
@@ -5076,8 +5074,9 @@ class PluginManager:
             )
 
         for key, desired in desired_by_scope_plugin.items():
-            if key in current_external_by_scope_plugin or _lock_entry_is_external_managed(
-                desired
+            if (
+                key in current_external_by_scope_plugin
+                or _lock_entry_is_external_managed(desired)
             ):
                 continue
             current = current_by_scope_plugin.get(key)
@@ -5740,7 +5739,9 @@ class PluginManager:
         for tracked_path in sorted(tracked_paths, key=lambda item: str(item)):
             tracked_path_resolved = tracked_path.resolve(strict=False)
             if tracked_path_resolved.is_dir():
-                directory_change_stamp = self._directory_change_stamp(tracked_path_resolved)
+                directory_change_stamp = self._directory_change_stamp(
+                    tracked_path_resolved
+                )
                 if tracked_path_resolved.is_relative_to(plugin_root_resolved):
                     tracked_path_label = tracked_path_resolved.relative_to(
                         plugin_root_resolved
@@ -5756,7 +5757,10 @@ class PluginManager:
                         )
                     )
                 continue
-            if not tracked_path_resolved.exists() or not tracked_path_resolved.is_file():
+            if (
+                not tracked_path_resolved.exists()
+                or not tracked_path_resolved.is_file()
+            ):
                 continue
             file_stat = tracked_path_resolved.stat()
             if tracked_path_resolved.is_relative_to(plugin_root_resolved):
@@ -5765,7 +5769,9 @@ class PluginManager:
                 ).as_posix()
             else:
                 relative_path = str(tracked_path_resolved)
-            change_stamp.append((relative_path, file_stat.st_mtime_ns, file_stat.st_size))
+            change_stamp.append(
+                (relative_path, file_stat.st_mtime_ns, file_stat.st_size)
+            )
         change_stamp.sort(key=lambda item: item[0])
         return self._digest_change_stamp(tuple(change_stamp))
 

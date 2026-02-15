@@ -1688,6 +1688,8 @@ class TestCodegenTargetsRunCommand:
         try:
             await manager._refresh_codegen_state(project_state)
             assert hash_calls == 1
+            await manager._refresh_codegen_state(project_state)
+            assert hash_calls == 1
         finally:
             manager.shutdown()
 

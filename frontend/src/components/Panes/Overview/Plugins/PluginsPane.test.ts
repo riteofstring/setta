@@ -1,5 +1,6 @@
 import {
   buildBusyPluginIdSet,
+  buildCapabilityStatusIndex,
   buildCapabilityUnavailableMessage,
   buildInstallTrustSummaryMessage,
   buildPluginListEntryCardKey,
@@ -41,6 +42,7 @@ const pluginsPaneTestApi = {
   buildInstallTrustSummaryMessage,
   buildSourceManagerGuidanceMessage,
   buildRestartActionPlan: buildPluginRestartActionPlan,
+  buildCapabilityStatusIndex,
   buildCapabilityUnavailableMessage,
   formatLanguageServerSettingsDraft,
   formatPluginConfigDraft,
@@ -112,6 +114,7 @@ function buildPluginStatusEntry(
     registeredLanguageServers: [],
     registeredExternalAgentAdapters: [],
     registeredCodegenTargets: [],
+    runtimePayloadDigestSha256: "digest-acme-plugin",
     restartRequired: false,
     errors: [],
     ...overrides,
@@ -324,6 +327,49 @@ describe("plugins pane helpers", () => {
         "registerPane",
       );
     expect(requestedUnavailableStatus).toBe("requested_unavailable");
+  });
+
+  it("builds capability status indexes with shared blocked-reason mapping", () => {
+    const capabilityStatusIndex = pluginsPaneTestApi.buildCapabilityStatusIndex({
+      requestedCapabilities: [
+        "registerCommand",
+        "registerPane",
+        "registerLanguageServer",
+      ],
+      effectiveCapabilities: ["registerPane"],
+      blockedCapabilities: [
+        {
+          capability: "registerCommand",
+          reason: "mode_policy",
+        },
+      ],
+      capabilityList: [
+        "registerCommand",
+        "registerPane",
+        "registerLanguageServer",
+        "registerCodegenTarget",
+      ],
+    });
+
+    expect(
+      capabilityStatusIndex.capabilityStatusByCapability.get("registerCommand"),
+    ).toBe("blocked");
+    expect(
+      capabilityStatusIndex.capabilityStatusByCapability.get("registerPane"),
+    ).toBe("effective");
+    expect(
+      capabilityStatusIndex.capabilityStatusByCapability.get(
+        "registerLanguageServer",
+      ),
+    ).toBe("requested_unavailable");
+    expect(
+      capabilityStatusIndex.capabilityStatusByCapability.get(
+        "registerCodegenTarget",
+      ),
+    ).toBe("not_requested");
+    expect(
+      capabilityStatusIndex.blockedReasonByCapability.get("registerCommand"),
+    ).toBe("mode_policy");
   });
 
   it("formats capability unavailable messaging with mode-policy reason", () => {

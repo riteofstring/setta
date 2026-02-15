@@ -31,6 +31,53 @@ export type PluginCapabilityStatus =
   | "requested_unavailable"
   | "not_requested";
 
+export type PluginCapabilityStatusIndex = {
+  capabilityStatusByCapability: Map<string, PluginCapabilityStatus>;
+  blockedReasonByCapability: Map<string, string>;
+};
+
+export function buildCapabilityStatusIndex({
+  requestedCapabilities,
+  effectiveCapabilities,
+  blockedCapabilities,
+  capabilityList,
+}: {
+  requestedCapabilities: readonly string[];
+  effectiveCapabilities: readonly string[];
+  blockedCapabilities: readonly PluginBlockedCapability[];
+  capabilityList: readonly string[];
+}): PluginCapabilityStatusIndex {
+  const requestedCapabilitySet = new Set(requestedCapabilities);
+  const effectiveCapabilitySet = new Set(effectiveCapabilities);
+  const blockedReasonByCapability = new Map<string, string>();
+  for (const blockedCapability of blockedCapabilities) {
+    blockedReasonByCapability.set(
+      blockedCapability.capability,
+      blockedCapability.reason,
+    );
+  }
+  const capabilityStatusByCapability = new Map<string, PluginCapabilityStatus>();
+  for (const capability of capabilityList) {
+    if (!requestedCapabilitySet.has(capability)) {
+      capabilityStatusByCapability.set(capability, "not_requested");
+      continue;
+    }
+    if (effectiveCapabilitySet.has(capability)) {
+      capabilityStatusByCapability.set(capability, "effective");
+      continue;
+    }
+    if (blockedReasonByCapability.has(capability)) {
+      capabilityStatusByCapability.set(capability, "blocked");
+      continue;
+    }
+    capabilityStatusByCapability.set(capability, "requested_unavailable");
+  }
+  return {
+    capabilityStatusByCapability,
+    blockedReasonByCapability,
+  };
+}
+
 export function getRegisteredLanguageServers(
   pluginStatus: PluginStatusEntry | null,
 ): PluginRegisteredLanguageServer[] {
@@ -230,36 +277,30 @@ export function getPluginCapabilityStatus(
   pluginListEntry: PluginListEntry,
   capability: string,
 ): PluginCapabilityStatus {
-  const requestedCapabilities = pluginStatus?.requestedCapabilities ?? [];
-  const effectiveCapabilities =
-    pluginStatus?.effectiveCapabilities ??
-    pluginListEntry.effectiveCapabilities;
-  if (!requestedCapabilities.includes(capability)) {
-    return "not_requested";
-  }
-  if (effectiveCapabilities.includes(capability)) {
-    return "effective";
-  }
-  const reason = getBlockedCapabilityReason(
-    pluginStatus?.blockedCapabilities ?? [],
-    capability,
+  const capabilityStatusIndex = buildCapabilityStatusIndex({
+    requestedCapabilities: pluginStatus?.requestedCapabilities ?? [],
+    effectiveCapabilities:
+      pluginStatus?.effectiveCapabilities ?? pluginListEntry.effectiveCapabilities,
+    blockedCapabilities: pluginStatus?.blockedCapabilities ?? [],
+    capabilityList: [capability],
+  });
+  return (
+    capabilityStatusIndex.capabilityStatusByCapability.get(capability) ??
+    "not_requested"
   );
-  if (reason) {
-    return "blocked";
-  }
-  return "requested_unavailable";
 }
 
 export function getBlockedCapabilityReason(
   blockedCapabilities: PluginBlockedCapability[],
   capability: string,
 ): string | null {
-  for (const blockedCapability of blockedCapabilities) {
-    if (blockedCapability.capability === capability) {
-      return blockedCapability.reason;
-    }
-  }
-  return null;
+  const capabilityStatusIndex = buildCapabilityStatusIndex({
+    requestedCapabilities: [],
+    effectiveCapabilities: [],
+    blockedCapabilities,
+    capabilityList: [capability],
+  });
+  return capabilityStatusIndex.blockedReasonByCapability.get(capability) ?? null;
 }
 
 export function buildCapabilityUnavailableMessage({

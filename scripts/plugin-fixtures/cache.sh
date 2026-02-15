@@ -176,7 +176,15 @@ def _relative_asset_exists(
     relative_path: str,
     context: str,
 ) -> Path:
-    candidate = fixture_root / relative_path
+    resolved_fixture_root = fixture_root.resolve(strict=False)
+    candidate = (fixture_root / relative_path).resolve(strict=False)
+    if not candidate.is_relative_to(resolved_fixture_root):
+        _fail(
+            (
+                "Fixture asset path escapes fixture root "
+                f"{resolved_fixture_root}: {relative_path} ({context})"
+            )
+        )
     if not candidate.is_file():
         _fail(f"Missing fixture asset for {context}: {candidate}")
     return candidate
@@ -190,6 +198,7 @@ def _ensure_js_import_targets_exist(entrypoint_path: Path, fixture_root: Path) -
     import_patterns = [
         r'from\s+["\']([^"\']+)["\']',
         r'import\(\s*["\']([^"\']+)["\']\s*\)',
+        r'(?m)^\s*import\s+["\']([^"\']+)["\']\s*;?',
     ]
     for pattern in import_patterns:
         for match in re.findall(pattern, entrypoint_text):

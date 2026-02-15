@@ -4,6 +4,7 @@ import {
   isBuiltinCodeLanguage,
   isRunnableCodeLanguage,
   resolveCodeLanguageFromPath,
+  toCodeLanguage,
 } from "./codeLanguage";
 
 describe("codeLanguage helpers", () => {
@@ -38,5 +39,10 @@ describe("codeLanguage helpers", () => {
     expect(isRunnableCodeLanguage("python")).toBe(true);
     expect(isRunnableCodeLanguage("bash")).toBe(true);
     expect(isRunnableCodeLanguage("toml")).toBe(false);
+  });
+
+  it("preserves built-in keys and accepts plugin language strings", () => {
+    expect(toCodeLanguage(CodeLanguageEnum.python)).toBe(CodeLanguageEnum.python);
+    expect(toCodeLanguage("fixturedsl")).toBe("fixturedsl");
   });
 });

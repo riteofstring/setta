@@ -11,6 +11,10 @@ const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BACKEND_ROUTE_QUERY_PATH =
   "/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-query";
+const BACKEND_ROUTE_LIST_SINGLE_QUERY_PATH =
+  "/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-query-list-int";
+const BACKEND_ROUTE_SCALAR_REPEATED_QUERY_PATH =
+  "/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-query-scalar-int";
 const BACKEND_ROUTE_HEADER_ONLY_CONTENT_TYPE_PATH =
   "/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-header-only-content-type";
 const BACKEND_ROUTE_NOT_FOUND_PATH =
@@ -188,6 +192,57 @@ test("plugin backend route proxy preserves query and json body payloads", async 
     };
     expect(queryDefaultPayload.status).toBe(200);
     expect(queryDefaultPayload.body).toEqual({ limit: 10 });
+
+    const listSingleQueryPayload = (await page.evaluate(
+      async ({ backendOrigin, path }) => {
+        const response = await fetch(`${backendOrigin}${path}?values=1`, {
+          credentials: "include",
+        });
+        const body = await response.json();
+        return {
+          status: response.status,
+          body,
+        };
+      },
+      {
+        backendOrigin: BACKEND_ORIGIN,
+        path: BACKEND_ROUTE_LIST_SINGLE_QUERY_PATH,
+      },
+    )) as {
+      status: number;
+      body: {
+        values: number[];
+      };
+    };
+    expect(listSingleQueryPayload.status).toBe(200);
+    expect(listSingleQueryPayload.body).toEqual({ values: [1] });
+
+    const scalarRepeatedQueryPayload = (await page.evaluate(
+      async ({ backendOrigin, path }) => {
+        const response = await fetch(
+          `${backendOrigin}${path}?limit=1&limit=2`,
+          {
+            credentials: "include",
+          },
+        );
+        const body = await response.json();
+        return {
+          status: response.status,
+          body,
+        };
+      },
+      {
+        backendOrigin: BACKEND_ORIGIN,
+        path: BACKEND_ROUTE_SCALAR_REPEATED_QUERY_PATH,
+      },
+    )) as {
+      status: number;
+      body: {
+        limit: number;
+      };
+    };
+    expect(scalarRepeatedQueryPayload.status).toBe(200);
+    expect(scalarRepeatedQueryPayload.body).toEqual({ limit: 2 });
 
     const createdPayload = (await page.evaluate(async (backendOrigin) => {
       const response = await fetch(

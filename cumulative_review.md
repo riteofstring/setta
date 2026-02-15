@@ -411,3 +411,17 @@
 - Unified frontend restart behavior via shared `requestPluginRestart(...)`, improved request-failure detail mapping, added thrown-error handling in Plugins pane actions, removed payload type-assertion casts, and reduced per-card capability scan overhead.
 - Consolidated fixture signature/change-stamp helpers and hardened fixture completeness checks to validate Vite manifest/import-referenced assets before allowing cache skips.
 - Added/updated backend unit/integration tests, frontend Vitest tests, and Playwright E2E coverage for these changes; targeted verification passed (`pytest`: 396 passed, `vitest`: 37 passed, targeted Playwright: 22 passed), and CDP visual verification was completed for Plugins restart/pane behavior.
+
+## 2026-02-17 13:46:03 PST
+
+- Implemented the current top-level `review*.md` findings end-to-end, explicitly excluding backward-compatibility additions.
+- Hardened fixture cache completeness checks by validating side-effect JS imports and rejecting manifest assets that resolve outside the fixture root.
+- Unified Plugins pane capability status evaluation behind shared helper indexing to avoid duplicate logic drift between helpers and rendered UI behavior.
+- Reused plugin config-schema descriptor caching for non-IDE redacted runtime descriptors to avoid repeated schema filesystem checks.
+- Normalized/validated external-agent adapter commands with the same launch-command path strategy used for language servers.
+- Fixed worker query coercion semantics to match FastAPI expectations for scalar vs repeated/multi-value query shapes before typed validation.
+- Reduced plugin codegen refresh overhead by caching project-state hash computation by project-config revision and reusing cached hashes on unchanged revisions.
+- Removed redundant plugin runtime digest compatibility paths by making `runtimePayloadDigestSha256` required and dropping missing-digest frontend fallback comparison logic.
+- Removed dead frontend runtime branches/state (`loadGeneration` and unreachable literal payload handling), and restored stronger TS guardrails for code languages via built-in/plugin split typing.
+- Extended backend/frontend/Playwright coverage for all above paths (manager/worker/routes/start scripts/runtime/plugins/codeLanguage), including manager->worker query-shape integration assertions.
+- Verification summary: targeted backend pytest passed (`445 passed`), targeted frontend Vitest passed (`110 passed`), targeted Playwright spec passed (`1 passed`), and CDP visual verification for Plugins pane state/capability rendering completed.

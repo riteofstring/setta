@@ -62,6 +62,7 @@ function buildPluginStatusEntry(
     requestedCapabilities: [],
     effectiveCapabilities: [],
     blockedCapabilities: [],
+    runtimePayloadDigestSha256: "digest-acme-plugin",
     restartRequired: false,
     errors: [],
     ...overrides,
@@ -113,7 +114,7 @@ function withPluginConfigDigests(
 
 function withStatusPayloadDigest(
   statusEntry: PluginStatusEntry,
-  digest: string | null,
+  digest: string,
 ): PluginStatusEntry {
   return {
     ...statusEntry,

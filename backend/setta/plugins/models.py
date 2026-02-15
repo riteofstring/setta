@@ -277,7 +277,7 @@ class PluginStatusEntry(BaseModel):
     )
     enablementSource: PluginEnablementSource | None = None
     restartRequired: bool
-    runtimePayloadDigestSha256: str | None = None
+    runtimePayloadDigestSha256: str
     errors: list[PluginErrorInfo]
 
 

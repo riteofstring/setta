@@ -571,9 +571,13 @@ class _WorkerState:
                 )
                 continue
             if param_name in query_params:
-                kwargs[param_name] = self._coerce_route_parameter_value(
+                normalized_query_value = self._normalize_route_query_parameter_value(
                     parameter=parameter,
                     value=query_params[param_name],
+                )
+                kwargs[param_name] = self._coerce_route_parameter_value(
+                    parameter=parameter,
+                    value=normalized_query_value,
                     route_id=route_id,
                 )
                 continue
@@ -747,6 +751,65 @@ class _WorkerState:
                 return True
             return False
         return True
+
+    def _normalize_route_query_parameter_value(
+        self,
+        *,
+        parameter: inspect.Parameter,
+        value: Any,
+    ) -> Any:
+        annotation = parameter.annotation
+        if annotation is inspect.Signature.empty or annotation is Any:
+            return value
+        if self._route_annotation_accepts_multiple_query_values(annotation):
+            if isinstance(value, list):
+                return value
+            return [value]
+        if isinstance(value, list):
+            if len(value) == 0:
+                return value
+            return value[-1]
+        return value
+
+    def _route_annotation_accepts_multiple_query_values(self, annotation: Any) -> bool:
+        if annotation is inspect.Signature.empty or annotation is Any:
+            return False
+        if annotation is None:
+            return False
+        if annotation is type(None):
+            return False
+        origin = get_origin(annotation)
+        if origin is list or origin is tuple or origin is set:
+            return True
+        if origin is Union:
+            annotation_options = [
+                option for option in get_args(annotation) if option is not type(None)
+            ]
+            if len(annotation_options) == 0:
+                return False
+            return any(
+                self._route_annotation_accepts_multiple_query_values(option)
+                for option in annotation_options
+            )
+        origin_name = getattr(origin, "__qualname__", "")
+        if origin_name == "UnionType":
+            annotation_options = [
+                option for option in get_args(annotation) if option is not type(None)
+            ]
+            if len(annotation_options) == 0:
+                return False
+            return any(
+                self._route_annotation_accepts_multiple_query_values(option)
+                for option in annotation_options
+            )
+        if origin_name == "Annotated":
+            annotation_args = get_args(annotation)
+            if len(annotation_args) == 0:
+                return False
+            return self._route_annotation_accepts_multiple_query_values(
+                annotation_args[0]
+            )
+        return False
 
     def _resolve_route_parameter_default(
         self, parameter: inspect.Parameter

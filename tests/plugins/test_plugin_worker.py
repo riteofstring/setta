@@ -1668,9 +1668,34 @@ def test_worker_invoke_route_coerces_typed_params_and_supports_request_injection
             "headerValue": "fixture",
         }
 
-        invalid_response = _rpc_call(
+        normalized_query_response = _rpc_call(
             worker,
             request_id=4,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id_by_path["/typed/{itemId}"],
+                "pathParams": {"itemId": "9"},
+                "queryParams": {
+                    "limit": ["1", "2"],
+                    "values": "4",
+                },
+            },
+        )
+        assert normalized_query_response["result"]["statusCode"] == 200
+        assert normalized_query_response["result"]["body"] == {
+            "itemId": 9,
+            "itemIdType": "int",
+            "limit": 2,
+            "limitType": "int",
+            "values": [4],
+            "valuesType": "int",
+            "method": "GET",
+            "headerValue": None,
+        }
+
+        invalid_response = _rpc_call(
+            worker,
+            request_id=5,
             method="plugin.invoke_route",
             params={
                 "routeId": route_id_by_path["/typed/{itemId}"],

@@ -259,7 +259,6 @@ type PluginRuntimeStore = {
   topNavBarItemsByPluginId: Record<string, RegisteredPluginTopNavBarItem[]>;
   sortedTopNavBarItems: RegisteredPluginTopNavBarItem[];
   frontendErrorsByPluginId: Record<string, PluginFrontendError>;
-  loadGeneration: number;
 };
 
 const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
@@ -281,7 +280,6 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   topNavBarItemsByPluginId: {},
   sortedTopNavBarItems: [],
   frontendErrorsByPluginId: {},
-  loadGeneration: 0,
 };
 
 const sectionKindCapability = "registerSectionKinds";
@@ -475,7 +473,6 @@ async function loadPluginRuntime(): Promise<void> {
     topNavBarItemsByPluginId: registryAccumulator.topNavBarItems,
     sortedTopNavBarItems: sortedRuntimeViews.sortedTopNavBarItems,
     frontendErrorsByPluginId,
-    loadGeneration: state.loadGeneration + 1,
   }));
 }
 
@@ -485,7 +482,6 @@ function setPluginRuntimeLoadError(message: string): void {
     buildClearedRuntimeState(state, {
       status: "error",
       statusMessage: message,
-      loadGeneration: state.loadGeneration + 1,
     }),
   );
 }
@@ -495,7 +491,6 @@ function buildClearedRuntimeState(
   options: {
     status: PluginRuntimeStatus;
     statusMessage: string | null;
-    loadGeneration?: number;
   },
 ): PluginRuntimeStore {
   return {
@@ -518,7 +513,6 @@ function buildClearedRuntimeState(
     topNavBarItemsByPluginId: {},
     sortedTopNavBarItems: [],
     frontendErrorsByPluginId: {},
-    loadGeneration: options.loadGeneration ?? state.loadGeneration,
   };
 }
 
@@ -1008,9 +1002,6 @@ function isRecordProjectStateValue(
 }
 
 function toLiteralRealtimePayload(value: unknown): string {
-  if (typeof value === "string") {
-    return value;
-  }
   const serialized = JSON.stringify(value);
   if (typeof serialized === "string") {
     return serialized;
@@ -2183,48 +2174,14 @@ function canReusePluginStatusEntry(
   const statusEntryDigest = getPluginStatusRuntimePayloadDigest(statusEntry);
   const previousStatusEntryDigest =
     getPluginStatusRuntimePayloadDigest(previousStatusEntry);
-  if (statusEntryDigest !== null && previousStatusEntryDigest !== null) {
-    return statusEntryDigest === previousStatusEntryDigest;
-  }
-  if (
-    !hasSameJsonValue(
-      statusEntry.requestedCapabilities,
-      previousStatusEntry.requestedCapabilities,
-    ) ||
-    !hasSameJsonValue(
-      statusEntry.effectiveCapabilities,
-      previousStatusEntry.effectiveCapabilities,
-    ) ||
-    !hasSameJsonValue(
-      statusEntry.blockedCapabilities,
-      previousStatusEntry.blockedCapabilities,
-    ) ||
-    !hasSameJsonValue(
-      statusEntry.registeredLanguageServers,
-      previousStatusEntry.registeredLanguageServers,
-    ) ||
-    !hasSameJsonValue(
-      statusEntry.registeredExternalAgentAdapters,
-      previousStatusEntry.registeredExternalAgentAdapters,
-    ) ||
-    !hasSameJsonValue(
-      statusEntry.registeredCodegenTargets,
-      previousStatusEntry.registeredCodegenTargets,
-    ) ||
-    !hasSameJsonValue(statusEntry.errors, previousStatusEntry.errors)
-  ) {
-    return false;
-  }
-  return true;
+  return statusEntryDigest === previousStatusEntryDigest;
 }
 
 function getPluginStatusRuntimePayloadDigest(
   statusEntry: PluginStatusEntry,
-): string | null {
-  const statusEntryWithDigest = statusEntry as {
-    runtimePayloadDigestSha256?: string | null;
-  };
-  return normalizeDigest(statusEntryWithDigest.runtimePayloadDigestSha256);
+): string {
+  const normalizedDigest = normalizeDigest(statusEntry.runtimePayloadDigestSha256);
+  return normalizedDigest ?? "";
 }
 
 function mapPrimaryStatusByPluginId(
@@ -2569,7 +2526,6 @@ export function resetPluginRuntimeStoreForTests(): void {
       {
         status: "idle",
         statusMessage: null,
-        loadGeneration: 0,
       },
     ),
   );

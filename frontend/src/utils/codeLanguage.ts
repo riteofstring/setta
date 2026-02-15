@@ -1,27 +1,40 @@
 import { CodeLanguageEnum } from "utils/generatedTypes";
 
-type BuiltinCodeLanguage =
+export type BuiltinCodeLanguage =
   (typeof CodeLanguageEnum)[keyof typeof CodeLanguageEnum];
-export type CodeLanguage = string;
+declare const pluginCodeLanguageBrand: unique symbol;
+export type PluginCodeLanguage = string & {
+  readonly [pluginCodeLanguageBrand]: "PluginCodeLanguage";
+};
+export type CodeLanguage = BuiltinCodeLanguage | PluginCodeLanguage;
 
-const BUILTIN_CODE_LANGUAGES = new Set<string>(Object.values(CodeLanguageEnum));
+const BUILTIN_CODE_LANGUAGES = new Set<BuiltinCodeLanguage>(
+  Object.values(CodeLanguageEnum),
+);
 
-const RUNNABLE_CODE_LANGUAGES = new Set<string>([
+const RUNNABLE_CODE_LANGUAGES = new Set<BuiltinCodeLanguage>([
   CodeLanguageEnum.python,
   CodeLanguageEnum.bash,
 ]);
 
-export function isRunnableCodeLanguage(language: CodeLanguage): boolean {
-  return RUNNABLE_CODE_LANGUAGES.has(language);
+export function toCodeLanguage(language: string): CodeLanguage {
+  if (isBuiltinCodeLanguage(language)) {
+    return language;
+  }
+  return language as PluginCodeLanguage;
+}
+
+export function isRunnableCodeLanguage(language: string): boolean {
+  return RUNNABLE_CODE_LANGUAGES.has(language as BuiltinCodeLanguage);
 }
 
 export function isBuiltinCodeLanguage(
-  language: CodeLanguage,
+  language: string,
 ): language is BuiltinCodeLanguage {
-  return BUILTIN_CODE_LANGUAGES.has(language);
+  return BUILTIN_CODE_LANGUAGES.has(language as BuiltinCodeLanguage);
 }
 
-export function resolveCodeLanguageFromPath(path: string): CodeLanguage {
+export function resolveCodeLanguageFromPath(path: string): BuiltinCodeLanguage {
   const normalized = path.toLowerCase();
   if (normalized.endsWith(".py")) {
     return CodeLanguageEnum.python;

@@ -2822,6 +2822,57 @@ def test_load_backend_plugins_accepts_dot_slash_language_server_commands(
     )
 
 
+def test_load_backend_plugins_accepts_dot_slash_external_agent_adapter_commands(
+    tmp_path: Path,
+) -> None:
+    # External-agent adapter registration should treat ./command as plugin-relative path.
+    if os.name == "nt":
+        pytest.skip("Executable fixture script uses POSIX shell.")
+    manager = _make_manager(tmp_path)
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-external-agent",
+        scope=PluginScope.workspace,
+    )
+    command_path = backend_root / "backend" / "fixture-external-agent.sh"
+    command_path.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    command_path.chmod(0o755)
+    (backend_root / "backend" / "entrypoint.py").write_text(
+        "def register(plugin):\n"
+        "    plugin.register_external_agent_adapter(\n"
+        "        {\n"
+        "            'id': 'fixture-agent',\n"
+        "            'name': 'Fixture External Agent',\n"
+        "            'runModes': ['sdk'],\n"
+        "            'command': './backend/fixture-external-agent.sh',\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    registrations = manager.get_backend_external_agent_adapters()
+    assert len(registrations) == 1
+    registration = registrations[0]
+    assert registration.pluginId == "setta-fixture-backend-external-agent"
+    assert registration.command == str(command_path.resolve(strict=False))
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-external-agent"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].state == PluginRuntimeState.active
+    assert status_entries[0].registeredExternalAgentAdapters[0].command == str(
+        command_path.resolve(strict=False)
+    )
+
+
 def test_load_backend_plugins_registers_custom_language_server_key(
     tmp_path: Path,
 ) -> None:
@@ -3484,6 +3535,15 @@ def test_backend_external_agent_registration_rejects_invalid_adapter_payload(
             },
             "defaultModel must be a non-empty string",
         ),
+        (
+            {
+                "id": "fixture-agent",
+                "name": "Fixture External Agent",
+                "runModes": ["sdk"],
+                "command": "setta-missing-external-agent-adapter-bin",
+            },
+            "command is not available on PATH",
+        ),
     ],
 )
 def test_external_agent_adapter_registration_validation_rejects_invalid_fields(
@@ -3711,6 +3771,51 @@ def test_mode_policy_blocked_capabilities_are_exposed_in_status_and_list(
     }
     assert entry.runtimePayloadDigestSha256 is not None
     assert len(entry.runtimePayloadDigestSha256) == 64
+
+
+def test_redacted_config_descriptor_reuses_cached_schema_presence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Redacted runtime config descriptors should reuse schema presence cache.
+    manager = _make_manager(tmp_path, server_mode="share")
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="full",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-full", PluginScope.workspace)
+    assert entry is not None
+
+    resolve_calls = 0
+    original_resolve_relative_path = manager._resolve_relative_path
+
+    def _counting_resolve_relative_path(
+        root: Path,
+        relative_path: str,
+        *,
+        code: str,
+        message_prefix: str,
+    ) -> Path:
+        nonlocal resolve_calls
+        if message_prefix == "Invalid configSchemaPath":
+            resolve_calls += 1
+        return original_resolve_relative_path(
+            root,
+            relative_path,
+            code=code,
+            message_prefix=message_prefix,
+        )
+
+    monkeypatch.setattr(
+        manager,
+        "_resolve_relative_path",
+        _counting_resolve_relative_path,
+    )
+    _ = manager._build_redacted_config_descriptor(entry)
+    _ = manager._build_redacted_config_descriptor(entry)
+    assert resolve_calls == 1
 
 
 def test_status_entry_runtime_digest_is_reused_across_noop_reads(

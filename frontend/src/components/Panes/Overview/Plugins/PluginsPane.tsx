@@ -45,6 +45,7 @@ import type {
 import { onOverviewTabClick } from "../../paneFns";
 import {
   buildBusyPluginIdSet,
+  buildCapabilityStatusIndex,
   buildCapabilityUnavailableMessage,
   buildInstallTrustSummaryMessage,
   buildPluginListEntryCardKey,
@@ -53,7 +54,6 @@ import {
   formatLanguageServerSettingsDraft,
   formatPluginConfigDraft,
   getLanguageServerSettingsValue,
-  type PluginCapabilityStatus,
   getRegisteredCodegenTargets,
   getRegisteredExternalAgentAdapters,
   getRegisteredLanguageServers,
@@ -767,76 +767,56 @@ function PluginListEntryCard({
   const registeredExternalAgentAdapters =
     getRegisteredExternalAgentAdapters(pluginStatus);
   const registeredCodegenTargets = getRegisteredCodegenTargets(pluginStatus);
-  const capabilityStatusByCapability = useMemo(() => {
-    const requestedCapabilitySet = new Set(requestedCapabilities);
-    const effectiveCapabilitySet = new Set(effectiveCapabilities);
-    const blockedReasonByCapability = new Map<string, string>();
-    for (const blockedCapability of blockedCapabilities) {
-      blockedReasonByCapability.set(
-        blockedCapability.capability,
-        blockedCapability.reason,
-      );
-    }
-    const capabilityStatusMap = new Map<string, PluginCapabilityStatus>();
-    const capabilityList = [
-      "registerCommand",
-      "registerPane",
-      "registerLanguageServer",
-      "registerExternalAgentAdapter",
-      "registerCodegenTarget",
-    ] as const;
-    for (const capability of capabilityList) {
-      if (!requestedCapabilitySet.has(capability)) {
-        capabilityStatusMap.set(capability, "not_requested");
-        continue;
-      }
-      if (effectiveCapabilitySet.has(capability)) {
-        capabilityStatusMap.set(capability, "effective");
-        continue;
-      }
-      if (blockedReasonByCapability.has(capability)) {
-        capabilityStatusMap.set(capability, "blocked");
-        continue;
-      }
-      capabilityStatusMap.set(capability, "requested_unavailable");
-    }
-    return {
-      capabilityStatusMap,
-      blockedReasonByCapability,
-    };
+  const capabilityStatusIndex = useMemo(() => {
+    return buildCapabilityStatusIndex({
+      requestedCapabilities,
+      effectiveCapabilities,
+      blockedCapabilities,
+      capabilityList: [
+        "registerCommand",
+        "registerPane",
+        "registerLanguageServer",
+        "registerExternalAgentAdapter",
+        "registerCodegenTarget",
+      ],
+    });
   }, [blockedCapabilities, effectiveCapabilities, requestedCapabilities]);
   const commandCapabilityStatus =
-    capabilityStatusByCapability.capabilityStatusMap.get("registerCommand") ??
+    capabilityStatusIndex.capabilityStatusByCapability.get("registerCommand") ??
     "not_requested";
   const paneCapabilityStatus =
-    capabilityStatusByCapability.capabilityStatusMap.get("registerPane") ??
+    capabilityStatusIndex.capabilityStatusByCapability.get("registerPane") ??
     "not_requested";
   const commandCapabilityReason =
-    capabilityStatusByCapability.blockedReasonByCapability.get("registerCommand") ??
+    capabilityStatusIndex.blockedReasonByCapability.get("registerCommand") ??
     null;
   const paneCapabilityReason =
-    capabilityStatusByCapability.blockedReasonByCapability.get("registerPane") ??
+    capabilityStatusIndex.blockedReasonByCapability.get("registerPane") ??
     null;
   const languageServerCapabilityStatus =
-    capabilityStatusByCapability.capabilityStatusMap.get("registerLanguageServer") ??
+    capabilityStatusIndex.capabilityStatusByCapability.get(
+      "registerLanguageServer",
+    ) ??
     "not_requested";
   const languageServerCapabilityReason =
-    capabilityStatusByCapability.blockedReasonByCapability.get(
+    capabilityStatusIndex.blockedReasonByCapability.get(
       "registerLanguageServer",
     ) ?? null;
   const externalAgentCapabilityStatus =
-    capabilityStatusByCapability.capabilityStatusMap.get(
+    capabilityStatusIndex.capabilityStatusByCapability.get(
       "registerExternalAgentAdapter",
     ) ?? "not_requested";
   const externalAgentCapabilityReason =
-    capabilityStatusByCapability.blockedReasonByCapability.get(
+    capabilityStatusIndex.blockedReasonByCapability.get(
       "registerExternalAgentAdapter",
     ) ?? null;
   const codegenCapabilityStatus =
-    capabilityStatusByCapability.capabilityStatusMap.get("registerCodegenTarget") ??
+    capabilityStatusIndex.capabilityStatusByCapability.get(
+      "registerCodegenTarget",
+    ) ??
     "not_requested";
   const codegenCapabilityReason =
-    capabilityStatusByCapability.blockedReasonByCapability.get(
+    capabilityStatusIndex.blockedReasonByCapability.get(
       "registerCodegenTarget",
     ) ?? null;
 

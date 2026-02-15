@@ -591,6 +591,9 @@ class BaseProjectManager(ABC):
             ID, dict[str, PluginCodegenTargetState]
         ] = {}
         self._plugin_codegen_output_root_by_project_config: dict[ID, Path] = {}
+        self._plugin_codegen_project_state_hash_by_project_config_revision: dict[
+            ID, tuple[int, str]
+        ] = {}
         self.lsp_diagnostics_state_by_project_config: dict[
             ID, ProjectLspDiagnosticsState
         ] = {}
@@ -1333,6 +1336,10 @@ class BaseProjectManager(ABC):
             self._plugin_codegen_output_root_by_project_config.pop(
                 project_config_id, None
             )
+            self._plugin_codegen_project_state_hash_by_project_config_revision.pop(
+                project_config_id,
+                None,
+            )
             if output_root.exists():
                 shutil.rmtree(output_root)
             return
@@ -1340,9 +1347,9 @@ class BaseProjectManager(ABC):
             output_root
         )
         assert self.plugin_manager is not None
-        project_state_payload = project_state.model_dump(mode="json")
-        project_state_hash = self._hash_plugin_codegen_project_state(
-            project_state_payload
+        project_state_payload: dict[str, Any] | None = None
+        project_state_hash = self._resolve_plugin_codegen_project_state_hash(
+            project_state
         )
         current_target_dir_names = {
             self._plugin_codegen_target_dir_name(target.language)
@@ -1392,6 +1399,8 @@ class BaseProjectManager(ABC):
 
             if previous_state is None and target_root.exists():
                 shutil.rmtree(target_root)
+            if project_state_payload is None:
+                project_state_payload = project_state.model_dump(mode="json")
             generated_files = self.plugin_manager.generate_backend_codegen_target(
                 target_id=target_language,
                 project_state=project_state_payload,
@@ -1591,6 +1600,28 @@ class BaseProjectManager(ABC):
             separators=(",", ":"),
         )
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    def _resolve_plugin_codegen_project_state_hash(
+        self,
+        project_state: ProjectStateSingleConfig,
+    ) -> str:
+        project_config_id = project_state.projectConfig.id
+        history_revision = self.history.revision
+        cached_hash = (
+            self._plugin_codegen_project_state_hash_by_project_config_revision.get(
+                project_config_id
+            )
+        )
+        if cached_hash is not None and cached_hash[0] == history_revision:
+            return cached_hash[1]
+        project_state_payload = project_state.model_dump(mode="json")
+        project_state_hash = self._hash_plugin_codegen_project_state(
+            project_state_payload
+        )
+        self._plugin_codegen_project_state_hash_by_project_config_revision[
+            project_config_id
+        ] = (history_revision, project_state_hash)
+        return project_state_hash
 
     def _hash_plugin_codegen_target_options(
         self, target_options: dict[str, Any]
@@ -3627,6 +3658,9 @@ class BaseProjectManager(ABC):
                         code_entry.callback_cleanup()
             self.lsp_diagnostics_state_by_project_config.pop(project_config_id, None)
             self._plugin_codegen_target_state_by_project_config.pop(
+                project_config_id, None
+            )
+            self._plugin_codegen_project_state_hash_by_project_config_revision.pop(
                 project_config_id, None
             )
         self.project_state_backend.validate_default_project_id()

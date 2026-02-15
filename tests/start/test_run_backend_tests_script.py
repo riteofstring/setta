@@ -472,6 +472,58 @@ plugin_fixture_frontend_outputs_complete "{sandbox_root}"
     assert str(manifest_path) in result.stderr
 
 
+def test_plugin_fixture_output_check_rejects_missing_side_effect_import_chunks(
+    tmp_path: Path,
+) -> None:
+    # Side-effect JS imports should be validated as required fixture chunks.
+    sandbox_root, _build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+    entrypoint_path = (
+        sandbox_root
+        / "tests"
+        / "fixtures"
+        / "plugins"
+        / "fixture-a"
+        / "frontend"
+        / "dist"
+        / "index.js"
+    )
+    entrypoint_path.write_text("import './missing-chunk.js';\n", encoding="utf-8")
+    command = f"""
+set -euo pipefail
+. '{sandbox_root / "scripts" / "plugin-fixtures" / "cache.sh"}'
+plugin_fixture_frontend_outputs_complete "{sandbox_root}"
+"""
+    result = _run_cache_helper_command(sandbox_root, command)
+    assert result.returncode == 1
+    assert "Missing imported chunk for fixture entrypoint" in result.stderr
+
+
+def test_plugin_fixture_output_check_rejects_manifest_assets_outside_dist_root(
+    tmp_path: Path,
+) -> None:
+    # Vite manifest assets must stay inside the fixture dist root.
+    sandbox_root, _build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+    fixture_root = sandbox_root / "tests" / "fixtures" / "plugins" / "fixture-a"
+    vite_manifest_path = fixture_root / "frontend" / "dist" / ".vite" / "manifest.json"
+    vite_manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    (fixture_root / "frontend" / "outside.js").write_text(
+        "export const outside = true;\n",
+        encoding="utf-8",
+    )
+    vite_manifest_path.write_text(
+        '{"frontend/src/index.js":{"file":"../outside.js"}}\n',
+        encoding="utf-8",
+    )
+    command = f"""
+set -euo pipefail
+. '{sandbox_root / "scripts" / "plugin-fixtures" / "cache.sh"}'
+plugin_fixture_frontend_outputs_complete "{sandbox_root}"
+"""
+    result = _run_cache_helper_command(sandbox_root, command)
+    assert result.returncode == 1
+    assert "Fixture asset path escapes fixture root" in result.stderr
+
+
 def test_run_backend_tests_rebuilds_when_fixture_style_output_is_missing(
     tmp_path: Path,
 ) -> None:

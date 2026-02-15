@@ -1,4 +1,5 @@
 import os
+import shutil
 import zipfile
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -218,6 +219,59 @@ def test_plugin_routes_backend_static_router_fixture_roundtrip() -> None:
             )
             assert static_response.status_code == 200
             assert static_response.text == "fixture static payload\n"
+
+
+def test_plugin_routes_backend_query_param_coercion_matches_fastapi() -> None:
+    # Backend plugin proxy routes should preserve FastAPI scalar/list query coercion semantics.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+        fixture_source = _fixture_plugin_root("backend-language-server-e2e")
+        local_plugin_root = root / "backend-language-server-e2e"
+        shutil.copytree(fixture_source, local_plugin_root)
+
+        with TestClient(app) as client:
+            link_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_LINK.value}",
+                json={
+                    "localPluginRoot": str(local_plugin_root),
+                    "scope": "workspace",
+                    "enable": True,
+                    "force": True,
+                },
+            )
+            assert link_response.status_code == 200
+
+            manager.load_backend_plugins(app=app)
+
+            single_list_query_response = client.get(
+                "/api/plugins/"
+                "setta-fixture-backend-language-server-e2e/"
+                "payload/echo-query-list-int?values=1"
+            )
+            assert single_list_query_response.status_code == 200
+            assert single_list_query_response.json() == {"values": [1]}
+
+            repeated_scalar_query_response = client.get(
+                "/api/plugins/"
+                "setta-fixture-backend-language-server-e2e/"
+                "payload/echo-query-scalar-int?limit=1&limit=2"
+            )
+            assert repeated_scalar_query_response.status_code == 200
+            assert repeated_scalar_query_response.json() == {"limit": 2}
 
 
 def test_plugin_asset_route_rejects_non_frontend_files() -> None:
