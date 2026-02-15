@@ -8,7 +8,6 @@ from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import SpecificFileWatcher
 from setta.lsp.managers import LSPServers, LSPWriters
-from setta.lsp.registrations import RegisteredLanguageServer
 from setta.project_state.artifacts import Artifacts
 from setta.project_state.base_project_manager import BaseProjectManager
 from setta.project_state.code_files import CodeFiles
@@ -17,7 +16,6 @@ from setta.project_state.lsp_diagnostics_state import ProjectLspDiagnosticsState
 from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectGenPythonCode,
-    ProjectLSPCode,
     ProjectPythonCode,
     build_python_code_generator,
 )
@@ -135,7 +133,6 @@ def build_project_state(
     project_name: str,
     codegen_targets: list[ProjectCodegenTarget],
     include_bash: bool,
-    include_typescript: bool = False,
 ) -> tuple[ProjectStateSingleConfig, dict[str, CodeFileBinding], dict[str, ID]]:
     python_section_id = ID("section-python")
     python_impl_id = ID("section-python-impl")
@@ -179,32 +176,6 @@ def build_project_state(
         top_level_sections[bash_section_id] = TopLevelSectionLayout()
         bindings["bash"] = bash_binding
         section_ids["bash"] = bash_section_id
-
-    if include_typescript:
-        typescript_section_id = ID("section-typescript")
-        typescript_impl_id = ID("section-typescript-impl")
-        typescript_variant_id = ID("section-typescript-variant")
-        (
-            typescript_core,
-            typescript_variant,
-            typescript_impl,
-            typescript_binding,
-        ) = build_code_section(
-            project_name,
-            section_id=typescript_section_id,
-            section_impl_id=typescript_impl_id,
-            section_variant_id=typescript_variant_id,
-            name="TypeScriptSection",
-            code="const value: string = 'hi';",
-            language=CodeLanguage.typescript,
-        )
-        sections[typescript_section_id] = typescript_core
-        section_impls[typescript_impl_id] = typescript_impl
-        section_variants[typescript_variant_id] = typescript_variant
-        section_variant_map[typescript_section_id] = typescript_variant_id
-        top_level_sections[typescript_section_id] = TopLevelSectionLayout()
-        bindings["typescript"] = typescript_binding
-        section_ids["typescript"] = typescript_section_id
 
     project_config = ProjectConfig(
         id=project_config_id,
@@ -252,18 +223,16 @@ async def _seed_gen_code_diagnostics(
     project_config_id: ID,
     section_id: ID,
 ) -> None:
-    gen_code, diagnostics = _build_gen_code_diagnostics(project_config_id, section_id)
+    gen_code, diagnostics = _build_gen_code_diagnostics(
+        project_config_id, section_id
+    )
     await diagnostics_state.update_gen_code(gen_code, diagnostics)
     assert diagnostics_state.gen_code.errors
     assert diagnostics_state.unmapped_gen_code
 
 
 @asynccontextmanager
-async def _type_check_manager(
-    *,
-    codegen_targets: list[ProjectCodegenTarget],
-    plugin_language_servers: list[RegisteredLanguageServer] | None = None,
-):
+async def _type_check_manager(*, codegen_targets: list[ProjectCodegenTarget]):
     temp_dir = TemporaryDirectory()
     root = Path(temp_dir.name)
     stack = ExitStack()
@@ -300,10 +269,7 @@ async def _type_check_manager(
         json_source = JSONSource(
             frontend_sender, settings_file, specific_file_watcher, dbe
         )
-        lsps = LSPServers(
-            {},
-            plugin_language_servers=plugin_language_servers,
-        )
+        lsps = LSPServers({})
         lsp_writers = LSPWriters(lsps)
 
         project_config = ProjectConfig(
@@ -311,9 +277,7 @@ async def _type_check_manager(
             name="TypeCheckProject",
             codegenTargets=codegen_targets,
         )
-        backend = ProjectStateBackend(
-            projectConfigs={project_config.id: project_config}
-        )
+        backend = ProjectStateBackend(projectConfigs={project_config.id: project_config})
 
         manager = TypeCheckProjectManager(
             lsp_writers,
@@ -372,113 +336,12 @@ async def test_type_check_runs_python_sections_without_codegen() -> None:
 
         await manager.type_check(project_config_id)
 
-        python_uri = manager.lsp_writers.full.get_uri(bindings["python"].canonical_path)
+        python_uri = manager.lsp_writers.full.get_uri(
+            bindings["python"].canonical_path
+        )
         bash_uri = manager.lsp_writers.full.get_uri(bindings["bash"].canonical_path)
         assert python_uri in manager.lsp_writers.full.latest_version_numbers
         assert bash_uri not in manager.lsp_writers.full.latest_version_numbers
-
-
-@pytest.mark.asyncio
-async def test_type_check_runs_typescript_sections_with_plugin_lsp() -> None:
-    async with _type_check_manager(
-        codegen_targets=[],
-        plugin_language_servers=[
-            RegisteredLanguageServer(
-                plugin_id="plugin.typescript",
-                name="plugin.typescript:typescript",
-                language=CodeLanguage.typescript,
-                command="typescript-language-server",
-                args=("--stdio",),
-                settings_key="typescriptLanguageServer",
-            )
-        ],
-    ) as manager:
-        project_config_id = next(iter(manager.project_state_backend.projectConfigs))
-        project_state, bindings, section_ids = build_project_state(
-            project_config_id=project_config_id,
-            project_name="TypeCheckProject",
-            codegen_targets=[],
-            include_bash=False,
-            include_typescript=True,
-        )
-        diagnostics_state = ProjectLspDiagnosticsState(
-            project_config_id,
-            manager.websocket_msg_handler,
-        )
-        python_code = ProjectPythonCode(
-            manager.dbe,
-            manager.code_files,
-            manager.lsp_writers,
-            manager.websocket_msg_handler,
-            diagnostics_state,
-            project_state,
-            section_ids["python"],
-        )
-        typescript_code = ProjectLSPCode(
-            manager.dbe,
-            manager.code_files,
-            manager.lsp_writers,
-            manager.websocket_msg_handler,
-            diagnostics_state,
-            project_state,
-            section_ids["typescript"],
-            code_language=CodeLanguage.typescript,
-        )
-        manager.code_dict[project_config_id] = {
-            section_ids["python"]: python_code,
-            section_ids["typescript"]: typescript_code,
-        }
-
-        await manager.type_check(project_config_id)
-
-        python_uri = manager.lsp_writers.full.get_uri(bindings["python"].canonical_path)
-        typescript_writer = manager.lsp_writers.get_for_language(
-            CodeLanguage.typescript
-        )
-        assert typescript_writer is not None
-        typescript_uri = typescript_writer.get_uri(
-            bindings["typescript"].canonical_path
-        )
-        assert python_uri in manager.lsp_writers.full.latest_version_numbers
-        assert typescript_uri in typescript_writer.latest_version_numbers
-
-
-@pytest.mark.asyncio
-async def test_update_creates_typescript_lsp_code_entries_when_registered() -> None:
-    async with _type_check_manager(
-        codegen_targets=[],
-        plugin_language_servers=[
-            RegisteredLanguageServer(
-                plugin_id="plugin.typescript",
-                name="plugin.typescript:typescript",
-                language=CodeLanguage.typescript,
-                command="typescript-language-server",
-                args=("--stdio",),
-                settings_key="typescriptLanguageServer",
-            )
-        ],
-    ) as manager:
-        project_config_id = next(iter(manager.project_state_backend.projectConfigs))
-        project_state, bindings, section_ids = build_project_state(
-            project_config_id=project_config_id,
-            project_name="TypeCheckProject",
-            codegen_targets=[],
-            include_bash=False,
-            include_typescript=True,
-        )
-
-        await manager.update(project_state)
-
-        code_entry = manager.code_dict[project_config_id][section_ids["typescript"]]
-        assert isinstance(code_entry, ProjectLSPCode)
-        typescript_writer = manager.lsp_writers.get_for_language(
-            CodeLanguage.typescript
-        )
-        assert typescript_writer is not None
-        typescript_uri = typescript_writer.get_uri(
-            bindings["typescript"].canonical_path
-        )
-        assert typescript_uri in typescript_writer.latest_version_numbers
 
 
 @pytest.mark.asyncio
@@ -531,7 +394,9 @@ async def test_type_check_runs_gen_code_and_python_sections() -> None:
         await manager.type_check(project_config_id)
 
         gen_uri = manager.lsp_writers.full.get_uri(gen_binding.canonical_path)
-        python_uri = manager.lsp_writers.full.get_uri(bindings["python"].canonical_path)
+        python_uri = manager.lsp_writers.full.get_uri(
+            bindings["python"].canonical_path
+        )
         assert gen_uri in manager.lsp_writers.full.latest_version_numbers
         assert python_uri in manager.lsp_writers.full.latest_version_numbers
 
@@ -623,7 +488,9 @@ async def test_gen_code_suffix_change_keeps_diagnostics_until_lsp_update() -> No
         python_target = get_python_codegen_target_with_type_guard(
             project_state.projectConfig
         )
-        python_target.genCodeSuffix = f"{python_target.genCodeSuffix}\n# end"
+        python_target.genCodeSuffix = (
+            f"{python_target.genCodeSuffix}\n# end"
+        )
 
         await manager.update(project_state)
 
