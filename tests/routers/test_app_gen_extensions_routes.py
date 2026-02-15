@@ -2,14 +2,20 @@ import inspect
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 import pytest
 
 import setta.routers.app_gen_extensions as app_gen_extensions
 from setta.routers.app_gen_extensions import (
     list_app_gen_skills,
     read_app_gen_skill_content,
+    router as app_gen_extensions_router,
 )
+from setta.types.routes import Route
+from setta.utils.paths import clear_setta_paths_cache
 
 
 class TestAppGenExtensionsRoutes:
@@ -235,3 +241,30 @@ class TestAppGenExtensionsRoutes:
             assert content.truncated is True
             assert content.originalSizeBytes == len(oversized_content)
             assert len(content.content) == app_gen_extensions._MAX_SKILL_CONTENT_PREVIEW_BYTES
+
+    def test_skill_content_route_returns_plain_keyerror_detail(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        workspace_root = tmp_path / "workspace"
+        workspace_skills_root = workspace_root / "skills"
+        workspace_skills_root.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+        clear_setta_paths_cache()
+
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(deployment_mode=False)
+        app.include_router(app_gen_extensions_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app) as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.GET_APP_GEN_SKILL_CONTENT.value}",
+                json={"skillId": "workspace_skills::missing-skill"},
+            )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == (
+            "Missing SKILL.md for workspace_skills::missing-skill"
+        )
+        clear_setta_paths_cache()

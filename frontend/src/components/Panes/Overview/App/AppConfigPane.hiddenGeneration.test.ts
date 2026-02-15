@@ -56,6 +56,7 @@ describe("AppConfigPane hidden generation helpers", () => {
       ],
       availableLLMConfigIds: new Set(["llm-fallback", "llm-active"]),
       externalAgentHealthByConfigId: new Map(),
+      defaultLLMConfigId: null,
     });
 
     expect(selection).toEqual({
@@ -82,6 +83,7 @@ describe("AppConfigPane hidden generation helpers", () => {
       ],
       availableLLMConfigIds: new Set(["llm-fallback"]),
       externalAgentHealthByConfigId: new Map(),
+      defaultLLMConfigId: null,
     });
 
     expect(selection).toEqual({
@@ -111,6 +113,7 @@ describe("AppConfigPane hidden generation helpers", () => {
           },
         ],
       ]),
+      defaultLLMConfigId: null,
     });
 
     expect(selection).toEqual({
@@ -140,11 +143,34 @@ describe("AppConfigPane hidden generation helpers", () => {
           },
         ],
       ]),
+      defaultLLMConfigId: null,
     });
 
     expect(selection).toEqual({
       engineConfigId: "external-engine",
       isExternalEngine: true,
+      forceNewChat: false,
+    });
+  });
+
+  it("treats managed engines without explicit config id as usable via default config", () => {
+    const selection = resolveHiddenGenerationEngineSelection({
+      activeChatEngineConfigId: null,
+      engineConfigs: [
+        {
+          id: "engine-managed-default",
+          engineType: EngineTypeEnum.setta_llm,
+          settaLlmConfigId: null,
+        },
+      ],
+      availableLLMConfigIds: new Set(["llm-default"]),
+      externalAgentHealthByConfigId: new Map(),
+      defaultLLMConfigId: "llm-default",
+    });
+
+    expect(selection).toEqual({
+      engineConfigId: "engine-managed-default",
+      isExternalEngine: false,
       forceNewChat: false,
     });
   });

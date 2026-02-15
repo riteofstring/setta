@@ -1,5 +1,6 @@
 import type { Spec } from "@json-render/core";
 import * as Switch from "@radix-ui/react-switch";
+import { pickDefaultConfigId } from "components/Chat/llmConfigUtils";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   clearPendingChatDetails,
@@ -460,10 +461,44 @@ export function buildSpecSeed({
   return createEmptySpec();
 }
 
+type HiddenGenerationResourceLoadState = {
+  allLLMConfigsInitialLoadComplete: boolean;
+  apiKeysInitialLoadComplete: boolean;
+  engineConfigsInitialLoadComplete: boolean;
+  externalAgentHealthInitialLoadComplete: boolean;
+};
+
+function areHiddenGenerationResourcesLoaded(
+  state: HiddenGenerationResourceLoadState,
+): boolean {
+  return (
+    state.allLLMConfigsInitialLoadComplete &&
+    state.apiKeysInitialLoadComplete &&
+    state.engineConfigsInitialLoadComplete &&
+    state.externalAgentHealthInitialLoadComplete
+  );
+}
+
+function waitForHiddenGenerationResourcesLoaded(): Promise<void> {
+  if (areHiddenGenerationResourcesLoaded(useAIStore.getState())) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    const unsubscribe = useAIStore.subscribe((state) => {
+      if (!areHiddenGenerationResourcesLoaded(state)) {
+        return;
+      }
+      unsubscribe();
+      resolve();
+    });
+  });
+}
+
 function pickHiddenGenerationEngine(args: {
   engineConfigs: HiddenGenerationEngineConfig[];
   availableLLMConfigIds: Set<string>;
   externalAgentHealthByConfigId: Map<string, ExternalAgentHealthStatus>;
+  defaultLLMConfigId: string | null;
 }): {
   engineConfigId: string | null;
   isExternalEngine: boolean;
@@ -475,6 +510,7 @@ function pickHiddenGenerationEngine(args: {
         config,
         availableLLMConfigIds: args.availableLLMConfigIds,
         externalAgentHealthByConfigId: args.externalAgentHealthByConfigId,
+        defaultLLMConfigId: args.defaultLLMConfigId,
       })
     ) {
       return { engineConfigId: config.id, isExternalEngine: false };
@@ -487,6 +523,7 @@ function pickHiddenGenerationEngine(args: {
         config,
         availableLLMConfigIds: args.availableLLMConfigIds,
         externalAgentHealthByConfigId: args.externalAgentHealthByConfigId,
+        defaultLLMConfigId: args.defaultLLMConfigId,
       })
     ) {
       return { engineConfigId: config.id, isExternalEngine: true };
@@ -517,9 +554,10 @@ function isHiddenGenerationEngineUsable(args: {
   config: HiddenGenerationEngineConfig;
   availableLLMConfigIds: Set<string>;
   externalAgentHealthByConfigId: Map<string, ExternalAgentHealthStatus>;
+  defaultLLMConfigId: string | null;
 }): boolean {
   if (args.config.engineType === EngineTypeEnum.setta_llm) {
-    const llmConfigId = args.config.settaLlmConfigId ?? null;
+    const llmConfigId = args.config.settaLlmConfigId ?? args.defaultLLMConfigId;
     return Boolean(llmConfigId && args.availableLLMConfigIds.has(llmConfigId));
   }
   if (args.config.engineType === EngineTypeEnum.external_agent) {
@@ -542,11 +580,13 @@ export function resolveHiddenGenerationEngineSelection(args: {
   engineConfigs: HiddenGenerationEngineConfig[];
   availableLLMConfigIds: Set<string>;
   externalAgentHealthByConfigId: Map<string, ExternalAgentHealthStatus>;
+  defaultLLMConfigId: string | null;
 }): HiddenGenerationEngineSelection {
   const fallback = pickHiddenGenerationEngine({
     engineConfigs: args.engineConfigs,
     availableLLMConfigIds: args.availableLLMConfigIds,
     externalAgentHealthByConfigId: args.externalAgentHealthByConfigId,
+    defaultLLMConfigId: args.defaultLLMConfigId,
   });
 
   if (!args.activeChatEngineConfigId) {
@@ -566,6 +606,7 @@ export function resolveHiddenGenerationEngineSelection(args: {
         config: activeChatEngine,
         availableLLMConfigIds: args.availableLLMConfigIds,
         externalAgentHealthByConfigId: args.externalAgentHealthByConfigId,
+        defaultLLMConfigId: args.defaultLLMConfigId,
       })
     ) {
       return {
@@ -960,6 +1001,11 @@ export function AppConfigPane() {
   const ensureHiddenGenerationResources = useCallback(async () => {
     const pendingLoads: Array<Promise<void>> = [];
     const state = useAIStore.getState();
+    const shouldAwaitResourceCompletion =
+      !state.allLLMConfigsInitialLoadComplete ||
+      !state.apiKeysInitialLoadComplete ||
+      !state.engineConfigsInitialLoadComplete ||
+      !state.externalAgentHealthInitialLoadComplete;
     if (!state.allLLMConfigsInitialLoadComplete) {
       pendingLoads.push(loadLLMConfig());
     }
@@ -972,11 +1018,15 @@ export function AppConfigPane() {
     if (!state.externalAgentHealthInitialLoadComplete) {
       pendingLoads.push(loadExternalAgentHealth());
     }
-    if (pendingLoads.length === 0) {
-      return;
+    if (pendingLoads.length > 0) {
+      await Promise.all(pendingLoads);
     }
-    await Promise.all(pendingLoads);
+    if (shouldAwaitResourceCompletion) {
+      await waitForHiddenGenerationResourcesLoaded();
+    }
   }, []);
+
+  type HiddenChatGenerationMode = "prompt_builder" | "mcp_server";
 
   const runJsonRenderGeneration = useCallback(
     async (mode: AppGenerationMode) => {
@@ -1112,7 +1162,7 @@ export function AppConfigPane() {
   );
 
   const runHiddenChatGeneration = useCallback(
-    async ({ mode }: { mode: AppGenerationMode }) => {
+    async ({ mode }: { mode: HiddenChatGenerationMode }) => {
       setGenerating(true);
       setGenerationPatchCount(0);
       setErrorMessage(null);
@@ -1152,6 +1202,7 @@ export function AppConfigPane() {
           engineConfigs: aiState.engineConfigs,
           availableLLMConfigIds,
           externalAgentHealthByConfigId,
+          defaultLLMConfigId: pickDefaultConfigId(aiState.allLLMConfigs),
         });
         if (!engineSelection.engineConfigId) {
           setErrorMessage(
@@ -1159,20 +1210,13 @@ export function AppConfigPane() {
           );
           return;
         }
-        const includeReferenceImage = mode === "json_render_with_image";
-        const referenceImageUrl = includeReferenceImage
-          ? appGenerationReferenceImageUrl.trim() || null
-          : null;
-        const referenceImageNotes = includeReferenceImage
-          ? appGenerationReferenceImageNotes.trim() || null
-          : null;
         const prompt = buildHiddenChatAppGenerationPrompt({
           mode,
           prompt: appGenerationPrompt,
           catalogSummary,
           sectionsSummary,
-          referenceImageUrl,
-          referenceImageNotes,
+          referenceImageUrl: null,
+          referenceImageNotes: null,
         });
         const targetChatId = engineSelection.forceNewChat
           ? null
@@ -1189,8 +1233,8 @@ export function AppConfigPane() {
           null,
           {
             mode,
-            referenceImageUrl,
-            referenceImageNotes,
+            referenceImageUrl: null,
+            referenceImageNotes: null,
           },
         );
         if (!chatId) {
@@ -1219,8 +1263,6 @@ export function AppConfigPane() {
     },
     [
       appGenerationPrompt,
-      appGenerationReferenceImageNotes,
-      appGenerationReferenceImageUrl,
       ensureHiddenGenerationResources,
       preparePromptContext,
     ],
@@ -1232,7 +1274,9 @@ export function AppConfigPane() {
       await runJsonRenderGeneration(mode);
       return;
     }
-    await runHiddenChatGeneration({ mode });
+    if (mode === "prompt_builder" || mode === "mcp_server") {
+      await runHiddenChatGeneration({ mode });
+    }
   }
 
   function handleCreateDefault() {

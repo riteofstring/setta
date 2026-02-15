@@ -123,6 +123,16 @@ export function ProjectChatSkillsMcpViewer() {
   const skillsRequestSequence = useRef(0);
   const skillsRefreshInFlight = useRef(false);
   const skillContentRequestSequence = useRef(0);
+  const skillContentCache = useRef(
+    new Map<
+      string,
+      {
+        content: string;
+        truncated: boolean;
+        originalSizeBytes: number | null;
+      }
+    >(),
+  );
 
   const refreshSkillsBrowser = useCallback(async () => {
     if (skillsRefreshInFlight.current) {
@@ -141,14 +151,10 @@ export function ProjectChatSkillsMcpViewer() {
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
         setSkillsError(detail ?? "Failed to load skills.");
-        setSkills([]);
-        setSelectedSkillId(null);
-        setSelectedSkillContent("");
-        setSelectedSkillContentTruncated(false);
-        setSelectedSkillOriginalSizeBytes(null);
         return;
       }
       const nextSkills = res.data;
+      skillContentCache.current.clear();
       setSkills(nextSkills);
       setSkillsRevision((value) => value + 1);
       setSelectedSkillId((current) => {
@@ -181,6 +187,19 @@ export function ProjectChatSkillsMcpViewer() {
         setSelectedSkillOriginalSizeBytes(null);
         return;
       }
+      if (!isSkillMarkdownViewerOpen) {
+        setSkillContentLoading(false);
+        return;
+      }
+      const cacheKey = `${skillsRevision}:${selectedSkillId}`;
+      const cached = skillContentCache.current.get(cacheKey) ?? null;
+      if (cached) {
+        setSkillContentLoading(false);
+        setSelectedSkillContent(cached.content);
+        setSelectedSkillContentTruncated(cached.truncated);
+        setSelectedSkillOriginalSizeBytes(cached.originalSizeBytes);
+        return;
+      }
       const requestSequence = skillContentRequestSequence.current + 1;
       skillContentRequestSequence.current = requestSequence;
       setSkillContentLoading(true);
@@ -203,9 +222,14 @@ export function ProjectChatSkillsMcpViewer() {
       setSelectedSkillContent(res.data.content);
       setSelectedSkillContentTruncated(res.data.truncated);
       setSelectedSkillOriginalSizeBytes(res.data.originalSizeBytes);
+      skillContentCache.current.set(cacheKey, {
+        content: res.data.content,
+        truncated: res.data.truncated,
+        originalSizeBytes: res.data.originalSizeBytes,
+      });
     }
     void loadSkillContent();
-  }, [selectedSkillId, skillsRevision]);
+  }, [isSkillMarkdownViewerOpen, selectedSkillId, skillsRevision]);
 
   useEffect(() => {
     async function loadMcpConfigPath() {
@@ -261,6 +285,7 @@ export function ProjectChatSkillsMcpViewer() {
 
   const mcpServersLoading =
     !allLLMConfigsInitialLoadComplete || mcpConfigInfoLoading;
+  const showSkillsLoadingState = skillsLoading && skills.length === 0;
   const skillPreviewContent =
     skillContentLoading || (skillsLoading && !selectedSkillId)
       ? "Loading skill content..."
@@ -338,13 +363,14 @@ export function ProjectChatSkillsMcpViewer() {
             </div>
             <div className="grid min-w-0 gap-2">
               <div className="max-h-[360px] min-h-[220px] min-w-0 overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-xs dark:border-setta-700 dark:bg-setta-950/60">
-                {skillsLoading ? (
+                {skillsError ? (
+                  <div className="mb-2 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                    Skills unavailable ({skillsError}).
+                  </div>
+                ) : null}
+                {showSkillsLoadingState ? (
                   <div className="text-setta-500 dark:text-setta-400">
                     Loading skills...
-                  </div>
-                ) : skillsError ? (
-                  <div className="text-setta-500 dark:text-setta-400">
-                    Skills unavailable ({skillsError}).
                   </div>
                 ) : groupedSkills.length === 0 ? (
                   <div className="text-setta-500 dark:text-setta-400">

@@ -152,9 +152,10 @@ def route_get_app_gen_skill_content(
             skill_id=x.skillId,
         )
     except KeyError as exc:
+        detail = exc.args[0] if exc.args else str(exc)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
+            detail=detail,
         ) from exc
     except ValueError as exc:
         raise HTTPException(

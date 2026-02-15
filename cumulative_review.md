@@ -123,3 +123,24 @@ Test and verification coverage added/updated:
 - Added Playwright coverage for App `Tabs` transitions between non-empty and empty definitions to guard against hook-order regressions.
 - Re-ran targeted backend pytest, frontend Vitest, and Playwright suites; all passing.
 - CDP visual verification completed for App Preview tab-state transitions and Skills/MCP viewer behavior.
+
+## 2026-02-17T04:03:34Z
+
+Status: Implemented
+
+Accepted findings fixed in this batch:
+- Fixed hidden app-generation resource preload determinism by explicitly waiting for initial AI resource load completion before engine selection.
+- Aligned hidden managed-engine usability with Project Chat by allowing `settaLlmConfigId: null` engines to fall back to the default LLM config id.
+- Removed unreachable hidden-generation reference-image plumbing from prompt-builder/MCP hidden-chat execution paths.
+- Fixed Skills/MCP refresh failure behavior to preserve the last-known-good skill list/selection/preview and show inline error feedback instead of clearing state.
+- Reduced unnecessary skills markdown backend calls by gating content fetch to markdown-viewer-open state and caching per selected skill/revision.
+- Hardened `/revealPathInOsFileExplorer` against stalled OS openers with a bounded subprocess timeout and explicit timeout error mapping.
+- Cleaned `/getAppGenSkillContent` `KeyError` HTTP detail formatting to remove extra quote characters in client-facing error messages.
+
+Test and verification coverage added/updated:
+- Added frontend unit coverage for hidden-generation default-managed-config fallback selection behavior.
+- Added backend router coverage for reveal-path timeout handling and plain (unquoted) missing-skill error detail responses.
+- Added Playwright coverage for hidden-generation in-flight preload waiting/default fallback behavior in App Config prompt-builder mode.
+- Added Playwright coverage that markdown content is not fetched while the Skills markdown viewer is collapsed.
+- Added Playwright coverage that skills refresh failures preserve prior visible skill/preview state while surfacing inline error feedback.
+- Re-ran targeted frontend Vitest, backend pytest router suites, and Playwright overview specs; all passing.

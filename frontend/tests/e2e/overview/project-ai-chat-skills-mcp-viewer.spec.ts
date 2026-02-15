@@ -313,7 +313,9 @@ test("project ai chat keeps skills list stable during selection and ignores stal
     });
   });
 
+  let skillContentRequestCount = 0;
   await page.route("**/api/getAppGenSkillContent", async (route) => {
+    skillContentRequestCount += 1;
     const payload = route.request().postDataJSON() as { skillId?: string };
     const skillId = payload.skillId ?? "";
     if (skillId.endsWith("alpha-skill")) {
@@ -337,11 +339,14 @@ test("project ai chat keeps skills list stable during selection and ignores stal
   await page.waitForTimeout(200);
   const fetchCountAfterInitialLoad = skillsFetchCount;
   expect(fetchCountAfterInitialLoad).toBeGreaterThan(0);
+  expect(skillContentRequestCount).toBe(0);
 
   await page.getByRole("button", { name: /beta-skill/i }).click();
   await expect.poll(() => skillsFetchCount).toBe(fetchCountAfterInitialLoad);
+  expect(skillContentRequestCount).toBe(0);
 
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
+  await expect.poll(() => skillContentRequestCount).toBe(1);
   const markdown = page.getByLabel("Skill Markdown Content");
   await expect(markdown).toContainText("workspace_skills::beta-skill");
   await page.waitForTimeout(700);
@@ -409,6 +414,84 @@ test("project ai chat refresh updates selected markdown content without requirin
 
   await page.getByRole("button", { name: "Refresh" }).click();
   await expect(markdown).toContainText("Revision 2");
+});
+
+test("project ai chat keeps existing skills and markdown preview on refresh failure", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  let skillsRequestCount = 0;
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    skillsRequestCount += 1;
+    if (skillsRequestCount === 1) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            skillId: "workspace_skills::ui-layout",
+            name: "ui-layout",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
+            relativePath: "ui-layout",
+            description: "Create dense dashboard layouts.",
+          },
+        ]),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Filesystem scan failed." }),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "workspace_skills::ui-layout",
+        content: "# UI Layout\n\nStable preview",
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
+
+  await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
+  await expect(page.getByLabel("Skill Markdown Content")).toContainText(
+    "Stable preview",
+  );
+
+  await page.getByRole("button", { name: "Refresh" }).click();
+  await expect(
+    page.getByText("Skills unavailable (Filesystem scan failed.)."),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
+  await expect(page.getByLabel("Skill Markdown Content")).toContainText(
+    "Stable preview",
+  );
 });
 
 test("project ai chat refresh is disabled while loading to prevent redundant scans", async ({

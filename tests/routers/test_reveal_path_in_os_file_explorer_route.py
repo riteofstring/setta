@@ -1,10 +1,12 @@
 from pathlib import Path
+import subprocess
 from types import SimpleNamespace
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 import pytest
 
+import setta.routers.status as status_module
 from setta.routers.status import router as status_router
 from setta.types.routes import Route
 from setta.utils.paths import clear_setta_paths_cache
@@ -23,10 +25,12 @@ def _mock_reveal_command(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
         check: bool,
         capture_output: bool,
         text: bool,
+        timeout: float,
     ):
         assert check is False
         assert capture_output is True
         assert text is True
+        assert timeout == status_module._REVEAL_PATH_COMMAND_TIMEOUT_SECONDS
         launched_commands.append(command)
         return SimpleNamespace(returncode=0, stderr="", stdout="")
 
@@ -186,10 +190,12 @@ def test_reveal_path_returns_error_when_explorer_command_fails(
         check: bool,
         capture_output: bool,
         text: bool,
+        timeout: float,
     ):
         assert check is False
         assert capture_output is True
         assert text is True
+        assert timeout == status_module._REVEAL_PATH_COMMAND_TIMEOUT_SECONDS
         launched_commands.append(command)
         return SimpleNamespace(returncode=7, stderr="No display found.", stdout="")
 
@@ -213,3 +219,55 @@ def test_reveal_path_returns_error_when_explorer_command_fails(
         "Failed to reveal path in file explorer: No display found."
     )
     assert launched_commands == [["mock-open", str(workspace_file)]]
+
+
+def test_reveal_path_returns_error_when_explorer_command_times_out(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Timeout from the OS opener should fail fast with a clear backend error.
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+    clear_setta_paths_cache()
+
+    workspace_file = workspace_root / "docs" / "notes.txt"
+    workspace_file.parent.mkdir(parents=True, exist_ok=True)
+    workspace_file.write_text("workspace", encoding="utf-8")
+
+    def fake_build_command(path: Path) -> list[str]:
+        return ["mock-open", str(path)]
+
+    def fake_run(
+        command: list[str],
+        *,
+        check: bool,
+        capture_output: bool,
+        text: bool,
+        timeout: float,
+    ):
+        assert check is False
+        assert capture_output is True
+        assert text is True
+        assert timeout == status_module._REVEAL_PATH_COMMAND_TIMEOUT_SECONDS
+        raise subprocess.TimeoutExpired(command, timeout)
+
+    monkeypatch.setattr(
+        "setta.routers.status._build_reveal_path_command", fake_build_command
+    )
+    monkeypatch.setattr(
+        "setta.routers.status.shutil.which",
+        lambda command: "/usr/bin/mock-open" if command == "mock-open" else None,
+    )
+    monkeypatch.setattr("setta.routers.status.subprocess.run", fake_run)
+
+    with _build_client() as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.REVEAL_PATH_IN_OS_FILE_EXPLORER.value}",
+            json={"path": str(workspace_file)},
+        )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == (
+        "Failed to reveal path in file explorer: mock-open timed out after 5s."
+    )

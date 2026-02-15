@@ -21,6 +21,7 @@ from setta.utils.skill_roots import iter_skill_roots
 from setta.utils.user_config import load_setta_user_config
 
 router = SettaAPIRouter()
+_REVEAL_PATH_COMMAND_TIMEOUT_SECONDS = 5
 
 
 class SettaHomeInfoResponse(BaseModel):
@@ -139,7 +140,16 @@ def route_reveal_path_in_os_file_explorer(
             check=False,
             capture_output=True,
             text=True,
+            timeout=_REVEAL_PATH_COMMAND_TIMEOUT_SECONDS,
         )
+    except subprocess.TimeoutExpired as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to reveal path in file explorer: "
+                f"{command[0]} timed out after {_REVEAL_PATH_COMMAND_TIMEOUT_SECONDS}s."
+            ),
+        ) from exc
     except OSError as exc:
         raise HTTPException(
             status_code=500,

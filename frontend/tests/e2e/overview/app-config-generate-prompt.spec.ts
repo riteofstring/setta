@@ -104,6 +104,115 @@ test("prompt-builder mode sends hidden app generation request to chat", async ({
   );
 });
 
+test("prompt-builder waits for in-flight resource loads and uses default managed config fallback", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "App",
+    overviewVis: true,
+    appGenerationMode: "prompt_builder",
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          "llm-default": {
+            id: "llm-default",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: "OPENAI_API_KEY",
+            mcpServerIds: [],
+          },
+        },
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: "llm-default",
+      }),
+    });
+  });
+  await page.route("**/api/llm/apiKeys", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        OPENAI_API_KEY: "pw-key",
+      }),
+    });
+  });
+
+  let releaseEngineConfigs: (() => void) | null = null;
+  const engineConfigsGate = new Promise<void>((resolve) => {
+    releaseEngineConfigs = resolve;
+  });
+  let engineConfigsRequestCount = 0;
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    engineConfigsRequestCount += 1;
+    await engineConfigsGate;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-primary",
+          name: "Primary",
+          engineType: "setta_llm",
+          settaLlmConfigId: null,
+          externalAgentConfigId: null,
+          defaults: { thinking: null },
+        },
+      ]),
+    });
+  });
+
+  let releaseExternalHealth: (() => void) | null = null;
+  const externalHealthGate = new Promise<void>((resolve) => {
+    releaseExternalHealth = resolve;
+  });
+  let externalHealthRequestCount = 0;
+  await page.route("**/api/getExternalAgentHealth", async (route) => {
+    externalHealthRequestCount += 1;
+    await externalHealthGate;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+
+  const capturedRequests: Array<Record<string, unknown>> = [];
+  await page.route("**/api/getLLMResponse", async (route) => {
+    capturedRequests.push(
+      route.request().postDataJSON() as Record<string, unknown>,
+    );
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(`pw-chat-${Date.now()}`),
+    });
+  });
+
+  await ensureAppReady(page);
+  await expect(page.getByText("App Config")).toBeVisible();
+  await expect.poll(() => engineConfigsRequestCount).toBeGreaterThan(0);
+  await expect.poll(() => externalHealthRequestCount).toBeGreaterThan(0);
+
+  const sendButton = page.getByRole("button", { name: "Send To Chat" });
+  await sendButton.click();
+  expect(capturedRequests.length).toBe(0);
+
+  releaseEngineConfigs?.();
+  releaseExternalHealth?.();
+
+  await expect(
+    page.getByText("App generation request sent to chat."),
+  ).toBeVisible();
+  expect(capturedRequests.length).toBe(1);
+  expect(capturedRequests[0].engineConfigId).toBe("engine-primary");
+});
+
 test("prompt-builder mode ignores stale reference-image context from image mode", async ({
   page,
 }) => {
