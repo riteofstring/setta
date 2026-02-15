@@ -1983,7 +1983,9 @@ function getPluginConfigSchemaDigest(entry: PluginListEntry): string | null {
   return normalizeDigest(configWithDigest.schemaJsonDigestSha256);
 }
 
-function getPluginConfigCurrentConfigDigest(entry: PluginListEntry): string | null {
+function getPluginConfigCurrentConfigDigest(
+  entry: PluginListEntry,
+): string | null {
   const configWithDigest = entry.config as {
     currentConfigDigestSha256?: string | null;
   };
@@ -2092,7 +2094,8 @@ function mapStatusEntries(
     previousEntriesByKey.set(buildPluginStatusEntryStableKey(entry), entry);
   }
   const mappedEntries: PluginStatusEntry[] = [];
-  let canReusePreviousArray = previousStatusEntries.length === statusEntries.length;
+  let canReusePreviousArray =
+    previousStatusEntries.length === statusEntries.length;
   for (let index = 0; index < statusEntries.length; index += 1) {
     const nextEntry = statusEntries[index];
     const previousEntry = previousEntriesByKey.get(
@@ -2201,7 +2204,10 @@ function mapPrimaryStatusByPluginId(
       continue;
     }
   }
-  return hasSameRecordValueReferences(pluginStatusById, previousPluginStatusById)
+  return hasSameRecordValueReferences(
+    pluginStatusById,
+    previousPluginStatusById,
+  )
     ? previousPluginStatusById
     : pluginStatusById;
 }

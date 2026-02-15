@@ -1102,7 +1102,8 @@ describe("plugin runtime helpers", () => {
     await refreshPluginRuntime();
     expect(globalScope.__settaRecoveryRegisterCalls).toBe(1);
     expect(
-      usePluginRuntimeStore.getState().panesByPluginId[plugin.pluginId]?.[0]?.id,
+      usePluginRuntimeStore.getState().panesByPluginId[plugin.pluginId]?.[0]
+        ?.id,
     ).toBe("recovery-pane");
 
     await refreshPluginRuntime();
@@ -1112,9 +1113,9 @@ describe("plugin runtime helpers", () => {
     const recoveredState = usePluginRuntimeStore.getState();
     expect(recoveredState.status).toBe("loaded");
     expect(globalScope.__settaRecoveryRegisterCalls).toBe(2);
-    expect(
-      recoveredState.panesByPluginId[plugin.pluginId]?.[0]?.id,
-    ).toBe("recovery-pane");
+    expect(recoveredState.panesByPluginId[plugin.pluginId]?.[0]?.id).toBe(
+      "recovery-pane",
+    );
   });
 
   it("reuses sorted registry views across no-op runtime refreshes", async () => {
@@ -1222,7 +1223,9 @@ describe("plugin runtime helpers", () => {
     const secondState = usePluginRuntimeStore.getState();
     expect(secondState.statusEntries).toBe(firstStatusEntries);
     expect(secondState.statusEntries[0]).toBe(firstStatusEntry);
-    expect(secondState.pluginStatusById[plugin.pluginId]).toBe(firstPrimaryStatus);
+    expect(secondState.pluginStatusById[plugin.pluginId]).toBe(
+      firstPrimaryStatus,
+    );
   });
 
   it("replaces plugin status entry references when runtime payload digest changes", async () => {
