@@ -1,3 +1,6 @@
+import json
+import shutil
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -14,10 +17,13 @@ from setta.project_state.project_manager_types import (
     SetActiveIdsRequest,
 )
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
+from setta.plugins.manager import PluginManager
 from setta.types.id import ID
 from setta.types.section_impls import SectionType
 
 from tests.utils.manager_fixture import real_project_manager, real_settings_manager
+
+FIXTURE_PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "plugins"
 
 
 class _RecordingFrontendSender:
@@ -38,6 +44,7 @@ def _build_ctx(
     main_manager,
     settings_manager,
     frontend_sender: _RecordingFrontendSender,
+    plugin_manager: PluginManager | None = None,
 ) -> Context:
     switcher = ProjectManagerSwitcher(
         main_manager=main_manager,
@@ -46,8 +53,54 @@ def _build_ctx(
     state = SimpleNamespace(
         project_manager_switcher=switcher,
         wmh_frontend_sender=frontend_sender,
+        plugin_manager=plugin_manager,
     )
     return Context(fastmcp=SimpleNamespace(state=state))
+
+
+def _build_plugin_manager(tmp_path: Path) -> PluginManager:
+    workspace_root = tmp_path / "workspace"
+    setta_files_root = tmp_path / "setta_files"
+    setta_home = tmp_path / "setta_home"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    setta_files_root.mkdir(parents=True, exist_ok=True)
+    setta_home.mkdir(parents=True, exist_ok=True)
+    return PluginManager(
+        workspace_root=workspace_root,
+        setta_files_root=setta_files_root,
+        setta_home=setta_home,
+        server_mode="ide",
+        setta_version="0.1.0",
+    )
+
+
+def _copy_fixture_plugin_to_workspace(
+    *,
+    manager: PluginManager,
+    fixture_name: str,
+) -> str:
+    source_root = FIXTURE_PLUGIN_ROOT / fixture_name
+    manifest_path = source_root / "setta.plugin.json"
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = manifest_payload["id"]
+    destination_root = manager.workspace_root / ".setta_plugins" / plugin_id
+    destination_root.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source_root, destination_root)
+    _prepare_fixture_frontend_dist(destination_root)
+    return plugin_id
+
+
+def _prepare_fixture_frontend_dist(plugin_root: Path) -> None:
+    frontend_root = plugin_root / "frontend"
+    source_entrypoint = frontend_root / "src" / "index.js"
+    if not source_entrypoint.is_file():
+        return
+    dist_root = frontend_root / "dist"
+    dist_root.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_entrypoint, dist_root / "index.js")
+    source_style = frontend_root / "src" / "index.css"
+    if source_style.is_file():
+        shutil.copy2(source_style, dist_root / "index.css")
 
 
 @pytest.mark.asyncio
@@ -243,3 +296,143 @@ async def test_reveal_right_pane_setting_fails_for_unknown_section_override() ->
         assert result.statuses[0].error.code == "mutation_failed"
         assert "Unknown section id" in result.statuses[0].error.message
         assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
+async def test_plugin_ui_setting_flow_from_config_schema_metadata(
+    tmp_path: Path,
+) -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        # Plugin settings declared in config schema should be discoverable via search.
+        search_result = search_ui_settings(
+            query="full fixture enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        result_ids = [entry.settingId for entry in search_result.results]
+        assert plugin_setting_id in result_ids
+
+        # Plugin settings should support read and write through plugin config persistence.
+        get_result = await get_ui_setting_value(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert get_result.error is None
+        assert get_result.value is False
+
+        set_result = await set_ui_setting_value(
+            settingId=plugin_setting_id,
+            value=True,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is None
+        assert set_result.changed is True
+        assert set_result.newValue is True
+
+        runtime_response = plugin_manager.get_runtime_response()
+        plugin_entry = next(
+            entry for entry in runtime_response.list.plugins if entry.pluginId == plugin_id
+        )
+        assert plugin_entry.config.currentConfig["enabled"] is True
+
+        # Reveal should resolve to plugin pane + plugin reveal handler metadata.
+        reveal_result = await reveal_ui_setting(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert reveal_result.emittedRevealCount == 1
+        assert len(reveal_result.statuses) == 1
+        assert reveal_result.statuses[0].status == "revealed"
+        assert reveal_result.statuses[0].target is not None
+        target = reveal_result.statuses[0].target
+        assert target is not None
+        assert target.strategy == "plugin_handler"
+        assert target.pluginId == plugin_id
+        assert target.paneId == "full-settings-pane"
+        assert target.pluginRevealKey == "full-settings"
+        assert target.overviewTabKey == "PluginPane:setta-fixture-full:full-settings-pane"
+        assert frontend_sender.reveal_messages
+
+
+@pytest.mark.asyncio
+async def test_plugin_ui_setting_returns_plugin_unavailable_when_disabled(
+    tmp_path: Path,
+) -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+        plugin_manager.disable_plugin(plugin_id=plugin_id)
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        # Disabled plugin settings should report plugin_unavailable consistently.
+        get_result = await get_ui_setting_value(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert get_result.error is not None
+        assert get_result.error.code == "plugin_unavailable"
+
+        set_result = await set_ui_setting_value(
+            settingId=plugin_setting_id,
+            value=False,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is not None
+        assert set_result.error.code == "plugin_unavailable"
+
+        reveal_result = await reveal_ui_setting(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert reveal_result.emittedRevealCount == 0
+        assert len(reveal_result.statuses) == 1
+        assert reveal_result.statuses[0].error is not None
+        assert reveal_result.statuses[0].error.code == "plugin_unavailable"

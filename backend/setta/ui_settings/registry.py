@@ -1,5 +1,7 @@
+from copy import deepcopy
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import quote
 
 from setta.project_state.project_manager_types import (
     GetAppDefinitionRequest,
@@ -25,12 +27,47 @@ if TYPE_CHECKING:
     from mcp.server.fastmcp.server import Context
 
 UISettingSourceFilter = Literal["core", "plugin", "all"]
+PLUGIN_SETTING_ID_PREFIX = "plugin::"
+PLUGIN_UI_SETTINGS_SCHEMA_KEY = "x-setta-ui-settings"
 
 
 class UISettingValidationError(ValueError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+@dataclass(frozen=True, slots=True)
+class _PluginUISettingDefinition:
+    localSettingId: str
+    title: str
+    description: str
+    synonyms: list[str]
+    paneId: str
+    revealKey: str
+    configPath: list[str]
+    mutability: Literal["readOnly", "writable"]
+    valueSchema: UISettingValueSchema
+    defaultValue: JSONValue
+
+
+def build_plugin_setting_id(*, plugin_id: str, local_setting_id: str) -> str:
+    return f"{PLUGIN_SETTING_ID_PREFIX}{plugin_id}::{local_setting_id}"
+
+
+def parse_plugin_setting_id(setting_id: str) -> tuple[str, str] | None:
+    if not setting_id.startswith(PLUGIN_SETTING_ID_PREFIX):
+        return None
+    remainder = setting_id[len(PLUGIN_SETTING_ID_PREFIX) :]
+    if remainder == "":
+        return None
+    parts = remainder.split("::", maxsplit=1)
+    if len(parts) != 2:
+        return None
+    plugin_id, local_setting_id = parts
+    if plugin_id == "" or local_setting_id == "":
+        return None
+    return plugin_id, local_setting_id
 
 
 @dataclass(slots=True)
@@ -400,10 +437,518 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
 
 def _build_plugin_entries(
     *,
-    ctx: "Context",  # noqa: ARG001 - plugin registry integration is follow-up work
-    project_config_id: ID,  # noqa: ARG001 - plugin registry integration is follow-up work
+    ctx: "Context",
+    project_config_id: ID,  # noqa: ARG001 - reserved for future plugin state scoping
 ) -> list[UISettingRuntimeEntry]:
-    return []
+    plugin_manager = getattr(ctx.fastmcp.state, "plugin_manager", None)
+    if plugin_manager is None:
+        return []
+    runtime_response = plugin_manager.get_runtime_response()
+    plugin_state_by_id: dict[str, str] = {}
+    for status_entry in runtime_response.status.plugins:
+        state_value = status_entry.state
+        plugin_state_by_id[status_entry.pluginId] = (
+            state_value.value if hasattr(state_value, "value") else str(state_value)
+        )
+    entries: list[UISettingRuntimeEntry] = []
+    for plugin in runtime_response.list.plugins:
+        plugin_state = plugin_state_by_id.get(plugin.pluginId)
+        if plugin_state != "active":
+            continue
+        if "registerPane" not in plugin.effectiveCapabilities:
+            continue
+        schema_json = plugin.config.schemaJson
+        if not isinstance(schema_json, dict):
+            continue
+        definitions = _parse_plugin_ui_setting_definitions(
+            schema_json=schema_json,
+            plugin_id=plugin.pluginId,
+        )
+        for definition in definitions:
+            entries.append(
+                _build_plugin_runtime_entry(
+                    plugin_id=plugin.pluginId,
+                    definition=definition,
+                )
+            )
+    return entries
+
+
+def _build_plugin_runtime_entry(
+    *,
+    plugin_id: str,
+    definition: _PluginUISettingDefinition,
+) -> UISettingRuntimeEntry:
+    setting_id = build_plugin_setting_id(
+        plugin_id=plugin_id,
+        local_setting_id=definition.localSettingId,
+    )
+    read_value = _build_plugin_read_value(
+        plugin_id=plugin_id,
+        config_path=definition.configPath,
+        default_value=definition.defaultValue,
+    )
+    write_value = (
+        None
+        if definition.mutability == "readOnly"
+        else _build_plugin_write_value(
+            plugin_id=plugin_id,
+            config_path=definition.configPath,
+            default_value=definition.defaultValue,
+        )
+    )
+    return UISettingRuntimeEntry(
+        metadata=UISettingEntry(
+            settingId=setting_id,
+            title=definition.title,
+            synonyms=definition.synonyms,
+            description=definition.description,
+            location=UISettingLocation(
+                side="left",
+                overviewTabKey=_build_plugin_pane_overview_tab_key(
+                    plugin_id=plugin_id,
+                    pane_id=definition.paneId,
+                ),
+                pluginId=plugin_id,
+                paneId=definition.paneId,
+            ),
+            highlight=UISettingHighlight(
+                strategy="plugin_handler",
+                pluginRevealKey=definition.revealKey,
+            ),
+            source="plugin",
+            pluginId=plugin_id,
+            mutability=definition.mutability,
+            valueSchema=definition.valueSchema,
+        ),
+        readValue=read_value,
+        writeValue=write_value,
+    )
+
+
+def _build_plugin_read_value(
+    *,
+    plugin_id: str,
+    config_path: list[str],
+    default_value: JSONValue,
+):
+    def _read_plugin_value(
+        ctx: "Context",
+        project_config_id: ID,  # noqa: ARG001 - plugin settings are project-global
+    ) -> JSONValue:
+        plugin_entry = _require_active_plugin_runtime_entry(
+            ctx=ctx,
+            plugin_id=plugin_id,
+        )
+        return _read_plugin_config_path_value(
+            config=plugin_entry.config.currentConfig,
+            config_path=config_path,
+            default_value=default_value,
+        )
+
+    return _read_plugin_value
+
+
+def _build_plugin_write_value(
+    *,
+    plugin_id: str,
+    config_path: list[str],
+    default_value: JSONValue,
+):
+    async def _write_plugin_value(
+        ctx: "Context",
+        project_config_id: ID,  # noqa: ARG001 - plugin settings are project-global
+        value: JSONValue,
+    ) -> UISettingMutationResult:
+        plugin_entry = _require_active_plugin_runtime_entry(
+            ctx=ctx,
+            plugin_id=plugin_id,
+        )
+        old_config = _clone_json_object(plugin_entry.config.currentConfig)
+        old_value = _read_plugin_config_path_value(
+            config=old_config,
+            config_path=config_path,
+            default_value=default_value,
+        )
+        next_config = _write_plugin_config_path_value(
+            config=old_config,
+            config_path=config_path,
+            value=value,
+        )
+        ctx.fastmcp.state.plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config=next_config,
+        )
+        refreshed_entry = _require_active_plugin_runtime_entry(
+            ctx=ctx,
+            plugin_id=plugin_id,
+        )
+        new_value = _read_plugin_config_path_value(
+            config=refreshed_entry.config.currentConfig,
+            config_path=config_path,
+            default_value=default_value,
+        )
+        return UISettingMutationResult(
+            oldValue=old_value,
+            newValue=new_value,
+            normalizedValue=value,
+            changed=old_value != new_value,
+        )
+
+    return _write_plugin_value
+
+
+def _clone_json_object(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    return deepcopy(value)
+
+
+def _parse_plugin_ui_setting_definitions(
+    *,
+    schema_json: dict[str, Any],
+    plugin_id: str,
+) -> list[_PluginUISettingDefinition]:
+    if PLUGIN_UI_SETTINGS_SCHEMA_KEY not in schema_json:
+        return []
+    raw_definitions = schema_json[PLUGIN_UI_SETTINGS_SCHEMA_KEY]
+    if not isinstance(raw_definitions, list):
+        raise ValueError(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY} must be a list."
+        )
+
+    definitions: list[_PluginUISettingDefinition] = []
+    seen_local_ids: set[str] = set()
+    for index, raw_definition in enumerate(raw_definitions):
+        if not isinstance(raw_definition, dict):
+            raise ValueError(
+                f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] must be an object."
+            )
+        local_setting_id = _require_non_empty_string(
+            raw_definition.get("settingId"),
+            context=(
+                f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+                "settingId must be a non-empty string."
+            ),
+        )
+        if "::" in local_setting_id:
+            raise ValueError(
+                f"Plugin {plugin_id} settingId {local_setting_id} must not contain '::'."
+            )
+        if local_setting_id in seen_local_ids:
+            raise ValueError(
+                f"Plugin {plugin_id} duplicated ui settingId: {local_setting_id}"
+            )
+        seen_local_ids.add(local_setting_id)
+        title = _require_non_empty_string(
+            raw_definition.get("title"),
+            context=(
+                f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+                "title must be a non-empty string."
+            ),
+        )
+        description = _require_non_empty_string(
+            raw_definition.get("description"),
+            context=(
+                f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+                "description must be a non-empty string."
+            ),
+        )
+        pane_id = _require_non_empty_string(
+            raw_definition.get("paneId"),
+            context=(
+                f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+                "paneId must be a non-empty string."
+            ),
+        )
+        reveal_key = _require_non_empty_string(
+            raw_definition.get("revealKey"),
+            context=(
+                f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+                "revealKey must be a non-empty string."
+            ),
+        )
+        config_path = _normalize_plugin_config_path(
+            raw_definition.get("configPath"),
+            plugin_id=plugin_id,
+            index=index,
+        )
+        mutability = _normalize_plugin_mutability(
+            raw_definition.get("mutability"),
+            plugin_id=plugin_id,
+            index=index,
+        )
+        synonyms = _normalize_plugin_synonyms(
+            raw_definition.get("synonyms"),
+            plugin_id=plugin_id,
+            index=index,
+        )
+        value_schema = _resolve_plugin_value_schema(
+            schema_json=schema_json,
+            raw_value_schema=raw_definition.get("valueSchema"),
+            config_path=config_path,
+            plugin_id=plugin_id,
+            local_setting_id=local_setting_id,
+        )
+        default_value = raw_definition.get("defaultValue")
+        definitions.append(
+            _PluginUISettingDefinition(
+                localSettingId=local_setting_id,
+                title=title,
+                description=description,
+                synonyms=synonyms,
+                paneId=pane_id,
+                revealKey=reveal_key,
+                configPath=config_path,
+                mutability=mutability,
+                valueSchema=value_schema,
+                defaultValue=default_value,
+            )
+        )
+    return definitions
+
+
+def _require_non_empty_string(value: Any, *, context: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(context)
+    normalized = value.strip()
+    if normalized == "":
+        raise ValueError(context)
+    return normalized
+
+
+def _normalize_plugin_config_path(
+    raw_value: Any,
+    *,
+    plugin_id: str,
+    index: int,
+) -> list[str]:
+    context = (
+        f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+        "configPath must be a non-empty string array."
+    )
+    if not isinstance(raw_value, list) or len(raw_value) == 0:
+        raise ValueError(context)
+    output: list[str] = []
+    for path_item in raw_value:
+        output.append(_require_non_empty_string(path_item, context=context))
+    return output
+
+
+def _normalize_plugin_synonyms(
+    raw_value: Any,
+    *,
+    plugin_id: str,
+    index: int,
+) -> list[str]:
+    if raw_value is None:
+        return []
+    if not isinstance(raw_value, list):
+        raise ValueError(
+            f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] synonyms must be a string array."
+        )
+    output: list[str] = []
+    for synonym in raw_value:
+        output.append(
+            _require_non_empty_string(
+                synonym,
+                context=(
+                    f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] "
+                    "synonyms must contain non-empty strings."
+                ),
+            )
+        )
+    return output
+
+
+def _normalize_plugin_mutability(
+    raw_value: Any,
+    *,
+    plugin_id: str,
+    index: int,
+) -> Literal["readOnly", "writable"]:
+    if raw_value is None:
+        return "writable"
+    if raw_value in {"readOnly", "writable"}:
+        return raw_value
+    raise ValueError(
+        f"Plugin {plugin_id} {PLUGIN_UI_SETTINGS_SCHEMA_KEY}[{index}] mutability must be readOnly or writable."
+    )
+
+
+def _resolve_plugin_value_schema(
+    *,
+    schema_json: dict[str, Any],
+    raw_value_schema: Any,
+    config_path: list[str],
+    plugin_id: str,
+    local_setting_id: str,
+) -> UISettingValueSchema:
+    if raw_value_schema is not None:
+        if not isinstance(raw_value_schema, dict):
+            raise ValueError(
+                f"Plugin {plugin_id} setting {local_setting_id} valueSchema must be an object."
+            )
+        return UISettingValueSchema.model_validate(raw_value_schema)
+    inferred = _infer_plugin_value_schema_from_config_schema(
+        schema_json=schema_json,
+        config_path=config_path,
+    )
+    if inferred is not None:
+        return inferred
+    raise ValueError(
+        f"Plugin {plugin_id} setting {local_setting_id} must define valueSchema."
+    )
+
+
+def _infer_plugin_value_schema_from_config_schema(
+    *,
+    schema_json: dict[str, Any],
+    config_path: list[str],
+) -> UISettingValueSchema | None:
+    schema_node = _resolve_schema_node_for_config_path(
+        schema_json=schema_json,
+        config_path=config_path,
+    )
+    if schema_node is None:
+        return None
+    raw_type: Any = schema_node.get("type")
+    if isinstance(raw_type, list):
+        non_null_types = [item for item in raw_type if item != "null"]
+        if len(non_null_types) != 1:
+            return None
+        raw_type = non_null_types[0]
+    if raw_type not in {"boolean", "string", "number", "integer", "array", "object"}:
+        return None
+    enum_values = schema_node.get("enum")
+    if enum_values is not None and not isinstance(enum_values, list):
+        return None
+    minimum = _as_float(schema_node.get("minimum"))
+    maximum = _as_float(schema_node.get("maximum"))
+    min_length = _as_int(schema_node.get("minLength"))
+    max_length = _as_int(schema_node.get("maxLength"))
+    return UISettingValueSchema(
+        type=raw_type,
+        enumValues=enum_values,
+        minimum=minimum,
+        maximum=maximum,
+        minLength=min_length,
+        maxLength=max_length,
+    )
+
+
+def _resolve_schema_node_for_config_path(
+    *,
+    schema_json: dict[str, Any],
+    config_path: list[str],
+) -> dict[str, Any] | None:
+    current_node: Any = schema_json
+    for segment in config_path:
+        if not isinstance(current_node, dict):
+            return None
+        if "properties" not in current_node:
+            return None
+        properties = current_node["properties"]
+        if not isinstance(properties, dict):
+            return None
+        if segment not in properties:
+            return None
+        current_node = properties[segment]
+    if not isinstance(current_node, dict):
+        return None
+    return current_node
+
+
+def _as_float(value: Any) -> float | None:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    return float(value)
+
+
+def _as_int(value: Any) -> int | None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        return None
+    return int(value)
+
+
+def _build_plugin_pane_overview_tab_key(*, plugin_id: str, pane_id: str) -> str:
+    return f"PluginPane:{quote(plugin_id, safe='')}:{quote(pane_id, safe='')}"
+
+
+def _require_active_plugin_runtime_entry(
+    *,
+    ctx: "Context",
+    plugin_id: str,
+):
+    plugin_manager = getattr(ctx.fastmcp.state, "plugin_manager", None)
+    if plugin_manager is None:
+        raise UISettingValidationError(
+            "plugin_unavailable",
+            "Plugin manager is unavailable for plugin UI setting access.",
+        )
+    runtime_response = plugin_manager.get_runtime_response()
+    plugin_state: str | None = None
+    for status_entry in runtime_response.status.plugins:
+        if status_entry.pluginId != plugin_id:
+            continue
+        state_value = status_entry.state
+        plugin_state = (
+            state_value.value if hasattr(state_value, "value") else str(state_value)
+        )
+        break
+    if plugin_state != "active":
+        if plugin_state is None:
+            raise UISettingValidationError(
+                "plugin_unavailable",
+                f"Plugin {plugin_id} is unavailable.",
+            )
+        raise UISettingValidationError(
+            "plugin_unavailable",
+            f"Plugin {plugin_id} is unavailable (state={plugin_state}).",
+        )
+
+    for plugin in runtime_response.list.plugins:
+        if plugin.pluginId == plugin_id:
+            return plugin
+    raise UISettingValidationError(
+        "plugin_unavailable",
+        f"Plugin {plugin_id} is unavailable (state=active, runtime entry missing).",
+    )
+
+
+def _read_plugin_config_path_value(
+    *,
+    config: Any,
+    config_path: list[str],
+    default_value: JSONValue,
+) -> JSONValue:
+    current_value: Any = config
+    for segment in config_path:
+        if not isinstance(current_value, dict):
+            return default_value
+        if segment not in current_value:
+            return default_value
+        current_value = current_value[segment]
+    return current_value
+
+
+def _write_plugin_config_path_value(
+    *,
+    config: dict[str, Any],
+    config_path: list[str],
+    value: JSONValue,
+) -> dict[str, Any]:
+    output = deepcopy(config)
+    current_value: dict[str, Any] = output
+    for segment in config_path[:-1]:
+        if segment in current_value and isinstance(current_value[segment], dict):
+            nested_value = current_value[segment]
+        else:
+            nested_value = {}
+            current_value[segment] = nested_value
+        current_value = nested_value
+    current_value[config_path[-1]] = value
+    return output
 
 
 def _get_project_manager(ctx: "Context", project_config_id: ID):

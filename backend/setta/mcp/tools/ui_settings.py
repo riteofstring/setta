@@ -25,6 +25,7 @@ from setta.ui_settings.models import (
 from setta.ui_settings.registry import (
     UISettingValidationError,
     build_ui_settings_registry,
+    parse_plugin_setting_id,
     validate_ui_setting_value,
 )
 
@@ -177,13 +178,27 @@ async def get_ui_setting_value(
     runtime_entry = registry.get(settingId)
     if runtime_entry is None:
         return GetUISettingValueResult(
-            error=UISettingToolError(
-                code="setting_not_found",
-                message=f"Unknown setting id: {settingId}",
+            error=_resolve_missing_setting_error(
+                ctx=ctx,
+                setting_id=settingId,
             )
         )
 
-    value = await _call_maybe_async(runtime_entry.readValue(ctx, project_config_id))
+    try:
+        value = await _call_maybe_async(runtime_entry.readValue(ctx, project_config_id))
+    except UISettingValidationError as exc:
+        return GetUISettingValueResult(
+            setting=_build_result_summary(runtime_entry.metadata),
+            error=UISettingToolError(code=exc.code, message=str(exc)),
+        )
+    except Exception as exc:
+        return GetUISettingValueResult(
+            setting=_build_result_summary(runtime_entry.metadata),
+            error=UISettingToolError(
+                code="mutation_failed",
+                message=f"Failed to read {settingId}: {exc}",
+            ),
+        )
     return GetUISettingValueResult(
         setting=_build_result_summary(runtime_entry.metadata),
         value=value,
@@ -223,9 +238,9 @@ async def set_ui_setting_value(
     runtime_entry = registry.get(settingId)
     if runtime_entry is None:
         return SetUISettingValueResult(
-            error=UISettingToolError(
-                code="setting_not_found",
-                message=f"Unknown setting id: {settingId}",
+            error=_resolve_missing_setting_error(
+                ctx=ctx,
+                setting_id=settingId,
             )
         )
     if runtime_entry.writeValue is None:
@@ -355,6 +370,47 @@ def _resolve_share_session_id(ctx: Context) -> str | None:
     return None
 
 
+def _resolve_missing_setting_error(
+    *,
+    ctx: Context,
+    setting_id: str,
+) -> UISettingToolError:
+    parsed_plugin_setting = parse_plugin_setting_id(setting_id)
+    if parsed_plugin_setting is None:
+        return UISettingToolError(
+            code="setting_not_found",
+            message=f"Unknown setting id: {setting_id}",
+        )
+
+    plugin_id, _ = parsed_plugin_setting
+    plugin_manager = getattr(ctx.fastmcp.state, "plugin_manager", None)
+    if plugin_manager is None:
+        return UISettingToolError(
+            code="plugin_unavailable",
+            message=f"Plugin {plugin_id} is unavailable.",
+        )
+
+    runtime_response = plugin_manager.get_runtime_response()
+    for status_entry in runtime_response.status.plugins:
+        if status_entry.pluginId != plugin_id:
+            continue
+        state_value = status_entry.state
+        state_label = (
+            state_value.value if hasattr(state_value, "value") else str(state_value)
+        )
+        if state_label != "active":
+            return UISettingToolError(
+                code="plugin_unavailable",
+                message=f"Plugin {plugin_id} is unavailable (state={state_label}).",
+            )
+        break
+
+    return UISettingToolError(
+        code="setting_not_found",
+        message=f"Unknown setting id: {setting_id}",
+    )
+
+
 async def _reveal_settings(
     *,
     ctx: Context,
@@ -382,9 +438,9 @@ async def _reveal_settings(
                 RevealUISettingStatus(
                     settingId=setting_id,
                     status="failed",
-                    error=UISettingToolError(
-                        code="setting_not_found",
-                        message=f"Unknown setting id: {setting_id}",
+                    error=_resolve_missing_setting_error(
+                        ctx=ctx,
+                        setting_id=setting_id,
                     ),
                 )
             ],

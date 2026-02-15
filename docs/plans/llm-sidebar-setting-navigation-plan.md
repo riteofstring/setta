@@ -290,7 +290,15 @@ To support plugin panes/settings cleanly:
 3. Plugin read/write hooks for plugin-owned setting values.
 4. Stable plugin setting IDs namespaced by plugin ID.
 
-Note: plugin pane registration already exists in frontend runtime, but backend still lacks plugin setting metadata visibility and setting-level mutation contracts.
+Note: plugin pane registration already exists in frontend runtime. Backend now has
+a v1 plugin-setting path via config-schema declarations and plugin config
+persistence; richer plugin-owned runtime handlers remain follow-up work.
+
+Current v1 contract implemented:
+- Plugin settings can be declared in plugin config schema JSON under `x-setta-ui-settings`.
+- Each declaration includes `settingId`, `title`, `description`, `paneId`, `revealKey`, and `configPath` (plus optional `synonyms`, `mutability`, `valueSchema`, `defaultValue`).
+- Setting IDs are namespaced as `plugin::<pluginId>::<settingId>`.
+- Read/write resolves through plugin config persistence (same path used by plugin config save APIs).
 
 ### Registry merge policy
 - Include only enabled + runtime-healthy plugins.
