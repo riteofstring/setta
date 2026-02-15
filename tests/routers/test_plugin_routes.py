@@ -217,6 +217,12 @@ def test_plugin_routes_backend_static_router_fixture_roundtrip() -> None:
                 "kind": "backend-static-router",
             }
 
+            static_response = client.get(
+                "/plugin-static/setta-fixture-backend-static-router/fixture/hello.txt"
+            )
+            assert static_response.status_code == 200
+            assert static_response.text == "fixture static payload\n"
+
 
 def test_plugin_asset_route_rejects_non_frontend_files() -> None:
     # Asset route should only expose declared frontend asset roots.

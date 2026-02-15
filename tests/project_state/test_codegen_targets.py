@@ -569,10 +569,13 @@ class TestCodegenTargetsRunCommand:
         )
         try:
             await manager._refresh_codegen_state(project_state)
+            target_dir = manager._plugin_codegen_target_dir_name(
+                "setta-fixture-backend-codegen:typescript"
+            )
             output_root = (
                 build_project_sections_dir(C.CODE_FOLDER, project_config.name)
                 / "plugin_codegen"
-                / "setta-fixture-backend-codegen_typescript"
+                / target_dir
             )
             output_path = output_root / "setta_gen.ts"
             assert output_path.exists()
@@ -640,6 +643,51 @@ class TestCodegenTargetsRunCommand:
         finally:
             manager.shutdown()
             plugin_manager.shutdown_backend_plugins()
+
+    async def test_plugin_codegen_target_dir_name_avoids_cross_target_collisions(
+        self,
+    ) -> None:
+        class _StubManager:
+            def has_backend_codegen_target(self, _target_id: str) -> bool:
+                return True
+
+            def generate_backend_codegen_target(
+                self,
+                *,
+                target_id: str,
+                project_state: dict[str, Any],
+                target_options: dict[str, Any],
+            ) -> list[tuple[str, str]]:
+                return [("setta_gen.txt", f"{target_id}:{project_state['projectConfig']['name']}")]
+
+        project_config = ProjectConfig(
+            name="PluginCodegenCollision",
+            codegenTargets=[
+                ProjectCodegenPluginTarget(language="foo:bar_baz"),
+                ProjectCodegenPluginTarget(language="foo_bar:baz"),
+            ],
+        )
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=_StubManager(),  # type: ignore[arg-type]
+        )
+        try:
+            dir_a = manager._plugin_codegen_target_dir_name("foo:bar_baz")
+            dir_b = manager._plugin_codegen_target_dir_name("foo_bar:baz")
+            assert dir_a != dir_b
+        finally:
+            manager.shutdown()
 
     async def test_refresh_codegen_state_hashes_project_state_once_per_refresh(
         self,

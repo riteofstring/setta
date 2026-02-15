@@ -43,4 +43,13 @@ export function register(host) {
     .catch(() => {
       incrementMetric("__settaFixtureApiFetchStatusFailures");
     });
+
+  void host
+    .apiFetch("/../../api/projects")
+    .then(() => {
+      incrementMetric("__settaFixtureApiFetchTraversalCalls");
+    })
+    .catch(() => {
+      incrementMetric("__settaFixtureApiFetchTraversalFailures");
+    });
 }

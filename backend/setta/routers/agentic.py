@@ -654,18 +654,8 @@ async def route_create_external_agent_config(
         run_mode=x.runMode,
     )
     env_var_whitelist = sorted(
-        {
-            *(name for name in x.envVarWhitelist),
-            *(plugin_adapter.envVarWhitelist if plugin_adapter is not None else []),
-        }
+        {name.strip() for name in x.envVarWhitelist if name.strip()}
     )
-    default_model = x.defaultModel
-    if (
-        default_model is None
-        and plugin_adapter is not None
-        and plugin_adapter.defaultModel
-    ):
-        default_model = plugin_adapter.defaultModel
 
     approval_policy = x.approvalPolicy
     sandbox_policy = x.sandboxPolicy
@@ -690,7 +680,7 @@ async def route_create_external_agent_config(
         runMode=x.runMode,
         commandPath=x.commandPath,
         baseUrl=x.baseUrl,
-        defaultModel=default_model,
+        defaultModel=x.defaultModel,
         sandboxPolicy=sandbox_policy,
         approvalPolicy=approval_policy,
         settingsMode=x.settingsMode,
@@ -745,25 +735,15 @@ async def route_update_external_agent_config(
         run_mode=x.config.runMode,
     )
     env_var_whitelist = sorted(
-        {
-            *(name for name in x.config.envVarWhitelist),
-            *(plugin_adapter.envVarWhitelist if plugin_adapter is not None else []),
-        }
+        {name.strip() for name in x.config.envVarWhitelist if name.strip()}
     )
-    default_model = x.config.defaultModel
-    if (
-        default_model is None
-        and plugin_adapter is not None
-        and plugin_adapter.defaultModel
-    ):
-        default_model = plugin_adapter.defaultModel
     updated_config = x.config.model_copy(
         update={
             "pluginAdapterId": (
                 plugin_adapter.adapterId if plugin_adapter is not None else None
             ),
             "envVarWhitelist": env_var_whitelist,
-            "defaultModel": default_model,
+            "defaultModel": x.config.defaultModel,
         }
     )
     configs = load_external_agent_configs(ctx.state.dbe)

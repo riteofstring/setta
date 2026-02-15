@@ -1179,17 +1179,18 @@ class BaseProjectManager(ABC):
             / "plugin_codegen"
         )
 
-    def _plugin_codegen_target_dir_name(self, target_language: str) -> str:
+    def _plugin_codegen_target_dir_name(self, target_id: str) -> str:
         normalized_chars: list[str] = []
-        for char in target_language:
+        for char in target_id:
             if char.isalnum() or char in {"-", "_", "."}:
                 normalized_chars.append(char)
             else:
                 normalized_chars.append("_")
         normalized = "".join(normalized_chars).strip("_")
         if normalized == "":
-            return "_"
-        return normalized
+            normalized = "_"
+        short_hash = hashlib.sha256(target_id.encode("utf-8")).hexdigest()[:12]
+        return f"{normalized}__{short_hash}"
 
     def _resolve_plugin_codegen_targets(
         self,

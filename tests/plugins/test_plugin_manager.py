@@ -8,6 +8,7 @@ import threading
 import time
 import zipfile
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -1708,7 +1709,7 @@ def test_load_backend_plugins_registers_fixture_static_dir_and_router(
         }
 
         static_response = client.get(
-            "/plugins/setta-fixture-backend-static-router/fixture/hello.txt"
+            "/plugin-static/setta-fixture-backend-static-router/fixture/hello.txt"
         )
         assert static_response.status_code == 200
         assert static_response.text == "fixture static payload\n"
@@ -1810,7 +1811,7 @@ def test_load_backend_plugins_registers_fixture_language_server(
         status_registration.name == "setta-fixture-backend-language-server:typescript"
     )
     assert status_registration.language == "typescript"
-    assert status_registration.command == "typescript-language-server"
+    assert status_registration.command == sys.executable
     assert status_registration.args == ["--stdio"]
     assert status_registration.settingsKey == "typescriptLanguageServer"
 
@@ -1819,7 +1820,7 @@ def test_load_backend_plugins_registers_fixture_language_server(
     registration = registrations[0]
     assert registration.plugin_id == "setta-fixture-backend-language-server"
     assert registration.language == "typescript"
-    assert registration.command == "typescript-language-server"
+    assert registration.command == sys.executable
     assert registration.args == ("--stdio",)
     assert registration.settings_key == "typescriptLanguageServer"
 
@@ -1839,7 +1840,7 @@ def test_load_backend_plugins_registers_custom_language_server_key(
         "    plugin.register_language_server(\n"
         "        {\n"
         "            'language': 'fixturedsl',\n"
-        "            'command': 'typescript-language-server',\n"
+        f"            'command': {sys.executable!r},\n"
         "            'args': ['--stdio'],\n"
         "            'settingsKey': 'fixtureDslLanguageServer',\n"
         "        }\n"
@@ -2242,7 +2243,7 @@ def test_backend_language_server_registration_rejects_invalid_provider_payload(
         "    plugin.register_language_server(\n"
         "        {\n"
         "            'language': 'typescript',\n"
-        "            'command': 'typescript-language-server',\n"
+        f"            'command': {sys.executable!r},\n"
         "            'args': '--stdio',\n"
         "        }\n"
         "    )\n",
@@ -5478,3 +5479,240 @@ def test_worker_route_proxy_handles_plain_text_body_and_head_options_requests(
 
     assert len(captured_params) >= 1
     assert captured_params[0]["jsonBody"] == "plain-text-body"
+
+
+def test_scoped_link_and_uninstall_work_for_shadowed_entries(tmp_path: Path) -> None:
+    # Explicit scope lifecycle operations should work even when that scope is shadowed.
+    manager = _make_manager(tmp_path)
+    plugin_root = _fixture_path("frontend")
+    manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=True,
+    )
+    linked_shadowed = manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.setta_files,
+        enable=True,
+        force=True,
+    )
+    assert linked_shadowed.sourceScope == PluginScope.setta_files
+    assert linked_shadowed.state == PluginRuntimeState.shadowed
+
+    removed = manager.uninstall_plugin(
+        plugin_id="setta-fixture-frontend",
+        scope=PluginScope.setta_files,
+    )
+    assert removed.pluginId == "setta-fixture-frontend"
+    assert removed.removedFromScope == PluginScope.setta_files
+
+    remaining_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-frontend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(remaining_entries) == 1
+    assert remaining_entries[0].state == PluginRuntimeState.active
+
+
+def test_update_plugin_preserves_disabled_state(tmp_path: Path) -> None:
+    # Updating a disabled plugin should not re-enable it.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        manager.install_plugin(
+            source_spec=f"pypi:{package_name}=={version}",
+            installer=PluginInstallerBackend.pip,
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+        manager.disable_plugin(plugin_id=package_name)
+
+        update_result = manager.update_plugin(
+            plugin_id=package_name,
+            scope=PluginScope.workspace,
+        )
+        assert update_result.pluginId == package_name
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+    entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == package_name
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(entries) == 1
+    assert entries[0].state == PluginRuntimeState.disabled
+
+
+def test_backup_existing_plugin_uses_collision_proof_history_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # History snapshots should not collide when multiple backups share the same timestamp.
+    manager = _make_manager(tmp_path)
+    plugin_id = "setta-fixture-frontend"
+    scope = PluginScope.workspace
+    target_path = _scope_root(manager, scope) / plugin_id
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(_fixture_path("frontend"), target_path)
+    frozen_now = datetime(2026, 1, 1, tzinfo=UTC)
+
+    class _FrozenDateTime:
+        @staticmethod
+        def now(_tz: object = None) -> datetime:
+            return frozen_now
+
+    monkeypatch.setattr("setta.plugins.manager.datetime", _FrozenDateTime)
+
+    manager._backup_existing_plugin(plugin_id, scope, target_path)
+    manager._backup_existing_plugin(plugin_id, scope, target_path)
+
+    metadata = manager._load_install_metadata()
+    entry = metadata.entries[manager._metadata_key(plugin_id, scope)]
+    assert len(entry.history) == 2
+    assert entry.history[0].snapshotPath != entry.history[1].snapshotPath
+    assert Path(entry.history[0].snapshotPath).exists()
+    assert Path(entry.history[1].snapshotPath).exists()
+
+
+def test_apply_lockfile_rejects_duplicate_scope_plugin_entries(tmp_path: Path) -> None:
+    # Duplicate (scope, pluginId) lockfile entries should fail validation.
+    manager = _make_manager(tmp_path)
+    lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
+    lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+    lockfile_path.write_text(
+        json.dumps(
+            {
+                "plugins": [
+                    {
+                        "pluginId": "setta-fixture-frontend",
+                        "version": "0.1.0",
+                        "canonicalSourceKey": "local:/tmp/a",
+                        "scope": "workspace",
+                    },
+                    {
+                        "pluginId": "setta-fixture-frontend",
+                        "version": "0.2.0",
+                        "canonicalSourceKey": "local:/tmp/b",
+                        "scope": "workspace",
+                    },
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.apply_lockfile(check=False)
+    assert exc_info.value.code == "PLUGIN_LOCKFILE_INVALID"
+    assert "workspace:setta-fixture-frontend" in exc_info.value.message
+
+
+def test_backend_language_server_registration_rejects_missing_command_binary(
+    tmp_path: Path,
+) -> None:
+    # Language-server registration should fail when command is not launchable.
+    manager = _make_manager(tmp_path)
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-language-server",
+        scope=PluginScope.workspace,
+    )
+    (backend_root / "backend" / "entrypoint.py").write_text(
+        "def register(plugin):\n"
+        "    plugin.register_language_server(\n"
+        "        {\n"
+        "            'language': 'typescript',\n"
+        "            'command': 'setta-missing-language-server-bin',\n"
+        "            'args': ['--stdio'],\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    manager.rescan()
+    manager.load_backend_plugins(app=FastAPI())
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-language-server"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(status_entries) == 1
+    assert status_entries[0].state == PluginRuntimeState.invalid
+    assert any(
+        error.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+        and "not available on PATH" in error.message
+        for error in status_entries[0].errors
+    )
+
+
+def test_stderr_pipe_reader_keeps_bounded_tail(tmp_path: Path) -> None:
+    # Stderr reader buffering should keep only a bounded tail of lines.
+    manager = _make_manager(tmp_path)
+
+    class _LineStream:
+        def __init__(self, lines: list[str]) -> None:
+            self._lines = lines
+
+        def readline(self) -> str:
+            if len(self._lines) == 0:
+                return ""
+            return self._lines.pop(0)
+
+    stream = _LineStream([f"stderr-{idx}\n" for idx in range(300)] + [""])
+    reader = manager._register_worker_pipe_reader(stream, max_buffered_lines=6)
+    reader.join(timeout_seconds=1.0)
+
+    buffered: list[str] = []
+    while True:
+        line = reader.read_line(timeout_seconds=0.0)
+        if line is None:
+            break
+        buffered.append(line)
+
+    assert buffered == [f"stderr-{idx}\n" for idx in range(295, 300)] + [""]
+
+
+def test_plugin_manager_destructor_skips_shutdown_while_python_finalizes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # __del__ should avoid shutdown work during interpreter finalization.
+    manager = _make_manager(tmp_path)
+    shutdown_calls: list[bool] = []
+
+    def _record_shutdown() -> None:
+        shutdown_calls.append(True)
+
+    monkeypatch.setattr(manager, "shutdown_backend_plugins", _record_shutdown)
+    monkeypatch.setattr("setta.plugins.manager.sys.is_finalizing", lambda: True)
+
+    PluginManager.__del__(manager)
+    assert shutdown_calls == []

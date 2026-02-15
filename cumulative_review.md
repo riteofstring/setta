@@ -37,3 +37,16 @@
 - Added explicit `section_kind_missing` fallback handling and user-facing copy for plugin sections whose kind is no longer registered.
 - Fixed plugin fixture reset discovery to recurse nested fixture directories and added Playwright fixture build signature caching to skip unchanged rebuilds.
 - Added/updated backend unit/integration tests, frontend Vitest coverage, and Playwright E2E coverage for the new runtime and fallback behaviors.
+
+## 2026-02-15T15:39:26-08:00
+
+- Fixed scoped plugin lifecycle regressions by allowing explicit scoped write operations (`install/link/uninstall/update/rollback`) to resolve shadowed entries, while keeping active/effective read behavior unchanged.
+- Preserved plugin enablement intent through updates so `update_plugin` no longer re-enables previously disabled plugins.
+- Hardened plugin lifecycle determinism and correctness by making history snapshots collision-proof and rejecting duplicate `(scope, pluginId)` entries during lockfile apply.
+- Fixed backend plugin static route reachability by moving backend static mounts to a non-conflicting `/plugin-static/{pluginId}/...` namespace.
+- Added fail-fast backend language-server command validation (path/binary launchability) and made backend boot await LSP startup so failures surface during initialization rather than after "ready".
+- Addressed runtime stability/perf issues by bounding backend worker stderr buffering, guarding plugin-manager destructor cleanup during interpreter finalization, and removing dead backend startup/shutdown task scaffolding.
+- Simplified external-agent adapter config persistence to store user values (not merged adapter defaults), while preserving live adapter policy at runtime; also fixed finalized plugin-process stream text to preserve exact chunk concatenation.
+- Prevented frontend plugin `apiFetch` path traversal by rejecting relative traversal segments during path normalization and added new unit + Playwright regression coverage for escaped/traversal inputs.
+- Resolved Python 3.13 LSP initialization issues by requiring explicit event loops in file watchers and lazily constructing the watcher under a running loop.
+- Added/updated backend unit/integration tests, frontend Vitest tests, and Playwright E2E tests for all above fixes, including deployment-policy MCP gating and plugin codegen target-directory collision coverage.

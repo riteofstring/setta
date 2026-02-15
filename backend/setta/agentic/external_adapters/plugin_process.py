@@ -170,7 +170,7 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
             )
 
         if message_id is not None:
-            message_text = "\n".join(message_text_parts).strip()
+            message_text = "".join(message_text_parts).strip()
             yield ExternalAgentStreamEvent(
                 raw={"type": "message_stop", "messageId": message_id},
                 stream_chunk=MessageStopEvent(message_id=message_id),

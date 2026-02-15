@@ -526,12 +526,8 @@ class SettaFastAPIState:
                     extra_values={"service": "mcp-client"},
                 )
             if self.lsps and self.lsp_readers and self.lsp_writers:
-                spawn_background_task(
-                    start_lsps(self.lsps, self.lsp_readers, self.lsp_writers),
-                    label="lsp-startup",
-                    request_id="boot",
-                    extra_values={"service": "language-servers"},
-                )
+                self.init_status.record("Starting language servers")
+                await start_lsps(self.lsps, self.lsp_readers, self.lsp_writers)
             if self.specific_file_watcher:
                 self.specific_file_watcher.start()
 

@@ -922,7 +922,7 @@ class _WorkerBackendPluginContext:
                     ),
                 )
             params["shareSessionId"] = share_session_id.strip()
-        _ = self._host_call("host.emit_listener_dependency_event", params)
+        self._host_call("host.emit_listener_dependency_event", params)
 
     def register_startup_task(self, _coro_fn: Any) -> None:
         raise WorkerError(

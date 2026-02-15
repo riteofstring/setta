@@ -17,8 +17,9 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import wraps
 from pathlib import Path
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 from typing import TYPE_CHECKING, Any, Literal, Optional
+from uuid import uuid4
 
 from fastapi.encoders import jsonable_encoder
 from jsonschema import ValidationError as JSONSchemaValidationError
@@ -130,6 +131,8 @@ _MODE_ALLOWED_CAPABILITIES = {
         }
     ),
 }
+
+_BACKEND_WORKER_STDERR_MAX_LINES = 200
 
 _BACKEND_PLUGIN_API_VERSION = 1
 _UNVERIFIED_SOURCE_WARNING = "Source is unverified. Install only from trusted owners."
@@ -249,20 +252,44 @@ class RegisteredBackendCodegenTarget:
 
 
 class _BackendWorkerPipeReader:
-    def __init__(self, stream: Any) -> None:
+    def __init__(
+        self,
+        stream: Any,
+        *,
+        max_buffered_lines: int | None = None,
+    ) -> None:
         self._stream = stream
-        self._queue: Queue[str | BaseException] = Queue()
+        if max_buffered_lines is None:
+            queue_max_size = 0
+        else:
+            queue_max_size = max(1, max_buffered_lines)
+        self._queue: Queue[str | BaseException] = Queue(maxsize=queue_max_size)
+        self._max_buffered_lines = max_buffered_lines
         self._thread = threading.Thread(target=self._read_loop, daemon=True)
         self._thread.start()
+
+    def _enqueue(self, value: str | BaseException) -> None:
+        if self._max_buffered_lines is None:
+            self._queue.put(value)
+            return
+        while True:
+            try:
+                self._queue.put_nowait(value)
+                return
+            except Full:
+                try:
+                    self._queue.get_nowait()
+                except Empty:
+                    continue
 
     def _read_loop(self) -> None:
         while True:
             try:
                 line = self._stream.readline()
             except BaseException as exc:
-                self._queue.put(exc)
+                self._enqueue(exc)
                 return
-            self._queue.put(line)
+            self._enqueue(line)
             if line == "":
                 return
 
@@ -368,14 +395,14 @@ class PluginManager:
         self._backend_codegen_target_by_id: dict[
             str, RegisteredBackendCodegenTarget
         ] = {}
-        self._backend_startup_tasks: dict[str, list[Callable[..., Any]]] = {}
-        self._backend_shutdown_tasks: dict[str, list[Callable[..., Any]]] = {}
         self._discovered_plugins: list[DiscoveredPlugin] = []
         self._active_plugin_by_id: dict[str, DiscoveredPlugin] = {}
 
         self.rescan()
 
     def __del__(self) -> None:
+        if sys.is_finalizing():
+            return
         try:
             self.shutdown_backend_plugins()
         except Exception:
@@ -401,8 +428,6 @@ class PluginManager:
         self._backend_language_server_by_language = {}
         self._backend_codegen_targets = {}
         self._backend_codegen_target_by_id = {}
-        self._backend_startup_tasks = {}
-        self._backend_shutdown_tasks = {}
 
         # Refresh discovery after clearing pending-restart ids so eligible backend
         # plugins transition from pending_restart to active before load selection.
@@ -977,16 +1002,27 @@ class PluginManager:
                 f"Backend worker stdio pipes unavailable for {entry.plugin_id}.",
             )
         self._register_worker_pipe_reader(process.stdout)
-        self._register_worker_pipe_reader(process.stderr)
+        self._register_worker_pipe_reader(
+            process.stderr,
+            max_buffered_lines=_BACKEND_WORKER_STDERR_MAX_LINES,
+        )
         return process
 
-    def _register_worker_pipe_reader(self, stream: Any) -> _BackendWorkerPipeReader:
+    def _register_worker_pipe_reader(
+        self,
+        stream: Any,
+        *,
+        max_buffered_lines: int | None = None,
+    ) -> _BackendWorkerPipeReader:
         stream_id = id(stream)
         with self._backend_worker_pipe_readers_lock:
             reader = self._backend_worker_pipe_readers.get(stream_id)
             if reader is not None:
                 return reader
-            created_reader = _BackendWorkerPipeReader(stream)
+            created_reader = _BackendWorkerPipeReader(
+                stream,
+                max_buffered_lines=max_buffered_lines,
+            )
             self._backend_worker_pipe_readers[stream_id] = created_reader
         return created_reader
 
@@ -2422,7 +2458,7 @@ class PluginManager:
                 ),
             )
         normalized_prefix = url_prefix.strip().strip("/")
-        mount_path = f"/plugins/{entry.plugin_id}"
+        mount_path = f"/plugin-static/{entry.plugin_id}"
         if normalized_prefix:
             mount_path = f"{mount_path}/{normalized_prefix}"
         mount_name = f"plugin-static-{entry.plugin_id}-{normalized_prefix or 'root'}"
@@ -2797,6 +2833,11 @@ class PluginManager:
                 "PLUGIN_BACKEND_REGISTER_FAILED",
                 "Plugin language server settingsKey must be a non-empty string.",
             )
+        command = self._normalize_and_validate_launch_command(
+            entry=entry,
+            command=command,
+            registration_kind="language server",
+        )
         return RegisteredLanguageServer(
             plugin_id=entry.plugin_id,
             name=f"{entry.plugin_id}:{code_language_to_string(language)}",
@@ -2805,6 +2846,56 @@ class PluginManager:
             args=args,
             settings_key=settings_key,
         )
+
+    def _normalize_and_validate_launch_command(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        command: str,
+        registration_kind: str,
+    ) -> str:
+        command_path = Path(command).expanduser()
+        is_path_like = command_path.is_absolute() or command_path.parent != Path(".")
+        if is_path_like:
+            resolved_path = command_path
+            if not resolved_path.is_absolute():
+                resolved_path = (
+                    entry.source_path / command_path
+                ).expanduser().resolve(strict=False)
+            if not resolved_path.exists():
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {registration_kind} command path does not exist: "
+                        f"{resolved_path}"
+                    ),
+                )
+            if not resolved_path.is_file():
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {registration_kind} command path is not a file: "
+                        f"{resolved_path}"
+                    ),
+                )
+            if not os.access(resolved_path, os.X_OK):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {registration_kind} command path is not executable: "
+                        f"{resolved_path}"
+                    ),
+                )
+            return str(resolved_path)
+        if shutil.which(command) is None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {registration_kind} command is not available on PATH: "
+                    f"{command}"
+                ),
+            )
+        return command
 
     def _register_backend_codegen_target(
         self,
@@ -3057,26 +3148,6 @@ class PluginManager:
             )
         return normalized_files
 
-    def _register_backend_startup_task(
-        self,
-        *,
-        entry: DiscoveredPlugin,
-        coro_fn: Callable[..., Any],
-    ) -> None:
-        if entry.plugin_id not in self._backend_startup_tasks:
-            self._backend_startup_tasks[entry.plugin_id] = []
-        self._backend_startup_tasks[entry.plugin_id].append(coro_fn)
-
-    def _register_backend_shutdown_task(
-        self,
-        *,
-        entry: DiscoveredPlugin,
-        coro_fn: Callable[..., Any],
-    ) -> None:
-        if entry.plugin_id not in self._backend_shutdown_tasks:
-            self._backend_shutdown_tasks[entry.plugin_id] = []
-        self._backend_shutdown_tasks[entry.plugin_id].append(coro_fn)
-
     def resolve_plugin_asset_path(self, plugin_id: str, asset_path: str) -> Path:
         entry = self._active_plugin_by_id.get(plugin_id)
         if entry is None:
@@ -3164,7 +3235,11 @@ class PluginManager:
             target_path = self._target_plugin_path(
                 resolved_scope, candidate.manifest.id
             )
-            old_entry = self._find_entry(candidate.manifest.id, resolved_scope)
+            old_entry = self._find_entry(
+                candidate.manifest.id,
+                resolved_scope,
+                include_shadowed=True,
+            )
             had_backend_before = (
                 old_entry.has_backend if old_entry is not None else False
             )
@@ -3197,9 +3272,13 @@ class PluginManager:
 
         self.rescan()
         restart_required = candidate.manifest.backend is not None or had_backend_before
-        active_entry = self._active_plugin_by_id.get(candidate.manifest.id)
+        active_entry = self._find_entry(
+            candidate.manifest.id,
+            resolved_scope,
+            include_shadowed=True,
+        )
         if active_entry is None:
-            active_entry = self._find_entry(candidate.manifest.id, resolved_scope)
+            active_entry = self._active_plugin_by_id.get(candidate.manifest.id)
         if active_entry is None:
             raise PluginManagerError(
                 "PLUGIN_INSTALL_FAILED",
@@ -3248,7 +3327,11 @@ class PluginManager:
                 plugin_root=source_root,
             )
         resolved_scope = normalize_scope(scope)
-        existing_entry = self._find_entry(manifest.id, resolved_scope)
+        existing_entry = self._find_entry(
+            manifest.id,
+            resolved_scope,
+            include_shadowed=True,
+        )
         had_backend_before = (
             existing_entry.has_backend if existing_entry is not None else False
         )
@@ -3286,7 +3369,11 @@ class PluginManager:
         if restart_required:
             self._add_pending_restart_backend_id(manifest.id)
         self.rescan()
-        entry = self._find_entry(manifest.id, resolved_scope)
+        entry = self._find_entry(
+            manifest.id,
+            resolved_scope,
+            include_shadowed=True,
+        )
         if entry is None:
             raise PluginManagerError(
                 "PLUGIN_LINK_FAILED",
@@ -3323,7 +3410,11 @@ class PluginManager:
         scope: str | PluginScope | None = None,
     ) -> PluginUninstallResponse:
         resolved_scope = self._resolve_uninstall_scope(plugin_id, scope)
-        entry = self._find_entry(plugin_id, resolved_scope)
+        entry = self._find_entry(
+            plugin_id,
+            resolved_scope,
+            include_shadowed=True,
+        )
         if entry is None:
             raise PluginManagerError(
                 "PLUGIN_NOT_FOUND",
@@ -3465,7 +3556,11 @@ class PluginManager:
         to: str | None = None,
     ) -> PluginUpdateResponse:
         resolved_scope = self._resolve_uninstall_scope(plugin_id, scope)
-        existing_entry = self._find_entry(plugin_id, resolved_scope)
+        existing_entry = self._find_entry(
+            plugin_id,
+            resolved_scope,
+            include_shadowed=True,
+        )
         if existing_entry is None:
             raise PluginManagerError(
                 "PLUGIN_NOT_FOUND",
@@ -3485,11 +3580,23 @@ class PluginManager:
         source_spec = metadata_entry.sourceSpec
         if to is not None:
             source_spec = self._retarget_source_spec(source_spec, to)
+        plugins_state = self._load_plugins_state()
+        plugins_global_state = self._load_plugins_global_state()
+        if existing_entry.manifest is None:
+            enable_after_update = existing_entry.state != PluginRuntimeState.disabled
+        else:
+            enable_after_update, _ = self._resolve_enabled(
+                plugin_id=existing_entry.plugin_id,
+                scope=existing_entry.scope,
+                manifest_enabled_by_default=existing_entry.manifest.enabledByDefault,
+                plugins_state=plugins_state,
+                plugins_global_state=plugins_global_state,
+            )
         install_result = self.install_plugin(
             source_spec=source_spec,
             scope=resolved_scope,
             installer=metadata_entry.installerBackend,
-            enable=True,
+            enable=enable_after_update,
             force=True,
         )
         restart_required = existing_entry.has_backend or install_result.restartRequired
@@ -3511,7 +3618,11 @@ class PluginManager:
         scope: str | PluginScope | None = None,
     ) -> PluginRollbackResponse:
         resolved_scope = self._resolve_uninstall_scope(plugin_id, scope)
-        current_entry = self._find_entry(plugin_id, resolved_scope)
+        current_entry = self._find_entry(
+            plugin_id,
+            resolved_scope,
+            include_shadowed=True,
+        )
         metadata = self._load_install_metadata()
         metadata_key = self._metadata_key(plugin_id, resolved_scope)
         entry = metadata.entries.get(metadata_key)
@@ -3628,8 +3739,27 @@ class PluginManager:
             ) from exc
 
         desired_by_scope_plugin: dict[tuple[PluginScope, str], PluginLockEntry] = {}
+        duplicate_keys: set[tuple[PluginScope, str]] = set()
         for plugin in lockfile.plugins:
-            desired_by_scope_plugin[(plugin.scope, plugin.pluginId)] = plugin
+            key = (plugin.scope, plugin.pluginId)
+            if key in desired_by_scope_plugin:
+                duplicate_keys.add(key)
+            desired_by_scope_plugin[key] = plugin
+        if len(duplicate_keys) > 0:
+            duplicate_labels = ", ".join(
+                f"{scope.value}:{plugin_id}"
+                for scope, plugin_id in sorted(
+                    duplicate_keys,
+                    key=lambda value: (_SCOPE_ORDER[value[0]], value[1]),
+                )
+            )
+            raise PluginManagerError(
+                "PLUGIN_LOCKFILE_INVALID",
+                (
+                    "Lockfile contains duplicate scope/plugin entries: "
+                    f"{duplicate_labels}"
+                ),
+            )
 
         install_metadata = self._load_install_metadata()
         current_primary_entries = [
@@ -4952,9 +5082,10 @@ class PluginManager:
             or target_path.is_symlink()
         ):
             return
-        history_stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-        history_dir = self._history_root / scope.value / plugin_id / history_stamp
-        history_dir.parent.mkdir(parents=True, exist_ok=True)
+        history_stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+        history_dir_parent = self._history_root / scope.value / plugin_id
+        history_dir_parent.mkdir(parents=True, exist_ok=True)
+        history_dir = history_dir_parent / f"{history_stamp}-{uuid4().hex[:8]}"
         shutil.copytree(target_path, history_dir)
 
         metadata = self._load_install_metadata()
@@ -5552,11 +5683,15 @@ class PluginManager:
         return base_url
 
     def _find_entry(
-        self, plugin_id: str, scope: PluginScope
+        self,
+        plugin_id: str,
+        scope: PluginScope,
+        *,
+        include_shadowed: bool = False,
     ) -> DiscoveredPlugin | None:
         for entry in self._discovered_plugins:
             if entry.plugin_id == plugin_id and entry.scope == scope:
-                if entry.shadowed_by_source_path is None:
+                if include_shadowed or entry.shadowed_by_source_path is None:
                     return entry
         return None
 

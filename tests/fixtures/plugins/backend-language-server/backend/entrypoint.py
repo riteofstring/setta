@@ -1,8 +1,11 @@
+import sys
+
+
 def register(plugin):
     plugin.register_language_server(
         {
             "language": "typescript",
-            "command": "typescript-language-server",
+            "command": sys.executable,
             "args": ["--stdio"],
             "settingsKey": "typescriptLanguageServer",
         }

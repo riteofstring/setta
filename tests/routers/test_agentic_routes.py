@@ -372,8 +372,8 @@ class TestAgenticRoutes:
 
                 assert created.toolType == ExternalAgentToolType.plugin
                 assert created.pluginAdapterId == "acme-plugin:openhands"
-                assert created.defaultModel == "openhands/default"
-                assert created.envVarWhitelist == ["OPENHANDS_API_KEY"]
+                assert created.defaultModel is None
+                assert created.envVarWhitelist == []
 
                 updated = await route_update_external_agent_config(
                     UpdateExternalAgentConfigRequest(
@@ -388,8 +388,8 @@ class TestAgenticRoutes:
                     ctx,
                 )
                 assert updated.name == "OpenHands v2"
-                assert updated.defaultModel == "openhands/default"
-                assert updated.envVarWhitelist == ["OPENHANDS_API_KEY"]
+                assert updated.defaultModel is None
+                assert updated.envVarWhitelist == []
 
     async def test_external_agent_config_rejects_unknown_plugin_adapter(self) -> None:
         with TemporaryDirectory() as tmpdir:

@@ -85,6 +85,7 @@ def rescan_plugins(*, ctx: Context) -> PluginsRescanResponse:
     """
     Rescan plugin directories and refresh discovery state.
     """
+    _require_ide_mode(ctx)
     return ctx.fastmcp.state.plugin_manager.rescan()
 
 

@@ -1215,15 +1215,44 @@ function registerPluginModule({
   return registryDelta;
 }
 
-function normalizePluginPath(path: string): string {
+function isTraversalSegment(segment: string): boolean {
+  if (segment === "." || segment === "..") {
+    return true;
+  }
+  try {
+    const decodedSegment = decodeURIComponent(segment);
+    return decodedSegment === "." || decodedSegment === "..";
+  } catch {
+    return false;
+  }
+}
+
+export function normalizePluginPath(path: string): string {
   const trimmed = path.trim();
   if (trimmed === "") {
     return "";
   }
-  if (trimmed.startsWith("/")) {
-    return trimmed;
+  const normalizedInput = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  const queryStart = normalizedInput.search(/[?#]/);
+  const pathPart =
+    queryStart >= 0 ? normalizedInput.slice(0, queryStart) : normalizedInput;
+  const suffix = queryStart >= 0 ? normalizedInput.slice(queryStart) : "";
+  const segments = pathPart.split("/").filter((segment) => segment.length > 0);
+  if (segments.some((segment) => isTraversalSegment(segment))) {
+    throw new PluginRuntimeError(
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+      `apiFetch path cannot include relative traversal segments: ${path}`,
+    );
   }
-  return `/${trimmed}`;
+  const hasTrailingSlash = pathPart.endsWith("/") && pathPart !== "/";
+  let canonicalPath = "/";
+  if (segments.length > 0) {
+    canonicalPath = `/${segments.join("/")}`;
+    if (hasTrailingSlash) {
+      canonicalPath = `${canonicalPath}/`;
+    }
+  }
+  return `${canonicalPath}${suffix}`;
 }
 
 function ensureCapability(
@@ -1824,4 +1853,5 @@ export function getPluginSectionKindsForCreateMenu(): Array<{
 
 export const pluginRuntimeTestApi = {
   loadPluginFrontendModule,
+  normalizePluginPath,
 };

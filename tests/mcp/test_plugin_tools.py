@@ -189,6 +189,10 @@ def test_plugin_mutation_tools_blocked_in_deployment_mode(tmp_path: Path) -> Non
         uninstall_plugin(pluginId="setta-fixture-frontend", ctx=ctx)
     assert str(uninstall_exc.value) == "Deployment mode does not allow plugin mutations."
 
+    with pytest.raises(PermissionError) as rescan_exc:
+        rescan_plugins(ctx=ctx)
+    assert str(rescan_exc.value) == "Deployment mode does not allow plugin mutations."
+
 
 def test_plugin_tools_are_registered() -> None:
     # Tool registry should expose plugin lifecycle MCP tools for chat-agent workflows.

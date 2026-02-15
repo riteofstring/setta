@@ -972,6 +972,23 @@ describe("plugin runtime helpers", () => {
     expect(secondHeaders.get("X-Custom")).toBe("yes");
   });
 
+  it("normalizePluginPath rejects traversal segments for apiFetch", () => {
+    expect(() => pluginRuntimeTestApi.normalizePluginPath("/../../api/projects")).toThrow(
+      "apiFetch path cannot include relative traversal segments",
+    );
+    expect(() => pluginRuntimeTestApi.normalizePluginPath("/a/../b")).toThrow(
+      "apiFetch path cannot include relative traversal segments",
+    );
+    expect(() => pluginRuntimeTestApi.normalizePluginPath("/%2e%2e/api/projects")).toThrow(
+      "apiFetch path cannot include relative traversal segments",
+    );
+    expect(pluginRuntimeTestApi.normalizePluginPath("health")).toBe("/health");
+    expect(pluginRuntimeTestApi.normalizePluginPath("//status")).toBe("/status");
+    expect(pluginRuntimeTestApi.normalizePluginPath("/status?ok=1")).toBe(
+      "/status?ok=1",
+    );
+  });
+
   it("manages plugin style links across repeated and null-style loads", async () => {
     type FakeLinkElement = {
       rel: string;

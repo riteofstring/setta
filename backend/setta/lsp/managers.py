@@ -125,8 +125,8 @@ class LSPWriters:
             if language == CodeLanguage.python:
                 continue
             self.by_language[language] = LanguageServerWriter(server)
-        self.file_watcher = LSPFileWatcher(self._send_did_change_watched_files)
-        self.file_watcher.add_workspace_folder(servers.full.workspace_folder)
+        self._workspace_folder = servers.full.workspace_folder
+        self.file_watcher: LSPFileWatcher | _NoopFileWatcher = _NoopFileWatcher()
 
     def get_for_language(
         self, language: CodeLanguageKey
@@ -140,6 +140,13 @@ class LSPWriters:
     async def start(self):
         for writer in _dedupe_by_identity(self.by_language.values()):
             await writer.start()
+        if isinstance(self.file_watcher, _NoopFileWatcher):
+            file_watcher = LSPFileWatcher(
+                self._send_did_change_watched_files,
+                loop=asyncio.get_running_loop(),
+            )
+            file_watcher.add_workspace_folder(self._workspace_folder)
+            self.file_watcher = file_watcher
         self.file_watcher.start()
 
 
