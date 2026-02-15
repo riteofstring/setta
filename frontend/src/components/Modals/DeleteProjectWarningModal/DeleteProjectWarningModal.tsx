@@ -6,7 +6,7 @@ import { route_delete_project_configs } from "utils/generatedEndpoints";
 import { ModalTypeEnum } from "../types";
 
 export function DeleteProjectWarningModal() {
-  const { selectedProjectsIdName, setSelectedProjects } = useModalData(
+  const { selectedProjectsIdName } = useModalData(
     ModalTypeEnum.DELETE_PROJECT_WARNING,
   );
 
@@ -19,7 +19,8 @@ export function DeleteProjectWarningModal() {
       ids: selectedProjectsIdName.map((x) => x.id),
     });
     if (res200(res)) {
-      setSelectedProjects([]);
+      closeModal();
+      return;
     }
     closeModal();
   };

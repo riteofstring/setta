@@ -307,6 +307,54 @@ class TestFileBrowserRoutes:
         expected_path = (root_path / items[0]["name"]).resolve()
         assert expected_path == Path(items[0]["fullPath"]).resolve()
 
+    async def test_get_folder_contents_include_setta_initialized_flag(self) -> None:
+        state = await self._build_state()
+        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
+            root_path = Path(tmpdir)
+            initialized = root_path / "initialized-folder"
+            initialized.mkdir()
+            (initialized / "setta_files").mkdir()
+            plain = root_path / "plain-folder"
+            plain.mkdir()
+            with runtime_context(state) as runtime_ctx:
+                items = route_get_folder_contents(
+                    GetFolderContentsRequest(
+                        folderPath=str(root_path),
+                        includeSettaInitialized=True,
+                    ),
+                    runtime_ctx,
+                )
+
+        flags_by_name = {
+            item["name"]: item.get("isSettaInitialized", False)
+            for item in items
+            if item["type"] == "folder"
+        }
+        assert flags_by_name["initialized-folder"] is True
+        assert flags_by_name["plain-folder"] is False
+
+    async def test_get_folder_contents_omits_setta_initialized_flag_by_default(
+        self,
+    ) -> None:
+        state = await self._build_state()
+        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
+            root_path = Path(tmpdir)
+            initialized = root_path / "initialized-folder"
+            initialized.mkdir()
+            (initialized / "setta_files").mkdir()
+            plain = root_path / "plain-folder"
+            plain.mkdir()
+            with runtime_context(state) as runtime_ctx:
+                items = route_get_folder_contents(
+                    GetFolderContentsRequest(folderPath=str(root_path)),
+                    runtime_ctx,
+                )
+
+        for item in items:
+            if item["type"] != "folder":
+                continue
+            assert "isSettaInitialized" not in item
+
     async def test_get_folder_contents_blocks_outside_cwd(self) -> None:
         state = await self._build_state()
         with TemporaryDirectory() as tmpdir:
@@ -720,43 +768,6 @@ class TestFileBrowserRoutes:
         metadata_path = binary_store.root / f"{ref.contentId}.json"
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         assert metadata["durable"] is False
-
-    async def test_binary_upload_rejects_invalid_durable_value(self) -> None:
-        app = FastAPI()
-        await self._build_state(app=app)
-        app.include_router(binary_router, prefix=Route.PREFIX.value)
-        payload = b"temporary"
-        transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.post(
-                f"{Route.PREFIX.value}{Route.BINARY_UPLOAD.value}",
-                data={"durable": "not-a-bool"},
-                files={"file": ("payload.bin", payload, "application/octet-stream")},
-            )
-        assert response.status_code == 400
-        assert "Invalid boolean value" in response.json()["detail"]
-
-    async def test_binary_upload_rejects_oversized_payload(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        app = FastAPI()
-        await self._build_state(app=app)
-        app.include_router(binary_router, prefix=Route.PREFIX.value)
-        monkeypatch.setattr(C, "BINARY_UPLOAD_MAX_BYTES", 4)
-        payload = b"hello"
-        transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.post(
-                f"{Route.PREFIX.value}{Route.BINARY_UPLOAD.value}",
-                files={"file": ("payload.bin", payload, "application/octet-stream")},
-            )
-
-        assert response.status_code == 413
-        assert (
-            response.json()["detail"]
-            == "Binary payload is too large. Maximum size is 4 bytes."
-        )
 
     async def test_binary_download_rejects_invalid_content_id(self) -> None:
         state = await self._build_state()

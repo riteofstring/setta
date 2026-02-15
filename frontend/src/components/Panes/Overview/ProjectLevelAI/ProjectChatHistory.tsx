@@ -1,23 +1,15 @@
 import { type Dispatch, type SetStateAction, useEffect, useMemo } from "react";
 import { loadAgentRuns } from "state/actions/ai";
-import {
-  buildChatHistoryEntries,
-  type ChatHistoryCompatibility,
-  type ChatRunType,
-} from "state/actions/chatHistory";
+import { buildChatHistoryEntries } from "state/actions/chatHistory";
 import { useAIStore } from "state/definitions";
 import { shallow } from "zustand/shallow";
 
 export function ProjectChatHistory({
   chatId,
   setChatId,
-  runType,
-  engineConfigId,
 }: {
   chatId: string | null | undefined;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
-  runType: ChatRunType | null;
-  engineConfigId: string | null;
 }) {
   const { agentRuns, agentRunsInitialLoadComplete, agentRunsLoadError } =
     useAIStore(
@@ -33,22 +25,9 @@ export function ProjectChatHistory({
     void loadAgentRuns();
   }, []);
 
-  const compatibility = useMemo<ChatHistoryCompatibility | null>(() => {
-    if (!runType) {
-      return null;
-    }
-    return {
-      runType,
-      engineConfigId,
-    };
-  }, [engineConfigId, runType]);
-
   const historyEntries = useMemo(() => {
-    return buildChatHistoryEntries(agentRuns, {
-      unscopedOnly: true,
-      compatibility,
-    });
-  }, [agentRuns, compatibility]);
+    return buildChatHistoryEntries(agentRuns);
+  }, [agentRuns]);
 
   const sortedEntries = useMemo(() => {
     return [...historyEntries].sort(

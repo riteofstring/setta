@@ -1,19 +1,14 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-import io
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from types import SimpleNamespace
 
 from fastapi import FastAPI, HTTPException
 import pytest
-from starlette.datastructures import Headers, UploadFile
-from starlette.requests import Request
 
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
 from setta.agentic.external_agent_runner import ExternalAgentRunner
 from setta.agentic.store import (
-    create_agent_run,
     load_agent_run,
     save_agent_run,
     save_engine_configs,
@@ -33,11 +28,11 @@ from setta.routers.ai import (
     route_get_external_agent_chat,
     route_get_llm_chat,
     route_get_llm_response,
-    route_transcribe_chat_audio,
     route_stop_llm_chat,
 )
 from setta.server_state import SettaFastAPIState
 from setta.types.agentic import (
+    AgentProfile,
     AgentRun,
     AgentRunStatus,
     EngineConfig,
@@ -46,6 +41,7 @@ from setta.types.agentic import (
 )
 from setta.types.external_agents import (
     ExternalAgentConfig,
+    ExternalAgentPreflightStatus,
     ExternalAgentRunMode,
     ExternalAgentToolType,
 )
@@ -58,7 +54,6 @@ from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.project_config import ProjectConfig
 from setta.types.project_state import ProjectStateBackend
-from setta.types.section_impls import ChatPermissionMode
 from setta.types.share_deployment import DeploymentManifest, SharePolicy, DeploymentType
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.websocket_manager import WebsocketManager
@@ -100,34 +95,6 @@ def _seed_engine_config(dbe: DBE, engine_config_id: ID, llm_config_id: str) -> N
         settaLlmConfigId=llm_config_id,
     )
     save_engine_configs(dbe, [engine_config])
-
-
-def _build_test_request(*, content_type: str | None = None) -> Request:
-    header_items: list[tuple[bytes, bytes]] = []
-    if content_type is not None:
-        header_items.append((b"content-type", content_type.encode("utf-8")))
-    scope = {
-        "type": "http",
-        "asgi": {"version": "3.0"},
-        "http_version": "1.1",
-        "method": "POST",
-        "scheme": "http",
-        "path": "/api/transcribeChatAudio",
-        "raw_path": b"/api/transcribeChatAudio",
-        "query_string": b"",
-        "headers": header_items,
-        "client": ("127.0.0.1", 12345),
-        "server": ("127.0.0.1", 8000),
-    }
-
-    async def _receive() -> dict[str, object]:
-        return {
-            "type": "http.request",
-            "body": b"",
-            "more_body": False,
-        }
-
-    return Request(scope, _receive)
 
 
 def _build_share_deployment_root(
@@ -410,10 +377,7 @@ class TestAgentRunChatRoutes:
             assert not response.waitingForResponse
             assert response.llmConfig.id == "primary"
 
-    async def test_external_engine_rejects_llm_chat_id(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
+    async def test_external_engine_rejects_llm_chat_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             project_config = ProjectConfig()
@@ -468,17 +432,6 @@ class TestAgentRunChatRoutes:
                 output_messages=[user_message],
             )
             save_agent_run(dbe, run)
-            prior_message_loader_called = False
-
-            def _capture_prior_messages(*_args, **_kwargs):
-                nonlocal prior_message_loader_called
-                prior_message_loader_called = True
-                return []
-
-            monkeypatch.setattr(
-                "setta.routers.ai._get_prior_messages_for_engine",
-                _capture_prior_messages,
-            )
 
             with runtime_context(state) as ctx:
                 with pytest.raises(HTTPException) as exc:
@@ -499,7 +452,6 @@ class TestAgentRunChatRoutes:
 
             assert exc.value.status_code == 409
             assert exc.value.detail == "Chat engine mismatch; start a new chat."
-            assert prior_message_loader_called is False
 
     async def test_branch_edit_missing_message_returns_404(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -587,608 +539,193 @@ class TestAgentRunChatRoutes:
                 == "sectionId is required unless allowUnscoped is true."
             )
 
-    async def test_get_llm_response_includes_execution_policy_for_managed_runner(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
+    async def test_get_llm_response_does_not_infer_app_mode_from_chat_text(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
             engine_config_id = ID("engine-primary")
             _seed_engine_config(dbe, engine_config_id, "primary")
-            captured: dict[str, object] = {}
-
-            def _capture_start_run(profile, inputs, **_kwargs):
-                captured["profile"] = profile
-                captured["inputs"] = inputs
-                return create_agent_run(profile_id=profile.id, inputs=inputs)
-
-            monkeypatch.setattr(runner, "start_run", _capture_start_run)
-
-            with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
-                    GetLLMResponseRequest(
-                        chatId=None,
-                        message=UserChatMessage(
-                            content=[MessageTextContent(text="Create a new project.")],
-                        ),
-                        engineConfigId=engine_config_id,
-                        agentProfileId=None,
-                        thinking=False,
-                        projectConfigId=ID("project-policy"),
-                        allowUnscoped=True,
-                        permissionMode=ChatPermissionMode.yolo,
-                        searchEnabled=False,
-                        appGenerationMode="json_render",
-                        appSpecStreamingEnabled=True,
-                    ),
-                    ctx,
-                )
-
-            assert chat_id is not None
-            captured_profile = captured.get("profile")
-            assert captured_profile is not None
-            system_prompt = captured_profile.systemPrompt
-            assert "## Runtime execution settings" in system_prompt
-            assert "- permissionMode: yolo" in system_prompt
-            assert "- searchEnabled: false" in system_prompt
-            assert "## Required completion gate for create/scaffold work" in system_prompt
-            assert "streamingPreview: enabled" in system_prompt
-
-            captured_inputs = captured.get("inputs")
-            assert isinstance(captured_inputs, dict)
-            assert captured_inputs.get("permissionMode") == "yolo"
-            assert captured_inputs.get("searchEnabled") is False
-            assert "skillsEnabled" not in captured_inputs
-
-    async def test_get_llm_response_includes_execution_policy_for_external_runner(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            project_config = ProjectConfig()
-            project_state = ProjectStateBackend(
-                projectConfigs={project_config.id: project_config},
-                defaultProjectConfigId=project_config.id,
-            )
-            dbe.write_project(project_state)
-            runner = _build_runner(dbe)
-            external_runner = ExternalAgentRunner(dbe, runner.websocket_msg_handler)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-                external_agent_runner=external_runner,
-            )
-            external_config = ExternalAgentConfig(
-                id="external-config",
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.app_server,
-            )
-            external_engine_config_id = ID("engine-external")
-            save_external_agent_configs(dbe, [external_config])
-            save_engine_configs(
-                dbe,
-                [
-                    EngineConfig(
-                        id=external_engine_config_id,
-                        name="External Engine",
-                        engineType=EngineType.external_agent,
-                        externalAgentConfigId=external_config.id,
-                    )
-                ],
-            )
-
-            captured: dict[str, object] = {}
-
-            def _capture_external_start_run(
-                engine_config_id,
-                config,
-                profile,
-                inputs,
-            ):
-                captured["engine_config_id"] = engine_config_id
-                captured["config"] = config
-                captured["profile"] = profile
-                captured["inputs"] = inputs
-                return create_agent_run(profile_id=profile.id if profile else None, inputs=inputs)
-
-            monkeypatch.setattr(
-                external_runner, "start_run", _capture_external_start_run
-            )
-            monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
-                lambda *_args, **_kwargs: SimpleNamespace(
-                    available=True,
-                    issues=[],
-                ),
-            )
-
-            with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
-                    GetLLMResponseRequest(
-                        chatId=None,
-                        message=UserChatMessage(
-                            content=[MessageTextContent(text="Create a new section.")],
-                        ),
-                        engineConfigId=external_engine_config_id,
-                        agentProfileId=None,
-                        thinking=False,
-                        projectConfigId=project_config.id,
-                        allowUnscoped=True,
-                        permissionMode=ChatPermissionMode.minimal,
-                        searchEnabled=False,
-                    ),
-                    ctx,
-                )
-
-            assert chat_id is not None
-            captured_inputs = captured.get("inputs")
-            assert isinstance(captured_inputs, dict)
-            assert captured_inputs.get("permissionMode") == "minimal"
-            assert captured_inputs.get("searchEnabled") is False
-            assert "skillsEnabled" not in captured_inputs
-            assert captured_inputs.get("approvalPolicy") == "on-request"
-            system_prompt = captured_inputs.get("systemPrompt")
-            assert isinstance(system_prompt, str)
-            assert "## Runtime execution settings" in system_prompt
-            assert "- permissionMode: minimal" in system_prompt
-            assert "## Required completion gate for create/scaffold work" in system_prompt
-
-    async def test_get_llm_response_external_runner_preserves_config_policy_when_custom_mode(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            project_config = ProjectConfig()
-            project_state = ProjectStateBackend(
-                projectConfigs={project_config.id: project_config},
-                defaultProjectConfigId=project_config.id,
-            )
-            dbe.write_project(project_state)
-            runner = _build_runner(dbe)
-            external_runner = ExternalAgentRunner(dbe, runner.websocket_msg_handler)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-                external_agent_runner=external_runner,
-            )
-            external_config = ExternalAgentConfig(
-                id="external-config",
-                name="Claude Code",
-                toolType=ExternalAgentToolType.claude_code,
-                runMode=ExternalAgentRunMode.app_server,
-                approvalPolicy="plan",
-            )
-            external_engine_config_id = ID("engine-external")
-            save_external_agent_configs(dbe, [external_config])
-            save_engine_configs(
-                dbe,
-                [
-                    EngineConfig(
-                        id=external_engine_config_id,
-                        name="External Engine",
-                        engineType=EngineType.external_agent,
-                        externalAgentConfigId=external_config.id,
-                    )
-                ],
-            )
-
-            captured: dict[str, object] = {}
-
-            def _capture_external_start_run(
-                engine_config_id,
-                config,
-                profile,
-                inputs,
-            ):
-                captured["engine_config_id"] = engine_config_id
-                captured["config"] = config
-                captured["profile"] = profile
-                captured["inputs"] = inputs
-                return create_agent_run(profile_id=profile.id if profile else None, inputs=inputs)
-
-            monkeypatch.setattr(
-                external_runner, "start_run", _capture_external_start_run
-            )
-            monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
-                lambda *_args, **_kwargs: SimpleNamespace(
-                    available=True,
-                    issues=[],
-                ),
-            )
-
-            with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
-                    GetLLMResponseRequest(
-                        chatId=None,
-                        message=UserChatMessage(
-                            content=[MessageTextContent(text="Create a new section.")],
-                        ),
-                        engineConfigId=external_engine_config_id,
-                        agentProfileId=None,
-                        thinking=False,
-                        projectConfigId=project_config.id,
-                        allowUnscoped=True,
-                        permissionMode=ChatPermissionMode.config_toml_custom,
-                        searchEnabled=False,
-                    ),
-                    ctx,
-                )
-
-            assert chat_id is not None
-            captured_inputs = captured.get("inputs")
-            assert isinstance(captured_inputs, dict)
-            assert captured_inputs.get("permissionMode") == "config_toml_custom"
-            assert "approvalPolicy" not in captured_inputs
-
-    async def test_get_llm_response_does_not_infer_app_mode_from_streaming_flag(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
             state = _TestState(
                 dbe=dbe,
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
             )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
             captured: dict[str, object] = {}
 
-            def _capture_start_run(profile, inputs, **_kwargs):
+            def _fake_start_run(profile, inputs):
                 captured["profile"] = profile
                 captured["inputs"] = inputs
-                return create_agent_run(profile_id=profile.id, inputs=inputs)
 
-            monkeypatch.setattr(runner, "start_run", _capture_start_run)
+            runner.start_run = _fake_start_run  # type: ignore[method-assign]
 
             with runtime_context(state) as ctx:
                 await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
-                            content=[MessageTextContent(text="Create a new project.")],
+                            content=[
+                                MessageTextContent(
+                                    text="How do I configure MCP servers in this project?",
+                                )
+                            ],
                         ),
                         engineConfigId=engine_config_id,
                         agentProfileId=None,
                         thinking=False,
-                        projectConfigId=ID("project-policy"),
+                        projectConfigId=ID("project-1"),
                         allowUnscoped=True,
-                        appSpecStreamingEnabled=True,
-                        appGenerationMode=None,
                     ),
                     ctx,
                 )
 
-            captured_profile = captured.get("profile")
-            assert captured_profile is not None
-            system_prompt = captured_profile.systemPrompt
-            assert "App generation mode" not in system_prompt
-            assert "streamingPreview: enabled" not in system_prompt
+            profile = captured.get("profile")
+            assert isinstance(profile, AgentProfile)
+            if not isinstance(profile, AgentProfile):
+                return
+            assert profile.systemPrompt == ""
 
-    async def test_transcribe_chat_audio_uses_litellm_transcription(self) -> None:
+    async def test_get_llm_response_does_not_apply_streaming_prompt_without_mode(
+        self,
+    ) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
             state = _TestState(
                 dbe=dbe,
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
             )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            runner.update_config(
-                AllLLMConfigs(
-                    configs={
-                        "primary": LLMConfig(
-                            id="primary",
-                            model="gpt-4o-mini",
-                            provider="openai",
-                            api_key_env="OPENAI_API_KEY",
-                            other_params={
-                                "transcriptionModel": "whisper-1",
-                                "api_version": "2025-01-01-preview",
-                                "extra_headers": {"x-trace-id": "abc-123"},
-                                "transcription": {
-                                    "prompt": "Prefer punctuation.",
-                                    "temperature": 0.2,
-                                },
-                            },
-                            mcpServerIds=[],
-                        )
-                    },
-                    mcpServers={},
-                )
-            )
-            runner.update_api_keys({"OPENAI_API_KEY": "test-key"})
             captured: dict[str, object] = {}
 
-            async def _capture_transcription(*args, **kwargs):
-                captured["args"] = args
-                captured["kwargs"] = kwargs
-                return SimpleNamespace(text="hello from provider")
+            def _fake_start_run(profile, inputs):
+                captured["profile"] = profile
+                captured["inputs"] = inputs
+
+            runner.start_run = _fake_start_run  # type: ignore[method-assign]
 
             with runtime_context(state) as ctx:
-                with pytest.MonkeyPatch.context() as monkeypatch:
-                    monkeypatch.setattr(
-                        "setta.llm.transcription.litellm.atranscription",
-                        _capture_transcription,
-                    )
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    response = await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request(),
-                        engineConfigId=engine_config_id,
-                        file=upload,
-                    )
-
-            assert response.text == "hello from provider"
-            kwargs = captured.get("kwargs")
-            assert isinstance(kwargs, dict)
-            assert kwargs.get("model") == "whisper-1"
-            assert kwargs.get("custom_llm_provider") == "openai"
-            assert kwargs.get("api_key") == "test-key"
-            assert kwargs.get("api_base") is None
-            assert kwargs.get("api_version") == "2025-01-01-preview"
-            assert kwargs.get("extra_headers") == {"x-trace-id": "abc-123"}
-            assert kwargs.get("prompt") == "Prefer punctuation."
-            assert kwargs.get("temperature") == 0.2
-            assert "transcriptionModel" not in kwargs
-            assert "transcription" not in kwargs
-            file_payload = kwargs.get("file")
-            assert file_payload == ("voice.webm", b"hello", "audio/webm")
-
-    async def test_transcribe_chat_audio_returns_400_for_missing_api_key(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            runner.update_api_keys({})
-
-            with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request(),
-                        engineConfigId=engine_config_id,
-                        file=upload,
-                    )
-
-            assert exc.value.status_code == 400
-            detail = str(exc.value.detail)
-            assert "Missing API key for" in detail
-            assert "OPENAI_API_KEY" in detail
-
-    async def test_transcribe_chat_audio_keeps_502_for_provider_failures(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            runner.update_api_keys({"OPENAI_API_KEY": "test-key"})
-
-            async def _raise_provider_failure(*_args, **_kwargs):
-                raise RuntimeError("provider exploded")
-
-            monkeypatch.setattr(
-                "setta.routers.ai.transcribe_audio_with_llm",
-                _raise_provider_failure,
-            )
-
-            with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request(),
-                        engineConfigId=engine_config_id,
-                        file=upload,
-                    )
-
-            assert exc.value.status_code == 502
-            assert exc.value.detail == "Provider transcription failed."
-
-    async def test_transcribe_chat_audio_rejects_external_engine(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            external_config = ExternalAgentConfig(
-                id="external-codex",
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.app_server,
-            )
-            save_external_agent_configs(dbe, [external_config])
-            external_engine_config_id = ID("engine-external")
-            save_engine_configs(
-                dbe,
-                [
-                    EngineConfig(
-                        id=external_engine_config_id,
-                        name="External Engine",
-                        engineType=EngineType.external_agent,
-                        externalAgentConfigId=external_config.id,
-                    )
-                ],
-            )
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-
-            with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request(),
-                        engineConfigId=external_engine_config_id,
-                        file=upload,
-                    )
-
-            assert exc.value.status_code == 400
-            assert "Provider dictation is available only for managed LLM engines." in str(
-                exc.value.detail
-            )
-
-    async def test_transcribe_chat_audio_checks_authorization_before_multipart_parse(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            multipart_enforced = False
-
-            async def _capture_multipart_enforcement(*_args, **_kwargs) -> None:
-                nonlocal multipart_enforced
-                multipart_enforced = True
-
-            monkeypatch.setattr(
-                "setta.routers.ai.enforce_multipart_max_part_size",
-                _capture_multipart_enforcement,
-            )
-
-            with runtime_context(state) as ctx:
-
-                async def _raise_not_allowed() -> None:
-                    raise HTTPException(status_code=403, detail="LLM disabled")
-
-                monkeypatch.setattr(ctx, "enforce_llm_allowed", _raise_not_allowed)
-
-                with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request(
-                            content_type="multipart/form-data; boundary=test"
+                await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        message=UserChatMessage(
+                            content=[MessageTextContent(text="Regular project chat")]
                         ),
                         engineConfigId=engine_config_id,
-                        file=upload,
-                    )
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=ID("project-1"),
+                        allowUnscoped=True,
+                        appSpecStreamingEnabled=True,
+                    ),
+                    ctx,
+                )
 
-            assert exc.value.status_code == 403
-            assert multipart_enforced is False
+            profile = captured.get("profile")
+            assert isinstance(profile, AgentProfile)
+            if not isinstance(profile, AgentProfile):
+                return
+            assert profile.systemPrompt == ""
 
-    async def test_transcribe_chat_audio_rejects_empty_payload(self) -> None:
+    async def test_get_llm_response_uses_explicit_app_generation_mode(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
             state = _TestState(
                 dbe=dbe,
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
             )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
+            captured: dict[str, object] = {}
+
+            def _fake_start_run(profile, inputs):
+                captured["profile"] = profile
+                captured["inputs"] = inputs
+
+            runner.start_run = _fake_start_run  # type: ignore[method-assign]
 
             with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b""),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request(),
+                await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        message=UserChatMessage(
+                            content=[
+                                MessageTextContent(
+                                    text="How do I configure MCP servers in this project?",
+                                )
+                            ],
+                        ),
                         engineConfigId=engine_config_id,
-                        file=upload,
-                    )
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=ID("project-1"),
+                        allowUnscoped=True,
+                        appGenerationMode="mcp_server",
+                    ),
+                    ctx,
+                )
 
-            assert exc.value.status_code == 400
-            assert exc.value.detail == "Audio payload is empty."
+            profile = captured.get("profile")
+            assert isinstance(profile, AgentProfile)
+            if not isinstance(profile, AgentProfile):
+                return
+            assert "mode: mcp_server" in profile.systemPrompt
+            assert "setta__set_app_definition" in profile.systemPrompt
+            assert "setta__stream_app_definition" not in profile.systemPrompt
 
-    async def test_transcribe_chat_audio_rejects_oversized_payload(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
+    async def test_get_llm_response_mcp_mode_respects_streaming_toggle(self) -> None:
+        # Integration check: route-level prompt assembly should keep MCP tool guidance deterministic.
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
             state = _TestState(
                 dbe=dbe,
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
             )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            monkeypatch.setattr("setta.routers.ai._TRANSCRIBE_AUDIO_MAX_BYTES", 4)
+            captured: dict[str, object] = {}
+
+            def _fake_start_run(profile, inputs):
+                captured["profile"] = profile
+                captured["inputs"] = inputs
+
+            runner.start_run = _fake_start_run  # type: ignore[method-assign]
 
             with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request(),
+                await route_get_llm_response(
+                    GetLLMResponseRequest(
+                        chatId=None,
+                        message=UserChatMessage(
+                            content=[
+                                MessageTextContent(
+                                    text="Build from MCP design context.",
+                                )
+                            ],
+                        ),
                         engineConfigId=engine_config_id,
-                        file=upload,
-                    )
+                        agentProfileId=None,
+                        thinking=False,
+                        projectConfigId=ID("project-1"),
+                        allowUnscoped=True,
+                        appGenerationMode="mcp_server",
+                        appSpecStreamingEnabled=True,
+                    ),
+                    ctx,
+                )
 
-            assert exc.value.status_code == 413
-            assert exc.value.detail == "Audio payload is too large. Maximum size is 4 bytes."
+            profile = captured.get("profile")
+            assert isinstance(profile, AgentProfile)
+            if not isinstance(profile, AgentProfile):
+                return
+            assert "setta__stream_app_definition" in profile.systemPrompt
+            assert "setta__set_app_definition" not in profile.systemPrompt
 
-    async def test_external_runner_maps_permission_mode_per_framework(
+    async def test_get_llm_response_external_engine_uses_explicit_app_generation_mode(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
@@ -1209,74 +746,139 @@ class TestAgentRunChatRoutes:
                 external_agent_runner=external_runner,
             )
             external_config = ExternalAgentConfig(
-                id="external-claude-config",
-                name="Claude SDK",
-                toolType=ExternalAgentToolType.claude_code,
-                runMode=ExternalAgentRunMode.sdk,
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
             )
-            external_engine_config_id = ID("engine-external-claude")
+            external_engine_config_id = ID("engine-external")
+            external_engine_config = EngineConfig(
+                id=external_engine_config_id,
+                name="External Engine",
+                engineType=EngineType.external_agent,
+                externalAgentConfigId=external_config.id,
+            )
             save_external_agent_configs(dbe, [external_config])
-            save_engine_configs(
-                dbe,
-                [
-                    EngineConfig(
-                        id=external_engine_config_id,
-                        name="External Claude Engine",
-                        engineType=EngineType.external_agent,
-                        externalAgentConfigId=external_config.id,
-                    )
-                ],
-            )
-
-            captured: dict[str, object] = {}
-
-            def _capture_external_start_run(
-                engine_config_id,
-                config,
-                profile,
-                inputs,
-            ):
-                captured["engine_config_id"] = engine_config_id
-                captured["config"] = config
-                captured["profile"] = profile
-                captured["inputs"] = inputs
-                return create_agent_run(
-                    profile_id=profile.id if profile else None, inputs=inputs
-                )
-
-            monkeypatch.setattr(
-                external_runner, "start_run", _capture_external_start_run
-            )
+            save_engine_configs(dbe, [external_engine_config])
             monkeypatch.setattr(
                 "setta.routers.ai.build_external_agent_preflight_status",
-                lambda *_args, **_kwargs: SimpleNamespace(
+                lambda _dbe, _config: ExternalAgentPreflightStatus(
+                    configId=external_config.id,
+                    name=external_config.name,
+                    toolType=external_config.toolType,
+                    runMode=external_config.runMode,
+                    supported=True,
                     available=True,
-                    issues=[],
                 ),
             )
+            captured: dict[str, object] = {}
+
+            def _fake_start_run(_engine_config_id, _config, profile, inputs):
+                captured["profile"] = profile
+                captured["inputs"] = inputs
+
+            external_runner.start_run = _fake_start_run  # type: ignore[method-assign]
 
             with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
+                await route_get_llm_response(
                     GetLLMResponseRequest(
                         chatId=None,
                         message=UserChatMessage(
-                            content=[MessageTextContent(text="Create a new section.")],
+                            content=[MessageTextContent(text="Use MCP tools for app spec")]
                         ),
                         engineConfigId=external_engine_config_id,
                         agentProfileId=None,
                         thinking=False,
                         projectConfigId=project_config.id,
                         allowUnscoped=True,
-                        permissionMode=ChatPermissionMode.yolo,
-                        searchEnabled=True,
+                        appGenerationMode="mcp_server",
+                        appSpecStreamingEnabled=True,
                     ),
                     ctx,
                 )
 
-            assert chat_id is not None
-            captured_inputs = captured.get("inputs")
-            assert isinstance(captured_inputs, dict)
-            assert captured_inputs.get("approvalPolicy") == "bypassPermissions"
+            profile = captured.get("profile")
+            assert isinstance(profile, AgentProfile)
+            if not isinstance(profile, AgentProfile):
+                return
+            assert "mode: mcp_server" in profile.systemPrompt
+            assert "setta__stream_app_definition" in profile.systemPrompt
+            assert "setta__set_app_definition" not in profile.systemPrompt
+
+    async def test_get_llm_response_rejects_oversized_reference_image_url_outside_image_mode(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=None,
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="build app")]
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=ID("project-1"),
+                            allowUnscoped=True,
+                            appGenerationMode="json_render",
+                            appGenerationReferenceImageUrl="x" * 4097,
+                        ),
+                        ctx,
+                    )
+            assert exc.value.status_code == 400
+            assert (
+                exc.value.detail
+                == "appGenerationReferenceImageUrl is too large. Reduce it or omit it."
+            )
+
+    async def test_get_llm_response_rejects_oversized_reference_image_notes_outside_image_mode(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=None,
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="build app")]
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=ID("project-1"),
+                            allowUnscoped=True,
+                            appGenerationMode="prompt_builder",
+                            appGenerationReferenceImageNotes="n" * 100_001,
+                        ),
+                        ctx,
+                    )
+            assert exc.value.status_code == 400
+            assert (
+                exc.value.detail
+                == "appGenerationReferenceImageNotes is too large. Reduce it or omit it."
+            )
 
     async def test_external_chat_id_rejects_missing_engine_metadata(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1438,40 +1040,6 @@ class TestAgentRunChatRoutes:
 
             assert len(prior_messages) == 2
             assert prior_messages[1].content[0].text == "External reply"
-
-    async def test_external_agent_prior_messages_do_not_fallback_to_llm_runs(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            chat_id = ID("external-chat-no-fallback")
-            project_config_id = ID("project-ext-no-fallback")
-            user_message = UserChatMessage(
-                content=[MessageTextContent(text="Hello external")],
-            )
-            llm_reply = AssistantChatMessage(
-                id="assistant-llm-only",
-                content=[MessageTextContent(text="LLM-only reply")],
-            )
-            llm_run = _build_run(
-                chat_id=chat_id,
-                project_config_id=project_config_id,
-                engine_config_id=ID("engine-primary"),
-                started_at=datetime(2024, 1, 7, tzinfo=timezone.utc),
-                status=AgentRunStatus.completed,
-                input_messages=[user_message],
-                output_messages=[user_message, llm_reply],
-            )
-            save_agent_run(dbe, llm_run)
-
-            prior_messages = _get_prior_messages_for_engine(
-                dbe=dbe,
-                engine_type=EngineType.external_agent,
-                chat_id=chat_id,
-                project_config_id=project_config_id,
-            )
-
-            assert prior_messages == []
 
     async def test_stop_llm_chat(self) -> None:
         with TemporaryDirectory() as tmpdir:

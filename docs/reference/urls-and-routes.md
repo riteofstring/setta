@@ -76,3 +76,17 @@ The app-generation/skills viewer flow adds these backend routes:
     for chat-driven app generation modes.
 
 For git route details (`/api/git/*`), see `docs/reference/git-pane.md`.
+
+## View Mode + File Browser Route Notes
+
+Recent frontend features in this branch rely on these backend API routes:
+
+- `/api/setViewModeSortOrder`
+  - Persists drag-reordered view mode order from tabs and the Overview View
+    Modes pane.
+- `/api/setSectionVariantSortOrder`
+  - Persists drag-reordered section variant order in the UI Editor variants
+    list.
+- `/api/getFolderContents` with `includeSettaInitialized: true`
+  - Adds `isSettaInitialized` on folder entries, used by Home page file-browser
+    "Setta" badges.
