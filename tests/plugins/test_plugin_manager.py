@@ -800,6 +800,52 @@ def test_install_plugin_from_github_strips_git_metadata_and_is_digest_stable(
     assert second_install.sourceDigestSha256 == first_install.sourceDigestSha256
 
 
+def test_candidate_from_github_reports_missing_git_binary(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # GitHub source fetches should map missing git to structured plugin fetch errors.
+    manager = _make_manager(tmp_path)
+    source_spec = manager._parse_source_spec("github:acme/setta-fixture-frontend#main")
+    fetch_dir = tmp_path / "github-fetch"
+    fetch_dir.mkdir(parents=True, exist_ok=True)
+
+    def _raise_missing_git(*_args, **_kwargs):
+        raise FileNotFoundError(2, "No such file or directory", "git")
+
+    monkeypatch.setattr("setta.plugins.manager.subprocess.run", _raise_missing_git)
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._candidate_from_github(source_spec, fetch_dir)
+
+    assert exc_info.value.code == "PLUGIN_SOURCE_FETCH_FAILED"
+    assert "git is not installed or not available on PATH." in exc_info.value.message
+
+
+def test_candidate_from_github_reports_clone_timeouts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # GitHub source fetches should fail fast when clone exceeds timeout bounds.
+    manager = _make_manager(tmp_path)
+    source_spec = manager._parse_source_spec("github:acme/setta-fixture-frontend#main")
+    fetch_dir = tmp_path / "github-fetch-timeout"
+    fetch_dir.mkdir(parents=True, exist_ok=True)
+
+    def _raise_timeout(*_args, **kwargs):
+        assert kwargs["timeout"] == 30.0
+        clone_env = kwargs["env"]
+        assert isinstance(clone_env, dict)
+        assert clone_env.get("GIT_TERMINAL_PROMPT") == "0"
+        raise subprocess.TimeoutExpired(cmd=["git", "clone"], timeout=30.0)
+
+    monkeypatch.setattr("setta.plugins.manager.subprocess.run", _raise_timeout)
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._candidate_from_github(source_spec, fetch_dir)
+
+    assert exc_info.value.code == "PLUGIN_SOURCE_FETCH_FAILED"
+    assert "Timed out waiting for git clone." in exc_info.value.message
+
+
 def test_discovery_respects_scope_precedence_and_shadowing(tmp_path: Path) -> None:
     # Workspace plugins should shadow setta_files and global plugins for the same id.
     manager = _make_manager(tmp_path)
@@ -3375,6 +3421,62 @@ def test_mode_policy_blocked_capabilities_are_exposed_in_status_and_list(
     }
     assert entry.runtimePayloadDigestSha256 is not None
     assert len(entry.runtimePayloadDigestSha256) == 64
+
+
+def test_status_entry_runtime_digest_is_reused_across_noop_reads(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # No-op status reads should reuse cached runtime payload digests without re-hashing.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="frontend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    digest_calls = 0
+    original_compute = manager._compute_json_payload_digest
+
+    def _count_digest_calls(value: Any) -> str:
+        nonlocal digest_calls
+        digest_calls += 1
+        return original_compute(value)
+
+    monkeypatch.setattr(manager, "_compute_json_payload_digest", _count_digest_calls)
+    _ = manager.get_status_response()
+    first_read_calls = digest_calls
+    _ = manager.get_status_response()
+    assert first_read_calls > 0
+    assert digest_calls == first_read_calls
+
+
+def test_status_entry_runtime_digest_cache_invalidates_on_backend_state_mutation(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Backend registration generation bumps should invalidate cached status digests.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="frontend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    digest_calls = 0
+    original_compute = manager._compute_json_payload_digest
+
+    def _count_digest_calls(value: Any) -> str:
+        nonlocal digest_calls
+        digest_calls += 1
+        return original_compute(value)
+
+    monkeypatch.setattr(manager, "_compute_json_payload_digest", _count_digest_calls)
+    _ = manager.get_status_response()
+    first_read_calls = digest_calls
+    manager._mark_backend_registration_state_changed()
+    _ = manager.get_status_response()
+    assert digest_calls > first_read_calls
 
 
 def test_runtime_response_includes_config_payload_digests(
@@ -7497,6 +7599,71 @@ def test_worker_route_proxy_forwards_worker_response_status_headers_and_errors(
         missing_response = client.get(route_path)
         assert missing_response.status_code == 404
         assert missing_response.json() == {"detail": "missing"}
+
+
+@pytest.mark.parametrize(
+    ("response_headers", "expected_message_fragment"),
+    [
+        ([["x-fixture", "✓"]], "non-latin-1 header name or value"),
+        ([["x-fixture\ninvalid", "value"]], "headers containing newline characters"),
+        ([["x-fixture", "value\rinvalid"]], "headers containing newline characters"),
+    ],
+)
+def test_worker_route_proxy_rejects_invalid_header_transport_values(
+    tmp_path: Path,
+    monkeypatch,
+    response_headers: list[list[str]],
+    expected_message_fragment: str,
+) -> None:
+    # Proxy should convert invalid worker header payloads into structured transport errors.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    manager._register_backend_router_from_worker_request(
+        app=app,
+        entry=entry,
+        params={
+            "prefix": "/proxy",
+            "routes": [
+                {
+                    "routeId": "route_0",
+                    "path": "/echo",
+                    "methods": ["GET"],
+                }
+            ],
+        },
+    )
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    route_path = "/api/plugins/setta-fixture-backend/proxy/echo"
+
+    monkeypatch.setattr(
+        manager,
+        "_call_backend_worker_method",
+        lambda **_kwargs: {
+            "statusCode": 200,
+            "body": {"ok": True},
+            "headers": response_headers,
+        },
+    )
+
+    with TestClient(app) as client:
+        response = client.get(route_path)
+    assert response.status_code == 502
+    assert response.json()["code"] == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+    assert expected_message_fragment in response.json()["message"]
 
 
 def test_worker_route_proxy_preserves_multiple_set_cookie_headers(

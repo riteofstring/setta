@@ -295,11 +295,7 @@ export function PluginsPane() {
         <ActionButton
           label="Enable"
           onClick={() => runEnablePlugin(entry.pluginId)}
-          disabled={
-            writeActionsLocked ||
-            isActionBusy(`enable:${entry.pluginId}`) ||
-            pluginActionBusy
-          }
+          disabled={writeActionsLocked || pluginActionBusy}
           testId={`plugin-status-enable-${entry.pluginId}`}
         />
       );
@@ -308,11 +304,7 @@ export function PluginsPane() {
       <ActionButton
         label="Disable"
         onClick={() => runDisablePlugin(entry.pluginId)}
-        disabled={
-          writeActionsLocked ||
-          isActionBusy(`disable:${entry.pluginId}`) ||
-          pluginActionBusy
-        }
+        disabled={writeActionsLocked || pluginActionBusy}
         testId={`plugin-status-disable-${entry.pluginId}`}
       />
     );
@@ -829,51 +821,32 @@ function PluginListEntryCard({
         <ActionButton
           label="Enable"
           onClick={() => runEnablePlugin(plugin.pluginId)}
-          disabled={
-            writeActionsLocked ||
-            pluginActionBusy ||
-            isActionBusy(`enable:${plugin.pluginId}`)
-          }
+          disabled={pluginActionDisabled}
         />
         <ActionButton
           label="Disable"
           onClick={() => runDisablePlugin(plugin.pluginId)}
-          disabled={
-            writeActionsLocked ||
-            pluginActionBusy ||
-            isActionBusy(`disable:${plugin.pluginId}`)
-          }
+          disabled={pluginActionDisabled}
         />
         <ActionButton
           label="Update"
           onClick={onUpdate}
           disabled={
-            writeActionsLocked ||
-            pluginActionBusy ||
-            packageManagerManaged ||
-            linkedLocalSource ||
-            isActionBusy(`update:${plugin.pluginId}`)
+            pluginActionDisabled || packageManagerManaged || linkedLocalSource
           }
         />
         <ActionButton
           label="Rollback"
           onClick={onRollback}
           disabled={
-            writeActionsLocked ||
-            pluginActionBusy ||
-            packageManagerManaged ||
-            linkedLocalSource ||
-            isActionBusy(`rollback:${plugin.pluginId}`)
+            pluginActionDisabled || packageManagerManaged || linkedLocalSource
           }
         />
         <ActionButton
           label="Uninstall"
           onClick={onUninstall}
           disabled={
-            writeActionsLocked ||
-            pluginActionBusy ||
-            packageManagerManaged ||
-            isActionBusy(`uninstall:${plugin.pluginId}`)
+            pluginActionDisabled || packageManagerManaged
           }
         />
       </div>
@@ -1465,8 +1438,15 @@ function PluginConfigTopLevelField({
       : null;
   let input = null;
   if (enumValues) {
+    const enumOptions = enumValues.map((enumValue) => ({
+      raw: enumValue,
+      serialized: JSON.stringify(enumValue),
+    }));
+    const selectedOption = enumOptions.find((option) => option.raw === value);
     const selectValue =
-      value === undefined ? "__unset__" : JSON.stringify(value);
+      value === undefined
+        ? "__unset__"
+        : selectedOption?.serialized ?? JSON.stringify(value);
     input = (
       <select
         className="mt-1 w-full rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
@@ -1485,12 +1465,12 @@ function PluginConfigTopLevelField({
         disabled={disabled}
       >
         <option value="__unset__">unset</option>
-        {enumValues.map((enumValue) => (
+        {enumOptions.map((enumOption) => (
           <option
-            key={JSON.stringify(enumValue)}
-            value={JSON.stringify(enumValue)}
+            key={enumOption.serialized}
+            value={enumOption.serialized}
           >
-            {String(enumValue)}
+            {String(enumOption.raw)}
           </option>
         ))}
       </select>

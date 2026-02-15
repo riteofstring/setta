@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ -z "${_PLUGIN_FIXTURE_OS_NAME:-}" ]]; then
+  _PLUGIN_FIXTURE_OS_NAME="$(uname -s)"
+fi
+
 compute_plugin_fixture_signature() {
   local root_dir="$1"
   local fixture_file
@@ -24,6 +28,41 @@ compute_plugin_fixture_signature() {
     fi
     printf '%s|' "${fixture_file#${root_dir}/}"
     cksum < "${fixture_file}"
+  done | cksum | awk '{print $1 ":" $2}'
+}
+
+_plugin_fixture_file_change_stamp() {
+  local fixture_file="$1"
+  if [[ "${_PLUGIN_FIXTURE_OS_NAME}" == "Darwin" ]]; then
+    stat -f '%m:%z' "${fixture_file}"
+    return
+  fi
+  stat -c '%Y:%s' "${fixture_file}"
+}
+
+compute_plugin_fixture_change_stamp() {
+  local root_dir="$1"
+  local fixture_file
+  local fixture_files=(
+    "${root_dir}/scripts/plugin-fixtures/build.sh"
+    "${root_dir}/frontend/package.json"
+    "${root_dir}/frontend/pnpm-lock.yaml"
+    "${root_dir}/scripts/node_version.txt"
+  )
+  while IFS= read -r fixture_file; do
+    fixture_files+=("${fixture_file}")
+  done < <(
+    find "${root_dir}/tests/fixtures/plugins" -type f \
+      ! -path "*/frontend/dist/*" \
+      | sort
+  )
+
+  for fixture_file in "${fixture_files[@]}"; do
+    if [[ ! -f "${fixture_file}" ]]; then
+      continue
+    fi
+    printf '%s|' "${fixture_file#${root_dir}/}"
+    _plugin_fixture_file_change_stamp "${fixture_file}"
   done | cksum | awk '{print $1 ":" $2}'
 }
 
@@ -96,15 +135,20 @@ PY
 build_plugin_fixtures_if_needed() {
   local root_dir="$1"
   local cache_file="$2"
+  local stamp_cache_file="${cache_file}.stamp"
   local log_prefix="${3:-build}"
-  local current_signature cached_signature
-  current_signature="$(compute_plugin_fixture_signature "${root_dir}")"
+  local current_signature current_stamp cached_signature cached_stamp
+  current_signature=""
+  current_stamp=""
   mkdir -p "$(dirname "${cache_file}")"
 
   if [[ "${SETTA_FORCE_PLUGIN_FIXTURE_BUILD:-0}" == "1" ]]; then
     echo "${log_prefix}: plugin fixtures changed; rebuilding"
     "${root_dir}/scripts/plugin-fixtures/build.sh" all
+    current_signature="$(compute_plugin_fixture_signature "${root_dir}")"
+    current_stamp="$(compute_plugin_fixture_change_stamp "${root_dir}")"
     printf '%s' "${current_signature}" > "${cache_file}"
+    printf '%s' "${current_stamp}" > "${stamp_cache_file}"
     return
   fi
 
@@ -112,6 +156,17 @@ build_plugin_fixtures_if_needed() {
     cached_signature="$(<"${cache_file}")"
   else
     cached_signature=""
+  fi
+  if [[ -f "${stamp_cache_file}" ]]; then
+    cached_stamp="$(<"${stamp_cache_file}")"
+  else
+    cached_stamp=""
+  fi
+  current_stamp="$(compute_plugin_fixture_change_stamp "${root_dir}")"
+  if [[ -n "${cached_signature}" && "${cached_stamp}" == "${current_stamp}" ]]; then
+    current_signature="${cached_signature}"
+  else
+    current_signature="$(compute_plugin_fixture_signature "${root_dir}")"
   fi
 
   if [[ "${cached_signature}" == "${current_signature}" ]]; then
@@ -127,6 +182,7 @@ build_plugin_fixtures_if_needed() {
 
   "${root_dir}/scripts/plugin-fixtures/build.sh" all
   printf '%s' "${current_signature}" > "${cache_file}"
+  printf '%s' "${current_stamp}" > "${stamp_cache_file}"
 }
 
 _plugin_fixture_path_has_plugin_hint() {

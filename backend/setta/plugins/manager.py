@@ -170,6 +170,7 @@ _REQUIRED_BACKEND_RPC_METHODS = frozenset(
 )
 _DIRECTORY_DIGEST_CACHE_MAX_ENTRIES = 256
 _PACKAGE_MANAGER_SOURCE_DIGEST_CACHE_MAX_ENTRIES = 256
+_GITHUB_CLONE_TIMEOUT_SECONDS = 30.0
 
 
 @dataclass(slots=True, frozen=True)
@@ -268,6 +269,17 @@ class _BackendRegistrationSnapshot:
     backend_codegen_targets: dict[str, list[PluginRegisteredCodegenTarget]]
     backend_codegen_target_by_id: dict[str, RegisteredBackendCodegenTarget]
     setta_mcp_tools: list[Callable[..., Any]]
+
+
+@dataclass(slots=True, frozen=True)
+class _StatusEntryRuntimeDigestCacheEntry:
+    requested_capabilities: tuple[str, ...]
+    effective_capabilities: tuple[str, ...]
+    blocked_capabilities: tuple[tuple[str, str], ...]
+    errors: tuple[tuple[str, str], ...]
+    backend_registration_generation: int
+    include_backend_registrations: bool
+    digest: str
 
 
 def _mutation_locked(method: Callable[..., Any]) -> Callable[..., Any]:
@@ -397,6 +409,11 @@ class PluginManager:
         self._config_schema_descriptor_cache: dict[
             tuple[str, PluginScope, str | None], tuple[bool, dict[str, Any] | None]
         ] = {}
+        self._backend_registration_generation = 0
+        self._status_runtime_payload_digest_cache: dict[
+            tuple[str, PluginScope, str],
+            _StatusEntryRuntimeDigestCacheEntry,
+        ] = {}
 
         initial_plugins_state = self._load_plugins_state()
         self._pending_restart_backend_ids: set[str] = set(
@@ -521,6 +538,7 @@ class PluginManager:
         )
         self._content_descriptor_cache = {}
         self._config_schema_descriptor_cache = {}
+        self._status_runtime_payload_digest_cache = {}
         self._discovered_plugins = discovered
         self._active_plugin_by_id = {
             entry.plugin_id: entry
@@ -573,6 +591,11 @@ class PluginManager:
         self._backend_language_server_by_language = {}
         self._backend_codegen_targets = {}
         self._backend_codegen_target_by_id = {}
+        self._mark_backend_registration_state_changed()
+
+    def _mark_backend_registration_state_changed(self) -> None:
+        self._backend_registration_generation += 1
+        self._status_runtime_payload_digest_cache = {}
 
     def _build_list_entries(
         self,
@@ -762,16 +785,12 @@ class PluginManager:
             if include_backend_registrations
             else []
         )
-        runtime_payload_digest = self._compute_json_payload_digest(
-            {
-                "requestedCapabilities": entry.requested_capabilities,
-                "effectiveCapabilities": entry.effective_capabilities,
-                "blockedCapabilities": entry.blocked_capabilities,
-                "registeredLanguageServers": registered_language_servers,
-                "registeredExternalAgentAdapters": registered_external_adapters,
-                "registeredCodegenTargets": registered_codegen_targets,
-                "errors": entry.errors,
-            }
+        runtime_payload_digest = self._resolve_status_entry_runtime_payload_digest(
+            entry=entry,
+            include_backend_registrations=include_backend_registrations,
+            registered_language_servers=registered_language_servers,
+            registered_external_adapters=registered_external_adapters,
+            registered_codegen_targets=registered_codegen_targets,
         )
         return PluginStatusEntry(
             pluginId=entry.plugin_id,
@@ -818,6 +837,65 @@ class PluginManager:
             runtimePayloadDigestSha256=runtime_payload_digest,
             errors=entry.errors,
         )
+
+    def _resolve_status_entry_runtime_payload_digest(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        include_backend_registrations: bool,
+        registered_language_servers: list[PluginRegisteredLanguageServer],
+        registered_external_adapters: list[PluginRegisteredExternalAgentAdapter],
+        registered_codegen_targets: list[PluginRegisteredCodegenTarget],
+    ) -> str:
+        cache_key = (entry.plugin_id, entry.scope, str(entry.source_path))
+        blocked_capabilities = tuple(
+            (
+                blocked.capability,
+                blocked.reason.value
+                if hasattr(blocked.reason, "value")
+                else str(blocked.reason),
+            )
+            for blocked in entry.blocked_capabilities
+        )
+        errors = tuple((error.code, error.message) for error in entry.errors)
+        requested_capabilities = tuple(entry.requested_capabilities)
+        effective_capabilities = tuple(entry.effective_capabilities)
+        cached = self._status_runtime_payload_digest_cache.get(cache_key)
+        if (
+            cached is not None
+            and cached.requested_capabilities == requested_capabilities
+            and cached.effective_capabilities == effective_capabilities
+            and cached.blocked_capabilities == blocked_capabilities
+            and cached.errors == errors
+            and cached.backend_registration_generation
+            == self._backend_registration_generation
+            and cached.include_backend_registrations == include_backend_registrations
+        ):
+            return cached.digest
+
+        digest = self._compute_json_payload_digest(
+            {
+                "requestedCapabilities": entry.requested_capabilities,
+                "effectiveCapabilities": entry.effective_capabilities,
+                "blockedCapabilities": entry.blocked_capabilities,
+                "registeredLanguageServers": registered_language_servers,
+                "registeredExternalAgentAdapters": registered_external_adapters,
+                "registeredCodegenTargets": registered_codegen_targets,
+                "errors": entry.errors,
+            }
+        )
+        self._status_runtime_payload_digest_cache[cache_key] = (
+            _StatusEntryRuntimeDigestCacheEntry(
+                requested_capabilities=requested_capabilities,
+                effective_capabilities=effective_capabilities,
+                blocked_capabilities=blocked_capabilities,
+                errors=errors,
+                backend_registration_generation=self._backend_registration_generation,
+                include_backend_registrations=include_backend_registrations,
+                digest=digest,
+            )
+        )
+        return digest
 
     def _status_entry_should_include_backend_registrations(
         self, entry: DiscoveredPlugin
@@ -1933,6 +2011,7 @@ class PluginManager:
         }
         self._backend_codegen_target_by_id = dict(snapshot.backend_codegen_target_by_id)
         SETTA_MCP_TOOLS[:] = list(snapshot.setta_mcp_tools)
+        self._mark_backend_registration_state_changed()
 
     def _validate_backend_worker_handshake(
         self,
@@ -2528,7 +2607,32 @@ class PluginManager:
                 continue
             if header_name.lower() in {"content-length", "transfer-encoding"}:
                 continue
-            headers.append((header_name, item[1]))
+            header_value = item[1]
+            if (
+                "\n" in header_name
+                or "\r" in header_name
+                or "\n" in header_value
+                or "\r" in header_value
+            ):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                    (
+                        f"Plugin worker response for {route_label} returned "
+                        "headers containing newline characters."
+                    ),
+                )
+            try:
+                header_name.encode("latin-1")
+                header_value.encode("latin-1")
+            except UnicodeEncodeError as exc:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                    (
+                        f"Plugin worker response for {route_label} returned "
+                        "a non-latin-1 header name or value."
+                    ),
+                ) from exc
+            headers.append((header_name, header_value))
         return headers
 
     def _apply_worker_route_headers(
@@ -3261,6 +3365,7 @@ class PluginManager:
         self._backend_external_agent_adapter_by_id[registration.adapterId] = (
             registration
         )
+        self._mark_backend_registration_state_changed()
 
     def _build_backend_external_agent_adapter_registration(
         self,
@@ -3456,6 +3561,7 @@ class PluginManager:
             self._backend_language_servers[entry.plugin_id] = []
         self._backend_language_servers[entry.plugin_id].append(registration)
         self._backend_language_server_by_language[registration.language] = registration
+        self._mark_backend_registration_state_changed()
 
     def _build_backend_language_server_registration(
         self,
@@ -3645,6 +3751,7 @@ class PluginManager:
             )
         )
         self._backend_codegen_target_by_id[registration.target_id] = registration
+        self._mark_backend_registration_state_changed()
 
     def _build_backend_codegen_target_registration(
         self,
@@ -5820,12 +5927,36 @@ class PluginManager:
         if source_spec.ref:
             clone_cmd.extend(["--branch", source_spec.ref])
         clone_cmd.extend([clone_url, str(clone_root)])
-        result = subprocess.run(
-            clone_cmd,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        clone_env = dict(os.environ)
+        clone_env["GIT_TERMINAL_PROMPT"] = "0"
+        try:
+            result = subprocess.run(
+                clone_cmd,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_GITHUB_CLONE_TIMEOUT_SECONDS,
+                env=clone_env,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise PluginManagerError(
+                "PLUGIN_SOURCE_FETCH_FAILED",
+                (
+                    "Failed to fetch GitHub plugin source: "
+                    f"{source_spec.raw}\nTimed out waiting for git clone."
+                ),
+            ) from exc
+        except OSError as exc:
+            error_message = str(exc)
+            if exc.filename == "git":
+                error_message = "git is not installed or not available on PATH."
+            raise PluginManagerError(
+                "PLUGIN_SOURCE_FETCH_FAILED",
+                (
+                    "Failed to fetch GitHub plugin source: "
+                    f"{source_spec.raw}\n{error_message}"
+                ),
+            ) from exc
         if result.returncode != 0:
             raise PluginManagerError(
                 "PLUGIN_SOURCE_FETCH_FAILED",

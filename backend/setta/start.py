@@ -2976,19 +2976,19 @@ def plugins_unlink(
         )
     except PluginManagerError as exc:
         if ignore_missing and exc.code == "PLUGIN_NOT_FOUND":
+            resolved_scope_label = resolved_scope if resolved_scope is not None else "any"
             if json_output:
                 _emit_json_output(
                     {
                         "pluginId": plugin_id,
-                        "removedFromScope": resolved_scope,
+                        "removedFromScope": resolved_scope_label,
                         "restartRequired": False,
                         "ignoredMissing": True,
                     }
                 )
                 return
-            scope_label = resolved_scope if resolved_scope is not None else "any"
             click.echo(
-                f"Plugin {plugin_id} not found in {scope_label} scope; skipping."
+                f"Plugin {plugin_id} not found in {resolved_scope_label} scope; skipping."
             )
             return
         _raise_click_plugin_error(exc)

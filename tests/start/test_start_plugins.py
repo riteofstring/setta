@@ -983,3 +983,35 @@ def test_plugins_unlink_cli_ignore_missing_returns_success(
         "restartRequired": False,
         "ignoredMissing": True,
     }
+
+
+def test_plugins_unlink_cli_ignore_missing_without_scope_uses_any_scope_in_json(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Omitted scope should still emit a concrete removedFromScope value in json mode.
+    manager = _build_manager(tmp_path)
+    monkeypatch.setattr(
+        start_module,
+        "_build_plugin_manager_for_cli",
+        lambda **_kwargs: manager,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        plugins,
+        [
+            "unlink",
+            "setta-fixture-missing",
+            "--ignore-missing",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == {
+        "pluginId": "setta-fixture-missing",
+        "removedFromScope": "any",
+        "restartRequired": False,
+        "ignoredMissing": True,
+    }

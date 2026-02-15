@@ -1752,6 +1752,79 @@ def test_worker_invoke_route_supports_model_body_and_query_defaults(
         _stop_worker(worker)
 
 
+def test_worker_invoke_route_binds_optional_single_body_parameter(
+    tmp_path: Path,
+) -> None:
+    # Optional body params should still bind jsonBody when they are the sole body-bound argument.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "from fastapi import APIRouter\n\n"
+        "def register(plugin):\n"
+        "    router = APIRouter()\n\n"
+        "    @router.post('/optional-body')\n"
+        "    def optional_body(payload: dict | None = None) -> dict[str, object]:\n"
+        "        return {\n"
+        "            'payload': payload,\n"
+        "            'payloadIsNone': payload is None,\n"
+        "        }\n\n"
+        "    plugin.register_router(router)\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(worker, request_id=1, method="plugin.initialize")
+        host_requests: list[dict[str, Any]] = []
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_requests=host_requests,
+        )
+        router_registration = next(
+            payload
+            for payload in host_requests
+            if payload.get("method") == "host.register_router"
+        )
+        routes = router_registration["params"]["routes"]
+        route_id_by_path = {route["path"]: route["routeId"] for route in routes}
+
+        with_body_response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id_by_path["/optional-body"],
+                "pathParams": {},
+                "queryParams": {},
+                "jsonBody": {"value": "from-optional"},
+            },
+        )
+        assert with_body_response["result"]["statusCode"] == 200
+        assert with_body_response["result"]["body"] == {
+            "payload": {"value": "from-optional"},
+            "payloadIsNone": False,
+        }
+
+        without_body_response = _rpc_call(
+            worker,
+            request_id=4,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id_by_path["/optional-body"],
+                "pathParams": {},
+                "queryParams": {},
+                "jsonBody": None,
+            },
+        )
+        assert without_body_response["result"]["statusCode"] == 200
+        assert without_body_response["result"]["body"] == {
+            "payload": None,
+            "payloadIsNone": True,
+        }
+    finally:
+        _stop_worker(worker)
+
+
 def test_worker_invoke_route_normalizes_responses_and_http_exceptions(
     tmp_path: Path,
 ) -> None:

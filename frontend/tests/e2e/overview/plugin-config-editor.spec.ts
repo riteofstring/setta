@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import fs from "fs";
+import os from "os";
 import path from "path";
 import {
   cleanupIsolatedProject,
@@ -179,5 +181,124 @@ test("plugin config persists across reload and disable/enable lifecycle", async 
     }).catch(() => null);
     await postBackend(page, "/plugins/rescan", {}).catch(() => null);
     await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("plugin config enum fields persist selected values", async ({ page }) => {
+  const fixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/full",
+  );
+  const tempPluginRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), "setta-plugin-config-enum-"),
+  );
+  const mutablePluginRoot = path.join(tempPluginRoot, "full-plugin");
+  fs.cpSync(fixturePluginRoot, mutablePluginRoot, { recursive: true });
+  const schemaPath = path.join(
+    mutablePluginRoot,
+    "content",
+    "config",
+    "schema.json",
+  );
+  fs.writeFileSync(
+    schemaPath,
+    JSON.stringify(
+      {
+        $schema: "https://json-schema.org/draft/2020-12/schema",
+        title: "Full Fixture Plugin Config",
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          enabled: { type: "boolean" },
+          label: { type: "string" },
+          mode: {
+            type: "string",
+            title: "Mode",
+            enum: ["off", "on", "auto"],
+          },
+        },
+        required: ["enabled"],
+      },
+      null,
+      2,
+    ),
+    "utf-8",
+  );
+
+  await setOverviewTab(page, "Plugins");
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: mutablePluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/rescan", {});
+
+    await page.goto(new URL("/settings", BASE_URL).toString(), {
+      waitUntil: "domcontentloaded",
+    });
+    await page.waitForSelector(".react-flow__pane");
+
+    const pluginCard = page
+      .locator("article")
+      .filter({
+        has: page.getByRole("heading", {
+          name: "setta-fixture-full@0.1.0",
+          exact: true,
+        }),
+      })
+      .first();
+    await expect(pluginCard).toBeVisible();
+
+    const configTextarea = pluginCard.locator("textarea").first();
+    await configTextarea.fill('{"enabled": true}');
+    const modeSelect = pluginCard.locator("select").first();
+    await modeSelect.selectOption({ label: "auto" });
+    await expect
+      .poll(async () => {
+        const parsed = JSON.parse(await configTextarea.inputValue()) as {
+          enabled?: boolean;
+          mode?: string;
+        };
+        return {
+          enabled: parsed.enabled ?? null,
+          mode: parsed.mode ?? null,
+        };
+      })
+      .toEqual({
+        enabled: true,
+        mode: "auto",
+      });
+
+    const saveConfigResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/plugins/config") &&
+        response.request().method() === "POST",
+    );
+    await pluginCard
+      .getByRole("button", { name: "Save Plugin Config", exact: true })
+      .click();
+    await saveConfigResponse;
+    await expect(
+      pluginCard.getByText("Plugin config saved.", { exact: true }).first(),
+    ).toBeVisible();
+
+    const configPayload = JSON.parse(await configTextarea.inputValue()) as {
+      enabled?: boolean;
+      mode?: string;
+    };
+    expect(configPayload.enabled).toBe(true);
+    expect(configPayload.mode).toBe("auto");
+  } finally {
+    await postBackend(page, "/plugins/unlink", {
+      pluginId: "setta-fixture-full",
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/rescan", {}).catch(() => null);
+    await cleanupIsolatedProject(page, projectContext);
+    fs.rmSync(tempPluginRoot, { recursive: true, force: true });
   }
 });

@@ -354,3 +354,18 @@
 - Added/updated backend pytest coverage, frontend Vitest coverage, and Playwright E2E coverage for all changed paths; targeted verification passed (`pytest`: 398 passed, `vitest`: 95 passed, targeted Playwright: 1 passed), and CDP verification confirmed disabled plugin actions in share mode.
 - UX before/after: write-locked modes previously showed actionable Rescan/Restart controls and allowed confusing attempts; now controls are visibly disabled and action handlers short-circuit immediately.
 - DX before/after: plugin runtime refresh previously relied on heavier deep comparisons and could miss explicit-null response semantics; now digest-aware reuse improves refresh determinism/perf and proxy handling preserves exact JSON-null intent.
+
+## 2026-02-17T08:55:16-08:00
+
+- Implemented the current top-level `review*.md` fix batch end-to-end, explicitly excluding backward-compatibility additions.
+- Preserved plugin external-agent output fidelity by keeping blank lines in plain-text stdout fallback and stderr buffering paths.
+- Hardened external-agent preflight execution by mapping command launch `OSError` failures (including non-executable paths) to structured issue messages instead of bubbling crashes.
+- Hardened plugin manager worker-route transport handling by rejecting newline-containing headers and non-Latin-1 header names/values as structured `PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR` responses.
+- Fixed plugin worker optional-body semantics so single unresolved body-bound parameters bind `jsonBody` even when optional, while still preserving required non-body parameter checks.
+- Improved GitHub plugin source fetch reliability with bounded clone timeout, non-interactive `GIT_TERMINAL_PROMPT=0`, and structured error mapping when `git` is missing/unavailable.
+- Reduced plugin runtime status hot-path overhead by caching per-entry runtime payload digests with explicit invalidation on backend registration state changes.
+- Reduced frontend plugin runtime refresh overhead by replacing JSON-serialized refresh signatures with deterministic digest-based keys and cached effective-capability digests.
+- Reduced Plugins pane render-path churn by removing redundant per-action busy checks and precomputing serialized enum option values once per field render.
+- Improved fixture script DX by moving force-build checks ahead of expensive signature hashing and adding change-stamp short-circuiting for unchanged fixture trees.
+- Fixed CLI output contract consistency for `plugins unlink --ignore-missing --json` without explicit scope: `removedFromScope` now emits concrete `"any"` instead of `null`.
+- Added/updated backend pytest coverage, frontend Vitest coverage, and Playwright E2E coverage for all above paths; targeted verification passed (`pytest`: 413 passed, `vitest`: 96 passed, targeted Playwright spec: 3 passed) and CDP visual verification completed on the Settings/Plugins surface.

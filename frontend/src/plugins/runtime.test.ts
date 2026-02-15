@@ -1045,6 +1045,55 @@ describe("plugin runtime helpers", () => {
     expect(usePluginRuntimeStore.getState().status).toBe("loaded");
   });
 
+  it("does not reload plugin frontend when effective capability order changes", async () => {
+    const globalScope = globalThis as {
+      __settaCapabilityOrderRegisterCalls?: number;
+    };
+    delete globalScope.__settaCapabilityOrderRegisterCalls;
+
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(_host) {\n" +
+          "  globalThis.__settaCapabilityOrderRegisterCalls = Number(globalThis.__settaCapabilityOrderRegisterCalls || 0) + 1;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      pluginId: "acme.capability-order",
+      sourceDigestSha256: "digest-capability-order",
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerPane", "registerCommand"],
+    });
+    let effectiveCapabilities = ["registerPane", "registerCommand"];
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
+      async () => ({
+        data: buildPluginRuntimeResponse(
+          buildPluginListResponse([plugin]),
+          buildPluginStatusResponse([
+            buildPluginStatusEntry({
+              pluginId: plugin.pluginId,
+              requestedCapabilities: [...effectiveCapabilities],
+              effectiveCapabilities: [...effectiveCapabilities],
+              blockedCapabilities: [],
+            }),
+          ]),
+        ),
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+
+    await refreshPluginRuntime();
+    effectiveCapabilities = ["registerCommand", "registerPane"];
+    await refreshPluginRuntime();
+
+    expect(globalScope.__settaCapabilityOrderRegisterCalls).toBe(1);
+  });
+
   it("recovers plugin registrations after transient runtime errors with unchanged signatures", async () => {
     const globalScope = globalThis as {
       __settaRecoveryRegisterCalls?: number;

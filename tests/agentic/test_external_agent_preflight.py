@@ -184,6 +184,23 @@ class TestExternalAgentPreflight:
             if issue is not None:
                 assert "Timed out" in issue
 
+    def test_run_cli_os_error_returns_issue(self) -> None:
+        with mock.patch(
+            "setta.agentic.external_agent_preflight.subprocess.run"
+        ) as mocked_run:
+            mocked_run.side_effect = PermissionError(
+                13,
+                "Permission denied",
+                "/tmp/nonexec-codex",
+            )
+            result, issue = preflight._run_cli(["/tmp/nonexec-codex", "--version"])
+
+            assert result is None
+            assert issue is not None
+            if issue is not None:
+                assert "Failed to run /tmp/nonexec-codex --version" in issue
+                assert "Permission denied" in issue
+
     def test_plugin_tool_supported_with_registered_adapter(self) -> None:
         with _temp_cwd() as tmp:
             dbe = DBE(tmp / "setta_files")

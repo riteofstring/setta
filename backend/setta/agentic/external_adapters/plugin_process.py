@@ -111,8 +111,6 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
         message_text_part_is_plain_fallback: list[bool] = []
         done_event_received = False
         async for line in iter_stream_lines(process.stdout):
-            if not line:
-                continue
             payload = parse_json_line(line)
             if isinstance(payload, dict):
                 session_id = payload.get("sessionId")
@@ -216,8 +214,6 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
         stderr_lines: list[str],
     ) -> None:
         async for line in iter_stream_lines(stream):
-            if not line:
-                continue
             stderr_lines.append(line)
             if len(stderr_lines) > _PLUGIN_ADAPTER_STDERR_MAX_LINES:
                 del stderr_lines[: len(stderr_lines) - _PLUGIN_ADAPTER_STDERR_MAX_LINES]

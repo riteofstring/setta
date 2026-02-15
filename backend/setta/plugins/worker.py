@@ -614,14 +614,23 @@ class _WorkerState:
                 continue
             unresolved_parameters.append(parameter)
 
-        unresolved_required_body_parameters = [
+        unresolved_body_parameters = [
+            parameter
+            for parameter in unresolved_parameters
+            if self._route_parameter_is_body_bound(parameter)
+        ]
+        unresolved_required_non_body_parameters = [
             parameter
             for parameter in unresolved_parameters
             if self._route_parameter_is_required(parameter)
-            and self._route_parameter_is_body_bound(parameter)
+            and not self._route_parameter_is_body_bound(parameter)
         ]
-        if json_body is not None and len(unresolved_required_body_parameters) == 1:
-            fallback_parameter = unresolved_required_body_parameters[0]
+        if (
+            json_body is not None
+            and len(unresolved_body_parameters) == 1
+            and len(unresolved_required_non_body_parameters) == 0
+        ):
+            fallback_parameter = unresolved_body_parameters[0]
             kwargs[fallback_parameter.name] = self._coerce_route_parameter_value(
                 parameter=fallback_parameter,
                 value=json_body,

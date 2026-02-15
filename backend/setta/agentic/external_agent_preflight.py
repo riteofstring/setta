@@ -437,6 +437,8 @@ def _run_cli(
         )
     except subprocess.TimeoutExpired:
         return None, f"Timed out running {' '.join(command)}"
+    except OSError as exc:
+        return None, f"Failed to run {' '.join(command)}: {exc}"
     return result, None
 
 

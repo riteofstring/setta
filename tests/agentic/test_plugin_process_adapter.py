@@ -186,6 +186,48 @@ async def test_plugin_process_plain_text_fallback_preserves_multiline_boundaries
 
 
 @pytest.mark.asyncio
+async def test_plugin_process_plain_text_fallback_preserves_blank_lines(
+    tmp_path: Path,
+) -> None:
+    # Plain-text fallback should preserve intentionally blank lines between chunks.
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-u",
+        "-c",
+        (
+            "import json,sys\n"
+            "sys.stdout.write('step one\\n')\n"
+            "sys.stdout.write('\\n')\n"
+            "sys.stdout.write('step two\\n')\n"
+            "sys.stdout.write(json.dumps({'type':'done','returnCode':0}) + '\\n')\n"
+            "sys.stdout.flush()\n"
+        ),
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    adapter = _build_adapter()
+    context = _build_context(tmp_path)
+    handle = ExternalAgentRunHandle(
+        run_id=ID("plugin-process-run-plain-blank-lines"),
+        process=process,
+        metadata={"stderr_lines": []},
+    )
+
+    events = [event async for event in adapter.stream_events(handle, context)]
+    finalized_events = [
+        event.stream_chunk
+        for event in events
+        if isinstance(event.stream_chunk, MessageFinalizedEvent)
+    ]
+    assert len(finalized_events) == 1
+    finalized_event = finalized_events[0]
+    assert isinstance(finalized_event, MessageFinalizedEvent)
+    assert finalized_event.message.content[0].text == "step one\n\nstep two"
+    assert handle.return_code == 0
+
+
+@pytest.mark.asyncio
 async def test_plugin_process_stream_events_finalize_json_chunks_without_newlines(
     tmp_path: Path,
 ) -> None:
@@ -318,6 +360,19 @@ async def test_plugin_process_stream_stderr_caps_lines() -> None:
     assert len(stderr_lines) == _PLUGIN_ADAPTER_STDERR_MAX_LINES
     assert stderr_lines[0] == f"stderr-{total_lines - _PLUGIN_ADAPTER_STDERR_MAX_LINES}"
     assert stderr_lines[-1] == f"stderr-{total_lines - 1}"
+
+
+@pytest.mark.asyncio
+async def test_plugin_process_stream_stderr_preserves_blank_lines() -> None:
+    # stderr buffering should preserve blank-line separators emitted by adapters.
+    reader = asyncio.StreamReader()
+    stderr_lines: list[str] = []
+    reader.feed_data("stderr-one\n\nstderr-two\n".encode("utf-8"))
+    reader.feed_eof()
+
+    await PluginProcessExternalAgentAdapter._stream_stderr(reader, stderr_lines)
+
+    assert stderr_lines == ["stderr-one", "", "stderr-two"]
 
 
 @pytest.mark.asyncio

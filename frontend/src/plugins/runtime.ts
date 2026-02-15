@@ -297,6 +297,14 @@ const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
 const cleanupByPluginId = new Map<string, Set<() => void>>();
 const frontendSignatureByPluginId = new Map<string, string>();
+const effectiveCapabilityDigestByPluginListEntry = new WeakMap<
+  PluginListEntry,
+  string
+>();
+const effectiveCapabilityDigestByStatusEntry = new WeakMap<
+  PluginStatusEntry,
+  string
+>();
 let pluginRuntimeLoadPromise: Promise<void> | null = null;
 let pluginRuntimeRefreshQueued = false;
 const PLUGIN_FRONTEND_LOAD_CONCURRENCY = 4;
@@ -518,18 +526,44 @@ function buildPluginFrontendRefreshSignature(
   plugin: PluginListEntry,
   statusEntry: PluginStatusEntry | undefined,
 ): string {
-  const effectiveCapabilities = (
-    statusEntry?.effectiveCapabilities ?? plugin.effectiveCapabilities
-  )
-    .slice()
-    .sort();
-  return JSON.stringify({
-    pluginId: plugin.pluginId,
-    sourceDigestSha256: plugin.sourceDigestSha256,
-    entrypointUrl: plugin.frontend.entrypointUrl,
-    styleUrl: plugin.frontend.styleUrl,
-    effectiveCapabilities,
-  });
+  const sourceDigest = plugin.sourceDigestSha256 ?? "";
+  const entrypointUrl = plugin.frontend.entrypointUrl ?? "";
+  const styleUrl = plugin.frontend.styleUrl ?? "";
+  const effectiveCapabilityDigest = getFrontendEffectiveCapabilityDigest(
+    plugin,
+    statusEntry,
+  );
+  return `${plugin.pluginId}\u0000${sourceDigest}\u0000${entrypointUrl}\u0000${styleUrl}\u0000${effectiveCapabilityDigest}`;
+}
+
+function getFrontendEffectiveCapabilityDigest(
+  plugin: PluginListEntry,
+  statusEntry: PluginStatusEntry | undefined,
+): string {
+  if (statusEntry) {
+    const cachedDigest = effectiveCapabilityDigestByStatusEntry.get(statusEntry);
+    if (cachedDigest !== undefined) {
+      return cachedDigest;
+    }
+    const digest = buildEffectiveCapabilityDigest(statusEntry.effectiveCapabilities);
+    effectiveCapabilityDigestByStatusEntry.set(statusEntry, digest);
+    return digest;
+  }
+  const cachedDigest = effectiveCapabilityDigestByPluginListEntry.get(plugin);
+  if (cachedDigest !== undefined) {
+    return cachedDigest;
+  }
+  const digest = buildEffectiveCapabilityDigest(plugin.effectiveCapabilities);
+  effectiveCapabilityDigestByPluginListEntry.set(plugin, digest);
+  return digest;
+}
+
+function buildEffectiveCapabilityDigest(effectiveCapabilities: string[]): string {
+  if (effectiveCapabilities.length === 0) {
+    return "";
+  }
+  const sortedCapabilities = [...effectiveCapabilities].sort();
+  return sortedCapabilities.join("\u001f");
 }
 
 function mergeRegistryDelta(

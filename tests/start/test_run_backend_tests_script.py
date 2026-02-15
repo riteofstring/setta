@@ -161,6 +161,19 @@ def _compute_plugin_fixture_signature(sandbox_root: Path) -> str:
     return result.stdout.strip()
 
 
+def _run_cache_helper_command(
+    sandbox_root: Path,
+    command: str,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["bash", "-lc", command],
+        cwd=sandbox_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
 def test_plugin_fixture_signature_is_content_based_not_path_based(
     tmp_path: Path,
 ) -> None:
@@ -251,6 +264,77 @@ def test_run_backend_tests_force_flag_rebuilds_fixtures(tmp_path: Path) -> None:
     )
     assert forced_run.returncode == 0, f"{forced_run.stdout}\n{forced_run.stderr}"
     assert build_count_file.read_text(encoding="utf-8").strip() == "2"
+
+
+def test_force_fixture_build_computes_signature_after_build(
+    tmp_path: Path,
+) -> None:
+    # Force rebuild should run build first and only then evaluate final signature writes.
+    sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+    cache_file = (
+        sandbox_root
+        / "setta_files"
+        / ".cache"
+        / "backend-test-plugin-fixtures-force.signature"
+    )
+    stamp_cache_file = cache_file.with_suffix(cache_file.suffix + ".stamp")
+    command = f"""
+set -euo pipefail
+. '{sandbox_root / "scripts" / "plugin-fixtures" / "cache.sh"}'
+compute_plugin_fixture_signature() {{
+  if [[ ! -f "{build_count_file}" ]]; then
+    echo "signature evaluated before build completed" >&2
+    return 98
+  fi
+  printf '%s\\n' 'force-signature'
+}}
+compute_plugin_fixture_change_stamp() {{
+  printf '%s\\n' 'force-stamp'
+}}
+SETTA_FORCE_PLUGIN_FIXTURE_BUILD=1
+build_plugin_fixtures_if_needed "{sandbox_root}" "{cache_file}" "test"
+"""
+    result = _run_cache_helper_command(sandbox_root, command)
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert build_count_file.read_text(encoding="utf-8").strip() == "1"
+    assert cache_file.read_text(encoding="utf-8").strip() == "force-signature"
+    assert stamp_cache_file.read_text(encoding="utf-8").strip() == "force-stamp"
+
+
+def test_fixture_stamp_short_circuit_skips_full_signature_recompute(
+    tmp_path: Path,
+) -> None:
+    # Unchanged change-stamp runs should reuse cached signature without recomputing file checksums.
+    sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+    cache_file = (
+        sandbox_root
+        / "setta_files"
+        / ".cache"
+        / "backend-test-plugin-fixtures-stamp.signature"
+    )
+    signature_calls_file = sandbox_root / "signature_calls.txt"
+    command = f"""
+set -euo pipefail
+. '{sandbox_root / "scripts" / "plugin-fixtures" / "cache.sh"}'
+compute_plugin_fixture_signature() {{
+  local count=0
+  if [[ -f "{signature_calls_file}" ]]; then
+    count="$(<"{signature_calls_file}")"
+  fi
+  echo "$((count + 1))" > "{signature_calls_file}"
+  printf '%s\\n' 'cached-signature'
+}}
+compute_plugin_fixture_change_stamp() {{
+  printf '%s\\n' 'stable-stamp'
+}}
+build_plugin_fixtures_if_needed "{sandbox_root}" "{cache_file}" "test"
+build_plugin_fixtures_if_needed "{sandbox_root}" "{cache_file}" "test"
+"""
+    result = _run_cache_helper_command(sandbox_root, command)
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert build_count_file.read_text(encoding="utf-8").strip() == "1"
+    assert signature_calls_file.read_text(encoding="utf-8").strip() == "1"
+    assert "plugin fixtures unchanged; skipping rebuild" in result.stdout
 
 
 def test_run_backend_tests_rebuilds_when_fixture_outputs_are_missing(
