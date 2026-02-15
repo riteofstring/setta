@@ -1,10 +1,19 @@
 import { resetProjectStores } from "state/utils";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await vi.importActual<typeof import("utils/generatedEndpoints")>(
-    "utils/generatedEndpoints",
-  );
+  const actual = await vi.importActual<
+    typeof import("utils/generatedEndpoints")
+  >("utils/generatedEndpoints");
   return {
     ...actual,
     route_get_llm_response: vi.fn(),
