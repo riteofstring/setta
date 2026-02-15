@@ -240,7 +240,6 @@ export const SectionTypeEnum = {
   IFrame: "IFrame",
   Chat: "Chat",
   Browser: "Browser",
-  Plugin: "Plugin",
 } as const;
 
 export type SectionType = ObjectValues<typeof SectionTypeEnum>;
@@ -280,7 +279,6 @@ export const ExternalAgentToolTypeEnum = {
   claude_code: "claude_code",
   codex: "codex",
   opencode: "opencode",
-  plugin: "plugin",
 } as const;
 
 export const ExternalAgentWorkingDirStrategyEnum = {
@@ -403,20 +401,7 @@ export const RouteEnum = {
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   GET_SERVER_MODE: "/serverMode",
   GET_SETTA_HOME_INFO: "/settaHomeInfo",
-  PLUGINS_RUNTIME: "/plugins/runtime",
-  PLUGINS_INSTALL: "/plugins/install",
-  PLUGINS_UNINSTALL: "/plugins/uninstall",
-  PLUGINS_LINK: "/plugins/link",
-  PLUGINS_UNLINK: "/plugins/unlink",
-  PLUGINS_ENABLE: "/plugins/enable",
-  PLUGINS_DISABLE: "/plugins/disable",
-  PLUGINS_CONFIG: "/plugins/config",
-  PLUGINS_UPDATE: "/plugins/update",
-  PLUGINS_ROLLBACK: "/plugins/rollback",
-  PLUGINS_LOCK_WRITE: "/plugins/lock/write",
-  PLUGINS_LOCK_APPLY: "/plugins/lock/apply",
-  PLUGINS_RESCAN: "/plugins/rescan",
-  PLUGINS_RESTART: "/plugins/restart",
+  REVEAL_PATH_IN_OS_FILE_EXPLORER: "/revealPathInOsFileExplorer",
   LAUNCH: "/launch",
   SAVE_SETTINGS_PROJECT: "/saveSettingsProject",
   LOAD_SETTINGS_PROJECT: "/loadSettingsProject",
@@ -552,6 +537,8 @@ export const RouteEnum = {
   GET_APP_CATALOG: "/getAppCatalog",
   LIST_APP_COMPONENTS: "/listAppComponents",
   STREAM_APP_SPEC: "/streamAppSpec",
+  GET_APP_GEN_SKILLS: "/getAppGenSkills",
+  GET_APP_GEN_SKILL_CONTENT: "/getAppGenSkillContent",
   SET_PROMPT_TEMPLATE: "/setPromptTemplate",
   SET_PROMPT_INPUTS: "/setPromptInputs",
   SET_PROMPT_FORMAT: "/setPromptFormat",
@@ -1536,14 +1523,13 @@ const SharedModifierSchema = z.object({
   choices: z.array(z.string()).optional(),
   code: z.string().optional(),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
-  codeLanguage: z.union([z.enum(CodeLanguageEnum), z.string()]).optional(),
+  codeLanguage: z.enum(CodeLanguageEnum).optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
   colorChoices: z.array(ColorPickerChoiceSchema).optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
   coreNameEditable: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
-  data: z.record(z.string(), z.any()).optional(),
   dataPath: z.string().optional(),
   defaultVal: z.string().optional(),
   description: z.string().optional(),
@@ -1575,7 +1561,6 @@ const SharedModifierSchema = z.object({
   isPreset: z.boolean().optional(),
   jsonSourceKeys: z.array(z.string()).optional(),
   jsonSourceMissing: z.boolean().optional(),
-  kind: z.string().optional(),
   label: z.string().optional(),
   layers: z.array(DrawAreaLayerSchema).optional(),
   managed: z.boolean().optional(),
@@ -1602,7 +1587,6 @@ const SharedModifierSchema = z.object({
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
   pinnedParams: z.array(IDSchema).optional(),
   placeholder: z.string().optional(),
-  pluginId: z.string().optional(),
   positionAndSizeLocked: z.boolean().optional(),
   renderError: z.union([z.string(), z.null()]).optional(),
   renderedImagePath: z.union([z.string(), z.null()]).optional(),
@@ -1613,7 +1597,6 @@ const SharedModifierSchema = z.object({
   requestMethod: z.enum(HttpRequestMethodEnum).optional(),
   requestUrl: z.string().optional(),
   savedSearches: z.array(BrowserSavedSearchSchema).optional(),
-  schemaVersion: z.union([z.int(), z.null()]).optional(),
   selectedParams: z.array(IDSchema).optional(),
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
@@ -1679,7 +1662,6 @@ const CoreSchema = z.object({
         "configLanguage",
         "coreNameEditable",
         "coreNameType",
-        "data",
         "dataPath",
         "defaultVal",
         "description",
@@ -1709,7 +1691,6 @@ const CoreSchema = z.object({
         "isPreset",
         "jsonSourceKeys",
         "jsonSourceMissing",
-        "kind",
         "label",
         "layers",
         "managed",
@@ -1727,7 +1708,6 @@ const CoreSchema = z.object({
         "passingStyle",
         "pinnedParams",
         "placeholder",
-        "pluginId",
         "positionAndSizeLocked",
         "renderError",
         "renderedImagePath",
@@ -1738,7 +1718,6 @@ const CoreSchema = z.object({
         "requestMethod",
         "requestUrl",
         "savedSearches",
-        "schemaVersion",
         "selectedParams",
         "showSectionTitle",
         "size",
@@ -2137,9 +2116,7 @@ const CodeSectionImplSchema = z.object({
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).default(null),
-  codeLanguage: z
-    .union([z.enum(CodeLanguageEnum), z.string()])
-    .default(CodeLanguageEnum.python),
+  codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.default(
     createCodeSectionDiagnosticsIgnoreState,
   ),
@@ -2327,29 +2304,6 @@ const BrowserSectionImplSchema = z.object({
 });
 
 type BrowserSectionImpl = z.infer<typeof BrowserSectionImplSchema>;
-
-const PluginSectionImplSchema = z.object({
-  type: z.literal("Plugin").default(SectionTypeEnum.Plugin),
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  isFrozen: z.boolean().default(false),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  tagColor: z.union([z.string(), z.null()]).default(null),
-  styleColor: z.union([z.string(), z.null()]).default(null),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  pluginId: z.string().default("" as const),
-  kind: z.string().default("default" as const),
-  data: z.record(z.string(), z.any()).default({}),
-  schemaVersion: z.union([z.int(), z.null()]).default(null),
-});
-
-type PluginSectionImpl = z.infer<typeof PluginSectionImplSchema>;
 
 const VariantSchema = z.object({
   id: IDSchema.default(create_new_id),
@@ -2645,7 +2599,6 @@ const ProjectStateCoreSchema = z.object({
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
         BrowserSectionImplSchema,
-        PluginSectionImplSchema,
       ]),
     )
     .default({}),
@@ -2852,7 +2805,6 @@ const BaseSectionImplUnionSchema = z.union([
   IFrameSectionImplSchema,
   ChatSectionImplSchema,
   BrowserSectionImplSchema,
-  PluginSectionImplSchema,
 ]);
 
 export type BaseSectionImplUnion = z.infer<typeof BaseSectionImplUnionSchema>;
@@ -3168,7 +3120,7 @@ const CodeSectionImplArgsSchema = z.object({
   code: z.string().optional(),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).optional(),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).optional(),
-  codeLanguage: z.union([z.enum(CodeLanguageEnum), z.string()]).optional(),
+  codeLanguage: z.enum(CodeLanguageEnum).optional(),
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
 });
 
@@ -3579,29 +3531,6 @@ const BrowserSectionImplArgsSchema = z.object({
 });
 
 type BrowserSectionImplArgs = z.infer<typeof BrowserSectionImplArgsSchema>;
-
-const PluginSectionImplArgsSchema = z.object({
-  type: z.literal("Plugin").optional(),
-  id: IDSchema.optional(),
-  name: z.string().optional(),
-  isFrozen: z.boolean().optional(),
-  isInOtherProjectConfigs: z.boolean().optional(),
-  tagColor: z.union([z.string(), z.null()]).optional(),
-  styleColor: z.union([z.string(), z.null()]).optional(),
-  size: SectionSizeSchema.optional(),
-  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
-  aspectRatioExtraHeight: z.int().optional(),
-  aspectRatioExtraWidth: z.int().optional(),
-  isMinimized: z.boolean().optional(),
-  positionAndSizeLocked: z.boolean().optional(),
-  isPreset: z.boolean().optional(),
-  pluginId: z.string().optional(),
-  kind: z.string().optional(),
-  data: z.record(z.string(), z.any()).optional(),
-  schemaVersion: z.union([z.int(), z.null()]).optional(),
-});
-
-type PluginSectionImplArgs = z.infer<typeof PluginSectionImplArgsSchema>;
 
 const RealtimeUIChangeContentSchema = z.object({
   projectConfigId: IDSchema,
@@ -4024,7 +3953,6 @@ const SectionCodegenPolicySchema = z.object({
         representation: SectionRepresentationModeEnum.file_read,
       }),
       Browser: createSectionTypeCodegenPolicy(),
-      Plugin: createSectionTypeCodegenPolicy(),
     })),
   sectionOverrides: z
     .record(IDSchema, SectionCodegenOverrideSchema)
@@ -4119,21 +4047,6 @@ export function createProjectCodegenPythonTarget(
   return ProjectCodegenPythonTargetSchema.parse(options);
 }
 
-const ProjectCodegenPluginTargetSchema = z.object({
-  language: z.string(),
-  options: z.record(z.string(), z.any()).default({}),
-});
-
-export type ProjectCodegenPluginTarget = z.infer<
-  typeof ProjectCodegenPluginTargetSchema
->;
-
-export function createProjectCodegenPluginTarget(
-  options: Partial<ProjectCodegenPluginTarget> = {},
-): ProjectCodegenPluginTarget {
-  return ProjectCodegenPluginTargetSchema.parse(options);
-}
-
 const EdgeSchema = z.object({
   id: IDSchema.default(create_new_id),
   sourceSectionId: IDSchema,
@@ -4215,12 +4128,7 @@ const ProjectConfigSchema = z.object({
   activeViewModeId: z.union([IDSchema, z.null()]).default(null),
   isEditingViewMode: z.boolean().default(false),
   codegenTargets: z
-    .array(
-      z.union([
-        ProjectCodegenPythonTargetSchema,
-        ProjectCodegenPluginTargetSchema,
-      ]),
-    )
+    .array(ProjectCodegenPythonTargetSchema)
     .default(() => [createProjectCodegenPythonTarget()]),
   entryCodeBlockId: z.union([IDSchema, z.null()]).default(null),
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
@@ -4306,7 +4214,6 @@ const ProjectStateSingleConfigSchema = z.object({
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
         BrowserSectionImplSchema,
-        PluginSectionImplSchema,
       ]),
     )
     .default({}),
@@ -4735,14 +4642,6 @@ const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  Plugin: SectionSizingPolicyTypeEntrySchema.default(() =>
-    createSectionSizingPolicyTypeEntry({
-      minHeight: 80.0,
-      maxHeight: 100000.0,
-      minWidth: 200.0,
-      maxWidth: 100000.0,
-    }),
-  ),
 });
 
 type SectionSizingPolicyByType = z.infer<
@@ -5042,9 +4941,7 @@ const UserDefaultCodeSectionImplSchema = z.object({
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).default(null),
-  codeLanguage: z
-    .union([z.enum(CodeLanguageEnum), z.string()])
-    .default(CodeLanguageEnum.python),
+  codeLanguage: z.enum(CodeLanguageEnum).default(CodeLanguageEnum.python),
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.default(
     createCodeSectionDiagnosticsIgnoreState,
   ),
@@ -5299,30 +5196,6 @@ function createUserDefaultMetaControlSectionImpl(
   options: Partial<UserDefaultMetaControlSectionImpl> = {},
 ): UserDefaultMetaControlSectionImpl {
   return UserDefaultMetaControlSectionImplSchema.parse(options);
-}
-
-const UserDefaultPluginSectionImplSchema = z.object({
-  isFrozen: z.boolean().default(false),
-  tagColor: z.union([z.string(), z.null()]).default(null),
-  styleColor: z.union([z.string(), z.null()]).default(null),
-  size: SectionSizeSchema.default(createSectionSize),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  pluginId: z.string().default("" as const),
-  kind: z.string().default("default" as const),
-  data: z.record(z.string(), z.any()).default({}),
-  schemaVersion: z.union([z.int(), z.null()]).default(null),
-});
-
-type UserDefaultPluginSectionImpl = z.infer<
-  typeof UserDefaultPluginSectionImplSchema
->;
-
-function createUserDefaultPluginSectionImpl(
-  options: Partial<UserDefaultPluginSectionImpl> = {},
-): UserDefaultPluginSectionImpl {
-  return UserDefaultPluginSectionImplSchema.parse(options);
 }
 
 const UserDefaultPromptSectionImplSchema = z.object({
@@ -5725,9 +5598,6 @@ const SettingsStateSchema = z.object({
   metaControlSectionDefault: UserDefaultMetaControlSectionImplSchema.default(
     createUserDefaultMetaControlSectionImpl,
   ),
-  pluginSectionDefault: UserDefaultPluginSectionImplSchema.default(
-    createUserDefaultPluginSectionImpl,
-  ),
   promptSectionDefault: UserDefaultPromptSectionImplSchema.default(
     createUserDefaultPromptSectionImpl,
   ),
@@ -6016,7 +5886,6 @@ const ExternalAgentConfigSchema = z.object({
   name: z.string(),
   description: z.string().default("" as const),
   toolType: z.enum(ExternalAgentToolTypeEnum),
-  pluginAdapterId: z.union([z.string(), z.null()]).default(null),
   runMode: z.enum(ExternalAgentRunModeEnum),
   commandPath: z.union([z.string(), z.null()]).default(null),
   baseUrl: z.union([z.string(), z.null()]).default(null),
@@ -6158,13 +6027,6 @@ export type FrontendWebsocketMsgUnion = z.infer<
 const GitDiffModeSchema = z.literal(["unstaged", "staged"]);
 
 export type GitDiffMode = z.infer<typeof GitDiffModeSchema>;
-
-const ProjectCodegenTargetSchema = z.union([
-  ProjectCodegenPythonTargetSchema,
-  ProjectCodegenPluginTargetSchema,
-]);
-
-export type ProjectCodegenTarget = z.infer<typeof ProjectCodegenTargetSchema>;
 
 const BaseCanvasSectionImplArgsSchema = z.object({
   type: z.any().optional(),
@@ -7248,7 +7110,6 @@ const CreateExternalAgentConfigRequestSchema = z.object({
   name: z.string(),
   description: z.string().default("" as const),
   toolType: z.enum(ExternalAgentToolTypeEnum),
-  pluginAdapterId: z.union([z.string(), z.null()]).default(null),
   runMode: z.enum(ExternalAgentRunModeEnum),
   commandPath: z.union([z.string(), z.null()]).default(null),
   baseUrl: z.union([z.string(), z.null()]).default(null),
@@ -7368,17 +7229,6 @@ const GetPromptTemplateRequestSchema = z.object({
 export type GetPromptTemplateRequestInput = z.input<
   typeof GetPromptTemplateRequestSchema
 >;
-
-const PluginRegisteredExternalAgentAdapterSchema = z.object({
-  adapterId: z.string(),
-  pluginId: z.string(),
-  name: z.string(),
-  runModes: z.array(z.string()).default([]),
-  command: z.string(),
-  args: z.array(z.string()).default([]),
-  envVarWhitelist: z.array(z.string()).default([]),
-  defaultModel: z.union([z.string(), z.null()]).default(null),
-});
 
 const RespondExternalAgentApprovalRequestSchema = z.object({
   approvalId: z.string(),
@@ -7547,6 +7397,21 @@ const GetLLMResponseRequestSchema = z.object({
   branchParentChatId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
   appSpecStreamingEnabled: z.boolean().default(false),
+  appGenerationMode: z
+    .union([
+      z.literal([
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+      ]),
+      z.null(),
+    ])
+    .default(null),
+  appGenerationReferenceImageUrl: z.union([z.string(), z.null()]).default(null),
+  appGenerationReferenceImageNotes: z
+    .union([z.string(), z.null()])
+    .default(null),
 });
 
 export type GetLLMResponseRequestInput = z.input<
@@ -7595,8 +7460,48 @@ export type PublishAppDeploymentRequestInput = z.input<
   typeof PublishAppDeploymentRequestSchema
 >;
 
+const AppGenSkillContentSchema = z.object({
+  skillId: z.string(),
+  content: z.string(),
+});
+
+export type AppGenSkillContent = z.infer<typeof AppGenSkillContentSchema>;
+
+const AppGenSkillEntrySchema = z.object({
+  skillId: z.string(),
+  name: z.string(),
+  rootLabel: z.string(),
+  rootPath: z.string(),
+  relativePath: z.string(),
+  skillPath: z.string(),
+  description: z.string().default("" as const),
+});
+
+export type AppGenSkillEntry = z.infer<typeof AppGenSkillEntrySchema>;
+
+const GetAppGenSkillContentRequestSchema = z.object({
+  skillId: z.string(),
+});
+
+export type GetAppGenSkillContentRequestInput = z.input<
+  typeof GetAppGenSkillContentRequestSchema
+>;
+
 const StreamAppSpecRequestSchema = z.object({
   prompt: z.string(),
+  mode: z
+    .union([
+      z.literal([
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+      ]),
+      z.null(),
+    ])
+    .default(null),
+  referenceImageUrl: z.union([z.string(), z.null()]).default(null),
+  referenceImageNotes: z.union([z.string(), z.null()]).default(null),
   context: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
   currentSpec: z.union([z.any(), z.null()]).default(null),
 });
@@ -7671,9 +7576,6 @@ const GetFolderContentsRequestSchema = z.object({
   includeHidden: z.boolean().default(false),
   ignorePatterns: z.union([z.array(z.string()), z.null()]).default(null),
   maxEntries: z.union([z.int(), z.null()]).default(null),
-  missingFolderBehavior: z
-    .literal(["error", "empty"])
-    .default("error" as const),
 });
 
 export type GetFolderContentsRequestInput = z.input<
@@ -7789,13 +7691,9 @@ const LaunchErrorPayloadSchema = z.object({
 
 const LaunchRequestSchema = z.object({
   workspaceRoot: z.union([z.string(), z.null()]).default(null),
-  profile: z.union([z.string(), z.null()]).default(null),
-  settaHome: z.union([z.string(), z.null()]).default(null),
-  settaFilesRoot: z.union([z.string(), z.null()]).default(null),
   settaFilesLocation: z
     .union([z.literal(["auto", "local", "global"]), z.null()])
     .default(null),
-  runtimeRoot: z.union([z.string(), z.null()]).default(null),
   sshTarget: z.union([z.string(), z.null()]).default(null),
   sshArgs: z.union([z.string(), z.null()]).default(null),
   remoteCmd: z.union([z.string(), z.null()]).default(null),
@@ -7821,10 +7719,6 @@ const LaunchResponseSchema = z.object({
   settaFilesLocation: z
     .union([z.literal(["local", "global"]), z.null()])
     .default(null),
-  settaFilesRoot: z.union([z.string(), z.null()]).default(null),
-  runtimeRoot: z.union([z.string(), z.null()]).default(null),
-  settaHome: z.union([z.string(), z.null()]).default(null),
-  profile: z.union([z.string(), z.null()]).default(null),
   sessionId: z.union([z.string(), z.null()]).default(null),
   startedNew: z.union([z.boolean(), z.null()]).default(null),
   session: z.union([LaunchSessionInfoSchema, z.null()]).default(null),
@@ -7855,387 +7749,6 @@ const MCPToolCallRequestSchema = z.object({
 });
 
 export type MCPToolCallRequestInput = z.input<typeof MCPToolCallRequestSchema>;
-
-const PluginConfigRequestSchema = z.object({
-  pluginId: z.string(),
-  config: z.record(z.string(), z.any()),
-});
-
-export type PluginConfigRequestInput = z.input<
-  typeof PluginConfigRequestSchema
->;
-
-const PluginConfigWriteResponseSchema = z.object({
-  pluginId: z.string(),
-  config: z.record(z.string(), z.any()),
-  validation: z.record(z.string(), z.any()),
-});
-
-export type PluginConfigWriteResponse = z.infer<
-  typeof PluginConfigWriteResponseSchema
->;
-
-const PluginEnableDisableRequestSchema = z.object({
-  pluginId: z.string(),
-});
-
-export type PluginEnableDisableRequestInput = z.input<
-  typeof PluginEnableDisableRequestSchema
->;
-
-export const PluginRuntimeStateEnum = {
-  active: "active",
-  disabled: "disabled",
-  invalid: "invalid",
-  shadowed: "shadowed",
-  pending_restart: "pending_restart",
-} as const;
-
-const PluginEnableDisableResponseSchema = z.object({
-  pluginId: z.string(),
-  state: z.enum(PluginRuntimeStateEnum),
-  restartRequired: z.boolean(),
-});
-
-export type PluginEnableDisableResponse = z.infer<
-  typeof PluginEnableDisableResponseSchema
->;
-
-const PluginInstallRequestSchema = z.object({
-  sourceSpec: z.string(),
-  scope: z
-    .union([z.literal(["workspace", "setta_files", "global"]), z.null()])
-    .default(null),
-  installer: z.literal(["auto", "pip", "uv"]).default("auto" as const),
-  enable: z.boolean().default(true),
-  force: z.boolean().default(false),
-});
-
-export type PluginInstallRequestInput = z.input<
-  typeof PluginInstallRequestSchema
->;
-
-const PluginScopeEnum = {
-  workspace: "workspace",
-  setta_files: "setta_files",
-  global_scope: "global",
-} as const;
-
-const PluginSourceTrustStatusEnum = {
-  unverified: "unverified",
-} as const;
-
-const PluginInstallResponseSchema = z.object({
-  pluginId: z.string(),
-  version: z.string(),
-  sourceScope: z.enum(PluginScopeEnum),
-  sourceScopeLabel: z.literal(["workspace", "setta_files", "global"]),
-  sourcePath: z.string(),
-  canonicalSourceKey: z.string(),
-  sourceDigestSha256: z.union([z.string(), z.null()]).default(null),
-  requestedCapabilities: z.array(z.string()).default([]),
-  trustStatus: z.enum(PluginSourceTrustStatusEnum),
-  trustWarning: z.string(),
-  components: z.array(z.string()),
-  state: z.enum(PluginRuntimeStateEnum),
-  restartRequired: z.boolean(),
-});
-
-export type PluginInstallResponse = z.infer<typeof PluginInstallResponseSchema>;
-
-const PluginLinkRequestSchema = z.object({
-  localPluginRoot: z.string(),
-  scope: z
-    .union([z.literal(["workspace", "setta_files", "global"]), z.null()])
-    .default(null),
-  enable: z.boolean().default(true),
-  force: z.boolean().default(false),
-});
-
-export type PluginLinkRequestInput = z.input<typeof PluginLinkRequestSchema>;
-
-const PluginLockApplyRequestSchema = z.object({
-  check: z.boolean().default(false),
-});
-
-export type PluginLockApplyRequestInput = z.input<
-  typeof PluginLockApplyRequestSchema
->;
-
-const PluginLockApplyResponseSchema = z.object({
-  lockfilePath: z.string(),
-  plannedChanges: z.array(z.string()),
-  applied: z.boolean(),
-});
-
-export type PluginLockApplyResponse = z.infer<
-  typeof PluginLockApplyResponseSchema
->;
-
-const PluginLockWriteResponseSchema = z.object({
-  lockfilePath: z.string(),
-  pluginCount: z.int(),
-});
-
-export type PluginLockWriteResponse = z.infer<
-  typeof PluginLockWriteResponseSchema
->;
-
-const PluginRestartResponseSchema = z.object({
-  accepted: z.boolean(),
-  mode: z.literal(["programmatic", "manual"]),
-  command: z.union([z.string(), z.null()]).default(null),
-  reason: z.union([z.string(), z.null()]).default(null),
-});
-
-export type PluginRestartResponse = z.infer<typeof PluginRestartResponseSchema>;
-
-const PluginRollbackRequestSchema = z.object({
-  pluginId: z.string(),
-  scope: z
-    .union([z.literal(["workspace", "setta_files", "global"]), z.null()])
-    .default(null),
-});
-
-export type PluginRollbackRequestInput = z.input<
-  typeof PluginRollbackRequestSchema
->;
-
-const PluginRollbackResponseSchema = z.object({
-  pluginId: z.string(),
-  restoredVersion: z.string(),
-  sourceDigestSha256: z.union([z.string(), z.null()]),
-  restartRequired: z.boolean(),
-});
-
-export type PluginRollbackResponse = z.infer<
-  typeof PluginRollbackResponseSchema
->;
-
-const PluginRestartCapabilitySchema = z.object({
-  mode: z.literal(["programmatic", "manual"]),
-  command: z.union([z.string(), z.null()]).default(null),
-  reason: z.union([z.string(), z.null()]).default(null),
-});
-
-export type PluginRestartCapability = z.infer<
-  typeof PluginRestartCapabilitySchema
->;
-
-const PluginSourceManagerEnum = {
-  setta: "setta",
-  package_manager: "package_manager",
-} as const;
-
-const PluginFrontendDescriptorSchema = z.object({
-  entrypointUrl: z.union([z.string(), z.null()]).default(null),
-  styleUrl: z.union([z.string(), z.null()]).default(null),
-});
-
-const PluginContentDescriptorSchema = z.object({
-  hasBlueprints: z.boolean(),
-  hasProjectTemplates: z.boolean(),
-  hasPrompts: z.boolean(),
-});
-
-const PluginConfigDescriptorSchema = z.object({
-  hasSchema: z.boolean(),
-  schemaJson: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
-  currentConfig: z.record(z.string(), z.any()).default({}),
-});
-
-const PluginEnablementSourceEnum = {
-  workspace_disabled: "workspace_disabled",
-  workspace_enabled: "workspace_enabled",
-  global_auto_enabled: "global_auto_enabled",
-  manifest_default: "manifest_default",
-} as const;
-
-const PluginListEntrySchema = z.object({
-  pluginId: z.string(),
-  name: z.string(),
-  version: z.string(),
-  sourceScope: z.enum(PluginScopeEnum),
-  sourceScopeLabel: z.literal(["workspace", "setta_files", "global"]),
-  sourceManager: z
-    .enum(PluginSourceManagerEnum)
-    .default(PluginSourceManagerEnum.setta),
-  sourceManagerHint: z.union([z.string(), z.null()]).default(null),
-  canonicalSourceKey: z.string(),
-  sourceDigestSha256: z.union([z.string(), z.null()]).default(null),
-  frontend: PluginFrontendDescriptorSchema,
-  content: PluginContentDescriptorSchema,
-  config: PluginConfigDescriptorSchema,
-  effectiveCapabilities: z.array(z.string()),
-  enablementSource: z
-    .union([z.enum(PluginEnablementSourceEnum), z.null()])
-    .default(null),
-  restartRequired: z.boolean(),
-});
-
-export type PluginListEntry = z.infer<typeof PluginListEntrySchema>;
-
-export function createPluginListEntry(
-  options: Partial<PluginListEntry> = {},
-): PluginListEntry {
-  return PluginListEntrySchema.parse(options);
-}
-
-const PluginListResponseSchema = z.object({
-  schemaVersion: z.int().default(1),
-  serverMode: z.literal(["ide", "share", "app"]),
-  restartCapability: PluginRestartCapabilitySchema,
-  plugins: z.array(PluginListEntrySchema),
-});
-
-export type PluginListResponse = z.infer<typeof PluginListResponseSchema>;
-
-const BlockedCapabilityReasonEnum = {
-  mode_policy: "mode_policy",
-  host_policy: "host_policy",
-  manifest_invalid: "manifest_invalid",
-} as const;
-
-const PluginBlockedCapabilitySchema = z.object({
-  capability: z.string(),
-  reason: z.enum(BlockedCapabilityReasonEnum),
-});
-
-export type PluginBlockedCapability = z.infer<
-  typeof PluginBlockedCapabilitySchema
->;
-
-const PluginRegisteredLanguageServerSchema = z.object({
-  name: z.string(),
-  language: z.string(),
-  command: z.string(),
-  args: z.array(z.string()).default([]),
-  settingsKey: z.union([z.string(), z.null()]).default(null),
-});
-
-const PluginRegisteredCodegenTargetSchema = z.object({
-  targetId: z.string(),
-  pluginId: z.string(),
-  language: z.string(),
-  name: z.string(),
-  defaultFileName: z.string(),
-});
-
-const PluginErrorInfoSchema = z.object({
-  code: z.string(),
-  message: z.string(),
-});
-
-const PluginStatusEntrySchema = z.object({
-  pluginId: z.string(),
-  name: z.string(),
-  version: z.string(),
-  state: z.enum(PluginRuntimeStateEnum),
-  sourceScope: z.enum(PluginScopeEnum),
-  sourceScopeLabel: z.literal(["workspace", "setta_files", "global"]),
-  sourceManager: z
-    .enum(PluginSourceManagerEnum)
-    .default(PluginSourceManagerEnum.setta),
-  sourceManagerHint: z.union([z.string(), z.null()]).default(null),
-  sourcePath: z.string(),
-  canonicalSourceKey: z.string(),
-  sourceDigestSha256: z.union([z.string(), z.null()]).default(null),
-  shadowedBySourcePath: z.union([z.string(), z.null()]).default(null),
-  requestedCapabilities: z.array(z.string()),
-  effectiveCapabilities: z.array(z.string()),
-  blockedCapabilities: z.array(PluginBlockedCapabilitySchema),
-  registeredLanguageServers: z
-    .array(PluginRegisteredLanguageServerSchema)
-    .default([]),
-  registeredExternalAgentAdapters: z
-    .array(PluginRegisteredExternalAgentAdapterSchema)
-    .default([]),
-  registeredCodegenTargets: z
-    .array(PluginRegisteredCodegenTargetSchema)
-    .default([]),
-  enablementSource: z
-    .union([z.enum(PluginEnablementSourceEnum), z.null()])
-    .default(null),
-  restartRequired: z.boolean(),
-  errors: z.array(PluginErrorInfoSchema),
-});
-
-export type PluginStatusEntry = z.infer<typeof PluginStatusEntrySchema>;
-
-export function createPluginStatusEntry(
-  options: Partial<PluginStatusEntry> = {},
-): PluginStatusEntry {
-  return PluginStatusEntrySchema.parse(options);
-}
-
-const PluginStatusResponseSchema = z.object({
-  schemaVersion: z.int().default(1),
-  serverMode: z.literal(["ide", "share", "app"]),
-  restartCapability: PluginRestartCapabilitySchema,
-  plugins: z.array(PluginStatusEntrySchema),
-});
-
-export type PluginStatusResponse = z.infer<typeof PluginStatusResponseSchema>;
-
-const PluginRuntimeResponseSchema = z.object({
-  schemaVersion: z.int().default(1),
-  list: PluginListResponseSchema,
-  status: PluginStatusResponseSchema,
-});
-
-export type PluginRuntimeResponse = z.infer<typeof PluginRuntimeResponseSchema>;
-
-const PluginUninstallRequestSchema = z.object({
-  pluginId: z.string(),
-  scope: z
-    .union([z.literal(["workspace", "setta_files", "global"]), z.null()])
-    .default(null),
-});
-
-export type PluginUninstallRequestInput = z.input<
-  typeof PluginUninstallRequestSchema
->;
-
-const PluginUninstallResponseSchema = z.object({
-  pluginId: z.string(),
-  removedFromScope: z.enum(PluginScopeEnum),
-  restartRequired: z.boolean(),
-});
-
-export type PluginUninstallResponse = z.infer<
-  typeof PluginUninstallResponseSchema
->;
-
-const PluginUpdateRequestSchema = z.object({
-  pluginId: z.string(),
-  scope: z
-    .union([z.literal(["workspace", "setta_files", "global"]), z.null()])
-    .default(null),
-  to: z.union([z.string(), z.null()]).default(null),
-});
-
-export type PluginUpdateRequestInput = z.input<
-  typeof PluginUpdateRequestSchema
->;
-
-const PluginUpdateResponseSchema = z.object({
-  pluginId: z.string(),
-  fromVersion: z.string(),
-  toVersion: z.string(),
-  sourceDigestSha256: z.union([z.string(), z.null()]),
-  restartRequired: z.boolean(),
-});
-
-export type PluginUpdateResponse = z.infer<typeof PluginUpdateResponseSchema>;
-
-const PluginsRescanResponseSchema = z.object({
-  schemaVersion: z.int().default(1),
-  serverMode: z.literal(["ide", "share", "app"]),
-  installedPlugins: z.int(),
-  activePlugins: z.int(),
-});
-
-export type PluginsRescanResponse = z.infer<typeof PluginsRescanResponseSchema>;
 
 const AcceptRenameRefactorRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
@@ -8441,7 +7954,6 @@ const CreateTopLevelSectionRequestSchema = z.object({
         IFrameSectionImplArgsSchema,
         ChatSectionImplArgsSchema,
         BrowserSectionImplArgsSchema,
-        PluginSectionImplArgsSchema,
       ]),
       z.null(),
     ])
@@ -9230,12 +8742,7 @@ export type SetParamEnteredValueRequestInput = z.input<
 const SetProjectConfigCodegenTargetsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
-  codegenTargets: z.array(
-    z.union([
-      ProjectCodegenPythonTargetSchema,
-      ProjectCodegenPluginTargetSchema,
-    ]),
-  ),
+  codegenTargets: z.array(ProjectCodegenPythonTargetSchema),
 });
 
 export type SetProjectConfigCodegenTargetsRequestInput = z.input<
@@ -10080,9 +9587,20 @@ export type BackendInitStatusResponse = z.infer<
   typeof BackendInitStatusResponseSchema
 >;
 
+const RevealPathInOsFileExplorerRequestSchema = z.object({
+  path: z.string(),
+});
+
+export type RevealPathInOsFileExplorerRequestInput = z.input<
+  typeof RevealPathInOsFileExplorerRequestSchema
+>;
+
 const SettaHomeInfoResponseSchema = z.object({
   settaHome: z.string(),
   globalSettaFilesBase: z.string(),
+  activeSettaFilesRoot: z.string(),
+  activeSettaFilesLocation: z.string(),
+  llmConfigPath: z.string(),
 });
 
 export type SettaHomeInfoResponse = z.infer<typeof SettaHomeInfoResponseSchema>;
@@ -10337,11 +9855,6 @@ export type ImplArgsBundleMap = {
       BrowserSectionImplArgs,
       BrowserSectionImpl
     >;
-  };
-
-  PluginSection: {
-    impl: PluginSectionImpl;
-    args: ImplArgsBundleWithUpdaters<PluginSectionImplArgs, PluginSectionImpl>;
   };
 
   BaseCodeObj: {

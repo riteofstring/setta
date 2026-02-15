@@ -50,7 +50,6 @@ describe("createFolderPathCompletionSource", () => {
       folderPath: "/root",
       ignorePatterns: null,
       maxEntries: null,
-      missingFolderBehavior: "empty",
     });
     expect(result?.options.map((option) => option.label)).toEqual([
       "alpha",
