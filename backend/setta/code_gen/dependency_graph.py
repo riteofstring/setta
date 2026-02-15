@@ -60,7 +60,6 @@ from setta.types.section_impls import (
     ChatSectionState,
     DrawSectionImpl,
     ImageSectionImpl,
-    PluginSectionImpl,
     PromptSectionImpl,
     SectionType,
     TextBlockSectionImpl,
@@ -158,7 +157,6 @@ class DependencyGraph:
             SectionType.Prompt: self._export_prompt_section,
             SectionType.Draw: self._export_draw_section,
             SectionType.Image: self._export_image_section,
-            SectionType.Plugin: self._export_plugin_section,
             SectionType.MetaControl: self._export_meta_control_section,
             SectionType.Chat: self._export_chat_section,
         }
@@ -322,41 +320,6 @@ class DependencyGraph:
             include_in_codegen=ctx.codegen_policy.include_in_codegen,
         )
         self.add_to_graph(ctx.dep_key, node)
-
-    def _export_plugin_section(self, ctx: SectionExportContext):
-        section_impl = ctx.section_impl
-        if not isinstance(section_impl, PluginSectionImpl):
-            return
-        node = SectionNode(
-            id=ctx.section_id,
-            name=ctx.section_name,
-            full_path_name=ctx.full_path_name,
-            type=section_impl.type,
-            isTopLevel=ctx.is_top_level,
-            value=LiteralDependencyValue(
-                self._build_plugin_section_literal_payload(section_impl.data)
-            ),
-            deps={},
-            representation=ctx.codegen_policy.representation,
-            include_in_codegen=ctx.codegen_policy.include_in_codegen,
-        )
-        self.add_to_graph(ctx.dep_key, node)
-
-    def _build_plugin_section_literal_payload(self, data: object) -> str:
-        normalized = self._normalize_plugin_section_data_for_literal(data)
-        return repr(normalized)
-
-    def _normalize_plugin_section_data_for_literal(self, value: object) -> object:
-        if isinstance(value, dict):
-            return {
-                str(key): self._normalize_plugin_section_data_for_literal(value[key])
-                for key in sorted(value.keys(), key=str)
-            }
-        if isinstance(value, list):
-            return [
-                self._normalize_plugin_section_data_for_literal(item) for item in value
-            ]
-        return value
 
     def _export_prompt_section(self, ctx: SectionExportContext):
         section_impl = ctx.section_impl

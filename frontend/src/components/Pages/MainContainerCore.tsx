@@ -5,7 +5,6 @@ import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMir
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
-import { usePluginRuntimeBootstrap } from "plugins/runtime";
 import { useAppPreview } from "state/definitions";
 import {
   useAIFollowViewport,
@@ -33,7 +32,6 @@ export function MainContainerCore({
   useAIFollowViewport();
   useAIFollowZIndexBoost();
   useViewModeUrlSync({ enabled: doneLoading && !is404 });
-  usePluginRuntimeBootstrap(doneLoading && !is404);
 
   if (!doneLoading) {
     return <LoadingSpinner />;
