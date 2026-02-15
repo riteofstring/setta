@@ -247,7 +247,7 @@ Update `backend/setta/mcp/system_prompt.md`:
 - For "where is setting" tasks, call `search_ui_settings`.
 - For "show/open/highlight", call `reveal_ui_setting`.
 - For right-pane reveals, if no section is active, the LLM should pick an
-  appropriate section, set it active, then call `reveal_ui_setting`.
+  appropriate section and pass it as `sectionIdToActivate` to `reveal_ui_setting`.
 - For "what is this setting currently", call `get_ui_setting_value`.
 - For "set/change/update this setting", call `set_ui_setting_value`.
 - After mutation, report exactly what changed and optionally reveal the setting when useful.

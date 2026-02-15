@@ -121,8 +121,7 @@ unavailable, empty, or fail to respond and the host provides built-in tools (for
 - For "where is this setting?" requests, call `search_ui_settings`.
 - For "open/show/highlight this setting", call `reveal_ui_setting`.
 - For right-pane setting reveals, if no section is active, pick an appropriate
-  section first and set it active (for example with `set_active_ids`) before
-  calling `reveal_ui_setting`.
+  section and pass it as `sectionIdToActivate` to `reveal_ui_setting`.
 - For "what is this setting value?", call `get_ui_setting_value`.
 - For "set/change/update this setting", call `set_ui_setting_value`.
 - If multiple settings match and intent is ambiguous, ask a short disambiguation question before mutating.

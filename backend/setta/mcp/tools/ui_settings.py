@@ -12,6 +12,7 @@ from setta.mcp.tool_metadata import (
     attach_tool_search_tags,
 )
 from setta.mcp.tool_setup import setta_tool
+from setta.project_state.project_manager_types import SetActiveIdsRequest
 from setta.types.chat_messages import JSONValue
 from setta.types.id import ID
 from setta.types.websocket import UISettingRevealContent, UISettingRevealTarget
@@ -118,28 +119,30 @@ attach_tool_search_tags(search_ui_settings, ["ui", "settings", "discover"])
 @setta_tool
 async def reveal_ui_setting(
     *,
-    settingId: str | None = None,
-    settingIds: list[str] | None = None,
+    settingId: str,
+    sectionIdToActivate: ID | None = None,
     durationMs: int = 3000,
     projectConfigId: ID | None = None,
     ctx: Context,
 ) -> RevealUISettingResult:
     """Open pane/tab targets for settings and highlight their controls.
 
-    For right-pane settings, ensure there is an active section first.
-    If no section is active, pick one and set it active (for example via
-    `set_active_ids`) before calling this tool.
+    For right-pane settings, pass `sectionIdToActivate` when no section is active.
+    If omitted and no section is active, this tool returns a structured failure.
     """
 
     project_config_id = _resolve_project_config_id(
         ctx=ctx,
         project_config_id=projectConfigId,
     )
-    normalized_ids = _normalize_setting_ids(settingId=settingId, settingIds=settingIds)
+    normalized_setting_id = settingId.strip()
+    if normalized_setting_id == "":
+        raise ValueError("settingId must not be empty.")
     return await _reveal_settings(
         ctx=ctx,
         project_config_id=project_config_id,
-        setting_ids=normalized_ids,
+        setting_id=normalized_setting_id,
+        section_id_to_activate=sectionIdToActivate,
         duration_ms=durationMs,
     )
 
@@ -267,7 +270,8 @@ async def set_ui_setting_value(
         reveal_result = await _reveal_settings(
             ctx=ctx,
             project_config_id=project_config_id,
-            setting_ids=[settingId],
+            setting_id=settingId,
+            section_id_to_activate=None,
             duration_ms=durationMs,
         )
 
@@ -351,35 +355,12 @@ def _resolve_share_session_id(ctx: Context) -> str | None:
     return None
 
 
-def _normalize_setting_ids(
-    *,
-    settingId: str | None,
-    settingIds: list[str] | None,
-) -> list[str]:
-    output: list[str] = []
-    seen: set[str] = set()
-    if settingId is not None:
-        normalized = settingId.strip()
-        if normalized:
-            output.append(normalized)
-            seen.add(normalized)
-    if settingIds is not None:
-        for candidate in settingIds:
-            normalized = candidate.strip()
-            if not normalized or normalized in seen:
-                continue
-            output.append(normalized)
-            seen.add(normalized)
-    if not output:
-        raise ValueError("Provide settingId or settingIds.")
-    return output
-
-
 async def _reveal_settings(
     *,
     ctx: Context,
     project_config_id: ID,
-    setting_ids: list[str],
+    setting_id: str,
+    section_id_to_activate: ID | None,
     duration_ms: int,
 ) -> RevealUISettingResult:
     bounded_duration_ms = _bound_duration(duration_ms)
@@ -389,13 +370,15 @@ async def _reveal_settings(
     )
     manager = ctx.fastmcp.state.project_manager_switcher.get(project_config_id)
     project_state = manager.get_single_config_state(project_config_id)
-    statuses: list[RevealUISettingStatus] = []
-    reveal_targets: list[UISettingRevealTarget] = []
-
-    for setting_id in setting_ids:
-        runtime_entry = registry.get(setting_id)
-        if runtime_entry is None:
-            statuses.append(
+    request_id = uuid4().hex
+    runtime_entry = registry.get(setting_id)
+    if runtime_entry is None:
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=0,
+            statuses=[
                 RevealUISettingStatus(
                     settingId=setting_id,
                     status="failed",
@@ -404,64 +387,123 @@ async def _reveal_settings(
                         message=f"Unknown setting id: {setting_id}",
                     ),
                 )
-            )
-            continue
+            ],
+        )
 
-        location = runtime_entry.metadata.location
-        if location.side == "right" and location.requiresSectionSelection:
-            if not project_state.projectConfig.activeIds:
-                statuses.append(
+    location = runtime_entry.metadata.location
+    if location.side == "right" and location.requiresSectionSelection:
+        if section_id_to_activate is not None:
+            section_error = await _activate_section_for_reveal(
+                manager=manager,
+                project_config_id=project_config_id,
+                project_state=project_state,
+                section_id_to_activate=section_id_to_activate,
+            )
+            if section_error is not None:
+                return RevealUISettingResult(
+                    requestId=request_id,
+                    projectConfigId=project_config_id,
+                    durationMs=bounded_duration_ms,
+                    emittedRevealCount=0,
+                    statuses=[
+                        RevealUISettingStatus(
+                            settingId=setting_id,
+                            status="failed",
+                            error=section_error,
+                        )
+                    ],
+                )
+            project_state = manager.get_single_config_state(project_config_id)
+
+        if not project_state.projectConfig.activeIds:
+            return RevealUISettingResult(
+                requestId=request_id,
+                projectConfigId=project_config_id,
+                durationMs=bounded_duration_ms,
+                emittedRevealCount=0,
+                statuses=[
                     RevealUISettingStatus(
                         settingId=setting_id,
                         status="failed",
                         error=UISettingToolError(
                             code="mutation_failed",
-                            message="Right-pane reveal requires an active section selection.",
+                            message=(
+                                "Right-pane reveal requires an active section. "
+                                "Pick a section and pass sectionIdToActivate."
+                            ),
                         ),
                     )
-                )
-                continue
-
-        target = UISettingRevealTarget(
-            settingId=runtime_entry.metadata.settingId,
-            side=location.side,
-            overviewTabKey=location.overviewTabKey,
-            uiEditorTabName=location.uiEditorTabName,
-            pluginId=location.pluginId,
-            paneId=location.paneId,
-            strategy=runtime_entry.metadata.highlight.strategy,
-            anchorId=runtime_entry.metadata.highlight.anchorId,
-            pluginRevealKey=runtime_entry.metadata.highlight.pluginRevealKey,
-        )
-        reveal_targets.append(target)
-        statuses.append(
-            RevealUISettingStatus(
-                settingId=setting_id,
-                status="revealed",
-                target=target,
+                ],
             )
-        )
 
-    request_id = uuid4().hex
-    if reveal_targets:
-        await ctx.fastmcp.state.wmh_frontend_sender.broadcast_ui_setting_reveal(
-            UISettingRevealContent(
-                projectConfigId=project_config_id,
-                chatId=_resolve_chat_id(ctx),
-                reveals=reveal_targets,
-                durationMs=bounded_duration_ms,
-                requestId=request_id,
-            ),
-            share_session_id=_resolve_share_session_id(ctx),
-        )
+    target = UISettingRevealTarget(
+        settingId=runtime_entry.metadata.settingId,
+        side=location.side,
+        overviewTabKey=location.overviewTabKey,
+        uiEditorTabName=location.uiEditorTabName,
+        pluginId=location.pluginId,
+        paneId=location.paneId,
+        strategy=runtime_entry.metadata.highlight.strategy,
+        anchorId=runtime_entry.metadata.highlight.anchorId,
+        pluginRevealKey=runtime_entry.metadata.highlight.pluginRevealKey,
+    )
+    await ctx.fastmcp.state.wmh_frontend_sender.broadcast_ui_setting_reveal(
+        UISettingRevealContent(
+            projectConfigId=project_config_id,
+            chatId=_resolve_chat_id(ctx),
+            reveals=[target],
+            durationMs=bounded_duration_ms,
+            requestId=request_id,
+        ),
+        share_session_id=_resolve_share_session_id(ctx),
+    )
 
     return RevealUISettingResult(
         requestId=request_id,
         projectConfigId=project_config_id,
         durationMs=bounded_duration_ms,
-        emittedRevealCount=len(reveal_targets),
-        statuses=statuses,
+        emittedRevealCount=1,
+        statuses=[
+            RevealUISettingStatus(
+                settingId=setting_id,
+                status="revealed",
+                target=target,
+            )
+        ],
     )
+
+
+async def _activate_section_for_reveal(
+    *,
+    manager,
+    project_config_id: ID,
+    project_state,
+    section_id_to_activate: ID,
+) -> UISettingToolError | None:
+    if section_id_to_activate not in project_state.sections:
+        return UISettingToolError(
+            code="mutation_failed",
+            message=f"Unknown section id: {section_id_to_activate}",
+        )
+
+    target_active_ids = [section_id_to_activate]
+    if project_state.projectConfig.activeIds == target_active_ids:
+        return None
+
+    await manager.set_active_ids(
+        SetActiveIdsRequest(
+            projectConfigId=project_config_id,
+            activeIds=target_active_ids,
+        )
+    )
+    refreshed_project_state = manager.get_single_config_state(project_config_id)
+    await manager.update_and_broadcast_project_state(
+        refreshed_project_state,
+        updateFileWatcher=False,
+        broadcast_name_validation_errors=False,
+        validate_name_rules=False,
+    )
+    return None
 
 
 def _bound_duration(duration_ms: int) -> int:

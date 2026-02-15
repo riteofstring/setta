@@ -9,8 +9,13 @@ from setta.mcp.tools.ui_settings import (
     search_ui_settings,
     set_ui_setting_value,
 )
+from setta.project_state.project_manager_types import (
+    CreateTopLevelSectionRequest,
+    SetActiveIdsRequest,
+)
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.types.id import ID
+from setta.types.section_impls import SectionType
 
 from tests.utils.manager_fixture import real_project_manager, real_settings_manager
 
@@ -129,3 +134,112 @@ async def test_set_ui_setting_value_returns_structured_validation_error() -> Non
         assert result.error is not None
         assert result.error.code == "invalid_value_type"
         assert result.changed is False
+
+
+@pytest.mark.asyncio
+async def test_reveal_right_pane_setting_requires_active_section_or_override() -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        # Right-pane reveals require a section context when none is active.
+        result = await reveal_ui_setting(
+            settingId="core.project.show_param_display_names",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert len(result.statuses) == 1
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert result.statuses[0].error.code == "mutation_failed"
+        assert "sectionIdToActivate" in result.statuses[0].error.message
+        assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
+async def test_reveal_right_pane_setting_activates_section_from_argument() -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        manager = project_fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+
+        create_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        section_id = create_result.sectionId
+
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id,
+                activeIds=[],
+            )
+        )
+
+        # sectionIdToActivate allows right-pane reveal to choose the section context.
+        result = await reveal_ui_setting(
+            settingId="core.project.show_param_display_names",
+            sectionIdToActivate=section_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 1
+        assert len(result.statuses) == 1
+        assert result.statuses[0].status == "revealed"
+        assert result.statuses[0].target is not None
+        assert result.statuses[0].target.settingId == "core.project.show_param_display_names"
+
+        updated_state = manager.get_single_config_state(project_config_id)
+        assert updated_state.projectConfig.activeIds == [section_id]
+        assert frontend_sender.reveal_messages
+        reveal_content, _ = frontend_sender.reveal_messages[0]
+        assert reveal_content.reveals[0].settingId == "core.project.show_param_display_names"
+
+
+@pytest.mark.asyncio
+async def test_reveal_right_pane_setting_fails_for_unknown_section_override() -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        # Unknown section IDs should fail before reveal emission.
+        result = await reveal_ui_setting(
+            settingId="core.project.show_param_display_names",
+            sectionIdToActivate=ID("missing-section"),
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert len(result.statuses) == 1
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert result.statuses[0].error.code == "mutation_failed"
+        assert "Unknown section id" in result.statuses[0].error.message
+        assert frontend_sender.reveal_messages == []
