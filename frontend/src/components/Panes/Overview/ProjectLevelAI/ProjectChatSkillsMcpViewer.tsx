@@ -237,29 +237,29 @@ export function ProjectChatSkillsMcpViewer() {
       <div className="grid gap-5">
         <section>
           <div className="grid gap-2">
-            <div className="flex flex-wrap items-end justify-between gap-2">
+            <div className="relative grid gap-2">
               <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
                 Skills
               </div>
               <button
-                className="cursor-pointer rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                className="absolute right-0 top-0 cursor-pointer rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
                 onClick={() => void refreshSkillsBrowser()}
               >
                 Refresh
               </button>
+              <search className="relative flex min-w-0 items-center">
+                <div className="absolute left-0 grid select-none place-items-center pl-1">
+                  <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
+                </div>
+                <input
+                  aria-label="Filter skills"
+                  className="min-w-0 flex-grow cursor-text truncate border-solid border-setta-200 bg-transparent py-1 pl-5 text-sm text-setta-700 placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:!border-blue-300 dark:border-setta-800 dark:text-setta-200 dark:placeholder-setta-700"
+                  value={skillFilter}
+                  onChange={(event) => setSkillFilter(event.target.value)}
+                  placeholder="Filter"
+                />
+              </search>
             </div>
-            <search className="relative flex min-w-0 items-center">
-              <div className="absolute left-0 grid select-none place-items-center pl-1">
-                <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
-              </div>
-              <input
-                aria-label="Filter skills"
-                className="min-w-0 flex-grow cursor-text truncate border-solid border-setta-200 bg-transparent py-1 pl-5 text-sm text-setta-700 placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:!border-blue-300 dark:border-setta-800 dark:text-setta-200 dark:placeholder-setta-700"
-                value={skillFilter}
-                onChange={(event) => setSkillFilter(event.target.value)}
-                placeholder="Filter"
-              />
-            </search>
             <div className="grid gap-2">
             <div className="max-h-[360px] min-h-[220px] overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-xs dark:border-setta-700 dark:bg-setta-950/60">
               {skillsLoading ? (
@@ -335,11 +335,11 @@ export function ProjectChatSkillsMcpViewer() {
                   className="rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950"
                 >
                   <Accordion.Header>
-                    <Accordion.Trigger className="group flex w-full cursor-pointer items-center gap-2 pl-2 pr-4 py-1 text-left">
+                    <Accordion.Trigger className="group flex w-full cursor-pointer items-center gap-2 pl-2 pr-6 py-1 text-left">
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
                         Skill Markdown Viewer
                       </span>
-                      <i className="gg-chevron-down ml-auto mr-1 shrink-0 !scale-75 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400" />
+                      <i className="gg-chevron-down ml-auto mr-2 shrink-0 !scale-75 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400" />
                     </Accordion.Trigger>
                   </Accordion.Header>
                   <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
