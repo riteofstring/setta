@@ -142,6 +142,7 @@ from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
 from setta.types.section_impls import (
+    ChatPermissionMode,
     CodeFileAccessMode,
     SectionType,
     TextBlockSectionImpl,
@@ -362,6 +363,8 @@ class TestSharePolicyRoutes:
                 engineConfigId=ID("engine-default"),
                 thinking=False,
                 projectConfigId=project_config_id,
+                permissionMode=ChatPermissionMode.minimal,
+                searchEnabled=True,
             )
 
             with pytest.raises(HTTPException) as ctx:
