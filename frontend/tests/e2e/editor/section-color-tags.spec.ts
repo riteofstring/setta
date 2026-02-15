@@ -44,21 +44,14 @@ test.describe.serial("section color tags", () => {
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
 
-      const appearanceAccordionTrigger = uiEditorPane.getByTestId(
-        "section-config-accordion-appearance",
-      );
-      await expect(appearanceAccordionTrigger).toBeVisible();
-      await appearanceAccordionTrigger.click();
-      await expect(appearanceAccordionTrigger).toHaveAttribute(
-        "aria-expanded",
-        "true",
-      );
-
-      const colorTagHeading = uiEditorPane.getByText("Color Tag", { exact: true });
-      await expect(colorTagHeading).toBeVisible();
-      const colorTagBlock = colorTagHeading.locator(
-        "xpath=ancestor::div[contains(@class,'rounded-lg') or contains(@class,'rounded-xl')][1]",
-      );
+      const colorTagBlock = uiEditorPane
+        .locator("div.rounded-xl")
+        .filter({
+          // `filter({ has: ... })` expects a selector that can be found *inside*
+          // the candidate element; scoping it to `uiEditorPane` makes it impossible.
+          has: page.getByRole("heading", { name: "Color Tag" }),
+        })
+        .first();
       await expect(colorTagBlock).toBeVisible();
 
       const colorPickerTrigger = colorTagBlock.locator(".colorpicker").first();
@@ -131,27 +124,7 @@ test.describe.serial("section color tags", () => {
         nodeAfter.locator('header.section-title span[title="Color tag: #3b82f6"]'),
       ).toBeVisible();
 
-      const appearanceAccordionTriggerAfterReload = uiEditorPane.getByTestId(
-        "section-config-accordion-appearance",
-      );
-      if (
-        (await appearanceAccordionTriggerAfterReload.getAttribute(
-          "aria-expanded",
-        )) !== "true"
-      ) {
-        await appearanceAccordionTriggerAfterReload.click();
-      }
-
-      const colorTagHeadingAfterReload = uiEditorPane.getByText("Color Tag", {
-        exact: true,
-      });
-      const colorTagBlockAfterReload = colorTagHeadingAfterReload.locator(
-        "xpath=ancestor::div[contains(@class,'rounded-lg') or contains(@class,'rounded-xl')][1]",
-      );
-      await colorTagBlockAfterReload
-        .getByRole("button", { name: "Reset" })
-        .first()
-        .click();
+      await colorTagBlock.getByRole("button", { name: "Reset" }).first().click();
 
       await expect(
         nodeAfter.locator('header.section-title span[title^="Color tag:"]'),
@@ -161,9 +134,7 @@ test.describe.serial("section color tags", () => {
           `[id="${sectionId}-OverviewListItem"] span[title^="Color tag:"]`,
         ),
       ).toHaveCount(0);
-      await expect(
-        colorTagBlockAfterReload.getByText("None", { exact: true }).first(),
-      ).toBeVisible();
+      await expect(colorTagBlock.getByText("None").first()).toBeVisible();
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

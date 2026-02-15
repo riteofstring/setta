@@ -37,7 +37,8 @@ function resolveBackendUrl(address: string): string {
   }
   if (
     address === RouteEnum.LAUNCH ||
-    address === RouteEnum.GET_SETTA_HOME_INFO
+    address === RouteEnum.GET_SETTA_HOME_INFO ||
+    address === RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER
   ) {
     return `${C_ADDRESSES.LAUNCHER}${address}`;
   }
