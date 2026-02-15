@@ -120,5 +120,29 @@ def test_reveal_path_rejects_paths_outside_allowlist(
         )
 
     assert response.status_code == 400
-    assert "outside allowed reveal roots" in response.json()["detail"]
+    assert response.json()["detail"] == "Path is outside allowed reveal roots."
+    assert _mock_reveal_command == []
+
+
+def test_reveal_path_outside_allowlist_returns_same_error_for_missing_path(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    _mock_reveal_command: list[list[str]],
+) -> None:
+    # Disallowed roots should return a consistent error regardless of filesystem existence.
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+    clear_setta_paths_cache()
+
+    missing_outside_path = tmp_path / "outside" / "missing.txt"
+
+    with _build_client() as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.REVEAL_PATH_IN_OS_FILE_EXPLORER.value}",
+            json={"path": str(missing_outside_path)},
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Path is outside allowed reveal roots."
     assert _mock_reveal_command == []

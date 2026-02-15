@@ -21,7 +21,6 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
           rootLabel: "Workspace skills",
           rootPath: "/workspace/skills",
           relativePath: "ui-layout",
-          skillPath: "/workspace/skills/ui-layout/SKILL.md",
           description: "Create dense dashboard layouts.",
         },
         {
@@ -30,7 +29,6 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
           rootLabel: "User ~/.codex/skills",
           rootPath: "/home/.codex/skills",
           relativePath: "frontend-design",
-          skillPath: "/home/.codex/skills/frontend-design/SKILL.md",
           description: "Create polished frontend interfaces.",
         },
       ]),
@@ -187,7 +185,6 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
           rootLabel: "Workspace skills",
           rootPath: "/workspace/skills",
           relativePath: "ui-layout",
-          skillPath: "/workspace/skills/ui-layout/SKILL.md",
           description: "Create dense dashboard layouts.",
         },
       ]),
@@ -270,7 +267,6 @@ test("project ai chat keeps skills list stable during selection and ignores stal
         rootLabel: "Workspace skills",
         rootPath: "/workspace/skills",
         relativePath: "alpha-skill",
-        skillPath: "/workspace/skills/alpha-skill/SKILL.md",
         description: "Alpha skill",
       },
       {
@@ -279,7 +275,6 @@ test("project ai chat keeps skills list stable during selection and ignores stal
         rootLabel: "Workspace skills",
         rootPath: "/workspace/skills",
         relativePath: "beta-skill",
-        skillPath: "/workspace/skills/beta-skill/SKILL.md",
         description: "Beta skill",
       },
       ...Array.from({ length: 203 }, (_, index) => {
@@ -289,7 +284,6 @@ test("project ai chat keeps skills list stable during selection and ignores stal
           rootLabel: "Workspace skills",
           rootPath: "/workspace/skills",
           relativePath: `skill-${index}`,
-          skillPath: `/workspace/skills/skill-${index}/SKILL.md`,
           description: `Skill ${index}`,
         };
       }),
@@ -374,7 +368,6 @@ test("project ai chat refresh updates selected markdown content without requirin
           rootLabel: "Workspace skills",
           rootPath: "/workspace/skills",
           relativePath: "ui-layout",
-          skillPath: "/workspace/skills/ui-layout/SKILL.md",
           description: "Create dense dashboard layouts.",
         },
       ]),
@@ -418,7 +411,7 @@ test("project ai chat refresh updates selected markdown content without requirin
   await expect(markdown).toContainText("Revision 2");
 });
 
-test("project ai chat refresh ignores stale skills-list responses", async ({
+test("project ai chat refresh is disabled while loading to prevent redundant scans", async ({
   page,
 }) => {
   await seedLocalStorage(page, {
@@ -429,7 +422,7 @@ test("project ai chat refresh ignores stale skills-list responses", async ({
   let skillsRequestCount = 0;
   await page.route("**/api/getAppGenSkills", async (route) => {
     skillsRequestCount += 1;
-    if (skillsRequestCount <= 2) {
+    if (skillsRequestCount === 1) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -440,47 +433,31 @@ test("project ai chat refresh ignores stale skills-list responses", async ({
             rootLabel: "Workspace skills",
             rootPath: "/workspace/skills",
             relativePath: "baseline",
-            skillPath: "/workspace/skills/baseline/SKILL.md",
             description: "Baseline skill",
           },
         ]),
       });
       return;
     }
-    if (skillsRequestCount === 3) {
+    if (skillsRequestCount === 2) {
       await new Promise((resolve) => setTimeout(resolve, 800));
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify([
           {
-            skillId: "workspace_skills::stale-skill",
-            name: "stale-skill",
+            skillId: "workspace_skills::fresh-skill",
+            name: "fresh-skill",
             rootLabel: "Workspace skills",
             rootPath: "/workspace/skills",
-            relativePath: "stale-skill",
-            skillPath: "/workspace/skills/stale-skill/SKILL.md",
-            description: "Stale result",
+            relativePath: "fresh-skill",
+            description: "Fresh result",
           },
         ]),
       });
       return;
     }
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_skills::fresh-skill",
-          name: "fresh-skill",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
-          relativePath: "fresh-skill",
-          skillPath: "/workspace/skills/fresh-skill/SKILL.md",
-          description: "Fresh result",
-        },
-      ]),
-    });
+    throw new Error("Unexpected extra getAppGenSkills request.");
   });
 
   await page.route("**/api/llm/config", async (route) => {
@@ -514,15 +491,12 @@ test("project ai chat refresh ignores stale skills-list responses", async ({
 
   const refreshButton = page.getByRole("button", { name: "Refresh" });
   await refreshButton.click();
-  await refreshButton.click();
-
-  await expect(
-    page.getByRole("button", { name: /fresh-skill/i }),
-  ).toBeVisible();
-  await page.waitForTimeout(900);
-  await expect(page.getByRole("button", { name: /stale-skill/i })).toHaveCount(
-    0,
-  );
+  await expect(refreshButton).toBeDisabled();
+  await page.waitForTimeout(100);
+  expect(skillsRequestCount).toBe(2);
+  await expect(page.getByRole("button", { name: /fresh-skill/i })).toBeVisible();
+  await expect(refreshButton).toBeEnabled();
+  expect(skillsRequestCount).toBe(2);
 });
 
 test("project ai chat shows reveal-path failures instead of silently swallowing them", async ({
@@ -544,7 +518,6 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
           rootLabel: "Workspace skills",
           rootPath: "/workspace/skills",
           relativePath: "ui-layout",
-          skillPath: "/workspace/skills/ui-layout/SKILL.md",
           description: "Create dense dashboard layouts.",
         },
       ]),

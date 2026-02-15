@@ -22,7 +22,6 @@ function makeRows(size: number) {
           ? "/home/.codex/skills"
           : "/home/.agents/skills",
     relativePath: `skill-${index}`,
-    skillPath: `/skills/skill-${index}/SKILL.md`,
     description: `Skill description ${index}`,
   }));
 }

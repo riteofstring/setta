@@ -34,6 +34,7 @@ class TestAppGenExtensionsRoutes:
             assert row.skillId == "workspace_skills::ui-layout"
             assert row.name == "ui-layout"
             assert row.description == "Create dense dashboard layouts."
+            assert not hasattr(row, "skillPath")
 
     def test_reads_skill_content_by_skill_id(
         self,

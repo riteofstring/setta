@@ -104,6 +104,89 @@ test("prompt-builder mode sends hidden app generation request to chat", async ({
   );
 });
 
+test("prompt-builder mode surfaces backend hidden-generation error detail", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "App",
+    overviewVis: true,
+    appGenerationMode: "prompt_builder",
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          "llm-primary": {
+            id: "llm-primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: "OPENAI_API_KEY",
+            mcpServerIds: [],
+          },
+        },
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: "llm-primary",
+      }),
+    });
+  });
+  await page.route("**/api/llm/apiKeys", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        OPENAI_API_KEY: "pw-key",
+      }),
+    });
+  });
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-primary",
+          name: "Primary",
+          engineType: "setta_llm",
+          settaLlmConfigId: "llm-primary",
+          externalAgentConfigId: null,
+          defaults: { thinking: null },
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getExternalAgentHealth", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/getLLMResponse", async (route) => {
+    await route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail:
+          "Reference image notes exceed 5000 characters for app generation.",
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await expect(page.getByText("App Config")).toBeVisible();
+
+  await page.getByRole("button", { name: "Send To Chat" }).click();
+  await expect(
+    page.getByText(
+      "Reference image notes exceed 5000 characters for app generation.",
+    ),
+  ).toBeVisible();
+});
+
 test("prompt-builder mode clears stale in-pane patch counts from prior json-render runs", async ({
   page,
 }) => {

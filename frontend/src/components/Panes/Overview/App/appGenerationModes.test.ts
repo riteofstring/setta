@@ -4,6 +4,8 @@ import {
   APP_GENERATION_MODE_OPTIONS,
   buildDefaultAppGenerationPrompt,
   buildHiddenChatAppGenerationPrompt,
+  coerceAppGenerationMode,
+  isAppGenerationMode,
   isJsonRenderMode,
 } from "./appGenerationModes";
 
@@ -57,5 +59,20 @@ describe("appGenerationModes", () => {
     expect(isJsonRenderMode("json_render_with_image")).toBe(true);
     expect(isJsonRenderMode("prompt_builder")).toBe(false);
     expect(isJsonRenderMode("mcp_server")).toBe(false);
+  });
+
+  it("validates app generation mode values", () => {
+    expect(isAppGenerationMode("json_render")).toBe(true);
+    expect(isAppGenerationMode("mcp_server")).toBe(true);
+    expect(isAppGenerationMode("legacy_mode")).toBe(false);
+    expect(isAppGenerationMode(null)).toBe(false);
+  });
+
+  it("coerces invalid mode values to the default mode", () => {
+    expect(coerceAppGenerationMode("json_render_with_image")).toBe(
+      "json_render_with_image",
+    );
+    expect(coerceAppGenerationMode("invalid_mode")).toBe("json_render");
+    expect(coerceAppGenerationMode(undefined)).toBe("json_render");
   });
 });

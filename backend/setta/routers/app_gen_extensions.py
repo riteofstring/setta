@@ -20,7 +20,6 @@ class AppGenSkillEntry(BaseModel):
     rootLabel: str
     rootPath: str
     relativePath: str
-    skillPath: str
     description: str = Field(default="")
 
 
@@ -115,7 +114,6 @@ def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
                     rootLabel=label,
                     rootPath=str(root_path),
                     relativePath=relative_path,
-                    skillPath=str(skill_doc),
                     description=_extract_skill_description(skill_doc),
                 )
             )

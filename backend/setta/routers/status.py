@@ -117,14 +117,14 @@ def route_reveal_path_in_os_file_explorer(
     if not raw_path:
         raise HTTPException(status_code=400, detail="Path is required.")
     resolved_path = Path(raw_path).expanduser().resolve(strict=False)
-    if not resolved_path.exists():
-        raise HTTPException(
-            status_code=404, detail=f"Path does not exist: {resolved_path}"
-        )
     if not _is_path_within_allowed_reveal_roots(resolved_path):
         raise HTTPException(
             status_code=400,
-            detail=f"Path is outside allowed reveal roots: {resolved_path}",
+            detail="Path is outside allowed reveal roots.",
+        )
+    if not resolved_path.exists():
+        raise HTTPException(
+            status_code=404, detail=f"Path does not exist: {resolved_path}"
         )
     command = _build_reveal_path_command(resolved_path)
     executable = shutil.which(command[0])

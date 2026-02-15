@@ -34,7 +34,7 @@ import {
   useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_create_agent_profile,
   route_create_external_agent_config,
@@ -820,8 +820,12 @@ export async function submitMessage(
       }
       return returnedChatId;
     }
-    rollbackOptimisticUserMessage(chatId, userMessageId);
-    return null;
+    const failureDetail =
+      getErrorDetail(res.data) ??
+      (typeof res.status === "number"
+        ? `Chat request failed (status ${res.status}).`
+        : "Chat request failed.");
+    throw new Error(failureDetail);
   } catch (err) {
     rollbackOptimisticUserMessage(chatId, userMessageId);
     throw err;

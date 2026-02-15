@@ -113,37 +113,48 @@ export function ProjectChatSkillsMcpViewer() {
   const [mcpConfigInfoLoading, setMcpConfigInfoLoading] = useState(true);
   const [skillsRevision, setSkillsRevision] = useState(0);
   const skillsRequestSequence = useRef(0);
+  const skillsRefreshInFlight = useRef(false);
   const skillContentRequestSequence = useRef(0);
 
   const refreshSkillsBrowser = useCallback(async () => {
+    if (skillsRefreshInFlight.current) {
+      return;
+    }
+    skillsRefreshInFlight.current = true;
     const requestSequence = skillsRequestSequence.current + 1;
     skillsRequestSequence.current = requestSequence;
     setSkillsLoading(true);
     setSkillsError(null);
-    const res = await route_get_app_gen_skills();
-    if (requestSequence !== skillsRequestSequence.current) {
-      return;
-    }
-    setSkillsLoading(false);
-    if (!res200(res)) {
-      const detail = getErrorDetail(res.data);
-      setSkillsError(detail ?? "Failed to load skills.");
-      setSkills([]);
-      setSelectedSkillId(null);
-      setSelectedSkillContent("");
-      return;
-    }
-    const nextSkills = res.data;
-    setSkills(nextSkills);
-    setSkillsRevision((value) => value + 1);
-    setSelectedSkillId((current) => {
-      if (nextSkills.length === 0) {
-        return null;
+    try {
+      const res = await route_get_app_gen_skills();
+      if (requestSequence !== skillsRequestSequence.current) {
+        return;
       }
-      return nextSkills.some((skill) => skill.skillId === current)
-        ? current
-        : nextSkills[0].skillId;
-    });
+      if (!res200(res)) {
+        const detail = getErrorDetail(res.data);
+        setSkillsError(detail ?? "Failed to load skills.");
+        setSkills([]);
+        setSelectedSkillId(null);
+        setSelectedSkillContent("");
+        return;
+      }
+      const nextSkills = res.data;
+      setSkills(nextSkills);
+      setSkillsRevision((value) => value + 1);
+      setSelectedSkillId((current) => {
+        if (nextSkills.length === 0) {
+          return null;
+        }
+        return nextSkills.some((skill) => skill.skillId === current)
+          ? current
+          : nextSkills[0].skillId;
+      });
+    } finally {
+      if (requestSequence === skillsRequestSequence.current) {
+        setSkillsLoading(false);
+      }
+      skillsRefreshInFlight.current = false;
+    }
   }, []);
 
   useEffect(() => {
@@ -286,8 +297,9 @@ export function ProjectChatSkillsMcpViewer() {
                 Skills
               </div>
               <button
-                className="absolute right-0 top-0 cursor-pointer rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                className="absolute right-0 top-0 cursor-pointer rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
                 onClick={() => void refreshSkillsBrowser()}
+                disabled={skillsLoading}
               >
                 Refresh
               </button>

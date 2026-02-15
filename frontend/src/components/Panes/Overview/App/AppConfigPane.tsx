@@ -2,6 +2,7 @@ import type { Spec } from "@json-render/core";
 import * as Switch from "@radix-ui/react-switch";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  clearPendingChatDetails,
   loadEngineConfigs,
   loadExternalAgentHealth,
   loadLLMApiKeys,
@@ -51,7 +52,7 @@ import {
   APP_GENERATION_MODE_OPTIONS,
   buildDefaultAppGenerationPrompt,
   buildHiddenChatAppGenerationPrompt,
-  DEFAULT_APP_GENERATION_MODE,
+  coerceAppGenerationMode,
   isJsonRenderMode,
   type AppGenerationMode,
 } from "./appGenerationModes";
@@ -613,6 +614,17 @@ export async function resolveGenerationFailureMessage(
   return fallback;
 }
 
+function resolveHiddenGenerationErrorMessage(error: unknown): string {
+  const detail = getErrorDetail(error);
+  if (detail) {
+    return detail;
+  }
+  if (error instanceof Error && error.message.trim()) {
+    return error.message.trim();
+  }
+  return "Failed to send generation request to chat.";
+}
+
 export function AppConfigPane() {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const appSpec = useAppDefinition((x) => x.appSpec);
@@ -627,9 +639,7 @@ export function AppConfigPane() {
   } = useLocalStorage(
     (x) => ({
       appSpecStreamingEnabled: x.appSpecStreamingEnabled,
-      appGenerationMode:
-        (x.appGenerationMode as AppGenerationMode | undefined) ??
-        DEFAULT_APP_GENERATION_MODE,
+      appGenerationMode: x.appGenerationMode,
       appGenerationPrompt: x.appGenerationPrompt,
       appGenerationReferenceImageUrl: x.appGenerationReferenceImageUrl,
       appGenerationReferenceImageNotes: x.appGenerationReferenceImageNotes,
@@ -680,7 +690,14 @@ export function AppConfigPane() {
     };
   } | null>(null);
   const hasDraft = useMemo(() => draftSpec.trim().length > 0, [draftSpec]);
-  const activeGenerationMode = appGenerationMode || DEFAULT_APP_GENERATION_MODE;
+  const activeGenerationMode = coerceAppGenerationMode(appGenerationMode);
+
+  useEffect(() => {
+    if (appGenerationMode === activeGenerationMode) {
+      return;
+    }
+    useLocalStorage.setState({ appGenerationMode: activeGenerationMode });
+  }, [activeGenerationMode, appGenerationMode]);
 
   useEffect(() => {
     if (isJsonRenderMode(activeGenerationMode)) {
@@ -1008,7 +1025,7 @@ export function AppConfigPane() {
         const decoder = new TextDecoder();
         let streamRemainder = "";
         let patchCount = 0;
-        const generated = cloneSpecSeed(requestSpecSeed);
+        const generated = requestSpecSeed;
 
         while (true) {
           const chunk = await reader.read();
@@ -1089,13 +1106,7 @@ export function AppConfigPane() {
   );
 
   const runHiddenChatGeneration = useCallback(
-    async ({
-      mode,
-      promptOverride,
-    }: {
-      mode: AppGenerationMode;
-      promptOverride?: string;
-    }) => {
+    async ({ mode }: { mode: AppGenerationMode }) => {
       setGenerating(true);
       setGenerationPatchCount(0);
       setErrorMessage(null);
@@ -1144,7 +1155,7 @@ export function AppConfigPane() {
         }
         const prompt = buildHiddenChatAppGenerationPrompt({
           mode,
-          prompt: promptOverride ?? appGenerationPrompt,
+          prompt: appGenerationPrompt,
           catalogSummary,
           sectionsSummary,
           referenceImageUrl: appGenerationReferenceImageUrl.trim() || null,
@@ -1174,6 +1185,9 @@ export function AppConfigPane() {
           setErrorMessage("Failed to send generation request to chat.");
           return;
         }
+        if (targetChatId === null) {
+          clearPendingChatDetails();
+        }
         if (engineSelection.forceNewChat) {
           setGenerationHint(
             "Generation request sent to a new chat because the active chat engine is unavailable. Stay on this pane while the app spec updates via tool results.",
@@ -1186,7 +1200,7 @@ export function AppConfigPane() {
         addTemporaryNotification("App generation request sent to chat.");
       } catch (error) {
         console.error("Failed to send hidden app generation prompt", error);
-        setErrorMessage("Failed to send generation request to chat.");
+        setErrorMessage(resolveHiddenGenerationErrorMessage(error));
       } finally {
         setGenerating(false);
       }

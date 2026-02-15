@@ -62,3 +62,24 @@ Test and verification coverage added/updated:
 - Backend route coverage for streamed skill-description extraction behavior and updated setta-home response contract.
 - Playwright coverage for skills refresh content reload, stale-list race handling, reveal-path error feedback, and hidden-mode stale patch-count regression.
 - CDP visual verification completed for Project AI Skills/MCP viewer refresh/copy feedback and App Config hidden generation flow.
+
+## 2026-02-17T02:11:08Z
+
+Status: Implemented
+
+Accepted findings fixed in this batch:
+- Hidden app-generation now preserves and surfaces actionable backend error detail from `/getLLMResponse` instead of collapsing to a generic failure.
+- `revealPathInOsFileExplorer` now enforces allowlisted roots before existence checks and returns a consistent disallowed-root error message.
+- App Config now runtime-validates persisted `appGenerationMode`, falls back to `json_render` for invalid values, and self-heals local storage.
+- Hidden generation now clears pending chat details after successful force-new-chat submit, preventing stale pending-state leakage.
+- Removed redundant `skillPath` from app-gen skill list payloads and regenerated frontend/backend contracts accordingly.
+- Skills/MCP refresh now blocks redundant concurrent rescans by guarding in-flight refresh and disabling the refresh button while loading.
+- Removed redundant deep clone on json-render generation startup by reusing the already-detached spec seed.
+- Removed unused hidden-generation `promptOverride` path to reduce API surface and maintenance overhead.
+
+Test and verification coverage added/updated:
+- Added backend route tests for consistent disallowed reveal-path error behavior and updated app-gen-skill contract expectations.
+- Added frontend unit tests for app-generation mode coercion/validation and submit-message backend-detail propagation behavior.
+- Updated skills viewer unit/perf tests and Playwright mocks for the leaner skill entry payload (without `skillPath`).
+- Added Playwright coverage for hidden-generation error-detail UX, invalid persisted mode fallback/self-heal, and refresh-button loading lockout behavior.
+- CDP visual verification completed for App Config mode fallback behavior and Project AI Skills refresh disablement during in-flight loads.

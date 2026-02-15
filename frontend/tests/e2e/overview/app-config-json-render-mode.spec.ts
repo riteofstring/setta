@@ -68,6 +68,82 @@ test("json-render mode streams patches in-pane and persists generated spec", asy
   await expect(page.getByLabel("App Spec JSON")).toContainText(title);
 });
 
+test("invalid persisted app-generation mode falls back to json-render at runtime", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "App",
+    overviewVis: true,
+    appGenerationMode: "invalid_mode_from_storage",
+    appGenerationPrompt: "Build a compact result card.",
+  });
+
+  const streamRequests: Array<Record<string, unknown>> = [];
+  await page.route("**/api/streamAppSpec", async (route) => {
+    streamRequests.push(route.request().postDataJSON() as Record<string, unknown>);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/x-ndjson",
+      body:
+        '{"op":"set","path":"/root","value":"gen-root"}\n' +
+        '{"op":"set","path":"/elements/gen-root","value":{"key":"gen-root","type":"Card","props":{"title":"Fallback Mode"},"children":[]}}\n',
+    });
+  });
+  await page.route("**/api/setAppDefinition", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      appSpec: unknown;
+      catalogId?: string;
+      appSpecVersion?: string;
+      appSpecPath?: string;
+      theme?: unknown;
+      assets?: unknown;
+    };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        appSpec: payload.appSpec,
+        appDefinition: {
+          catalogId: payload.catalogId ?? "setta.app.default",
+          appSpecVersion: payload.appSpecVersion ?? "v1",
+          appSpecPath: payload.appSpecPath ?? "app_specs/app.json",
+          routes: [],
+          dataBindings: {},
+          actions: {},
+          theme: payload.theme ?? null,
+          assets: payload.assets ?? [],
+        },
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await expect(page.getByText("Mode: JSON Render.")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Generate In Pane" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Generate In Pane" }).click();
+  await expect(page.getByText("App generation completed.")).toBeVisible();
+
+  expect(streamRequests).toHaveLength(1);
+  expect(streamRequests[0]?.mode).toBe("json_render");
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const raw = window.localStorage.getItem("setta_data");
+        if (!raw) {
+          return null;
+        }
+        const parsed = JSON.parse(raw) as {
+          state?: { appGenerationMode?: unknown };
+        };
+        return parsed.state?.appGenerationMode ?? null;
+      }),
+    )
+    .toBe("json_render");
+});
+
 test("json-render mode surfaces backend stream error details", async ({
   page,
 }) => {

@@ -36,6 +36,17 @@ export const APP_GENERATION_MODE_OPTIONS: AppGenerationModeOption[] = [
 
 export const DEFAULT_APP_GENERATION_MODE: AppGenerationMode = "json_render";
 
+export function isAppGenerationMode(value: unknown): value is AppGenerationMode {
+  return APP_GENERATION_MODE_OPTIONS.some((entry) => entry.mode === value);
+}
+
+export function coerceAppGenerationMode(value: unknown): AppGenerationMode {
+  if (isAppGenerationMode(value)) {
+    return value;
+  }
+  return DEFAULT_APP_GENERATION_MODE;
+}
+
 export function buildDefaultAppGenerationPrompt(
   mode: AppGenerationMode,
 ): string {

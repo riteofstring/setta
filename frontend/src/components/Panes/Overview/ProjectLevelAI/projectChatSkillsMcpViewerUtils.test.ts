@@ -14,7 +14,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "Workspace skills",
         rootPath: "/workspace/skills",
         relativePath: "ui-layout",
-        skillPath: "/workspace/skills/ui-layout/SKILL.md",
         description: "Create dense dashboard layouts.",
       },
       {
@@ -23,7 +22,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "User ~/.agents/skills",
         rootPath: "/home/.agents/skills",
         relativePath: "build-tools",
-        skillPath: "/home/.agents/skills/build-tools/SKILL.md",
         description: "Automate builds and releases.",
       },
     ];
@@ -43,7 +41,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "User ~/.codex/skills",
         rootPath: "/home/.codex/skills",
         relativePath: "frontend-design",
-        skillPath: "/home/.codex/skills/frontend-design/SKILL.md",
         description: "Create polished frontend interfaces.",
       },
       {
@@ -52,7 +49,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "Workspace skills",
         rootPath: "/workspace/skills",
         relativePath: "setta-cli",
-        skillPath: "/workspace/skills/setta-cli/SKILL.md",
         description: "Project-local CLI helpers.",
       },
       {
@@ -61,7 +57,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         rootLabel: "User ~/.codex/skills",
         rootPath: "/home/.codex/skills",
         relativePath: ".system/skill-installer",
-        skillPath: "/home/.codex/skills/.system/skill-installer/SKILL.md",
         description: "Install curated skills.",
       },
     ];
