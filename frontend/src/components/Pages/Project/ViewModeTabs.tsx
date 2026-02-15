@@ -22,15 +22,28 @@ export function ViewModeTabs() {
     (x) => ({
       projectConfigId: x.projectConfig.id,
       activeViewModeId: x.projectConfig.activeViewModeId,
-      tabModes: sortViewModes(Object.values(x.projectConfig.viewModes))
-        .filter((mode) => mode.isTab)
-        .map((mode) => ({ id: mode.id, name: mode.name })),
-      orderedViewModeIds: sortViewModes(
-        Object.values(x.projectConfig.viewModes),
-      ).map((mode) => mode.id),
-      tabSlotIndices: sortViewModes(
-        Object.values(x.projectConfig.viewModes),
-      ).flatMap((mode, index) => (mode.isTab ? [index] : [])),
+      ...(() => {
+        const sortedModes = sortViewModes(
+          Object.values(x.projectConfig.viewModes),
+        );
+        const tabModes: Array<{ id: string; name: string }> = [];
+        const tabSlotIndices: Array<number> = [];
+        for (let index = 0; index < sortedModes.length; index += 1) {
+          const mode = sortedModes[index];
+          if (!mode) {
+            continue;
+          }
+          if (mode.isTab) {
+            tabModes.push({ id: mode.id, name: mode.name });
+            tabSlotIndices.push(index);
+          }
+        }
+        return {
+          tabModes,
+          orderedViewModeIds: sortedModes.map((mode) => mode.id),
+          tabSlotIndices,
+        };
+      })(),
     }),
     _.isEqual,
   );

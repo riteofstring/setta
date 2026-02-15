@@ -747,6 +747,7 @@ function HomeProjectGallery({
             {galleryViewMode === "thumbnails" ? (
               <ProjectGridItems
                 projects={favoriteProjects}
+                isFavoriteSection
                 defaultProjectConfigId={defaultProjectConfigId}
                 selectedProjects={selectedProjects}
                 onSelectProject={onSelectProject}
@@ -761,6 +762,7 @@ function HomeProjectGallery({
             ) : (
               <ProjectListItems
                 projects={favoriteProjects}
+                isFavoriteSection
                 defaultProjectConfigId={defaultProjectConfigId}
                 selectedProjects={selectedProjects}
                 onSelectProject={onSelectProject}
@@ -786,6 +788,7 @@ function HomeProjectGallery({
           {galleryViewMode === "thumbnails" ? (
             <ProjectGridItems
               projects={nonFavoriteProjects}
+              isFavoriteSection={false}
               defaultProjectConfigId={defaultProjectConfigId}
               selectedProjects={selectedProjects}
               onSelectProject={onSelectProject}
@@ -800,6 +803,7 @@ function HomeProjectGallery({
           ) : (
             <ProjectListItems
               projects={nonFavoriteProjects}
+              isFavoriteSection={false}
               defaultProjectConfigId={defaultProjectConfigId}
               selectedProjects={selectedProjects}
               onSelectProject={onSelectProject}
@@ -839,6 +843,7 @@ function ProjectGallerySection({
 
 function ProjectGridItems({
   projects,
+  isFavoriteSection,
   defaultProjectConfigId,
   selectedProjects,
   onSelectProject,
@@ -852,6 +857,7 @@ function ProjectGridItems({
   dataTestId,
 }: {
   projects: Array<ProjectConfig>;
+  isFavoriteSection: boolean;
   defaultProjectConfigId: string | null;
   selectedProjects: Array<string>;
   onSelectProject: (id: string) => void;
@@ -883,6 +889,7 @@ function ProjectGridItems({
       {projects.map((project) => (
         <ProjectCard
           project={project}
+          isFavorite={isFavoriteSection}
           isDefault={project.id === defaultProjectConfigId}
           key={project.id}
           isSelected={selectedProjects.includes(project.id)}
@@ -901,6 +908,7 @@ function ProjectGridItems({
 
 function ProjectCard({
   project,
+  isFavorite,
   isDefault,
   isSelected,
   isActive,
@@ -912,6 +920,7 @@ function ProjectCard({
   onToggleFavoriteProjectConfig,
 }: {
   project: ProjectConfig;
+  isFavorite: boolean;
   isDefault: boolean;
   isSelected: boolean;
   isActive: boolean;
@@ -923,9 +932,6 @@ function ProjectCard({
   onToggleFavoriteProjectConfig: (projectConfigId: string) => void;
 }) {
   const navigate = useNavigate();
-  const isFavorite = useLocalStorage((state) =>
-    state.favoriteProjectConfigIds.includes(project.id),
-  );
   const itemStyles = isActive
     ? "relative grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-2xl border border-blue-500/55 bg-blue-50/50 transition-colors dark:border-blue-500/45 dark:bg-blue-950/20"
     : "relative grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-2xl border border-setta-200/85 bg-setta-50/65 transition-colors hover:border-setta-300 dark:border-setta-700 dark:bg-setta-900/35 dark:hover:border-setta-600";
@@ -1091,6 +1097,7 @@ function ThumbnailArea({
 
 function ProjectListItems({
   projects,
+  isFavoriteSection,
   defaultProjectConfigId,
   selectedProjects,
   onSelectProject,
@@ -1103,6 +1110,7 @@ function ProjectListItems({
   onToggleFavoriteProjectConfig,
 }: {
   projects: Array<ProjectConfig>;
+  isFavoriteSection: boolean;
   defaultProjectConfigId: string | null;
   selectedProjects: Array<string>;
   onSelectProject: (id: string) => void;
@@ -1130,6 +1138,7 @@ function ProjectListItems({
         <ProjectListItem
           key={project.id}
           project={project}
+          isFavorite={isFavoriteSection}
           isDefault={project.id === defaultProjectConfigId}
           isSelected={selectedProjects.includes(project.id)}
           isActive={activeProjectId === project.id}
@@ -1148,6 +1157,7 @@ function ProjectListItems({
 
 function ProjectListItem({
   project,
+  isFavorite,
   isDefault,
   isSelected,
   isActive,
@@ -1160,6 +1170,7 @@ function ProjectListItem({
   onToggleFavoriteProjectConfig,
 }: {
   project: ProjectConfig;
+  isFavorite: boolean;
   isDefault: boolean;
   isSelected: boolean;
   isActive: boolean;
@@ -1172,9 +1183,6 @@ function ProjectListItem({
   onToggleFavoriteProjectConfig: (projectConfigId: string) => void;
 }) {
   const navigate = useNavigate();
-  const isFavorite = useLocalStorage((state) =>
-    state.favoriteProjectConfigIds.includes(project.id),
-  );
   const projectPath = resolveProjectPath(project.name, isDeploymentMode);
   const baseClasses =
     "flex w-full items-center gap-2 rounded border px-2 py-2 text-left text-xs transition-colors";
@@ -1303,7 +1311,7 @@ function SelectedProjectDetails({
         <p>
           Sections:{" "}
           <span className="font-semibold">
-            {project.topLevelSections.length}
+            {getProjectTopLevelSectionCount(project)}
           </span>
         </p>
         <p className="truncate">
@@ -1321,6 +1329,10 @@ function SelectedProjectDetails({
       )}
     </aside>
   );
+}
+
+export function getProjectTopLevelSectionCount(project: ProjectConfig): number {
+  return Object.keys(project.topLevelSections).length;
 }
 
 function resolveProjectPath(

@@ -56,3 +56,7 @@ export function toggleFavoriteProjectConfig(projectConfigId: string) {
     return { favoriteProjectConfigIds: [...current, projectConfigId] };
   });
 }
+
+export function setOverviewProjectConfigOrder(orderedIds: string[]) {
+  useLocalStorage.setState({ overviewProjectConfigOrder: orderedIds });
+}

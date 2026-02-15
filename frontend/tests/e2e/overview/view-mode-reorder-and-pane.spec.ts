@@ -4,6 +4,12 @@ import { openIsolatedProject, postBackend, seedLocalStorage } from "../helpers";
 const READY_SELECTOR = ".react-flow__pane";
 const OVERVIEW_VIEW_MODE_ROW_SELECTOR =
   '[data-testid="overview-view-mode-row"], [data-testid="overview-view-mode-edit-row"]';
+const OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR =
+  '[data-testid="overview-project-config-row"]';
+
+type ProjectMetadataResponse = {
+  projectMetadata: Array<{ id: string; name: string }>;
+};
 
 async function createNamedViewMode(
   page: Page,
@@ -81,6 +87,42 @@ async function readOverviewViewModeOrder(page: Page): Promise<string[]> {
       })
       .filter((label) => label.length > 0),
   );
+}
+
+async function createProjectConfigAndResolveId(
+  page: Page,
+  previewImgColor: string,
+): Promise<{ id: string; name: string }> {
+  const createdName = await postBackend<string>(page, "/createProjectConfig", {
+    previewImgColor,
+  });
+  if (!createdName) {
+    throw new Error("Missing project config name from /createProjectConfig.");
+  }
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  const match = metadata?.projectMetadata.find(
+    (entry) => entry.name === createdName,
+  );
+  if (!match) {
+    throw new Error(`Unable to resolve project config id for ${createdName}.`);
+  }
+  return { id: match.id, name: match.name };
+}
+
+async function readOverviewProjectConfigOrderById(
+  page: Page,
+): Promise<string[]> {
+  return page
+    .locator(OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR)
+    .evaluateAll((rows) =>
+      rows
+        .map((row) => row.getAttribute("data-project-config-id") ?? "")
+        .filter((id) => id.length > 0),
+    );
 }
 
 test("tab drag reorder persists across reload", async ({ page }) => {
@@ -272,6 +314,120 @@ test("clicking a view mode drag handle does not reorder items", async ({
   await expect(modeBRow).toBeVisible();
 
   await expect.poll(() => readOverviewViewModeOrder(page)).toEqual(beforeOrder);
+});
+
+test("project config drag reorder persists across reload", async ({ page }) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectConfigs",
+    overviewVis: true,
+  });
+  const context = await openIsolatedProject(page);
+  const secondaryConfig = await createProjectConfigAndResolveId(
+    page,
+    "bg-emerald-500/60",
+  );
+
+  const projectConfigRows = page.locator(OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR);
+  const hasRowsVisible = await projectConfigRows
+    .first()
+    .isVisible()
+    .catch(() => false);
+  if (!hasRowsVisible) {
+    await page.getByTestId("overview-tab-view-modes").click();
+  }
+
+  const primaryRow = page
+    .locator(
+      `${OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR}[data-project-config-id="${context.projectConfigId}"]`,
+    )
+    .first();
+  const secondaryRow = page
+    .locator(
+      `${OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR}[data-project-config-id="${secondaryConfig.id}"]`,
+    )
+    .first();
+  const secondaryHandle = secondaryRow
+    .getByTestId("overview-project-config-drag-handle")
+    .first();
+
+  await expect(primaryRow).toBeVisible();
+  await expect(secondaryRow).toBeVisible();
+  await expect(secondaryHandle).toBeVisible();
+
+  const beforeOrder = await readOverviewProjectConfigOrderById(page);
+  expect(beforeOrder.indexOf(context.projectConfigId)).toBeGreaterThanOrEqual(
+    0,
+  );
+  expect(beforeOrder.indexOf(secondaryConfig.id)).toBeGreaterThanOrEqual(0);
+
+  await dragToTarget(page, secondaryHandle, primaryRow);
+
+  await expect
+    .poll(async () => {
+      const order = await readOverviewProjectConfigOrderById(page);
+      return (
+        order.indexOf(secondaryConfig.id) <
+        order.indexOf(context.projectConfigId)
+      );
+    })
+    .toBeTruthy();
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  await expect
+    .poll(async () => {
+      const order = await readOverviewProjectConfigOrderById(page);
+      return (
+        order.indexOf(secondaryConfig.id) <
+        order.indexOf(context.projectConfigId)
+      );
+    })
+    .toBeTruthy();
+});
+
+test("clicking a project config drag handle does not open that config", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectConfigs",
+    overviewVis: true,
+  });
+  await openIsolatedProject(page);
+  const secondaryConfig = await createProjectConfigAndResolveId(
+    page,
+    "bg-amber-500/60",
+  );
+
+  const projectConfigRows = page.locator(OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR);
+  const hasRowsVisible = await projectConfigRows
+    .first()
+    .isVisible()
+    .catch(() => false);
+  if (!hasRowsVisible) {
+    await page.getByTestId("overview-tab-view-modes").click();
+  }
+
+  const secondaryRow = page
+    .locator(
+      `${OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR}[data-project-config-id="${secondaryConfig.id}"]`,
+    )
+    .first();
+  const secondaryHandle = secondaryRow
+    .getByTestId("overview-project-config-drag-handle")
+    .first();
+  await expect(secondaryRow).toBeVisible();
+  await expect(secondaryHandle).toBeVisible();
+
+  const beforeOrder = await readOverviewProjectConfigOrderById(page);
+  const initialPathname = new URL(page.url()).pathname;
+
+  await secondaryHandle.click();
+
+  await expect.poll(() => new URL(page.url()).pathname).toBe(initialPathname);
+  await expect
+    .poll(() => readOverviewProjectConfigOrderById(page))
+    .toEqual(beforeOrder);
 });
 
 test("legacy ProjectConfigs overview tab opens the View Modes pane with project configs section visible", async ({

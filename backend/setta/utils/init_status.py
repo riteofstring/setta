@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
-from setta.utils.worktree import get_dev_worktree_name, list_dev_worktree_options
+from setta.utils.worktree import list_dev_worktree_options
 
 
 class BackendInitEvent(BaseModel):
@@ -14,7 +14,6 @@ class BackendInitEvent(BaseModel):
 
 class BackendInitWorktreeOption(BaseModel):
     name: str
-    path: str
     isActive: bool
 
 
@@ -24,7 +23,6 @@ class BackendInitStatusResponse(BaseModel):
     error: str | None
     authCookieRefreshWindowSeconds: int
     worktreeName: str | None
-    worktreeOptions: list[str]
     worktreeOptionDetails: list[BackendInitWorktreeOption]
 
 
@@ -49,17 +47,20 @@ class BackendInitializationStatus:
 
     def snapshot(self) -> BackendInitStatusResponse:
         worktree_options = list_dev_worktree_options()
+        worktree_name: str | None = None
+        for option in worktree_options:
+            if option.isActive:
+                worktree_name = option.name
+                break
         return BackendInitStatusResponse(
             events=list(self._events),
             isReady=self._is_ready,
             error=self._error,
             authCookieRefreshWindowSeconds=C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS,
-            worktreeName=get_dev_worktree_name(),
-            worktreeOptions=[option.name for option in worktree_options],
+            worktreeName=worktree_name,
             worktreeOptionDetails=[
                 BackendInitWorktreeOption(
                     name=option.name,
-                    path=option.path,
                     isActive=option.isActive,
                 )
                 for option in worktree_options

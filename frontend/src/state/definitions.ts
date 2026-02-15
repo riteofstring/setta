@@ -869,6 +869,7 @@ type ZustandLocalStorage = {
   appSpecStreamingEnabled: boolean;
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
   favoriteProjectConfigIds: string[];
+  overviewProjectConfigOrder: string[];
   homePageLeftColumnWidth: number;
   homePageRightColumnWidth: number;
   appGenerationMode: AppGenerationMode;
@@ -915,6 +916,7 @@ export const useLocalStorage = createWithEqualityFn(
       appSpecStreamingEnabled: false,
       homeProjectGalleryViewMode: "thumbnails",
       favoriteProjectConfigIds: [],
+      overviewProjectConfigOrder: [],
       homePageLeftColumnWidth: 320,
       homePageRightColumnWidth: 280,
       appGenerationMode: "json_render",

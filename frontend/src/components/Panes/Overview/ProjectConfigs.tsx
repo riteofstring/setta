@@ -7,8 +7,11 @@ import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
 import { FiCheck, FiEdit3 } from "react-icons/fi";
 import { RxDragHandleDots2 } from "react-icons/rx";
-import { Link, useNavigate } from "react-router-dom";
-import { toggleProjectConfigPreviewEnabled } from "state/actions/localStorage";
+import { useNavigate } from "react-router-dom";
+import {
+  setOverviewProjectConfigOrder,
+  toggleProjectConfigPreviewEnabled,
+} from "state/actions/localStorage";
 import { openDeleteProjectWarningModal } from "state/actions/modal";
 import { loadShareProjectConfig } from "state/actions/share";
 import {
@@ -26,6 +29,35 @@ const TOGGLE_ROOT_CLASSES =
 const TOGGLE_THUMB_CLASSES =
   "block w-2.5 h-2.5 bg-white dark:bg-setta-800 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 flex";
 
+function areIdArraysEqual(left: string[], right: string[]) {
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((id, index) => id === right[index]);
+}
+
+export function mergeProjectConfigOrder(
+  incomingIds: string[],
+  persistedIds: string[],
+): string[] {
+  if (incomingIds.length === 0) {
+    return [];
+  }
+  if (persistedIds.length === 0) {
+    return incomingIds;
+  }
+  const incomingIdSet = new Set(incomingIds);
+  const retainedIds = persistedIds.filter((id) => incomingIdSet.has(id));
+  const retainedIdSet = new Set(retainedIds);
+  const mergedIds = [...retainedIds];
+  for (const id of incomingIds) {
+    if (!retainedIdSet.has(id)) {
+      mergedIds.push(id);
+    }
+  }
+  return mergedIds;
+}
+
 export function ProjectConfigs() {
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditStructure } = useShareCapabilities();
@@ -35,11 +67,14 @@ export function ProjectConfigs() {
     (x) => x.projectMetadata,
     _.isEqual,
   );
-  const previewEnabled = useLocalStorage((x) => x.projectConfigPreviewEnabled);
+  const { previewEnabled, persistedOrder } = useLocalStorage(
+    (x) => ({
+      previewEnabled: x.projectConfigPreviewEnabled,
+      persistedOrder: x.overviewProjectConfigOrder,
+    }),
+    _.isEqual,
+  );
   const [isEditing, setIsEditing] = useState(false);
-  const [orderedProjectConfigIds, setOrderedProjectConfigIds] = useState<
-    Array<string>
-  >([]);
   const canEditProjectConfigs = canEditStructure && !isDeploymentMode;
   const editLabel = isEditing ? "Done Editing" : "Edit";
   const editIcon = isEditing ? <FiCheck size={14} /> : <FiEdit3 size={14} />;
@@ -49,30 +84,20 @@ export function ProjectConfigs() {
       : "cursor-not-allowed text-setta-300 opacity-60 dark:text-setta-700"
   }`;
 
+  const incomingIds = useMemo(
+    () => allProjectMetadata.map((config) => config.id),
+    [allProjectMetadata],
+  );
+  const orderedProjectConfigIds = useMemo(
+    () => mergeProjectConfigOrder(incomingIds, persistedOrder),
+    [incomingIds, persistedOrder],
+  );
   useEffect(() => {
-    const incomingIds = allProjectMetadata.map((config) => config.id);
-    setOrderedProjectConfigIds((previousIds) => {
-      if (previousIds.length === 0) {
-        return incomingIds;
-      }
-      const incomingSet = new Set(incomingIds);
-      const retainedIds = previousIds.filter((id) => incomingSet.has(id));
-      const retainedSet = new Set(retainedIds);
-      const nextIds = [...retainedIds];
-      for (const id of incomingIds) {
-        if (!retainedSet.has(id)) {
-          nextIds.push(id);
-        }
-      }
-      if (
-        nextIds.length === previousIds.length &&
-        nextIds.every((id, index) => id === previousIds[index])
-      ) {
-        return previousIds;
-      }
-      return nextIds;
-    });
-  }, [allProjectMetadata]);
+    if (areIdArraysEqual(persistedOrder, orderedProjectConfigIds)) {
+      return;
+    }
+    setOverviewProjectConfigOrder(orderedProjectConfigIds);
+  }, [orderedProjectConfigIds, persistedOrder]);
 
   const orderedProjectConfigs = useMemo(() => {
     if (orderedProjectConfigIds.length === 0) {
@@ -100,16 +125,12 @@ export function ProjectConfigs() {
     return reordered;
   }, [allProjectMetadata, orderedProjectConfigIds]);
 
-  function handleReorder(nextOrderedIds: Array<string>) {
-    setOrderedProjectConfigIds((previousIds) => {
-      if (
-        previousIds.length === nextOrderedIds.length &&
-        previousIds.every((id, idx) => id === nextOrderedIds[idx])
-      ) {
-        return previousIds;
-      }
-      return nextOrderedIds;
-    });
+  function handleReorder(nextOrderedIds: string[]) {
+    const normalizedIds = mergeProjectConfigOrder(incomingIds, nextOrderedIds);
+    if (areIdArraysEqual(normalizedIds, orderedProjectConfigIds)) {
+      return;
+    }
+    setOverviewProjectConfigOrder(normalizedIds);
   }
 
   return (
@@ -208,6 +229,7 @@ function ProjectConfigRow({
   sortableEnabled,
 }: ProjectConfigRowProps) {
   const sortable = useSortableListItem(config.id, !sortableEnabled, "vertical");
+  const navigate = useNavigate();
   const isActive = config.id === currProjectConfigId;
   const baseClasses =
     "flex h-8 w-full min-w-0 items-center gap-2 rounded px-2 text-xs transition-colors";
@@ -221,55 +243,38 @@ function ProjectConfigRow({
   function onRowMouseEnter() {
     onMouseEnter(config, currProjectConfigName, previewEnabled);
   }
-
-  if (isDeploymentMode) {
-    return (
-      <button
-        ref={sortable.setNodeRef}
-        type="button"
-        data-testid="overview-project-config-row"
-        data-project-config-id={config.id}
-        className={rowClasses}
-        style={sortable.style}
-        onClick={() => {
-          if (config.id === currProjectConfigId) {
-            return;
-          }
-          void loadShareProjectConfig({
-            projectConfigId: config.id,
-          });
-        }}
-        onMouseEnter={onRowMouseEnter}
-      >
-        <span
-          ref={sortableEnabled ? sortable.setActivatorNodeRef : undefined}
-          data-testid="overview-project-config-drag-handle"
-          className={
-            sortableEnabled
-              ? "inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
-              : "text-transparent"
-          }
-          {...(sortableEnabled ? sortable.attributes : {})}
-          {...(sortableEnabled ? sortable.listeners : {})}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
-        </span>
-        <p className="min-w-0 flex-1 truncate text-left">{config.name}</p>
-      </button>
-    );
+  function onOpenConfig() {
+    if (isDeploymentMode) {
+      if (config.id === currProjectConfigId) {
+        return;
+      }
+      void loadShareProjectConfig({
+        projectConfigId: config.id,
+      });
+      return;
+    }
+    navigate(pathRelativeToProject(config.name), {
+      state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+    });
+  }
+  function stopDragClick(event: React.MouseEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  function stopDragPointerDown(event: React.PointerEvent<HTMLElement>) {
+    event.stopPropagation();
   }
 
   return (
-    <Link
+    <button
       ref={sortable.setNodeRef}
-      to={pathRelativeToProject(config.name)}
+      type="button"
       data-testid="overview-project-config-row"
       data-project-config-id={config.id}
       className={rowClasses}
       style={sortable.style}
       onMouseEnter={onRowMouseEnter}
-      state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
+      onClick={onOpenConfig}
     >
       <span
         ref={sortableEnabled ? sortable.setActivatorNodeRef : undefined}
@@ -281,12 +286,13 @@ function ProjectConfigRow({
         }
         {...(sortableEnabled ? sortable.attributes : {})}
         {...(sortableEnabled ? sortable.listeners : {})}
-        onClick={(event) => event.stopPropagation()}
+        onPointerDown={stopDragPointerDown}
+        onClick={stopDragClick}
       >
         <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
       </span>
       <p className="min-w-0 flex-1 truncate text-left">{config.name}</p>
-    </Link>
+    </button>
   );
 }
 
@@ -349,6 +355,10 @@ function ProjectConfigEditingRow({
   function stopDragPointerDown(event: React.PointerEvent<HTMLElement>) {
     event.stopPropagation();
   }
+  function stopDragClick(event: React.MouseEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
 
   function onRowKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.key !== "Enter" && event.key !== " ") {
@@ -383,7 +393,8 @@ function ProjectConfigEditingRow({
         }
         {...(sortableEnabled ? sortable.attributes : {})}
         {...(sortableEnabled ? sortable.listeners : {})}
-        onClick={(event) => event.stopPropagation()}
+        onPointerDown={stopDragPointerDown}
+        onClick={stopDragClick}
       >
         <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
       </span>
