@@ -56,6 +56,8 @@ const HOME_MIN_PANE_WIDTH = 260;
 const HOME_PROJECT_CARD_GRID_TEMPLATE_COLUMNS =
   "repeat(auto-fill, minmax(10.5rem, 14rem))";
 const HOME_FILE_BROWSER_META_INSET_CLASS = "px-2";
+const HOME_FILE_BROWSER_TITLE_INSET_CLASS =
+  "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const HOME_FILE_BROWSER_LIST_INSET_LEFT = 10;
 const HOME_PANE_TITLE_CLASS =
   "mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500";
@@ -370,7 +372,7 @@ function HomeWorkspaceLayout({
             className={HOME_FILE_BROWSER_PANE_CONTENT_CLASS}
             data-testid="home-file-browser-column"
           >
-            <div className={HOME_FILE_BROWSER_META_INSET_CLASS}>
+            <div className={HOME_FILE_BROWSER_TITLE_INSET_CLASS}>
               <h2 className={HOME_PANE_TITLE_CLASS}>Workspace Browser</h2>
             </div>
             <HomeFileBrowserColumn />
