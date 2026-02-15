@@ -58,7 +58,6 @@ import {
   receiveLLMConfigUpdate,
   receiveLLMResponseChunk,
   receivePromptTemplatesUpdate,
-  receiveTranscriptionProfilesUpdate,
 } from "./ai";
 import {
   receiveAIFollowToolArgumentsUpdate,
@@ -478,8 +477,6 @@ function receiveMessage(message: string) {
       return receiveExternalAgentConfigsUpdate(m.content.configs);
     case WebsocketMsgTypeForFrontendEnum.EngineConfigsUpdated:
       return receiveEngineConfigsUpdate(m.content.configs);
-    case WebsocketMsgTypeForFrontendEnum.TranscriptionProfilesUpdated:
-      return receiveTranscriptionProfilesUpdate(m.content.profiles);
     default:
       return m satisfies never;
   }

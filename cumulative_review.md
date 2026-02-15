@@ -1,32 +1,34 @@
-## 2026-02-18 23:13:49 PST
+## 2026-02-18 23:04:05 PST
 
-- Reviewed and consolidated findings from `review1.md`, `review2.md`, and `review3.md`.
-- Fixed pre-merge reliability issues in transcription sessions:
-  - auto transport now falls back only on realtime capability failures and fast-fails on auth/config errors
-  - realtime engine init now closes connections on setup failure
-  - session ownership checks now validate scope before removing sessions
-  - base64 append payloads are size-guarded before decode
-- Aligned dictation behavior to target modes:
-  - realtime mode uses chunked streaming append
-  - file mode captures full audio and uploads/transcribes once on stop
-  - file mode no longer exposes misleading effective chunking semantics (`chunkMs` now `0` in file mode responses)
-- Updated documentation to match session-based dictation routes and current transport behavior.
-- Added/updated tests across backend unit/integration, frontend unit, and Playwright e2e to cover the above behavior.
+- Implemented MCP runtime status correctness fixes:
+  - Tightened external status parsing so non-MCP Claude/system events do not create phantom servers.
+  - Prevented fallback `unknown` statuses from overwriting concrete non-`unknown` runtime states.
+- Implemented frontend correctness and performance fixes:
+  - Added queued/latest-params MCP runtime refresh logic to avoid stale context updates during in-flight requests.
+  - Included `disabled` in the MCP status summary line for consistency with computed status totals.
+  - Optimized active-skill resolution using a precomputed identifier index map instead of repeated full-list scans.
+- Updated automated coverage:
+  - Backend tests for non-MCP payload rejection and unknown-overwrite prevention.
+  - Backend route test for disabled external-runner behavior.
+  - Frontend Vitest updates for status summary, root-priority activity mapping, and performance scaling guardrails.
+  - Playwright MCP viewer spec updated to mock/assert `POST /api/mcpServerRuntimeStatus` directly.
+- Verification run:
+  - Targeted backend pytest: pass.
+  - Targeted frontend Vitest: pass.
+  - Targeted Playwright MCP viewer suite: pass.
 
-## 2026-02-18 23:53:46 PST
+## 2026-02-18 23:27:06 PST
 
-- Implemented all actionable fixes from the top-level review docs, excluding any backward-compatibility work.
-- Backend updates:
-  - added traffic-independent transcription session pruning loop with startup/shutdown lifecycle wiring
-  - validated `transcriptionLlmConfigId` during transcription profile create/update
-  - mapped missing transcription profile start errors to clean `404` semantics
-  - seeded `openai-whisper-1` default transcription profile with `transportMode=file`
-- Frontend updates:
-  - provider availability now requires both config support and API key presence
-  - added optional provider-start notification suppression for `auto` mode fallback paths
-  - extracted shared dictation mode metadata and provider transcription session handlers
-  - changed file-mode provider dictation to stream append chunks during capture (no full-session in-memory merge)
-  - improved provider startup error messaging to avoid permission-only phrasing for non-permission failures
-  - updated chunk setting UX copy/behavior to reflect realtime-only chunk semantics
-  - exported and adopted generated `ChatDictationMode` typing instead of repeated string-literal unions
-- Added/updated backend unit/integration tests, frontend Vitest tests, and Playwright dictation e2e coverage for these changes; targeted suites passed.
+- Implemented MCP runtime status correctness fixes:
+  - Tightened status payload extraction so non-MCP system/error envelopes are ignored and do not produce phantom MCP server rows.
+  - Kept `id`/`name` fallback server-id normalization only for explicit MCP containers.
+  - Resolved `connected=false + status=disabled` as `disabled` (explicit status/state now takes precedence before connected-fallback classification).
+- Updated Codex skills discovery docs contract (no backward-compatibility root re-add):
+  - Replaced stale `~/.codex/skills` wording with current runtime discovery roots and env-based additions (`AGENTS_HOME/skills`, `CODEX_HOME/skills`).
+- Updated automated coverage:
+  - Added backend unit/integration tests for non-MCP payload rejection, MCP-container id fallback, and disabled-state resolution.
+  - Added Playwright MCP viewer assertion that disabled external runtime servers are surfaced in summary/server rows.
+- Verification run:
+  - Targeted backend pytest: pass (`10 passed`).
+  - Targeted frontend Vitest: pass (`11 passed`).
+  - Targeted Playwright MCP viewer suite: pass (`11 passed`).

@@ -21,7 +21,6 @@ from setta.routers.agentic import (
     CreateAgentProfileRequest,
     CreateExternalAgentConfigRequest,
     CreatePromptTemplateRequest,
-    CreateTranscriptionProfileRequest,
     DeleteAgentProfileRequest,
     DeleteExternalAgentConfigRequest,
     DeletePromptTemplateRequest,
@@ -34,11 +33,9 @@ from setta.routers.agentic import (
     UpdateAgentProfileRequest,
     UpdateExternalAgentConfigRequest,
     UpdatePromptTemplateRequest,
-    UpdateTranscriptionProfileRequest,
     route_create_agent_profile,
     route_create_external_agent_config,
     route_create_prompt_template,
-    route_create_transcription_profile,
     route_delete_agent_profile,
     route_delete_external_agent_config,
     route_delete_prompt_template,
@@ -55,14 +52,12 @@ from setta.routers.agentic import (
     route_update_agent_profile,
     route_update_external_agent_config,
     route_update_prompt_template,
-    route_update_transcription_profile,
 )
 from setta.agentic.store import save_engine_configs
 from setta.types.agentic import (
     AgentRunStatus,
     EngineConfig,
     EngineType,
-    TranscriptionTransportMode,
 )
 from setta.types.external_agents import (
     ExternalAgentEnvVarStatus,
@@ -222,79 +217,6 @@ class TestAgenticRoutes:
                 )
                 profiles = await route_get_agent_profiles(ctx)
                 assert profiles == []
-
-    async def test_transcription_profile_routes_validate_llm_config_id(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            setta_root = Path(tmpdir) / "setta_files"
-            setta_root.mkdir(parents=True, exist_ok=True)
-            dbe = DBE(setta_root)
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-            mcp_client = MultiMCPClient({}, disabled=True)
-            agent_runner = AgentRunner(dbe, mcp_client, frontend_sender)
-            agent_runner.update_config(
-                AllLLMConfigs(
-                    configs={
-                        "openai-transcribe": LLMConfig(
-                            id="openai-transcribe",
-                            model="whisper-1",
-                            provider="openai",
-                            api_key_env="OPENAI_API_KEY",
-                            mcpServerIds=[],
-                        )
-                    },
-                    mcpServers={},
-                )
-            )
-            state = _AgenticTestState(
-                dbe=dbe,
-                wmh_frontend_sender=frontend_sender,
-                agent_runner=agent_runner,
-            )
-
-            with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as create_exc:
-                    await route_create_transcription_profile(
-                        CreateTranscriptionProfileRequest(
-                            name="Invalid profile",
-                            transcriptionLlmConfigId="missing-transcribe",
-                            transportMode=TranscriptionTransportMode.file,
-                            chunkMs=1200,
-                            language=None,
-                        ),
-                        ctx,
-                    )
-                assert create_exc.value.status_code == 400
-                assert (
-                    create_exc.value.detail
-                    == "Transcription profile references unknown transcription LLM config 'missing-transcribe'."
-                )
-
-                created = await route_create_transcription_profile(
-                    CreateTranscriptionProfileRequest(
-                        name="Valid profile",
-                        transcriptionLlmConfigId="openai-transcribe",
-                        transportMode=TranscriptionTransportMode.file,
-                        chunkMs=1200,
-                        language=None,
-                    ),
-                    ctx,
-                )
-
-                with pytest.raises(HTTPException) as update_exc:
-                    await route_update_transcription_profile(
-                        UpdateTranscriptionProfileRequest(
-                            profile=created.model_copy(
-                                update={"transcriptionLlmConfigId": "missing-transcribe"}
-                            )
-                        ),
-                        ctx,
-                    )
-                assert update_exc.value.status_code == 400
-                assert (
-                    update_exc.value.detail
-                    == "Transcription profile references unknown transcription LLM config 'missing-transcribe'."
-                )
 
     async def test_prompt_template_crud(self) -> None:
         with TemporaryDirectory() as tmpdir:
