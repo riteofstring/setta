@@ -13,8 +13,10 @@ import pytest
 from click.testing import CliRunner
 
 from setta.sessions import SessionMetadata, SessionRegistry
-from setta.start import status, stop
+from setta.sessions.constants import IN_PROCESS_ENV_VAR
+from setta.start import cli, status, stop
 from setta.utils.constants import C
+from setta.utils.paths import clear_setta_paths_cache, resolve_setta_paths
 from tests.utils.setta_paths import temporary_setta_paths
 
 
@@ -41,6 +43,9 @@ def status_env(tmp_path):
     )
     sessions_root = C.RUNTIME_SESSIONS_FOLDER
     sessions_root.mkdir(parents=True, exist_ok=True)
+    resolved_paths = resolve_setta_paths(
+        workspace_root=workspace, setta_files_location="local"
+    )
 
     process = subprocess.Popen(
         [
@@ -52,10 +57,18 @@ def status_env(tmp_path):
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+    # Let the process fully initialize its argv/cmdline before stale checks.
+    time.sleep(0.05)
     registry = SessionRegistry()
 
     def _create_session(
-        port: int, started_at: datetime | None = None
+        port: int,
+        started_at: datetime | None = None,
+        setta_files_location: str | None = resolved_paths.setta_files_location,
+        setta_files_root: str | None = str(resolved_paths.setta_files_root),
+        runtime_root: str | None = str(resolved_paths.runtime_root),
+        setta_home: str | None = str(resolved_paths.setta_home),
+        profile: str | None = resolved_paths.profile_name,
     ) -> SessionMetadata:
         return registry.create_session(
             workspace_path=workspace,
@@ -63,6 +76,11 @@ def status_env(tmp_path):
             port=port,
             pid=process.pid,
             started_at=started_at,
+            setta_files_location=setta_files_location,
+            setta_files_root=setta_files_root,
+            runtime_root=runtime_root,
+            setta_home=setta_home,
+            profile=profile,
         )
 
     env = SimpleNamespace(
@@ -88,7 +106,6 @@ def status_workspace_env(tmp_path):
     workspace.mkdir()
     outside = tmp_path / "outside"
     outside.mkdir()
-    setta_root = workspace / "setta_files"
     stack = ExitStack()
     stack.enter_context(
         temporary_setta_paths(
@@ -110,6 +127,8 @@ def status_workspace_env(tmp_path):
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+    # Let the process fully initialize its argv/cmdline before stale checks.
+    time.sleep(0.05)
 
     def _create_session(port: int) -> SessionMetadata:
         registry = SessionRegistry()
@@ -151,10 +170,7 @@ def test_status_connect_info_json_emits_payload(status_env) -> None:
     session = payload["session"]
     assert session["port"] == 61234
     assert session["workspacePath"] == str(status_env.workspace.resolve())
-    assert (
-        payload["bootstrapUrlPlain"]
-        == "http://127.0.0.1:61234/__setta__/bootstrap"
-    )
+    assert payload["bootstrapUrlPlain"] == "http://127.0.0.1:61234/__setta__/bootstrap"
     assert payload["bootstrapUrlFragment"].startswith(
         "http://127.0.0.1:61234/__setta__/bootstrap#token="
     )
@@ -164,6 +180,69 @@ def test_status_connect_info_json_emits_payload(status_env) -> None:
     )
     assert payload["runtimeRoot"] == str(status_env.sessions_root.parent)
     assert payload["settaFilesLocation"] == "local"
+
+
+def test_status_connect_info_json_uses_session_authored_path_metadata(
+    status_env,
+) -> None:
+    custom_setta_files_root = str(
+        (status_env.workspace / "custom_state" / "setta_files_dev").resolve(
+            strict=False
+        )
+    )
+    custom_runtime_root = str(
+        (status_env.workspace / "custom_runtime").resolve(strict=False)
+    )
+    custom_setta_home = str(
+        (status_env.workspace / ".setta-development").resolve(strict=False)
+    )
+    session = status_env.create_session(
+        port=61234,
+        setta_files_location="global",
+        setta_files_root=custom_setta_files_root,
+        runtime_root=custom_runtime_root,
+        setta_home=custom_setta_home,
+        profile="dev",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        status,
+        ["--connect-info", "--json", "--session", session.id],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = _decode_connect_info(result.output)
+    assert payload["settaFilesLocation"] == "global"
+    assert payload["settaFilesRoot"] == custom_setta_files_root
+    assert payload["runtimeRoot"] == custom_runtime_root
+    assert payload["settaHome"] == custom_setta_home
+    assert payload["profile"] == "dev"
+
+
+def test_status_connect_info_json_omits_paths_when_not_in_session_metadata(
+    status_env,
+) -> None:
+    session = status_env.registry.create_session(
+        workspace_path=status_env.workspace,
+        host="127.0.0.1",
+        port=61234,
+        pid=status_env.process.pid,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(
+        status,
+        ["--connect-info", "--json", "--session", session.id],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = _decode_connect_info(result.output)
+    assert "settaFilesLocation" not in payload
+    assert "settaFilesRoot" not in payload
+    assert "runtimeRoot" not in payload
+    assert "settaHome" not in payload
+    assert "profile" not in payload
 
 
 def test_status_requires_session_or_latest_for_multiple_sessions_json(
@@ -223,9 +302,7 @@ def test_status_rejects_missing_session(status_env) -> None:
     status_env.create_session(port=61234)
     runner = CliRunner()
 
-    result = runner.invoke(
-        status, ["--connect-info", "--json", "--session", "missing"]
-    )
+    result = runner.invoke(status, ["--connect-info", "--json", "--session", "missing"])
 
     assert result.exit_code != 0
     assert "Session missing not found" in result.output
@@ -323,7 +400,7 @@ def test_status_delete_session_does_not_kill_non_setta_process(status_env) -> No
         other_process.wait()
 
 
-def test_status_delete_session_missing_reports_error(status_env) -> None:
+def test_status_delete_session_missing_reports_error() -> None:
     runner = CliRunner()
 
     result = runner.invoke(status, ["--delete-session", "missing"])
@@ -368,3 +445,69 @@ def test_stop_uses_workspace_from_other_cwd(status_workspace_env) -> None:
     assert result.exit_code == 0, result.output
     assert f"Stopped session {session.id}." in result.output
     assert not session_dir.exists()
+
+
+def test_stop_local_profile_uses_profile_runtime_sessions_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir(parents=True, exist_ok=True)
+
+    default_sessions_root = workspace / "setta_files" / "runtime" / "sessions"
+    default_sessions_root.mkdir(parents=True, exist_ok=True)
+    default_registry = SessionRegistry(sessions_root=default_sessions_root)
+    default_session = default_registry.create_session(
+        workspace_path=workspace,
+        host="127.0.0.1",
+        port=61230,
+        pid=os.getpid(),
+    )
+
+    lookup_home = tmp_path / ".setta"
+    profile_root = tmp_path / "profiles" / "dev" / "setta_files_dev"
+    profile_sessions_root = profile_root / "runtime" / "sessions"
+    profile_sessions_root.mkdir(parents=True, exist_ok=True)
+    profile_registry = SessionRegistry(sessions_root=profile_sessions_root)
+    profile_session = profile_registry.create_session(
+        workspace_path=workspace,
+        host="127.0.0.1",
+        port=61231,
+        pid=os.getpid(),
+    )
+
+    profile_path = lookup_home / "profiles" / "dev.json"
+    profile_path.parent.mkdir(parents=True, exist_ok=True)
+    profile_path.write_text(
+        json.dumps(
+            {
+                "name": "dev",
+                "workspaceRoot": str(workspace),
+                "settaFilesRoot": str(profile_root),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("SETTA_HOME", str(lookup_home))
+    monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
+    clear_setta_paths_cache()
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "--profile",
+            "dev",
+            "stop",
+            "--workspace",
+            str(workspace),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"Stopped session {profile_session.id}." in result.output
+    assert (profile_sessions_root / profile_session.id).exists() is False
+    assert (default_sessions_root / default_session.id).exists() is True
