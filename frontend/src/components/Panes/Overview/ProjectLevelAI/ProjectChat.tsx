@@ -1,6 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
-import { type ChatPermissionModeValue } from "components/Chat/chatComposerControls";
 import {
   buildEngineGroups,
   getChatPlaceholderText,
@@ -12,7 +11,6 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
-import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
@@ -36,10 +34,7 @@ import {
   EngineTypeEnum,
   ExternalAgentPreflightStatus,
 } from "utils/generatedTypes";
-import {
-  getDefaultProjectChatPermissionMode,
-  ProjectChatCore,
-} from "./ProjectChatCore";
+import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
@@ -101,8 +96,6 @@ export function ProjectChat() {
   );
 
   const [selectedEngineId, setSelectedEngineId] = useState<string | null>(null);
-  const [runtimePermissionMode, setRuntimePermissionMode] =
-    useState<ChatPermissionModeValue>("minimal");
   const [viewSkillsMcpViewer, setViewSkillsMcpViewer] = useState(false);
 
   const availableConfigGroups = useMemo(
@@ -204,27 +197,16 @@ export function ProjectChat() {
       ) ?? null
     );
   }, [externalAgentConfigs, effectiveEngineConfig]);
-  const showPlanModeBadge = shouldShowPlanModeBadge({
-    engineType,
-    externalAgentToolType: externalAgentConfig?.toolType ?? null,
-    approvalPolicy: externalAgentConfig?.approvalPolicy ?? null,
-    permissionMode: runtimePermissionMode,
-  });
+  const showPlanModeBadge =
+    engineType === EngineTypeEnum.external_agent &&
+    externalAgentConfig?.toolType === "claude_code" &&
+    externalAgentConfig.approvalPolicy === "plan";
   const placeholderText = getChatPlaceholderText({
     engineType,
     hasEngineConfig: Boolean(effectiveEngineConfig),
     hasLLMConfig,
     noLLMConfigsAvailable: noConfigsAvailable,
   });
-  const projectHistoryRunType = useMemo(() => {
-    if (engineType === EngineTypeEnum.external_agent) {
-      return "external_agent";
-    }
-    if (engineType === EngineTypeEnum.setta_llm) {
-      return "llm_chat";
-    }
-    return null;
-  }, [engineType]);
   const externalStatusMessage = useMemo(() => {
     if (!externalEngineStatus) {
       return null;
@@ -327,9 +309,6 @@ export function ProjectChat() {
     preferredEngineId,
     selectedEngineId,
   ]);
-  useEffect(() => {
-    setRuntimePermissionMode(getDefaultProjectChatPermissionMode(engineType));
-  }, [engineType]);
 
   const isAuxView = viewHistory || viewSkillsMcpViewer;
 
@@ -436,12 +415,7 @@ export function ProjectChat() {
         </nav>
 
         {viewHistory ? (
-          <ProjectChatHistory
-            chatId={chatId}
-            setChatId={setChatId}
-            runType={projectHistoryRunType}
-            engineConfigId={effectiveEngineId}
-          />
+          <ProjectChatHistory chatId={chatId} setChatId={setChatId} />
         ) : viewSkillsMcpViewer ? (
           <ProjectChatSkillsMcpViewer />
         ) : (
@@ -463,7 +437,6 @@ export function ProjectChat() {
               externalEngineAvailable={externalEngineAvailable}
               noLLMConfigsAvailable={noConfigsAvailable}
               setChatId={setChatId}
-              onPermissionModeChange={setRuntimePermissionMode}
             />
           </>
         )}
