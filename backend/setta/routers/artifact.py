@@ -1,7 +1,6 @@
 import fnmatch
 import mimetypes
 import os
-import shutil
 import stat
 from collections.abc import Callable
 from datetime import datetime, timezone
@@ -58,7 +57,6 @@ DEFAULT_FILE_BROWSER_IGNORE_PATTERNS = [
     "__pycache__",
 ]
 DEFAULT_FILE_BROWSER_MAX_ENTRIES = 5000
-DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES = 10 * 1024 * 1024
 _FILE_BROWSER_TOKEN_MANAGER = AttachmentTokenManager(
     C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS
 )
@@ -79,6 +77,7 @@ class GetFolderContentsRequest(BaseModel):
     includeMtime: bool = False
     includeSize: bool = False
     includeHidden: bool = False
+    includeSettaInitialized: bool = False
     ignorePatterns: list[str] | None = None
     maxEntries: int | None = Field(default=None, gt=0)
     missingFolderBehavior: Literal["error", "empty"] = "error"
@@ -94,60 +93,13 @@ class FileBrowserDownloadUrlEntry(BaseModel):
     expiresAt: int
 
 
-class GetFileBrowserFileContentRequest(BaseModel):
-    path: str
-    maxBytes: int | None = Field(default=None, gt=0)
-
-
-class FileBrowserFileContentResponse(BaseModel):
-    path: str
-    mimeType: str
-    contentId: str
-    mtimeNs: int
-    size: int
-
-
-class GetFileBrowserFileStatRequest(BaseModel):
-    path: str
-
-
-class FileBrowserFileStatResponse(BaseModel):
-    path: str
-    mtimeNs: int
-    size: int
-
-
-class WriteFileBrowserFileContentRequest(BaseModel):
-    path: str
-    contentId: str
-    expectedMtimeNs: int | None = None
-
-
-class WriteFileBrowserFileContentResponse(BaseModel):
-    path: str
-    mimeType: str
-    mtimeNs: int
-    size: int
-
-
-class TransferFileBrowserEntryRequest(BaseModel):
-    sourcePath: str
-    destinationFolderPath: str
-    operation: Literal["copy", "move"]
-
-
-class TransferFileBrowserEntryResponse(BaseModel):
-    sourcePath: str
-    destinationPath: str
-    operation: Literal["copy", "move"]
-
-
 class FolderContentItem(TypedDict):
     name: str
     type: str
     fullPath: str
     mtime: NotRequired[float]
     size: NotRequired[int]
+    isSettaInitialized: NotRequired[bool]
 
 
 class LoadCachedPathsRequest(BaseModel):
@@ -305,62 +257,10 @@ def _resolve_file_path_for_download(path_str: str) -> Path | None:
     return resolved
 
 
-def _resolve_file_path_for_edit(path_str: str) -> Path:
-    resolved = _resolve_file_path(path_str)
-    if not resolved.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"File does not exist: {path_str}",
-        )
-    if not resolved.is_file():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Path is not a file: {path_str}",
-        )
-    return resolved
-
-
-def _resolve_workspace_entry_path(path_str: str) -> Path:
-    resolved = _resolve_file_path(path_str)
-    if not resolved.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Path does not exist: {path_str}",
-        )
-    return resolved
-
-
 def _format_browser_path(path: Path, *, share_mode: bool) -> str:
     if share_mode:
         return str(path.resolve())
     return str(normalize_workspace_path(path))
-
-
-def _build_copy_candidate_name(source_name: str, attempt: int) -> str:
-    source_path = Path(source_name)
-    suffix = "".join(source_path.suffixes)
-    base_name = source_name[: -len(suffix)] if suffix else source_name
-    if not base_name:
-        base_name = source_name
-    if attempt == 1:
-        return f"{base_name} copy{suffix}"
-    return f"{base_name} copy {attempt}{suffix}"
-
-
-def _resolve_copy_destination_path(source: Path, destination_folder: Path) -> Path:
-    direct = destination_folder / source.name
-    if not direct.exists():
-        return direct
-    for attempt in range(1, 10_000):
-        candidate = destination_folder / _build_copy_candidate_name(
-            source.name, attempt
-        )
-        if not candidate.exists():
-            return candidate
-    raise HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
-        detail=f"Unable to resolve copy destination for {source.name}.",
-    )
 
 
 def _should_ignore(name: str, ignore_patterns: list[str]) -> bool:
@@ -499,6 +399,7 @@ def route_get_folder_contents(
     include_hidden = x.includeHidden
     include_mtime = x.includeMtime
     include_size = x.includeSize
+    include_setta_initialized = x.includeSettaInitialized
 
     for item in path.iterdir():
         if _is_under_ignored_root(item, internal_ignore_roots):
@@ -524,6 +425,8 @@ def route_get_folder_contents(
                 entry["mtime"] = stat_result.st_mtime
             if include_size:
                 entry["size"] = stat_result.st_size
+        if include_setta_initialized and is_dir:
+            entry["isSettaInitialized"] = (item / "setta_files").is_dir()
         contents.append(entry)
         if len(contents) >= max_entries:
             break
@@ -572,229 +475,6 @@ def route_get_file_browser_download_urls(
             )
         )
     return entries
-
-
-@router.post(Route.GET_FILE_BROWSER_FILE_CONTENT)
-def route_get_file_browser_file_content(
-    x: GetFileBrowserFileContentRequest,
-    ctx: RuntimeContextFromRequest,
-) -> FileBrowserFileContentResponse:
-    if ctx.deployment_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in deployment mode.",
-        )
-    resolved = _resolve_file_path_for_edit(x.path)
-    try:
-        stat_result = resolved.stat()
-    except OSError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to stat file: {x.path}",
-        ) from exc
-    max_bytes = (
-        x.maxBytes
-        if x.maxBytes is not None
-        else DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES
-    )
-    if stat_result.st_size > max_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File exceeds max size ({max_bytes} bytes): {x.path}",
-        )
-    try:
-        content = resolved.read_bytes()
-    except OSError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to read file: {x.path}",
-        ) from exc
-    mime_type, _ = mimetypes.guess_type(resolved.as_posix())
-    store = BinaryStore.from_dbe(ctx.state.dbe)
-    ref = store.store_bytes(
-        content,
-        mime_type=mime_type or "application/octet-stream",
-        durable=False,
-    )
-    return FileBrowserFileContentResponse(
-        path=_format_browser_path(resolved, share_mode=ctx.deployment_mode),
-        mimeType=mime_type or "application/octet-stream",
-        contentId=ref.contentId,
-        mtimeNs=stat_result.st_mtime_ns,
-        size=stat_result.st_size,
-    )
-
-
-@router.post(Route.GET_FILE_BROWSER_FILE_STAT)
-def route_get_file_browser_file_stat(
-    x: GetFileBrowserFileStatRequest,
-    ctx: RuntimeContextFromRequest,
-) -> FileBrowserFileStatResponse:
-    if ctx.deployment_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in deployment mode.",
-        )
-    resolved = _resolve_file_path_for_edit(x.path)
-    try:
-        stat_result = resolved.stat()
-    except OSError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to stat file: {x.path}",
-        ) from exc
-    return FileBrowserFileStatResponse(
-        path=_format_browser_path(resolved, share_mode=ctx.deployment_mode),
-        mtimeNs=stat_result.st_mtime_ns,
-        size=stat_result.st_size,
-    )
-
-
-@router.post(Route.WRITE_FILE_BROWSER_FILE_CONTENT)
-def route_write_file_browser_file_content(
-    x: WriteFileBrowserFileContentRequest,
-    ctx: RuntimeContextFromRequest,
-) -> WriteFileBrowserFileContentResponse:
-    if ctx.deployment_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in deployment mode.",
-        )
-    resolved = _resolve_file_path_for_edit(x.path)
-    try:
-        stat_result = resolved.stat()
-    except OSError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to stat file: {x.path}",
-        ) from exc
-    if x.expectedMtimeNs is not None and stat_result.st_mtime_ns != x.expectedMtimeNs:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="File changed on disk since it was loaded.",
-        )
-    store = BinaryStore.from_dbe(ctx.state.dbe)
-    try:
-        decoded = store.read_bytes(x.contentId)
-    except (FileNotFoundError, ValueError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid binary content payload.",
-        ) from exc
-    if len(decoded) > DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=(
-                "Updated file content exceeds maximum supported size "
-                f"({DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES} bytes)."
-            ),
-        )
-    try:
-        resolved.write_bytes(decoded)
-        updated_stat = resolved.stat()
-    except OSError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to write file: {x.path}",
-        ) from exc
-    mime_type, _ = mimetypes.guess_type(resolved.as_posix())
-    return WriteFileBrowserFileContentResponse(
-        path=_format_browser_path(resolved, share_mode=ctx.deployment_mode),
-        mimeType=mime_type or "application/octet-stream",
-        mtimeNs=updated_stat.st_mtime_ns,
-        size=updated_stat.st_size,
-    )
-
-
-@router.post(Route.TRANSFER_FILE_BROWSER_ENTRY)
-def route_transfer_file_browser_entry(
-    x: TransferFileBrowserEntryRequest,
-    ctx: RuntimeContextFromRequest,
-) -> TransferFileBrowserEntryResponse:
-    if ctx.deployment_mode:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="File browsing is disabled in deployment mode.",
-        )
-
-    workspace_root = get_setta_paths().workspace_root
-    source = _resolve_workspace_entry_path(x.sourcePath)
-    destination_folder = _resolve_folder_path(
-        x.destinationFolderPath,
-        share_mode=ctx.deployment_mode,
-        deployment_root=ctx.deployment_root,
-    )
-    if not destination_folder.exists():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Destination folder does not exist: {x.destinationFolderPath}",
-        )
-    if not destination_folder.is_dir():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Destination is not a folder: {x.destinationFolderPath}",
-        )
-    if source.resolve(strict=False) == workspace_root.resolve(strict=False):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot move or copy the workspace root.",
-        )
-    if source.is_dir() and destination_folder.resolve(strict=False).is_relative_to(
-        source.resolve(strict=False)
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot move or copy a folder into itself.",
-        )
-
-    if x.operation == "copy":
-        destination = _resolve_copy_destination_path(source, destination_folder)
-        try:
-            if source.is_dir():
-                shutil.copytree(source, destination)
-            else:
-                shutil.copy2(source, destination)
-        except OSError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to copy path: {x.sourcePath}",
-            ) from exc
-        return TransferFileBrowserEntryResponse(
-            sourcePath=_format_browser_path(source, share_mode=ctx.deployment_mode),
-            destinationPath=_format_browser_path(
-                destination, share_mode=ctx.deployment_mode
-            ),
-            operation=x.operation,
-        )
-
-    destination = destination_folder / source.name
-    if destination.resolve(strict=False) == source.resolve(strict=False):
-        return TransferFileBrowserEntryResponse(
-            sourcePath=_format_browser_path(source, share_mode=ctx.deployment_mode),
-            destinationPath=_format_browser_path(
-                destination, share_mode=ctx.deployment_mode
-            ),
-            operation=x.operation,
-        )
-    if destination.exists():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Destination already exists: {destination.as_posix()}",
-        )
-    try:
-        shutil.move(str(source), str(destination))
-    except OSError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to move path: {x.sourcePath}",
-        ) from exc
-    return TransferFileBrowserEntryResponse(
-        sourcePath=_format_browser_path(source, share_mode=ctx.deployment_mode),
-        destinationPath=_format_browser_path(
-            destination, share_mode=ctx.deployment_mode
-        ),
-        operation=x.operation,
-    )
 
 
 @router.get(Route.FILE_BROWSER_DOWNLOAD)
