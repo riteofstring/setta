@@ -55,7 +55,6 @@ async function loadFolderEntries({
     folderPath,
     ignorePatterns: ignorePatterns ?? null,
     maxEntries: maxEntries ?? null,
-    missingFolderBehavior: "empty",
   });
   if (!res200(res)) {
     return [];

@@ -13,20 +13,6 @@ def test_resolve_setta_home_honors_env_override(tmp_path: Path, monkeypatch: pyt
     assert resolve_setta_home() == override.resolve(strict=False)
 
 
-def test_resolve_setta_home_can_ignore_env_override(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    override = tmp_path / "custom_home"
-    fake_home_root = tmp_path / "home"
-    monkeypatch.setenv("SETTA_HOME", f"  {override}  ")
-    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: fake_home_root))
-    monkeypatch.setattr(sys, "platform", "linux")
-
-    assert resolve_setta_home(allow_env_override=False) == (
-        fake_home_root / ".setta"
-    ).resolve(strict=False)
-
-
 def test_resolve_setta_home_expands_env_vars(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -43,7 +29,7 @@ def test_resolve_setta_home_win32_uses_appdata(tmp_path: Path, monkeypatch: pyte
     appdata = tmp_path / "AppData" / "Roaming"
     monkeypatch.setenv("APPDATA", str(appdata))
 
-    assert resolve_setta_home() == (appdata / ".setta").resolve(strict=False)
+    assert resolve_setta_home() == (appdata / "Setta").resolve(strict=False)
 
 
 def test_resolve_setta_home_win32_falls_back_when_appdata_missing(
@@ -55,10 +41,10 @@ def test_resolve_setta_home_win32_falls_back_when_appdata_missing(
 
     fake_home_root = tmp_path / "home"
 
-    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: fake_home_root))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home_root))
 
     assert resolve_setta_home() == (
-        fake_home_root / "AppData" / "Roaming" / ".setta"
+        fake_home_root / "AppData" / "Roaming" / "Setta"
     ).resolve(strict=False)
 
 
@@ -68,7 +54,7 @@ def test_resolve_setta_home_unix_uses_dot_setta(tmp_path: Path, monkeypatch: pyt
 
     fake_home_root = tmp_path / "home"
 
-    monkeypatch.setattr(Path, "home", classmethod(lambda _cls: fake_home_root))
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home_root))
 
     assert resolve_setta_home() == (fake_home_root / ".setta").resolve(strict=False)
 
