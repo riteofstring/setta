@@ -4,6 +4,8 @@ import {
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
   getAttachedTerminalParentIdForTerminalSection,
+  getCurrEffectiveSectionImpl,
+  setCurrEffectiveSectionImplValue,
   getCurrShownParamIds,
   getEmbeddedAttachedTerminalForCodeSection,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
@@ -122,6 +124,124 @@ describe("getCurrShownParamIds", () => {
     const unpinned = getCurrShownParamIds(state, sectionId, false, true);
 
     expect(unpinned.topLevelParamIds).toEqual(["param-b"]);
+  });
+});
+
+describe("getCurrEffectiveSectionImpl", () => {
+  it("reuses cached effective objects when impl and modifier refs are unchanged", () => {
+    const sectionId = "section-1";
+    const variantId = "variant-1";
+    const implId = "chat-impl-1";
+    const state = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { [sectionId]: variantId },
+      }),
+      sections: {
+        [sectionId]: createCore({
+          id: sectionId,
+          sharedModifier: {
+            inputText: "shared",
+          },
+          unsharedKeys: [],
+        }),
+      },
+      sectionImpls: {
+        [implId]: createChatSectionImpl({
+          id: implId,
+          type: SectionTypeEnum.Chat,
+          inputText: "base",
+        }),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          modifier: {
+            inputText: "variant",
+          },
+          nonPresetImpls: [implId],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    const first = getCurrEffectiveSectionImpl(state, sectionId);
+    const second = getCurrEffectiveSectionImpl(state, sectionId);
+
+    expect(first).toBe(second);
+    expect(first.inputText).toBe("variant");
+
+    state.sectionVariants[variantId].modifier = {
+      inputText: "updated",
+    };
+    const third = getCurrEffectiveSectionImpl(state, sectionId);
+
+    expect(third).not.toBe(first);
+    expect(third.inputText).toBe("updated");
+  });
+
+  it("returns updated values immediately after in-place effective impl mutations", () => {
+    const sectionId = "section-cache-mutation";
+    const variantId = "variant-cache-mutation";
+    const implId = "chat-impl-cache-mutation";
+    const state = {
+      projectConfig: createProjectConfig({
+        id: "project-1",
+        sectionVariantMap: { [sectionId]: variantId },
+      }),
+      sections: {
+        [sectionId]: createCore({
+          id: sectionId,
+          sharedModifier: {},
+          unsharedKeys: [],
+        }),
+      },
+      sectionImpls: {
+        [implId]: createChatSectionImpl({
+          id: implId,
+          type: SectionTypeEnum.Chat,
+          inputText: "base",
+        }),
+      },
+      sectionVariants: {
+        [variantId]: createVariant({
+          id: variantId,
+          impl: implId,
+          modifier: {},
+          nonPresetImpls: [implId],
+        }),
+      },
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {
+        [sectionId]: null,
+      },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    expect(getCurrEffectiveSectionImpl(state, sectionId).inputText).toBe("base");
+
+    setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
+      inputText: "updated",
+    });
+
+    expect(getCurrEffectiveSectionImpl(state, sectionId).inputText).toBe("updated");
   });
 });
 

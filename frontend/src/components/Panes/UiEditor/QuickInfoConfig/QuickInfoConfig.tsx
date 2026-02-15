@@ -71,7 +71,7 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-1 overflow-hidden">
+    <div className="flex flex-1 flex-col gap-1 overflow-y-hidden">
       <aside className="mb-2 flex items-center justify-between">
         <p className="text-xs text-setta-500">Show display names</p>
         <Switch.Root
@@ -92,7 +92,7 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <div className="setta-pane-scroll mt-4 flex flex-col gap-2 [&>*]:mx-[2px]">
+      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll [&>*]:mx-[2px]">
         {sectionId &&
           filteredList.map((e) => (
             <UIElement sectionId={sectionId} paramInfo={e} key={e.id} />
