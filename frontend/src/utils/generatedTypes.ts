@@ -297,6 +297,14 @@ export const BrowserAreaViewModeEnum = {
 
 export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
 
+export const ChatPermissionModeEnum = {
+  minimal: "minimal",
+  yolo: "yolo",
+  config_toml_custom: "config_toml_custom",
+} as const;
+
+export type ChatPermissionMode = ObjectValues<typeof ChatPermissionModeEnum>;
+
 export const CodeLanguageEnum = {
   python: "python",
   bash: "bash",
@@ -455,6 +463,7 @@ export const RouteEnum = {
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
+  TRANSCRIBE_CHAT_AUDIO: "/transcribeChatAudio",
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
   LLM_CONFIG: "/llm/config",
   LLM_API_KEYS: "/llm/apiKeys",
@@ -1605,6 +1614,7 @@ const SharedModifierSchema = z.object({
   overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
+  permissionMode: z.enum(ChatPermissionModeEnum).optional(),
   pinnedParams: z.array(IDSchema).optional(),
   placeholder: z.string().optional(),
   pluginId: z.string().optional(),
@@ -1619,6 +1629,7 @@ const SharedModifierSchema = z.object({
   requestUrl: z.string().optional(),
   savedSearches: z.array(BrowserSavedSearchSchema).optional(),
   schemaVersion: z.union([z.int(), z.null()]).optional(),
+  searchEnabled: z.boolean().optional(),
   selectedParams: z.array(IDSchema).optional(),
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
@@ -1730,6 +1741,7 @@ const CoreSchema = z.object({
         "overflowMode",
         "paramFilter",
         "passingStyle",
+        "permissionMode",
         "pinnedParams",
         "placeholder",
         "pluginId",
@@ -1744,6 +1756,7 @@ const CoreSchema = z.object({
         "requestUrl",
         "savedSearches",
         "schemaVersion",
+        "searchEnabled",
         "selectedParams",
         "showSectionTitle",
         "size",
@@ -2278,6 +2291,10 @@ const ChatSectionImplSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
+  permissionMode: z
+    .enum(ChatPermissionModeEnum)
+    .default(ChatPermissionModeEnum.minimal),
+  searchEnabled: z.boolean().default(true),
   messages: z
     .array(
       z.union([
@@ -3541,6 +3558,8 @@ const ChatSectionImplArgsSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
   thinking: z.boolean().optional(),
+  permissionMode: z.enum(ChatPermissionModeEnum).optional(),
+  searchEnabled: z.boolean().optional(),
   messages: z
     .array(
       z.union([
@@ -5015,6 +5034,10 @@ const UserDefaultChatSectionImplSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
+  permissionMode: z
+    .enum(ChatPermissionModeEnum)
+    .default(ChatPermissionModeEnum.minimal),
+  searchEnabled: z.boolean().default(true),
   messages: z
     .array(
       z.union([
@@ -6412,6 +6435,10 @@ const AgentRunSchema = z.object({
 
 export type AgentRun = z.infer<typeof AgentRunSchema>;
 
+export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
+  return AgentRunSchema.parse(options);
+}
+
 const RunChainStepSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default("" as const),
@@ -7559,6 +7586,8 @@ const GetLLMResponseRequestSchema = z.object({
   branchParentChatId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
   appSpecStreamingEnabled: z.boolean().default(false),
+  permissionMode: z.enum(ChatPermissionModeEnum),
+  searchEnabled: z.boolean(),
   appGenerationMode: z
     .union([
       z.literal([
@@ -7585,6 +7614,14 @@ const StopLLMChatRequestSchema = z.object({
 });
 
 export type StopLLMChatRequestInput = z.input<typeof StopLLMChatRequestSchema>;
+
+const TranscribeChatAudioResponseSchema = z.object({
+  text: z.string(),
+});
+
+export type TranscribeChatAudioResponse = z.infer<
+  typeof TranscribeChatAudioResponseSchema
+>;
 
 const AppPolicyOverridesSchema = z.object({
   allowParamChanges: z.union([z.boolean(), z.null()]).default(null),
@@ -9117,6 +9154,8 @@ const SetChatSectionSettingsRequestSchema = z.object({
   engineConfigId: z.union([IDSchema, z.null()]),
   agentProfileId: z.union([IDSchema, z.null()]),
   thinking: z.boolean(),
+  permissionMode: z.enum(ChatPermissionModeEnum),
+  searchEnabled: z.boolean(),
 });
 
 export type SetChatSectionSettingsRequestInput = z.input<

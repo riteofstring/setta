@@ -30,6 +30,7 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatPermissionMode,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
@@ -125,6 +126,7 @@ class SharedModifier(TypedDict):
     overflowMode: NotRequired[bool]
     paramFilter: NotRequired[str]
     passingStyle: NotRequired[ParameterPassingStyle]
+    permissionMode: NotRequired[ChatPermissionMode]
     pinnedParams: NotRequired[list[ID]]
     placeholder: NotRequired[str]
     pluginId: NotRequired[str]
@@ -139,6 +141,7 @@ class SharedModifier(TypedDict):
     requestUrl: NotRequired[str]
     savedSearches: NotRequired[list[BrowserSavedSearch]]
     schemaVersion: NotRequired[int | None]
+    searchEnabled: NotRequired[bool]
     selectedParams: NotRequired[list[ID]]
     showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]

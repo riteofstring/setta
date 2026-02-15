@@ -22,6 +22,7 @@ from setta.types.id import ID
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatPermissionMode,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
@@ -196,6 +197,8 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     agentProfileId: ID | None = None
     chatId: ID | None = None
     thinking: bool = True
+    permissionMode: ChatPermissionMode = ChatPermissionMode.minimal
+    searchEnabled: bool = True
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False

@@ -38,6 +38,7 @@ from setta.types.project_config import (
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatPermissionMode,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
@@ -136,6 +137,7 @@ class CoreArgs(TypedDict):
                 "overflowMode",
                 "paramFilter",
                 "passingStyle",
+                "permissionMode",
                 "pinnedParams",
                 "placeholder",
                 "pluginId",
@@ -150,6 +152,7 @@ class CoreArgs(TypedDict):
                 "requestUrl",
                 "savedSearches",
                 "schemaVersion",
+                "searchEnabled",
                 "selectedParams",
                 "showSectionTitle",
                 "size",
@@ -618,6 +621,8 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     agentProfileId: NotRequired[ID | None]
     chatId: NotRequired[ID | None]
     thinking: NotRequired[bool]
+    permissionMode: NotRequired[ChatPermissionMode]
+    searchEnabled: NotRequired[bool]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -640,6 +645,10 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     thinking: NotRequired[bool | Callable[[bool], bool]]
+    permissionMode: NotRequired[
+        ChatPermissionMode | Callable[[ChatPermissionMode], ChatPermissionMode]
+    ]
+    searchEnabled: NotRequired[bool | Callable[[bool], bool]]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage

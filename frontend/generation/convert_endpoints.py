@@ -20,6 +20,8 @@ from typing import (
 
 from fastapi import BackgroundTasks, Request, Response, UploadFile
 from fastapi.params import Depends as DependsParam
+from fastapi.params import File as FileParam
+from fastapi.params import Form as FormParam
 from fastapi.routing import APIRoute
 from pydantic import BaseModel
 from setta.server import app
@@ -56,6 +58,7 @@ def get_path_input_output_types():
             "inputs": {},
             "output": None,
             "path": route.path,
+            "uses_form_data": False,
         }
 
         # Get function signature and type hints
@@ -77,6 +80,10 @@ def get_path_input_output_types():
                 continue
             if param_type is inspect.Parameter.empty:
                 param_type = type(None)
+            if _is_form_data_param_default(param.default) or _is_form_data_annotation(
+                param_type
+            ):
+                route_info["uses_form_data"] = True
 
             route_info["inputs"][param_name] = param_type
 
@@ -87,9 +94,29 @@ def get_path_input_output_types():
 
         route_info["output"] = return_type
 
+        if _route_declares_multipart_request_body(route):
+            route_info["uses_form_data"] = True
+
         output[route.endpoint.__name__] = route_info
 
     return output
+
+
+def _route_declares_multipart_request_body(route: APIRoute) -> bool:
+    if not isinstance(route.openapi_extra, dict):
+        return False
+    request_body = route.openapi_extra.get("requestBody")
+    if not isinstance(request_body, dict):
+        return False
+    content = request_body.get("content")
+    if not isinstance(content, dict):
+        return False
+    for content_type in content:
+        if not isinstance(content_type, str):
+            continue
+        if "multipart/form-data" in content_type.lower():
+            return True
+    return False
 
 
 def _is_depends_annotation(param_type) -> bool:
@@ -98,6 +125,26 @@ def _is_depends_annotation(param_type) -> bool:
         for meta in args[1:]:
             if isinstance(meta, DependsParam):
                 return True
+    return False
+
+
+def _is_form_data_param_default(default: Any) -> bool:
+    return isinstance(default, (FormParam, FileParam))
+
+
+def _is_form_data_annotation(param_type) -> bool:
+    if param_type is UploadFile:
+        return True
+    if get_origin(param_type) is not Annotated:
+        return False
+    args = get_args(param_type)
+    if not args:
+        return False
+    if args[0] is UploadFile:
+        return True
+    for meta in args[1:]:
+        if isinstance(meta, (FormParam, FileParam)):
+            return True
     return False
 
 
@@ -255,7 +302,14 @@ def python_type_to_ts(
 
 
 def create_ts_fn_def(
-    endpoint_path, method, fn_name, args, args_with_annotations, output_annotation
+    endpoint_path,
+    method,
+    fn_name,
+    args,
+    args_with_annotations,
+    output_annotation,
+    *,
+    uses_form_data: bool = False,
 ):
     definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<ResponseDataAndStatus<{output_annotation}>>"
     endpoint_path_without_prefix = endpoint_path
@@ -263,7 +317,10 @@ def create_ts_fn_def(
         endpoint_path_without_prefix = endpoint_path_without_prefix[
             len(Route.PREFIX.value) :
         ]
-    if fn_name == "route_binary_upload":
+    if _should_generate_form_data_wrapper(
+        method=method,
+        uses_form_data=uses_form_data,
+    ):
         return f"""
 export async function {fn_name}(form: FormData): Promise<ResponseDataAndStatus<{output_annotation}>> {{
     return await post("{endpoint_path_without_prefix}", form)
@@ -301,6 +358,16 @@ export async function {fn_name}(form: FormData): Promise<ResponseDataAndStatus<{
     return definition
 
 
+def _should_generate_form_data_wrapper(
+    *,
+    method: str,
+    uses_form_data: bool,
+) -> bool:
+    if method != "POST":
+        return False
+    return uses_form_data
+
+
 def create_imports():
     return f"""
 import * as {GENERATED_TYPE_ALIAS} from "./generatedTypes"
@@ -324,6 +391,7 @@ def main(output_path):
             args,
             args_with_annotations,
             output_annotation,
+            uses_form_data=s.get("uses_form_data", False),
         )
 
     with open(output_path, "w") as f:

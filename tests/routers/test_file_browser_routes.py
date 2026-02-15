@@ -769,6 +769,43 @@ class TestFileBrowserRoutes:
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         assert metadata["durable"] is False
 
+    async def test_binary_upload_rejects_invalid_durable_value(self) -> None:
+        app = FastAPI()
+        await self._build_state(app=app)
+        app.include_router(binary_router, prefix=Route.PREFIX.value)
+        payload = b"temporary"
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                f"{Route.PREFIX.value}{Route.BINARY_UPLOAD.value}",
+                data={"durable": "not-a-bool"},
+                files={"file": ("payload.bin", payload, "application/octet-stream")},
+            )
+        assert response.status_code == 400
+        assert "Invalid boolean value" in response.json()["detail"]
+
+    async def test_binary_upload_rejects_oversized_payload(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        app = FastAPI()
+        await self._build_state(app=app)
+        app.include_router(binary_router, prefix=Route.PREFIX.value)
+        monkeypatch.setattr(C, "BINARY_UPLOAD_MAX_BYTES", 4)
+        payload = b"hello"
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                f"{Route.PREFIX.value}{Route.BINARY_UPLOAD.value}",
+                files={"file": ("payload.bin", payload, "application/octet-stream")},
+            )
+
+        assert response.status_code == 413
+        assert (
+            response.json()["detail"]
+            == "Binary payload is too large. Maximum size is 4 bytes."
+        )
+
     async def test_binary_download_rejects_invalid_content_id(self) -> None:
         state = await self._build_state()
         with runtime_context(state) as runtime_ctx:

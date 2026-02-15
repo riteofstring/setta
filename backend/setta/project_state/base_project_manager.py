@@ -4188,7 +4188,6 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
-    @enqueue_method
     async def set_callable_hide_params(self, x: SetCallableHideParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_callable_hide_params(project_state, x.sectionId, x.hideParams)
@@ -4277,6 +4276,8 @@ class BaseProjectManager(ABC):
             x.engineConfigId,
             x.agentProfileId,
             x.thinking,
+            x.permissionMode,
+            x.searchEnabled,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
