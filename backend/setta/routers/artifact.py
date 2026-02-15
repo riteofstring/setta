@@ -587,31 +587,35 @@ def route_get_file_browser_file_content(
             detail="File browsing is disabled in deployment mode.",
         )
     resolved = _resolve_file_path_for_edit(x.path)
-    try:
-        stat_result = resolved.stat()
-    except OSError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to stat file: {x.path}",
-        ) from exc
     requested_max_bytes = (
         x.maxBytes
         if x.maxBytes is not None
         else DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES
     )
     max_bytes = min(requested_max_bytes, DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES)
-    if stat_result.st_size > max_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File exceeds max size ({max_bytes} bytes): {x.path}",
-        )
     try:
-        content = resolved.read_bytes()
+        with resolved.open("rb") as source:
+            stat_before_read = os.fstat(source.fileno())
+            content = source.read(max_bytes + 1)
+            stat_after_read = os.fstat(source.fileno())
     except OSError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to read file: {x.path}",
         ) from exc
+    if len(content) > max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"File exceeds max size ({max_bytes} bytes): {x.path}",
+        )
+    if (
+        stat_before_read.st_size != stat_after_read.st_size
+        or stat_before_read.st_mtime_ns != stat_after_read.st_mtime_ns
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="File changed on disk while reading.",
+        )
     mime_type, _ = mimetypes.guess_type(resolved.as_posix())
     store = BinaryStore.from_dbe(ctx.state.dbe)
     ref = store.store_bytes(
@@ -623,8 +627,8 @@ def route_get_file_browser_file_content(
         path=_format_browser_path(resolved, share_mode=ctx.deployment_mode),
         mimeType=mime_type or "application/octet-stream",
         contentId=ref.contentId,
-        mtimeNs=stat_result.st_mtime_ns,
-        size=stat_result.st_size,
+        mtimeNs=stat_after_read.st_mtime_ns,
+        size=stat_after_read.st_size,
     )
 
 
@@ -664,32 +668,6 @@ def route_write_file_browser_file_content(
             detail="File browsing is disabled in deployment mode.",
         )
     resolved = _resolve_file_path_for_edit(x.path, allow_missing=True)
-    existing_mtime_ns: int | None = None
-    try:
-        stat_result = resolved.stat()
-        existing_mtime_ns = stat_result.st_mtime_ns
-    except FileNotFoundError:
-        if x.expectedMtimeNs is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="File changed on disk since it was loaded.",
-            ) from None
-    except OSError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to stat file: {x.path}",
-        ) from exc
-    if existing_mtime_ns is not None:
-        if x.expectedMtimeNs is None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="File already exists.",
-            )
-        if existing_mtime_ns != x.expectedMtimeNs:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="File changed on disk since it was loaded.",
-            )
     store = BinaryStore.from_dbe(ctx.state.dbe)
     try:
         decoded = store.read_bytes(x.contentId)
@@ -708,12 +686,56 @@ def route_write_file_browser_file_content(
         )
     try:
         resolved.parent.mkdir(parents=True, exist_ok=True)
-        resolved.write_bytes(decoded)
-        updated_stat = resolved.stat()
     except OSError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to write file: {x.path}",
+        ) from exc
+    if x.expectedMtimeNs is None:
+        try:
+            with resolved.open("xb") as output:
+                output.write(decoded)
+        except FileExistsError:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="File already exists.",
+            ) from None
+        except OSError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to write file: {x.path}",
+            ) from exc
+    else:
+        try:
+            existing_stat = resolved.stat()
+        except FileNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="File changed on disk since it was loaded.",
+            ) from None
+        except OSError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to stat file: {x.path}",
+            ) from exc
+        if existing_stat.st_mtime_ns != x.expectedMtimeNs:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="File changed on disk since it was loaded.",
+            )
+        try:
+            resolved.write_bytes(decoded)
+        except OSError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to write file: {x.path}",
+            ) from exc
+    try:
+        updated_stat = resolved.stat()
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to stat file: {x.path}",
         ) from exc
     mime_type, _ = mimetypes.guess_type(resolved.as_posix())
     return WriteFileBrowserFileContentResponse(

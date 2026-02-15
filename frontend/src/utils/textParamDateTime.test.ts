@@ -82,4 +82,20 @@ describe("textParamDateTime", () => {
       "2026-02-17",
     );
   });
+
+  it("keeps long dates stable in positive-offset timezones", () => {
+    const previousTz = process.env.TZ;
+    process.env.TZ = "Pacific/Kiritimati";
+    try {
+      expect(
+        normalizeDateToIso("January 1, 2026", DateDisplayFormatEnum.long),
+      ).toBe("2026-01-01");
+    } finally {
+      if (previousTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTz;
+      }
+    }
+  });
 });

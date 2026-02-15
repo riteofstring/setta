@@ -1,5 +1,6 @@
 import json
 import os
+import threading
 from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -257,6 +258,39 @@ class TestFileBrowserRoutes:
 
         assert ctx.value.status_code == 413
 
+    async def test_get_file_browser_file_content_rejects_file_changed_while_reading(
+        self,
+    ) -> None:
+        state = await self._build_state()
+        file_path = get_setta_paths().workspace_root / "changing.bin"
+        file_path.write_bytes(b"x" * (9 * 1024 * 1024))
+        stop_mutation = threading.Event()
+
+        def mutate_mtime() -> None:
+            while not stop_mutation.is_set():
+                os.utime(file_path, None)
+
+        mutator = threading.Thread(target=mutate_mtime)
+        mutator.start()
+        saw_conflict = False
+        try:
+            with runtime_context(state) as runtime_ctx:
+                for _ in range(20):
+                    try:
+                        route_get_file_browser_file_content(
+                            GetFileBrowserFileContentRequest(path=file_path.as_posix()),
+                            runtime_ctx,
+                        )
+                    except HTTPException as exc:
+                        if exc.status_code == 409:
+                            saw_conflict = True
+                            break
+        finally:
+            stop_mutation.set()
+            mutator.join(timeout=5)
+
+        assert saw_conflict
+
     async def test_write_file_browser_file_content_updates_bytes(self) -> None:
         state = await self._build_state()
         file_path = get_setta_paths().workspace_root / "notes.csv"
@@ -335,6 +369,63 @@ class TestFileBrowserRoutes:
 
         # expectedMtimeNs=None now means "create-only", so existing files conflict.
         assert ctx.value.status_code == 409
+
+    async def test_write_file_browser_file_content_create_only_is_atomic(
+        self,
+    ) -> None:
+        state = await self._build_state()
+        file_path = get_setta_paths().workspace_root / "create-only-race.csv"
+        store = BinaryStore.from_dbe(state.dbe)
+        first_ref = store.store_bytes(
+            "first\n".encode("utf-8"),
+            mime_type="text/csv",
+            durable=False,
+        )
+        second_ref = store.store_bytes(
+            "second\n".encode("utf-8"),
+            mime_type="text/csv",
+            durable=False,
+        )
+        statuses: list[int] = []
+        lock = threading.Lock()
+        start_barrier = threading.Barrier(2)
+
+        def run_create(content_id: str) -> None:
+            with runtime_context(state) as runtime_ctx:
+                start_barrier.wait(timeout=5)
+                try:
+                    route_write_file_browser_file_content(
+                        WriteFileBrowserFileContentRequest(
+                            path=file_path.as_posix(),
+                            contentId=content_id,
+                            expectedMtimeNs=None,
+                        ),
+                        runtime_ctx,
+                    )
+                    with lock:
+                        statuses.append(200)
+                except HTTPException as exc:
+                    with lock:
+                        statuses.append(exc.status_code)
+
+        first_thread = threading.Thread(
+            target=run_create,
+            args=(first_ref.contentId,),
+        )
+        second_thread = threading.Thread(
+            target=run_create,
+            args=(second_ref.contentId,),
+        )
+        first_thread.start()
+        second_thread.start()
+        first_thread.join(timeout=10)
+        second_thread.join(timeout=10)
+
+        assert not first_thread.is_alive()
+        assert not second_thread.is_alive()
+        assert len(statuses) == 2
+        assert sorted(statuses) == [200, 409]
+        assert file_path.read_text(encoding="utf-8") in {"first\n", "second\n"}
 
     async def test_write_file_browser_file_content_rejects_stale_mtime(self) -> None:
         state = await self._build_state()

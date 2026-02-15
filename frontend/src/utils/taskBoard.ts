@@ -16,6 +16,8 @@ export type TaskBoardState = {
   tasks: TaskBoardTask[];
 };
 
+export type TaskBoardMutationKind = "structural" | "non_structural";
+
 function compareBySortIndexThenName(
   a: { sortIndex: number; name: string },
   b: { sortIndex: number; name: string },
@@ -87,6 +89,18 @@ export function normalizeTaskBoardState(state: TaskBoardState): TaskBoardState {
     columns,
     tasks,
   };
+}
+
+export function applyTaskBoardMutation(args: {
+  state: TaskBoardState;
+  mutator: (state: TaskBoardState) => TaskBoardState;
+  kind: TaskBoardMutationKind;
+}): TaskBoardState {
+  const nextState = args.mutator(args.state);
+  if (args.kind === "structural") {
+    return normalizeTaskBoardState(nextState);
+  }
+  return nextState;
 }
 
 export function buildTaskBoardLanes(state: TaskBoardState): TaskBoardLane[] {

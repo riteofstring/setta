@@ -169,6 +169,38 @@ export function shouldRefreshRootAfterFileBrowserTransfer(args: {
   );
 }
 
+export function shouldRefreshMovedExpandedFolder(args: {
+  operation: "copy" | "move";
+  sourceType: NodeKind;
+  sourcePath: string;
+  destinationPath: string | null;
+  expandedPaths: Record<string, boolean>;
+}): boolean {
+  if (args.operation !== "move" || args.sourceType !== "folder") {
+    return false;
+  }
+  if (!args.destinationPath) {
+    return false;
+  }
+  const normalizedSourcePath = normalizeFileBrowserPathForComparison(
+    args.sourcePath,
+  );
+  const normalizedDestinationPath = normalizeFileBrowserPathForComparison(
+    args.destinationPath,
+  );
+  if (!normalizedSourcePath || !normalizedDestinationPath) {
+    return false;
+  }
+  if (normalizedSourcePath === normalizedDestinationPath) {
+    return false;
+  }
+  return Object.entries(args.expandedPaths).some(
+    ([path, isExpanded]) =>
+      isExpanded === true &&
+      normalizeFileBrowserPathForComparison(path) === normalizedSourcePath,
+  );
+}
+
 export function flattenFileBrowserTree({
   rootPath,
   nodesByPath,
@@ -960,10 +992,22 @@ export function FileBrowserPane({
         return null;
       }
       const foldersToRefresh = new Set<string>();
+      const shouldRefreshMovedFolderContents = shouldRefreshMovedExpandedFolder(
+        {
+          operation,
+          sourceType,
+          sourcePath: normalizedSourcePath,
+          destinationPath: normalizedDestinationPath,
+          expandedPaths: fileBrowserState.getState().expandedPaths,
+        },
+      );
       if (sourceParentPath) {
         foldersToRefresh.add(sourceParentPath);
       }
       foldersToRefresh.add(normalizedDestinationFolderPath);
+      if (shouldRefreshMovedFolderContents && normalizedDestinationPath) {
+        foldersToRefresh.add(normalizedDestinationPath);
+      }
       if (
         shouldRefreshRootAfterFileBrowserTransfer({
           rootPath,
@@ -985,7 +1029,13 @@ export function FileBrowserPane({
         }
         const nextExpandedPaths = { ...state.expandedPaths };
         const normalizedPrefix = `${normalizedSourcePath}/`;
-        const wasExpanded = nextExpandedPaths[normalizedSourcePath] === true;
+        const wasExpanded = shouldRefreshMovedExpandedFolder({
+          operation,
+          sourceType,
+          sourcePath: normalizedSourcePath,
+          destinationPath,
+          expandedPaths: state.expandedPaths,
+        });
         for (const key of Object.keys(nextExpandedPaths)) {
           const normalizedKey = normalizeFileBrowserPathForComparison(key);
           if (
@@ -995,7 +1045,7 @@ export function FileBrowserPane({
             delete nextExpandedPaths[key];
           }
         }
-        if (sourceType === "folder" && wasExpanded) {
+        if (wasExpanded) {
           nextExpandedPaths[destinationPath] = true;
         }
         return {

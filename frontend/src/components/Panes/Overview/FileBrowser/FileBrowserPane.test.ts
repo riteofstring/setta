@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   flattenFileBrowserTree,
   isEditableFileBrowserTarget,
+  shouldRefreshMovedExpandedFolder,
   shouldRefreshRootAfterFileBrowserTransfer,
   shouldSkipFileBrowserTransfer,
   sortChildPaths,
@@ -351,5 +352,43 @@ describe("file browser transfer guards", () => {
         destinationFolderPath: "/root",
       }),
     ).toBe(true);
+  });
+
+  it("refreshes moved folder contents when the source folder was expanded", () => {
+    expect(
+      shouldRefreshMovedExpandedFolder({
+        operation: "move",
+        sourceType: "folder",
+        sourcePath: "/root/source-folder",
+        destinationPath: "/root/destination/source-folder",
+        expandedPaths: {
+          "/root/source-folder": true,
+        },
+      }),
+    ).toBe(true);
+
+    expect(
+      shouldRefreshMovedExpandedFolder({
+        operation: "move",
+        sourceType: "folder",
+        sourcePath: "/root/source-folder",
+        destinationPath: "/root/destination/source-folder",
+        expandedPaths: {
+          "/root/source-folder": false,
+        },
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldRefreshMovedExpandedFolder({
+        operation: "copy",
+        sourceType: "folder",
+        sourcePath: "/root/source-folder",
+        destinationPath: "/root/destination/source-folder",
+        expandedPaths: {
+          "/root/source-folder": true,
+        },
+      }),
+    ).toBe(false);
   });
 });

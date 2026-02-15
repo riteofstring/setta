@@ -217,9 +217,9 @@ export function normalizeDateToIso(
     if (!Number.isNaN(parsed.getTime())) {
       return (
         normalizeDateParts(
-          parsed.getUTCFullYear(),
-          parsed.getUTCMonth() + 1,
-          parsed.getUTCDate(),
+          parsed.getFullYear(),
+          parsed.getMonth() + 1,
+          parsed.getDate(),
         ) ?? ""
       );
     }

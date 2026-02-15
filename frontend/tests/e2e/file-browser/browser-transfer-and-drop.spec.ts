@@ -557,9 +557,10 @@ test.describe.serial("file browser transfer and drag/drop", () => {
       await fs.writeFile(sourceFilePath, "transfer", "utf-8");
       const sourceFolderName = "pw-transfer-folder";
       const sourceFolderPath = path.join(rootPath, sourceFolderName);
+      const nestedFileName = "pw-transfer-nested.txt";
       await fs.mkdir(sourceFolderPath, { recursive: true });
       await fs.writeFile(
-        path.join(sourceFolderPath, "nested.txt"),
+        path.join(sourceFolderPath, nestedFileName),
         "nested",
         "utf-8",
       );
@@ -617,9 +618,21 @@ test.describe.serial("file browser transfer and drag/drop", () => {
         .locator("button")
         .filter({ hasText: destinationFolderName })
         .first();
+      const destinationFolderExpandToggle = destinationFolderRow
+        .getByRole("button", { name: /expand folder/i })
+        .first();
+      const sourceNestedRow = explorer
+        .locator("button")
+        .filter({ hasText: nestedFileName })
+        .first();
+      const sourceFolderToggle = sourceFolderRow
+        .getByRole("button", { name: /expand folder|collapse folder/i })
+        .first();
       await expect(sourceFileRow).toBeVisible({ timeout: 15000 });
       await expect(sourceFolderRow).toBeVisible({ timeout: 15000 });
       await expect(destinationFolderRow).toBeVisible({ timeout: 15000 });
+      await sourceFolderToggle.click();
+      await expect(sourceNestedRow).toBeVisible({ timeout: 15000 });
 
       await dragBrowserRowToTarget(sourceFileRow, destinationFolderRow);
       await expect
@@ -645,12 +658,22 @@ test.describe.serial("file browser transfer and drag/drop", () => {
         .poll(async () => await pathExists(sourceFolderPath))
         .toBe(false);
 
-      await destinationFolderRow.dblclick();
+      await destinationFolderExpandToggle.click();
+      const movedFolderRow = explorer
+        .locator("button")
+        .filter({ hasText: sourceFolderName })
+        .first();
       const movedFileRow = explorer
         .locator("button")
         .filter({ hasText: fileName })
         .first();
+      const movedNestedFileRow = explorer
+        .locator("button")
+        .filter({ hasText: nestedFileName })
+        .first();
+      await expect(movedFolderRow).toBeVisible({ timeout: 15000 });
       await expect(movedFileRow).toBeVisible({ timeout: 15000 });
+      await expect(movedNestedFileRow).toBeVisible({ timeout: 15000 });
       await movedFileRow.click();
 
       const transferRequestsBeforeFilterShortcuts = transferRequestCount;

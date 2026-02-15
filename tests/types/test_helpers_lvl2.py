@@ -66,7 +66,6 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BaseDictSectionImpl,
     BaseParentSectionImpl,
-    BaseSectionWithParamsImpl,
     CallableSectionImpl,
     ChatSectionImpl,
     ListRootSectionImpl,

@@ -5,6 +5,7 @@ import {
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
+  applyTaskBoardMutation,
   buildTaskBoardLanes,
   getNextColumnSortIndex,
   getNextTaskSortIndex,
@@ -132,5 +133,91 @@ describe("taskBoard utils", () => {
         createTaskBoardColumn({ id: "b", sortIndex: 5 }),
       ]),
     ).toBe(6);
+  });
+
+  it("normalizes structural mutations", () => {
+    const normalized = normalizeTaskBoardState({
+      viewMode: TaskBoardViewModeEnum.task_list,
+      columns: [
+        createTaskBoardColumn({
+          id: "todo",
+          name: "Todo",
+          sortIndex: 0,
+        }),
+        createTaskBoardColumn({
+          id: "done",
+          name: "Done",
+          sortIndex: 1,
+        }),
+      ],
+      tasks: [],
+    });
+
+    const next = applyTaskBoardMutation({
+      state: normalized,
+      kind: "structural",
+      mutator: (current) => ({
+        ...current,
+        tasks: [
+          createTaskBoardTask({
+            id: "second",
+            title: "Second",
+            sortIndex: 9,
+            columnId: "todo",
+          }),
+          createTaskBoardTask({
+            id: "first",
+            title: "First",
+            sortIndex: 2,
+            columnId: "todo",
+          }),
+        ],
+      }),
+    });
+
+    expect(next.tasks.map((task) => task.id)).toEqual(["first", "second"]);
+    expect(next.tasks.map((task) => task.sortIndex)).toEqual([0, 1]);
+  });
+
+  it("preserves ordering for non-structural mutations", () => {
+    const normalized = normalizeTaskBoardState({
+      viewMode: TaskBoardViewModeEnum.task_list,
+      columns: [
+        createTaskBoardColumn({
+          id: "todo",
+          name: "Todo",
+          sortIndex: 0,
+        }),
+      ],
+      tasks: [
+        createTaskBoardTask({
+          id: "first",
+          title: "First",
+          sortIndex: 0,
+          columnId: "todo",
+        }),
+        createTaskBoardTask({
+          id: "second",
+          title: "Second",
+          sortIndex: 1,
+          columnId: "todo",
+        }),
+      ],
+    });
+
+    const next = applyTaskBoardMutation({
+      state: normalized,
+      kind: "non_structural",
+      mutator: (current) => ({
+        ...current,
+        tasks: current.tasks.map((task) =>
+          task.id === "first" ? { ...task, title: "Renamed" } : task,
+        ),
+      }),
+    });
+
+    expect(next.tasks.map((task) => task.id)).toEqual(["first", "second"]);
+    expect(next.tasks.map((task) => task.sortIndex)).toEqual([0, 1]);
+    expect(next.tasks[0]?.title).toBe("Renamed");
   });
 });

@@ -66,3 +66,14 @@
 - Removed duplicated text-block font-size clamp logic by reusing the shared typography utility as the single source of truth.
 - Removed unused date/time config baggage from `TextParam` schema surfaces, updated related frontend extraction paths, and regenerated synced backend/frontend generated types.
 - Added/updated targeted pytest, Vitest, and Playwright coverage for these fixes and completed a CDP visual verification pass on the affected UI surfaces.
+
+## 2026-02-17 14:29:01 PST
+
+- Implemented the remaining consolidated review fixes without adding any backward-compatibility shim behavior.
+- Hardened file-browser content reads against stat/read races by enforcing max-size on bytes actually read and returning conflict if metadata changes during read.
+- Made create-only file-browser writes atomic with exclusive create semantics to prevent silent overwrite races.
+- Reworked task-board persistence to compute mutations from the latest store snapshot at optimistic-apply time and split structural vs non-structural mutation normalization.
+- Reduced task-board write churn for recurrence-year text editing by committing parsed values on blur/Enter instead of persisting on each keystroke.
+- Fixed long-date parsing to use local date parts for unzoned long format input, preventing day shifts in positive-offset timezones.
+- Fixed file-browser move flow so moved expanded folders proactively refresh destination-folder contents and stay expansion/data consistent after transfer.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for all of the above and completed CDP visual verification for task-board and file-browser UI behavior.

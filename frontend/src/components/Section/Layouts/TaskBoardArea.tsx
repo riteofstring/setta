@@ -70,10 +70,12 @@ import {
   TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
 import {
+  applyTaskBoardMutation,
   buildTaskBoardLanes,
   getNextColumnSortIndex,
   getNextTaskSortIndex,
   normalizeTaskBoardState,
+  type TaskBoardMutationKind,
   type TaskBoardState,
 } from "utils/taskBoard";
 import {
@@ -603,6 +605,18 @@ function getEffectiveRecurrenceYears(task: TaskBoardTask): number[] {
   return [...new Set(task.recurrenceYears)].sort((left, right) => left - right);
 }
 
+function areNumberArraysEqual(left: number[], right: number[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function formatTaskDueSummary(dueDateIso: string): string | null {
   if (dueDateIso.trim() === "") {
     return null;
@@ -861,9 +875,31 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
   );
 
   const persistState = useCallback(
-    (next: TaskBoardState) => {
+    ({
+      mutator,
+      kind,
+    }: {
+      mutator: (state: TaskBoardState) => TaskBoardState;
+      kind: TaskBoardMutationKind;
+    }) => {
+      let nextStateForSend: TaskBoardState | null = null;
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
+          const currentImpl = getCurrEffectiveSectionImplOfType(
+            state,
+            sectionId,
+            SectionTypeEnum.TaskBoard,
+          );
+          const next = applyTaskBoardMutation({
+            state: toTaskBoardState({
+              viewMode: currentImpl.viewMode,
+              columns: currentImpl.columns,
+              tasks: currentImpl.tasks,
+            }),
+            mutator,
+            kind,
+          });
+          nextStateForSend = next;
           setCurrEffectiveSectionImplValue<"TaskBoardSection">(
             state,
             sectionId,
@@ -874,26 +910,34 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
             },
           );
         },
-        send: (frontendOpId) =>
-          route_set_task_board_section_state({
+        send: (frontendOpId) => {
+          if (nextStateForSend === null) {
+            throw new Error(
+              "Task board update failed to compute next optimistic state.",
+            );
+          }
+          return route_set_task_board_section_state({
             projectConfigId: getCurrProjectConfigId(),
             sectionId,
-            viewMode: next.viewMode,
-            columns: next.columns,
-            tasks: next.tasks,
+            viewMode: nextStateForSend.viewMode,
+            columns: nextStateForSend.columns,
+            tasks: nextStateForSend.tasks,
             frontendOpId,
-          }),
+          });
+        },
       });
     },
     [sectionId],
   );
 
   const updateState = useCallback(
-    (mutator: (state: TaskBoardState) => TaskBoardState) => {
-      const nextState = normalizeTaskBoardState(mutator(normalizedState));
-      persistState(nextState);
+    (
+      mutator: (state: TaskBoardState) => TaskBoardState,
+      kind: TaskBoardMutationKind = "structural",
+    ) => {
+      persistState({ mutator, kind });
     },
-    [normalizedState, persistState],
+    [persistState],
   );
 
   const addTask = useCallback(
@@ -954,10 +998,13 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       if (isDisabled || nextViewMode === normalizedState.viewMode) {
         return;
       }
-      updateState((current) => ({
-        ...current,
-        viewMode: nextViewMode,
-      }));
+      updateState(
+        (current) => ({
+          ...current,
+          viewMode: nextViewMode,
+        }),
+        "non_structural",
+      );
     },
     [isDisabled, normalizedState.viewMode, updateState],
   );
@@ -967,12 +1014,15 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       if (isDisabled) {
         return;
       }
-      updateState((current) => ({
-        ...current,
-        tasks: current.tasks.map((task) =>
-          task.id === taskId ? { ...task, ...patch } : task,
-        ),
-      }));
+      updateState(
+        (current) => ({
+          ...current,
+          tasks: current.tasks.map((task) =>
+            task.id === taskId ? { ...task, ...patch } : task,
+          ),
+        }),
+        "non_structural",
+      );
     },
     [isDisabled, updateState],
   );
@@ -1091,12 +1141,15 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       if (isDisabled) {
         return;
       }
-      updateState((current) => ({
-        ...current,
-        columns: current.columns.map((column) =>
-          column.id === columnId ? { ...column, ...patch } : column,
-        ),
-      }));
+      updateState(
+        (current) => ({
+          ...current,
+          columns: current.columns.map((column) =>
+            column.id === columnId ? { ...column, ...patch } : column,
+          ),
+        }),
+        "non_structural",
+      );
     },
     [isDisabled, updateState],
   );
@@ -2077,6 +2130,13 @@ function TaskRecurrenceInput({
   const recurrenceDays = getEffectiveRecurrenceDays(task);
   const recurrenceMonths = getEffectiveRecurrenceMonths(task);
   const recurrenceYears = getEffectiveRecurrenceYears(task);
+  const recurrenceYearsText = recurrenceYears.join(", ");
+  const [recurrenceYearsDraft, setRecurrenceYearsDraft] =
+    useState(recurrenceYearsText);
+
+  useEffect(() => {
+    setRecurrenceYearsDraft(recurrenceYearsText);
+  }, [recurrenceYearsText]);
 
   const setRecurrenceMode = (nextMode: TaskBoardTaskRecurrence) => {
     onChangePatch({
@@ -2095,6 +2155,24 @@ function TaskRecurrenceInput({
           : [],
     });
   };
+
+  const commitRecurrenceYears = useCallback(
+    (rawValue: string) => {
+      const nextYears = parseRecurrenceYears(rawValue);
+      const normalizedDraft = nextYears.join(", ");
+      setRecurrenceYearsDraft(normalizedDraft);
+      if (areNumberArraysEqual(nextYears, recurrenceYears)) {
+        return;
+      }
+      onChangePatch({
+        recurrence: TaskBoardTaskRecurrenceEnum.specified_years,
+        recurrenceYears: nextYears,
+        recurrenceDays: [],
+        recurrenceMonths: [],
+      });
+    },
+    [onChangePatch, recurrenceYears],
+  );
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -2158,15 +2236,20 @@ function TaskRecurrenceInput({
         <input
           type="text"
           data-testid={`task-board-task-recurrence-years-${task.id}`}
-          value={recurrenceYears.join(", ")}
-          onChange={(event) =>
-            onChangePatch({
-              recurrence: TaskBoardTaskRecurrenceEnum.specified_years,
-              recurrenceYears: parseRecurrenceYears(event.target.value),
-              recurrenceDays: [],
-              recurrenceMonths: [],
-            })
-          }
+          value={recurrenceYearsDraft}
+          onChange={(event) => {
+            setRecurrenceYearsDraft(event.target.value);
+          }}
+          onBlur={(event) => {
+            commitRecurrenceYears(event.target.value);
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") {
+              return;
+            }
+            event.preventDefault();
+            event.currentTarget.blur();
+          }}
           disabled={isDisabled}
           placeholder="2026, 2027"
           className="w-full rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
