@@ -4,6 +4,7 @@ import {
   buildInstallTrustSummaryMessage,
   buildSourceManagerGuidanceMessage,
   formatLanguageServerSettingsDraft,
+  formatPluginConfigDraft,
   getBlockedCapabilityReason,
   getLanguageServerSettingsValue,
   getPluginCapabilityStatus,
@@ -38,6 +39,7 @@ const pluginsPaneTestApi = {
   buildRestartActionPlan: buildPluginRestartActionPlan,
   buildCapabilityUnavailableMessage,
   formatLanguageServerSettingsDraft,
+  formatPluginConfigDraft,
   getBlockedCapabilityReason,
   getRegisteredCodegenTargets,
   getRegisteredExternalAgentAdapters,
@@ -525,6 +527,18 @@ describe("plugins pane helpers", () => {
       value: {},
       error: "Plugin config JSON is invalid.",
     });
+  });
+
+  it("formats plugin config drafts as stable JSON objects", () => {
+    expect(
+      pluginsPaneTestApi.formatPluginConfigDraft({
+        enabled: true,
+        nested: { level: 2 },
+      }),
+    ).toContain('"enabled": true');
+    expect(pluginsPaneTestApi.formatPluginConfigDraft("not-an-object")).toBe(
+      "{}",
+    );
   });
 
   it("gets and sets nested language server settings values by key path", () => {

@@ -850,6 +850,43 @@ def test_plugins_lookup_rescan_selectively_skips_package_manager_discovery(
     assert captured_include_package_manager_flags == [False, True]
 
 
+def test_plugins_disable_cli_does_single_lookup_rescan(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Disable CLI should reuse lookup rescan state and skip a second post-mutation rescan.
+    manager = _build_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(FIXTURE_PLUGIN_ROOT / "frontend"),
+        scope="workspace",
+        enable=True,
+        force=False,
+    )
+    captured_include_package_manager_flags: list[bool] = []
+    original_rescan = manager.rescan
+
+    def _record_rescan(*, include_package_manager_plugins: bool = True):
+        captured_include_package_manager_flags.append(include_package_manager_plugins)
+        return original_rescan(
+            include_package_manager_plugins=include_package_manager_plugins
+        )
+
+    monkeypatch.setattr(manager, "rescan", _record_rescan)
+    monkeypatch.setattr(
+        start_module,
+        "_build_plugin_manager_for_cli",
+        lambda **_kwargs: manager,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(plugins, ["disable", "setta-fixture-frontend", "--json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["pluginId"] == "setta-fixture-frontend"
+    assert payload["state"] == "disabled"
+    assert captured_include_package_manager_flags == [True]
+
+
 @pytest.mark.parametrize(
     ("argv",),
     [

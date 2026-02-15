@@ -32,6 +32,16 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
 )
 _PROTOCOL_STDOUT = sys.stdout
 
+try:
+    from fastapi.params import Param as _FastAPIParam
+except Exception:  # pragma: no cover - import fallback for non-FastAPI workers
+    _FastAPIParam = None
+
+try:
+    from pydantic_core import PydanticUndefined as _PydanticUndefined
+except Exception:  # pragma: no cover - import fallback for runtime variants
+    _PydanticUndefined = None
+
 
 class WorkerError(Exception):
     def __init__(self, code: str, message: str) -> None:
@@ -608,11 +618,7 @@ class _WorkerState:
         default_value = parameter.default
         if default_value is inspect.Signature.empty:
             return True, None
-        try:
-            from fastapi.params import Param
-        except Exception:
-            Param = None  # type: ignore[assignment]
-        if Param is not None and isinstance(default_value, Param):
+        if _FastAPIParam is not None and isinstance(default_value, _FastAPIParam):
             param_default = default_value.default
             if self._is_fastapi_required_default(param_default):
                 return True, None
@@ -622,11 +628,9 @@ class _WorkerState:
     def _is_fastapi_required_default(self, value: Any) -> bool:
         if value is Ellipsis:
             return True
-        try:
-            from pydantic_core import PydanticUndefined
-        except Exception:
+        if _PydanticUndefined is None:
             return False
-        return value is PydanticUndefined
+        return value is _PydanticUndefined
 
     def _route_param_expects_request(self, parameter: inspect.Parameter) -> bool:
         annotation = parameter.annotation

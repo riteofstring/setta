@@ -34,74 +34,73 @@ type PluginCapabilityStatus =
 export function getRegisteredLanguageServers(
   pluginStatus: PluginStatusEntry | null,
 ): PluginRegisteredLanguageServer[] {
-  if (pluginStatus === null) {
-    return [];
-  }
-  const cached = cachedLanguageServersByStatus.get(pluginStatus);
-  if (cached) {
-    return cached;
-  }
-  const registrations = Array.isArray(pluginStatus.registeredLanguageServers)
-    ? [...pluginStatus.registeredLanguageServers]
-    : [];
-  registrations.sort((a, b) => {
-    const byLanguage = a.language.localeCompare(b.language);
-    if (byLanguage !== 0) {
-      return byLanguage;
-    }
-    return a.name.localeCompare(b.name);
-  });
-  cachedLanguageServersByStatus.set(pluginStatus, registrations);
-  return registrations;
+  return getCachedSortedRegistrations(
+    pluginStatus,
+    cachedLanguageServersByStatus,
+    (entry) => entry.registeredLanguageServers,
+    (a, b) => {
+      const byLanguage = a.language.localeCompare(b.language);
+      if (byLanguage !== 0) {
+        return byLanguage;
+      }
+      return a.name.localeCompare(b.name);
+    },
+  );
 }
 
 export function getRegisteredExternalAgentAdapters(
   pluginStatus: PluginStatusEntry | null,
 ): PluginRegisteredExternalAgentAdapter[] {
-  if (pluginStatus === null) {
-    return [];
-  }
-  const cached = cachedExternalAgentAdaptersByStatus.get(pluginStatus);
-  if (cached) {
-    return cached;
-  }
-  const registrations = Array.isArray(
-    pluginStatus.registeredExternalAgentAdapters,
-  )
-    ? [...pluginStatus.registeredExternalAgentAdapters]
-    : [];
-  registrations.sort((a, b) => {
-    const byName = a.name.localeCompare(b.name);
-    if (byName !== 0) {
-      return byName;
-    }
-    return a.adapterId.localeCompare(b.adapterId);
-  });
-  cachedExternalAgentAdaptersByStatus.set(pluginStatus, registrations);
-  return registrations;
+  return getCachedSortedRegistrations(
+    pluginStatus,
+    cachedExternalAgentAdaptersByStatus,
+    (entry) => entry.registeredExternalAgentAdapters,
+    (a, b) => {
+      const byName = a.name.localeCompare(b.name);
+      if (byName !== 0) {
+        return byName;
+      }
+      return a.adapterId.localeCompare(b.adapterId);
+    },
+  );
 }
 
 export function getRegisteredCodegenTargets(
   pluginStatus: PluginStatusEntry | null,
 ): PluginRegisteredCodegenTarget[] {
+  return getCachedSortedRegistrations(
+    pluginStatus,
+    cachedCodegenTargetsByStatus,
+    (entry) => entry.registeredCodegenTargets,
+    (a, b) => {
+      const byName = a.name.localeCompare(b.name);
+      if (byName !== 0) {
+        return byName;
+      }
+      return a.targetId.localeCompare(b.targetId);
+    },
+  );
+}
+
+function getCachedSortedRegistrations<TRegistration>(
+  pluginStatus: PluginStatusEntry | null,
+  cache: WeakMap<PluginStatusEntry, TRegistration[]>,
+  getRawRegistrations: (pluginStatus: PluginStatusEntry) => unknown,
+  compare: (a: TRegistration, b: TRegistration) => number,
+): TRegistration[] {
   if (pluginStatus === null) {
     return [];
   }
-  const cached = cachedCodegenTargetsByStatus.get(pluginStatus);
+  const cached = cache.get(pluginStatus);
   if (cached) {
     return cached;
   }
-  const registrations = Array.isArray(pluginStatus.registeredCodegenTargets)
-    ? [...pluginStatus.registeredCodegenTargets]
+  const rawRegistrations = getRawRegistrations(pluginStatus);
+  const registrations = Array.isArray(rawRegistrations)
+    ? ([...rawRegistrations] as TRegistration[])
     : [];
-  registrations.sort((a, b) => {
-    const byName = a.name.localeCompare(b.name);
-    if (byName !== 0) {
-      return byName;
-    }
-    return a.targetId.localeCompare(b.targetId);
-  });
-  cachedCodegenTargetsByStatus.set(pluginStatus, registrations);
+  registrations.sort(compare);
+  cache.set(pluginStatus, registrations);
   return registrations;
 }
 
@@ -150,6 +149,10 @@ export function parsePluginConfigDraft(rawValue: string): {
     "Plugin config must be a JSON object.",
     "Plugin config JSON is invalid.",
   );
+}
+
+export function formatPluginConfigDraft(value: unknown): string {
+  return formatJsonObjectDraft(value);
 }
 
 export function parseLanguageServerSettingsDraft(rawValue: string): {

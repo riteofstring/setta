@@ -2583,6 +2583,7 @@ def plugins_uninstall(
         operation=lambda manager, resolved_scope: manager.uninstall_plugin(
             plugin_id=plugin_id,
             scope=resolved_scope,
+            rescan=False,
         ),
     )
     if json_output:
@@ -2605,7 +2606,8 @@ def plugins_enable(plugin_id: str, json_output: bool) -> None:
         setta_files_scope=False,
         rescan_for_lookup=True,
         operation=lambda manager, _resolved_scope: manager.enable_plugin(
-            plugin_id=plugin_id
+            plugin_id=plugin_id,
+            rescan=False,
         ),
     )
     if json_output:
@@ -2626,7 +2628,8 @@ def plugins_disable(plugin_id: str, json_output: bool) -> None:
         setta_files_scope=False,
         rescan_for_lookup=True,
         operation=lambda manager, _resolved_scope: manager.disable_plugin(
-            plugin_id=plugin_id
+            plugin_id=plugin_id,
+            rescan=False,
         ),
     )
     if json_output:
@@ -2670,6 +2673,7 @@ def _run_plugin_update_like_command(
             plugin_id=plugin_id,
             scope=resolved_scope,
             to=to_target,
+            rescan=False,
         ),
     )
     return result
@@ -2768,6 +2772,7 @@ def plugins_rollback(
         operation=lambda manager, resolved_scope: manager.rollback_plugin(
             plugin_id=plugin_id,
             scope=resolved_scope,
+            rescan=False,
         ),
     )
     if json_output:
@@ -2964,7 +2969,11 @@ def plugins_unlink(
     )
     try:
         _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
-        result = manager.unlink_plugin(plugin_id=plugin_id, scope=resolved_scope)
+        result = manager.uninstall_plugin(
+            plugin_id=plugin_id,
+            scope=resolved_scope,
+            rescan=False,
+        )
     except PluginManagerError as exc:
         if ignore_missing and exc.code == "PLUGIN_NOT_FOUND":
             if json_output:

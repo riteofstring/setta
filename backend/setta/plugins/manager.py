@@ -388,6 +388,7 @@ class PluginManager:
             self.workspace_root / ".setta_plugins" / "plugins.lock.json"
         )
         self._runtime_root = self.setta_files_root / "plugins_runtime"
+        self._plugins_state_cache: tuple[int, int, PluginsStateFile] | None = None
         self._directory_digest_cache: OrderedDict[str, tuple[str, str]] = OrderedDict()
         self._package_manager_source_digest_cache: OrderedDict[str, str] = OrderedDict()
         self._content_descriptor_cache: dict[
@@ -432,6 +433,7 @@ class PluginManager:
         self._backend_codegen_target_by_id: dict[
             str, RegisteredBackendCodegenTarget
         ] = {}
+        self._install_target_reservations: set[Path] = set()
         self._discovered_plugins: list[DiscoveredPlugin] = []
         self._active_plugin_by_id: dict[str, DiscoveredPlugin] = {}
 
@@ -3930,41 +3932,53 @@ class PluginManager:
             target_path = self._target_plugin_path(
                 resolved_scope, candidate.manifest.id
             )
-            with self._mutation_lock:
-                self._ensure_target_path_available(target_path=target_path, force=force)
+            reservation_acquired = False
+            try:
+                with self._mutation_lock:
+                    self._reserve_install_target_path(
+                        target_path=target_path,
+                        force=force,
+                    )
+                    reservation_acquired = True
 
-            if candidate.manifest.backend is not None:
-                self._prepare_backend_runtime(
-                    plugin_id=candidate.manifest.id,
-                    version=candidate.manifest.version,
-                    source_digest_sha256=candidate.source_digest_sha256,
-                    plugin_root=candidate.root,
-                )
-            with self._mutation_lock:
-                had_backend_before = self._existing_scope_plugin_has_backend(
-                    plugin_id=candidate.manifest.id,
-                    scope=resolved_scope,
-                )
-                self._ensure_target_path_available(target_path=target_path, force=force)
+                if candidate.manifest.backend is not None:
+                    self._prepare_backend_runtime(
+                        plugin_id=candidate.manifest.id,
+                        version=candidate.manifest.version,
+                        source_digest_sha256=candidate.source_digest_sha256,
+                        plugin_root=candidate.root,
+                    )
+                with self._mutation_lock:
+                    had_backend_before = self._existing_scope_plugin_has_backend(
+                        plugin_id=candidate.manifest.id,
+                        scope=resolved_scope,
+                    )
+                    self._ensure_target_path_available(target_path=target_path, force=force)
 
-                self._install_candidate(
-                    candidate,
-                    target_path,
-                    scope=resolved_scope,
-                    force=force,
-                    source_spec=source_spec,
-                    installer_backend=resolved_installer,
-                )
-                self._apply_enablement_after_install(
-                    plugin_id=candidate.manifest.id,
-                    scope=resolved_scope,
-                    enable=enable,
-                )
-                self._pending_restart_removed_backend_plugins.pop(
-                    candidate.manifest.id, None
-                )
-                if candidate.manifest.backend is not None or had_backend_before:
-                    self._add_pending_restart_backend_id(candidate.manifest.id)
+                    self._install_candidate(
+                        candidate,
+                        target_path,
+                        scope=resolved_scope,
+                        force=force,
+                        source_spec=source_spec,
+                        installer_backend=resolved_installer,
+                    )
+                    self._apply_enablement_after_install(
+                        plugin_id=candidate.manifest.id,
+                        scope=resolved_scope,
+                        enable=enable,
+                    )
+                    self._pending_restart_removed_backend_plugins.pop(
+                        candidate.manifest.id, None
+                    )
+                    if candidate.manifest.backend is not None or had_backend_before:
+                        self._add_pending_restart_backend_id(candidate.manifest.id)
+            finally:
+                if reservation_acquired:
+                    with self._mutation_lock:
+                        self._release_install_target_path_reservation(
+                            target_path=target_path
+                        )
 
         if rescan:
             self.rescan()
@@ -4176,7 +4190,9 @@ class PluginManager:
         return self.uninstall_plugin(plugin_id=plugin_id, scope=scope)
 
     @_mutation_locked
-    def enable_plugin(self, *, plugin_id: str) -> PluginEnableDisableResponse:
+    def enable_plugin(
+        self, *, plugin_id: str, rescan: bool = True
+    ) -> PluginEnableDisableResponse:
         entry = self._find_highest_precedence_entry(plugin_id)
         if entry is None:
             raise PluginManagerError(
@@ -4195,22 +4211,30 @@ class PluginManager:
         if entry.has_backend:
             self._add_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
-        self.rescan()
-        latest = self._find_highest_precedence_entry(plugin_id)
-        if latest is None:
-            raise PluginManagerError(
-                "PLUGIN_NOT_FOUND",
-                f"Plugin not found: {plugin_id}",
-                status_code=404,
-            )
+        if rescan:
+            self.rescan()
+            latest = self._find_highest_precedence_entry(plugin_id)
+            if latest is None:
+                raise PluginManagerError(
+                    "PLUGIN_NOT_FOUND",
+                    f"Plugin not found: {plugin_id}",
+                    status_code=404,
+                )
+            state = latest.state
+        elif entry.has_backend:
+            state = PluginRuntimeState.pending_restart
+        else:
+            state = PluginRuntimeState.active
         return PluginEnableDisableResponse(
             pluginId=plugin_id,
-            state=latest.state,
-            restartRequired=latest.has_backend,
+            state=state,
+            restartRequired=entry.has_backend,
         )
 
     @_mutation_locked
-    def disable_plugin(self, *, plugin_id: str) -> PluginEnableDisableResponse:
+    def disable_plugin(
+        self, *, plugin_id: str, rescan: bool = True
+    ) -> PluginEnableDisableResponse:
         entry = self._find_highest_precedence_entry(plugin_id)
         if entry is None:
             raise PluginManagerError(
@@ -4229,18 +4253,24 @@ class PluginManager:
         if entry.has_backend:
             self._add_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
-        self.rescan()
-        latest = self._find_highest_precedence_entry(plugin_id)
-        if latest is None:
-            raise PluginManagerError(
-                "PLUGIN_NOT_FOUND",
-                f"Plugin not found: {plugin_id}",
-                status_code=404,
-            )
+        if rescan:
+            self.rescan()
+            latest = self._find_highest_precedence_entry(plugin_id)
+            if latest is None:
+                raise PluginManagerError(
+                    "PLUGIN_NOT_FOUND",
+                    f"Plugin not found: {plugin_id}",
+                    status_code=404,
+                )
+            state = latest.state
+        elif entry.has_backend:
+            state = PluginRuntimeState.pending_restart
+        else:
+            state = PluginRuntimeState.disabled
         return PluginEnableDisableResponse(
             pluginId=plugin_id,
-            state=latest.state,
-            restartRequired=latest.has_backend,
+            state=state,
+            restartRequired=entry.has_backend,
         )
 
     @_mutation_locked
@@ -4278,6 +4308,7 @@ class PluginManager:
         plugin_id: str,
         scope: str | PluginScope | None = None,
         to: str | None = None,
+        rescan: bool = True,
     ) -> PluginUpdateResponse:
         with self._mutation_lock:
             resolved_scope = self._resolve_uninstall_scope(plugin_id, scope)
@@ -4336,6 +4367,7 @@ class PluginManager:
             installer=installer_backend,
             enable=enable_after_update,
             force=True,
+            rescan=rescan,
         )
         restart_required = existing_has_backend or install_result.restartRequired
         if restart_required:
@@ -4356,6 +4388,7 @@ class PluginManager:
         *,
         plugin_id: str,
         scope: str | PluginScope | None = None,
+        rescan: bool = True,
     ) -> PluginRollbackResponse:
         resolved_scope = self._resolve_uninstall_scope(plugin_id, scope)
         current_entry = self._find_entry(
@@ -4420,7 +4453,8 @@ class PluginManager:
         if restart_required:
             self._add_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
-        self.rescan()
+        if rescan:
+            self.rescan()
         return PluginRollbackResponse(
             pluginId=plugin_id,
             restoredVersion=snapshot_manifest.version,
@@ -5987,6 +6021,23 @@ class PluginManager:
                 f"Plugin already exists at {target_path}. Use force to overwrite.",
             )
 
+    def _install_target_path_key(self, target_path: Path) -> Path:
+        return target_path.resolve(strict=False)
+
+    def _reserve_install_target_path(self, *, target_path: Path, force: bool) -> None:
+        self._ensure_target_path_available(target_path=target_path, force=force)
+        target_key = self._install_target_path_key(target_path)
+        if target_key in self._install_target_reservations:
+            raise PluginManagerError(
+                "PLUGIN_TARGET_EXISTS",
+                f"Plugin install already in progress for {target_path}.",
+            )
+        self._install_target_reservations.add(target_key)
+
+    def _release_install_target_path_reservation(self, *, target_path: Path) -> None:
+        target_key = self._install_target_path_key(target_path)
+        self._install_target_reservations.discard(target_key)
+
     def _backup_existing_plugin(
         self,
         plugin_id: str,
@@ -6182,10 +6233,19 @@ class PluginManager:
 
     def _load_plugins_state(self) -> PluginsStateFile:
         if not self._plugins_state_path.exists():
+            self._plugins_state_cache = None
             return PluginsStateFile()
+        stat = self._plugins_state_path.stat()
+        cached = self._plugins_state_cache
+        if cached is not None:
+            cached_mtime_ns, cached_size, cached_state = cached
+            if cached_mtime_ns == stat.st_mtime_ns and cached_size == stat.st_size:
+                return cached_state.model_copy(deep=True)
         try:
             payload = json.loads(self._plugins_state_path.read_text(encoding="utf-8"))
-            return PluginsStateFile.model_validate(payload)
+            state = PluginsStateFile.model_validate(payload)
+            self._plugins_state_cache = (stat.st_mtime_ns, stat.st_size, state)
+            return state.model_copy(deep=True)
         except (json.JSONDecodeError, ValidationError) as exc:
             raise PluginManagerError(
                 "PLUGIN_STATE_INVALID",
@@ -6200,9 +6260,11 @@ class PluginManager:
         payload["pendingRestartBackendPluginIds"] = sorted(
             set(payload["pendingRestartBackendPluginIds"])
         )
-        self._plugins_state_path.write_text(
-            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
-        )
+        serialized_payload = json.dumps(payload, indent=2, sort_keys=True)
+        self._plugins_state_path.write_text(serialized_payload, encoding="utf-8")
+        stat = self._plugins_state_path.stat()
+        normalized_state = PluginsStateFile.model_validate(payload)
+        self._plugins_state_cache = (stat.st_mtime_ns, stat.st_size, normalized_state)
 
     def _load_plugins_global_state(self) -> PluginsGlobalStateFile:
         if not self._plugins_global_state_path.exists():

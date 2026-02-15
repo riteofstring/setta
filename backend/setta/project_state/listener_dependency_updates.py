@@ -174,7 +174,9 @@ def _apply_plugin_section_update(
     next_args: dict[str, object] = {}
 
     control_keys = {"data", "kind", "schemaVersion", "merge"}
-    has_control_payload = "data" in parsed_payload
+    has_control_payload = "data" in parsed_payload and set(parsed_payload.keys()).issubset(
+        control_keys
+    )
     if has_control_payload:
         unknown_keys = sorted(set(parsed_payload.keys()) - control_keys)
         if len(unknown_keys) > 0:

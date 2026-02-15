@@ -190,6 +190,52 @@ class TestListenerPluginSectionUpdates:
             "points": [1, 2, 3],
         }
 
+    def test_listener_treats_mixed_data_payload_as_plain_data_patch(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="listener-plugin")
+        )
+        section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Plugin,
+            Position(),
+        )
+        set_curr_effective_section_impl_value(
+            project_state,
+            section_id,
+            {
+                "data": {
+                    "existing": 1,
+                    "keep": True,
+                }
+            },
+        )
+
+        update = ListenerFrontendEmitKeyAndValue(
+            dependencyKey=SectionDependencyKey(sectionId=section_id),
+            value=LiteralDependencyValue(
+                '{"data": {"inner": true}, "points": [1, 2, 3]}'
+            ),
+        )
+
+        apply_listener_dependency_updates(
+            project_state=project_state,
+            updates=[update],
+        )
+
+        impl = get_curr_effective_section_impl_with_type_guard(
+            project_state,
+            section_id,
+            PluginSectionImpl,
+        )
+        assert impl.data == {
+            "existing": 1,
+            "keep": True,
+            "data": {"inner": True},
+            "points": [1, 2, 3],
+        }
+
     def test_listener_rejects_invalid_plugin_section_payload(self) -> None:
         settings = SettingsState()
         project_state = ProjectStateSingleConfig(

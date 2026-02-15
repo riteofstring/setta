@@ -4061,6 +4061,48 @@ def test_directory_has_files_does_not_follow_symlink_cycles(tmp_path: Path) -> N
     assert manager._directory_has_files(content_root) is True
 
 
+def test_load_plugins_state_uses_cache_and_invalidates_on_file_change(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Plugins state loads should reuse cached payloads until the on-disk file changes.
+    manager = _make_manager(tmp_path)
+    state_file = manager._load_plugins_state()
+    state_file.enabledPluginIds = ["alpha.plugin"]
+    manager._save_plugins_state(state_file)
+    plugins_state_path = manager.setta_files_root / "plugins_state.json"
+
+    first_load = manager._load_plugins_state()
+    assert first_load.enabledPluginIds == ["alpha.plugin"]
+
+    original_read_text = Path.read_text
+
+    def _patched_read_text(self: Path, *args, **kwargs) -> str:
+        if self == plugins_state_path:
+            raise AssertionError("Expected cached plugins_state load to skip file reads.")
+        return original_read_text(self, *args, **kwargs)
+
+    with monkeypatch.context() as scope:
+        scope.setattr(Path, "read_text", _patched_read_text)
+        second_load = manager._load_plugins_state()
+
+    assert second_load.enabledPluginIds == ["alpha.plugin"]
+    assert second_load is not first_load
+
+    second_load.enabledPluginIds.append("mutated")
+    third_load = manager._load_plugins_state()
+    assert third_load.enabledPluginIds == ["alpha.plugin"]
+
+    updated_payload = third_load.model_dump(mode="json")
+    updated_payload["enabledPluginIds"] = ["beta.plugin"]
+    plugins_state_path.write_text(
+        json.dumps(updated_payload, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    updated_load = manager._load_plugins_state()
+    assert updated_load.enabledPluginIds == ["beta.plugin"]
+
+
 def test_init_build_install_golden_path_plugin_is_usable(tmp_path: Path) -> None:
     # Golden path: init -> build artifact -> install via pypi source -> load/use plugin.
     manager = _make_manager(tmp_path)
@@ -5678,6 +5720,92 @@ def test_install_plugin_conflict_fails_before_backend_runtime_prepare(
         )
     assert exc_info.value.code == "PLUGIN_TARGET_EXISTS"
     assert prepare_calls == 0
+
+
+def test_install_plugin_conflict_while_in_progress_fails_before_second_prepare(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Concurrent installs targeting the same plugin path should fail before a second backend prepare.
+    manager = _make_manager(tmp_path)
+    fixture_root = tmp_path / "fixture-install-candidate-in-progress"
+    shutil.copytree(_fixture_path("backend"), fixture_root)
+    manifest = manager._load_and_validate_manifest(fixture_root / "setta.plugin.json")
+    source_digest = manager._compute_directory_digest(fixture_root)
+    candidate = CandidatePlugin(
+        root=fixture_root,
+        manifest=manifest,
+        canonical_source_key="pypi:setta-fixture-backend==0.1.0",
+        source_spec="pypi:setta-fixture-backend==0.1.0",
+        source_digest_sha256=source_digest,
+    )
+
+    def _patched_candidate_from_pypi(
+        _parsed_spec,
+        _tmp_dir,
+        *,
+        installer_backend: PluginInstallerBackend,
+    ) -> CandidatePlugin:
+        _ = installer_backend
+        return candidate
+
+    prepare_calls = 0
+    first_prepare_started = threading.Event()
+    release_first_prepare = threading.Event()
+
+    def _blocking_prepare_backend_runtime(**_kwargs):
+        nonlocal prepare_calls
+        prepare_calls += 1
+        if prepare_calls > 1:
+            raise AssertionError(
+                "backend runtime prepare should not run for in-progress install conflicts"
+            )
+        first_prepare_started.set()
+        assert release_first_prepare.wait(timeout=2.0)
+
+    monkeypatch.setattr(manager, "_candidate_from_pypi", _patched_candidate_from_pypi)
+    monkeypatch.setattr(
+        manager,
+        "_prepare_backend_runtime",
+        _blocking_prepare_backend_runtime,
+    )
+
+    raised_by_first_install: list[Exception] = []
+
+    def _run_first_install() -> None:
+        try:
+            manager.install_plugin(
+                source_spec="pypi:setta-fixture-backend==0.1.0",
+                scope=PluginScope.workspace,
+                installer=PluginInstallerBackend.auto,
+                enable=True,
+                force=False,
+                rescan=False,
+            )
+        except Exception as exc:  # pragma: no cover - assertion path
+            raised_by_first_install.append(exc)
+
+    first_install_thread = threading.Thread(target=_run_first_install)
+    first_install_thread.start()
+    assert first_prepare_started.wait(timeout=2.0)
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.install_plugin(
+            source_spec="pypi:setta-fixture-backend==0.1.0",
+            scope=PluginScope.workspace,
+            installer=PluginInstallerBackend.auto,
+            enable=True,
+            force=False,
+            rescan=False,
+        )
+    assert exc_info.value.code == "PLUGIN_TARGET_EXISTS"
+    assert "already in progress" in exc_info.value.message
+
+    release_first_prepare.set()
+    first_install_thread.join(timeout=2.0)
+
+    assert raised_by_first_install == []
+    assert prepare_calls == 1
 
 
 def test_validate_plugin_folder_rejects_missing_manifest(tmp_path: Path) -> None:

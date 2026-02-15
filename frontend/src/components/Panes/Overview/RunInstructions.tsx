@@ -73,10 +73,8 @@ type CodeObjOption = {
 };
 type PluginCodegenRegistration = {
   targetId: string;
-  pluginId: string;
   language: string;
   name: string;
-  defaultFileName: string;
 };
 
 const TOGGLE_ROOT_CLASSES =
@@ -1443,10 +1441,8 @@ function collectPluginCodegenRegistrations(
       }
       registrationsById.set(registration.targetId, {
         targetId: registration.targetId,
-        pluginId: registration.pluginId,
         language: registration.language,
         name: registration.name,
-        defaultFileName: registration.defaultFileName,
       });
     }
   }

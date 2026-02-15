@@ -116,13 +116,26 @@ def test_playwright_fixture_selection_honors_plugin_grep_selector_case_insensiti
     )
 
 
-def test_playwright_fixture_selection_skips_selector_only_runs_without_plugin_hints(
+def test_playwright_fixture_selection_detects_case_insensitive_plugin_path_hints(
     tmp_path: Path,
 ) -> None:
-    # Selector-only Playwright runs should skip fixture prep when grep text has no plugin hint.
+    # Path-based plugin hints should be matched case-insensitively.
     sandbox_root = _build_fixture_target_sandbox(tmp_path)
 
-    assert not _should_build_for_targets(
+    assert _should_build_for_targets(
+        sandbox_root,
+        "playwright",
+        ["frontend/tests/e2e/overview/PLUGIN-PANE.spec.ts"],
+    )
+
+
+def test_playwright_fixture_selection_builds_selector_only_runs_without_plugin_hints(
+    tmp_path: Path,
+) -> None:
+    # Selector-only Playwright runs should conservatively build fixtures.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+
+    assert _should_build_for_targets(
         sandbox_root,
         "playwright",
         ["--grep", "workspace"],
@@ -159,13 +172,13 @@ def test_pytest_fixture_selection_skips_non_plugin_selector_with_target(
     )
 
 
-def test_pytest_fixture_selection_skips_for_selector_only_runs_without_plugin_hints(
+def test_pytest_fixture_selection_builds_for_selector_only_runs_without_plugin_hints(
     tmp_path: Path,
 ) -> None:
-    # Selector-only pytest runs should skip fixture prep unless selector text hints plugin targets.
+    # Selector-only pytest runs should conservatively build fixtures.
     sandbox_root = _build_fixture_target_sandbox(tmp_path)
 
-    assert not _should_build_for_targets(
+    assert _should_build_for_targets(
         sandbox_root,
         "pytest",
         ["-k", "project_config"],

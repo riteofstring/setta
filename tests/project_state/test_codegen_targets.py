@@ -1202,8 +1202,10 @@ class TestCodegenTargetsRunCommand:
                 *,
                 target_id: str,
                 project_state: dict[str, Any],
-                _target_options: dict[str, Any],
+                target_options: dict[str, Any],
             ) -> list[tuple[str, str]]:
+                if not isinstance(target_options, dict):
+                    raise TypeError("Expected target_options to be a dict.")
                 return [("C:/outside.ts", f"{target_id}:{len(project_state)}")]
 
         project_config = ProjectConfig(
@@ -1250,8 +1252,10 @@ class TestCodegenTargetsRunCommand:
                 *,
                 target_id: str,
                 project_state: dict[str, Any],
-                _target_options: dict[str, Any],
+                target_options: dict[str, Any],
             ) -> list[tuple[str, str]]:
+                if not isinstance(target_options, dict):
+                    raise TypeError("Expected target_options to be a dict.")
                 return [
                     (
                         "setta_gen.txt",
@@ -1320,8 +1324,10 @@ class TestCodegenTargetsRunCommand:
                 *,
                 target_id: str,
                 project_state: dict[str, Any],
-                _target_options: dict[str, Any],
+                target_options: dict[str, Any],
             ) -> list[tuple[str, str]]:
+                if not isinstance(target_options, dict):
+                    raise TypeError("Expected target_options to be a dict.")
                 return [
                     (
                         "setta_gen.txt",

@@ -295,3 +295,21 @@
 - Reduced frontend plugin-runtime refresh churn by reusing previously sorted registry views when registry value references are unchanged, with explicit Vitest guard coverage.
 - Added/updated backend pytest coverage (`test_plugin_manager.py`, `test_plugin_worker.py`, `test_fixture_language_server_integration.py`), frontend Vitest coverage (`runtime.test.ts`), and Playwright backend-route payload coverage for header-only content-type behavior.
 - Verification summary: targeted pytest and Vitest runs passed; targeted Playwright backend-route payload spec passed. Existing `plugin-language-server.spec.ts` remained intermittently failing on prior toast-visibility assertion unrelated to these code changes.
+
+## 2026-02-16T16:58:25-08:00
+
+- Implemented the requested top-level `review*.md` fix batch end-to-end, explicitly excluding backward-compatibility additions.
+- Fixed plugin install conflict correctness by adding in-progress target-path reservations so concurrent installs fail before duplicate backend runtime preparation side effects.
+- Reduced plugin-manager runtime/status hot-path overhead by caching `plugins_state` reads (mtime/size keyed) while returning deep copies to preserve mutation isolation semantics.
+- Removed redundant CLI plugin mutation rescans by threading optional `rescan` control through manager mutation methods and reusing explicit pre-lookup rescans in CLI flows.
+- Fixed listener patch parsing ambiguity so plugin section payloads are treated as control envelopes only for canonical control-key shapes; mixed payloads with top-level `data` now remain plain data patches.
+- Reduced backend worker route-call overhead by hoisting optional FastAPI/Pydantic imports out of per-request helper paths.
+- Consolidated duplicated plugin codegen target collection logic in project manager behind one shared helper used by both regular and refresh resolution paths.
+- Improved frontend plugin runtime failure UX by preserving last-known-good plugin runtime/list/status/style state on runtime load errors instead of resetting to empty.
+- Reduced frontend rerender/object churn by reusing previous plugin-list entry objects when runtime payload signatures are unchanged.
+- Removed duplicate Plugins pane helper/formatter logic by exporting shared config-draft formatting and shared sorted-registration caching helpers.
+- Tightened local frontend registration typing by removing unused fields from `RunInstructions` plugin codegen registration mapping.
+- Hardened fixture-target selection heuristics by making plugin-hint path detection case-insensitive and defaulting selector-only runs to build plugin fixtures.
+- Added/updated backend pytest coverage, frontend Vitest coverage, and Playwright coverage for all changed paths; verification runs passed (`pytest` targeted subsets: 95 passed total across runs, `vitest` targeted subset: 86 passed, Playwright targeted specs: 2 passed, Ruff checks clean).
+- DX before/after: install conflict failures previously could still trigger duplicate backend prep side effects under contention; now conflicts fail immediately with no second prepare path.
+- UX before/after: transient `/plugins/runtime` failures previously blanked plugin runtime state; now users keep last-known plugin UI state with an explicit error status and smoother recovery on next refresh.

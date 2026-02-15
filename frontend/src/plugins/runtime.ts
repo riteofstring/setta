@@ -298,6 +298,7 @@ const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
 const cleanupByPluginId = new Map<string, Set<() => void>>();
 const frontendSignatureByPluginId = new Map<string, string>();
+const pluginListEntrySignatureCache = new WeakMap<PluginListEntry, string>();
 let pluginRuntimeLoadPromise: Promise<void> | null = null;
 let pluginRuntimeRefreshQueued = false;
 const PLUGIN_FRONTEND_LOAD_CONCURRENCY = 4;
@@ -466,15 +467,11 @@ async function loadPluginRuntime(): Promise<void> {
 }
 
 function setPluginRuntimeLoadError(message: string): void {
-  runAllPluginCleanup();
-  frontendSignatureByPluginId.clear();
-  removeAllPluginStyles();
-  usePluginRuntimeStore.setState((state) =>
-    buildClearedRuntimeState(state, {
-      status: "error",
-      statusMessage: message,
-    }),
-  );
+  usePluginRuntimeStore.setState((state) => ({
+    ...state,
+    status: "error",
+    statusMessage: message,
+  }));
 }
 
 function buildClearedRuntimeState(
@@ -1875,10 +1872,6 @@ function removeInactivePluginStyles(activePluginIds: Set<string>): void {
   }
 }
 
-function removeAllPluginStyles(): void {
-  removeInactivePluginStyles(new Set<string>());
-}
-
 function mapPluginListById(
   response: PluginListResponse,
   previousPluginListById: Record<string, PluginListEntry>,
@@ -1886,15 +1879,64 @@ function mapPluginListById(
   const pluginListById: Record<string, PluginListEntry> = {};
   for (const plugin of response.plugins) {
     const previousEntry = previousPluginListById[plugin.pluginId];
-    pluginListById[plugin.pluginId] = {
+    const nextEffectiveCapabilities = stableCapabilitiesReference(
+      plugin.effectiveCapabilities,
+      previousEntry?.effectiveCapabilities,
+    );
+    const nextSignature = buildPluginListEntrySignature(
+      plugin,
+      nextEffectiveCapabilities,
+    );
+    if (
+      previousEntry &&
+      getCachedPluginListEntrySignature(previousEntry) === nextSignature
+    ) {
+      pluginListById[plugin.pluginId] = previousEntry;
+      continue;
+    }
+    const nextEntry = {
       ...plugin,
-      effectiveCapabilities: stableCapabilitiesReference(
-        plugin.effectiveCapabilities,
-        previousEntry?.effectiveCapabilities,
-      ),
+      effectiveCapabilities: nextEffectiveCapabilities,
     };
+    pluginListById[plugin.pluginId] = nextEntry;
+    pluginListEntrySignatureCache.set(nextEntry, nextSignature);
   }
   return pluginListById;
+}
+
+function getCachedPluginListEntrySignature(entry: PluginListEntry): string {
+  const cachedSignature = pluginListEntrySignatureCache.get(entry);
+  if (cachedSignature) {
+    return cachedSignature;
+  }
+  const signature = buildPluginListEntrySignature(
+    entry,
+    entry.effectiveCapabilities,
+  );
+  pluginListEntrySignatureCache.set(entry, signature);
+  return signature;
+}
+
+function buildPluginListEntrySignature(
+  plugin: PluginListEntry,
+  effectiveCapabilities: string[],
+): string {
+  return JSON.stringify({
+    pluginId: plugin.pluginId,
+    name: plugin.name,
+    version: plugin.version,
+    sourceScope: plugin.sourceScope,
+    sourceScopeLabel: plugin.sourceScopeLabel,
+    sourceManager: plugin.sourceManager,
+    sourceManagerHint: plugin.sourceManagerHint,
+    canonicalSourceKey: plugin.canonicalSourceKey,
+    sourceDigestSha256: plugin.sourceDigestSha256,
+    frontend: plugin.frontend,
+    content: plugin.content,
+    config: plugin.config,
+    restartRequired: plugin.restartRequired,
+    effectiveCapabilities,
+  });
 }
 
 function stableCapabilitiesReference(

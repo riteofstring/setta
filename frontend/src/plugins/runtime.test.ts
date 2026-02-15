@@ -824,7 +824,7 @@ describe("plugin runtime helpers", () => {
     );
   });
 
-  it("reports runtime error when plugins runtime request fails", async () => {
+  it("reports runtime error when plugins runtime request fails and preserves last-known-good state", async () => {
     usePluginRuntimeStore.setState({
       pluginListById: {
         "stale.plugin": buildPluginListEntry({
@@ -872,10 +872,14 @@ describe("plugin runtime helpers", () => {
     expect(state.statusMessage).toBe(
       "Failed to fetch plugins runtime: status 500.",
     );
-    expect(state.pluginListById).toEqual({});
-    expect(state.pluginStatusById).toEqual({});
-    expect(state.sectionKindsByKey).toEqual({});
-    expect(state.panesByPluginId).toEqual({});
+    expect(Object.keys(state.pluginListById)).toEqual(["stale.plugin"]);
+    expect(Object.keys(state.pluginStatusById)).toEqual(["stale.plugin"]);
+    expect(
+      Object.keys(state.sectionKindsByKey).includes(
+        toPluginSectionKindKey("stale.plugin", "stale-kind"),
+      ),
+    ).toBe(true);
+    expect(state.panesByPluginId["stale.plugin"]?.length).toBe(1);
   });
 
   it("reports runtime error when plugins runtime request fails without response", async () => {
@@ -894,7 +898,7 @@ describe("plugin runtime helpers", () => {
     );
   });
 
-  it("removes stale plugin styles when refresh enters error state", async () => {
+  it("preserves plugin styles when refresh enters error state", async () => {
     type FakeLinkElement = {
       rel: string;
       href: string;
@@ -949,7 +953,7 @@ describe("plugin runtime helpers", () => {
 
     await refreshPluginRuntime();
 
-    expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(0);
+    expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(1);
   });
 
   it("prefers non-shadowed status entries as the primary plugin status", async () => {
@@ -2034,7 +2038,7 @@ describe("plugin runtime helpers", () => {
     expect(globalScope.__settaCleanupProbe?.callCount).toBe(1);
   });
 
-  it("keeps effective capability array references stable on no-op runtime refreshes", async () => {
+  it("keeps plugin list entry references stable on no-op runtime refreshes", async () => {
     const plugin = buildPluginListEntry({
       effectiveCapabilities: ["registerSectionKinds", "registerPane"],
     });
@@ -2053,16 +2057,65 @@ describe("plugin runtime helpers", () => {
     );
 
     await refreshPluginRuntime();
-    const firstCapabilities =
-      usePluginRuntimeStore.getState().pluginListById[plugin.pluginId]
-        ?.effectiveCapabilities;
+    const firstEntry = usePluginRuntimeStore.getState().pluginListById[
+      plugin.pluginId
+    ];
+    const firstCapabilities = firstEntry?.effectiveCapabilities;
     expect(firstCapabilities).toBeDefined();
 
     await refreshPluginRuntime();
-    const secondCapabilities =
-      usePluginRuntimeStore.getState().pluginListById[plugin.pluginId]
-        ?.effectiveCapabilities;
+    const secondEntry = usePluginRuntimeStore.getState().pluginListById[
+      plugin.pluginId
+    ];
+    const secondCapabilities = secondEntry?.effectiveCapabilities;
+    expect(secondEntry).toBe(firstEntry);
     expect(secondCapabilities).toBe(firstCapabilities);
+  });
+
+  it("replaces plugin list entry references when runtime list payload changes", async () => {
+    const firstPlugin = buildPluginListEntry({
+      sourceDigestSha256: "sha256:first",
+      effectiveCapabilities: ["registerSectionKinds"],
+    });
+    const secondPlugin = buildPluginListEntry({
+      sourceDigestSha256: "sha256:second",
+      effectiveCapabilities: ["registerSectionKinds"],
+    });
+    const pluginStatus = buildPluginStatusEntry({
+      pluginId: firstPlugin.pluginId,
+      requestedCapabilities: ["registerSectionKinds"],
+      effectiveCapabilities: ["registerSectionKinds"],
+      blockedCapabilities: [],
+    });
+    let runtimeCallCount = 0;
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
+      async () => {
+        runtimeCallCount += 1;
+        if (runtimeCallCount === 1) {
+          return buildRuntimeEndpointResponse(
+            buildPluginListResponse([firstPlugin]),
+            buildPluginStatusResponse([pluginStatus]),
+          );
+        }
+        return buildRuntimeEndpointResponse(
+          buildPluginListResponse([secondPlugin]),
+          buildPluginStatusResponse([pluginStatus]),
+        );
+      },
+    );
+
+    await refreshPluginRuntime();
+    const firstEntry = usePluginRuntimeStore.getState().pluginListById[
+      firstPlugin.pluginId
+    ];
+
+    await refreshPluginRuntime();
+    const secondEntry = usePluginRuntimeStore.getState().pluginListById[
+      firstPlugin.pluginId
+    ];
+
+    expect(secondEntry).not.toBe(firstEntry);
+    expect(secondEntry?.sourceDigestSha256).toBe("sha256:second");
   });
 
   it("uses runtime payload plugin ordering without frontend resorting", async () => {

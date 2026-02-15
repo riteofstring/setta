@@ -54,6 +54,7 @@ import {
   buildInstallTrustSummaryMessage,
   buildSourceManagerGuidanceMessage,
   formatLanguageServerSettingsDraft,
+  formatPluginConfigDraft,
   getBlockedCapabilityReason,
   getLanguageServerSettingsValue,
   getPluginCapabilityStatus,
@@ -1677,17 +1678,6 @@ function LanguageServerSettingsEditor({
       ) : null}
     </div>
   );
-}
-
-function formatJsonObjectDraft(value: unknown): string {
-  if (!isPlainObject(value)) {
-    return "{}";
-  }
-  return JSON.stringify(value, null, 2);
-}
-
-function formatPluginConfigDraft(value: unknown): string {
-  return formatJsonObjectDraft(value);
 }
 
 function resolveSchemaType(schema: Record<string, unknown>): string | null {

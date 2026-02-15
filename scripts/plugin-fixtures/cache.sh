@@ -132,14 +132,17 @@ build_plugin_fixtures_if_needed() {
 _plugin_fixture_path_has_plugin_hint() {
   local target_path="$1"
   local normalized_path="${target_path//\\//}"
-  local basename_only="${normalized_path##*/}"
-  if [[ "${normalized_path}" == *"/plugins/"* ]]; then
+  local normalized_path_lower
+  local basename_only
+  normalized_path_lower="$(printf '%s' "${normalized_path}" | tr '[:upper:]' '[:lower:]')"
+  basename_only="${normalized_path_lower##*/}"
+  if [[ "${normalized_path_lower}" == *"/plugins/"* ]]; then
     return 0
   fi
-  if [[ "${normalized_path}" == *"/plugin-"* ]]; then
+  if [[ "${normalized_path_lower}" == *"/plugin-"* ]]; then
     return 0
   fi
-  if [[ "${normalized_path}" == *"/plugin_"* ]]; then
+  if [[ "${normalized_path_lower}" == *"/plugin_"* ]]; then
     return 0
   fi
   if [[ "${basename_only}" == test_plugin*.py ]]; then
@@ -305,21 +308,8 @@ should_build_plugin_fixtures_for_targets() {
     fi
   done
 
-  if [[ "${mode}" == "pytest" ]] && [[ "${has_selector_filter}" == "1" ]]; then
-    if [[ "${selector_filter_has_plugin_hint}" == "1" ]]; then
-      return 0
-    fi
-    if [[ "${has_positional_target}" == "0" ]]; then
-      return 1
-    fi
-  fi
-  if [[ "${mode}" == "playwright" ]] && [[ "${has_selector_filter}" == "1" ]]; then
-    if [[ "${selector_filter_has_plugin_hint}" == "1" ]]; then
-      return 0
-    fi
-    if [[ "${has_positional_target}" == "0" ]]; then
-      return 1
-    fi
+  if [[ "${selector_filter_has_plugin_hint}" == "1" ]]; then
+    return 0
   fi
   if [[ "${has_positional_target}" == "0" ]]; then
     return 0

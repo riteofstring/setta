@@ -1249,13 +1249,7 @@ class BaseProjectManager(ABC):
         self,
         codegen_targets: list[ProjectCodegenTarget],
     ) -> list[ProjectCodegenPluginTarget]:
-        plugin_targets: list[ProjectCodegenPluginTarget] = []
-        for target in codegen_targets:
-            if target.language == ProjectCodegenLanguage.python:
-                continue
-            if not isinstance(target, ProjectCodegenPluginTarget):
-                raise TypeError("Expected plugin codegen target.")
-            plugin_targets.append(target)
+        plugin_targets = self._collect_plugin_codegen_targets(codegen_targets)
         if len(plugin_targets) == 0:
             return []
         if self.plugin_manager is None:
@@ -1273,14 +1267,8 @@ class BaseProjectManager(ABC):
         self,
         codegen_targets: list[ProjectCodegenTarget],
     ) -> tuple[list[ProjectCodegenPluginTarget], list[str]]:
-        plugin_targets: list[ProjectCodegenPluginTarget] = []
+        plugin_targets = self._collect_plugin_codegen_targets(codegen_targets)
         missing_targets: list[str] = []
-        for target in codegen_targets:
-            if target.language == ProjectCodegenLanguage.python:
-                continue
-            if not isinstance(target, ProjectCodegenPluginTarget):
-                raise TypeError("Expected plugin codegen target.")
-            plugin_targets.append(target)
         if len(plugin_targets) == 0:
             return ([], [])
         if self.plugin_manager is None:
@@ -1292,6 +1280,19 @@ class BaseProjectManager(ABC):
                 continue
             missing_targets.append(target.language)
         return (resolved_targets, missing_targets)
+
+    def _collect_plugin_codegen_targets(
+        self,
+        codegen_targets: list[ProjectCodegenTarget],
+    ) -> list[ProjectCodegenPluginTarget]:
+        plugin_targets: list[ProjectCodegenPluginTarget] = []
+        for target in codegen_targets:
+            if target.language == ProjectCodegenLanguage.python:
+                continue
+            if not isinstance(target, ProjectCodegenPluginTarget):
+                raise TypeError("Expected plugin codegen target.")
+            plugin_targets.append(target)
+        return plugin_targets
 
     def _refresh_plugin_codegen_outputs(
         self,
