@@ -534,6 +534,10 @@ export function sendRealtimeDependencyEvent(
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
+  const coverage = getListenerCoverageRecord(projectConfigId);
+  if (coverage && !dependencyKeyCovered(projectConfigId, event.dependencyKey)) {
+    return;
+  }
 
   const dependencyEvent: DependencyEvent = {
     dependencyKey: event.dependencyKey,

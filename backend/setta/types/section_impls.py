@@ -43,6 +43,7 @@ class SectionType(str, Enum):
     IFrame = "IFrame"
     Chat = "Chat"
     Browser = "Browser"
+    Plugin = "Plugin"
 
 
 class SectionSizeMode(str, Enum):
@@ -72,6 +73,29 @@ class CodeLanguage(str, Enum):
     toml = "toml"
     markdown = "markdown"
     plaintext = "plaintext"
+
+
+CodeLanguageKey = CodeLanguage | str
+
+
+def normalize_code_language(language: CodeLanguageKey) -> CodeLanguageKey:
+    if isinstance(language, CodeLanguage):
+        return language
+    if not isinstance(language, str):
+        raise TypeError("Code language must be a string.")
+    normalized = language.strip().lower()
+    if normalized == "":
+        raise ValueError("Code language must be a non-empty string.")
+    try:
+        return CodeLanguage(normalized)
+    except ValueError:
+        return normalized
+
+
+def code_language_to_string(language: CodeLanguageKey) -> str:
+    if isinstance(language, CodeLanguage):
+        return language.value
+    return language
 
 
 class ConfigLanguage(str, Enum):
@@ -308,7 +332,7 @@ class GlobalVariablesSectionImpl(BaseDictSectionImpl):
 
 class CodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.Code] = SectionType.Code
-    codeLanguage: CodeLanguage = CodeLanguage.python
+    codeLanguage: CodeLanguageKey = CodeLanguage.python
     diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState = Field(
         default_factory=CodeSectionDiagnosticsIgnoreState
     )
@@ -378,3 +402,11 @@ class BrowserSectionImpl(BaseSectionImpl):
     typesColumnWidth: float | None = None
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
     savedSearches: list[BrowserSavedSearch] = Field(default_factory=list)
+
+
+class PluginSectionImpl(BaseSectionImpl):
+    type: Literal[SectionType.Plugin] = SectionType.Plugin
+    pluginId: str = ""
+    kind: str = "default"
+    data: dict[str, Any] = Field(default_factory=dict)
+    schemaVersion: int | None = None

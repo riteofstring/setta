@@ -43,6 +43,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgs,
     NestedParamCodeObjImplArgs,
     PasswordParamCodeObjImplArgs,
+    PluginSectionImplArgs,
     PromptSectionImplArgs,
     RotaryParamCodeObjImplArgs,
     SliderParamCodeObjImplArgs,
@@ -79,6 +80,7 @@ from setta.types.generated.user_defaults import (
     UserDefaultMetaControlSectionImpl,
     UserDefaultNestedParamCodeObjImpl,
     UserDefaultPasswordParamCodeObjImpl,
+    UserDefaultPluginSectionImpl,
     UserDefaultPromptSectionImpl,
     UserDefaultRotaryParamCodeObjImpl,
     UserDefaultSliderParamCodeObjImpl,
@@ -107,6 +109,7 @@ from setta.types.section_impls import (
     ImageSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
+    PluginSectionImpl,
     PromptSectionImpl,
     SectionType,
     SocialSectionImpl,
@@ -265,6 +268,14 @@ def create_section_impl(
     defaults: UserDefaultBrowserSectionImpl,
     overrides: BrowserSectionImplArgs | None = None,
 ) -> BrowserSectionImpl: ...
+
+
+@overload
+def create_section_impl(
+    type: Literal[SectionType.Plugin],
+    defaults: UserDefaultPluginSectionImpl,
+    overrides: PluginSectionImplArgs | None = None,
+) -> PluginSectionImpl: ...
 
 
 @overload
@@ -469,6 +480,11 @@ def create_section_impl(type: SectionType, defaults: Any, overrides: Any = None)
             if overrides is None:
                 overrides = {}
             return BrowserSectionImpl(**{**defaults.model_dump(), **overrides})
+
+        case SectionType.Plugin:
+            if overrides is None:
+                overrides = {}
+            return PluginSectionImpl(**{**defaults.model_dump(), **overrides})
 
 
 def create_code_obj_impl(type: CodeObjType, defaults: Any, overrides: Any = None):

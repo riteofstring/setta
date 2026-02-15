@@ -32,6 +32,7 @@ another host.
 | `setta version` | yes | no | Prints the local install version. |
 | `setta export-db` | yes | no | Placeholder export command. |
 | `setta backups` | yes | no | List and restore local project backups. |
+| `setta plugins` | yes | no | Plugin scaffold, install/update/link, runtime state, and lockfile commands. |
 | `setta status` | yes | no | Reads local session registry; SSH in to run remotely. |
 | `setta auth` | yes | no | Emit machine-readable auth info for API calls. |
 | `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
@@ -214,6 +215,78 @@ Examples:
 setta backups restore --latest
 setta backups restore --index 3 --yes
 setta backups restore --path /abs/path/to/backup_20260101_120000_123456.json --force --yes
+```
+
+## `setta plugins`
+
+Manages plugin authoring, install state, and runtime activation.
+
+Source scopes:
+
+- `workspace`: `<workspace>/.setta_plugins`
+- `setta_files`: `<setta_files_root>/plugins`
+- `global`: `<setta_home>/plugins`
+
+Source specs for install/update flows:
+
+- `github:<owner>/<repo>[#ref]` (also accepts `@ref`)
+- `pypi:<package>[==version]`
+
+Scope selection notes:
+
+- Many mutation commands accept `--scope`.
+- Shortcuts `--global` and `--setta-files` are also supported.
+- Use exactly one selector per command (`--scope` or one shortcut).
+
+Subcommands:
+
+- `setta plugins init <plugin_id> [--template backend|frontend|full|content] [--out PATH]`
+  - Scaffold a plugin package with `setta.plugin.json`, `pyproject.toml`, and template files.
+- `setta plugins validate <plugin_folder>`
+  - Validate a plugin manifest/folder contract.
+- `setta plugins list [--json]`
+  - List discovered plugin runtime status entries.
+- `setta plugins install <source_spec> [--scope ...] [--installer auto|pip|uv] [--no-enable] [--force] [--json]`
+  - Install plugin source into a selected scope.
+- `setta plugins link <local_plugin_root> [--scope ...] [--no-enable] [--force] [--json]`
+  - Link a local folder as an installed plugin (development workflow).
+- `setta plugins uninstall <plugin_id> [--scope ...] [--json]`
+  - Remove a plugin from a scope.
+- `setta plugins enable <plugin_id> [--json]`
+- `setta plugins disable <plugin_id> [--json]`
+  - Toggle enablement for the highest-precedence discovered plugin id.
+- `setta plugins rescan [--json]`
+  - Rebuild plugin discovery/runtime status without restarting Setta.
+- `setta plugins update <plugin_id> [--scope ...] [--to <source_spec_or_version>] [--json]`
+  - Update an installed plugin to latest or to a pinned target.
+- `setta plugins pin <plugin_id> <source_spec_or_version> [--scope ...] [--json]`
+  - Shortcut for targeted update/pin.
+- `setta plugins rollback <plugin_id> [--scope ...] [--json]`
+  - Restore previous installed version from plugin history snapshots.
+- `setta plugins lock write [--json]`
+  - Write lockfile at `<workspace>/.setta_plugins/plugins.lock.json`.
+- `setta plugins lock apply [--check] [--json]`
+  - Compare/apply lockfile desired state against current installs.
+- `setta plugins restart [--json]`
+  - Request programmatic backend restart when available.
+- `setta plugins restart-required [--json]`
+  - List plugins pending backend restart and restart capability details.
+
+Examples:
+```sh
+setta plugins init setta-my-plugin --template full --out .
+setta plugins validate ./setta-my-plugin
+
+setta plugins install github:owner/repo#v0.1.0 --scope workspace
+setta plugins install pypi:setta-my-plugin==0.1.0 --scope setta_files
+
+setta plugins link ./my-local-plugin --scope workspace --force
+setta plugins rescan
+setta plugins list
+setta plugins restart-required
+
+setta plugins lock write
+setta plugins lock apply --check
 ```
 
 ## `setta status`
