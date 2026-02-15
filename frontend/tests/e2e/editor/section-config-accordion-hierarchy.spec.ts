@@ -4,6 +4,7 @@ import {
   createTextBlockSection,
   ensureAppReady,
   openIsolatedProject,
+  postBackend,
   seedLocalStorage,
 } from "../helpers";
 
@@ -68,6 +69,57 @@ test.describe.serial("section config accordion hierarchy", () => {
         "aria-expanded",
         "true",
       );
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("keeps appearance controls enabled for terminal sections", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+      uiEditorTab: { Terminal: "SectionConfig" },
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const created = await postBackend<{ sectionId?: string }>(
+        page,
+        "/createTopLevelSection",
+        {
+          projectConfigId: projectContext.projectConfigId,
+          implType: "Terminal",
+        },
+      );
+      if (!created?.sectionId) {
+        throw new Error("Missing sectionId when creating terminal section.");
+      }
+
+      const node = page.locator(`.react-flow__node[data-id="${created.sectionId}"]`);
+      await expect(node).toBeVisible();
+      await node.click();
+
+      const uiEditorPane = page.locator("#UiEditorPane");
+      await expect(uiEditorPane).toBeVisible();
+
+      const appearanceAccordionTrigger = uiEditorPane.getByTestId(
+        "section-config-accordion-appearance",
+      );
+      await expect(appearanceAccordionTrigger).toBeEnabled();
+      await appearanceAccordionTrigger.click();
+      await expect(appearanceAccordionTrigger).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+
+      await expect(uiEditorPane.getByText("Style", { exact: true })).toBeVisible();
+      await expect(
+        uiEditorPane.getByText("Color Tag", { exact: true }),
+      ).toBeVisible();
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

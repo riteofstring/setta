@@ -1,6 +1,7 @@
 import { SettaBackendLogEvent } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import {
+  addBackendLogResizeListeners,
   applyBackendLogColumnResize,
   BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
   buildBackendLogGridTemplateColumns,
@@ -8,6 +9,7 @@ import {
   copyBackendLogMessage,
   filterEvents,
   getBackendLogGridMinWidth,
+  removeBackendLogResizeListeners,
 } from "./BackendLogEventsArea";
 
 describe("BackendLogEventsArea column sizing helpers", () => {
@@ -66,6 +68,64 @@ describe("BackendLogEventsArea clipboard helper", () => {
     const copied = await copyBackendLogMessage(writeText, "hello world");
 
     expect(copied).toBe(false);
+  });
+
+  it("returns false when clipboard writes throw synchronously", async () => {
+    const writeText = vi.fn().mockImplementation(() => {
+      throw new Error("clipboard unavailable");
+    });
+    const copied = await copyBackendLogMessage(writeText, "hello world");
+
+    expect(copied).toBe(false);
+  });
+});
+
+describe("BackendLogEventsArea resize teardown", () => {
+  it("adds and removes both global drag listeners", () => {
+    const mouseMove = vi.fn();
+    const mouseUp = vi.fn();
+    const addEventListener = vi.fn();
+    const removeEventListener = vi.fn();
+    vi.stubGlobal("window", {
+      addEventListener,
+      removeEventListener,
+    });
+
+    try {
+      addBackendLogResizeListeners({
+        mouseMove,
+        mouseUp,
+      });
+      removeBackendLogResizeListeners({
+        mouseMove,
+        mouseUp,
+      });
+
+      expect(addEventListener).toHaveBeenCalledWith("mousemove", mouseMove);
+      expect(addEventListener).toHaveBeenCalledWith("mouseup", mouseUp);
+      expect(removeEventListener).toHaveBeenCalledWith(
+        "mousemove",
+        mouseMove,
+      );
+      expect(removeEventListener).toHaveBeenCalledWith("mouseup", mouseUp);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("ignores null listener cleanup requests", () => {
+    const removeEventListener = vi.fn();
+    vi.stubGlobal("window", {
+      addEventListener: vi.fn(),
+      removeEventListener,
+    });
+
+    try {
+      removeBackendLogResizeListeners(null);
+      expect(removeEventListener).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

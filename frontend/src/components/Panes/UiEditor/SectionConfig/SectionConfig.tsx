@@ -90,7 +90,7 @@ function getAppearanceConfigurationContent(
   );
 }
 
-function sectionTypeSupportsAppearanceSettings(
+export function sectionTypeSupportsAppearanceSettings(
   sectionType: SectionTypeEnum,
 ): boolean {
   switch (sectionType) {
@@ -108,13 +108,12 @@ function sectionTypeSupportsAppearanceSettings(
     case SectionTypeEnum.IFrame:
     case SectionTypeEnum.Chat:
     case SectionTypeEnum.Browser:
-      return true;
     case SectionTypeEnum.ListRoot:
     case SectionTypeEnum.Group:
     case SectionTypeEnum.GenPythonCode:
     case SectionTypeEnum.GenPythonMetadata:
     case SectionTypeEnum.Terminal:
-      return false;
+      return true;
   }
 }
 

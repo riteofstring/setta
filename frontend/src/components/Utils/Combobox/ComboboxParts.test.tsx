@@ -53,12 +53,14 @@ describe("ComboboxInput", () => {
     // Pill variant keeps the existing tighter small toggle.
     const markup = renderInputMarkup("pill");
     expect(markup).toContain("h-4 w-4");
+    expect(markup).toContain("pr-6");
   });
 
   it("uses full-height normal toggle sizing for pill variants", () => {
     // The default pill combobox should not render a visibly shorter chevron button.
     const markup = renderNormalInputMarkup("pill");
     expect(markup).toContain("h-7 w-7");
+    expect(markup).toContain("pr-8");
   });
 
   it("uses svg chevron icons instead of gg chevron classes", () => {

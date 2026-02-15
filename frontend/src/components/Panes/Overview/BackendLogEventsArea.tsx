@@ -102,14 +102,38 @@ export function getBackendLogGridMinWidth(
   );
 }
 
+type BackendLogResizeHandlers = {
+  mouseMove: (event: globalThis.MouseEvent) => void;
+  mouseUp: (event: globalThis.MouseEvent) => void;
+};
+
+export function addBackendLogResizeListeners(
+  handlers: BackendLogResizeHandlers,
+): void {
+  window.addEventListener("mousemove", handlers.mouseMove);
+  window.addEventListener("mouseup", handlers.mouseUp);
+}
+
+export function removeBackendLogResizeListeners(
+  handlers: BackendLogResizeHandlers | null,
+): void {
+  if (!handlers) {
+    return;
+  }
+  window.removeEventListener("mousemove", handlers.mouseMove);
+  window.removeEventListener("mouseup", handlers.mouseUp);
+}
+
 export async function copyBackendLogMessage(
-  writeText: (value: string) => Promise<void>,
+  writeText: (value: string) => Promise<void> | void,
   message: string,
 ): Promise<boolean> {
-  return writeText(message).then(
-    () => true,
-    () => false,
-  );
+  try {
+    await writeText(message);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 type CopyFeedback = {
@@ -128,6 +152,16 @@ export function BackendLogEventsArea() {
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null);
   const columnWidthRef = useRef(columnWidths);
   const resizeAnimationFrameRef = useRef<number | null>(null);
+  const activeResizeHandlersRef = useRef<BackendLogResizeHandlers | null>(null);
+
+  const clearActiveColumnResizeListeners = useCallback(() => {
+    removeBackendLogResizeListeners(activeResizeHandlersRef.current);
+    activeResizeHandlersRef.current = null;
+    if (resizeAnimationFrameRef.current !== null) {
+      cancelAnimationFrame(resizeAnimationFrameRef.current);
+      resizeAnimationFrameRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     columnWidthRef.current = columnWidths;
@@ -155,11 +189,9 @@ export function BackendLogEventsArea() {
 
   useEffect(() => {
     return () => {
-      if (resizeAnimationFrameRef.current !== null) {
-        cancelAnimationFrame(resizeAnimationFrameRef.current);
-      }
+      clearActiveColumnResizeListeners();
     };
-  }, []);
+  }, [clearActiveColumnResizeListeners]);
 
   const projectMetadata = useAllProjectMetadata(
     (state) => state.projectMetadata,
@@ -188,6 +220,7 @@ export function BackendLogEventsArea() {
     (column: BackendLogColumnWidthName, event: MouseEvent<HTMLDivElement>) => {
       event.preventDefault();
       event.stopPropagation();
+      clearActiveColumnResizeListeners();
       const startX = event.clientX;
       const initialWidths = columnWidthRef.current;
       let latestClientX = startX;
@@ -218,24 +251,31 @@ export function BackendLogEventsArea() {
       };
 
       const handleUp = (upEvent: globalThis.MouseEvent) => {
-        window.removeEventListener("mousemove", handleMove);
-        window.removeEventListener("mouseup", handleUp);
-        if (resizeAnimationFrameRef.current !== null) {
-          cancelAnimationFrame(resizeAnimationFrameRef.current);
-          resizeAnimationFrameRef.current = null;
-        }
+        clearActiveColumnResizeListeners();
         applyResizeForClientX(upEvent.clientX);
       };
 
-      window.addEventListener("mousemove", handleMove);
-      window.addEventListener("mouseup", handleUp);
+      activeResizeHandlersRef.current = {
+        mouseMove: handleMove,
+        mouseUp: handleUp,
+      };
+      addBackendLogResizeListeners(activeResizeHandlersRef.current);
     },
-    [],
+    [clearActiveColumnResizeListeners],
   );
 
   const handleCopyMessage = useCallback((eventId: string, message: string) => {
+    const clipboard = navigator.clipboard;
+    const writeText = clipboard?.writeText;
+    if (!clipboard || !writeText) {
+      setCopyFeedback({
+        eventId,
+        status: "failed",
+      });
+      return;
+    }
     void copyBackendLogMessage(
-      (value) => navigator.clipboard.writeText(value),
+      (value) => writeText.call(clipboard, value),
       message,
     ).then((didCopy) => {
       setCopyFeedback({
