@@ -34,6 +34,14 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
+    await page.evaluate(() => {
+      const scope = window as {
+        __settaFixtureRenderCount?: number;
+        __settaFixtureRenderBySectionId?: Record<string, number>;
+      };
+      scope.__settaFixtureRenderCount = 0;
+      scope.__settaFixtureRenderBySectionId = {};
+    });
 
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
