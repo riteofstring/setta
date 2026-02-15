@@ -12,8 +12,19 @@ import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mergeProjectConfigOrder, ProjectConfigs } from "./ProjectConfigs";
 
+let latestOnReorder: ((orderedIds: string[]) => void) | null = null;
+
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
-  SortableListProvider: ({ children }: { children: unknown }) => children,
+  SortableListProvider: ({
+    children,
+    onReorder,
+  }: {
+    children: unknown;
+    onReorder: (orderedIds: string[]) => void;
+  }) => {
+    latestOnReorder = onReorder;
+    return children;
+  },
   useSortableListItem: () => ({
     attributes: {},
     listeners: {},
@@ -54,6 +65,7 @@ describe("ProjectConfigs", () => {
 
   beforeEach(() => {
     resetProjectStores();
+    latestOnReorder = null;
     memoryStorage.reset();
     useSettings.setState(createSettingsState());
     useLocalStorage.persist.setOptions({
@@ -84,6 +96,15 @@ describe("ProjectConfigs", () => {
         ["config-c", "config-a"],
       ),
     ).toEqual(["config-c", "config-a", "config-b"]);
+  });
+
+  it("dedupes duplicate ids from persisted project-config order", () => {
+    expect(
+      mergeProjectConfigOrder(
+        ["config-a", "config-b"],
+        ["config-a", "config-a"],
+      ),
+    ).toEqual(["config-a", "config-b"]);
   });
 
   it("renders project config rows using persisted order", () => {
@@ -121,5 +142,54 @@ describe("ProjectConfigs", () => {
     expect(betaIndex).toBeGreaterThanOrEqual(0);
     expect(alphaIndex).toBeGreaterThanOrEqual(0);
     expect(betaIndex).toBeLessThan(alphaIndex);
+  });
+
+  it("ignores reorder callbacks in read-only mode", () => {
+    const configA = createProjectConfig({
+      id: "config-a",
+      name: "Config Alpha",
+    });
+    const configB = createProjectConfig({
+      id: "config-b",
+      name: "Config Beta",
+    });
+
+    useShareSession.setState({ isDeploymentMode: true });
+    useProjectState.setState((state) => {
+      state.projectConfig = configA;
+    });
+    useAllProjectMetadata.setState({
+      defaultProjectConfigId: configA.id,
+      projectMetadata: [configA, configB],
+    });
+    useLocalStorage.setState({
+      overviewProjectConfigOrder: [configA.id, configB.id],
+    });
+    syncStoreInitialState(useProjectState);
+    syncStoreInitialState(useAllProjectMetadata);
+    syncStoreInitialState(useLocalStorage);
+    syncStoreInitialState(useShareSession);
+
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <ProjectConfigs />
+      </MemoryRouter>,
+    );
+    expect(markup).toContain(
+      'data-testid="overview-project-config-drag-handle"',
+    );
+    expect(markup).toContain('class="text-transparent"');
+
+    if (!latestOnReorder) {
+      throw new Error(
+        "Sortable provider did not receive an onReorder handler.",
+      );
+    }
+    latestOnReorder([configB.id, configA.id]);
+
+    expect(useLocalStorage.getState().overviewProjectConfigOrder).toEqual([
+      configA.id,
+      configB.id,
+    ]);
   });
 });

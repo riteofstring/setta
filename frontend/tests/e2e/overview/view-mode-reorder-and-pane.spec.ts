@@ -157,6 +157,11 @@ test("tab drag reorder persists across reload", async ({ page }) => {
   await expect(tabAButton).toBeVisible();
   await expect(tabCButton).toBeVisible();
   await expect(tabCHandle).toBeVisible();
+  await expect(tabCHandle).toHaveAttribute(
+    "aria-label",
+    "Reorder view mode tab",
+  );
+  await expect(tabCHandle.locator("svg")).toBeVisible();
 
   const before = await readTabOrder(page);
   const beforeTabA = before.indexOf("Tab A");
@@ -425,6 +430,68 @@ test("clicking a project config drag handle does not open that config", async ({
   await secondaryHandle.click();
 
   await expect.poll(() => new URL(page.url()).pathname).toBe(initialPathname);
+  await expect
+    .poll(() => readOverviewProjectConfigOrderById(page))
+    .toEqual(beforeOrder);
+});
+
+test("project config reorder is disabled in read-only mode", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectConfigs",
+    overviewVis: true,
+  });
+  const context = await openIsolatedProject(page);
+  const secondaryConfig = await createProjectConfigAndResolveId(
+    page,
+    "bg-cyan-500/60",
+  );
+
+  await page.evaluate(async () => {
+    const { useShareSession } = await import("/src/state/definitions.ts");
+    useShareSession.setState({
+      isDeploymentMode: true,
+      sharePolicy: null,
+    });
+  });
+
+  const projectConfigRows = page.locator(OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR);
+  const hasRowsVisible = await projectConfigRows
+    .first()
+    .isVisible()
+    .catch(() => false);
+  if (!hasRowsVisible) {
+    await page.getByTestId("overview-tab-view-modes").click();
+  }
+
+  const editButton = page
+    .getByTestId("view-modes-project-configs-section")
+    .getByRole("button", { name: "Edit" });
+  await expect(editButton).toBeDisabled();
+
+  const primaryRow = page
+    .locator(
+      `${OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR}[data-project-config-id="${context.projectConfigId}"]`,
+    )
+    .first();
+  const secondaryRow = page
+    .locator(
+      `${OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR}[data-project-config-id="${secondaryConfig.id}"]`,
+    )
+    .first();
+  const secondaryHandle = secondaryRow
+    .getByTestId("overview-project-config-drag-handle")
+    .first();
+
+  await expect(primaryRow).toBeVisible();
+  await expect(secondaryRow).toBeVisible();
+  await expect(secondaryHandle).toBeVisible();
+  await expect(secondaryHandle).toHaveClass(/text-transparent/);
+  await expect(secondaryHandle).not.toHaveClass(/cursor-grab/);
+
+  const beforeOrder = await readOverviewProjectConfigOrderById(page);
+  await dragToTarget(page, secondaryHandle, primaryRow);
   await expect
     .poll(() => readOverviewProjectConfigOrderById(page))
     .toEqual(beforeOrder);

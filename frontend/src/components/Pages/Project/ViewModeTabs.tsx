@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { RxDragHandleDots2 } from "react-icons/rx";
 import { persistViewModeSortOrder } from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
@@ -167,10 +168,14 @@ function ViewModeTabButton({
           ref={sortable.setActivatorNodeRef}
           data-testid="view-mode-tab-drag-handle"
           className="inline-flex h-3.5 w-3.5 cursor-grab touch-none text-setta-400 active:cursor-grabbing dark:text-setta-500"
+          title="Reorder view mode tab"
+          aria-label="Reorder view mode tab"
           {...sortable.attributes}
           {...sortable.listeners}
           onClick={(event) => event.stopPropagation()}
-        />
+        >
+          <RxDragHandleDots2 className="h-3.5 w-3.5" />
+        </span>
       )}
       <span className="relative -top-px min-w-0 flex-1 truncate">{label}</span>
     </button>

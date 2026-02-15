@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { ensureAppReady } from "../helpers";
+import { ensureAppReady, seedLocalStorage } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const HOME_URL = new URL("/home", BASE_URL).toString();
@@ -180,4 +180,42 @@ test("home project items select on single click and open on double click", async
 
   await firstRow.dblclick();
   await expect(page).not.toHaveURL(HOME_URL);
+});
+
+test("home column widths persist across reload when viewport can fit stored widths", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 2200, height: 1200 });
+  await seedLocalStorage(page, {
+    homePageLeftColumnWidth: 520,
+    homePageRightColumnWidth: 540,
+  });
+
+  await ensureAppReady(page);
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  const leftPane = page.getByTestId("home-file-browser-column").first();
+  const rightPane = page.getByTestId("home-selected-project-details").first();
+  await expect(leftPane).toBeVisible();
+  await expect(rightPane).toBeVisible();
+
+  const leftBefore = await leftPane.boundingBox();
+  const rightBefore = await rightPane.boundingBox();
+  if (!leftBefore || !rightBefore) {
+    throw new Error("Missing initial pane geometry on Home page.");
+  }
+  expect(leftBefore.width).toBeGreaterThan(500);
+  expect(rightBefore.width).toBeGreaterThan(520);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  const leftAfter = await leftPane.boundingBox();
+  const rightAfter = await rightPane.boundingBox();
+  if (!leftAfter || !rightAfter) {
+    throw new Error("Missing post-reload pane geometry on Home page.");
+  }
+  expect(leftAfter.width).toBeGreaterThan(500);
+  expect(rightAfter.width).toBeGreaterThan(520);
+  expect(Math.abs(leftAfter.width - leftBefore.width)).toBeLessThan(10);
+  expect(Math.abs(rightAfter.width - rightBefore.width)).toBeLessThan(10);
 });

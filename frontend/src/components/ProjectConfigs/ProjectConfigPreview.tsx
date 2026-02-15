@@ -7,9 +7,7 @@ export function ProjectConfigPreview({
 }: {
   topLevelSections: ProjectConfig["topLevelSections"];
 }) {
-  const sectionLayouts = Array.isArray(topLevelSections)
-    ? topLevelSections
-    : Object.values(topLevelSections);
+  const sectionLayouts = Object.values(topLevelSections);
   const nodes = sectionLayouts.map((section) => ({
     position: { x: section.x, y: section.y },
     width: section.w,

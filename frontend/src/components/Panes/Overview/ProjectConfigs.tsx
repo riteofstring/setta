@@ -36,6 +36,19 @@ function areIdArraysEqual(left: string[], right: string[]) {
   return left.every((id, index) => id === right[index]);
 }
 
+function dedupeIds(ids: string[]): string[] {
+  const dedupedIds: string[] = [];
+  const seenIds = new Set<string>();
+  for (const id of ids) {
+    if (seenIds.has(id)) {
+      continue;
+    }
+    seenIds.add(id);
+    dedupedIds.push(id);
+  }
+  return dedupedIds;
+}
+
 export function mergeProjectConfigOrder(
   incomingIds: string[],
   persistedIds: string[],
@@ -47,7 +60,9 @@ export function mergeProjectConfigOrder(
     return incomingIds;
   }
   const incomingIdSet = new Set(incomingIds);
-  const retainedIds = persistedIds.filter((id) => incomingIdSet.has(id));
+  const retainedIds = dedupeIds(persistedIds).filter((id) =>
+    incomingIdSet.has(id),
+  );
   const retainedIdSet = new Set(retainedIds);
   const mergedIds = [...retainedIds];
   for (const id of incomingIds) {
@@ -124,8 +139,13 @@ export function ProjectConfigs() {
     }
     return reordered;
   }, [allProjectMetadata, orderedProjectConfigIds]);
+  const sortableEnabled =
+    canEditProjectConfigs && orderedProjectConfigs.length > 1;
 
   function handleReorder(nextOrderedIds: string[]) {
+    if (!canEditProjectConfigs) {
+      return;
+    }
     const normalizedIds = mergeProjectConfigOrder(incomingIds, nextOrderedIds);
     if (areIdArraysEqual(normalizedIds, orderedProjectConfigIds)) {
       return;
@@ -187,7 +207,7 @@ export function ProjectConfigs() {
                     currProjectConfigName={currProjectConfigName}
                     isDeploymentMode={isDeploymentMode}
                     previewEnabled={previewEnabled}
-                    sortableEnabled={orderedProjectConfigs.length > 1}
+                    sortableEnabled={sortableEnabled}
                     deletable={orderedProjectConfigs.length > 1}
                     canEditProjectConfigs={canEditProjectConfigs}
                   />
@@ -199,7 +219,7 @@ export function ProjectConfigs() {
                     currProjectConfigName={currProjectConfigName}
                     isDeploymentMode={isDeploymentMode}
                     previewEnabled={previewEnabled}
-                    sortableEnabled={orderedProjectConfigs.length > 1}
+                    sortableEnabled={sortableEnabled}
                   />
                 ),
               )}
@@ -286,8 +306,8 @@ function ProjectConfigRow({
         }
         {...(sortableEnabled ? sortable.attributes : {})}
         {...(sortableEnabled ? sortable.listeners : {})}
-        onPointerDown={stopDragPointerDown}
-        onClick={stopDragClick}
+        onPointerDown={sortableEnabled ? stopDragPointerDown : undefined}
+        onClick={sortableEnabled ? stopDragClick : undefined}
       >
         <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
       </span>
@@ -393,8 +413,8 @@ function ProjectConfigEditingRow({
         }
         {...(sortableEnabled ? sortable.attributes : {})}
         {...(sortableEnabled ? sortable.listeners : {})}
-        onPointerDown={stopDragPointerDown}
-        onClick={stopDragClick}
+        onPointerDown={sortableEnabled ? stopDragPointerDown : undefined}
+        onClick={sortableEnabled ? stopDragClick : undefined}
       >
         <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
       </span>

@@ -4,6 +4,19 @@ import {
   useLocalStorage,
 } from "state/definitions";
 
+function dedupeIds(ids: string[]): string[] {
+  const dedupedIds: string[] = [];
+  const seenIds = new Set<string>();
+  for (const id of ids) {
+    if (seenIds.has(id)) {
+      continue;
+    }
+    seenIds.add(id);
+    dedupedIds.push(id);
+  }
+  return dedupedIds;
+}
+
 export function setColorModePreference(colorMode: ColorModePreference) {
   useLocalStorage.setState((state) => ({
     colorMode,
@@ -58,5 +71,7 @@ export function toggleFavoriteProjectConfig(projectConfigId: string) {
 }
 
 export function setOverviewProjectConfigOrder(orderedIds: string[]) {
-  useLocalStorage.setState({ overviewProjectConfigOrder: orderedIds });
+  useLocalStorage.setState({
+    overviewProjectConfigOrder: dedupeIds(orderedIds),
+  });
 }

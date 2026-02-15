@@ -15,6 +15,7 @@ vi.mock("./ViewModeDnd", () => ({
     attributes: {},
     listeners: {},
     setNodeRef: () => {},
+    setActivatorNodeRef: () => {},
     style: {},
     isDragging: false,
   }),
@@ -201,5 +202,36 @@ describe("ViewModeTabs", () => {
     expect(secondIdx).toBeGreaterThan(-1);
     expect(firstIdx).toBeLessThan(thirdIdx);
     expect(thirdIdx).toBeLessThan(secondIdx);
+  });
+
+  it("renders a visible drag handle for tabbed view modes", () => {
+    const tabId = "view-1";
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      activeViewModeId: tabId,
+      viewModes: {
+        [tabId]: {
+          id: tabId,
+          name: "Tab View",
+          sortIndex: 0,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: {},
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: false,
+          topLevelSections: {},
+        },
+      },
+    });
+
+    useProjectState.setState((state) => {
+      state.projectConfig = projectConfig;
+    });
+    syncStoreInitialState(useProjectState);
+
+    const markup = renderToStaticMarkup(<ViewModeTabs />);
+    expect(markup).toContain('data-testid="view-mode-tab-drag-handle"');
+    expect(markup).toContain('aria-label="Reorder view mode tab"');
+    expect(markup).toContain("<svg");
   });
 });

@@ -60,6 +60,22 @@ function clampToBounds(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+export function getHomeMaxTotalSideWidth(desktopColumnsWidth: number): number {
+  return Math.max(
+    HOME_MIN_LEFT_COLUMN_WIDTH + HOME_MIN_RIGHT_COLUMN_WIDTH,
+    desktopColumnsWidth -
+      HOME_MIN_MIDDLE_COLUMN_WIDTH -
+      HOME_DESKTOP_TOTAL_GAP_WIDTH,
+  );
+}
+
+export function shouldClampHomeSideColumnWidths(
+  isDesktopLayout: boolean,
+  desktopColumnsWidth: number | null,
+): boolean {
+  return isDesktopLayout && desktopColumnsWidth !== null;
+}
+
 export function HomePage() {
   const { projectMetadata, defaultProjectConfigId } = useAllProjectMetadata(
     (x) => x,
@@ -336,26 +352,38 @@ function HomeWorkspaceLayout({
     await router_set_as_default_project({ projectConfigId });
   }
 
-  const maxTotalSideWidth = Math.max(
-    HOME_MIN_LEFT_COLUMN_WIDTH + HOME_MIN_RIGHT_COLUMN_WIDTH,
-    (desktopColumnsWidth ??
-      HOME_MAX_LEFT_COLUMN_WIDTH + HOME_MAX_RIGHT_COLUMN_WIDTH) -
-      HOME_MIN_MIDDLE_COLUMN_WIDTH -
-      HOME_DESKTOP_TOTAL_GAP_WIDTH,
-  );
-  const leftColumnMaxWidth = Math.min(
-    HOME_MAX_LEFT_COLUMN_WIDTH,
-    Math.max(HOME_MIN_LEFT_COLUMN_WIDTH, maxTotalSideWidth - rightColumnWidth),
-  );
-  const rightColumnMaxWidth = Math.min(
-    HOME_MAX_RIGHT_COLUMN_WIDTH,
-    Math.max(HOME_MIN_RIGHT_COLUMN_WIDTH, maxTotalSideWidth - leftColumnWidth),
-  );
+  const maxTotalSideWidth =
+    desktopColumnsWidth === null
+      ? null
+      : getHomeMaxTotalSideWidth(desktopColumnsWidth);
+  const leftColumnMaxWidth =
+    maxTotalSideWidth === null
+      ? HOME_MAX_LEFT_COLUMN_WIDTH
+      : Math.min(
+          HOME_MAX_LEFT_COLUMN_WIDTH,
+          Math.max(
+            HOME_MIN_LEFT_COLUMN_WIDTH,
+            maxTotalSideWidth - rightColumnWidth,
+          ),
+        );
+  const rightColumnMaxWidth =
+    maxTotalSideWidth === null
+      ? HOME_MAX_RIGHT_COLUMN_WIDTH
+      : Math.min(
+          HOME_MAX_RIGHT_COLUMN_WIDTH,
+          Math.max(
+            HOME_MIN_RIGHT_COLUMN_WIDTH,
+            maxTotalSideWidth - leftColumnWidth,
+          ),
+        );
 
   useEffect(() => {
-    if (!isDesktopLayout) {
+    if (
+      !shouldClampHomeSideColumnWidths(isDesktopLayout, desktopColumnsWidth)
+    ) {
       return;
     }
+    const nextMaxTotalSideWidth = getHomeMaxTotalSideWidth(desktopColumnsWidth);
     let nextLeftWidth = clampToBounds(
       leftColumnWidth,
       HOME_MIN_LEFT_COLUMN_WIDTH,
@@ -367,8 +395,9 @@ function HomeWorkspaceLayout({
       HOME_MAX_RIGHT_COLUMN_WIDTH,
     );
 
-    if (nextLeftWidth + nextRightWidth > maxTotalSideWidth) {
-      let overflowWidth = nextLeftWidth + nextRightWidth - maxTotalSideWidth;
+    if (nextLeftWidth + nextRightWidth > nextMaxTotalSideWidth) {
+      let overflowWidth =
+        nextLeftWidth + nextRightWidth - nextMaxTotalSideWidth;
       const rightShrinkCapacity = Math.max(
         0,
         nextRightWidth - HOME_MIN_RIGHT_COLUMN_WIDTH,
@@ -390,7 +419,7 @@ function HomeWorkspaceLayout({
     if (nextRightWidth !== rightColumnWidth) {
       setRightColumnWidth(nextRightWidth);
     }
-  }, [isDesktopLayout, leftColumnWidth, maxTotalSideWidth, rightColumnWidth]);
+  }, [desktopColumnsWidth, isDesktopLayout, leftColumnWidth, rightColumnWidth]);
 
   function updateLeftColumnWidth(rawWidth: number, persistWidth: boolean) {
     const nextWidth = clampToBounds(

@@ -38,5 +38,4 @@
 - Vitest file: `frontend/src/utils/viewModeOrdering.perf.test.ts`
 - Assertions exercised:
   - `sortViewModes` on 20,000 entries stays under 1800 ms.
-  - `reorderViewModeIdList` on 15,000 ids stays under 250 ms.
 - Result: pass.
