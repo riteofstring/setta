@@ -136,13 +136,13 @@ def read_app_gen_skill_content(
 
 
 @router.get(Route.GET_APP_GEN_SKILLS)
-async def route_get_app_gen_skills() -> list[AppGenSkillEntry]:
+def route_get_app_gen_skills() -> list[AppGenSkillEntry]:
     workspace_root = get_setta_paths().workspace_root
     return list_app_gen_skills(workspace_root)
 
 
 @router.post(Route.GET_APP_GEN_SKILL_CONTENT)
-async def route_get_app_gen_skill_content(
+def route_get_app_gen_skill_content(
     x: GetAppGenSkillContentRequest,
 ) -> AppGenSkillContent:
     workspace_root = get_setta_paths().workspace_root

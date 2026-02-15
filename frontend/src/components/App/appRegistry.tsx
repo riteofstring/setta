@@ -400,10 +400,6 @@ function Tabs({ element, children }: AppComponentProps) {
       .filter((tab) => tab.hasContent);
   }, [tabs]);
 
-  if (resolvedTabs.length === 0) {
-    return null;
-  }
-
   const [activeKey, setActiveKey] = React.useState(() => {
     if (defaultKey && resolvedTabs.some((tab) => tab.key === defaultKey)) {
       return defaultKey;
@@ -412,10 +408,18 @@ function Tabs({ element, children }: AppComponentProps) {
   });
 
   React.useEffect(() => {
-    if (!activeKey || !resolvedTabs.some((tab) => tab.key === activeKey)) {
-      setActiveKey(resolvedTabs[0]?.key ?? null);
+    if (activeKey && resolvedTabs.some((tab) => tab.key === activeKey)) {
+      return;
+    }
+    const fallbackKey = resolvedTabs[0]?.key ?? null;
+    if (activeKey !== fallbackKey) {
+      setActiveKey(fallbackKey);
     }
   }, [activeKey, resolvedTabs]);
+
+  if (resolvedTabs.length === 0) {
+    return null;
+  }
 
   return (
     <div className={`flex flex-col gap-4 ${className}`.trim()}>

@@ -1,3 +1,4 @@
+import inspect
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -12,6 +13,17 @@ from setta.routers.app_gen_extensions import (
 
 
 class TestAppGenExtensionsRoutes:
+    def test_route_handlers_are_sync_for_threadpool_fs_isolation(self) -> None:
+        # Route handlers do heavy filesystem scans/reads and should remain sync
+        # so FastAPI executes them off the event loop.
+        assert inspect.iscoroutinefunction(app_gen_extensions.route_get_app_gen_skills) is False
+        assert (
+            inspect.iscoroutinefunction(
+                app_gen_extensions.route_get_app_gen_skill_content
+            )
+            is False
+        )
+
     def test_lists_workspace_skills(self, monkeypatch: pytest.MonkeyPatch) -> None:
         with TemporaryDirectory() as tmpdir:
             workspace_root = Path(tmpdir)

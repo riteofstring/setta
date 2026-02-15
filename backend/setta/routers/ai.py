@@ -483,11 +483,15 @@ async def route_get_llm_response(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     resolved_mode = x.appGenerationMode
-    if resolved_mode == "json_render_with_image":
-        reference_image_url, reference_image_notes = _normalize_reference_image_inputs(
+    normalized_reference_image_url, normalized_reference_image_notes = (
+        _normalize_reference_image_inputs(
             reference_image_url=x.appGenerationReferenceImageUrl,
             reference_image_notes=x.appGenerationReferenceImageNotes,
         )
+    )
+    if resolved_mode == "json_render_with_image":
+        reference_image_url = normalized_reference_image_url
+        reference_image_notes = normalized_reference_image_notes
     else:
         reference_image_url, reference_image_notes = (None, None)
     app_generation_mode_prompt = _build_app_generation_mode_prompt(

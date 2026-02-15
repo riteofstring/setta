@@ -629,6 +629,82 @@ class TestAgentRunChatRoutes:
                 return
             assert "mode: mcp_server" in profile.systemPrompt
 
+    async def test_get_llm_response_rejects_oversized_reference_image_url_outside_image_mode(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=None,
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="build app")]
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=ID("project-1"),
+                            allowUnscoped=True,
+                            appGenerationMode="json_render",
+                            appGenerationReferenceImageUrl="x" * 4097,
+                        ),
+                        ctx,
+                    )
+            assert exc.value.status_code == 400
+            assert (
+                exc.value.detail
+                == "appGenerationReferenceImageUrl is too large. Reduce it or omit it."
+            )
+
+    async def test_get_llm_response_rejects_oversized_reference_image_notes_outside_image_mode(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_get_llm_response(
+                        GetLLMResponseRequest(
+                            chatId=None,
+                            message=UserChatMessage(
+                                content=[MessageTextContent(text="build app")]
+                            ),
+                            engineConfigId=engine_config_id,
+                            agentProfileId=None,
+                            thinking=False,
+                            projectConfigId=ID("project-1"),
+                            allowUnscoped=True,
+                            appGenerationMode="prompt_builder",
+                            appGenerationReferenceImageNotes="n" * 100_001,
+                        ),
+                        ctx,
+                    )
+            assert exc.value.status_code == 400
+            assert (
+                exc.value.detail
+                == "appGenerationReferenceImageNotes is too large. Reduce it or omit it."
+            )
+
     async def test_external_chat_id_rejects_missing_engine_metadata(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

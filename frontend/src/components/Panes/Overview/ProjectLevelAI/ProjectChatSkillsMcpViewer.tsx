@@ -201,12 +201,8 @@ export function ProjectChatSkillsMcpViewer() {
         return;
       }
       setSelectedSkillContent(res.data.content);
-      const payloadRecord = res.data as Record<string, unknown>;
-      setSelectedSkillContentTruncated(payloadRecord.truncated === true);
-      const originalSize = payloadRecord.originalSizeBytes;
-      setSelectedSkillOriginalSizeBytes(
-        typeof originalSize === "number" ? originalSize : null,
-      );
+      setSelectedSkillContentTruncated(res.data.truncated);
+      setSelectedSkillOriginalSizeBytes(res.data.originalSizeBytes);
     }
     void loadSkillContent();
   }, [selectedSkillId, skillsRevision]);

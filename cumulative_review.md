@@ -104,3 +104,22 @@ Test and verification coverage added/updated:
 - Added Playwright coverage for JSON-mode streaming-toggle visibility rules, stale reference-image non-leakage into Prompt Builder, and lazy markdown mount + truncation notice behavior in Skills/MCP viewer.
 - Re-ran targeted backend pytest suites, frontend Vitest suites, and Playwright overview suites; all passing.
 - CDP visual verification completed for App Config mode control visibility and Skills/MCP markdown viewer lazy-mount behavior.
+
+## 2026-02-17T03:27:46Z
+
+Status: Implemented
+
+Accepted findings fixed in this batch:
+- Fixed a React hook-order correctness bug in App `Tabs` by making hooks unconditional and handling empty-tab rendering after hook execution.
+- Moved filesystem-heavy app-gen extension route execution off the event loop by switching those handlers to synchronous FastAPI routes.
+- Hardened `/revealPathInOsFileExplorer` success semantics by checking command exit status and surfacing explicit backend errors on launch/exit failures.
+- Unified `/getLLMResponse` reference-image validation semantics with `streamAppSpec` by always normalizing/size-validating URL/notes, then applying them only in image mode.
+- Removed redundant typed-response compatibility fallback parsing in the Skills/MCP viewer and now rely directly on strict generated route types.
+
+Test and verification coverage added/updated:
+- Added backend regression coverage asserting app-gen extension handlers remain synchronous for threadpool filesystem isolation.
+- Updated backend reveal-path tests to cover checked subprocess behavior and explicit non-zero-exit error mapping.
+- Added backend `/getLLMResponse` route tests for oversized reference-image URL/notes rejection outside image mode.
+- Added Playwright coverage for App `Tabs` transitions between non-empty and empty definitions to guard against hook-order regressions.
+- Re-ran targeted backend pytest, frontend Vitest, and Playwright suites; all passing.
+- CDP visual verification completed for App Preview tab-state transitions and Skills/MCP viewer behavior.

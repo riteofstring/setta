@@ -133,4 +133,23 @@ def route_reveal_path_in_os_file_explorer(
             status_code=500,
             detail=f"File explorer command not available: {command[0]}",
         )
-    subprocess.Popen(command)
+    try:
+        result = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except OSError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to launch file explorer: {exc}",
+        ) from exc
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        if not detail:
+            detail = f"{command[0]} exited with status {result.returncode}."
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to reveal path in file explorer: {detail}",
+        )

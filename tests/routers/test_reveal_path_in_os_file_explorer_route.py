@@ -17,13 +17,27 @@ def _mock_reveal_command(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
     def fake_build_command(path: Path) -> list[str]:
         return ["mock-open", str(path)]
 
-    def fake_popen(command: list[str]):
+    def fake_run(
+        command: list[str],
+        *,
+        check: bool,
+        capture_output: bool,
+        text: bool,
+    ):
+        assert check is False
+        assert capture_output is True
+        assert text is True
         launched_commands.append(command)
-        return SimpleNamespace()
+        return SimpleNamespace(returncode=0, stderr="", stdout="")
 
-    monkeypatch.setattr("setta.routers.status._build_reveal_path_command", fake_build_command)
-    monkeypatch.setattr("setta.routers.status.shutil.which", lambda command: "/usr/bin/mock-open" if command == "mock-open" else None)
-    monkeypatch.setattr("setta.routers.status.subprocess.Popen", fake_popen)
+    monkeypatch.setattr(
+        "setta.routers.status._build_reveal_path_command", fake_build_command
+    )
+    monkeypatch.setattr(
+        "setta.routers.status.shutil.which",
+        lambda command: "/usr/bin/mock-open" if command == "mock-open" else None,
+    )
+    monkeypatch.setattr("setta.routers.status.subprocess.run", fake_run)
     return launched_commands
 
 
@@ -146,3 +160,56 @@ def test_reveal_path_outside_allowlist_returns_same_error_for_missing_path(
     assert response.status_code == 400
     assert response.json()["detail"] == "Path is outside allowed reveal roots."
     assert _mock_reveal_command == []
+
+
+def test_reveal_path_returns_error_when_explorer_command_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Non-zero command exits should surface an explicit backend error.
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("SETTA_WORKSPACE_ROOT", str(workspace_root))
+    clear_setta_paths_cache()
+
+    workspace_file = workspace_root / "docs" / "notes.txt"
+    workspace_file.parent.mkdir(parents=True, exist_ok=True)
+    workspace_file.write_text("workspace", encoding="utf-8")
+    launched_commands: list[list[str]] = []
+
+    def fake_build_command(path: Path) -> list[str]:
+        return ["mock-open", str(path)]
+
+    def fake_run(
+        command: list[str],
+        *,
+        check: bool,
+        capture_output: bool,
+        text: bool,
+    ):
+        assert check is False
+        assert capture_output is True
+        assert text is True
+        launched_commands.append(command)
+        return SimpleNamespace(returncode=7, stderr="No display found.", stdout="")
+
+    monkeypatch.setattr(
+        "setta.routers.status._build_reveal_path_command", fake_build_command
+    )
+    monkeypatch.setattr(
+        "setta.routers.status.shutil.which",
+        lambda command: "/usr/bin/mock-open" if command == "mock-open" else None,
+    )
+    monkeypatch.setattr("setta.routers.status.subprocess.run", fake_run)
+
+    with _build_client() as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.REVEAL_PATH_IN_OS_FILE_EXPLORER.value}",
+            json={"path": str(workspace_file)},
+        )
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == (
+        "Failed to reveal path in file explorer: No display found."
+    )
+    assert launched_commands == [["mock-open", str(workspace_file)]]
