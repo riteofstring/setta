@@ -1,7 +1,9 @@
+import { PaneAccordion } from "components/Panes/Common/PaneAccordion";
 import { ProjectLLMSettings } from "components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings";
 import {
   type ChangeEvent,
   type ReactNode,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -17,7 +19,12 @@ import {
   updateExternalAgentConfig,
   updatePromptTemplate,
 } from "state/actions/ai";
-import { useAIStore, useShareSession } from "state/definitions";
+import {
+  useAIStore,
+  useLocalStorage,
+  useProjectState,
+  useShareSession,
+} from "state/definitions";
 import {
   AgentProfile,
   ClaudeSettingsSourceEnum,
@@ -30,19 +37,26 @@ import {
   PromptTemplate,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
+import {
+  PROJECT_AI_SETTINGS_ACCORDION_DEFAULT_OPEN_VALUES,
+  type ProjectAISettingsAccordionItemValue,
+  normalizeProjectAISettingsAccordionOpenValues,
+} from "./projectAISettingsAccordionState";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
-
-type SectionCardProps = {
-  title: string;
-  description?: string;
-  children: ReactNode;
-};
 
 type FieldProps = {
   label: string;
   hint?: string;
   error?: string | null;
   children: ReactNode;
+};
+
+type ProjectAISettingsAccordionItem = {
+  value: ProjectAISettingsAccordionItemValue;
+  title: string;
+  description: string;
+  triggerTestId: string;
+  content: ReactNode;
 };
 
 type AgentProfileDraft = {
@@ -108,11 +122,19 @@ type ClaudeSettingsSourceValue =
   (typeof ClaudeSettingsSourceEnum)[keyof typeof ClaudeSettingsSourceEnum];
 
 const INPUT_CLASS_NAME =
-  "h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
+  "box-border h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
 const TEXTAREA_CLASS_NAME =
-  "min-h-[110px] w-full resize-y rounded-md border border-solid border-setta-200 bg-white/80 p-3 font-mono text-xs text-setta-800 placeholder-setta-300 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:placeholder-setta-600";
+  "box-border min-h-[110px] w-full resize-y rounded-md border border-solid border-setta-200 bg-white/80 p-3 font-mono text-xs text-setta-800 placeholder-setta-300 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:placeholder-setta-600";
 const SELECT_CLASS_NAME =
-  "h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
+  "box-border h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
+const MANAGER_LIST_CLASS_NAME =
+  "flex max-h-[360px] flex-col gap-1 overflow-x-hidden overflow-y-scroll rounded-md bg-setta-50/45 pl-2 pr-3 py-2 [scrollbar-gutter:stable] dark:bg-setta-900/40";
+const MANAGER_FORM_CLASS_NAME =
+  "flex min-h-0 flex-1 flex-col gap-4 rounded-md bg-white/45 p-4 dark:bg-setta-900/30";
+const PROJECT_AI_SETTINGS_TRIGGER_ENABLED_CLASSES =
+  "group box-border flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-setta-100/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/70 [&[data-state=open]_.project-ai-settings-accordion-chevron]:rotate-180";
+const PROJECT_AI_SETTINGS_TRIGGER_DISABLED_CLASSES =
+  "group box-border flex w-full cursor-not-allowed items-start justify-between gap-3 px-3 py-2 text-left text-setta-400 opacity-60 focus-visible:outline-none dark:text-setta-500";
 
 const DEFAULT_CLAUDE_ASK_RULES = [
   "Bash(rm:*)",
@@ -132,62 +154,115 @@ const DEFAULT_CLAUDE_ASK_RULES = [
 export function ProjectAISettings() {
   useHydrateAgenticState();
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const storedAccordionOpenValues = useLocalStorage(
+    (state) =>
+      state.projectAiSettingsAccordionOpenValuesByProjectConfigId[
+        projectConfigId
+      ] ?? null,
+  );
   const canEdit = !isDeploymentMode;
-
-  return (
-    <div className="flex h-full min-h-0 flex-col gap-6 overflow-y-auto pb-[15dvh] text-setta-700 dark:text-setta-300">
-      <SectionCard
-        title="LLM API Keys"
-        description="Manage API keys for built-in LLM engines."
-      >
-        {isDeploymentMode ? (
+  const resolvedAccordionOpenValues = useMemo(
+    () =>
+      normalizeProjectAISettingsAccordionOpenValues(
+        storedAccordionOpenValues ??
+          PROJECT_AI_SETTINGS_ACCORDION_DEFAULT_OPEN_VALUES,
+      ),
+    [storedAccordionOpenValues],
+  );
+  const handleAccordionOpenValuesChange = useCallback(
+    (nextOpenValues: Array<string>) => {
+      useLocalStorage.setState((state) => ({
+        projectAiSettingsAccordionOpenValuesByProjectConfigId: {
+          ...state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
+          [projectConfigId]:
+            normalizeProjectAISettingsAccordionOpenValues(nextOpenValues),
+        },
+      }));
+    },
+    [projectConfigId],
+  );
+  const accordionItems = useMemo<Array<ProjectAISettingsAccordionItem>>(
+    () => [
+      {
+        value: "project-ai-settings-llm-api-keys",
+        title: "LLM API Keys",
+        description: "Manage API keys for built-in LLM engines.",
+        triggerTestId: "project-ai-settings-accordion-llm-api-keys",
+        content: isDeploymentMode ? (
           <ShareModeNotice />
         ) : (
           <ProjectLLMSettings className="pb-2" />
-        )}
-      </SectionCard>
+        ),
+      },
+      {
+        value: "project-ai-settings-agent-profiles",
+        title: "Agent Profiles",
+        description: "Create reusable agent personas and tool allowlists.",
+        triggerTestId: "project-ai-settings-accordion-agent-profiles",
+        content: <AgentProfilesManager canEdit={canEdit} />,
+      },
+      {
+        value: "project-ai-settings-prompt-templates",
+        title: "Prompt Templates",
+        description: "Store reusable prompt assets for Prompt sections.",
+        triggerTestId: "project-ai-settings-accordion-prompt-templates",
+        content: <PromptTemplatesManager canEdit={canEdit} />,
+      },
+      {
+        value: "project-ai-settings-external-agents",
+        title: "External Agents",
+        description: "Configure Claude Code, Codex, or OpenCode adapters.",
+        triggerTestId: "project-ai-settings-accordion-external-agents",
+        content: <ExternalAgentConfigsManager canEdit={canEdit} />,
+      },
+    ],
+    [canEdit, isDeploymentMode],
+  );
 
-      <SectionCard
-        title="Agent Profiles"
-        description="Create reusable agent personas and tool allowlists."
-      >
-        <AgentProfilesManager canEdit={canEdit} />
-      </SectionCard>
-
-      <SectionCard
-        title="Prompt Templates"
-        description="Store reusable prompt assets for Prompt sections."
-      >
-        <PromptTemplatesManager canEdit={canEdit} />
-      </SectionCard>
-
-      <SectionCard
-        title="External Agents"
-        description="Configure Claude Code, Codex, or OpenCode adapters."
-      >
-        <ExternalAgentConfigsManager canEdit={canEdit} />
-      </SectionCard>
+  return (
+    <div
+      data-testid="project-ai-settings-scroll-region"
+      className="setta-pane-scroll h-full min-h-0 space-y-3 pb-[15dvh] text-setta-700 dark:text-setta-300"
+    >
+      <div className="px-1 text-[11px] text-setta-500 dark:text-setta-400">
+        Tune project-wide AI behavior. Non-essential sections start minimized.
+      </div>
+      <ProjectAISettingsAccordion
+        items={accordionItems}
+        openValues={resolvedAccordionOpenValues}
+        onOpenValuesChange={handleAccordionOpenValuesChange}
+      />
     </div>
   );
 }
 
-function SectionCard({ title, description, children }: SectionCardProps) {
+function ProjectAISettingsAccordion({
+  items,
+  openValues,
+  onOpenValuesChange,
+}: {
+  items: Array<ProjectAISettingsAccordionItem>;
+  openValues: Array<ProjectAISettingsAccordionItemValue>;
+  onOpenValuesChange: (nextOpenValues: Array<string>) => void;
+}) {
   return (
-    <section className="rounded-lg border border-setta-200/70 bg-white/70 p-4 shadow-sm dark:border-setta-800 dark:bg-setta-900/40">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-setta-800 dark:text-setta-100">
-            {title}
-          </h3>
-          {description ? (
-            <p className="mt-1 text-xs text-setta-500 dark:text-setta-400">
-              {description}
-            </p>
-          ) : null}
-        </div>
-      </div>
-      <div className="mt-4">{children}</div>
-    </section>
+    <PaneAccordion
+      items={items}
+      openValues={openValues}
+      onOpenValuesChange={onOpenValuesChange}
+      enabledTriggerClassName={PROJECT_AI_SETTINGS_TRIGGER_ENABLED_CLASSES}
+      disabledTriggerClassName={PROJECT_AI_SETTINGS_TRIGGER_DISABLED_CLASSES}
+      chevronClassName="project-ai-settings-accordion-chevron"
+      includeItemTestId={true}
+      includeContentTestId={true}
+      rootClassName="space-y-2"
+      itemClassName="overflow-hidden rounded-lg border border-setta-200/70 bg-white/70 dark:border-setta-800/70 dark:bg-setta-950/40"
+      contentClassName="border-t border-setta-200/70 px-3 py-2 dark:border-setta-800/70"
+      titleWrapperClassName="min-w-0 flex-1"
+      titleClassName="block truncate text-[11px] font-bold uppercase tracking-wide text-setta-600 dark:text-setta-200"
+      descriptionClassName="mt-0.5 block text-[11px] text-setta-500 dark:text-setta-400"
+    />
   );
 }
 
@@ -269,11 +344,9 @@ function AgentProfilesManager({ canEdit }: { canEdit: boolean }) {
     setDraft(buildAgentProfileDraft(activeProfile));
   }, [activeProfile, isCreating]);
 
-  const listClassName =
-    "flex max-h-[360px] flex-col gap-1 overflow-y-auto rounded-md border border-setta-200/60 p-2 dark:border-setta-800";
+  const listClassName = MANAGER_LIST_CLASS_NAME;
 
-  const formClassName =
-    "flex min-h-0 flex-1 flex-col gap-4 rounded-md border border-setta-200/60 p-3 dark:border-setta-800";
+  const formClassName = MANAGER_FORM_CLASS_NAME;
 
   const handleCreateClick = () => {
     if (!canEdit) {
@@ -640,11 +713,9 @@ function PromptTemplatesManager({ canEdit }: { canEdit: boolean }) {
     setMetadataError(null);
   }, [activeTemplate, isCreating]);
 
-  const listClassName =
-    "flex max-h-[360px] flex-col gap-1 overflow-y-auto rounded-md border border-setta-200/60 p-2 dark:border-setta-800";
+  const listClassName = MANAGER_LIST_CLASS_NAME;
 
-  const formClassName =
-    "flex min-h-0 flex-1 flex-col gap-4 rounded-md border border-setta-200/60 p-3 dark:border-setta-800";
+  const formClassName = MANAGER_FORM_CLASS_NAME;
 
   const handleCreateClick = () => {
     if (!canEdit) {
@@ -1030,11 +1101,9 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
     setOpencodeMcpError(null);
   }, [activeConfig, defaultToolType, isCreating]);
 
-  const listClassName =
-    "flex max-h-[360px] flex-col gap-1 overflow-y-auto rounded-md border border-setta-200/60 p-2 dark:border-setta-800";
+  const listClassName = MANAGER_LIST_CLASS_NAME;
 
-  const formClassName =
-    "flex min-h-0 flex-1 flex-col gap-4 rounded-md border border-setta-200/60 p-3 dark:border-setta-800";
+  const formClassName = MANAGER_FORM_CLASS_NAME;
 
   const handleCreateClick = () => {
     if (!canEdit) {
