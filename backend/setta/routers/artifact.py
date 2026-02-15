@@ -77,6 +77,7 @@ class GetFolderContentsRequest(BaseModel):
     includeMtime: bool = False
     includeSize: bool = False
     includeHidden: bool = False
+    includeSettaInitialized: bool = False
     ignorePatterns: list[str] | None = None
     maxEntries: int | None = Field(default=None, gt=0)
     missingFolderBehavior: Literal["error", "empty"] = "error"
@@ -98,6 +99,7 @@ class FolderContentItem(TypedDict):
     fullPath: str
     mtime: NotRequired[float]
     size: NotRequired[int]
+    isSettaInitialized: NotRequired[bool]
 
 
 class LoadCachedPathsRequest(BaseModel):
@@ -397,6 +399,7 @@ def route_get_folder_contents(
     include_hidden = x.includeHidden
     include_mtime = x.includeMtime
     include_size = x.includeSize
+    include_setta_initialized = x.includeSettaInitialized
 
     for item in path.iterdir():
         if _is_under_ignored_root(item, internal_ignore_roots):
@@ -422,6 +425,8 @@ def route_get_folder_contents(
                 entry["mtime"] = stat_result.st_mtime
             if include_size:
                 entry["size"] = stat_result.st_size
+        if include_setta_initialized and is_dir:
+            entry["isSettaInitialized"] = (item / "setta_files").is_dir()
         contents.append(entry)
         if len(contents) >= max_entries:
             break
