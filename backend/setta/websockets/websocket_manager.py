@@ -170,10 +170,7 @@ class WebsocketManager:
         for websocket_id, connection_info in sockets_snapshot:
             if (
                 (not connectionType and not currentAddress)
-                or (
-                    connectionType
-                    and connection_info.connectionType == connectionType
-                )
+                or (connectionType and connection_info.connectionType == connectionType)
                 or (currentAddress and connection_info.currentAddress == currentAddress)
             ):
                 target_ids.append(websocket_id)
@@ -198,10 +195,7 @@ class WebsocketManager:
                 continue
             if (
                 (not connectionType and not currentAddress)
-                or (
-                    connectionType
-                    and connection_info.connectionType == connectionType
-                )
+                or (connectionType and connection_info.connectionType == connectionType)
                 or (currentAddress and connection_info.currentAddress == currentAddress)
             ):
                 target_ids.append(websocket_id)
