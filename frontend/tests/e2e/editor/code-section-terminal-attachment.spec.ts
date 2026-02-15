@@ -317,15 +317,15 @@ test("attached terminal renders without header and resizes independently", async
       `section[data-section-id="${sectionId}"]`,
     );
     const codeHeader = codeSection.locator("header.section-title");
-    await expect(codeHeader.locator("[data-attached-terminal-toggle]")).toHaveCount(
-      1,
-    );
-    await expect(codeHeader.locator("[data-attached-terminal-trash]")).toHaveCount(
-      0,
-    );
-    await expect(terminalSection.locator("[data-attached-terminal-trash]")).toHaveCount(
-      1,
-    );
+    await expect(
+      codeHeader.locator("[data-attached-terminal-toggle]"),
+    ).toHaveCount(1);
+    await expect(
+      codeHeader.locator("[data-attached-terminal-trash]"),
+    ).toHaveCount(0);
+    await expect(
+      terminalSection.locator("[data-attached-terminal-trash]"),
+    ).toHaveCount(1);
     await expect(
       terminalSection.locator(".section-resize-handle-bottom"),
     ).toHaveCount(1);
@@ -555,7 +555,9 @@ test("resizing embedded terminal width also resizes the code section", async ({
     const finalCodeBox = finalBoxes[0];
     const finalTerminalBox = finalBoxes[1];
     if (!finalCodeBox || !finalTerminalBox) {
-      throw new Error("Missing final bounding boxes for embedded resize check.");
+      throw new Error(
+        "Missing final bounding boxes for embedded resize check.",
+      );
     }
     expect(finalCodeBox.width - initialCodeBox.width).toBeGreaterThan(60);
     expect(Math.abs(finalCodeBox.width - finalTerminalBox.width)).toBeLessThan(
@@ -593,7 +595,9 @@ test("embedded terminal trash deletes the attached terminal", async ({
     const terminalSection = codeNode.locator(
       `section[data-section-id="${terminalId}"]`,
     );
-    const trashButton = terminalSection.locator("[data-attached-terminal-trash]");
+    const trashButton = terminalSection.locator(
+      "[data-attached-terminal-trash]",
+    );
     await expect(toggleButton).toHaveCount(1);
     await expect(trashButton).toHaveCount(1);
 
@@ -842,10 +846,27 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
       `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     );
     await expect(terminalHost).toBeVisible();
-    const terminalContainer = terminalHost.locator(
-      "xpath=ancestor::section[1]",
-    );
-    await expect(terminalContainer).toBeVisible();
+    await expect(
+      terminalHost.locator("xpath=ancestor::section[1]"),
+    ).toBeVisible();
+
+    const embeddedTerminalContainer = page
+      .locator(
+        `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+      )
+      .locator("xpath=ancestor::section[1]");
+
+    const getEmbeddedTerminalBox = async (): Promise<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null> => {
+      if ((await embeddedTerminalContainer.count()) === 0) {
+        return null;
+      }
+      return await embeddedTerminalContainer.boundingBox();
+    };
 
     const pane = page.locator(".react-flow__pane");
     const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
@@ -858,11 +879,15 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
       await focusPaneForDnd(page);
 
       const paneBox = await pane.boundingBox();
-      const terminalBox = await terminalContainer.boundingBox();
       const codeBox = await codeNode.boundingBox();
 
-      if (!paneBox || !terminalBox || !codeBox) {
+      if (!paneBox || !codeBox) {
         throw new Error("Missing bounding boxes for drag.");
+      }
+      const terminalBox = await getEmbeddedTerminalBox();
+      if (!terminalBox) {
+        await page.waitForTimeout(250);
+        continue;
       }
 
       const { x: startX, y: startY } = getDragStartPoint(terminalBox);
@@ -1498,7 +1523,9 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
   }
 });
 
-test("attached terminal text reflows when width increases", async ({ page }) => {
+test("attached terminal text reflows when width increases", async ({
+  page,
+}) => {
   test.setTimeout(process.env.CI ? 120000 : 90000);
   await addTerminalOutputInstrumentation(page);
   await addTerminalResizeInstrumentation(page);
@@ -1651,7 +1678,9 @@ test("attached terminal text reflows when width increases", async ({ page }) => 
   }
 });
 
-test("detached terminal text reflows when width increases", async ({ page }) => {
+test("detached terminal text reflows when width increases", async ({
+  page,
+}) => {
   test.setTimeout(process.env.CI ? 120000 : 90000);
   await addTerminalOutputInstrumentation(page);
   await addTerminalResizeInstrumentation(page);
@@ -1846,7 +1875,9 @@ test("terminal created as attached reflows while attached and after detach", asy
 
   try {
     const codeSectionId = await createCodeSection(page);
-    const codeNode = page.locator(`.react-flow__node[data-id="${codeSectionId}"]`);
+    const codeNode = page.locator(
+      `.react-flow__node[data-id="${codeSectionId}"]`,
+    );
     const toggleButton = codeNode.locator("[data-attached-terminal-toggle]");
     await expect(toggleButton).toHaveCount(1);
     await toggleButton.click({ force: true });

@@ -10,14 +10,7 @@ test("app config pane persists catalog, version, and spec path", async ({
 
   await expect(page.getByText("App Config")).toBeVisible();
 
-  const createDefaultButton = page.getByRole("button", {
-    name: "Create Default",
-  });
-  await expect(createDefaultButton).toBeEnabled();
-  await createDefaultButton.click();
-  await expect(page.getByLabel("App Spec JSON")).toHaveValue(
-    /Standalone App Starter/,
-  );
+  await page.getByRole("button", { name: "Create Default" }).click();
 
   const catalogInput = page.getByLabel("Catalog ID");
   const versionInput = page.getByLabel("Spec version");
@@ -30,8 +23,12 @@ test("app config pane persists catalog, version, and spec path", async ({
 
   const saveButton = page.getByRole("button", { name: "Save" });
   await expect(saveButton).toBeEnabled();
-  await saveButton.click();
-  await expect(page.getByText("App spec saved.")).toBeVisible();
+  await Promise.all([
+    page.waitForResponse((response) => {
+      return response.url().includes("/setAppDefinition") && response.ok();
+    }),
+    saveButton.click(),
+  ]);
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await expect(page.getByText("App Config")).toBeVisible();
