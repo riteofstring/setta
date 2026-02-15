@@ -28,10 +28,10 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
           description: "Create dense dashboard layouts.",
         },
         {
-          skillId: "user_codex_skills::frontend-design",
+          skillId: "user_claude_skills::frontend-design",
           name: "frontend-design",
-          rootLabel: "User ~/.codex/skills",
-          rootPath: "/home/.codex/skills",
+          rootLabel: "User ~/.claude/skills",
+          rootPath: "/home/.claude/skills",
           relativePath: "frontend-design",
           description: "Create polished frontend interfaces.",
         },
@@ -84,7 +84,7 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
 
   await expect(page.getByText(/^Skills$/)).toBeVisible();
   await expect(page.getByText("/workspace/.agents/skills")).toBeVisible();
-  await expect(page.getByText("/home/.codex/skills")).toBeVisible();
+  await expect(page.getByText("/home/.claude/skills")).toBeVisible();
   await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
   await expect(
     page.getByRole("button", { name: /frontend-design/i }),

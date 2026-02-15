@@ -37,10 +37,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("groups filtered skills by root path", () => {
     const rows = [
       {
-        skillId: "user_codex_skills::frontend-design",
+        skillId: "user_claude_skills::frontend-design",
         name: "frontend-design",
-        rootLabel: "User ~/.codex/skills",
-        rootPath: "/home/.codex/skills",
+        rootLabel: "User ~/.claude/skills",
+        rootPath: "/home/.claude/skills",
         relativePath: "frontend-design",
         description: "Create polished frontend interfaces.",
       },
@@ -53,10 +53,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         description: "Project-local CLI helpers.",
       },
       {
-        skillId: "user_codex_skills::.system/skill-installer",
+        skillId: "user_claude_skills::.system/skill-installer",
         name: "skill-installer",
-        rootLabel: "User ~/.codex/skills",
-        rootPath: "/home/.codex/skills",
+        rootLabel: "User ~/.claude/skills",
+        rootPath: "/home/.claude/skills",
         relativePath: ".system/skill-installer",
         description: "Install curated skills.",
       },
@@ -64,10 +64,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
 
     const groups = groupSkillsByRootPath(rows);
     expect(groups).toHaveLength(2);
-    expect(groups[0]?.rootPath).toBe("/home/.codex/skills");
+    expect(groups[0]?.rootPath).toBe("/home/.claude/skills");
     expect(groups[0]?.skills.map((skill) => skill.skillId)).toEqual([
-      "user_codex_skills::.system/skill-installer",
-      "user_codex_skills::frontend-design",
+      "user_claude_skills::.system/skill-installer",
+      "user_claude_skills::frontend-design",
     ]);
     expect(groups[1]?.rootPath).toBe("/workspace/.agents/skills");
   });

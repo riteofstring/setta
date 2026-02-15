@@ -13,13 +13,13 @@ function makeRows(size: number) {
       index % 3 === 0
         ? "Workspace .agents/skills"
         : index % 3 === 1
-          ? "User ~/.codex/skills"
+          ? "User ~/.claude/skills"
           : "User ~/.agents/skills",
     rootPath:
       index % 3 === 0
         ? "/workspace/.agents/skills"
         : index % 3 === 1
-          ? "/home/.codex/skills"
+          ? "/home/.claude/skills"
           : "/home/.agents/skills",
     relativePath: `skill-${index}`,
     description: `Skill description ${index}`,
