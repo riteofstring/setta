@@ -56,6 +56,15 @@ async function setBrowserPath({
     .toContain(normalizedTarget);
 }
 
+async function ensureCarouselView(sectionNode: Locator): Promise<void> {
+  const carouselButton = sectionNode.locator('button[aria-label="Carousel view"]');
+  await expect(carouselButton).toBeVisible();
+  await carouselButton.click();
+  await expect(
+    sectionNode.locator(".setta-media-carousel-thumbnail-row").first(),
+  ).toBeVisible();
+}
+
 test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
   page,
 }) => {
@@ -124,25 +133,25 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
         `.react-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
-      await sectionNode.locator('button[aria-label="Carousel view"]').click();
+      await ensureCarouselView(sectionNode);
       await setBrowserPath({
         page,
         sectionNode,
         sectionId,
         targetPath: parentDir,
       });
-
-      const resizeHandle = sectionNode.getByRole("separator", {
-        name: "Resize thumbnail strip",
-      });
-      await expect(resizeHandle).toBeVisible();
-      const thumbnailRow = resizeHandle
-        .locator("xpath=following-sibling::article")
+      const thumbnailRow = sectionNode
+        .locator(".setta-media-carousel-thumbnail-row")
         .first();
-      await expect(thumbnailRow).toBeVisible();
-      await expect(thumbnailRow.locator("button")).toHaveCount(2, {
+      await expect(
+        thumbnailRow.locator("button[data-media-carousel-item-id]"),
+      ).toHaveCount(2, {
         timeout: 15000,
       });
+      const resizeHandle = sectionNode.locator(
+        '[role="separator"][aria-label="Resize thumbnail strip"]',
+      );
+      await expect(resizeHandle).toBeVisible({ timeout: 15000 });
 
       await thumbnailRow.locator("button", { hasText: "sheet.csv" }).click();
       const gridScroll = sectionNode.getByTestId("spreadsheet-grid-scroll");

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import {
   cleanupIsolatedProject,
+  ensureManagedChatEngine,
   ensureAppReady,
   openIsolatedProject,
   setOverviewTab,
@@ -13,6 +14,7 @@ test("project ai design-first starter button prefills the first prompt draft", a
   await setOverviewTab(page, "ProjectAIChat");
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
+  const restoreManagedEngine = await ensureManagedChatEngine(page);
 
   try {
     await page.reload();
@@ -27,6 +29,7 @@ test("project ai design-first starter button prefills the first prompt draft", a
       name: "Create Project UI (Design First)",
     });
     await expect(starterButton).toBeVisible();
+    await expect(starterButton).toBeEnabled();
 
     // Clicking the starter control should inject the design-first scaffold
     // directly into the chat composer for immediate refinement.
@@ -45,6 +48,7 @@ test("project ai design-first starter button prefills the first prompt draft", a
     await starterButton.click();
     await expect(input).toHaveValue("custom draft");
   } finally {
+    await restoreManagedEngine();
     await cleanupIsolatedProject(page, projectContext);
   }
 });

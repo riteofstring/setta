@@ -342,17 +342,15 @@ async function cleanupIsolatedProject(
   if (!context) {
     return;
   }
-  if (
-    context.defaultProjectConfigId &&
-    context.defaultProjectConfigId !== context.projectConfigId
-  ) {
-    await postBackend(page, "/setAsDefaultProject", {
-      projectConfigId: context.defaultProjectConfigId,
+  // Cleanup is best-effort; each test run uses an isolated workspace.
+  try {
+    await page.request.post(`${BACKEND_ORIGIN}/api/deleteProjectConfigs`, {
+      data: { ids: [context.projectConfigId] },
+      timeout: 5000,
     });
+  } catch {
+    // Ignore cleanup failures to avoid masking assertion outcomes.
   }
-  await postBackend(page, "/deleteProjectConfigs", {
-    ids: [context.projectConfigId],
-  });
 }
 
 async function resolveUniqueSectionName(

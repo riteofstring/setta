@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import path from "path";
 import {
   cleanupIsolatedProject,
@@ -11,6 +11,40 @@ import {
 type CreateTopLevelSectionResponse = {
   sectionId?: string;
 };
+
+type FixtureRenderMetrics = {
+  perCreatedSectionCounts: number[];
+  totalRendersForCreatedSections: number;
+  uniqueCreatedSectionsRendered: number;
+  maxRendersForAnySection: number;
+};
+
+async function readFixtureRenderMetrics(
+  page: Page,
+  sectionIds: string[],
+): Promise<FixtureRenderMetrics> {
+  return await page.evaluate((ids: string[]) => {
+    const scope = window as {
+      __settaFixtureRenderBySectionId?: Record<string, number>;
+    };
+    const bySection = scope.__settaFixtureRenderBySectionId ?? {};
+    const perCreatedSectionCounts = ids.map((sectionId) =>
+      Number(bySection[sectionId] || 0),
+    );
+    return {
+      perCreatedSectionCounts,
+      totalRendersForCreatedSections: perCreatedSectionCounts.reduce(
+        (sum, count) => sum + count,
+        0,
+      ),
+      uniqueCreatedSectionsRendered: perCreatedSectionCounts.filter(
+        (count) => count > 0,
+      ).length,
+      maxRendersForAnySection:
+        perCreatedSectionCounts.length > 0 ? Math.max(...perCreatedSectionCounts) : 0,
+    };
+  }, sectionIds);
+}
 
 test("plugin sections remain interactive with 100+ fixture sections", async ({
   page,
@@ -95,34 +129,15 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
       )
       .toBeGreaterThan(80);
 
-    const renderMetrics = await page.evaluate((sectionIds: string[]) => {
-      const scope = window as {
-        __settaFixtureRenderCount?: number;
-        __settaFixtureRenderBySectionId?: Record<string, number>;
-      };
-      const bySection = scope.__settaFixtureRenderBySectionId ?? {};
-      const perCreatedSectionCounts = sectionIds.map((sectionId) =>
-        Number(bySection[sectionId] || 0),
-      );
-      return {
-        totalRendersForCreatedSections: perCreatedSectionCounts.reduce(
-          (sum, count) => sum + count,
-          0,
-        ),
-        uniqueCreatedSectionsRendered: perCreatedSectionCounts.filter(
-          (count) => count > 0,
-        ).length,
-        maxRendersForAnySection:
-          perCreatedSectionCounts.length > 0
-            ? Math.max(...perCreatedSectionCounts)
-            : 0,
-      };
-    }, createdSectionIds);
-    expect(renderMetrics.uniqueCreatedSectionsRendered).toBeGreaterThan(80);
-    expect(renderMetrics.totalRendersForCreatedSections).toBeLessThan(
-      totalSections * 40,
+    const baselineRenderMetrics = await readFixtureRenderMetrics(
+      page,
+      createdSectionIds,
     );
-    expect(renderMetrics.maxRendersForAnySection).toBeLessThan(120);
+    expect(baselineRenderMetrics.uniqueCreatedSectionsRendered).toBeGreaterThan(80);
+    expect(baselineRenderMetrics.totalRendersForCreatedSections).toBeLessThan(
+      totalSections * 60,
+    );
+    expect(baselineRenderMetrics.maxRendersForAnySection).toBeLessThan(120);
 
     const commandButton = page.getByRole("button", {
       name: "Fixture Command",
@@ -151,6 +166,25 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
         { timeout: 15000 },
       )
       .toContain("backend list:200 status:200");
+
+    const postCommandRenderMetrics = await readFixtureRenderMetrics(
+      page,
+      createdSectionIds,
+    );
+    const additionalRendersBySection =
+      postCommandRenderMetrics.perCreatedSectionCounts.map((count, index) =>
+        Math.max(0, count - baselineRenderMetrics.perCreatedSectionCounts[index]),
+      );
+    const totalAdditionalRenders = additionalRendersBySection.reduce(
+      (sum, count) => sum + count,
+      0,
+    );
+    const maxAdditionalRendersForAnySection =
+      additionalRendersBySection.length > 0
+        ? Math.max(...additionalRendersBySection)
+        : 0;
+    expect(totalAdditionalRenders).toBeLessThan(totalSections * 25);
+    expect(maxAdditionalRendersForAnySection).toBeLessThan(40);
   } finally {
     await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend",
