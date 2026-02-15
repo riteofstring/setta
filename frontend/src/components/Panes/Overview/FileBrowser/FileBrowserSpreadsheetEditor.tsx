@@ -11,7 +11,6 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiColumns,
-  FiFilter,
   FiPlus,
   FiRefreshCw,
   FiSave,
@@ -37,6 +36,8 @@ export const SPREADSHEET_HEADER_HEIGHT = 24;
 export const SPREADSHEET_ROW_HEIGHT = 22;
 export const SPREADSHEET_INDEX_COLUMN_WIDTH = 36;
 export const SPREADSHEET_DATA_COLUMN_WIDTH = 88;
+export const SPREADSHEET_FILTER_INPUT_CLASS_NAME =
+  "min-w-0 flex-1 cursor-text border-solid border-transparent bg-transparent py-1 pl-6 pr-2 text-xs text-setta-700 placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300 dark:placeholder-setta-600";
 const SPREADSHEET_COMFORTABLE_HEADER_HEIGHT = 28;
 const SPREADSHEET_COMFORTABLE_ROW_HEIGHT = 26;
 const SPREADSHEET_COMFORTABLE_INDEX_COLUMN_WIDTH = 44;
@@ -962,17 +963,18 @@ export function FileBrowserSpreadsheetEditor({
             </p>
             {sheet ? (
               <div className="flex min-w-0 flex-1 items-center gap-2">
-                <div className="inline-flex shrink-0 items-center gap-1 text-[11px] text-setta-500 dark:text-setta-400">
-                  <FiFilter size={12} />
-                  Filter
-                </div>
-                <input
-                  data-testid="spreadsheet-filter-input"
-                  value={filterQuery}
-                  onChange={(event) => setFilterQuery(event.target.value)}
-                  className="min-w-0 max-w-[220px] flex-1 rounded border border-setta-300 bg-white px-2 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-                  placeholder="Filter rows"
-                />
+                <search
+                  className={`${NO_PAN_CLASS_NAME} nodrag relative flex min-w-0 max-w-[240px] flex-1 items-center`}
+                >
+                  <i className="gg-sort-az absolute left-1.5 text-setta-300 dark:text-setta-600" />
+                  <input
+                    data-testid="spreadsheet-filter-input"
+                    value={filterQuery}
+                    onChange={(event) => setFilterQuery(event.target.value)}
+                    className={SPREADSHEET_FILTER_INPUT_CLASS_NAME}
+                    placeholder="Filter rows"
+                  />
+                </search>
                 <label className="shrink-0 text-[11px] text-setta-500 dark:text-setta-400">
                   Sort
                   <select

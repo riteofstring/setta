@@ -7,6 +7,7 @@ import {
   getSpreadsheetGridTemplateColumns,
   getSpreadsheetGridWidth,
   SPREADSHEET_DATA_COLUMN_WIDTH,
+  SPREADSHEET_FILTER_INPUT_CLASS_NAME,
   SPREADSHEET_HEADER_HEIGHT,
   SPREADSHEET_INDEX_COLUMN_WIDTH,
   SPREADSHEET_ROW_HEIGHT,
@@ -58,6 +59,18 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
     expect(light.bgHeaderHasFocus).toBe("#c5d0e4");
     expect(dark.bgHeader).toBe("#1f2737");
     expect(dark.bgHeaderHasFocus).toBe("#26314a");
+  });
+
+  it("keeps spreadsheet filter styling aligned with browser/callable search", () => {
+    expect(SPREADSHEET_FILTER_INPUT_CLASS_NAME).toContain(
+      "[border-width:0_0_1px_0]",
+    );
+    expect(SPREADSHEET_FILTER_INPUT_CLASS_NAME).toContain(
+      "placeholder-setta-400",
+    );
+    expect(SPREADSHEET_FILTER_INPUT_CLASS_NAME).toContain(
+      "dark:placeholder-setta-600",
+    );
   });
 
   it("renders cells with box-border and overflow guards to prevent bleed", () => {
