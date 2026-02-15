@@ -234,7 +234,7 @@ PY
       "backend-external-agent"
       "backend-codegen"
     )
-    local plugins_root="${SETTA_WORKSPACE_ROOT}/plugins"
+    local plugins_root="${SETTA_WORKSPACE_ROOT}/.setta_plugins"
     mkdir -p "${plugins_root}"
     for fixture_name in "${fixtures[@]}"; do
       local fixture_root="${ROOT_DIR}/tests/fixtures/plugins/${fixture_name}"

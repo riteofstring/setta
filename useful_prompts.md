@@ -26,3 +26,6 @@ Merge <> into main. In the commit message, include a detailed summary of what th
 
 
 Read all the top-level review*.md docs. Present me the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes. Exclude fixes that involve adding backward compatibility.
+
+
+I ran a bunch of tests, I think there are some errors. See tests.log. Can you fix the errors?

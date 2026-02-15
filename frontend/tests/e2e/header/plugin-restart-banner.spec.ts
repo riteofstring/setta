@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import path from "path";
 import {
+  allowExpectedApiError,
   cleanupIsolatedProject,
   openIsolatedProject,
   postBackend,
@@ -264,6 +265,12 @@ test("header plugin restart banner handles rejected and failed restart requests"
       page.getByText("Manual restart required: setta --restart"),
     ).toBeVisible();
 
+    allowExpectedApiError(page, {
+      path: "/api/plugins/restart",
+      statuses: [500],
+      method: "POST",
+      count: 1,
+    });
     await restartButton.click();
     await expect.poll(() => restartRequestCount).toBe(2);
     await expect(page.getByText("Restart request failed.")).toBeVisible();

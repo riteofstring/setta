@@ -3,6 +3,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import {
+  allowExpectedApiError,
   cleanupIsolatedProject,
   getViewportBoundsForPlacement,
   openIsolatedProject,
@@ -1123,6 +1124,12 @@ test("plugins pane shows restart rejection and request-failure messaging", async
     ),
   ).toBeVisible();
 
+  allowExpectedApiError(page, {
+    path: "/api/plugins/restart",
+    statuses: [500],
+    method: "POST",
+    count: 1,
+  });
   await restartButton.click();
   await expect.poll(() => restartRequestCount).toBe(2);
   await expect(
@@ -1247,6 +1254,12 @@ test("plugins pane lifecycle action failures surface structured endpoint errors"
     .first();
   await expect(pluginCard).toBeVisible();
 
+  allowExpectedApiError(page, {
+    path: "/api/plugins/update",
+    statuses: [400],
+    method: "POST",
+    count: 1,
+  });
   await pluginCard.getByRole("button", { name: "Update", exact: true }).click();
   await expect(
     page
