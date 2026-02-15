@@ -1,9 +1,0 @@
-{
-  "schemaVersion": 1,
-  "name": "Full Fixture Template",
-  "description": "Project template payload used by plugin manager tests.",
-  "project": {
-    "projectConfigById": {},
-    "defaultProjectConfigId": null
-  }
-}

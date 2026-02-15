@@ -6,8 +6,19 @@ import {
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { createProjectConfig } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewModeTabs } from "./ViewModeTabs";
+
+vi.mock("./ViewModeDnd", () => ({
+  ViewModeSortableProvider: ({ children }: { children: unknown }) => children,
+  useViewModeSortableItem: () => ({
+    attributes: {},
+    listeners: {},
+    setNodeRef: () => {},
+    style: {},
+    isDragging: false,
+  }),
+}));
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;

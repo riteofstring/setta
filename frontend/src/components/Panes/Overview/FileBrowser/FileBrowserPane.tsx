@@ -74,6 +74,7 @@ export type FileNode = {
   type: NodeKind;
   parentPath: string | null;
   mtime?: number | null;
+  isSettaInitialized?: boolean;
 };
 
 type FlattenedNode = FileNode & {
@@ -258,6 +259,7 @@ type FileBrowserPaneProps = {
   onSelectionChange?: (node: FileNode | null) => void;
   useFileBrowserStateHook?: typeof useFileBrowserState;
   showFilter?: boolean;
+  includeSettaInitializedFolders?: boolean;
   metaPaddingClassName?: string;
   listInsetLeft?: number;
   columnWidthConfig?: {
@@ -272,6 +274,7 @@ export function FileBrowserPane({
   onSelectionChange,
   useFileBrowserStateHook,
   showFilter = true,
+  includeSettaInitializedFolders = false,
   metaPaddingClassName,
   listInsetLeft = 0,
   columnWidthConfig,
@@ -401,6 +404,7 @@ export function FileBrowserPane({
         ignorePatterns: activeIgnorePatterns,
         maxEntries: MAX_ENTRIES,
         includeMtime: true,
+        includeSettaInitialized: includeSettaInitializedFolders,
         missingFolderBehavior: "empty",
       });
       if (rootRequestIdRef.current !== activeRootRequestId) {
@@ -418,6 +422,7 @@ export function FileBrowserPane({
           type: item.type,
           parentPath: folderPath,
           mtime: item.mtime ?? null,
+          isSettaInitialized: item.isSettaInitialized ?? false,
         }));
         const childPaths = loadedNodes.map((node) => node.fullPath);
         setNodesByPath((prev) => {
@@ -459,7 +464,7 @@ export function FileBrowserPane({
       });
       return loadedNodes;
     },
-    [ignorePatterns],
+    [ignorePatterns, includeSettaInitializedFolders],
   );
 
   const applyRootPath = useCallback(
@@ -969,7 +974,7 @@ export function FileBrowserPane({
         onKeyDown={handleKeyDown}
       >
         <div
-          className="group grid h-7 items-center border-b border-setta-100/80 bg-setta-50/70 px-2 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800/80 dark:bg-setta-900/40 dark:text-setta-400"
+          className="group box-border grid h-7 items-center border-b border-setta-100/80 bg-setta-50/70 px-2 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800/80 dark:bg-setta-900/40 dark:text-setta-400"
           style={{
             gridTemplateColumns,
           }}
@@ -1038,13 +1043,13 @@ export function FileBrowserPane({
             </button>
           </div>
         </div>
-        <div className="h-full w-full">
+        <div className="h-full w-full overflow-x-hidden">
           <List
             listRef={listRef}
             rowComponent={FileBrowserRow}
             rowCount={displayedItems.length}
             rowHeight={ROW_HEIGHT}
-            className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag`}
+            className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag overflow-x-hidden`}
             onRowsRendered={(visibleRows) => {
               if (displayedItems.length === 0) {
                 return;
@@ -1164,12 +1169,14 @@ function FileBrowserRow({
   return (
     <button
       type="button"
+      data-testid="file-browser-row"
+      data-path={item.fullPath}
       style={{
         ...style,
         display: "grid",
         gridTemplateColumns: `minmax(${FILE_BROWSER_FILE_COLUMN_MIN_WIDTH}px, min(${columnWidth}, calc(100% - ${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px))) minmax(${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px, 1fr)`,
       }}
-      className={`cursor-pointer items-center gap-2 pr-2 text-left text-xs ${rowClasses}`}
+      className={`box-border cursor-pointer items-center gap-2 pr-2 text-left text-xs ${rowClasses}`}
       {...(tooltipHandlers ?? {})}
       onMouseDown={(event) => {
         event.stopPropagation();
@@ -1233,6 +1240,14 @@ function FileBrowserRow({
         >
           {item.name}
         </span>
+        {isFolder && item.isSettaInitialized === true && (
+          <span
+            data-testid="setta-initialized-badge"
+            className="rounded-full border border-blue-200 bg-blue-50 px-1.5 py-[1px] text-[9px] font-semibold uppercase tracking-[0.08em] text-blue-700 dark:border-blue-900/80 dark:bg-blue-950/40 dark:text-blue-200"
+          >
+            Setta
+          </span>
+        )}
         {isLoading && (
           <span className="h-3 w-3 animate-spin rounded-full border border-setta-300 border-t-transparent" />
         )}
