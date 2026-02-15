@@ -6,7 +6,11 @@ import {
 } from "state/actions/sectionInfos";
 import { goToSection } from "state/actions/sections/sectionPositions";
 import { useProjectState } from "state/definitions";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import {
+  ListRootViewMode,
+  ListRootViewModeEnum,
+  SectionTypeEnum,
+} from "utils/generatedTypes";
 import { SortableSectionContainer } from "./SortableSectionContainer";
 import { useHasTempNested } from "./utils";
 
@@ -43,6 +47,25 @@ function ManyNestedSections({
   layoutVariant: "default" | "tight";
 }) {
   const tempChildIds = useDndChildren((x) => x.x[sectionId] ?? []);
+  const { isHorizontalOrientation, listRootViewMode } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImpl(x, sectionId);
+    if (impl.type === SectionTypeEnum.Group) {
+      return {
+        isHorizontalOrientation: impl.isHorizontalOrientation,
+        listRootViewMode: null,
+      };
+    }
+    if (impl.type === SectionTypeEnum.ListRoot) {
+      return {
+        isHorizontalOrientation: impl.viewMode === ListRootViewModeEnum.kanban,
+        listRootViewMode: impl.viewMode,
+      };
+    }
+    return {
+      isHorizontalOrientation: false,
+      listRootViewMode: null,
+    };
+  });
   const hiddenAttachedTerminalId = useProjectState((x) => {
     const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
       x,
@@ -67,6 +90,8 @@ function ManyNestedSections({
           childIds={childIds}
           sectionId={sectionId}
           isGroup={isGroup}
+          isHorizontalOrientation={isHorizontalOrientation}
+          listRootViewMode={listRootViewMode}
         />
       )}
     </DNDSortable>
@@ -87,29 +112,58 @@ function NestedSectionsTight({ childIds }: { childIds: string[] }) {
   );
 }
 
-function NestedSectionsWithMargin({ childIds, sectionId, isGroup }) {
+function NestedSectionsWithMargin({
+  childIds,
+  sectionId,
+  isGroup,
+  isHorizontalOrientation,
+  listRootViewMode,
+}: {
+  childIds: string[];
+  sectionId: string;
+  isGroup: boolean;
+  isHorizontalOrientation: boolean;
+  listRootViewMode: ListRootViewMode | null;
+}) {
   const onClick = () => {
     goToSection(sectionId);
   };
+  const isKanbanView = listRootViewMode === ListRootViewModeEnum.kanban;
+  const isTaskListView = listRootViewMode === ListRootViewModeEnum.task_list;
+  let childClassName: string | undefined;
+  if (isKanbanView) {
+    childClassName = "w-full min-w-[18rem] max-w-[24rem]";
+  } else if (isTaskListView) {
+    childClassName = "w-full";
+  }
 
-  const isHorizontalOrientation = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImpl(x, sectionId);
-    return impl.type === SectionTypeEnum.Group && impl.isHorizontalOrientation;
-  });
+  let containerClassName = "mt-2 flex flex-col items-start gap-2";
+  if (isHorizontalOrientation) {
+    if (isKanbanView) {
+      containerClassName =
+        "mt-2 flex flex-row items-start gap-3 overflow-x-auto pb-2 pr-2";
+    } else {
+      containerClassName = "mt-2 flex flex-row items-start gap-2";
+    }
+  } else if (isTaskListView) {
+    containerClassName = "mt-1 flex flex-col items-start gap-1";
+  }
 
   return (
     <div className="flex items-stretch">
-      {!isGroup && (
+      {!isGroup && !isKanbanView && (
         <div
           className={`mr-2 mt-2 min-h-full w-2 rounded-full bg-white/30 transition-all duration-75 hover:cursor-pointer hover:bg-white/50 dark:bg-setta-700 hover:dark:bg-setta-600`}
           onClick={onClick}
         />
       )}
-      <div
-        className={`mt-2 flex ${isHorizontalOrientation ? "flex-row" : "flex-col "} items-start gap-2`}
-      >
+      <div className={containerClassName}>
         {childIds.map((e) => (
-          <SortableSectionContainer sectionId={e} key={`Nested-Sec-${e}`} />
+          <SortableSectionContainer
+            sectionId={e}
+            key={`Nested-Sec-${e}`}
+            className={childClassName}
+          />
         ))}
       </div>
     </div>

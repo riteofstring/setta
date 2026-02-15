@@ -1,7 +1,7 @@
 # Auto-generated shared modifier model - DO NOT EDIT MANUALLY
 # Generated from section and code obj implementations
 
-from typing import Any, NotRequired, TypedDict
+from typing import NotRequired, TypedDict
 
 from setta.types.artifact import (
     DrawAreaBrushShape,
@@ -19,10 +19,18 @@ from setta.types.chat_messages import (
 from setta.types.code_obj_impls import (
     ButtonActionMode,
     ColorPickerChoice,
+    DateCalendarWeekStart,
+    DateControlMode,
+    DateDisplayFormat,
+    DateSelectionMode,
     DropzoneMode,
     HttpRequestMethod,
     ParameterPassingStyle,
     ParamNameType,
+    TextParamInputUIType,
+    TimeControlMode,
+    TimeDisplayFont,
+    TimeDisplayFormat,
 )
 from setta.types.edges import EdgePort
 from setta.types.id import ID
@@ -35,7 +43,13 @@ from setta.types.section_impls import (
     CodeLanguage,
     CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
+    ListRootViewMode,
     SectionSize,
+    SectionType,
+    SpreadsheetGridDensity,
+    TaskBoardColumn,
+    TaskBoardTask,
+    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -47,14 +61,18 @@ class SharedModifier(TypedDict):
     # Field 'max' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     # Field 'min' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
     # Field 'step' present with conflicting annotations: float (RotaryParamCodeObjImpl), int (SliderParamCodeObjImpl)
+    # Field 'viewMode' present with conflicting annotations: BrowserAreaViewMode (BrowserSectionImpl), ListRootViewMode (ListRootSectionImpl), TaskBoardViewMode (TaskBoardSectionImpl)
     actionMode: NotRequired[ButtonActionMode]
     activeBranchId: NotRequired[ID | None]
     activeLayerIdx: NotRequired[int]
+    activeSheet: NotRequired[str | None]
     agentProfileId: NotRequired[ID | None]
+    allowUnquotedStringArgs: NotRequired[bool]
     aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
     aspectRatioExtraWidth: NotRequired[int]
     attachedTerminalSectionId: NotRequired[ID | None]
+    autoReloadOnExternalChange: NotRequired[bool]
     branches: NotRequired[dict[ID, ChatSectionBranch]]
     brushColor: NotRequired[str]
     brushOpacity: NotRequired[float]
@@ -68,16 +86,23 @@ class SharedModifier(TypedDict):
     choices: NotRequired[list[str]]
     code: NotRequired[str]
     codeFileBinding: NotRequired[CodeFileBinding | None]
-    codeLanguage: NotRequired[CodeLanguage | str]
+    codeLanguage: NotRequired[CodeLanguage]
     codeObjVariantMap: NotRequired[dict[ID, ID]]
     colorChoices: NotRequired[list[ColorPickerChoice]]
     columnWidth: NotRequired[float | None]
+    columns: NotRequired[list[TaskBoardColumn]]
     configLanguage: NotRequired[ConfigLanguage]
     coreNameEditable: NotRequired[bool]
     coreNameType: NotRequired[ParamNameType]
-    data: NotRequired[dict[str, Any]]
     dataPath: NotRequired[str]
+    dateCalendarWeekStart: NotRequired[DateCalendarWeekStart]
+    dateControlMode: NotRequired[DateControlMode]
+    dateDisplayFormat: NotRequired[DateDisplayFormat]
+    dateIncludesTime: NotRequired[bool]
+    dateSelectionMode: NotRequired[DateSelectionMode]
+    defaultChildSectionType: NotRequired[SectionType]
     defaultVal: NotRequired[str]
+    density: NotRequired[SpreadsheetGridDensity]
     description: NotRequired[str]
     diagnosticsIgnoreState: NotRequired[CodeSectionDiagnosticsIgnoreState]
     drawThrottleDelay: NotRequired[int]
@@ -85,6 +110,7 @@ class SharedModifier(TypedDict):
     edgeOutputPorts: NotRequired[list[EdgePort]]
     engineConfigId: NotRequired[ID | None]
     eraserBrushSize: NotRequired[int]
+    filePath: NotRequired[str]
     folder: NotRequired[str]
     format: NotRequired[PromptFormat | TextBlockFormat]
     hasSecret: NotRequired[bool]
@@ -105,10 +131,10 @@ class SharedModifier(TypedDict):
     isPreset: NotRequired[bool]
     jsonSourceKeys: NotRequired[list[str]]
     jsonSourceMissing: NotRequired[bool]
-    kind: NotRequired[str]
     label: NotRequired[str]
     layers: NotRequired[list[DrawAreaLayer]]
     managed: NotRequired[bool]
+    masterFontSizePx: NotRequired[float]
     max: NotRequired[float | int]
     maxAttachments: NotRequired[int | None]
     messages: NotRequired[
@@ -127,8 +153,8 @@ class SharedModifier(TypedDict):
     passingStyle: NotRequired[ParameterPassingStyle]
     pinnedParams: NotRequired[list[ID]]
     placeholder: NotRequired[str]
-    pluginId: NotRequired[str]
     positionAndSizeLocked: NotRequired[bool]
+    readOnly: NotRequired[bool]
     renderError: NotRequired[str | None]
     renderedImagePath: NotRequired[str | None]
     renderedText: NotRequired[str]
@@ -138,21 +164,29 @@ class SharedModifier(TypedDict):
     requestMethod: NotRequired[HttpRequestMethod]
     requestUrl: NotRequired[str]
     savedSearches: NotRequired[list[BrowserSavedSearch]]
-    schemaVersion: NotRequired[int | None]
     selectedParams: NotRequired[list[ID]]
+    showRowNumbers: NotRequired[bool]
     showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]
     step: NotRequired[float | int]
     styleColor: NotRequired[str | None]
     tagColor: NotRequired[str | None]
+    tasks: NotRequired[list[TaskBoardTask]]
     template: NotRequired[str]
     text: NotRequired[str]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
     thinking: NotRequired[bool]
+    timeControlMode: NotRequired[TimeControlMode]
+    timeDisplayFont: NotRequired[TimeDisplayFont]
+    timeDisplayFormat: NotRequired[TimeDisplayFormat]
+    timeDisplayScale: NotRequired[float]
+    timeDisplayTransparent: NotRequired[bool]
     toolCallArguments: NotRequired[dict[str, str]]
     topLevelParamId: NotRequired[ID | None]
+    typeAnnotation: NotRequired[str]
     typesColumnWidth: NotRequired[float | None]
+    uiType: NotRequired[TextParamInputUIType]
     url: NotRequired[str]
     value: NotRequired[str]
-    viewMode: NotRequired[BrowserAreaViewMode]
+    viewMode: NotRequired[BrowserAreaViewMode | ListRootViewMode | TaskBoardViewMode]
     waitingForResponse: NotRequired[bool]

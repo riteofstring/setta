@@ -6,6 +6,7 @@ import {
 import { useMemo } from "react";
 import { useMisc } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { NO_DRAG_CLASS_NAME } from "utils/constants";
 import { useDndState } from "./dndState";
 import {
   selectionDragHandle,
@@ -32,6 +33,14 @@ function getIsTopLevel(source: DndSource): boolean {
   return Boolean(source.data?.current?.isTopLevel);
 }
 
+function eventTargetsNoDragElement(event: Event): boolean {
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  return target.closest(`.${NO_DRAG_CLASS_NAME}`) !== null;
+}
+
 export function useSectionDndSensors() {
   const { canEditLayout } = useShareCapabilities();
   return useMemo(() => {
@@ -53,9 +62,12 @@ export function useSectionDndSensors() {
         }
         return [baseTarget];
       },
-      preventActivation: (_event, source: DndSource) => {
+      preventActivation: (event, source: DndSource) => {
         const { isSorting, isMovingFree } = useDndState.getState();
         const isTopLevel = getIsTopLevel(source);
+        if (eventTargetsNoDragElement(event)) {
+          return true;
+        }
 
         if (isMovingFree) {
           return false;
@@ -70,9 +82,12 @@ export function useSectionDndSensors() {
     });
 
     const keyboardSensor = KeyboardSensor.configure({
-      preventActivation: (_event, source: DndSource) => {
+      preventActivation: (event, source: DndSource) => {
         const { isSorting, isMovingFree } = useDndState.getState();
         const isTopLevel = getIsTopLevel(source);
+        if (eventTargetsNoDragElement(event)) {
+          return true;
+        }
 
         if (isMovingFree) {
           return false;

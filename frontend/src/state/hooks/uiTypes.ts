@@ -19,12 +19,15 @@ import {
   CodeObjType,
   CodeObjTypeEnum,
   ColorPickerParamCodeObjImpl,
+  DateParamCodeObjImpl,
   DropdownParamCodeObjImpl,
   DropzoneParamCodeObjImpl,
   RotaryParamCodeObjImpl,
   SectionType,
   SectionTypeEnum,
   SliderParamCodeObjImpl,
+  TextParamCodeObjImpl,
+  TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 
 function getIsSeriesElementHelper(
@@ -120,6 +123,39 @@ export type DropzoneConfigForFrontend = Pick<
   "mode" | "maxAttachments" | "placeholder"
 >;
 
+type TextParamConfigForFrontend = Pick<
+  TextParamCodeObjImpl,
+  | "uiType"
+  | "timeControlMode"
+  | "timeDisplayFormat"
+  | "timeDisplayTransparent"
+  | "timeDisplayScale"
+  | "timeDisplayFont"
+  | "dateDisplayFormat"
+  | "dateControlMode"
+  | "dateSelectionMode"
+  | "dateCalendarWeekStart"
+  | "dateIncludesTime"
+>;
+
+export type DateParamConfigForFrontend = Pick<
+  DateParamCodeObjImpl,
+  | "dateDisplayFormat"
+  | "dateControlMode"
+  | "dateSelectionMode"
+  | "dateCalendarWeekStart"
+  | "dateIncludesTime"
+>;
+
+export type TimeParamConfigForFrontend = Pick<
+  TimeParamCodeObjImpl,
+  | "timeControlMode"
+  | "timeDisplayFormat"
+  | "timeDisplayTransparent"
+  | "timeDisplayScale"
+  | "timeDisplayFont"
+>;
+
 type ButtonConfigForFrontend = Pick<
   ButtonParamCodeObjImpl,
   | "label"
@@ -173,6 +209,39 @@ const UI_CONFIG_EXTRACTORS = {
     mode: obj.mode,
     maxAttachments: obj.maxAttachments,
     placeholder: obj.placeholder,
+  }),
+  [CodeObjTypeEnum.TextParam]: (
+    obj: TextParamCodeObjImpl,
+  ): TextParamConfigForFrontend => ({
+    uiType: obj.uiType,
+    timeControlMode: obj.timeControlMode,
+    timeDisplayFormat: obj.timeDisplayFormat,
+    timeDisplayTransparent: obj.timeDisplayTransparent,
+    timeDisplayScale: obj.timeDisplayScale,
+    timeDisplayFont: obj.timeDisplayFont,
+    dateDisplayFormat: obj.dateDisplayFormat,
+    dateControlMode: obj.dateControlMode,
+    dateSelectionMode: obj.dateSelectionMode,
+    dateCalendarWeekStart: obj.dateCalendarWeekStart,
+    dateIncludesTime: obj.dateIncludesTime,
+  }),
+  [CodeObjTypeEnum.DateParam]: (
+    obj: DateParamCodeObjImpl,
+  ): DateParamConfigForFrontend => ({
+    dateDisplayFormat: obj.dateDisplayFormat,
+    dateControlMode: obj.dateControlMode,
+    dateSelectionMode: obj.dateSelectionMode,
+    dateCalendarWeekStart: obj.dateCalendarWeekStart,
+    dateIncludesTime: obj.dateIncludesTime,
+  }),
+  [CodeObjTypeEnum.TimeParam]: (
+    obj: TimeParamCodeObjImpl,
+  ): TimeParamConfigForFrontend => ({
+    timeControlMode: obj.timeControlMode,
+    timeDisplayFormat: obj.timeDisplayFormat,
+    timeDisplayTransparent: obj.timeDisplayTransparent,
+    timeDisplayScale: obj.timeDisplayScale,
+    timeDisplayFont: obj.timeDisplayFont,
   }),
 } as const;
 

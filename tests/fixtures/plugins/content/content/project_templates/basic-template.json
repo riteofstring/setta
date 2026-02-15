@@ -1,9 +1,0 @@
-{
-  "schemaVersion": 1,
-  "name": "Fixture Template",
-  "description": "Minimal project template fixture payload.",
-  "project": {
-    "projectConfigById": {},
-    "defaultProjectConfigId": null
-  }
-}
