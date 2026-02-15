@@ -43,7 +43,7 @@ export function ProjectConfigs() {
       <p className="text-xs text-setta-600 dark:text-setta-300">
         Hover over an item to preview another version of your project
       </p> */}
-      <section className="flex h-full overflow-x-hidden overflow-y-scroll rounded-lg border border-setta-200/50 p-1 dark:border-setta-850">
+      <section className="setta-pane-scroll flex h-full rounded-lg border border-setta-200/50 p-1 dark:border-setta-850">
         <div
           className="mt-1 flex w-full flex-col gap-1"
           onMouseLeave={() => {

@@ -673,7 +673,7 @@ export function AppConfigPane() {
   }
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4 pr-2 text-sm text-setta-600 dark:text-setta-300">
+    <section className="setta-pane-scroll flex min-h-0 flex-1 flex-col gap-4 pb-4 text-sm text-setta-600 dark:text-setta-300">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h3 className="text-xs font-bold uppercase tracking-wide text-setta-500 dark:text-setta-400">

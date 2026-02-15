@@ -48,3 +48,23 @@ Verification:
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai-settings-agent-profiles.spec.ts` (pass)
 - `pnpm -C frontend exec vitest run src/components/Panes/Overview/BackendLogEventsArea.perf.test.ts src/components/Panes/Overview/ProjectLevelAI/projectAISettingsAccordionState.perf.test.ts` (pass)
 - CDP DevTools verification still unavailable in this session (`Transport closed`).
+
+## Addendum: Pane Scrollbar Gutter Stability (2026-02-16)
+
+Scope:
+- `frontend/index.css`
+- `frontend/src/components/Panes/Overview/*` pane roots
+- `frontend/src/components/Panes/UiEditor/*` primary tab scroll roots
+- `frontend/tests/e2e/overview/pane-scroll-gutter.spec.ts`
+
+Change summary:
+- Added shared `.setta-pane-scroll` utility:
+  - `overflow-y: scroll` (always-on vertical scroll region for stable width)
+  - `scrollbar-gutter: stable`
+  - right-side inset via `padding-right: 0.5rem` plus `margin-right: -0.5rem`
+- Applied utility to pane-level scroll containers so scrollbar placement is offset from content and width does not shift as content height changes.
+
+Verification:
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/pane-scroll-gutter.spec.ts frontend/tests/e2e/overview/project-ai-settings-agent-profiles.spec.ts frontend/tests/e2e/overview/pane-content-overflow.spec.ts` (pass)
+- `pnpm -C frontend exec vitest run src/components/Panes/Overview/BackendLogEventsArea.perf.test.ts src/components/Panes/Overview/ProjectLevelAI/projectAISettingsAccordionState.perf.test.ts` (pass)
+- CDP DevTools verification unavailable in this session (`Transport closed`).

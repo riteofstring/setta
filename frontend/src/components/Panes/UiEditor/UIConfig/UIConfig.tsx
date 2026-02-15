@@ -61,7 +61,7 @@ function UIConfigCore({
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <div className="mt-4 flex flex-col gap-2 overflow-x-hidden overflow-y-scroll [&>*]:mx-[2px]">
+      <div className="setta-pane-scroll mt-4 flex flex-col gap-2 [&>*]:mx-[2px]">
         {filteredList.map((e) => (
           <UIElement
             sectionId={sectionId}

@@ -218,7 +218,10 @@ export function ProjectAISettings() {
   );
 
   return (
-    <div className="h-full min-h-0 space-y-3 overflow-y-auto pb-[15dvh] text-setta-700 dark:text-setta-300">
+    <div
+      data-testid="project-ai-settings-scroll-region"
+      className="setta-pane-scroll h-full min-h-0 space-y-3 pb-[15dvh] text-setta-700 dark:text-setta-300"
+    >
       <div className="px-1 text-[11px] text-setta-500 dark:text-setta-400">
         Tune project-wide AI behavior. Non-essential sections start minimized.
       </div>

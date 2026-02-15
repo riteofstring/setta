@@ -33,7 +33,10 @@ function _SectionConfig({ sectionId }: { sectionId: string }) {
   const appearanceSectionDisabled = appearanceContent == null;
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pr-1">
+    <section
+      data-testid="section-config-scroll-region"
+      className="setta-pane-scroll flex min-h-0 flex-1 flex-col"
+    >
       <SectionConfigAccordion
         defaultOpenValues={["section-config-main"]}
         items={[

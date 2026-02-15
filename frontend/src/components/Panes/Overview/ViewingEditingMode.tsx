@@ -102,7 +102,7 @@ export function ViewingEditingMode() {
 
   return (
     <div data-testid="view-modes-pane" className="flex h-full min-h-0 w-full flex-col">
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+      <div className="setta-pane-scroll flex min-h-0 flex-1 flex-col gap-3">
         <div className="flex items-center gap-2">
           <button
             data-testid="view-modes-toggle-edit"

@@ -53,8 +53,8 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
   }));
   const apiKeyEntries = buildApiKeyEntries(allLLMConfigs);
   const wrapperClassName = className
-    ? `flex min-h-0 flex-col gap-4 overflow-y-auto text-setta-600 dark:text-setta-400 ${className}`
-    : "flex min-h-0 flex-col gap-4 overflow-y-auto text-setta-600 dark:text-setta-400";
+    ? `setta-pane-scroll flex min-h-0 flex-col gap-4 text-setta-600 dark:text-setta-400 ${className}`
+    : "setta-pane-scroll flex min-h-0 flex-col gap-4 text-setta-600 dark:text-setta-400";
   return (
     <div className={wrapperClassName}>
       {apiKeyEntries.length === 0 ? (

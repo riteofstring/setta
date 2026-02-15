@@ -1229,7 +1229,7 @@ export function RunInstructions() {
       )}
 
       <div
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-1"
+        className="setta-pane-scroll min-h-0 flex-1"
         data-testid="run-instructions-scroll-region"
       >
         <RunInstructionsAccordion
