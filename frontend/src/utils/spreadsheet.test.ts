@@ -53,6 +53,58 @@ describe("spreadsheet utils", () => {
     const parsed = parseSpreadsheetBytes("sheet.xlsx", new Uint8Array(encoded));
     expect(parsed.sheetName).toBe("SheetA");
     expect(parsed.rows[1]).toEqual(["left", "right"]);
+    expect(parsed.sourceWorkbookBytes).not.toBeNull();
+  });
+
+  it("preserves non-active sheets when saving edited xlsx bytes", () => {
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([
+        ["Task", "Owner"],
+        ["Alpha", "Ann"],
+      ]),
+      "Primary",
+    );
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([
+        ["Metric", "Value"],
+        ["Latency", "Low"],
+      ]),
+      "Secondary",
+    );
+    const encoded = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+    const parsed = parseSpreadsheetBytes("sheet.xlsx", new Uint8Array(encoded));
+
+    const editedRows = parsed.rows.map((row) => [...row]);
+    editedRows[1] = ["Alpha", "Zoe"];
+    const serialized = serializeSpreadsheetBytes(
+      "sheet.xlsx",
+      parsed.sheetName,
+      editedRows,
+      parsed.sourceWorkbookBytes,
+    );
+
+    const roundTripped = XLSX.read(serialized, {
+      type: "array",
+      dense: true,
+      raw: false,
+    });
+    expect(roundTripped.SheetNames).toEqual(["Primary", "Secondary"]);
+    const primaryRows = XLSX.utils.sheet_to_json(roundTripped.Sheets.Primary, {
+      header: 1,
+      raw: false,
+      defval: "",
+    }) as string[][];
+    const secondaryRows = XLSX.utils.sheet_to_json(roundTripped.Sheets.Secondary, {
+      header: 1,
+      raw: false,
+      defval: "",
+    }) as string[][];
+
+    expect(primaryRows[1]).toEqual(["Alpha", "Zoe"]);
+    expect(secondaryRows[1]).toEqual(["Latency", "Low"]);
   });
 
   it("formats spreadsheet column labels", () => {

@@ -33,6 +33,7 @@ describe("spreadsheet performance", () => {
       "perf-sheet.xlsx",
       parsed.sheetName,
       parsed.rows,
+      parsed.sourceWorkbookBytes,
     );
     const serializeElapsedMs = performance.now() - serializeStart;
 

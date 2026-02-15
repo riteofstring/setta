@@ -10,6 +10,7 @@ import {
   getSpreadsheetGridTemplateColumns,
   getSpreadsheetGridWidth,
   isSpreadsheetLoadRequestStale,
+  shouldAnnounceSpreadsheetAutoReload,
   shouldClearSpreadsheetDirtyAfterSave,
   shouldIgnoreSpreadsheetSaveResult,
   SPREADSHEET_DATA_COLUMN_WIDTH,
@@ -169,6 +170,27 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
         requestId: 1,
         currentSelectedPath: "/tmp/a.csv",
         requestedPath: "/tmp/a.csv",
+      }),
+    ).toBe(false);
+  });
+
+  it("announces auto-reload status only for successful non-cancelled reloads", () => {
+    expect(
+      shouldAnnounceSpreadsheetAutoReload({
+        reloadSucceeded: true,
+        isCancelled: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAnnounceSpreadsheetAutoReload({
+        reloadSucceeded: false,
+        isCancelled: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAnnounceSpreadsheetAutoReload({
+        reloadSucceeded: true,
+        isCancelled: true,
       }),
     ).toBe(false);
   });

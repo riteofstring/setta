@@ -10,6 +10,7 @@ type SpreadsheetData = {
   rows: string[][];
   rowCount: number;
   columnCount: number;
+  sourceWorkbookBytes: Uint8Array | null;
 };
 
 function getExtension(path: string): string {
@@ -58,6 +59,7 @@ export function parseSpreadsheetBytes(
   filePath: string,
   bytes: Uint8Array,
 ): SpreadsheetData {
+  const fileExtension = getExtension(filePath);
   const workbook = XLSX.read(bytes, { type: "array", dense: true, raw: false });
   const sheetName = workbook.SheetNames[0] ?? DEFAULT_SHEET_NAME;
   const firstSheet = workbook.Sheets[sheetName];
@@ -74,11 +76,13 @@ export function parseSpreadsheetBytes(
   );
   const columnCount = normalized[0]?.length ?? 1;
   return {
-    fileExtension: getExtension(filePath),
+    fileExtension,
     sheetName,
     rows: normalized,
     rowCount: normalized.length,
     columnCount,
+    sourceWorkbookBytes:
+      fileExtension === "xlsx" || fileExtension === "xls" ? bytes : null,
   };
 }
 
@@ -126,17 +130,28 @@ export function serializeSpreadsheetBytes(
   filePath: string,
   sheetName: string,
   rows: string[][],
+  sourceWorkbookBytes: Uint8Array | null = null,
 ): Uint8Array {
   const extension = getExtension(filePath);
   const trimmedRows = trimTrailingEmptyRows(rows);
   const rowsToWrite = trimmedRows.length > 0 ? trimmedRows : [[""]];
-  const workbook = XLSX.utils.book_new();
   const worksheet = XLSX.utils.aoa_to_sheet(rowsToWrite);
-  XLSX.utils.book_append_sheet(
-    workbook,
-    worksheet,
-    sheetName || DEFAULT_SHEET_NAME,
-  );
+  const resolvedSheetName = sheetName || DEFAULT_SHEET_NAME;
+  const isExcelWorkbook = extension === "xlsx" || extension === "xls";
+  let workbook: XLSX.WorkBook;
+  if (isExcelWorkbook && sourceWorkbookBytes) {
+    workbook = XLSX.read(sourceWorkbookBytes, {
+      type: "array",
+      dense: true,
+      raw: false,
+    });
+  } else {
+    workbook = XLSX.utils.book_new();
+  }
+  workbook.Sheets[resolvedSheetName] = worksheet;
+  if (!workbook.SheetNames.includes(resolvedSheetName)) {
+    workbook.SheetNames.push(resolvedSheetName);
+  }
   const result = XLSX.write(workbook, {
     type: "array",
     bookType: getBookType(extension),

@@ -594,11 +594,12 @@ def route_get_file_browser_file_content(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to stat file: {x.path}",
         ) from exc
-    max_bytes = (
+    requested_max_bytes = (
         x.maxBytes
         if x.maxBytes is not None
         else DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES
     )
+    max_bytes = min(requested_max_bytes, DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES)
     if stat_result.st_size > max_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,

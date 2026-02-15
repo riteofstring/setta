@@ -105,11 +105,20 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
         ["Beta", "Dev"],
       ]);
       XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+      const secondaryWorksheet = XLSX.utils.aoa_to_sheet([
+        ["Task", "Owner"],
+        ["Gamma", "Ops"],
+      ]);
+      XLSX.utils.book_append_sheet(workbook, secondaryWorksheet, "Archive");
       const xlsxBytes = XLSX.write(workbook, {
         type: "buffer",
         bookType: "xlsx",
       }) as Buffer;
-      await fs.writeFile(path.join(parentDir, "sheet.xlsx"), xlsxBytes);
+      const xlsxPath = path.join(parentDir, "sheet.xlsx");
+      await fs.writeFile(xlsxPath, xlsxBytes);
+      const stableMtime = new Date(1000);
+      await fs.utimes(csvPath, stableMtime, stableMtime);
+      await fs.utimes(xlsxPath, stableMtime, stableMtime);
 
       const sectionNode = page.locator(
         `.react-flow__node[data-id="${sectionId}"]`,
@@ -200,6 +209,25 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
       const xlsxCell = sectionNode.locator('[data-spreadsheet-cell="1:0"]');
       await expect(xlsxCell).toBeVisible();
       await expect(xlsxCell).toHaveValue("Beta");
+      const xlsxOwnerCell = sectionNode.locator('[data-spreadsheet-cell="1:1"]');
+      await expect(xlsxOwnerCell).toBeVisible();
+      await xlsxOwnerCell.fill("QA");
+      await expect(saveButton).toBeEnabled();
+      await saveButton.click();
+      await expect(sectionNode.getByText("Saved.")).toBeVisible();
+
+      const savedWorkbook = XLSX.read(await fs.readFile(xlsxPath), {
+        type: "buffer",
+        dense: true,
+        raw: false,
+      });
+      expect(savedWorkbook.SheetNames).toEqual(["Sheet1", "Archive"]);
+      const archiveRows = XLSX.utils.sheet_to_json(savedWorkbook.Sheets.Archive, {
+        header: 1,
+        raw: false,
+        defval: "",
+      }) as string[][];
+      expect(archiveRows[1]).toEqual(["Gamma", "Ops"]);
     } finally {
       await fs.rm(parentDir, { recursive: true, force: true });
       await postBackend(page, "/deleteSections", {

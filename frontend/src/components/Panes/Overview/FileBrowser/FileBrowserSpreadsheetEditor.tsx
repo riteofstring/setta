@@ -57,6 +57,7 @@ type SpreadsheetDraft = {
   rowCount: number;
   columnCount: number;
   mtimeNs: number;
+  sourceWorkbookBytes: Uint8Array | null;
 };
 
 type SpreadsheetRowData = {
@@ -128,6 +129,13 @@ export function shouldClearSpreadsheetDirtyAfterSave(args: {
   currentEditVersion: number;
 }): boolean {
   return args.saveStartEditVersion === args.currentEditVersion;
+}
+
+export function shouldAnnounceSpreadsheetAutoReload(args: {
+  reloadSucceeded: boolean;
+  isCancelled: boolean;
+}): boolean {
+  return args.reloadSucceeded && !args.isCancelled;
 }
 
 export function getSpreadsheetGlideTheme({
@@ -545,7 +553,7 @@ export function FileBrowserSpreadsheetEditor({
     };
   }, []);
 
-  const loadFile = useCallback(async (path: string) => {
+  const loadFile = useCallback(async (path: string): Promise<boolean> => {
     const requestId = loadRequestIdRef.current + 1;
     loadRequestIdRef.current = requestId;
     const isStaleRequest = () =>
@@ -565,27 +573,27 @@ export function FileBrowserSpreadsheetEditor({
         maxBytes: MAX_FILE_BYTES,
       });
       if (isStaleRequest()) {
-        return;
+        return false;
       }
       if (!res200(response)) {
         const detail = getErrorDetail(response.data);
         setErrorText(detail ?? "Failed to load spreadsheet file.");
-        return;
+        return false;
       }
       const binaryResponse = await route_binary_download(
         response.data.contentId,
       );
       if (isStaleRequest()) {
-        return;
+        return false;
       }
       if (!res200(binaryResponse) || !binaryResponse.data) {
         const detail = getErrorDetail(binaryResponse.data);
         setErrorText(detail ?? "Failed to load spreadsheet file payload.");
-        return;
+        return false;
       }
       const parsed = parseSpreadsheetBytes(path, binaryResponse.data);
       if (isStaleRequest()) {
-        return;
+        return false;
       }
       setSheet({
         path,
@@ -594,6 +602,7 @@ export function FileBrowserSpreadsheetEditor({
         rowCount: parsed.rowCount,
         columnCount: parsed.columnCount,
         mtimeNs: response.data.mtimeNs,
+        sourceWorkbookBytes: parsed.sourceWorkbookBytes,
       });
       editVersionRef.current = 0;
       setIsDirty(false);
@@ -604,10 +613,12 @@ export function FileBrowserSpreadsheetEditor({
       setGridSelection(undefined);
       setSelectionSummary("No selection");
       listRef.current?.scrollToRow({ index: 0, align: "start" });
+      return true;
     } catch {
       if (!isStaleRequest()) {
         setErrorText("Failed to load spreadsheet file.");
       }
+      return false;
     } finally {
       if (loadRequestIdRef.current === requestId) {
         setIsLoading(false);
@@ -659,8 +670,13 @@ export function FileBrowserSpreadsheetEditor({
         setStatusText("File changed on disk. Save to overwrite or reload.");
         return;
       }
-      await loadFile(selectedPath);
-      if (!isCancelled) {
+      const didReload = await loadFile(selectedPath);
+      if (
+        shouldAnnounceSpreadsheetAutoReload({
+          reloadSucceeded: didReload,
+          isCancelled,
+        })
+      ) {
         setStatusText("Reloaded from disk.");
       }
     };
@@ -953,6 +969,7 @@ export function FileBrowserSpreadsheetEditor({
         savingPath,
         sheet.sheetName,
         sheet.rows,
+        sheet.sourceWorkbookBytes,
       );
       const uploadResult = await uploadBinaryPayload({
         bytes,

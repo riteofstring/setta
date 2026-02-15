@@ -295,16 +295,6 @@ class UserDefaultTextParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
     uiType: TextParamInputUIType = TextParamInputUIType.plain
-    timeControlMode: TimeControlMode = TimeControlMode.display
-    timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
-    timeDisplayTransparent: bool = False
-    timeDisplayScale: float = Field(default=1.0, ge=0.5, le=3.0)
-    timeDisplayFont: TimeDisplayFont = TimeDisplayFont.monospace
-    dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.iso
-    dateControlMode: DateControlMode = DateControlMode.input
-    dateSelectionMode: DateSelectionMode = DateSelectionMode.single
-    dateCalendarWeekStart: DateCalendarWeekStart = DateCalendarWeekStart.sunday
-    dateIncludesTime: bool = False
 
 
 class UserDefaultDateParamCodeObjImpl(

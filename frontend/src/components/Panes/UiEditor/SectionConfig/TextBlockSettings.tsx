@@ -22,14 +22,11 @@ import {
   route_set_text_block_meta_control_style,
 } from "utils/generatedEndpoints";
 import { TextBlockFormatEnum } from "utils/generatedTypes";
+import { clampTextBlockMasterFontSize } from "utils/textBlockTypography";
 
 type TextBlockSettingsProps = {
   sectionId: string;
 };
-
-export function clampTextBlockMasterFontSize(value: number): number {
-  return Math.max(8, Math.min(48, Number.isFinite(value) ? value : 14));
-}
 
 export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
   const {

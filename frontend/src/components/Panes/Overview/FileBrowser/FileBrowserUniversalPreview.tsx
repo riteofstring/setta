@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FiArchive, FiFileText, FiMusic } from "react-icons/fi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
@@ -33,6 +33,18 @@ export function resolveFileBrowserPreviewKind({
   });
 }
 
+export function isFileBrowserPreviewRequestStale(args: {
+  activeRequestId: number;
+  requestId: number;
+  currentSelectedPath: string | null;
+  requestedPath: string;
+}): boolean {
+  return (
+    args.activeRequestId !== args.requestId ||
+    args.currentSelectedPath !== args.requestedPath
+  );
+}
+
 export function FileBrowserUniversalPreview({
   selectedNode,
 }: {
@@ -63,6 +75,8 @@ export function FileBrowserUniversalPreview({
     isLoading: false,
     error: null,
   });
+  const selectedFilePathRef = useRef<string | null>(selectedFilePath);
+  const textPreviewRequestIdRef = useRef(0);
 
   const previewKind = useMemo(() => {
     if (!selectedFilePath || !selectedFileName) {
@@ -73,6 +87,10 @@ export function FileBrowserUniversalPreview({
       fileName: selectedFileName,
     });
   }, [selectedFileName, selectedFilePath]);
+
+  useEffect(() => {
+    selectedFilePathRef.current = selectedFilePath;
+  }, [selectedFilePath]);
 
   useEffect(() => {
     setFileUrl(null);
@@ -140,6 +158,16 @@ export function FileBrowserUniversalPreview({
     if (!selectedFilePath || previewKind !== "text") {
       return;
     }
+    const requestId = textPreviewRequestIdRef.current + 1;
+    textPreviewRequestIdRef.current = requestId;
+    const requestedPath = selectedFilePath;
+    const isStaleRequest = () =>
+      isFileBrowserPreviewRequestStale({
+        activeRequestId: textPreviewRequestIdRef.current,
+        requestId,
+        currentSelectedPath: selectedFilePathRef.current,
+        requestedPath,
+      });
     let isMounted = true;
     setTextPreview({
       text: "",
@@ -153,7 +181,7 @@ export function FileBrowserUniversalPreview({
           path: selectedFilePath,
           maxBytes: TEXT_PREVIEW_MAX_BYTES,
         });
-        if (!isMounted) {
+        if (!isMounted || isStaleRequest()) {
           return;
         }
         if (!res200(response)) {
@@ -168,6 +196,9 @@ export function FileBrowserUniversalPreview({
         const binaryResponse = await route_binary_download(
           response.data.contentId,
         );
+        if (!isMounted || isStaleRequest()) {
+          return;
+        }
         if (!res200(binaryResponse) || !binaryResponse.data) {
           setTextPreview({
             text: "",
@@ -180,6 +211,9 @@ export function FileBrowserUniversalPreview({
         }
         const text = new TextDecoder().decode(binaryResponse.data);
         const truncated = text.length > TEXT_PREVIEW_CHAR_LIMIT;
+        if (!isMounted || isStaleRequest()) {
+          return;
+        }
         setTextPreview({
           text: truncated ? text.slice(0, TEXT_PREVIEW_CHAR_LIMIT) : text,
           truncated,
@@ -187,7 +221,7 @@ export function FileBrowserUniversalPreview({
           error: null,
         });
       } catch {
-        if (!isMounted) {
+        if (!isMounted || isStaleRequest()) {
           return;
         }
         setTextPreview({

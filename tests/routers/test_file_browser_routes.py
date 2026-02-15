@@ -13,6 +13,7 @@ from setta.binary import BinaryStore
 from setta.database.db_objs import DBE
 from setta.lsp.managers import stop_file_watcher, stop_lsps
 from setta.routers.artifact import (
+    DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES,
     DeleteArtifactRequestItem,
     DeleteArtifactsRequest,
     GetFileBrowserFileContentRequest,
@@ -232,6 +233,24 @@ class TestFileBrowserRoutes:
                     GetFileBrowserFileContentRequest(
                         path=file_path.as_posix(),
                         maxBytes=2,
+                    ),
+                    runtime_ctx,
+                )
+
+        assert ctx.value.status_code == 413
+
+    async def test_get_file_browser_file_content_caps_requested_max_bytes(
+        self,
+    ) -> None:
+        state = await self._build_state()
+        file_path = get_setta_paths().workspace_root / "too-large.bin"
+        file_path.write_bytes(b"x" * (DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES + 1))
+        with runtime_context(state) as runtime_ctx:
+            with pytest.raises(HTTPException) as ctx:
+                route_get_file_browser_file_content(
+                    GetFileBrowserFileContentRequest(
+                        path=file_path.as_posix(),
+                        maxBytes=DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES * 100,
                     ),
                     runtime_ctx,
                 )

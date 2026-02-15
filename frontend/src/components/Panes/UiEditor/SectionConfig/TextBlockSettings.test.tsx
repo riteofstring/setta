@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampTextBlockMasterFontSize } from "./TextBlockSettings";
+import { clampTextBlockMasterFontSize } from "utils/textBlockTypography";
 
 describe("clampTextBlockMasterFontSize", () => {
   it("clamps values into the supported font-size range", () => {

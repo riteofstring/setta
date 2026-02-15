@@ -873,16 +873,6 @@ class CodeParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
 class TextParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.TextParam]]
     uiType: NotRequired[TextParamInputUIType]
-    timeControlMode: NotRequired[TimeControlMode]
-    timeDisplayFormat: NotRequired[TimeDisplayFormat]
-    timeDisplayTransparent: NotRequired[bool]
-    timeDisplayScale: NotRequired[float]
-    timeDisplayFont: NotRequired[TimeDisplayFont]
-    dateDisplayFormat: NotRequired[DateDisplayFormat]
-    dateControlMode: NotRequired[DateControlMode]
-    dateSelectionMode: NotRequired[DateSelectionMode]
-    dateCalendarWeekStart: NotRequired[DateCalendarWeekStart]
-    dateIncludesTime: NotRequired[bool]
 
 
 class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
@@ -893,30 +883,6 @@ class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
     uiType: NotRequired[
         TextParamInputUIType | Callable[[TextParamInputUIType], TextParamInputUIType]
     ]
-    timeControlMode: NotRequired[
-        TimeControlMode | Callable[[TimeControlMode], TimeControlMode]
-    ]
-    timeDisplayFormat: NotRequired[
-        TimeDisplayFormat | Callable[[TimeDisplayFormat], TimeDisplayFormat]
-    ]
-    timeDisplayTransparent: NotRequired[bool | Callable[[bool], bool]]
-    timeDisplayScale: NotRequired[float | Callable[[float], float]]
-    timeDisplayFont: NotRequired[
-        TimeDisplayFont | Callable[[TimeDisplayFont], TimeDisplayFont]
-    ]
-    dateDisplayFormat: NotRequired[
-        DateDisplayFormat | Callable[[DateDisplayFormat], DateDisplayFormat]
-    ]
-    dateControlMode: NotRequired[
-        DateControlMode | Callable[[DateControlMode], DateControlMode]
-    ]
-    dateSelectionMode: NotRequired[
-        DateSelectionMode | Callable[[DateSelectionMode], DateSelectionMode]
-    ]
-    dateCalendarWeekStart: NotRequired[
-        DateCalendarWeekStart | Callable[[DateCalendarWeekStart], DateCalendarWeekStart]
-    ]
-    dateIncludesTime: NotRequired[bool | Callable[[bool], bool]]
 
 
 class DateParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):

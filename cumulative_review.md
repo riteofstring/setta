@@ -55,3 +55,14 @@
 - Reduced text-block master font slider backend churn by adding local drag-preview state and committing one persisted update at drag end (while preserving keyboard/input commit behavior).
 - Removed dead frontend code by deleting an unused `lodash` import in `TaskBoardArea` and an unused calendar utility helper.
 - Added/updated Vitest and Playwright coverage for spreadsheet save guards/index sorting, native import conflict retries, editable-target detection, and text-block slider commit semantics; verified targeted suites pass.
+
+## 2026-02-17 13:43:30 PST
+
+- Implemented the latest consolidated top-level review fixes without adding backward-compatibility shims and intentionally kept `CodeParam` multiline.
+- Fixed multi-sheet spreadsheet save behavior by preserving untouched sheets during `.xlsx/.xls` writes, and wired the editor to round-trip source workbook bytes.
+- Enforced a hard server-side file-content read cap in file browser routes so request `maxBytes` can only lower limits, never raise them.
+- Eliminated stale async preview commits in universal file preview and fixed spreadsheet auto-reload status messaging to only announce success on true reload success.
+- Restored `MetaControlMenuButton` check icon import and changed its store selector back to a primitive boolean read to avoid unnecessary rerenders.
+- Removed duplicated text-block font-size clamp logic by reusing the shared typography utility as the single source of truth.
+- Removed unused date/time config baggage from `TextParam` schema surfaces, updated related frontend extraction paths, and regenerated synced backend/frontend generated types.
+- Added/updated targeted pytest, Vitest, and Playwright coverage for these fixes and completed a CDP visual verification pass on the affected UI surfaces.

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveFileBrowserPreviewKind } from "./FileBrowserUniversalPreview";
+import {
+  isFileBrowserPreviewRequestStale,
+  resolveFileBrowserPreviewKind,
+} from "./FileBrowserUniversalPreview";
 
 describe("FileBrowserUniversalPreview kind resolution", () => {
   it("classifies spreadsheet paths as spreadsheet previews", () => {
@@ -42,5 +45,32 @@ describe("FileBrowserUniversalPreview kind resolution", () => {
         fileName: "blob.bin",
       }),
     ).toBe("other");
+  });
+
+  it("detects stale async preview requests", () => {
+    expect(
+      isFileBrowserPreviewRequestStale({
+        activeRequestId: 2,
+        requestId: 1,
+        currentSelectedPath: "/workspace/a.txt",
+        requestedPath: "/workspace/a.txt",
+      }),
+    ).toBe(true);
+    expect(
+      isFileBrowserPreviewRequestStale({
+        activeRequestId: 1,
+        requestId: 1,
+        currentSelectedPath: "/workspace/b.txt",
+        requestedPath: "/workspace/a.txt",
+      }),
+    ).toBe(true);
+    expect(
+      isFileBrowserPreviewRequestStale({
+        activeRequestId: 1,
+        requestId: 1,
+        currentSelectedPath: "/workspace/a.txt",
+        requestedPath: "/workspace/a.txt",
+      }),
+    ).toBe(false);
   });
 });
