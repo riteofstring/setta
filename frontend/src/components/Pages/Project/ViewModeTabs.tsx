@@ -49,6 +49,7 @@ export function ViewModeTabs() {
     _.isEqual,
   );
   const { canEditVariants, canEditStructure } = useShareCapabilities();
+  const sortableEnabled = canEditStructure && tabModes.length > 1;
 
   if (tabModes.length === 0) {
     return null;
@@ -65,7 +66,7 @@ export function ViewModeTabs() {
   };
 
   const handleReorder = (reorderedTabIds: Array<string>) => {
-    if (!canEditStructure) {
+    if (!sortableEnabled) {
       return;
     }
     const currentTabIds = tabModes.map((mode) => mode.id);
@@ -95,6 +96,7 @@ export function ViewModeTabs() {
         id="view-mode-tabs-sortable"
         items={tabModes.map((mode) => mode.id)}
         direction="horizontal"
+        enabled={sortableEnabled}
         onReorder={handleReorder}
       >
         <div
@@ -109,7 +111,7 @@ export function ViewModeTabs() {
                 modeName={mode.name}
                 isActive={activeViewModeId === mode.id}
                 canEditVariants={canEditVariants}
-                canEditStructure={canEditStructure}
+                sortableEnabled={sortableEnabled}
                 onSelect={handleSelect}
               />
             );
@@ -125,19 +127,19 @@ function ViewModeTabButton({
   modeName,
   isActive,
   canEditVariants,
-  canEditStructure,
+  sortableEnabled,
   onSelect,
 }: {
   modeId: string;
   modeName: string;
   isActive: boolean;
   canEditVariants: boolean;
-  canEditStructure: boolean;
+  sortableEnabled: boolean;
   onSelect: (modeId: string) => void;
 }) {
   const sortable = useViewModeSortableItem(
     modeId,
-    !canEditStructure,
+    !sortableEnabled,
     "horizontal",
   );
   const label = modeName ? modeName : TAB_LABEL_FALLBACK;
@@ -163,7 +165,7 @@ function ViewModeTabButton({
       title={label}
       disabled={!canEditVariants}
     >
-      {canEditStructure && (
+      {sortableEnabled && (
         <span
           ref={sortable.setActivatorNodeRef}
           data-testid="view-mode-tab-drag-handle"

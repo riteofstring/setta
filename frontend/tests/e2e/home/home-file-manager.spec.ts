@@ -31,6 +31,19 @@ async function createProjectConfigAndResolveId(page: Page) {
   return match.id;
 }
 
+async function readFavoriteProjectConfigIds(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const raw = window.localStorage.getItem("setta_data");
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw) as {
+      state?: { favoriteProjectConfigIds?: string[] };
+    };
+    return parsed.state?.favoriteProjectConfigIds ?? [];
+  });
+}
+
 test("home page renders the three-column file manager layout", async ({
   page,
 }) => {
@@ -313,19 +326,40 @@ test("home keeps valid favorites after initial metadata load and prunes stale id
   await expect(page.getByTestId("home-project-card").first()).toBeVisible();
 
   await expect
-    .poll(async () =>
-      page.evaluate(() => {
-        const raw = window.localStorage.getItem("setta_data");
-        if (!raw) {
-          return [];
-        }
-        const parsed = JSON.parse(raw) as {
-          state?: { favoriteProjectConfigIds?: string[] };
-        };
-        return parsed.state?.favoriteProjectConfigIds ?? [];
-      }),
-    )
+    .poll(() => readFavoriteProjectConfigIds(page))
     .toEqual([validFavoriteId]);
+});
+
+test("home keeps favorites unchanged when initial metadata load fails", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  const validFavoriteId = metadata.projectMetadata[0]?.id;
+  if (!validFavoriteId) {
+    throw new Error("Expected at least one project config for favorites test.");
+  }
+
+  await seedLocalStorage(page, {
+    favoriteProjectConfigIds: [validFavoriteId, "stale-favorite-id"],
+  });
+  await page.route("**/loadAllProjectMetadata", async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "temporary failure" }),
+    });
+  });
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  await expect
+    .poll(() => readFavoriteProjectConfigIds(page))
+    .toEqual([validFavoriteId, "stale-favorite-id"]);
+  await page.unroute("**/loadAllProjectMetadata");
 });
 
 test("home opens projects on single click in deployment mode", async ({

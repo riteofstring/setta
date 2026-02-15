@@ -1,4 +1,4 @@
-import { KeyboardSensor, PointerSensor } from "@dnd-kit/dom";
+import { PointerSensor } from "@dnd-kit/dom";
 import { arrayMove } from "@dnd-kit/helpers";
 import {
   DragDropProvider,
@@ -18,26 +18,46 @@ type SortableListProviderProps = {
   items: Array<string>;
   direction: "horizontal" | "vertical";
   onReorder: (orderedIds: Array<string>) => void;
+  enabled?: boolean;
   children: React.ReactNode;
 };
 
 export function SortableListProvider({
+  enabled = true,
   id,
   items,
   direction,
   onReorder,
   children,
 }: SortableListProviderProps) {
-  if (typeof window === "undefined") {
+  if (!enabled || typeof window === "undefined") {
     return <>{children}</>;
   }
 
+  return (
+    <SortableListProviderClient
+      id={id}
+      items={items}
+      direction={direction}
+      onReorder={onReorder}
+    >
+      {children}
+    </SortableListProviderClient>
+  );
+}
+
+type SortableListProviderClientProps = Omit<SortableListProviderProps, "enabled">;
+
+function SortableListProviderClient({
+  id,
+  items,
+  direction,
+  onReorder,
+  children,
+}: SortableListProviderClientProps) {
   const sensors = useMemo(
     () => [
       PointerSensor.configure({
-        preventActivation: () => false,
-      }),
-      KeyboardSensor.configure({
         preventActivation: () => false,
       }),
     ],

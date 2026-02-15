@@ -163,6 +163,7 @@ function VariantListCore({
       id={`variant-list-sortable-${sectionId}`}
       items={variantIds}
       direction="vertical"
+      enabled={sortableEnabled}
       onReorder={onReorderVariants}
     >
       {isEditing

@@ -12,8 +12,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../../paneTestUtils";
 import { VariantList } from "./VariantList";
 
+let latestSortableEnabled: boolean | undefined;
+
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
-  SortableListProvider: ({ children }: { children: unknown }) => children,
+  SortableListProvider: ({
+    children,
+    enabled,
+  }: {
+    children: unknown;
+    enabled?: boolean;
+  }) => {
+    latestSortableEnabled = enabled;
+    return children;
+  },
   useSortableListItem: () => ({
     attributes: {},
     listeners: {},
@@ -37,10 +48,12 @@ function extractHandleClass(markup: string): string {
 describe("VariantList drag handle visibility", () => {
   const sectionId = "section-1";
   const variantId = "variant-1";
+  const secondVariantId = "variant-2";
   const implId = "impl-1";
 
   beforeEach(() => {
     resetProjectStores();
+    latestSortableEnabled = undefined;
     useShareSession.setState({ isDeploymentMode: false, sharePolicy: null });
     useProjectState.setState((state) => {
       state.sections = {
@@ -87,5 +100,23 @@ describe("VariantList drag handle visibility", () => {
     expect(handleClass).toContain("w-4");
     expect(handleClass).toContain("opacity-60");
     expect(handleClass).not.toContain("text-transparent");
+    expect(latestSortableEnabled).toBe(false);
+  });
+
+  it("enables sorting only when the section has more than one variant", () => {
+    useProjectState.setState((state) => {
+      state.sections[sectionId].variants = [variantId, secondVariantId];
+      state.sectionVariants[secondVariantId] = createVariant({
+        id: secondVariantId,
+        name: "second_variant",
+        impl: implId,
+        nonPresetImpls: [implId],
+      });
+    });
+    syncStoreInitialState(useProjectState);
+
+    renderToStaticMarkup(<VariantList sectionId={sectionId} />);
+
+    expect(latestSortableEnabled).toBe(true);
   });
 });

@@ -43,6 +43,20 @@ const PROJECT_CONFIGS_MIN_HEIGHT = 140;
 const VIEW_MODES_MIN_HEIGHT = 120;
 const PROJECT_CONFIGS_RESIZE_HANDLE_HEIGHT = 12;
 
+export function compactViewModeSortIndices(
+  viewModes: Record<string, ViewModeConfig>,
+): Array<ViewModeConfig> {
+  const sortedViewModes = sortViewModes(Object.values(viewModes));
+  for (let index = 0; index < sortedViewModes.length; index += 1) {
+    const sortedViewMode = sortedViewModes[index];
+    if (!sortedViewMode) {
+      continue;
+    }
+    sortedViewMode.sortIndex = index;
+  }
+  return sortedViewModes;
+}
+
 export function ViewingEditingMode() {
   const { projectConfigId, viewModeList, activeViewModeId, isEditingViewMode } =
     useProjectState((x) => {
@@ -94,6 +108,7 @@ export function ViewingEditingMode() {
   }
   const hasViewModes = viewModeList.length > 0;
   const canDeleteViewModes = viewModeList.length > 1;
+  const sortableEnabled = canEditStructure && viewModeList.length > 1;
 
   useEffect(() => {
     pruneActiveSectionIdsForViewMode(activeViewModeId, isEditingViewMode);
@@ -144,7 +159,7 @@ export function ViewingEditingMode() {
   };
 
   const handleReorder = (nextOrderedIds: Array<string>): void => {
-    if (!canEditStructure) {
+    if (!sortableEnabled) {
       return;
     }
     const orderedIds = viewModeList.map((mode) => mode.id);
@@ -256,6 +271,7 @@ export function ViewingEditingMode() {
                 id="overview-view-modes-sortable"
                 items={viewModeList.map((mode) => mode.id)}
                 direction="vertical"
+                enabled={sortableEnabled}
                 onReorder={handleReorder}
               >
                 <div className="flex w-full min-w-0 flex-col gap-0">
@@ -274,7 +290,7 @@ export function ViewingEditingMode() {
                           onToggleUserFacing={handleToggleUserFacing}
                           canEditVariants={canEditVariants}
                           canEditStructure={canEditStructure}
-                          sortableEnabled={canEditStructure}
+                          sortableEnabled={sortableEnabled}
                         />
                       );
                     }
@@ -286,7 +302,7 @@ export function ViewingEditingMode() {
                         isActive={isActive}
                         onSelect={handleModeChange}
                         disabled={!canEditVariants}
-                        sortableEnabled={canEditStructure}
+                        sortableEnabled={sortableEnabled}
                       />
                     );
                   })}
@@ -612,8 +628,8 @@ function ViewModeEditingRow({
           return;
         }
         delete viewModes[mode.id];
+        const sortedViewModes = compactViewModeSortIndices(viewModes);
         if (state.projectConfig.activeViewModeId === mode.id) {
-          const sortedViewModes = sortViewModes(Object.values(viewModes));
           const nextViewMode = sortedViewModes[0] ?? null;
           state.projectConfig.activeViewModeId = nextViewMode?.id ?? null;
           if (nextViewMode) {

@@ -96,19 +96,6 @@ export function getHomeMaxTotalSideWidth(desktopColumnsWidth: number): number {
   );
 }
 
-export function shouldClampHomeSideColumnWidths(
-  isDesktopLayout: boolean,
-  desktopColumnsWidth: number | null,
-): boolean {
-  return isDesktopLayout && desktopColumnsWidth !== null;
-}
-
-export function shouldPruneFavoriteProjectConfigIds(
-  hasLoadedProjectMetadata: boolean,
-): boolean {
-  return hasLoadedProjectMetadata;
-}
-
 export function HomePage() {
   const { projectMetadata, defaultProjectConfigId } = useAllProjectMetadata(
     (x) => x,
@@ -122,12 +109,13 @@ export function HomePage() {
   useEffect(() => {
     let isCancelled = false;
     // load manually on first load because websocket might take time to connect
-    void loadAllProjectMetadata().finally(() => {
-      if (isCancelled) {
+    void (async () => {
+      const loadedProjectMetadata = await loadAllProjectMetadata();
+      if (isCancelled || !loadedProjectMetadata) {
         return;
       }
       setHasLoadedProjectMetadata(true);
-    });
+    })();
     useProjectLoading.getState().reset();
     return () => {
       isCancelled = true;
@@ -297,7 +285,7 @@ function HomeWorkspaceLayout({
   }, [isDesktopLayout]);
 
   useEffect(() => {
-    if (!shouldPruneFavoriteProjectConfigIds(hasLoadedProjectMetadata)) {
+    if (!hasLoadedProjectMetadata) {
       return;
     }
     const validProjectIds = new Set(projects.map((project) => project.id));
@@ -310,6 +298,22 @@ function HomeWorkspaceLayout({
       useLocalStorage.setState({ favoriteProjectConfigIds: nextFavoriteIds });
     }
   }, [hasLoadedProjectMetadata, projects]);
+
+  useEffect(() => {
+    const validProjectIds = new Set(projects.map((project) => project.id));
+    setSelectedProjects((previousProjects) => {
+      if (previousProjects.length === 0) {
+        return previousProjects;
+      }
+      const nextSelectedProjects = previousProjects.filter((id) =>
+        validProjectIds.has(id),
+      );
+      if (nextSelectedProjects.length === previousProjects.length) {
+        return previousProjects;
+      }
+      return nextSelectedProjects;
+    });
+  }, [projects]);
 
   useEffect(() => {
     if (filteredProjects.length === 0) {
@@ -380,7 +384,6 @@ function HomeWorkspaceLayout({
 
   function onClickDelete() {
     openDeleteProjectWarningModal({
-      setSelectedProjects,
       selectedProjectsIdName: selectedProjects.map((s) => ({
         id: s,
         name: projects.find((p) => p.id === s)?.name ?? "",
@@ -428,9 +431,7 @@ function HomeWorkspaceLayout({
         );
 
   useEffect(() => {
-    if (
-      !shouldClampHomeSideColumnWidths(isDesktopLayout, desktopColumnsWidth)
-    ) {
+    if (!isDesktopLayout || desktopColumnsWidth === null) {
       return;
     }
     const nextMaxTotalSideWidth = getHomeMaxTotalSideWidth(desktopColumnsWidth);
@@ -1051,6 +1052,7 @@ function ProjectCard({
           isSelected={isSelected}
           onToggleProjectSelection={onToggleProjectSelection}
           projectPath={projectPath}
+          onOpenProject={openProjectFromCard}
           selectionEnabled={selectionEnabled}
           isFavorite={isFavorite}
           onToggleFavoriteProjectConfig={onToggleFavoriteProjectConfig}
@@ -1126,6 +1128,7 @@ function ThumbnailArea({
   isSelected,
   onToggleProjectSelection,
   projectPath,
+  onOpenProject,
   selectionEnabled,
   isFavorite,
   onToggleFavoriteProjectConfig,
@@ -1134,12 +1137,11 @@ function ThumbnailArea({
   isSelected: boolean;
   onToggleProjectSelection: (id: string) => void;
   projectPath: string | null;
+  onOpenProject: () => void;
   selectionEnabled: boolean;
   isFavorite: boolean;
   onToggleFavoriteProjectConfig: (projectConfigId: string) => void;
 }) {
-  const navigate = useNavigate();
-
   function onThumbnailKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) {
       return;
@@ -1151,7 +1153,7 @@ function ThumbnailArea({
       return;
     }
     event.preventDefault();
-    navigate(projectPath);
+    onOpenProject();
   }
 
   return (

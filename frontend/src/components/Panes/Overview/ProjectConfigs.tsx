@@ -214,6 +214,7 @@ export function ProjectConfigs() {
             id="overview-project-configs-sortable"
             items={orderedProjectConfigs.map((config) => config.id)}
             direction="vertical"
+            enabled={sortableEnabled}
             onReorder={handleReorder}
           >
             <div className="flex w-full flex-col gap-0">
@@ -404,7 +405,6 @@ function ProjectConfigEditingRow({
     }
     openDeleteProjectWarningModal({
       selectedProjectsIdName: [{ id: config.id, name: config.name }],
-      setSelectedProjects: () => {},
     });
   }
 

@@ -68,3 +68,15 @@
 - Reduced Project Config hover-preview overhead during edit/reorder flows by suppressing preview updates when edit mode is active or a drag has started.
 - Added/updated targeted pytest, Vitest, and Playwright coverage for missing-section `404` mapping, metadata-gated favorites pruning, deployment single-click open, and overview/local-storage tab sanitization behavior.
 - Completed CDP visual verification for the Home page flows impacted by these fixes (favorites persistence and deployment-mode open interactions).
+
+## 2026-02-17 13:14:12 PST
+
+- Fixed `SortableListProvider` hook-order/SSR safety by splitting environment gating from hook execution, and removed non-functional keyboard sensor wiring so DnD behavior is explicit pointer-only.
+- Reduced DnD overhead by adding provider-level `enabled` gating and wiring it through View Mode tabs, Overview view modes, Overview project configs, and section variants so drag runtime is skipped when sorting is unavailable.
+- Removed delete-project modal compatibility coupling by deleting `setSelectedProjects` from the modal payload contract and updating Home/Overview callers to pass only deletion targets.
+- Fixed Home favorites data-loss edge case by making `loadAllProjectMetadata` return explicit success and only enabling stale-favorite pruning after a confirmed successful metadata snapshot.
+- Fixed Home keyboard/mouse open parity by routing thumbnail keyboard activation through the same navigation callback and `pageLoadType` state used by pointer open paths.
+- Aligned frontend optimistic view-mode delete behavior with backend ordering semantics by compacting remaining `sortIndex` values in sorted order after deletion.
+- Tightened typing on `FileMenuSaveProjectConfigAsModal` by removing the implicit `any` prop.
+- Added/updated Vitest and Playwright coverage for sortable-provider gating signals, metadata-load success/failure behavior, view-mode sort-index compaction, and Home metadata-failure favorite-retention regression.
+- Completed CDP visual verification on the running app for impacted Home/project flows after these changes.

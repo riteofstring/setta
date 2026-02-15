@@ -17,16 +17,20 @@ import {
 } from "./ProjectConfigs";
 
 let latestOnReorder: ((orderedIds: string[]) => void) | null = null;
+let latestSortableEnabled: boolean | undefined;
 
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
   SortableListProvider: ({
     children,
     onReorder,
+    enabled,
   }: {
     children: unknown;
     onReorder: (orderedIds: string[]) => void;
+    enabled?: boolean;
   }) => {
     latestOnReorder = onReorder;
+    latestSortableEnabled = enabled;
     return children;
   },
   useSortableListItem: () => ({
@@ -70,6 +74,7 @@ describe("ProjectConfigs", () => {
   beforeEach(() => {
     resetProjectStores();
     latestOnReorder = null;
+    latestSortableEnabled = undefined;
     memoryStorage.reset();
     useSettings.setState(createSettingsState());
     useLocalStorage.persist.setOptions({
@@ -161,6 +166,7 @@ describe("ProjectConfigs", () => {
     expect(betaIndex).toBeGreaterThanOrEqual(0);
     expect(alphaIndex).toBeGreaterThanOrEqual(0);
     expect(betaIndex).toBeLessThan(alphaIndex);
+    expect(latestSortableEnabled).toBe(true);
   });
 
   it("ignores reorder callbacks in read-only mode", () => {
@@ -198,6 +204,7 @@ describe("ProjectConfigs", () => {
       'data-testid="overview-project-config-drag-handle"',
     );
     expect(markup).toContain('class="text-transparent"');
+    expect(latestSortableEnabled).toBe(false);
 
     if (!latestOnReorder) {
       throw new Error(

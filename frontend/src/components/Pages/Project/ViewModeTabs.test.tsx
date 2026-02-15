@@ -9,8 +9,19 @@ import { createProjectConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewModeTabs } from "./ViewModeTabs";
 
+let latestProviderEnabled: boolean | undefined;
+
 vi.mock("./ViewModeDnd", () => ({
-  ViewModeSortableProvider: ({ children }: { children: unknown }) => children,
+  ViewModeSortableProvider: ({
+    children,
+    enabled,
+  }: {
+    children: unknown;
+    enabled?: boolean;
+  }) => {
+    latestProviderEnabled = enabled;
+    return children;
+  },
   useViewModeSortableItem: () => ({
     attributes: {},
     listeners: {},
@@ -51,6 +62,7 @@ describe("ViewModeTabs", () => {
 
   beforeEach(() => {
     resetProjectStores();
+    latestProviderEnabled = undefined;
     memoryStorage.reset();
     useLocalStorage.persist.setOptions({
       storage: {
@@ -112,6 +124,8 @@ describe("ViewModeTabs", () => {
     const markup = renderToStaticMarkup(<ViewModeTabs />);
     expect(markup).toContain("Tab View");
     expect(markup).not.toContain("Hidden View");
+    expect(latestProviderEnabled).toBe(false);
+    expect(markup).not.toContain('data-testid="view-mode-tab-drag-handle"');
   });
 
   it("returns empty markup when no tab view modes exist", () => {
@@ -204,16 +218,28 @@ describe("ViewModeTabs", () => {
     expect(thirdIdx).toBeLessThan(secondIdx);
   });
 
-  it("renders a visible drag handle for tabbed view modes", () => {
-    const tabId = "view-1";
+  it("renders a visible drag handle when tab reordering is enabled", () => {
+    const firstTabId = "view-1";
+    const secondTabId = "view-2";
     const projectConfig = createProjectConfig({
       id: "project-1",
-      activeViewModeId: tabId,
+      activeViewModeId: firstTabId,
       viewModes: {
-        [tabId]: {
-          id: tabId,
+        [firstTabId]: {
+          id: firstTabId,
           name: "Tab View",
           sortIndex: 0,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: {},
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: false,
+          topLevelSections: {},
+        },
+        [secondTabId]: {
+          id: secondTabId,
+          name: "Tab View 2",
+          sortIndex: 1,
           isUserFacing: false,
           isTab: true,
           visibilityBySectionId: {},
@@ -230,6 +256,7 @@ describe("ViewModeTabs", () => {
     syncStoreInitialState(useProjectState);
 
     const markup = renderToStaticMarkup(<ViewModeTabs />);
+    expect(latestProviderEnabled).toBe(true);
     expect(markup).toContain('data-testid="view-mode-tab-drag-handle"');
     expect(markup).toContain('aria-label="Reorder view mode tab"');
     expect(markup).toContain("<svg");
