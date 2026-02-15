@@ -100,6 +100,7 @@ from setta.project_state.project_manager_types import (
     SetSectionTagColorRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
+    SetSectionVariantSortOrderRequest,
     SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
@@ -111,6 +112,7 @@ from setta.project_state.project_manager_types import (
     SetTypeErrorIgnoreRequest,
     SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
+    SetViewModeSortOrderRequest,
     SetViewportRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
@@ -456,6 +458,26 @@ async def route_set_view_mode_name(
     try:
         await manager.set_view_mode_name(x)
     except InvalidViewModeName as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post(Route.SET_VIEW_MODE_SORT_ORDER)
+async def route_set_view_mode_sort_order(
+    x: SetViewModeSortOrderRequest, ctx: RuntimeContextFromRequest
+) -> None:
+    await _deny_deployment_mode_view_modes(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    try:
+        await manager.set_view_mode_sort_order(x)
+    except KeyError as exc:
+        message = (
+            exc.args[0]
+            if exc.args and isinstance(exc.args[0], str)
+            else str(exc) or exc.__class__.__name__
+        )
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+    except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
@@ -1044,6 +1066,26 @@ async def route_set_default_section_variant(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
     await manager.set_default_section_variant(x)
+
+
+@router.post(Route.SET_SECTION_VARIANT_SORT_ORDER)
+async def route_set_section_variant_sort_order(
+    x: SetSectionVariantSortOrderRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
+    try:
+        await manager.set_section_variant_sort_order(x)
+    except KeyError as exc:
+        message = (
+            exc.args[0]
+            if exc.args and isinstance(exc.args[0], str)
+            else str(exc) or exc.__class__.__name__
+        )
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post(Route.TOGGLE_VARIANT_FROZEN)

@@ -38,7 +38,6 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
-    ChatPermissionMode,
     ChatSectionState,
     CodeFileAccessMode,
     SectionSize,
@@ -462,6 +461,14 @@ class SetViewModeNameRequest(ProjectManagerRequestWithProjectConfig):
     )
     name: str = Field(
         description="New display name for the view mode.",
+    )
+
+
+class SetViewModeSortOrderRequest(ProjectManagerRequestWithProjectConfig):
+    """Persist a full ordered list of view mode IDs."""
+
+    orderedViewModeIds: list[ID] = Field(
+        description="Complete list of view mode IDs in desired order.",
     )
 
 
@@ -935,6 +942,14 @@ class SetDefaultSectionVariantRequest(ProjectManagerRequestWithSectionVariant):
     pass
 
 
+class SetSectionVariantSortOrderRequest(ProjectManagerRequestWithSection):
+    """Persist the ordered list of variants for a section."""
+
+    orderedVariantIds: list[ID] = Field(
+        description="Complete list of variant IDs in desired order.",
+    )
+
+
 class ToggleVariantFrozenRequest(ProjectManagerRequestWithVariant):
     pass
 
@@ -1068,8 +1083,6 @@ class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     engineConfigId: ID | None
     agentProfileId: ID | None
     thinking: bool
-    permissionMode: ChatPermissionMode
-    searchEnabled: bool
 
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):
