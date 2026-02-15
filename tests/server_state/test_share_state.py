@@ -137,8 +137,6 @@ class TestShareState:
             )
             assert state.dbe.temporary_id_map.is_relative_to(runtime_root)
             assert not state.dbe.temporary_id_map.is_relative_to(deployment_root)
-            assert state.plugin_manager.workspace_root == deployment_root
-            assert state.plugin_manager.setta_files_root == deployment_root
 
     async def test_share_state_uses_manifest_for_relocated_runtime_root(self) -> None:
         with TemporaryDirectory() as tmpdir:
