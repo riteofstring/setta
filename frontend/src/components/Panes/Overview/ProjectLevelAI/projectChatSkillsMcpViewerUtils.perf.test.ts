@@ -7,19 +7,19 @@ import {
 
 function makeRows(size: number) {
   return Array.from({ length: size }, (_, index) => ({
-    skillId: `workspace_agents_skills::skill-${index}`,
+    skillId: `workspace_skills::skill-${index}`,
     name: `skill-${index}`,
     rootLabel:
       index % 3 === 0
-        ? "Workspace .agents/skills"
+        ? "Workspace skills"
         : index % 3 === 1
-          ? "User ~/.claude/skills"
+          ? "User ~/.codex/skills"
           : "User ~/.agents/skills",
     rootPath:
       index % 3 === 0
-        ? "/workspace/.agents/skills"
+        ? "/workspace/skills"
         : index % 3 === 1
-          ? "/home/.claude/skills"
+          ? "/home/.codex/skills"
           : "/home/.agents/skills",
     relativePath: `skill-${index}`,
     description: `Skill description ${index}`,

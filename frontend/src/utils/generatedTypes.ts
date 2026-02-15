@@ -2653,17 +2653,17 @@ const TaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "b82b660e-6479-4e06-8bb3-759a0ed16fc2" as const,
+      id: "62cafdc4-e9fc-4b93-95ad-e1354aee9427" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "67795cdb-d80a-4842-854c-d535ab397a62" as const,
+      id: "4c46cc8a-e5b7-4a39-99e1-6edeb04c0c83" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "f82b50cc-61dd-47f8-9f78-fb666c8a0eb5" as const,
+      id: "1f84d3c8-09f8-4784-8da6-5e3208395748" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
@@ -5119,6 +5119,7 @@ const SettingsBackendSchema = z.object({
   runSnapshotMode: z
     .enum(RunSnapshotModeEnum)
     .default(RunSnapshotModeEnum.ephemeral),
+  completionGuardEnabled: z.boolean().default(true),
 });
 
 type SettingsBackend = z.infer<typeof SettingsBackendSchema>;
@@ -6041,17 +6042,17 @@ const UserDefaultTaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "885a1622-5b8b-4725-ac09-e8b1b6b71e06" as const,
+      id: "09b9f904-fe9e-4208-9d74-d4e0141ff752" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "196a95f6-ce33-43fc-b526-9ab1ab322f36" as const,
+      id: "f3988e1e-1538-40c9-a6a8-defc84e4e957" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "f5163822-0c56-47c5-abed-09bb4e43e229" as const,
+      id: "55c21c1d-ad95-4237-acaa-1a3a7aa8893a" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
