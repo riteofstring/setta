@@ -52,4 +52,13 @@ export function register(host) {
     .catch(() => {
       incrementMetric("__settaFixtureApiFetchTraversalFailures");
     });
+
+  void host
+    .apiFetch("/%2e%2e%2fapi/projects")
+    .then(() => {
+      incrementMetric("__settaFixtureApiFetchTraversalCalls");
+    })
+    .catch(() => {
+      incrementMetric("__settaFixtureApiFetchTraversalFailures");
+    });
 }

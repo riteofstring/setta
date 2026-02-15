@@ -4303,9 +4303,7 @@ class PluginManager:
         template: Literal["backend", "frontend", "full", "content"],
         out_dir: str | None,
     ) -> Path:
-        normalized_id = plugin_id.strip().lower()
-        if not normalized_id:
-            raise PluginManagerError("PLUGIN_INIT_INVALID_ID", "Missing plugin id.")
+        normalized_id = self._normalize_and_validate_init_plugin_id(plugin_id)
         if out_dir is None:
             root = self.workspace_root / normalized_id
         else:
@@ -4422,7 +4420,7 @@ class PluginManager:
             "      - uses: actions/setup-python@v5\n"
             "        with:\n"
             '          python-version: "3.12"\n'
-            "      - run: python -m pip install --upgrade build twine\n"
+            "      - run: python -m pip install --upgrade build twine setta\n"
             "      - run: setta plugins validate .\n"
             "      - run: python -m build\n"
             "      - run: python -m twine check dist/*\n"
@@ -4450,6 +4448,18 @@ class PluginManager:
             encoding="utf-8",
         )
         return root
+
+    def _normalize_and_validate_init_plugin_id(self, plugin_id: str) -> str:
+        normalized_id = plugin_id.strip().lower()
+        if not normalized_id:
+            raise PluginManagerError("PLUGIN_INIT_INVALID_ID", "Missing plugin id.")
+        try:
+            return PluginManifest.validate_id(normalized_id)
+        except ValueError as exc:
+            raise PluginManagerError(
+                "PLUGIN_INIT_INVALID_ID",
+                f"Invalid plugin id: {exc}",
+            ) from exc
 
     def _discover_plugins(self) -> list[DiscoveredPlugin]:
         install_metadata = self._load_install_metadata()
@@ -6249,10 +6259,8 @@ class PluginManager:
             return False
         if not path.exists() or not path.is_dir():
             return False
-        for child in path.iterdir():
-            if child.is_file():
-                return True
-            if child.is_dir() and self._directory_has_files(child):
+        for _root, _dirs, files in os.walk(path, topdown=True, followlinks=False):
+            if len(files) > 0:
                 return True
         return False
 

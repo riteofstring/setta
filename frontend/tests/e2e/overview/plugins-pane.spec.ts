@@ -239,6 +239,37 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   await expect(
     page.getByRole("button", { name: "Copy Section JSON", exact: true }),
   ).toBeVisible();
+
+  await setOverviewTab(page, "Plugins");
+  const enableFromStatusButton = page.getByTestId(
+    "plugin-status-enable-setta-fixture-frontend",
+  );
+  await expect(enableFromStatusButton).toBeVisible();
+  await enableFromStatusButton.click();
+  await expect(page.getByText("Enable plugin completed.")).toBeVisible();
+  await expect(
+    page.getByTestId("plugin-status-disable-setta-fixture-frontend"),
+  ).toBeVisible();
+
+  const frontendPluginCardAfterEnable = page
+    .locator("article")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "setta-fixture-frontend@0.1.0",
+        exact: true,
+      }),
+    })
+    .first();
+  await expect(frontendPluginCardAfterEnable).toBeVisible();
+  await expect(
+    frontendPluginCardAfterEnable.getByRole("button", {
+      name: "Open Fixture Pane",
+      exact: true,
+    }),
+  ).toBeVisible();
+
+  await page.locator("#overview-tab-overview").click();
+  await expect(page.getByText("Fixture Plugin Card")).toBeVisible();
 });
 
 test("plugins pane shows install confirmation trust and provenance summary", async ({

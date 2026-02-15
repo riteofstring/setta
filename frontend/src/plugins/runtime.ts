@@ -1304,18 +1304,6 @@ function registerPluginModule({
   return registryDelta;
 }
 
-function isTraversalSegment(segment: string): boolean {
-  if (segment === "." || segment === "..") {
-    return true;
-  }
-  try {
-    const decodedSegment = decodeURIComponent(segment);
-    return decodedSegment === "." || decodedSegment === "..";
-  } catch {
-    return false;
-  }
-}
-
 function normalizePluginPath(path: string): string {
   const trimmed = path.trim();
   if (trimmed === "") {
@@ -1327,7 +1315,16 @@ function normalizePluginPath(path: string): string {
     queryStart >= 0 ? normalizedInput.slice(0, queryStart) : normalizedInput;
   const suffix = queryStart >= 0 ? normalizedInput.slice(queryStart) : "";
   const segments = pathPart.split("/").filter((segment) => segment.length > 0);
-  if (segments.some((segment) => isTraversalSegment(segment))) {
+  let decodedPathPart = pathPart;
+  try {
+    decodedPathPart = decodeURIComponent(pathPart);
+  } catch {
+    decodedPathPart = pathPart;
+  }
+  const decodedSegments = decodedPathPart
+    .split("/")
+    .filter((segment) => segment.length > 0);
+  if (decodedSegments.some((segment) => segment === "." || segment === "..")) {
     throw new PluginRuntimeError(
       PluginFrontendErrorCodeEnum.RegistrationInvalid,
       `apiFetch path cannot include relative traversal segments: ${path}`,

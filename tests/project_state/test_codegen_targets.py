@@ -718,6 +718,262 @@ class TestCodegenTargetsRunCommand:
             manager.shutdown()
             plugin_manager.shutdown_backend_plugins()
 
+    async def test_refresh_codegen_state_regenerates_modified_cached_plugin_outputs(
+        self,
+    ) -> None:
+        # Cached plugin outputs should regenerate when output content is externally modified.
+        plugin_manager = self._create_loaded_codegen_plugin_manager()
+        project_config = ProjectConfig(
+            name="PluginCodegenModifiedOutput",
+            codegenTargets=[
+                ProjectCodegenPluginTarget(
+                    language="setta-fixture-backend-codegen:typescript",
+                    options={"className": "PluginState"},
+                )
+            ],
+        )
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=plugin_manager,
+        )
+        generation_calls = 0
+        original_generate = plugin_manager.generate_backend_codegen_target
+
+        def _counting_generate_backend_codegen_target(
+            *,
+            target_id: str,
+            project_state: dict,
+            target_options: dict[str, Any],
+        ) -> list[tuple[str, str]]:
+            nonlocal generation_calls
+            generation_calls += 1
+            return original_generate(
+                target_id=target_id,
+                project_state=project_state,
+                target_options=target_options,
+            )
+
+        plugin_manager.generate_backend_codegen_target = (  # type: ignore[method-assign]
+            _counting_generate_backend_codegen_target
+        )
+        try:
+            await manager._refresh_codegen_state(project_state)
+            assert generation_calls == 1
+
+            target_dir = manager._plugin_codegen_target_dir_name(
+                "setta-fixture-backend-codegen:typescript"
+            )
+            output_path = (
+                build_project_sections_dir(C.CODE_FOLDER, project_config.name)
+                / "plugin_codegen"
+                / target_dir
+                / "setta_gen.ts"
+            )
+            assert output_path.exists()
+            output_path.write_text("// modified externally\n", encoding="utf-8")
+
+            await manager._refresh_codegen_state(project_state)
+            assert generation_calls == 2
+            assert output_path.read_text(encoding="utf-8") == (
+                "export class PluginState {\n"
+                "  readonly projectName = 'PluginCodegenModifiedOutput';\n"
+                "}\n"
+            )
+        finally:
+            manager.shutdown()
+            plugin_manager.shutdown_backend_plugins()
+
+    async def test_refresh_codegen_state_handles_dir_to_file_path_transitions(
+        self,
+    ) -> None:
+        # Plugin codegen should handle transitions from directory output paths to file output paths.
+        class _StubPluginManager:
+            def __init__(self) -> None:
+                self.layout = "dir"
+
+            def has_backend_codegen_target(self, _target_id: str) -> bool:
+                return True
+
+            def get_backend_codegen_target_implementation_key(
+                self, target_id: str
+            ) -> str:
+                return f"{target_id}:{self.layout}"
+
+            def generate_backend_codegen_target(
+                self,
+                *,
+                target_id: str,
+                project_state: dict[str, Any],
+                target_options: dict[str, Any],
+            ) -> list[tuple[str, str]]:
+                if self.layout == "dir":
+                    return [
+                        (
+                            "nested/file.ts",
+                            (
+                                f"export const mode = 'dir';\n"
+                                f"export const target = '{target_id}';\n"
+                                f"export const stateSize = {len(project_state)};\n"
+                                f"export const optionsSize = {len(target_options)};\n"
+                            ),
+                        )
+                    ]
+                return [
+                    (
+                        "nested",
+                        (
+                            f"export const mode = 'file';\n"
+                            f"export const target = '{target_id}';\n"
+                            f"export const stateSize = {len(project_state)};\n"
+                            f"export const optionsSize = {len(target_options)};\n"
+                        ),
+                    )
+                ]
+
+        plugin_manager = _StubPluginManager()
+        project_config = ProjectConfig(
+            name="PluginCodegenDirToFile",
+            codegenTargets=[
+                ProjectCodegenPluginTarget(language="stub-plugin:target-a")
+            ],
+        )
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=plugin_manager,  # type: ignore[arg-type]
+        )
+        try:
+            await manager._refresh_codegen_state(project_state)
+            target_dir = manager._plugin_codegen_target_dir_name("stub-plugin:target-a")
+            output_root = (
+                build_project_sections_dir(C.CODE_FOLDER, project_config.name)
+                / "plugin_codegen"
+                / target_dir
+            )
+            assert (output_root / "nested" / "file.ts").is_file()
+
+            plugin_manager.layout = "file"
+            await manager._refresh_codegen_state(project_state)
+            assert (output_root / "nested").is_file()
+            assert (output_root / "nested").read_text(encoding="utf-8").startswith(
+                "export const mode = 'file';\n"
+            )
+            assert not (output_root / "nested" / "file.ts").exists()
+        finally:
+            manager.shutdown()
+
+    async def test_refresh_codegen_state_handles_file_to_dir_path_transitions(
+        self,
+    ) -> None:
+        # Plugin codegen should handle transitions from file output paths to directory output paths.
+        class _StubPluginManager:
+            def __init__(self) -> None:
+                self.layout = "file"
+
+            def has_backend_codegen_target(self, _target_id: str) -> bool:
+                return True
+
+            def get_backend_codegen_target_implementation_key(
+                self, target_id: str
+            ) -> str:
+                return f"{target_id}:{self.layout}"
+
+            def generate_backend_codegen_target(
+                self,
+                *,
+                target_id: str,
+                project_state: dict[str, Any],
+                target_options: dict[str, Any],
+            ) -> list[tuple[str, str]]:
+                if self.layout == "file":
+                    return [
+                        (
+                            "nested",
+                            (
+                                f"export const mode = 'file';\n"
+                                f"export const target = '{target_id}';\n"
+                                f"export const stateSize = {len(project_state)};\n"
+                                f"export const optionsSize = {len(target_options)};\n"
+                            ),
+                        )
+                    ]
+                return [
+                    (
+                        "nested/file.ts",
+                        (
+                            f"export const mode = 'dir';\n"
+                            f"export const target = '{target_id}';\n"
+                            f"export const stateSize = {len(project_state)};\n"
+                            f"export const optionsSize = {len(target_options)};\n"
+                        ),
+                    )
+                ]
+
+        plugin_manager = _StubPluginManager()
+        project_config = ProjectConfig(
+            name="PluginCodegenFileToDir",
+            codegenTargets=[
+                ProjectCodegenPluginTarget(language="stub-plugin:target-a")
+            ],
+        )
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=plugin_manager,  # type: ignore[arg-type]
+        )
+        try:
+            await manager._refresh_codegen_state(project_state)
+            target_dir = manager._plugin_codegen_target_dir_name("stub-plugin:target-a")
+            output_root = (
+                build_project_sections_dir(C.CODE_FOLDER, project_config.name)
+                / "plugin_codegen"
+                / target_dir
+            )
+            assert (output_root / "nested").is_file()
+
+            plugin_manager.layout = "dir"
+            await manager._refresh_codegen_state(project_state)
+            assert (output_root / "nested").is_dir()
+            assert (output_root / "nested" / "file.ts").is_file()
+            assert (output_root / "nested" / "file.ts").read_text(
+                encoding="utf-8"
+            ).startswith(
+                "export const mode = 'dir';\n"
+            )
+        finally:
+            manager.shutdown()
+
     async def test_refresh_codegen_state_canonicalizes_plugin_codegen_paths(
         self,
     ) -> None:

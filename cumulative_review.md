@@ -163,3 +163,17 @@
 - Updated plugin section fallback behavior to hide destructive "Delete Section" actions in read-only/user view contexts and removed deep recursive plugin-data equality from `PluginArea` render selection.
 - Removed duplicated JSON object draft parse/format logic in Plugins pane by introducing shared object-draft helpers used by both plugin config and language-server settings editors.
 - Added/updated backend pytest, frontend Vitest, and Playwright coverage for all changed paths (including new style-failure lifecycle E2E coverage), and completed CDP verification for updated plugin runtime/fallback UI behavior.
+
+## 2026-02-15T23:42:40-08:00
+
+- Implemented the latest top-level `review*.md` fix batch end-to-end, explicitly excluding backward-compatibility additions.
+- Hardened frontend plugin API path normalization to block encoded traversal segments (for example `%2e%2e%2f`) and added matching unit + E2E regression coverage.
+- Fixed stale section-effective-impl reads by invalidating cached effective impl values before post-update resolution, with regression unit tests.
+- Improved Plugins pane UX by adding per-row Discovery Status actions for `Enable`/`Disable`, including tested re-enable-from-status behavior.
+- Hardened plugin template scaffolding by validating template plugin IDs with manifest-equivalent rules and ensuring release workflow validation installs `setta` first.
+- Hardened plugin codegen target refresh correctness by caching per-output content hashes, re-generating stale/modified outputs, and handling file/dir path-shape conflicts safely.
+- Reduced duplicated listener endpoint dispatch logic by centralizing listener-router payload preparation/validation.
+- Improved test-runner DX by making backend plugin-fixture builds conditional for non-plugin-targeted runs and by caching Playwright workspace fixture seeding signatures.
+- Updated docs to remove dead plugin-plan links and point to current plugin authoring/smoke-test guides.
+- UX before/after: status-table-only plugin entries were not directly recoverable in-pane; now operators can re-enable directly from Discovery Status rows without context switching.
+- DX before/after: backend/Playwright fixture setup reran expensive seed/build work on unchanged inputs; now unchanged runs skip rebuild/reseed while preserving correctness checks.

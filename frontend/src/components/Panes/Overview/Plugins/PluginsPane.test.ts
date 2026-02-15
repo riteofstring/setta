@@ -123,6 +123,20 @@ describe("plugins pane helpers", () => {
     ).toBe(false);
   });
 
+  it("derives busy plugin ids from action keys", () => {
+    const busyPluginIds = pluginsPaneTestApi.buildBusyPluginIdSet(
+      new Set([
+        "install",
+        "rescan",
+        "enable:alpha.plugin",
+        "disable:beta.plugin",
+        "rollback:alpha.plugin",
+      ]),
+    );
+
+    expect([...busyPluginIds].sort()).toEqual(["alpha.plugin", "beta.plugin"]);
+  });
+
   it("sorts restart-required plugin ids deterministically", () => {
     const ids = pluginsPaneTestApi.getRestartRequiredPluginIds([
       buildPluginListEntry({

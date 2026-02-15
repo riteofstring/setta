@@ -187,6 +187,10 @@ export function PluginsPane() {
       }),
     [pluginStatusEntries],
   );
+  const busyPluginIds = useMemo(
+    () => buildBusyPluginIdSet(busyActionKeys),
+    [busyActionKeys],
+  );
   const restartRequiredPluginIds = useMemo(
     () => getRestartRequiredPluginIds(pluginListEntries, pluginStatusEntries),
     [pluginListEntries, pluginStatusEntries],
@@ -246,12 +250,52 @@ export function PluginsPane() {
   }
 
   function isAnyPluginActionBusy(pluginId: string): boolean {
-    for (const actionKey of busyActionKeys) {
-      if (actionKey.endsWith(`:${pluginId}`)) {
-        return true;
-      }
+    return busyPluginIds.has(pluginId);
+  }
+
+  async function onEnablePlugin(pluginId: string) {
+    await runAction(`enable:${pluginId}`, "Enable plugin", async () =>
+      route_plugins_enable({ pluginId }),
+    );
+  }
+
+  async function onDisablePlugin(pluginId: string) {
+    await runAction(`disable:${pluginId}`, "Disable plugin", async () =>
+      route_plugins_disable({ pluginId }),
+    );
+  }
+
+  function renderStatusRowAction(entry: PluginStatusEntry) {
+    if (entry.shadowedBySourcePath !== null) {
+      return <span className="text-setta-400 dark:text-setta-500">-</span>;
     }
-    return false;
+    const pluginActionBusy = isAnyPluginActionBusy(entry.pluginId);
+    if (entry.state === "disabled") {
+      return (
+        <ActionButton
+          label="Enable"
+          onClick={() => onEnablePlugin(entry.pluginId)}
+          disabled={
+            writeActionsLocked ||
+            isActionBusy(`enable:${entry.pluginId}`) ||
+            pluginActionBusy
+          }
+          testId={`plugin-status-enable-${entry.pluginId}`}
+        />
+      );
+    }
+    return (
+      <ActionButton
+        label="Disable"
+        onClick={() => onDisablePlugin(entry.pluginId)}
+        disabled={
+          writeActionsLocked ||
+          isActionBusy(`disable:${entry.pluginId}`) ||
+          pluginActionBusy
+        }
+        testId={`plugin-status-disable-${entry.pluginId}`}
+      />
+    );
   }
 
   async function onInstallPlugin() {
@@ -526,6 +570,7 @@ export function PluginsPane() {
                   <th className="px-2 py-1 font-semibold">effective</th>
                   <th className="px-2 py-1 font-semibold">blocked</th>
                   <th className="px-2 py-1 font-semibold">source</th>
+                  <th className="px-2 py-1 font-semibold">actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -573,6 +618,7 @@ export function PluginsPane() {
                     >
                       {entry.sourcePath}
                     </td>
+                    <td className="px-2 py-1">{renderStatusRowAction(entry)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1966,14 +2012,17 @@ function ActionButton({
   label,
   onClick,
   disabled,
+  testId,
 }: {
   label: string;
   onClick: () => Promise<void>;
   disabled: boolean;
+  testId?: string;
 }) {
   return (
     <button
       type="button"
+      data-testid={testId}
       className="rounded border border-setta-300 px-2 py-1 text-[11px] text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
       onClick={() => {
         void onClick();
@@ -2166,7 +2215,20 @@ function isLinkedLocalPluginSource(
   return plugin.canonicalSourceKey.startsWith("local:");
 }
 
+function buildBusyPluginIdSet(actionKeys: Set<string>): Set<string> {
+  const ids = new Set<string>();
+  for (const actionKey of actionKeys) {
+    const separatorIndex = actionKey.indexOf(":");
+    if (separatorIndex < 0 || separatorIndex >= actionKey.length - 1) {
+      continue;
+    }
+    ids.add(actionKey.slice(separatorIndex + 1));
+  }
+  return ids;
+}
+
 export const pluginsPaneTestApi = {
+  buildBusyPluginIdSet,
   buildInstallTrustSummaryMessage,
   buildSourceManagerGuidanceMessage,
   buildRestartActionPlan: buildPluginRestartActionPlan,

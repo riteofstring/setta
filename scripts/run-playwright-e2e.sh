@@ -240,25 +240,88 @@ _seed_minimal_setta_files(setta_root)
 PY
   ) >"${LOG_DIR}/seed.log" 2>&1
   if [[ "${SETTA_E2E_SEED_PLUGIN_FIXTURES:-1}" != "0" ]]; then
-    local fixtures=(
-      "backend-language-server-e2e"
-      "backend-external-agent"
-      "backend-codegen"
-    )
-    local plugins_root="${SETTA_WORKSPACE_ROOT}/.setta_plugins"
-    mkdir -p "${plugins_root}"
+    seed_workspace_plugin_fixtures
+  fi
+  log "Seeded workspace. Logs: ${LOG_DIR}/seed.log"
+}
+
+compute_workspace_seed_fixture_signature() {
+  local root_dir="$1"
+  local fixture_name fixture_file
+  local fixtures=(
+    "backend-language-server-e2e"
+    "backend-external-agent"
+    "backend-codegen"
+  )
+  for fixture_name in "${fixtures[@]}"; do
+    local fixture_root="${root_dir}/tests/fixtures/plugins/${fixture_name}"
+    if [[ ! -d "${fixture_root}" ]]; then
+      printf '%s|missing\n' "${fixture_name}"
+      continue
+    fi
+    printf '%s|\n' "${fixture_name}"
+    while IFS= read -r fixture_file; do
+      printf '%s|' "${fixture_file#${root_dir}/}"
+      cksum < "${fixture_file}"
+    done < <(find "${fixture_root}" -type f | sort)
+  done
+}
+
+seed_workspace_plugin_fixtures() {
+  local fixtures=(
+    "backend-language-server-e2e"
+    "backend-external-agent"
+    "backend-codegen"
+  )
+  local plugins_root="${SETTA_WORKSPACE_ROOT}/.setta_plugins"
+  local seed_cache_dir="${SETTA_WORKSPACE_ROOT}/setta_files/.cache"
+  local seed_cache_file="${seed_cache_dir}/playwright-e2e-seeded-plugin-fixtures.signature"
+  local current_signature cached_signature
+  mkdir -p "${plugins_root}"
+  mkdir -p "${seed_cache_dir}"
+
+  current_signature="$(
+    compute_workspace_seed_fixture_signature "${ROOT_DIR}" | cksum | awk '{print $1 ":" $2}'
+  )"
+  if [[ "${SETTA_FORCE_SEED_PLUGIN_FIXTURES:-0}" != "1" ]] && [[ -f "${seed_cache_file}" ]]; then
+    cached_signature="$(<"${seed_cache_file}")"
+  else
+    cached_signature=""
+  fi
+
+  if [[ "${SETTA_FORCE_SEED_PLUGIN_FIXTURES:-0}" != "1" ]] && [[ "${cached_signature}" == "${current_signature}" ]]; then
+    local fixture_name
+    local missing_seeded_fixture=0
     for fixture_name in "${fixtures[@]}"; do
       local fixture_root="${ROOT_DIR}/tests/fixtures/plugins/${fixture_name}"
+      local seeded_fixture_root="${plugins_root}/${fixture_name}"
       if [[ ! -d "${fixture_root}" ]]; then
         continue
       fi
-      local seeded_fixture_root="${plugins_root}/${fixture_name}"
-      rm -rf "${seeded_fixture_root}"
-      cp -R "${fixture_root}" "${seeded_fixture_root}"
-      log "Seeded plugin fixture: ${seeded_fixture_root}"
+      if [[ ! -d "${seeded_fixture_root}" ]]; then
+        missing_seeded_fixture=1
+        break
+      fi
     done
+    if [[ "${missing_seeded_fixture}" == "0" ]]; then
+      log "Skipping seeded plugin fixture copy; fixtures unchanged."
+      return
+    fi
   fi
-  log "Seeded workspace. Logs: ${LOG_DIR}/seed.log"
+
+  local fixture_name
+  for fixture_name in "${fixtures[@]}"; do
+    local fixture_root="${ROOT_DIR}/tests/fixtures/plugins/${fixture_name}"
+    local seeded_fixture_root="${plugins_root}/${fixture_name}"
+    if [[ ! -d "${fixture_root}" ]]; then
+      rm -rf "${seeded_fixture_root}"
+      continue
+    fi
+    rm -rf "${seeded_fixture_root}"
+    cp -R "${fixture_root}" "${seeded_fixture_root}"
+    log "Seeded plugin fixture: ${seeded_fixture_root}"
+  done
+  printf '%s' "${current_signature}" > "${seed_cache_file}"
 }
 
 compute_local_plugin_artifact_signature() {

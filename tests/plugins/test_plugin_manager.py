@@ -3551,7 +3551,11 @@ def test_init_template_generates_publish_ready_scaffold(tmp_path: Path) -> None:
     assert (plugin_root / "setta.plugin.json").exists()
     assert (plugin_root / "pyproject.toml").exists()
     assert (plugin_root / "README.md").exists()
-    assert (plugin_root / ".github" / "workflows" / "release.yml").exists()
+    workflow_path = plugin_root / ".github" / "workflows" / "release.yml"
+    assert workflow_path.exists()
+    workflow_text = workflow_path.read_text(encoding="utf-8")
+    assert "python -m pip install --upgrade build twine setta" in workflow_text
+    assert "setta plugins validate ." in workflow_text
 
     frontend_entrypoint = plugin_root / "frontend" / "dist" / "index.js"
     assert frontend_entrypoint.exists()
@@ -3735,6 +3739,20 @@ def test_directory_digest_tracks_symlinked_file_target_changes(tmp_path: Path) -
     updated_digest = manager._compute_directory_digest(digest_root)
 
     assert updated_digest != initial_digest
+
+
+def test_directory_has_files_does_not_follow_symlink_cycles(tmp_path: Path) -> None:
+    # Directory file detection should terminate safely when symlink cycles are present.
+    manager = _make_manager(tmp_path)
+    content_root = tmp_path / "content"
+    prompts_root = content_root / "prompts"
+    prompts_root.mkdir(parents=True, exist_ok=True)
+    (prompts_root / "loop").symlink_to(prompts_root, target_is_directory=True)
+
+    assert manager._directory_has_files(content_root) is False
+
+    (prompts_root / "prompt.md").write_text("hello", encoding="utf-8")
+    assert manager._directory_has_files(content_root) is True
 
 
 def test_init_build_install_golden_path_plugin_is_usable(tmp_path: Path) -> None:
@@ -5352,6 +5370,36 @@ def test_init_template_rejects_empty_plugin_id(tmp_path: Path) -> None:
             out_dir=str(tmp_path),
         )
     assert exc_info.value.code == "PLUGIN_INIT_INVALID_ID"
+
+
+@pytest.mark.parametrize(
+    "plugin_id",
+    [
+        "../escape",
+        "bad/id",
+        "bad\\id",
+        "-starts-with-dash",
+        "has spaces",
+    ],
+)
+def test_init_template_rejects_invalid_plugin_ids(
+    tmp_path: Path,
+    plugin_id: str,
+) -> None:
+    # Init template should reject traversal and malformed plugin ids.
+    manager = _make_manager(tmp_path)
+    before_children = {child.name for child in tmp_path.iterdir()}
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.init_plugin_template(
+            plugin_id=plugin_id,
+            template="frontend",
+            out_dir=str(tmp_path),
+        )
+
+    assert exc_info.value.code == "PLUGIN_INIT_INVALID_ID"
+    after_children = {child.name for child in tmp_path.iterdir()}
+    assert after_children == before_children
 
 
 def test_init_template_rejects_existing_target(tmp_path: Path) -> None:

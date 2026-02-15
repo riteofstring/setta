@@ -664,6 +664,7 @@ function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
       variant.modifier[k] = typeof v === "function" ? v(currV) : v;
     }
   }
+  effectiveImplCacheByImpl.delete(impl);
   return getEffectiveImpl(impl, core, variant);
 }
 

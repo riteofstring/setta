@@ -208,7 +208,7 @@ test("plugin host apiFetch rejects traversal paths and avoids escaped requests",
           ),
         { timeout: 15000 },
       )
-      .toEqual({ failed: 1, succeeded: 0 });
+      .toEqual({ failed: 2, succeeded: 0 });
   } finally {
     await postBackend(page, "/plugins/unlink", {
       pluginId: "setta-fixture-frontend-api-fetch",

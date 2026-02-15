@@ -102,17 +102,18 @@ def _run_backend_test_runner(
     sandbox_root: Path,
     *,
     extra_env: dict[str, str] | None = None,
+    pytest_args: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     env["PATH"] = f"{sandbox_root / 'bin'}:{env.get('PATH', '')}"
     if extra_env:
         env.update(extra_env)
+    args = pytest_args if pytest_args is not None else ["-k", "plugins"]
     return subprocess.run(
         [
             "bash",
             str(sandbox_root / "scripts" / "run_backend_tests.sh"),
-            "-k",
-            "plugins",
+            *args,
         ],
         cwd=sandbox_root,
         env=env,
@@ -303,3 +304,36 @@ def test_run_backend_tests_honors_python_bin_override_for_cache_checks(
         extra_env={"PYTHON_BIN": sys.executable},
     )
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+
+
+def test_run_backend_tests_skips_fixture_build_for_non_plugin_targets(
+    tmp_path: Path,
+) -> None:
+    # Non-plugin-targeted test runs should skip plugin fixture build overhead by default.
+    sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+
+    result = _run_backend_test_runner(
+        sandbox_root,
+        pytest_args=["tests/start/test_run_backend_tests_script.py"],
+    )
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert "Skipping plugin fixture build for selected pytest targets." in result.stdout
+    assert not build_count_file.exists()
+    assert not (
+        sandbox_root / "setta_files" / ".cache" / "backend-test-plugin-fixtures-all.signature"
+    ).exists()
+
+
+def test_run_backend_tests_can_force_fixture_build_for_non_plugin_targets(
+    tmp_path: Path,
+) -> None:
+    # Explicit opt-in should force fixture build even for non-plugin-targeted runs.
+    sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+
+    result = _run_backend_test_runner(
+        sandbox_root,
+        extra_env={"SETTA_BUILD_PLUGIN_FIXTURES": "1"},
+        pytest_args=["tests/start/test_run_backend_tests_script.py"],
+    )
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert build_count_file.read_text(encoding="utf-8").strip() == "1"

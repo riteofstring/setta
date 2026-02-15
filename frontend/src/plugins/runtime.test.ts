@@ -1058,6 +1058,12 @@ describe("plugin runtime helpers", () => {
     expect(() =>
       pluginRuntimeTestApi.normalizePluginPath("/%2e%2e/api/projects"),
     ).toThrow("apiFetch path cannot include relative traversal segments");
+    expect(() =>
+      pluginRuntimeTestApi.normalizePluginPath("/%2e%2e%2fapi/projects"),
+    ).toThrow("apiFetch path cannot include relative traversal segments");
+    expect(() =>
+      pluginRuntimeTestApi.normalizePluginPath("/safe/%2E%2E%2Ffoo"),
+    ).toThrow("apiFetch path cannot include relative traversal segments");
     expect(pluginRuntimeTestApi.normalizePluginPath("health")).toBe("/health");
     expect(pluginRuntimeTestApi.normalizePluginPath("//status")).toBe(
       "/status",

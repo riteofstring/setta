@@ -580,7 +580,7 @@ class BaseProjectManager(ABC):
             ],
         ] = {}
         self._plugin_codegen_target_state_by_project_config: dict[
-            ID, dict[str, tuple[str, set[str]]]
+            ID, dict[str, tuple[str, dict[str, str]]]
         ] = {}
         self._plugin_codegen_output_root_by_project_config: dict[ID, Path] = {}
         self.lsp_diagnostics_state_by_project_config: dict[
@@ -1311,7 +1311,7 @@ class BaseProjectManager(ABC):
         previous_target_state = self._plugin_codegen_target_state_by_project_config.get(
             project_config_id, {}
         )
-        next_target_state: dict[str, tuple[str, set[str]]] = {}
+        next_target_state: dict[str, tuple[str, dict[str, str]]] = {}
 
         for target in plugin_targets:
             target_language = target.language
@@ -1330,7 +1330,7 @@ class BaseProjectManager(ABC):
             if previous_state is not None and previous_state[0] == target_fingerprint:
                 if self._cached_plugin_codegen_outputs_exist(
                     target_root=target_root,
-                    relative_paths=previous_state[1],
+                    output_hashes_by_relative_path=previous_state[1],
                 ):
                     next_target_state[target_language] = previous_state
                     continue
@@ -1342,12 +1342,12 @@ class BaseProjectManager(ABC):
                 project_state=project_state_payload,
                 target_options=target.options,
             )
-            generated_relative_paths: set[str] = set()
+            generated_contents_by_relative_path: dict[str, str] = {}
             for relative_path, content in generated_files:
                 normalized_relative_path = self._normalize_plugin_codegen_relative_path(
                     relative_path
                 )
-                if normalized_relative_path in generated_relative_paths:
+                if normalized_relative_path in generated_contents_by_relative_path:
                     raise ValueError(
                         "Plugin codegen output path is duplicated: "
                         f"{normalized_relative_path}"
@@ -1356,20 +1356,30 @@ class BaseProjectManager(ABC):
                     target_root=target_root,
                     relative_path=normalized_relative_path,
                 )
+                self._prepare_plugin_codegen_output_path_for_write(
+                    target_root=target_root,
+                    output_path=output_path,
+                )
                 output_path.parent.mkdir(parents=True, exist_ok=True)
-                generated_relative_paths.add(normalized_relative_path)
+                generated_contents_by_relative_path[normalized_relative_path] = (
+                    self._hash_plugin_codegen_content(content)
+                )
                 if output_path.exists():
                     existing_content = output_path.read_text(encoding="utf-8")
                     if existing_content == content:
                         continue
                 self.dbe.write(output_path, content)
 
-            previous_paths = previous_state[1] if previous_state is not None else set()
+            previous_paths = (
+                set(previous_state[1].keys()) if previous_state is not None else set()
+            )
             normalized_previous_paths = {
                 self._normalize_plugin_codegen_relative_path(relative_path)
                 for relative_path in previous_paths
             }
-            stale_relative_paths = normalized_previous_paths - generated_relative_paths
+            stale_relative_paths = normalized_previous_paths - set(
+                generated_contents_by_relative_path.keys()
+            )
             for relative_path in stale_relative_paths:
                 stale_path = self._resolve_plugin_codegen_output_path(
                     target_root=target_root,
@@ -1384,22 +1394,57 @@ class BaseProjectManager(ABC):
                 )
             next_target_state[target_language] = (
                 target_fingerprint,
-                generated_relative_paths,
+                generated_contents_by_relative_path,
             )
         self._plugin_codegen_target_state_by_project_config[project_config_id] = (
             next_target_state
         )
 
     def _cached_plugin_codegen_outputs_exist(
-        self, *, target_root: Path, relative_paths: set[str]
+        self,
+        *,
+        target_root: Path,
+        output_hashes_by_relative_path: dict[str, str],
     ) -> bool:
         if not target_root.exists() or not target_root.is_dir():
             return False
-        for relative_path in relative_paths:
+        for relative_path, expected_hash in output_hashes_by_relative_path.items():
             output_path = target_root / relative_path
             if not output_path.exists() or not output_path.is_file():
                 return False
+            output_content = output_path.read_text(encoding="utf-8")
+            output_hash = self._hash_plugin_codegen_content(output_content)
+            if output_hash != expected_hash:
+                return False
         return True
+
+    def _hash_plugin_codegen_content(self, content: str) -> str:
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    def _prepare_plugin_codegen_output_path_for_write(
+        self,
+        *,
+        target_root: Path,
+        output_path: Path,
+    ) -> None:
+        parent_paths: list[Path] = []
+        current = output_path.parent
+        while current != target_root and current.is_relative_to(target_root):
+            parent_paths.append(current)
+            current = current.parent
+        for parent_path in reversed(parent_paths):
+            if not parent_path.exists():
+                continue
+            if parent_path.is_file() or parent_path.is_symlink():
+                parent_path.unlink()
+        if not output_path.exists():
+            return
+        if output_path.is_symlink():
+            output_path.unlink()
+            return
+        if output_path.is_file():
+            return
+        shutil.rmtree(output_path)
 
     def _hash_plugin_codegen_project_state(self, project_state: dict[str, Any]) -> str:
         encoded = json.dumps(
