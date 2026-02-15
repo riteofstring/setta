@@ -10,7 +10,11 @@ import {
 import { resetProjectStores } from "state/utils";
 import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mergeProjectConfigOrder, ProjectConfigs } from "./ProjectConfigs";
+import {
+  mergeProjectConfigOrder,
+  ProjectConfigs,
+  shouldShowProjectConfigHoverPreview,
+} from "./ProjectConfigs";
 
 let latestOnReorder: ((orderedIds: string[]) => void) | null = null;
 
@@ -105,6 +109,21 @@ describe("ProjectConfigs", () => {
         ["config-a", "config-a"],
       ),
     ).toEqual(["config-a", "config-b"]);
+  });
+
+  it("disables hover preview while editing", () => {
+    expect(
+      shouldShowProjectConfigHoverPreview({
+        previewEnabled: true,
+        isEditing: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowProjectConfigHoverPreview({
+        previewEnabled: true,
+        isEditing: true,
+      }),
+    ).toBe(false);
   });
 
   it("renders project config rows using persisted order", () => {

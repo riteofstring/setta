@@ -7,7 +7,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { type OverviewTabName, OverviewTabNameEnum } from "utils/constants";
+import { OverviewTabNameEnum } from "utils/constants";
 import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
@@ -205,10 +205,12 @@ describe("Overview rail offsets", () => {
     expect(chatIndex).toBeLessThan(overviewIndex);
   });
 
-  it("falls back to Overview when the persisted tab value is invalid", () => {
+  it("falls back to Overview when deployment mode hides the selected tab", () => {
+    useShareSession.setState({ isDeploymentMode: true, sharePolicy: null });
     useLocalStorage.setState({
-      overviewTab: "InvalidOverviewTabValue" as unknown as OverviewTabName,
+      overviewTab: OverviewTabNameEnum.FileBrowser,
     });
+    syncStoreInitialState(useShareSession);
     syncStoreInitialState(useLocalStorage);
 
     const markup = renderToStaticMarkup(
@@ -218,7 +220,7 @@ describe("Overview rail offsets", () => {
     );
 
     expect(markup).toContain('data-testid="overview-tab-content-shell"');
+    expect(markup).not.toContain('data-testid="overview-tab-file-browser"');
     expect(markup).toContain(">Overview<");
-    expect(markup).not.toContain("InvalidOverviewTabValue");
   });
 });

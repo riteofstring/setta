@@ -18,7 +18,6 @@ import {
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
-  isOverviewTabName,
   OverviewTabName,
   OverviewTabNameEnum,
   OverviewTabNamePrettified,
@@ -67,9 +66,7 @@ export function Overview() {
   const showWatchCodeTab = !isDeploymentMode;
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
-  let effectiveTabName: OverviewTabName = isOverviewTabName(selectedTabName)
-    ? selectedTabName
-    : OverviewTabNameEnum.Overview;
+  let effectiveTabName: OverviewTabName = selectedTabName;
   if (!showLLMTabs) {
     if (
       selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
@@ -261,18 +258,12 @@ function TabsVisible({
           {title}
         </h2>
       )}
-      <TabContent
-        selectedTabName={selectedTabName}
-      />
+      <TabContent selectedTabName={selectedTabName} />
     </div>
   );
 }
 
-function TabContent({
-  selectedTabName,
-}: {
-  selectedTabName: OverviewTabName;
-}) {
+function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
   switch (selectedTabName) {
     case OverviewTabNameEnum.Overview:
       return <ProjectOverview />;

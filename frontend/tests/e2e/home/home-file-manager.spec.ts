@@ -292,6 +292,78 @@ test("home project items select on single click and open on double click", async
   }
 });
 
+test("home keeps valid favorites after initial metadata load and prunes stale ids", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  const validFavoriteId = metadata.projectMetadata[0]?.id;
+  if (!validFavoriteId) {
+    throw new Error("Expected at least one project config for favorites test.");
+  }
+
+  await seedLocalStorage(page, {
+    favoriteProjectConfigIds: [validFavoriteId, "stale-favorite-id"],
+  });
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("home-project-card").first()).toBeVisible();
+
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const raw = window.localStorage.getItem("setta_data");
+        if (!raw) {
+          return [];
+        }
+        const parsed = JSON.parse(raw) as {
+          state?: { favoriteProjectConfigIds?: string[] };
+        };
+        return parsed.state?.favoriteProjectConfigIds ?? [];
+      }),
+    )
+    .toEqual([validFavoriteId]);
+});
+
+test("home opens projects on single click in deployment mode", async ({
+  page,
+}) => {
+  const homePathname = new URL(HOME_URL).pathname;
+  await ensureAppReady(page);
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  await page.evaluate(async () => {
+    const { useShareSession } = await import("/src/state/definitions.ts");
+    useShareSession.setState({
+      isDeploymentMode: true,
+      sharePolicy: null,
+    });
+  });
+  await expect(page.getByText("Sharing mode is read-only")).toBeVisible();
+
+  await page.getByTestId("home-project-card").first().click();
+  await expect.poll(() => new URL(page.url()).pathname).not.toBe(homePathname);
+
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+  await page.evaluate(async () => {
+    const { useShareSession } = await import("/src/state/definitions.ts");
+    useShareSession.setState({
+      isDeploymentMode: true,
+      sharePolicy: null,
+    });
+  });
+  await expect(page.getByText("Sharing mode is read-only")).toBeVisible();
+
+  await page.getByTestId("home-project-view-list").first().click();
+  const firstRow = page.getByTestId("home-project-list-row").first();
+  await expect(firstRow).toBeVisible();
+  await firstRow.click();
+  await expect.poll(() => new URL(page.url()).pathname).not.toBe(homePathname);
+});
+
 test("home column widths persist across reload when viewport can fit stored widths", async ({
   page,
 }) => {

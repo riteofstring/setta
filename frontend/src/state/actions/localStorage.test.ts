@@ -1,5 +1,6 @@
 import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import { OverviewTabNameEnum } from "utils/constants";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   setColorModePreference,
@@ -53,6 +54,18 @@ describe("local storage merge", () => {
     ) as typeof current;
 
     expect(merged.colorMode).toBe("auto");
+  });
+
+  it("sanitizes invalid persisted overviewTab values", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      { overviewTab: "InvalidOverviewTabValue" } as Record<string, unknown>,
+      current,
+    ) as typeof current;
+
+    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
   });
 });
 

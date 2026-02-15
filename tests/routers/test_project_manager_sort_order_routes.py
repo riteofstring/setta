@@ -209,3 +209,25 @@ async def test_set_section_variant_sort_order_maps_key_error_to_http_404() -> No
 
         assert raised.value.status_code == 404
         assert "missing-variant-id" in str(raised.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_set_section_variant_sort_order_maps_missing_section_to_http_404() -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        state = _build_runtime_state(project_fixture, settings_fixture)
+        project_config_id = _get_default_project_config_id(state)
+
+        request = SetSectionVariantSortOrderRequest(
+            projectConfigId=project_config_id,
+            sectionId="missing-section-id",
+            orderedVariantIds=["missing-variant-id"],
+        )
+        with pytest.raises(HTTPException) as raised:
+            with runtime_context(state) as runtime_ctx:
+                await route_set_section_variant_sort_order(request, runtime_ctx)
+
+        assert raised.value.status_code == 404
+        assert raised.value.detail == "Section missing-section-id not found"

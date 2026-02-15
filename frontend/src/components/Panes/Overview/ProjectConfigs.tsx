@@ -4,7 +4,7 @@ import {
   useSortableListItem,
 } from "components/Pages/Project/ViewModeDnd";
 import _ from "lodash";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FiCheck, FiEdit3 } from "react-icons/fi";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { useNavigate } from "react-router-dom";
@@ -35,6 +35,16 @@ function areIdArraysEqual(left: string[], right: string[]) {
     return false;
   }
   return left.every((id, index) => id === right[index]);
+}
+
+export function shouldShowProjectConfigHoverPreview({
+  previewEnabled,
+  isEditing,
+}: {
+  previewEnabled: boolean;
+  isEditing: boolean;
+}): boolean {
+  return previewEnabled && !isEditing;
 }
 
 export function mergeProjectConfigOrder(
@@ -78,7 +88,12 @@ export function ProjectConfigs() {
     _.isEqual,
   );
   const [isEditing, setIsEditing] = useState(false);
+  const isReorderingRef = useRef(false);
   const canEditProjectConfigs = canEditStructure && !isDeploymentMode;
+  const hoverPreviewEnabled = shouldShowProjectConfigHoverPreview({
+    previewEnabled,
+    isEditing,
+  });
   const editLabel = isEditing ? "Done Editing" : "Edit";
   const editIcon = isEditing ? <FiCheck size={14} /> : <FiEdit3 size={14} />;
   const editButtonClasses = `inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-bold ${
@@ -101,6 +116,19 @@ export function ProjectConfigs() {
     }
     setOverviewProjectConfigOrder(orderedProjectConfigIds);
   }, [orderedProjectConfigIds, persistedOrder]);
+  useEffect(() => {
+    const clearReorderingState = () => {
+      isReorderingRef.current = false;
+    };
+    window.addEventListener("pointerup", clearReorderingState);
+    window.addEventListener("pointercancel", clearReorderingState);
+    window.addEventListener("blur", clearReorderingState);
+    return () => {
+      window.removeEventListener("pointerup", clearReorderingState);
+      window.removeEventListener("pointercancel", clearReorderingState);
+      window.removeEventListener("blur", clearReorderingState);
+    };
+  }, []);
 
   const orderedProjectConfigs = useMemo(() => {
     if (orderedProjectConfigIds.length === 0) {
@@ -134,6 +162,14 @@ export function ProjectConfigs() {
       return;
     }
     setOverviewProjectConfigOrder(normalizedIds);
+  }
+
+  function onStartReordering() {
+    isReorderingRef.current = true;
+  }
+
+  function canShowHoverPreview() {
+    return hoverPreviewEnabled && !isReorderingRef.current;
   }
 
   return (
@@ -189,10 +225,12 @@ export function ProjectConfigs() {
                     currProjectConfigId={currProjectConfigId}
                     currProjectConfigName={currProjectConfigName}
                     isDeploymentMode={isDeploymentMode}
-                    previewEnabled={previewEnabled}
+                    previewEnabled={hoverPreviewEnabled}
                     sortableEnabled={sortableEnabled}
                     deletable={orderedProjectConfigs.length > 1}
                     canEditProjectConfigs={canEditProjectConfigs}
+                    onStartReordering={onStartReordering}
+                    canShowHoverPreview={canShowHoverPreview}
                   />
                 ) : (
                   <ProjectConfigRow
@@ -201,8 +239,10 @@ export function ProjectConfigs() {
                     currProjectConfigId={currProjectConfigId}
                     currProjectConfigName={currProjectConfigName}
                     isDeploymentMode={isDeploymentMode}
-                    previewEnabled={previewEnabled}
+                    previewEnabled={hoverPreviewEnabled}
                     sortableEnabled={sortableEnabled}
+                    onStartReordering={onStartReordering}
+                    canShowHoverPreview={canShowHoverPreview}
                   />
                 ),
               )}
@@ -221,6 +261,8 @@ type ProjectConfigRowProps = {
   isDeploymentMode: boolean;
   previewEnabled: boolean;
   sortableEnabled: boolean;
+  onStartReordering: () => void;
+  canShowHoverPreview: () => boolean;
 };
 
 function ProjectConfigRow({
@@ -230,6 +272,8 @@ function ProjectConfigRow({
   isDeploymentMode,
   previewEnabled,
   sortableEnabled,
+  onStartReordering,
+  canShowHoverPreview,
 }: ProjectConfigRowProps) {
   const sortable = useSortableListItem(config.id, !sortableEnabled, "vertical");
   const navigate = useNavigate();
@@ -244,7 +288,11 @@ function ProjectConfigRow({
     ? `${baseClasses} ${activeClasses}`
     : `${baseClasses} ${inactiveClasses}`;
   function onRowMouseEnter() {
-    onMouseEnter(config, currProjectConfigName, previewEnabled);
+    onMouseEnter(
+      config,
+      currProjectConfigName,
+      previewEnabled && canShowHoverPreview(),
+    );
   }
   function onOpenConfig() {
     if (isDeploymentMode) {
@@ -265,6 +313,7 @@ function ProjectConfigRow({
     event.stopPropagation();
   }
   function stopDragPointerDown(event: React.PointerEvent<HTMLElement>) {
+    onStartReordering();
     event.stopPropagation();
   }
 
@@ -308,6 +357,8 @@ type ProjectConfigEditingRowProps = {
   sortableEnabled: boolean;
   deletable: boolean;
   canEditProjectConfigs: boolean;
+  onStartReordering: () => void;
+  canShowHoverPreview: () => boolean;
 };
 
 function ProjectConfigEditingRow({
@@ -319,6 +370,8 @@ function ProjectConfigEditingRow({
   sortableEnabled,
   deletable,
   canEditProjectConfigs,
+  onStartReordering,
+  canShowHoverPreview,
 }: ProjectConfigEditingRowProps) {
   const sortable = useSortableListItem(config.id, !sortableEnabled, "vertical");
   const navigate = useNavigate();
@@ -356,6 +409,7 @@ function ProjectConfigEditingRow({
   }
 
   function stopDragPointerDown(event: React.PointerEvent<HTMLElement>) {
+    onStartReordering();
     event.stopPropagation();
   }
   function stopDragClick(event: React.MouseEvent<HTMLElement>) {
@@ -384,7 +438,11 @@ function ProjectConfigEditingRow({
       onClick={onOpenConfig}
       onKeyDown={onRowKeyDown}
       onMouseEnter={() =>
-        onMouseEnter(config, currProjectConfigName, previewEnabled)
+        onMouseEnter(
+          config,
+          currProjectConfigName,
+          previewEnabled && canShowHoverPreview(),
+        )
       }
       role="button"
       tabIndex={0}

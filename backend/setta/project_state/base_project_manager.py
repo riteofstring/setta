@@ -2693,6 +2693,8 @@ class BaseProjectManager(ABC):
         self, x: SetSectionVariantSortOrderRequest
     ) -> None:
         project_state = self.get_single_config_state(x.projectConfigId)
+        if x.sectionId not in project_state.sections:
+            raise KeyError(f"Section {x.sectionId} not found")
         section = project_state.sections[x.sectionId]
         existing_ids = set(section.variants)
         ordered_ids = x.orderedVariantIds

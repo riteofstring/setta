@@ -103,6 +103,12 @@ export function shouldClampHomeSideColumnWidths(
   return isDesktopLayout && desktopColumnsWidth !== null;
 }
 
+export function shouldPruneFavoriteProjectConfigIds(
+  hasLoadedProjectMetadata: boolean,
+): boolean {
+  return hasLoadedProjectMetadata;
+}
+
 export function HomePage() {
   const { projectMetadata, defaultProjectConfigId } = useAllProjectMetadata(
     (x) => x,
@@ -110,11 +116,22 @@ export function HomePage() {
   );
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const [isCreatingConfig, setIsCreatingConfig] = useState(false);
+  const [hasLoadedProjectMetadata, setHasLoadedProjectMetadata] =
+    useState(false);
 
   useEffect(() => {
+    let isCancelled = false;
     // load manually on first load because websocket might take time to connect
-    loadAllProjectMetadata();
+    void loadAllProjectMetadata().finally(() => {
+      if (isCancelled) {
+        return;
+      }
+      setHasLoadedProjectMetadata(true);
+    });
     useProjectLoading.getState().reset();
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   return (
@@ -127,6 +144,7 @@ export function HomePage() {
           defaultProjectConfigId={defaultProjectConfigId}
           setIsCreatingConfig={setIsCreatingConfig}
           isDeploymentMode={isDeploymentMode}
+          hasLoadedProjectMetadata={hasLoadedProjectMetadata}
         />
       )}
     </GridWrapper>
@@ -138,11 +156,13 @@ function HomeWorkspaceLayout({
   defaultProjectConfigId,
   setIsCreatingConfig,
   isDeploymentMode,
+  hasLoadedProjectMetadata,
 }: {
   projects: Array<ProjectConfig>;
   defaultProjectConfigId: string | null;
   setIsCreatingConfig: (newVal: boolean) => void;
   isDeploymentMode: boolean;
+  hasLoadedProjectMetadata: boolean;
 }) {
   const [selectedProjects, setSelectedProjects] = useState<Array<string>>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -277,6 +297,9 @@ function HomeWorkspaceLayout({
   }, [isDesktopLayout]);
 
   useEffect(() => {
+    if (!shouldPruneFavoriteProjectConfigIds(hasLoadedProjectMetadata)) {
+      return;
+    }
     const validProjectIds = new Set(projects.map((project) => project.id));
     const currentFavoriteIds =
       useLocalStorage.getState().favoriteProjectConfigIds;
@@ -286,7 +309,7 @@ function HomeWorkspaceLayout({
     if (nextFavoriteIds.length !== currentFavoriteIds.length) {
       useLocalStorage.setState({ favoriteProjectConfigIds: nextFavoriteIds });
     }
-  }, [projects]);
+  }, [hasLoadedProjectMetadata, projects]);
 
   useEffect(() => {
     if (filteredProjects.length === 0) {
@@ -1020,6 +1043,7 @@ function ProjectCard({
         onSelectProject={onSelectProject}
         onOpenProject={openProjectFromCard}
         projectPath={projectPath}
+        selectionEnabled={selectionEnabled}
         onActivate={onActivate}
       >
         <ThumbnailArea
@@ -1058,6 +1082,7 @@ function ThumbnailWrapper({
   onSelectProject,
   onOpenProject,
   projectPath,
+  selectionEnabled,
   onActivate,
   children,
 }: {
@@ -1065,6 +1090,7 @@ function ThumbnailWrapper({
   onSelectProject: (id: string) => void;
   onOpenProject: () => void;
   projectPath: string | null;
+  selectionEnabled: boolean;
   onActivate: () => void;
   children: React.ReactNode;
 }) {
@@ -1073,7 +1099,16 @@ function ThumbnailWrapper({
       className="contents"
       onMouseEnter={onActivate}
       onFocus={onActivate}
-      onClick={() => onSelectProject(project.id)}
+      onClick={() => {
+        if (!selectionEnabled) {
+          if (!projectPath) {
+            return;
+          }
+          onOpenProject();
+          return;
+        }
+        onSelectProject(project.id);
+      }}
       onDoubleClick={() => {
         if (!projectPath) {
           return;
@@ -1263,14 +1298,9 @@ function ProjectListItem({
     "border-blue-500/60 bg-blue-50/60 text-blue-700 dark:border-blue-500/70 dark:bg-blue-950/35 dark:text-blue-200";
   const inactiveClasses =
     "border-setta-200 text-setta-700 hover:bg-setta-50 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-850";
-  const isRowInteractive = true;
+  const rowCursorClass = selectionEnabled ? "cursor-default" : "cursor-pointer";
 
-  function onRowClick(event: React.MouseEvent<HTMLDivElement>) {
-    event.preventDefault();
-    onSelectProject(project.id);
-  }
-
-  function onRowDoubleClick() {
+  function openProjectFromRow() {
     if (!projectPath) {
       return;
     }
@@ -1279,18 +1309,26 @@ function ProjectListItem({
     });
   }
 
+  function onRowClick(event: React.MouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (!selectionEnabled) {
+      openProjectFromRow();
+      return;
+    }
+    onSelectProject(project.id);
+  }
+
+  function onRowDoubleClick() {
+    openProjectFromRow();
+  }
+
   function onRowKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) {
       return;
     }
     if (event.key === "Enter") {
       event.preventDefault();
-      if (!projectPath) {
-        return;
-      }
-      navigate(projectPath, {
-        state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
-      });
+      openProjectFromRow();
       return;
     }
     if (event.key !== " ") {
@@ -1303,13 +1341,13 @@ function ProjectListItem({
   return (
     <div
       data-testid="home-project-list-row"
-      className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses} cursor-default`}
+      className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses} ${rowCursorClass}`}
       onMouseEnter={onActivate}
       onClick={onRowClick}
       onDoubleClick={onRowDoubleClick}
       onKeyDown={onRowKeyDown}
-      role={isRowInteractive ? "button" : undefined}
-      tabIndex={isRowInteractive ? 0 : -1}
+      role="button"
+      tabIndex={0}
       aria-pressed={inSelectionMode ? isSelected : undefined}
     >
       {selectionEnabled && (

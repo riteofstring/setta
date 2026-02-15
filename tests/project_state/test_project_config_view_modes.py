@@ -320,6 +320,24 @@ class TestProjectConfigViewModes:
                     )
                 )
 
+    async def test_set_section_variant_sort_order_raises_for_missing_section(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+
+            with pytest.raises(
+                KeyError, match="Section missing-section-id not found"
+            ):
+                await manager.set_section_variant_sort_order(
+                    SetSectionVariantSortOrderRequest(
+                        projectConfigId=project_config_id,
+                        sectionId="missing-section-id",
+                        orderedVariantIds=[],
+                    )
+                )
+
     async def test_delete_active_view_mode_uses_sorted_order_fallback(self) -> None:
         async with real_project_manager() as fixture:
             manager = fixture.manager

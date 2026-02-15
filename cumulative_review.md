@@ -57,3 +57,14 @@
 - Aligned Save/Load modal E2E contract with shipped affordance by asserting `cursor: pointer` for selectable cards/rows.
 - Added/updated focused coverage across pytest, router integration tests, Vitest, and Playwright for sort-order route status mapping, active-mode delete fallback behavior, bounded concurrency utility behavior, and Save/Load cursor expectations.
 - Added an append-only frontend perf report documenting before/after metrics for Overview project-config ordering path and Setta-badge refresh concurrency bounds.
+
+## 2026-02-17 12:38:31 PST
+
+- Fixed backend section-variant sort-order semantics so missing `sectionId` now raises explicit not-found (`KeyError("Section ... not found")`), which correctly maps to HTTP `404` in the route layer.
+- Fixed Home favorites pruning lifecycle by gating stale-ID cleanup until initial project metadata load completes, preventing cold-load favorite wipes.
+- Restored deployment-mode Home single-click open behavior for both thumbnail cards and list rows while preserving editable-mode selection interactions.
+- Removed redundant Home list-row interactivity branching by dropping always-true role/tabIndex conditionals.
+- Simplified Overview tab fallback ownership by removing duplicate invalid-`overviewTab` render-time sanitization and keeping validation centralized in local-storage merge.
+- Reduced Project Config hover-preview overhead during edit/reorder flows by suppressing preview updates when edit mode is active or a drag has started.
+- Added/updated targeted pytest, Vitest, and Playwright coverage for missing-section `404` mapping, metadata-gated favorites pruning, deployment single-click open, and overview/local-storage tab sanitization behavior.
+- Completed CDP visual verification for the Home page flows impacted by these fixes (favorites persistence and deployment-mode open interactions).

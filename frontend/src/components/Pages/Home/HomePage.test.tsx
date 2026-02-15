@@ -5,6 +5,7 @@ import {
   getProjectTopLevelSectionCount,
   partitionProjectsByFavoriteStatus,
   shouldClampHomeSideColumnWidths,
+  shouldPruneFavoriteProjectConfigIds,
 } from "./HomePage";
 
 describe("HomePage", () => {
@@ -20,6 +21,11 @@ describe("HomePage", () => {
     expect(shouldClampHomeSideColumnWidths(true, null)).toBe(false);
     expect(shouldClampHomeSideColumnWidths(false, 1200)).toBe(false);
     expect(shouldClampHomeSideColumnWidths(true, 1200)).toBe(true);
+  });
+
+  it("waits for metadata load completion before pruning favorite ids", () => {
+    expect(shouldPruneFavoriteProjectConfigIds(false)).toBe(false);
+    expect(shouldPruneFavoriteProjectConfigIds(true)).toBe(true);
   });
 
   it("counts top-level sections from object keys", () => {
