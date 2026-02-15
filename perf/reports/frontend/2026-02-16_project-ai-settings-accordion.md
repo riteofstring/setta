@@ -27,3 +27,24 @@ Automated perf guardrail run:
 ## Notes
 - CDP performance trace could not be captured in this session because `chrome-devtools-mcp` was unavailable (`Transport closed`).
 - The new perf test guards the hot localStorage normalization path against algorithmic regressions during pane load/toggle operations.
+
+## Addendum: Accordion Clipping Regression Fix (2026-02-16)
+
+Scope:
+- `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx`
+- `frontend/tests/e2e/overview/project-ai-settings-agent-profiles.spec.ts`
+
+Issue:
+- When multiple Project AI sections were open, content in earlier sections could be clipped due flex shrink pressure on the stacked accordion layout.
+
+Changes:
+- Switched Project AI settings stack from flex-gap layout to non-shrinking block spacing (`space-y-*`) so open sections expand naturally and scroll at the pane level.
+- Added explicit accordion item/content `data-testid` hooks for layout assertions.
+- Extended Playwright coverage to:
+  - seed a concrete `ANTHROPIC_API_KEY` row in LLM API keys;
+  - expand sections and assert open accordion item `scrollHeight - clientHeight <= 1` to catch clipping regressions.
+
+Verification:
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai-settings-agent-profiles.spec.ts` (pass)
+- `pnpm -C frontend exec vitest run src/components/Panes/Overview/BackendLogEventsArea.perf.test.ts src/components/Panes/Overview/ProjectLevelAI/projectAISettingsAccordionState.perf.test.ts` (pass)
+- CDP DevTools verification still unavailable in this session (`Transport closed`).

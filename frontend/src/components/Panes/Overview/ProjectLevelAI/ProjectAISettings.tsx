@@ -218,7 +218,7 @@ export function ProjectAISettings() {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto pb-[15dvh] text-setta-700 dark:text-setta-300">
+    <div className="h-full min-h-0 space-y-3 overflow-y-auto pb-[15dvh] text-setta-700 dark:text-setta-300">
       <div className="px-1 text-[11px] text-setta-500 dark:text-setta-400">
         Tune project-wide AI behavior. Non-essential sections start minimized.
       </div>
@@ -245,12 +245,13 @@ function ProjectAISettingsAccordion({
       type="multiple"
       value={openValues}
       onValueChange={onOpenValuesChange}
-      className="flex min-h-0 flex-col gap-2"
+      className="space-y-2"
     >
       {items.map((item) => (
         <Accordion.Item
           key={item.value}
           value={item.value}
+          data-testid={`${item.triggerTestId}-item`}
           className="overflow-hidden rounded-lg border border-setta-200/70 bg-white/70 dark:border-setta-800/70 dark:bg-setta-950/40"
         >
           <Accordion.Header>
@@ -275,7 +276,10 @@ function ProjectAISettingsAccordion({
             </Accordion.Trigger>
           </Accordion.Header>
           <Accordion.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-            <div className="border-t border-setta-200/70 px-2 py-2 dark:border-setta-800/70">
+            <div
+              data-testid={`${item.triggerTestId}-content`}
+              className="border-t border-setta-200/70 px-2 py-2 dark:border-setta-800/70"
+            >
               {item.content}
             </div>
           </Accordion.Content>

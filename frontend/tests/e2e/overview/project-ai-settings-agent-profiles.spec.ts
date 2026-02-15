@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   openIsolatedProject,
+  postBackend,
   setOverviewTab,
 } from "../helpers";
 
@@ -24,6 +25,19 @@ test.describe.serial("project ai settings accordion layout", () => {
       const externalAgentsTrigger = page.getByTestId(
         "project-ai-settings-accordion-external-agents",
       );
+
+      // Create a concrete API-key row so clipping checks cover real LLM-key content.
+      await postBackend(page, "/llm/config", {
+        configs: {
+          "e2e-anthropic-config": {
+            model: "claude-3-5-sonnet-latest",
+            provider: "anthropic",
+            api_key_env: "ANTHROPIC_API_KEY",
+          },
+        },
+        default_config_id: "e2e-anthropic-config",
+      });
+      await page.reload({ waitUntil: "domcontentloaded" });
 
       // Verify the default essential sections are open, with advanced sections minimized.
       await expect(llmKeysTrigger).toHaveAttribute("aria-expanded", "true");
@@ -50,6 +64,41 @@ test.describe.serial("project ai settings accordion layout", () => {
         "aria-expanded",
         "false",
       );
+
+      // Expanding subsequent sections must not clip the content of open sections above.
+      await externalAgentsTrigger.click();
+      await expect(externalAgentsTrigger).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+      const llmApiKeyLabel = page
+        .getByTestId("project-ai-settings-accordion-llm-api-keys-content")
+        .getByText("ANTHROPIC_API_KEY");
+      await expect(llmApiKeyLabel).toBeVisible();
+      const clippingMetrics = await page.evaluate(() => {
+        const itemIds = [
+          "project-ai-settings-accordion-llm-api-keys-item",
+          "project-ai-settings-accordion-agent-profiles-item",
+          "project-ai-settings-accordion-prompt-templates-item",
+          "project-ai-settings-accordion-external-agents-item",
+        ];
+        return itemIds.map((id) => {
+          const element = document.querySelector(`[data-testid='${id}']`);
+          if (!(element instanceof HTMLElement)) {
+            return { id, missing: true, clientHeight: 0, scrollHeight: 0 };
+          }
+          return {
+            id,
+            missing: false,
+            clientHeight: element.clientHeight,
+            scrollHeight: element.scrollHeight,
+          };
+        });
+      });
+      for (const metric of clippingMetrics) {
+        expect(metric.missing).toBe(false);
+        expect(metric.scrollHeight - metric.clientHeight).toBeLessThanOrEqual(1);
+      }
 
       await page.reload({ waitUntil: "domcontentloaded" });
 
