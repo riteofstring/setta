@@ -13,14 +13,8 @@ import {
   route_get_setta_home_info,
   route_reveal_path_in_os_file_explorer,
 } from "utils/generatedEndpoints";
+import { type AppGenSkillEntry } from "utils/generatedTypes";
 import {
-  type AppGenSkillEntry,
-  type BaseChatMessageUnion,
-  type EngineType,
-  type ExternalAgentToolType,
-} from "utils/generatedTypes";
-import {
-  buildSkillStatusBySkillId,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
@@ -31,12 +25,6 @@ type PathGroupHeaderProps = {
   path: string | null;
   onCopyPath: (path: string | null) => void;
   onRevealPath: (path: string | null) => void;
-};
-
-type ProjectChatSkillsMcpViewerProps = {
-  chatId: string | null | undefined;
-  engineType: EngineType | null;
-  externalAgentToolType: ExternalAgentToolType | null;
 };
 
 const SKILL_MARKDOWN_VIEWER_STORAGE_KEY =
@@ -98,25 +86,11 @@ function PathGroupHeader({
   );
 }
 
-export function ProjectChatSkillsMcpViewer({
-  chatId,
-  engineType,
-  externalAgentToolType,
-}: ProjectChatSkillsMcpViewerProps) {
+export function ProjectChatSkillsMcpViewer() {
   const allLLMConfigs = useAIStore((state) => state.allLLMConfigs);
   const allLLMConfigsInitialLoadComplete = useAIStore(
     (state) => state.allLLMConfigsInitialLoadComplete,
   );
-  const chatMessages = useAIStore((state): BaseChatMessageUnion[] | null => {
-    if (!chatId) {
-      return null;
-    }
-    const details = state.chatDetails[chatId];
-    if (!details) {
-      return null;
-    }
-    return details.messages;
-  });
   const codeMirrorTheme = useCodeMirrorStyle();
   const [skills, setSkills] = useState<AppGenSkillEntry[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(true);
@@ -292,14 +266,6 @@ export function ProjectChatSkillsMcpViewer({
   const filteredSkills = useMemo(() => {
     return filterSkills(skills, skillFilter);
   }, [skillFilter, skills]);
-  const skillStatusBySkillId = useMemo(() => {
-    return buildSkillStatusBySkillId({
-      skills,
-      engineType,
-      externalAgentToolType,
-      messages: chatMessages,
-    });
-  }, [chatMessages, engineType, externalAgentToolType, skills]);
   const groupedSkills = useMemo(() => {
     return groupSkillsByRootPath(filteredSkills);
   }, [filteredSkills]);
@@ -399,10 +365,6 @@ export function ProjectChatSkillsMcpViewer({
                   placeholder="Filter"
                 />
               </search>
-              <p className="text-[11px] text-setta-500 dark:text-setta-400">
-                Applicable is based on selected engine roots. Active is inferred
-                from observed skill-invocation tool calls in this chat.
-              </p>
             </div>
             <div className="grid min-w-0 gap-2">
               <div className="max-h-[360px] min-h-[220px] min-w-0 overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-xs dark:border-setta-700 dark:bg-setta-950/60">
@@ -436,10 +398,6 @@ export function ProjectChatSkillsMcpViewer({
                       <div className="mt-1 grid gap-1 px-1">
                         {group.skills.map((skill) => {
                           const selected = skill.skillId === selectedSkillId;
-                          const status = skillStatusBySkillId[skill.skillId];
-                          const isApplicable = status?.isApplicable ?? false;
-                          const isActive = status?.activityState === "active";
-                          const isUnknown = status?.activityState === "unknown";
                           return (
                             <button
                               key={skill.skillId}
@@ -450,44 +408,12 @@ export function ProjectChatSkillsMcpViewer({
                               }`}
                               onClick={() => setSelectedSkillId(skill.skillId)}
                             >
-                              <span className="block w-full truncate font-semibold leading-tight">
+                              <span className="block w-full truncate font-semibold">
                                 {skill.name}
                               </span>
                               <span className="block w-full truncate text-[11px] opacity-80">
                                 {skill.relativePath}
                               </span>
-                              {isApplicable || isActive || isUnknown ? (
-                                <span className="mt-0.5 flex w-full items-center gap-1 text-[10px] font-semibold">
-                                  {isApplicable ? (
-                                    <span
-                                      className="rounded border border-emerald-300 bg-emerald-50 px-1 py-[1px] text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                                      title={status.applicabilityReason}
-                                    >
-                                      Applicable
-                                    </span>
-                                  ) : null}
-                                  {isActive ? (
-                                    <span
-                                      className="rounded border border-blue-300 bg-blue-50 px-1 py-[1px] text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                                      title={
-                                        status.activitySource
-                                          ? `Detected from ${status.activitySource}`
-                                          : "Skill invocation observed."
-                                      }
-                                    >
-                                      Active
-                                    </span>
-                                  ) : null}
-                                  {isUnknown ? (
-                                    <span
-                                      className="rounded border border-amber-300 bg-amber-50 px-1 py-[1px] text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                                      title="Provider did not expose a reliable skill activation signal."
-                                    >
-                                      Unknown
-                                    </span>
-                                  ) : null}
-                                </span>
-                              ) : null}
                             </button>
                           );
                         })}
