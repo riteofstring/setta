@@ -7,9 +7,8 @@ import {
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { CodeLanguage, resolveCodeLanguageFromPath } from "utils/codeLanguage";
+import { CodeLanguage } from "utils/codeLanguage";
 import { res200 } from "utils/endpointUtils";
-import { resolveFileDropSectionKind } from "utils/fileDropSectionKind";
 import {
   route_create_top_level_section,
   route_set_section_name,
@@ -25,7 +24,6 @@ import {
   TopLevelSectionLayout,
   ViewportBounds,
 } from "utils/generatedTypes";
-import { validateSectionNameInput } from "utils/nameValidation";
 import {
   focusOnSectionSearch,
   focusOnSectionTextInput,
@@ -195,49 +193,12 @@ type OpenFileInCodeSectionArgs = {
   filePath: string;
   fileName: string;
   codeLanguage: CodeLanguage;
-  position?: Position | null;
-  focusOnSection?: boolean;
 };
-
-function normalizeSectionNameCandidate(value: string): string {
-  return value
-    .replace(/[\\/]/g, " ")
-    .replace(/\.\./g, " ")
-    .replace(/[^A-Za-z0-9 _-]/g, "_")
-    .replace(/\s+/g, " ")
-    .replace(/_+/g, "_")
-    .trim();
-}
-
-export function getValidSectionNameForOpenedFile(fileName: string): string {
-  const trimmedName = fileName.trim();
-  const extensionIndex = trimmedName.lastIndexOf(".");
-  const baseName =
-    extensionIndex > 0
-      ? trimmedName.slice(0, extensionIndex).trim()
-      : trimmedName;
-  const fallbackName = "Opened File";
-  const candidates = [trimmedName, baseName, fallbackName];
-
-  for (const candidate of candidates) {
-    const normalized = normalizeSectionNameCandidate(candidate);
-    if (!normalized) {
-      continue;
-    }
-    if (validateSectionNameInput(normalized) === null) {
-      return normalized;
-    }
-  }
-
-  return fallbackName;
-}
 
 export async function openFileInCodeSection({
   filePath,
   fileName,
   codeLanguage,
-  position = null,
-  focusOnSection = true,
 }: OpenFileInCodeSectionArgs) {
   if (useShareSession.getState().isDeploymentMode) {
     return null;
@@ -253,9 +214,7 @@ export async function openFileInCodeSection({
       continue;
     }
     if (binding.canonical_path === filePath) {
-      if (focusOnSection) {
-        goToSection(sectionId);
-      }
+      goToSection(sectionId);
       return sectionId;
     }
   }
@@ -269,7 +228,7 @@ export async function openFileInCodeSection({
         access_mode: CodeFileAccessModeEnum.read_write,
       },
     },
-    position,
+    position: null,
   });
   if (!newSectionId) {
     return null;
@@ -277,11 +236,9 @@ export async function openFileInCodeSection({
   await route_set_section_name({
     projectConfigId: getCurrProjectConfigId(),
     sectionId: newSectionId,
-    name: getValidSectionNameForOpenedFile(fileName),
+    name: fileName,
   });
-  if (focusOnSection) {
-    goToSection(newSectionId);
-  }
+  goToSection(newSectionId);
   return newSectionId;
 }
 
@@ -290,8 +247,6 @@ type OpenFileInTextSectionArgs = {
   text: string;
   format: TextBlockFormatEnum;
   textDisplayMode: TextBlockDisplayModeEnum;
-  position?: Position | null;
-  focusOnSection?: boolean;
 };
 
 export async function openFileInTextSection({
@@ -299,8 +254,6 @@ export async function openFileInTextSection({
   text,
   format,
   textDisplayMode,
-  position = null,
-  focusOnSection = true,
 }: OpenFileInTextSectionArgs) {
   if (useShareSession.getState().isDeploymentMode) {
     return null;
@@ -313,7 +266,7 @@ export async function openFileInTextSection({
       textDisplayMode,
       text,
     },
-    position,
+    position: null,
   });
   if (!newSectionId) {
     return null;
@@ -321,26 +274,20 @@ export async function openFileInTextSection({
   await route_set_section_name({
     projectConfigId: getCurrProjectConfigId(),
     sectionId: newSectionId,
-    name: getValidSectionNameForOpenedFile(fileName),
+    name: fileName,
   });
-  if (focusOnSection) {
-    goToSection(newSectionId);
-  }
+  goToSection(newSectionId);
   return newSectionId;
 }
 
 type OpenFileInImageSectionArgs = {
   filePath: string;
   fileName: string;
-  position?: Position | null;
-  focusOnSection?: boolean;
 };
 
 export async function openFileInImageSection({
   filePath,
   fileName,
-  position = null,
-  focusOnSection = true,
 }: OpenFileInImageSectionArgs) {
   if (useShareSession.getState().isDeploymentMode) {
     return null;
@@ -352,9 +299,7 @@ export async function openFileInImageSection({
       continue;
     }
     if (impl.imagePath === filePath) {
-      if (focusOnSection) {
-        goToSection(sectionId);
-      }
+      goToSection(sectionId);
       return sectionId;
     }
   }
@@ -365,61 +310,7 @@ export async function openFileInImageSection({
       type: SectionTypeEnum.Image,
       imagePath: filePath,
     },
-    position,
-  });
-  if (!newSectionId) {
-    return null;
-  }
-  await route_set_section_name({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionId: newSectionId,
-    name: getValidSectionNameForOpenedFile(fileName),
-  });
-  if (focusOnSection) {
-    goToSection(newSectionId);
-  }
-  return newSectionId;
-}
-
-type OpenFileInSpreadsheetSectionArgs = {
-  filePath: string;
-  fileName: string;
-  position?: Position | null;
-  focusOnSection?: boolean;
-};
-
-export async function openFileInSpreadsheetSection({
-  filePath,
-  fileName,
-  position = null,
-  focusOnSection = true,
-}: OpenFileInSpreadsheetSectionArgs) {
-  if (useShareSession.getState().isDeploymentMode) {
-    return null;
-  }
-  const projectState = useProjectState.getState();
-  const normalizedPath = filePath.trim();
-  for (const sectionId of Object.keys(projectState.sections)) {
-    const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
-    if (impl.type !== SectionTypeEnum.Spreadsheet) {
-      continue;
-    }
-    if (impl.filePath.trim() === normalizedPath) {
-      if (focusOnSection) {
-        goToSection(sectionId);
-      }
-      return sectionId;
-    }
-  }
-
-  const newSectionId = await createTopLevelSection({
-    implType: SectionTypeEnum.Spreadsheet,
-    implOverrides: {
-      type: SectionTypeEnum.Spreadsheet,
-      filePath: normalizedPath,
-      activeSheet: null,
-    },
-    position,
+    position: null,
   });
   if (!newSectionId) {
     return null;
@@ -429,61 +320,8 @@ export async function openFileInSpreadsheetSection({
     sectionId: newSectionId,
     name: fileName,
   });
-  if (focusOnSection) {
-    goToSection(newSectionId);
-  }
+  goToSection(newSectionId);
   return newSectionId;
-}
-
-type OpenFileAsSectionResult =
-  | { status: "opened"; sectionId: string }
-  | { status: "unsupported_binary" }
-  | { status: "failed" };
-
-export async function openFileAsSectionForDrop({
-  filePath,
-  fileName,
-  position,
-  focusOnSection = true,
-}: {
-  filePath: string;
-  fileName: string;
-  position: Position | null;
-  focusOnSection?: boolean;
-}): Promise<OpenFileAsSectionResult> {
-  const kind = resolveFileDropSectionKind({ fileName, filePath });
-
-  if (kind === "unsupported_binary") {
-    return { status: "unsupported_binary" };
-  }
-
-  const sectionId =
-    kind === "spreadsheet"
-      ? await openFileInSpreadsheetSection({
-          filePath,
-          fileName,
-          position,
-          focusOnSection,
-        })
-      : kind === "image"
-        ? await openFileInImageSection({
-            filePath,
-            fileName,
-            position,
-            focusOnSection,
-          })
-        : await openFileInCodeSection({
-            filePath,
-            fileName,
-            codeLanguage: resolveCodeLanguageFromPath(filePath),
-            position,
-            focusOnSection,
-          });
-
-  if (!sectionId) {
-    return { status: "failed" };
-  }
-  return { status: "opened", sectionId };
 }
 
 function resolveTextBlockImplOverrides(

@@ -5,26 +5,15 @@ Setta stores runtime metadata under a `setta_files/` folder. There are two locat
 - **Local `setta_files`**: `<workspace>/setta_files` (default)
 - **Global `setta_files`**: a per-workspace folder under a configurable base directory
 
-Local `setta_files` wins when it exists, except when an explicit `setta_files_root`
-override is selected (CLI, env, or profile).
+Local always wins when it exists.
 
 ## Setta Home (`<setta_home>`)
 
 `<setta_home>` is the per-user Setta directory that contains the config file.
 
-- Canonical names only: `<setta_home>` must end with `.setta` or `.setta-development`.
-- macOS/Linux default: `~/.setta`
-- Dev scripts default: `~/.setta-development`
-- Windows recommended override: `SETTA_HOME=%APPDATA%\\.setta`
-- Override example: `SETTA_HOME=/abs/path/to/.setta-development`
-
-## Canonical Naming Rules
-
-Path resolution enforces canonical naming for state roots:
-
-- `setta_home` must end with `.setta` or `.setta-development`.
-- resolved `setta_files_root` must include a folder segment named `setta_files` or `setta_files_dev`.
-- This applies to explicit overrides (`--setta-home`, `--setta-files-root`) and to config-driven global roots (`globalSettaFilesBase`), because global roots are derived from that base.
+- macOS/Linux: `~/.setta`
+- Windows: `%APPDATA%\\Setta`
+- Override: `SETTA_HOME=/custom/path`
 
 ## Config File
 
@@ -53,9 +42,8 @@ Fields:
 
 Resolution rules:
 
-1. If an explicit `setta_files_root` is provided (CLI/env/profile): **use it**.
-2. Otherwise, if `<workspace>/setta_files` exists and is a directory: **use local**.
-3. Otherwise, choose based on the requested location:
+1. If `<workspace>/setta_files` exists and is a directory: **use local**.
+2. Otherwise, choose based on the requested location:
    - `local`: use `<workspace>/setta_files`
    - `global`: use `<globalSettaFilesBase>/<workspace-name>-<hash>`
    - `auto`: follow `autoMode` from config
@@ -64,93 +52,20 @@ The global folder name is deterministic per workspace path, and looks like:
 
 `<workspace-name>-<8-hex-digest>`
 
-## Runtime Profiles
-
-Profiles are optional JSON files at:
-
-- `<setta_home>/profiles/<profile-name>.json`
-
-Select a profile with:
-
-- CLI: `--profile <name>`
-- Env: `SETTA_PROFILE=<name>`
-
-Supported profile fields:
-
-- `name` (optional, must match the selected profile filename when provided)
-- `workspaceRoot`
-- `settaHome`
-- `settaFilesRoot`
-- `settaFilesLocation` (`auto|local|global`)
-- `runtimeRoot`
-- `authCookieName`
-
-Profile rules:
-
-- Relative profile paths are resolved relative to `<setta_home>`.
-- `settaFilesRoot` and `settaFilesLocation` are mutually exclusive.
-- Canonical naming rules still apply after profile resolution.
-
-Advanced profile lookup override:
-
-- `SETTA_PROFILE_LOOKUP_HOME` controls where profile files are looked up.
-- This can differ from the resolved runtime `settaHome`.
-
-## Override Precedence
-
-Highest precedence first:
-
-1. Explicit CLI/API request values.
-2. Selected profile values.
-3. Environment variables.
-4. User config + local/global auto-resolution defaults.
-
 ## CLI / Env Overrides
 
 You can force the selection without editing the config:
 
-- CLI:
-  - `--profile <name>`
-  - `--setta-home <path>`
-  - `--setta-files-root <path>`
-  - `--setta-files-location {auto,local,global}`
-  - `--runtime-root <path>`
-- Env:
-  - `SETTA_PROFILE`
-  - `SETTA_HOME`
-  - `SETTA_FILES_ROOT`
-  - `SETTA_FILES_LOCATION`
-  - `SETTA_RUNTIME_ROOT`
+- CLI: `--setta-files-location {auto,local,global}`
+- Env: `SETTA_FILES_LOCATION={auto,local,global}`
 
-`--setta-files-root` and `--setta-files-location` are mutually exclusive.
-
-The `/api/launch` request supports:
-
-- `profile`
-- `settaHome`
-- `settaFilesRoot`
-- `settaFilesLocation` (`auto|local|global`)
-- `runtimeRoot`
+The `/api/launch` request also supports `settaFilesLocation: auto|local|global`.
 
 ## API Helpers
 
 In IDE mode, the launcher UI uses:
 
-- `GET /api/settaHomeInfo` ->
-  ```json
-  {
-    "settaHome": "...",
-    "globalSettaFilesBase": "...",
-    "activeSettaFilesLocation": "local|global",
-    "llmConfigPath": ".../setta_files/llm_config.json"
-  }
-  ```
-
-Skills/MCP discovery UI also uses:
-
-- `POST /api/revealPathInOsFileExplorer` with `{ "path": "..." }`
-  - Allowed roots are restricted to workspace root, resolved `setta_files` root,
-    and discovered skill roots.
+- `GET /api/settaHomeInfo` -> `{ "settaHome": "...", "globalSettaFilesBase": "..." }`
 
 ## Examples
 
@@ -170,7 +85,7 @@ Prefer global state for new workspaces (via config):
 
 ```json
 {
-  "globalSettaFilesBase": "~/.setta/setta_files_dev",
+  "globalSettaFilesBase": "~/setta_state",
   "autoMode": "create_global"
 }
 ```

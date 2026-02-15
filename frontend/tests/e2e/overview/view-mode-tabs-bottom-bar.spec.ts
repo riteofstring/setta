@@ -51,30 +51,6 @@ async function ensureNoTabbedViewModes(page: Page, projectConfigId: string) {
   }
 }
 
-async function forceIdeSessionState(page: Page) {
-  await page.evaluate(async () => {
-    window.sessionStorage.removeItem("settaShareSession");
-    window.sessionStorage.removeItem("settaAppSession");
-    const { useShareSession, useServerMode } = await import(
-      "/src/state/definitions.ts"
-    );
-    useShareSession.setState({
-      isDeploymentMode: false,
-      shareSessionId: null,
-      sessionRunCount: 0,
-      sharePolicy: null,
-      shareDeploymentName: null,
-      shareDeploymentVersion: null,
-      deploymentMode: null,
-    });
-    useServerMode.setState({
-      mode: "ide",
-      modeResolved: true,
-      modeError: null,
-    });
-  });
-}
-
 async function createTabbedViewMode(
   page: Page,
   projectConfigId: string,
@@ -107,14 +83,12 @@ test.describe("view mode bottom tab bar layout", () => {
       darkMode: true,
       showMinimap: true,
       overviewVis: true,
-      overviewTab: "Overview",
       uiEditorVis: false,
     });
 
     const { projectConfigId } = await openIsolatedProject(page);
 
     try {
-      await forceIdeSessionState(page);
       await ensureNoTabbedViewModes(page, projectConfigId);
       await page.reload({ waitUntil: "domcontentloaded" });
       await waitForReady(page);
@@ -145,17 +119,6 @@ test.describe("view mode bottom tab bar layout", () => {
         viewport.height - 2,
       );
 
-      const shareSessionState = await page.evaluate(async () => {
-        const { useShareSession } = await import("/src/state/definitions.ts");
-        const state = useShareSession.getState();
-        return {
-          isDeploymentMode: state.isDeploymentMode,
-          deploymentMode: state.deploymentMode,
-          shareSessionId: state.shareSessionId,
-        };
-      });
-      expect(shareSessionState.isDeploymentMode).toBe(false);
-
       await expectMacOnlyScreenshot(overviewRail, "overview-rail-no-tabs.png");
     } finally {
       await postBackend(page, "/deleteProjectConfigs", {
@@ -172,14 +135,12 @@ test.describe("view mode bottom tab bar layout", () => {
       darkMode: true,
       showMinimap: true,
       overviewVis: true,
-      overviewTab: "Overview",
       uiEditorVis: false,
     });
 
     const { projectConfigId } = await openIsolatedProject(page);
 
     try {
-      await forceIdeSessionState(page);
       await ensureNoTabbedViewModes(page, projectConfigId);
       await createTabbedViewMode(page, projectConfigId, "Tab A");
       await createTabbedViewMode(page, projectConfigId, "Tab B");
@@ -258,14 +219,12 @@ test.describe("view mode bottom tab bar layout", () => {
       darkMode: false,
       showMinimap: true,
       overviewVis: true,
-      overviewTab: "Overview",
       uiEditorVis: false,
     });
 
     const { projectConfigId } = await openIsolatedProject(page);
 
     try {
-      await forceIdeSessionState(page);
       await ensureNoTabbedViewModes(page, projectConfigId);
       await createTabbedViewMode(page, projectConfigId, "Tab A");
       await createTabbedViewMode(page, projectConfigId, "Tab B");

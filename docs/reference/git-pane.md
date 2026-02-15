@@ -39,14 +39,8 @@ git route contracts it depends on.
 - Shows truncation and error banners when applicable.
 - Uses read-only CodeMirror for diff rendering (`GitDiffCodeMirror`), with:
   - diff-line styling (`+`, `-`, hunk/file/meta lines),
-  - syntax highlighting on diff content lines for:
-    - `.py`
-    - `.ts`, `.tsx`
-    - `.js`, `.jsx`, `.mjs`, `.cjs`
-    - `.json`
-    - `.yaml`, `.yml`
-    - `.toml`
-    - `.md`, `.markdown`
+  - syntax highlighting for common file types (`.py`, `.ts`, `.tsx`, `.js`,
+    `.jsx`, `.json`, `.md`) on diff content lines.
 
 ## Graph Overlay
 

@@ -31,10 +31,9 @@ import {
 } from "../paneFns";
 import { AppConfigPane } from "./App/AppConfigPane";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
-import { FileBrowserWorkspace } from "./FileBrowser/FileBrowserWorkspace";
+import { FileBrowserPane } from "./FileBrowser/FileBrowserPane";
 import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
-import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
@@ -42,7 +41,7 @@ import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 import { WatchCodePane } from "./WatchCode/WatchCodePane";
 
-const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
+const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] pl-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
 
 export function Overview() {
@@ -68,6 +67,13 @@ export function Overview() {
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
   let effectiveTabName = selectedTabName;
+  const viewModesInitialPane =
+    selectedTabName === OverviewTabNameEnum.ProjectConfigs
+      ? "projectConfigs"
+      : "viewModes";
+  if (selectedTabName === OverviewTabNameEnum.ProjectConfigs) {
+    effectiveTabName = OverviewTabNameEnum.ViewModes;
+  }
   if (!showLLMTabs) {
     if (
       selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
@@ -119,19 +125,9 @@ export function Overview() {
           bottom: hasViewModeTabs ? "36px" : "0px",
         }}
       >
-        {showLLMTabs && (
-          <TabButton<OverviewTabName>
-            tabName={OverviewTabNameEnum.ProjectAIChat}
-            {...commonProps}
-            data-testid="overview-tab-project-ai-chat"
-            {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
-            icon={<IoChatbox size={20} />}
-          />
-        )}
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.Overview}
           {...commonProps}
-          data-testid="overview-tab-overview"
           {...getFloatingBoxHandlers({ content: "Project Overview" })}
           icon={<i className="gg-list  !scale-100" />}
         />
@@ -139,7 +135,6 @@ export function Overview() {
           <TabButton<OverviewTabName>
             tabName={OverviewTabNameEnum.FileBrowser}
             {...commonProps}
-            data-testid="overview-tab-file-browser"
             {...getFloatingBoxHandlers({ content: "Explorer" })}
             icon={<TbFolder size={18} />}
           />
@@ -148,7 +143,6 @@ export function Overview() {
           <TabButton<OverviewTabName>
             tabName={OverviewTabNameEnum.Git}
             {...commonProps}
-            data-testid="overview-tab-git"
             {...getFloatingBoxHandlers({ content: "Git" })}
             icon={<RiGitCommitLine size={18} />}
           />
@@ -157,7 +151,6 @@ export function Overview() {
           <TabButton<OverviewTabName>
             tabName={OverviewTabNameEnum.WatchCode}
             {...commonProps}
-            data-testid="overview-tab-watch-code"
             {...getFloatingBoxHandlers({ content: "Watch Code" })}
             icon={<RiRadarLine size={18} />}
           />
@@ -166,22 +159,13 @@ export function Overview() {
           <TabButton<OverviewTabName>
             tabName={OverviewTabNameEnum.App}
             {...commonProps}
-            data-testid="overview-tab-app"
             {...getFloatingBoxHandlers({ content: "App" })}
             icon={<TbLayoutDashboard size={18} />}
           />
         )}
         <TabButton<OverviewTabName>
-          tabName={OverviewTabNameEnum.ProjectConfigs}
-          {...commonProps}
-          data-testid="overview-tab-project-configs"
-          {...getFloatingBoxHandlers({ content: "Config Preview" })}
-          icon={<i className="gg-git-branch !scale-100" />}
-        />
-        <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.RunInstructions}
           {...commonProps}
-          data-testid="overview-tab-run-instructions"
           {...getFloatingBoxHandlers({ content: "Custom Runs" })}
           icon={<RiPlayList2Fill size={20} />}
         />
@@ -195,14 +179,12 @@ export function Overview() {
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.Notifications}
           {...commonProps}
-          data-testid="overview-tab-notifications"
           {...getFloatingBoxHandlers({ content: "Notifications" })}
           icon={<MdNotificationsNone size={20} />}
         />
         <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.BackendLogs}
           {...commonProps}
-          data-testid="overview-tab-backend-logs"
           {...getFloatingBoxHandlers({ content: "Backend Logs" })}
           icon={
             <div className="relative">
@@ -215,9 +197,16 @@ export function Overview() {
         />
         {showLLMTabs && (
           <TabButton<OverviewTabName>
+            tabName={OverviewTabNameEnum.ProjectAIChat}
+            {...commonProps}
+            {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
+            icon={<IoChatbox size={20} />}
+          />
+        )}
+        {showLLMTabs && (
+          <TabButton<OverviewTabName>
             tabName={OverviewTabNameEnum.ProjectAISettings}
             {...commonProps}
-            data-testid="overview-tab-project-ai-settings"
             {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
             icon={<MdOutlineSmartToy size={20} />}
           />
@@ -233,7 +222,12 @@ export function Overview() {
         minimumWidth={250}
         paddingClassName={isFileBrowserTab ? "pt-2.5 pb-0" : undefined}
       >
-        {vis && <TabsVisible selectedTabName={effectiveTabName} />}
+        {vis && (
+          <TabsVisible
+            selectedTabName={effectiveTabName}
+            viewModesInitialPane={viewModesInitialPane}
+          />
+        )}
       </PaneContainer>
     </div>
   );
@@ -241,18 +235,19 @@ export function Overview() {
 
 function TabsVisible({
   selectedTabName,
+  viewModesInitialPane,
 }: {
   selectedTabName: OverviewTabName;
+  viewModesInitialPane: "viewModes" | "projectConfigs";
 }) {
   const title = OverviewTabNamePrettified[selectedTabName];
   const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
   return (
     <div
-      data-testid="overview-tab-content-shell"
       className={
         isFullWidth
           ? "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
-          : "mx-auto flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden px-1.5"
+          : "mx-[1px] flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden pl-1.5"
       }
     >
       {isFullWidth ? (
@@ -266,18 +261,27 @@ function TabsVisible({
           {title}
         </h2>
       )}
-      <TabContent selectedTabName={selectedTabName} />
+      <TabContent
+        selectedTabName={selectedTabName}
+        viewModesInitialPane={viewModesInitialPane}
+      />
     </div>
   );
 }
 
-function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
+function TabContent({
+  selectedTabName,
+  viewModesInitialPane,
+}: {
+  selectedTabName: OverviewTabName;
+  viewModesInitialPane: "viewModes" | "projectConfigs";
+}) {
   switch (selectedTabName) {
     case OverviewTabNameEnum.Overview:
       return <ProjectOverview />;
     case OverviewTabNameEnum.FileBrowser:
       return (
-        <FileBrowserWorkspace
+        <FileBrowserPane
           metaPaddingClassName={FILE_BROWSER_META_INSET_CLASS}
           listInsetLeft={FILE_BROWSER_LIST_INSET_LEFT}
         />
@@ -285,7 +289,7 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
     case OverviewTabNameEnum.Git:
       return <GitPane />;
     case OverviewTabNameEnum.ProjectConfigs:
-      return <ProjectConfigs />;
+      return <ViewingEditingMode initialPane="projectConfigs" />;
     case OverviewTabNameEnum.WatchCode:
       return <WatchCodePane />;
     case OverviewTabNameEnum.App:
@@ -293,7 +297,7 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
     case OverviewTabNameEnum.RunInstructions:
       return <RunInstructions />;
     case OverviewTabNameEnum.ViewModes:
-      return <ViewingEditingMode />;
+      return <ViewingEditingMode initialPane={viewModesInitialPane} />;
     case OverviewTabNameEnum.Notifications:
       return <NotificationsArea />;
     case OverviewTabNameEnum.BackendLogs:

@@ -113,7 +113,7 @@ export function GitPane() {
         </div>
       )}
 
-      <div className="setta-pane-scroll mt-3 min-h-0 flex-1">
+      <div className="mt-3 min-h-0 flex-1 overflow-y-auto">
         {isLoading && (
           <div className="py-4 text-center text-xs text-setta-500 dark:text-setta-300">
             Loading git status…

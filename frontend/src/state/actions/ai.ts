@@ -34,8 +34,7 @@ import {
   useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
-import type { AppGenerationMode } from "state/types/appGenerationMode";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_create_agent_profile,
   route_create_external_agent_config,
@@ -118,52 +117,28 @@ const scopeViolationToastTimeouts = new Map<
   string,
   ReturnType<typeof setTimeout>
 >();
-let llmConfigLoadPromise: Promise<void> | null = null;
-let llmApiKeysLoadPromise: Promise<void> | null = null;
 
 export async function loadLLMConfig() {
-  if (llmConfigLoadPromise) {
-    await llmConfigLoadPromise;
-    return;
-  }
-  llmConfigLoadPromise = (async () => {
-    const res = await route_get_llm_config();
-    if (res200(res)) {
-      receiveLLMConfigUpdate(res.data);
-      return;
-    }
+  const res = await route_get_llm_config();
+  if (res200(res)) {
+    receiveLLMConfigUpdate(res.data);
+  } else {
     useAIStore.setState({
       allLLMConfigsInitialLoadComplete: true,
       allLLMConfigsLoadError: "Failed to load LLM config",
     });
-  })();
-  try {
-    await llmConfigLoadPromise;
-  } finally {
-    llmConfigLoadPromise = null;
   }
 }
 
 export async function loadLLMApiKeys() {
-  if (llmApiKeysLoadPromise) {
-    await llmApiKeysLoadPromise;
-    return;
-  }
-  llmApiKeysLoadPromise = (async () => {
-    const res = await route_get_llm_api_keys();
-    if (res200(res)) {
-      receiveLLMApiKeysUpdate(res.data);
-      return;
-    }
+  const res = await route_get_llm_api_keys();
+  if (res200(res)) {
+    receiveLLMApiKeysUpdate(res.data);
+  } else {
     useAIStore.setState({
       apiKeysInitialLoadComplete: true,
       apiKeysLoadError: "Failed to load LLM API keys",
     });
-  })();
-  try {
-    await llmApiKeysLoadPromise;
-  } finally {
-    llmApiKeysLoadPromise = null;
   }
 }
 
@@ -781,11 +756,6 @@ export async function submitMessage(
   messageId?: string,
   agentProfileId?: string | null,
   sectionId?: string | null,
-  appGeneration?: {
-    mode: AppGenerationMode | null;
-    referenceImageUrl?: string | null;
-    referenceImageNotes?: string | null;
-  },
 ): Promise<string | null> {
   const trimmed = message.trim();
   if ((!trimmed && attachments.length === 0) || !engineConfigId) {
@@ -809,22 +779,14 @@ export async function submitMessage(
 
   try {
     const projectConfigId = getCurrProjectConfigId();
-    const appGenerationMode = appGeneration?.mode ?? null;
-    const appSpecStreamingEnabledForSubmit =
-      appGenerationMode === null
-        ? false
-        : useLocalStorage.getState().appSpecStreamingEnabled;
     const res = await route_get_llm_response({
       message: userMessage,
       thinking,
       chatId,
       engineConfigId,
       agentProfileId: agentProfileId ?? null,
-      appSpecStreamingEnabled: appSpecStreamingEnabledForSubmit,
-      appGenerationMode: appGenerationMode,
-      appGenerationReferenceImageUrl: appGeneration?.referenceImageUrl ?? null,
-      appGenerationReferenceImageNotes:
-        appGeneration?.referenceImageNotes ?? null,
+      appSpecStreamingEnabled:
+        useLocalStorage.getState().appSpecStreamingEnabled,
       projectConfigId,
       sectionId: sectionId ?? null,
       allowUnscoped: sectionId == null,
@@ -844,12 +806,8 @@ export async function submitMessage(
       }
       return returnedChatId;
     }
-    const failureDetail =
-      getErrorDetail(res.data) ??
-      (typeof res.status === "number"
-        ? `Chat request failed (status ${res.status}).`
-        : "Chat request failed.");
-    throw new Error(failureDetail);
+    rollbackOptimisticUserMessage(chatId, userMessageId);
+    return null;
   } catch (err) {
     rollbackOptimisticUserMessage(chatId, userMessageId);
     throw err;
@@ -1259,7 +1217,7 @@ function extractRunMessages(
   return raw as Array<BaseChatMessageUnion>;
 }
 
-export async function resolveEngineConfigIdForChat(
+async function resolveEngineConfigIdForChat(
   chatId: string,
   engineConfigId: string | null,
 ): Promise<string | null> {

@@ -181,24 +181,6 @@ export async function route_get_file_browser_download_urls(
   return await post("/getFileBrowserDownloadUrls", x);
 }
 
-export async function route_get_file_browser_file_content(
-  x: gt.GetFileBrowserFileContentRequestInput,
-): Promise<ResponseDataAndStatus<gt.FileBrowserFileContentResponse>> {
-  return await post("/getFileBrowserFileContent", x);
-}
-
-export async function route_write_file_browser_file_content(
-  x: gt.WriteFileBrowserFileContentRequestInput,
-): Promise<ResponseDataAndStatus<gt.WriteFileBrowserFileContentResponse>> {
-  return await post("/writeFileBrowserFileContent", x);
-}
-
-export async function route_transfer_file_browser_entry(
-  x: gt.TransferFileBrowserEntryRequestInput,
-): Promise<ResponseDataAndStatus<gt.TransferFileBrowserEntryResponse>> {
-  return await post("/transferFileBrowserEntry", x);
-}
-
 export async function route_file_browser_download(
   token: string,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -437,18 +419,6 @@ export async function route_get_ai_follow_snapshot(
   ResponseDataAndStatus<Array<gt.AIFollowToolArgumentsUpdateContent>>
 > {
   return await post("/getAIFollowSnapshot", x);
-}
-
-export async function route_get_app_gen_skills(): Promise<
-  ResponseDataAndStatus<Array<gt.AppGenSkillEntry>>
-> {
-  return await get("/getAppGenSkills");
-}
-
-export async function route_get_app_gen_skill_content(
-  x: gt.GetAppGenSkillContentRequestInput,
-): Promise<ResponseDataAndStatus<gt.AppGenSkillContent>> {
-  return await post("/getAppGenSkillContent", x);
 }
 
 export async function route_get_agent_profiles(): Promise<
@@ -787,6 +757,12 @@ export async function route_set_view_mode_name(
   x: gt.SetViewModeNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setViewModeName", x);
+}
+
+export async function route_set_view_mode_sort_order(
+  x: gt.SetViewModeSortOrderRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setViewModeSortOrder", x);
 }
 
 export async function route_delete_view_mode(
@@ -1139,6 +1115,12 @@ export async function route_set_default_section_variant(
   return await post("/setDefaultSectionVariant", x);
 }
 
+export async function route_set_section_variant_sort_order(
+  x: gt.SetSectionVariantSortOrderRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionVariantSortOrder", x);
+}
+
 export async function route_toggle_variant_frozen(
   x: gt.ToggleVariantFrozenRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1211,12 +1193,6 @@ export async function route_set_text_block_display_mode(
   return await post("/setTextBlockDisplayMode", x);
 }
 
-export async function route_set_text_block_master_font_size(
-  x: gt.SetTextBlockMasterFontSizeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setTextBlockMasterFontSize", x);
-}
-
 export async function route_set_text_block_heading_as_section_name(
   x: gt.SetTextBlockHeadingAsSectionNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1241,12 +1217,6 @@ export async function route_set_section_hide_unpinned_params(
   return await post("/setSectionHideUnpinnedParams", x);
 }
 
-export async function route_set_section_allow_unquoted_string_args(
-  x: gt.SetSectionAllowUnquotedStringArgsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionAllowUnquotedStringArgs", x);
-}
-
 export async function route_set_section_pinned_params(
   x: gt.SetSectionPinnedParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1257,36 +1227,6 @@ export async function route_set_section_column_width(
   x: gt.SetSectionColumnWidthRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionColumnWidth", x);
-}
-
-export async function route_set_parent_default_child_section_type(
-  x: gt.SetParentDefaultChildSectionTypeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setParentDefaultChildSectionType", x);
-}
-
-export async function route_set_list_root_view_mode(
-  x: gt.SetListRootViewModeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setListRootViewMode", x);
-}
-
-export async function route_set_task_board_section_state(
-  x: gt.SetTaskBoardSectionStateRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setTaskBoardSectionState", x);
-}
-
-export async function route_set_spreadsheet_file_path(
-  x: gt.SetSpreadsheetFilePathRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSpreadsheetFilePath", x);
-}
-
-export async function route_set_spreadsheet_section_settings(
-  x: gt.SetSpreadsheetSectionSettingsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSpreadsheetSectionSettings", x);
 }
 
 export async function route_set_browser_column_widths(
@@ -1467,12 +1407,6 @@ export async function route_get_setta_home_info(): Promise<
   ResponseDataAndStatus<gt.SettaHomeInfoResponse>
 > {
   return await get("/settaHomeInfo");
-}
-
-export async function route_reveal_path_in_os_file_explorer(
-  x: gt.RevealPathInOsFileExplorerRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/revealPathInOsFileExplorer", x);
 }
 
 export async function route_list_share_deployments(): Promise<
