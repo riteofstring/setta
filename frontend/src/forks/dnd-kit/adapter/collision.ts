@@ -124,13 +124,12 @@ export function createCollisionTracker({
     const activeData = getEntityData(active);
     const droppableData = getEntityData(droppable);
     const containerId = droppableData?.sortable?.containerId;
-    const containerIsHorizontal =
-      getContainerIsHorizontal({
-        mode,
-        containerId,
-        activeData,
-        droppableData,
-      });
+    const containerIsHorizontal = getContainerIsHorizontal({
+      mode,
+      containerId,
+      activeData,
+      droppableData,
+    });
 
     const triggerDist = containerIsHorizontal
       ? activeRect.top - droppableRect.top
@@ -236,13 +235,12 @@ export function createCollisionTracker({
     }
     const droppableRect = toClientRect(droppableShape.boundingRectangle);
     const pointerCoordinates = dragOperation.position?.current ?? null;
-    const containerIsHorizontal =
-      getContainerIsHorizontal({
-        mode,
-        containerId: activeContainerId,
-        activeData,
-        droppableData,
-      });
+    const containerIsHorizontal = getContainerIsHorizontal({
+      mode,
+      containerId: activeContainerId,
+      activeData,
+      droppableData,
+    });
 
     const distance = getEdgeDistance({
       activeRect,

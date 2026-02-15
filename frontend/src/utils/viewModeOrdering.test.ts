@@ -26,9 +26,12 @@ describe("viewModeOrdering", () => {
   });
 
   it("reorders ids by active and over ids", () => {
-    expect(
-      reorderViewModeIdList(["a", "b", "c", "d"], "d", "b"),
-    ).toEqual(["a", "d", "b", "c"]);
+    expect(reorderViewModeIdList(["a", "b", "c", "d"], "d", "b")).toEqual([
+      "a",
+      "d",
+      "b",
+      "c",
+    ]);
   });
 
   it("returns original ids when active or over id is missing", () => {

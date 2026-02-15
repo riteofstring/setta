@@ -10,11 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewModeTabs } from "./ViewModeTabs";
 
 vi.mock("./ViewModeDnd", () => ({
-  ViewModeSortableProvider: ({
-    children,
-  }: {
-    children: unknown;
-  }) => children,
+  ViewModeSortableProvider: ({ children }: { children: unknown }) => children,
   useViewModeSortableItem: () => ({
     attributes: {},
     listeners: {},
