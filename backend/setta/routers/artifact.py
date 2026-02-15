@@ -58,7 +58,6 @@ DEFAULT_FILE_BROWSER_IGNORE_PATTERNS = [
     "dist",
     "build",
     "__pycache__",
-    "setta_files",
 ]
 DEFAULT_FILE_BROWSER_MAX_ENTRIES = 5000
 DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES = 10 * 1024 * 1024
@@ -84,6 +83,7 @@ class GetFolderContentsRequest(BaseModel):
     includeHidden: bool = False
     ignorePatterns: list[str] | None = None
     maxEntries: int | None = Field(default=None, gt=0)
+    missingFolderBehavior: Literal["error", "empty"] = "error"
 
 
 class GetFileBrowserDownloadUrlsRequest(BaseModel):
@@ -377,6 +377,36 @@ def _build_file_browser_download_url(token: str) -> str:
     return f"{C.BACKEND}{Route.PREFIX.value}{path}"
 
 
+def _default_file_browser_ignore_patterns() -> list[str]:
+    return list(DEFAULT_FILE_BROWSER_IGNORE_PATTERNS)
+
+
+def _resolve_setta_internal_ignore_roots() -> tuple[Path, ...]:
+    paths = get_setta_paths()
+    workspace_root = paths.workspace_root.resolve(strict=False)
+    roots: list[Path] = []
+    for root in (
+        paths.setta_files_root.resolve(strict=False),
+        paths.runtime_root.resolve(strict=False),
+    ):
+        if root.is_relative_to(workspace_root):
+            roots.append(root)
+    return tuple(roots)
+
+
+def _is_under_ignored_root(path: Path, ignored_roots: tuple[Path, ...]) -> bool:
+    for root in ignored_roots:
+        if path.is_relative_to(root):
+            return True
+    if not path.is_symlink():
+        return False
+    resolved = path.resolve(strict=False)
+    for root in ignored_roots:
+        if resolved.is_relative_to(root):
+            return True
+    return False
+
+
 @router.post(Route.CHECK_IF_FILE_EXISTS)
 def route_check_if_file_exists(
     x: CheckIfFileExistsRequests, ctx: RuntimeContextFromRequest
@@ -413,7 +443,7 @@ def route_get_file_browser_root(
     return GetFileBrowserRootResponse(
         rootPath=str(get_setta_paths().workspace_root),
         pathSeparator=os.sep,
-        ignorePatterns=list(DEFAULT_FILE_BROWSER_IGNORE_PATTERNS),
+        ignorePatterns=_default_file_browser_ignore_patterns(),
     )
 
 
@@ -435,6 +465,8 @@ def route_get_folder_contents(
 
     # Check if path exists and is a directory
     if not path.exists():
+        if x.missingFolderBehavior == "empty":
+            return []
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Path does not exist: {x.folderPath}",
@@ -448,11 +480,12 @@ def route_get_folder_contents(
     ignore_patterns = (
         x.ignorePatterns
         if x.ignorePatterns is not None
-        else DEFAULT_FILE_BROWSER_IGNORE_PATTERNS
+        else _default_file_browser_ignore_patterns()
     )
     max_entries = (
         x.maxEntries if x.maxEntries is not None else DEFAULT_FILE_BROWSER_MAX_ENTRIES
     )
+    internal_ignore_roots = _resolve_setta_internal_ignore_roots()
 
     contents: list[FolderContentItem] = []
     include_hidden = x.includeHidden
@@ -460,6 +493,8 @@ def route_get_folder_contents(
     include_size = x.includeSize
 
     for item in path.iterdir():
+        if _is_under_ignored_root(item, internal_ignore_roots):
+            continue
         if not include_hidden and item.name.startswith("."):
             continue
         if _should_ignore(item.name, ignore_patterns):

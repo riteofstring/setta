@@ -1,5 +1,3 @@
-import { scan } from "react-scan"; // must be imported before React and React DOM
-
 import "utils/backendOriginOverrideInit";
 import "utils/workspaceHistoryHandoffInit";
 
@@ -10,10 +8,6 @@ import { subscribe } from "state/subscriptions";
 import "../icons.css";
 import { App } from "./App";
 import "./index.css";
-
-scan({
-  enabled: false,
-});
 
 subscribe();
 

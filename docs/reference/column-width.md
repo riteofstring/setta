@@ -60,6 +60,33 @@ This document explains how column width sizing is calculated, persisted, and app
   bounds to prevent overlap and preserve a minimum message column width.
 - Double-clicking a graph-column boundary resets that boundary to its default.
 
+## Backend Log Pane Columns
+
+- The Overview `Backend Logs` tab has resizable columns for:
+  - `Time`
+  - `Severity`
+  - `Project`
+- Widths are held in component state in
+  `frontend/src/components/Panes/Overview/BackendLogEventsArea.tsx` and are not
+  persisted across reloads.
+- Default widths (px):
+  - `timestamp`: `72`
+  - `severity`: `74`
+  - `project`: `176`
+- Clamp bounds (px), enforced in
+  `frontend/src/components/Panes/Overview/BackendLogEventsArea.utils.ts`:
+  - `timestamp`: `64..160`
+  - `severity`: `64..170`
+  - `project`: `120..380`
+- The grid always reserves:
+  - message column minimum: `220px`
+  - copy column width: `56px`
+- Horizontal overflow behavior:
+  - outer shell uses `overflow-x: auto`,
+  - virtualized list keeps `overflow-x: hidden`,
+  - rendered list width is `max(gridMinWidth, viewportWidth)` so columns can be
+    widened without clipping content.
+
 ## Persistence
 
 - Param column updates are sent through `route_set_section_column_width`.

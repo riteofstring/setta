@@ -1,9 +1,7 @@
-import { javascriptLanguage } from "@codemirror/lang-javascript";
-import { jsonLanguage } from "@codemirror/lang-json";
-import { pythonLanguage } from "@codemirror/lang-python";
 import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
+import { getCodeMirrorLanguageParser } from "./codeMirrorLanguages";
 
 const lineWrapStyle = {
   whiteSpace: "break-spaces",
@@ -17,7 +15,6 @@ const singleLineStyle = {
   textOverflow: "ellipsis",
   flexShrink: 1,
 };
-
 //https://discuss.codemirror.net/t/server-side-rendering-for-read-only-codeblocks-in-cm6/4053
 //https://github.com/jamischarles/codemirror-server-render
 export function DummyCodeMirror({
@@ -90,7 +87,26 @@ function HighlightedCode({
   onFocus,
   style,
 }) {
-  const tree = getLanguageParser(language).parser.parse(code);
+  const parser = getCodeMirrorLanguageParser(language, false);
+  if (!parser) {
+    return (
+      <div
+        id={divId}
+        className={`${className} outline-none`}
+        style={style}
+        onMouseDownCapture={onMouseDownCapture}
+        onFocus={onFocus}
+        tabIndex={0}
+      >
+        {code.split("\n").map((line, index) => (
+          <div key={`line-${index + 1}`} className="cm-line">
+            {line || <br />}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  const tree = parser.parse(code);
   const highlightStyle = theme[1][2].value;
   const markCache = {};
   const builder = new RangeSetBuilder();
@@ -164,17 +180,4 @@ function HighlightedCode({
       {outputDivs}
     </div>
   );
-}
-
-function getLanguageParser(language) {
-  switch (language) {
-    case "python":
-      return pythonLanguage;
-    case "javascript":
-      return javascriptLanguage;
-    case "json":
-      return jsonLanguage;
-    default:
-      return null;
-  }
 }

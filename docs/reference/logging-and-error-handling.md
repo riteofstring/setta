@@ -254,6 +254,28 @@ UI event filtering:
 - `SETTA_UI_LOG_LEVEL` controls the minimum severity that will be sent to the UI.
 - If unset, it defaults to the current effective root log level.
 
+### Backend Logs pane (frontend)
+
+The Overview `Backend Logs` tab (`frontend/src/components/Panes/Overview/BackendLogEventsArea.tsx`)
+consumes these events and provides a diagnostics-focused UI:
+
+- Filter controls:
+  - project scope (`All` or a specific project config),
+  - minimum severity (`info` / `warning` / `error` / `critical`),
+  - text query against message content.
+- List behavior:
+  - rows are virtualized (`react-window`) for large event volumes,
+  - selecting a row opens a detail panel with the full multiline message,
+  - high-severity events are marked read when the pane mounts.
+- Table ergonomics:
+  - `Time`, `Severity`, and `Project` headers are draggable resize columns,
+  - horizontal overflow is handled by an outer scroll shell so widened columns
+    remain readable.
+- Clipboard affordances:
+  - each row exposes a copy action for the full message,
+  - the selected-message panel also has a dedicated copy button with success/fail
+    feedback.
+
 ## Notifications Are Separate
 
 `SettaNotification` is a separate concept from UI “backend log events”.

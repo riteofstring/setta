@@ -58,7 +58,7 @@ export function NotificationsArea() {
   }, [projectConfigId]);
 
   return (
-    <div className="flex h-full w-full flex-col gap-4 overflow-y-auto">
+    <div className="setta-pane-scroll flex h-full w-full flex-col gap-4">
       {notifications.length > 0 ? (
         notifications.map((notification) => (
           <NotificationItem key={notification.id} notification={notification} />
