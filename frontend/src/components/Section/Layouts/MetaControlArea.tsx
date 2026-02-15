@@ -32,12 +32,19 @@ import {
   BinaryDependencyValue,
   ButtonActionModeEnum,
   CodeObjTypeEnum,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
+  DateDisplayFormatEnum,
+  DateSelectionModeEnum,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   DropzoneModeEnum,
   HttpRequestMethodEnum,
   LiteralDependencyValue,
   SectionTypeEnum,
+  TimeControlModeEnum,
+  TimeDisplayFontEnum,
+  TimeDisplayFormatEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
 import { shouldEmitRealtimeValue } from "utils/paramValue";
@@ -98,6 +105,16 @@ function MetaControlValueArea({
     dropzoneMode,
     dropzoneMaxAttachments,
     dropzonePlaceholder,
+    timeControlMode,
+    timeDisplayFormat,
+    timeDisplayTransparent,
+    timeDisplayScale,
+    timeDisplayFont,
+    dateDisplayFormat,
+    dateControlMode,
+    dateSelectionMode,
+    dateCalendarWeekStart,
+    dateIncludesTime,
   } = useProjectState((x) => {
     const sectionName = getSectionCore(x, sectionId).name;
     const paramDisplayName = getParamDisplayName(x, sectionId, controlParamId);
@@ -130,6 +147,16 @@ function MetaControlValueArea({
         dropzoneMode: null,
         dropzoneMaxAttachments: null,
         dropzonePlaceholder: null,
+        timeControlMode: TimeControlModeEnum.display,
+        timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
+        timeDisplayTransparent: false,
+        timeDisplayScale: 1,
+        timeDisplayFont: TimeDisplayFontEnum.monospace,
+        dateDisplayFormat: DateDisplayFormatEnum.iso,
+        dateControlMode: DateControlModeEnum.input,
+        dateSelectionMode: DateSelectionModeEnum.single,
+        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
+        dateIncludesTime: false,
       };
     }
     const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
@@ -139,6 +166,8 @@ function MetaControlValueArea({
       isBaseChildlessCodeObjImpl,
     );
     const isDropzone = childlessImpl.type === CodeObjTypeEnum.DropzoneParam;
+    const isDateParam = childlessImpl.type === CodeObjTypeEnum.DateParam;
+    const isTimeParam = childlessImpl.type === CodeObjTypeEnum.TimeParam;
     return {
       codeObjType: childlessImpl.type,
       baseValue: childlessImpl.value,
@@ -151,6 +180,32 @@ function MetaControlValueArea({
         ? childlessImpl.maxAttachments ?? null
         : null,
       dropzonePlaceholder: isDropzone ? childlessImpl.placeholder : null,
+      timeControlMode: isTimeParam
+        ? childlessImpl.timeControlMode
+        : TimeControlModeEnum.display,
+      timeDisplayFormat: isTimeParam
+        ? childlessImpl.timeDisplayFormat
+        : TimeDisplayFormatEnum.twenty_four_hour,
+      timeDisplayTransparent: isTimeParam
+        ? childlessImpl.timeDisplayTransparent
+        : false,
+      timeDisplayScale: isTimeParam ? childlessImpl.timeDisplayScale : 1,
+      timeDisplayFont: isTimeParam
+        ? childlessImpl.timeDisplayFont
+        : TimeDisplayFontEnum.monospace,
+      dateDisplayFormat: isDateParam
+        ? childlessImpl.dateDisplayFormat
+        : DateDisplayFormatEnum.iso,
+      dateControlMode: isDateParam
+        ? childlessImpl.dateControlMode
+        : DateControlModeEnum.input,
+      dateSelectionMode: isDateParam
+        ? childlessImpl.dateSelectionMode
+        : DateSelectionModeEnum.single,
+      dateCalendarWeekStart: isDateParam
+        ? childlessImpl.dateCalendarWeekStart
+        : DateCalendarWeekStartEnum.sunday,
+      dateIncludesTime: isDateParam ? childlessImpl.dateIncludesTime : false,
     };
   }, _.isEqual);
 
@@ -313,6 +368,16 @@ function MetaControlValueArea({
           dropzoneMode={dropzoneMode ?? DropzoneModeEnum.STATEFUL}
           dropzoneMaxAttachments={dropzoneMaxAttachments}
           dropzonePlaceholder={dropzonePlaceholder ?? undefined}
+          timeControlMode={timeControlMode}
+          timeDisplayFormat={timeDisplayFormat}
+          timeDisplayTransparent={timeDisplayTransparent}
+          timeDisplayScale={timeDisplayScale}
+          timeDisplayFont={timeDisplayFont}
+          dateDisplayFormat={dateDisplayFormat}
+          dateControlMode={dateControlMode}
+          dateSelectionMode={dateSelectionMode}
+          dateCalendarWeekStart={dateCalendarWeekStart}
+          dateIncludesTime={dateIncludesTime}
           showSectionTitle={showSectionTitle}
         />
       )}

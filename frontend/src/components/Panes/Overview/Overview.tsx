@@ -31,9 +31,10 @@ import {
 } from "../paneFns";
 import { AppConfigPane } from "./App/AppConfigPane";
 import { BackendLogEventsArea } from "./BackendLogEventsArea";
-import { FileBrowserPane } from "./FileBrowser/FileBrowserPane";
+import { FileBrowserWorkspace } from "./FileBrowser/FileBrowserWorkspace";
 import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
+import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
@@ -41,7 +42,7 @@ import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 import { WatchCodePane } from "./WatchCode/WatchCodePane";
 
-const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] pl-1.5";
+const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
 
 export function Overview() {
@@ -66,7 +67,7 @@ export function Overview() {
   const showWatchCodeTab = !isDeploymentMode;
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
-  let effectiveTabName: OverviewTabName = selectedTabName;
+  let effectiveTabName = selectedTabName;
   if (!showLLMTabs) {
     if (
       selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
@@ -171,6 +172,13 @@ export function Overview() {
           />
         )}
         <TabButton<OverviewTabName>
+          tabName={OverviewTabNameEnum.ProjectConfigs}
+          {...commonProps}
+          data-testid="overview-tab-project-configs"
+          {...getFloatingBoxHandlers({ content: "Config Preview" })}
+          icon={<i className="gg-git-branch !scale-100" />}
+        />
+        <TabButton<OverviewTabName>
           tabName={OverviewTabNameEnum.RunInstructions}
           {...commonProps}
           data-testid="overview-tab-run-instructions"
@@ -210,7 +218,7 @@ export function Overview() {
             tabName={OverviewTabNameEnum.ProjectAISettings}
             {...commonProps}
             data-testid="overview-tab-project-ai-settings"
-            {...getFloatingBoxHandlers({ content: "ProjectAI Settings" })}
+            {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
             icon={<MdOutlineSmartToy size={20} />}
           />
         )}
@@ -244,7 +252,7 @@ function TabsVisible({
       className={
         isFullWidth
           ? "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
-          : "mx-[1px] flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden pl-1.5"
+          : "mx-auto flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden px-1.5"
       }
     >
       {isFullWidth ? (
@@ -269,13 +277,15 @@ function TabContent({ selectedTabName }: { selectedTabName: OverviewTabName }) {
       return <ProjectOverview />;
     case OverviewTabNameEnum.FileBrowser:
       return (
-        <FileBrowserPane
+        <FileBrowserWorkspace
           metaPaddingClassName={FILE_BROWSER_META_INSET_CLASS}
           listInsetLeft={FILE_BROWSER_LIST_INSET_LEFT}
         />
       );
     case OverviewTabNameEnum.Git:
       return <GitPane />;
+    case OverviewTabNameEnum.ProjectConfigs:
+      return <ProjectConfigs />;
     case OverviewTabNameEnum.WatchCode:
       return <WatchCodePane />;
     case OverviewTabNameEnum.App:

@@ -98,15 +98,13 @@ export function useNavigateToAnotherConfig() {
   };
 }
 
-export async function loadAllProjectMetadata(): Promise<boolean> {
+export async function loadAllProjectMetadata() {
   const mode = await initializeServerMode();
   if (mode !== "ide") {
-    return false;
+    return;
   }
   const res = await route_load_all_project_metadata();
   if (res200(res)) {
     useAllProjectMetadata.setState(res.data);
-    return true;
   }
-  return false;
 }
