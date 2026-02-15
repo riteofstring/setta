@@ -295,14 +295,6 @@ export const BrowserAreaViewModeEnum = {
 
 export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
 
-export const ChatPermissionModeEnum = {
-  minimal: "minimal",
-  yolo: "yolo",
-  config_toml_custom: "config_toml_custom",
-} as const;
-
-export type ChatPermissionMode = ObjectValues<typeof ChatPermissionModeEnum>;
-
 export const CodeLanguageEnum = {
   python: "python",
   bash: "bash",
@@ -448,7 +440,6 @@ export const RouteEnum = {
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
-  TRANSCRIBE_CHAT_AUDIO: "/transcribeChatAudio",
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
   LLM_CONFIG: "/llm/config",
   LLM_API_KEYS: "/llm/apiKeys",
@@ -524,6 +515,7 @@ export const RouteEnum = {
   TOGGLE_VIEW_MODE_USER_FACING: "/toggleViewModeUserFacing",
   TOGGLE_VIEW_MODE_TAB: "/toggleViewModeTab",
   SET_VIEW_MODE_NAME: "/setViewModeName",
+  SET_VIEW_MODE_SORT_ORDER: "/setViewModeSortOrder",
   DELETE_VIEW_MODE: "/deleteViewMode",
   UNDO: "/undo",
   REDO: "/redo",
@@ -586,6 +578,7 @@ export const RouteEnum = {
   SET_AGENTIC_EDGES: "/setAgenticEdges",
   SET_SECTION_VARIANT: "/setSectionVariant",
   SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
+  SET_SECTION_VARIANT_SORT_ORDER: "/setSectionVariantSortOrder",
   SET_SECTION_VARIANT_NAME: "setSectionVariantName",
   TOGGLE_VARIANT_FROZEN: "/toggleVariantFrozen",
   SET_SECTION_SIZES: "/setSectionSizes",
@@ -1595,7 +1588,6 @@ const SharedModifierSchema = z.object({
   overflowMode: z.boolean().optional(),
   paramFilter: z.string().optional(),
   passingStyle: z.enum(ParameterPassingStyleEnum).optional(),
-  permissionMode: z.enum(ChatPermissionModeEnum).optional(),
   pinnedParams: z.array(IDSchema).optional(),
   placeholder: z.string().optional(),
   positionAndSizeLocked: z.boolean().optional(),
@@ -1608,7 +1600,6 @@ const SharedModifierSchema = z.object({
   requestMethod: z.enum(HttpRequestMethodEnum).optional(),
   requestUrl: z.string().optional(),
   savedSearches: z.array(BrowserSavedSearchSchema).optional(),
-  searchEnabled: z.boolean().optional(),
   selectedParams: z.array(IDSchema).optional(),
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
@@ -1718,7 +1709,6 @@ const CoreSchema = z.object({
         "overflowMode",
         "paramFilter",
         "passingStyle",
-        "permissionMode",
         "pinnedParams",
         "placeholder",
         "positionAndSizeLocked",
@@ -1731,7 +1721,6 @@ const CoreSchema = z.object({
         "requestMethod",
         "requestUrl",
         "savedSearches",
-        "searchEnabled",
         "selectedParams",
         "showSectionTitle",
         "size",
@@ -2264,10 +2253,6 @@ const ChatSectionImplSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
-  permissionMode: z
-    .enum(ChatPermissionModeEnum)
-    .default(ChatPermissionModeEnum.minimal),
-  searchEnabled: z.boolean().default(true),
   messages: z
     .array(
       z.union([
@@ -3506,8 +3491,6 @@ const ChatSectionImplArgsSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
   thinking: z.boolean().optional(),
-  permissionMode: z.enum(ChatPermissionModeEnum).optional(),
-  searchEnabled: z.boolean().optional(),
   messages: z
     .array(
       z.union([
@@ -3893,6 +3876,12 @@ const ViewModeConfigSchema = z.object({
 });
 
 export type ViewModeConfig = z.infer<typeof ViewModeConfigSchema>;
+
+export function createViewModeConfig(
+  options: Partial<ViewModeConfig> = {},
+): ViewModeConfig {
+  return ViewModeConfigSchema.parse(options);
+}
 
 const SectionTypeCodegenPolicySchema = z.object({
   mode: z.enum(SectionCodegenModeEnum).default(SectionCodegenModeEnum.inherit),
@@ -4923,10 +4912,6 @@ const UserDefaultChatSectionImplSchema = z.object({
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
-  permissionMode: z
-    .enum(ChatPermissionModeEnum)
-    .default(ChatPermissionModeEnum.minimal),
-  searchEnabled: z.boolean().default(true),
   messages: z
     .array(
       z.union([
@@ -4975,7 +4960,7 @@ type UserDefaultCodeSectionImpl = z.infer<
   typeof UserDefaultCodeSectionImplSchema
 >;
 
-function createUserDefaultCodeSectionImpl(
+export function createUserDefaultCodeSectionImpl(
   options: Partial<UserDefaultCodeSectionImpl> = {},
 ): UserDefaultCodeSectionImpl {
   return UserDefaultCodeSectionImplSchema.parse(options);
@@ -6260,6 +6245,7 @@ const FolderContentItemSchema = z.object({
   fullPath: z.string(),
   mtime: z.number().optional(),
   size: z.int().optional(),
+  isSettaInitialized: z.boolean().optional(),
 });
 
 export type FolderContentItem = z.infer<typeof FolderContentItemSchema>;
@@ -6285,10 +6271,6 @@ const AgentRunSchema = z.object({
 });
 
 export type AgentRun = z.infer<typeof AgentRunSchema>;
-
-export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
-  return AgentRunSchema.parse(options);
-}
 
 const RunChainStepSchema = z.object({
   id: IDSchema.default(create_new_id),
@@ -7425,10 +7407,6 @@ const GetLLMResponseRequestSchema = z.object({
   branchParentChatId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
   appSpecStreamingEnabled: z.boolean().default(false),
-  permissionMode: z
-    .enum(ChatPermissionModeEnum)
-    .default(ChatPermissionModeEnum.minimal),
-  searchEnabled: z.boolean().default(true),
   appGenerationMode: z
     .union([
       z.literal([
@@ -7455,14 +7433,6 @@ const StopLLMChatRequestSchema = z.object({
 });
 
 export type StopLLMChatRequestInput = z.input<typeof StopLLMChatRequestSchema>;
-
-const TranscribeChatAudioResponseSchema = z.object({
-  text: z.string(),
-});
-
-export type TranscribeChatAudioResponse = z.infer<
-  typeof TranscribeChatAudioResponseSchema
->;
 
 const AppPolicyOverridesSchema = z.object({
   allowParamChanges: z.union([z.boolean(), z.null()]).default(null),
@@ -7615,6 +7585,7 @@ const GetFolderContentsRequestSchema = z.object({
   includeMtime: z.boolean().default(false),
   includeSize: z.boolean().default(false),
   includeHidden: z.boolean().default(false),
+  includeSettaInitialized: z.boolean().default(false),
   ignorePatterns: z.union([z.array(z.string()), z.null()]).default(null),
   maxEntries: z.union([z.int(), z.null()]).default(null),
   missingFolderBehavior: z
@@ -8609,8 +8580,6 @@ const SetChatSectionSettingsRequestSchema = z.object({
   engineConfigId: z.union([IDSchema, z.null()]),
   agentProfileId: z.union([IDSchema, z.null()]),
   thinking: z.boolean(),
-  permissionMode: z.enum(ChatPermissionModeEnum),
-  searchEnabled: z.boolean(),
 });
 
 export type SetChatSectionSettingsRequestInput = z.input<
@@ -8967,6 +8936,17 @@ export type SetSectionVariantRequestInput = z.input<
   typeof SetSectionVariantRequestSchema
 >;
 
+const SetSectionVariantSortOrderRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  orderedVariantIds: z.array(IDSchema),
+});
+
+export type SetSectionVariantSortOrderRequestInput = z.input<
+  typeof SetSectionVariantSortOrderRequestSchema
+>;
+
 const SetShowParamDisplayNamesRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -9086,6 +9066,16 @@ const SetViewModeNameRequestSchema = z.object({
 
 export type SetViewModeNameRequestInput = z.input<
   typeof SetViewModeNameRequestSchema
+>;
+
+const SetViewModeSortOrderRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  orderedViewModeIds: z.array(IDSchema),
+});
+
+export type SetViewModeSortOrderRequestInput = z.input<
+  typeof SetViewModeSortOrderRequestSchema
 >;
 
 const SetViewportRequestSchema = z.object({
@@ -9629,12 +9619,18 @@ const BackendInitEventSchema = z.object({
   timestamp: z.iso.datetime().default(get_now_timestamp),
 });
 
+const BackendInitWorktreeOptionSchema = z.object({
+  name: z.string(),
+  isActive: z.boolean(),
+});
+
 const BackendInitStatusResponseSchema = z.object({
   events: z.array(BackendInitEventSchema),
   isReady: z.boolean(),
   error: z.union([z.string(), z.null()]),
   authCookieRefreshWindowSeconds: z.int(),
   worktreeName: z.union([z.string(), z.null()]),
+  worktreeOptionDetails: z.array(BackendInitWorktreeOptionSchema),
 });
 
 export type BackendInitStatusResponse = z.infer<

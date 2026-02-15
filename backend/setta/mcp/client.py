@@ -7,7 +7,6 @@ from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Sequence
 
-import anyio
 import mcp.types as types
 from anyio.streams.memory import (
     MemoryObjectReceiveStream,
@@ -49,8 +48,6 @@ if TYPE_CHECKING:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 _ENV_PLACEHOLDER = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
-_MCP_RECONNECT_WAIT_SECONDS = 2.0
-_MCP_RECONNECT_POLL_SECONDS = 0.05
 
 
 class MissingMCPEnvVarError(ValueError):
@@ -240,61 +237,7 @@ class MultiMCPClient:
         session = self._sessions.get(server_id)
         if not session:
             raise ValueError(f"MCP session for server '{server_id}' is not initialized")
-        try:
-            return await session.call_tool(tool_id, tool_args, meta=meta)
-        except anyio.ClosedResourceError:
-            if not self._is_read_only_tool(tool_name):
-                logger.warning(
-                    "MCP session for server '%s' closed during tool call '%s'; not retrying because the tool is not read-only",
-                    server_id,
-                    tool_name,
-                )
-                raise
-            logger.warning(
-                "MCP session for server '%s' closed during tool call '%s'; waiting for reconnect",
-                server_id,
-                tool_name,
-            )
-            reconnected_session = await self._wait_for_session_reconnect(
-                server_id, previous_session=session
-            )
-            if reconnected_session is None:
-                logger.error(
-                    "MCP reconnect timed out for server '%s' while calling '%s'",
-                    server_id,
-                    tool_name,
-                )
-                raise
-            logger.info(
-                "Retrying MCP tool call '%s' after reconnect to server '%s'",
-                tool_name,
-                server_id,
-            )
-            return await reconnected_session.call_tool(tool_id, tool_args, meta=meta)
-
-    def _is_read_only_tool(self, tool_name: str) -> bool:
-        annotations = self.tool_annotations_by_name.get(tool_name)
-        if annotations is None:
-            return False
-        return annotations.accessType == "read"
-
-    async def _wait_for_session_reconnect(
-        self,
-        server_id: str,
-        *,
-        previous_session: ClientSession,
-    ) -> ClientSession | None:
-        loop = asyncio.get_running_loop()
-        deadline = loop.time() + _MCP_RECONNECT_WAIT_SECONDS
-        while True:
-            if self._is_shutting_down:
-                return None
-            session = self._sessions.get(server_id)
-            if session is not None and session is not previous_session:
-                return session
-            if loop.time() >= deadline:
-                return None
-            await asyncio.sleep(_MCP_RECONNECT_POLL_SECONDS)
+        return await session.call_tool(tool_id, tool_args, meta=meta)
 
     async def stop(self) -> None:
         if self.disabled:
