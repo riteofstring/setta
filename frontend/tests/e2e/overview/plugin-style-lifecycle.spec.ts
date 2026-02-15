@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import path from "path";
 import {
+  allowExpectedApiError,
   cleanupIsolatedProject,
   openIsolatedProject,
   postBackend,
@@ -105,6 +106,80 @@ test("failed plugin frontend loads do not keep stylesheet links mounted", async 
   } finally {
     await postBackend(page, "/plugins/unlink", {
       pluginId: "setta-fixture-frontend-errors",
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/rescan", {}).catch(() => null);
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("runtime refresh errors clear plugin styles and the next success restores them", async ({
+  page,
+}) => {
+  const fixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/frontend",
+  );
+  const styleLink = page.locator(
+    "head link[data-setta-plugin-id='setta-fixture-frontend'][data-setta-plugin-style='true']",
+  );
+
+  await setOverviewTab(page, "Plugins");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: fixturePluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/rescan", {});
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+    await expect(styleLink).toHaveCount(1);
+
+    allowExpectedApiError(page, {
+      path: "/api/plugins/runtime",
+      method: "GET",
+      statuses: [503],
+      count: 1,
+    });
+
+    let runtimeCalls = 0;
+    await page.route("**/api/plugins/runtime", async (route) => {
+      runtimeCalls += 1;
+      if (runtimeCalls === 1) {
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({
+            code: "PLUGIN_RUNTIME_UNAVAILABLE",
+            message: "Runtime endpoint unavailable.",
+          }),
+        });
+        return;
+      }
+      const response = await route.fetch();
+      await route.fulfill({ response });
+    });
+
+    await page.getByRole("button", { name: "Rescan", exact: true }).click();
+    await expect(
+      page.getByText(
+        "Rescan plugins completed, but runtime refresh failed: Failed to fetch plugins runtime: status 503.",
+      ),
+    ).toBeVisible();
+    await expect(styleLink).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Rescan", exact: true }).click();
+    await expect.poll(() => runtimeCalls).toBe(2);
+    await expect(
+      page.getByText("Rescan plugins completed.", { exact: true }),
+    ).toBeVisible();
+    await expect(styleLink).toHaveCount(1);
+  } finally {
+    await postBackend(page, "/plugins/unlink", {
+      pluginId: "setta-fixture-frontend",
       scope: "workspace",
     }).catch(() => null);
     await postBackend(page, "/plugins/rescan", {}).catch(() => null);

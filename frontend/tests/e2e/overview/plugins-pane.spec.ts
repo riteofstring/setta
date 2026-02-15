@@ -509,71 +509,6 @@ test("plugins pane shows package-manager guidance and disables managed write act
     await route.fulfill({ response, json: payload });
   });
 
-  await page.route("**/api/plugins/list", async (route) => {
-    const response = await route.fetch();
-    const payload = await response.json();
-    payload.plugins = [
-      {
-        pluginId: "setta-package-managed",
-        name: "Setta Package Managed",
-        version: "0.1.0",
-        sourceScope: "setta_files",
-        sourceScopeLabel: "setta_files",
-        sourceManager: "package_manager",
-        sourceManagerHint:
-          "Managed by Python package manager in active environment. Use uv/pip/Poetry to install, update, or remove.",
-        canonicalSourceKey: "pypi:setta-package-managed",
-        sourceDigestSha256: "digest",
-        frontend: {
-          entrypointUrl: null,
-          styleUrl: null,
-        },
-        content: {
-          hasBlueprints: false,
-          hasProjectTemplates: false,
-          hasPrompts: false,
-        },
-        config: {
-          hasSchema: false,
-          schemaJson: null,
-        },
-        effectiveCapabilities: [],
-        restartRequired: false,
-      },
-    ];
-    await route.fulfill({ response, json: payload });
-  });
-  await page.route("**/api/plugins/status", async (route) => {
-    const response = await route.fetch();
-    const payload = await response.json();
-    payload.plugins = [
-      {
-        pluginId: "setta-package-managed",
-        name: "Setta Package Managed",
-        version: "0.1.0",
-        state: "active",
-        sourceScope: "setta_files",
-        sourceScopeLabel: "setta_files",
-        sourceManager: "package_manager",
-        sourceManagerHint:
-          "Managed by Python package manager in active environment. Use uv/pip/Poetry to install, update, or remove.",
-        sourcePath: "/tmp/site-packages/setta-package-managed",
-        canonicalSourceKey: "pypi:setta-package-managed",
-        sourceDigestSha256: "digest",
-        shadowedBySourcePath: null,
-        requestedCapabilities: [],
-        effectiveCapabilities: [],
-        blockedCapabilities: [],
-        registeredLanguageServers: [],
-        registeredExternalAgentAdapters: [],
-        registeredCodegenTargets: [],
-        restartRequired: false,
-        errors: [],
-      },
-    ];
-    await route.fulfill({ response, json: payload });
-  });
-
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForSelector(".react-flow__pane");
 
@@ -639,51 +574,6 @@ test("plugins pane shows mode-policy blocked capability reasons", async ({
     );
     payload.status.serverMode = "share";
     payload.status.plugins = payload.status.plugins.map(
-      (plugin: {
-        pluginId: string;
-        requestedCapabilities: string[];
-        effectiveCapabilities: string[];
-        blockedCapabilities: Array<{ capability: string; reason: string }>;
-      }) => {
-        if (plugin.pluginId !== "setta-fixture-backend") {
-          return plugin;
-        }
-        return {
-          ...plugin,
-          requestedCapabilities: ["registerRouter", "registerMcpTools"],
-          effectiveCapabilities: [],
-          blockedCapabilities: [
-            { capability: "registerMcpTools", reason: "mode_policy" },
-            { capability: "registerRouter", reason: "mode_policy" },
-          ],
-        };
-      },
-    );
-    await route.fulfill({ response, json: payload });
-  });
-
-  await page.route("**/api/plugins/list", async (route) => {
-    const response = await route.fetch();
-    const payload = await response.json();
-    payload.serverMode = "share";
-    payload.plugins = payload.plugins.map(
-      (plugin: { pluginId: string; effectiveCapabilities: string[] }) => {
-        if (plugin.pluginId !== "setta-fixture-backend") {
-          return plugin;
-        }
-        return {
-          ...plugin,
-          effectiveCapabilities: [],
-        };
-      },
-    );
-    await route.fulfill({ response, json: payload });
-  });
-  await page.route("**/api/plugins/status", async (route) => {
-    const response = await route.fetch();
-    const payload = await response.json();
-    payload.serverMode = "share";
-    payload.plugins = payload.plugins.map(
       (plugin: {
         pluginId: string;
         requestedCapabilities: string[];
@@ -814,86 +704,6 @@ test("plugins pane lifecycle actions call update rollback and uninstall endpoint
             },
           ],
         },
-      }),
-    });
-  });
-
-  await page.route("**/api/plugins/list", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        schemaVersion: 1,
-        serverMode: "ide",
-        restartCapability: {
-          mode: "manual",
-          command: "setta",
-          reason: "Programmatic restart is not available in this runtime.",
-        },
-        plugins: [
-          {
-            pluginId: "setta-lifecycle-plugin",
-            name: "Setta Lifecycle Plugin",
-            version: "0.1.0",
-            sourceScope: "workspace",
-            sourceScopeLabel: "workspace",
-            sourceManager: "setta",
-            sourceManagerHint: null,
-            canonicalSourceKey: "pypi:setta-lifecycle-plugin",
-            sourceDigestSha256: "digest-v1",
-            frontend: {
-              entrypointUrl: null,
-              styleUrl: null,
-            },
-            content: {
-              hasBlueprints: false,
-              hasProjectTemplates: false,
-              hasPrompts: false,
-            },
-            config: {
-              hasSchema: false,
-              schemaJson: null,
-              currentConfig: {},
-            },
-            effectiveCapabilities: [],
-            restartRequired: false,
-          },
-        ],
-      }),
-    });
-  });
-
-  await page.route("**/api/plugins/status", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        schemaVersion: 1,
-        serverMode: "ide",
-        plugins: [
-          {
-            pluginId: "setta-lifecycle-plugin",
-            name: "Setta Lifecycle Plugin",
-            version: "0.1.0",
-            state: "active",
-            sourceScope: "workspace",
-            sourceScopeLabel: "workspace",
-            sourceManager: "setta",
-            sourceManagerHint: null,
-            sourcePath: "/tmp/setta-lifecycle-plugin",
-            canonicalSourceKey: "pypi:setta-lifecycle-plugin",
-            sourceDigestSha256: "digest-v1",
-            shadowedBySourcePath: null,
-            requestedCapabilities: [],
-            effectiveCapabilities: [],
-            blockedCapabilities: [],
-            registeredLanguageServers: [],
-            registeredExternalAgentAdapters: [],
-            registeredCodegenTargets: [],
-            restartRequired: false,
-            errors: [],
-          },
-        ],
       }),
     });
   });
@@ -1123,135 +933,6 @@ test("plugins pane keeps unrelated plugin actions enabled while one action is in
               },
             ],
           },
-        }),
-      });
-    });
-
-    await page.route("**/api/plugins/list", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          schemaVersion: 1,
-          serverMode: "ide",
-          restartCapability: {
-            mode: "manual",
-            command: "setta",
-            reason: "Programmatic restart is not available in this runtime.",
-          },
-          plugins: [
-            {
-              pluginId: "setta-lifecycle-plugin",
-              name: "Setta Lifecycle Plugin",
-              version: "0.1.0",
-              sourceScope: "workspace",
-              sourceScopeLabel: "workspace",
-              sourceManager: "setta",
-              sourceManagerHint: null,
-              canonicalSourceKey: "pypi:setta-lifecycle-plugin",
-              sourceDigestSha256: "digest-v1",
-              frontend: {
-                entrypointUrl: null,
-                styleUrl: null,
-              },
-              content: {
-                hasBlueprints: false,
-                hasProjectTemplates: false,
-                hasPrompts: false,
-              },
-              config: {
-                hasSchema: false,
-                schemaJson: null,
-                currentConfig: {},
-              },
-              effectiveCapabilities: [],
-              restartRequired: false,
-            },
-            {
-              pluginId: "setta-other-plugin",
-              name: "Setta Other Plugin",
-              version: "0.2.0",
-              sourceScope: "workspace",
-              sourceScopeLabel: "workspace",
-              sourceManager: "setta",
-              sourceManagerHint: null,
-              canonicalSourceKey: "pypi:setta-other-plugin",
-              sourceDigestSha256: "digest-v2",
-              frontend: {
-                entrypointUrl: null,
-                styleUrl: null,
-              },
-              content: {
-                hasBlueprints: false,
-                hasProjectTemplates: false,
-                hasPrompts: false,
-              },
-              config: {
-                hasSchema: false,
-                schemaJson: null,
-                currentConfig: {},
-              },
-              effectiveCapabilities: [],
-              restartRequired: false,
-            },
-          ],
-        }),
-      });
-    });
-
-    await page.route("**/api/plugins/status", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          schemaVersion: 1,
-          serverMode: "ide",
-          plugins: [
-            {
-              pluginId: "setta-lifecycle-plugin",
-              name: "Setta Lifecycle Plugin",
-              version: "0.1.0",
-              state: "active",
-              sourceScope: "workspace",
-              sourceScopeLabel: "workspace",
-              sourceManager: "setta",
-              sourceManagerHint: null,
-              sourcePath: "/tmp/setta-lifecycle-plugin",
-              canonicalSourceKey: "pypi:setta-lifecycle-plugin",
-              sourceDigestSha256: "digest-v1",
-              shadowedBySourcePath: null,
-              requestedCapabilities: [],
-              effectiveCapabilities: [],
-              blockedCapabilities: [],
-              registeredLanguageServers: [],
-              registeredExternalAgentAdapters: [],
-              registeredCodegenTargets: [],
-              restartRequired: false,
-              errors: [],
-            },
-            {
-              pluginId: "setta-other-plugin",
-              name: "Setta Other Plugin",
-              version: "0.2.0",
-              state: "active",
-              sourceScope: "workspace",
-              sourceScopeLabel: "workspace",
-              sourceManager: "setta",
-              sourceManagerHint: null,
-              sourcePath: "/tmp/setta-other-plugin",
-              canonicalSourceKey: "pypi:setta-other-plugin",
-              sourceDigestSha256: "digest-v2",
-              shadowedBySourcePath: null,
-              requestedCapabilities: [],
-              effectiveCapabilities: [],
-              blockedCapabilities: [],
-              registeredLanguageServers: [],
-              registeredExternalAgentAdapters: [],
-              registeredCodegenTargets: [],
-              restartRequired: false,
-              errors: [],
-            },
-          ],
         }),
       });
     });
@@ -1692,35 +1373,6 @@ test("plugins pane supports programmatic restart action", async ({ page }) => {
     });
   });
 
-  await page.route("**/api/plugins/list", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        schemaVersion: 1,
-        serverMode: "ide",
-        restartCapability: {
-          mode: "programmatic",
-          command: null,
-          reason: null,
-        },
-        plugins: [],
-      }),
-    });
-  });
-
-  await page.route("**/api/plugins/status", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        schemaVersion: 1,
-        serverMode: "ide",
-        plugins: [],
-      }),
-    });
-  });
-
   await page.route("**/api/plugins/restart", async (route) => {
     restartRequests.push({});
     await route.fulfill({
@@ -1777,35 +1429,6 @@ test("plugins pane shows restart rejection and request-failure messaging", async
           serverMode: "ide",
           plugins: [],
         },
-      }),
-    });
-  });
-
-  await page.route("**/api/plugins/list", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        schemaVersion: 1,
-        serverMode: "ide",
-        restartCapability: {
-          mode: "programmatic",
-          command: null,
-          reason: null,
-        },
-        plugins: [],
-      }),
-    });
-  });
-
-  await page.route("**/api/plugins/status", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        schemaVersion: 1,
-        serverMode: "ide",
-        plugins: [],
       }),
     });
   });
@@ -1944,86 +1567,6 @@ test("plugins pane lifecycle action failures surface structured endpoint errors"
             },
           ],
         },
-      }),
-    });
-  });
-
-  await page.route("**/api/plugins/list", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        schemaVersion: 1,
-        serverMode: "ide",
-        restartCapability: {
-          mode: "manual",
-          command: "setta",
-          reason: "Programmatic restart is not available in this runtime.",
-        },
-        plugins: [
-          {
-            pluginId: "setta-lifecycle-plugin",
-            name: "Setta Lifecycle Plugin",
-            version: "0.1.0",
-            sourceScope: "workspace",
-            sourceScopeLabel: "workspace",
-            sourceManager: "setta",
-            sourceManagerHint: null,
-            canonicalSourceKey: "pypi:setta-lifecycle-plugin",
-            sourceDigestSha256: "digest-v1",
-            frontend: {
-              entrypointUrl: null,
-              styleUrl: null,
-            },
-            content: {
-              hasBlueprints: false,
-              hasProjectTemplates: false,
-              hasPrompts: false,
-            },
-            config: {
-              hasSchema: false,
-              schemaJson: null,
-              currentConfig: {},
-            },
-            effectiveCapabilities: [],
-            restartRequired: false,
-          },
-        ],
-      }),
-    });
-  });
-
-  await page.route("**/api/plugins/status", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        schemaVersion: 1,
-        serverMode: "ide",
-        plugins: [
-          {
-            pluginId: "setta-lifecycle-plugin",
-            name: "Setta Lifecycle Plugin",
-            version: "0.1.0",
-            state: "active",
-            sourceScope: "workspace",
-            sourceScopeLabel: "workspace",
-            sourceManager: "setta",
-            sourceManagerHint: null,
-            sourcePath: "/tmp/setta-lifecycle-plugin",
-            canonicalSourceKey: "pypi:setta-lifecycle-plugin",
-            sourceDigestSha256: "digest-v1",
-            shadowedBySourcePath: null,
-            requestedCapabilities: [],
-            effectiveCapabilities: [],
-            blockedCapabilities: [],
-            registeredLanguageServers: [],
-            registeredExternalAgentAdapters: [],
-            registeredCodegenTargets: [],
-            restartRequired: false,
-            errors: [],
-          },
-        ],
       }),
     });
   });
@@ -2202,35 +1745,6 @@ test("plugins pane remains interactive with a large plugin catalog", async ({
           serverMode: "ide",
           plugins: statusPlugins,
         },
-      }),
-    });
-  });
-
-  await page.route("**/api/plugins/list", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        schemaVersion: 1,
-        serverMode: "ide",
-        restartCapability: {
-          mode: "manual",
-          command: "setta",
-          reason: "Programmatic restart is not available in this runtime.",
-        },
-        plugins: listPlugins,
-      }),
-    });
-  });
-
-  await page.route("**/api/plugins/status", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        schemaVersion: 1,
-        serverMode: "ide",
-        plugins: statusPlugins,
       }),
     });
   });

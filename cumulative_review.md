@@ -329,3 +329,14 @@
 - Added/updated backend pytest coverage, frontend Vitest coverage, and Playwright E2E coverage for all changed paths; targeted validation runs passed.
 - UX before/after: plugin runtime failures could still show stale section renderer output; now runtime error cards reliably replace stale plugin-renderer UI and show actionable error context.
 - DX before/after: selector-only non-plugin loops still triggered plugin-fixture build overhead; now they skip fixture prep unless explicit plugin hints are present, reducing local iteration cost.
+
+## 2026-02-16T20:15:21-08:00
+
+- Implemented the latest requested fix batch from top-level `review*.md` findings end-to-end, explicitly excluding backward-compatibility additions.
+- Fixed frontend plugin-runtime transient error recovery by clearing runtime side effects on load error (`runAllPluginCleanup`, plugin frontend signature cache, and mounted plugin stylesheet links), so unchanged-signature refreshes recover correctly instead of remaining stranded.
+- Reduced frontend runtime refresh churn by introducing structural reuse for plugin status entries/primary status maps and preserving identity across no-op refreshes.
+- Aligned plugin-fixture target gating with pytest semantics by parsing only real selector flags (`-k`, `-m`, `-k=...`, `-m=...`), treating `--markers` as valueless informational output, and making plugin-hint matching boundary-aware to avoid false positives like `nonplugin`.
+- Added immutable cache headers for versioned plugin assets (`Cache-Control: public, max-age=31536000, immutable` when `?v=` is present) and validated header behavior in plugin route tests.
+- Removed redundant legacy `/api/plugins/list` and `/api/plugins/status` Playwright route shims from runtime-only Plugins pane tests while keeping the explicit no-fallback assertion coverage.
+- Added new Playwright runtime-style lifecycle coverage to verify runtime error clears plugin styles and subsequent successful refresh restores them.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for all changed paths; targeted verification passed (`pytest` subsets: 64 passed across three runs, `vitest` runtime suite: 70 passed, targeted Playwright specs: 20 passed), with CDP verification completed on the Plugins pane runtime/rescan path.

@@ -18,7 +18,6 @@ import {
   PluginRestartCapability,
   PluginRuntimeStateEnum,
   PluginStatusEntry,
-  PluginStatusResponse,
   SectionDependencyKey,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -358,7 +357,14 @@ async function loadPluginRuntime(): Promise<void> {
     listData,
     previousState.pluginListById,
   );
-  const pluginStatusById = mapPrimaryStatusByPluginId(statusData);
+  const statusEntries = mapStatusEntries(
+    statusData.plugins,
+    previousState.statusEntries,
+  );
+  const pluginStatusById = mapPrimaryStatusByPluginId(
+    statusEntries,
+    previousState.pluginStatusById,
+  );
   const registryAccumulator: PluginRegistryAccumulator = {
     sectionKinds: {},
     panes: {},
@@ -451,7 +457,7 @@ async function loadPluginRuntime(): Promise<void> {
     pluginListById,
     sortedPluginListEntries: sortedRuntimeViews.sortedPluginListEntries,
     pluginStatusById,
-    statusEntries: statusData.plugins,
+    statusEntries,
     sectionKindsByKey: registryAccumulator.sectionKinds,
     sortedSectionKinds: sortedRuntimeViews.sortedSectionKinds,
     panesByPluginId: registryAccumulator.panes,
@@ -466,6 +472,7 @@ async function loadPluginRuntime(): Promise<void> {
 }
 
 function setPluginRuntimeLoadError(message: string): void {
+  clearPluginRuntimeSideEffects();
   usePluginRuntimeStore.setState((state) =>
     buildClearedRuntimeState(state, {
       status: "error",
@@ -718,6 +725,16 @@ function runAllPluginCleanup(): void {
   for (const pluginId of Array.from(cleanupByPluginId.keys())) {
     runPluginCleanup(pluginId);
   }
+}
+
+function clearPluginRuntimeSideEffects(): void {
+  runAllPluginCleanup();
+  for (const link of styleElementByPluginId.values()) {
+    link.remove();
+  }
+  frontendSignatureByPluginId.clear();
+  styleElementByPluginId.clear();
+  styleHrefByPluginId.clear();
 }
 
 function normalizeProjectStateSelector(
@@ -2020,11 +2037,102 @@ function hasSameJsonValue(left: unknown, right: unknown): boolean {
   return true;
 }
 
+function mapStatusEntries(
+  statusEntries: PluginStatusEntry[],
+  previousStatusEntries: PluginStatusEntry[],
+): PluginStatusEntry[] {
+  if (statusEntries.length === 0) {
+    return previousStatusEntries.length === 0 ? previousStatusEntries : [];
+  }
+  const previousEntriesByKey = new Map<string, PluginStatusEntry>();
+  for (const entry of previousStatusEntries) {
+    previousEntriesByKey.set(buildPluginStatusEntryStableKey(entry), entry);
+  }
+  const mappedEntries: PluginStatusEntry[] = [];
+  let canReusePreviousArray = previousStatusEntries.length === statusEntries.length;
+  for (let index = 0; index < statusEntries.length; index += 1) {
+    const nextEntry = statusEntries[index];
+    const previousEntry = previousEntriesByKey.get(
+      buildPluginStatusEntryStableKey(nextEntry),
+    );
+    if (previousEntry && canReusePluginStatusEntry(nextEntry, previousEntry)) {
+      mappedEntries.push(previousEntry);
+      if (previousStatusEntries[index] !== previousEntry) {
+        canReusePreviousArray = false;
+      }
+      continue;
+    }
+    mappedEntries.push(nextEntry);
+    canReusePreviousArray = false;
+  }
+  return canReusePreviousArray ? previousStatusEntries : mappedEntries;
+}
+
+function buildPluginStatusEntryStableKey(entry: PluginStatusEntry): string {
+  return `${entry.pluginId}\u0000${entry.sourceScope}\u0000${entry.sourcePath}`;
+}
+
+function canReusePluginStatusEntry(
+  statusEntry: PluginStatusEntry,
+  previousStatusEntry: PluginStatusEntry,
+): boolean {
+  if (
+    statusEntry.pluginId !== previousStatusEntry.pluginId ||
+    statusEntry.name !== previousStatusEntry.name ||
+    statusEntry.version !== previousStatusEntry.version ||
+    statusEntry.state !== previousStatusEntry.state ||
+    statusEntry.sourceScope !== previousStatusEntry.sourceScope ||
+    statusEntry.sourceScopeLabel !== previousStatusEntry.sourceScopeLabel ||
+    statusEntry.sourceManager !== previousStatusEntry.sourceManager ||
+    statusEntry.sourceManagerHint !== previousStatusEntry.sourceManagerHint ||
+    statusEntry.sourcePath !== previousStatusEntry.sourcePath ||
+    statusEntry.canonicalSourceKey !== previousStatusEntry.canonicalSourceKey ||
+    statusEntry.sourceDigestSha256 !== previousStatusEntry.sourceDigestSha256 ||
+    statusEntry.shadowedBySourcePath !==
+      previousStatusEntry.shadowedBySourcePath ||
+    statusEntry.enablementSource !== previousStatusEntry.enablementSource ||
+    statusEntry.restartRequired !== previousStatusEntry.restartRequired
+  ) {
+    return false;
+  }
+  if (
+    !hasSameJsonValue(
+      statusEntry.requestedCapabilities,
+      previousStatusEntry.requestedCapabilities,
+    ) ||
+    !hasSameJsonValue(
+      statusEntry.effectiveCapabilities,
+      previousStatusEntry.effectiveCapabilities,
+    ) ||
+    !hasSameJsonValue(
+      statusEntry.blockedCapabilities,
+      previousStatusEntry.blockedCapabilities,
+    ) ||
+    !hasSameJsonValue(
+      statusEntry.registeredLanguageServers,
+      previousStatusEntry.registeredLanguageServers,
+    ) ||
+    !hasSameJsonValue(
+      statusEntry.registeredExternalAgentAdapters,
+      previousStatusEntry.registeredExternalAgentAdapters,
+    ) ||
+    !hasSameJsonValue(
+      statusEntry.registeredCodegenTargets,
+      previousStatusEntry.registeredCodegenTargets,
+    ) ||
+    !hasSameJsonValue(statusEntry.errors, previousStatusEntry.errors)
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function mapPrimaryStatusByPluginId(
-  response: PluginStatusResponse,
+  statusEntries: PluginStatusEntry[],
+  previousPluginStatusById: Record<string, PluginStatusEntry>,
 ): Record<string, PluginStatusEntry> {
   const pluginStatusById: Record<string, PluginStatusEntry> = {};
-  for (const entry of response.plugins) {
+  for (const entry of statusEntries) {
     const existing = pluginStatusById[entry.pluginId];
     if (!existing) {
       pluginStatusById[entry.pluginId] = entry;
@@ -2035,7 +2143,9 @@ function mapPrimaryStatusByPluginId(
       continue;
     }
   }
-  return pluginStatusById;
+  return hasSameRecordValueReferences(pluginStatusById, previousPluginStatusById)
+    ? previousPluginStatusById
+    : pluginStatusById;
 }
 
 function deriveSortedRuntimeViews({
@@ -2327,13 +2437,7 @@ function isCapabilityBlocked(
 }
 
 export function resetPluginRuntimeStoreForTests(): void {
-  runAllPluginCleanup();
-  for (const link of styleElementByPluginId.values()) {
-    link.remove();
-  }
-  frontendSignatureByPluginId.clear();
-  styleElementByPluginId.clear();
-  styleHrefByPluginId.clear();
+  clearPluginRuntimeSideEffects();
   pluginRuntimeLoadPromise = null;
   pluginRuntimeRefreshQueued = false;
   usePluginRuntimeStore.setState(

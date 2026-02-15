@@ -254,6 +254,16 @@ def test_plugin_asset_route_rejects_non_frontend_files() -> None:
 
             frontend_asset = client.get(f"/plugins/{plugin_id}/frontend/dist/index.js")
             assert frontend_asset.status_code == 200
+            assert frontend_asset.headers.get("cache-control") is None
+
+            versioned_frontend_asset = client.get(
+                f"/plugins/{plugin_id}/frontend/dist/index.js?v=digest-fixture"
+            )
+            assert versioned_frontend_asset.status_code == 200
+            assert (
+                versioned_frontend_asset.headers.get("cache-control")
+                == "public, max-age=31536000, immutable"
+            )
 
             backend_asset = client.get(f"/plugins/{plugin_id}/backend/entrypoint.py")
             assert backend_asset.status_code == 404

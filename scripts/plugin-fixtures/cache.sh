@@ -167,7 +167,16 @@ _plugin_fixture_selector_has_plugin_hint() {
   local selector_value="$1"
   local normalized_selector
   normalized_selector="$(printf '%s' "${selector_value}" | tr '[:upper:]' '[:lower:]')"
-  if [[ "${normalized_selector}" == *plugin* ]]; then
+  if [[ "${normalized_selector}" =~ (^|[^[:alnum:]])plugins?([^[:alnum:]]|$) ]]; then
+    return 0
+  fi
+  if [[ "${normalized_selector}" =~ (^|[^[:alnum:]])test_plugin[[:alnum:]_-]*([^[:alnum:]]|$) ]]; then
+    return 0
+  fi
+  if [[ "${normalized_selector}" =~ (^|[^[:alnum:]])plugin[-_][[:alnum:]_-]*([^[:alnum:]]|$) ]]; then
+    return 0
+  fi
+  if [[ "${normalized_selector}" =~ (^|[^[:alnum:]])[[:alnum:]_-]+[-_]plugin([^[:alnum:]]|$) ]]; then
     return 0
   fi
   return 1
@@ -250,16 +259,20 @@ should_build_plugin_fixtures_for_targets() {
 
     if [[ "${mode}" == "pytest" ]]; then
       case "${arg}" in
-        -k|--keyword|-m|--markers)
+        -k|-m)
           has_selector_filter=1
           expect_selector_value=1
           continue
           ;;
-        -k=*|--keyword=*|-m=*|--markers=*)
+        -k=*|-m=*)
           has_selector_filter=1
           if _plugin_fixture_selector_has_plugin_hint "${arg#*=}"; then
             selector_filter_has_plugin_hint=1
           fi
+          continue
+          ;;
+        --markers|--markers=*)
+          has_selector_filter=1
           continue
           ;;
       esac

@@ -894,7 +894,7 @@ describe("plugin runtime helpers", () => {
     );
   });
 
-  it("preserves plugin styles when refresh enters error state", async () => {
+  it("removes plugin styles when refresh enters error state", async () => {
     type FakeLinkElement = {
       rel: string;
       href: string;
@@ -949,7 +949,7 @@ describe("plugin runtime helpers", () => {
 
     await refreshPluginRuntime();
 
-    expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(1);
+    expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(0);
   });
 
   it("prefers non-shadowed status entries as the primary plugin status", async () => {
@@ -1022,6 +1022,78 @@ describe("plugin runtime helpers", () => {
     expect(usePluginRuntimeStore.getState().status).toBe("loaded");
   });
 
+  it("recovers plugin registrations after transient runtime errors with unchanged signatures", async () => {
+    const globalScope = globalThis as {
+      __settaRecoveryRegisterCalls?: number;
+    };
+    delete globalScope.__settaRecoveryRegisterCalls;
+
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaRecoveryRegisterCalls = Number(globalThis.__settaRecoveryRegisterCalls || 0) + 1;\n" +
+          "  host.registerPane({ id: 'recovery-pane', title: 'Recovery Pane', renderer: { mount() {} } });\n" +
+          "}\n",
+      );
+    const runtimeCapabilities = ["registerPane"];
+    const plugin = buildPluginListEntry({
+      pluginId: "acme.runtime-recovery",
+      sourceDigestSha256: "digest-recovery",
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: runtimeCapabilities,
+    });
+    const status = buildPluginStatusEntry({
+      pluginId: plugin.pluginId,
+      requestedCapabilities: runtimeCapabilities,
+      effectiveCapabilities: runtimeCapabilities,
+      blockedCapabilities: [],
+    });
+    let runtimeCalls = 0;
+
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
+      async () => {
+        runtimeCalls += 1;
+        if (runtimeCalls === 2) {
+          return {
+            data: undefined,
+            status: 500,
+            hasResponse: true,
+          };
+        }
+        return {
+          data: buildPluginRuntimeResponse(
+            buildPluginListResponse([plugin]),
+            buildPluginStatusResponse([status]),
+          ),
+          status: 200,
+          hasResponse: true,
+        };
+      },
+    );
+
+    await refreshPluginRuntime();
+    expect(globalScope.__settaRecoveryRegisterCalls).toBe(1);
+    expect(
+      usePluginRuntimeStore.getState().panesByPluginId[plugin.pluginId]?.[0]?.id,
+    ).toBe("recovery-pane");
+
+    await refreshPluginRuntime();
+    expect(usePluginRuntimeStore.getState().status).toBe("error");
+
+    await refreshPluginRuntime();
+    const recoveredState = usePluginRuntimeStore.getState();
+    expect(recoveredState.status).toBe("loaded");
+    expect(globalScope.__settaRecoveryRegisterCalls).toBe(2);
+    expect(
+      recoveredState.panesByPluginId[plugin.pluginId]?.[0]?.id,
+    ).toBe("recovery-pane");
+  });
+
   it("reuses sorted registry views across no-op runtime refreshes", async () => {
     const moduleUrl =
       "data:text/javascript," +
@@ -1078,6 +1150,73 @@ describe("plugin runtime helpers", () => {
     expect(secondState.sortedPaneTabs).toBe(firstSortedPaneTabs);
     expect(secondState.sortedCommands).toBe(firstSortedCommands);
     expect(secondState.sortedTopNavBarItems).toBe(firstSortedTopNavBarItems);
+  });
+
+  it("reuses plugin status entry references across no-op runtime refreshes", async () => {
+    const plugin = buildPluginListEntry({
+      pluginId: "acme.status-reuse",
+      frontend: {
+        entrypointUrl: null,
+        styleUrl: null,
+      },
+    });
+    const status = buildPluginStatusEntry({
+      pluginId: plugin.pluginId,
+      requestedCapabilities: ["registerPane"],
+      effectiveCapabilities: ["registerPane"],
+    });
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
+      async () => ({
+        data: buildPluginRuntimeResponse(
+          buildPluginListResponse([plugin]),
+          buildPluginStatusResponse([
+            {
+              ...status,
+              requestedCapabilities: [...status.requestedCapabilities],
+              effectiveCapabilities: [...status.effectiveCapabilities],
+              blockedCapabilities: [...status.blockedCapabilities],
+              registeredLanguageServers: [...status.registeredLanguageServers],
+              registeredExternalAgentAdapters: [
+                ...status.registeredExternalAgentAdapters,
+              ],
+              registeredCodegenTargets: [...status.registeredCodegenTargets],
+              errors: [...status.errors],
+            },
+          ]),
+        ),
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+
+    await refreshPluginRuntime();
+    const firstState = usePluginRuntimeStore.getState();
+    const firstPrimaryStatus = firstState.pluginStatusById[plugin.pluginId];
+    const firstStatusEntries = firstState.statusEntries;
+    const firstStatusEntry = firstStatusEntries[0];
+
+    await refreshPluginRuntime();
+    const secondState = usePluginRuntimeStore.getState();
+    expect(secondState.statusEntries).toBe(firstStatusEntries);
+    expect(secondState.statusEntries[0]).toBe(firstStatusEntry);
+    expect(secondState.pluginStatusById[plugin.pluginId]).toBe(firstPrimaryStatus);
+  });
+
+  it("reuses empty status entries across no-op runtime refreshes", async () => {
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue(
+      buildRuntimeEndpointResponse(
+        buildPluginListResponse([]),
+        buildPluginStatusResponse([]),
+      ),
+    );
+
+    await refreshPluginRuntime();
+    const firstState = usePluginRuntimeStore.getState();
+    const firstStatusEntries = firstState.statusEntries;
+
+    await refreshPluginRuntime();
+    const secondState = usePluginRuntimeStore.getState();
+    expect(secondState.statusEntries).toBe(firstStatusEntries);
   });
 
   it("reloads plugin frontend when refresh signature changes", async () => {

@@ -2,7 +2,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Literal, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -238,6 +238,7 @@ def route_plugins_lock_apply(
 def route_plugin_asset(
     pluginId: str,
     assetPath: str,
+    request: Request,
     state: AppStateFromRequest,
 ):
     asset_path = _run_manager_call(
@@ -246,4 +247,7 @@ def route_plugin_asset(
             asset_path=assetPath,
         )
     )
-    return FileResponse(Path(asset_path))
+    response = FileResponse(Path(asset_path))
+    if request.query_params.get("v") is not None:
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response

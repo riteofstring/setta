@@ -185,6 +185,45 @@ def test_pytest_fixture_selection_skips_selector_only_runs_without_plugin_hints(
     )
 
 
+def test_pytest_fixture_selection_skips_nonplugin_substring_selector(
+    tmp_path: Path,
+) -> None:
+    # Substrings like "nonplugin" should not be treated as plugin intent.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+
+    assert not _should_build_for_targets(
+        sandbox_root,
+        "pytest",
+        ["-k", "nonplugin"],
+    )
+
+
+def test_pytest_fixture_selection_treats_markers_flag_as_valueless_selector(
+    tmp_path: Path,
+) -> None:
+    # "--markers" is informational in pytest and should not force plugin fixture prep.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+
+    assert not _should_build_for_targets(
+        sandbox_root,
+        "pytest",
+        ["--markers"],
+    )
+
+
+def test_pytest_fixture_selection_builds_for_plugin_marker_expressions(
+    tmp_path: Path,
+) -> None:
+    # Marker expressions that explicitly mention plugin intent should build fixtures.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+
+    assert _should_build_for_targets(
+        sandbox_root,
+        "pytest",
+        ["-m", "plugin and smoke"],
+    )
+
+
 def test_pytest_fixture_selection_builds_for_full_run_without_selectors(
     tmp_path: Path,
 ) -> None:

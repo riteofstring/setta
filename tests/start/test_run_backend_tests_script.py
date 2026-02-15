@@ -366,10 +366,10 @@ def test_run_backend_tests_builds_fixtures_for_plugin_directory_targets(
     assert "Skipping plugin fixture build for selected pytest targets." not in result.stdout
 
 
-def test_run_backend_tests_builds_fixtures_for_selector_only_non_plugin_runs(
+def test_run_backend_tests_skips_fixtures_for_selector_only_non_plugin_runs(
     tmp_path: Path,
 ) -> None:
-    # Selector-only runs should conservatively build fixtures.
+    # Selector-only runs without plugin hints should skip fixture prep.
     sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
 
     result = _run_backend_test_runner(
@@ -377,8 +377,8 @@ def test_run_backend_tests_builds_fixtures_for_selector_only_non_plugin_runs(
         pytest_args=["-k", "start"],
     )
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
-    assert "Skipping plugin fixture build for selected pytest targets." not in result.stdout
-    assert build_count_file.read_text(encoding="utf-8").strip() == "1"
+    assert "Skipping plugin fixture build for selected pytest targets." in result.stdout
+    assert not build_count_file.exists()
 
 
 def test_run_backend_tests_can_force_fixture_build_for_non_plugin_targets(
