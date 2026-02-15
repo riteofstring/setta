@@ -18,9 +18,10 @@ from setta.types.section_impls import (
     ImageSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
-    PluginSectionImpl,
     PromptSectionImpl,
     SocialSectionImpl,
+    SpreadsheetSectionImpl,
+    TaskBoardSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
 )
@@ -45,7 +46,8 @@ BaseSectionImplUnion = (
     | IFrameSectionImpl
     | ChatSectionImpl
     | BrowserSectionImpl
-    | PluginSectionImpl
+    | TaskBoardSectionImpl
+    | SpreadsheetSectionImpl
 )
 
 BaseSectionImplUnionWithDiscriminator = Annotated[
@@ -85,6 +87,7 @@ from setta.types.code_obj_impls import (
     CodeCallableCodeObjImpl,
     CodeParamCodeObjImpl,
     ColorPickerParamCodeObjImpl,
+    DateParamCodeObjImpl,
     DropdownParamCodeObjImpl,
     DropzoneParamCodeObjImpl,
     NestedParamCodeObjImpl,
@@ -94,12 +97,15 @@ from setta.types.code_obj_impls import (
     SwitchParamCodeObjImpl,
     TextAreaParamCodeObjImpl,
     TextParamCodeObjImpl,
+    TimeParamCodeObjImpl,
 )
 
 BaseCodeObjImplUnion = (
     CodeCallableCodeObjImpl
     | CodeParamCodeObjImpl
     | TextParamCodeObjImpl
+    | DateParamCodeObjImpl
+    | TimeParamCodeObjImpl
     | ButtonParamCodeObjImpl
     | SliderParamCodeObjImpl
     | RotaryParamCodeObjImpl
@@ -119,6 +125,8 @@ BaseCodeObjImplUnionWithDiscriminator = Annotated[
 BaseParamCodeObjImplUnion = (
     CodeParamCodeObjImpl
     | TextParamCodeObjImpl
+    | DateParamCodeObjImpl
+    | TimeParamCodeObjImpl
     | ButtonParamCodeObjImpl
     | SliderParamCodeObjImpl
     | RotaryParamCodeObjImpl
@@ -134,6 +142,8 @@ BaseParamCodeObjImplUnion = (
 BaseChildlessCodeObjImplUnion = (
     CodeParamCodeObjImpl
     | TextParamCodeObjImpl
+    | DateParamCodeObjImpl
+    | TimeParamCodeObjImpl
     | SliderParamCodeObjImpl
     | RotaryParamCodeObjImpl
     | SwitchParamCodeObjImpl
@@ -166,9 +176,10 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ImageSectionImplArgs,
     ListRootSectionImplArgs,
     MetaControlSectionImplArgs,
-    PluginSectionImplArgs,
     PromptSectionImplArgs,
     SocialSectionImplArgs,
+    SpreadsheetSectionImplArgs,
+    TaskBoardSectionImplArgs,
     TerminalSectionImplArgs,
     TextBlockSectionImplArgs,
 )
@@ -193,7 +204,8 @@ BaseSectionImplArgsUnion = (
     | IFrameSectionImplArgs
     | ChatSectionImplArgs
     | BrowserSectionImplArgs
-    | PluginSectionImplArgs
+    | TaskBoardSectionImplArgs
+    | SpreadsheetSectionImplArgs
 )
 
 BaseSectionImplArgsUnionWithDiscriminator = Annotated[

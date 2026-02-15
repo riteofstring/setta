@@ -8,8 +8,6 @@ Chat sections store the following fields on the section impl:
 - `engineConfigId`: selected engine config (managed mode only).
 - `chatId`: chat store id for managed mode (null means "new chat").
 - `thinking`: toggles thinking behavior for managed mode.
-- `permissionMode`: runtime permission mode (`minimal`, `yolo`, or `config_toml_custom`).
-- `searchEnabled`: runtime search toggle for managed runs.
 - `messages`: list of chat messages (scriptable mode state; managed mode uses chat store). Messages may include `attachments`.
 - `inputText`: current input text for scriptable mode.
 - `waitingForResponse`: whether the UI shows an inflight response.
@@ -21,23 +19,9 @@ Chat sections store the following fields on the section impl:
 Managed mode uses the central LLM chat manager:
 - The UI blocks sends until `engineConfigId` is selected and at least one engine config is available.
 - `submitMessage` calls `route_get_llm_response` with `chatId`, `engineConfigId`, `thinking`, plus optional `agentProfileId` and `sectionId` (Chat sections pass their section id; Project Chat passes `null`).
-- Managed sends also include runtime execution settings (`permissionMode`, `searchEnabled`) and the backend injects those settings into the run prompt metadata.
 - Streaming updates arrive as `LLMStreamingResponse` events with `sectionId` set, and the frontend applies them to the chat section state.
 - "New Chat" sets `chatId` to `null`; the next send creates a new chat and updates `chatId` after the response returns.
 - Stop requests call `route_stop_llm_chat` with the active `chatId`.
-
-## Composer controls
-The chat composer supports local slash commands and execution controls:
-- Supported slash actions: `/new`, `/resume`, `/help`, `/permissions`, `/model`, `/search`.
-- Availability by surface: Project Chat includes `/model`, `/permissions`, and `/search`; Managed Chat section includes `/model` and `/permissions`; Scriptable Chat section includes `/permissions` only (plus `/new`, `/resume`, `/help`).
-- Slash commands are handled client-side; unavailable commands return local feedback and are not sent as LLM prompts.
-- Footer controls always show permission mode when execution controls are enabled; search toggle is shown only where `searchEnabled` is mutable in that surface.
-
-## Dictation
-- The `Mic` control appears when browser speech recognition and/or provider capture is available for the current surface.
-- Provider dictation records audio and uploads it via `route_transcribe_chat_audio` (`/api/transcribeChatAudio`) for managed LLM engines.
-- External-agent engines do not support provider dictation; in `auto` mode the UI falls back to browser dictation when provider capture/transcription is unavailable.
-- Browser dictation uses `SpeechRecognition`/`webkitSpeechRecognition` and keeps listening across `onend` events until the user stops mic capture.
 
 ## Scriptable mode
 Scriptable mode keeps chat state inside the section:

@@ -10,12 +10,7 @@ import {
 import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import {
-  usePluginCommands,
-  type RegisteredPluginCommand,
-} from "plugins/runtime";
-import { useMemo, useRef } from "react";
-import { addTemporaryNotification } from "state/actions/notifications";
+import { useRef } from "react";
 import {
   CreateSectionsContextMenuInfo,
   createTopLevelSectionFromImplSpecs,
@@ -122,123 +117,43 @@ function ProjectPageAdvanced() {
 }
 
 function ProjectPageCommandPalette() {
-  const createSectionGroups = useCreateSectionsList();
-  const pluginCommands = usePluginCommands();
-  const commandPaletteModel = useMemo(
-    () =>
-      buildProjectCommandPaletteEntries({
-        createSectionGroups,
-        pluginCommands,
-      }),
-    [createSectionGroups, pluginCommands],
-  );
+  const itemsWithoutId = useCreateSectionsList();
+  const allItems: AllItemsType<string> = [];
+  // adds id to each item
+  // TODO: make this less bad
+  for (const g of itemsWithoutId) {
+    allItems.push({
+      group: g.group,
+      items: g.items.map((i) => ({ id: i.name, name: i.name })),
+    });
+  }
 
   const onSelectedItemChange: OnSelectedItemChangeFnType<string> = (id) => {
-    if (!id) {
+    // finds matching item, and then uses its specificProps
+    // TODO: make this less bad
+    let match: CreateSectionsContextMenuInfo | null = null;
+    for (const g of itemsWithoutId) {
+      for (const item of g.items) {
+        if (item.name === id) {
+          match = item;
+          break;
+        }
+      }
+    }
+
+    if (!match) {
       return;
     }
-    const action = commandPaletteModel.actionById[id];
-    if (!action) {
-      return;
-    }
-    void runCommandPaletteAction(action).catch((error: unknown) => {
-      const message =
-        error instanceof Error ? error.message : `Command failed: ${id}`;
-      addTemporaryNotification(message, "error");
-    });
+
+    createTopLevelSectionFromImplSpecs(match);
   };
 
   return (
     <ProjectPageAdvancedCore
-      allItems={commandPaletteModel.allItems}
+      allItems={allItems}
       onSelectedItemChange={onSelectedItemChange}
     />
   );
-}
-
-type ProjectCommandPaletteModel = {
-  allItems: AllItemsType<string>;
-  actionById: Record<string, () => void | Promise<void>>;
-};
-
-function runCommandPaletteAction(
-  action: () => void | Promise<void>,
-): Promise<void> {
-  return Promise.resolve().then(() => action());
-}
-
-function buildProjectCommandPaletteEntries({
-  createSectionGroups,
-  pluginCommands,
-}: {
-  createSectionGroups: Array<{
-    group: string;
-    items: Array<CreateSectionsContextMenuInfo>;
-  }>;
-  pluginCommands: RegisteredPluginCommand[];
-}): ProjectCommandPaletteModel {
-  const allItems: AllItemsType<string> = [];
-  const actionById: Record<string, () => void | Promise<void>> = {};
-  const actionSourceById: Record<string, string> = {};
-
-  function registerAction(
-    id: string,
-    sourceLabel: string,
-    action: () => void | Promise<void>,
-  ) {
-    if (id in actionById) {
-      const previousSource = actionSourceById[id] ?? "unknown source";
-      throw new Error(
-        `Duplicate command palette id '${id}' from ${sourceLabel}; already registered by ${previousSource}.`,
-      );
-    }
-    actionById[id] = action;
-    actionSourceById[id] = sourceLabel;
-  }
-
-  for (const createSectionGroup of createSectionGroups) {
-    const itemsWithIds: Array<{ id: string; name: string }> = [];
-    for (const item of createSectionGroup.items) {
-      const id =
-        item.commandId ?? `create:${createSectionGroup.group}:${item.name}`;
-      itemsWithIds.push({ id, name: item.name });
-      registerAction(
-        id,
-        `create-section ${createSectionGroup.group}/${item.name}`,
-        () => {
-          createTopLevelSectionFromImplSpecs(item);
-        },
-      );
-    }
-    allItems.push({
-      group: createSectionGroup.group,
-      items: itemsWithIds,
-    });
-  }
-
-  if (pluginCommands.length > 0) {
-    const pluginCommandItems = pluginCommands.map((command) => {
-      const id = `plugin-command:${command.pluginId}:${command.id}`;
-      registerAction(
-        id,
-        `plugin-command ${command.pluginId}/${command.id}`,
-        command.run,
-      );
-      return {
-        id,
-        name: `${command.title} (${command.pluginId})`,
-      };
-    });
-    allItems.push({
-      group: "Plugin Commands",
-      items: pluginCommandItems,
-    });
-  }
-
-  return {
-    allItems,
-    actionById,
-  };
 }
 
 function ProjectPageAdvancedCore<T>({
@@ -288,8 +203,3 @@ function ProjectPageAdvancedCore<T>({
     </>
   );
 }
-
-export const projectPageSearchTestApi = {
-  buildProjectCommandPaletteEntries,
-  runCommandPaletteAction,
-};

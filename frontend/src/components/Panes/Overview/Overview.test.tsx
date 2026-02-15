@@ -1,9 +1,3 @@
-import {
-  resetPluginRuntimeStoreForTests,
-  usePluginRuntimeStore,
-  type PluginPaneTabEntry,
-  type RegisteredPluginPane,
-} from "plugins/runtime";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import {
@@ -13,25 +7,11 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  buildPluginPaneOverviewTabName,
-  OverviewTabNameEnum,
-} from "utils/constants";
+import { OverviewTabNameEnum } from "utils/constants";
 import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
 import { Overview } from "./Overview";
-
-vi.mock("components/Pages/Project/ViewModeDnd", () => ({
-  ViewModeSortableProvider: ({ children }: { children: unknown }) => children,
-  useViewModeSortableItem: () => ({
-    attributes: {},
-    listeners: {},
-    setNodeRef: () => {},
-    style: {},
-    isDragging: false,
-  }),
-}));
 
 function extractRailStyle(markup: string): string {
   const match = markup.match(
@@ -62,7 +42,6 @@ describe("Overview rail offsets", () => {
 
   beforeEach(() => {
     resetProjectStores();
-    resetPluginRuntimeStoreForTests();
     memoryStorage.reset();
     useSettings.setState(createSettingsState());
     useLocalStorage.persist.setOptions({
@@ -82,12 +61,10 @@ describe("Overview rail offsets", () => {
     syncStoreInitialState(useShareSession);
     syncStoreInitialState(useSettings);
     syncStoreInitialState(useLocalStorage);
-    syncStoreInitialState(usePluginRuntimeStore);
   });
 
   afterEach(() => {
     resetProjectStores();
-    resetPluginRuntimeStoreForTests();
   });
 
   it("extends to the bottom when no view mode tabs exist", () => {
@@ -160,96 +137,6 @@ describe("Overview rail offsets", () => {
     expect(style).toContain("bottom:36px");
   });
 
-  it("renders the View Modes pane content when the view modes tab is selected", () => {
-    const viewId = "view-1";
-    const projectConfig = createProjectConfig({
-      id: "project-1",
-      activeViewModeId: viewId,
-      viewModes: {
-        [viewId]: {
-          id: viewId,
-          name: "Default View",
-          sortIndex: 0,
-          isUserFacing: false,
-          isTab: false,
-          visibilityBySectionId: {},
-          viewport: { x: 0, y: 0, zoom: 1 },
-          viewportInitialized: false,
-          topLevelSections: {},
-        },
-      },
-    });
-
-    useProjectState.setState((state) => {
-      state.projectConfig = projectConfig;
-    });
-    useLocalStorage.setState({ overviewTab: OverviewTabNameEnum.ViewModes });
-    syncStoreInitialState(useProjectState);
-    syncStoreInitialState(useLocalStorage);
-    const markup = renderToStaticMarkup(
-      <MemoryRouter>
-        <Overview />
-      </MemoryRouter>,
-    );
-
-    expect(markup).toContain("View Modes");
-    expect(markup).toContain("Project Configs");
-    expect(markup).toContain("view-modes-project-configs-toggle");
-    expect(markup).toContain("view-modes-project-configs-resize-handle");
-    expect(markup).toContain("view-modes-project-configs-section");
-    expect(markup).toContain("Toggle config previews.");
-  });
-
-  it("renders plugin pane tabs and selected plugin pane title", () => {
-    const pluginId = "setta-fixture-frontend";
-    const paneId = "fixture-overview-pane";
-    const tabKey = buildPluginPaneOverviewTabName(pluginId, paneId);
-
-    usePluginRuntimeStore.setState({
-      panesByPluginId: {
-        [pluginId]: [
-          {
-            pluginId,
-            id: paneId,
-            title: "Fixture Pane",
-            description: "Fixture plugin pane",
-            icon: "dashboard",
-            renderer: {
-              mount: () => undefined,
-            },
-          } satisfies RegisteredPluginPane,
-        ],
-      },
-      sortedPaneTabs: [
-        {
-          tabKey,
-          pluginId,
-          paneId,
-          title: "Fixture Pane",
-          description: "Fixture plugin pane",
-          icon: "dashboard",
-        } satisfies PluginPaneTabEntry,
-      ],
-    });
-    useLocalStorage.setState({
-      overviewTab: tabKey,
-    });
-    syncStoreInitialState(usePluginRuntimeStore);
-    syncStoreInitialState(useLocalStorage);
-
-    const markup = renderToStaticMarkup(
-      <MemoryRouter>
-        <Overview />
-      </MemoryRouter>,
-    );
-
-    expect(markup).toContain(
-      "overview-plugin-pane-tab-setta-fixture-frontend-fixture-overview-pane",
-    );
-    expect(markup).toContain("Fixture Pane");
-    expect(markup).toContain("setta-plugin-pane-icon--dashboard");
-  });
-
   it("renders the project ai chat icon before the overview icon by default", () => {
     const markup = renderToStaticMarkup(
       <MemoryRouter>
@@ -265,24 +152,5 @@ describe("Overview rail offsets", () => {
     expect(chatIndex).toBeGreaterThanOrEqual(0);
     expect(overviewIndex).toBeGreaterThanOrEqual(0);
     expect(chatIndex).toBeLessThan(overviewIndex);
-  });
-
-  it("falls back to Overview when deployment mode hides the selected tab", () => {
-    useShareSession.setState({ isDeploymentMode: true, sharePolicy: null });
-    useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.FileBrowser,
-    });
-    syncStoreInitialState(useShareSession);
-    syncStoreInitialState(useLocalStorage);
-
-    const markup = renderToStaticMarkup(
-      <MemoryRouter>
-        <Overview />
-      </MemoryRouter>,
-    );
-
-    expect(markup).toContain('data-testid="overview-tab-content-shell"');
-    expect(markup).not.toContain('data-testid="overview-tab-file-browser"');
-    expect(markup).toContain(">Overview<");
   });
 });

@@ -6,8 +6,7 @@ import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
-  isOverviewTabKey,
-  OverviewTabKey,
+  OverviewTabName,
   OverviewTabNameEnum,
   ProjectSearchMode,
   ProjectSearchModeEnum,
@@ -377,19 +376,6 @@ type FileBrowserState = {
 };
 
 export const useFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
-  })),
-);
-
-export const useHomeFileBrowserState = createWithEqualityFn(
   withResetFn<FileBrowserState>(() => ({
     rootPath: null,
     selectedPath: null,
@@ -857,7 +843,6 @@ export const useToolArgumentPreview = withProjectState(
 );
 
 export type ColorModePreference = "dark" | "light" | "auto";
-export type HomeProjectGalleryViewMode = "thumbnails" | "list";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
@@ -868,11 +853,6 @@ type ZustandLocalStorage = {
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
-  homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
-  favoriteProjectConfigIds: string[];
-  overviewProjectConfigOrder: string[];
-  homePageLeftColumnWidth: number;
-  homePageRightColumnWidth: number;
   appGenerationMode: AppGenerationMode;
   appGenerationPrompt: string;
   appGenerationReferenceImageUrl: string;
@@ -880,7 +860,7 @@ type ZustandLocalStorage = {
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
-  overviewTab: OverviewTabKey;
+  overviewTab: OverviewTabName;
   gitGraphSplitPct: number;
   gitGraphColWidthPx: number;
   gitGraphAuthorWidthPx: number;
@@ -915,11 +895,6 @@ export const useLocalStorage = createWithEqualityFn(
       showMinimap: true,
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
-      homeProjectGalleryViewMode: "thumbnails",
-      favoriteProjectConfigIds: [],
-      overviewProjectConfigOrder: [],
-      homePageLeftColumnWidth: 320,
-      homePageRightColumnWidth: 280,
       appGenerationMode: "json_render",
       appGenerationPrompt: "",
       appGenerationReferenceImageUrl: "",
@@ -956,27 +931,6 @@ export const useLocalStorage = createWithEqualityFn(
 
         if (persisted.colorMode === undefined) {
           merged.colorMode = merged.darkMode ? "dark" : "light";
-        }
-        if (
-          merged.homeProjectGalleryViewMode !== "thumbnails" &&
-          merged.homeProjectGalleryViewMode !== "list"
-        ) {
-          merged.homeProjectGalleryViewMode = "thumbnails";
-        }
-        if (!Array.isArray(merged.favoriteProjectConfigIds)) {
-          merged.favoriteProjectConfigIds = [];
-        }
-        if (!Array.isArray(merged.overviewProjectConfigOrder)) {
-          merged.overviewProjectConfigOrder = [];
-        }
-        if (typeof merged.homePageLeftColumnWidth !== "number") {
-          merged.homePageLeftColumnWidth = 320;
-        }
-        if (typeof merged.homePageRightColumnWidth !== "number") {
-          merged.homePageRightColumnWidth = 280;
-        }
-        if (!isOverviewTabKey(merged.overviewTab)) {
-          merged.overviewTab = OverviewTabNameEnum.Overview;
         }
 
         return merged;

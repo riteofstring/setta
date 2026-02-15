@@ -602,8 +602,8 @@ def _ensure_settings_model_code_objs(
 def ensure_settings_code_objs(project_state: ProjectStateSingleConfig) -> bool:
     """Ensure the settings project includes code objs for new SettingsState fields.
 
-    This is a non-destructive, append-only migration that creates any missing
-    bool/enum/color/nested settings params under their respective sections.
+    This only updates code-obj trees under existing settings sections.
+    Missing required sections fail fast.
     """
 
     section_name_to_id: dict[str, ID] = {}
