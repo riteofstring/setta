@@ -111,6 +111,42 @@ test.describe.serial("project ai settings accordion layout", () => {
       await expect(
         page.getByTestId("project-ai-settings-accordion-llm-api-keys"),
       ).toHaveAttribute("aria-expanded", "true");
+
+      // Form controls in open sections should preserve right inset from card edges.
+      const externalAgentsAccordionTrigger = page.getByTestId(
+        "project-ai-settings-accordion-external-agents",
+      );
+      if (
+        (await externalAgentsAccordionTrigger.getAttribute("aria-expanded")) !==
+        "true"
+      ) {
+        await externalAgentsAccordionTrigger.click();
+      }
+      const externalAgentsContent = page.getByTestId(
+        "project-ai-settings-accordion-external-agents-content",
+      );
+      const visibleInput = externalAgentsContent.locator("input").first();
+      await expect(visibleInput).toBeVisible();
+      const insetMetrics = await page.evaluate(() => {
+        const input = document.querySelector<HTMLElement>(
+          '[data-testid="project-ai-settings-accordion-external-agents-content"] input',
+        );
+        const item = document.querySelector<HTMLElement>(
+          '[data-testid="project-ai-settings-accordion-external-agents-item"]',
+        );
+        if (!(input instanceof HTMLElement) || !(item instanceof HTMLElement)) {
+          return null;
+        }
+        const inputRect = input.getBoundingClientRect();
+        const itemRect = item.getBoundingClientRect();
+        return {
+          rightInset: itemRect.right - inputRect.right,
+        };
+      });
+      if (!insetMetrics) {
+        throw new Error("Unable to compute external-agent input inset metrics.");
+      }
+      expect(insetMetrics.rightInset).toBeGreaterThanOrEqual(6);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
