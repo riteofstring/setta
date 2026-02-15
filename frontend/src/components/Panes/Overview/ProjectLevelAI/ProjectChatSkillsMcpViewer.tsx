@@ -94,8 +94,8 @@ export function ProjectChatSkillsMcpViewer() {
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [selectedSkillContent, setSelectedSkillContent] = useState("");
   const [skillContentLoading, setSkillContentLoading] = useState(false);
-  const [isSkillMarkdownViewerOpen, setIsSkillMarkdownViewerOpen] =
-    useState(() => {
+  const [isSkillMarkdownViewerOpen, setIsSkillMarkdownViewerOpen] = useState(
+    () => {
       if (typeof window === "undefined") {
         return false;
       }
@@ -103,7 +103,8 @@ export function ProjectChatSkillsMcpViewer() {
         window.localStorage.getItem(SKILL_MARKDOWN_VIEWER_STORAGE_KEY) ===
         "true"
       );
-    });
+    },
+  );
   const [mcpConfigPath, setMcpConfigPath] = useState<string | null>(null);
   const [settaFilesLocation, setSettaFilesLocation] = useState<string | null>(
     null,
@@ -248,7 +249,7 @@ export function ProjectChatSkillsMcpViewer() {
   }, []);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 -mr-1 flex-col overflow-y-scroll overflow-x-hidden pr-1 pt-4 text-sm text-setta-600 dark:text-setta-300">
+    <div className="-mr-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-scroll pr-1 pt-4 text-sm text-setta-600 dark:text-setta-300">
       <div className="grid min-w-0 gap-5">
         <section className="min-w-0">
           <div className="grid min-w-0 gap-2">
@@ -310,7 +311,7 @@ export function ProjectChatSkillsMcpViewer() {
                           return (
                             <button
                               key={skill.skillId}
-                              className={`flex w-full min-w-0 cursor-pointer flex-col items-start gap-0.5 overflow-hidden rounded pl-1 pr-2 py-1 text-left transition-colors ${
+                              className={`flex w-full min-w-0 cursor-pointer flex-col items-start gap-0.5 overflow-hidden rounded py-1 pl-1 pr-2 text-left transition-colors ${
                                 selected
                                   ? "bg-setta-100 text-blue-700 dark:bg-setta-800/80 dark:text-blue-300"
                                   : "hover:bg-setta-100 dark:hover:bg-setta-800"

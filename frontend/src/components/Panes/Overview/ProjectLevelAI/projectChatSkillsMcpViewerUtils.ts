@@ -1,4 +1,7 @@
-import { type AllLLMConfigs, type AppGenSkillEntry } from "utils/generatedTypes";
+import {
+  type AllLLMConfigs,
+  type AppGenSkillEntry,
+} from "utils/generatedTypes";
 
 export function filterSkills(
   skills: AppGenSkillEntry[],

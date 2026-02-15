@@ -357,11 +357,7 @@ function Tabs({ element, children }: AppComponentProps) {
   const className = typeof props.className === "string" ? props.className : "";
 
   const hasRenderableNode = (node: React.ReactNode): boolean => {
-    if (
-      node === null ||
-      node === undefined ||
-      typeof node === "boolean"
-    ) {
+    if (node === null || node === undefined || typeof node === "boolean") {
       return false;
     }
     if (typeof node === "string") {
