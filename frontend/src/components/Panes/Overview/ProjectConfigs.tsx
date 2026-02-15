@@ -115,15 +115,10 @@ export function ProjectConfigs() {
     const reordered: Array<ProjectConfig> = [];
     for (const id of orderedProjectConfigIds) {
       const config = byId.get(id);
-      if (config) {
-        reordered.push(config);
+      if (!config) {
+        throw new Error(`Project config ${id} not found in project metadata.`);
       }
-    }
-    const seenIds = new Set(reordered.map((config) => config.id));
-    for (const config of allProjectMetadata) {
-      if (!seenIds.has(config.id)) {
-        reordered.push(config);
-      }
+      reordered.push(config);
     }
     return reordered;
   }, [allProjectMetadata, orderedProjectConfigIds]);

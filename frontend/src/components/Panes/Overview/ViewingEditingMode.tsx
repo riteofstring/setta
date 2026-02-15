@@ -613,8 +613,26 @@ function ViewModeEditingRow({
         }
         delete viewModes[mode.id];
         if (state.projectConfig.activeViewModeId === mode.id) {
-          const nextViewModeId = Object.keys(viewModes)[0] ?? null;
-          state.projectConfig.activeViewModeId = nextViewModeId;
+          const sortedViewModes = sortViewModes(Object.values(viewModes));
+          const nextViewMode = sortedViewModes[0] ?? null;
+          state.projectConfig.activeViewModeId = nextViewMode?.id ?? null;
+          if (nextViewMode) {
+            if (Object.keys(nextViewMode.topLevelSections).length === 0) {
+              const clonedTopLevelSections: typeof state.projectConfig.topLevelSections =
+                {};
+              for (const sectionId in state.projectConfig.topLevelSections) {
+                clonedTopLevelSections[sectionId] = {
+                  ...state.projectConfig.topLevelSections[sectionId],
+                };
+              }
+              nextViewMode.topLevelSections = clonedTopLevelSections;
+            }
+            state.projectConfig.topLevelSections =
+              nextViewMode.topLevelSections;
+            state.projectConfig.viewport = nextViewMode.viewport;
+            state.projectConfig.viewportInitialized =
+              nextViewMode.viewportInitialized;
+          }
         }
       },
       send: (frontendOpId) =>

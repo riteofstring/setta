@@ -1,5 +1,10 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { openIsolatedProject, postBackend, seedLocalStorage } from "../helpers";
+import {
+  loadProjectConfig,
+  openIsolatedProject,
+  postBackend,
+  seedLocalStorage,
+} from "../helpers";
 
 const READY_SELECTOR = ".react-flow__pane";
 const OVERVIEW_VIEW_MODE_ROW_SELECTOR =
@@ -9,6 +14,12 @@ const OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR =
 
 type ProjectMetadataResponse = {
   projectMetadata: Array<{ id: string; name: string }>;
+};
+type LoadProjectConfigWithViewModes = {
+  projectConfig?: {
+    activeViewModeId?: string | null;
+    viewModes?: Record<string, { id: string }>;
+  };
 };
 
 async function createNamedViewMode(
@@ -265,6 +276,57 @@ test("view mode pane drag reorder persists across reload", async ({ page }) => {
     .toBeTruthy();
 });
 
+test("deleting the active view mode falls back to first mode in sorted order", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, { overviewTab: "ViewModes", overviewVis: true });
+  const context = await openIsolatedProject(page);
+  const modeAId = await createNamedViewMode(
+    page,
+    context.projectConfigId,
+    "Mode A",
+    false,
+  );
+  const modeBId = await createNamedViewMode(
+    page,
+    context.projectConfigId,
+    "Mode B",
+    false,
+  );
+
+  const payload = (await loadProjectConfig(
+    page,
+  )) as LoadProjectConfigWithViewModes;
+  const baseViewModeId = Object.keys(
+    payload.projectConfig?.viewModes ?? {},
+  ).find((viewModeId) => viewModeId !== modeAId && viewModeId !== modeBId);
+  if (!baseViewModeId) {
+    throw new Error("Expected base active view mode id.");
+  }
+
+  await postBackend(page, "/setViewModeSortOrder", {
+    projectConfigId: context.projectConfigId,
+    orderedViewModeIds: [modeAId, modeBId, baseViewModeId],
+  });
+  await postBackend(page, "/setActiveViewMode", {
+    projectConfigId: context.projectConfigId,
+    activeViewModeId: modeBId,
+  });
+  await postBackend(page, "/deleteViewMode", {
+    projectConfigId: context.projectConfigId,
+    viewModeId: modeBId,
+  });
+
+  await expect
+    .poll(async () => {
+      const updated = (await loadProjectConfig(
+        page,
+      )) as LoadProjectConfigWithViewModes;
+      return updated.projectConfig?.activeViewModeId ?? null;
+    })
+    .toBe(modeAId);
+});
+
 test("clicking a view mode drag handle does not reorder items", async ({
   page,
 }) => {
@@ -460,7 +522,9 @@ test("project config delete button keyboard action does not bubble and open conf
   const projectConfigsSection = page.getByTestId(
     "view-modes-project-configs-section",
   );
-  const editButton = projectConfigsSection.getByRole("button", { name: "Edit" });
+  const editButton = projectConfigsSection.getByRole("button", {
+    name: "Edit",
+  });
   await expect(editButton).toBeVisible();
   await editButton.click();
 

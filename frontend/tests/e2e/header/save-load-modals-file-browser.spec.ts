@@ -95,7 +95,7 @@ test("load modal keeps single-click as selection and opens on double click", asy
   const cardCursor = await firstCard.evaluate(
     (el) => window.getComputedStyle(el).cursor,
   );
-  expect(cardCursor).toBe("default");
+  expect(cardCursor).toBe("pointer");
 
   await firstCard.dblclick();
   await expect(page.getByText("Load Project Config")).toHaveCount(0);
@@ -109,7 +109,7 @@ test("load modal keeps single-click as selection and opens on double click", asy
   const rowCursor = await firstRow.evaluate(
     (el) => window.getComputedStyle(el).cursor,
   );
-  expect(rowCursor).toBe("default");
+  expect(rowCursor).toBe("pointer");
   await firstRow.click();
   await expect(page.getByText("Load Project Config")).toBeVisible();
   await firstRow.dblclick();

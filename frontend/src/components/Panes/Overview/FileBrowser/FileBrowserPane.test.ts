@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFileBrowserLoadingPathOwner,
   flattenFileBrowserTree,
+  forEachWithConcurrencyLimit,
   getSettaBadgeRefreshFolderPaths,
   isOwnedFileBrowserLoadingPath,
   sortChildPaths,
@@ -337,5 +338,41 @@ describe("file browser loading path ownership", () => {
         requestOwner: "3:1",
       }),
     ).toBe(false);
+  });
+});
+
+describe("forEachWithConcurrencyLimit", () => {
+  it("runs all tasks while capping max in-flight concurrency", async () => {
+    const items = [1, 2, 3, 4, 5, 6];
+    let activeCount = 0;
+    let maxActiveCount = 0;
+    const completed: number[] = [];
+
+    await forEachWithConcurrencyLimit({
+      items,
+      limit: 2,
+      run: async (item) => {
+        activeCount += 1;
+        if (activeCount > maxActiveCount) {
+          maxActiveCount = activeCount;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        completed.push(item);
+        activeCount -= 1;
+      },
+    });
+
+    expect(maxActiveCount).toBeLessThanOrEqual(2);
+    expect([...completed].sort((a, b) => a - b)).toEqual(items);
+  });
+
+  it("throws when the concurrency limit is less than one", async () => {
+    await expect(
+      forEachWithConcurrencyLimit({
+        items: [1],
+        limit: 0,
+        run: async () => {},
+      }),
+    ).rejects.toThrow("Concurrency limit must be at least 1.");
   });
 });

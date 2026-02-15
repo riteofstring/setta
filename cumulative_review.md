@@ -47,3 +47,13 @@
 - Simplified view-mode reorder validation by removing redundant second-pass membership checks while preserving length, membership, and duplicate guards.
 - Improved Save/Load modal affordance by changing selectable thumbnail cards and list rows to `cursor-pointer`.
 - Updated tests across pytest, Vitest, and Playwright for worktree utility scope, file-browser loading ownership, invalid overview-tab fallback, and current view-modes/project-config pane flows.
+
+## 2026-02-17 12:06:23 PST
+
+- Fixed new sort-order route error handling to return explicit HTTP validation/domain errors (`422`/`404`) instead of generic `500` responses for invalid reorder payloads.
+- Fixed active view-mode delete fallback determinism by selecting the next mode from persisted sorted order (backend) and mirroring the same sorted fallback and layout/viewport transfer in frontend optimistic state updates.
+- Removed redundant `ProjectConfigs` reorder reconciliation pass so ordered configs now resolve in a single deterministic ID->config pass with explicit invariant failure on missing IDs.
+- Reduced Setta-badge refresh request bursts by replacing unbounded `Promise.all` fan-out with a bounded-concurrency scheduler (`limit=8`) for expanded-folder refreshes.
+- Aligned Save/Load modal E2E contract with shipped affordance by asserting `cursor: pointer` for selectable cards/rows.
+- Added/updated focused coverage across pytest, router integration tests, Vitest, and Playwright for sort-order route status mapping, active-mode delete fallback behavior, bounded concurrency utility behavior, and Save/Load cursor expectations.
+- Added an append-only frontend perf report documenting before/after metrics for Overview project-config ordering path and Setta-badge refresh concurrency bounds.

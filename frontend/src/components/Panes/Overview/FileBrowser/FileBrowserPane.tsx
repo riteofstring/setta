@@ -57,6 +57,7 @@ const MAX_ENTRIES = 5000;
 const FILTER_RECURSIVE_MIN_CHARS = 2;
 const FILTER_RECURSIVE_MAX_FOLDERS = 600;
 const FILE_URL_REFRESH_BUFFER_MS = 30_000;
+const SETTA_BADGE_REFRESH_CONCURRENCY_LIMIT = 8;
 
 type NodeKind = "folder" | "file";
 
@@ -125,6 +126,38 @@ export function isOwnedFileBrowserLoadingPath({
   requestOwner: string;
 }): boolean {
   return loadingPathOwnerByPath[folderPath] === requestOwner;
+}
+
+export async function forEachWithConcurrencyLimit<T>({
+  items,
+  limit,
+  run,
+}: {
+  items: T[];
+  limit: number;
+  run: (item: T) => Promise<unknown>;
+}): Promise<void> {
+  if (limit < 1) {
+    throw new RangeError("Concurrency limit must be at least 1.");
+  }
+  const workerCount = Math.min(limit, items.length);
+  if (workerCount === 0) {
+    return;
+  }
+  let nextIndex = 0;
+  const workers: Promise<void>[] = [];
+  for (let workerIndex = 0; workerIndex < workerCount; workerIndex += 1) {
+    workers.push(
+      (async () => {
+        while (nextIndex < items.length) {
+          const currentIndex = nextIndex;
+          nextIndex += 1;
+          await run(items[currentIndex]);
+        }
+      })(),
+    );
+  }
+  await Promise.all(workers);
 }
 
 export function flattenFileBrowserTree({
@@ -586,11 +619,13 @@ export function FileBrowserPane({
       expandedPaths,
       nodesByPath: nodesByPathRef.current,
     });
-    await Promise.all(
-      folderPaths.map((path) =>
-        fetchFolderContents(path, undefined, refreshRequestId),
-      ),
-    );
+    await forEachWithConcurrencyLimit({
+      items: folderPaths,
+      limit: SETTA_BADGE_REFRESH_CONCURRENCY_LIMIT,
+      run: async (path) => {
+        await fetchFolderContents(path, undefined, refreshRequestId);
+      },
+    });
   }, [expandedPaths, fetchFolderContents, rootPath]);
 
   const handleSort = useCallback((nextKey: SortKey) => {

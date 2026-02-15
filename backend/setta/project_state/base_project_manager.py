@@ -3482,21 +3482,6 @@ class BaseProjectManager(ABC):
         if len(view_modes) < 2:
             return
         del view_modes[x.viewModeId]
-        if project_state.projectConfig.activeViewModeId == x.viewModeId:
-            next_view_mode_id = next(iter(view_modes))
-            next_view_mode = view_modes[next_view_mode_id]
-            if not next_view_mode.topLevelSections:
-                next_view_mode.topLevelSections = self._clone_top_level_sections(
-                    project_state.projectConfig.topLevelSections
-                )
-            project_state.projectConfig.activeViewModeId = next_view_mode_id
-            project_state.projectConfig.topLevelSections = (
-                next_view_mode.topLevelSections
-            )
-            project_state.projectConfig.viewport = next_view_mode.viewport
-            project_state.projectConfig.viewportInitialized = (
-                next_view_mode.viewportInitialized
-            )
         sorted_view_modes = sorted(
             view_modes.values(),
             key=lambda view_mode: (
@@ -3505,6 +3490,20 @@ class BaseProjectManager(ABC):
                 view_mode.id,
             ),
         )
+        if project_state.projectConfig.activeViewModeId == x.viewModeId:
+            next_view_mode = sorted_view_modes[0]
+            if not next_view_mode.topLevelSections:
+                next_view_mode.topLevelSections = self._clone_top_level_sections(
+                    project_state.projectConfig.topLevelSections
+                )
+            project_state.projectConfig.activeViewModeId = next_view_mode.id
+            project_state.projectConfig.topLevelSections = (
+                next_view_mode.topLevelSections
+            )
+            project_state.projectConfig.viewport = next_view_mode.viewport
+            project_state.projectConfig.viewportInitialized = (
+                next_view_mode.viewportInitialized
+            )
         for index, view_mode in enumerate(sorted_view_modes):
             view_mode.sortIndex = index
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
