@@ -91,7 +91,8 @@ const EMPTY_ASSISTANT_CONTENT: ChatContentItem[] = [];
 const IDLE_SPINNER_DELAY_MS = 1000;
 const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
 const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(90%,820px)]";
-const ASSISTANT_REASONING_BORDER_CLASS = "border-setta-100 dark:border-setta-700/50";
+const ASSISTANT_REASONING_BORDER_CLASS =
+  "border-setta-100 dark:border-setta-700/50";
 
 type AttachmentUrlEntry = {
   url: string;
@@ -1488,7 +1489,9 @@ const ChatMessage = memo(function ChatMessage({
                 key={idx}
                 item={item}
                 isStreaming={isStreaming}
-                showTypingIndicator={showTypingIndicator && idx === lastTextIndex}
+                showTypingIndicator={
+                  showTypingIndicator && idx === lastTextIndex
+                }
               />
             );
           })}
@@ -1519,7 +1522,8 @@ const ChatMessage = memo(function ChatMessage({
                     />
                   );
                 }
-                const todoPayload = toolCallContext.todoPayloadById[toolCall.id];
+                const todoPayload =
+                  toolCallContext.todoPayloadById[toolCall.id];
                 if (todoPayload) {
                   const summaryOnly =
                     toolCallContext.latestTodoCallId !== toolCall.id;

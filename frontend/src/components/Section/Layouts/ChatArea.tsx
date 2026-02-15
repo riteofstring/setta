@@ -1244,7 +1244,8 @@ function ManagedChatArea({
     },
     [setChatId],
   );
-  const canConfigureExecutionSettings = hasEngineConfig &&
+  const canConfigureExecutionSettings =
+    hasEngineConfig &&
     (isExternalEngine
       ? externalEngineAvailable
       : hasLLMConfig && !noConfigsAvailable);

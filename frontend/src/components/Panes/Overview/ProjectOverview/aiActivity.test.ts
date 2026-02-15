@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import {
   AgentRunStatusEnum,
   SectionTypeEnum,
@@ -7,6 +6,7 @@ import {
   createTextBlockSectionImpl,
   createUserDefaultChatSectionImpl,
 } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
 import {
   getActiveSectionIdsFromRuns,
   hasRunningAgentRuns,
@@ -63,7 +63,9 @@ describe("aiActivity", () => {
     const idleChat = createChatSectionImpl(
       createUserDefaultChatSectionImpl({ waitingForResponse: false }),
     );
-    const textSection = createTextBlockSectionImpl({ type: SectionTypeEnum.TextBlock });
+    const textSection = createTextBlockSectionImpl({
+      type: SectionTypeEnum.TextBlock,
+    });
 
     expect(isChatSectionWaitingForResponse(waitingChat)).toBe(true);
     expect(isChatSectionWaitingForResponse(idleChat)).toBe(false);

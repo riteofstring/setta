@@ -2,7 +2,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SectionListItems } from "./SectionListItems";
 
-function renderSectionList(markupProps: Parameters<typeof SectionListItems>[0]) {
+function renderSectionList(
+  markupProps: Parameters<typeof SectionListItems>[0],
+) {
   return renderToStaticMarkup(
     <ul>
       <SectionListItems {...markupProps} />
@@ -33,8 +35,12 @@ describe("SectionListItems", () => {
       activeSectionIds: new Set(["section-active"]),
     });
 
-    expect(markup).toContain('data-testid="overview-ai-working-section-active"');
-    expect(markup).not.toContain('data-testid="overview-ai-working-section-idle"');
+    expect(markup).toContain(
+      'data-testid="overview-ai-working-section-active"',
+    );
+    expect(markup).not.toContain(
+      'data-testid="overview-ai-working-section-idle"',
+    );
   });
 
   it("shows an AI working indicator for chat rows waiting on a response", () => {

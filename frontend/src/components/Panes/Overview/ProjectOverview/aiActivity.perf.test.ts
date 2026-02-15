@@ -1,8 +1,5 @@
+import { AgentRunStatusEnum, createAgentRun } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import {
-  AgentRunStatusEnum,
-  createAgentRun,
-} from "utils/generatedTypes";
 import { getActiveSectionIdsFromRuns } from "./aiActivity";
 
 describe("aiActivity (perf)", () => {

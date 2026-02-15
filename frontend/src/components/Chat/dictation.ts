@@ -5,7 +5,7 @@ type SpeechRecognitionResultLike = {
   0: { transcript: string };
 };
 
-export type SpeechRecognitionEventLike = {
+type SpeechRecognitionEventLike = {
   resultIndex: number;
   results: {
     length: number;

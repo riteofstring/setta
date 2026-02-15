@@ -1,4 +1,4 @@
-export const CHAT_PERMISSION_MODES = [
+const CHAT_PERMISSION_MODES = [
   "minimal",
   "yolo",
   "config_toml_custom",
@@ -20,7 +20,7 @@ export type ChatSlashCommandDefinition = {
   summary: string;
 };
 
-export type ParsedSlashCommand = {
+type ParsedSlashCommand = {
   command: string;
   action: ChatSlashCommandAction;
   args: string[];

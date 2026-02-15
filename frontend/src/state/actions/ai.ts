@@ -876,9 +876,11 @@ export async function submitMessage(
   )
     ? executionSettingsOrAppGeneration
     : DEFAULT_CHAT_EXECUTION_SETTINGS;
-  const appGeneration = isChatExecutionSettings(executionSettingsOrAppGeneration)
-    ? (appGenerationArg ?? null)
-    : (executionSettingsOrAppGeneration ?? appGenerationArg ?? null);
+  const appGeneration = isChatExecutionSettings(
+    executionSettingsOrAppGeneration,
+  )
+    ? appGenerationArg ?? null
+    : executionSettingsOrAppGeneration ?? appGenerationArg ?? null;
 
   // Add user message immediately for responsive UI
   const content = [];

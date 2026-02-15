@@ -25,12 +25,12 @@ import {
   type ViewModeConfig,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
-import { ProjectName } from "./ProjectName";
 import {
   getActiveSectionIdsFromRuns,
   hasRunningAgentRuns,
   isChatSectionWaitingForResponse,
 } from "./aiActivity";
+import { ProjectName } from "./ProjectName";
 import { OverviewListingType, SectionListItems } from "./SectionListItems";
 
 const DEFAULT_SECTION_TAG_COLOR_CHOICES: ColorPickerChoice[] =

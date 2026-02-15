@@ -4,8 +4,8 @@ import { resetProjectStores } from "state/utils";
 import {
   BaseChatMessageUnion,
   ChatRoleEnum,
-  createMessageThinkingContent,
   createMessageTextContent,
+  createMessageThinkingContent,
   createSharePolicy,
   type SharePolicy,
 } from "utils/generatedTypes";

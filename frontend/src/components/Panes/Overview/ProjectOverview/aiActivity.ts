@@ -6,7 +6,9 @@ import {
   SectionTypeEnum,
 } from "utils/generatedTypes";
 
-export function getActiveSectionIdsFromRuns(runs: Array<AgentRun>): Set<string> {
+export function getActiveSectionIdsFromRuns(
+  runs: Array<AgentRun>,
+): Set<string> {
   const activeSectionIds = new Set<string>();
   for (const run of runs) {
     if (run.status !== AgentRunStatusEnum.running) {
