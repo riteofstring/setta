@@ -1373,18 +1373,6 @@ export async function route_set_chart_settings(
   return await post("/setChartSettings", x);
 }
 
-export async function route_plugins_list(): Promise<
-  ResponseDataAndStatus<gt.PluginListResponse>
-> {
-  return await get("/plugins/list");
-}
-
-export async function route_plugins_status(): Promise<
-  ResponseDataAndStatus<gt.PluginStatusResponse>
-> {
-  return await get("/plugins/status");
-}
-
 export async function route_plugins_runtime(): Promise<
   ResponseDataAndStatus<gt.PluginRuntimeResponse>
 > {

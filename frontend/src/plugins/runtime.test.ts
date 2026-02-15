@@ -2,7 +2,6 @@ import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import {
   computePluginSectionFallbackReason,
   getPluginSectionFallbackReason,
-  getPluginSectionKindsForCreateMenu,
   PluginFrontendErrorCodeEnum,
   pluginRuntimeTestApi,
   PluginSectionFallbackReasonEnum,
@@ -431,79 +430,65 @@ describe("plugin runtime helpers", () => {
     );
   });
 
-  it("returns sorted plugin section kinds for create menu", () => {
-    usePluginRuntimeStore.setState({
-      sectionKindsByKey: {
-        [toPluginSectionKindKey("acme.plugin", "b")]: {
-          pluginId: "acme.plugin",
-          kind: "b",
-          title: "Zeta Widget",
-          renderer: {
-            mount: () => undefined,
-          },
-        } as RegisteredPluginSectionKind,
-        [toPluginSectionKindKey("acme.plugin", "a")]: {
-          pluginId: "acme.plugin",
-          kind: "a",
-          title: "Alpha Widget",
-          initialData: { enabled: true },
-          renderer: {
-            mount: () => undefined,
-          },
-        } as RegisteredPluginSectionKind,
+  it("indexes section-kind keys by plugin id for incremental refresh reuse", () => {
+    const sectionKindsByKey: Record<string, RegisteredPluginSectionKind> = {
+      [toPluginSectionKindKey("alpha.plugin", "one")]: {
+        pluginId: "alpha.plugin",
+        kind: "one",
+        title: "Alpha One",
+        renderer: { mount: () => undefined },
       },
-    });
+      [toPluginSectionKindKey("alpha.plugin", "two")]: {
+        pluginId: "alpha.plugin",
+        kind: "two",
+        title: "Alpha Two",
+        renderer: { mount: () => undefined },
+      },
+      [toPluginSectionKindKey("beta.plugin", "main")]: {
+        pluginId: "beta.plugin",
+        kind: "main",
+        title: "Beta Main",
+        renderer: { mount: () => undefined },
+      },
+    };
 
-    expect(getPluginSectionKindsForCreateMenu()).toEqual([
-      {
-        pluginId: "acme.plugin",
-        kind: "a",
-        title: "Alpha Widget",
-        initialData: { enabled: true },
-      },
-      {
-        pluginId: "acme.plugin",
-        kind: "b",
-        title: "Zeta Widget",
-        initialData: {},
-      },
-    ]);
+    expect(
+      pluginRuntimeTestApi.indexSectionKindKeysByPluginId(sectionKindsByKey),
+    ).toEqual({
+      "alpha.plugin": [
+        toPluginSectionKindKey("alpha.plugin", "one"),
+        toPluginSectionKindKey("alpha.plugin", "two"),
+      ],
+      "beta.plugin": [toPluginSectionKindKey("beta.plugin", "main")],
+    });
   });
 
-  it("returns a stable sorted create-menu projection for large section-kind catalogs", () => {
-    const sectionKinds: Record<string, RegisteredPluginSectionKind> = {};
-    for (let index = 0; index < 150; index += 1) {
-      const pluginId = index % 2 === 0 ? "acme.plugin" : "beta.plugin";
-      const kind = `kind-${String(index).padStart(3, "0")}`;
-      sectionKinds[toPluginSectionKindKey(pluginId, kind)] = {
-        pluginId,
-        kind,
-        title: `Title ${String(150 - index).padStart(3, "0")}`,
-        initialData: { index },
-        renderer: {
-          mount: () => undefined,
-        },
+  it("clones project-state snapshots only when mutation isolation requires it", () => {
+    const primitiveSnapshot =
+      pluginRuntimeTestApi.cloneProjectStateSnapshot(42);
+    expect(primitiveSnapshot).toBe(42);
+
+    const scalarArray = ["a", "b", "c"];
+    const clonedScalarArray =
+      pluginRuntimeTestApi.cloneProjectStateSnapshot(scalarArray);
+    expect(clonedScalarArray).toEqual(["a", "b", "c"]);
+    expect(clonedScalarArray).not.toBe(scalarArray);
+
+    const objectSnapshot = {
+      nested: {
+        value: "x",
+      },
+    };
+    const clonedObjectSnapshot = pluginRuntimeTestApi.cloneProjectStateSnapshot(
+      objectSnapshot,
+    ) as {
+      nested: {
+        value: string;
       };
-    }
-
-    usePluginRuntimeStore.setState({
-      sectionKindsByKey: sectionKinds,
-    });
-
-    const projected = getPluginSectionKindsForCreateMenu();
-    expect(projected).toHaveLength(150);
-    expect(projected[0]).toEqual({
-      pluginId: "beta.plugin",
-      kind: "kind-149",
-      title: "Title 001",
-      initialData: { index: 149 },
-    });
-    expect(projected[149]).toEqual({
-      pluginId: "acme.plugin",
-      kind: "kind-000",
-      title: "Title 150",
-      initialData: { index: 0 },
-    });
+    };
+    expect(clonedObjectSnapshot).toEqual(objectSnapshot);
+    expect(clonedObjectSnapshot).not.toBe(objectSnapshot);
+    expect(clonedObjectSnapshot.nested).not.toBe(objectSnapshot.nested);
   });
 
   it("returns plugin section-kind lookup and sorted section-kind lists", () => {

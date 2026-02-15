@@ -37,3 +37,16 @@ def test_playwright_runner_gates_plugin_seeding_with_target_selection() -> None:
     assert 'SHOULD_SEED_PLUGIN_ARTIFACTS="${SHOULD_PREPARE_PLUGIN_FIXTURES}"' in script
     assert 'if [[ "${SHOULD_SEED_PLUGIN_FIXTURES}" == "1" ]]; then' in script
     assert 'if [[ "${SHOULD_SEED_PLUGIN_ARTIFACTS}" == "1" ]]; then' in script
+
+
+def test_playwright_runner_writes_non_empty_record_manifest_for_seeded_wheels() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "record_lines = []" in script
+    assert 'record_lines.append(f"{dist_info_name}/RECORD,,")' in script
+    assert (
+        'zipf.writestr(f"{dist_info_name}/RECORD", "\\n".join(record_lines) + "\\n")'
+        in script
+    )

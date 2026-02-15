@@ -115,21 +115,6 @@ def test_plugin_routes_link_and_asset_roundtrip() -> None:
             assert link_payload["pluginId"] == "setta-fixture-frontend"
             assert link_payload["state"] == "active"
 
-            list_response = client.get(f"{Route.PREFIX.value}{Route.PLUGINS_LIST.value}")
-            assert list_response.status_code == 200
-            list_payload = list_response.json()
-            assert len(list_payload["plugins"]) == 1
-            assert list_payload["plugins"][0]["pluginId"] == "setta-fixture-frontend"
-            assert "registerPane" in list_payload["plugins"][0]["effectiveCapabilities"]
-
-            status_response = client.get(
-                f"{Route.PREFIX.value}{Route.PLUGINS_STATUS.value}"
-            )
-            assert status_response.status_code == 200
-            status_payload = status_response.json()
-            assert status_payload["plugins"][0]["state"] == "active"
-            assert status_payload["plugins"][0]["sourceScopeLabel"] == "workspace"
-
             runtime_response = client.get(
                 f"{Route.PREFIX.value}{Route.PLUGINS_RUNTIME.value}"
             )
@@ -140,6 +125,15 @@ def test_plugin_routes_link_and_asset_roundtrip() -> None:
             )
             assert runtime_payload["status"]["plugins"][0]["pluginId"] == (
                 "setta-fixture-frontend"
+            )
+            assert len(runtime_payload["list"]["plugins"]) == 1
+            assert "registerPane" in runtime_payload["list"]["plugins"][0][
+                "effectiveCapabilities"
+            ]
+            assert runtime_payload["status"]["plugins"][0]["state"] == "active"
+            assert (
+                runtime_payload["status"]["plugins"][0]["sourceScopeLabel"]
+                == "workspace"
             )
 
             restart_response = client.post(
@@ -202,15 +196,15 @@ def test_plugin_routes_backend_static_router_fixture_roundtrip() -> None:
 
             manager.load_backend_plugins(app=app)
 
-            status_response = client.get(
-                f"{Route.PREFIX.value}{Route.PLUGINS_STATUS.value}"
+            runtime_response = client.get(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RUNTIME.value}"
             )
-            assert status_response.status_code == 200
-            status_payload = status_response.json()
-            assert status_payload["plugins"][0]["pluginId"] == (
+            assert runtime_response.status_code == 200
+            runtime_payload = runtime_response.json()
+            assert runtime_payload["status"]["plugins"][0]["pluginId"] == (
                 "setta-fixture-backend-static-router"
             )
-            assert status_payload["plugins"][0]["state"] == "active"
+            assert runtime_payload["status"]["plugins"][0]["state"] == "active"
 
             api_response = client.get("/api/plugins/setta-fixture-backend-static-router/info")
             assert api_response.status_code == 200
@@ -266,8 +260,34 @@ def test_plugin_asset_route_rejects_non_frontend_files() -> None:
             assert backend_asset.json()["detail"]["code"] == "PLUGIN_ASSET_NOT_FOUND"
 
 
+def test_plugin_legacy_read_routes_are_not_registered() -> None:
+    # Legacy split read routes should be removed in favor of the unified runtime endpoint.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            list_response = client.get(f"{Route.PREFIX.value}/plugins/list")
+            assert list_response.status_code == 404
+            status_response = client.get(f"{Route.PREFIX.value}/plugins/status")
+            assert status_response.status_code == 404
+
+
 def test_plugin_read_routes_redact_source_details_in_deployment_mode() -> None:
-    # Deployment-facing list/status should not expose host-local source/config details.
+    # Deployment-facing runtime list/status payloads should not expose host-local source/config details.
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         workspace_root = root / "workspace"
@@ -296,20 +316,19 @@ def test_plugin_read_routes_redact_source_details_in_deployment_mode() -> None:
         app = _build_test_app(manager=manager, deployment_mode=True)
 
         with TestClient(app) as client:
-            list_response = client.get(f"{Route.PREFIX.value}{Route.PLUGINS_LIST.value}")
-            assert list_response.status_code == 200
-            plugins = list_response.json()["plugins"]
+            runtime_response = client.get(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RUNTIME.value}"
+            )
+            assert runtime_response.status_code == 200
+            runtime_payload = runtime_response.json()
+            plugins = runtime_payload["list"]["plugins"]
             assert len(plugins) == 1
             assert plugins[0]["canonicalSourceKey"].startswith("redacted:")
             assert plugins[0]["config"]["hasSchema"] is True
             assert plugins[0]["config"]["schemaJson"] is None
             assert plugins[0]["config"]["currentConfig"] == {}
 
-            status_response = client.get(
-                f"{Route.PREFIX.value}{Route.PLUGINS_STATUS.value}"
-            )
-            assert status_response.status_code == 200
-            status_plugins = status_response.json()["plugins"]
+            status_plugins = runtime_payload["status"]["plugins"]
             assert len(status_plugins) == 1
             assert status_plugins[0]["canonicalSourceKey"].startswith("redacted:")
             assert status_plugins[0]["sourcePath"].startswith("[redacted]:")
@@ -510,9 +529,11 @@ def test_plugin_mutation_routes_blocked_in_deployment_mode() -> None:
                 == "Deployment mode does not allow this endpoint."
             )
 
-            list_response = client.get(f"{Route.PREFIX.value}{Route.PLUGINS_LIST.value}")
-            assert list_response.status_code == 200
-            assert list_response.json()["plugins"] == []
+            runtime_response = client.get(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RUNTIME.value}"
+            )
+            assert runtime_response.status_code == 200
+            assert runtime_response.json()["list"]["plugins"] == []
 
 
 @pytest.mark.parametrize(

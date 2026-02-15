@@ -475,13 +475,16 @@ for fixture_name, package_name, version in fixtures:
     with zipfile.ZipFile(
         artifact_path, "w", compression=zipfile.ZIP_DEFLATED
     ) as zipf:
+        record_lines = []
         for path in sorted(source_root.rglob("*"), key=lambda item: str(item)):
             if not path.is_file():
                 continue
             relative_path = path.relative_to(source_root).as_posix()
             zipf.write(path, arcname=relative_path)
+            record_lines.append(f"{relative_path},,")
+        metadata_path = f"{dist_info_name}/METADATA"
         zipf.writestr(
-            f"{dist_info_name}/METADATA",
+            metadata_path,
             "\n".join(
                 [
                     "Metadata-Version: 2.1",
@@ -492,8 +495,10 @@ for fixture_name, package_name, version in fixtures:
                 ]
             ),
         )
+        record_lines.append(f"{metadata_path},,")
+        wheel_metadata_path = f"{dist_info_name}/WHEEL"
         zipf.writestr(
-            f"{dist_info_name}/WHEEL",
+            wheel_metadata_path,
             "\n".join(
                 [
                     "Wheel-Version: 1.0",
@@ -504,7 +509,9 @@ for fixture_name, package_name, version in fixtures:
                 ]
             ),
         )
-        zipf.writestr(f"{dist_info_name}/RECORD", "")
+        record_lines.append(f"{wheel_metadata_path},,")
+        record_lines.append(f"{dist_info_name}/RECORD,,")
+        zipf.writestr(f"{dist_info_name}/RECORD", "\n".join(record_lines) + "\n")
 PY
   ) >"${LOG_DIR}/seed-plugin-artifacts.log" 2>&1
   printf '%s' "${current_signature}" > "${PLUGIN_ARTIFACT_CACHE_FILE}"

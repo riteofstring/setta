@@ -238,8 +238,9 @@ should_build_plugin_fixtures_for_targets() {
     fi
     if [[ "${expect_grep_value}" == "1" ]]; then
       expect_grep_value=0
-      if [[ "${arg}" == *plugin* ]]; then
-        return 0
+      has_selector_filter=1
+      if _plugin_fixture_selector_has_plugin_hint "${arg}"; then
+        selector_filter_has_plugin_hint=1
       fi
       continue
     fi
@@ -264,11 +265,14 @@ should_build_plugin_fixtures_for_targets() {
     if [[ "${mode}" == "playwright" ]]; then
       case "${arg}" in
         -g|--grep)
+          has_selector_filter=1
           expect_grep_value=1
           continue
           ;;
         -g=*|--grep=*)
-          if [[ "${arg#*=}" == *plugin* ]]; then
+          has_selector_filter=1
+          if _plugin_fixture_selector_has_plugin_hint "${arg#*=}"; then
+            selector_filter_has_plugin_hint=1
             return 0
           fi
           continue
@@ -308,6 +312,13 @@ should_build_plugin_fixtures_for_targets() {
     if [[ "${has_positional_target}" == "0" ]]; then
       return 0
     fi
+  fi
+  if [[ "${mode}" == "playwright" ]] && [[ "${has_selector_filter}" == "1" ]]; then
+    if [[ "${selector_filter_has_plugin_hint}" == "1" ]]; then
+      return 0
+    fi
+    # Grep-based runs are hard to classify reliably from paths alone; build fixtures by default.
+    return 0
   fi
   if [[ "${has_positional_target}" == "0" ]]; then
     return 0

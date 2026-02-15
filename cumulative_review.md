@@ -230,3 +230,15 @@
 - Improved plugin section runtime UX by showing an explicit runtime error card (with status message and `Open Plugins`) instead of indefinite loading when runtime state is `error`.
 - Removed dead frontend plugin SDK surface (`frontend/src/plugins/sdk.ts` and its test) and updated fixture frontend command backend roundtrip to consume runtime endpoint payloads.
 - Added/updated backend pytest, frontend Vitest, and Playwright coverage for all changed paths; validated with targeted runs (`pytest` subset: 5 passed, `vitest` subset: 37 passed, Playwright targeted specs: 22 passed) and completed CDP verification of restart-banner visibility gating and plugin runtime error-card rendering.
+
+## 2026-02-16T13:27:40-08:00
+
+- Implemented the next top-level `review*.md` fixes end-to-end while explicitly excluding backward-compatibility additions.
+- Removed legacy plugin read routes/contracts (`/plugins/list`, `/plugins/status`) from backend route enums/routers and frontend generated endpoint/type surface; `/plugins/runtime` is now the single canonical read contract.
+- Refactored plugin manager read response assembly behind shared list/status builders and added mutation-lock protection to runtime/list/status snapshot reads for consistent concurrent behavior.
+- Removed duplicated listener-router payload conversion/`projectConfigId` validation in websocket endpoint dispatch, keeping one normalization/validation stage.
+- Optimized frontend plugin runtime refresh reuse by indexing prior section-kind keys by `pluginId` once per refresh, eliminating repeated full-map scans for unchanged plugins.
+- Reduced plugin project-state cloning overhead by introducing scalar/array fast paths and cloning only when mutation isolation requires deep copy semantics.
+- Removed dead frontend runtime helper/API surface (`getPluginSectionKindsForCreateMenu` and related `EMPTY_RECORD` usage).
+- Hardened fixture-target detection and artifact seeding: Playwright `--grep` plugin hint checks are now case-insensitive/conservative, and seeded fixture wheels now emit a populated standards-compliant `RECORD` manifest.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for all changed paths (including new lock, runtime, fixture-selection, route-removal, and websocket temporary-ID regressions), and appended before/after runtime refresh perf results under `perf/reports/frontend/2026-02-16_plugin-runtime-refresh-indexing.md`.

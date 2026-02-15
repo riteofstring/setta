@@ -11,13 +11,11 @@ from setta.plugins.models import (
     PluginConfigWriteResponse,
     PluginEnableDisableResponse,
     PluginInstallResponse,
-    PluginListResponse,
     PluginLockApplyResponse,
     PluginLockWriteResponse,
     PluginRollbackResponse,
     PluginRuntimeResponse,
     PluginsRescanResponse,
-    PluginStatusResponse,
     PluginUninstallResponse,
     PluginUpdateResponse,
 )
@@ -89,16 +87,6 @@ def _manager(state: AppStateFromRequest) -> PluginManager:
 
 def _raise_http(exc: PluginManagerError) -> None:
     raise HTTPException(status_code=exc.status_code, detail=exc.to_dict()) from exc
-
-
-@router.get(Route.PLUGINS_LIST)
-def route_plugins_list(state: AppStateFromRequest) -> PluginListResponse:
-    return _manager(state).get_runtime_response().list
-
-
-@router.get(Route.PLUGINS_STATUS)
-def route_plugins_status(state: AppStateFromRequest) -> PluginStatusResponse:
-    return _manager(state).get_runtime_response().status
 
 
 @router.get(Route.PLUGINS_RUNTIME)

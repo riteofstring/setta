@@ -1566,13 +1566,15 @@ test("plugins pane supports scope shadowing and scope-specific uninstall", async
 test("plugins pane updates frontend asset digest query after relink", async ({
   page,
 }) => {
-  type PluginsListPayload = {
-    plugins: Array<{
-      pluginId: string;
-      frontend: {
-        entrypointUrl: string | null;
-      };
-    }>;
+  type PluginsRuntimePayload = {
+    list: {
+      plugins: Array<{
+        pluginId: string;
+        frontend: {
+          entrypointUrl: string | null;
+        };
+      }>;
+    };
   };
 
   const fixturePluginRoot = path.resolve(
@@ -1598,13 +1600,13 @@ test("plugins pane updates frontend asset digest query after relink", async ({
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const firstListResponse = await page.request.get(
-      `${BACKEND_ORIGIN}/api/plugins/list`,
+    const firstRuntimeResponse = await page.request.get(
+      `${BACKEND_ORIGIN}/api/plugins/runtime`,
     );
-    expect(firstListResponse.ok()).toBeTruthy();
-    const firstListPayload =
-      (await firstListResponse.json()) as PluginsListPayload;
-    const firstEntry = firstListPayload.plugins.find(
+    expect(firstRuntimeResponse.ok()).toBeTruthy();
+    const firstRuntimePayload =
+      (await firstRuntimeResponse.json()) as PluginsRuntimePayload;
+    const firstEntry = firstRuntimePayload.list.plugins.find(
       (plugin) => plugin.pluginId === "setta-fixture-frontend",
     );
     const firstEntrypointUrl = firstEntry?.frontend.entrypointUrl;
@@ -1633,13 +1635,13 @@ test("plugins pane updates frontend asset digest query after relink", async ({
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const secondListResponse = await page.request.get(
-      `${BACKEND_ORIGIN}/api/plugins/list`,
+    const secondRuntimeResponse = await page.request.get(
+      `${BACKEND_ORIGIN}/api/plugins/runtime`,
     );
-    expect(secondListResponse.ok()).toBeTruthy();
-    const secondListPayload =
-      (await secondListResponse.json()) as PluginsListPayload;
-    const secondEntry = secondListPayload.plugins.find(
+    expect(secondRuntimeResponse.ok()).toBeTruthy();
+    const secondRuntimePayload =
+      (await secondRuntimeResponse.json()) as PluginsRuntimePayload;
+    const secondEntry = secondRuntimePayload.list.plugins.find(
       (plugin) => plugin.pluginId === "setta-fixture-frontend",
     );
     const secondEntrypointUrl = secondEntry?.frontend.entrypointUrl;

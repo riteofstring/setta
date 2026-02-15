@@ -1199,6 +1199,80 @@ class TestPythonScriptReceiver:
             "projectConfigId": PROJECT_ID,
         }
 
+    async def test_listener_router_endpoint_call_maps_temporary_project_id_for_plugin_endpoint(
+        self,
+    ):
+        # Temporary listener IDs should be canonicalized once for dispatch and remapped for socket response.
+        project_state = _build_project_state(PROJECT_ID)
+        temporary_project_id = ID("301")
+        (
+            receiver,
+            websocket_manager,
+            _,
+            _,
+            listener_registry,
+        ) = _build_receiver_fixture(
+            {PROJECT_ID: project_state},
+            temporary_to_canonical={temporary_project_id: PROJECT_ID},
+        )
+
+        captured_calls: list[tuple[str, dict[str, object]]] = []
+
+        class _StubPluginManager:
+            def invoke_listener_endpoint(
+                self, *, endpoint_name: str, payload: dict[str, object]
+            ) -> object:
+                captured_calls.append((endpoint_name, dict(payload)))
+                return {
+                    "handledByPlugin": endpoint_name,
+                    "projectConfigId": payload["projectConfigId"],
+                }
+
+        websocket_manager._state.plugin_manager = _StubPluginManager()
+        listener_registry.record_bootstrap(
+            websocket_id="socket-temp",
+            project_config_id=PROJECT_ID,
+            use_temporary_ids=True,
+        )
+        listener_registry.upsert_registration(
+            websocket_id="socket-temp",
+            project_config_id=PROJECT_ID,
+            callbacks={},
+            use_temporary_ids=True,
+        )
+        message = WebsocketMsgListenerRouterEndpointCall(
+            content={
+                "projectConfigId": temporary_project_id,
+                "callId": "call-temp",
+                "endpointName": "fixture_listener_endpoint",
+                "payload": {"value": "ok"},
+            }
+        )
+
+        await receiver.process_json_str(
+            message.model_dump_json(),
+            fromWebsocketId="socket-temp",
+        )
+
+        assert captured_calls == [
+            (
+                "fixture_listener_endpoint",
+                {"projectConfigId": PROJECT_ID, "value": "ok"},
+            )
+        ]
+        assert len(websocket_manager.sent_messages) == 1
+        result_message, websocket_id = self._sent_message_as(
+            websocket_manager, 0, WebsocketMsgListenerRouterEndpointResult
+        )
+        assert websocket_id == "socket-temp"
+        assert result_message.content.projectConfigId == temporary_project_id
+        assert result_message.content.callId == "call-temp"
+        assert result_message.content.ok is True
+        assert result_message.content.result == {
+            "handledByPlugin": "fixture_listener_endpoint",
+            "projectConfigId": temporary_project_id,
+        }
+
     async def test_listener_router_endpoint_call_returns_error_for_unknown_plugin_endpoint(
         self,
     ):

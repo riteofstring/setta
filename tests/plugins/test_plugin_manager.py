@@ -1462,6 +1462,49 @@ def test_enable_disable_mutations_are_serialized(
     assert final_entry.state == PluginRuntimeState.active
 
 
+@pytest.mark.parametrize(
+    "reader_method_name",
+    ["get_list_response", "get_status_response", "get_runtime_response"],
+)
+def test_plugin_read_responses_wait_for_mutation_lock(
+    tmp_path: Path,
+    reader_method_name: Literal[
+        "get_list_response",
+        "get_status_response",
+        "get_runtime_response",
+    ],
+) -> None:
+    # Read endpoints should share the mutation lock so callers never observe half-applied plugin mutations.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("frontend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    read_started = threading.Event()
+    read_finished = threading.Event()
+    raised: list[Exception] = []
+
+    def _run_read() -> None:
+        try:
+            read_started.set()
+            getattr(manager, reader_method_name)()
+            read_finished.set()
+        except Exception as exc:  # pragma: no cover - assertion path
+            raised.append(exc)
+
+    with manager._mutation_lock:
+        read_thread = threading.Thread(target=_run_read)
+        read_thread.start()
+        assert read_started.wait(timeout=2.0)
+        assert not read_finished.wait(timeout=0.2)
+
+    read_thread.join(timeout=2.0)
+    assert raised == []
+    assert read_finished.is_set()
+
+
 def test_global_install_uses_global_auto_enable_source(tmp_path: Path) -> None:
     # Global install enablement should flow through global defaults, not workspace overrides.
     manager = _make_manager(tmp_path)

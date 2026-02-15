@@ -845,7 +845,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         await state.wait_until_ready()
 
         has_project_context = "projectConfigId" in spec.request_model.model_fields
-        payload_data, use_temporary_ids = self._prepare_listener_router_payload_data(
+        payload_data, _ = self._prepare_listener_router_payload_data(
             websocket_id=websocket_id,
             payload=payload,
             project_config_id=project_config_id,
@@ -854,11 +854,6 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         )
 
         request_model = spec.request_model(**payload_data)
-        if use_temporary_ids:
-            request_model = self._convert_incoming_payload(request_model)
-
-        if has_project_context and request_model.projectConfigId != project_config_id:
-            raise ValueError("project_config_mismatch")
 
         kwargs: dict[str, object] = {spec.request_param_name: request_model}
         if spec.state_param_name is not None:

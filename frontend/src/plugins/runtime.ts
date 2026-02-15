@@ -255,8 +255,6 @@ type PluginRuntimeStore = {
   loadGeneration: number;
 };
 
-const EMPTY_RECORD: Record<string, unknown> = {};
-
 const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   status: "idle",
   statusMessage: null,
@@ -357,6 +355,9 @@ async function loadPluginRuntime(): Promise<void> {
     topNavBarItems: {},
   };
   const frontendErrorsByPluginId: Record<string, PluginFrontendError> = {};
+  const sectionKindKeysByPluginId = indexSectionKindKeysByPluginId(
+    previousState.sectionKindsByKey,
+  );
   const frontendLoadCandidates = listData.plugins.filter((plugin) =>
     shouldLoadPluginFrontend(pluginStatusById[plugin.pluginId]),
   );
@@ -387,6 +388,7 @@ async function loadPluginRuntime(): Promise<void> {
         mergePluginRegistryFromState(
           previousState,
           pluginId,
+          sectionKindKeysByPluginId,
           registryAccumulator,
         );
         return;
@@ -526,15 +528,30 @@ function mergeRegistryDelta(
   }
 }
 
+function indexSectionKindKeysByPluginId(
+  sectionKindsByKey: Record<string, RegisteredPluginSectionKind>,
+): Record<string, string[]> {
+  const sectionKindKeysByPluginId: Record<string, string[]> = {};
+  for (const [sectionKindKey, sectionKind] of Object.entries(
+    sectionKindsByKey,
+  )) {
+    const existingKeys = sectionKindKeysByPluginId[sectionKind.pluginId] ?? [];
+    existingKeys.push(sectionKindKey);
+    sectionKindKeysByPluginId[sectionKind.pluginId] = existingKeys;
+  }
+  return sectionKindKeysByPluginId;
+}
+
 function mergePluginRegistryFromState(
   state: PluginRuntimeStore,
   pluginId: string,
+  sectionKindKeysByPluginId: Record<string, string[]>,
   target: PluginRegistryAccumulator,
 ): void {
-  for (const [sectionKindKey, sectionKind] of Object.entries(
-    state.sectionKindsByKey,
-  )) {
-    if (sectionKind.pluginId !== pluginId) {
+  const sectionKindKeys = sectionKindKeysByPluginId[pluginId] ?? [];
+  for (const sectionKindKey of sectionKindKeys) {
+    const sectionKind = state.sectionKindsByKey[sectionKindKey];
+    if (!sectionKind) {
       continue;
     }
     target.sectionKinds[sectionKindKey] = sectionKind;
@@ -815,7 +832,7 @@ function toProjectStateReadValue(
   rawValue: unknown,
 ): unknown {
   if (selector.kind !== "sections") {
-    return structuredClone(rawValue);
+    return cloneProjectStateSnapshot(rawValue);
   }
   return toProjectStateSectionSnapshot(selector.sectionIds, rawValue);
 }
@@ -828,7 +845,7 @@ function toProjectStateSubscriptionValue(
     if (rawValue === undefined) {
       return null;
     }
-    return structuredClone(rawValue);
+    return cloneProjectStateSnapshot(rawValue);
   }
   return toProjectStateSectionSnapshot(selector.sectionIds, rawValue);
 }
@@ -844,9 +861,39 @@ function toProjectStateSectionSnapshot(
   for (let index = 0; index < sectionIds.length; index += 1) {
     const sectionId = sectionIds[index];
     const value = rawValue[index] ?? null;
-    snapshot[sectionId] = value === null ? null : structuredClone(value);
+    snapshot[sectionId] = cloneProjectStateSnapshot(value);
   }
   return snapshot;
+}
+
+function cloneProjectStateSnapshot(rawValue: unknown): unknown {
+  if (rawValue === null || rawValue === undefined) {
+    return rawValue;
+  }
+  if (Array.isArray(rawValue)) {
+    let hasOnlyScalars = true;
+    for (const item of rawValue) {
+      if (!isScalarProjectStateValue(item)) {
+        hasOnlyScalars = false;
+        break;
+      }
+    }
+    if (hasOnlyScalars) {
+      return rawValue.slice();
+    }
+  }
+  if (typeof rawValue !== "object") {
+    return rawValue;
+  }
+  return structuredClone(rawValue);
+}
+
+function isScalarProjectStateValue(value: unknown): boolean {
+  if (value === null) {
+    return true;
+  }
+  const valueType = typeof value;
+  return valueType !== "object" && valueType !== "function";
 }
 
 function toLiteralRealtimePayload(value: unknown): string {
@@ -2022,23 +2069,9 @@ export function resetPluginRuntimeStoreForTests(): void {
   });
 }
 
-export function getPluginSectionKindsForCreateMenu(): Array<{
-  pluginId: string;
-  kind: string;
-  title: string;
-  initialData: Record<string, unknown>;
-}> {
-  const sectionKinds = usePluginRuntimeStore.getState().sectionKindsByKey;
-  const values = Object.values(sectionKinds).map((sectionKind) => ({
-    pluginId: sectionKind.pluginId,
-    kind: sectionKind.kind,
-    title: sectionKind.title,
-    initialData: sectionKind.initialData ?? EMPTY_RECORD,
-  }));
-  return values.sort((a, b) => a.title.localeCompare(b.title));
-}
-
 export const pluginRuntimeTestApi = {
+  cloneProjectStateSnapshot,
+  indexSectionKindKeysByPluginId,
   loadPluginFrontendModule,
   normalizePluginPath,
   runWithConcurrencyLimit,

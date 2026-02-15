@@ -403,8 +403,6 @@ export const RouteEnum = {
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   GET_SERVER_MODE: "/serverMode",
   GET_SETTA_HOME_INFO: "/settaHomeInfo",
-  PLUGINS_LIST: "/plugins/list",
-  PLUGINS_STATUS: "/plugins/status",
   PLUGINS_RUNTIME: "/plugins/runtime",
   PLUGINS_INSTALL: "/plugins/install",
   PLUGINS_UNINSTALL: "/plugins/uninstall",

@@ -103,6 +103,32 @@ def test_playwright_fixture_selection_honors_plugin_grep_selector(
     )
 
 
+def test_playwright_fixture_selection_honors_plugin_grep_selector_case_insensitive(
+    tmp_path: Path,
+) -> None:
+    # Grep selectors should detect plugin intent regardless of case.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+
+    assert _should_build_for_targets(
+        sandbox_root,
+        "playwright",
+        ["--grep", "Plugin Pane Flow"],
+    )
+
+
+def test_playwright_fixture_selection_builds_for_grep_filtered_targets_by_default(
+    tmp_path: Path,
+) -> None:
+    # Grep-filtered runs should stay conservative because selector text may hide plugin intent.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+
+    assert _should_build_for_targets(
+        sandbox_root,
+        "playwright",
+        ["--grep", "workspace", "frontend/tests/e2e/editor"],
+    )
+
+
 def test_pytest_fixture_selection_skips_non_plugin_selector_with_target(
     tmp_path: Path,
 ) -> None:

@@ -638,101 +638,117 @@ class PluginManager:
             )
         return list_entries
 
-    def get_list_response(self) -> PluginListResponse:
-        plugins_state = self._load_plugins_state()
-        redact_source_details = self._should_redact_source_details()
-        redact_config_details = self._should_redact_config_details()
-        active_entries = sorted(
+    def _sorted_active_entries(self) -> list[DiscoveredPlugin]:
+        return sorted(
             self._active_plugin_by_id.values(), key=lambda item: item.plugin_id
         )
+
+    def _sorted_discovered_entries(self) -> list[DiscoveredPlugin]:
+        return sorted(
+            self._discovered_plugins,
+            key=lambda entry: (
+                entry.plugin_id,
+                _SCOPE_ORDER[entry.scope],
+                _SOURCE_MANAGER_ORDER[entry.source_manager],
+                str(entry.source_path),
+            ),
+        )
+
+    def _build_plugin_list_response(
+        self,
+        *,
+        entries: list[DiscoveredPlugin],
+        plugins_state: PluginsStateFile,
+        restart_capability: PluginRestartCapability,
+        redact_source_details: bool,
+        redact_config_details: bool,
+    ) -> PluginListResponse:
         plugins = self._build_list_entries(
-            entries=active_entries,
+            entries=entries,
             plugins_state=plugins_state,
             redact_source_details=redact_source_details,
             redact_config_details=redact_config_details,
         )
         return PluginListResponse(
             serverMode=self.server_mode,
-            restartCapability=self.get_restart_capability(),
+            restartCapability=restart_capability,
             plugins=plugins,
         )
 
-    def get_status_response(self) -> PluginStatusResponse:
-        ordered = sorted(
-            self._discovered_plugins,
-            key=lambda entry: (
-                entry.plugin_id,
-                _SCOPE_ORDER[entry.scope],
-                _SOURCE_MANAGER_ORDER[entry.source_manager],
-                str(entry.source_path),
-            ),
-        )
-        redact_source_details = self._should_redact_source_details()
-        redacted_source_path_by_path: dict[Path, str] = {}
-        if redact_source_details:
-            redacted_source_path_by_path = self._build_redacted_source_path_map(ordered)
+    def _build_plugin_status_response(
+        self,
+        *,
+        entries: list[DiscoveredPlugin],
+        restart_capability: PluginRestartCapability,
+        redact_source_details: bool,
+        redacted_source_path_by_path: dict[Path, str],
+    ) -> PluginStatusResponse:
         return PluginStatusResponse(
             serverMode=self.server_mode,
-            restartCapability=self.get_restart_capability(),
+            restartCapability=restart_capability,
             plugins=[
                 self._build_status_entry(
                     entry=entry,
                     redact_source_details=redact_source_details,
                     redacted_source_path_by_path=redacted_source_path_by_path,
                 )
-                for entry in ordered
+                for entry in entries
             ],
         )
 
-    def get_runtime_response(self) -> PluginRuntimeResponse:
-        plugins_state = self._load_plugins_state()
-        active_entries = sorted(
-            self._active_plugin_by_id.values(), key=lambda item: item.plugin_id
-        )
-        ordered_entries = sorted(
-            self._discovered_plugins,
-            key=lambda entry: (
-                entry.plugin_id,
-                _SCOPE_ORDER[entry.scope],
-                _SOURCE_MANAGER_ORDER[entry.source_manager],
-                str(entry.source_path),
-            ),
-        )
+    @_mutation_locked
+    def get_list_response(self) -> PluginListResponse:
         restart_capability = self.get_restart_capability()
+        return self._build_plugin_list_response(
+            entries=self._sorted_active_entries(),
+            plugins_state=self._load_plugins_state(),
+            restart_capability=restart_capability,
+            redact_source_details=self._should_redact_source_details(),
+            redact_config_details=self._should_redact_config_details(),
+        )
+
+    @_mutation_locked
+    def get_status_response(self) -> PluginStatusResponse:
+        ordered_entries = self._sorted_discovered_entries()
         redact_source_details = self._should_redact_source_details()
-        redact_config_details = self._should_redact_config_details()
         redacted_source_path_by_path: dict[Path, str] = {}
         if redact_source_details:
             redacted_source_path_by_path = self._build_redacted_source_path_map(
                 ordered_entries
             )
-
-        list_plugins = self._build_list_entries(
-            entries=active_entries,
-            plugins_state=plugins_state,
+        return self._build_plugin_status_response(
+            entries=ordered_entries,
+            restart_capability=self.get_restart_capability(),
             redact_source_details=redact_source_details,
-            redact_config_details=redact_config_details,
+            redacted_source_path_by_path=redacted_source_path_by_path,
         )
 
-        status_plugins = [
-            self._build_status_entry(
-                entry=entry,
+    @_mutation_locked
+    def get_runtime_response(self) -> PluginRuntimeResponse:
+        restart_capability = self.get_restart_capability()
+        redact_source_details = self._should_redact_source_details()
+        redact_config_details = self._should_redact_config_details()
+        active_entries = self._sorted_active_entries()
+        ordered_entries = self._sorted_discovered_entries()
+        redacted_source_path_by_path: dict[Path, str] = {}
+        if redact_source_details:
+            redacted_source_path_by_path = self._build_redacted_source_path_map(
+                ordered_entries
+            )
+        plugins_state = self._load_plugins_state()
+        return PluginRuntimeResponse(
+            list=self._build_plugin_list_response(
+                entries=active_entries,
+                plugins_state=plugins_state,
+                restart_capability=restart_capability,
+                redact_source_details=redact_source_details,
+                redact_config_details=redact_config_details,
+            ),
+            status=self._build_plugin_status_response(
+                entries=ordered_entries,
+                restart_capability=restart_capability,
                 redact_source_details=redact_source_details,
                 redacted_source_path_by_path=redacted_source_path_by_path,
-            )
-            for entry in ordered_entries
-        ]
-
-        return PluginRuntimeResponse(
-            list=PluginListResponse(
-                serverMode=self.server_mode,
-                restartCapability=restart_capability,
-                plugins=list_plugins,
-            ),
-            status=PluginStatusResponse(
-                serverMode=self.server_mode,
-                restartCapability=restart_capability,
-                plugins=status_plugins,
             ),
         )
 
