@@ -7,8 +7,9 @@ import {
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { CodeLanguage } from "utils/codeLanguage";
+import { CodeLanguage, resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { res200 } from "utils/endpointUtils";
+import { resolveFileDropSectionKind } from "utils/fileDropSectionKind";
 import {
   route_create_top_level_section,
   route_set_section_name,
@@ -44,17 +45,22 @@ type CreateTopLevelSectionArgs = {
   position?: Position | null;
 };
 
+type CreateTopLevelSectionResult = {
+  sectionId: string;
+  metaControlParamId: string | null;
+};
+
 type SmartPlacementContext = {
   topLevelSections: Record<string, TopLevelSectionLayout>;
   viewportBounds: ViewportBounds | null;
 };
 
-export async function createTopLevelSection({
+export async function createTopLevelSectionWithResult({
   implType,
   implOverrides,
   controlCodeObjType = null,
   position = null,
-}: CreateTopLevelSectionArgs) {
+}: CreateTopLevelSectionArgs): Promise<CreateTopLevelSectionResult | null> {
   if (useShareSession.getState().isDeploymentMode) {
     return null;
   }
@@ -76,7 +82,7 @@ export async function createTopLevelSection({
   if (!res200(res)) {
     return null;
   }
-  const { sectionId, panTo } = res.data;
+  const { sectionId, panTo, metaControlParamId } = res.data;
   if (panTo) {
     const currentZoom = useReactFlow.getState().transform[2];
     setCenter(panTo.x, panTo.y, { zoom: currentZoom, duration: 200 });
@@ -89,7 +95,28 @@ export async function createTopLevelSection({
   ) {
     focusOnSectionTextInput(sectionId);
   }
-  return sectionId;
+  return {
+    sectionId,
+    metaControlParamId: metaControlParamId ?? null,
+  };
+}
+
+export async function createTopLevelSection({
+  implType,
+  implOverrides,
+  controlCodeObjType = null,
+  position = null,
+}: CreateTopLevelSectionArgs): Promise<string | null> {
+  const created = await createTopLevelSectionWithResult({
+    implType,
+    implOverrides,
+    controlCodeObjType,
+    position,
+  });
+  if (!created) {
+    return null;
+  }
+  return created.sectionId;
 }
 
 function ensureSectionOnTop(sectionId: string, attempt = 0) {
@@ -194,6 +221,8 @@ type OpenFileInCodeSectionArgs = {
   filePath: string;
   fileName: string;
   codeLanguage: CodeLanguage;
+  position?: Position | null;
+  focusOnSection?: boolean;
 };
 
 function normalizeSectionNameCandidate(value: string): string {
@@ -233,6 +262,8 @@ export async function openFileInCodeSection({
   filePath,
   fileName,
   codeLanguage,
+  position = null,
+  focusOnSection = true,
 }: OpenFileInCodeSectionArgs) {
   if (useShareSession.getState().isDeploymentMode) {
     return null;
@@ -248,7 +279,9 @@ export async function openFileInCodeSection({
       continue;
     }
     if (binding.canonical_path === filePath) {
-      goToSection(sectionId);
+      if (focusOnSection) {
+        goToSection(sectionId);
+      }
       return sectionId;
     }
   }
@@ -262,7 +295,7 @@ export async function openFileInCodeSection({
         access_mode: CodeFileAccessModeEnum.read_write,
       },
     },
-    position: null,
+    position,
   });
   if (!newSectionId) {
     return null;
@@ -272,7 +305,9 @@ export async function openFileInCodeSection({
     sectionId: newSectionId,
     name: getValidSectionNameForOpenedFile(fileName),
   });
-  goToSection(newSectionId);
+  if (focusOnSection) {
+    goToSection(newSectionId);
+  }
   return newSectionId;
 }
 
@@ -281,6 +316,8 @@ type OpenFileInTextSectionArgs = {
   text: string;
   format: TextBlockFormatEnum;
   textDisplayMode: TextBlockDisplayModeEnum;
+  position?: Position | null;
+  focusOnSection?: boolean;
 };
 
 export async function openFileInTextSection({
@@ -288,6 +325,8 @@ export async function openFileInTextSection({
   text,
   format,
   textDisplayMode,
+  position = null,
+  focusOnSection = true,
 }: OpenFileInTextSectionArgs) {
   if (useShareSession.getState().isDeploymentMode) {
     return null;
@@ -300,7 +339,7 @@ export async function openFileInTextSection({
       textDisplayMode,
       text,
     },
-    position: null,
+    position,
   });
   if (!newSectionId) {
     return null;
@@ -310,18 +349,24 @@ export async function openFileInTextSection({
     sectionId: newSectionId,
     name: getValidSectionNameForOpenedFile(fileName),
   });
-  goToSection(newSectionId);
+  if (focusOnSection) {
+    goToSection(newSectionId);
+  }
   return newSectionId;
 }
 
 type OpenFileInImageSectionArgs = {
   filePath: string;
   fileName: string;
+  position?: Position | null;
+  focusOnSection?: boolean;
 };
 
 export async function openFileInImageSection({
   filePath,
   fileName,
+  position = null,
+  focusOnSection = true,
 }: OpenFileInImageSectionArgs) {
   if (useShareSession.getState().isDeploymentMode) {
     return null;
@@ -333,7 +378,9 @@ export async function openFileInImageSection({
       continue;
     }
     if (impl.imagePath === filePath) {
-      goToSection(sectionId);
+      if (focusOnSection) {
+        goToSection(sectionId);
+      }
       return sectionId;
     }
   }
@@ -344,7 +391,7 @@ export async function openFileInImageSection({
       type: SectionTypeEnum.Image,
       imagePath: filePath,
     },
-    position: null,
+    position,
   });
   if (!newSectionId) {
     return null;
@@ -354,8 +401,115 @@ export async function openFileInImageSection({
     sectionId: newSectionId,
     name: getValidSectionNameForOpenedFile(fileName),
   });
-  goToSection(newSectionId);
+  if (focusOnSection) {
+    goToSection(newSectionId);
+  }
   return newSectionId;
+}
+
+type OpenFileInSpreadsheetSectionArgs = {
+  filePath: string;
+  fileName: string;
+  position?: Position | null;
+  focusOnSection?: boolean;
+};
+
+export async function openFileInSpreadsheetSection({
+  filePath,
+  fileName,
+  position = null,
+  focusOnSection = true,
+}: OpenFileInSpreadsheetSectionArgs) {
+  if (useShareSession.getState().isDeploymentMode) {
+    return null;
+  }
+  const projectState = useProjectState.getState();
+  const normalizedPath = filePath.trim();
+  for (const sectionId of Object.keys(projectState.sections)) {
+    const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
+    if (impl.type !== SectionTypeEnum.Spreadsheet) {
+      continue;
+    }
+    if (impl.filePath.trim() === normalizedPath) {
+      if (focusOnSection) {
+        goToSection(sectionId);
+      }
+      return sectionId;
+    }
+  }
+
+  const newSectionId = await createTopLevelSection({
+    implType: SectionTypeEnum.Spreadsheet,
+    implOverrides: {
+      type: SectionTypeEnum.Spreadsheet,
+      filePath: normalizedPath,
+      activeSheet: null,
+    },
+    position,
+  });
+  if (!newSectionId) {
+    return null;
+  }
+  await route_set_section_name({
+    projectConfigId: getCurrProjectConfigId(),
+    sectionId: newSectionId,
+    name: getValidSectionNameForOpenedFile(fileName),
+  });
+  if (focusOnSection) {
+    goToSection(newSectionId);
+  }
+  return newSectionId;
+}
+
+type OpenFileAsSectionResult =
+  | { status: "opened"; sectionId: string }
+  | { status: "unsupported_binary" }
+  | { status: "failed" };
+
+export async function openFileAsSectionForDrop({
+  filePath,
+  fileName,
+  position,
+  focusOnSection = true,
+}: {
+  filePath: string;
+  fileName: string;
+  position: Position | null;
+  focusOnSection?: boolean;
+}): Promise<OpenFileAsSectionResult> {
+  const kind = resolveFileDropSectionKind({ fileName, filePath });
+
+  if (kind === "unsupported_binary") {
+    return { status: "unsupported_binary" };
+  }
+
+  const sectionId =
+    kind === "spreadsheet"
+      ? await openFileInSpreadsheetSection({
+          filePath,
+          fileName,
+          position,
+          focusOnSection,
+        })
+      : kind === "image"
+        ? await openFileInImageSection({
+            filePath,
+            fileName,
+            position,
+            focusOnSection,
+          })
+        : await openFileInCodeSection({
+            filePath,
+            fileName,
+            codeLanguage: resolveCodeLanguageFromPath(filePath),
+            position,
+            focusOnSection,
+          });
+
+  if (!sectionId) {
+    return { status: "failed" };
+  }
+  return { status: "opened", sectionId };
 }
 
 function resolveTextBlockImplOverrides(

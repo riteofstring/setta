@@ -136,6 +136,14 @@ class PythonValueCodec:
                 return self.format_dict(node.deps)
             case SectionType.MetaControl:
                 return self._format_meta_control_section(node)
+            case SectionType.TaskBoard | SectionType.Spreadsheet:
+                if not node.value:
+                    return "None"
+                if node.value.type is not DependencyValueType.Literal:
+                    raise ValueError(
+                        f"{section_type} section {node.full_path_name} expected literal payload."
+                    )
+                return node.value.payload
             case SectionType.TextBlock:
                 if node.value:
                     return repr(node.value.payload)
@@ -310,6 +318,8 @@ class PythonValueCodec:
 
         if param_type in (
             CodeObjType.TextParam,
+            CodeObjType.DateParam,
+            CodeObjType.TimeParam,
             CodeObjType.TextAreaParam,
             CodeObjType.PasswordParam,
         ):

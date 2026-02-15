@@ -16,14 +16,12 @@ vi.mock("utils/generatedEndpoints", async () => {
   >("utils/generatedEndpoints");
   return {
     ...actual,
-    route_get_agent_runs: vi.fn(),
     route_get_llm_api_keys: vi.fn(),
     route_get_llm_config: vi.fn(),
   };
 });
 
 let useAIStore: typeof import("state/definitions").useAIStore;
-let loadAgentRuns: typeof import("state/actions/ai").loadAgentRuns;
 let loadLLMApiKeys: typeof import("state/actions/ai").loadLLMApiKeys;
 let loadLLMConfig: typeof import("state/actions/ai").loadLLMConfig;
 let memoryStorage: Storage;
@@ -52,7 +50,6 @@ describe("AI resource load guards", () => {
     const definitions = await import("state/definitions");
     useAIStore = definitions.useAIStore;
     const ai = await import("state/actions/ai");
-    loadAgentRuns = ai.loadAgentRuns;
     loadLLMConfig = ai.loadLLMConfig;
     loadLLMApiKeys = ai.loadLLMApiKeys;
   });
@@ -139,33 +136,5 @@ describe("AI resource load guards", () => {
     const state = useAIStore.getState();
     expect(state.apiKeysInitialLoadComplete).toBe(true);
     expect(state.apiKeysLoadError).toBeNull();
-  });
-
-  it("deduplicates in-flight agent run loads", async () => {
-    let resolveRequest: ((value: unknown) => void) | null = null;
-    const requestGate = new Promise((resolve) => {
-      resolveRequest = resolve;
-    });
-    const route_get_agent_runs = (await import("utils/generatedEndpoints"))
-      .route_get_agent_runs as unknown as vi.Mock;
-    route_get_agent_runs.mockImplementation(async () => {
-      await requestGate;
-      return {
-        status: 200,
-        hasResponse: true,
-        data: [],
-      };
-    });
-
-    const firstLoad = loadAgentRuns();
-    const secondLoad = loadAgentRuns();
-    expect(route_get_agent_runs).toHaveBeenCalledTimes(1);
-
-    resolveRequest?.(undefined);
-    await Promise.all([firstLoad, secondLoad]);
-
-    const state = useAIStore.getState();
-    expect(state.agentRunsInitialLoadComplete).toBe(true);
-    expect(state.agentRunsLoadError).toBeNull();
   });
 });

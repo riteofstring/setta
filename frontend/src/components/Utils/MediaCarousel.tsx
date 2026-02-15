@@ -1,4 +1,5 @@
 import {
+  type DragEvent as ReactDragEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -36,6 +37,11 @@ type MediaCarouselProps<T = unknown> = {
   renderThumbnail?: (item: MediaCarouselItem<T>) => ReactNode;
   renderThumbnailOverlay?: (item: MediaCarouselItem<T>) => ReactNode;
   onThumbnailDoubleClick?: (item: MediaCarouselItem<T>) => void;
+  isThumbnailDraggable?: (item: MediaCarouselItem<T>) => boolean;
+  onThumbnailDragStart?: (
+    item: MediaCarouselItem<T>,
+    event: ReactDragEvent<HTMLButtonElement>,
+  ) => void;
   showThumbnailLabels?: boolean;
   thumbnailSize?: number;
   showNavButtons?: boolean;
@@ -67,6 +73,8 @@ export function MediaCarousel<T>({
   renderThumbnail,
   renderThumbnailOverlay,
   onThumbnailDoubleClick,
+  isThumbnailDraggable,
+  onThumbnailDragStart,
   showThumbnailLabels = true,
   thumbnailSize = DEFAULT_THUMBNAIL_SIZE,
   showNavButtons = false,
@@ -365,8 +373,8 @@ export function MediaCarousel<T>({
   const thumbnailRowClasses = [
     // `px-2` prevents selected thumbnails (scale + shadow) from being clipped.
     thumbnailRowResizable
-      ? "setta-media-carousel-thumbnail-row flex items-start shrink-0 gap-2 overflow-x-auto overflow-y-hidden px-2 py-2"
-      : "setta-media-carousel-thumbnail-row flex items-start shrink-0 gap-2 overflow-x-auto overflow-y-hidden px-2 pb-4 pt-[4px]",
+      ? "setta-media-carousel-thumbnail-row flex items-start shrink-0 gap-2 overflow-x-scroll overflow-y-hidden px-2 py-2 [scrollbar-gutter:stable]"
+      : "setta-media-carousel-thumbnail-row flex items-start shrink-0 gap-2 overflow-x-scroll overflow-y-hidden px-2 pb-4 pt-[4px] [scrollbar-gutter:stable]",
     NO_PAN_CLASS_NAME,
     // Keep wheel events from being intercepted by the canvas zoom handler.
     NO_WHEEL_CLASS_NAME,
@@ -520,14 +528,22 @@ export function MediaCarousel<T>({
             dotIndex > 0 && dotIndex < item.label.length - 1
               ? item.label.slice(dotIndex)
               : null;
+          const isDraggable = isThumbnailDraggable?.(item) === true;
           return (
             <button
               type="button"
               key={item.id}
               aria-label={item.label}
               title={item.label}
+              data-media-carousel-item-id={item.id}
               onClick={() => handleSelect(item.id)}
               onDoubleClick={() => onThumbnailDoubleClick?.(item)}
+              draggable={isDraggable}
+              onDragStart={
+                isDraggable && onThumbnailDragStart
+                  ? (event) => onThumbnailDragStart(item, event)
+                  : undefined
+              }
               {...(tooltipHandlers ?? {})}
               className={`group/thumbnail flex cursor-pointer flex-col items-center gap-1 bg-transparent p-0 text-left ${
                 isSelected ? "scale-105" : ""

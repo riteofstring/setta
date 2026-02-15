@@ -38,11 +38,15 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
-    ChatPermissionMode,
     ChatSectionState,
     CodeFileAccessMode,
+    ListRootViewMode,
     SectionSize,
     SectionType,
+    SpreadsheetGridDensity,
+    TaskBoardColumn,
+    TaskBoardTask,
+    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -361,6 +365,12 @@ class CreateTopLevelSectionRequest(ProjectManagerRequestWithProjectConfig):
 class CreateTopLevelSectionResponse(BaseModel):
     sectionId: ID = Field(
         description="Identifier for the newly created top-level section.",
+    )
+    metaControlParamId: ID | None = Field(
+        default=None,
+        description=(
+            "Meta control param identifier created with this section when applicable."
+        ),
     )
     panTo: Position | None = Field(
         default=None,
@@ -1014,6 +1024,10 @@ class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithSection):
     textDisplayMode: TextBlockDisplayMode
 
 
+class SetTextBlockMasterFontSizeRequest(ProjectManagerRequestWithSection):
+    masterFontSizePx: float
+
+
 class SetTextBlockHeadingAsSectionNameRequest(ProjectManagerRequestWithSection):
     """Request payload for toggling text block heading-as-title behavior."""
 
@@ -1063,13 +1077,37 @@ class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
     format: TextBlockFormat
 
 
+class SetParentDefaultChildSectionTypeRequest(ProjectManagerRequestWithSection):
+    defaultChildSectionType: SectionType
+
+
+class SetListRootViewModeRequest(ProjectManagerRequestWithSection):
+    viewMode: ListRootViewMode
+
+
+class SetTaskBoardSectionStateRequest(ProjectManagerRequestWithSection):
+    viewMode: TaskBoardViewMode
+    columns: list[TaskBoardColumn]
+    tasks: list[TaskBoardTask]
+
+
+class SetSpreadsheetFilePathRequest(ProjectManagerRequestWithSection):
+    filePath: str
+    activeSheet: str | None
+
+
+class SetSpreadsheetSectionSettingsRequest(ProjectManagerRequestWithSection):
+    readOnly: bool
+    showRowNumbers: bool
+    density: SpreadsheetGridDensity
+    autoReloadOnExternalChange: bool
+
+
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     managed: bool
     engineConfigId: ID | None
     agentProfileId: ID | None
     thinking: bool
-    permissionMode: ChatPermissionMode
-    searchEnabled: bool
 
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):

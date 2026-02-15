@@ -63,7 +63,21 @@ async function parseResponse<T>(response: Response): Promise<T | undefined> {
   if (isJson) {
     return (await response.json()) as T;
   }
-  return (await response.text()) as T;
+  const isText =
+    contentType.startsWith("text/") || contentType.includes("charset=");
+  if (!contentType || isText) {
+    return (await response.text()) as T;
+  }
+  return new Uint8Array(await response.arrayBuffer()) as T;
+}
+
+async function parseBinaryResponse(
+  response: Response,
+): Promise<Uint8Array | undefined> {
+  if (response.status === 204) {
+    return undefined;
+  }
+  return new Uint8Array(await response.arrayBuffer());
 }
 
 export function replaceAddressParams(
@@ -93,6 +107,28 @@ export async function get<T>(
     });
     return {
       data: await parseResponse<T>(response),
+      status: response.status,
+      hasResponse: true,
+    };
+  } catch (error) {
+    console.error("GET error:", error);
+    return { data: undefined, status: undefined, hasResponse: false };
+  }
+}
+
+export async function getBinary(
+  address: string,
+  addressParams?: Record<string, string | number | boolean>,
+): Promise<ResponseDataAndStatus<Uint8Array>> {
+  const fullAddress = replaceAddressParams(address, addressParams);
+  try {
+    const shareHeaders = buildShareSessionHeaders();
+    const response = await fetch(resolveBackendUrl(fullAddress), {
+      credentials: "include",
+      headers: shareHeaders,
+    });
+    return {
+      data: await parseBinaryResponse(response),
       status: response.status,
       hasResponse: true,
     };
