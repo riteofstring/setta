@@ -12,7 +12,7 @@ from setta.code_gen.python.position_line_col import position_to_line_col
 from setta.code_gen.utils import GEN_CODE_INSTANCE_NAME
 from setta.code_gen.value_mode import PythonValueMode
 from setta.database.utils import create_new_id
-from setta.project_state.code import BashCode, Code, PythonCode
+from setta.project_state.code import BashCode, Code, LSPCode, PythonCode
 from setta.project_state.code_files import (
     GEN_CODE_SECTION_ID,
     GEN_CODE_VARIANT_ID,
@@ -64,14 +64,18 @@ from setta.types.helpers_lvl2 import (
 from setta.types.id import ID
 from setta.types.lsp import SettaProjectConfigDiagnostics
 from setta.types.project_config import get_python_codegen_target_with_type_guard
-from setta.types.project_state import CODE_LANGUAGE_EXTENSIONS, ProjectStateSingleConfig
+from setta.types.project_state import (
+    ProjectStateSingleConfig,
+    get_code_language_extension,
+)
 from setta.types.section_impls import (
     BaseSectionWithParamsImpl,
     CodeFileBinding,
-    CodeLanguage,
+    CodeLanguageKey,
     CodeSectionDiagnosticsIgnoreState,
     CodeSectionImpl,
     TypeErrorIgnoreState,
+    code_language_to_string,
 )
 from setta.utils.constants import C
 from setta.utils.utils import GEN_CODE_META_FILENAME
@@ -637,45 +641,56 @@ class ProjectGenPythonCode(PythonCode):
         return path
 
 
-class ProjectPythonCode(PythonCode):
-    def __init__(
-        self,
-        dbe,
-        code_files,
-        lsp_writers,
-        websocket_msg_handler,
-        diagnostics_state: ProjectLspDiagnosticsState,
-        project_state: ProjectStateSingleConfig,
-        sectionId,
-    ):
-        section_impl = get_curr_effective_section_impl(project_state, sectionId)
-        if not isinstance(section_impl, CodeSectionImpl):
-            raise TypeError
-        binding = section_impl.codeFileBinding
-        if binding is None:
-            raise ValueError("Code section missing codeFileBinding")
-        super().__init__(dbe, code_files, binding, lsp_writers, websocket_msg_handler)
-        self.sectionId = sectionId
-        self.code = section_impl.code
-        self.diagnostics_ignore_state = section_impl.diagnosticsIgnoreState.model_copy(
-            deep=True
+def _resolve_project_lsp_section(
+    project_state: ProjectStateSingleConfig,
+    sectionId: ID,
+    *,
+    code_language: CodeLanguageKey | None = None,
+) -> tuple[CodeSectionImpl, CodeFileBinding, ID]:
+    section_impl = get_curr_effective_section_impl(project_state, sectionId)
+    if not isinstance(section_impl, CodeSectionImpl):
+        raise TypeError
+    if code_language is not None and section_impl.codeLanguage != code_language:
+        raise ValueError(
+            "Code section language mismatch: "
+            f"expected {code_language_to_string(code_language)}, got {code_language_to_string(section_impl.codeLanguage)}"
         )
-        self.diagnostics_state = diagnostics_state
-        project_config = project_state.projectConfig
-        variant_id = project_config.sectionVariantMap.get(sectionId)
-        if variant_id is None:
-            raise ValueError(
-                f"Missing variant mapping for section {sectionId} in project config {project_config.id}"
-            )
-        code_files.register_binding(
-            binding.canonical_path,
-            RegisteredCodeFileBinding(
-                section_id=sectionId,
-                variant_id=variant_id,
-                project_config_id=project_config.id,
-                access_mode=binding.access_mode,
-            ),
+    binding = section_impl.codeFileBinding
+    if binding is None:
+        raise ValueError("Code section missing codeFileBinding")
+    project_config = project_state.projectConfig
+    variant_id = project_config.sectionVariantMap.get(sectionId)
+    if variant_id is None:
+        raise ValueError(
+            f"Missing variant mapping for section {sectionId} in project config {project_config.id}"
         )
+    return section_impl, binding, variant_id
+
+
+def _register_project_section_binding(
+    *,
+    code_files,
+    binding: CodeFileBinding,
+    sectionId: ID,
+    variant_id: ID,
+    project_config_id: ID,
+) -> None:
+    code_files.register_binding(
+        binding.canonical_path,
+        RegisteredCodeFileBinding(
+            section_id=sectionId,
+            variant_id=variant_id,
+            project_config_id=project_config_id,
+            access_mode=binding.access_mode,
+        ),
+    )
+
+
+class _ProjectLspSectionMixin:
+    sectionId: ID
+    code: str
+    diagnostics_ignore_state: CodeSectionDiagnosticsIgnoreState
+    diagnostics_state: ProjectLspDiagnosticsState
 
     async def handle_external_reload(self, new_code: str) -> None:
         await super().handle_external_reload(new_code)
@@ -724,6 +739,83 @@ class ProjectPythonCode(PythonCode):
         return super().write_to_folder(self.code, folder)
 
 
+class ProjectPythonCode(_ProjectLspSectionMixin, PythonCode):
+    def __init__(
+        self,
+        dbe,
+        code_files,
+        lsp_writers,
+        websocket_msg_handler,
+        diagnostics_state: ProjectLspDiagnosticsState,
+        project_state: ProjectStateSingleConfig,
+        sectionId,
+    ):
+        section_impl, binding, variant_id = _resolve_project_lsp_section(
+            project_state,
+            sectionId,
+        )
+        super().__init__(dbe, code_files, binding, lsp_writers, websocket_msg_handler)
+        self.sectionId = sectionId
+        self.code = section_impl.code
+        self.diagnostics_ignore_state = section_impl.diagnosticsIgnoreState.model_copy(
+            deep=True
+        )
+        self.diagnostics_state = diagnostics_state
+        _register_project_section_binding(
+            code_files=code_files,
+            binding=binding,
+            sectionId=sectionId,
+            variant_id=variant_id,
+            project_config_id=project_state.projectConfig.id,
+        )
+
+
+class ProjectLSPCode(_ProjectLspSectionMixin, LSPCode):
+    def __init__(
+        self,
+        dbe,
+        code_files,
+        lsp_writers,
+        websocket_msg_handler,
+        diagnostics_state: ProjectLspDiagnosticsState,
+        project_state: ProjectStateSingleConfig,
+        sectionId,
+        *,
+        code_language: CodeLanguageKey,
+    ):
+        section_impl, binding, variant_id = _resolve_project_lsp_section(
+            project_state,
+            sectionId,
+            code_language=code_language,
+        )
+        super().__init__(
+            dbe,
+            code_files,
+            binding,
+            lsp_writers,
+            websocket_msg_handler,
+            language=code_language,
+        )
+        self.sectionId = sectionId
+        self.code = section_impl.code
+        self.diagnostics_ignore_state = section_impl.diagnosticsIgnoreState.model_copy(
+            deep=True
+        )
+        self.diagnostics_state = diagnostics_state
+        _register_project_section_binding(
+            code_files=code_files,
+            binding=binding,
+            sectionId=sectionId,
+            variant_id=variant_id,
+            project_config_id=project_state.projectConfig.id,
+        )
+
+    def get_run_command(self, path: Path):
+        raise ValueError(
+            f"Run is not supported for language {self.language} (path={path})"
+        )
+
+
 class ProjectBashCode(BashCode):
     def __init__(
         self,
@@ -768,7 +860,7 @@ class ProjectBasicCode(Code):
         code_files,
         project_state: ProjectStateSingleConfig,
         sectionId,
-        code_language: CodeLanguage,
+        code_language: CodeLanguageKey,
     ):
         section_impl = get_curr_effective_section_impl(project_state, sectionId)
         if not isinstance(section_impl, CodeSectionImpl):
@@ -797,7 +889,7 @@ class ProjectBasicCode(Code):
         )
 
     def get_extension(self):
-        return CODE_LANGUAGE_EXTENSIONS[self.code_language]
+        return get_code_language_extension(self.code_language)
 
     def get_run_command(self, path: Path):
         raise ValueError(

@@ -3,10 +3,12 @@
 This doc covers the commands exposed by the `setta` CLI (implemented in
 `backend/setta/start.py`). Local commands operate on a workspace root (code
 operations) and a `setta_files` root (state/runtime). By default both roots
-follow the current working directory, but you can override the workspace root
-with `--workspace` and control where `setta_files` resolves via
-`--setta-files-location` / `SETTA_FILES_LOCATION` and `<setta_home>/config.json`
-(see `docs/reference/setta-files.md`).
+follow the current working directory and the default Setta home, but you can
+override runtime identity and roots with:
+`--workspace`, `--profile`, `--setta-home`, `--setta-files-root`,
+`--setta-files-location`, and `--runtime-root` (or matching env vars).
+`setta_files` resolution still follows local/global rules from
+`docs/reference/setta-files.md`.
 
 Deployment commands (`setta share`, `setta app`) serve published deployment
 snapshots. With `--deployment-name`, deployments are resolved under
@@ -38,6 +40,32 @@ another host.
 | `setta stop` | yes | yes | Remote stop requires an SSH target. |
 | `setta connect` | no | yes | SSH helper for remote sessions. |
 
+## Global runtime path flags
+
+These options can be passed before subcommands (for example,
+`setta --profile dev status --connect-info`):
+
+- `--workspace PATH` selects the workspace root.
+- `--profile NAME` selects `<setta_home>/profiles/<NAME>.json`.
+- `--setta-home PATH` overrides runtime Setta home.
+- `--setta-files-root PATH` forces a specific state root.
+- `--setta-files-location {auto,local,global}` requests local/global resolution mode.
+- `--runtime-root PATH` overrides runtime root (sessions/logs/secrets).
+
+Rules:
+
+- `--setta-files-root` conflicts with `--setta-files-location`.
+- Canonical naming constraints apply to resolved roots (see `docs/reference/setta-files.md`).
+
+Env equivalents:
+
+- `SETTA_WORKSPACE_ROOT`
+- `SETTA_PROFILE`
+- `SETTA_HOME`
+- `SETTA_FILES_ROOT`
+- `SETTA_FILES_LOCATION`
+- `SETTA_RUNTIME_ROOT`
+
 ## `setta` (start the server)
 
 Starts the backend server in the current workspace, creates a session entry,
@@ -49,11 +77,16 @@ Options:
 - `--port` sets the bind port (random if omitted).
 - `--log-level` overrides logging (`critical`, `error`, `warning`, `info`, `debug`).
 - `--no-open` skips auto-opening the browser.
-- `--workspace PATH` sets the workspace root (code operations).
-- `--setta-files-location {auto,local,global}` controls where `setta_files` is
-  resolved (see `docs/reference/setta-files.md`).
+- `--workspace PATH` sets the workspace root.
+- `--profile NAME` selects a runtime profile.
+- `--setta-home PATH` overrides Setta home.
+- `--setta-files-root PATH` forces an explicit `setta_files` root.
+- `--setta-files-location {auto,local,global}` controls local/global resolution
+  mode when no explicit root is set.
+- `--runtime-root PATH` overrides runtime root.
 Env equivalents:
-`SETTA_WORKSPACE_ROOT`, `SETTA_HOME`, and `SETTA_FILES_LOCATION`.
+`SETTA_WORKSPACE_ROOT`, `SETTA_PROFILE`, `SETTA_HOME`, `SETTA_FILES_ROOT`,
+`SETTA_FILES_LOCATION`, and `SETTA_RUNTIME_ROOT`.
 
 Examples:
 ```sh
@@ -75,7 +108,9 @@ Options:
   - `--version vN` or `--latest`.
 - `--reload` is rejected in deployment mode.
 - Global options are shared with `setta`: `--host`, `--port`, `--log-level`,
-  `--no-open`.
+  `--no-open`, plus runtime path flags (`--workspace`, `--profile`,
+  `--setta-home`, `--setta-files-root`, `--setta-files-location`,
+  `--runtime-root`).
 
 Examples:
 ```sh
@@ -97,7 +132,9 @@ Options:
   - `--version vN` or `--latest`.
 - `--reload` is rejected in deployment mode.
 - Global options are shared with `setta`: `--host`, `--port`, `--log-level`,
-  `--no-open`.
+  `--no-open`, plus runtime path flags (`--workspace`, `--profile`,
+  `--setta-home`, `--setta-files-root`, `--setta-files-location`,
+  `--runtime-root`).
 
 Examples:
 ```sh
@@ -250,10 +287,17 @@ frontend can consume. This command requires `--json`.
 
 Options:
 - `--workspace PATH` sets the workspace root (required for detached workspaces).
-- `--setta-files-location {auto,local,global}` controls where `setta_files` is
-  resolved (see `docs/reference/setta-files.md`).
+- `--profile NAME` selects a runtime profile.
+- `--setta-home PATH` overrides Setta home.
+- `--setta-files-root PATH` forces an explicit `setta_files` root.
+- `--setta-files-location {auto,local,global}` requests local/global resolution
+  mode when no explicit root is set.
+- `--runtime-root PATH` overrides runtime root.
 - `--timeout SECONDS` overrides the default launch timeout (30s).
 - `--json` emits strict JSON only (required).
+
+You can pass these path flags globally (`setta --profile dev launch --json ...`)
+or on the `launch` subcommand itself. If both are provided, values must match.
 
 Success payload:
 ```json
@@ -262,6 +306,10 @@ Success payload:
   "bootstrapUrlFragment": "http://127.0.0.1:8000/__setta__/bootstrap#token=...",
   "workspaceRoot": "/path/to/workspace",
   "settaFilesLocation": "local",
+  "settaFilesRoot": "/path/to/workspace/setta_files",
+  "runtimeRoot": "/path/to/workspace/setta_files/runtime",
+  "settaHome": "/Users/example/.setta",
+  "profile": null,
   "sessionId": "...",
   "startedNew": true,
   "session": {
@@ -363,16 +411,17 @@ Remote stop:
   `setta stop user@host --workspace /path` (or `-w`).
 - Use `--ssh-args` to pass extra SSH options.
 - Use `--remote-cmd` to override how `setta` is invoked remotely.
-- To control whether the remote host uses local or global state, pass
-  `--setta-files-location {auto,local,global}` before the subcommand. The global
-  base directory is controlled by the remote host's `<setta_home>/config.json`
-  (see `docs/reference/setta-files.md`).
+- To control remote runtime roots/identity, pass global path flags before
+  `stop` (for example: `--profile`, `--setta-home`, `--setta-files-root`,
+  `--setta-files-location`, `--runtime-root`). These are forwarded to remote
+  `setta` calls.
 
 Examples:
 ```sh
 setta stop -w /path/to/project --latest
 setta stop user@host -w /path/to/project --all
 setta --setta-files-location global stop user@host -w '~/work/project' --latest
+setta --profile dev --setta-home '~/.setta-development' stop user@host -w '~/work/project' --latest
 ```
 
 ## `setta connect`
@@ -392,9 +441,9 @@ Options:
 - `--latest` selects the newest session.
 - `--ssh-args` passes extra SSH options.
 - `--remote-cmd` overrides the remote Setta command.
-- To control whether the remote host uses local or global state, pass
-  `--setta-files-location {auto,local,global}` before the subcommand (it is
-  forwarded to the remote `setta` invocation).
+- Remote root/identity options are passed globally before the subcommand:
+  `--profile`, `--setta-home`, `--setta-files-root`, `--setta-files-location`,
+  `--runtime-root` (all forwarded to remote `setta` calls).
 - `--local-port` pins the local tunnel port.
 - `--detach` backgrounds the tunnel process.
 - `--print-only` prints the tunnel command and URLs without running them.
@@ -407,5 +456,6 @@ setta connect user@host --workspace /path/to/project
 setta connect user@host --workspace /path/to/project --local-port 61000 --detach
 setta connect user@host --workspace /path/to/project --print-only
 setta --setta-files-location global connect user@host -w '~/work/project' --latest
+setta --profile dev --setta-files-root '~/state/setta_files_dev' connect user@host -w '~/work/project'
 setta c user@host -w /path/to/project
 ```
