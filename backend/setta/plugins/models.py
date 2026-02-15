@@ -214,7 +214,9 @@ class PluginConfigDescriptor(BaseModel):
 
     hasSchema: bool
     schemaJson: dict[str, Any] | None = None
+    schemaJsonDigestSha256: str | None = None
     currentConfig: dict[str, Any] = Field(default_factory=dict)
+    currentConfigDigestSha256: str | None = None
 
 
 class PluginListEntry(BaseModel):
@@ -275,6 +277,7 @@ class PluginStatusEntry(BaseModel):
     )
     enablementSource: PluginEnablementSource | None = None
     restartRequired: bool
+    runtimePayloadDigestSha256: str | None = None
     errors: list[PluginErrorInfo]
 
 

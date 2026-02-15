@@ -145,13 +145,7 @@ _plugin_fixture_path_has_plugin_hint() {
   if [[ "${normalized_path_lower}" == *"/plugin_"* ]]; then
     return 0
   fi
-  if [[ "${basename_only}" == test_plugin*.py ]]; then
-    return 0
-  fi
-  if [[ "${basename_only}" == plugin*.spec.ts ]]; then
-    return 0
-  fi
-  if [[ "${basename_only}" == plugin*.spec.tsx ]]; then
+  if [[ "${basename_only}" == *plugin*.py ]]; then
     return 0
   fi
   if [[ "${basename_only}" == *plugin*.spec.ts ]]; then
@@ -326,6 +320,9 @@ should_build_plugin_fixtures_for_targets() {
   fi
   if [[ "${has_positional_target}" == "0" ]]; then
     if [[ "${has_selector_filter}" == "1" ]]; then
+      if ! plugin_fixture_frontend_outputs_complete "${root_dir}"; then
+        return 0
+      fi
       return 1
     fi
     return 0

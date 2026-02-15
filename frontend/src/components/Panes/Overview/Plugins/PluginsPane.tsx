@@ -343,12 +343,18 @@ export function PluginsPane() {
   }
 
   async function onRescan() {
+    if (writeActionsLocked) {
+      return;
+    }
     await runAction("rescan", "Rescan plugins", async () =>
       route_plugins_rescan(),
     );
   }
 
   async function onRestart() {
+    if (writeActionsLocked) {
+      return;
+    }
     if (restartActionPlan.mode === "unavailable") {
       setActionStatus({
         type: "warning",
@@ -409,9 +415,9 @@ export function PluginsPane() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
+              className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
               onClick={onRescan}
-              disabled={isActionBusy("rescan")}
+              disabled={writeActionsLocked || isActionBusy("rescan")}
             >
               Rescan
             </button>
@@ -420,6 +426,7 @@ export function PluginsPane() {
               className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
               onClick={onRestart}
               disabled={
+                writeActionsLocked ||
                 isActionBusy("restart") ||
                 restartActionPlan.mode === "unavailable"
               }

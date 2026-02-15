@@ -1958,18 +1958,61 @@ function canReusePluginListEntry(
     return false;
   }
   if (
-    !hasSameJsonValue(
-      plugin.config.schemaJson,
-      previousEntry.config.schemaJson,
-    ) ||
-    !hasSameJsonValue(
-      plugin.config.currentConfig,
-      previousEntry.config.currentConfig,
-    )
+    !hasSameJsonValueWithDigest({
+      nextValue: plugin.config.schemaJson,
+      previousValue: previousEntry.config.schemaJson,
+      nextDigest: getPluginConfigSchemaDigest(plugin),
+      previousDigest: getPluginConfigSchemaDigest(previousEntry),
+    }) ||
+    !hasSameJsonValueWithDigest({
+      nextValue: plugin.config.currentConfig,
+      previousValue: previousEntry.config.currentConfig,
+      nextDigest: getPluginConfigCurrentConfigDigest(plugin),
+      previousDigest: getPluginConfigCurrentConfigDigest(previousEntry),
+    })
   ) {
     return false;
   }
   return true;
+}
+
+function getPluginConfigSchemaDigest(entry: PluginListEntry): string | null {
+  const configWithDigest = entry.config as {
+    schemaJsonDigestSha256?: string | null;
+  };
+  return normalizeDigest(configWithDigest.schemaJsonDigestSha256);
+}
+
+function getPluginConfigCurrentConfigDigest(entry: PluginListEntry): string | null {
+  const configWithDigest = entry.config as {
+    currentConfigDigestSha256?: string | null;
+  };
+  return normalizeDigest(configWithDigest.currentConfigDigestSha256);
+}
+
+function normalizeDigest(value: string | null | undefined): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function hasSameJsonValueWithDigest({
+  nextValue,
+  previousValue,
+  nextDigest,
+  previousDigest,
+}: {
+  nextValue: unknown;
+  previousValue: unknown;
+  nextDigest: string | null;
+  previousDigest: string | null;
+}): boolean {
+  if (nextDigest !== null && previousDigest !== null) {
+    return nextDigest === previousDigest;
+  }
+  return hasSameJsonValue(nextValue, previousValue);
 }
 
 function stableCapabilitiesReference(
@@ -2095,6 +2138,12 @@ function canReusePluginStatusEntry(
   ) {
     return false;
   }
+  const statusEntryDigest = getPluginStatusRuntimePayloadDigest(statusEntry);
+  const previousStatusEntryDigest =
+    getPluginStatusRuntimePayloadDigest(previousStatusEntry);
+  if (statusEntryDigest !== null && previousStatusEntryDigest !== null) {
+    return statusEntryDigest === previousStatusEntryDigest;
+  }
   if (
     !hasSameJsonValue(
       statusEntry.requestedCapabilities,
@@ -2125,6 +2174,15 @@ function canReusePluginStatusEntry(
     return false;
   }
   return true;
+}
+
+function getPluginStatusRuntimePayloadDigest(
+  statusEntry: PluginStatusEntry,
+): string | null {
+  const statusEntryWithDigest = statusEntry as {
+    runtimePayloadDigestSha256?: string | null;
+  };
+  return normalizeDigest(statusEntryWithDigest.runtimePayloadDigestSha256);
 }
 
 function mapPrimaryStatusByPluginId(

@@ -1,16 +1,20 @@
 import argparse
 import asyncio
 import base64
+import datetime
 import importlib.util
 import inspect
 import json
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, is_dataclass
+from decimal import Decimal
+from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Literal, get_args, get_origin
+from typing import Any, Callable, Literal, Union, get_args, get_origin
 from urllib.parse import urlencode
+from uuid import UUID
 
-from pydantic import TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 
 BACKEND_PLUGIN_API_VERSION = 1
 SUPPORTED_RPC_METHODS: tuple[str, ...] = (
@@ -31,6 +35,26 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "host.emit_listener_dependency_event",
 )
 _PROTOCOL_STDOUT = sys.stdout
+_ROUTE_SCALAR_ANNOTATION_TYPES: tuple[type[Any], ...] = (
+    str,
+    int,
+    float,
+    bool,
+    bytes,
+    bytearray,
+    Decimal,
+    UUID,
+    datetime.date,
+    datetime.datetime,
+    datetime.time,
+    datetime.timedelta,
+    Path,
+)
+
+try:
+    from fastapi.params import Body as _FastAPIBody
+except ImportError:  # pragma: no cover - import fallback for non-FastAPI workers
+    _FastAPIBody = None
 
 try:
     from fastapi.params import Param as _FastAPIParam
@@ -136,9 +160,7 @@ def _ensure_json_serializable(
 
 @dataclass(slots=True)
 class _WorkerRouteHandler:
-    route_id: str
     path: str
-    methods: list[str]
     endpoint: Callable[..., Any]
 
 
@@ -244,9 +266,7 @@ class _WorkerState:
                 continue
             route_id = self._allocate_route_id()
             self.route_handlers[route_id] = _WorkerRouteHandler(
-                route_id=route_id,
                 path=route.path,
-                methods=methods,
                 endpoint=route.endpoint,
             )
             endpoint_name = route.endpoint.__name__
@@ -529,6 +549,12 @@ class _WorkerState:
         route_id: str,
     ) -> dict[str, Any]:
         signature = inspect.signature(endpoint)
+        body_bound_parameter_names = [
+            param_name
+            for param_name, parameter in signature.parameters.items()
+            if self._route_parameter_is_body_bound(parameter)
+        ]
+        multiple_body_bound_parameters = len(body_bound_parameter_names) > 1
         kwargs: dict[str, Any] = {}
         request_object: Any = None
         unresolved_parameters: list[inspect.Parameter] = []
@@ -559,14 +585,27 @@ class _WorkerState:
                     route_id=route_id,
                 )
                 continue
-            if isinstance(json_body, dict) and param_name in json_body:
+            parameter_is_body_bound = self._route_parameter_is_body_bound(parameter)
+            if (
+                parameter_is_body_bound
+                and self._route_parameter_uses_embedded_json_field(
+                    parameter=parameter,
+                    multiple_body_bound_parameters=multiple_body_bound_parameters,
+                )
+                and isinstance(json_body, dict)
+                and param_name in json_body
+            ):
                 kwargs[param_name] = self._coerce_route_parameter_value(
                     parameter=parameter,
                     value=json_body[param_name],
                     route_id=route_id,
                 )
                 continue
-            if param_name == "body" and json_body is not None:
+            if (
+                parameter_is_body_bound
+                and param_name == "body"
+                and json_body is not None
+            ):
                 kwargs[param_name] = self._coerce_route_parameter_value(
                     parameter=parameter,
                     value=json_body,
@@ -575,13 +614,14 @@ class _WorkerState:
                 continue
             unresolved_parameters.append(parameter)
 
-        unresolved_required_parameters = [
+        unresolved_required_body_parameters = [
             parameter
             for parameter in unresolved_parameters
             if self._route_parameter_is_required(parameter)
+            and self._route_parameter_is_body_bound(parameter)
         ]
-        if json_body is not None and len(unresolved_required_parameters) == 1:
-            fallback_parameter = unresolved_required_parameters[0]
+        if json_body is not None and len(unresolved_required_body_parameters) == 1:
+            fallback_parameter = unresolved_required_body_parameters[0]
             kwargs[fallback_parameter.name] = self._coerce_route_parameter_value(
                 parameter=fallback_parameter,
                 value=json_body,
@@ -611,6 +651,101 @@ class _WorkerState:
     def _route_parameter_is_required(self, parameter: inspect.Parameter) -> bool:
         is_required, _default_value = self._resolve_route_parameter_default(parameter)
         return is_required
+
+    def _route_parameter_is_body_bound(self, parameter: inspect.Parameter) -> bool:
+        default_value = parameter.default
+        if _FastAPIBody is not None and isinstance(default_value, _FastAPIBody):
+            return True
+        if _FastAPIParam is not None and isinstance(default_value, _FastAPIParam):
+            return False
+        return self._route_annotation_is_body_like(parameter.annotation)
+
+    def _route_annotation_is_body_like(self, annotation: Any) -> bool:
+        return not self._route_annotation_is_scalar(annotation)
+
+    def _route_parameter_uses_embedded_json_field(
+        self,
+        *,
+        parameter: inspect.Parameter,
+        multiple_body_bound_parameters: bool,
+    ) -> bool:
+        default_value = parameter.default
+        if _FastAPIBody is not None and isinstance(default_value, _FastAPIBody):
+            embed_value = getattr(default_value, "embed", None)
+            return bool(embed_value)
+        return multiple_body_bound_parameters
+
+    def _route_annotation_is_scalar(self, annotation: Any) -> bool:
+        if annotation is inspect.Signature.empty or annotation is Any:
+            return True
+        if annotation is None:
+            return True
+        if annotation is type(None):
+            return True
+        origin = get_origin(annotation)
+        if origin is not None:
+            if origin is Literal:
+                literal_values = [option for option in get_args(annotation)]
+                if len(literal_values) == 0:
+                    return True
+                for option in literal_values:
+                    if option is None:
+                        continue
+                    if not self._route_annotation_is_scalar(type(option)):
+                        return False
+                return True
+            if origin is list or origin is tuple or origin is set or origin is dict:
+                return False
+            if origin is Union:
+                annotation_options = [
+                    option
+                    for option in get_args(annotation)
+                    if option is not type(None)
+                ]
+                if len(annotation_options) == 0:
+                    return True
+                return all(
+                    self._route_annotation_is_scalar(option)
+                    for option in annotation_options
+                )
+            origin_name = getattr(origin, "__qualname__", "")
+            if origin_name == "UnionType":
+                annotation_options = [
+                    option
+                    for option in get_args(annotation)
+                    if option is not type(None)
+                ]
+                if len(annotation_options) == 0:
+                    return True
+                return all(
+                    self._route_annotation_is_scalar(option)
+                    for option in annotation_options
+                )
+            if origin_name == "Annotated":
+                annotation_args = get_args(annotation)
+                if len(annotation_args) == 0:
+                    return True
+                return self._route_annotation_is_scalar(annotation_args[0])
+            annotation_options = [
+                option for option in get_args(annotation) if option is not type(None)
+            ]
+            if len(annotation_options) == 0:
+                return True
+            return all(
+                self._route_annotation_is_scalar(option)
+                for option in annotation_options
+            )
+        if inspect.isclass(annotation):
+            if issubclass(annotation, BaseModel):
+                return False
+            if is_dataclass(annotation):
+                return False
+            if issubclass(annotation, Enum):
+                return True
+            if issubclass(annotation, _ROUTE_SCALAR_ANNOTATION_TYPES):
+                return True
+            return False
+        return True
 
     def _resolve_route_parameter_default(
         self, parameter: inspect.Parameter

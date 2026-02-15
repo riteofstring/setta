@@ -64,6 +64,20 @@ def test_playwright_runner_validates_seeded_fixture_completeness_before_skip() -
     )
 
 
+def test_playwright_runner_reseeds_plugin_fixtures_for_reused_workspaces() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    existing_workspace_line = script.find("Workspace already seeded")
+    fixture_seed_guard_line = script.find(
+        'if [[ "${SHOULD_SEED_PLUGIN_FIXTURES}" == "1" ]]; then'
+    )
+    assert existing_workspace_line != -1
+    assert fixture_seed_guard_line != -1
+    assert existing_workspace_line < fixture_seed_guard_line
+
+
 def test_plugin_fixture_link_and_unlink_scripts_do_not_rescan_by_default() -> None:
     root = repo_root()
     link_script = (root / "scripts" / "plugin-fixtures" / "link.sh").read_text(

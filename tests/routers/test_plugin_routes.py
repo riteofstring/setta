@@ -256,8 +256,19 @@ def test_plugin_asset_route_rejects_non_frontend_files() -> None:
             assert frontend_asset.status_code == 200
             assert frontend_asset.headers.get("cache-control") is None
 
-            versioned_frontend_asset = client.get(
+            non_digest_versioned_frontend_asset = client.get(
                 f"/plugins/{plugin_id}/frontend/dist/index.js?v=digest-fixture"
+            )
+            assert non_digest_versioned_frontend_asset.status_code == 200
+            assert (
+                non_digest_versioned_frontend_asset.headers.get("cache-control")
+                is None
+            )
+
+            versioned_frontend_asset = client.get(
+                "/plugins/"
+                f"{plugin_id}/frontend/dist/index.js?"
+                "v=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
             )
             assert versioned_frontend_asset.status_code == 200
             assert (
@@ -446,6 +457,43 @@ def test_plugin_restart_route_handles_programmatic_rejection() -> None:
                 "mode": "programmatic",
                 "command": "setta",
                 "reason": "Programmatic restart request was rejected.",
+            }
+
+
+def test_plugin_runtime_reports_manual_restart_capability_outside_ide() -> None:
+    # Runtime payload should not expose programmatic restart outside IDE mode.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+
+        def restart_callback() -> bool:
+            return True
+
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="share",
+            setta_version="0.1.0",
+            restart_callback=restart_callback,
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            runtime_response = client.get(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RUNTIME.value}"
+            )
+            assert runtime_response.status_code == 200
+            payload = runtime_response.json()
+            assert payload["list"]["restartCapability"] == {
+                "mode": "manual",
+                "command": "setta",
+                "reason": "Plugin runtime restart is available only in IDE mode.",
             }
 
 

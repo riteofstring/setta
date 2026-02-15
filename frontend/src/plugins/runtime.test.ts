@@ -98,6 +98,29 @@ function buildPluginListEntry(
   });
 }
 
+function withPluginConfigDigests(
+  config: PluginListEntry["config"],
+  overrides: {
+    schemaJsonDigestSha256?: string | null;
+    currentConfigDigestSha256?: string | null;
+  },
+): PluginListEntry["config"] {
+  return {
+    ...config,
+    ...overrides,
+  } as PluginListEntry["config"];
+}
+
+function withStatusPayloadDigest(
+  statusEntry: PluginStatusEntry,
+  digest: string | null,
+): PluginStatusEntry {
+  return {
+    ...statusEntry,
+    runtimePayloadDigestSha256: digest,
+  } as PluginStatusEntry;
+}
+
 function buildPluginListResponse(
   plugins: PluginListEntry[],
   overrides: Partial<PluginListResponse> = {},
@@ -1202,6 +1225,56 @@ describe("plugin runtime helpers", () => {
     expect(secondState.pluginStatusById[plugin.pluginId]).toBe(firstPrimaryStatus);
   });
 
+  it("replaces plugin status entry references when runtime payload digest changes", async () => {
+    const plugin = buildPluginListEntry({
+      pluginId: "acme.status-digest-change",
+      frontend: {
+        entrypointUrl: null,
+        styleUrl: null,
+      },
+    });
+    const baseStatus = buildPluginStatusEntry({
+      pluginId: plugin.pluginId,
+      requestedCapabilities: ["registerPane"],
+      effectiveCapabilities: ["registerPane"],
+      blockedCapabilities: [],
+    });
+    const firstStatus = withStatusPayloadDigest(baseStatus, "digest-a");
+    const secondStatus = withStatusPayloadDigest(
+      {
+        ...baseStatus,
+        requestedCapabilities: [...baseStatus.requestedCapabilities],
+        effectiveCapabilities: [...baseStatus.effectiveCapabilities],
+      },
+      "digest-b",
+    );
+    let runtimeCallCount = 0;
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
+      async () => {
+        runtimeCallCount += 1;
+        if (runtimeCallCount === 1) {
+          return buildRuntimeEndpointResponse(
+            buildPluginListResponse([plugin]),
+            buildPluginStatusResponse([firstStatus]),
+          );
+        }
+        return buildRuntimeEndpointResponse(
+          buildPluginListResponse([plugin]),
+          buildPluginStatusResponse([secondStatus]),
+        );
+      },
+    );
+
+    await refreshPluginRuntime();
+    const firstState = usePluginRuntimeStore.getState();
+    const firstStatusEntry = firstState.statusEntries[0];
+
+    await refreshPluginRuntime();
+    const secondState = usePluginRuntimeStore.getState();
+    const secondStatusEntry = secondState.statusEntries[0];
+    expect(secondStatusEntry).not.toBe(firstStatusEntry);
+  });
+
   it("reuses empty status entries across no-op runtime refreshes", async () => {
     vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue(
       buildRuntimeEndpointResponse(
@@ -2276,6 +2349,76 @@ describe("plugin runtime helpers", () => {
       usePluginRuntimeStore.getState().pluginListById[firstPlugin.pluginId];
 
     expect(secondEntry).toBe(firstEntry);
+  });
+
+  it("replaces plugin list entry references when config digest changes", async () => {
+    const firstPlugin = buildPluginListEntry({
+      config: withPluginConfigDigests(
+        {
+          hasSchema: true,
+          schemaJson: {
+            type: "object",
+            properties: {
+              theme: { type: "string" },
+            },
+          },
+          currentConfig: {
+            theme: "light",
+          },
+        } as PluginListEntry["config"],
+        {
+          schemaJsonDigestSha256: "schema-digest-a",
+          currentConfigDigestSha256: "config-digest-a",
+        },
+      ),
+      effectiveCapabilities: ["registerSectionKinds"],
+    });
+    const secondPlugin = buildPluginListEntry({
+      ...firstPlugin,
+      config: withPluginConfigDigests(
+        {
+          hasSchema: true,
+          schemaJson: firstPlugin.config.schemaJson,
+          currentConfig: firstPlugin.config.currentConfig,
+        } as PluginListEntry["config"],
+        {
+          schemaJsonDigestSha256: "schema-digest-a",
+          currentConfigDigestSha256: "config-digest-b",
+        },
+      ),
+      effectiveCapabilities: [...firstPlugin.effectiveCapabilities],
+    });
+    const pluginStatus = buildPluginStatusEntry({
+      pluginId: firstPlugin.pluginId,
+      requestedCapabilities: ["registerSectionKinds"],
+      effectiveCapabilities: ["registerSectionKinds"],
+      blockedCapabilities: [],
+    });
+    let runtimeCallCount = 0;
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
+      async () => {
+        runtimeCallCount += 1;
+        if (runtimeCallCount === 1) {
+          return buildRuntimeEndpointResponse(
+            buildPluginListResponse([firstPlugin]),
+            buildPluginStatusResponse([pluginStatus]),
+          );
+        }
+        return buildRuntimeEndpointResponse(
+          buildPluginListResponse([secondPlugin]),
+          buildPluginStatusResponse([pluginStatus]),
+        );
+      },
+    );
+
+    await refreshPluginRuntime();
+    const firstEntry =
+      usePluginRuntimeStore.getState().pluginListById[firstPlugin.pluginId];
+
+    await refreshPluginRuntime();
+    const secondEntry =
+      usePluginRuntimeStore.getState().pluginListById[firstPlugin.pluginId];
+    expect(secondEntry).not.toBe(firstEntry);
   });
 
   it("replaces plugin list entry references when current config payload changes", async () => {

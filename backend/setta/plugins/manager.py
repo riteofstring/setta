@@ -762,6 +762,17 @@ class PluginManager:
             if include_backend_registrations
             else []
         )
+        runtime_payload_digest = self._compute_json_payload_digest(
+            {
+                "requestedCapabilities": entry.requested_capabilities,
+                "effectiveCapabilities": entry.effective_capabilities,
+                "blockedCapabilities": entry.blocked_capabilities,
+                "registeredLanguageServers": registered_language_servers,
+                "registeredExternalAgentAdapters": registered_external_adapters,
+                "registeredCodegenTargets": registered_codegen_targets,
+                "errors": entry.errors,
+            }
+        )
         return PluginStatusEntry(
             pluginId=entry.plugin_id,
             name=entry.name,
@@ -804,6 +815,7 @@ class PluginManager:
             registeredCodegenTargets=registered_codegen_targets,
             enablementSource=entry.enablement_source,
             restartRequired=entry.restart_required,
+            runtimePayloadDigestSha256=runtime_payload_digest,
             errors=entry.errors,
         )
 
@@ -824,6 +836,16 @@ class PluginManager:
         self, descriptor: PluginConfigDescriptor
     ) -> PluginConfigDescriptor:
         return PluginConfigDescriptor(hasSchema=descriptor.hasSchema)
+
+    def _compute_json_payload_digest(self, value: Any) -> str:
+        encoded_value = jsonable_encoder(value)
+        serialized = json.dumps(
+            encoded_value,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+        return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
     def _build_redacted_source_path_map(
         self,
@@ -1124,6 +1146,12 @@ class PluginManager:
         return route_response.get("body")
 
     def get_restart_capability(self) -> PluginRestartCapability:
+        if self.server_mode != "ide":
+            return PluginRestartCapability(
+                mode="manual",
+                command=self._restart_command,
+                reason="Plugin runtime restart is available only in IDE mode.",
+            )
         if self._restart_callback is not None:
             return PluginRestartCapability(mode="programmatic")
         return PluginRestartCapability(
@@ -2368,7 +2396,8 @@ class PluginManager:
             if isinstance(raw_media_type, str) and raw_media_type.strip() != ""
             else None
         )
-        raw_body = route_response.get("body")
+        body_present = "body" in route_response
+        raw_body = route_response.get("body") if body_present else None
         if body_encoding == "base64":
             if not isinstance(raw_body, str):
                 raise PluginManagerError(
@@ -2398,7 +2427,7 @@ class PluginManager:
         if media_type is not None and not self._worker_route_content_type_is_json(
             media_type
         ):
-            content: Any = raw_body
+            content: Any = raw_body if body_present else ""
             if isinstance(content, (dict, list)):
                 content = json.dumps(jsonable_encoder(content))
             elif content is None:
@@ -2414,7 +2443,15 @@ class PluginManager:
             )
             self._apply_worker_route_headers(response=response, headers=headers)
             return response
-        if raw_body is None or not self._worker_route_status_allows_body(status_code):
+        if not self._worker_route_status_allows_body(status_code):
+            response = Response(
+                status_code=status_code,
+                content=b"",
+                media_type=media_type,
+            )
+            self._apply_worker_route_headers(response=response, headers=headers)
+            return response
+        if not body_present:
             response = Response(
                 status_code=status_code,
                 content=b"",
@@ -5500,20 +5537,25 @@ class PluginManager:
         if not isinstance(current_config, dict):
             current_config = {}
         has_schema, schema_json = self._build_config_schema_descriptor(entry)
+        current_config_digest = self._compute_json_payload_digest(current_config)
         if not has_schema:
             return PluginConfigDescriptor(
                 hasSchema=False,
                 currentConfig=current_config,
+                currentConfigDigestSha256=current_config_digest,
             )
         if isinstance(schema_json, dict):
             return PluginConfigDescriptor(
                 hasSchema=True,
                 schemaJson=schema_json,
+                schemaJsonDigestSha256=self._compute_json_payload_digest(schema_json),
                 currentConfig=current_config,
+                currentConfigDigestSha256=current_config_digest,
             )
         return PluginConfigDescriptor(
             hasSchema=True,
             currentConfig=current_config,
+            currentConfigDigestSha256=current_config_digest,
         )
 
     def _validate_plugin_config(

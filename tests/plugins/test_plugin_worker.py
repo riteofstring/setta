@@ -1438,11 +1438,11 @@ def test_worker_invoke_route_supports_json_body_and_async_handlers(
     # Route invocation should support jsonBody argument mapping and async handlers.
     plugin_root = _copy_backend_fixture(tmp_path)
     (plugin_root / "backend" / "entrypoint.py").write_text(
-        "from fastapi import APIRouter\n\n"
+        "from fastapi import APIRouter, Body\n\n"
         "def register(plugin):\n"
         "    router = APIRouter()\n\n"
         "    @router.post('/from-body')\n"
-        "    def from_body(value: str) -> dict[str, str]:\n"
+        "    def from_body(value: str = Body(..., embed=True)) -> dict[str, str]:\n"
         "        return {'value': value}\n\n"
         "    @router.get('/async-ok')\n"
         "    async def async_ok() -> dict[str, str]:\n"
@@ -1513,6 +1513,75 @@ def test_worker_invoke_route_supports_json_body_and_async_handlers(
             },
         )
         assert async_boom_response["error"]["code"] == "PLUGIN_BACKEND_ROUTE_CALL_FAILED"
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_invoke_route_rejects_query_params_satisfied_only_from_json_body(
+    tmp_path: Path,
+) -> None:
+    # Required query params should not be accepted from jsonBody payload fields.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "from fastapi import APIRouter, Query\n\n"
+        "def register(plugin):\n"
+        "    router = APIRouter()\n\n"
+        "    @router.post('/mix')\n"
+        "    def mix(limit: int = Query(...)) -> dict[str, int]:\n"
+        "        return {'limit': limit}\n\n"
+        "    plugin.register_router(router)\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(worker, request_id=1, method="plugin.initialize")
+        host_requests: list[dict[str, Any]] = []
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_requests=host_requests,
+        )
+        router_registration = next(
+            payload
+            for payload in host_requests
+            if payload.get("method") == "host.register_router"
+        )
+        routes = router_registration["params"]["routes"]
+        route_id_by_path = {route["path"]: route["routeId"] for route in routes}
+
+        missing_query_response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id_by_path["/mix"],
+                "pathParams": {},
+                "queryParams": {},
+                "jsonBody": {"limit": 5},
+            },
+        )
+        assert (
+            missing_query_response["error"]["code"]
+            == "PLUGIN_BACKEND_ROUTE_CALL_INVALID"
+        )
+        assert "Missing required parameter 'limit'" in missing_query_response["error"][
+            "message"
+        ]
+
+        query_response = _rpc_call(
+            worker,
+            request_id=4,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id_by_path["/mix"],
+                "pathParams": {},
+                "queryParams": {"limit": "7"},
+                "jsonBody": {"limit": 5},
+            },
+        )
+        assert query_response["result"]["statusCode"] == 200
+        assert query_response["result"]["body"] == {"limit": 7}
     finally:
         _stop_worker(worker)
 

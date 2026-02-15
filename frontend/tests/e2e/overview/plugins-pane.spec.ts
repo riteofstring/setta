@@ -622,6 +622,12 @@ test("plugins pane shows mode-policy blocked capability reasons", async ({
       "Plugin install/uninstall/update actions are IDE-mode only.",
     ),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Rescan", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Restart Setta", exact: true }),
+  ).toBeDisabled();
 });
 
 test("plugins pane lifecycle actions call update rollback and uninstall endpoints", async ({

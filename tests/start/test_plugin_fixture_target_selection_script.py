@@ -21,6 +21,11 @@ def _build_fixture_target_sandbox(tmp_path: Path) -> Path:
     )
     (root / "tests" / "project_state").mkdir(parents=True, exist_ok=True)
     (root / "tests" / "plugins").mkdir(parents=True, exist_ok=True)
+    (root / "tests" / "start").mkdir(parents=True, exist_ok=True)
+    (root / "tests" / "fixtures" / "plugins" / "fixture-a" / "frontend" / "dist").mkdir(
+        parents=True,
+        exist_ok=True,
+    )
     (root / "frontend" / "tests" / "e2e" / "overview" / "plugin-pane.spec.ts").write_text(
         "import { test } from '@playwright/test';\n",
         encoding="utf-8",
@@ -37,8 +42,45 @@ def _build_fixture_target_sandbox(tmp_path: Path) -> Path:
         "def test_project_config_view_modes() -> None:\n    assert True\n",
         encoding="utf-8",
     )
+    (root / "tests" / "start" / "test_start_plugins.py").write_text(
+        "def test_start_plugins() -> None:\n    assert True\n",
+        encoding="utf-8",
+    )
     (root / "tests" / "plugins" / "test_plugin_runtime.py").write_text(
         "def test_plugin_runtime() -> None:\n    assert True\n",
+        encoding="utf-8",
+    )
+    (root / "tests" / "fixtures" / "plugins" / "fixture-a" / "setta.plugin.json").write_text(
+        (
+            '{"id":"fixture-a","name":"Fixture A","frontend":'
+            '{"entrypoint":"frontend/dist/index.js","style":"frontend/dist/index.css"}}'
+        ),
+        encoding="utf-8",
+    )
+    (
+        root
+        / "tests"
+        / "fixtures"
+        / "plugins"
+        / "fixture-a"
+        / "frontend"
+        / "dist"
+        / "index.js"
+    ).write_text(
+        "export const fixture = true;\n",
+        encoding="utf-8",
+    )
+    (
+        root
+        / "tests"
+        / "fixtures"
+        / "plugins"
+        / "fixture-a"
+        / "frontend"
+        / "dist"
+        / "index.css"
+    ).write_text(
+        ".fixture { color: red; }\n",
         encoding="utf-8",
     )
 
@@ -185,6 +227,29 @@ def test_pytest_fixture_selection_skips_selector_only_runs_without_plugin_hints(
     )
 
 
+def test_pytest_fixture_selection_builds_selector_only_runs_when_outputs_are_missing(
+    tmp_path: Path,
+) -> None:
+    # Selector-only runs should rebuild when fixture outputs are currently missing.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+    (
+        sandbox_root
+        / "tests"
+        / "fixtures"
+        / "plugins"
+        / "fixture-a"
+        / "frontend"
+        / "dist"
+        / "index.js"
+    ).unlink()
+
+    assert _should_build_for_targets(
+        sandbox_root,
+        "pytest",
+        ["-k", "project_config"],
+    )
+
+
 def test_pytest_fixture_selection_skips_nonplugin_substring_selector(
     tmp_path: Path,
 ) -> None:
@@ -256,4 +321,17 @@ def test_pytest_fixture_selection_builds_when_selector_mentions_plugins(
             "plugin runtime",
             "tests/project_state/test_project_config_view_modes.py",
         ],
+    )
+
+
+def test_pytest_fixture_selection_builds_for_plugin_named_target_file(
+    tmp_path: Path,
+) -> None:
+    # Target file paths containing "plugin" should trigger fixture prep.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+
+    assert _should_build_for_targets(
+        sandbox_root,
+        "pytest",
+        ["tests/start/test_start_plugins.py"],
     )

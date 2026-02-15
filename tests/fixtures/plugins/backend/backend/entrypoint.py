@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 
 def _build_literal_dependency_event(
@@ -18,6 +19,21 @@ def _build_literal_dependency_event(
         },
         "timestampMs": timestamp_ms,
     }
+
+
+class EmitListenerPayload(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    payload: str
+    timestampMs: int = 1
+    shareSessionId: str | None = None
+
+
+class ListenerEndpointPayload(BaseModel):
+    projectConfigId: str
+    sectionId: str
+    payload: str
+    shareSessionId: str | None = None
 
 
 def register(plugin):
@@ -46,53 +62,46 @@ def register(plugin):
 
     @router.post("/emit-listener")
     def post_emit_listener(
-        projectConfigId: str,
-        sectionId: str,
-        payload: str,
-        timestampMs: int = 1,
-        shareSessionId: str | None = None,
+        payload: EmitListenerPayload,
     ) -> dict[str, object]:
-        effective_timestamp = timestampMs if timestampMs > 0 else 1
+        effective_timestamp = payload.timestampMs if payload.timestampMs > 0 else 1
         plugin.emit_listener_dependency_event(
-            project_config_id=projectConfigId,
-            share_session_id=shareSessionId,
+            project_config_id=payload.projectConfigId,
+            share_session_id=payload.shareSessionId,
             dependency_events=[
                 _build_literal_dependency_event(
-                    section_id=sectionId,
-                    payload=payload,
+                    section_id=payload.sectionId,
+                    payload=payload.payload,
                     timestamp_ms=effective_timestamp,
                 )
             ],
         )
         return {
             "emitted": True,
-            "projectConfigId": projectConfigId,
-            "sectionId": sectionId,
+            "projectConfigId": payload.projectConfigId,
+            "sectionId": payload.sectionId,
             "timestampMs": effective_timestamp,
         }
 
     @router.post("/listener-endpoint")
     def fixture_listener_endpoint(
-        projectConfigId: str,
-        sectionId: str,
-        payload: str,
-        shareSessionId: str | None = None,
+        payload: ListenerEndpointPayload,
     ) -> dict[str, object]:
         plugin.emit_listener_dependency_event(
-            project_config_id=projectConfigId,
-            share_session_id=shareSessionId,
+            project_config_id=payload.projectConfigId,
+            share_session_id=payload.shareSessionId,
             dependency_events=[
                 _build_literal_dependency_event(
-                    section_id=sectionId,
-                    payload=payload,
+                    section_id=payload.sectionId,
+                    payload=payload.payload,
                     timestamp_ms=123,
                 )
             ],
         )
         return {
             "ok": True,
-            "projectConfigId": projectConfigId,
-            "sectionId": sectionId,
+            "projectConfigId": payload.projectConfigId,
+            "sectionId": payload.sectionId,
         }
 
     plugin.register_router(router)

@@ -340,3 +340,17 @@
 - Removed redundant legacy `/api/plugins/list` and `/api/plugins/status` Playwright route shims from runtime-only Plugins pane tests while keeping the explicit no-fallback assertion coverage.
 - Added new Playwright runtime-style lifecycle coverage to verify runtime error clears plugin styles and subsequent successful refresh restores them.
 - Added/updated backend pytest, frontend Vitest, and Playwright coverage for all changed paths; targeted verification passed (`pytest` subsets: 64 passed across three runs, `vitest` runtime suite: 70 passed, targeted Playwright specs: 20 passed), with CDP verification completed on the Plugins pane runtime/rescan path.
+
+## 2026-02-16T21:11:18-08:00
+
+- Implemented the latest top-level `review*.md` fixes end-to-end, explicitly excluding backward-compatibility additions.
+- Fixed backend worker route/body binding semantics so required query parameters are no longer incorrectly satisfied from `jsonBody`, and restricted single-parameter fallback binding to required body-bound parameters.
+- Preserved explicit JSON `null` response bodies in plugin route proxying while still enforcing no-body semantics for no-content status codes.
+- Aligned restart capability contract with runtime mode policy by reporting manual-only restart behavior (with explicit reason) outside IDE mode.
+- Added digest fields to plugin runtime/list status payloads and updated frontend runtime diffing to use digest fast paths with deep-compare fallback, reducing avoidable object churn in refresh paths.
+- Tightened plugin static asset cache semantics so immutable caching applies only when `v` is a strict 64-character lowercase SHA-256 hex token.
+- Fixed Playwright workspace fixture seeding/rebuild heuristics so plugin fixture artifacts are re-prepared when required outputs are missing, including selector-only plugin-targeted runs.
+- Updated Plugins pane action policy/UI so `Rescan` and `Restart Setta` are disabled and hard-guarded in write-locked (non-IDE/share) contexts.
+- Added/updated backend pytest coverage, frontend Vitest coverage, and Playwright E2E coverage for all changed paths; targeted verification passed (`pytest`: 398 passed, `vitest`: 95 passed, targeted Playwright: 1 passed), and CDP verification confirmed disabled plugin actions in share mode.
+- UX before/after: write-locked modes previously showed actionable Rescan/Restart controls and allowed confusing attempts; now controls are visibly disabled and action handlers short-circuit immediately.
+- DX before/after: plugin runtime refresh previously relied on heavier deep comparisons and could miss explicit-null response semantics; now digest-aware reuse improves refresh determinism/perf and proxy handling preserves exact JSON-null intent.

@@ -246,15 +246,15 @@ seed_workspace() {
     return
   fi
   local project_file="${SETTA_WORKSPACE_ROOT}/setta_files/project.json"
+  local seeded_workspace="0"
   if [[ -f "${project_file}" ]]; then
     log "Workspace already seeded (${project_file} exists)."
-    return
-  fi
-  log "Seeding minimal setta_files into ${SETTA_WORKSPACE_ROOT}."
-  (
-    cd "${ROOT_DIR}"
-    source "./activate.sh"
-    SETTA_WORKSPACE_ROOT="${SETTA_WORKSPACE_ROOT}" "${PYTHON_BIN}" - <<'PY'
+  else
+    log "Seeding minimal setta_files into ${SETTA_WORKSPACE_ROOT}."
+    (
+      cd "${ROOT_DIR}"
+      source "./activate.sh"
+      SETTA_WORKSPACE_ROOT="${SETTA_WORKSPACE_ROOT}" "${PYTHON_BIN}" - <<'PY'
 import os
 from pathlib import Path
 
@@ -264,13 +264,17 @@ workspace = Path(os.environ["SETTA_WORKSPACE_ROOT"])
 setta_root = workspace / "setta_files"
 _seed_minimal_setta_files(setta_root)
 PY
-  ) >"${LOG_DIR}/seed.log" 2>&1
+    ) >"${LOG_DIR}/seed.log" 2>&1
+    seeded_workspace="1"
+  fi
   if [[ "${SHOULD_SEED_PLUGIN_FIXTURES}" == "1" ]]; then
     seed_workspace_plugin_fixtures
   else
     log "Skipping seeded plugin fixture copy for selected Playwright targets."
   fi
-  log "Seeded workspace. Logs: ${LOG_DIR}/seed.log"
+  if [[ "${seeded_workspace}" == "1" ]]; then
+    log "Seeded workspace. Logs: ${LOG_DIR}/seed.log"
+  fi
 }
 
 compute_workspace_seed_fixture_signature() {

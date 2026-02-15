@@ -2083,6 +2083,39 @@ def test_programmatic_restart_rejection_falls_back_to_manual_command(
     }
 
 
+@pytest.mark.parametrize("server_mode", ["share", "app"])
+def test_non_ide_restart_capability_is_manual_even_with_callback(
+    tmp_path: Path,
+    server_mode: Literal["share", "app"],
+) -> None:
+    # Non-IDE runtimes should not expose programmatic restart capability.
+    restart_calls: list[str] = []
+
+    def _restart_callback() -> bool:
+        restart_calls.append("called")
+        return True
+
+    manager = _make_manager(
+        tmp_path,
+        server_mode=server_mode,
+        restart_callback=_restart_callback,
+    )
+
+    capability = manager.get_restart_capability()
+    assert capability.mode == "manual"
+    assert capability.command == "setta"
+    assert capability.reason == "Plugin runtime restart is available only in IDE mode."
+
+    response = manager.restart_backend()
+    assert response == {
+        "accepted": False,
+        "mode": "manual",
+        "command": "setta",
+        "reason": "Plugin runtime restart is available only in IDE mode.",
+    }
+    assert restart_calls == []
+
+
 def test_load_backend_plugins_registers_fixture_router_and_mcp_tool(
     tmp_path: Path,
 ) -> None:
@@ -3340,6 +3373,53 @@ def test_mode_policy_blocked_capabilities_are_exposed_in_status_and_list(
         "registerMcpTools": BlockedCapabilityReason.mode_policy,
         "registerListenerEndpoint": BlockedCapabilityReason.mode_policy,
     }
+    assert entry.runtimePayloadDigestSha256 is not None
+    assert len(entry.runtimePayloadDigestSha256) == 64
+
+
+def test_runtime_response_includes_config_payload_digests(
+    tmp_path: Path,
+) -> None:
+    # Runtime list entries should expose stable digests for config schema/current payloads.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="full",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    manager.write_plugin_config(
+        plugin_id="setta-fixture-full",
+        config={"enabled": True},
+    )
+
+    first_runtime = manager.get_runtime_response()
+    list_entry = next(
+        entry
+        for entry in first_runtime.list.plugins
+        if entry.pluginId == "setta-fixture-full"
+    )
+    assert list_entry.config.schemaJsonDigestSha256 is not None
+    assert len(list_entry.config.schemaJsonDigestSha256) == 64
+    assert list_entry.config.currentConfigDigestSha256 is not None
+    assert len(list_entry.config.currentConfigDigestSha256) == 64
+    first_current_config_digest = list_entry.config.currentConfigDigestSha256
+
+    manager.write_plugin_config(
+        plugin_id="setta-fixture-full",
+        config={"enabled": True, "label": "digest-change"},
+    )
+    second_runtime = manager.get_runtime_response()
+    updated_list_entry = next(
+        entry
+        for entry in second_runtime.list.plugins
+        if entry.pluginId == "setta-fixture-full"
+    )
+    assert updated_list_entry.config.currentConfigDigestSha256 is not None
+    assert (
+        updated_list_entry.config.currentConfigDigestSha256
+        != first_current_config_digest
+    )
 
 
 def test_host_policy_blocks_register_context_menu_capability(tmp_path: Path) -> None:
@@ -7597,6 +7677,62 @@ def test_worker_route_proxy_returns_empty_body_for_no_content_status(
     assert response.status_code == 204
     assert response.content == b""
     assert response.headers.get("content-type") is None
+
+
+def test_worker_route_proxy_preserves_explicit_json_null_body(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Explicit JSON null from worker routes should be preserved as a JSON body.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    manager._register_backend_router_from_worker_request(
+        app=app,
+        entry=entry,
+        params={
+            "prefix": "/proxy",
+            "routes": [
+                {
+                    "routeId": "route_0",
+                    "path": "/echo",
+                    "methods": ["GET"],
+                }
+            ],
+        },
+    )
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    route_path = "/api/plugins/setta-fixture-backend/proxy/echo"
+
+    monkeypatch.setattr(
+        manager,
+        "_call_backend_worker_method",
+        lambda **_kwargs: {
+            "statusCode": 200,
+            "mediaType": "application/json",
+            "body": None,
+        },
+    )
+
+    with TestClient(app) as client:
+        response = client.get(route_path)
+    assert response.status_code == 200
+    assert response.content == b"null"
+    assert response.headers.get("content-type") == "application/json"
+    assert response.json() is None
 
 
 def test_scoped_link_and_uninstall_work_for_shadowed_entries(tmp_path: Path) -> None:

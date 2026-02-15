@@ -13,12 +13,14 @@ def _build_backend_test_runner_sandbox(tmp_path: Path) -> tuple[Path, Path]:
     plugin_fixture_scripts = scripts_dir / "plugin-fixtures"
     fixture_root = sandbox_root / "tests" / "fixtures" / "plugins" / "fixture-a"
     fixture_frontend_src = fixture_root / "frontend" / "src"
+    fixture_frontend_dist = fixture_root / "frontend" / "dist"
     non_plugin_tests_dir = sandbox_root / "tests" / "start"
     plugin_tests_dir = sandbox_root / "tests" / "plugins"
     bin_dir = sandbox_root / "bin"
 
     plugin_fixture_scripts.mkdir(parents=True, exist_ok=True)
     fixture_frontend_src.mkdir(parents=True, exist_ok=True)
+    fixture_frontend_dist.mkdir(parents=True, exist_ok=True)
     non_plugin_tests_dir.mkdir(parents=True, exist_ok=True)
     plugin_tests_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
@@ -49,6 +51,14 @@ def _build_backend_test_runner_sandbox(tmp_path: Path) -> tuple[Path, Path]:
     )
     (fixture_frontend_src / "index.js").write_text(
         "export const fixture = true;\n",
+        encoding="utf-8",
+    )
+    (fixture_frontend_dist / "index.js").write_text(
+        "export const built = true;\n",
+        encoding="utf-8",
+    )
+    (fixture_frontend_dist / "index.css").write_text(
+        ".fixture { color: red; }\n",
         encoding="utf-8",
     )
     (non_plugin_tests_dir / "test_example.py").write_text(
@@ -379,6 +389,31 @@ def test_run_backend_tests_skips_fixtures_for_selector_only_non_plugin_runs(
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
     assert "Skipping plugin fixture build for selected pytest targets." in result.stdout
     assert not build_count_file.exists()
+
+
+def test_run_backend_tests_builds_fixtures_for_selector_only_runs_when_outputs_missing(
+    tmp_path: Path,
+) -> None:
+    # Selector-only runs should rebuild fixtures when expected outputs are missing.
+    sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+    built_output = (
+        sandbox_root
+        / "tests"
+        / "fixtures"
+        / "plugins"
+        / "fixture-a"
+        / "frontend"
+        / "dist"
+        / "index.js"
+    )
+    built_output.unlink()
+
+    result = _run_backend_test_runner(
+        sandbox_root,
+        pytest_args=["-k", "start"],
+    )
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert build_count_file.read_text(encoding="utf-8").strip() == "1"
 
 
 def test_run_backend_tests_can_force_fixture_build_for_non_plugin_targets(

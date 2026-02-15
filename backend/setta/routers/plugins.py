@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal, TypeVar
@@ -30,6 +31,7 @@ assets_router = APIRouter()
 ScopeValue = Literal["workspace", "setta_files", "global"]
 InstallerValue = Literal["auto", "pip", "uv"]
 T = TypeVar("T")
+_ASSET_VERSION_DIGEST_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 class PluginInstallRequest(BaseModel):
@@ -248,6 +250,10 @@ def route_plugin_asset(
         )
     )
     response = FileResponse(Path(asset_path))
-    if request.query_params.get("v") is not None:
+    version_token = request.query_params.get("v")
+    if (
+        isinstance(version_token, str)
+        and _ASSET_VERSION_DIGEST_PATTERN.fullmatch(version_token) is not None
+    ):
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
     return response
