@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-import { ensureAppReady, seedLocalStorage } from "../helpers";
+import {
+  allowExpectedApiError,
+  ensureAppReady,
+  seedLocalStorage,
+} from "../helpers";
 
 test("json-render mode streams patches in-pane and persists generated spec", async ({
   page,
@@ -167,6 +171,10 @@ test("json-render mode surfaces backend stream error details", async ({
         message: "Missing API key for app spec streaming.",
       }),
     });
+  });
+  allowExpectedApiError(page, {
+    path: "/api/streamAppSpec",
+    statuses: [400],
   });
 
   await page.getByRole("button", { name: "Generate In Pane" }).click();

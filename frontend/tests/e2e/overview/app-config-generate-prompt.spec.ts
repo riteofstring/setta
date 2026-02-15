@@ -1,6 +1,53 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { ensureAppReady, seedLocalStorage } from "../helpers";
+import {
+  allowExpectedApiError,
+  ensureAppReady,
+  seedLocalStorage,
+} from "../helpers";
+
+async function mockHiddenGenerationChatHydration(page: Page): Promise<void> {
+  await page.route("**/api/getLLMChat", async (route) => {
+    const requestPayload = route.request().postDataJSON() as {
+      chatId?: string;
+    };
+    const chatId =
+      typeof requestPayload.chatId === "string"
+        ? requestPayload.chatId
+        : "pw-chat-fallback";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: `${chatId}-assistant`,
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: "Hidden app generation request accepted.",
+              },
+            ],
+            attachments: [],
+            tool_calls: null,
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "llm-primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          base_url: null,
+          api_key_env: null,
+          other_params: null,
+          mcpServerIds: [],
+          temporary: false,
+        },
+      }),
+    });
+  });
+}
 
 test("prompt-builder mode sends hidden app generation request to chat", async ({
   page,
@@ -74,6 +121,7 @@ test("prompt-builder mode sends hidden app generation request to chat", async ({
       body: JSON.stringify(`pw-chat-${Date.now()}`),
     });
   });
+  await mockHiddenGenerationChatHydration(page);
 
   await ensureAppReady(page);
   await expect(page.getByText("App Config")).toBeVisible();
@@ -207,6 +255,7 @@ test("prompt-builder waits for in-flight resource loads and uses default managed
       body: JSON.stringify(`pw-chat-${Date.now()}`),
     });
   });
+  await mockHiddenGenerationChatHydration(page);
 
   await ensureAppReady(page);
   await expect(page.getByText("App Config")).toBeVisible();
@@ -308,6 +357,7 @@ test("prompt-builder mode ignores stale reference-image context from image mode"
       body: JSON.stringify(`pw-chat-${Date.now()}`),
     });
   });
+  await mockHiddenGenerationChatHydration(page);
 
   await ensureAppReady(page);
   await expect(page.getByText("App Config")).toBeVisible();
@@ -408,6 +458,10 @@ test("prompt-builder mode surfaces backend hidden-generation error detail", asyn
       }),
     });
   });
+  allowExpectedApiError(page, {
+    path: "/api/getLLMResponse",
+    statuses: [400],
+  });
 
   await ensureAppReady(page);
   await expect(page.getByText("App Config")).toBeVisible();
@@ -478,6 +532,7 @@ test("prompt-builder mode clears stale in-pane patch counts from prior json-rend
       body: JSON.stringify(`pw-chat-${Date.now()}`),
     });
   });
+  await mockHiddenGenerationChatHydration(page);
   await page.route("**/api/llm/config", async (route) => {
     await route.fulfill({
       status: 200,

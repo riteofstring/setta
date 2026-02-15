@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-import { ensureAppReady, seedLocalStorage } from "../helpers";
+import {
+  allowExpectedApiError,
+  ensureAppReady,
+  seedLocalStorage,
+} from "../helpers";
 
 test("project ai chat can open the skills and mcp viewer side view", async ({
   page,
@@ -139,6 +143,10 @@ test("project ai chat shows inline skills endpoint error when routes are missing
       contentType: "application/json",
       body: JSON.stringify({ detail: "Not Found" }),
     });
+  });
+  allowExpectedApiError(page, {
+    path: "/api/getAppGenSkills",
+    statuses: [404],
   });
 
   await page.route("**/api/llm/config", async (route) => {
@@ -539,6 +547,10 @@ test("project ai chat keeps existing skills and markdown preview on refresh fail
       body: JSON.stringify({ detail: "Filesystem scan failed." }),
     });
   });
+  allowExpectedApiError(page, {
+    path: "/api/getAppGenSkills",
+    statuses: [500],
+  });
 
   await page.route("**/api/llm/config", async (route) => {
     await route.fulfill({
@@ -729,6 +741,10 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
       body: JSON.stringify({ detail: "Reveal is disabled for this path." }),
     });
   });
+  allowExpectedApiError(page, {
+    path: "/api/revealPathInOsFileExplorer",
+    statuses: [400],
+  });
 
   await ensureAppReady(page);
   await page.getByRole("button", { name: "View Skills and MCP" }).click();
@@ -790,6 +806,12 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
       contentType: "application/json",
       body: JSON.stringify({ detail: "Unavailable" }),
     });
+  });
+  allowExpectedApiError(page, {
+    path: "/api/settaHomeInfo",
+    statuses: [500],
+    method: "GET",
+    count: 3,
   });
 
   await page.route("**/api/getAppGenSkillContent", async (route) => {

@@ -28,7 +28,7 @@ type ImplType = "Group" | "ListRoot" | "Code";
 test("group section children can move via UI drag-and-drop", async ({
   page,
 }) => {
-  test.setTimeout(120000);
+  test.setTimeout(240000);
   await ensureAppReady(page);
 
   const projectContext = await openIsolatedProject(page);

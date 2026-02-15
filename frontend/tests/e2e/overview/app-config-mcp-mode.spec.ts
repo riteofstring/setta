@@ -1,6 +1,81 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { ensureAppReady, seedLocalStorage } from "../helpers";
+
+async function mockHiddenGenerationChatHydration(page: Page): Promise<void> {
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    const requestPayload = route.request().postDataJSON() as {
+      chatId?: string;
+    };
+    const chatId =
+      typeof requestPayload.chatId === "string"
+        ? requestPayload.chatId
+        : "pw-chat-fallback";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: `${chatId}-assistant`,
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: "Hidden app generation request accepted.",
+              },
+            ],
+            attachments: [],
+            tool_calls: null,
+          },
+        ],
+        waitingForResponse: false,
+        toolCallArguments: {},
+      }),
+    });
+  });
+
+  await page.route("**/api/getLLMChat", async (route) => {
+    const requestPayload = route.request().postDataJSON() as {
+      chatId?: string;
+    };
+    const chatId =
+      typeof requestPayload.chatId === "string"
+        ? requestPayload.chatId
+        : "pw-chat-fallback";
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: `${chatId}-assistant`,
+            role: "assistant",
+            content: [
+              {
+                type: "text",
+                text: "Hidden app generation request accepted.",
+              },
+            ],
+            attachments: [],
+            tool_calls: null,
+          },
+        ],
+        waitingForResponse: false,
+        llmConfig: {
+          id: "llm-primary",
+          model: "gpt-4o-mini",
+          provider: "openai",
+          base_url: null,
+          api_key_env: null,
+          other_params: null,
+          mcpServerIds: [],
+          temporary: false,
+        },
+      }),
+    });
+  });
+}
 
 test("mcp mode sends hidden app generation request without app-config browser controls", async ({
   page,
@@ -23,6 +98,7 @@ test("mcp mode sends hidden app generation request without app-config browser co
       body: JSON.stringify(`pw-chat-${Date.now()}`),
     });
   });
+  await mockHiddenGenerationChatHydration(page);
 
   await ensureAppReady(page);
   await expect(page.getByText("App Config")).toBeVisible();

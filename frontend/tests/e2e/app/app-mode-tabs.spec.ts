@@ -13,21 +13,51 @@ type ProjectMetadataResponse = {
 };
 
 async function syncAppDefinitionState(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    const { route_get_app_definition } = await import(
-      "/src/utils/generatedEndpoints.ts"
-    );
-    const { res200 } = await import("/src/utils/endpointUtils.ts");
-    const { useAppDefinition } = await import("/src/state/definitions.ts");
-    const res = await route_get_app_definition({});
-    if (!res200(res)) {
-      throw new Error("Unable to load app definition.");
-    }
-    useAppDefinition.setState({
-      appSpec: res.data.appSpec ?? null,
-      appDefinition: res.data.appDefinition ?? null,
-    });
-  });
+  await syncAppDefinitionStateWithExpectedRootKey(page, null);
+}
+
+async function syncAppDefinitionStateWithExpectedRootKey(
+  page: Page,
+  expectedRootKey: string | null,
+): Promise<void> {
+  await expect
+    .poll(async () => {
+      return await page.evaluate(async ({ expectedKey }) => {
+        const { route_get_app_definition } = await import(
+          "/src/utils/generatedEndpoints.ts"
+        );
+        const { res200 } = await import("/src/utils/endpointUtils.ts");
+        const { useAppDefinition } = await import("/src/state/definitions.ts");
+        const res = await route_get_app_definition({});
+        if (!res200(res)) {
+          return false;
+        }
+
+        const appSpec = res.data.appSpec ?? null;
+        const appDefinition = res.data.appDefinition ?? null;
+        const rootKey =
+          appSpec &&
+          typeof appSpec === "object" &&
+          "root" in appSpec &&
+          appSpec.root &&
+          typeof appSpec.root === "object" &&
+          "key" in appSpec.root &&
+          typeof appSpec.root.key === "string"
+            ? appSpec.root.key
+            : null;
+
+        if (expectedKey !== null && rootKey !== expectedKey) {
+          return false;
+        }
+
+        useAppDefinition.setState({
+          appSpec,
+          appDefinition,
+        });
+        return true;
+      }, { expectedKey: expectedRootKey });
+    })
+    .toBe(true);
 }
 
 test("app tabs scope outputs per config", async ({ page }) => {
@@ -322,7 +352,7 @@ test("app tabs remain stable when app definition transitions between non-empty a
       elements: {},
     },
   });
-  await syncAppDefinitionState(page);
+  await syncAppDefinitionStateWithExpectedRootKey(page, "root-tabs");
   await expect(page.getByRole("button", { name: "Tab One" })).toBeVisible();
   await expect(page.getByText("First tab content")).toBeVisible();
 
@@ -336,7 +366,7 @@ test("app tabs remain stable when app definition transitions between non-empty a
       elements: {},
     },
   });
-  await syncAppDefinitionState(page);
+  await syncAppDefinitionStateWithExpectedRootKey(page, "root-tabs-empty");
   await expect(page.getByRole("button", { name: "Tab One" })).toHaveCount(0);
   await expect(page.getByText("First tab content")).toHaveCount(0);
   await expect(page.getByText("App Preview")).toBeVisible();
@@ -364,7 +394,7 @@ test("app tabs remain stable when app definition transitions between non-empty a
       elements: {},
     },
   });
-  await syncAppDefinitionState(page);
+  await syncAppDefinitionStateWithExpectedRootKey(page, "root-tabs-restored");
   await expect(
     page.getByRole("button", { name: "Recovered Tab" }),
   ).toBeVisible();
