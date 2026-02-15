@@ -126,11 +126,10 @@ def test_plugins_restart_required_json_includes_capability_payload(
     monkeypatch,
 ) -> None:
     manager = _build_manager(tmp_path, restart_callback=lambda: True)
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
     monkeypatch.setattr(
         start_module,
-        "_build_plugin_manager_for_cli_without_rescan",
-        lambda: manager,
+        "_build_plugin_manager_for_cli",
+        lambda auto_rescan=True: manager,
     )
 
     runner = CliRunner()
@@ -397,11 +396,10 @@ def test_plugins_link_enable_disable_rescan_unlink_and_restart_cli_json(
 ) -> None:
     # CLI should support link/unlink, state toggles, rescan, list, and restart JSON flows.
     manager = _build_manager(tmp_path, restart_callback=lambda: True)
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
     monkeypatch.setattr(
         start_module,
-        "_build_plugin_manager_for_cli_without_rescan",
-        lambda: manager,
+        "_build_plugin_manager_for_cli",
+        lambda auto_rescan=True: manager,
     )
     runner = CliRunner()
     fixture_root = FIXTURE_PLUGIN_ROOT / "frontend"
@@ -480,11 +478,10 @@ def test_plugins_restart_cli_surfaces_plugin_manager_errors(
         )
 
     monkeypatch.setattr(manager, "restart_backend", _raise_restart_error)
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
     monkeypatch.setattr(
         start_module,
-        "_build_plugin_manager_for_cli_without_rescan",
-        lambda: manager,
+        "_build_plugin_manager_for_cli",
+        lambda auto_rescan=True: manager,
     )
     runner = CliRunner()
 

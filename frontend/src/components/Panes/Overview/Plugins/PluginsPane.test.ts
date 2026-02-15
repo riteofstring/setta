@@ -232,6 +232,59 @@ describe("plugins pane helpers", () => {
     expect(registrations[1].settingsKey).toBe("typescriptLanguageServer");
   });
 
+  it("reuses cached sorted registration arrays for unchanged plugin status objects", () => {
+    const statusEntry = {
+      ...buildPluginStatusEntry({}),
+      registeredLanguageServers: [
+        {
+          name: "plugin:typescript",
+          language: "typescript",
+          command: "ts-lsp",
+          args: ["--stdio"],
+          settingsKey: "typescriptLanguageServer",
+        },
+      ],
+      registeredExternalAgentAdapters: [
+        {
+          adapterId: "plugin:alpha",
+          pluginId: "plugin",
+          name: "Alpha Adapter",
+          runModes: ["sdk"],
+          command: "alpha",
+          args: [],
+          envVarWhitelist: [],
+          defaultModel: null,
+        },
+      ],
+      registeredCodegenTargets: [
+        {
+          targetId: "plugin:alpha",
+          pluginId: "plugin",
+          language: "typescript",
+          name: "TypeScript",
+          defaultFileName: "setta_gen.ts",
+        },
+      ],
+    } as PluginStatusEntry;
+
+    const firstLanguageServers =
+      pluginsPaneTestApi.getRegisteredLanguageServers(statusEntry);
+    const secondLanguageServers =
+      pluginsPaneTestApi.getRegisteredLanguageServers(statusEntry);
+    const firstAdapters =
+      pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry);
+    const secondAdapters =
+      pluginsPaneTestApi.getRegisteredExternalAgentAdapters(statusEntry);
+    const firstCodegenTargets =
+      pluginsPaneTestApi.getRegisteredCodegenTargets(statusEntry);
+    const secondCodegenTargets =
+      pluginsPaneTestApi.getRegisteredCodegenTargets(statusEntry);
+
+    expect(firstLanguageServers).toBe(secondLanguageServers);
+    expect(firstAdapters).toBe(secondAdapters);
+    expect(firstCodegenTargets).toBe(secondCodegenTargets);
+  });
+
   it("returns no language servers when status payload omits registrations", () => {
     const statusEntry = buildPluginStatusEntry({}) as PluginStatusEntry;
     delete (

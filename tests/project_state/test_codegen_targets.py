@@ -718,6 +718,140 @@ class TestCodegenTargetsRunCommand:
             manager.shutdown()
             plugin_manager.shutdown_backend_plugins()
 
+    async def test_set_project_config_name_removes_stale_plugin_codegen_output_root(
+        self,
+    ) -> None:
+        class _StubPluginManager:
+            def has_backend_codegen_target(self, _target_id: str) -> bool:
+                return True
+
+            def get_backend_codegen_target_implementation_key(
+                self, target_id: str
+            ) -> str:
+                return f"{target_id}:impl"
+
+            def generate_backend_codegen_target(
+                self,
+                *,
+                target_id: str,
+                project_state: dict[str, Any],
+                target_options: dict[str, Any],
+            ) -> list[tuple[str, str]]:
+                return [
+                    (
+                        "setta_gen.txt",
+                        f"{target_id}:{project_state['projectConfig']['name']}",
+                    )
+                ]
+
+        plugin_manager = _StubPluginManager()
+        project_config = ProjectConfig(
+            name="PluginCodegenRenameOld",
+            codegenTargets=[
+                ProjectCodegenPluginTarget(language="stub-plugin:target-a")
+            ],
+        )
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=plugin_manager,  # type: ignore[arg-type]
+        )
+        try:
+            await manager._refresh_codegen_state(project_state)
+            old_output_root = manager._plugin_codegen_output_root(
+                "PluginCodegenRenameOld"
+            )
+            assert old_output_root.exists()
+
+            await manager.set_project_config_name(
+                projectConfigId=project_config.id,
+                newName="PluginCodegenRenameNew",
+            )
+            assert not old_output_root.exists()
+
+            renamed_state = manager.get_single_config_state(project_config.id)
+            await manager._refresh_codegen_state(renamed_state)
+            new_output_root = manager._plugin_codegen_output_root(
+                "PluginCodegenRenameNew"
+            )
+            assert new_output_root.exists()
+        finally:
+            manager.shutdown()
+
+    async def test_delete_project_configs_removes_plugin_codegen_output_root(
+        self,
+    ) -> None:
+        class _StubPluginManager:
+            def has_backend_codegen_target(self, _target_id: str) -> bool:
+                return True
+
+            def get_backend_codegen_target_implementation_key(
+                self, target_id: str
+            ) -> str:
+                return f"{target_id}:impl"
+
+            def generate_backend_codegen_target(
+                self,
+                *,
+                target_id: str,
+                project_state: dict[str, Any],
+                target_options: dict[str, Any],
+            ) -> list[tuple[str, str]]:
+                return [
+                    (
+                        "setta_gen.txt",
+                        f"{target_id}:{project_state['projectConfig']['name']}",
+                    )
+                ]
+
+        plugin_manager = _StubPluginManager()
+        primary_config = ProjectConfig(name="PluginCodegenPrimary")
+        removable_config = ProjectConfig(
+            name="PluginCodegenDeleteMe",
+            codegenTargets=[
+                ProjectCodegenPluginTarget(language="stub-plugin:target-a")
+            ],
+        )
+        primary_state = ProjectStateSingleConfig(projectConfig=primary_config)
+        removable_state = ProjectStateSingleConfig(projectConfig=removable_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), primary_state)
+        backend = merge_single_config_into_backend(backend, removable_state)
+        backend.defaultProjectConfigId = primary_config.id
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=plugin_manager,  # type: ignore[arg-type]
+        )
+        try:
+            await manager._refresh_codegen_state(removable_state)
+            removable_output_root = manager._plugin_codegen_output_root(
+                "PluginCodegenDeleteMe"
+            )
+            assert removable_output_root.exists()
+
+            await manager.delete_project_configs([removable_config.id])
+            assert not removable_output_root.exists()
+        finally:
+            manager.shutdown()
+
     async def test_refresh_codegen_state_prunes_removed_target_dirs_after_manager_restart(
         self,
     ) -> None:

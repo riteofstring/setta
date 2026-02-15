@@ -227,10 +227,27 @@ class TestExternalAgentPreflight:
 
             assert not status.supported
             assert not status.available
-            assert any(
-                "Plugin external agent adapter is not registered" in issue
-                for issue in status.issues
+            assert status.issues == [
+                "Plugin external agent adapter is not registered: acme-plugin:missing"
+            ]
+
+    def test_plugin_tool_missing_adapter_id_reports_one_primary_issue(self) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            config = ExternalAgentConfig(
+                name="Missing plugin adapter id",
+                toolType=ExternalAgentToolType.plugin,
+                pluginAdapterId=None,
+                runMode=ExternalAgentRunMode.sdk,
             )
+
+            status = build_external_agent_preflight_status(dbe, config)
+
+            assert not status.supported
+            assert not status.available
+            assert status.issues == [
+                "pluginAdapterId is required for plugin external agents"
+            ]
 
     def test_plugin_tool_merges_adapter_env_var_whitelist(self) -> None:
         with _temp_cwd() as tmp:
@@ -334,3 +351,41 @@ class TestExternalAgentPreflight:
             assert status.supported
             assert status.available
             assert status.issues == []
+
+    def test_plugin_tool_rejects_non_executable_file_command(self) -> None:
+        if os.name == "nt":
+            pytest.skip("Executable bit semantics differ on Windows.")
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            command_path = tmp / "adapter-command"
+            command_path.write_text("#!/bin/sh\necho ok\n", encoding="utf-8")
+            command_path.chmod(0o644)
+            plugin_adapter = PluginRegisteredExternalAgentAdapter(
+                adapterId="acme-plugin:non-executable",
+                pluginId="acme-plugin",
+                name="Non Executable Adapter",
+                runModes=["sdk"],
+                command=str(command_path),
+                args=[],
+                envVarWhitelist=[],
+                defaultModel=None,
+            )
+            config = ExternalAgentConfig(
+                name="Non Executable Adapter Config",
+                toolType=ExternalAgentToolType.plugin,
+                pluginAdapterId=plugin_adapter.adapterId,
+                runMode=ExternalAgentRunMode.sdk,
+                commandPath=str(command_path),
+            )
+
+            status = build_external_agent_preflight_status(
+                dbe,
+                config,
+                plugin_external_agent_adapters=[plugin_adapter],
+            )
+
+            assert status.supported
+            assert not status.available
+            assert status.issues == [
+                f"Plugin external agent command is not executable ({command_path})"
+            ]

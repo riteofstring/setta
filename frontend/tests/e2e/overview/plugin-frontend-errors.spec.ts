@@ -1,4 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { randomUUID } from "crypto";
+import fs from "fs/promises";
+import os from "os";
 import path from "path";
 import {
   cleanupIsolatedProject,
@@ -177,5 +180,81 @@ test("plugin fallback card actions open plugins, copy JSON, and delete section",
     }).catch(() => null);
     await postBackend(page, "/plugins/rescan", {}).catch(() => null);
     await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("plugin frontend registration rejects full project-state selector reads", async ({
+  page,
+}) => {
+  const baseFixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/frontend",
+  );
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), "setta-plugin-full-selector-"),
+  );
+  const fixturePluginRoot = path.join(tempRoot, "plugin");
+  await fs.cp(baseFixturePluginRoot, fixturePluginRoot, { recursive: true });
+  const manifestPath = path.join(fixturePluginRoot, "setta.plugin.json");
+  const manifest = JSON.parse(await fs.readFile(manifestPath, "utf-8")) as {
+    id: string;
+    name: string;
+  };
+  const pluginId = `setta-fixture-frontend-full-selector-${randomUUID().slice(0, 8)}`;
+  manifest.id = pluginId;
+  manifest.name = "Setta Fixture Frontend Full Selector";
+  await fs.writeFile(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
+  await fs.writeFile(
+    path.join(fixturePluginRoot, "frontend", "dist", "index.js"),
+    [
+      "export const apiVersion = 1;",
+      "",
+      "export function register(host) {",
+      "  host.readProjectState({ kind: 'full' });",
+      "}",
+      "",
+    ].join("\n"),
+    "utf-8",
+  );
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await setOverviewTab(page, "Plugins");
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: fixturePluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/rescan", {});
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const pluginCard = page
+      .locator("article")
+      .filter({
+        has: page.getByRole("heading", {
+          name: new RegExp(`^${pluginId}@0\\.1\\.0$`),
+        }),
+      })
+      .first();
+
+    await expect(pluginCard).toBeVisible();
+    await expect(pluginCard.getByText("Frontend load failed")).toBeVisible();
+    await expect(
+      pluginCard.getByText("PLUGIN_FRONTEND_REGISTRATION_INVALID"),
+    ).toBeVisible();
+    await expect(
+      pluginCard.getByText(/project state selector kind full is unsupported/i),
+    ).toBeVisible();
+  } finally {
+    await postBackend(page, "/plugins/unlink", {
+      pluginId,
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/rescan", {}).catch(() => null);
+    await cleanupIsolatedProject(page, projectContext);
+    await fs.rm(tempRoot, { recursive: true, force: true });
   }
 });

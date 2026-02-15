@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 from tests.start.dev_script_wiring_helpers import repo_root
@@ -17,6 +18,7 @@ def _build_backend_test_runner_sandbox(tmp_path: Path) -> tuple[Path, Path]:
     plugin_fixture_scripts.mkdir(parents=True, exist_ok=True)
     fixture_frontend_src.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
+    (sandbox_root / "frontend").mkdir(parents=True, exist_ok=True)
 
     run_backend_tests_src = root / "scripts" / "run_backend_tests.sh"
     run_backend_tests_dst = scripts_dir / "run_backend_tests.sh"
@@ -65,6 +67,15 @@ printf '%s\n' '.fixture { color: red; }' > "${fixture_dist}/index.css"
         encoding="utf-8",
     )
     build_script.chmod(0o755)
+    (sandbox_root / "frontend" / "package.json").write_text(
+        '{"name":"fixture-frontend","version":"1.0.0"}\n',
+        encoding="utf-8",
+    )
+    (sandbox_root / "frontend" / "pnpm-lock.yaml").write_text(
+        "lockfileVersion: '9.0'\n",
+        encoding="utf-8",
+    )
+    (scripts_dir / "node_version.txt").write_text("20.11.0\n", encoding="utf-8")
 
     activate_script = sandbox_root / "activate.sh"
     activate_script.write_text(
@@ -138,6 +149,23 @@ def test_plugin_fixture_signature_is_content_based_not_path_based(
     second_signature = _compute_plugin_fixture_signature(second_sandbox)
 
     assert first_signature == second_signature
+
+
+def test_plugin_fixture_signature_includes_frontend_toolchain_inputs(
+    tmp_path: Path,
+) -> None:
+    # Frontend toolchain file changes should invalidate fixture signatures.
+    sandbox_root, _ = _build_backend_test_runner_sandbox(tmp_path)
+    first_signature = _compute_plugin_fixture_signature(sandbox_root)
+
+    package_json = sandbox_root / "frontend" / "package.json"
+    package_json.write_text(
+        '{"name":"fixture-frontend","version":"2.0.0"}\n',
+        encoding="utf-8",
+    )
+    second_signature = _compute_plugin_fixture_signature(sandbox_root)
+
+    assert first_signature != second_signature
 
 
 def test_run_backend_tests_rebuilds_fixtures_only_when_signature_changes(
@@ -256,3 +284,22 @@ def test_run_backend_tests_rebuilds_when_fixture_style_output_is_missing(
     assert second_run.returncode == 0, f"{second_run.stdout}\n{second_run.stderr}"
     assert "plugin fixture outputs missing; rebuilding" in second_run.stdout
     assert build_count_file.read_text(encoding="utf-8").strip() == "2"
+
+
+def test_run_backend_tests_honors_python_bin_override_for_cache_checks(
+    tmp_path: Path,
+) -> None:
+    # Cache checks should use PYTHON_BIN when provided, even if `python` is unavailable.
+    sandbox_root, _build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+    broken_python = sandbox_root / "bin" / "python"
+    broken_python.write_text(
+        "#!/usr/bin/env bash\nexit 127\n",
+        encoding="utf-8",
+    )
+    broken_python.chmod(0o755)
+
+    result = _run_backend_test_runner(
+        sandbox_root,
+        extra_env={"PYTHON_BIN": sys.executable},
+    )
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"

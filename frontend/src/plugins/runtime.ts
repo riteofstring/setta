@@ -159,8 +159,7 @@ export type PluginProjectStateSelector =
   | { kind: "activeSectionIds" }
   | { kind: "section"; sectionId: string }
   | { kind: "sections"; sectionIds: string[] }
-  | { kind: "singletonSections" }
-  | { kind: "full" };
+  | { kind: "singletonSections" };
 
 export type PluginProjectStateSubscriptionOptions = {
   fireImmediately?: boolean;
@@ -197,7 +196,7 @@ export type SettaPluginHost = {
   ) => () => void;
   readProjectState: (selector: PluginProjectStateSelector) => unknown;
   subscribeProjectState: (
-    selector: Exclude<PluginProjectStateSelector, { kind: "full" }>,
+    selector: PluginProjectStateSelector,
     listener: (nextValue: unknown, prevValue: unknown | null) => void,
     options?: PluginProjectStateSubscriptionOptions,
   ) => () => void;
@@ -437,7 +436,9 @@ async function loadPluginRuntime(): Promise<void> {
   removeInactivePluginStyles(new Set(Object.keys(pluginListById)));
 
   const sortedPluginListEntries = toSortedPluginListEntries(pluginListById);
-  const sortedSectionKinds = toSortedSectionKinds(registryAccumulator.sectionKinds);
+  const sortedSectionKinds = toSortedSectionKinds(
+    registryAccumulator.sectionKinds,
+  );
   const sortedPaneTabs = toSortedPluginPaneTabs(registryAccumulator.panes);
   const sortedCommands = toSortedPluginCommands(registryAccumulator.commands);
   const sortedTopNavBarItems = toSortedPluginTopNavBarItems(
@@ -579,7 +580,7 @@ function normalizeProjectStateSelector(
   if (kind === "projectConfig" || kind === "activeSectionIds") {
     return { kind };
   }
-  if (kind === "singletonSections" || kind === "full") {
+  if (kind === "singletonSections") {
     return { kind };
   }
   if (kind === "section") {
@@ -633,9 +634,6 @@ function getRawSelectedProjectState(
   if (selector.kind === "singletonSections") {
     return state.singletonSections;
   }
-  if (selector.kind === "full") {
-    return state;
-  }
   if (selector.kind === "section") {
     const sectionId = selector.sectionId;
     const variantId = state.projectConfig.sectionVariantMap[sectionId];
@@ -670,7 +668,7 @@ function getRawSelectedProjectState(
 }
 
 function projectStateSubscriptionEquality(
-  selector: Exclude<PluginProjectStateSelector, { kind: "full" }>,
+  selector: PluginProjectStateSelector,
 ): ((left: unknown, right: unknown) => boolean) | undefined {
   if (selector.kind !== "sections") {
     return undefined;
@@ -702,7 +700,7 @@ function toProjectStateReadValue(
 }
 
 function toProjectStateSubscriptionValue(
-  selector: Exclude<PluginProjectStateSelector, { kind: "full" }>,
+  selector: PluginProjectStateSelector,
   rawValue: unknown,
 ): unknown {
   if (selector.kind !== "sections") {
@@ -938,12 +936,6 @@ function registerPluginModule({
         plugin.pluginId,
         selector,
       );
-      if (normalizedSelector.kind === "full") {
-        throw new PluginRuntimeError(
-          PluginFrontendErrorCodeEnum.RegistrationInvalid,
-          `Plugin ${plugin.pluginId} cannot subscribe with selector kind full.`,
-        );
-      }
       const fireImmediately = options?.fireImmediately ?? true;
       const throttleMs = options?.throttleMs ?? 0;
       if (!Number.isFinite(throttleMs) || throttleMs < 0) {
@@ -1777,7 +1769,9 @@ export function usePluginSectionKind(
   kind: string,
 ): RegisteredPluginSectionKind | null {
   const sectionKey = toPluginSectionKindKey(pluginId, kind);
-  return usePluginRuntimeStore((state) => state.sectionKindsByKey[sectionKey] ?? null);
+  return usePluginRuntimeStore(
+    (state) => state.sectionKindsByKey[sectionKey] ?? null,
+  );
 }
 
 export function usePluginSectionKinds(): RegisteredPluginSectionKind[] {

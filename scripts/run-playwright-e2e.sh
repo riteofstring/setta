@@ -132,6 +132,7 @@ LOG_DIR="${SETTA_E2E_LOG_DIR:-${TMPDIR:-/tmp}/setta-e2e-logs-${INSTANCE_NAME}-$(
 mkdir -p "${LOG_DIR}"
 PLUGIN_FIXTURE_CACHE_DIR="${ROOT_DIR}/setta_files/.cache"
 PLUGIN_FIXTURE_CACHE_FILE="${PLUGIN_FIXTURE_CACHE_DIR}/playwright-e2e-plugin-fixtures-all.signature"
+PLUGIN_ARTIFACT_CACHE_FILE="${PLUGIN_FIXTURE_CACHE_DIR}/playwright-e2e-plugin-artifacts.signature"
 # shellcheck source=scripts/plugin-fixtures/cache.sh
 . "${ROOT_DIR}/scripts/plugin-fixtures/cache.sh"
 
@@ -139,40 +140,14 @@ log() {
   echo "[$(date +"%Y-%m-%d %H:%M:%S")] $*"
 }
 
-build_plugin_fixtures_if_needed() {
-  local current_signature cached_signature
-  current_signature="$(compute_plugin_fixture_signature "${ROOT_DIR}")"
-  mkdir -p "${PLUGIN_FIXTURE_CACHE_DIR}"
-
-  if [[ "${SETTA_FORCE_PLUGIN_FIXTURE_BUILD:-0}" == "1" ]]; then
-    log "Building fixture plugin frontend assets (forced)."
-    "${ROOT_DIR}/scripts/plugin-fixtures/build.sh" all
-    printf '%s' "${current_signature}" > "${PLUGIN_FIXTURE_CACHE_FILE}"
-    return
-  fi
-
-  if [[ -f "${PLUGIN_FIXTURE_CACHE_FILE}" ]]; then
-    cached_signature="$(<"${PLUGIN_FIXTURE_CACHE_FILE}")"
-  else
-    cached_signature=""
-  fi
-
-  if [[ "${cached_signature}" == "${current_signature}" ]]; then
-    if ! plugin_fixture_frontend_outputs_complete "${ROOT_DIR}"; then
-      log "Fixture plugin outputs missing; rebuilding."
-    else
-      log "Skipping fixture plugin build; fixtures unchanged."
-      return
-    fi
-  else
-    log "Building fixture plugin frontend assets."
-  fi
-
-  "${ROOT_DIR}/scripts/plugin-fixtures/build.sh" all
-  printf '%s' "${current_signature}" > "${PLUGIN_FIXTURE_CACHE_FILE}"
-}
-
-build_plugin_fixtures_if_needed
+while IFS= read -r log_line; do
+  log "${log_line}"
+done < <(
+  build_plugin_fixtures_if_needed \
+    "${ROOT_DIR}" \
+    "${PLUGIN_FIXTURE_CACHE_FILE}" \
+    "build"
+)
 
 BACKEND_PID=""
 FRONTEND_PID=""
@@ -286,13 +261,60 @@ PY
   log "Seeded workspace. Logs: ${LOG_DIR}/seed.log"
 }
 
+compute_local_plugin_artifact_signature() {
+  local root_dir="$1"
+  local fixture_file
+  local signature_files=(
+    "${root_dir}/scripts/run-playwright-e2e.sh"
+  )
+  while IFS= read -r fixture_file; do
+    signature_files+=("${fixture_file}")
+  done < <(find "${root_dir}/tests/fixtures/plugins/frontend" -type f | sort)
+  printf '%s\n' "wheel:setta-fixture-frontend:0.1.0"
+  for fixture_file in "${signature_files[@]}"; do
+    if [[ ! -f "${fixture_file}" ]]; then
+      continue
+    fi
+    printf '%s|' "${fixture_file#${root_dir}/}"
+    cksum < "${fixture_file}"
+  done
+}
+
 seed_local_plugin_artifacts() {
   if [[ "${SETTA_E2E_SEED_PLUGIN_ARTIFACTS:-1}" == "0" ]]; then
     log "Skipping local plugin artifact seed (SETTA_E2E_SEED_PLUGIN_ARTIFACTS=0)."
     return
   fi
-  local artifact_dir="${SETTA_E2E_PLUGIN_ARTIFACT_DIR:-${LOG_DIR}/plugin-artifacts}"
+  local artifact_dir="${SETTA_E2E_PLUGIN_ARTIFACT_DIR:-${ROOT_DIR}/setta_files/.cache/playwright-plugin-artifacts}"
+  local package_name="setta-fixture-frontend"
+  local package_version="0.1.0"
+  local wheel_name="${package_name//-/_}-${package_version}-py3-none-any.whl"
+  local wheel_path="${artifact_dir}/${wheel_name}"
+  local current_signature cached_signature
+  current_signature="$(compute_local_plugin_artifact_signature "${ROOT_DIR}" | cksum | awk '{print $1 ":" $2}')"
   mkdir -p "${artifact_dir}"
+  mkdir -p "${PLUGIN_FIXTURE_CACHE_DIR}"
+  if [[ "${SETTA_FORCE_PLUGIN_ARTIFACT_BUILD:-0}" != "1" ]] && [[ -f "${PLUGIN_ARTIFACT_CACHE_FILE}" ]]; then
+    cached_signature="$(<"${PLUGIN_ARTIFACT_CACHE_FILE}")"
+  else
+    cached_signature=""
+  fi
+  if [[ "${SETTA_FORCE_PLUGIN_ARTIFACT_BUILD:-0}" != "1" ]] && [[ "${cached_signature}" == "${current_signature}" ]] && [[ -f "${wheel_path}" ]]; then
+    log "Skipping local plugin artifact seed; artifacts unchanged."
+    export PIP_NO_INDEX="${PIP_NO_INDEX:-1}"
+    if [[ -z "${PIP_FIND_LINKS:-}" ]]; then
+      export PIP_FIND_LINKS="${artifact_dir}"
+    else
+      export PIP_FIND_LINKS="${artifact_dir} ${PIP_FIND_LINKS}"
+    fi
+    export UV_NO_INDEX="${UV_NO_INDEX:-${PIP_NO_INDEX}}"
+    if [[ -z "${UV_FIND_LINKS:-}" ]]; then
+      export UV_FIND_LINKS="${PIP_FIND_LINKS}"
+    else
+      export UV_FIND_LINKS="${artifact_dir} ${UV_FIND_LINKS}"
+    fi
+    return
+  fi
   (
     cd "${ROOT_DIR}"
     source "./activate.sh"
@@ -349,6 +371,7 @@ for fixture_name, package_name, version in fixtures:
         zipf.writestr(f"{dist_info_name}/RECORD", "")
 PY
   ) >"${LOG_DIR}/seed-plugin-artifacts.log" 2>&1
+  printf '%s' "${current_signature}" > "${PLUGIN_ARTIFACT_CACHE_FILE}"
 
   export PIP_NO_INDEX="${PIP_NO_INDEX:-1}"
   if [[ -z "${PIP_FIND_LINKS:-}" ]]; then

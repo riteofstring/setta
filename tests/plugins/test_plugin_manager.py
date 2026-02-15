@@ -1305,6 +1305,76 @@ def test_missing_enable_disable_is_noop_for_plugins_state(
     assert not plugins_state_path.exists()
 
 
+def test_enable_disable_mutations_are_serialized(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Concurrent enable/disable should not interleave state-file read/modify/write cycles.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("frontend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+
+    original_load_state = manager._load_plugins_state
+    first_load_started = threading.Event()
+    release_first_load = threading.Event()
+    second_load_started = threading.Event()
+    load_call_count = 0
+
+    def _blocking_load_state():
+        nonlocal load_call_count
+        load_call_count += 1
+        if load_call_count == 1:
+            first_load_started.set()
+            assert release_first_load.wait(timeout=2.0)
+        else:
+            second_load_started.set()
+        return original_load_state()
+
+    monkeypatch.setattr(manager, "_load_plugins_state", _blocking_load_state)
+
+    raised: list[Exception] = []
+
+    def _run_disable() -> None:
+        try:
+            manager.disable_plugin(plugin_id="setta-fixture-frontend")
+        except Exception as exc:  # pragma: no cover - assertion path
+            raised.append(exc)
+
+    def _run_enable() -> None:
+        try:
+            manager.enable_plugin(plugin_id="setta-fixture-frontend")
+        except Exception as exc:  # pragma: no cover - assertion path
+            raised.append(exc)
+
+    disable_thread = threading.Thread(target=_run_disable)
+    enable_thread = threading.Thread(target=_run_enable)
+    disable_thread.start()
+    assert first_load_started.wait(timeout=2.0)
+
+    enable_thread.start()
+    assert not second_load_started.wait(timeout=0.2)
+    release_first_load.set()
+
+    disable_thread.join(timeout=2.0)
+    enable_thread.join(timeout=2.0)
+
+    assert raised == []
+    assert second_load_started.is_set()
+
+    final_entry = next(
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-frontend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    )
+    assert final_entry.state == PluginRuntimeState.active
+
+
 def test_global_install_uses_global_auto_enable_source(tmp_path: Path) -> None:
     # Global install enablement should flow through global defaults, not workspace overrides.
     manager = _make_manager(tmp_path)
@@ -3707,10 +3777,15 @@ def test_apply_lockfile_executes_uninstall_for_plugins_missing_from_lockfile(
     uninstall_calls: list[tuple[str, PluginScope | None]] = []
     original_uninstall = manager.uninstall_plugin
 
-    def _record_uninstall(*, plugin_id: str, scope: str | PluginScope | None = None):
+    def _record_uninstall(
+        *,
+        plugin_id: str,
+        scope: str | PluginScope | None = None,
+        rescan: bool = True,
+    ):
         resolved_scope = None if scope is None else normalize_scope(scope)
         uninstall_calls.append((plugin_id, resolved_scope))
-        return original_uninstall(plugin_id=plugin_id, scope=scope)
+        return original_uninstall(plugin_id=plugin_id, scope=scope, rescan=rescan)
 
     monkeypatch.setattr(manager, "uninstall_plugin", _record_uninstall)
     apply_result = manager.apply_lockfile(check=False)
@@ -3725,6 +3800,210 @@ def test_apply_lockfile_executes_uninstall_for_plugins_missing_from_lockfile(
         and entry.shadowedBySourcePath is None
     ]
     assert remaining_entries == []
+
+
+def test_apply_lockfile_plans_and_uninstalls_invalid_filesystem_plugins(
+    tmp_path: Path,
+) -> None:
+    # Invalid setta-managed entries should be included in lockfile convergence/uninstall.
+    manager = _make_manager(tmp_path)
+    invalid_plugin_root = (
+        manager.workspace_root / ".setta_plugins" / "setta-invalid-missing-manifest"
+    )
+    invalid_plugin_root.mkdir(parents=True, exist_ok=True)
+    (invalid_plugin_root / "README.txt").write_text(
+        "missing manifest", encoding="utf-8"
+    )
+    manager.rescan()
+
+    lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
+    lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+    lockfile_path.write_text(json.dumps({"plugins": []}), encoding="utf-8")
+
+    check_result = manager.apply_lockfile(check=True)
+    assert any(
+        "uninstall setta-invalid-missing-manifest from workspace" in change
+        for change in check_result.plannedChanges
+    )
+
+    apply_result = manager.apply_lockfile(check=False)
+    assert apply_result.applied is True
+    assert not invalid_plugin_root.exists()
+
+
+def test_apply_lockfile_preserves_disabled_state_when_reconciling_source(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Reconcile installs should preserve a plugin's disabled state from current runtime.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    captured_enable_flags: list[bool] = []
+    original_install = manager.install_plugin
+
+    def _record_install_plugin(**kwargs):
+        enable_value = kwargs.get("enable")
+        assert isinstance(enable_value, bool)
+        captured_enable_flags.append(enable_value)
+        return original_install(**kwargs)
+
+    monkeypatch.setattr(manager, "install_plugin", _record_install_plugin)
+    try:
+        manager.install_plugin(
+            source_spec=f"pypi:{package_name}=={version}",
+            installer=PluginInstallerBackend.pip,
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+        manager.disable_plugin(plugin_id=package_name)
+        lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
+        lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+        lockfile_path.write_text(
+            json.dumps(
+                {
+                    "plugins": [
+                        {
+                            "pluginId": package_name,
+                            "version": version,
+                            "canonicalSourceKey": "pypi:setta_fixture_frontend",
+                            "scope": "workspace",
+                            "sourceDigestSha256": None,
+                            "sourceSpec": f"pypi:setta_fixture_frontend=={version}",
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        apply_result = manager.apply_lockfile(check=False)
+        assert apply_result.applied is True
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+    assert captured_enable_flags[-1] is False
+    final_entry = next(
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == package_name
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    )
+    assert final_entry.state == PluginRuntimeState.disabled
+
+
+def test_apply_lockfile_batches_mutations_and_performs_one_final_rescan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Lockfile apply should pass rescan=False to each mutation and run one final rescan.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="frontend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    package_name = "setta-fixture-backend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="backend",
+        package_name=package_name,
+        version=version,
+    )
+    lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
+    lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+    lockfile_path.write_text(
+        json.dumps(
+            {
+                "plugins": [
+                    {
+                        "pluginId": package_name,
+                        "version": version,
+                        "canonicalSourceKey": f"pypi:{package_name}",
+                        "scope": "workspace",
+                        "sourceDigestSha256": None,
+                        "sourceSpec": f"pypi:{package_name}=={version}",
+                        "installerBackend": "pip",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    install_rescan_flags: list[bool] = []
+    uninstall_rescan_flags: list[bool] = []
+    original_install = manager.install_plugin
+    original_uninstall = manager.uninstall_plugin
+
+    def _record_install_plugin(**kwargs):
+        rescan_value = kwargs.get("rescan", True)
+        assert isinstance(rescan_value, bool)
+        install_rescan_flags.append(rescan_value)
+        return original_install(**kwargs)
+
+    def _record_uninstall_plugin(**kwargs):
+        rescan_value = kwargs.get("rescan", True)
+        assert isinstance(rescan_value, bool)
+        uninstall_rescan_flags.append(rescan_value)
+        return original_uninstall(**kwargs)
+
+    monkeypatch.setattr(manager, "install_plugin", _record_install_plugin)
+    monkeypatch.setattr(manager, "uninstall_plugin", _record_uninstall_plugin)
+
+    original_rescan = manager.rescan
+    rescan_count = 0
+
+    def _count_rescan():
+        nonlocal rescan_count
+        rescan_count += 1
+        return original_rescan()
+
+    monkeypatch.setattr(manager, "rescan", _count_rescan)
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    try:
+        apply_result = manager.apply_lockfile(check=False)
+        assert apply_result.applied is True
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+
+    assert install_rescan_flags == [False]
+    assert uninstall_rescan_flags == [False]
+    assert rescan_count == 1
 
 
 def test_apply_lockfile_reconciles_digest_mismatches_for_existing_plugins(
@@ -5300,6 +5579,73 @@ def test_call_backend_worker_method_serializes_requests_per_plugin(
     assert results[1001]["requestId"] == 1001
 
 
+def test_call_backend_worker_method_maps_unexpected_nested_host_exceptions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Unexpected host exceptions should be converted to nested JSON-RPC error payloads.
+    manager = _make_manager(tmp_path)
+    written_payloads: list[dict[str, Any]] = []
+    read_count = 0
+
+    class _DummyProcess:
+        pass
+
+    def _patched_write(**kwargs):
+        payload = kwargs.get("payload")
+        assert isinstance(payload, dict)
+        written_payloads.append(payload)
+
+    def _patched_read(**_kwargs):
+        nonlocal read_count
+        read_count += 1
+        if read_count == 1:
+            return {
+                "jsonrpc": "2.0",
+                "id": 2000,
+                "method": "host.read_project_state",
+                "params": {
+                    "projectConfigId": "fixture-project",
+                    "view": "summary",
+                },
+            }
+        return {
+            "jsonrpc": "2.0",
+            "id": 1000,
+            "result": {"ok": True},
+        }
+
+    def _raise_unexpected_host_error(**_kwargs):
+        raise RuntimeError("startup in progress")
+
+    monkeypatch.setattr(manager, "_write_backend_worker_payload", _patched_write)
+    monkeypatch.setattr(manager, "_read_backend_worker_message", _patched_read)
+    monkeypatch.setattr(
+        manager,
+        "_dispatch_backend_worker_host_request",
+        _raise_unexpected_host_error,
+    )
+
+    result = manager._call_backend_worker_method(
+        process=_DummyProcess(),  # type: ignore[arg-type]
+        plugin_id="fixture-plugin",
+        request_id=1000,
+        method="plugin.register",
+        timeout_seconds=2.0,
+        timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+    )
+    assert result == {"ok": True}
+    assert len(written_payloads) == 2
+    nested_response = written_payloads[1]
+    assert nested_response["id"] == 2000
+    nested_error = nested_response.get("error")
+    assert isinstance(nested_error, dict)
+    assert nested_error.get("code") == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+    assert "Host method host.read_project_state failed" in str(
+        nested_error.get("message")
+    )
+
+
 @pytest.mark.parametrize(
     ("prefix", "expected"),
     [
@@ -5495,6 +5841,45 @@ def test_dispatch_backend_worker_host_request_rejects_unknown_share_session(
             app=app,
         )
     assert exc_info.value.code == "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED"
+
+
+def test_dispatch_backend_worker_host_request_maps_preinit_switcher_runtime_error(
+    tmp_path: Path,
+) -> None:
+    # Pre-init manager-switcher runtime failures should map to deterministic plugin errors.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    class _FakeSettaState:
+        def __init__(self) -> None:
+            self.deployment_mode = False
+
+        @property
+        def project_manager_switcher(self):
+            raise RuntimeError("project manager switcher not ready")
+
+    app = FastAPI()
+    app.state.setta = _FakeSettaState()
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._dispatch_backend_worker_host_request(
+            plugin_id=entry.plugin_id,
+            method="host.read_project_state",
+            params={
+                "projectConfigId": "fixture-project",
+                "view": "summary",
+            },
+            entry=entry,
+            app=app,
+        )
+    assert exc_info.value.code == "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED"
+    assert "unavailable before startup completes" in exc_info.value.message
 
 
 def test_dispatch_backend_worker_host_request_emits_listener_dependency_event(
@@ -6072,7 +6457,9 @@ def test_scope_specific_plugin_config_persists_across_shadowing_lifecycle(
     manager.uninstall_plugin(plugin_id=plugin_id, scope=PluginScope.workspace)
 
     list_entry = next(
-        plugin for plugin in manager.get_list_response().plugins if plugin.pluginId == plugin_id
+        plugin
+        for plugin in manager.get_list_response().plugins
+        if plugin.pluginId == plugin_id
     )
     assert list_entry.sourceScope == PluginScope.global_scope
     assert list_entry.config.currentConfig == {

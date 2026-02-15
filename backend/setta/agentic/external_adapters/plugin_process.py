@@ -253,6 +253,8 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
             await asyncio.wait_for(process.wait(), timeout=5)
         except asyncio.TimeoutError:
             process.kill()
+            await asyncio.wait_for(process.wait(), timeout=5)
+        handle.return_code = process.returncode
 
     async def send_approval_response(
         self, handle: ExternalAgentRunHandle, approval_id: str, approved: bool

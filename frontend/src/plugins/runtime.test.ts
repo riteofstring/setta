@@ -1039,17 +1039,19 @@ describe("plugin runtime helpers", () => {
   });
 
   it("normalizePluginPath rejects traversal segments for apiFetch", () => {
-    expect(() => pluginRuntimeTestApi.normalizePluginPath("/../../api/projects")).toThrow(
-      "apiFetch path cannot include relative traversal segments",
-    );
+    expect(() =>
+      pluginRuntimeTestApi.normalizePluginPath("/../../api/projects"),
+    ).toThrow("apiFetch path cannot include relative traversal segments");
     expect(() => pluginRuntimeTestApi.normalizePluginPath("/a/../b")).toThrow(
       "apiFetch path cannot include relative traversal segments",
     );
-    expect(() => pluginRuntimeTestApi.normalizePluginPath("/%2e%2e/api/projects")).toThrow(
-      "apiFetch path cannot include relative traversal segments",
-    );
+    expect(() =>
+      pluginRuntimeTestApi.normalizePluginPath("/%2e%2e/api/projects"),
+    ).toThrow("apiFetch path cannot include relative traversal segments");
     expect(pluginRuntimeTestApi.normalizePluginPath("health")).toBe("/health");
-    expect(pluginRuntimeTestApi.normalizePluginPath("//status")).toBe("/status");
+    expect(pluginRuntimeTestApi.normalizePluginPath("//status")).toBe(
+      "/status",
+    );
     expect(pluginRuntimeTestApi.normalizePluginPath("/status?ok=1")).toBe(
       "/status?ok=1",
     );
@@ -1346,6 +1348,10 @@ describe("plugin runtime helpers", () => {
     }) as Record<string, unknown>;
     expect(sectionsSnapshot[sectionId]).toBeTypeOf("object");
     expect(sectionsSnapshot["missing-section"]).toBeNull();
+    expectPluginFrontendErrorCode(
+      () => host.readProjectState({ kind: "full" }),
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
   });
 
   it("supports subscribeProjectState updates and unsubscribes cleanly", async () => {

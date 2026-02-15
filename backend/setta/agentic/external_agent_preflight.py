@@ -77,16 +77,21 @@ def build_external_agent_preflight_status(
         config.runMode,
         plugin_adapter=plugin_adapter,
     )
-    if env_status.missing:
-        issues.append(f"Missing env vars: {', '.join(env_status.missing)}")
+    plugin_adapter_resolution_issue: str | None = None
     if config.toolType == ExternalAgentToolType.plugin:
         if config.pluginAdapterId is None or config.pluginAdapterId.strip() == "":
-            issues.append("pluginAdapterId is required for plugin external agents")
+            plugin_adapter_resolution_issue = (
+                "pluginAdapterId is required for plugin external agents"
+            )
         elif plugin_adapter is None:
-            issues.append(
+            plugin_adapter_resolution_issue = (
                 "Plugin external agent adapter is not registered: "
                 f"{config.pluginAdapterId}"
             )
+        if plugin_adapter_resolution_issue is not None:
+            issues.append(plugin_adapter_resolution_issue)
+    if env_status.missing:
+        issues.append(f"Missing env vars: {', '.join(env_status.missing)}")
 
     node_path = None
     node_version = None
@@ -124,7 +129,10 @@ def build_external_agent_preflight_status(
         if cli_issue:
             issues.append(cli_issue)
 
-    if config.toolType == ExternalAgentToolType.plugin:
+    if (
+        config.toolType == ExternalAgentToolType.plugin
+        and plugin_adapter_resolution_issue is None
+    ):
         command_issue = _check_plugin_command(
             config.commandPath,
             plugin_adapter=plugin_adapter,
@@ -140,7 +148,7 @@ def build_external_agent_preflight_status(
     if base_url_issue:
         issues.append(base_url_issue)
 
-    if not supported:
+    if not supported and plugin_adapter_resolution_issue is None:
         issues.append(
             f"Run mode {config.runMode.value} not supported for {config.toolType.value}"
         )
@@ -336,8 +344,11 @@ def _check_plugin_command(
     command = command_override or plugin_adapter.command.strip()
     if command == "":
         return "Plugin external agent command is empty"
-    if Path(command).is_file():
-        return None
+    command_path = Path(command)
+    if command_path.is_file():
+        if os.access(command_path, os.X_OK):
+            return None
+        return f"Plugin external agent command is not executable ({command})"
     if shutil.which(command):
         return None
     return f"Plugin external agent command not found ({command})"

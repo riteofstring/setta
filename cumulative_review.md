@@ -93,3 +93,18 @@
 - Fixed realtime dependency event delivery so events are not dropped when coverage is unknown, only when coverage explicitly excludes the dependency key.
 - Hardened fixture-cache scripts: content-based signature hashing (`cksum < file`), manifest-driven frontend output completeness checks, and macOS-compatible shell handling.
 - Added/updated backend unit/integration tests, frontend unit/integration tests, and Playwright coverage for the new busy-state behavior; executed targeted pytest/vitest/playwright runs and completed CDP visual verification.
+
+## 2026-02-15T19:20:13-08:00
+
+- Implemented the remaining `review1.md` through `review6.md` fixes end-to-end, explicitly excluding backward-compatibility shim additions.
+- Fixed plugin external-agent preflight correctness by requiring executable file commands, collapsing missing/unknown plugin-adapter errors to a single primary issue, and preventing redundant run-mode noise when adapter resolution fails.
+- Hardened plugin manager mutation safety with a coarse mutation lock across mutating lifecycle/config/lockfile methods, and added structured nested host-RPC error mapping for unexpected host exceptions.
+- Fixed lockfile reconcile correctness by preserving disabled state on reinstall, including invalid discovered entries in convergence scope, and batching install/uninstall operations with one final rescan.
+- Fixed IDE startup correctness for register-time `read_project_state` by ensuring `app.state.setta` is populated before startup work and creating project-manager switchers before backend plugin registration, while still loading plugin language servers before LSP writer startup.
+- Threaded `plugin_manager` through share session switcher/session-manager construction to support plugin codegen/read paths in deployment sessions.
+- Improved plugin codegen output hygiene by tracking output roots per project config and removing stale plugin_codegen roots on project rename/delete and target-set transitions.
+- Completed plugin process cancellation cleanup by awaiting post-kill process reaping and recording final return codes.
+- Consolidated duplicate CLI plugin-manager builders (`auto_rescan` parameterized helper) and aligned restart command usage with the shared path.
+- Removed frontend plugin runtime `readProjectState({ kind: "full" })` support and added explicit regression coverage, plus reduced Plugins pane render cost by caching sorted registration arrays per status object identity.
+- Centralized fixture-cache runner logic, added robust Python interpreter resolution (`PYTHON_BIN`/`python`/`python3`), included frontend toolchain files in fixture signatures, and added Playwright local-plugin-artifact signature caching for unchanged runs.
+- Added/updated backend unit/integration tests, project-state tests, frontend Vitest tests, and Playwright E2E coverage; executed targeted `pytest`, `vitest`, and `run-playwright-e2e` runs to validate all changed paths.

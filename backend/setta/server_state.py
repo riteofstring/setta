@@ -192,6 +192,9 @@ class SettaFastAPIState:
         self.app_mode = app_mode
         self.share_mode = share_mode
         self.deployment_mode = share_mode or app_mode
+        # Register runtime state on the app before startup work begins so backend
+        # plugin register-time host calls can resolve app.state.setta.
+        app.state.setta = self
         self._enable_mcp_connections = enable_mcp_connections
         self._enable_language_server = enable_language_server
         self.paths = get_setta_paths()
@@ -376,26 +379,10 @@ class SettaFastAPIState:
                 self.dbe,
             )
 
-            self.init_status.record("Loading backend plugins")
-            await self._maybe_delay()
-            self.plugin_manager.load_backend_plugins(app=app)
-
             self.init_status.record("Loading project state")
             await self._maybe_delay()
-            lsp_writers = None
-            if self._enable_language_server:
-                self.lsps = LSPServers(
-                    self.settings_file.settings.languageServer,
-                    workspace_root=self.paths.workspace_root,
-                    plugin_language_servers=(
-                        self.plugin_manager.get_backend_language_servers()
-                    ),
-                )
-                self.lsp_writers = LSPWriters(self.lsps)
-                lsp_writers = self.lsp_writers
-            else:
-                self.lsps = None
-                self.lsp_writers = None
+            self.lsps = None
+            self.lsp_writers = None
             project_manager = SessionProjectManager(
                 persistence_mode=SessionPersistenceMode.ide_main,
                 frontend_sender=self.wmh_frontend_sender,
@@ -406,7 +393,7 @@ class SettaFastAPIState:
                 artifacts=self.artifacts,
                 json_source=self.json_source,
                 code_files=self.code_files,
-                lsp_writers=lsp_writers,
+                lsp_writers=None,
                 plugin_manager=self.plugin_manager,
             )
             settings_project_manager = SessionProjectManager(
@@ -419,13 +406,28 @@ class SettaFastAPIState:
                 artifacts=self.artifacts,
                 json_source=self.json_source,
                 code_files=self.settings_code_files,
-                lsp_writers=lsp_writers,
+                lsp_writers=None,
                 plugin_manager=self.plugin_manager,
             )
             self.project_manager_switcher = ProjectManagerSwitcher(
                 main_manager=project_manager,
                 settings_manager=settings_project_manager,
             )
+
+            self.init_status.record("Loading backend plugins")
+            await self._maybe_delay()
+            self.plugin_manager.load_backend_plugins(app=app)
+            if self._enable_language_server:
+                self.lsps = LSPServers(
+                    self.settings_file.settings.languageServer,
+                    workspace_root=self.paths.workspace_root,
+                    plugin_language_servers=(
+                        self.plugin_manager.get_backend_language_servers()
+                    ),
+                )
+                self.lsp_writers = LSPWriters(self.lsps)
+                project_manager.lsp_writers = self.lsp_writers
+                settings_project_manager.lsp_writers = self.lsp_writers
 
             self.init_status.record("Preparing websocket handlers")
             await self._maybe_delay()
@@ -590,6 +592,7 @@ class SettaFastAPIState:
             lsp_writers=lsp_writers,
             frontend_sender=self.wmh_frontend_sender,
             specific_file_watcher=self.specific_file_watcher,
+            plugin_manager=self.plugin_manager,
         )
         if self.share_runtime_state.share_policy.allowRun:
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)

@@ -582,6 +582,7 @@ class BaseProjectManager(ABC):
         self._plugin_codegen_target_state_by_project_config: dict[
             ID, dict[str, tuple[str, set[str]]]
         ] = {}
+        self._plugin_codegen_output_root_by_project_config: dict[ID, Path] = {}
         self.lsp_diagnostics_state_by_project_config: dict[
             ID, ProjectLspDiagnosticsState
         ] = {}
@@ -1225,13 +1226,26 @@ class BaseProjectManager(ABC):
         )
         project_config_id = project_state.projectConfig.id
         output_root = self._plugin_codegen_output_root(project_state.projectConfig.name)
+        previous_output_root = self._plugin_codegen_output_root_by_project_config.get(
+            project_config_id
+        )
+        if (
+            previous_output_root is not None
+            and previous_output_root != output_root
+            and previous_output_root.exists()
+        ):
+            shutil.rmtree(previous_output_root)
         if len(plugin_targets) == 0:
             self._plugin_codegen_target_state_by_project_config.pop(
                 project_config_id, None
             )
+            self._plugin_codegen_output_root_by_project_config.pop(project_config_id, None)
             if output_root.exists():
                 shutil.rmtree(output_root)
             return
+        self._plugin_codegen_output_root_by_project_config[project_config_id] = (
+            output_root
+        )
         assert self.plugin_manager is not None
         project_state_payload = project_state.model_dump(mode="json")
         project_state_hash = self._hash_plugin_codegen_project_state(
@@ -3330,6 +3344,13 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def delete_project_configs(self, project_config_ids: list[ID]):
         for project_config_id in project_config_ids:
+            project_config = self.project_state_backend.projectConfigs[project_config_id]
+            previous_output_root = self._plugin_codegen_output_root_by_project_config.pop(
+                project_config_id,
+                self._plugin_codegen_output_root(project_config.name),
+            )
+            if previous_output_root.exists():
+                shutil.rmtree(previous_output_root)
             del self.project_state_backend.projectConfigs[project_config_id]
             gen_code = self.gen_code.pop(project_config_id, None)
             if gen_code is not None:
@@ -3354,7 +3375,19 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     async def set_project_config_name(self, projectConfigId: ID, newName: str):
+        old_name = self.project_state_backend.projectConfigs[projectConfigId].name
+        previous_output_root = self._plugin_codegen_output_root_by_project_config.get(
+            projectConfigId,
+            self._plugin_codegen_output_root(old_name),
+        )
         set_project_config_name(self.project_state_backend, projectConfigId, newName)
+        new_name = self.project_state_backend.projectConfigs[projectConfigId].name
+        if previous_output_root.exists() and old_name != new_name:
+            shutil.rmtree(previous_output_root)
+        if projectConfigId in self._plugin_codegen_output_root_by_project_config:
+            self._plugin_codegen_output_root_by_project_config[projectConfigId] = (
+                self._plugin_codegen_output_root(new_name)
+            )
 
     @enqueue_method
     async def delete_section_variant_or_ask(self, x: DeleteSectionVariantOrAskRequest):

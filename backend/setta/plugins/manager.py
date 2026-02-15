@@ -270,6 +270,15 @@ class _BackendRegistrationSnapshot:
     setta_mcp_tools: list[Callable[..., Any]]
 
 
+def _mutation_locked(method: Callable[..., Any]) -> Callable[..., Any]:
+    @wraps(method)
+    def wrapped(self: "PluginManager", *args: Any, **kwargs: Any) -> Any:
+        with self._mutation_lock:
+            return method(self, *args, **kwargs)
+
+    return wrapped
+
+
 class _BackendWorkerPipeReader:
     def __init__(
         self,
@@ -362,6 +371,7 @@ class PluginManager:
         self._backend_register_timeout_seconds = backend_register_timeout_seconds
         self._backend_operation_timeout_seconds = backend_operation_timeout_seconds
         self._package_manager_search_paths = package_manager_search_paths
+        self._mutation_lock = threading.RLock()
 
         self._manifest_schema_path = (
             Path(__file__).resolve().parent / "schemas" / "setta.plugin.schema.json"
@@ -438,6 +448,7 @@ class PluginManager:
         except Exception:
             return
 
+    @_mutation_locked
     def load_backend_plugins(self, *, app: "FastAPI") -> None:
         self._clear_pending_restart_backend_ids()
         self._pending_restart_removed_backend_plugins = {}
@@ -481,6 +492,7 @@ class PluginManager:
             self._backend_loaded_plugin_ids.add(entry.plugin_id)
         self.rescan()
 
+    @_mutation_locked
     def shutdown_backend_plugins(self) -> None:
         for plugin_id, process in list(self._backend_worker_processes.items()):
             self._shutdown_backend_worker(plugin_id=plugin_id, process=process)
@@ -490,6 +502,7 @@ class PluginManager:
         self._backend_listener_endpoint_route_by_name = {}
         self._remove_backend_registered_mcp_tools()
 
+    @_mutation_locked
     def rescan(self) -> PluginsRescanResponse:
         discovered = self._discover_plugins()
         self._content_descriptor_cache = {}
@@ -713,9 +726,7 @@ class PluginManager:
         entries: list[DiscoveredPlugin],
     ) -> dict[Path, str]:
         source_entry_by_path = {entry.source_path: entry for entry in entries}
-        paths_to_redact = {
-            entry.source_path for entry in entries
-        } | {
+        paths_to_redact = {entry.source_path for entry in entries} | {
             entry.shadowed_by_source_path
             for entry in entries
             if entry.shadowed_by_source_path is not None
@@ -1010,6 +1021,7 @@ class PluginManager:
             reason="Programmatic restart is not available in this runtime.",
         )
 
+    @_mutation_locked
     def restart_backend(self) -> dict[str, Any]:
         capability = self.get_restart_capability()
         if capability.mode == "programmatic":
@@ -1334,6 +1346,17 @@ class PluginManager:
                             "error": {
                                 "code": exc.code,
                                 "message": exc.message,
+                            },
+                        }
+                    except Exception as exc:
+                        nested_response = {
+                            "jsonrpc": "2.0",
+                            "id": nested_request_id,
+                            "error": {
+                                "code": "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                                "message": (
+                                    f"Host method {nested_method} failed: {exc}"
+                                ),
                             },
                         }
                     self._write_backend_worker_payload(
@@ -2301,27 +2324,33 @@ class PluginManager:
                 "FastAPI app state is missing Setta runtime state.",
             )
 
-        if setta_state.deployment_mode:
-            if share_session_id is None:
-                raise PluginManagerError(
-                    "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED",
-                    (
-                        "host.read_project_state requires shareSessionId in "
-                        "deployment mode."
-                    ),
+        try:
+            if setta_state.deployment_mode:
+                if share_session_id is None:
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED",
+                        (
+                            "host.read_project_state requires shareSessionId in "
+                            "deployment mode."
+                        ),
+                    )
+                if not setta_state.share_session_store.has_session(share_session_id):
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED",
+                        f"Unknown share session id: {share_session_id}",
+                    )
+                setta_state.share_session_store.touch_session(share_session_id)
+                manager = setta_state.project_manager_switcher.get(
+                    project_config_id,
+                    share_session_id=share_session_id,
                 )
-            if not setta_state.share_session_store.has_session(share_session_id):
-                raise PluginManagerError(
-                    "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED",
-                    f"Unknown share session id: {share_session_id}",
-                )
-            setta_state.share_session_store.touch_session(share_session_id)
-            manager = setta_state.project_manager_switcher.get(
-                project_config_id,
-                share_session_id=share_session_id,
-            )
-        else:
-            manager = setta_state.project_manager_switcher.get(project_config_id)
+            else:
+                manager = setta_state.project_manager_switcher.get(project_config_id)
+        except RuntimeError as exc:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED",
+                f"host.read_project_state unavailable before startup completes: {exc}",
+            ) from exc
 
         project_state = convert_backend_to_single_config(
             manager.project_state_backend,
@@ -3454,6 +3483,7 @@ class PluginManager:
             roots.add(resolved_style.parent)
         return tuple(sorted(roots, key=lambda path: str(path)))
 
+    @_mutation_locked
     def install_plugin(
         self,
         *,
@@ -3462,6 +3492,7 @@ class PluginManager:
         installer: str | PluginInstallerBackend | None = None,
         enable: bool = True,
         force: bool = False,
+        rescan: bool = True,
     ) -> PluginInstallResponse:
         resolved_scope = normalize_scope(scope)
         resolved_installer = normalize_installer_backend(installer)
@@ -3522,19 +3553,38 @@ class PluginManager:
             if candidate.manifest.backend is not None or had_backend_before:
                 self._add_pending_restart_backend_id(candidate.manifest.id)
 
-        self.rescan()
+        if rescan:
+            self.rescan()
         restart_required = candidate.manifest.backend is not None or had_backend_before
-        active_entry = self._find_entry(
-            candidate.manifest.id,
-            resolved_scope,
-            include_shadowed=True,
-        )
-        if active_entry is None:
-            active_entry = self._active_plugin_by_id.get(candidate.manifest.id)
-        if active_entry is None:
-            raise PluginManagerError(
-                "PLUGIN_INSTALL_FAILED",
-                f"Installed plugin was not discovered: {candidate.manifest.id}",
+        active_entry: DiscoveredPlugin | None = None
+        if rescan:
+            active_entry = self._find_entry(
+                candidate.manifest.id,
+                resolved_scope,
+                include_shadowed=True,
+            )
+            if active_entry is None:
+                active_entry = self._active_plugin_by_id.get(candidate.manifest.id)
+            if active_entry is None:
+                raise PluginManagerError(
+                    "PLUGIN_INSTALL_FAILED",
+                    f"Installed plugin was not discovered: {candidate.manifest.id}",
+                )
+        else:
+            state = PluginRuntimeState.active if enable else PluginRuntimeState.disabled
+            active_entry = DiscoveredPlugin(
+                plugin_id=candidate.manifest.id,
+                name=candidate.manifest.name,
+                version=candidate.manifest.version,
+                scope=resolved_scope,
+                source_path=target_path,
+                manifest=candidate.manifest,
+                canonical_source_key=candidate.canonical_source_key,
+                source_digest_sha256=candidate.source_digest_sha256,
+                requested_capabilities=list(candidate.manifest.capabilities),
+                effective_capabilities=[],
+                blocked_capabilities=[],
+                state=state,
             )
         return PluginInstallResponse(
             pluginId=active_entry.plugin_id,
@@ -3552,6 +3602,7 @@ class PluginManager:
             restartRequired=restart_required,
         )
 
+    @_mutation_locked
     def link_plugin(
         self,
         *,
@@ -3655,11 +3706,13 @@ class PluginManager:
             restartRequired=restart_required,
         )
 
+    @_mutation_locked
     def uninstall_plugin(
         self,
         *,
         plugin_id: str,
         scope: str | PluginScope | None = None,
+        rescan: bool = True,
     ) -> PluginUninstallResponse:
         resolved_scope = self._resolve_uninstall_scope(plugin_id, scope)
         entry = self._find_entry(
@@ -3705,7 +3758,8 @@ class PluginManager:
         else:
             self._discard_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
-        self.rescan()
+        if rescan:
+            self.rescan()
         return PluginUninstallResponse(
             pluginId=plugin_id,
             removedFromScope=resolved_scope,
@@ -3720,6 +3774,7 @@ class PluginManager:
     ) -> PluginUninstallResponse:
         return self.uninstall_plugin(plugin_id=plugin_id, scope=scope)
 
+    @_mutation_locked
     def enable_plugin(self, *, plugin_id: str) -> PluginEnableDisableResponse:
         entry = self._find_highest_precedence_entry(plugin_id)
         if entry is None:
@@ -3753,6 +3808,7 @@ class PluginManager:
             restartRequired=latest.has_backend,
         )
 
+    @_mutation_locked
     def disable_plugin(self, *, plugin_id: str) -> PluginEnableDisableResponse:
         entry = self._find_highest_precedence_entry(plugin_id)
         if entry is None:
@@ -3786,6 +3842,7 @@ class PluginManager:
             restartRequired=latest.has_backend,
         )
 
+    @_mutation_locked
     def write_plugin_config(
         self, *, plugin_id: str, config: dict[str, Any]
     ) -> PluginConfigWriteResponse:
@@ -3814,6 +3871,7 @@ class PluginManager:
             validation={"ok": True},
         )
 
+    @_mutation_locked
     def update_plugin(
         self,
         *,
@@ -3877,6 +3935,7 @@ class PluginManager:
             restartRequired=restart_required,
         )
 
+    @_mutation_locked
     def rollback_plugin(
         self,
         *,
@@ -3946,6 +4005,7 @@ class PluginManager:
             restartRequired=restart_required,
         )
 
+    @_mutation_locked
     def write_lockfile(self) -> PluginLockWriteResponse:
         lock_entries: list[PluginLockEntry] = []
         install_metadata = self._load_install_metadata()
@@ -3988,6 +4048,7 @@ class PluginManager:
             pluginCount=len(lock_entries),
         )
 
+    @_mutation_locked
     def apply_lockfile(self, *, check: bool) -> PluginLockApplyResponse:
         if not self._lockfile_path.exists():
             raise PluginManagerError(
@@ -4031,7 +4092,7 @@ class PluginManager:
         current_primary_entries = [
             entry
             for entry in self._discovered_plugins
-            if entry.shadowed_by_source_path is None and entry.manifest is not None
+            if entry.shadowed_by_source_path is None
         ]
         current_by_scope_plugin = {
             (entry.scope, entry.plugin_id): entry for entry in current_primary_entries
@@ -4111,6 +4172,9 @@ class PluginManager:
                     "PLUGIN_LOCKFILE_ENTRY_MISSING_SOURCE",
                     f"Lockfile entry missing source spec for plugin: {desired.pluginId}",
                 )
+            enable_for_install = True
+            if current is not None:
+                enable_for_install = current.state != PluginRuntimeState.disabled
             installer_backend = desired.installerBackend
             if installer_backend is None and current is not None:
                 metadata_entry = install_metadata.entries.get(
@@ -4122,14 +4186,19 @@ class PluginManager:
                 source_spec=desired.sourceSpec,
                 scope=desired.scope,
                 installer=installer_backend,
-                enable=True,
+                enable=enable_for_install,
                 force=True,
+                rescan=False,
             )
 
         for key, current in current_by_scope_plugin.items():
             if key in desired_by_scope_plugin:
                 continue
-            self.uninstall_plugin(plugin_id=current.plugin_id, scope=current.scope)
+            self.uninstall_plugin(
+                plugin_id=current.plugin_id,
+                scope=current.scope,
+                rescan=False,
+            )
 
         self.rescan()
         return PluginLockApplyResponse(

@@ -100,6 +100,18 @@ type PluginsPaneRuntimeSummary = {
 
 const EMPTY_PLUGIN_PANES: readonly PluginPaneSummary[] = [];
 const EMPTY_PLUGIN_COMMANDS: readonly PluginCommandSummary[] = [];
+const cachedLanguageServersByStatus = new WeakMap<
+  PluginStatusEntry,
+  PluginRegisteredLanguageServer[]
+>();
+const cachedExternalAgentAdaptersByStatus = new WeakMap<
+  PluginStatusEntry,
+  PluginRegisteredExternalAgentAdapter[]
+>();
+const cachedCodegenTargetsByStatus = new WeakMap<
+  PluginStatusEntry,
+  PluginRegisteredCodegenTarget[]
+>();
 
 function pluginListEntryCardRuntimeStateEqual(
   a: PluginListEntryCardRuntimeState,
@@ -1528,6 +1540,10 @@ function getRegisteredLanguageServers(
   if (pluginStatus === null) {
     return [];
   }
+  const cached = cachedLanguageServersByStatus.get(pluginStatus);
+  if (cached) {
+    return cached;
+  }
   const registrations = Array.isArray(pluginStatus.registeredLanguageServers)
     ? [...pluginStatus.registeredLanguageServers]
     : [];
@@ -1538,6 +1554,7 @@ function getRegisteredLanguageServers(
     }
     return a.name.localeCompare(b.name);
   });
+  cachedLanguageServersByStatus.set(pluginStatus, registrations);
   return registrations;
 }
 
@@ -1546,6 +1563,10 @@ function getRegisteredExternalAgentAdapters(
 ): PluginRegisteredExternalAgentAdapter[] {
   if (pluginStatus === null) {
     return [];
+  }
+  const cached = cachedExternalAgentAdaptersByStatus.get(pluginStatus);
+  if (cached) {
+    return cached;
   }
   const registrations = Array.isArray(
     pluginStatus.registeredExternalAgentAdapters,
@@ -1559,6 +1580,7 @@ function getRegisteredExternalAgentAdapters(
     }
     return a.adapterId.localeCompare(b.adapterId);
   });
+  cachedExternalAgentAdaptersByStatus.set(pluginStatus, registrations);
   return registrations;
 }
 
@@ -1567,6 +1589,10 @@ function getRegisteredCodegenTargets(
 ): PluginRegisteredCodegenTarget[] {
   if (pluginStatus === null) {
     return [];
+  }
+  const cached = cachedCodegenTargetsByStatus.get(pluginStatus);
+  if (cached) {
+    return cached;
   }
   const registrations = Array.isArray(pluginStatus.registeredCodegenTargets)
     ? [...pluginStatus.registeredCodegenTargets]
@@ -1578,6 +1604,7 @@ function getRegisteredCodegenTargets(
     }
     return a.targetId.localeCompare(b.targetId);
   });
+  cachedCodegenTargetsByStatus.set(pluginStatus, registrations);
   return registrations;
 }
 

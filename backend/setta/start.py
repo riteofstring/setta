@@ -1052,7 +1052,7 @@ def _select_remote_stop_targets(
     )
 
 
-def _build_plugin_manager_for_cli() -> PluginManager:
+def _build_plugin_manager_for_cli(*, auto_rescan: bool = True) -> PluginManager:
     paths = get_setta_paths()
     return PluginManager(
         workspace_root=paths.workspace_root,
@@ -1060,18 +1060,7 @@ def _build_plugin_manager_for_cli() -> PluginManager:
         setta_home=resolve_setta_home(),
         server_mode="ide",
         setta_version=__version__,
-    )
-
-
-def _build_plugin_manager_for_cli_without_rescan() -> PluginManager:
-    paths = get_setta_paths()
-    return PluginManager(
-        workspace_root=paths.workspace_root,
-        setta_files_root=paths.setta_files_root,
-        setta_home=resolve_setta_home(),
-        server_mode="ide",
-        setta_version=__version__,
-        auto_rescan=False,
+        auto_rescan=auto_rescan,
     )
 
 
@@ -2787,7 +2776,7 @@ def plugins_lock_apply(check: bool, json_output: bool) -> None:
 @plugins.command(name="restart")
 @click.option("--json", "json_output", is_flag=True)
 def plugins_restart(json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli_without_rescan()
+    manager = _build_plugin_manager_for_cli(auto_rescan=False)
     try:
         payload = manager.restart_backend()
     except PluginManagerError as exc:
