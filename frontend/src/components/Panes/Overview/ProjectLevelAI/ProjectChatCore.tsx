@@ -6,6 +6,8 @@ import {
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import {
   CHAT_STARTER_PROMPTS,
+  buildChatSlashCommands,
+  formatSlashCommandHelp,
   type ChatPermissionModeValue,
   type ChatStarterPrompt,
 } from "components/Chat/chatComposerControls";
@@ -20,7 +22,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { TbLayoutDashboard } from "react-icons/tb";
 import {
   clearPendingChatDetails,
   finalizePendingChatDetails,
@@ -30,8 +31,10 @@ import {
   getLLMChat,
   initializePendingChatDetails,
   loadAgentRuns,
+  stopChatResponseLocally,
   submitEditedMessage,
   submitMessage,
+  transcribeChatAudio,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
@@ -66,10 +69,11 @@ const PYTHON_ROOT_MARKER_FILES = new Set<string>([
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
-  skillsEnabled: boolean;
 };
 
-type ProjectChatHistoryEntry = ReturnType<typeof buildChatHistoryEntries>[number];
+type ProjectChatHistoryEntry = ReturnType<
+  typeof buildChatHistoryEntries
+>[number];
 
 function resolvePermissionModeArg(
   rawArg: string | undefined,
@@ -168,8 +172,9 @@ function useHasPythonInWorkspaceRoot(): boolean {
 function toSortedProjectHistoryEntries(
   runs: Array<AgentRun>,
 ): Array<ProjectChatHistoryEntry> {
-  return buildChatHistoryEntries(runs, { unscopedOnly: true })
-    .sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs);
+  return buildChatHistoryEntries(runs, { unscopedOnly: true }).sort(
+    (left, right) => right.lastUpdatedMs - left.lastUpdatedMs,
+  );
 }
 
 function EmptyChatState({
@@ -181,16 +186,16 @@ function EmptyChatState({
   disabled: boolean;
   onStarterPrompt: (prompt: string) => void;
 }) {
+  const starterButtonClassName =
+    "rounded-md border border-setta-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100";
+
   return (
-    <div className="flex min-h-0 flex-1 flex-wrap content-center items-center justify-center gap-3 overflow-y-auto p-3">
-      <button className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50">
-        <TbLayoutDashboard /> Create Project UI
-      </button>
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto p-3">
       {starterPrompts.map((starterPrompt) => (
         <button
           key={starterPrompt.id}
           type="button"
-          className="rounded-md border border-setta-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+          className={starterButtonClassName}
           onClick={() => onStarterPrompt(starterPrompt.prompt)}
           disabled={disabled}
         >
@@ -251,10 +256,23 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     useState<ChatExecutionSettings>({
       permissionMode: "minimal",
       searchEnabled: true,
-      skillsEnabled: true,
     });
   const hasPythonInWorkspaceRoot = useHasPythonInWorkspaceRoot();
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const canConfigureExecutionSettings = Boolean(engineConfigId) &&
+    (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
+  const showPermissionExecutionControl = canConfigureExecutionSettings;
+  const showSearchExecutionControl =
+    canConfigureExecutionSettings && !isExternalEngine;
+  const slashCommands = useMemo(
+    () =>
+      buildChatSlashCommands({
+        model: true,
+        permissions: showPermissionExecutionControl,
+        search: showSearchExecutionControl,
+      }),
+    [showPermissionExecutionControl, showSearchExecutionControl],
+  );
   const lastFetchedChatIdRef = useRef<string | null>(null);
   const lastChatIdRef = useRef<string | null>(null);
   const visibleStarterPrompts = useMemo(
@@ -363,8 +381,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         const nextMode = resolvePermissionModeArg(command.args[0]);
         if (!nextMode) {
           return {
-            feedback:
-              "Usage: /permissions minimal|yolo|config_toml_custom",
+            feedback: "Usage: /permissions minimal|yolo|config_toml_custom",
             keepInput: true,
           };
         }
@@ -372,7 +389,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           {
             permissionMode: nextMode,
             searchEnabled: executionSettings.searchEnabled,
-            skillsEnabled: executionSettings.skillsEnabled,
           },
           `Permissions set to ${nextMode}.`,
         );
@@ -392,29 +408,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           {
             permissionMode: executionSettings.permissionMode,
             searchEnabled: nextValue,
-            skillsEnabled: executionSettings.skillsEnabled,
           },
           `Search ${nextValue ? "enabled" : "disabled"}.`,
-        );
-      }
-      if (command.action === "skills") {
-        const nextValue = resolveToggleArg(
-          command.args[0],
-          executionSettings.skillsEnabled,
-        );
-        if (nextValue === null) {
-          return {
-            feedback: "Usage: /skills on|off",
-            keepInput: true,
-          };
-        }
-        return updateExecutionSettings(
-          {
-            permissionMode: executionSettings.permissionMode,
-            searchEnabled: executionSettings.searchEnabled,
-            skillsEnabled: nextValue,
-          },
-          `Skills ${nextValue ? "enabled" : "disabled"}.`,
         );
       }
       if (command.action === "model") {
@@ -425,8 +420,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       }
       if (command.action === "help") {
         return {
-          feedback:
-            "Commands: /new, /resume, /model, /permissions, /search, /help.",
+          feedback: formatSlashCommandHelp(slashCommands),
         };
       }
       return false;
@@ -434,9 +428,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
-      executionSettings.skillsEnabled,
       handleNewChatStart,
       handleResumeLatestChat,
+      slashCommands,
       updateExecutionSettings,
     ],
   );
@@ -477,7 +471,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           {
             permissionMode: executionSettings.permissionMode,
             searchEnabled: executionSettings.searchEnabled,
-            skillsEnabled: executionSettings.skillsEnabled,
           },
         );
         succeeded = Boolean(submittedChatId);
@@ -501,11 +494,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       hasLLMConfig,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
-      executionSettings.skillsEnabled,
     ],
   );
 
   const handleStop = useCallback(async () => {
+    stopChatResponseLocally(chatId);
     if (isExternalEngine) {
       if (typeof chatId !== "string") {
         return;
@@ -551,7 +544,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         executionSettings: {
           permissionMode: executionSettings.permissionMode,
           searchEnabled: executionSettings.searchEnabled,
-          skillsEnabled: executionSettings.skillsEnabled,
         },
       });
       return Boolean(nextChatId);
@@ -565,7 +557,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       thinking,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
-      executionSettings.skillsEnabled,
     ],
   );
 
@@ -609,13 +600,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     () => ({
       permissionMode: executionSettings.permissionMode,
       searchEnabled: executionSettings.searchEnabled,
-      skillsEnabled: executionSettings.skillsEnabled,
       onPermissionModeChange: (nextMode: ChatPermissionModeValue) => {
         updateExecutionSettings(
           {
             permissionMode: nextMode,
             searchEnabled: executionSettings.searchEnabled,
-            skillsEnabled: executionSettings.skillsEnabled,
           },
           `Permissions set to ${nextMode}.`,
         );
@@ -625,28 +614,25 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           {
             permissionMode: executionSettings.permissionMode,
             searchEnabled: nextValue,
-            skillsEnabled: executionSettings.skillsEnabled,
           },
           `Search ${nextValue ? "enabled" : "disabled"}.`,
-        );
-      },
-      onSkillsEnabledChange: (nextValue: boolean) => {
-        updateExecutionSettings(
-          {
-            permissionMode: executionSettings.permissionMode,
-            searchEnabled: executionSettings.searchEnabled,
-            skillsEnabled: nextValue,
-          },
-          `Skills ${nextValue ? "enabled" : "disabled"}.`,
         );
       },
     }),
     [
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
-      executionSettings.skillsEnabled,
       updateExecutionSettings,
     ],
+  );
+  const handleProviderDictationTranscribe = useCallback(
+    async (audioBlob: Blob) => {
+      if (!engineConfigId || isExternalEngine) {
+        return null;
+      }
+      return transcribeChatAudio(engineConfigId, audioBlob);
+    },
+    [engineConfigId, isExternalEngine],
   );
 
   return (
@@ -679,14 +665,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         onChange={setDraftMessage}
         onSubmit={handleSubmit}
         onStop={handleStop}
+        slashCommands={slashCommands}
         onSlashCommand={handleSlashCommand}
         executionControls={executionControls}
         executionControlVisibility={{
-          permissionMode: true,
-          search: true,
-          skills: false,
+          permissionMode: showPermissionExecutionControl,
+          search: showSearchExecutionControl,
         }}
-        showQuickSlashButtons
+        dictationEnabledByProvider={Boolean(engineConfigId)}
+        onProviderDictationTranscribe={
+          isExternalEngine ? undefined : handleProviderDictationTranscribe
+        }
       />
     </>
   );

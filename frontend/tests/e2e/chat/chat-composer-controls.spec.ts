@@ -47,10 +47,12 @@ test.describe.serial("chat composer controls", () => {
       });
 
       await expect(section.getByText("Existing thread message")).toBeVisible();
-      await expect(section.getByRole("button", { name: "/new" })).toHaveCount(0);
-      await expect(section.getByRole("button", { name: "/resume" })).toHaveCount(
+      await expect(section.getByRole("button", { name: "/new" })).toHaveCount(
         0,
       );
+      await expect(
+        section.getByRole("button", { name: "/resume" }),
+      ).toHaveCount(0);
       await expect(
         section.getByRole("button", { name: "Summarize Codebase" }),
       ).toHaveCount(0);
@@ -60,18 +62,17 @@ test.describe.serial("chat composer controls", () => {
 
       const input = section.locator("textarea").first();
       await input.fill("/resume");
-      const resumeSuggestion = section
+      const sectionSuggestions = page
+        .locator("div.fixed.z-40.overflow-y-auto")
+        .filter({ hasText: "/resume" })
+        .first();
+      await expect(sectionSuggestions).toBeVisible();
+      await expect(sectionSuggestions).toHaveClass(/overflow-x-hidden/);
+      const resumeSuggestion = sectionSuggestions
         .locator("button")
-        .filter({ hasText: "Resume the latest chat thread for this section." })
+        .filter({ hasText: "Resume the latest chat thread." })
         .first();
       await expect(resumeSuggestion).toBeVisible();
-      const sectionSuggestions = section.locator(
-        "div.z-20.max-h-52.overflow-y-auto",
-      );
-      await expect(sectionSuggestions.first()).toBeVisible();
-      await expect(sectionSuggestions.first()).toHaveClass(
-        /overflow-x-hidden/,
-      );
       await input.press("Enter");
       await expect
         .poll(async () => {
@@ -83,17 +84,26 @@ test.describe.serial("chat composer controls", () => {
         })
         .toBe(true);
 
-      await section.getByRole("button", { name: /^minimal/i }).first().click();
+      await section
+        .getByRole("button", { name: /^minimal/i })
+        .first()
+        .click();
       await page.getByRole("menuitem", { name: "yolo" }).click();
-      await expect(section.getByRole("button", { name: /^yolo/i })).toBeVisible();
-      await expect(section.getByRole("button", { name: "Search" })).toHaveCount(0);
-      await expect(section.getByRole("button", { name: "Skills" })).toHaveCount(0);
+      await expect(
+        section.getByRole("button", { name: /^yolo/i }),
+      ).toBeVisible();
+      await expect(section.getByRole("button", { name: "Search" })).toHaveCount(
+        0,
+      );
+      await expect(section.getByRole("button", { name: "Skills" })).toHaveCount(
+        0,
+      );
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
 
-  test("project chat shows starter/quick controls with visible slash menu and full execution footer", async ({
+  test("project chat shows starter controls with visible slash menu and full execution footer", async ({
     page,
   }) => {
     await setOverviewTab(page, "ProjectAIChat");
@@ -110,41 +120,70 @@ test.describe.serial("chat composer controls", () => {
         overviewPane.getByRole("heading", { name: "Project AI Chat" }),
       ).toBeVisible();
 
-      await expect(overviewPane.getByRole("button", { name: "/new" })).toBeVisible();
+      await expect(
+        overviewPane.getByRole("button", { name: "/new" }),
+      ).toHaveCount(0);
       await expect(
         overviewPane.getByRole("button", { name: "/resume" }),
-      ).toBeVisible();
+      ).toHaveCount(0);
       await expect(
         overviewPane.getByRole("button", { name: "/model" }),
-      ).toBeVisible();
+      ).toHaveCount(0);
       await expect(
-        overviewPane.getByRole("button", { name: "Summarize Codebase" }),
-      ).toBeVisible();
+        overviewPane.getByRole("button", { name: /^Create Project UI$/ }),
+      ).toHaveCount(0);
+      const createProjectButton = overviewPane.getByRole("button", {
+        name: /^Create Project$/,
+      });
+      await expect(createProjectButton).toBeVisible();
+      const summarizeCodebaseButton = overviewPane.getByRole("button", {
+        name: /^Summarize Codebase$/,
+      });
       await expect(
-        overviewPane.getByRole("button", { name: "Plan Next Steps" }),
+        summarizeCodebaseButton,
       ).toBeVisible();
+      const planNextStepsButton = overviewPane.getByRole("button", {
+        name: /^Plan Next Steps$/,
+      });
+      await expect(
+        planNextStepsButton,
+      ).toBeVisible();
+      const quickActionButtons: Locator[] = [
+        createProjectButton,
+        summarizeCodebaseButton,
+        planNextStepsButton,
+      ];
+      await expectButtonsStackedVertically(quickActionButtons);
+
+      const createProjectClass = await createProjectButton.getAttribute("class");
+      const summarizeCodebaseClass = await summarizeCodebaseButton.getAttribute(
+        "class",
+      );
+      expect(createProjectClass).toBeTruthy();
+      expect(createProjectClass).toBe(summarizeCodebaseClass);
 
       const input = overviewPane.getByPlaceholder("Type a message...");
       await expect(input).toBeVisible();
       await input.fill("/res");
-      const resumeSuggestion = overviewPane
+      const projectSuggestions = page
+        .locator("div.fixed.z-40.overflow-y-auto")
+        .filter({ hasText: "/resume" })
+        .first();
+      await expect(projectSuggestions).toBeVisible();
+      await expect(projectSuggestions).toHaveClass(/overflow-x-hidden/);
+      const resumeSuggestion = projectSuggestions
         .locator("button")
-        .filter({ hasText: "Resume the latest chat thread for this section." })
+        .filter({ hasText: "Resume the latest chat thread." })
         .first();
       await expect(resumeSuggestion).toBeVisible();
-      const projectSuggestions = overviewPane.locator(
-        "div.z-20.max-h-52.overflow-y-auto",
-      );
-      await expect(projectSuggestions.first()).toBeVisible();
-      await expect(projectSuggestions.first()).toHaveClass(
-        /overflow-x-hidden/,
-      );
       const inputBox = await input.boundingBox();
       const suggestionBox = await resumeSuggestion.boundingBox();
       if (!inputBox || !suggestionBox) {
         throw new Error("Missing slash suggestion geometry.");
       }
-      expect(suggestionBox.y + suggestionBox.height).toBeLessThan(inputBox.y + 2);
+      expect(suggestionBox.y + suggestionBox.height).toBeLessThan(
+        inputBox.y + 2,
+      );
 
       await input.fill("/resume");
       await input.press("Enter");
@@ -180,4 +219,29 @@ function findSectionByName(page: Page, name: string): Locator {
     .locator('section[class*="card-section"]')
     .filter({ has: page.locator("header.section-title p", { hasText: name }) })
     .first();
+}
+
+async function expectButtonsStackedVertically(buttons: Locator[]): Promise<void> {
+  if (buttons.length < 2) {
+    throw new Error("Need at least two buttons to verify vertical stacking.");
+  }
+  const boxes = await Promise.all(
+    buttons.map(async (button) => {
+      const box = await button.boundingBox();
+      if (!box) {
+        throw new Error("Missing quick-action button geometry.");
+      }
+      return box;
+    }),
+  );
+  let previousBottom = boxes[0].y + boxes[0].height;
+  const firstCenterX = boxes[0].x + boxes[0].width / 2;
+  for (let index = 1; index < boxes.length; index += 1) {
+    const box = boxes[index];
+    const centerX = box.x + box.width / 2;
+    expect(centerX).toBeGreaterThan(firstCenterX - 2);
+    expect(centerX).toBeLessThan(firstCenterX + 2);
+    expect(box.y).toBeGreaterThan(previousBottom - 1);
+    previousBottom = box.y + box.height;
+  }
 }

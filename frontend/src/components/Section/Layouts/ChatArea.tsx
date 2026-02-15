@@ -6,6 +6,8 @@ import {
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import {
+  buildChatSlashCommands,
+  formatSlashCommandHelp,
   type ChatPermissionModeValue,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
@@ -24,14 +26,15 @@ import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearPendingChatDetails,
-  loadAgentRuns,
   findLatestRunningExternalRunId,
   getDefaultChatDetails,
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
+  loadAgentRuns,
   submitEditedMessage,
   submitMessage,
+  transcribeChatAudio,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
@@ -119,10 +122,11 @@ type EmitChatStopActionArgs = {
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
-  skillsEnabled: boolean;
 };
 
-type ChatSectionHistoryEntry = ReturnType<typeof buildChatHistoryEntries>[number];
+type ChatSectionHistoryEntry = ReturnType<
+  typeof buildChatHistoryEntries
+>[number];
 
 function emitChatAction(payload: ChatActionPayload) {
   const literalPayload: LiteralDependencyValue = {
@@ -192,23 +196,6 @@ function resolvePermissionModeArg(
   return null;
 }
 
-function resolveToggleArg(
-  rawArg: string | undefined,
-  currentValue: boolean,
-): boolean | null {
-  if (!rawArg) {
-    return !currentValue;
-  }
-  const normalized = rawArg.trim().toLowerCase();
-  if (["on", "true", "enable", "enabled", "1"].includes(normalized)) {
-    return true;
-  }
-  if (["off", "false", "disable", "disabled", "0"].includes(normalized)) {
-    return false;
-  }
-  return null;
-}
-
 function formatHistoryTimestamp(timestampMs: number): string {
   if (timestampMs <= 0) {
     return "No timestamp";
@@ -250,7 +237,6 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     thinking,
     permissionMode,
     searchEnabled,
-    skillsEnabled,
     messages,
     inputText,
     waitingForResponse,
@@ -271,7 +257,6 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       thinking: impl.thinking,
       permissionMode: impl.permissionMode ?? "minimal",
       searchEnabled: impl.searchEnabled ?? true,
-      skillsEnabled: impl.skillsEnabled ?? true,
       messages: impl.messages,
       inputText: impl.inputText,
       waitingForResponse: impl.waitingForResponse,
@@ -291,7 +276,6 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
         thinking={thinking}
         permissionMode={permissionMode}
         searchEnabled={searchEnabled}
-        skillsEnabled={skillsEnabled}
       />
     );
   }
@@ -311,7 +295,6 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       isFrozen={isFrozen}
       permissionMode={permissionMode}
       searchEnabled={searchEnabled}
-      skillsEnabled={skillsEnabled}
     />
   );
 }
@@ -330,7 +313,6 @@ type ScriptableChatAreaProps = {
   isFrozen: boolean;
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
-  skillsEnabled: boolean;
 };
 
 function ScriptableChatArea({
@@ -347,7 +329,6 @@ function ScriptableChatArea({
   isFrozen,
   permissionMode,
   searchEnabled,
-  skillsEnabled,
 }: ScriptableChatAreaProps) {
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = getCurrProjectConfigId();
@@ -588,7 +569,6 @@ function ScriptableChatArea({
           setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
-            skillsEnabled: nextSettings.skillsEnabled,
           });
         },
         send: () =>
@@ -601,12 +581,20 @@ function ScriptableChatArea({
             thinking,
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
-            skillsEnabled: nextSettings.skillsEnabled,
           }),
       });
       return { feedback };
     },
     [agentProfileId, engineConfigId, projectConfigId, sectionId, thinking],
+  );
+  const slashCommands = useMemo(
+    () =>
+      buildChatSlashCommands({
+        model: false,
+        permissions: true,
+        search: false,
+      }),
+    [],
   );
 
   const resetScriptableConversation = useCallback(async () => {
@@ -624,31 +612,34 @@ function ScriptableChatArea({
     }
   }, [applyChatStateWithAck]);
 
-  const resumeLatestScriptableBranch = useCallback(async (): Promise<boolean> => {
-    const latestBranch = Object.entries(effectiveBranches)
-      .sort((left, right) => (right[1].createdAt ?? 0) - (left[1].createdAt ?? 0))
-      .at(0);
-    const branchId = latestBranch?.[0] ?? null;
-    if (!branchId) {
-      return false;
-    }
-    const nextBranch = effectiveBranches[branchId];
-    if (!nextBranch) {
-      return false;
-    }
-    const nextState: ChatSectionState = {
-      ...effectiveState,
-      activeBranchId: branchId,
-      messages: [...(nextBranch.messages ?? [])],
-      waitingForResponse: false,
-      inputText: "",
-    };
-    const sendPromise = applyChatStateWithAck(nextState);
-    if (sendPromise) {
-      await sendPromise;
-    }
-    return true;
-  }, [applyChatStateWithAck, effectiveBranches, effectiveState]);
+  const resumeLatestScriptableBranch =
+    useCallback(async (): Promise<boolean> => {
+      const latestBranch = Object.entries(effectiveBranches)
+        .sort(
+          (left, right) => (right[1].createdAt ?? 0) - (left[1].createdAt ?? 0),
+        )
+        .at(0);
+      const branchId = latestBranch?.[0] ?? null;
+      if (!branchId) {
+        return false;
+      }
+      const nextBranch = effectiveBranches[branchId];
+      if (!nextBranch) {
+        return false;
+      }
+      const nextState: ChatSectionState = {
+        ...effectiveState,
+        activeBranchId: branchId,
+        messages: [...(nextBranch.messages ?? [])],
+        waitingForResponse: false,
+        inputText: "",
+      };
+      const sendPromise = applyChatStateWithAck(nextState);
+      if (sendPromise) {
+        await sendPromise;
+      }
+      return true;
+    }, [applyChatStateWithAck, effectiveBranches, effectiveState]);
 
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
@@ -669,8 +660,7 @@ function ScriptableChatArea({
         const nextMode = resolvePermissionModeArg(command.args[0]);
         if (!nextMode) {
           return {
-            feedback:
-              "Usage: /permissions minimal|yolo|config_toml_custom",
+            feedback: "Usage: /permissions minimal|yolo|config_toml_custom",
             keepInput: true,
           };
         }
@@ -678,56 +668,13 @@ function ScriptableChatArea({
           {
             permissionMode: nextMode,
             searchEnabled,
-            skillsEnabled,
           },
           `Permissions set to ${nextMode}.`,
         );
       }
-      if (command.action === "search") {
-        const nextValue = resolveToggleArg(command.args[0], searchEnabled);
-        if (nextValue === null) {
-          return {
-            feedback: "Usage: /search on|off",
-            keepInput: true,
-          };
-        }
-        return updateExecutionSettings(
-          {
-            permissionMode,
-            searchEnabled: nextValue,
-            skillsEnabled,
-          },
-          `Search ${nextValue ? "enabled" : "disabled"}.`,
-        );
-      }
-      if (command.action === "skills") {
-        const nextValue = resolveToggleArg(command.args[0], skillsEnabled);
-        if (nextValue === null) {
-          return {
-            feedback: "Usage: /skills on|off",
-            keepInput: true,
-          };
-        }
-        return updateExecutionSettings(
-          {
-            permissionMode,
-            searchEnabled,
-            skillsEnabled: nextValue,
-          },
-          `Skills ${nextValue ? "enabled" : "disabled"}.`,
-        );
-      }
-      if (command.action === "model") {
-        return {
-          feedback:
-            "Scriptable chat has no model selector. Use managed mode for model controls.",
-          keepInput: true,
-        };
-      }
       if (command.action === "help") {
         return {
-          feedback:
-            "Commands: /new, /resume, /permissions, /search, /model, /help.",
+          feedback: formatSlashCommandHelp(slashCommands),
         };
       }
       return false;
@@ -737,7 +684,7 @@ function ScriptableChatArea({
       resetScriptableConversation,
       resumeLatestScriptableBranch,
       searchEnabled,
-      skillsEnabled,
+      slashCommands,
       updateExecutionSettings,
     ],
   );
@@ -871,13 +818,11 @@ function ScriptableChatArea({
     () => ({
       permissionMode,
       searchEnabled,
-      skillsEnabled,
       onPermissionModeChange: (nextMode: ChatPermissionModeValue) => {
         updateExecutionSettings(
           {
             permissionMode: nextMode,
             searchEnabled,
-            skillsEnabled,
           },
           `Permissions set to ${nextMode}.`,
         );
@@ -887,28 +832,12 @@ function ScriptableChatArea({
           {
             permissionMode,
             searchEnabled: nextValue,
-            skillsEnabled,
           },
           `Search ${nextValue ? "enabled" : "disabled"}.`,
         );
       },
-      onSkillsEnabledChange: (nextValue: boolean) => {
-        updateExecutionSettings(
-          {
-            permissionMode,
-            searchEnabled,
-            skillsEnabled: nextValue,
-          },
-          `Skills ${nextValue ? "enabled" : "disabled"}.`,
-        );
-      },
     }),
-    [
-      permissionMode,
-      searchEnabled,
-      skillsEnabled,
-      updateExecutionSettings,
-    ],
+    [permissionMode, searchEnabled, updateExecutionSettings],
   );
 
   return (
@@ -934,14 +863,13 @@ function ScriptableChatArea({
           onChange={handleInputChange}
           onSubmit={handleSubmit}
           onStop={handleStop}
+          slashCommands={slashCommands}
           onSlashCommand={handleSlashCommand}
           executionControls={executionControls}
           executionControlVisibility={{
             permissionMode: true,
             search: false,
-            skills: false,
           }}
-          showQuickSlashButtons={false}
         />
       </div>
     </div>
@@ -983,21 +911,27 @@ function ChatSectionHistoryList({
             key={entry.chatId}
             type="button"
             className={`group/historyitem flex w-full items-center justify-between gap-2 rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:bg-white hover:shadow-sm dark:hover:bg-setta-800 ${
-              entry.chatId === activeChatId ? "bg-blue-600 dark:bg-blue-700" : ""
+              entry.chatId === activeChatId
+                ? "bg-blue-600 dark:bg-blue-700"
+                : ""
             }`}
             onClick={() => onSelect(entry.chatId)}
           >
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <p
                 className={`truncate text-xs font-semibold text-setta-600 dark:text-setta-100 ${
-                  entry.chatId === activeChatId ? "text-white dark:text-white" : ""
+                  entry.chatId === activeChatId
+                    ? "text-white dark:text-white"
+                    : ""
                 }`}
               >
                 {entry.label}
               </p>
               <p
                 className={`truncate text-[11px] text-setta-500 dark:text-setta-300 ${
-                  entry.chatId === activeChatId ? "text-white/90 dark:text-white/90" : ""
+                  entry.chatId === activeChatId
+                    ? "text-white/90 dark:text-white/90"
+                    : ""
                 }`}
               >
                 {formatHistoryTimestamp(entry.lastUpdatedMs)}
@@ -1026,7 +960,6 @@ type ManagedChatAreaProps = {
   thinking: boolean;
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
-  skillsEnabled: boolean;
 };
 
 function ManagedChatArea({
@@ -1036,7 +969,6 @@ function ManagedChatArea({
   thinking,
   permissionMode,
   searchEnabled,
-  skillsEnabled,
 }: ManagedChatAreaProps) {
   useHydrateLLMState();
   useHydrateAgenticState();
@@ -1312,6 +1244,12 @@ function ManagedChatArea({
     },
     [setChatId],
   );
+  const canConfigureExecutionSettings = hasEngineConfig &&
+    (isExternalEngine
+      ? externalEngineAvailable
+      : hasLLMConfig && !noConfigsAvailable);
+  const showPermissionExecutionControl = canConfigureExecutionSettings;
+  const showSearchExecutionControl = false;
 
   const updateExecutionSettings = useCallback(
     (
@@ -1323,7 +1261,6 @@ function ManagedChatArea({
           setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
-            skillsEnabled: nextSettings.skillsEnabled,
           });
         },
         send: () =>
@@ -1336,18 +1273,20 @@ function ManagedChatArea({
             thinking,
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
-            skillsEnabled: nextSettings.skillsEnabled,
           }),
       });
       return { feedback };
     },
-    [
-      agentProfileId,
-      engineConfigId,
-      projectConfigId,
-      sectionId,
-      thinking,
-    ],
+    [agentProfileId, engineConfigId, projectConfigId, sectionId, thinking],
+  );
+  const slashCommands = useMemo(
+    () =>
+      buildChatSlashCommands({
+        model: true,
+        permissions: showPermissionExecutionControl,
+        search: showSearchExecutionControl,
+      }),
+    [showPermissionExecutionControl, showSearchExecutionControl],
   );
 
   const handleSubmit = useCallback(
@@ -1400,7 +1339,6 @@ function ManagedChatArea({
           {
             permissionMode,
             searchEnabled,
-            skillsEnabled,
           },
         );
         succeeded = Boolean(submittedChatId);
@@ -1426,7 +1364,6 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
-      skillsEnabled,
       thinking,
     ],
   );
@@ -1485,7 +1422,6 @@ function ManagedChatArea({
         executionSettings: {
           permissionMode,
           searchEnabled,
-          skillsEnabled,
         },
       });
       return Boolean(nextChatId);
@@ -1500,7 +1436,6 @@ function ManagedChatArea({
       permissionMode,
       searchEnabled,
       sectionId,
-      skillsEnabled,
       thinking,
     ],
   );
@@ -1529,8 +1464,10 @@ function ManagedChatArea({
 
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
     await loadAgentRuns();
-    const latestEntry = toSortedHistoryEntries(useAIStore.getState().agentRuns, sectionId)
-      .find((entry) => entry.chatId !== chatId);
+    const latestEntry = toSortedHistoryEntries(
+      useAIStore.getState().agentRuns,
+      sectionId,
+    ).find((entry) => entry.chatId !== chatId);
     if (!latestEntry) {
       return false;
     }
@@ -1558,8 +1495,7 @@ function ManagedChatArea({
         const nextMode = resolvePermissionModeArg(command.args[0]);
         if (!nextMode) {
           return {
-            feedback:
-              "Usage: /permissions minimal|yolo|config_toml_custom",
+            feedback: "Usage: /permissions minimal|yolo|config_toml_custom",
             keepInput: true,
           };
         }
@@ -1567,43 +1503,8 @@ function ManagedChatArea({
           {
             permissionMode: nextMode,
             searchEnabled,
-            skillsEnabled,
           },
           `Permissions set to ${nextMode}.`,
-        );
-      }
-      if (command.action === "search") {
-        const nextValue = resolveToggleArg(command.args[0], searchEnabled);
-        if (nextValue === null) {
-          return {
-            feedback: "Usage: /search on|off",
-            keepInput: true,
-          };
-        }
-        return updateExecutionSettings(
-          {
-            permissionMode,
-            searchEnabled: nextValue,
-            skillsEnabled,
-          },
-          `Search ${nextValue ? "enabled" : "disabled"}.`,
-        );
-      }
-      if (command.action === "skills") {
-        const nextValue = resolveToggleArg(command.args[0], skillsEnabled);
-        if (nextValue === null) {
-          return {
-            feedback: "Usage: /skills on|off",
-            keepInput: true,
-          };
-        }
-        return updateExecutionSettings(
-          {
-            permissionMode,
-            searchEnabled,
-            skillsEnabled: nextValue,
-          },
-          `Skills ${nextValue ? "enabled" : "disabled"}.`,
         );
       }
       if (command.action === "model") {
@@ -1615,8 +1516,7 @@ function ManagedChatArea({
       }
       if (command.action === "help") {
         return {
-          feedback:
-            "Commands: /new, /resume, /model, /permissions, /search, /help.",
+          feedback: formatSlashCommandHelp(slashCommands),
         };
       }
       return false;
@@ -1626,7 +1526,7 @@ function ManagedChatArea({
       handleResumeLatestChat,
       permissionMode,
       searchEnabled,
-      skillsEnabled,
+      slashCommands,
       updateExecutionSettings,
     ],
   );
@@ -1661,13 +1561,11 @@ function ManagedChatArea({
     () => ({
       permissionMode,
       searchEnabled,
-      skillsEnabled,
       onPermissionModeChange: (nextMode: ChatPermissionModeValue) => {
         updateExecutionSettings(
           {
             permissionMode: nextMode,
             searchEnabled,
-            skillsEnabled,
           },
           `Permissions set to ${nextMode}.`,
         );
@@ -1677,28 +1575,21 @@ function ManagedChatArea({
           {
             permissionMode,
             searchEnabled: nextValue,
-            skillsEnabled,
           },
           `Search ${nextValue ? "enabled" : "disabled"}.`,
         );
       },
-      onSkillsEnabledChange: (nextValue: boolean) => {
-        updateExecutionSettings(
-          {
-            permissionMode,
-            searchEnabled,
-            skillsEnabled: nextValue,
-          },
-          `Skills ${nextValue ? "enabled" : "disabled"}.`,
-        );
-      },
     }),
-    [
-      permissionMode,
-      searchEnabled,
-      skillsEnabled,
-      updateExecutionSettings,
-    ],
+    [permissionMode, searchEnabled, updateExecutionSettings],
+  );
+  const handleProviderDictationTranscribe = useCallback(
+    async (audioBlob: Blob) => {
+      if (!effectiveEngineConfigId || isExternalEngine) {
+        return null;
+      }
+      return transcribeChatAudio(effectiveEngineConfigId, audioBlob);
+    },
+    [effectiveEngineConfigId, isExternalEngine],
   );
 
   return (
@@ -1776,15 +1667,17 @@ function ManagedChatArea({
           disabled={isDisabled}
           onSubmit={handleSubmit}
           onStop={handleStop}
+          slashCommands={slashCommands}
           onSlashCommand={handleSlashCommand}
           executionControls={executionControls}
           executionControlVisibility={{
-            permissionMode: true,
-            search: false,
-            skills: false,
+            permissionMode: showPermissionExecutionControl,
+            search: showSearchExecutionControl,
           }}
-          showQuickSlashButtons={false}
           dictationEnabledByProvider={hasEngineConfig}
+          onProviderDictationTranscribe={
+            isExternalEngine ? undefined : handleProviderDictationTranscribe
+          }
         />
       </div>
     </div>

@@ -281,9 +281,7 @@ class TestDeleteSections:
         delete_sections(self.project_state, [section_id])
 
         assert section_id not in self.project_state.sections
-        assert (
-            section_id not in self.project_state.projectConfig.sectionVariantMap
-        )
+        assert section_id not in self.project_state.projectConfig.sectionVariantMap
         self.project_state.validate_code_file_bindings()
 
 
@@ -332,7 +330,6 @@ class TestChatSectionChatId:
             thinking=True,
             permissionMode=ChatPermissionMode.yolo,
             searchEnabled=False,
-            skillsEnabled=False,
         )
 
         section_impl = get_curr_effective_section_impl_with_type_guard(
@@ -346,7 +343,7 @@ class TestChatSectionChatId:
         assert section_impl.thinking
         assert section_impl.permissionMode == ChatPermissionMode.yolo
         assert not section_impl.searchEnabled
-        assert not section_impl.skillsEnabled
+        assert section_impl.skillsEnabled
 
 
 class TestPromptSection:
@@ -510,11 +507,10 @@ class TestChangeParamImpl:
         assert updated_impl.coreNameType == old_core_name_type
         assert updated_impl.passingStyle == old_passing_style
 
+
 class TestAddChildrenOfCallable:
     def test_refetch_preserves_existing_param_value(self) -> None:
-        project_state, section_id, param_id = build_callable_project_state(
-            "original"
-        )
+        project_state, section_id, param_id = build_callable_project_state("original")
         section_impl = get_curr_effective_section_impl_with_type_guard(
             project_state, section_id, CallableSectionImpl
         )
@@ -1050,6 +1046,7 @@ class TestSmartLayout:
         assert pan_to is not None
         assert pan_to.x == pytest.approx(position.x + 100.0)
         assert pan_to.y == pytest.approx(position.y + 50.0)
+
     def test_smart_layout_uses_layout_snapshot_for_collisions(self) -> None:
         section_id = create_top_level_section(
             self.settings,
@@ -1063,9 +1060,7 @@ class TestSmartLayout:
         existing_layout.h = 200
         viewport_bounds = ViewportBounds(x=0, y=0, w=148, h=148)
         overrides = {"size": SectionSize(width=100, height=100)}
-        layout_snapshot = {
-            section_id: TopLevelSectionLayout(x=300, y=0, w=200, h=200)
-        }
+        layout_snapshot = {section_id: TopLevelSectionLayout(x=300, y=0, w=200, h=200)}
         apply_top_level_section_layout_snapshot(self.project_state, layout_snapshot)
 
         position, pan_to = compute_smart_top_level_section_position(

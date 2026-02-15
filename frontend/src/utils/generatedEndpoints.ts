@@ -395,6 +395,12 @@ export async function route_get_llm_response(
   return await post("/getLLMResponse", x);
 }
 
+export async function route_transcribe_chat_audio(
+  x: gt.TranscribeChatAudioRequestInput,
+): Promise<ResponseDataAndStatus<gt.TranscribeChatAudioResponse>> {
+  return await post("/transcribeChatAudio", x);
+}
+
 export async function route_stop_llm_chat(
   x: gt.StopLLMChatRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

@@ -811,6 +811,7 @@ export const RouteEnum = {
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
+  TRANSCRIBE_CHAT_AUDIO: "/transcribeChatAudio",
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
   LLM_CONFIG: "/llm/config",
   LLM_API_KEYS: "/llm/apiKeys",
@@ -15023,6 +15024,46 @@ export function createStopLLMChatRequest(
   return StopLLMChatRequestSchema.parse(options);
 }
 
+export const TranscribeChatAudioRequestSchema = z.object({
+  engineConfigId: IDSchema,
+  audioBase64: z.string(),
+  mimeType: z.string().default("audio/webm" as const),
+  fileName: z.string().default("dictation.webm" as const),
+  language: z.union([z.string(), z.null()]).default(null),
+});
+
+export type TranscribeChatAudioRequest = z.infer<
+  typeof TranscribeChatAudioRequestSchema
+>;
+
+export type TranscribeChatAudioRequestInput = z.input<
+  typeof TranscribeChatAudioRequestSchema
+>;
+
+export function createTranscribeChatAudioRequest(
+  options: Partial<TranscribeChatAudioRequest> = {},
+): TranscribeChatAudioRequest {
+  return TranscribeChatAudioRequestSchema.parse(options);
+}
+
+export const TranscribeChatAudioResponseSchema = z.object({
+  text: z.string(),
+});
+
+export type TranscribeChatAudioResponse = z.infer<
+  typeof TranscribeChatAudioResponseSchema
+>;
+
+export type TranscribeChatAudioResponseInput = z.input<
+  typeof TranscribeChatAudioResponseSchema
+>;
+
+export function createTranscribeChatAudioResponse(
+  options: Partial<TranscribeChatAudioResponse> = {},
+): TranscribeChatAudioResponse {
+  return TranscribeChatAudioResponseSchema.parse(options);
+}
+
 export const AppPolicyOverridesSchema = z.object({
   allowParamChanges: z.union([z.boolean(), z.null()]).default(null),
   allowVariantChanges: z.union([z.boolean(), z.null()]).default(null),
@@ -17148,7 +17189,7 @@ export const SetChatSectionSettingsRequestSchema = z.object({
   thinking: z.boolean(),
   permissionMode: z.enum(ChatPermissionModeEnum),
   searchEnabled: z.boolean(),
-  skillsEnabled: z.boolean(),
+  skillsEnabled: z.boolean().default(true),
 });
 
 export type SetChatSectionSettingsRequest = z.infer<

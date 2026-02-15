@@ -58,7 +58,6 @@ type ChatSectionSettingsPayload = {
   thinking: boolean;
   permissionMode: "minimal" | "yolo" | "config_toml_custom";
   searchEnabled: boolean;
-  skillsEnabled: boolean;
 };
 
 export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
@@ -75,26 +74,23 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     thinking,
     permissionMode,
     searchEnabled,
-    skillsEnabled,
     isFrozen,
-  } =
-    useProjectState((state) => {
-      const impl = getCurrEffectiveSectionImplOfType(
-        state,
-        sectionId,
-        SectionTypeEnum.Chat,
-      );
-      return {
-        managed: impl.managed,
-        engineConfigId: impl.engineConfigId,
-        agentProfileId: impl.agentProfileId,
-        thinking: impl.thinking,
-        permissionMode: impl.permissionMode,
-        searchEnabled: impl.searchEnabled,
-        skillsEnabled: impl.skillsEnabled,
-        isFrozen: impl.isFrozen,
-      };
-    }, _.isEqual);
+  } = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      state,
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    return {
+      managed: impl.managed,
+      engineConfigId: impl.engineConfigId,
+      agentProfileId: impl.agentProfileId,
+      thinking: impl.thinking,
+      permissionMode: impl.permissionMode,
+      searchEnabled: impl.searchEnabled,
+      isFrozen: impl.isFrozen,
+    };
+  }, _.isEqual);
   const agenticEdges = useProjectState(
     (state) => state.projectConfig.agenticEdges,
     _.isEqual,
@@ -425,7 +421,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             thinking: nextSettings.thinking,
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
-            skillsEnabled: nextSettings.skillsEnabled,
           });
         },
         send: (frontendOpId) =>
@@ -438,7 +433,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             thinking: nextSettings.thinking,
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
-            skillsEnabled: nextSettings.skillsEnabled,
             frontendOpId,
           }),
       });
@@ -455,7 +449,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         thinking,
         permissionMode,
         searchEnabled,
-        skillsEnabled,
       });
     },
     [
@@ -463,7 +456,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       engineConfigId,
       permissionMode,
       searchEnabled,
-      skillsEnabled,
       thinking,
       updateSettings,
     ],
@@ -478,7 +470,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         thinking: value,
         permissionMode,
         searchEnabled,
-        skillsEnabled,
       });
     },
     [
@@ -487,7 +478,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       managed,
       permissionMode,
       searchEnabled,
-      skillsEnabled,
       updateSettings,
     ],
   );
@@ -521,7 +511,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         thinking,
         permissionMode,
         searchEnabled,
-        skillsEnabled,
       });
     },
     [
@@ -529,7 +518,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       managed,
       permissionMode,
       searchEnabled,
-      skillsEnabled,
       thinking,
       updateSettings,
     ],
@@ -608,7 +596,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         thinking,
         permissionMode,
         searchEnabled,
-        skillsEnabled,
       });
       if (nextEngineId !== selectedEngineId) {
         handleNewChat();
@@ -621,7 +608,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       permissionMode,
       searchEnabled,
       selectedEngineId,
-      skillsEnabled,
       thinking,
       updateSettings,
     ],

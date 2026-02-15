@@ -1,4 +1,4 @@
-export type DictationState = "idle" | "listening" | "error";
+export type DictationState = "idle" | "listening" | "transcribing" | "error";
 
 type SpeechRecognitionResultLike = {
   isFinal: boolean;
@@ -26,9 +26,7 @@ export type SpeechRecognitionLike = {
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
 
-export function getSpeechRecognitionConstructor():
-  | SpeechRecognitionConstructor
-  | null {
+export function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
   if (typeof window === "undefined") {
     return null;
   }
@@ -85,4 +83,3 @@ export function mapDictationError(errorCode: string | undefined): string {
   }
   return "Dictation failed.";
 }
-

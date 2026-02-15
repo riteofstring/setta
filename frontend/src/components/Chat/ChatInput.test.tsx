@@ -136,6 +136,15 @@ describe("ChatInput attachment gating", () => {
     expect(className).toContain("w-full");
     expect(className).toContain("max-w-none");
   });
+
+  it("uses an inset focus ring so focus styles are not clipped", () => {
+    const markup = renderChatInput();
+    const className = getTextareaClassName(markup);
+
+    expect(className).not.toBeNull();
+    expect(className).toContain("focus:ring-inset");
+    expect(className).toContain("focus:border-blue-500");
+  });
 });
 
 describe("ChatInput composer controls", () => {
@@ -147,18 +156,17 @@ describe("ChatInput composer controls", () => {
     resetProjectStores();
   });
 
-  it("renders starter prompts and quick slash controls", () => {
+  it("renders starter prompts without a dedicated quick slash row", () => {
     const markup = renderChatInput({
       starterPrompts: CHAT_STARTER_PROMPTS,
       showPythonStarterPrompts: true,
-      showQuickSlashButtons: true,
     });
 
     expect(markup).toContain("Create Project");
     expect(markup).toContain("Summarize Codebase");
-    expect(markup).toContain("/new");
-    expect(markup).toContain("/resume");
-    expect(markup).toContain("/model");
+    expect(markup).not.toContain(">/new<");
+    expect(markup).not.toContain(">/resume<");
+    expect(markup).not.toContain(">/model<");
   });
 
   it("hides python starter prompt when python is unavailable", () => {
@@ -176,10 +184,8 @@ describe("ChatInput composer controls", () => {
       executionControls: {
         permissionMode: "minimal",
         searchEnabled: true,
-        skillsEnabled: false,
         onPermissionModeChange: vi.fn(),
         onSearchEnabledChange: vi.fn(),
-        onSkillsEnabledChange: vi.fn(),
       },
     });
 
@@ -188,15 +194,15 @@ describe("ChatInput composer controls", () => {
     expect(markup).not.toContain("Skills");
   });
 
-  it("hides quick slash buttons unless explicitly enabled", () => {
+  it("does not render slash buttons above the composer", () => {
     const markup = renderChatInput({
       starterPrompts: CHAT_STARTER_PROMPTS,
       showPythonStarterPrompts: true,
     });
 
-    expect(markup).not.toContain("/new");
-    expect(markup).not.toContain("/resume");
-    expect(markup).not.toContain("/model");
+    expect(markup).not.toContain(">/new<");
+    expect(markup).not.toContain(">/resume<");
+    expect(markup).not.toContain(">/model<");
   });
 
   it("defaults slash suggestions to below placement", () => {

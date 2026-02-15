@@ -3013,7 +3013,6 @@ def set_chat_section_settings(
     thinking: bool,
     permissionMode: ChatPermissionMode,
     searchEnabled: bool,
-    skillsEnabled: bool,
 ):
     get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
     set_curr_effective_section_impl_value(
@@ -3026,7 +3025,7 @@ def set_chat_section_settings(
             thinking=thinking,
             permissionMode=permissionMode,
             searchEnabled=searchEnabled,
-            skillsEnabled=skillsEnabled,
+            skillsEnabled=True,
         ),
     )
 

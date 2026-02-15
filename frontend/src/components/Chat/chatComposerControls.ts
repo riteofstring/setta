@@ -12,7 +12,6 @@ export type ChatSlashCommandAction =
   | "model"
   | "permissions"
   | "search"
-  | "skills"
   | "help";
 
 export type ChatSlashCommandDefinition = {
@@ -27,22 +26,73 @@ export type ParsedSlashCommand = {
   args: string[];
 };
 
-export const CHAT_SLASH_COMMANDS: ChatSlashCommandDefinition[] = [
-  { command: "/new", action: "new", summary: "Start a new chat thread." },
-  {
+type ChatSlashCommandCapabilities = {
+  model?: boolean;
+  permissions?: boolean;
+  search?: boolean;
+};
+
+const CHAT_SLASH_COMMAND_DEFINITIONS: Record<
+  ChatSlashCommandAction,
+  ChatSlashCommandDefinition
+> = {
+  new: { command: "/new", action: "new", summary: "Start a new chat thread." },
+  resume: {
     command: "/resume",
     action: "resume",
-    summary: "Resume the latest chat thread for this section.",
+    summary: "Resume the latest chat thread.",
   },
-  { command: "/model", action: "model", summary: "Set or inspect model config." },
-  {
+  model: {
+    command: "/model",
+    action: "model",
+    summary: "Set or inspect model config.",
+  },
+  permissions: {
     command: "/permissions",
     action: "permissions",
     summary: "Set permissions mode: minimal, yolo, or config_toml_custom.",
   },
-  { command: "/search", action: "search", summary: "Toggle search: on or off." },
-  { command: "/help", action: "help", summary: "Show slash command help." },
-];
+  search: {
+    command: "/search",
+    action: "search",
+    summary: "Toggle search: on or off.",
+  },
+  help: {
+    command: "/help",
+    action: "help",
+    summary: "Show slash command help.",
+  },
+};
+
+export function buildChatSlashCommands(
+  capabilities: ChatSlashCommandCapabilities = {},
+): ChatSlashCommandDefinition[] {
+  const includeModel = capabilities.model ?? true;
+  const includePermissions = capabilities.permissions ?? true;
+  const includeSearch = capabilities.search ?? true;
+  const actions: ChatSlashCommandAction[] = ["new", "resume"];
+  if (includeModel) {
+    actions.push("model");
+  }
+  if (includePermissions) {
+    actions.push("permissions");
+  }
+  if (includeSearch) {
+    actions.push("search");
+  }
+  actions.push("help");
+  return actions.map((action) => CHAT_SLASH_COMMAND_DEFINITIONS[action]);
+}
+
+export function formatSlashCommandHelp(
+  commands: ChatSlashCommandDefinition[],
+): string {
+  const commandList = commands.map((entry) => entry.command).join(", ");
+  return `Commands: ${commandList}.`;
+}
+
+export const CHAT_SLASH_COMMANDS: ChatSlashCommandDefinition[] =
+  buildChatSlashCommands();
 
 const SLASH_SUGGESTION_LIMIT = 8;
 
@@ -84,9 +134,7 @@ export function getSlashCommandSuggestions(
   if (query.length === 0) {
     return [];
   }
-  const filtered = commands.filter((entry) =>
-    entry.command.startsWith(query),
-  );
+  const filtered = commands.filter((entry) => entry.command.startsWith(query));
   return filtered.slice(0, SLASH_SUGGESTION_LIMIT);
 }
 

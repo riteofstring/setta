@@ -24,12 +24,14 @@ from setta.routers.ai import (
     GetLLMResponseRequest,
     GetLLMChatRequest,
     StopLLMChatRequest,
+    TranscribeChatAudioRequest,
     _build_branch_messages,
     _ensure_external_chat_id_compatible,
     _get_prior_messages_for_engine,
     route_get_external_agent_chat,
     route_get_llm_chat,
     route_get_llm_response,
+    route_transcribe_chat_audio,
     route_stop_llm_chat,
 )
 from setta.server_state import SettaFastAPIState
@@ -577,7 +579,7 @@ class TestAgentRunChatRoutes:
                         allowUnscoped=True,
                         permissionMode=ChatPermissionMode.yolo,
                         searchEnabled=False,
-                        skillsEnabled=False,
+                        skillsEnabled=False,  # Deprecated; accepted but ignored.
                         appSpecStreamingEnabled=True,
                     ),
                     ctx,
@@ -590,7 +592,6 @@ class TestAgentRunChatRoutes:
             assert "## Runtime execution settings" in system_prompt
             assert "- permissionMode: yolo" in system_prompt
             assert "- searchEnabled: false" in system_prompt
-            assert "- skillsEnabled: false" in system_prompt
             assert "## Required completion gate for create/scaffold work" in system_prompt
             assert "streamingPreview: enabled" in system_prompt
 
@@ -598,7 +599,7 @@ class TestAgentRunChatRoutes:
             assert isinstance(captured_inputs, dict)
             assert captured_inputs.get("permissionMode") == "yolo"
             assert captured_inputs.get("searchEnabled") is False
-            assert captured_inputs.get("skillsEnabled") is False
+            assert "skillsEnabled" not in captured_inputs
 
     async def test_get_llm_response_includes_execution_policy_for_external_runner(
         self,
@@ -679,7 +680,7 @@ class TestAgentRunChatRoutes:
                         allowUnscoped=True,
                         permissionMode=ChatPermissionMode.minimal,
                         searchEnabled=False,
-                        skillsEnabled=True,
+                        skillsEnabled=True,  # Deprecated; accepted but ignored.
                     ),
                     ctx,
                 )
@@ -689,13 +690,119 @@ class TestAgentRunChatRoutes:
             assert isinstance(captured_inputs, dict)
             assert captured_inputs.get("permissionMode") == "minimal"
             assert captured_inputs.get("searchEnabled") is False
-            assert captured_inputs.get("skillsEnabled") is True
+            assert "skillsEnabled" not in captured_inputs
             assert captured_inputs.get("approvalPolicy") == "on-request"
             system_prompt = captured_inputs.get("systemPrompt")
             assert isinstance(system_prompt, str)
             assert "## Runtime execution settings" in system_prompt
             assert "- permissionMode: minimal" in system_prompt
             assert "## Required completion gate for create/scaffold work" in system_prompt
+
+    async def test_transcribe_chat_audio_uses_litellm_transcription(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            runner.update_config(
+                AllLLMConfigs(
+                    configs={
+                        "primary": LLMConfig(
+                            id="primary",
+                            model="gpt-4o-mini",
+                            provider="openai",
+                            api_key_env="OPENAI_API_KEY",
+                            other_params={"transcriptionModel": "whisper-1"},
+                            mcpServerIds=[],
+                        )
+                    },
+                    mcpServers={},
+                )
+            )
+            runner.update_api_keys({"OPENAI_API_KEY": "test-key"})
+            captured: dict[str, object] = {}
+
+            async def _capture_transcription(*args, **kwargs):
+                captured["args"] = args
+                captured["kwargs"] = kwargs
+                return SimpleNamespace(text="hello from provider")
+
+            with runtime_context(state) as ctx:
+                with pytest.MonkeyPatch.context() as monkeypatch:
+                    monkeypatch.setattr(
+                        "setta.llm.transcription.litellm.atranscription",
+                        _capture_transcription,
+                    )
+                    response = await route_transcribe_chat_audio(
+                        TranscribeChatAudioRequest(
+                            engineConfigId=engine_config_id,
+                            audioBase64="aGVsbG8=",
+                            mimeType="audio/webm",
+                            fileName="voice.webm",
+                        ),
+                        ctx,
+                    )
+
+            assert response.text == "hello from provider"
+            kwargs = captured.get("kwargs")
+            assert isinstance(kwargs, dict)
+            assert kwargs.get("model") == "whisper-1"
+            assert kwargs.get("custom_llm_provider") == "openai"
+            assert kwargs.get("api_key") == "test-key"
+            assert kwargs.get("api_base") is None
+            file_payload = kwargs.get("file")
+            assert file_payload == ("voice.webm", b"hello", "audio/webm")
+
+    async def test_transcribe_chat_audio_rejects_external_engine(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            external_config = ExternalAgentConfig(
+                id="external-codex",
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            save_external_agent_configs(dbe, [external_config])
+            external_engine_config_id = ID("engine-external")
+            save_engine_configs(
+                dbe,
+                [
+                    EngineConfig(
+                        id=external_engine_config_id,
+                        name="External Engine",
+                        engineType=EngineType.external_agent,
+                        externalAgentConfigId=external_config.id,
+                    )
+                ],
+            )
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_transcribe_chat_audio(
+                        TranscribeChatAudioRequest(
+                            engineConfigId=external_engine_config_id,
+                            audioBase64="aGVsbG8=",
+                            mimeType="audio/webm",
+                            fileName="voice.webm",
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 400
+            assert "Provider dictation is available only for managed LLM engines." in str(
+                exc.value.detail
+            )
 
     async def test_external_runner_maps_permission_mode_per_framework(
         self,

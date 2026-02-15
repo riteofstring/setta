@@ -1,3 +1,5 @@
+import base64
+import binascii
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
@@ -21,6 +23,8 @@ from setta.agentic.store import (
     require_agent_profile,
 )
 from setta.database.utils import create_new_id
+from setta.llm.transcription import transcribe_audio_with_llm
+from setta.llm.user_facing_errors import get_user_facing_llm_error_message
 from setta.logging.project_id_route import require_project_context
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.routers.dependencies import RuntimeContextFromRequest
@@ -31,6 +35,7 @@ from setta.types.agentic import (
     AgentRunStatus,
     EngineType,
 )
+from setta.types.external_agents import ExternalAgentToolType
 from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
@@ -39,7 +44,6 @@ from setta.types.generated.chat_messages import (
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.routes import Route
-from setta.types.external_agents import ExternalAgentToolType
 from setta.types.section_impls import ChatPermissionMode
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 
@@ -68,21 +72,15 @@ def _combine_prompt_sections(*sections: str | None) -> str:
 def _build_execution_policy_prompt(
     permission_mode: ChatPermissionMode,
     search_enabled: bool,
-    skills_enabled: bool,
 ) -> str:
     lines = [
         "## Runtime execution settings",
         f"- permissionMode: {permission_mode.value}",
         f"- searchEnabled: {'true' if search_enabled else 'false'}",
-        f"- skillsEnabled: {'true' if skills_enabled else 'false'}",
     ]
     if not search_enabled:
         lines.append(
             "- Search is disabled for this run. Do not rely on search tools; use existing context and local tools only."
-        )
-    if not skills_enabled:
-        lines.append(
-            "- Skills are disabled for this run. Do not use skill-specific workflows or assumptions."
         )
     return "\n".join(lines)
 
@@ -314,12 +312,29 @@ class GetLLMResponseRequest(BaseModel):
     )
     permissionMode: ChatPermissionMode = ChatPermissionMode.minimal
     searchEnabled: bool = True
-    skillsEnabled: bool = True
+    skillsEnabled: bool = Field(
+        default=True,
+        description=(
+            "Deprecated advisory toggle. This value is ignored and kept only for old clients."
+        ),
+    )
 
 
 class GetLLMChatRequest(BaseModel):
     chatId: ID
     projectConfigId: ID | None
+
+
+class TranscribeChatAudioRequest(BaseModel):
+    engineConfigId: ID
+    audioBase64: str
+    mimeType: str = "audio/webm"
+    fileName: str = "dictation.webm"
+    language: str | None = None
+
+
+class TranscribeChatAudioResponse(BaseModel):
+    text: str
 
 
 class GetLLMChatRequestResponse(BaseModel):
@@ -434,7 +449,6 @@ async def route_get_llm_response(
     execution_policy_prompt = _build_execution_policy_prompt(
         x.permissionMode,
         x.searchEnabled,
-        x.skillsEnabled,
     )
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
@@ -466,7 +480,6 @@ async def route_get_llm_response(
             "runType": LLM_CHAT_RUN_TYPE,
             "permissionMode": x.permissionMode.value,
             "searchEnabled": x.searchEnabled,
-            "skillsEnabled": x.skillsEnabled,
             "messages": [
                 message.model_dump(mode="json") for message in combined_messages
             ],
@@ -526,7 +539,6 @@ async def route_get_llm_response(
             "engineConfigId": str(x.engineConfigId),
             "permissionMode": x.permissionMode.value,
             "searchEnabled": x.searchEnabled,
-            "skillsEnabled": x.skillsEnabled,
             "messages": [
                 message.model_dump(mode="json") for message in combined_messages
             ],
@@ -566,6 +578,61 @@ async def route_get_llm_response(
         return chat_id
     raise HTTPException(status_code=400, detail="Unsupported engine config")
     return chat_id
+
+
+@router.post(Route.TRANSCRIBE_CHAT_AUDIO)
+async def route_transcribe_chat_audio(
+    x: TranscribeChatAudioRequest,
+    ctx: RuntimeContextFromRequest,
+) -> TranscribeChatAudioResponse:
+    await ctx.enforce_llm_allowed()
+    if ctx.state.agent_runner.disabled:
+        raise HTTPException(status_code=503, detail="Agent runner is not available")
+    resolved = resolve_engine_config(
+        ctx.state.dbe, ctx.state.agent_runner.config, x.engineConfigId
+    )
+    if resolved.engine_config.engineType != EngineType.setta_llm:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Provider dictation is available only for managed LLM engines. "
+                "Use browser dictation for external agents."
+            ),
+        )
+    llm_config = resolved.llm_config
+    if llm_config is None:
+        raise HTTPException(
+            status_code=400, detail="No LLM config available for engine"
+        )
+    audio_base64 = x.audioBase64.strip()
+    if not audio_base64:
+        raise HTTPException(status_code=400, detail="audioBase64 is required.")
+    try:
+        audio_bytes = base64.b64decode(audio_base64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(
+            status_code=400, detail="audioBase64 must be valid base64."
+        ) from exc
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Audio payload is empty.")
+    mime_type = x.mimeType.strip() if x.mimeType.strip() else "audio/webm"
+    file_name = x.fileName.strip() if x.fileName.strip() else "dictation.webm"
+    try:
+        text = await transcribe_audio_with_llm(
+            config=ctx.state.agent_runner.config,
+            llm_config=llm_config,
+            api_keys=ctx.state.agent_runner.api_keys,
+            audio_bytes=audio_bytes,
+            mime_type=mime_type,
+            file_name=file_name,
+            language=x.language,
+        )
+    except Exception as exc:
+        detail = (
+            get_user_facing_llm_error_message(exc) or "Provider transcription failed."
+        )
+        raise HTTPException(status_code=502, detail=detail) from exc
+    return TranscribeChatAudioResponse(text=text)
 
 
 @router.post(Route.STOP_LLM_CHAT)

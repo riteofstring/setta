@@ -1,5 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import {
+  type CSSProperties,
   ChangeEvent,
   FormEvent,
   KeyboardEvent,
@@ -10,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   IoAdd,
   IoAttach,
@@ -32,12 +34,12 @@ import {
   parseSlashCommand,
 } from "./chatComposerControls";
 import {
+  type DictationState,
+  type SpeechRecognitionLike,
   getSpeechRecognitionConstructor,
   insertTextAtSelection,
   isDictationAvailable,
   mapDictationError,
-  type DictationState,
-  type SpeechRecognitionLike,
 } from "./dictation";
 import { useChatAttachmentManager } from "./useChatAttachmentManager";
 
@@ -46,20 +48,18 @@ const SLASH_SUGGESTIONS_MAX_HEIGHT_PX = 208;
 const SLASH_SUGGESTIONS_EDGE_PADDING_PX = 8;
 const SLASH_SUGGESTIONS_BASE_HEIGHT_PX = 12;
 const SLASH_SUGGESTIONS_ROW_HEIGHT_PX = 36;
+const SLASH_SUGGESTIONS_INPUT_INSET_PX = 4;
 
 type ChatExecutionControls = {
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
-  skillsEnabled: boolean;
   onPermissionModeChange: (next: ChatPermissionModeValue) => void;
   onSearchEnabledChange: (next: boolean) => void;
-  onSkillsEnabledChange: (next: boolean) => void;
 };
 
 type ChatExecutionControlVisibility = {
   permissionMode?: boolean;
   search?: boolean;
-  skills?: boolean;
 };
 
 export type ChatSlashCommand = {
@@ -93,14 +93,12 @@ type ChatInputProps = {
   slashCommands?: ChatSlashCommandDefinition[];
   onSlashCommand?: (
     command: ChatSlashCommand,
-  ) =>
-    | Promise<ChatSlashCommandResult | void>
-    | ChatSlashCommandResult
-    | void;
+  ) => Promise<ChatSlashCommandResult | void> | ChatSlashCommandResult | void;
   starterPrompts?: ChatStarterPrompt[];
   showPythonStarterPrompts?: boolean;
-  showQuickSlashButtons?: boolean;
   slashSuggestionsPlacement?: "auto" | "above" | "below";
+  dictationMode?: "auto" | "browser" | "provider";
+  onProviderDictationTranscribe?: (audioBlob: Blob) => Promise<string | null>;
   dictationEnabledByProvider?: boolean;
 };
 
@@ -117,14 +115,14 @@ export const ChatInput = memo(function ChatInput({
   executionControlVisibility = {
     permissionMode: true,
     search: true,
-    skills: false,
   },
   slashCommands = CHAT_SLASH_COMMANDS,
   onSlashCommand,
   starterPrompts = [],
   showPythonStarterPrompts = false,
-  showQuickSlashButtons = false,
   slashSuggestionsPlacement = "auto",
+  dictationMode = "auto",
+  onProviderDictationTranscribe,
   dictationEnabledByProvider = true,
 }: ChatInputProps) {
   const [internalValue, setInternalValue] = useState("");
@@ -133,13 +131,21 @@ export const ChatInput = memo(function ChatInput({
   const [resolvedSlashPlacement, setResolvedSlashPlacement] = useState<
     "above" | "below"
   >(slashSuggestionsPlacement === "above" ? "above" : "below");
+  const [slashSuggestionsPortalStyle, setSlashSuggestionsPortalStyle] =
+    useState<CSSProperties | null>(null);
   const [dictationState, setDictationState] = useState<DictationState>("idle");
-  const [dictationFeedback, setDictationFeedback] = useState<string | null>(null);
+  const [dictationFeedback, setDictationFeedback] = useState<string | null>(
+    null,
+  );
   const isControlled = typeof value === "string" && Boolean(onChange);
   const inputValue = isControlled ? value : internalValue;
   const inputValueRef = useRef(inputValue);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const providerRecorderRef = useRef<MediaRecorder | null>(null);
+  const providerStreamRef = useRef<MediaStream | null>(null);
+  const providerChunksRef = useRef<Array<BlobPart>>([]);
+  const dictationSourceRef = useRef<"browser" | "provider" | null>(null);
   const isDisabled = disabled;
 
   useEffect(() => {
@@ -287,8 +293,8 @@ export const ChatInput = memo(function ChatInput({
     );
   }, [shouldShowSlashSuggestions, slashSuggestions.length]);
 
-  const updateAutoSlashPlacement = useCallback(() => {
-    if (!shouldShowSlashSuggestions || slashSuggestionsPlacement !== "auto") {
+  const updateSlashSuggestionsLayout = useCallback(() => {
+    if (!shouldShowSlashSuggestions) {
       return;
     }
     if (typeof window === "undefined") {
@@ -299,24 +305,82 @@ export const ChatInput = memo(function ChatInput({
       return;
     }
     const inputRect = inputNode.getBoundingClientRect();
-    const spaceAbove =
-      inputRect.top - SLASH_SUGGESTIONS_EDGE_PADDING_PX;
+    const spaceAbove = inputRect.top - SLASH_SUGGESTIONS_EDGE_PADDING_PX;
     const spaceBelow =
-      window.innerHeight -
-      inputRect.bottom -
-      SLASH_SUGGESTIONS_EDGE_PADDING_PX;
+      window.innerHeight - inputRect.bottom - SLASH_SUGGESTIONS_EDGE_PADDING_PX;
     const estimatedMenuHeight = Math.min(
       SLASH_SUGGESTIONS_MAX_HEIGHT_PX,
       SLASH_SUGGESTIONS_BASE_HEIGHT_PX +
         slashSuggestions.length * SLASH_SUGGESTIONS_ROW_HEIGHT_PX,
     );
-    const nextPlacement =
-      spaceBelow >= estimatedMenuHeight || spaceBelow >= spaceAbove
-        ? "below"
-        : "above";
+    let nextPlacement: "above" | "below" = "below";
+    if (slashSuggestionsPlacement === "above") {
+      nextPlacement = "above";
+    } else if (slashSuggestionsPlacement === "below") {
+      nextPlacement = "below";
+    } else if (spaceBelow >= estimatedMenuHeight || spaceBelow >= spaceAbove) {
+      nextPlacement = "below";
+    } else {
+      nextPlacement = "above";
+    }
+    const availableVerticalSpace = Math.max(
+      0,
+      nextPlacement === "below" ? spaceBelow : spaceAbove,
+    );
+    const maxHeight = Math.max(
+      0,
+      Math.min(SLASH_SUGGESTIONS_MAX_HEIGHT_PX, availableVerticalSpace),
+    );
+    const maxWidth = Math.max(
+      0,
+      window.innerWidth - SLASH_SUGGESTIONS_EDGE_PADDING_PX * 2,
+    );
+    const preferredWidth = Math.max(
+      0,
+      inputRect.width - SLASH_SUGGESTIONS_INPUT_INSET_PX * 2,
+    );
+    const width = Math.min(preferredWidth, maxWidth);
+    const left = Math.max(
+      SLASH_SUGGESTIONS_EDGE_PADDING_PX,
+      Math.min(
+        inputRect.left + SLASH_SUGGESTIONS_INPUT_INSET_PX,
+        window.innerWidth - SLASH_SUGGESTIONS_EDGE_PADDING_PX - width,
+      ),
+    );
     setResolvedSlashPlacement((current) =>
       current === nextPlacement ? current : nextPlacement,
     );
+    const clampedTop =
+      nextPlacement === "below"
+        ? Math.max(
+            SLASH_SUGGESTIONS_EDGE_PADDING_PX,
+            Math.min(
+              inputRect.bottom + SLASH_SUGGESTIONS_INPUT_INSET_PX,
+              window.innerHeight -
+                SLASH_SUGGESTIONS_EDGE_PADDING_PX -
+                maxHeight,
+            ),
+          )
+        : undefined;
+    const clampedBottom =
+      nextPlacement === "above"
+        ? Math.max(
+            SLASH_SUGGESTIONS_EDGE_PADDING_PX,
+            Math.min(
+              window.innerHeight -
+                inputRect.top +
+                SLASH_SUGGESTIONS_INPUT_INSET_PX,
+              window.innerHeight - SLASH_SUGGESTIONS_EDGE_PADDING_PX,
+            ),
+          )
+        : undefined;
+    setSlashSuggestionsPortalStyle({
+      left: `${left}px`,
+      width: `${width}px`,
+      maxHeight: `${maxHeight}px`,
+      top: clampedTop !== undefined ? `${clampedTop}px` : undefined,
+      bottom: clampedBottom !== undefined ? `${clampedBottom}px` : undefined,
+    });
   }, [
     shouldShowSlashSuggestions,
     slashSuggestions.length,
@@ -324,34 +388,32 @@ export const ChatInput = memo(function ChatInput({
   ]);
 
   useEffect(() => {
-    if (slashSuggestionsPlacement === "auto") {
-      if (!shouldShowSlashSuggestions) {
-        setResolvedSlashPlacement("below");
-        return;
-      }
-      updateAutoSlashPlacement();
-      if (typeof window === "undefined") {
-        return;
-      }
-      const handleViewportChange = () => {
-        requestAnimationFrame(() => {
-          updateAutoSlashPlacement();
-        });
-      };
-      window.addEventListener("resize", handleViewportChange);
-      window.addEventListener("scroll", handleViewportChange, true);
-      return () => {
-        window.removeEventListener("resize", handleViewportChange);
-        window.removeEventListener("scroll", handleViewportChange, true);
-      };
+    if (!shouldShowSlashSuggestions) {
+      setSlashSuggestionsPortalStyle(null);
+      setResolvedSlashPlacement(
+        slashSuggestionsPlacement === "above" ? "above" : "below",
+      );
+      return;
     }
-    setResolvedSlashPlacement(
-      slashSuggestionsPlacement === "above" ? "above" : "below",
-    );
+    updateSlashSuggestionsLayout();
+    if (typeof window === "undefined") {
+      return;
+    }
+    const handleViewportChange = () => {
+      requestAnimationFrame(() => {
+        updateSlashSuggestionsLayout();
+      });
+    };
+    window.addEventListener("resize", handleViewportChange);
+    window.addEventListener("scroll", handleViewportChange, true);
+    return () => {
+      window.removeEventListener("resize", handleViewportChange);
+      window.removeEventListener("scroll", handleViewportChange, true);
+    };
   }, [
     shouldShowSlashSuggestions,
     slashSuggestionsPlacement,
-    updateAutoSlashPlacement,
+    updateSlashSuggestionsLayout,
   ]);
 
   const applySlashSuggestion = useCallback(
@@ -461,7 +523,7 @@ export const ChatInput = memo(function ChatInput({
 
   const textAreaClassName = useMemo(() => {
     const base =
-      "nodrag max-h-40 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-md border border-setta-200 bg-transparent py-1.5 pl-9 pr-9 text-[13px] leading-[1.35] text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:outline-none focus:outline focus:outline-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:outline-blue-700";
+      "nodrag max-h-40 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-md border border-setta-200 bg-transparent py-1.5 pl-9 pr-9 text-[13px] leading-[1.35] text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:border-blue-500 focus:ring-1 focus:ring-inset focus:ring-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:border-blue-700 dark:focus:ring-blue-700";
     const dragClass = isDragActive
       ? "ring-2 ring-blue-400 bg-blue-50/40 dark:bg-blue-900/20"
       : "";
@@ -470,28 +532,6 @@ export const ChatInput = memo(function ChatInput({
     }
     return `${base} ${dragClass} cursor-auto opacity-100`;
   }, [isDisabled, isDragActive]);
-
-  const quickSlashCommands = useMemo(
-    () =>
-      !showQuickSlashButtons
-        ? []
-        : slashCommands.filter((command) =>
-            ["/new", "/resume", "/model"].includes(command.command),
-          ),
-    [showQuickSlashButtons, slashCommands],
-  );
-
-  const executeQuickCommand = useCallback(
-    async (command: string) => {
-      if (command === "/model") {
-        setInputValue("/model ");
-        requestAnimationFrame(() => textareaRef.current?.focus());
-        return;
-      }
-      await submitMessage(command, []);
-    },
-    [setInputValue, submitMessage],
-  );
 
   const visibleStarterPrompts = useMemo(
     () =>
@@ -512,33 +552,65 @@ export const ChatInput = memo(function ChatInput({
   );
 
   const dictationSupported = Boolean(getSpeechRecognitionConstructor());
-  const canDictate = isDictationAvailable(
+  const canBrowserDictate = isDictationAvailable(
     dictationEnabledByProvider,
     dictationSupported,
   );
+  const mediaRecorderSupported =
+    typeof window !== "undefined" &&
+    typeof window.MediaRecorder !== "undefined" &&
+    typeof navigator !== "undefined" &&
+    Boolean(navigator.mediaDevices?.getUserMedia);
+  const canProviderDictate = Boolean(
+    dictationEnabledByProvider &&
+      onProviderDictationTranscribe &&
+      mediaRecorderSupported,
+  );
+  const canDictate =
+    dictationMode === "provider"
+      ? canProviderDictate
+      : dictationMode === "browser"
+        ? canBrowserDictate
+        : canProviderDictate || canBrowserDictate;
   const showPermissionControl = Boolean(
     executionControls && executionControlVisibility.permissionMode !== false,
   );
   const showSearchControl = Boolean(
     executionControls && executionControlVisibility.search !== false,
   );
-  const showSkillsControl = Boolean(
-    executionControls && executionControlVisibility.skills !== false,
-  );
-  const showExecutionControls =
-    showPermissionControl || showSearchControl || showSkillsControl;
+  const showExecutionControls = showPermissionControl || showSearchControl;
   const slashSuggestionsPositionClass =
     resolvedSlashPlacement === "below"
       ? "top-[calc(100%+4px)]"
       : "bottom-[calc(100%+4px)]";
+  const canRenderSlashSuggestionsInPortal =
+    shouldShowSlashSuggestions &&
+    slashSuggestionsPortalStyle !== null &&
+    typeof document !== "undefined" &&
+    Boolean(document.body);
 
-  const stopDictation = useCallback(() => {
+  const stopProviderCapture = useCallback(() => {
+    const recorder = providerRecorderRef.current;
+    if (!recorder) {
+      return;
+    }
+    if (recorder.state !== "inactive") {
+      recorder.stop();
+    }
+    providerRecorderRef.current = null;
+    dictationSourceRef.current = null;
+    setDictationState("transcribing");
+    setDictationFeedback("Transcribing...");
+  }, []);
+
+  const stopBrowserDictation = useCallback(() => {
     const recognition = recognitionRef.current;
     if (!recognition) {
       return;
     }
     recognition.stop();
     recognitionRef.current = null;
+    dictationSourceRef.current = null;
     setDictationState("idle");
     setDictationFeedback(null);
   }, []);
@@ -562,8 +634,8 @@ export const ChatInput = memo(function ChatInput({
     [setInputValue],
   );
 
-  const startDictation = useCallback(() => {
-    if (!canDictate) {
+  const startBrowserDictation = useCallback(() => {
+    if (!canBrowserDictate) {
       setDictationState("error");
       setDictationFeedback("Dictation is not available.");
       return;
@@ -580,7 +652,11 @@ export const ChatInput = memo(function ChatInput({
     recognition.lang = "en-US";
     recognition.onresult = (event) => {
       let transcript = "";
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+      for (
+        let index = event.resultIndex;
+        index < event.results.length;
+        index += 1
+      ) {
         const result = event.results[index];
         if (!result || !result.isFinal) {
           continue;
@@ -598,31 +674,201 @@ export const ChatInput = memo(function ChatInput({
       setDictationState("error");
       setDictationFeedback(mapDictationError(event.error));
       recognitionRef.current = null;
+      dictationSourceRef.current = null;
     };
     recognition.onend = () => {
       setDictationState((state) => (state === "error" ? "error" : "idle"));
       recognitionRef.current = null;
+      dictationSourceRef.current = null;
     };
     recognitionRef.current = recognition;
+    dictationSourceRef.current = "browser";
     setDictationState("listening");
     setDictationFeedback("Listening...");
     recognition.start();
-  }, [canDictate, insertTranscript]);
+  }, [canBrowserDictate, insertTranscript]);
+
+  const startProviderDictation = useCallback(async () => {
+    if (!canProviderDictate || !onProviderDictationTranscribe) {
+      setDictationState("error");
+      setDictationFeedback("Provider dictation is not available.");
+      return;
+    }
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === "undefined"
+    ) {
+      setDictationState("error");
+      setDictationFeedback("Provider dictation is not available.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported?.("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : "audio/webm";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      providerStreamRef.current = stream;
+      providerRecorderRef.current = recorder;
+      providerChunksRef.current = [];
+      dictationSourceRef.current = "provider";
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          providerChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onerror = () => {
+        setDictationState("error");
+        setDictationFeedback("Microphone input failed.");
+        providerRecorderRef.current = null;
+        dictationSourceRef.current = null;
+      };
+      recorder.onstop = () => {
+        providerRecorderRef.current = null;
+        dictationSourceRef.current = null;
+        const streamRef = providerStreamRef.current;
+        if (streamRef) {
+          for (const track of streamRef.getTracks()) {
+            track.stop();
+          }
+        }
+        providerStreamRef.current = null;
+        const chunks = providerChunksRef.current;
+        providerChunksRef.current = [];
+        const blob = new Blob(chunks, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        if (blob.size === 0) {
+          setDictationState("error");
+          setDictationFeedback("No speech was detected.");
+          return;
+        }
+        setDictationState("transcribing");
+        setDictationFeedback("Transcribing...");
+        void (async () => {
+          try {
+            const transcript = await onProviderDictationTranscribe(blob);
+            const normalized = (transcript ?? "").trim();
+            if (!normalized) {
+              setDictationState("error");
+              setDictationFeedback("Provider transcription failed.");
+              return;
+            }
+            insertTranscript(`${normalized} `);
+            setDictationState("idle");
+            setDictationFeedback(null);
+          } catch (error) {
+            setDictationState("error");
+            setDictationFeedback(
+              error instanceof Error && error.message
+                ? error.message
+                : "Provider transcription failed.",
+            );
+          }
+        })();
+      };
+      setDictationState("listening");
+      setDictationFeedback("Listening...");
+      recorder.start();
+    } catch {
+      setDictationState("error");
+      setDictationFeedback("Microphone access was denied.");
+    }
+  }, [canProviderDictate, insertTranscript, onProviderDictationTranscribe]);
+
+  const startDictation = useCallback(() => {
+    if (!canDictate) {
+      setDictationState("error");
+      setDictationFeedback("Dictation is not available.");
+      return;
+    }
+    if (dictationMode === "provider") {
+      void startProviderDictation();
+      return;
+    }
+    if (dictationMode === "browser") {
+      startBrowserDictation();
+      return;
+    }
+    if (canProviderDictate) {
+      void startProviderDictation();
+      return;
+    }
+    startBrowserDictation();
+  }, [
+    canDictate,
+    canProviderDictate,
+    dictationMode,
+    startBrowserDictation,
+    startProviderDictation,
+  ]);
 
   useEffect(() => {
     return () => {
       recognitionRef.current?.stop();
       recognitionRef.current = null;
+      const recorder = providerRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        recorder.onstop = null;
+        recorder.stop();
+      }
+      providerRecorderRef.current = null;
+      const stream = providerStreamRef.current;
+      if (stream) {
+        for (const track of stream.getTracks()) {
+          track.stop();
+        }
+      }
+      providerStreamRef.current = null;
+      dictationSourceRef.current = null;
     };
   }, []);
 
   const handleDictationToggle = useCallback(() => {
     if (dictationState === "listening") {
-      stopDictation();
+      if (dictationSourceRef.current === "provider") {
+        stopProviderCapture();
+        return;
+      }
+      stopBrowserDictation();
+      return;
+    }
+    if (dictationState === "transcribing") {
       return;
     }
     startDictation();
-  }, [dictationState, startDictation, stopDictation]);
+  }, [
+    dictationState,
+    startDictation,
+    stopBrowserDictation,
+    stopProviderCapture,
+  ]);
+
+  const slashSuggestionsList = (
+    <>
+      {slashSuggestions.map((suggestion, index) => (
+        <button
+          key={suggestion.command}
+          type="button"
+          className={`flex w-full min-w-0 flex-col items-start gap-0.5 rounded px-2 py-1 text-left text-xs transition-colors ${
+            index === activeSlashIndex
+              ? "bg-setta-100 text-setta-900 dark:bg-setta-800 dark:text-setta-100"
+              : "text-setta-600 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800"
+          }`}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => applySlashSuggestion(index)}
+        >
+          <span className="w-full truncate font-semibold">
+            {suggestion.command}
+          </span>
+          <span className="w-full truncate text-[10px] text-setta-400 dark:text-setta-500">
+            {suggestion.summary}
+          </span>
+        </button>
+      ))}
+    </>
+  );
 
   return (
     <form onSubmit={handleSubmit} className="flex justify-center">
@@ -645,21 +891,6 @@ export const ChatInput = memo(function ChatInput({
                   disabled={isSubmitDisabled}
                 >
                   {starterPrompt.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-          {quickSlashCommands.length > 0 ? (
-            <div className="mb-0.5 flex flex-wrap items-center gap-1">
-              {quickSlashCommands.map((command) => (
-                <button
-                  key={command.command}
-                  type="button"
-                  className="rounded border border-transparent px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-500 transition-colors hover:border-setta-200 hover:text-setta-800 dark:text-setta-400 dark:hover:border-setta-700 dark:hover:text-setta-100"
-                  onClick={() => void executeQuickCommand(command.command)}
-                  disabled={isSubmitDisabled}
-                >
-                  {command.command}
                 </button>
               ))}
             </div>
@@ -735,30 +966,12 @@ export const ChatInput = memo(function ChatInput({
             >
               {buttonIcon}
             </button>
-            {shouldShowSlashSuggestions ? (
+            {shouldShowSlashSuggestions &&
+            !canRenderSlashSuggestionsInPortal ? (
               <div
-                className={`absolute left-1 right-1 z-20 max-h-52 overflow-x-hidden overflow-y-auto rounded-md border border-setta-200 bg-white p-1 shadow-lg dark:border-setta-700 dark:bg-setta-900 ${slashSuggestionsPositionClass}`}
+                className={`absolute left-1 right-1 z-20 max-h-52 overflow-y-auto overflow-x-hidden rounded-md border border-setta-200 bg-white p-1 shadow-lg dark:border-setta-700 dark:bg-setta-900 ${slashSuggestionsPositionClass}`}
               >
-                {slashSuggestions.map((suggestion, index) => (
-                  <button
-                    key={suggestion.command}
-                    type="button"
-                    className={`flex w-full min-w-0 flex-col items-start gap-0.5 rounded px-2 py-1 text-left text-xs transition-colors ${
-                      index === activeSlashIndex
-                        ? "bg-setta-100 text-setta-900 dark:bg-setta-800 dark:text-setta-100"
-                        : "text-setta-600 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800"
-                    }`}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => applySlashSuggestion(index)}
-                  >
-                    <span className="w-full truncate font-semibold">
-                      {suggestion.command}
-                    </span>
-                    <span className="w-full truncate text-[10px] text-setta-400 dark:text-setta-500">
-                      {suggestion.summary}
-                    </span>
-                  </button>
-                ))}
+                {slashSuggestionsList}
               </div>
             ) : null}
           </div>
@@ -843,7 +1056,8 @@ export const ChatInput = memo(function ChatInput({
                   </DropdownMenu.Portal>
                 </DropdownMenu.Root>
               ) : null}
-              {executionControls && executionControlVisibility.search !== false ? (
+              {executionControls &&
+              executionControlVisibility.search !== false ? (
                 <button
                   type="button"
                   aria-pressed={executionControls.searchEnabled}
@@ -861,36 +1075,23 @@ export const ChatInput = memo(function ChatInput({
                   Search
                 </button>
               ) : null}
-              {executionControls && executionControlVisibility.skills !== false ? (
-                <button
-                  type="button"
-                  aria-pressed={executionControls.skillsEnabled}
-                  className={`rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-                    executionControls.skillsEnabled
-                      ? "border-blue-600 bg-blue-600 text-white"
-                      : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-                  }`}
-                  onClick={() =>
-                    executionControls.onSkillsEnabledChange(
-                      !executionControls.skillsEnabled,
-                    )
-                  }
-                >
-                  Skills
-                </button>
-              ) : null}
               {canDictate ? (
                 <button
                   type="button"
+                  disabled={dictationState === "transcribing"}
                   className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
                     dictationState === "listening"
                       ? "border-blue-600 bg-blue-600 text-white"
                       : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-                  }`}
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
                   onClick={handleDictationToggle}
                 >
                   <IoMic size={12} />
-                  {dictationState === "listening" ? "Stop Mic" : "Mic"}
+                  {dictationState === "listening"
+                    ? "Stop Mic"
+                    : dictationState === "transcribing"
+                      ? "Transcribing"
+                      : "Mic"}
                 </button>
               ) : null}
             </div>
@@ -942,6 +1143,17 @@ export const ChatInput = memo(function ChatInput({
           ) : null}
         </div>
       </div>
+      {canRenderSlashSuggestionsInPortal && document.body
+        ? createPortal(
+            <div
+              className="fixed z-40 overflow-y-auto overflow-x-hidden rounded-md border border-setta-200 bg-white p-1 shadow-lg dark:border-setta-700 dark:bg-setta-900"
+              style={slashSuggestionsPortalStyle}
+            >
+              {slashSuggestionsList}
+            </div>,
+            document.body,
+          )
+        : null}
     </form>
   );
 });
