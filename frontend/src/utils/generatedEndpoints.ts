@@ -1247,12 +1247,6 @@ export async function route_set_section_hide_unpinned_params(
   return await post("/setSectionHideUnpinnedParams", x);
 }
 
-export async function route_set_section_allow_unquoted_string_args(
-  x: gt.SetSectionAllowUnquotedStringArgsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSectionAllowUnquotedStringArgs", x);
-}
-
 export async function route_set_section_pinned_params(
   x: gt.SetSectionPinnedParamsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

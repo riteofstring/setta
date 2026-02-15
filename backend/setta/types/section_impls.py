@@ -235,7 +235,6 @@ class BaseSectionImpl(BaseModel, extra="forbid"):
 class BaseSectionWithParamsImpl(BaseSectionImpl):
     codeObjVariantMap: dict[ID, ID] = Field(default_factory=dict)
     hideUnpinnedParams: bool = False
-    allowUnquotedStringArgs: bool = False
     paramFilter: str = ""
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python

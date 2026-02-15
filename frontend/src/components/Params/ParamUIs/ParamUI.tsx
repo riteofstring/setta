@@ -38,7 +38,6 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
-import { isStringTypeAnnotation } from "utils/typeAnnotation";
 import { ButtonInputConfigForParam } from "./ButtonInput";
 import { ColorPickerInputConfigForParam } from "./ColorPickerInput";
 import {
@@ -179,8 +178,6 @@ export function ParamUI({
     dateSelectionMode,
     dateCalendarWeekStart,
     dateIncludesTime,
-    allowUnquotedStringArgs,
-    typeAnnotation,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
@@ -200,7 +197,6 @@ export function ParamUI({
         : false;
     const isDateParam = codeObjImpl.type === CodeObjTypeEnum.DateParam;
     const isTimeParam = codeObjImpl.type === CodeObjTypeEnum.TimeParam;
-    const isCodeParam = codeObjImpl.type === CodeObjTypeEnum.CodeParam;
     return {
       codeObjType: codeObjImpl.type,
       passwordHasSecret: hasPasswordSecret,
@@ -238,8 +234,6 @@ export function ParamUI({
         ? codeObjImpl.dateCalendarWeekStart
         : DateCalendarWeekStartEnum.sunday,
       dateIncludesTime: isDateParam ? codeObjImpl.dateIncludesTime : false,
-      allowUnquotedStringArgs: impl.allowUnquotedStringArgs,
-      typeAnnotation: isCodeParam ? codeObjImpl.typeAnnotation : "",
     };
   }, _.isEqual);
 
@@ -259,10 +253,6 @@ export function ParamUI({
       value,
       hasSecret: passwordHasSecret,
     });
-  const showUnquotedStringHint =
-    codeObjType === CodeObjTypeEnum.CodeParam &&
-    allowUnquotedStringArgs &&
-    isStringTypeAnnotation(typeAnnotation);
   const passwordPlaceholder =
     passwordHasSecret && value === "" ? "Saved" : undefined;
 
@@ -287,7 +277,6 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
-          showUnquotedStringHint={showUnquotedStringHint}
         />
       );
     case CodeObjTypeEnum.TextParam:
@@ -304,7 +293,6 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
-          showUnquotedStringHint={false}
         />
       );
     case CodeObjTypeEnum.DateParam:
@@ -461,7 +449,6 @@ function TextParamConfigured({
   configLanguage,
   waitingForResult,
   isSelectingParams,
-  showUnquotedStringHint = false,
 }) {
   return (
     <>
@@ -486,11 +473,6 @@ function TextParamConfigured({
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
       )}
-      {showUnquotedStringHint ? (
-        <span className="section-value col-span-2 -mt-0.5 text-[10px] text-blue-500/70 dark:text-blue-300/70">
-          String annotation detected: quotes are optional in this section.
-        </span>
-      ) : null}
       <span
         className={`section-value grid-row-start-1 border-box self-end border-b border-setta-200/50 dark:border-setta-600/30 ${!isSelectingParams ? "peer-focus-within/textinput:border-blue-400" : ""}`}
       />

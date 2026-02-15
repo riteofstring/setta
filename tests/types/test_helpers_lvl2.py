@@ -44,7 +44,6 @@ from setta.types.helpers_lvl2 import (
     set_list_root_view_mode,
     set_section_param_filter,
     set_parent_default_child_section_type,
-    set_section_allow_unquoted_string_args,
     set_spreadsheet_section_settings,
     set_text_block_master_font_size,
     set_text_block_heading_as_section_name,
@@ -1252,32 +1251,6 @@ class TestListAndGroupChildDefaults:
             ListRootSectionImpl,
         )
         assert section_impl.viewMode == ListRootViewMode.kanban
-
-
-class TestSectionConfigFlags:
-    @pytest.fixture(autouse=True)
-    def _setup(self) -> None:
-        self.settings = SettingsState()
-        self.project_state = ProjectStateSingleConfig(
-            projectConfig=ProjectConfig(name="test-project")
-        )
-
-    def test_allow_unquoted_string_args_persists_on_section_impl(self) -> None:
-        section_id = create_top_level_section(
-            self.settings,
-            self.project_state,
-            SectionType.Dict,
-            Position(),
-        )
-
-        set_section_allow_unquoted_string_args(self.project_state, section_id, True)
-
-        section_impl = get_curr_effective_section_impl_with_type_guard(
-            self.project_state,
-            section_id,
-            BaseSectionWithParamsImpl,
-        )
-        assert section_impl.allowUnquotedStringArgs is True
 
 
 class TestTextBlockFontSize:

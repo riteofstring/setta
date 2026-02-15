@@ -469,7 +469,9 @@ export function FileBrowserSpreadsheetEditor({
         setErrorText(detail ?? "Failed to load spreadsheet file.");
         return;
       }
-      const binaryResponse = await route_binary_download(response.data.contentId);
+      const binaryResponse = await route_binary_download(
+        response.data.contentId,
+      );
       if (!res200(binaryResponse) || !binaryResponse.data) {
         const detail = getErrorDetail(binaryResponse.data);
         setErrorText(detail ?? "Failed to load spreadsheet file payload.");

@@ -2,14 +2,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  createCallableSectionImpl,
   createCore,
   createListRootSectionImpl,
   createProjectConfig,
   createSpreadsheetSectionImpl,
   createTaskBoardSectionImpl,
   createTextBlockSectionImpl,
-  createUserDefaultCallableSectionImpl,
   createUserDefaultListRootSectionImpl,
   createUserDefaultSpreadsheetSectionImpl,
   createUserDefaultTaskBoardSectionImpl,
@@ -21,7 +19,6 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ChildDefaultsSettings } from "./ChildDefaultsSettings";
-import { EdgePortsSettings } from "./EdgePortsSettings";
 import { SpreadsheetSectionSettings } from "./SpreadsheetSectionSettings";
 import { TaskBoardSettings } from "./TaskBoardSettings";
 import { TextBlockSettings } from "./TextBlockSettings";
@@ -160,29 +157,6 @@ describe("Section data-authoring settings", () => {
     expect(markup).toContain('option value="default"');
     expect(markup).toContain('option value="task_list" selected');
     expect(markup).toContain('option value="kanban"');
-  });
-
-  it("renders callable string-args toggle in section config", () => {
-    const sectionId = "callable-section";
-    const implId = "callable-impl";
-    seedSectionState({
-      sectionId,
-      sectionName: "Callable",
-      variantId: "callable-variant",
-      implId,
-      impl: createCallableSectionImpl(createUserDefaultCallableSectionImpl(), {
-        id: implId,
-        allowUnquotedStringArgs: true,
-      }),
-    });
-
-    const markup = renderToStaticMarkup(
-      <EdgePortsSettings sectionId={sectionId} />,
-    );
-    expect(markup).toContain("String Args");
-    expect(markup).toContain(
-      "When enabled, string-typed code params accept unquoted values.",
-    );
   });
 
   it("renders task board section settings", () => {

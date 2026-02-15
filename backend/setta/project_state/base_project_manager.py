@@ -186,7 +186,6 @@ from setta.project_state.project_manager_types import (
     SetPromptFormatRequest,
     SetPromptInputsRequest,
     SetPromptTemplateRequest,
-    SetSectionAllowUnquotedStringArgsRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
     SetSectionEdgeOutputsRequest,
@@ -331,7 +330,6 @@ from setta.types.helpers_lvl2 import (
     set_prompt_section_format,
     set_prompt_section_inputs,
     set_prompt_section_template,
-    set_section_allow_unquoted_string_args,
     set_section_column_width,
     set_section_edge_inputs,
     set_section_edge_outputs,
@@ -3581,18 +3579,6 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_hide_unpinned_params(
             project_state, x.sectionId, x.hideUnpinnedParams
-        )
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def set_section_allow_unquoted_string_args(
-        self, x: SetSectionAllowUnquotedStringArgsRequest
-    ):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_section_allow_unquoted_string_args(
-            project_state,
-            x.sectionId,
-            x.allowUnquotedStringArgs,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 

@@ -692,7 +692,6 @@ export const RouteEnum = {
   SET_TEXT_BLOCK_MASTER_FONT_SIZE: "/setTextBlockMasterFontSize",
   SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
   SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
-  SET_SECTION_ALLOW_UNQUOTED_STRING_ARGS: "/setSectionAllowUnquotedStringArgs",
   SET_SECTION_PINNED_PARAMS: "/setSectionPinnedParams",
   SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
   SET_PARENT_DEFAULT_CHILD_SECTION_TYPE: "/setParentDefaultChildSectionType",
@@ -1702,7 +1701,6 @@ const SharedModifierSchema = z.object({
   activeLayerIdx: z.int().optional(),
   activeSheet: z.union([z.string(), z.null()]).optional(),
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
-  allowUnquotedStringArgs: z.boolean().optional(),
   aspectRatio: z.union([z.boolean(), z.number()]).optional(),
   aspectRatioExtraHeight: z.int().optional(),
   aspectRatioExtraWidth: z.int().optional(),
@@ -1865,7 +1863,6 @@ const CoreSchema = z.object({
         "activeLayerIdx",
         "activeSheet",
         "agentProfileId",
-        "allowUnquotedStringArgs",
         "aspectRatio",
         "aspectRatioExtraHeight",
         "aspectRatioExtraWidth",
@@ -2021,7 +2018,6 @@ const CallableSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
   hideUnpinnedParams: z.boolean().default(false),
-  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -2062,7 +2058,6 @@ const DictSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
   hideUnpinnedParams: z.boolean().default(false),
-  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -2343,7 +2338,6 @@ const GlobalVariablesSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
   hideUnpinnedParams: z.boolean().default(false),
-  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -2592,17 +2586,17 @@ const TaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "bcf80c2d-3ccd-4831-a02e-9d1b05cc7c7c" as const,
+      id: "1e89cccc-09ec-422f-8ada-1474aaf10128" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "bafbf1c8-e705-449f-b23a-8f35c441a5f6" as const,
+      id: "953ee64a-77b6-4583-864a-746c3d3c057c" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "661f3b57-8fc0-4e3e-b481-43586be3e12a" as const,
+      id: "322447c5-5374-4e91-aa65-bb2bb074a5d4" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
@@ -3720,7 +3714,6 @@ const DictSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
   hideUnpinnedParams: z.boolean().optional(),
-  allowUnquotedStringArgs: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
@@ -3754,7 +3747,6 @@ const GlobalVariablesSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
   hideUnpinnedParams: z.boolean().optional(),
-  allowUnquotedStringArgs: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
@@ -3835,7 +3827,6 @@ const CallableSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
   hideUnpinnedParams: z.boolean().optional(),
-  allowUnquotedStringArgs: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
@@ -5474,7 +5465,6 @@ const UserDefaultCallableSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
-  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -5594,7 +5584,6 @@ const UserDefaultDictSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
-  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -5704,7 +5693,6 @@ const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   hideUnpinnedParams: z.boolean().default(false),
-  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -5927,17 +5915,17 @@ const UserDefaultTaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "7af4937b-828b-4eac-bed1-8987260e700a" as const,
+      id: "bba46d5c-adb9-4318-a496-2c4ab7ddefed" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "ac03d7e1-2755-4088-9730-61f99cc2a5d2" as const,
+      id: "03e830ed-bb1e-45e7-afae-ea128d2816a3" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "49089626-a810-4509-9cb8-a29bb718c7ee" as const,
+      id: "b385dae0-145f-4fed-bfbb-e2513200ba06" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
@@ -6938,7 +6926,6 @@ const BaseDictSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
   hideUnpinnedParams: z.boolean().optional(),
-  allowUnquotedStringArgs: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
@@ -7040,7 +7027,6 @@ const BaseSectionWithParamsImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   codeObjVariantMap: z.record(IDSchema, IDSchema).optional(),
   hideUnpinnedParams: z.boolean().optional(),
-  allowUnquotedStringArgs: z.boolean().optional(),
   paramFilter: z.string().optional(),
   columnWidth: z.union([z.number(), z.null()]).optional(),
   configLanguage: z.enum(ConfigLanguageEnum).optional(),
@@ -7583,7 +7569,6 @@ const BaseDictSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
   hideUnpinnedParams: z.boolean().default(false),
-  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -7639,7 +7624,6 @@ const BaseSectionWithParamsImplSchema = z.object({
   isPreset: z.boolean().default(false),
   codeObjVariantMap: z.record(IDSchema, IDSchema).default({}),
   hideUnpinnedParams: z.boolean().default(false),
-  allowUnquotedStringArgs: z.boolean().default(false),
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
@@ -9726,17 +9710,6 @@ const SetPromptTemplateRequestSchema = z.object({
 
 export type SetPromptTemplateRequestInput = z.input<
   typeof SetPromptTemplateRequestSchema
->;
-
-const SetSectionAllowUnquotedStringArgsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  allowUnquotedStringArgs: z.boolean(),
-});
-
-export type SetSectionAllowUnquotedStringArgsRequestInput = z.input<
-  typeof SetSectionAllowUnquotedStringArgsRequestSchema
 >;
 
 const SetSectionColumnWidthRequestSchema = z.object({

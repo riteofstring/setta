@@ -2372,23 +2372,6 @@ def set_text_block_master_font_size(
     )
 
 
-def set_section_allow_unquoted_string_args(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    allowUnquotedStringArgs: bool,
-):
-    get_curr_effective_section_impl_with_type_guard(
-        p, sectionId, BaseSectionWithParamsImpl
-    )
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        BaseSectionWithParamsImplArgsWithCallable(
-            allowUnquotedStringArgs=allowUnquotedStringArgs
-        ),
-    )
-
-
 def set_parent_default_child_section_type(
     p: "ProjectStateSingleConfig",
     sectionId: ID,

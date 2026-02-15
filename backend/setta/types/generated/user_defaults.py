@@ -59,7 +59,6 @@ class UserDefaultBaseSectionImpl(BaseModel, extra="forbid"):
 
 class UserDefaultBaseSectionWithParamsImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     hideUnpinnedParams: bool = False
-    allowUnquotedStringArgs: bool = False
     paramFilter: str = ""
     columnWidth: float | None = None
     configLanguage: ConfigLanguage = ConfigLanguage.python

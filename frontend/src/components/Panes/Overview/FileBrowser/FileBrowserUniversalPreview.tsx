@@ -165,13 +165,16 @@ export function FileBrowserUniversalPreview({
           });
           return;
         }
-        const binaryResponse = await route_binary_download(response.data.contentId);
+        const binaryResponse = await route_binary_download(
+          response.data.contentId,
+        );
         if (!res200(binaryResponse) || !binaryResponse.data) {
           setTextPreview({
             text: "",
             truncated: false,
             isLoading: false,
-            error: getErrorDetail(binaryResponse.data) ?? "Preview unavailable.",
+            error:
+              getErrorDetail(binaryResponse.data) ?? "Preview unavailable.",
           });
           return;
         }

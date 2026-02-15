@@ -213,7 +213,6 @@ class Route(str, Enum):
     SET_TEXT_BLOCK_MASTER_FONT_SIZE = "/setTextBlockMasterFontSize"
     SET_CALLABLE_HIDE_PARAMS = "/setCallableHideParams"
     SET_SECTION_HIDE_UNPINNED_PARAMS = "/setSectionHideUnpinnedParams"
-    SET_SECTION_ALLOW_UNQUOTED_STRING_ARGS = "/setSectionAllowUnquotedStringArgs"
     SET_SECTION_PINNED_PARAMS = "/setSectionPinnedParams"
     SET_SECTION_COLUMN_WIDTH = "/setSectionColumnWidth"
     SET_PARENT_DEFAULT_CHILD_SECTION_TYPE = "/setParentDefaultChildSectionType"

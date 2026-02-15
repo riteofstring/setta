@@ -1048,10 +1048,6 @@ class SetSectionHideUnpinnedParamsRequest(ProjectManagerRequestWithSection):
     hideUnpinnedParams: bool
 
 
-class SetSectionAllowUnquotedStringArgsRequest(ProjectManagerRequestWithSection):
-    allowUnquotedStringArgs: bool
-
-
 class SetSectionPinnedParamsRequest(ProjectManagerRequestWithSection):
     pinnedParams: list[ID]
 

@@ -751,13 +751,6 @@ class ListenerSetPromptTemplateRequestPayload(TypedDict):
     template: str
 
 
-class ListenerSetSectionAllowUnquotedStringArgsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    allowUnquotedStringArgs: bool
-
-
 class ListenerSetSectionColumnWidthRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -1511,13 +1504,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetPromptTemplateRequestPayload
     ) -> None:
         return await self._caller("route_set_prompt_template", payload)
-
-    async def set_section_allow_unquoted_string_args(
-        self, payload: ListenerSetSectionAllowUnquotedStringArgsRequestPayload
-    ) -> None:
-        return await self._caller(
-            "route_set_section_allow_unquoted_string_args", payload
-        )
 
     async def set_section_column_width(
         self, payload: ListenerSetSectionColumnWidthRequestPayload

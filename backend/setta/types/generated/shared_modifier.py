@@ -67,7 +67,6 @@ class SharedModifier(TypedDict):
     activeLayerIdx: NotRequired[int]
     activeSheet: NotRequired[str | None]
     agentProfileId: NotRequired[ID | None]
-    allowUnquotedStringArgs: NotRequired[bool]
     aspectRatio: NotRequired[bool | float]
     aspectRatioExtraHeight: NotRequired[int]
     aspectRatioExtraWidth: NotRequired[int]

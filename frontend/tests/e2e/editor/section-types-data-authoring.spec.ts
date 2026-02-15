@@ -30,7 +30,6 @@ type LatestProjectStateResponse = {
       {
         type: string;
         codeObjVariantMap?: Record<string, string>;
-        allowUnquotedStringArgs?: boolean;
         defaultChildSectionType?: string;
         viewMode?: string;
         readOnly?: boolean;

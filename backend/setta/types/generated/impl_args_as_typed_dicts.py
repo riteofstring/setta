@@ -79,7 +79,6 @@ class CoreArgs(TypedDict):
                 "activeLayerIdx",
                 "activeSheet",
                 "agentProfileId",
-                "allowUnquotedStringArgs",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
@@ -267,7 +266,6 @@ class BaseSectionWithParamsImplArgs(BaseSectionImplArgs):
     type: NotRequired[Any]
     codeObjVariantMap: NotRequired[dict[ID, ID]]
     hideUnpinnedParams: NotRequired[bool]
-    allowUnquotedStringArgs: NotRequired[bool]
     paramFilter: NotRequired[str]
     columnWidth: NotRequired[float | None]
     configLanguage: NotRequired[ConfigLanguage]
@@ -284,7 +282,6 @@ class BaseSectionWithParamsImplArgsWithCallable(BaseSectionImplArgsWithCallable)
         dict[ID, ID] | Callable[[dict[ID, ID]], dict[ID, ID]]
     ]
     hideUnpinnedParams: NotRequired[bool | Callable[[bool], bool]]
-    allowUnquotedStringArgs: NotRequired[bool | Callable[[bool], bool]]
     paramFilter: NotRequired[str | Callable[[str], str]]
     columnWidth: NotRequired[float | None | Callable[[float | None], float | None]]
     configLanguage: NotRequired[

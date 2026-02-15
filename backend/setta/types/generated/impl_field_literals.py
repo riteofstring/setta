@@ -6,7 +6,6 @@ AllImplFields = Literal[
     "activeLayerIdx",
     "activeSheet",
     "agentProfileId",
-    "allowUnquotedStringArgs",
     "aspectRatio",
     "aspectRatioExtraHeight",
     "aspectRatioExtraWidth",

@@ -98,7 +98,9 @@ describe("importNativeFileToWorkspace", () => {
         return jsonResponse({ detail: "Upload denied." }, 400);
       }
       if (url.endsWith("/api/writeFileBrowserFileContent")) {
-        throw new Error("Write endpoint should not be called after upload failure.");
+        throw new Error(
+          "Write endpoint should not be called after upload failure.",
+        );
       }
       throw new Error(`Unexpected fetch URL: ${url}`);
     });
