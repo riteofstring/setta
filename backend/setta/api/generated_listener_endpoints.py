@@ -80,6 +80,7 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatPermissionMode,
     ChatSectionState,
     SectionSize,
     SectionType,
@@ -583,6 +584,8 @@ class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
     engineConfigId: ID | None
     agentProfileId: ID | None
     thinking: bool
+    permissionMode: ChatPermissionMode
+    searchEnabled: bool
 
 
 class ListenerSetChatSectionStateRequestPayload(TypedDict):
@@ -811,13 +814,6 @@ class ListenerSetSectionVariantRequestPayload(TypedDict):
     variantId: ID
 
 
-class ListenerSetSectionVariantSortOrderRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    orderedVariantIds: list[ID]
-
-
 class ListenerSetShowParamDisplayNamesRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -893,12 +889,6 @@ class ListenerSetViewModeNameRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     viewModeId: ID
     name: str
-
-
-class ListenerSetViewModeSortOrderRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    orderedViewModeIds: list[ID]
 
 
 class ListenerSetViewportRequestPayload(TypedDict):
@@ -1509,11 +1499,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_section_variant_name", payload)
 
-    async def set_section_variant_sort_order(
-        self, payload: ListenerSetSectionVariantSortOrderRequestPayload
-    ) -> None:
-        return await self._caller("route_set_section_variant_sort_order", payload)
-
     async def set_show_param_display_names(
         self, payload: ListenerSetShowParamDisplayNamesRequestPayload
     ) -> None:
@@ -1568,11 +1553,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetViewModeNameRequestPayload
     ) -> None:
         return await self._caller("route_set_view_mode_name", payload)
-
-    async def set_view_mode_sort_order(
-        self, payload: ListenerSetViewModeSortOrderRequestPayload
-    ) -> None:
-        return await self._caller("route_set_view_mode_sort_order", payload)
 
     async def set_viewport(self, payload: ListenerSetViewportRequestPayload) -> None:
         return await self._caller("route_set_viewport", payload)
