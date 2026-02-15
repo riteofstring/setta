@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import path from "path";
 import {
+  allowExpectedApiError,
   cleanupIsolatedProject,
   openIsolatedProject,
   postBackend,
@@ -75,6 +76,75 @@ test("plugin host apiFetch normalizes paths and forwards custom headers", async 
     expect(healthRequest?.url.startsWith(BACKEND_ORIGIN)).toBeTruthy();
     expect(statusRequest?.url.startsWith(BACKEND_ORIGIN)).toBeTruthy();
     expect(statusRequest?.headers["x-custom"]).toBe("yes");
+  } finally {
+    await postBackend(page, "/plugins/unlink", {
+      pluginId: "setta-fixture-frontend-api-fetch",
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/rescan", {}).catch(() => null);
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("plugin host apiFetch hits real backend routes without interception", async ({
+  page,
+}) => {
+  const fixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/frontend-api-fetch",
+  );
+  const capturedUrls: string[] = [];
+  page.on("request", (request) => {
+    const url = request.url();
+    if (url.includes("/plugins/setta-fixture-frontend-api-fetch/")) {
+      capturedUrls.push(url);
+    }
+  });
+
+  await setOverviewTab(page, "Plugins");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    allowExpectedApiError(page, {
+      path: "/api/plugins/setta-fixture-frontend-api-fetch/health",
+      statuses: [404],
+      method: "GET",
+      count: 10,
+      ttlMs: 60000,
+    });
+    allowExpectedApiError(page, {
+      path: "/api/plugins/setta-fixture-frontend-api-fetch/status",
+      statuses: [404],
+      method: "GET",
+      count: 10,
+      ttlMs: 60000,
+    });
+
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: fixturePluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/rescan", {});
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await expect
+      .poll(() => capturedUrls.length, { timeout: 15000 })
+      .toBeGreaterThanOrEqual(2);
+
+    expect(
+      capturedUrls.some((url) =>
+        url.endsWith("/plugins/setta-fixture-frontend-api-fetch/health"),
+      ),
+    ).toBeTruthy();
+    expect(
+      capturedUrls.some((url) =>
+        url.endsWith("/plugins/setta-fixture-frontend-api-fetch/status"),
+      ),
+    ).toBeTruthy();
+    expect(capturedUrls.every((url) => url.startsWith(BACKEND_ORIGIN))).toBeTruthy();
   } finally {
     await postBackend(page, "/plugins/unlink", {
       pluginId: "setta-fixture-frontend-api-fetch",

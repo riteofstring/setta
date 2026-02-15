@@ -674,6 +674,39 @@ def test_plugins_install_cli_builds_manager_without_auto_rescan(
     assert captured_auto_rescan_values == [False]
 
 
+def test_plugins_mutation_commands_build_manager_without_auto_rescan(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Mutation commands with internal manager rescans should skip constructor auto-rescan.
+    manager = _build_manager(tmp_path)
+    captured_auto_rescan_values: list[bool] = []
+
+    def _build_with_capture(*, auto_rescan: bool = True):
+        captured_auto_rescan_values.append(auto_rescan)
+        return manager
+
+    monkeypatch.setattr(
+        start_module,
+        "_build_plugin_manager_for_cli",
+        _build_with_capture,
+    )
+    runner = CliRunner()
+    commands = [
+        ["uninstall", "missing-plugin"],
+        ["enable", "missing-plugin"],
+        ["disable", "missing-plugin"],
+        ["update", "missing-plugin"],
+        ["rollback", "missing-plugin"],
+        ["link", str(tmp_path / "missing-plugin-root")],
+        ["unlink", "missing-plugin"],
+    ]
+    for command in commands:
+        runner.invoke(plugins, command)
+
+    assert captured_auto_rescan_values == [False] * len(commands)
+
+
 def test_plugins_unlink_cli_ignore_missing_returns_success(
     tmp_path: Path,
     monkeypatch,

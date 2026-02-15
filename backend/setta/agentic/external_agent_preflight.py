@@ -129,6 +129,10 @@ def build_external_agent_preflight_status(
         if cli_issue:
             issues.append(cli_issue)
 
+    working_dir, working_dir_issue = _resolve_working_dir(config)
+    if working_dir_issue:
+        issues.append(working_dir_issue)
+
     if (
         config.toolType == ExternalAgentToolType.plugin
         and plugin_adapter_resolution_issue is None
@@ -136,13 +140,10 @@ def build_external_agent_preflight_status(
         command_issue = _check_plugin_command(
             config.commandPath,
             plugin_adapter=plugin_adapter,
+            working_dir=working_dir,
         )
         if command_issue:
             issues.append(command_issue)
-
-    working_dir, working_dir_issue = _resolve_working_dir(config)
-    if working_dir_issue:
-        issues.append(working_dir_issue)
 
     base_url_issue = _check_base_url(config)
     if base_url_issue:
@@ -337,6 +338,7 @@ def _check_plugin_command(
     command_path: str | None,
     *,
     plugin_adapter: PluginRegisteredExternalAgentAdapter | None,
+    working_dir: str | None,
 ) -> str | None:
     if plugin_adapter is None:
         return "Plugin external agent adapter is not registered"
@@ -344,14 +346,27 @@ def _check_plugin_command(
     command = command_override or plugin_adapter.command.strip()
     if command == "":
         return "Plugin external agent command is empty"
-    command_path = Path(command)
-    if command_path.is_file():
-        if os.access(command_path, os.X_OK):
+    if _is_path_like_command(command):
+        candidate_path = Path(command)
+        if not candidate_path.is_absolute() and working_dir is not None:
+            candidate_path = Path(working_dir) / candidate_path
+        if candidate_path.is_file():
+            if os.access(candidate_path, os.X_OK):
+                return None
+            return f"Plugin external agent command is not executable ({command})"
+        return f"Plugin external agent command not found ({command})"
+    command_candidate = Path(command)
+    if command_candidate.is_file():
+        if os.access(command_candidate, os.X_OK):
             return None
         return f"Plugin external agent command is not executable ({command})"
     if shutil.which(command):
         return None
     return f"Plugin external agent command not found ({command})"
+
+
+def _is_path_like_command(command: str) -> bool:
+    return "/" in command or "\\" in command or command.startswith(".")
 
 
 def _codex_app_server_available(cli_path: str) -> tuple[bool, str | None]:

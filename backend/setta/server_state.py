@@ -25,7 +25,13 @@ from setta.llm.config_watcher import LLMConfigWatcher
 from setta.llm.dotenv_watcher import DotEnvWatcher
 from setta.llm.example_config import seed_llm_config_example_file
 from setta.logging.tasks import spawn_background_task
-from setta.lsp.managers import LSPReaders, LSPServers, LSPWriters, start_lsps
+from setta.lsp.managers import (
+    LSPReaders,
+    LSPServers,
+    LSPWriters,
+    start_lsps,
+    stop_lsps,
+)
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.fastmcp_patch import apply_fastmcp_preparse_patch
 from setta.mcp.server import SettaFastMCP
@@ -548,6 +554,18 @@ class SettaFastAPIState:
             self.init_status.record("Backend ready")
             self.init_status.mark_ready()
         except Exception as exc:
+            if self.lsps is not None:
+                try:
+                    if self.lsp_writers is not None:
+                        self.lsp_writers.file_watcher.stop()
+                    if self.lsp_readers is not None:
+                        await stop_lsps(self.lsps, self.lsp_readers)
+                    else:
+                        self.lsps.stop()
+                except Exception:
+                    logger.exception(
+                        "Failed to clean up language servers after initialization error."
+                    )
             self.init_status.record("Backend initialization failed")
             self.init_status.mark_error(str(exc))
             raise

@@ -2314,6 +2314,103 @@ describe("plugin runtime helpers", () => {
     expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(0);
   });
 
+  it("skips frontend module imports when plugin status is disabled", async () => {
+    const globalScope = globalThis as {
+      __settaDisabledModuleLoads?: number;
+      __settaDisabledRegisterCalls?: number;
+    };
+    delete globalScope.__settaDisabledModuleLoads;
+    delete globalScope.__settaDisabledRegisterCalls;
+
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "const scope = globalThis;\n" +
+          "scope.__settaDisabledModuleLoads = Number(scope.__settaDisabledModuleLoads || 0) + 1;\n" +
+          "export const apiVersion = 1;\n" +
+          "export function register(_host) {\n" +
+          "  scope.__settaDisabledRegisterCalls = Number(scope.__settaDisabledRegisterCalls || 0) + 1;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      pluginId: "disabled.plugin",
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+    });
+    const status = buildPluginStatusEntry({
+      pluginId: "disabled.plugin",
+      state: PluginRuntimeStateEnum.disabled,
+    });
+    vi.spyOn(generatedEndpoints, "route_plugins_list").mockResolvedValue({
+      data: buildPluginListResponse([plugin]),
+      status: 200,
+      hasResponse: true,
+    });
+    vi.spyOn(generatedEndpoints, "route_plugins_status").mockResolvedValue({
+      data: buildPluginStatusResponse([status]),
+      status: 200,
+      hasResponse: true,
+    });
+
+    await refreshPluginRuntime();
+
+    expect(globalScope.__settaDisabledModuleLoads).toBeUndefined();
+    expect(globalScope.__settaDisabledRegisterCalls).toBeUndefined();
+  });
+
+  it("applies plugin frontend load work with a bounded concurrency limit", async () => {
+    const tasks = Array.from({ length: 12 }, (_value, index) => index);
+    const completed: number[] = [];
+    let inFlight = 0;
+    let maxInFlight = 0;
+
+    await pluginRuntimeTestApi.runWithConcurrencyLimit(
+      tasks,
+      3,
+      async (taskIndex: number) => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
+        await new Promise((resolve) => {
+          setTimeout(resolve, 1);
+        });
+        completed.push(taskIndex);
+        inFlight -= 1;
+      },
+    );
+
+    expect(maxInFlight).toBeLessThanOrEqual(3);
+    expect(completed).toHaveLength(tasks.length);
+    expect(completed.sort((a, b) => a - b)).toEqual(tasks);
+  });
+
+  it("only loads plugin frontends for active and pending-restart statuses", () => {
+    expect(pluginRuntimeTestApi.shouldLoadPluginFrontend(undefined)).toBe(true);
+    expect(
+      pluginRuntimeTestApi.shouldLoadPluginFrontend(
+        buildPluginStatusEntry({ state: PluginRuntimeStateEnum.active }),
+      ),
+    ).toBe(true);
+    expect(
+      pluginRuntimeTestApi.shouldLoadPluginFrontend(
+        buildPluginStatusEntry({
+          state: PluginRuntimeStateEnum.pending_restart,
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      pluginRuntimeTestApi.shouldLoadPluginFrontend(
+        buildPluginStatusEntry({ state: PluginRuntimeStateEnum.disabled }),
+      ),
+    ).toBe(false);
+    expect(
+      pluginRuntimeTestApi.shouldLoadPluginFrontend(
+        buildPluginStatusEntry({ state: PluginRuntimeStateEnum.invalid }),
+      ),
+    ).toBe(false);
+  });
+
   it("returns section_kind_missing fallback when plugin is active but kind is not registered", () => {
     usePluginRuntimeStore.setState({
       pluginStatusById: {

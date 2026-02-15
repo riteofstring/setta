@@ -137,3 +137,41 @@ async def test_ide_state_supports_register_time_read_project_state(
         assert status_entry.state == PluginRuntimeState.active
         route_paths = {route.path for route in app.routes if hasattr(route, "path")}
         assert f"/api/plugins/{plugin_id}/summary-id" in route_paths
+
+
+@pytest.mark.asyncio
+async def test_ide_state_cleans_up_lsps_when_startup_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Startup failure after LSP initialization should trigger LSP cleanup.
+    workspace_root = tmp_path / "workspace"
+    setta_home = tmp_path / ".setta"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    setta_home.mkdir(parents=True, exist_ok=True)
+
+    async def _failing_start_lsps(_lsps, _lsp_readers, _lsp_writers) -> None:
+        raise RuntimeError("lsp startup failed")
+
+    stop_calls: list[bool] = []
+
+    async def _record_stop_lsps(_lsps, _lsp_readers) -> None:
+        stop_calls.append(True)
+
+    monkeypatch.setattr(server_state_module, "start_lsps", _failing_start_lsps)
+    monkeypatch.setattr(server_state_module, "stop_lsps", _record_stop_lsps)
+
+    with temporary_setta_paths(
+        workspace_root=workspace_root,
+        setta_files_location="local",
+        setta_home=setta_home,
+    ):
+        app = FastAPI()
+        state = SettaFastAPIState(
+            app,
+            enable_mcp_connections=False,
+        )
+        with pytest.raises(RuntimeError, match="lsp startup failed"):
+            await state.wait_until_ready()
+
+    assert stop_calls == [True]

@@ -2536,7 +2536,7 @@ def plugins_uninstall(
     setta_files_scope: bool,
     json_output: bool,
 ) -> None:
-    manager = _build_plugin_manager_for_cli()
+    manager = _build_plugin_manager_for_cli(auto_rescan=False)
     resolved_scope = _plugin_scope_choice_to_value(
         scope=scope,
         global_scope=global_scope,
@@ -2560,7 +2560,7 @@ def plugins_uninstall(
 @click.argument("plugin_id")
 @click.option("--json", "json_output", is_flag=True)
 def plugins_enable(plugin_id: str, json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
+    manager = _build_plugin_manager_for_cli(auto_rescan=False)
     try:
         result = manager.enable_plugin(plugin_id=plugin_id)
     except PluginManagerError as exc:
@@ -2577,7 +2577,7 @@ def plugins_enable(plugin_id: str, json_output: bool) -> None:
 @click.argument("plugin_id")
 @click.option("--json", "json_output", is_flag=True)
 def plugins_disable(plugin_id: str, json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
+    manager = _build_plugin_manager_for_cli(auto_rescan=False)
     try:
         result = manager.disable_plugin(plugin_id=plugin_id)
     except PluginManagerError as exc:
@@ -2611,7 +2611,7 @@ def _run_plugin_update_like_command(
     setta_files_scope: bool,
     to_target: str | None,
 ):
-    manager = _build_plugin_manager_for_cli()
+    manager = _build_plugin_manager_for_cli(auto_rescan=False)
     resolved_scope = _plugin_scope_choice_to_value(
         scope=scope,
         global_scope=global_scope,
@@ -2712,7 +2712,7 @@ def plugins_rollback(
     setta_files_scope: bool,
     json_output: bool,
 ) -> None:
-    manager = _build_plugin_manager_for_cli()
+    manager = _build_plugin_manager_for_cli(auto_rescan=False)
     resolved_scope = _plugin_scope_choice_to_value(
         scope=scope,
         global_scope=global_scope,
@@ -2860,7 +2860,7 @@ def plugins_link(
     force: bool,
     json_output: bool,
 ) -> None:
-    manager = _build_plugin_manager_for_cli()
+    manager = _build_plugin_manager_for_cli(auto_rescan=False)
     resolved_scope = _plugin_scope_choice_to_value(
         scope=scope,
         global_scope=global_scope,
@@ -2908,7 +2908,7 @@ def plugins_unlink(
     ignore_missing: bool,
     json_output: bool,
 ) -> None:
-    manager = _build_plugin_manager_for_cli()
+    manager = _build_plugin_manager_for_cli(auto_rescan=False)
     resolved_scope = _plugin_scope_choice_to_value(
         scope=scope,
         global_scope=global_scope,

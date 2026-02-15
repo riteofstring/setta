@@ -2,6 +2,7 @@ export const apiVersion = 1;
 
 const CARD_THEME_NAMES = ["sunrise", "ocean", "forest"];
 const PANE_NOTE_STORAGE_KEY = "setta-fixture-frontend:pane-note";
+const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY = "setta.backendOriginOverride";
 const cardStateBySectionId = new Map();
 const mountedCardContextBySectionId = new Map();
 const paneCleanupByElement = new WeakMap();
@@ -297,6 +298,13 @@ function getLastCommandSummary() {
   return "No command run yet.";
 }
 
+function formatFixtureError(error) {
+  if (error instanceof Error && typeof error.message === "string") {
+    return error.message;
+  }
+  return String(error);
+}
+
 function appendCommandSummaryToNote(summary) {
   const normalizedSummary = typeof summary === "string" ? summary.trim() : "";
   if (normalizedSummary === "") {
@@ -478,17 +486,68 @@ function recordFixtureCommandRun() {
   return next;
 }
 
-async function runBackendRoundtripForFixtureCommand(host) {
-  if (!host || typeof host.apiFetch !== "function") {
-    return "backend roundtrip skipped";
+function normalizeOrigin(rawOrigin) {
+  if (typeof rawOrigin !== "string") {
+    return null;
   }
+  const trimmedOrigin = rawOrigin.trim();
+  if (trimmedOrigin === "") {
+    return null;
+  }
+  try {
+    const parsed = new URL(trimmedOrigin);
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+function readBackendOriginFromSessionStorage() {
+  try {
+    const stored = window.sessionStorage.getItem(
+      BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY,
+    );
+    return normalizeOrigin(stored);
+  } catch {
+    return null;
+  }
+}
+
+function readBackendOriginFromModuleUrl() {
+  try {
+    return normalizeOrigin(import.meta.url);
+  } catch {
+    return null;
+  }
+}
+
+function resolveBackendApiBase() {
+  let backendOrigin = readBackendOriginFromModuleUrl();
+  if (!backendOrigin) {
+    backendOrigin = readBackendOriginFromSessionStorage();
+  }
+  if (!backendOrigin) {
+    backendOrigin = window.location.origin;
+  }
+  return `${backendOrigin}/api`;
+}
+
+async function runBackendRoundtripForFixtureCommand(_host) {
+  const backendApiBase = resolveBackendApiBase();
+  const fetchBackend = (path, init) => {
+    return fetch(`${backendApiBase}${path}`, {
+      ...init,
+      credentials: "include",
+      headers: init?.headers,
+    });
+  };
   const [listResponse, statusResponse] = await Promise.all([
-    host.apiFetch("../list", {
+    fetchBackend("/plugins/list", {
       headers: {
         "X-Fixture-Command": "list",
       },
     }),
-    host.apiFetch("../status", {
+    fetchBackend("/plugins/status", {
       headers: {
         "X-Fixture-Command": "status",
       },
@@ -538,8 +597,8 @@ async function runBackendRoundtripForFixtureCommand(host) {
 
   let backendFixtureHealthStatus = "skipped";
   if (shouldCheckBackendFixtureHealth) {
-    const backendHealthResponse = await host.apiFetch(
-      "../setta-fixture-backend/health",
+    const backendHealthResponse = await fetchBackend(
+      "/plugins/setta-fixture-backend/health",
       {
         headers: {
           "X-Fixture-Command": "fixture-backend-health",
@@ -593,8 +652,19 @@ function emitFixtureRealtimeSignals(host) {
 
 async function executeFixtureCommand(host) {
   const runCount = recordFixtureCommandRun();
-  const boostedCardCount = pulseMountedFixtureCards();
-  const realtimeEmitCount = emitFixtureRealtimeSignals(host);
+  let boostedCardCount = 0;
+  let realtimeEmitCount = 0;
+  const diagnostics = [];
+  try {
+    boostedCardCount = pulseMountedFixtureCards();
+  } catch (error) {
+    diagnostics.push(`pulse:${formatFixtureError(error)}`);
+  }
+  try {
+    realtimeEmitCount = emitFixtureRealtimeSignals(host);
+  } catch (error) {
+    diagnostics.push(`emit:${formatFixtureError(error)}`);
+  }
   let summary = `run ${runCount}: pulsed ${boostedCardCount} card(s), emitted ${realtimeEmitCount} realtime update(s)`;
   if (host && typeof host.getProjectContext === "function") {
     const context = host.getProjectContext();
@@ -603,13 +673,25 @@ async function executeFixtureCommand(host) {
     }
   }
   if (hostHasCapability(host, "readProjectState")) {
-    syncRuntimeProjectStateSnapshot(host);
-    const state = readFixtureRuntimeState();
-    summary =
-      `${summary}; active sections:${state.activeSectionIds.length} ` +
-      `project:${state.projectConfigId}`;
+    try {
+      syncRuntimeProjectStateSnapshot(host);
+      const state = readFixtureRuntimeState();
+      summary =
+        `${summary}; active sections:${state.activeSectionIds.length} ` +
+        `project:${state.projectConfigId}`;
+    } catch (error) {
+      diagnostics.push(`project-state:${formatFixtureError(error)}`);
+    }
   }
-  const backendSummary = await runBackendRoundtripForFixtureCommand(host);
+  if (diagnostics.length > 0) {
+    summary = `${summary}; diagnostics:${diagnostics.join(" | ")}`;
+  }
+  let backendSummary = "backend unavailable";
+  try {
+    backendSummary = await runBackendRoundtripForFixtureCommand(host);
+  } catch (error) {
+    backendSummary = `backend error:${formatFixtureError(error)}`;
+  }
   summary = `${summary}; ${backendSummary}`;
   setFixtureRuntimeState({ lastCommandSummary: summary });
   appendCommandSummaryToNote(summary);

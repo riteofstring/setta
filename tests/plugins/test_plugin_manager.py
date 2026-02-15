@@ -1302,6 +1302,25 @@ def test_update_plugin_with_explicit_target_persists_source_metadata(
     assert metadata.canonicalSourceKey == replacement_canonical_source_key
 
 
+def test_update_plugin_rejects_linked_local_sources(tmp_path: Path) -> None:
+    # Linked local plugins should expose a domain-specific update-unavailable error.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("frontend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.update_plugin(
+            plugin_id="setta-fixture-frontend",
+            scope=PluginScope.workspace,
+        )
+    assert exc_info.value.code == "PLUGIN_UPDATE_UNAVAILABLE"
+    assert "linked local plugins" in exc_info.value.message
+
+
 def test_scope_environment_is_rejected() -> None:
     # Scope normalization should reject removed aliases so callers use canonical scope labels.
     with pytest.raises(
@@ -1578,6 +1597,32 @@ def test_backend_pending_restart_clears_after_load(tmp_path: Path) -> None:
     assert len(status_entries) == 1
     assert status_entries[0].state == PluginRuntimeState.active
     assert status_entries[0].restartRequired is False
+
+
+def test_load_backend_plugins_performs_one_discovery_rescan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Backend loading should avoid redundant full discovery rescans.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("backend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    original_rescan = manager.rescan
+    rescan_calls = 0
+
+    def _count_rescan():
+        nonlocal rescan_calls
+        rescan_calls += 1
+        return original_rescan()
+
+    monkeypatch.setattr(manager, "rescan", _count_rescan)
+    manager.load_backend_plugins(app=FastAPI())
+
+    assert rescan_calls == 1
 
 
 def test_backend_uninstall_surfaces_pending_restart_tombstone(tmp_path: Path) -> None:
@@ -3102,6 +3147,39 @@ def test_status_redaction_keeps_same_scope_source_manager_entries_distinct(
     assert shadowed_entry.sourcePath != active_entry.sourcePath
     assert shadowed_entry.shadowedBySourcePath == active_entry.sourcePath
     assert shadowed_entry.shadowedBySourcePath != shadowed_entry.sourcePath
+
+
+@pytest.mark.parametrize("server_mode", ["share", "app"])
+def test_source_redaction_tokens_use_canonical_scope_and_manager_values(
+    tmp_path: Path, server_mode: Literal["share", "app"]
+) -> None:
+    # Redacted source identifiers should expose stable scope/manager values.
+    manager = _make_manager(tmp_path, server_mode=server_mode)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="frontend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    list_entry = next(
+        entry
+        for entry in manager.get_list_response().plugins
+        if entry.pluginId == "setta-fixture-frontend"
+    )
+    status_entry = next(
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-frontend"
+        and entry.shadowedBySourcePath is None
+    )
+
+    assert ":workspace:setta:setta-fixture-frontend:" in list_entry.canonicalSourceKey
+    assert "PluginScope." not in list_entry.canonicalSourceKey
+    assert "PluginSourceManager." not in list_entry.canonicalSourceKey
+    assert ":workspace:setta:setta-fixture-frontend:" in status_entry.sourcePath
+    assert "PluginScope." not in status_entry.sourcePath
+    assert "PluginSourceManager." not in status_entry.sourcePath
 
 
 def test_list_response_caches_content_and_config_schema_descriptors(
@@ -4651,7 +4729,7 @@ def test_normalize_codegen_generation_payload_rejects_invalid_file_entries(
 
 
 def test_rollback_plugin_requires_history(tmp_path: Path) -> None:
-    # Rollback should fail when the plugin has no prior snapshot history.
+    # Rollback should reject linked local plugins with actionable guidance.
     manager = _make_manager(tmp_path)
     manager.link_plugin(
         local_plugin_root=str(_fixture_path("frontend")),
@@ -4666,6 +4744,7 @@ def test_rollback_plugin_requires_history(tmp_path: Path) -> None:
             scope=PluginScope.workspace,
         )
     assert exc_info.value.code == "PLUGIN_ROLLBACK_UNAVAILABLE"
+    assert "linked local plugins" in exc_info.value.message
 
 
 def test_force_install_backs_up_previous_snapshot_and_supports_rollback(
@@ -4795,6 +4874,9 @@ def test_rollback_plugin_flags_restart_when_restoring_backend_plugin(
     metadata = manager._load_install_metadata()
     metadata_key = manager._metadata_key("setta-fixture-backend", PluginScope.workspace)
     entry = metadata.entries[metadata_key]
+    # Rollback is blocked for linked local plugins; mark this fixture as managed-source
+    # metadata so this test continues validating restart behavior for supported rollbacks.
+    entry.sourceSpec = "pypi:setta-fixture-backend==0.1.0"
     entry.history.append(
         PluginInstallHistoryEntry(
             version="0.0.9",

@@ -96,6 +96,33 @@ describe("plugins pane helpers", () => {
     ).toBeNull();
   });
 
+  it("detects linked local plugin sources for action disablement", () => {
+    expect(
+      pluginsPaneTestApi.isLinkedLocalPluginSource(
+        buildPluginListEntry({
+          sourceManager: "setta",
+          canonicalSourceKey: "local:/tmp/plugin-root",
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      pluginsPaneTestApi.isLinkedLocalPluginSource(
+        buildPluginListEntry({
+          sourceManager: "setta",
+          canonicalSourceKey: "github:acme/plugin",
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      pluginsPaneTestApi.isLinkedLocalPluginSource(
+        buildPluginListEntry({
+          sourceManager: "package_manager",
+          canonicalSourceKey: "local:/tmp/plugin-root",
+        }),
+      ),
+    ).toBe(false);
+  });
+
   it("sorts restart-required plugin ids deterministically", () => {
     const ids = pluginsPaneTestApi.getRestartRequiredPluginIds([
       buildPluginListEntry({

@@ -1071,6 +1071,13 @@ test("plugins pane supports scope shadowing and scope-specific uninstall", async
       })
       .first();
     await expect(workspaceCard).toContainText("scope=workspace source=local:");
+    await expect(
+      workspaceCard.getByRole("button", { name: "Update", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      workspaceCard.getByRole("button", { name: "Rollback", exact: true }),
+    ).toBeDisabled();
+    await expect(workspaceCard).toContainText("Linked local plugin");
 
     const statusRows = page
       .locator("tbody tr")

@@ -40,8 +40,9 @@ type PluginSectionRendererHostProps = {
 const EMPTY_PLUGIN_CAPABILITIES: readonly string[] = [];
 
 export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
-  const pluginImpl = useProjectState((state) =>
-    getCurrEffectiveSectionImplOfType(state, sectionId, SectionTypeEnum.Plugin),
+  const pluginImpl = useProjectState(
+    (state) => getPluginSectionImplForRender(state, sectionId),
+    pluginSectionImplEqual,
   );
   const { pluginId, kind, data, schemaVersion } = pluginImpl;
   const pluginSectionKind = usePluginSectionKind(pluginId, kind);
@@ -67,6 +68,80 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
       schemaVersion={schemaVersion}
     />
   );
+}
+
+function getPluginSectionImplForRender(
+  state: ReturnType<typeof useProjectState.getState>,
+  sectionId: string,
+) {
+  return getCurrEffectiveSectionImplOfType(state, sectionId, SectionTypeEnum.Plugin);
+}
+
+function pluginSectionImplEqual(
+  left: ReturnType<typeof getPluginSectionImplForRender>,
+  right: ReturnType<typeof getPluginSectionImplForRender>,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (left.pluginId !== right.pluginId) {
+    return false;
+  }
+  if (left.kind !== right.kind) {
+    return false;
+  }
+  if (left.schemaVersion !== right.schemaVersion) {
+    return false;
+  }
+  return arePluginDataValuesEqual(left.data, right.data);
+}
+
+function arePluginDataValuesEqual(left: unknown, right: unknown): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (typeof left !== typeof right) {
+    return false;
+  }
+  if (left === null || right === null) {
+    return false;
+  }
+  if (Array.isArray(left)) {
+    if (!Array.isArray(right)) {
+      return false;
+    }
+    if (left.length !== right.length) {
+      return false;
+    }
+    for (let index = 0; index < left.length; index += 1) {
+      if (!arePluginDataValuesEqual(left[index], right[index])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  if (typeof left === "object") {
+    if (Array.isArray(right)) {
+      return false;
+    }
+    const leftRecord = left as Record<string, unknown>;
+    const rightRecord = right as Record<string, unknown>;
+    const leftKeys = Object.keys(leftRecord);
+    const rightKeys = Object.keys(rightRecord);
+    if (leftKeys.length !== rightKeys.length) {
+      return false;
+    }
+    for (const key of leftKeys) {
+      if (!(key in rightRecord)) {
+        return false;
+      }
+      if (!arePluginDataValuesEqual(leftRecord[key], rightRecord[key])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return false;
 }
 
 function PluginSectionRendererHost({

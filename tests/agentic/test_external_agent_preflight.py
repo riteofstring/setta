@@ -19,6 +19,7 @@ from setta.types.external_agents import (
     ExternalAgentConfig,
     ExternalAgentRunMode,
     ExternalAgentToolType,
+    ExternalAgentWorkingDirStrategy,
 )
 
 
@@ -283,6 +284,50 @@ class TestExternalAgentPreflight:
                 assert status.envVars.missing == [plugin_env_var]
             finally:
                 _restore_env_var(plugin_env_var, previous)
+
+    def test_plugin_tool_resolves_relative_command_with_custom_working_dir(
+        self,
+    ) -> None:
+        if os.name == "nt":
+            pytest.skip("Shell script command fixture is not supported on Windows")
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            command_root = tmp / "plugin-adapter-root"
+            command_root.mkdir(parents=True, exist_ok=True)
+            command_path = command_root / "bin" / "fixture-adapter"
+            command_path.parent.mkdir(parents=True, exist_ok=True)
+            command_path.write_text("#!/bin/sh\necho adapter\n", encoding="utf-8")
+            command_path.chmod(0o755)
+
+            plugin_adapter = PluginRegisteredExternalAgentAdapter(
+                adapterId="acme-plugin:relative-command",
+                pluginId="acme-plugin",
+                name="Relative Command Adapter",
+                runModes=["sdk"],
+                command="missing-default-command",
+                args=[],
+                envVarWhitelist=[],
+                defaultModel=None,
+            )
+            config = ExternalAgentConfig(
+                name="Relative Command Adapter Config",
+                toolType=ExternalAgentToolType.plugin,
+                pluginAdapterId=plugin_adapter.adapterId,
+                runMode=ExternalAgentRunMode.sdk,
+                commandPath="./bin/fixture-adapter",
+                workingDirStrategy=ExternalAgentWorkingDirStrategy.custom,
+                workingDir=str(command_root),
+            )
+
+            status = build_external_agent_preflight_status(
+                dbe,
+                config,
+                plugin_external_agent_adapters=[plugin_adapter],
+            )
+
+            assert status.supported
+            assert status.available
+            assert not any("command not found" in issue for issue in status.issues)
 
     def test_plugin_tool_sdk_preflight_rejects_invalid_command_override(self) -> None:
         with _temp_cwd() as tmp:

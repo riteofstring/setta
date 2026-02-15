@@ -710,6 +710,65 @@ def test_plugin_routes_update_and_rollback_missing_plugin_errors() -> None:
             }
 
 
+def test_plugin_routes_linked_plugin_update_and_rollback_are_unavailable() -> None:
+    # Linked local plugins should expose explicit update/rollback unavailable errors.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            link_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_LINK.value}",
+                json={
+                    "localPluginRoot": str(_fixture_plugin_root("frontend")),
+                    "scope": "workspace",
+                    "enable": True,
+                    "force": False,
+                },
+            )
+            assert link_response.status_code == 200
+
+            update_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_UPDATE.value}",
+                json={
+                    "pluginId": "setta-fixture-frontend",
+                    "scope": "workspace",
+                    "to": None,
+                },
+            )
+            assert update_response.status_code == 400
+            assert (
+                update_response.json()["detail"]["code"]
+                == "PLUGIN_UPDATE_UNAVAILABLE"
+            )
+
+            rollback_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_ROLLBACK.value}",
+                json={
+                    "pluginId": "setta-fixture-frontend",
+                    "scope": "workspace",
+                },
+            )
+            assert rollback_response.status_code == 400
+            assert (
+                rollback_response.json()["detail"]["code"]
+                == "PLUGIN_ROLLBACK_UNAVAILABLE"
+            )
+
+
 @pytest.mark.parametrize(
     ("route_path", "payload", "manager_method_name"),
     [

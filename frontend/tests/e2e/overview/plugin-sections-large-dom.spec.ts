@@ -115,6 +115,19 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
       );
     });
     expect(commandRunCount).toBeGreaterThan(0);
+    await expect
+      .poll(
+        async () => {
+          return await page.evaluate(() => {
+            return String(
+              (window as { __settaFixtureLastCommandSummary?: string })
+                .__settaFixtureLastCommandSummary || "",
+            );
+          });
+        },
+        { timeout: 15000 },
+      )
+      .toContain("backend list:200 status:200");
   } finally {
     await postBackend(page, "/plugins/unlink", {
       pluginId: "setta-fixture-frontend",

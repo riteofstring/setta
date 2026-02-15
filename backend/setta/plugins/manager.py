@@ -491,7 +491,36 @@ class PluginManager:
                 )
                 continue
             self._backend_loaded_plugin_ids.add(entry.plugin_id)
-        self.rescan()
+        self._refresh_discovery_after_backend_load()
+
+    def _refresh_discovery_after_backend_load(self) -> None:
+        for entry in self._discovered_plugins:
+            if entry.shadowed_by_source_path is not None:
+                continue
+            if not entry.has_backend:
+                continue
+            runtime_error = self._backend_runtime_errors.get(entry.plugin_id)
+            if runtime_error is None:
+                continue
+            entry.state = PluginRuntimeState.invalid
+            entry.restart_required = False
+            if not any(
+                error.code == runtime_error.code
+                and error.message == runtime_error.message
+                for error in entry.errors
+            ):
+                entry.errors.append(
+                    PluginErrorInfo(
+                        code=runtime_error.code,
+                        message=runtime_error.message,
+                    )
+                )
+        self._active_plugin_by_id = {
+            entry.plugin_id: entry
+            for entry in self._discovered_plugins
+            if entry.state
+            in {PluginRuntimeState.active, PluginRuntimeState.pending_restart}
+        }
 
     @_mutation_locked
     def shutdown_backend_plugins(self) -> None:
@@ -771,7 +800,7 @@ class PluginManager:
         token = self._redacted_source_token(source_path)
         return (
             f"{_REDACTED_CANONICAL_SOURCE_KEY_PREFIX}"
-            f"{scope}:{source_manager}:{plugin_id}:{token}"
+            f"{scope.value}:{source_manager.value}:{plugin_id}:{token}"
         )
 
     def _redact_source_path(
@@ -782,7 +811,10 @@ class PluginManager:
         source_path: Path,
     ) -> str:
         token = self._redacted_source_token(source_path)
-        return f"{_REDACTED_SOURCE_PATH}:{scope}:{source_manager}:{plugin_id}:{token}"
+        return (
+            f"{_REDACTED_SOURCE_PATH}:{scope.value}:{source_manager.value}:"
+            f"{plugin_id}:{token}"
+        )
 
     def _redact_unknown_source_path(self, source_path: Path) -> str:
         token = self._redacted_source_token(source_path)
@@ -3909,6 +3941,14 @@ class PluginManager:
                 "PLUGIN_UPDATE_UNAVAILABLE",
                 f"No source metadata stored for plugin: {plugin_id}",
             )
+        if self._source_spec_is_local(metadata_entry.sourceSpec):
+            raise PluginManagerError(
+                "PLUGIN_UPDATE_UNAVAILABLE",
+                (
+                    "Update is unavailable for linked local plugins. "
+                    f"Unlink and relink the desired local source for {plugin_id}."
+                ),
+            )
         source_spec = metadata_entry.sourceSpec
         if to is not None:
             source_spec = self._retarget_source_spec(source_spec, to)
@@ -3959,6 +3999,14 @@ class PluginManager:
         metadata = self._load_install_metadata()
         metadata_key = self._metadata_key(plugin_id, resolved_scope)
         entry = metadata.entries.get(metadata_key)
+        if entry is not None and self._source_spec_is_local(entry.sourceSpec):
+            raise PluginManagerError(
+                "PLUGIN_ROLLBACK_UNAVAILABLE",
+                (
+                    "Rollback is unavailable for linked local plugins. "
+                    f"Unlink and relink the desired local source for {plugin_id}."
+                ),
+            )
         if entry is None or len(entry.history) == 0:
             raise PluginManagerError(
                 "PLUGIN_ROLLBACK_UNAVAILABLE",
@@ -4012,6 +4060,9 @@ class PluginManager:
             sourceDigestSha256=snapshot_digest,
             restartRequired=restart_required,
         )
+
+    def _source_spec_is_local(self, source_spec: str) -> bool:
+        return source_spec.strip().lower().startswith("local:")
 
     @_mutation_locked
     def write_lockfile(self) -> PluginLockWriteResponse:

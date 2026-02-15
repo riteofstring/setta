@@ -294,6 +294,7 @@ const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
 const cleanupByPluginId = new Map<string, Set<() => void>>();
 let pluginRuntimeLoadPromise: Promise<void> | null = null;
+const PLUGIN_FRONTEND_LOAD_CONCURRENCY = 4;
 
 export const usePluginRuntimeStore = createWithEqualityFn<PluginRuntimeStore>(
   () => ({
@@ -387,9 +388,17 @@ async function loadPluginRuntime(): Promise<void> {
     topNavBarItems: {},
   };
   const frontendErrorsByPluginId: Record<string, PluginFrontendError> = {};
+  const frontendLoadCandidates = listData.plugins.filter((plugin) =>
+    shouldLoadPluginFrontend(pluginStatusById[plugin.pluginId]),
+  );
+  const frontendLoadCandidateIds = new Set(
+    frontendLoadCandidates.map((plugin) => plugin.pluginId),
+  );
 
-  await Promise.all(
-    listData.plugins.map(async (plugin) => {
+  await runWithConcurrencyLimit(
+    frontendLoadCandidates,
+    PLUGIN_FRONTEND_LOAD_CONCURRENCY,
+    async (plugin) => {
       const result = await loadPluginFrontendModule(
         plugin,
         listData.serverMode,
@@ -430,10 +439,10 @@ async function loadPluginRuntime(): Promise<void> {
           registryAccumulator.topNavBarItems[pluginId] = existingTopNavBarItems;
         }
       }
-    }),
+    },
   );
 
-  removeInactivePluginStyles(new Set(Object.keys(pluginListById)));
+  removeInactivePluginStyles(frontendLoadCandidateIds);
 
   const sortedPluginListEntries = toSortedPluginListEntries(pluginListById);
   const sortedSectionKinds = toSortedSectionKinds(
@@ -473,6 +482,43 @@ type LoadPluginFrontendResult = {
   error: PluginFrontendError | null;
   registryDelta: PluginRegistryAccumulator | null;
 };
+
+function shouldLoadPluginFrontend(
+  statusEntry: PluginStatusEntry | undefined,
+): boolean {
+  if (!statusEntry) {
+    return true;
+  }
+  return (
+    statusEntry.state === PluginRuntimeStateEnum.active ||
+    statusEntry.state === PluginRuntimeStateEnum.pending_restart
+  );
+}
+
+async function runWithConcurrencyLimit<T>(
+  items: T[],
+  concurrencyLimit: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  if (items.length === 0) {
+    return;
+  }
+  const normalizedLimit = Math.max(1, Math.floor(concurrencyLimit));
+  let nextIndex = 0;
+  async function runNext(): Promise<void> {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      await worker(items[currentIndex]);
+    }
+  }
+  const workers: Promise<void>[] = [];
+  const workerCount = Math.min(normalizedLimit, items.length);
+  for (let index = 0; index < workerCount; index += 1) {
+    workers.push(runNext());
+  }
+  await Promise.all(workers);
+}
 
 async function loadPluginFrontendModule(
   plugin: PluginListEntry,
@@ -1915,4 +1961,6 @@ export function getPluginSectionKindsForCreateMenu(): Array<{
 export const pluginRuntimeTestApi = {
   loadPluginFrontendModule,
   normalizePluginPath,
+  runWithConcurrencyLimit,
+  shouldLoadPluginFrontend,
 };

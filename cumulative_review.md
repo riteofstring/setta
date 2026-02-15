@@ -136,3 +136,17 @@
 - Refactored duplicated project LSP/Python section behavior into a shared mixin/helper path in `project_code.py` while preserving behavior.
 - Hardened plugin fixture reset automation by switching unlink handling to structured JSON parsing instead of brittle stderr pattern matching.
 - Added/updated backend pytest, frontend Vitest, and Playwright E2E coverage for all above paths; executed targeted test runs and completed CDP UI verification for updated plugin panes/top-nav behavior.
+
+## 2026-02-15T21:58:00-08:00
+
+- Implemented the current top-level `review*.md` findings end-to-end (excluding backward-compatibility shim work), with backend startup/plugin lifecycle correctness fixes and frontend runtime/UX/performance updates.
+- Made LSP startup transactional by rolling back already-started servers on startup failure and added defensive LSP cleanup in IDE startup exception handling to prevent orphan processes.
+- Fixed plugin external-agent preflight command resolution by validating relative/path-like command overrides against resolved working directories.
+- Improved plugin manager correctness and UX policy: redacted source tokens now use canonical enum values, backend plugin load avoids redundant full rescans, and linked-local plugin update/rollback now return explicit unavailable errors.
+- Updated CLI plugin mutation commands to construct plugin manager instances with `auto_rescan=False` where lifecycle methods already rescan.
+- Hardened frontend plugin runtime loading by gating frontend imports to `active`/`pending_restart` statuses and applying bounded concurrency for module loads.
+- Fixed Plugins pane action behavior and affordances: action dedupe is now atomic per action key, and linked-local plugins clearly disable Update/Rollback with in-pane guidance.
+- Reduced large-DOM plugin section rerender churn by memoizing effective plugin impl computation and adding stable selector equality checks for plugin section rendering.
+- Repaired fixture command backend roundtrip flow to avoid traversal assumptions and to resolve backend API origin correctly in dev/CDP contexts, with robust command-summary reporting.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for all changed paths; executed targeted validation runs (`pytest` subset: 291 passed, `vitest` subset: 88 passed, Playwright targeted specs: all passing).
+- Completed CDP verification and captured perf artifacts/report for the large-DOM plugin scenario (`perf/reports/frontend/2026-02-15_plugin-runtime-large-dom.md`).

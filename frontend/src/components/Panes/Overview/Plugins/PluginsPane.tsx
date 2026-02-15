@@ -8,7 +8,7 @@ import {
   usePluginRuntimeStore,
   usePluginStatusEntries,
 } from "plugins/runtime";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   useProjectState,
@@ -152,6 +152,7 @@ export function PluginsPane() {
   );
   const [installSummary, setInstallSummary] =
     useState<PluginInstallSummary | null>(null);
+  const inFlightActionKeysRef = useRef<Set<string>>(new Set());
 
   const pluginListEntries = usePluginListEntries();
   const pluginStatusEntries = usePluginStatusEntries();
@@ -200,6 +201,10 @@ export function PluginsPane() {
     actionLabel: string,
     operation: () => Promise<ResponseDataAndStatus<T>>,
   ): Promise<ResponseDataAndStatus<T> | null> {
+    if (inFlightActionKeysRef.current.has(actionKey)) {
+      return null;
+    }
+    inFlightActionKeysRef.current.add(actionKey);
     setBusyActionKeys((previous) => {
       if (previous.has(actionKey)) {
         return previous;
@@ -224,6 +229,7 @@ export function PluginsPane() {
       await refreshPluginRuntime();
       return response;
     } finally {
+      inFlightActionKeysRef.current.delete(actionKey);
       setBusyActionKeys((previous) => {
         if (!previous.has(actionKey)) {
           return previous;
@@ -660,6 +666,7 @@ function PluginListEntryCard({
   }
 
   const packageManagerManaged = plugin.sourceManager === "package_manager";
+  const linkedLocalSource = isLinkedLocalPluginSource(plugin);
   const packageManagerGuidance = buildSourceManagerGuidanceMessage(plugin);
   const pluginActionBusy = isAnyPluginActionBusy(plugin.pluginId);
   const pluginActionDisabled = writeActionsLocked || pluginActionBusy;
@@ -761,6 +768,7 @@ function PluginListEntryCard({
           disabled={
             writeActionsLocked ||
             packageManagerManaged ||
+            linkedLocalSource ||
             isActionBusy(`update:${plugin.pluginId}`)
           }
         />
@@ -770,6 +778,7 @@ function PluginListEntryCard({
           disabled={
             writeActionsLocked ||
             packageManagerManaged ||
+            linkedLocalSource ||
             isActionBusy(`rollback:${plugin.pluginId}`)
           }
         />
@@ -793,6 +802,18 @@ function PluginListEntryCard({
             Managed by package manager
           </p>
           <p className="mt-1">{packageManagerGuidance}</p>
+        </section>
+      ) : null}
+      {linkedLocalSource ? (
+        <section
+          data-testid={`plugin-linked-source-guidance-${plugin.pluginId}`}
+          className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          <p className="font-semibold uppercase tracking-wide">Linked local plugin</p>
+          <p className="mt-1">
+            Update and rollback are unavailable for linked local sources. Unlink
+            and link the desired local plugin directory instead.
+          </p>
         </section>
       ) : null}
 
@@ -2132,6 +2153,15 @@ function buildSourceManagerGuidanceMessage(
   return "Managed by Setta installer.";
 }
 
+function isLinkedLocalPluginSource(
+  plugin: Pick<PluginListEntry, "sourceManager" | "canonicalSourceKey">,
+): boolean {
+  if (plugin.sourceManager !== "setta") {
+    return false;
+  }
+  return plugin.canonicalSourceKey.startsWith("local:");
+}
+
 export const pluginsPaneTestApi = {
   buildInstallTrustSummaryMessage,
   buildSourceManagerGuidanceMessage,
@@ -2148,6 +2178,7 @@ export const pluginsPaneTestApi = {
   parsePluginConfigDraft,
   parseLanguageServerSettingsDraft,
   setLanguageServerSettingsValue,
+  isLinkedLocalPluginSource,
   validateInstallSourceSpec,
 };
 

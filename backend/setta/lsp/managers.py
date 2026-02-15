@@ -107,8 +107,14 @@ class LSPServers:
             )
 
     async def start(self):
-        for server in self.by_language.values():
-            await server.start()
+        started_servers: list[LanguageServer] = []
+        try:
+            for server in self.by_language.values():
+                await server.start()
+                started_servers.append(server)
+        except Exception:
+            await _stop_started_servers(started_servers)
+            raise
 
     def stop(self):
         for server in self.by_language.values():
@@ -226,6 +232,55 @@ class LSPReaders:
             await reader.stop()
 
 
+async def _await_process_shutdown(process: asyncio.subprocess.Process) -> None:
+    writer = getattr(process, "stdin", None)
+    if writer is not None:
+        writer.close()
+        with suppress(asyncio.TimeoutError, RuntimeError, AttributeError):
+            await asyncio.wait_for(
+                writer.wait_closed(),
+                timeout=LSP_SHUTDOWN_TIMEOUT_SECONDS,
+            )
+    try:
+        await asyncio.wait_for(process.wait(), timeout=LSP_SHUTDOWN_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        with suppress(ProcessLookupError):
+            process.kill()
+        try:
+            await asyncio.wait_for(process.wait(), timeout=LSP_SHUTDOWN_TIMEOUT_SECONDS)
+        except (asyncio.TimeoutError, ProcessLookupError):
+            logger.warning("Timed out waiting for LSP process to exit after kill.")
+
+    for reader in (
+        getattr(process, "stdout", None),
+        getattr(process, "stderr", None),
+    ):
+        if reader is None:
+            continue
+        with suppress(asyncio.TimeoutError):
+            await asyncio.wait_for(
+                reader.read(),
+                timeout=LSP_SHUTDOWN_TIMEOUT_SECONDS,
+            )
+
+
+async def _shutdown_processes(
+    processes: list[asyncio.subprocess.Process | None],
+) -> None:
+    for process in processes:
+        if process is None:
+            continue
+        await _await_process_shutdown(process)
+
+
+async def _stop_started_servers(started_servers: list[LanguageServer]) -> None:
+    processes = []
+    for server in reversed(started_servers):
+        processes.append(getattr(server, "server", None))
+        server.stop()
+    await _shutdown_processes(processes)
+
+
 async def start_lsps(lsps, lsp_readers, lsp_writers):
     await lsps.start()
     await lsp_readers.start()
@@ -239,39 +294,7 @@ async def stop_lsps(lsps: LSPServers, lsp_readers: LSPReaders):
     ]
     await lsp_readers.stop()
     lsps.stop()
-    for process in processes:
-        if process is None:
-            continue
-        writer = getattr(process, "stdin", None)
-        if writer is not None:
-            writer.close()
-            with suppress(asyncio.TimeoutError, RuntimeError, AttributeError):
-                await asyncio.wait_for(
-                    writer.wait_closed(),
-                    timeout=LSP_SHUTDOWN_TIMEOUT_SECONDS,
-                )
-        try:
-            await asyncio.wait_for(process.wait(), timeout=LSP_SHUTDOWN_TIMEOUT_SECONDS)
-        except asyncio.TimeoutError:
-            with suppress(ProcessLookupError):
-                process.kill()
-            try:
-                await asyncio.wait_for(
-                    process.wait(), timeout=LSP_SHUTDOWN_TIMEOUT_SECONDS
-                )
-            except (asyncio.TimeoutError, ProcessLookupError):
-                logger.warning("Timed out waiting for LSP process to exit after kill.")
-        for reader in (
-            getattr(process, "stdout", None),
-            getattr(process, "stderr", None),
-        ):
-            if reader is None:
-                continue
-            with suppress(asyncio.TimeoutError):
-                await asyncio.wait_for(
-                    reader.read(),
-                    timeout=LSP_SHUTDOWN_TIMEOUT_SECONDS,
-                )
+    await _shutdown_processes(processes)
 
 
 def stop_file_watcher(lsp_writers):

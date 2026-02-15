@@ -735,7 +735,7 @@ class TestCodegenTargetsRunCommand:
                 *,
                 target_id: str,
                 project_state: dict[str, Any],
-                target_options: dict[str, Any],
+                _target_options: dict[str, Any],
             ) -> list[tuple[str, str]]:
                 return [
                     (
@@ -805,7 +805,7 @@ class TestCodegenTargetsRunCommand:
                 *,
                 target_id: str,
                 project_state: dict[str, Any],
-                target_options: dict[str, Any],
+                _target_options: dict[str, Any],
             ) -> list[tuple[str, str]]:
                 return [
                     (

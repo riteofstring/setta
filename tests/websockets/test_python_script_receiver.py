@@ -252,14 +252,14 @@ class _StubProjectManagerSwitcher:
     def __init__(self, states: dict[ID, ProjectStateSingleConfig]) -> None:
         self._manager = _StubProjectManager(states)
 
-    def get(self, project_config_id: ID) -> _StubProjectManager:
+    def get(self, _project_config_id: ID) -> _StubProjectManager:
         return self._manager
 
     def get_config_id_by_name(
         self,
         project_name: str,
         *,
-        share_session_id: str | None = None,
+        _share_session_id: str | None = None,
     ) -> ID:
         for state in self._manager._states.values():
             if state.projectConfig.name == project_name:
