@@ -310,9 +310,9 @@ export function ProjectChatSkillsMcpViewer() {
                           return (
                             <button
                               key={skill.skillId}
-                              className={`flex min-w-0 max-w-full cursor-pointer flex-col items-start gap-0.5 overflow-hidden rounded pl-1 pr-2 py-1 text-left transition-colors ${
+                              className={`flex w-full min-w-0 cursor-pointer flex-col items-start gap-0.5 overflow-hidden rounded pl-1 pr-2 py-1 text-left transition-colors ${
                                 selected
-                                  ? "-ml-px bg-setta-100 text-blue-700 dark:bg-setta-800/80 dark:text-blue-300"
+                                  ? "bg-setta-100 text-blue-700 dark:bg-setta-800/80 dark:text-blue-300"
                                   : "hover:bg-setta-100 dark:hover:bg-setta-800"
                               }`}
                               onClick={() => setSelectedSkillId(skill.skillId)}
