@@ -29,6 +29,22 @@ logger = logging.getLogger(__name__)
 _REMOVED_SECTION_TYPES = frozenset({"Clock", "Calendar"})
 _VALID_SECTION_TYPE_VALUES = frozenset(x.value for x in SectionType)
 _SECTION_CODEGEN_POLICY_DEFAULT = {"mode": "inherit", "representation": "expression"}
+_LEGACY_ALLOWLIST_AUTO_INCLUDE_SECTION_TYPES = (
+    SectionType.TaskBoard.value,
+    SectionType.Spreadsheet.value,
+)
+_LEGACY_DEFAULT_ALLOWLIST_BASELINE = frozenset(
+    {
+        SectionType.Callable.value,
+        SectionType.Dict.value,
+        SectionType.ListRoot.value,
+        SectionType.Group.value,
+        SectionType.GlobalVariables.value,
+        SectionType.TextBlock.value,
+        SectionType.Draw.value,
+        SectionType.MetaControl.value,
+    }
+)
 
 
 def _normalize_string_id(value: Any) -> str:
@@ -43,13 +59,34 @@ def _sanitize_codegen_target_section_policy(
     if not isinstance(section_policy, dict):
         return
 
+    type_policies = section_policy.get("typePolicies")
+    allowlist_auto_include: list[str] = []
+    if not isinstance(type_policies, dict):
+        allowlist_auto_include = list(_LEGACY_ALLOWLIST_AUTO_INCLUDE_SECTION_TYPES)
+    else:
+        for section_type in _LEGACY_ALLOWLIST_AUTO_INCLUDE_SECTION_TYPES:
+            if section_type not in type_policies:
+                allowlist_auto_include.append(section_type)
+
     allowlist = section_policy.get("allowlist")
     if isinstance(allowlist, list):
-        section_policy["allowlist"] = [
+        normalized_allowlist = [
             x
             for x in allowlist
             if isinstance(x, str) and x in _VALID_SECTION_TYPE_VALUES
         ]
+        if (
+            not allowlist_auto_include
+            and frozenset(normalized_allowlist) == _LEGACY_DEFAULT_ALLOWLIST_BASELINE
+        ):
+            allowlist_auto_include = list(_LEGACY_ALLOWLIST_AUTO_INCLUDE_SECTION_TYPES)
+        seen_allowlist_values = set(normalized_allowlist)
+        for section_type in allowlist_auto_include:
+            if section_type in seen_allowlist_values:
+                continue
+            normalized_allowlist.append(section_type)
+            seen_allowlist_values.add(section_type)
+        section_policy["allowlist"] = normalized_allowlist
 
     exclude = section_policy.get("exclude")
     if isinstance(exclude, list):
@@ -66,7 +103,6 @@ def _sanitize_codegen_target_section_policy(
             and isinstance(override, dict)
         }
 
-    type_policies = section_policy.get("typePolicies")
     if isinstance(type_policies, dict):
         filtered_policies: dict[str, Any] = {}
         for section_type in _VALID_SECTION_TYPE_VALUES:

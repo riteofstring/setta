@@ -183,3 +183,101 @@ def test_read_project_required_migrates_removed_clock_calendar_sections(
     assert isinstance(migrated_group_impl, GroupSectionImpl)
     assert migrated_group_impl.defaultChildSectionType == SectionType.Callable
     assert migrated_group_impl.children == []
+
+
+def test_read_project_required_adds_missing_data_authoring_allowlist_entries(
+    tmp_path,
+) -> None:
+    dbe = DBE(tmp_path)
+
+    project_config = ProjectConfig(id="project-1", name="legacy-codegen-project")
+    backend = ProjectStateBackend(
+        projectConfigs={project_config.id: project_config},
+        defaultProjectConfigId=project_config.id,
+    )
+    payload = backend.model_dump(mode="json")
+
+    section_policy = payload["projectConfigs"]["project-1"]["codegenTargets"][0][
+        "sectionPolicy"
+    ]
+    section_policy["allowlist"] = [
+        x
+        for x in section_policy["allowlist"]
+        if x not in {SectionType.TaskBoard.value, SectionType.Spreadsheet.value}
+    ]
+    type_policies = section_policy["typePolicies"]
+    type_policies.pop(SectionType.TaskBoard.value)
+    type_policies.pop(SectionType.Spreadsheet.value)
+
+    dbe.write_json(dbe.project, payload)
+    migrated = dbe.read_project_required()
+
+    python_target = migrated.projectConfigs["project-1"].codegenTargets[0]
+    allowlist = python_target.sectionPolicy.allowlist
+    assert allowlist is not None
+    assert SectionType.TaskBoard in allowlist
+    assert SectionType.Spreadsheet in allowlist
+    assert SectionType.TaskBoard in python_target.sectionPolicy.typePolicies
+    assert SectionType.Spreadsheet in python_target.sectionPolicy.typePolicies
+
+
+def test_read_project_required_adds_data_authoring_entries_for_legacy_allowlist_shape(
+    tmp_path,
+) -> None:
+    dbe = DBE(tmp_path)
+
+    project_config = ProjectConfig(id="project-1", name="legacy-allowlist-shape")
+    backend = ProjectStateBackend(
+        projectConfigs={project_config.id: project_config},
+        defaultProjectConfigId=project_config.id,
+    )
+    payload = backend.model_dump(mode="json")
+
+    section_policy = payload["projectConfigs"]["project-1"]["codegenTargets"][0][
+        "sectionPolicy"
+    ]
+    section_policy["allowlist"] = [
+        x
+        for x in section_policy["allowlist"]
+        if x not in {SectionType.TaskBoard.value, SectionType.Spreadsheet.value}
+    ]
+
+    dbe.write_json(dbe.project, payload)
+    migrated = dbe.read_project_required()
+
+    python_target = migrated.projectConfigs["project-1"].codegenTargets[0]
+    allowlist = python_target.sectionPolicy.allowlist
+    assert allowlist is not None
+    assert SectionType.TaskBoard in allowlist
+    assert SectionType.Spreadsheet in allowlist
+
+
+def test_read_project_required_preserves_explicit_allowlist_exclusion_for_spreadsheet(
+    tmp_path,
+) -> None:
+    dbe = DBE(tmp_path)
+
+    project_config = ProjectConfig(
+        id="project-1",
+        name="explicit-exclusion-project",
+    )
+    backend = ProjectStateBackend(
+        projectConfigs={project_config.id: project_config},
+        defaultProjectConfigId=project_config.id,
+    )
+    payload = backend.model_dump(mode="json")
+
+    section_policy = payload["projectConfigs"]["project-1"]["codegenTargets"][0][
+        "sectionPolicy"
+    ]
+    section_policy["allowlist"] = [
+        x for x in section_policy["allowlist"] if x != SectionType.Spreadsheet.value
+    ]
+
+    dbe.write_json(dbe.project, payload)
+    migrated = dbe.read_project_required()
+
+    python_target = migrated.projectConfigs["project-1"].codegenTargets[0]
+    allowlist = python_target.sectionPolicy.allowlist
+    assert allowlist is not None
+    assert SectionType.Spreadsheet not in allowlist
