@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   getSpreadsheetDensityMetrics,
   getSpreadsheetGlideDensityMultiplier,
+  getSpreadsheetGlideTheme,
   getSpreadsheetGridTemplateColumns,
   getSpreadsheetGridWidth,
   SPREADSHEET_DATA_COLUMN_WIDTH,
@@ -41,6 +42,22 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
     expect(getSpreadsheetGlideDensityMultiplier(2)).toBeGreaterThan(1);
     expect(getSpreadsheetGlideDensityMultiplier(20)).toBeLessThanOrEqual(6);
     expect(getSpreadsheetGlideDensityMultiplier(0)).toBe(1);
+  });
+
+  it("uses explicit non-black header colors in glide theme for both modes", () => {
+    const light = getSpreadsheetGlideTheme({
+      darkMode: false,
+      densityMultiplier: 1,
+    });
+    const dark = getSpreadsheetGlideTheme({
+      darkMode: true,
+      densityMultiplier: 1,
+    });
+
+    expect(light.bgHeader).toBe("#d3dbe8");
+    expect(light.bgHeaderHasFocus).toBe("#c5d0e4");
+    expect(dark.bgHeader).toBe("#1f2737");
+    expect(dark.bgHeaderHasFocus).toBe("#26314a");
   });
 
   it("renders cells with box-border and overflow guards to prevent bleed", () => {

@@ -88,6 +88,79 @@ type SpreadsheetSortState = {
   direction: "asc" | "desc";
 };
 
+export function getSpreadsheetGlideTheme({
+  darkMode,
+  densityMultiplier,
+}: {
+  darkMode: boolean;
+  densityMultiplier: number;
+}): Partial<Theme> {
+  const baseFontPx = 11 * densityMultiplier;
+  const markerFontPx = 10 * densityMultiplier;
+  const commonTypography = {
+    cellHorizontalPadding: 6 * densityMultiplier,
+    cellVerticalPadding: 2 * densityMultiplier,
+    headerFontStyle: `600 ${baseFontPx}px`,
+    baseFontStyle: `${baseFontPx}px`,
+    markerFontStyle: `${markerFontPx}px`,
+    fontFamily: "Inter, sans-serif",
+    editorFontSize: `${baseFontPx}px`,
+    lineHeight: 1.3,
+  };
+  if (darkMode) {
+    return {
+      accentColor: "hsl(220, 25%, 57%)",
+      accentFg: "hsl(222, 28%, 95%)",
+      accentLight: "rgba(59, 130, 246, 0.32)",
+      textDark: "hsl(219, 24%, 89%)",
+      textMedium: "hsl(220, 25%, 67%)",
+      textLight: "hsl(220, 25%, 57%)",
+      textBubble: "hsl(219, 24%, 89%)",
+      bgIconHeader: "hsl(220, 25%, 57%)",
+      fgIconHeader: "hsl(220, 27%, 6%)",
+      textHeader: "hsl(219, 24%, 89%)",
+      textHeaderSelected: "hsl(222, 28%, 95%)",
+      bgCell: "hsl(220, 25%, 8.5%)",
+      bgCellMedium: "hsl(220, 25%, 11%)",
+      bgHeader: "#1f2737",
+      bgHeaderHasFocus: "#26314a",
+      bgHeaderHovered: "#303d56",
+      bgBubble: "hsl(219, 26%, 23%)",
+      bgBubbleSelected: "hsl(220, 26%, 14%)",
+      bgSearchResult: "rgba(59, 130, 246, 0.15)",
+      borderColor: "hsl(219, 26%, 23%)",
+      drilldownBorder: "hsl(219, 26%, 23%)",
+      linkColor: "hsl(220, 25%, 67%)",
+      ...commonTypography,
+    };
+  }
+  return {
+    accentColor: "hsl(220, 25%, 45%)",
+    accentFg: "hsl(222, 28%, 95%)",
+    accentLight: "rgba(59, 130, 246, 0.24)",
+    textDark: "hsl(220, 27%, 6%)",
+    textMedium: "hsl(220, 25%, 45%)",
+    textLight: "hsl(220, 25%, 57%)",
+    textBubble: "hsl(220, 27%, 6%)",
+    bgIconHeader: "hsl(220, 25%, 45%)",
+    fgIconHeader: "hsl(222, 28%, 95%)",
+    textHeader: "hsl(219, 26%, 23%)",
+    textHeaderSelected: "hsl(222, 28%, 95%)",
+    bgCell: "hsl(222, 28%, 95%)",
+    bgCellMedium: "hsl(219, 24%, 89%)",
+    bgHeader: "#d3dbe8",
+    bgHeaderHasFocus: "#c5d0e4",
+    bgHeaderHovered: "#dfe5ef",
+    bgBubble: "hsl(219, 24%, 89%)",
+    bgBubbleSelected: "hsl(222, 28%, 95%)",
+    bgSearchResult: "rgba(59, 130, 246, 0.1)",
+    borderColor: "hsl(219, 25%, 77%)",
+    drilldownBorder: "hsl(219, 25%, 77%)",
+    linkColor: "hsl(219, 25%, 34%)",
+    ...commonTypography,
+  };
+}
+
 function getPathFolderAndName(
   fullPath: string,
 ): { folderPath: string; fileName: string } | null {
@@ -336,71 +409,10 @@ export function FileBrowserSpreadsheetEditor({
     () => getSpreadsheetGlideDensityMultiplier(flowZoom),
     [flowZoom],
   );
-  const glideTheme = useMemo<Partial<Theme>>(() => {
-    const baseFontPx = 11 * densityMultiplier;
-    const markerFontPx = 10 * densityMultiplier;
-    const commonTypography = {
-      cellHorizontalPadding: 6 * densityMultiplier,
-      cellVerticalPadding: 2 * densityMultiplier,
-      headerFontStyle: `600 ${baseFontPx}px`,
-      baseFontStyle: `${baseFontPx}px`,
-      markerFontStyle: `${markerFontPx}px`,
-      fontFamily: "Inter, sans-serif",
-      editorFontSize: `${baseFontPx}px`,
-      lineHeight: 1.3,
-    };
-    return darkMode
-      ? {
-          accentColor: "hsl(220, 25%, 57%)",
-          accentFg: "hsl(222, 28%, 95%)",
-          accentLight: "rgba(59, 130, 246, 0.32)",
-          textDark: "hsl(219, 24%, 89%)",
-          textMedium: "hsl(220, 25%, 67%)",
-          textLight: "hsl(220, 25%, 57%)",
-          textBubble: "hsl(219, 24%, 89%)",
-          bgIconHeader: "hsl(220, 25%, 57%)",
-          fgIconHeader: "hsl(220, 27%, 6%)",
-          textHeader: "hsl(219, 24%, 89%)",
-          textHeaderSelected: "hsl(222, 28%, 95%)",
-          bgCell: "hsl(220, 25%, 8.5%)",
-          bgCellMedium: "hsl(220, 25%, 11%)",
-          bgHeader: "hsl(220, 26%, 14%)",
-          bgHeaderHasFocus: "hsl(219, 26%, 18.5%)",
-          bgHeaderHovered: "hsl(219, 26%, 23%)",
-          bgBubble: "hsl(219, 26%, 23%)",
-          bgBubbleSelected: "hsl(220, 26%, 14%)",
-          bgSearchResult: "rgba(59, 130, 246, 0.15)",
-          borderColor: "hsl(219, 26%, 23%)",
-          drilldownBorder: "hsl(219, 26%, 23%)",
-          linkColor: "hsl(220, 25%, 67%)",
-          ...commonTypography,
-        }
-      : {
-          accentColor: "hsl(220, 25%, 45%)",
-          accentFg: "hsl(222, 28%, 95%)",
-          accentLight: "rgba(59, 130, 246, 0.24)",
-          textDark: "hsl(220, 27%, 6%)",
-          textMedium: "hsl(220, 25%, 45%)",
-          textLight: "hsl(220, 25%, 57%)",
-          textBubble: "hsl(220, 27%, 6%)",
-          bgIconHeader: "hsl(220, 25%, 45%)",
-          fgIconHeader: "hsl(222, 28%, 95%)",
-          textHeader: "hsl(219, 26%, 23%)",
-          textHeaderSelected: "hsl(222, 28%, 95%)",
-          bgCell: "hsl(222, 28%, 95%)",
-          bgCellMedium: "hsl(219, 24%, 89%)",
-          bgHeader: "hsl(219, 24.5%, 83%)",
-          bgHeaderHasFocus: "hsl(219, 25%, 77%)",
-          bgHeaderHovered: "hsl(219, 24%, 89%)",
-          bgBubble: "hsl(219, 24%, 89%)",
-          bgBubbleSelected: "hsl(222, 28%, 95%)",
-          bgSearchResult: "rgba(59, 130, 246, 0.1)",
-          borderColor: "hsl(219, 25%, 77%)",
-          drilldownBorder: "hsl(219, 25%, 77%)",
-          linkColor: "hsl(219, 25%, 34%)",
-          ...commonTypography,
-        };
-  }, [darkMode, densityMultiplier]);
+  const glideTheme = useMemo<Partial<Theme>>(
+    () => getSpreadsheetGlideTheme({ darkMode, densityMultiplier }),
+    [darkMode, densityMultiplier],
+  );
 
   useEffect(() => {
     const node = viewportRef.current;
