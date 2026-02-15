@@ -318,8 +318,6 @@ html.dark body {
   overflow-x: hidden;
   overflow-y: scroll;
   scrollbar-gutter: stable;
-  padding-right: 0.5rem;
-  margin-right: -0.5rem;
 }
 
 .js-focus-visible :focus:not([data-focus-visible-added]) {

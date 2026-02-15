@@ -53,8 +53,10 @@ async function assertScrollRegionUsesStableGutter(
 
   expect(style.overflowY).toBe("scroll");
   expect(style.overflowX).toBe("hidden");
-  expect(style.paddingRight).toBeGreaterThanOrEqual(6);
-  expect(style.marginRight).toBeLessThanOrEqual(-4);
+  expect(style.paddingRight).toBeGreaterThanOrEqual(0);
+  expect(style.paddingRight).toBeLessThanOrEqual(1);
+  expect(style.marginRight).toBeGreaterThanOrEqual(0);
+  expect(style.marginRight).toBeLessThanOrEqual(1);
 }
 
 async function seedManyLlmApiKeys(

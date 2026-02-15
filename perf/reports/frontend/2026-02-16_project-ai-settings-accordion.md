@@ -61,8 +61,8 @@ Change summary:
 - Added shared `.setta-pane-scroll` utility:
   - `overflow-y: scroll` (always-on vertical scroll region for stable width)
   - `scrollbar-gutter: stable`
-  - right-side inset via `padding-right: 0.5rem` plus `margin-right: -0.5rem`
-- Applied utility to pane-level scroll containers so scrollbar placement is offset from content and width does not shift as content height changes.
+- Applied utility to pane-level scroll containers so scrollbar reservation is stable and content does not shift as content height changes.
+- Follow-up tweak: removed explicit right padding/margin from the utility after visual feedback, so right edge spacing remains consistent with existing pane insets while preserving stable gutter behavior.
 
 Verification:
 - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/pane-scroll-gutter.spec.ts frontend/tests/e2e/overview/project-ai-settings-agent-profiles.spec.ts frontend/tests/e2e/overview/pane-content-overflow.spec.ts` (pass)
