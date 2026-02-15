@@ -59,35 +59,9 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { applyActiveSectionChange } from "./activeSectionController";
 
-const effectiveImplCacheByImpl = new WeakMap<
-  object,
-  WeakMap<object, WeakMap<object, unknown>>
->();
-
-function getEffectiveImpl<T extends object>(
-  impl: T,
-  core: Core,
-  variant: Variant,
-): T {
-  const sharedModifier = core.sharedModifier;
-  const variantModifier = variant.modifier;
-  let cacheBySharedModifier = effectiveImplCacheByImpl.get(impl);
-  if (!cacheBySharedModifier) {
-    cacheBySharedModifier = new WeakMap<object, WeakMap<object, unknown>>();
-    effectiveImplCacheByImpl.set(impl, cacheBySharedModifier);
-  }
-  let cacheByVariantModifier = cacheBySharedModifier.get(sharedModifier);
-  if (!cacheByVariantModifier) {
-    cacheByVariantModifier = new WeakMap<object, unknown>();
-    cacheBySharedModifier.set(sharedModifier, cacheByVariantModifier);
-  }
-  const cached = cacheByVariantModifier.get(variantModifier);
-  if (cached) {
-    return cached as T;
-  }
+function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);
-  Object.assign(effective, { ...sharedModifier, ...variantModifier });
-  cacheByVariantModifier.set(variantModifier, effective);
+  Object.assign(effective, { ...core.sharedModifier, ...variant.modifier });
   return effective;
 }
 
@@ -698,7 +672,6 @@ function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
       variant.modifier[k] = typeof v === "function" ? v(currV) : v;
     }
   }
-  effectiveImplCacheByImpl.delete(impl);
   return getEffectiveImpl(impl, core, variant);
 }
 

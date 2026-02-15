@@ -166,9 +166,13 @@ test.describe.serial("agentic scope", () => {
         chatId,
       });
 
-      projectConfigNameB = await postBackend<string>(page, "/createProjectConfig", {
-        previewImgColor: "bg-emerald-500/60",
-      });
+      projectConfigNameB = await postBackend<string>(
+        page,
+        "/createProjectConfig",
+        {
+          previewImgColor: "bg-emerald-500/60",
+        },
+      );
       if (!projectConfigNameB) {
         throw new Error("Missing project config name for config B.");
       }
@@ -177,8 +181,9 @@ test.describe.serial("agentic scope", () => {
         projectMetadata: Array<{ id: string; name: string }>;
       }>(page, "/loadAllProjectMetadata", {});
       projectConfigIdB =
-        metadata?.projectMetadata.find((entry) => entry.name === projectConfigNameB)
-          ?.id ?? null;
+        metadata?.projectMetadata.find(
+          (entry) => entry.name === projectConfigNameB,
+        )?.id ?? null;
       if (!projectConfigIdB) {
         throw new Error("Unable to resolve project config id for config B.");
       }
@@ -321,6 +326,8 @@ test.describe.serial("agentic scope", () => {
         engineConfigId: null,
         agentProfileId: null,
         thinking: true,
+        permissionMode: "minimal",
+        searchEnabled: true,
       });
       const { sectionId: sourceSectionId } = await createTextBlockSection(
         page,
@@ -341,7 +348,9 @@ test.describe.serial("agentic scope", () => {
       await expect(chatNode).toBeVisible();
       await chatNode.click();
 
-      await expect(chatNode.getByText("No writable sections in scope.")).toBeVisible();
+      await expect(
+        chatNode.getByText("No writable sections in scope."),
+      ).toBeVisible();
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

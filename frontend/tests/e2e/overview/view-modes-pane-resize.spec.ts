@@ -139,27 +139,11 @@ async function expectActiveViewModeId(
 function getViewModeRowLocator(page: Page, viewModeId: string): Locator {
   return page
     .getByTestId(`view-mode-row-${viewModeId}`)
-    .or(page.getByTestId(`view-mode-edit-row-${viewModeId}`))
-    .or(
-      page.locator(
-        `[data-testid="overview-view-mode-row"][data-view-mode-id="${viewModeId}"]`,
-      ),
-    )
-    .or(
-      page.locator(
-        `[data-testid="overview-view-mode-edit-row"][data-view-mode-id="${viewModeId}"]`,
-      ),
-    );
+    .or(page.getByTestId(`view-mode-edit-row-${viewModeId}`));
 }
 
 async function selectViewModeRow(page: Page, viewModeId: string): Promise<void> {
-  const readonlyRow = page
-    .getByTestId(`view-mode-row-${viewModeId}`)
-    .or(
-      page.locator(
-        `[data-testid="overview-view-mode-row"][data-view-mode-id="${viewModeId}"]`,
-      ),
-    );
+  const readonlyRow = page.getByTestId(`view-mode-row-${viewModeId}`);
   if ((await readonlyRow.count()) > 0) {
     await expect(readonlyRow).toBeVisible();
     await expect(readonlyRow).toBeEnabled();
@@ -167,13 +151,7 @@ async function selectViewModeRow(page: Page, viewModeId: string): Promise<void> 
     return;
   }
 
-  const editRow = page
-    .getByTestId(`view-mode-edit-row-${viewModeId}`)
-    .or(
-      page.locator(
-        `[data-testid="overview-view-mode-edit-row"][data-view-mode-id="${viewModeId}"]`,
-      ),
-    );
+  const editRow = page.getByTestId(`view-mode-edit-row-${viewModeId}`);
   await expect(editRow).toBeVisible();
   // In edit mode, clicking the input suppresses bubbling; dispatch click on the row.
   await editRow.dispatchEvent("click");

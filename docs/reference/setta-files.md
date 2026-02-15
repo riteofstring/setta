@@ -64,22 +64,6 @@ The global folder name is deterministic per workspace path, and looks like:
 
 `<workspace-name>-<8-hex-digest>`
 
-## Plugin Files and Roots
-
-Plugin data spans workspace, `setta_files`, and `setta_home` roots:
-
-- Plugin install roots by scope:
-  - `workspace`: `<workspace>/.setta_plugins/<plugin-id>`
-  - `setta_files`: `<setta_files_root>/plugins/<plugin-id>`
-  - `global`: `<setta_home>/plugins/<plugin-id>`
-- Plugin runtime/state files:
-  - `<setta_files_root>/plugins_state.json`
-  - `<setta_files_root>/plugins_install_metadata.json`
-  - `<setta_files_root>/plugins_history/`
-  - `<setta_files_root>/plugins_runtime/`
-  - `<setta_home>/plugins_global_state.json`
-  - `<workspace>/.setta_plugins/plugins.lock.json`
-
 ## Runtime Profiles
 
 Profiles are optional JSON files at:
