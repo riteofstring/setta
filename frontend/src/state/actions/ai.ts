@@ -695,7 +695,11 @@ async function stopExternalChatResponse({
     hydrated: boolean;
     waitingForResponse: boolean;
   }> => {
-    const hydrated = await getExternalAgentChat(chatId, projectConfigId, sectionId);
+    const hydrated = await getExternalAgentChat(
+      chatId,
+      projectConfigId,
+      sectionId,
+    );
     const waitingForResponse = Boolean(
       useAIStore.getState().chatDetails[chatId]?.waitingForResponse,
     );

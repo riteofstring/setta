@@ -9,9 +9,9 @@ import {
   buildChatSlashCommands,
   createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
-  type ManagedChatExecutionSettings,
   type ChatPermissionModeValue,
   type ChatStarterPrompt,
+  type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {

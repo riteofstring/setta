@@ -11,8 +11,8 @@ import {
   executeManagedChatSlashCommand,
   formatSlashCommandHelp,
   resolvePermissionModeArg,
-  type ManagedChatExecutionSettings,
   type ChatPermissionModeValue,
+  type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {

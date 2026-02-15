@@ -6,8 +6,8 @@ import {
   type MediaCarouselItem,
 } from "components/Utils/MediaCarousel";
 import {
-  Ref,
   ReactNode,
+  Ref,
   memo,
   useCallback,
   useEffect,
@@ -1114,11 +1114,7 @@ function StreamItem({
   }
 }
 
-function AssistantReasoningCard({
-  children,
-}: {
-  children: ReactNode;
-}) {
+function AssistantReasoningCard({ children }: { children: ReactNode }) {
   return (
     <div className="my-2 w-full">
       <div

@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   buildChatSlashCommands,
-  createManagedExecutionControlHandlers,
   CREATE_PROJECT_STARTER_PROMPT,
+  createManagedExecutionControlHandlers,
   executeManagedChatSlashCommand,
   formatSlashCommandHelp,
   getSlashCommandSuggestions,

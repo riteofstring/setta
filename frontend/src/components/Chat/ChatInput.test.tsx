@@ -4,7 +4,7 @@ import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ChatInput, areSlashSuggestionsPortalStylesEqual } from "./ChatInput";
+import { areSlashSuggestionsPortalStylesEqual, ChatInput } from "./ChatInput";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
   return {
