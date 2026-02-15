@@ -2030,9 +2030,7 @@ function TaskDueInput({
           const nextMode = event.target.value as TaskDueMode;
           if (nextMode === "date_time") {
             const normalizedDate =
-              dateValue !== ""
-                ? dateValue
-                : getLocalTodayIsoDate();
+              dateValue !== "" ? dateValue : getLocalTodayIsoDate();
             const combined = combineIsoDateAndTimeParts(
               normalizedDate,
               "09:00",

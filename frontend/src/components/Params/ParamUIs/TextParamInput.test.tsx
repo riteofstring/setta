@@ -205,7 +205,9 @@ describe("TextParamDateTimeInput", () => {
   });
 
   it("renders across repeated time/date mode toggles without throwing", () => {
-    const renderTime = (mode: (typeof TimeControlModeEnum)[keyof typeof TimeControlModeEnum]) =>
+    const renderTime = (
+      mode: (typeof TimeControlModeEnum)[keyof typeof TimeControlModeEnum],
+    ) =>
       renderToStaticMarkup(
         <TextParamDateTimeInput
           value="13:05"
@@ -221,7 +223,9 @@ describe("TextParamDateTimeInput", () => {
           dateIncludesTime={false}
         />,
       );
-    const renderDate = (mode: (typeof DateControlModeEnum)[keyof typeof DateControlModeEnum]) =>
+    const renderDate = (
+      mode: (typeof DateControlModeEnum)[keyof typeof DateControlModeEnum],
+    ) =>
       renderToStaticMarkup(
         <TextParamDateTimeInput
           value="2026-12-31"

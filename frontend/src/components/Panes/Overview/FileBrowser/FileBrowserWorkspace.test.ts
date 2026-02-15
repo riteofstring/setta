@@ -46,8 +46,10 @@ describe("FileBrowserWorkspace sizing helpers", () => {
 
   it("returns a cleanup that removes all active pointer listeners", () => {
     const target = {
-      addEventListener: (_name: string, _handler: (event: PointerEvent) => void) =>
-        undefined,
+      addEventListener: (
+        _name: string,
+        _handler: (event: PointerEvent) => void,
+      ) => undefined,
       removeEventListener: (
         _name: string,
         _handler: (event: PointerEvent) => void,

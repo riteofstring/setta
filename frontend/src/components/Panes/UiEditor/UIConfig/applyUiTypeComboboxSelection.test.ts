@@ -1,3 +1,4 @@
+import { addTemporaryNotification } from "state/actions/notifications";
 import {
   route_change_param_impl,
   route_update_param_impl_config,
@@ -12,7 +13,6 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CALENDAR_PRESET_ID } from "./UITypeCombobox";
 import { applyUiTypeComboboxSelection } from "./applyUiTypeComboboxSelection";
-import { addTemporaryNotification } from "state/actions/notifications";
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_change_param_impl: vi.fn(),

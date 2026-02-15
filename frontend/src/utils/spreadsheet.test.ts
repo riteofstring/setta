@@ -97,11 +97,14 @@ describe("spreadsheet utils", () => {
       raw: false,
       defval: "",
     }) as string[][];
-    const secondaryRows = XLSX.utils.sheet_to_json(roundTripped.Sheets.Secondary, {
-      header: 1,
-      raw: false,
-      defval: "",
-    }) as string[][];
+    const secondaryRows = XLSX.utils.sheet_to_json(
+      roundTripped.Sheets.Secondary,
+      {
+        header: 1,
+        raw: false,
+        defval: "",
+      },
+    ) as string[][];
 
     expect(primaryRows[1]).toEqual(["Alpha", "Zoe"]);
     expect(secondaryRows[1]).toEqual(["Latency", "Low"]);

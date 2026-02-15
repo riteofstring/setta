@@ -49,6 +49,10 @@ import {
   route_load_cached_image_artifacts,
   route_set_param_entered_value,
 } from "utils/generatedEndpoints";
+import type {
+  DateParamCodeObjImpl,
+  TimeParamCodeObjImpl,
+} from "utils/generatedTypes";
 import {
   BaseChildlessCodeObjImplUnion,
   BaseSectionImplUnion,
@@ -70,10 +74,6 @@ import {
   TimeControlModeEnum,
   TimeDisplayFontEnum,
   TimeDisplayFormatEnum,
-} from "utils/generatedTypes";
-import type {
-  DateParamCodeObjImpl,
-  TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
 import { buildTextBlockTypographyScale } from "utils/textBlockTypography";

@@ -20,8 +20,8 @@ import {
   DateSelectionMode,
   DateSelectionModeEnum,
   Position,
-  SettaNotificationTypeEnum,
   SectionTypeEnum,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { createTopLevelSectionWithResult } from "./createSections";

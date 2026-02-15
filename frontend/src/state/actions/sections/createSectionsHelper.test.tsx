@@ -9,8 +9,8 @@ import {
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateSelectionModeEnum,
-  SettaNotificationTypeEnum,
   SectionTypeEnum,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTopLevelSectionWithResult } from "./createSections";

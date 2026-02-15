@@ -148,9 +148,7 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
   }
 
   function onMasterFontSizeDragEnd(
-    event:
-      | PointerEvent<HTMLInputElement>
-      | FocusEvent<HTMLInputElement>,
+    event: PointerEvent<HTMLInputElement> | FocusEvent<HTMLInputElement>,
   ) {
     if (!isMasterFontSizeDraggingRef.current) {
       return;

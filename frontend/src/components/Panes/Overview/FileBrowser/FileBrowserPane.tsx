@@ -151,7 +151,9 @@ export function shouldRefreshRootAfterFileBrowserTransfer(args: {
   if (!args.rootPath) {
     return false;
   }
-  const normalizedRootPath = normalizeFileBrowserPathForComparison(args.rootPath);
+  const normalizedRootPath = normalizeFileBrowserPathForComparison(
+    args.rootPath,
+  );
   const normalizedSourceParent = args.sourceParentPath
     ? normalizeFileBrowserPathForComparison(args.sourceParentPath)
     : null;
@@ -949,9 +951,8 @@ export function FileBrowserPane({
         return null;
       }
       const destinationPath = response.data.destinationPath;
-      const normalizedDestinationPath = normalizeFileBrowserPathForComparison(
-        destinationPath,
-      );
+      const normalizedDestinationPath =
+        normalizeFileBrowserPathForComparison(destinationPath);
       if (
         operation === "move" &&
         normalizedDestinationPath === normalizedSourcePath
@@ -968,8 +969,8 @@ export function FileBrowserPane({
           rootPath,
           sourceParentPath: sourceParentPath ?? null,
           destinationFolderPath: normalizedDestinationFolderPath,
-        })
-        && rootPath
+        }) &&
+        rootPath
       ) {
         foldersToRefresh.add(rootPath);
       }

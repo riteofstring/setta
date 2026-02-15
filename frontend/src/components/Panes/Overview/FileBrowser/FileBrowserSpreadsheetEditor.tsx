@@ -357,7 +357,11 @@ export function getFilteredSortedSpreadsheetRowIndexes({
       ? [...baseIndexes]
       : baseIndexes.filter((rowIndex) => {
           const row = rows[rowIndex] ?? [];
-          for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+          for (
+            let columnIndex = 0;
+            columnIndex < columnCount;
+            columnIndex += 1
+          ) {
             const cellValue = (row[columnIndex] ?? "").toLowerCase();
             if (cellValue.includes(normalizedFilter)) {
               return true;
@@ -436,7 +440,8 @@ export function SpreadsheetRow({
   onChangeCell,
 }: SpreadsheetRowProps) {
   const sourceRowIndex = displayedRowIndexes[index];
-  const row = sourceRowIndex === undefined ? [] : sourceRows[sourceRowIndex] ?? [];
+  const row =
+    sourceRowIndex === undefined ? [] : sourceRows[sourceRowIndex] ?? [];
   return (
     <div
       className="grid overflow-hidden border-b border-setta-200 bg-white text-[10px] dark:border-setta-800 dark:bg-setta-950/70"
