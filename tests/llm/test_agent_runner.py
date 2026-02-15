@@ -164,6 +164,49 @@ class TestAgentRunner:
 
         assert assistant_message.content[0].text == FAILED_CHECKS_MESSAGE
 
+    def test_completion_guard_keeps_creation_flows_open_across_clarification_turns(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a new project scaffold.")]
+            ),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="Which language and framework should I use?"
+                    )
+                ]
+            ),
+            UserChatMessage(content=[MessageTextContent(text="Python + FastAPI.")]),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Ready to ship.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
+    def test_completion_guard_allows_no_errors_found_pass_status(self) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(text="Verification passed with no errors found.")
+                ]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="All done.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "All done."
+
     def test_allowlist_rejects_unknown_server(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

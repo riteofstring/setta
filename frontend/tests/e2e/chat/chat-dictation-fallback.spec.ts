@@ -1,9 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
+  createChatSection,
   ensureAppReady,
   ensureManagedChatEngine,
   openIsolatedProject,
+  postBackend,
   setOverviewTab,
 } from "../helpers";
 
@@ -153,8 +155,9 @@ test("project chat releases provider mic stream when recorder start fails", asyn
       },
       configurable: true,
     });
-    (window as Window & { __providerTrackStopCount?: () => number }).__providerTrackStopCount =
-      () => stopCount;
+    (
+      window as Window & { __providerTrackStopCount?: () => number }
+    ).__providerTrackStopCount = () => stopCount;
   });
 
   await setOverviewTab(page, "ProjectAIChat");
@@ -175,17 +178,233 @@ test("project chat releases provider mic stream when recorder start fails", asyn
     await expect(micButton).toBeVisible();
     await micButton.click();
 
-    await expect(overviewPane.getByText("Microphone access was denied.")).toBeVisible();
-    await expect.poll(async () => {
-      return await page.evaluate(() => {
-        const reader = (
-          window as Window & { __providerTrackStopCount?: () => number }
-        ).__providerTrackStopCount;
-        return typeof reader === "function" ? reader() : 0;
-      });
-    }).toBe(1);
+    await expect(
+      overviewPane.getByText("Microphone access was denied."),
+    ).toBeVisible();
+    await expect
+      .poll(async () => {
+        return await page.evaluate(() => {
+          const reader = (
+            window as Window & { __providerTrackStopCount?: () => number }
+          ).__providerTrackStopCount;
+          return typeof reader === "function" ? reader() : 0;
+        });
+      })
+      .toBe(1);
   } finally {
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
+
+test("project chat shows controlled feedback when browser dictation start throws", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    class ThrowingSpeechRecognition {
+      continuous = false;
+      interimResults = false;
+      lang = "en-US";
+      onresult: ((event: unknown) => void) | null = null;
+      onerror: ((event: { error?: string }) => void) | null = null;
+      onend: (() => void) | null = null;
+
+      start() {
+        throw new Error("InvalidStateError");
+      }
+
+      stop() {
+        if (this.onend) {
+          this.onend();
+        }
+      }
+    }
+
+    Object.defineProperty(window, "SpeechRecognition", {
+      value: ThrowingSpeechRecognition,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitSpeechRecognition", {
+      value: ThrowingSpeechRecognition,
+      configurable: true,
+    });
+    Object.defineProperty(window, "MediaRecorder", {
+      value: undefined,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: undefined,
+      configurable: true,
+    });
+  });
+
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    const micButton = overviewPane.getByRole("button", { name: "Mic" });
+    await expect(micButton).toBeVisible();
+    await micButton.click();
+
+    await expect(overviewPane.getByText("Dictation failed.")).toBeVisible();
+    await expect(
+      overviewPane.getByRole("button", { name: "Stop Mic" }),
+    ).toHaveCount(0);
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("chat section stops browser dictation when composer becomes disabled", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    class MockSpeechRecognition {
+      continuous = false;
+      interimResults = false;
+      lang = "en-US";
+      onresult: ((event: unknown) => void) | null = null;
+      onerror: ((event: { error?: string }) => void) | null = null;
+      onend: (() => void) | null = null;
+
+      start() {}
+
+      stop() {
+        const withCounter = window as Window & {
+          __dictationStopCount?: number;
+        };
+        withCounter.__dictationStopCount =
+          (withCounter.__dictationStopCount ?? 0) + 1;
+        if (this.onend) {
+          this.onend();
+        }
+      }
+    }
+
+    Object.defineProperty(window, "SpeechRecognition", {
+      value: MockSpeechRecognition,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitSpeechRecognition", {
+      value: MockSpeechRecognition,
+      configurable: true,
+    });
+    Object.defineProperty(window, "MediaRecorder", {
+      value: undefined,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: undefined,
+      configurable: true,
+    });
+    (
+      window as Window & { __readDictationStopCount?: () => number }
+    ).__readDictationStopCount = () => {
+      const withCounter = window as Window & {
+        __dictationStopCount?: number;
+      };
+      return withCounter.__dictationStopCount ?? 0;
+    };
+  });
+
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+  const backendOrigin =
+    process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+  try {
+    const engineConfigsResponse = await page.request.get(
+      `${backendOrigin}/api/getEngineConfigs`,
+    );
+    if (!engineConfigsResponse.ok()) {
+      throw new Error("Failed to load engine configs.");
+    }
+    const engineConfigs = (await engineConfigsResponse.json()) as Array<{
+      id: string;
+      engineType: string;
+    }>;
+    const managedEngine = engineConfigs.find(
+      (config) => config.engineType === "setta_llm",
+    );
+    if (!managedEngine) {
+      throw new Error("Missing managed chat engine config.");
+    }
+    const { sectionId, sectionName } = await createChatSection(
+      page,
+      projectContext.projectConfigId,
+      "__pw_chat_dictation_disable__",
+    );
+    const baseSettings = {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId,
+      managed: true,
+      agentProfileId: null,
+      thinking: false,
+      permissionMode: "minimal",
+      searchEnabled: true,
+    };
+    await postBackend(page, "/setChatSectionSettings", {
+      ...baseSettings,
+      engineConfigId: managedEngine.id,
+    });
+
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const section = findSectionByName(page, sectionName);
+    await expect(section).toBeVisible();
+
+    const micButton = section.getByRole("button", { name: "Mic" });
+    await expect(micButton).toBeVisible();
+    await micButton.click();
+    await expect(
+      section.getByRole("button", { name: "Stop Mic" }),
+    ).toBeVisible();
+    await expect(section.getByText("Listening...")).toBeVisible();
+
+    await postBackend(page, "/setChatSectionSettings", {
+      ...baseSettings,
+      engineConfigId: null,
+    });
+
+    await expect(section.getByRole("button", { name: "Mic" })).toHaveCount(0);
+    await expect(section.getByRole("button", { name: "Stop Mic" })).toHaveCount(
+      0,
+    );
+    await expect(section.getByText("Listening...")).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        return await page.evaluate(() => {
+          const withReader = window as Window & {
+            __readDictationStopCount?: () => number;
+          };
+          return typeof withReader.__readDictationStopCount === "function"
+            ? withReader.__readDictationStopCount()
+            : 0;
+        });
+      })
+      .toBe(1);
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+function findSectionByName(page: Page, name: string): Locator {
+  return page
+    .locator('section[class*="card-section"]')
+    .filter({ has: page.locator("header.section-title p", { hasText: name }) })
+    .first();
+}

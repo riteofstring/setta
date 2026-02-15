@@ -611,6 +611,16 @@ export const ChatInput = memo(function ChatInput({
     setDictationFeedback(null);
   }, []);
 
+  const stopActiveDictationImmediately = useCallback(() => {
+    if (dictationSourceRef.current === "provider") {
+      cleanupProviderCapture();
+    } else {
+      stopBrowserDictation();
+    }
+    setDictationState("idle");
+    setDictationFeedback(null);
+  }, [cleanupProviderCapture, stopBrowserDictation]);
+
   const insertTranscript = useCallback(
     (transcript: string) => {
       const node = textareaRef.current;
@@ -681,7 +691,14 @@ export const ChatInput = memo(function ChatInput({
     dictationSourceRef.current = "browser";
     setDictationState("listening");
     setDictationFeedback("Listening...");
-    recognition.start();
+    try {
+      recognition.start();
+    } catch {
+      recognitionRef.current = null;
+      dictationSourceRef.current = null;
+      setDictationState("error");
+      setDictationFeedback(mapDictationError(undefined));
+    }
   }, [canBrowserDictate, insertTranscript]);
 
   const maybeFallbackToBrowserDictation = useCallback((): boolean => {
@@ -848,6 +865,13 @@ export const ChatInput = memo(function ChatInput({
       cleanupProviderCapture();
     };
   }, [cleanupProviderCapture]);
+
+  useEffect(() => {
+    if (!isDisabled || dictationState !== "listening") {
+      return;
+    }
+    stopActiveDictationImmediately();
+  }, [dictationState, isDisabled, stopActiveDictationImmediately]);
 
   const handleDictationToggle = useCallback(() => {
     if (isDisabled) {

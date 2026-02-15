@@ -8,9 +8,9 @@ import {
   CHAT_STARTER_PROMPTS,
   buildChatSlashCommands,
   formatSlashCommandHelp,
+  resolvePermissionModeArg,
   type ChatPermissionModeValue,
   type ChatStarterPrompt,
-  resolvePermissionModeArg,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
@@ -56,19 +56,13 @@ import {
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { buildDesignFirstFigmaStarterPrompt } from "./projectChatStarterPrompts";
+import {
+  getCachedWorkspacePythonSignal,
+  hasPythonSignalsInRoot,
+  setCachedWorkspacePythonSignal,
+} from "./workspacePythonSignals";
 
-const PYTHON_ROOT_MARKER_FILES = new Set<string>([
-  "pyproject.toml",
-  "requirements.txt",
-  "requirements-dev.txt",
-  "setup.py",
-  "setup.cfg",
-  "Pipfile",
-  "tox.ini",
-  "poetry.lock",
-  "uv.lock",
-]);
-let hasPythonInWorkspaceRootCache: boolean | null = null;
+const hasPythonInWorkspaceRootCache = new Map<string, boolean>();
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionModeValue;
@@ -96,35 +90,11 @@ function resolveToggleArg(
   return null;
 }
 
-function hasPythonSignalsInRoot(
-  entries: Array<{ name: string; type: string }>,
-): boolean {
-  for (const entry of entries) {
-    if (entry.type !== "file") {
-      continue;
-    }
-    const lowerName = entry.name.toLowerCase();
-    if (lowerName.endsWith(".py")) {
-      return true;
-    }
-    if (PYTHON_ROOT_MARKER_FILES.has(lowerName)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 function useHasPythonInWorkspaceRoot(enabled: boolean): boolean {
-  const [hasPython, setHasPython] = useState(
-    hasPythonInWorkspaceRootCache ?? false,
-  );
+  const [hasPython, setHasPython] = useState(false);
 
   useEffect(() => {
     if (!enabled) {
-      return;
-    }
-    if (hasPythonInWorkspaceRootCache !== null) {
-      setHasPython(hasPythonInWorkspaceRootCache);
       return;
     }
     let cancelled = false;
@@ -137,8 +107,17 @@ function useHasPythonInWorkspaceRoot(enabled: boolean): boolean {
       if (cancelled) {
         return;
       }
+      const rootPath = rootResponse.data.rootPath;
+      const cached = getCachedWorkspacePythonSignal(
+        hasPythonInWorkspaceRootCache,
+        rootPath,
+      );
+      if (cached !== null) {
+        setHasPython(cached);
+        return;
+      }
       const contentsResponse = await route_get_folder_contents({
-        folderPath: rootResponse.data.rootPath,
+        folderPath: rootPath,
         includeHidden: false,
         includeMtime: false,
         includeSize: false,
@@ -155,7 +134,11 @@ function useHasPythonInWorkspaceRoot(enabled: boolean): boolean {
         return;
       }
       const hasPythonSignals = hasPythonSignalsInRoot(contentsResponse.data);
-      hasPythonInWorkspaceRootCache = hasPythonSignals;
+      setCachedWorkspacePythonSignal(
+        hasPythonInWorkspaceRootCache,
+        rootPath,
+        hasPythonSignals,
+      );
       setHasPython(hasPythonSignals);
     };
 

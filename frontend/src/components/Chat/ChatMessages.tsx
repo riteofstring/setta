@@ -1381,7 +1381,6 @@ const ChatMessage = memo(function ChatMessage({
       ? message.attachments
       : [];
   const isUser = message.role === ChatRoleEnum.user;
-  const isSystem = message.role === ChatRoleEnum.system;
   const actionAlignment: ChatMessageActionAlignment = isUser ? "right" : "left";
   const showEdit = isUser && canEdit;
   const editDisabled = Boolean(editDisabledReason);
@@ -1447,12 +1446,15 @@ const ChatMessage = memo(function ChatMessage({
       });
     };
     syncBubbleWidth();
+    if (!isStreaming) {
+      return;
+    }
     const resizeObserver = new ResizeObserver(syncBubbleWidth);
     resizeObserver.observe(bubble);
     return () => {
       resizeObserver.disconnect();
     };
-  }, [isAssistant, message.id, thinkingItems.length]);
+  }, [isAssistant, isStreaming, message.id, thinkingItems.length]);
 
   if (message.role === ChatRoleEnum.assistant) {
     const showTypingIndicator = showAssistantSpinner;

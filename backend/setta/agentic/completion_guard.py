@@ -16,12 +16,20 @@ _CHECK_RE = re.compile(
     r"\b(check|checks|test|tests|lint|type ?check|verify|verification|error check)\b",
     re.IGNORECASE,
 )
+_NON_CREATION_TASK_SWITCH_RE = re.compile(
+    (
+        r"^\s*(?:can you|could you|would you|please)?\s*"
+        r"(?:explain|summari[sz]e|describe|review|debug|investigate|analy[sz]e)\b"
+        r"|^\s*(?:what|why|how)\b"
+    ),
+    re.IGNORECASE,
+)
 _PASS_RE = re.compile(
     r"\b(pass(?:ed)?|success(?:ful(?:ly)?)?|no errors?)\b",
     re.IGNORECASE,
 )
 _FAIL_RE = re.compile(
-    r"\b(fail(?:ed|ing)?|did not pass|errors? found|failing checks?)\b",
+    r"\b(fail(?:ed|ing)?|did not pass|found errors?|(?<!no )errors? found|failing checks?)\b",
     re.IGNORECASE,
 )
 
@@ -70,8 +78,6 @@ def _assistant_claims_completion(text: str) -> bool:
 
 
 def _resolve_creation_flow_start_index(messages: list[Any]) -> int | None:
-    latest_creation_index: int | None = None
-    latest_user_index: int | None = None
     for index in range(len(messages) - 1, -1, -1):
         message = messages[index]
         if _normalize_role(message) != "user":
@@ -79,20 +85,19 @@ def _resolve_creation_flow_start_index(messages: list[Any]) -> int | None:
         text = _extract_text_from_message(message)
         if not text:
             continue
-        if latest_user_index is None:
-            latest_user_index = index
         if _is_creation_intent(text):
-            latest_creation_index = index
-            break
-    if latest_creation_index is None:
-        return None
-    if latest_user_index is not None and latest_user_index > latest_creation_index:
-        return None
-    return latest_creation_index
+            return index
+        if _is_explicit_non_creation_task_switch(text):
+            return None
+    return None
 
 
 def _is_creation_intent(text: str) -> bool:
     return bool(_CREATION_VERB_RE.search(text) and _CREATION_OBJECT_RE.search(text))
+
+
+def _is_explicit_non_creation_task_switch(text: str) -> bool:
+    return bool(_NON_CREATION_TASK_SWITCH_RE.search(text))
 
 
 def _resolve_verification_status(
@@ -111,11 +116,23 @@ def _resolve_verification_status(
     for text in candidate_texts:
         if not _CHECK_RE.search(text):
             continue
-        if _FAIL_RE.search(text):
-            return "failed"
-        if _PASS_RE.search(text):
-            return "passed"
+        status = _resolve_text_verification_status(text)
+        if status is not None:
+            return status
     return "missing"
+
+
+def _resolve_text_verification_status(text: str) -> str | None:
+    latest_signal: tuple[int, str] | None = None
+    for match in _FAIL_RE.finditer(text):
+        if latest_signal is None or match.start() >= latest_signal[0]:
+            latest_signal = (match.start(), "failed")
+    for match in _PASS_RE.finditer(text):
+        if latest_signal is None or match.start() >= latest_signal[0]:
+            latest_signal = (match.start(), "passed")
+    if latest_signal is None:
+        return None
+    return latest_signal[1]
 
 
 def _replace_assistant_text(

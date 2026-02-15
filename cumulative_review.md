@@ -61,3 +61,28 @@ Implemented the latest review-cycle fixes across chat UX, dictation reliability,
 - Backend pytest: targeted suites passed (`completion_guard`, transcription route behavior in `test_ai_agent_run_chats`).
 - Playwright: targeted e2e suites passed (`chat-composer-controls`, `chat-dictation-fallback`).
 - CDP visual verification completed in the running app session (Project AI Chat composer/control surface).
+
+## 2026-02-17 09:51:23 PST
+
+### Summary
+Implemented the consolidated review fixes from the top-level review docs across completion-guard behavior, dictation lifecycle/error handling, workspace-root Python prompt detection, and chat rendering performance cleanup, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Completion guard now keeps create/scaffold task scope active across clarification turns and only exits on explicit non-creation task switches.
+- Completion guard verification parsing now resolves pass/fail by the latest signal in text and no longer misclassifies `no errors found` as failure.
+- Added backend and runner regression tests for clarification-turn scoping and pass/fail phrasing edge cases.
+- Project chat workspace Python detection cache is now keyed by `rootPath` rather than a single global boolean.
+- Added focused unit tests for workspace Python-signal detection and per-root cache behavior.
+- `ChatInput` now catches synchronous browser dictation `start()` failures and reports controlled error feedback.
+- `ChatInput` now force-stops active dictation when composer state transitions to disabled.
+- `ChatMessages` now limits assistant-bubble `ResizeObserver` usage to streaming messages with reasoning cards.
+- Removed unused chat message renderer variable (`isSystem`).
+- Added Playwright coverage for dictation start-throw handling and disable-while-listening stop behavior.
+
+### Test and verification status
+- Backend pytest: targeted completion-guard suites passed (`tests/agentic/test_completion_guard.py`, `tests/llm/test_agent_runner.py` with `-k completion_guard`).
+- Frontend Vitest: targeted suites passed (`workspacePythonSignals`, `ChatInput`, `ChatMessages`).
+- Playwright: targeted e2e suites passed (`chat-dictation-fallback`, `chat-streaming-resize`).
+- Ruff check on changed backend/test files passed.
+- `tsc --noEmit` still reports existing repo-wide TypeScript errors outside this change set.
+- CDP visual verification completed in a live session (Project AI Chat composer/control surface and starter/chat layout sanity).
