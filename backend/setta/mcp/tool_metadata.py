@@ -14,7 +14,6 @@ class SettaToolType(str, Enum):
 FollowIdType = Literal["section", "codeObj"]
 ToolArgumentPreviewIdType = Literal["section", "codeObj"]
 ToolAccessType = Literal["read", "write", "structural"]
-ToolApprovalLevel = Literal["none", "destructive"]
 ToolResultFilterType = Literal["project_state_summary", "lsp_diagnostics"]
 
 
@@ -35,7 +34,6 @@ TOOL_ARGUMENT_PREVIEW_ATTR = "_setta_tool_argument_preview"
 TOOL_SEARCH_TAGS_ATTR = "_setta_tool_search_tags"
 TOOL_SEARCH_CATEGORY_ATTR = "_setta_tool_search_category"
 TOOL_ACCESS_ATTR = "_setta_tool_access"
-TOOL_APPROVAL_LEVEL_ATTR = "_setta_tool_approval_level"
 TOOL_RESULT_FILTER_ATTR = "_setta_tool_result_filter"
 
 
@@ -123,7 +121,6 @@ def get_tool_search_category(fn: Callable[..., Any]) -> str | None:
 class SettaToolAnnotations(ToolAnnotations):
     settaToolType: SettaToolType
     accessType: ToolAccessType = "structural"
-    approvalLevel: ToolApprovalLevel = "none"
     idPathsByType: dict[FollowIdType, list[str]] = Field(default_factory=dict)
     defaultTargetSingletonSection: str | None = None
     resultFilter: ToolResultFilterType | None = None
@@ -151,19 +148,6 @@ def attach_tool_access(
 
 def get_tool_access(fn: Callable[..., Any]) -> ToolAccessMetadata | None:
     return getattr(fn, TOOL_ACCESS_ATTR, None)
-
-
-def attach_tool_approval_level(
-    fn: Callable[..., Any],
-    approval_level: ToolApprovalLevel | None,
-) -> None:
-    if approval_level is None:
-        return
-    setattr(fn, TOOL_APPROVAL_LEVEL_ATTR, approval_level)
-
-
-def get_tool_approval_level(fn: Callable[..., Any]) -> ToolApprovalLevel | None:
-    return getattr(fn, TOOL_APPROVAL_LEVEL_ATTR, None)
 
 
 def attach_tool_result_filter(

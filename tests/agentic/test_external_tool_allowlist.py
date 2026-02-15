@@ -23,6 +23,7 @@ class TestExternalToolAllowlist:
         assert not allowlist.allow_all
         assert list(allowlist.tool_names) == [
             "getProjectState",
+            "report_completion_status",
             "runTool",
             "set_agentic_context",
         ]
@@ -36,6 +37,7 @@ class TestExternalToolAllowlist:
         assert not allowlist.allow_all
         assert list(allowlist.tool_names) == [
             "getProjectState",
+            "report_completion_status",
             "runTool",
             "set_agentic_context",
         ]

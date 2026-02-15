@@ -15,7 +15,6 @@ def build_execute_tool_calls_action(
     allowed_server_ids: set[str] | None,
     share_session_id: str | None,
     agentic_context: AgenticContext,
-    setta_tool_approval_policy: str | None,
 ) -> ExecuteToolCallsAction | None:
     if not tool_calls:
         return None
@@ -29,7 +28,6 @@ def build_execute_tool_calls_action(
         allowed_server_ids=resolved_allowed_server_ids,
         share_session_id=share_session_id,
         agentic_context=agentic_context,
-        setta_tool_approval_policy=setta_tool_approval_policy,
     )
 
 

@@ -2,28 +2,6 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Full Fixture Plugin Config",
   "type": "object",
-  "x-setta-ui-settings": [
-    {
-      "settingId": "enabled",
-      "title": "Fixture Enabled",
-      "description": "Enable or disable the full fixture plugin behavior.",
-      "synonyms": ["fixture enabled", "full fixture enabled"],
-      "paneId": "full-settings-pane",
-      "revealKey": "full-settings",
-      "configPath": ["enabled"],
-      "defaultValue": false
-    },
-    {
-      "settingId": "label",
-      "title": "Fixture Label",
-      "description": "Label text rendered inside the full fixture pane.",
-      "synonyms": ["fixture label", "full label"],
-      "paneId": "full-settings-pane",
-      "revealKey": "full-settings",
-      "configPath": ["label"],
-      "defaultValue": "unset"
-    }
-  ],
   "additionalProperties": false,
   "properties": {
     "enabled": {

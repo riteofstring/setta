@@ -204,10 +204,6 @@ class ManagedActionExecutor:
                             }
                             if action.agentic_context.allow_unscoped:
                                 meta_payload["allowUnscoped"] = True
-                            if action.setta_tool_approval_policy:
-                                meta_payload["settaToolApprovalPolicy"] = (
-                                    action.setta_tool_approval_policy
-                                )
                             if action.share_session_id:
                                 meta_payload["shareSessionId"] = action.share_session_id
                             meta = meta_payload
