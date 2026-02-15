@@ -350,7 +350,7 @@ export function ProjectChatSkillsMcpViewer() {
                   className="rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950"
                 >
                   <Accordion.Header>
-                    <Accordion.Trigger className="group box-border flex w-full cursor-pointer items-center justify-between gap-2 pl-2 pr-5 py-1 text-left">
+                    <Accordion.Trigger className="group box-border flex w-full cursor-pointer items-center justify-between gap-2 px-2 py-1 text-left">
                       <span className="min-w-0 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
                         Skill Markdown Viewer
                       </span>
