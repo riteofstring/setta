@@ -37,7 +37,7 @@ const overviewTabNameValues = new Set<string>(
   Object.values(OverviewTabNameEnum),
 );
 
-export function isOverviewTabName(value: unknown): value is OverviewTabName {
+function isOverviewTabName(value: unknown): value is OverviewTabName {
   return typeof value === "string" && overviewTabNameValues.has(value);
 }
 

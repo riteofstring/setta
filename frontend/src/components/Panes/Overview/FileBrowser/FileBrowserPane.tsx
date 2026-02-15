@@ -188,6 +188,8 @@ export async function forEachWithConcurrencyLimit<T>({
     );
   }
   await Promise.all(workers);
+}
+
 export function isEditableFileBrowserTarget(
   target: EventTarget | null,
 ): boolean {
