@@ -69,19 +69,24 @@ jobs:
 
           root = Path("frontend/tests/e2e")
           excluded = {"__pycache__", "fixtures"}
-          suites = []
+          suites = set()
 
           if root.exists():
-              root_specs = list(root.glob("*.spec.*"))
-              if root_specs:
-                  suites.append("root")
+              if any(root.glob("*.spec.*")):
+                  suites.add("root")
 
-              for path in sorted(root.iterdir()):
-                  if path.is_dir() and path.name not in excluded:
-                      if any(path.rglob("*.spec.*")):
-                          suites.append(path.name)
+              for spec in root.rglob("*.spec.*"):
+                  rel = spec.relative_to(root)
+                  if any(part in excluded for part in rel.parts):
+                      continue
 
-          print(json.dumps(suites))
+                  # Root-level specs are covered by the dedicated "root" suite.
+                  if len(rel.parts) <= 1:
+                      continue
+
+                  suites.add(rel.parent.as_posix())
+
+          print(json.dumps(sorted(suites)))
           PY
           echo "suites=$(cat /tmp/playwright_suites.json)" >> "$GITHUB_OUTPUT"
 
