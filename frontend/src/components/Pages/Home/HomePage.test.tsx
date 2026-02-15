@@ -1,7 +1,6 @@
 import { createProjectConfig } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
-  getHomeMaxTotalSideWidth,
   getHomeProjectConfigsSectionTitle,
   getProjectTopLevelSectionCount,
   partitionProjectsByFavoriteStatus,
@@ -9,14 +8,6 @@ import {
 } from "./HomePage";
 
 describe("HomePage", () => {
-  it("computes max side width budget from measured desktop width", () => {
-    expect(getHomeMaxTotalSideWidth(1600)).toBe(1148);
-  });
-
-  it("never returns less than the minimum combined side width", () => {
-    expect(getHomeMaxTotalSideWidth(640)).toBe(510);
-  });
-
   it("counts top-level sections from object keys", () => {
     const project = createProjectConfig({
       id: "project-1",

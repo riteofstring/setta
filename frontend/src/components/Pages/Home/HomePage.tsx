@@ -1,13 +1,10 @@
-import {
-  FileBrowserFilter,
-  FileBrowserPane,
-} from "components/Panes/Overview/FileBrowser/FileBrowserPane";
+import { FileBrowserPane } from "components/Panes/Overview/FileBrowser/FileBrowserPane";
 import { ProjectConfigThumbnailSurface } from "components/ProjectConfigs/ProjectConfigThumbnailSurface";
 import { GridWrapper } from "components/Utils/GridWrapper";
+import { PaneContainer } from "components/Utils/PaneContainer";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { Resizable } from "re-resizable";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BiPlus } from "react-icons/bi";
 import { FiGrid, FiList } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
@@ -20,6 +17,7 @@ import {
 } from "react-icons/io5";
 import { LuPenLine } from "react-icons/lu";
 import { Link, useNavigate } from "react-router-dom";
+import { TbFolder, TbListDetails } from "react-icons/tb";
 import {
   setHomeProjectGalleryViewMode,
   toggleFavoriteProjectConfig,
@@ -39,6 +37,7 @@ import {
 } from "state/definitions";
 import {
   buildSharePath,
+  CLOSED_PANE_WIDTH,
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
   SETTINGS_ROUTER_PATH,
@@ -47,18 +46,17 @@ import { router_set_as_default_project } from "utils/generatedEndpoints";
 import { ProjectConfig } from "utils/generatedTypes";
 import { LoadingSpinner } from "../LoadingSpinner";
 
-const HOME_MIN_LEFT_COLUMN_WIDTH = 250;
-const HOME_MAX_LEFT_COLUMN_WIDTH = 520;
-const HOME_MIN_RIGHT_COLUMN_WIDTH = 260;
-const HOME_MAX_RIGHT_COLUMN_WIDTH = 540;
-const HOME_MIN_MIDDLE_COLUMN_WIDTH = 420;
-const HOME_DESKTOP_TOTAL_GAP_WIDTH = 32;
+const HOME_WORKSPACE_PANE_NAME = "homeWorkspacePane";
+const HOME_SELECTED_PROJECT_PANE_NAME = "homeSelectedProjectPane";
+const HOME_MIN_PANE_WIDTH = 260;
 const HOME_PROJECT_CARD_GRID_TEMPLATE_COLUMNS =
   "repeat(auto-fill, minmax(10.5rem, 14rem))";
-
-function clampToBounds(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
+const HOME_FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
+const HOME_FILE_BROWSER_LIST_INSET_LEFT = 10;
+const HOME_PANE_TITLE_CLASS =
+  "mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500";
+const HOME_PANE_CONTENT_CLASS =
+  "mx-auto flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden px-1.5";
 
 export function partitionProjectsByFavoriteStatus({
   projects,
@@ -85,15 +83,6 @@ export function partitionProjectsByFavoriteStatus({
     nonFavoriteProjects,
     totalProjectsCount: projects.length,
   };
-}
-
-export function getHomeMaxTotalSideWidth(desktopColumnsWidth: number): number {
-  return Math.max(
-    HOME_MIN_LEFT_COLUMN_WIDTH + HOME_MIN_RIGHT_COLUMN_WIDTH,
-    desktopColumnsWidth -
-      HOME_MIN_MIDDLE_COLUMN_WIDTH -
-      HOME_DESKTOP_TOTAL_GAP_WIDTH,
-  );
 }
 
 export function getHomeProjectConfigsSectionTitle(
@@ -137,20 +126,22 @@ export function HomePage() {
     };
   }, []);
 
-  return (
-    <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-dark">
-      {isCreatingConfig ? (
+  if (isCreatingConfig) {
+    return (
+      <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-dark">
         <LoadingSpinner />
-      ) : (
-        <HomeWorkspaceLayout
-          projects={projectMetadata}
-          defaultProjectConfigId={defaultProjectConfigId}
-          setIsCreatingConfig={setIsCreatingConfig}
-          isDeploymentMode={isDeploymentMode}
-          hasLoadedProjectMetadata={hasLoadedProjectMetadata}
-        />
-      )}
-    </GridWrapper>
+      </GridWrapper>
+    );
+  }
+
+  return (
+    <HomeWorkspaceLayout
+      projects={projectMetadata}
+      defaultProjectConfigId={defaultProjectConfigId}
+      setIsCreatingConfig={setIsCreatingConfig}
+      isDeploymentMode={isDeploymentMode}
+      hasLoadedProjectMetadata={hasLoadedProjectMetadata}
+    />
   );
 }
 
@@ -169,46 +160,26 @@ function HomeWorkspaceLayout({
 }) {
   const [selectedProjects, setSelectedProjects] = useState<Array<string>>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [isDesktopLayout, setIsDesktopLayout] = useState<boolean>(() => {
-    if (typeof window === "undefined") {
-      return true;
-    }
-    return window.innerWidth >= 1024;
-  });
   const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
   const selectionEnabled = !isDeploymentMode;
   const searchValue = useHomePageSearch((x) => x.value);
   const {
     favoriteProjectConfigIds,
     homeProjectGalleryViewMode,
-    homePageLeftColumnWidth,
-    homePageRightColumnWidth,
+    homeWorkspacePaneVis,
+    homeWorkspacePaneWidth,
+    homeSelectedProjectPaneVis,
+    homeSelectedProjectPaneWidth,
   } = useLocalStorage(
     (state) => ({
       favoriteProjectConfigIds: state.favoriteProjectConfigIds,
       homeProjectGalleryViewMode: state.homeProjectGalleryViewMode,
-      homePageLeftColumnWidth: state.homePageLeftColumnWidth,
-      homePageRightColumnWidth: state.homePageRightColumnWidth,
+      homeWorkspacePaneVis: state.homeWorkspacePaneVis,
+      homeWorkspacePaneWidth: state.homeWorkspacePaneWidth,
+      homeSelectedProjectPaneVis: state.homeSelectedProjectPaneVis,
+      homeSelectedProjectPaneWidth: state.homeSelectedProjectPaneWidth,
     }),
     _.isEqual,
-  );
-  const desktopColumnsRef = useRef<HTMLDivElement | null>(null);
-  const [desktopColumnsWidth, setDesktopColumnsWidth] = useState<number | null>(
-    null,
-  );
-  const [leftColumnWidth, setLeftColumnWidth] = useState<number>(() =>
-    clampToBounds(
-      homePageLeftColumnWidth,
-      HOME_MIN_LEFT_COLUMN_WIDTH,
-      HOME_MAX_LEFT_COLUMN_WIDTH,
-    ),
-  );
-  const [rightColumnWidth, setRightColumnWidth] = useState<number>(() =>
-    clampToBounds(
-      homePageRightColumnWidth,
-      HOME_MIN_RIGHT_COLUMN_WIDTH,
-      HOME_MAX_RIGHT_COLUMN_WIDTH,
-    ),
   );
 
   const filteredProjects = useMemo(
@@ -233,71 +204,6 @@ function HomeWorkspaceLayout({
       setSelectedProjects([]);
     }
   }, [isDeploymentMode]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const onResize = () => {
-      setIsDesktopLayout(window.innerWidth >= 1024);
-    };
-    onResize();
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-    };
-  }, []);
-
-  useEffect(() => {
-    setLeftColumnWidth((previousWidth) => {
-      const nextWidth = clampToBounds(
-        homePageLeftColumnWidth,
-        HOME_MIN_LEFT_COLUMN_WIDTH,
-        HOME_MAX_LEFT_COLUMN_WIDTH,
-      );
-      if (previousWidth === nextWidth) {
-        return previousWidth;
-      }
-      return nextWidth;
-    });
-  }, [homePageLeftColumnWidth]);
-
-  useEffect(() => {
-    setRightColumnWidth((previousWidth) => {
-      const nextWidth = clampToBounds(
-        homePageRightColumnWidth,
-        HOME_MIN_RIGHT_COLUMN_WIDTH,
-        HOME_MAX_RIGHT_COLUMN_WIDTH,
-      );
-      if (previousWidth === nextWidth) {
-        return previousWidth;
-      }
-      return nextWidth;
-    });
-  }, [homePageRightColumnWidth]);
-
-  useEffect(() => {
-    if (!isDesktopLayout) {
-      setDesktopColumnsWidth(null);
-      return;
-    }
-    if (typeof ResizeObserver === "undefined") {
-      return;
-    }
-    const target = desktopColumnsRef.current;
-    if (!target) {
-      return;
-    }
-    const updateWidth = () => {
-      setDesktopColumnsWidth(target.clientWidth);
-    };
-    updateWidth();
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(target);
-    return () => {
-      observer.disconnect();
-    };
-  }, [isDesktopLayout]);
 
   useEffect(() => {
     if (!hasLoadedProjectMetadata) {
@@ -420,101 +326,6 @@ function HomeWorkspaceLayout({
     await router_set_as_default_project({ projectConfigId });
   }
 
-  const maxTotalSideWidth =
-    desktopColumnsWidth === null
-      ? null
-      : getHomeMaxTotalSideWidth(desktopColumnsWidth);
-  const leftColumnMaxWidth =
-    maxTotalSideWidth === null
-      ? HOME_MAX_LEFT_COLUMN_WIDTH
-      : Math.min(
-          HOME_MAX_LEFT_COLUMN_WIDTH,
-          Math.max(
-            HOME_MIN_LEFT_COLUMN_WIDTH,
-            maxTotalSideWidth - rightColumnWidth,
-          ),
-        );
-  const rightColumnMaxWidth =
-    maxTotalSideWidth === null
-      ? HOME_MAX_RIGHT_COLUMN_WIDTH
-      : Math.min(
-          HOME_MAX_RIGHT_COLUMN_WIDTH,
-          Math.max(
-            HOME_MIN_RIGHT_COLUMN_WIDTH,
-            maxTotalSideWidth - leftColumnWidth,
-          ),
-        );
-
-  useEffect(() => {
-    if (!isDesktopLayout || desktopColumnsWidth === null) {
-      return;
-    }
-    const nextMaxTotalSideWidth = getHomeMaxTotalSideWidth(desktopColumnsWidth);
-    let nextLeftWidth = clampToBounds(
-      leftColumnWidth,
-      HOME_MIN_LEFT_COLUMN_WIDTH,
-      HOME_MAX_LEFT_COLUMN_WIDTH,
-    );
-    let nextRightWidth = clampToBounds(
-      rightColumnWidth,
-      HOME_MIN_RIGHT_COLUMN_WIDTH,
-      HOME_MAX_RIGHT_COLUMN_WIDTH,
-    );
-
-    if (nextLeftWidth + nextRightWidth > nextMaxTotalSideWidth) {
-      let overflowWidth =
-        nextLeftWidth + nextRightWidth - nextMaxTotalSideWidth;
-      const rightShrinkCapacity = Math.max(
-        0,
-        nextRightWidth - HOME_MIN_RIGHT_COLUMN_WIDTH,
-      );
-      const rightWidthReduction = Math.min(overflowWidth, rightShrinkCapacity);
-      nextRightWidth -= rightWidthReduction;
-      overflowWidth -= rightWidthReduction;
-      if (overflowWidth > 0) {
-        nextLeftWidth = Math.max(
-          HOME_MIN_LEFT_COLUMN_WIDTH,
-          nextLeftWidth - overflowWidth,
-        );
-      }
-    }
-
-    if (nextLeftWidth !== leftColumnWidth) {
-      setLeftColumnWidth(nextLeftWidth);
-    }
-    if (nextRightWidth !== rightColumnWidth) {
-      setRightColumnWidth(nextRightWidth);
-    }
-  }, [desktopColumnsWidth, isDesktopLayout, leftColumnWidth, rightColumnWidth]);
-
-  function updateLeftColumnWidth(rawWidth: number, persistWidth: boolean) {
-    const nextWidth = clampToBounds(
-      rawWidth,
-      HOME_MIN_LEFT_COLUMN_WIDTH,
-      leftColumnMaxWidth,
-    );
-    setLeftColumnWidth(nextWidth);
-    if (persistWidth) {
-      useLocalStorage.setState({
-        homePageLeftColumnWidth: nextWidth,
-      });
-    }
-  }
-
-  function updateRightColumnWidth(rawWidth: number, persistWidth: boolean) {
-    const nextWidth = clampToBounds(
-      rawWidth,
-      HOME_MIN_RIGHT_COLUMN_WIDTH,
-      rightColumnMaxWidth,
-    );
-    setRightColumnWidth(nextWidth);
-    if (persistWidth) {
-      useLocalStorage.setState({
-        homePageRightColumnWidth: nextWidth,
-      });
-    }
-  }
-
   const commonGalleryProps = {
     favoriteProjects,
     nonFavoriteProjects,
@@ -530,145 +341,200 @@ function HomeWorkspaceLayout({
     onToggleFavoriteProjectConfig: toggleFavoriteProjectConfig,
     galleryViewMode: homeProjectGalleryViewMode,
   };
+  const middleInsetLeft = homeWorkspacePaneVis
+    ? homeWorkspacePaneWidth
+    : CLOSED_PANE_WIDTH;
+  const middleInsetRight = homeSelectedProjectPaneVis
+    ? homeSelectedProjectPaneWidth
+    : CLOSED_PANE_WIDTH;
 
   return (
-    <main
-      className="flex h-full min-h-0 flex-col px-4 py-4 sm:px-6 sm:py-5"
-      onKeyDown={onEscapeClearSelectedProjects}
-      data-testid="home-file-manager-layout"
-    >
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        {isDeploymentMode ? (
-          <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-            Sharing mode is read-only
-          </div>
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-2">
-              <button
-                className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-bold text-white hover:bg-blue-500 focus-visible:ring-2 dark:hover:bg-blue-700"
-                onClick={handleCreateConfig}
-              >
-                <BiPlus />
-                New Config
-              </button>
-              <button
-                className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-400 px-4 py-2 font-medium text-white hover:!bg-green-500 hover:text-white focus-visible:ring-2 dark:bg-setta-500/25 dark:text-white/75 dark:hover:!bg-green-700"
-                onClick={onClickMakeDefault}
-                disabled={selectedProjects.length !== 1}
-              >
-                <HiHome />
-                Make Default
-              </button>
-              <button
-                className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-400 px-4 py-2 font-medium text-white hover:!bg-red-500 hover:text-white focus-visible:ring-2 dark:bg-setta-500/25 dark:text-white/75"
-                onClick={onClickDelete}
-                disabled={selectedProjects.length === 0}
-              >
-                <IoClose />
-                Delete
-              </button>
-            </div>
-            <Link
-              to={SETTINGS_ROUTER_PATH}
-              state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
-              className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-bold text-white hover:bg-blue-500 focus-visible:ring-2 dark:hover:bg-blue-700"
-            >
-              <IoSettingsOutline />
-              Settings
-            </Link>
-          </>
-        )}
-      </header>
-
-      {isDesktopLayout ? (
-        <div ref={desktopColumnsRef} className="flex h-full min-h-0 gap-4">
-          <Resizable
-            className="h-full shrink-0"
-            size={{ width: leftColumnWidth, height: "100%" }}
-            minWidth={HOME_MIN_LEFT_COLUMN_WIDTH}
-            maxWidth={leftColumnMaxWidth}
-            boundsByDirection
-            enable={{
-              top: false,
-              right: true,
-              bottom: false,
-              left: false,
-              topRight: false,
-              bottomRight: false,
-              bottomLeft: false,
-              topLeft: false,
-            }}
-            handleComponent={{
-              right: (
-                <div
-                  data-testid="home-left-column-resize-handle"
-                  className="h-full w-2 cursor-col-resize bg-transparent hover:bg-blue-500/20"
-                />
-              ),
-            }}
-            onResize={(_event, _direction, elementRef) => {
-              updateLeftColumnWidth(elementRef.offsetWidth, false);
-            }}
-            onResizeStop={(_event, _direction, elementRef) => {
-              updateLeftColumnWidth(elementRef.offsetWidth, true);
-            }}
+    <>
+      <HomeLeftIconRail workspacePaneVisible={homeWorkspacePaneVis} />
+      <HomeRightIconRail
+        selectedProjectPaneVisible={homeSelectedProjectPaneVis}
+      />
+      <PaneContainer
+        paneName={HOME_WORKSPACE_PANE_NAME}
+        right={false}
+        minimumWidth={HOME_MIN_PANE_WIDTH}
+        vis={homeWorkspacePaneVis}
+        width={homeWorkspacePaneWidth}
+        paddingClassName="pt-2.5 pb-0"
+      >
+        {homeWorkspacePaneVis && (
+          <section
+            className={HOME_PANE_CONTENT_CLASS}
+            data-testid="home-file-browser-column"
           >
+            <h2 className={HOME_PANE_TITLE_CLASS}>Workspace Browser</h2>
             <HomeFileBrowserColumn />
-          </Resizable>
-
-          <HomeProjectGallery {...commonGalleryProps} />
-
-          <Resizable
-            className="ml-auto h-full shrink-0"
-            size={{ width: rightColumnWidth, height: "100%" }}
-            minWidth={HOME_MIN_RIGHT_COLUMN_WIDTH}
-            maxWidth={rightColumnMaxWidth}
-            boundsByDirection
-            enable={{
-              top: false,
-              right: false,
-              bottom: false,
-              left: true,
-              topRight: false,
-              bottomRight: false,
-              bottomLeft: false,
-              topLeft: false,
-            }}
-            handleComponent={{
-              left: (
-                <div
-                  data-testid="home-right-column-resize-handle"
-                  className="h-full w-2 cursor-col-resize bg-transparent hover:bg-blue-500/20"
-                />
-              ),
-            }}
-            onResize={(_event, _direction, elementRef) => {
-              updateRightColumnWidth(elementRef.offsetWidth, false);
-            }}
-            onResizeStop={(_event, _direction, elementRef) => {
-              updateRightColumnWidth(elementRef.offsetWidth, true);
-            }}
-          >
+          </section>
+        )}
+      </PaneContainer>
+      <PaneContainer
+        paneName={HOME_SELECTED_PROJECT_PANE_NAME}
+        right={true}
+        minimumWidth={HOME_MIN_PANE_WIDTH}
+        vis={homeSelectedProjectPaneVis}
+        width={homeSelectedProjectPaneWidth}
+      >
+        {homeSelectedProjectPaneVis && (
+          <section className={HOME_PANE_CONTENT_CLASS}>
+            <h2 className={HOME_PANE_TITLE_CLASS}>Selected Project</h2>
             <SelectedProjectDetails
               project={selectedDetailProject}
               isDefault={selectedDetailProject?.id === defaultProjectConfigId}
               isDeploymentMode={isDeploymentMode}
+              hideTitle
             />
-          </Resizable>
-        </div>
-      ) : (
-        <div className="grid h-full min-h-0 grid-cols-1 gap-4">
-          <HomeFileBrowserColumn />
-          <HomeProjectGallery {...commonGalleryProps} />
-          <SelectedProjectDetails
-            project={selectedDetailProject}
-            isDefault={selectedDetailProject?.id === defaultProjectConfigId}
-            isDeploymentMode={isDeploymentMode}
-          />
-        </div>
-      )}
-    </main>
+          </section>
+        )}
+      </PaneContainer>
+      <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-dark">
+        <main
+          className="flex h-full min-h-0 min-w-0 flex-col"
+          style={{ paddingLeft: middleInsetLeft, paddingRight: middleInsetRight }}
+          onKeyDown={onEscapeClearSelectedProjects}
+          data-testid="home-file-manager-layout"
+        >
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-setta-200/75 px-4 py-3 dark:border-setta-800/75">
+            {isDeploymentMode ? (
+              <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
+                Sharing mode is read-only
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-bold text-white hover:bg-blue-500 focus-visible:ring-2 dark:hover:bg-blue-700"
+                  onClick={handleCreateConfig}
+                >
+                  <BiPlus />
+                  New Config
+                </button>
+                <button
+                  className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-400 px-4 py-2 font-medium text-white hover:!bg-green-500 hover:text-white focus-visible:ring-2 dark:bg-setta-500/25 dark:text-white/75 dark:hover:!bg-green-700"
+                  onClick={onClickMakeDefault}
+                  disabled={selectedProjects.length !== 1}
+                >
+                  <HiHome />
+                  Make Default
+                </button>
+                <button
+                  className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-400 px-4 py-2 font-medium text-white hover:!bg-red-500 hover:text-white focus-visible:ring-2 dark:bg-setta-500/25 dark:text-white/75"
+                  onClick={onClickDelete}
+                  disabled={selectedProjects.length === 0}
+                >
+                  <IoClose />
+                  Delete
+                </button>
+              </div>
+            )}
+          </header>
+          <HomeProjectGallery {...commonGalleryProps} fullScreenSurface />
+        </main>
+      </GridWrapper>
+    </>
+  );
+}
+
+function getHomeRailButtonColor(isActive: boolean): string {
+  if (isActive) {
+    return "text-blue-500";
+  }
+  return "text-setta-400 hover:text-setta-600 dark:text-setta-600 dark:hover:text-setta-500";
+}
+
+function toggleHomeWorkspacePaneVisibility() {
+  const { homeWorkspacePaneVis, homeWorkspacePaneWidth } =
+    useLocalStorage.getState();
+  const nextVis = !homeWorkspacePaneVis;
+  useLocalStorage.setState({
+    homeWorkspacePaneVis: nextVis,
+    homeWorkspacePaneTrueWidth: nextVis
+      ? homeWorkspacePaneWidth
+      : CLOSED_PANE_WIDTH,
+  });
+}
+
+function toggleHomeSelectedProjectPaneVisibility() {
+  const { homeSelectedProjectPaneVis, homeSelectedProjectPaneWidth } =
+    useLocalStorage.getState();
+  const nextVis = !homeSelectedProjectPaneVis;
+  useLocalStorage.setState({
+    homeSelectedProjectPaneVis: nextVis,
+    homeSelectedProjectPaneTrueWidth: nextVis
+      ? homeSelectedProjectPaneWidth
+      : CLOSED_PANE_WIDTH,
+  });
+}
+
+function HomeLeftIconRail({
+  workspacePaneVisible,
+}: {
+  workspacePaneVisible: boolean;
+}) {
+  return (
+    <div
+      data-testid="home-left-icon-rail"
+      className="fixed left-0 z-[19] flex w-10 flex-col items-center gap-1 border-r border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
+      style={{
+        top: "calc(var(--setta-titlebar-height) + 36px)",
+        bottom: "0px",
+      }}
+    >
+      <button
+        type="button"
+        data-testid="home-left-rail-workspace-toggle"
+        className={`flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500 ${getHomeRailButtonColor(
+          workspacePaneVisible,
+        )}`}
+        onClick={toggleHomeWorkspacePaneVisibility}
+        aria-label="Toggle workspace browser pane"
+      >
+        <TbFolder size={18} />
+      </button>
+      <Link
+        to={SETTINGS_ROUTER_PATH}
+        state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
+        data-testid="home-left-rail-settings-link"
+        className={`mt-auto mb-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500 ${getHomeRailButtonColor(
+          false,
+        )}`}
+        aria-label="Open settings"
+      >
+        <IoSettingsOutline size={18} />
+      </Link>
+    </div>
+  );
+}
+
+function HomeRightIconRail({
+  selectedProjectPaneVisible,
+}: {
+  selectedProjectPaneVisible: boolean;
+}) {
+  return (
+    <div
+      data-testid="home-right-icon-rail"
+      className="fixed right-0 z-[19] flex w-10 flex-col items-center gap-1 border-l border-setta-200/75 bg-setta-50 py-2 dark:border-setta-850 dark:bg-setta-900"
+      style={{
+        top: "calc(var(--setta-titlebar-height) + 36px)",
+        bottom: "0px",
+      }}
+    >
+      <button
+        type="button"
+        data-testid="home-right-rail-selected-project-toggle"
+        className={`flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500 ${getHomeRailButtonColor(
+          selectedProjectPaneVisible,
+        )}`}
+        onClick={toggleHomeSelectedProjectPaneVisibility}
+        aria-label="Toggle selected project pane"
+      >
+        <TbListDetails size={18} />
+      </button>
+    </div>
   );
 }
 
@@ -697,14 +563,10 @@ function HomeFileBrowserColumn() {
   }
 
   return (
-    <section
-      className="flex h-full min-h-0 flex-col rounded-2xl border border-setta-200/75 bg-white/75 p-3 shadow-sm dark:border-setta-800/80 dark:bg-setta-900/40"
-      data-testid="home-file-browser-column"
-    >
-      <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
-        Workspace Browser
-      </h2>
-      <div className="mb-2 flex flex-col gap-2">
+    <section className="flex h-full min-h-0 flex-col gap-2 pb-2">
+      <div
+        className={`flex flex-col gap-2 ${HOME_FILE_BROWSER_META_INSET_CLASS}`}
+      >
         <div className="flex items-center gap-2">
           <input
             data-testid="home-file-browser-path-input"
@@ -726,12 +588,6 @@ function HomeFileBrowserColumn() {
             Go
           </button>
         </div>
-        <div className="flex min-w-0 items-center gap-2">
-          <FileBrowserFilter
-            useFileBrowserStateHook={useHomeFileBrowserState}
-            className="h-8"
-          />
-        </div>
         <label className="inline-flex items-center gap-2 text-[11px] text-setta-500 dark:text-setta-400">
           <input
             type="checkbox"
@@ -746,8 +602,9 @@ function HomeFileBrowserColumn() {
       <div className="min-h-0 flex-1">
         <FileBrowserPane
           useFileBrowserStateHook={useHomeFileBrowserState}
-          showFilter={false}
           includeSettaInitializedFolders={showSettaBadges}
+          metaPaddingClassName={HOME_FILE_BROWSER_META_INSET_CLASS}
+          listInsetLeft={HOME_FILE_BROWSER_LIST_INSET_LEFT}
         />
       </div>
     </section>
@@ -768,6 +625,7 @@ function HomeProjectGallery({
   onActivateProject,
   onToggleFavoriteProjectConfig,
   galleryViewMode,
+  fullScreenSurface = false,
 }: {
   favoriteProjects: Array<ProjectConfig>;
   nonFavoriteProjects: Array<ProjectConfig>;
@@ -782,13 +640,15 @@ function HomeProjectGallery({
   onActivateProject: (projectId: string) => void;
   onToggleFavoriteProjectConfig: (projectConfigId: string) => void;
   galleryViewMode: "thumbnails" | "list";
+  fullScreenSurface?: boolean;
 }) {
+  const gallerySurfaceClassName = fullScreenSurface
+    ? "flex h-full min-h-0 min-w-0 flex-1 flex-col px-4 py-3"
+    : "flex h-full min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-setta-200/75 bg-white/75 p-3 shadow-sm dark:border-setta-800/80 dark:bg-setta-900/40";
+
   if (totalProjectsCount === 0) {
     return (
-      <section
-        className="flex h-full min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-setta-200/75 bg-white/75 p-3 shadow-sm dark:border-setta-800/80 dark:bg-setta-900/40"
-        data-testid="home-project-gallery"
-      >
+      <section className={gallerySurfaceClassName} data-testid="home-project-gallery">
         <div className="grid flex-1 place-items-center">
           <div className="text-center">
             <LuPenLine className="mx-auto h-16 w-16 text-setta-200 dark:text-setta-700/50" />
@@ -804,10 +664,7 @@ function HomeProjectGallery({
   const inSelectionMode = selectionEnabled && selectedProjects.length > 0;
 
   return (
-    <section
-      className="flex h-full min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-setta-200/75 bg-white/75 p-3 shadow-sm dark:border-setta-800/80 dark:bg-setta-900/40"
-      data-testid="home-project-gallery"
-    >
+    <section className={gallerySurfaceClassName} data-testid="home-project-gallery">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
           Project Configs
@@ -1412,20 +1269,25 @@ function SelectedProjectDetails({
   project,
   isDefault,
   isDeploymentMode,
+  hideTitle = false,
 }: {
   project: ProjectConfig | null;
   isDefault: boolean;
   isDeploymentMode: boolean;
+  hideTitle?: boolean;
 }) {
+  const containerClassName = hideTitle
+    ? "setta-pane-scroll flex h-full min-h-0 flex-col gap-2 text-xs text-setta-600 dark:text-setta-300"
+    : "flex h-full min-h-0 flex-col rounded-2xl border border-setta-200/75 bg-white/75 p-4 shadow-sm dark:border-setta-800/80 dark:bg-setta-900/40";
+
   if (!project) {
     return (
-      <aside
-        className="flex h-full min-h-0 flex-col rounded-2xl border border-setta-200/75 bg-white/75 p-4 shadow-sm dark:border-setta-800/80 dark:bg-setta-900/40"
-        data-testid="home-selected-project-details"
-      >
-        <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
-          Selected Project
-        </h2>
+      <aside className={containerClassName} data-testid="home-selected-project-details">
+        {!hideTitle && (
+          <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
+            Selected Project
+          </h2>
+        )}
         <p className="text-sm text-setta-500 dark:text-setta-400">
           No project selected.
         </p>
@@ -1436,13 +1298,12 @@ function SelectedProjectDetails({
   const projectPath = resolveProjectPath(project.name, isDeploymentMode);
 
   return (
-    <aside
-      className="flex h-full min-h-0 flex-col rounded-2xl border border-setta-200/75 bg-white/75 p-4 shadow-sm dark:border-setta-800/80 dark:bg-setta-900/40"
-      data-testid="home-selected-project-details"
-    >
-      <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
-        Selected Project
-      </h2>
+    <aside className={containerClassName} data-testid="home-selected-project-details">
+      {!hideTitle && (
+        <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
+          Selected Project
+        </h2>
+      )}
       <div className="space-y-2 text-xs text-setta-600 dark:text-setta-300">
         <p className="truncate text-sm font-semibold text-setta-800 dark:text-setta-100">
           {project.name}
@@ -1465,7 +1326,9 @@ function SelectedProjectDetails({
         <Link
           to={projectPath}
           state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
-          className="mt-auto inline-flex h-8 items-center justify-center rounded-md bg-blue-500 px-3 text-xs font-semibold text-white transition-colors hover:bg-blue-600 focus-visible:ring-2"
+          className={`inline-flex h-8 items-center justify-center rounded-md bg-blue-500 px-3 text-xs font-semibold text-white transition-colors hover:bg-blue-600 focus-visible:ring-2 ${
+            hideTitle ? "mt-2" : "mt-auto"
+          }`}
         >
           Open Project
         </Link>
