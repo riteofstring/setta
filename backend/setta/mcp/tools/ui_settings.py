@@ -124,7 +124,12 @@ async def reveal_ui_setting(
     projectConfigId: ID | None = None,
     ctx: Context,
 ) -> RevealUISettingResult:
-    """Open the pane/tab for settings and highlight their controls."""
+    """Open pane/tab targets for settings and highlight their controls.
+
+    For right-pane settings, ensure there is an active section first.
+    If no section is active, pick one and set it active (for example via
+    `set_active_ids`) before calling this tool.
+    """
 
     project_config_id = _resolve_project_config_id(
         ctx=ctx,

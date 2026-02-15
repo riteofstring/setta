@@ -85,6 +85,7 @@ The core planning conclusion still holds: we cannot model setting location as a 
 5. Preserve compatibility with both managed and external-agent runs.
 6. Keep plugin support explicit: plugin settings are only discoverable/revealable/readable/writable when the plugin is enabled and runtime-available.
 7. Keep mutation safe: strict type validation, explicit writable policy, and structured errors for invalid requests.
+8. Normalize approval behavior once: external-agent policy differences must map into one internal Setta MCP approval policy before tool execution.
 
 ## Proposed architecture
 
@@ -128,9 +129,13 @@ Add discoverable MCP tools in `backend/setta/mcp/tools/`:
 - Access type: `read`
 
 `reveal_ui_setting`:
-- Input: `settingId` (or `settingIds`), optional `durationMs`
-- Behavior: validate IDs, emit frontend reveal command
-- Output: resolved reveal targets and per-target status
+- Input: `settingId`, optional `durationMs`, optional `sectionIdToActivate`
+- Behavior:
+  - validate IDs
+  - when revealing right-pane targets, if `sectionIdToActivate` is provided, set it active before emitting reveal
+  - if a right-pane target requires section context and no active section is available, return structured failure so the caller can pick a section and retry
+  - emit frontend reveal command
+- Output: resolved reveal target and status
 - Access type: `read` (or `structural`, but still non-mutating)
 
 `get_ui_setting_value`:
@@ -151,7 +156,6 @@ Add discoverable MCP tools in `backend/setta/mcp/tools/`:
 
 Optional supporting tools:
 - `list_ui_settings` (init tool) for debugging/inspection
-- `set_ui_settings_batch` for grouped updates when needed
 
 ### 3) Add websocket contract for reveal intents
 Add a new frontend websocket message type, for example `UISettingReveal`.
@@ -167,11 +171,11 @@ Frontend:
 Payload should include:
 - `projectConfigId`
 - `chatId` (optional)
-- `reveals`: array of reveal targets
+- `reveal`: reveal target descriptor
 - `durationMs`
-- `requestId` for observability
+- `requestId`
 
-Each reveal target should include:
+Reveal target should include:
 - `settingId`
 - `side`
 - `overviewTabKey` or `uiEditorTabName`
@@ -199,7 +203,7 @@ Important implementation detail from current code:
 
 Core-pane behavior:
 - Left: set `overviewVis=true`, set `overviewTab` to `overviewTabKey`.
-- Right: set `uiEditorVis=true`, set `uiEditorTab` for the active section type.
+- Right: set `uiEditorVis=true`, set `uiEditorTab` for the active section type (or the section activated via `sectionIdToActivate`).
 
 Plugin-pane behavior:
 - For Overview plugin panes, set `overviewTab` to the plugin tab key.
@@ -242,15 +246,40 @@ Anchor rules:
 Update `backend/setta/mcp/system_prompt.md`:
 - For "where is setting" tasks, call `search_ui_settings`.
 - For "show/open/highlight", call `reveal_ui_setting`.
+- For right-pane reveals, if no section is active, the LLM should pick an
+  appropriate section, set it active, then call `reveal_ui_setting`.
 - For "what is this setting currently", call `get_ui_setting_value`.
 - For "set/change/update this setting", call `set_ui_setting_value`.
-- If matches are ambiguous, ask a concise disambiguation question.
 - After mutation, report exactly what changed and optionally reveal the setting when useful.
 
 ### 7) Keep AI Follow unchanged
 Do not reuse AI Follow IDs for this feature:
 - AI Follow is for graph entities (`section`, `codeObj`), not UI controls.
 - Separate reveal/mutation contracts avoid coupling and ID-mapping complexity.
+
+### 8) Approval/policy normalization for Setta MCP tools
+This is a cross-cutting requirement for Setta MCP tools, including this settings toolset.
+
+Execution model:
+- Each external-agent adapter maps provider-specific approval policy values to one internal Setta policy.
+- Mapping input: external policy value + yolo flag + whether the run has an approval channel.
+- Mapping output: internal policy enum used by Setta tool execution.
+
+Internal policy behavior:
+- `allow_all`: execute all Setta MCP tools without approval prompts.
+- `require_approval_for_destructive`: execute non-destructive tools directly; require approval for destructive tools.
+- `deny_destructive_without_approval_channel`: execute non-destructive tools directly; reject destructive tools with structured tool failure when approval is required but unavailable.
+
+Tool classification (v1):
+- `approvalLevel=none`: default for most tools.
+- `approvalLevel=destructive`: for operations such as project config deletion or section deletion.
+
+Required yolo behavior:
+- If yolo is on, internal policy resolves to `allow_all`, including destructive operations such as `delete_sections`.
+
+User-facing behavior:
+- Approval-required operations should surface as approval requests in chat when the channel exists.
+- Rejections should surface as structured tool failures in chat (no separate UX surface required).
 
 ## Plugin-specific additions (current gap)
 
@@ -308,6 +337,7 @@ Deliverables:
 - Register tools with search metadata.
 - Update system prompt instructions.
 - Ship core setting mutators for initial writable subset.
+- Ensure these tools integrate with Setta MCP internal approval policy enforcement.
 
 Deliverables:
 - Managed and external-agent runs can discover/reveal/read/set core settings.
@@ -323,9 +353,7 @@ Deliverables:
 
 ### Phase 4: Hardening and coverage expansion
 - Expand core setting coverage.
-- Improve ambiguity/disambiguation ranking.
-- Add telemetry for reveal success/failure rates.
-- Add telemetry for setting-read/setting-write success/failure rates and validation errors.
+- Finalize external-adapter -> internal approval policy mappings and destructive-operation coverage.
 
 Deliverables:
 - Production-ready reliability and broader setting + mutation coverage.
@@ -339,13 +367,18 @@ Deliverables:
   - plugin enabled/disabled filtering
 - Tool tests:
   - search ranking quality
-  - ambiguity handling
   - reveal validation failures
+  - right-pane reveal behavior with `sectionIdToActivate`
   - get-value correctness
   - set-value validation/coercion
   - read-only rejection
   - mode/policy rejection
+  - internal approval policy enforcement (`none` vs `destructive`)
+  - yolo bypass behavior for destructive tools (`allow_all`)
+  - structured failure when destructive approval is required but no approval channel exists
   - mutation side-effect correctness
+- Adapter mapping tests:
+  - each supported external agent policy maps to expected internal Setta policy
 - Websocket sender contract tests:
   - payload shape and required fields
 
@@ -373,6 +406,7 @@ Suggested locations:
 - Core reveal flow:
   - reveal opens pane + selects tab + highlights target + auto-clears
 - Right-pane flow requiring active section selection
+  - include path where the LLM picks a section and provides `sectionIdToActivate`
 - Core mutation flow:
   - set value through tool path, verify setting value and UI state changed
 - Plugin flow:
@@ -393,6 +427,12 @@ Suggested location:
 - Enforce strict value validation before persisting writes.
 - Require explicit writable allowlist by `settingId`.
 - Return structured errors; do not silently coerce unsafe values.
+- Enforce approval rules from normalized internal policy, not provider-specific policy strings.
+- Keep destructive-tool classification explicit in tool metadata (no keyword-based inference).
+
+## Scope boundaries
+- This plan focuses on project-scoped UI settings (core + plugin-contributed).
+- Global settings in `setta-settings.json` / Settings project are related architecture but out of scope for this plan's implementation phases.
 
 ## Performance and UX constraints
 - O(1) lookup by `settingId`.
@@ -413,10 +453,4 @@ Suggested location:
 9. New backend, frontend, and Playwright tests pass.
 
 ## Open decisions
-1. Should `reveal_ui_setting` accept multiple setting IDs in one call for grouped reveals?
-2. Should `set_ui_setting_value` support batch/transaction semantics in v1?
-3. How should plugins contribute setting metadata/read-write handlers (host hooks vs manifest schema vs backend plugin API only)?
-4. How should right-pane reveals behave when no section is selected (fail, auto-select, or prompt user)?
-5. Should plugin panes remain Overview-only for this feature, or should the plugin API expand to right-rail panes?
-6. Which settings require confirmation before mutation (for example high-impact project-level changes)?
-7. Should reveal/mutation failures always produce user-visible notifications, or stay chat/tool-result only?
+No open decisions for current scoped plan.
