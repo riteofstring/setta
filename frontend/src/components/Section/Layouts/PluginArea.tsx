@@ -85,6 +85,7 @@ function PluginSectionRendererHost({
 }: PluginSectionRendererHostProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
+  const previousSectionPropsRef = useRef<object | null>(null);
   const pluginSectionKind = usePluginSectionKind(pluginId, kind);
   const runtimeContext = usePluginRuntimeStore((state) => {
     const pluginEntry = state.pluginListById[pluginId];
@@ -121,24 +122,33 @@ function PluginSectionRendererHost({
     }
     pluginSectionKind.renderer.mount(mountElement, sectionProps);
     mountedRef.current = true;
+    previousSectionPropsRef.current = null;
     return () => {
       mountedRef.current = false;
+      previousSectionPropsRef.current = null;
       pluginSectionKind.renderer.unmount?.(mountElement);
     };
-  }, [pluginSectionKind, sectionProps]);
+  }, [pluginSectionKind]);
 
   useEffect(() => {
     if (!pluginSectionKind) {
-      return;
-    }
-    if (!pluginSectionKind.renderer.update) {
       return;
     }
     const mountElement = mountRef.current;
     if (!mountElement || !mountedRef.current) {
       return;
     }
-    pluginSectionKind.renderer.update(mountElement, sectionProps);
+    const previousProps = previousSectionPropsRef.current;
+    previousSectionPropsRef.current = sectionProps;
+    if (previousProps === null) {
+      return;
+    }
+    if (pluginSectionKind.renderer.update) {
+      pluginSectionKind.renderer.update(mountElement, sectionProps);
+      return;
+    }
+    pluginSectionKind.renderer.unmount?.(mountElement);
+    pluginSectionKind.renderer.mount(mountElement, sectionProps);
   }, [pluginSectionKind, sectionProps]);
 
   return (
@@ -295,7 +305,7 @@ function fallbackReasonLabel(reason: string): string {
     return "Plugin is installed but currently disabled.";
   }
   if (reason === "plugin_not_installed") {
-    return "Plugin is not installed in this workspace/environment.";
+    return "Plugin is not installed in this workspace or setta_files scope.";
   }
   if (reason === "mode_blocked") {
     return "Plugin capability is blocked in the current server mode.";

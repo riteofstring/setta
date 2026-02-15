@@ -3,7 +3,6 @@ import hashlib
 import importlib.metadata
 import json
 import os
-import select
 import shutil
 import subprocess
 import sys
@@ -18,6 +17,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import wraps
 from pathlib import Path
+from queue import Empty, Queue
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from fastapi.encoders import jsonable_encoder
@@ -137,6 +137,8 @@ _PACKAGE_MANAGER_SOURCE_HINT = (
     "Managed by Python package manager in active environment. "
     "Use uv/pip/Poetry to install, update, or remove."
 )
+_REDACTED_SOURCE_PATH = "[redacted]"
+_REDACTED_CANONICAL_SOURCE_KEY_PREFIX = "redacted:"
 _REQUIRED_BACKEND_RPC_METHODS = frozenset(
     {
         "plugin.initialize",
@@ -383,6 +385,9 @@ class PluginManager:
             self.workspace_root / ".setta_plugins" / "plugins.lock.json"
         )
         self._runtime_root = self.setta_files_root / "plugins_runtime"
+        self._directory_digest_cache: dict[
+            str, tuple[tuple[tuple[str, int, int], ...], str]
+        ] = {}
 
         initial_plugins_state = self._load_plugins_state()
         self._pending_restart_backend_ids: set[str] = set(
@@ -523,6 +528,7 @@ class PluginManager:
     def get_list_response(self) -> PluginListResponse:
         plugins: list[PluginListEntry] = []
         plugins_state = self._load_plugins_state()
+        redact_source_details = self._should_redact_source_details()
         for entry in sorted(
             self._active_plugin_by_id.values(), key=lambda item: item.plugin_id
         ):
@@ -555,7 +561,11 @@ class PluginManager:
                     sourceScopeLabel=scope_label(entry.scope),
                     sourceManager=entry.source_manager,
                     sourceManagerHint=entry.source_manager_hint,
-                    canonicalSourceKey=entry.canonical_source_key,
+                    canonicalSourceKey=(
+                        self._redacted_canonical_source_key(entry.plugin_id)
+                        if redact_source_details
+                        else entry.canonical_source_key
+                    ),
                     sourceDigestSha256=entry.source_digest_sha256,
                     frontend=frontend,
                     content=content,
@@ -581,6 +591,7 @@ class PluginManager:
                 str(entry.source_path),
             ),
         )
+        redact_source_details = self._should_redact_source_details()
         return PluginStatusResponse(
             serverMode=self.server_mode,
             restartCapability=self.get_restart_capability(),
@@ -594,11 +605,23 @@ class PluginManager:
                     sourceScopeLabel=scope_label(entry.scope),
                     sourceManager=entry.source_manager,
                     sourceManagerHint=entry.source_manager_hint,
-                    sourcePath=str(entry.source_path),
-                    canonicalSourceKey=entry.canonical_source_key,
+                    sourcePath=(
+                        self._redact_source_path(entry.plugin_id)
+                        if redact_source_details
+                        else str(entry.source_path)
+                    ),
+                    canonicalSourceKey=(
+                        self._redacted_canonical_source_key(entry.plugin_id)
+                        if redact_source_details
+                        else entry.canonical_source_key
+                    ),
                     sourceDigestSha256=entry.source_digest_sha256,
                     shadowedBySourcePath=(
-                        str(entry.shadowed_by_source_path)
+                        (
+                            self._redact_source_path(entry.plugin_id)
+                            if redact_source_details
+                            else str(entry.shadowed_by_source_path)
+                        )
                         if entry.shadowed_by_source_path is not None
                         else None
                     ),
@@ -621,6 +644,15 @@ class PluginManager:
                 for entry in ordered
             ],
         )
+
+    def _should_redact_source_details(self) -> bool:
+        return self.server_mode != "ide"
+
+    def _redacted_canonical_source_key(self, plugin_id: str) -> str:
+        return f"{_REDACTED_CANONICAL_SOURCE_KEY_PREFIX}{plugin_id}"
+
+    def _redact_source_path(self, plugin_id: str) -> str:
+        return f"{_REDACTED_SOURCE_PATH}:{plugin_id}"
 
     def get_pending_restart_backend_plugin_ids(self) -> list[str]:
         return sorted(self._pending_restart_backend_ids)
@@ -961,6 +993,8 @@ class PluginManager:
             plugin_version=entry.version,
             plugin_root=entry.source_path,
             entrypoint_path=entrypoint_path,
+            requested_capabilities=entry.requested_capabilities,
+            effective_capabilities=entry.effective_capabilities,
         )
         worker_env = self._build_backend_worker_env()
         try:
@@ -994,8 +1028,10 @@ class PluginManager:
         plugin_version: str,
         plugin_root: Path,
         entrypoint_path: Path,
+        requested_capabilities: list[str],
+        effective_capabilities: list[str],
     ) -> list[str]:
-        return [
+        command = [
             worker_python,
             "-m",
             "setta.plugins.worker",
@@ -1007,7 +1043,14 @@ class PluginManager:
             str(plugin_root),
             "--entrypoint",
             str(entrypoint_path),
+            "--server-mode",
+            self.server_mode,
         ]
+        for capability in requested_capabilities:
+            command.extend(["--requested-capability", capability])
+        for capability in effective_capabilities:
+            command.extend(["--effective-capability", capability])
+        return command
 
     def _resolve_backend_worker_python(self, entry: DiscoveredPlugin) -> str:
         if entry.source_digest_sha256 is None:
@@ -1316,8 +1359,11 @@ class PluginManager:
                 "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
                 f"Backend worker stdout unavailable for {plugin_id}.",
             )
-        ready_streams, _, _ = select.select([process.stdout], [], [], timeout_seconds)
-        if len(ready_streams) == 0:
+        line = self._read_stream_line_with_timeout(
+            process.stdout,
+            timeout_seconds=timeout_seconds,
+        )
+        if line is None:
             raise PluginManagerError(
                 timeout_code,
                 (
@@ -1325,7 +1371,6 @@ class PluginManager:
                     f"after {timeout_seconds:.2f}s."
                 ),
             )
-        line = process.stdout.readline()
         if line == "":
             stderr_output = self._read_available_pipe_text(process.stderr)
             detail = f" Stderr: {stderr_output}" if len(stderr_output) > 0 else ""
@@ -1356,19 +1401,49 @@ class PluginManager:
             )
         return payload
 
+    def _read_stream_line_with_timeout(
+        self,
+        stream: Any,
+        *,
+        timeout_seconds: float,
+    ) -> str | None:
+        result_queue: Queue[str | BaseException] = Queue(maxsize=1)
+
+        def read_line() -> None:
+            try:
+                result_queue.put_nowait(stream.readline())
+            except BaseException as exc:
+                result_queue.put_nowait(exc)
+
+        reader_thread = threading.Thread(target=read_line, daemon=True)
+        reader_thread.start()
+        try:
+            result = result_queue.get(timeout=timeout_seconds)
+        except Empty:
+            return None
+        if isinstance(result, BaseException):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                f"Backend worker stream read failed: {result}",
+            ) from result
+        return result
+
     def _read_available_pipe_text(self, stream: Any) -> str:
         if stream is None:
             return ""
-        chunks: list[str] = []
-        while True:
-            ready_streams, _, _ = select.select([stream], [], [], 0)
-            if len(ready_streams) == 0:
-                break
-            chunk = os.read(stream.fileno(), 4096)
-            if len(chunk) == 0:
-                break
-            chunks.append(chunk.decode("utf-8", errors="ignore"))
-        return "".join(chunks).strip()
+        try:
+            line = self._read_stream_line_with_timeout(
+                stream,
+                timeout_seconds=0.05,
+            )
+        except PluginManagerError:
+            return ""
+        if line is None or line == "":
+            return ""
+        remaining = stream.read()
+        if remaining is None:
+            remaining = ""
+        return f"{line}{remaining}".strip()
 
     def _stop_backend_worker_process(self, process: subprocess.Popen[str]) -> None:
         if process.stdin is not None:
@@ -3028,6 +3103,13 @@ class PluginManager:
             code="PLUGIN_ASSET_INVALID_PATH",
             message_prefix="Invalid plugin asset path",
         )
+        allowed_roots = self._plugin_frontend_asset_roots(entry)
+        if not any(resolved.is_relative_to(root) for root in allowed_roots):
+            raise PluginManagerError(
+                "PLUGIN_ASSET_NOT_FOUND",
+                f"Plugin asset not found: {asset_path}",
+                status_code=404,
+            )
         if not resolved.exists() or not resolved.is_file():
             raise PluginManagerError(
                 "PLUGIN_ASSET_NOT_FOUND",
@@ -3035,6 +3117,31 @@ class PluginManager:
                 status_code=404,
             )
         return resolved
+
+    def _plugin_frontend_asset_roots(self, entry: DiscoveredPlugin) -> tuple[Path, ...]:
+        if entry.manifest is None or entry.manifest.frontend is None:
+            raise PluginManagerError(
+                "PLUGIN_ASSET_NOT_FOUND",
+                f"Plugin frontend assets are unavailable: {entry.plugin_id}",
+                status_code=404,
+            )
+        frontend = entry.manifest.frontend
+        resolved_entrypoint = self._resolve_relative_path(
+            entry.source_path,
+            frontend.entrypoint,
+            code="PLUGIN_ASSET_INVALID_PATH",
+            message_prefix="Invalid plugin frontend entrypoint path",
+        )
+        roots: set[Path] = {resolved_entrypoint.parent}
+        if frontend.style is not None:
+            resolved_style = self._resolve_relative_path(
+                entry.source_path,
+                frontend.style,
+                code="PLUGIN_ASSET_INVALID_PATH",
+                message_prefix="Invalid plugin frontend style path",
+            )
+            roots.add(resolved_style.parent)
+        return tuple(sorted(roots, key=lambda path: str(path)))
 
     def install_plugin(
         self,
@@ -3101,6 +3208,7 @@ class PluginManager:
                 self._add_pending_restart_backend_id(candidate.manifest.id)
 
         self.rescan()
+        restart_required = candidate.manifest.backend is not None or had_backend_before
         active_entry = self._active_plugin_by_id.get(candidate.manifest.id)
         if active_entry is None:
             active_entry = self._find_entry(candidate.manifest.id, resolved_scope)
@@ -3122,7 +3230,7 @@ class PluginManager:
             trustWarning=_UNVERIFIED_SOURCE_WARNING,
             components=candidate.components,
             state=active_entry.state,
-            restartRequired=active_entry.has_backend,
+            restartRequired=restart_required,
         )
 
     def link_plugin(
@@ -3150,6 +3258,10 @@ class PluginManager:
                 plugin_root=source_root,
             )
         resolved_scope = normalize_scope(scope)
+        existing_entry = self._find_entry(manifest.id, resolved_scope)
+        had_backend_before = (
+            existing_entry.has_backend if existing_entry is not None else False
+        )
         target = self._target_plugin_path(resolved_scope, manifest.id)
         target.parent.mkdir(parents=True, exist_ok=True)
         if target.exists() or target.is_symlink():
@@ -3180,7 +3292,8 @@ class PluginManager:
             enable=enable,
         )
         self._pending_restart_removed_backend_plugins.pop(manifest.id, None)
-        if manifest.backend is not None:
+        restart_required = manifest.backend is not None or had_backend_before
+        if restart_required:
             self._add_pending_restart_backend_id(manifest.id)
         self.rescan()
         entry = self._find_entry(manifest.id, resolved_scope)
@@ -3210,7 +3323,7 @@ class PluginManager:
                 if component is not None
             ],
             state=entry.state,
-            restartRequired=entry.has_backend,
+            restartRequired=restart_required,
         )
 
     def uninstall_plugin(
@@ -3492,6 +3605,9 @@ class PluginManager:
                     scope=entry.scope,
                     sourceDigestSha256=entry.source_digest_sha256,
                     sourceSpec=metadata_entry.sourceSpec if metadata_entry else None,
+                    installerBackend=(
+                        metadata_entry.installerBackend if metadata_entry else None
+                    ),
                 )
             )
         lockfile = PluginsLockFile(plugins=lock_entries)
@@ -3609,9 +3725,17 @@ class PluginManager:
                     "PLUGIN_LOCKFILE_ENTRY_MISSING_SOURCE",
                     f"Lockfile entry missing source spec for plugin: {desired.pluginId}",
                 )
+            installer_backend = desired.installerBackend
+            if installer_backend is None and current is not None:
+                metadata_entry = install_metadata.entries.get(
+                    self._metadata_key(current.plugin_id, current.scope)
+                )
+                if metadata_entry is not None:
+                    installer_backend = metadata_entry.installerBackend
             self.install_plugin(
                 source_spec=desired.sourceSpec,
                 scope=desired.scope,
+                installer=installer_backend,
                 enable=True,
                 force=True,
             )
@@ -4774,6 +4898,10 @@ class PluginManager:
 
     def _build_uv_install_env(self) -> dict[str, str]:
         env = dict(os.environ)
+        if "UV_CACHE_DIR" not in env:
+            cache_dir = self.setta_files_root / ".cache" / "uv"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            env["UV_CACHE_DIR"] = str(cache_dir)
         pip_no_index = env.get("PIP_NO_INDEX")
         if pip_no_index is not None and "UV_NO_INDEX" not in env:
             env["UV_NO_INDEX"] = pip_no_index
@@ -5338,13 +5466,16 @@ class PluginManager:
         return normalized.strip("-")
 
     def _compute_directory_digest(self, root: Path) -> str:
+        root_resolved = root.resolve(strict=False)
+        root_key = str(root_resolved)
+        change_stamp = self._directory_change_stamp(root_resolved)
+        cached = self._directory_digest_cache.get(root_key)
+        if cached is not None and cached[0] == change_stamp:
+            return cached[1]
+
         hasher = hashlib.sha256()
-        for path in sorted(root.rglob("*"), key=lambda item: str(item)):
-            if path.is_dir():
-                continue
-            if path.is_symlink():
-                continue
-            relative_path = path.relative_to(root).as_posix()
+        for relative_path, _, _ in change_stamp:
+            path = root_resolved / relative_path
             hasher.update(relative_path.encode("utf-8"))
             with path.open("rb") as handle:
                 while True:
@@ -5352,7 +5483,19 @@ class PluginManager:
                     if not chunk:
                         break
                     hasher.update(chunk)
-        return hasher.hexdigest()
+        digest = hasher.hexdigest()
+        self._directory_digest_cache[root_key] = (change_stamp, digest)
+        return digest
+
+    def _directory_change_stamp(self, root: Path) -> tuple[tuple[str, int, int], ...]:
+        stamp: list[tuple[str, int, int]] = []
+        for path in sorted(root.rglob("*"), key=lambda item: str(item)):
+            if path.is_dir() or path.is_symlink():
+                continue
+            file_stat = path.stat()
+            relative_path = path.relative_to(root).as_posix()
+            stamp.append((relative_path, file_stat.st_mtime_ns, file_stat.st_size))
+        return tuple(stamp)
 
     def _resolve_relative_path(
         self,

@@ -366,6 +366,7 @@ class PluginLockEntry(BaseModel):
     scope: PluginScope
     sourceDigestSha256: str | None = None
     sourceSpec: str | None = None
+    installerBackend: PluginInstallerBackend | None = None
 
 
 class PluginsLockFile(BaseModel):

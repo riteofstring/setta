@@ -101,7 +101,7 @@ def route_plugins_status(state: AppStateFromRequest) -> PluginStatusResponse:
     return _manager(state).get_status_response()
 
 
-@router.post(Route.PLUGINS_RESCAN)
+@router.post(Route.PLUGINS_RESCAN, dependencies=[Depends(require_ide_mode)])
 def route_plugins_rescan(state: AppStateFromRequest) -> PluginsRescanResponse:
     return _manager(state).rescan()
 

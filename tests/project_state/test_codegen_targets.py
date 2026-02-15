@@ -1,6 +1,7 @@
 from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
 import shutil
 
@@ -580,6 +581,62 @@ class TestCodegenTargetsRunCommand:
                 "  readonly projectName = 'PluginCodegen';\n"
                 "}\n"
             )
+        finally:
+            manager.shutdown()
+            plugin_manager.shutdown_backend_plugins()
+
+    async def test_refresh_codegen_state_skips_unchanged_plugin_codegen_outputs(
+        self,
+    ) -> None:
+        plugin_manager = self._create_loaded_codegen_plugin_manager()
+        project_config = ProjectConfig(
+            name="PluginCodegenSkipUnchanged",
+            codegenTargets=[
+                ProjectCodegenPluginTarget(
+                    language="setta-fixture-backend-codegen:typescript",
+                    options={"className": "PluginState"},
+                )
+            ],
+        )
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=plugin_manager,
+        )
+        generation_calls = 0
+        original_generate = plugin_manager.generate_backend_codegen_target
+
+        def _counting_generate_backend_codegen_target(
+            *,
+            target_id: str,
+            project_state: dict,
+            target_options: dict[str, Any],
+        ) -> list[tuple[str, str]]:
+            nonlocal generation_calls
+            generation_calls += 1
+            return original_generate(
+                target_id=target_id,
+                project_state=project_state,
+                target_options=target_options,
+            )
+
+        plugin_manager.generate_backend_codegen_target = (  # type: ignore[method-assign]
+            _counting_generate_backend_codegen_target
+        )
+        try:
+            await manager._refresh_codegen_state(project_state)
+            await manager._refresh_codegen_state(project_state)
+            assert generation_calls == 1
         finally:
             manager.shutdown()
             plugin_manager.shutdown_backend_plugins()

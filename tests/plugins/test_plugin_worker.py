@@ -4,7 +4,7 @@ import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 
@@ -17,23 +17,36 @@ def _copy_backend_fixture(tmp_path: Path, fixture_name: str = "backend") -> Path
     return plugin_root
 
 
-def _start_worker(plugin_root: Path) -> subprocess.Popen[str]:
+def _start_worker(
+    plugin_root: Path,
+    *,
+    server_mode: Literal["ide", "share", "app"] = "ide",
+    requested_capabilities: list[str] | None = None,
+    effective_capabilities: list[str] | None = None,
+) -> subprocess.Popen[str]:
     manifest = json.loads((plugin_root / "setta.plugin.json").read_text(encoding="utf-8"))
     entrypoint = plugin_root / "backend" / "entrypoint.py"
+    command = [
+        sys.executable,
+        "-m",
+        "setta.plugins.worker",
+        "--plugin-id",
+        manifest["id"],
+        "--plugin-version",
+        manifest["version"],
+        "--plugin-root",
+        str(plugin_root),
+        "--entrypoint",
+        str(entrypoint),
+        "--server-mode",
+        server_mode,
+    ]
+    for capability in requested_capabilities or []:
+        command.extend(["--requested-capability", capability])
+    for capability in effective_capabilities or []:
+        command.extend(["--effective-capability", capability])
     return subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "setta.plugins.worker",
-            "--plugin-id",
-            manifest["id"],
-            "--plugin-version",
-            manifest["version"],
-            "--plugin-root",
-            str(plugin_root),
-            "--entrypoint",
-            str(entrypoint),
-        ],
+        command,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -268,6 +281,48 @@ def test_worker_register_supports_read_state_emit_and_listener_endpoint(
         assert len(emit_request["params"]["dependencyEvents"]) == 1
     finally:
         _stop_worker(worker)
+
+
+def test_worker_context_reflects_server_mode_and_capabilities(tmp_path: Path) -> None:
+    # Worker register context should expose host-provided mode/capabilities metadata.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    marker_path = plugin_root / "backend" / "context.marker.json"
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "import json\n"
+        "from pathlib import Path\n\n"
+        "def register(plugin):\n"
+        "    payload = {\n"
+        "        'serverMode': plugin.server_mode,\n"
+        "        'deploymentMode': plugin.deployment_mode,\n"
+        "        'requestedCapabilities': list(plugin.requested_capabilities),\n"
+        "        'effectiveCapabilities': list(plugin.effective_capabilities),\n"
+        "    }\n"
+        "    Path(plugin.plugin_root, 'backend', 'context.marker.json').write_text(\n"
+        "        json.dumps(payload),\n"
+        "        encoding='utf-8',\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(
+        plugin_root,
+        server_mode="share",
+        requested_capabilities=["registerPane", "readProjectState"],
+        effective_capabilities=["registerPane"],
+    )
+    try:
+        _ = _rpc_call(worker, request_id=1, method="plugin.initialize")
+        register_response = _rpc_call(worker, request_id=2, method="plugin.register")
+        assert register_response["result"] == {"ok": True}
+    finally:
+        _stop_worker(worker)
+
+    payload = json.loads(marker_path.read_text(encoding="utf-8"))
+    assert payload == {
+        "serverMode": "share",
+        "deploymentMode": True,
+        "requestedCapabilities": ["registerPane", "readProjectState"],
+        "effectiveCapabilities": ["registerPane"],
+    }
 
 
 def test_worker_register_rejects_invalid_read_project_state_host_response(

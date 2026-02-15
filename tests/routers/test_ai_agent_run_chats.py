@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -230,11 +230,23 @@ class _TestState:
     dbe: DBE
     agent_runner: AgentRunner
     wmh_frontend_sender: WMHFrontendSender
-    external_agent_runner: ExternalAgentRunner | None = None
+    external_agent_runner: object = field(
+        default_factory=lambda: _DisabledExternalAgentRunner()
+    )
     share_mode: bool = False
     deployment_mode: bool = False
     share_runtime_state: None = None
     chat_manager: None = None
+
+
+class _DisabledExternalAgentRunner:
+    disabled = True
+
+    def get_live_chat_state(self, _run_id: ID):
+        return None
+
+    def get_ai_follow_snapshot(self, _project_config_id: ID) -> list:
+        return []
 
 
 class TestAgentRunChatRoutes:

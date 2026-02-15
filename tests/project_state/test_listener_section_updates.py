@@ -169,6 +169,30 @@ class TestListenerPluginSectionUpdates:
                 updates=[update],
             )
 
+    def test_listener_rejects_python_literal_plugin_payload(self) -> None:
+        settings = SettingsState()
+        project_state = ProjectStateSingleConfig(
+            projectConfig=ProjectConfig(name="listener-plugin")
+        )
+        section_id = create_top_level_section(
+            settings,
+            project_state,
+            SectionType.Plugin,
+            Position(),
+        )
+
+        update = ListenerFrontendEmitKeyAndValue(
+            dependencyKey=SectionDependencyKey(sectionId=section_id),
+            value=LiteralDependencyValue("{'data': {'invalid': True}}"),
+        )
+        with pytest.raises(ListenerDependencyUpdateError) as exc_info:
+            apply_listener_dependency_updates(
+                project_state=project_state,
+                updates=[update],
+            )
+
+        assert "must be valid JSON" in str(exc_info.value)
+
     def test_listener_updates_chat_section_with_json_payload(self) -> None:
         settings = SettingsState()
         project_state = ProjectStateSingleConfig(

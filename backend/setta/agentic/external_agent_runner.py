@@ -1241,7 +1241,14 @@ class ExternalAgentRunner:
             value = os.environ.get(key)
             if value:
                 env[key] = value
-        allowed = set(config.envVarWhitelist)
+        allowed = {name.strip() for name in config.envVarWhitelist if name.strip()}
+        plugin_adapter = self.get_plugin_external_agent_adapter(config.pluginAdapterId)
+        if plugin_adapter is not None:
+            allowed.update(
+                name.strip()
+                for name in plugin_adapter.envVarWhitelist
+                if name.strip()
+            )
         if not allowed:
             return env
         dot_env = self.dbe.read_dot_env()

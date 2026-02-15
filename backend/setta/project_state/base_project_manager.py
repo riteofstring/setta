@@ -1,6 +1,8 @@
 import asyncio
 import contextvars
 import copy
+import hashlib
+import json
 import logging
 import shutil
 from abc import ABC, abstractmethod
@@ -576,6 +578,9 @@ class BaseProjectManager(ABC):
                 str,
                 ProjectPythonCode | ProjectLSPCode | ProjectBashCode | ProjectBasicCode,
             ],
+        ] = {}
+        self._plugin_codegen_target_state_by_project_config: dict[
+            ID, dict[str, tuple[str, set[str]]]
         ] = {}
         self.lsp_diagnostics_state_by_project_config: dict[
             ID, ProjectLspDiagnosticsState
@@ -1217,26 +1222,112 @@ class BaseProjectManager(ABC):
         plugin_targets = self._resolve_plugin_codegen_targets(
             project_state.projectConfig.codegenTargets
         )
+        project_config_id = project_state.projectConfig.id
         output_root = self._plugin_codegen_output_root(project_state.projectConfig.name)
-        if output_root.exists():
-            shutil.rmtree(output_root)
         if len(plugin_targets) == 0:
+            self._plugin_codegen_target_state_by_project_config.pop(
+                project_config_id, None
+            )
+            if output_root.exists():
+                shutil.rmtree(output_root)
             return
         assert self.plugin_manager is not None
         project_state_payload = project_state.model_dump(mode="json")
+        previous_target_state = self._plugin_codegen_target_state_by_project_config.get(
+            project_config_id, {}
+        )
+        next_target_state: dict[str, tuple[str, set[str]]] = {}
+
         for target in plugin_targets:
+            target_language = target.language
+            target_root = output_root / self._plugin_codegen_target_dir_name(
+                target_language
+            )
+            target_fingerprint = self._build_plugin_codegen_target_fingerprint(
+                project_state=project_state_payload,
+                target_id=target_language,
+                target_options=target.options,
+            )
+            previous_state = previous_target_state.get(target_language)
+            if previous_state is not None and previous_state[0] == target_fingerprint:
+                next_target_state[target_language] = previous_state
+                continue
+
+            if previous_state is None and target_root.exists():
+                shutil.rmtree(target_root)
             generated_files = self.plugin_manager.generate_backend_codegen_target(
-                target_id=target.language,
+                target_id=target_language,
                 project_state=project_state_payload,
                 target_options=target.options,
             )
-            target_root = output_root / self._plugin_codegen_target_dir_name(
-                target.language
-            )
+            generated_relative_paths: set[str] = set()
             for relative_path, content in generated_files:
                 output_path = target_root / relative_path
                 output_path.parent.mkdir(parents=True, exist_ok=True)
+                generated_relative_paths.add(relative_path)
+                if output_path.exists():
+                    existing_content = output_path.read_text(encoding="utf-8")
+                    if existing_content == content:
+                        continue
                 self.dbe.write(output_path, content)
+
+            previous_paths = previous_state[1] if previous_state is not None else set()
+            stale_relative_paths = previous_paths - generated_relative_paths
+            for relative_path in stale_relative_paths:
+                stale_path = target_root / relative_path
+                if not stale_path.exists() or not stale_path.is_file():
+                    continue
+                stale_path.unlink()
+                self._prune_empty_codegen_directories(
+                    directory=stale_path.parent,
+                    stop_root=target_root,
+                )
+            next_target_state[target_language] = (
+                target_fingerprint,
+                generated_relative_paths,
+            )
+
+        previous_target_languages = set(previous_target_state.keys())
+        current_target_languages = {target.language for target in plugin_targets}
+        removed_target_languages = previous_target_languages - current_target_languages
+        for removed_target in removed_target_languages:
+            removed_root = output_root / self._plugin_codegen_target_dir_name(
+                removed_target
+            )
+            if removed_root.exists():
+                shutil.rmtree(removed_root)
+        self._plugin_codegen_target_state_by_project_config[project_config_id] = (
+            next_target_state
+        )
+
+    def _build_plugin_codegen_target_fingerprint(
+        self,
+        *,
+        project_state: dict[str, Any],
+        target_id: str,
+        target_options: dict[str, Any],
+    ) -> str:
+        encoded = json.dumps(
+            {
+                "projectState": project_state,
+                "targetId": target_id,
+                "targetOptions": target_options,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+    def _prune_empty_codegen_directories(self, *, directory: Path, stop_root: Path) -> None:
+        current = directory
+        while current != stop_root and current.is_relative_to(stop_root):
+            if not current.exists() or not current.is_dir():
+                current = current.parent
+                continue
+            if any(current.iterdir()):
+                return
+            current.rmdir()
+            current = current.parent
 
     def _require_python_codegen(self, project_config_id: ID) -> ProjectGenPythonCode:
         project_config = self.project_state_backend.projectConfigs[project_config_id]
@@ -3209,6 +3300,9 @@ class BaseProjectManager(ABC):
                     if _is_lsp_code_entry(code_entry):
                         code_entry.callback_cleanup()
             self.lsp_diagnostics_state_by_project_config.pop(project_config_id, None)
+            self._plugin_codegen_target_state_by_project_config.pop(
+                project_config_id, None
+            )
         self.project_state_backend.validate_default_project_id()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
         await self.broadcast_all_project_metadata()

@@ -15,3 +15,14 @@
 - Updated plugin fixture helper scripts (`link.sh`, `unlink.sh`, `reset.sh`) so accepted scopes and usage text are canonical-only: `workspace`, `setta_files`, `global`.
 - Removed remaining plugin-scope alias references from canonical docs and fixture docs (`plugin-authoring-golden-path`, `plugin-fixture-manual-smoke`, fixture READMEs).
 - Added/updated tests to lock behavior: unit coverage for explicit `environment` rejection guidance, CLI coverage for rejecting `--scope environment` with canonical choices in help output, and Playwright coverage that install-scope UI exposes `workspace`/`setta_files`/`global` with no `environment` option.
+
+## 2026-02-15T15:18:00-08:00 - pending
+
+- Applied plugin runtime/manager hardening from review findings: restricted plugin asset serving to frontend roots only, removed worker pipe `select` polling in favor of timeout-based threaded reads, and propagated runtime mode/capabilities into worker context.
+- Fixed plugin install/link restart semantics and lockfile determinism by persisting and honoring `installerBackend` through lockfile write/apply flows.
+- Tightened deployment-mode behavior by guarding plugin rescan behind IDE mode and redacting plugin source details (`canonicalSourceKey`, `sourcePath`) from list/status responses outside IDE mode.
+- Improved plugin discovery/codegen performance paths with directory digest caching, targeted plugin codegen output refresh/pruning, and deterministic local `UV_CACHE_DIR` handling.
+- Removed plugin payload `literal_eval` fallback in listener dependency updates so plugin section payload strings must be valid JSON.
+- Removed backward-compatibility shims around external agent runner adapter APIs and updated runtime whitelist env resolution to include live plugin adapter IDs.
+- Updated frontend plugin rendering lifecycle logic to avoid unnecessary remounts and ensure update-driven refresh behavior; standardized missing-plugin fallback copy to mention `workspace` and `setta_files` scope.
+- Expanded test coverage with backend unit/integration tests, frontend Vitest updates, and a new Playwright E2E test for the plugin fallback wording; completed CDP visual verification for the updated fallback UI.

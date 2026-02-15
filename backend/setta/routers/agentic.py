@@ -210,20 +210,7 @@ class DeleteEngineConfigRequest(BaseModel):
 def _get_plugin_external_agent_adapters(
     ctx: RuntimeContextFromRequest,
 ) -> list[PluginRegisteredExternalAgentAdapter]:
-    runner = getattr(ctx.state, "external_agent_runner", None)
-    if runner is None:
-        return []
-    getter = getattr(runner, "get_plugin_external_agent_adapters", None)
-    if not callable(getter):
-        return []
-    adapters = getter()
-    if not isinstance(adapters, list):
-        return []
-    return [
-        adapter
-        for adapter in adapters
-        if isinstance(adapter, PluginRegisteredExternalAgentAdapter)
-    ]
+    return ctx.state.external_agent_runner.get_plugin_external_agent_adapters()
 
 
 def _validate_plugin_external_agent_selection(

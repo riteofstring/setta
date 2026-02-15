@@ -849,8 +849,18 @@ function registerPluginModule({
       };
     },
     subscribeProjectContext: (listener) => {
-      const emit = () => listener(host.getProjectContext());
-      const unsubscribe = useProjectState.subscribe(emit);
+      const unsubscribe = useProjectState.subscribe(
+        (state) => state.projectConfig.id,
+        (projectConfigId, previousProjectConfigId) => {
+          if (projectConfigId === previousProjectConfigId) {
+            return;
+          }
+          listener({
+            projectConfigId,
+            serverMode,
+          });
+        },
+      );
       const unregisterCleanup = registerPluginCleanup(
         plugin.pluginId,
         unsubscribe,

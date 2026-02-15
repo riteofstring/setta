@@ -329,4 +329,15 @@ describe("PluginArea fallback actions", () => {
       "error",
     );
   });
+
+  it("uses canonical scope wording for not-installed plugin fallback reason", () => {
+    // Not-installed fallback copy should reference workspace/setta_files terminology.
+    fallbackReason = "plugin_not_installed";
+
+    const fallbackCard = renderFallbackCard("section-scope-wording");
+
+    expect(collectText(fallbackCard)).toContain(
+      "Plugin is not installed in this workspace or setta_files scope.",
+    );
+  });
 });

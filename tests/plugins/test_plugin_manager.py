@@ -229,19 +229,57 @@ def _build_python_package_artifacts(plugin_root: Path) -> Path:
     dist_dir = plugin_root / "dist"
     if dist_dir.exists():
         shutil.rmtree(dist_dir)
-    build_result = subprocess.run(
-        [sys.executable, "-m", "build", "--wheel", "--sdist"],
-        cwd=plugin_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if build_result.returncode != 0:
-        raise AssertionError(
-            "python -m build failed:\n"
-            f"STDOUT:\n{build_result.stdout}\n"
-            f"STDERR:\n{build_result.stderr}"
+    dist_dir.mkdir(parents=True, exist_ok=True)
+    manifest = json.loads((plugin_root / "setta.plugin.json").read_text(encoding="utf-8"))
+    package_name = str(manifest["id"])
+    version = str(manifest["version"])
+    normalized_name = package_name.replace("-", "_")
+    dist_info_name = f"{normalized_name}-{version}.dist-info"
+    wheel_path = dist_dir / f"{normalized_name}-{version}-py3-none-any.whl"
+    with zipfile.ZipFile(wheel_path, "w", compression=zipfile.ZIP_DEFLATED) as zipf:
+        for path in sorted(plugin_root.rglob("*"), key=lambda item: str(item)):
+            if not path.is_file():
+                continue
+            if path.is_relative_to(dist_dir):
+                continue
+            relative_path = path.relative_to(plugin_root).as_posix()
+            zipf.write(path, arcname=relative_path)
+        zipf.writestr(
+            f"{dist_info_name}/METADATA",
+            "\n".join(
+                [
+                    "Metadata-Version: 2.1",
+                    f"Name: {package_name}",
+                    f"Version: {version}",
+                    "Summary: Setta fixture plugin",
+                    "",
+                ]
+            ),
         )
+        zipf.writestr(
+            f"{dist_info_name}/WHEEL",
+            "\n".join(
+                [
+                    "Wheel-Version: 1.0",
+                    "Generator: setta-tests",
+                    "Root-Is-Purelib: true",
+                    "Tag: py3-none-any",
+                    "",
+                ]
+            ),
+        )
+        zipf.writestr(f"{dist_info_name}/RECORD", "")
+
+    sdist_root = f"{package_name}-{version}"
+    sdist_path = dist_dir / f"{sdist_root}.tar.gz"
+    with tarfile.open(sdist_path, "w:gz") as archive:
+        for path in sorted(plugin_root.rglob("*"), key=lambda item: str(item)):
+            if path.is_relative_to(dist_dir):
+                continue
+            archive.add(
+                path,
+                arcname=f"{sdist_root}/{path.relative_to(plugin_root).as_posix()}",
+            )
     if not dist_dir.exists():
         raise AssertionError(f"Missing dist directory: {dist_dir}")
     if len(list(dist_dir.glob("*.whl"))) == 0:
@@ -590,6 +628,12 @@ def test_lockfile_apply_reinstalls_from_pypi_source(tmp_path: Path) -> None:
         )
         lock_write = manager.write_lockfile()
         assert lock_write.pluginCount == 1
+        lock_payload = json.loads(
+            manager._lockfile_path.read_text(encoding="utf-8")
+        )
+        lock_entries = lock_payload.get("plugins", [])
+        assert len(lock_entries) == 1
+        assert lock_entries[0]["installerBackend"] == "pip"
 
         manager.uninstall_plugin(
             plugin_id="setta-fixture-frontend",
@@ -1184,6 +1228,44 @@ def test_uninstall_requires_scope_when_plugin_exists_in_multiple_scopes(
         manager.uninstall_plugin(plugin_id=plugin_id, scope=None)
 
     assert exc_info.value.code == "PLUGIN_UNINSTALL_SCOPE_REQUIRED"
+
+
+def test_link_plugin_force_replace_preserves_restart_requirement_for_backend_replacement(
+    tmp_path: Path,
+) -> None:
+    # Replacing a backend plugin with frontend-only source must still require restart.
+    manager = _make_manager(tmp_path)
+    linked_backend = manager.link_plugin(
+        local_plugin_root=str(_fixture_path("backend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    assert linked_backend.restartRequired is True
+
+    replacement_root = tmp_path / "frontend-replacement"
+    shutil.copytree(_fixture_path("frontend"), replacement_root)
+    replacement_manifest_path = replacement_root / "setta.plugin.json"
+    replacement_manifest = json.loads(
+        replacement_manifest_path.read_text(encoding="utf-8")
+    )
+    replacement_manifest["id"] = linked_backend.pluginId
+    replacement_manifest["name"] = linked_backend.pluginId
+    replacement_manifest_path.write_text(
+        json.dumps(replacement_manifest, indent=2),
+        encoding="utf-8",
+    )
+
+    replacement_result = manager.link_plugin(
+        local_plugin_root=str(replacement_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=True,
+    )
+
+    assert replacement_result.pluginId == linked_backend.pluginId
+    assert replacement_result.restartRequired is True
+    assert replacement_result.state == PluginRuntimeState.pending_restart
 
 
 def test_backend_plugin_disable_stays_pending_restart(tmp_path: Path) -> None:
@@ -2005,6 +2087,56 @@ def test_mode_policy_blocks_backend_external_agent_registration(
     assert any(
         error.code == "PLUGIN_CAPABILITY_DENIED" for error in loaded_entries[0].errors
     )
+
+
+@pytest.mark.parametrize("server_mode", ["share", "app"])
+def test_backend_worker_context_uses_runtime_mode_metadata(
+    tmp_path: Path,
+    server_mode: Literal["share", "app"],
+) -> None:
+    # Worker register context should expose host server mode + capability metadata.
+    manager = _make_manager(tmp_path, server_mode=server_mode)
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    marker_path = backend_root / "backend" / "context.marker.json"
+    (backend_root / "backend" / "entrypoint.py").write_text(
+        "import json\n"
+        "from pathlib import Path\n\n"
+        "def register(plugin):\n"
+        "    Path(plugin.plugin_root, 'backend', 'context.marker.json').write_text(\n"
+        "        json.dumps(\n"
+        "            {\n"
+        "                'serverMode': plugin.server_mode,\n"
+        "                'deploymentMode': plugin.deployment_mode,\n"
+        "                'requestedCapabilities': list(plugin.requested_capabilities),\n"
+        "                'effectiveCapabilities': list(plugin.effective_capabilities),\n"
+        "            }\n"
+        "        ),\n"
+        "        encoding='utf-8',\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+    marker_payload = json.loads(marker_path.read_text(encoding="utf-8"))
+
+    assert marker_payload["serverMode"] == server_mode
+    assert marker_payload["deploymentMode"] is True
+    assert set(marker_payload["requestedCapabilities"]) == {
+        "registerRouter",
+        "registerMcpTools",
+        "readProjectState",
+        "emitListenerEvents",
+        "registerListenerEndpoint",
+    }
+    assert marker_payload["effectiveCapabilities"] == [
+        "readProjectState",
+        "emitListenerEvents",
+    ]
 
 
 def test_backend_worker_processes_stay_alive_until_shutdown(tmp_path: Path) -> None:
@@ -2861,6 +2993,56 @@ def test_init_template_can_be_linked_and_served(tmp_path: Path) -> None:
     assert "export function register(host)" in entrypoint_text
 
 
+def test_plugin_asset_resolution_rejects_backend_files_outside_frontend_roots(
+    tmp_path: Path,
+) -> None:
+    # Asset resolution must not expose backend/internal plugin files.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("full")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.resolve_plugin_asset_path(
+            plugin_id="setta-fixture-full",
+            asset_path="backend/entrypoint.py",
+        )
+
+    assert exc_info.value.code == "PLUGIN_ASSET_NOT_FOUND"
+
+
+def test_directory_digest_cache_skips_rehash_when_tree_is_unchanged(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Digest cache should avoid reopening files when directory contents are unchanged.
+    manager = _make_manager(tmp_path)
+    digest_root = tmp_path / "digest-root"
+    digest_root.mkdir(parents=True, exist_ok=True)
+    sample_file = digest_root / "sample.txt"
+    sample_file.write_text("first", encoding="utf-8")
+
+    first_digest = manager._compute_directory_digest(digest_root)
+    with monkeypatch.context() as scope:
+        scope.setattr(
+            Path,
+            "open",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                AssertionError("Expected cached directory digest to skip file reads.")
+            ),
+        )
+        second_digest = manager._compute_directory_digest(digest_root)
+
+    sample_file.write_text("second", encoding="utf-8")
+    updated_digest = manager._compute_directory_digest(digest_root)
+
+    assert second_digest == first_digest
+    assert updated_digest != first_digest
+
+
 def test_init_build_install_golden_path_plugin_is_usable(tmp_path: Path) -> None:
     # Golden path: init -> build artifact -> install via pypi source -> load/use plugin.
     manager = _make_manager(tmp_path)
@@ -3050,6 +3232,46 @@ def test_apply_lockfile_requires_source_spec_for_missing_plugin(tmp_path: Path) 
     with pytest.raises(PluginManagerError) as exc_info:
         manager.apply_lockfile(check=False)
     assert exc_info.value.code == "PLUGIN_LOCKFILE_ENTRY_MISSING_SOURCE"
+
+
+def test_apply_lockfile_uses_installer_backend_from_lockfile(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Lockfile apply should pass through installer backend persisted in lock entries.
+    manager = _make_manager(tmp_path)
+    lockfile_path = manager.workspace_root / ".setta_plugins" / "plugins.lock.json"
+    lockfile_path.parent.mkdir(parents=True, exist_ok=True)
+    lockfile_path.write_text(
+        json.dumps(
+            {
+                "plugins": [
+                    {
+                        "pluginId": "setta-fixture-frontend",
+                        "version": "0.1.0",
+                        "canonicalSourceKey": "pypi:setta-fixture-frontend",
+                        "scope": "workspace",
+                        "sourceDigestSha256": "fixture-digest",
+                        "sourceSpec": "pypi:setta-fixture-frontend==0.1.0",
+                        "installerBackend": "pip",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    captured_installer: PluginInstallerBackend | None = None
+
+    def _fake_install_plugin(*, installer: PluginInstallerBackend | None, **_kwargs):
+        nonlocal captured_installer
+        captured_installer = installer
+
+    monkeypatch.setattr(manager, "install_plugin", _fake_install_plugin)
+
+    result = manager.apply_lockfile(check=False)
+
+    assert result.applied is True
+    assert captured_installer == PluginInstallerBackend.pip
 
 
 def test_apply_lockfile_plans_uninstall_for_plugins_missing_from_lockfile(
@@ -4371,10 +4593,7 @@ def test_read_backend_worker_message_handles_transport_edge_cases(
     )
     try:
         with monkeypatch.context() as scope:
-            scope.setattr(
-                "setta.plugins.manager.select.select",
-                lambda _r, _w, _x, _t: ([], [], []),
-            )
+            scope.setattr(manager, "_read_stream_line_with_timeout", lambda *_a, **_k: None)
             with pytest.raises(PluginManagerError) as timeout_error:
                 manager._read_backend_worker_message(
                     process=timeout_process,

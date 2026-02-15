@@ -1121,6 +1121,9 @@ describe("plugin runtime helpers", () => {
       observedContexts.push(context);
     });
     useProjectState.setState((state) => {
+      state.projectConfig.name = "project-name-updated";
+    });
+    useProjectState.setState((state) => {
       state.projectConfig.id = "project-config-updated";
     });
     unsubscribe();

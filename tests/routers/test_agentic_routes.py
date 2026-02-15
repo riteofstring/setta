@@ -1,6 +1,6 @@
 import json
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -60,7 +60,6 @@ from setta.types.agentic import (
     EngineType,
 )
 from setta.types.external_agents import (
-    ExternalAgentConfig,
     ExternalAgentEnvVarStatus,
     ExternalAgentPreflightStatus,
     ExternalAgentRunMode,
@@ -87,8 +86,19 @@ class _AgenticTestState:
     wmh_frontend_sender: WMHFrontendSender | None = None
     chat_manager: None = None
     agent_runner: AgentRunner | None = None
-    external_agent_runner: object | None = None
+    external_agent_runner: object = field(
+        default_factory=lambda: _DisabledExternalAgentRunner()
+    )
     prompt_template_watcher: object | None = None
+
+
+class _DisabledExternalAgentRunner:
+    disabled = True
+
+    def get_plugin_external_agent_adapters(
+        self,
+    ) -> list[PluginRegisteredExternalAgentAdapter]:
+        return []
 
 
 class TestAgenticRoutes:
@@ -538,6 +548,11 @@ class TestAgenticRoutes:
     async def test_external_agent_run_blocks_on_preflight(self) -> None:
         class _Runner:
             disabled = False
+
+            def get_plugin_external_agent_adapters(
+                self,
+            ) -> list[PluginRegisteredExternalAgentAdapter]:
+                return []
 
             def start_run(self, *_args, **_kwargs):
                 raise AssertionError("start_run should not be called on preflight fail")

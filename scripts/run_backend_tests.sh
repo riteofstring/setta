@@ -13,7 +13,7 @@ compute_plugin_fixture_signature() {
     fixture_files+=("${fixture_file}")
   done < <(
     find "${ROOT_DIR}/tests/fixtures/plugins" -type f \
-      \( -name "setta.plugin.json" -o -name "vite.config.mjs" -o -path "*/frontend/src/*" \) \
+      ! -path "*/frontend/dist/*" \
       | sort
   )
 

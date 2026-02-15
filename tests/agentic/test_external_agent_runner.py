@@ -1039,6 +1039,41 @@ class TestExternalAgentRunner:
 
             assert env.get("OPENAI_API_KEY") == "secret"
 
+    def test_plugin_adapter_env_whitelist_is_applied_in_runtime_env(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            dbe.dot_env = Path(tmpdir) / ".env"
+            dbe.write_dot_env({"FIXTURE_EXTERNAL_AGENT_TOKEN": "secret"})
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            registration = PluginRegisteredExternalAgentAdapter(
+                adapterId="setta-fixture-backend-external-agent:fixture-agent",
+                pluginId="setta-fixture-backend-external-agent",
+                name="Fixture External Agent",
+                runModes=["sdk"],
+                command=sys.executable,
+                args=["-c", "print('fixture')"],
+                envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
+                defaultModel="fixture-model",
+            )
+            runner = ExternalAgentRunner(
+                dbe,
+                frontend_sender,
+                plugin_external_agent_adapters=[registration],
+            )
+            config = ExternalAgentConfig(
+                name="Fixture Plugin Adapter",
+                toolType=ExternalAgentToolType.plugin,
+                pluginAdapterId=registration.adapterId,
+                runMode=ExternalAgentRunMode.sdk,
+                envVarWhitelist=[],
+            )
+
+            env = runner._build_env(config)
+
+            assert env.get("FIXTURE_EXTERNAL_AGENT_TOKEN") == "secret"
+
     def test_claude_mcp_config_is_written(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

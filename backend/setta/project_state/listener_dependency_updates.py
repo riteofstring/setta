@@ -246,16 +246,13 @@ def _parse_plugin_payload(*, section_id: ID, payload: object) -> object:
             )
         try:
             return json.loads(payload_text)
-        except json.JSONDecodeError:
-            try:
-                return literal_eval(payload_text)
-            except (ValueError, SyntaxError) as exc:
-                raise ListenerDependencyUpdateError(
-                    (
-                        "listener emit plugin section payload must be valid JSON "
-                        f"or Python literal for {section_id}"
-                    )
-                ) from exc
+        except json.JSONDecodeError as exc:
+            raise ListenerDependencyUpdateError(
+                (
+                    "listener emit plugin section payload must be valid JSON "
+                    f"for {section_id}"
+                )
+            ) from exc
     raise ListenerDependencyUpdateError(
         f"listener emit plugin section payload has unsupported type {type(payload).__name__}"
     )

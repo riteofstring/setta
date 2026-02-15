@@ -218,6 +218,88 @@ def test_plugin_routes_backend_static_router_fixture_roundtrip() -> None:
             }
 
 
+def test_plugin_asset_route_rejects_non_frontend_files() -> None:
+    # Asset route should only expose declared frontend asset roots.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+        )
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            link_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_LINK.value}",
+                json={
+                    "localPluginRoot": str(_fixture_plugin_root("full")),
+                    "scope": "workspace",
+                    "enable": True,
+                    "force": True,
+                },
+            )
+            assert link_response.status_code == 200
+            plugin_id = link_response.json()["pluginId"]
+
+            frontend_asset = client.get(f"/plugins/{plugin_id}/frontend/dist/index.js")
+            assert frontend_asset.status_code == 200
+
+            backend_asset = client.get(f"/plugins/{plugin_id}/backend/entrypoint.py")
+            assert backend_asset.status_code == 404
+            assert backend_asset.json()["detail"]["code"] == "PLUGIN_ASSET_NOT_FOUND"
+
+
+def test_plugin_read_routes_redact_source_details_in_deployment_mode() -> None:
+    # Deployment-facing list/status should not expose host-local source details.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="share",
+            setta_version="0.1.0",
+        )
+        manager.link_plugin(
+            local_plugin_root=str(_fixture_plugin_root("frontend")),
+            scope="workspace",
+            enable=True,
+            force=False,
+        )
+        app = _build_test_app(manager=manager, deployment_mode=True)
+
+        with TestClient(app) as client:
+            list_response = client.get(f"{Route.PREFIX.value}{Route.PLUGINS_LIST.value}")
+            assert list_response.status_code == 200
+            plugins = list_response.json()["plugins"]
+            assert len(plugins) == 1
+            assert plugins[0]["canonicalSourceKey"].startswith("redacted:")
+
+            status_response = client.get(
+                f"{Route.PREFIX.value}{Route.PLUGINS_STATUS.value}"
+            )
+            assert status_response.status_code == 200
+            status_plugins = status_response.json()["plugins"]
+            assert len(status_plugins) == 1
+            assert status_plugins[0]["canonicalSourceKey"].startswith("redacted:")
+            assert status_plugins[0]["sourcePath"].startswith("[redacted]:")
+
+
 def test_plugin_install_route_rejects_removed_environment_scope() -> None:
     # Install route should reject removed legacy scope labels.
     with TemporaryDirectory() as tmpdir:
@@ -400,6 +482,15 @@ def test_plugin_mutation_routes_blocked_in_deployment_mode() -> None:
                 == "Deployment mode does not allow this endpoint."
             )
 
+            rescan_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RESCAN.value}"
+            )
+            assert rescan_response.status_code == 403
+            assert (
+                rescan_response.json()["detail"]
+                == "Deployment mode does not allow this endpoint."
+            )
+
             list_response = client.get(f"{Route.PREFIX.value}{Route.PLUGINS_LIST.value}")
             assert list_response.status_code == 200
             assert list_response.json()["plugins"] == []
@@ -456,6 +547,10 @@ def test_plugin_mutation_routes_blocked_in_deployment_mode() -> None:
         (
             Route.PLUGINS_LOCK_APPLY.value,
             {"check": False},
+        ),
+        (
+            Route.PLUGINS_RESCAN.value,
+            None,
         ),
     ],
 )

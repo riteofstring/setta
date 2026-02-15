@@ -41,6 +41,7 @@ export function PluginOverviewPane({
     }),
     [pluginId, runtime.effectiveCapabilities, runtime.serverMode],
   );
+  const previousPanePropsRef = useRef<typeof paneProps | null>(null);
 
   useEffect(() => {
     const mountElement = mountRef.current;
@@ -49,21 +50,33 @@ export function PluginOverviewPane({
     }
     pane.renderer.mount(mountElement, paneProps);
     mountedRef.current = true;
+    previousPanePropsRef.current = null;
     return () => {
       mountedRef.current = false;
+      previousPanePropsRef.current = null;
       pane.renderer.unmount?.(mountElement);
     };
-  }, [pane, paneProps]);
+  }, [pane]);
 
   useEffect(() => {
     const mountElement = mountRef.current;
-    if (!mountElement || !pane || !pane.renderer.update) {
+    if (!mountElement || !pane) {
       return;
     }
     if (!mountedRef.current) {
       return;
     }
-    pane.renderer.update(mountElement, paneProps);
+    const previousProps = previousPanePropsRef.current;
+    previousPanePropsRef.current = paneProps;
+    if (previousProps === null) {
+      return;
+    }
+    if (pane.renderer.update) {
+      pane.renderer.update(mountElement, paneProps);
+      return;
+    }
+    pane.renderer.unmount?.(mountElement);
+    pane.renderer.mount(mountElement, paneProps);
   }, [pane, paneProps]);
 
   if (!pane) {
