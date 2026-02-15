@@ -166,13 +166,22 @@ class WebsocketManager:
         currentAddress: str | None = None,
     ):
         sockets_snapshot = list(self.sockets.items())
-        for k, v in sockets_snapshot:
+        target_ids: list[str] = []
+        for websocket_id, connection_info in sockets_snapshot:
             if (
                 (not connectionType and not currentAddress)
-                or (connectionType and v.connectionType == connectionType)
-                or (currentAddress and v.currentAddress == currentAddress)
+                or (
+                    connectionType
+                    and connection_info.connectionType == connectionType
+                )
+                or (currentAddress and connection_info.currentAddress == currentAddress)
             ):
-                await self.send_message(message, k)
+                target_ids.append(websocket_id)
+        if not target_ids:
+            return
+        await asyncio.gather(
+            *(self.send_message(message, websocket_id) for websocket_id in target_ids)
+        )
 
     async def broadcast_to_session(
         self,
@@ -183,15 +192,24 @@ class WebsocketManager:
         currentAddress: str | None = None,
     ):
         sockets_snapshot = list(self.sockets.items())
-        for k, v in sockets_snapshot:
-            if v.shareSessionId != share_session_id:
+        target_ids: list[str] = []
+        for websocket_id, connection_info in sockets_snapshot:
+            if connection_info.shareSessionId != share_session_id:
                 continue
             if (
                 (not connectionType and not currentAddress)
-                or (connectionType and v.connectionType == connectionType)
-                or (currentAddress and v.currentAddress == currentAddress)
+                or (
+                    connectionType
+                    and connection_info.connectionType == connectionType
+                )
+                or (currentAddress and connection_info.currentAddress == currentAddress)
             ):
-                await self.send_message(message, k)
+                target_ids.append(websocket_id)
+        if not target_ids:
+            return
+        await asyncio.gather(
+            *(self.send_message(message, websocket_id) for websocket_id in target_ids)
+        )
 
     async def broadcast_connections(self):
         connections: list[WebsocketConnectionInfo] = []

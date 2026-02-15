@@ -1,4 +1,9 @@
-import type { ConsoleMessage, Page, Response } from "@playwright/test";
+import {
+  request as playwrightRequest,
+  type ConsoleMessage,
+  type Page,
+  type Response,
+} from "@playwright/test";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -329,9 +334,39 @@ export async function cleanupIsolatedProject(
   }
   // Isolated configs are created for tests only; deleting the config is enough
   // and avoids an extra metadata write call that has proven flaky under CI load.
-  await postBackend(page, "/deleteProjectConfigs", {
+  await postBackendUsingFreshContext(page, "/deleteProjectConfigs", {
     ids: [context.projectConfigId],
   });
+}
+
+async function postBackendUsingFreshContext<T>(
+  page: Page,
+  path: string,
+  payload: Record<string, unknown> | null,
+): Promise<T | null> {
+  installUnexpectedApiErrorGuard(page);
+  throwIfUnexpectedApiError(page);
+  const storageState = await page.context().storageState();
+  const apiContext = await playwrightRequest.newContext({ storageState });
+  try {
+    const response = await apiContext.post(`${BACKEND_ORIGIN}/api${path}`, {
+      data: payload,
+      timeout: 30_000,
+    });
+    const text = await response.text();
+    if (!response.ok()) {
+      const detail = text ? ` ${text}` : "";
+      throw new Error(
+        `Backend request failed (${response.status()}): ${path}${detail}`,
+      );
+    }
+    if (!text) {
+      return null;
+    }
+    return JSON.parse(text) as T;
+  } finally {
+    await apiContext.dispose();
+  }
 }
 
 export async function ensureManagedChatEngine(

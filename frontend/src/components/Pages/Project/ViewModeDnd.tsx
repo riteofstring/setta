@@ -30,12 +30,13 @@ export function SortableListProvider({
   onReorder,
   children,
 }: SortableListProviderProps) {
-  if (!enabled || typeof window === "undefined") {
+  if (typeof window === "undefined") {
     return <>{children}</>;
   }
 
   return (
     <SortableListProviderClient
+      enabled={enabled}
       id={id}
       items={items}
       direction={direction}
@@ -46,12 +47,10 @@ export function SortableListProvider({
   );
 }
 
-type SortableListProviderClientProps = Omit<
-  SortableListProviderProps,
-  "enabled"
->;
+type SortableListProviderClientProps = SortableListProviderProps;
 
 function SortableListProviderClient({
+  enabled,
   id,
   items,
   direction,
@@ -59,12 +58,15 @@ function SortableListProviderClient({
   children,
 }: SortableListProviderClientProps) {
   const sensors = useMemo(
-    () => [
-      PointerSensor.configure({
-        preventActivation: () => false,
-      }),
-    ],
-    [],
+    () =>
+      enabled
+        ? [
+            PointerSensor.configure({
+              preventActivation: () => false,
+            }),
+          ]
+        : [],
+    [enabled],
   );
   const dndContext = useMemo(
     () => ({
@@ -79,6 +81,9 @@ function SortableListProviderClient({
       : verticalListSortingStrategy;
 
   function handleDragEnd(event: DragEndEvent) {
+    if (!enabled) {
+      return;
+    }
     const nextOrderedIds = resolveReorderedIds({
       event,
       orderedIds: items,

@@ -233,6 +233,7 @@ export function ViewingEditingMode() {
         className="flex min-h-0 flex-1 flex-col gap-0"
       >
         <section
+          data-testid="view-modes-pane"
           className={`overflow-hidden rounded border border-setta-200/60 p-2 dark:border-setta-800/70 ${
             isViewModesCollapsed ? "" : "min-h-[8rem] flex-1"
           }`}
