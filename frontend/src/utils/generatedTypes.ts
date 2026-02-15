@@ -2651,8 +2651,8 @@ const TaskBoardSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
-  columns: z.array(TaskBoardColumnSchema).default([]),
-  tasks: z.array(TaskBoardTaskSchema).default([]),
+  columns: z.array(TaskBoardColumnSchema).default(() => []),
+  tasks: z.array(TaskBoardTaskSchema).default(() => []),
 });
 
 type TaskBoardSectionImpl = z.infer<typeof TaskBoardSectionImplSchema>;
@@ -6023,8 +6023,8 @@ const UserDefaultTaskBoardSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
-  columns: z.array(TaskBoardColumnSchema).default([]),
-  tasks: z.array(TaskBoardTaskSchema).default([]),
+  columns: z.array(TaskBoardColumnSchema).default(() => []),
+  tasks: z.array(TaskBoardTaskSchema).default(() => []),
 });
 
 type UserDefaultTaskBoardSectionImpl = z.infer<

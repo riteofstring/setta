@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
 
@@ -119,7 +119,10 @@ def coerce_completion_status_report(
         return None
     if "completionIntent" not in payload or "requiresVerification" not in payload:
         return None
-    input_payload = CompletionStatusReportInput.model_validate(payload)
+    try:
+        input_payload = CompletionStatusReportInput.model_validate(payload)
+    except ValidationError:
+        return None
     return build_completion_status_report(
         task_id=input_payload.taskId,
         completion_intent=input_payload.completionIntent,
@@ -139,4 +142,4 @@ def is_report_completion_status_tool(tool_name: str | None) -> bool:
     server_id, tool_basename = split_namespaced_tool_name(normalized)
     if tool_basename != REPORT_COMPLETION_STATUS_TOOL_NAME:
         return False
-    return server_id in (None, SETTA_MCP_SERVER_ID)
+    return server_id == SETTA_MCP_SERVER_ID

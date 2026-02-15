@@ -126,7 +126,7 @@ unavailable, empty, or fail to respond and the host provides built-in tools (for
   - `requiresVerification` (`true` when error checks are required)
   - `checkResults` entries with `checkName`, `required`, `status` (`passed` | `failed` | `not_run`), and optional `details`/`source`.
 - If verification is required and checks were not run, report `status: "not_run"` for the required checks.
-- If the response is informational/clarifying and not a completion claim, call `report_completion_status` with `completionIntent: false`.
+- Do not call `report_completion_status` for informational or clarifying responses that do not claim completion.
 
 ## Don't-do list
 - No direct file edits, no writing to `setta_files`, no editing `setta_gen.py`.

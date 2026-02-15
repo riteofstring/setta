@@ -155,8 +155,8 @@ ANTHROPIC_TOOL_SEARCH_BETA_HEADER = "advanced-tool-use-2025-11-20"
 DEFAULT_ANTHROPIC_THINKING_BUDGET = 1024
 MAX_AGENTIC_SECTION_SUMMARY_OUTPUT_CHARS = 1200
 MAX_CHAT_TITLE_INPUT_CHARS = 2000
-_REQUIRED_INTERNAL_TOOL_BASENAMES: tuple[str, ...] = (
-    REPORT_COMPLETION_STATUS_TOOL_NAME,
+_REQUIRED_INTERNAL_TOOL_NAMES: tuple[str, ...] = (
+    build_namespaced_tool_name(SETTA_MCP_SERVER_ID, REPORT_COMPLETION_STATUS_TOOL_NAME),
 )
 
 
@@ -931,8 +931,8 @@ class AgentRunner:
                 server_ids.add(normalized)
             else:
                 tool_basenames.add(normalized)
-        for required_basename in _REQUIRED_INTERNAL_TOOL_BASENAMES:
-            tool_basenames.add(required_basename)
+        for required_tool_name in _REQUIRED_INTERNAL_TOOL_NAMES:
+            tool_names.add(required_tool_name)
         return ToolAllowlist(
             tool_names=tool_names,
             tool_basenames=tool_basenames,
@@ -1656,8 +1656,8 @@ class AgentRunner:
             if not is_setta_tool_name(name):
                 filtered.append(name)
                 continue
-            _, tool_basename = split_namespaced_tool_name(name)
-            if tool_basename in _REQUIRED_INTERNAL_TOOL_BASENAMES:
+            normalized_name = name[len("mcp__") :] if name.startswith("mcp__") else name
+            if normalized_name in _REQUIRED_INTERNAL_TOOL_NAMES:
                 filtered.append(name)
                 continue
             annotations = self.mcp_client.tool_annotations_by_name.get(name)
@@ -1687,9 +1687,14 @@ class AgentRunner:
     def _is_tool_allowed(self, tool_name: str, allowlist: ToolAllowlist | None) -> bool:
         if allowlist is None:
             return True
-        if tool_name in allowlist.tool_names:
+        normalized_tool_name = (
+            tool_name[len("mcp__") :] if tool_name.startswith("mcp__") else tool_name
+        )
+        if normalized_tool_name in allowlist.tool_names:
             return True
-        server_id, base_name = split_namespaced_tool_name(tool_name)
+        server_id, base_name = split_namespaced_tool_name(normalized_tool_name)
+        if base_name == REPORT_COMPLETION_STATUS_TOOL_NAME:
+            return server_id == SETTA_MCP_SERVER_ID
         if base_name in allowlist.tool_basenames:
             return True
         if server_id and server_id in allowlist.server_ids:

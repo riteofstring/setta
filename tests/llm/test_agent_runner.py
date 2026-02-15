@@ -147,12 +147,58 @@ class TestAgentRunner:
             allowlist = runner._normalize_tool_allowlist(profile)
 
             assert allowlist is not None
-            assert allowlist.tool_names == {"server-a__tool.alpha"}
-            assert allowlist.tool_basenames == {
-                "report_completion_status",
-                "tool.beta",
+            assert allowlist.tool_names == {
+                "server-a__tool.alpha",
+                "setta__report_completion_status",
             }
+            assert allowlist.tool_basenames == {"tool.beta"}
             assert allowlist.server_ids == {"server-a", "server-b"}
+
+    def test_allowlist_does_not_allow_report_completion_status_on_other_servers(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=["other", SETTA_MCP_SERVER_ID],
+                    )
+                },
+                mcpServers={
+                    "other": MCPServerConfig(
+                        transport="sse",
+                        url="http://localhost:8001/mcp",
+                    ),
+                    SETTA_MCP_SERVER_ID: MCPServerConfig(
+                        transport="sse",
+                        url="http://localhost:8000/mcp",
+                    ),
+                },
+            )
+            runner = _build_runner(dbe, config)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(
+                name="Alpha",
+                engineConfigId=engine_config_id,
+                toolAllowlist=["other__tool.alpha"],
+            )
+
+            allowlist = runner._normalize_tool_allowlist(profile)
+
+            assert allowlist is not None
+            assert runner._is_tool_allowed(
+                "setta__report_completion_status", allowlist
+            )
+            assert not runner._is_tool_allowed(
+                "other__report_completion_status", allowlist
+            )
 
     def test_scope_filter_keeps_required_completion_report_tool(self) -> None:
         with TemporaryDirectory() as tmpdir:

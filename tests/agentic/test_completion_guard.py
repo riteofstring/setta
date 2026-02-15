@@ -303,6 +303,29 @@ def test_completion_guard_accepts_direct_result_payload_and_mcp_prefix() -> None
     assert _assistant_text(assistant_message) == "Task A is done."
 
 
+def test_completion_guard_ignores_malformed_completion_report_payload() -> None:
+    prior_messages = [
+        _user_message("Implement task A."),
+        ToolChatMessage(
+            tool_call_id="tool-report",
+            tool_name="setta__report_completion_status",
+            result={
+                "structuredContent": {
+                    "completionIntent": True,
+                    "requiresVerification": True,
+                    "checkResults": "invalid",
+                }
+            },
+        ),
+    ]
+    assistant_message = _assistant_message("Task A is done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Task A is done."
+
+
 def test_load_completion_guard_enabled_reads_backend_toggle(tmp_path) -> None:
     dbe = DBE(tmp_path / "setta_files")
     dbe.write_json(
