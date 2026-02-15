@@ -92,10 +92,7 @@ function resampleFloat32ToMonoPcm16(
   const outputLength = Math.max(1, Math.floor(input.length / ratio));
   const pcm = new Int16Array(outputLength);
   for (let index = 0; index < outputLength; index += 1) {
-    const sourceIndex = Math.min(
-      input.length - 1,
-      Math.floor(index * ratio),
-    );
+    const sourceIndex = Math.min(input.length - 1, Math.floor(index * ratio));
     const sample = Math.max(-1, Math.min(1, input[sourceIndex]));
     pcm[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
   }
@@ -1198,11 +1195,13 @@ export const ChatInput = memo(function ChatInput({
           ),
         );
         while (providerPcmPendingRef.current.length >= chunkSamples) {
-          const nextSamples = providerPcmPendingRef.current.slice(0, chunkSamples);
-          providerPcmQueueRef.current.push(int16ToArrayBuffer(nextSamples));
-          providerPcmPendingRef.current = providerPcmPendingRef.current.slice(
+          const nextSamples = providerPcmPendingRef.current.slice(
+            0,
             chunkSamples,
           );
+          providerPcmQueueRef.current.push(int16ToArrayBuffer(nextSamples));
+          providerPcmPendingRef.current =
+            providerPcmPendingRef.current.slice(chunkSamples);
         }
         if (providerResolvedTransportModeRef.current === "realtime") {
           flushProviderPcmQueue(sessionId);

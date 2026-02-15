@@ -958,9 +958,8 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
                         prev
                           ? {
                               ...prev,
-                              transportMode:
-                                event.target
-                                  .value as TranscriptionTransportModeValue,
+                              transportMode: event.target
+                                .value as TranscriptionTransportModeValue,
                             }
                           : prev,
                       )
