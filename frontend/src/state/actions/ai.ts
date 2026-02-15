@@ -40,11 +40,9 @@ import {
   route_create_agent_profile,
   route_create_external_agent_config,
   route_create_prompt_template,
-  route_create_transcription_profile,
   route_delete_agent_profile,
   route_delete_external_agent_config,
   route_delete_prompt_template,
-  route_delete_transcription_profile,
   route_get_agent_profiles,
   route_get_agent_runs,
   route_get_engine_configs,
@@ -56,7 +54,6 @@ import {
   route_get_llm_config,
   route_get_llm_response,
   route_get_prompt_templates,
-  route_get_transcription_profiles,
   route_respond_external_agent_approval,
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
@@ -68,7 +65,6 @@ import {
   route_update_engine_config,
   route_update_external_agent_config,
   route_update_prompt_template,
-  route_update_transcription_profile,
 } from "utils/generatedEndpoints";
 import {
   AgentProfile,
@@ -90,11 +86,9 @@ import {
   createMessageTextContent,
   createMessageThinkingContent,
   CreatePromptTemplateRequestInput,
-  CreateTranscriptionProfileRequestInput,
   DeleteAgentProfileRequestInput,
   DeleteExternalAgentConfigRequestInput,
   DeletePromptTemplateRequestInput,
-  DeleteTranscriptionProfileRequestInput,
   EngineConfig,
   ExternalAgentConfig,
   ExternalAgentPreflightStatus,
@@ -114,12 +108,10 @@ import {
   ToolCallDeltaEvent,
   ToolChatMessage,
   ToolResultEvent,
-  TranscriptionProfile,
   UpdateAgentProfileRequestInput,
   UpdateEngineConfigRequestInput,
   UpdateExternalAgentConfigRequestInput,
   UpdatePromptTemplateRequestInput,
-  UpdateTranscriptionProfileRequestInput,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
@@ -176,14 +168,14 @@ function resolveTranscriptionFileExtension(mimeType: string): string {
 }
 
 export async function transcribeChatAudio(
-  transcriptionProfileId: string,
+  engineConfigId: string,
   audioBlob: Blob,
 ): Promise<string | null> {
-  if (!transcriptionProfileId || audioBlob.size === 0) {
+  if (!engineConfigId || audioBlob.size === 0) {
     return null;
   }
   const form = new FormData();
-  form.set("transcriptionProfileId", transcriptionProfileId);
+  form.set("engineConfigId", engineConfigId);
   const extension = resolveTranscriptionFileExtension(audioBlob.type);
   form.set("file", audioBlob, `dictation.${extension}`);
   const res = await route_transcribe_chat_audio(form);
@@ -447,38 +439,6 @@ export function receiveEngineConfigsUpdate(payload: Array<EngineConfig>) {
   });
 }
 
-export async function loadTranscriptionProfiles(force: boolean = false) {
-  const state = useAIStore.getState();
-  if (state.transcriptionProfilesLoading) {
-    return;
-  }
-  if (!force && state.transcriptionProfilesInitialLoadComplete) {
-    return;
-  }
-  useAIStore.setState({ transcriptionProfilesLoading: true });
-  const res = await route_get_transcription_profiles();
-  if (res200(res)) {
-    receiveTranscriptionProfilesUpdate(res.data);
-  } else {
-    useAIStore.setState({
-      transcriptionProfilesInitialLoadComplete: true,
-      transcriptionProfilesLoadError: "Failed to load transcription profiles",
-      transcriptionProfilesLoading: false,
-    });
-  }
-}
-
-export function receiveTranscriptionProfilesUpdate(
-  payload: Array<TranscriptionProfile>,
-) {
-  useAIStore.setState({
-    transcriptionProfiles: payload,
-    transcriptionProfilesInitialLoadComplete: true,
-    transcriptionProfilesLoadError: null,
-    transcriptionProfilesLoading: false,
-  });
-}
-
 type HasId = { id: string };
 
 function upsertById<T extends HasId>(items: Array<T>, entry: T): Array<T> {
@@ -568,69 +528,6 @@ export async function updateEngineConfig(
     engineConfigsLoadError: null,
   }));
   return config;
-}
-
-export async function createTranscriptionProfile(
-  payload: CreateTranscriptionProfileRequestInput,
-): Promise<TranscriptionProfile | null> {
-  const res = await route_create_transcription_profile(payload);
-  if (!res200(res)) {
-    useAIStore.setState({
-      transcriptionProfilesLoadError: "Failed to create transcription profile",
-    });
-    return null;
-  }
-  const profile = res.data;
-  useAIStore.setState((state) => ({
-    transcriptionProfiles: upsertById(state.transcriptionProfiles, profile),
-    transcriptionProfilesInitialLoadComplete: true,
-    transcriptionProfilesLoadError: null,
-  }));
-  return profile;
-}
-
-export async function updateTranscriptionProfile(
-  payload: UpdateTranscriptionProfileRequestInput,
-): Promise<TranscriptionProfile | null> {
-  const res = await route_update_transcription_profile(payload);
-  if (!res200(res)) {
-    useAIStore.setState({
-      transcriptionProfilesLoadError: "Failed to update transcription profile",
-    });
-    return null;
-  }
-  const profile = res.data;
-  useAIStore.setState((state) => ({
-    transcriptionProfiles: upsertById(state.transcriptionProfiles, profile),
-    transcriptionProfilesInitialLoadComplete: true,
-    transcriptionProfilesLoadError: null,
-  }));
-  return profile;
-}
-
-export async function deleteTranscriptionProfile(
-  payload: DeleteTranscriptionProfileRequestInput,
-): Promise<boolean> {
-  const res = await route_delete_transcription_profile(payload);
-  if (!res200(res)) {
-    useAIStore.setState({
-      transcriptionProfilesLoadError: "Failed to delete transcription profile",
-    });
-    return false;
-  }
-  useAIStore.setState((state) => ({
-    transcriptionProfiles: removeById(
-      state.transcriptionProfiles,
-      payload.profileId,
-    ),
-    transcriptionProfilesInitialLoadComplete: true,
-    transcriptionProfilesLoadError: null,
-    projectChatTranscriptionProfileId:
-      state.projectChatTranscriptionProfileId === payload.profileId
-        ? null
-        : state.projectChatTranscriptionProfileId,
-  }));
-  return true;
 }
 
 export async function createPromptTemplate(

@@ -37,6 +37,7 @@ import {
   type SpeechRecognitionLike,
   getSpeechRecognitionConstructor,
   insertTextAtSelection,
+  isDictationAvailable,
   mapDictationError,
   pickProviderRecorderMimeType,
 } from "./dictation";
@@ -87,8 +88,6 @@ type ChatExecutionControlVisibility = {
   search?: boolean;
 };
 
-type DictationStartPath = "provider" | "browser" | "unavailable";
-
 export type ChatSlashCommand = {
   command: string;
   action: ChatSlashCommandAction;
@@ -102,43 +101,6 @@ export type ChatSlashCommandResult =
       feedback?: string;
       keepInput?: boolean;
     };
-
-export function resolveDictationStartPath({
-  dictationMode,
-  canProviderDictate,
-  canBrowserDictate,
-}: {
-  dictationMode: "auto" | "browser" | "provider";
-  canProviderDictate: boolean;
-  canBrowserDictate: boolean;
-}): DictationStartPath {
-  if (dictationMode === "provider") {
-    return canProviderDictate ? "provider" : "unavailable";
-  }
-  if (dictationMode === "browser") {
-    return canBrowserDictate ? "browser" : "unavailable";
-  }
-  if (canProviderDictate) {
-    return "provider";
-  }
-  if (canBrowserDictate) {
-    return "browser";
-  }
-  return "unavailable";
-}
-
-export function resolveDictationUnavailableFeedback({
-  dictationMode,
-  providerUnavailableMessage,
-}: {
-  dictationMode: "auto" | "browser" | "provider";
-  providerUnavailableMessage: string;
-}): string {
-  if (dictationMode === "provider") {
-    return providerUnavailableMessage;
-  }
-  return "Dictation is not available.";
-}
 
 type ChatInputProps = {
   placeholderText: string | undefined;
@@ -162,7 +124,6 @@ type ChatInputProps = {
   dictationMode?: "auto" | "browser" | "provider";
   onProviderDictationTranscribe?: (audioBlob: Blob) => Promise<string | null>;
   dictationEnabledByProvider?: boolean;
-  providerDictationUnavailableMessage?: string;
 };
 
 export const ChatInput = memo(function ChatInput({
@@ -185,7 +146,6 @@ export const ChatInput = memo(function ChatInput({
   dictationMode = "auto",
   onProviderDictationTranscribe,
   dictationEnabledByProvider = true,
-  providerDictationUnavailableMessage,
 }: ChatInputProps) {
   const [internalValue, setInternalValue] = useState("");
   const [slashFeedback, setSlashFeedback] = useState<string | null>(null);
@@ -617,7 +577,10 @@ export const ChatInput = memo(function ChatInput({
   }, [isDisabled, isDragActive]);
 
   const dictationSupported = Boolean(getSpeechRecognitionConstructor());
-  const canBrowserDictate = dictationSupported;
+  const canBrowserDictate = isDictationAvailable(
+    dictationEnabledByProvider,
+    dictationSupported,
+  );
   const mediaRecorderSupported =
     typeof window !== "undefined" &&
     typeof window.MediaRecorder !== "undefined" &&
@@ -628,18 +591,13 @@ export const ChatInput = memo(function ChatInput({
       onProviderDictationTranscribe &&
       mediaRecorderSupported,
   );
-  const resolvedProviderUnavailableMessage =
-    providerDictationUnavailableMessage?.trim() ||
-    "Provider dictation is not available.";
-  const dictationStartPath = resolveDictationStartPath({
-    dictationMode,
-    canProviderDictate,
-    canBrowserDictate,
-  });
-  const canDictate = !isDisabled && dictationStartPath !== "unavailable";
-  const showDictationButton =
+  const canDictate =
     !isDisabled &&
-    (dictationStartPath !== "unavailable" || dictationMode === "provider");
+    (dictationMode === "provider"
+      ? canProviderDictate
+      : dictationMode === "browser"
+        ? canBrowserDictate
+        : canProviderDictate || canBrowserDictate);
   const showPermissionControl = Boolean(
     executionControls && executionControlVisibility.permissionMode !== false,
   );
@@ -820,7 +778,7 @@ export const ChatInput = memo(function ChatInput({
         return;
       }
       setDictationState("error");
-      setDictationFeedback(resolvedProviderUnavailableMessage);
+      setDictationFeedback("Provider dictation is not available.");
       return;
     }
     if (
@@ -832,7 +790,7 @@ export const ChatInput = memo(function ChatInput({
         return;
       }
       setDictationState("error");
-      setDictationFeedback(resolvedProviderUnavailableMessage);
+      setDictationFeedback("Provider dictation is not available.");
       return;
     }
     try {
@@ -852,7 +810,7 @@ export const ChatInput = memo(function ChatInput({
           return;
         }
         setDictationState("error");
-        setDictationFeedback(resolvedProviderUnavailableMessage);
+        setDictationFeedback("Provider dictation is not available.");
         return;
       }
       providerRecorderRef.current = recorder;
@@ -934,30 +892,31 @@ export const ChatInput = memo(function ChatInput({
     insertTranscript,
     maybeFallbackToBrowserDictation,
     onProviderDictationTranscribe,
-    resolvedProviderUnavailableMessage,
   ]);
 
   const startDictation = useCallback(() => {
     if (!canDictate) {
       setDictationState("error");
-      setDictationFeedback(
-        resolveDictationUnavailableFeedback({
-          dictationMode,
-          providerUnavailableMessage: resolvedProviderUnavailableMessage,
-        }),
-      );
+      setDictationFeedback("Dictation is not available.");
       return;
     }
-    if (dictationStartPath === "provider") {
+    if (dictationMode === "provider") {
+      void startProviderDictation();
+      return;
+    }
+    if (dictationMode === "browser") {
+      startBrowserDictation();
+      return;
+    }
+    if (canProviderDictate) {
       void startProviderDictation();
       return;
     }
     startBrowserDictation();
   }, [
     canDictate,
+    canProviderDictate,
     dictationMode,
-    dictationStartPath,
-    resolvedProviderUnavailableMessage,
     startBrowserDictation,
     startProviderDictation,
   ]);
@@ -1219,7 +1178,7 @@ export const ChatInput = memo(function ChatInput({
                   Search
                 </button>
               ) : null}
-              {showDictationButton ? (
+              {canDictate ? (
                 <button
                   type="button"
                   disabled={isDisabled || dictationState === "transcribing"}

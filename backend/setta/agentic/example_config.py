@@ -159,8 +159,6 @@ def seed_agentic_config_files(dbe: DBE) -> None:
     if not dbe.engine_configs.exists():
         payload = [config.model_dump(mode="json") for config in _DEFAULT_ENGINE_CONFIGS]
         dbe.write_engine_configs(payload)
-    if not dbe.transcription_profiles.exists():
-        dbe.write_transcription_profiles([])
     if not dbe.external_agents.exists():
         payload = [
             config.model_dump(mode="json") for config in _DEFAULT_EXTERNAL_AGENT_CONFIGS

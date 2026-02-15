@@ -58,7 +58,6 @@ import {
   receiveLLMConfigUpdate,
   receiveLLMResponseChunk,
   receivePromptTemplatesUpdate,
-  receiveTranscriptionProfilesUpdate,
 } from "./ai";
 import {
   receiveAIFollowToolArgumentsUpdate,
@@ -87,6 +86,7 @@ import {
   initializeShareSessionFromCurrentDeployment,
   resetShareSessionState,
 } from "./share";
+import { receiveUISettingReveal } from "./uiSettingReveal";
 
 let wss: WebSocket | null;
 let wasOpen = false;
@@ -470,6 +470,8 @@ function receiveMessage(message: string) {
       return receiveAIFollowToolArgumentsUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
       return receiveAIFollowToolResultUpdate(m.content);
+    case WebsocketMsgTypeForFrontendEnum.UISettingReveal:
+      return receiveUISettingReveal(m.content);
     case WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated:
       return receiveAgentProfilesUpdate(m.content.profiles);
     case WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated:
@@ -478,8 +480,6 @@ function receiveMessage(message: string) {
       return receiveExternalAgentConfigsUpdate(m.content.configs);
     case WebsocketMsgTypeForFrontendEnum.EngineConfigsUpdated:
       return receiveEngineConfigsUpdate(m.content.configs);
-    case WebsocketMsgTypeForFrontendEnum.TranscriptionProfilesUpdated:
-      return receiveTranscriptionProfilesUpdate(m.content.profiles);
     default:
       return m satisfies never;
   }

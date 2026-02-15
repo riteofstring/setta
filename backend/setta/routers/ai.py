@@ -22,9 +22,6 @@ from setta.agentic.store import (
     list_agent_runs_by_metadata,
     require_agent_profile,
 )
-from setta.agentic.transcription_profile_resolver import (
-    resolve_transcription_profile,
-)
 from setta.database.utils import create_new_id
 from setta.llm.transcription import transcribe_audio_with_llm
 from setta.llm.user_facing_errors import get_user_facing_llm_error_message
@@ -557,16 +554,12 @@ async def _parse_transcribe_audio_form(
     request: Request,
 ) -> tuple[ID, StarletteUploadFile, str | None]:
     form = await request.form()
-    transcription_profile_id_value = form.get("transcriptionProfileId")
-    if not isinstance(transcription_profile_id_value, str):
-        raise HTTPException(
-            status_code=400, detail="transcriptionProfileId is required."
-        )
-    stripped_transcription_profile_id = transcription_profile_id_value.strip()
-    if not stripped_transcription_profile_id:
-        raise HTTPException(
-            status_code=400, detail="transcriptionProfileId is required."
-        )
+    engine_config_id_value = form.get("engineConfigId")
+    if not isinstance(engine_config_id_value, str):
+        raise HTTPException(status_code=400, detail="engineConfigId is required.")
+    stripped_engine_config_id = engine_config_id_value.strip()
+    if not stripped_engine_config_id:
+        raise HTTPException(status_code=400, detail="engineConfigId is required.")
     file_value = form.get("file")
     if not isinstance(file_value, StarletteUploadFile):
         raise HTTPException(status_code=400, detail="Audio payload is required.")
@@ -576,7 +569,7 @@ async def _parse_transcribe_audio_form(
         language = stripped_language or None
     else:
         language = None
-    return ID(stripped_transcription_profile_id), file_value, language
+    return ID(stripped_engine_config_id), file_value, language
 
 
 @router.post(Route.GET_LLM_RESPONSE)
@@ -836,9 +829,9 @@ async def route_get_llm_response(
                 "multipart/form-data": {
                     "schema": {
                         "type": "object",
-                        "required": ["transcriptionProfileId", "file"],
+                        "required": ["engineConfigId", "file"],
                         "properties": {
-                            "transcriptionProfileId": {"type": "string"},
+                            "engineConfigId": {"type": "string"},
                             "file": {"type": "string", "format": "binary"},
                             "language": {"type": "string"},
                         },
@@ -855,31 +848,28 @@ async def route_transcribe_chat_audio(
     await ctx.enforce_llm_allowed()
     await _enforce_transcribe_audio_multipart_limit(request)
     (
-        resolved_transcription_profile_id,
+        resolved_engine_config_id,
         resolved_file,
         resolved_language,
     ) = await _parse_transcribe_audio_form(request)
 
     if ctx.state.agent_runner.disabled:
         raise HTTPException(status_code=503, detail="Agent runner is not available")
-    try:
-        resolved = resolve_transcription_profile(
-            ctx.state.dbe,
-            ctx.state.agent_runner.config,
-            resolved_transcription_profile_id,
-        )
-    except KeyError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=str(exc),
-        ) from exc
-    llm_config = resolved.llm_config
-    if llm_config is None:
+    resolved = resolve_engine_config(
+        ctx.state.dbe, ctx.state.agent_runner.config, resolved_engine_config_id
+    )
+    if resolved.engine_config.engineType != EngineType.setta_llm:
         raise HTTPException(
             status_code=400,
             detail=(
-                "Transcription config is missing or invalid for this transcription profile."
+                "Provider dictation is available only for managed LLM engines. "
+                "Use browser dictation for external agents."
             ),
+        )
+    llm_config = resolved.llm_config
+    if llm_config is None:
+        raise HTTPException(
+            status_code=400, detail="No LLM config available for engine"
         )
 
     try:
