@@ -9,10 +9,7 @@ import { useDragDropManager } from "@dnd-kit/react";
 import { useComputed } from "@dnd-kit/react/hooks";
 import { useSortable as useDndKitSortable } from "@dnd-kit/react/sortable";
 import { useContext, useEffect, useMemo, useRef } from "react";
-import {
-  getSectionInfo,
-  getSectionIsHorizontalOrientation,
-} from "state/actions/sectionInfos";
+import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { useDndProviderContext } from "./DndProviderContext";
 import { Context } from "./SortableContext";
 import {
@@ -95,7 +92,6 @@ export function useSortable({
   let dragModifiers;
   if (isSortingMode) {
     const containerIsHorizontal =
-      getSectionInfo(containerId) !== undefined &&
       getSectionIsHorizontalOrientation(containerId);
     dragModifiers = [
       containerIsHorizontal ? RestrictToHorizontalAxis : RestrictToVerticalAxis,
@@ -123,7 +119,6 @@ export function useSortable({
   const {
     sortable,
     ref: setNodeRef,
-    handleRef: setActivatorNodeRef,
     isDragging,
     isDropTarget,
   } = useDndKitSortable({
@@ -250,7 +245,6 @@ export function useSortable({
     attributes: attributes ?? {},
     listeners: listeners ?? {},
     setNodeRef,
-    setActivatorNodeRef,
     transform: finalTransform,
     transition: transitionValue,
     overIndex: effectiveOverIndex,

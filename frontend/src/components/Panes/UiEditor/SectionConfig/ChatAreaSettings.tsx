@@ -56,6 +56,8 @@ type ChatSectionSettingsPayload = {
   engineConfigId: string | null;
   agentProfileId: string | null;
   thinking: boolean;
+  permissionMode: "minimal" | "yolo" | "config_toml_custom";
+  searchEnabled: boolean;
 };
 
 export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
@@ -65,21 +67,30 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const { canEditParams, canEditStructure } = useShareCapabilities();
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
 
-  const { managed, engineConfigId, agentProfileId, thinking, isFrozen } =
-    useProjectState((state) => {
-      const impl = getCurrEffectiveSectionImplOfType(
-        state,
-        sectionId,
-        SectionTypeEnum.Chat,
-      );
-      return {
-        managed: impl.managed,
-        engineConfigId: impl.engineConfigId,
-        agentProfileId: impl.agentProfileId,
-        thinking: impl.thinking,
-        isFrozen: impl.isFrozen,
-      };
-    }, _.isEqual);
+  const {
+    managed,
+    engineConfigId,
+    agentProfileId,
+    thinking,
+    permissionMode,
+    searchEnabled,
+    isFrozen,
+  } = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      state,
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    return {
+      managed: impl.managed,
+      engineConfigId: impl.engineConfigId,
+      agentProfileId: impl.agentProfileId,
+      thinking: impl.thinking,
+      permissionMode: impl.permissionMode,
+      searchEnabled: impl.searchEnabled,
+      isFrozen: impl.isFrozen,
+    };
+  }, _.isEqual);
   const agenticEdges = useProjectState(
     (state) => state.projectConfig.agenticEdges,
     _.isEqual,
@@ -408,6 +419,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             engineConfigId: nextSettings.engineConfigId,
             agentProfileId: nextSettings.agentProfileId,
             thinking: nextSettings.thinking,
+            permissionMode: nextSettings.permissionMode,
+            searchEnabled: nextSettings.searchEnabled,
           });
         },
         send: (frontendOpId) =>
@@ -418,6 +431,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             engineConfigId: nextSettings.engineConfigId,
             agentProfileId: nextSettings.agentProfileId,
             thinking: nextSettings.thinking,
+            permissionMode: nextSettings.permissionMode,
+            searchEnabled: nextSettings.searchEnabled,
             frontendOpId,
           }),
       });
@@ -432,9 +447,18 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         engineConfigId,
         agentProfileId,
         thinking,
+        permissionMode,
+        searchEnabled,
       });
     },
-    [agentProfileId, engineConfigId, thinking, updateSettings],
+    [
+      agentProfileId,
+      engineConfigId,
+      permissionMode,
+      searchEnabled,
+      thinking,
+      updateSettings,
+    ],
   );
 
   const handleThinkingChange = useCallback(
@@ -444,9 +468,18 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         engineConfigId,
         agentProfileId,
         thinking: value,
+        permissionMode,
+        searchEnabled,
       });
     },
-    [agentProfileId, engineConfigId, managed, updateSettings],
+    [
+      agentProfileId,
+      engineConfigId,
+      managed,
+      permissionMode,
+      searchEnabled,
+      updateSettings,
+    ],
   );
 
   const handleLLMConfigChange = useCallback(
@@ -476,9 +509,18 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         engineConfigId,
         agentProfileId: value,
         thinking,
+        permissionMode,
+        searchEnabled,
       });
     },
-    [engineConfigId, managed, thinking, updateSettings],
+    [
+      engineConfigId,
+      managed,
+      permissionMode,
+      searchEnabled,
+      thinking,
+      updateSettings,
+    ],
   );
 
   const canEditLinks = canEditStructure;
@@ -552,6 +594,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         engineConfigId: nextEngineId,
         agentProfileId,
         thinking,
+        permissionMode,
+        searchEnabled,
       });
       if (nextEngineId !== selectedEngineId) {
         handleNewChat();
@@ -561,6 +605,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       agentProfileId,
       handleNewChat,
       managed,
+      permissionMode,
+      searchEnabled,
       selectedEngineId,
       thinking,
       updateSettings,

@@ -6,6 +6,8 @@ from typing import Any, cast
 import pytest
 import pytest_asyncio
 from setta.project_state.base_project_manager import BaseProjectManager
+from setta.project_state.project_manager_types import SetCallableHideParamsRequest
+from setta.types.id import ID
 
 from tests.utils.manager_fixture import real_settings_manager
 
@@ -159,4 +161,23 @@ class TestEnqueueMethod:
         assert set(manager_hooks.non_serialized_finished) == {"op1", "op2"}
         assert manager.pending_frontend_ops == {}
         assert set(manager.completed_op_ids_since_last_broadcast) == {"op1", "op2"}
+        assert manager._current_frontend_op_id.get() is None
+
+    async def test_set_callable_hide_params_completes_without_queue_stall(self):
+        manager = self.manager
+        request = SetCallableHideParamsRequest(
+            projectConfigId=self.project_config_id,
+            sectionId=ID("missing-section"),
+            hideParams=True,
+            frontendOpId="hide-params",
+        )
+
+        # Even when the section is missing, queue execution should complete quickly.
+        with pytest.raises(KeyError):
+            await asyncio.wait_for(
+                manager.set_callable_hide_params(request),
+                timeout=1,
+            )
+
+        assert manager.pending_frontend_ops == {}
         assert manager._current_frontend_op_id.get() is None
