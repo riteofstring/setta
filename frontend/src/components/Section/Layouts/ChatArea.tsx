@@ -577,7 +577,24 @@ function ScriptableChatArea({
   ]);
 
   const updateExecutionSettings = useCallback(
-    (nextSettings: ChatExecutionSettings): void => {
+    (
+      nextSettingsUpdate:
+        | ChatExecutionSettings
+        | ((currentSettings: ChatExecutionSettings) => ChatExecutionSettings),
+    ): void => {
+      const currentSectionState = getCurrEffectiveSectionImplOfType(
+        useProjectState.getState(),
+        sectionId,
+        SectionTypeEnum.Chat,
+      );
+      const currentSettings: ChatExecutionSettings = {
+        permissionMode: currentSectionState.permissionMode ?? permissionMode,
+        searchEnabled: currentSectionState.searchEnabled ?? searchEnabled,
+      };
+      const nextSettings =
+        typeof nextSettingsUpdate === "function"
+          ? nextSettingsUpdate(currentSettings)
+          : nextSettingsUpdate;
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
@@ -599,15 +616,19 @@ function ScriptableChatArea({
           }),
       });
     },
-    [agentProfileId, engineConfigId, projectConfigId, sectionId, thinking],
+    [
+      agentProfileId,
+      engineConfigId,
+      permissionMode,
+      projectConfigId,
+      searchEnabled,
+      sectionId,
+      thinking,
+    ],
   );
   const executionControlHandlers = useMemo(
-    () =>
-      createManagedExecutionControlHandlers(
-        { permissionMode, searchEnabled },
-        updateExecutionSettings,
-      ),
-    [permissionMode, searchEnabled, updateExecutionSettings],
+    () => createManagedExecutionControlHandlers(updateExecutionSettings),
+    [updateExecutionSettings],
   );
   const slashCommands = useMemo(
     () =>
@@ -1328,7 +1349,24 @@ function ManagedChatArea({
   const showPermissionExecutionControl = canConfigureExecutionSettings;
 
   const updateExecutionSettings = useCallback(
-    (nextSettings: ChatExecutionSettings): void => {
+    (
+      nextSettingsUpdate:
+        | ChatExecutionSettings
+        | ((currentSettings: ChatExecutionSettings) => ChatExecutionSettings),
+    ): void => {
+      const currentSectionState = getCurrEffectiveSectionImplOfType(
+        useProjectState.getState(),
+        sectionId,
+        SectionTypeEnum.Chat,
+      );
+      const currentSettings: ChatExecutionSettings = {
+        permissionMode: currentSectionState.permissionMode ?? permissionMode,
+        searchEnabled: currentSectionState.searchEnabled ?? searchEnabled,
+      };
+      const nextSettings =
+        typeof nextSettingsUpdate === "function"
+          ? nextSettingsUpdate(currentSettings)
+          : nextSettingsUpdate;
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
@@ -1350,15 +1388,19 @@ function ManagedChatArea({
           }),
       });
     },
-    [agentProfileId, engineConfigId, projectConfigId, sectionId, thinking],
+    [
+      agentProfileId,
+      engineConfigId,
+      permissionMode,
+      projectConfigId,
+      searchEnabled,
+      sectionId,
+      thinking,
+    ],
   );
   const executionControlHandlers = useMemo(
-    () =>
-      createManagedExecutionControlHandlers(
-        { permissionMode, searchEnabled },
-        updateExecutionSettings,
-      ),
-    [permissionMode, searchEnabled, updateExecutionSettings],
+    () => createManagedExecutionControlHandlers(updateExecutionSettings),
+    [updateExecutionSettings],
   );
   const slashCommands = useMemo(
     () =>

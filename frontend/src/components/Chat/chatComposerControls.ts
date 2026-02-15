@@ -16,22 +16,29 @@ type ManagedExecutionControlHandlers = {
   onSearchEnabledChange: (nextValue: boolean) => void;
 };
 
+type UpdateManagedExecutionSettings = (
+  nextSettings:
+    | ManagedChatExecutionSettings
+    | ((
+        previousSettings: ManagedChatExecutionSettings,
+      ) => ManagedChatExecutionSettings),
+) => void;
+
 export function createManagedExecutionControlHandlers(
-  executionSettings: ManagedChatExecutionSettings,
-  updateExecutionSettings: (nextSettings: ManagedChatExecutionSettings) => void,
+  updateExecutionSettings: UpdateManagedExecutionSettings,
 ): ManagedExecutionControlHandlers {
   return {
     onPermissionModeChange: (nextMode) => {
-      updateExecutionSettings({
+      updateExecutionSettings((previousSettings) => ({
+        ...previousSettings,
         permissionMode: nextMode,
-        searchEnabled: executionSettings.searchEnabled,
-      });
+      }));
     },
     onSearchEnabledChange: (nextValue) => {
-      updateExecutionSettings({
-        permissionMode: executionSettings.permissionMode,
+      updateExecutionSettings((previousSettings) => ({
+        ...previousSettings,
         searchEnabled: nextValue,
-      });
+      }));
     },
   };
 }
@@ -260,7 +267,29 @@ export const CHAT_SLASH_COMMANDS: ChatSlashCommandDefinition[] =
   buildChatSlashCommands();
 
 const SLASH_SUGGESTION_LIMIT = 8;
-const SLASH_COMMAND_TOKEN_RE = /^\/[a-z][a-z0-9_-]*$/u;
+const SLASH_COMMAND_TOKEN_RE = /^\/[a-z][a-z0-9_-]*$/iu;
+
+function resolveSlashCommandDefinition(
+  rawCommandToken: string,
+  commands: ChatSlashCommandDefinition[],
+): ChatSlashCommandDefinition | null {
+  const commandToken = rawCommandToken.toLowerCase();
+  const exactMatch = commands.find((entry) => entry.command === commandToken);
+  if (exactMatch) {
+    return exactMatch;
+  }
+  let prefixMatch: ChatSlashCommandDefinition | null = null;
+  for (const entry of commands) {
+    if (!entry.command.startsWith(commandToken)) {
+      continue;
+    }
+    if (prefixMatch) {
+      return null;
+    }
+    prefixMatch = entry;
+  }
+  return prefixMatch;
+}
 
 export function shouldTreatInputAsSlashCommand(
   text: string,
@@ -281,21 +310,7 @@ function shouldTreatInputAsSlashCommandWithCommands(
   if (!SLASH_COMMAND_TOKEN_RE.test(firstToken)) {
     return false;
   }
-  const commandToken = firstToken.toLowerCase();
-  if (commands.some((entry) => entry.command === commandToken)) {
-    return true;
-  }
-  let prefixMatches = 0;
-  for (const entry of commands) {
-    if (!entry.command.startsWith(commandToken)) {
-      continue;
-    }
-    prefixMatches += 1;
-    if (prefixMatches > 1) {
-      return false;
-    }
-  }
-  return prefixMatches === 1;
+  return resolveSlashCommandDefinition(firstToken, commands) !== null;
 }
 
 export function parseSlashCommand(
@@ -311,9 +326,11 @@ export function parseSlashCommand(
   if (!rawCommand) {
     return null;
   }
+  if (!SLASH_COMMAND_TOKEN_RE.test(rawCommand)) {
+    return null;
+  }
   const args = parts.slice(1);
-  const command = rawCommand.toLowerCase();
-  const definition = commands.find((entry) => entry.command === command);
+  const definition = resolveSlashCommandDefinition(rawCommand, commands);
   if (!definition) {
     return null;
   }

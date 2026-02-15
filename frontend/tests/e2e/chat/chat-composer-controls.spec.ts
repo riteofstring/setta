@@ -124,6 +124,11 @@ test.describe.serial("chat composer controls", () => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
     const engineCleanup = await ensureManagedChatEngine(page);
+    let llmSubmitCount = 0;
+    await page.route("**/api/getLLMResponse", async (route) => {
+      llmSubmitCount += 1;
+      await route.continue();
+    });
 
     try {
       await page.reload();
@@ -194,8 +199,9 @@ test.describe.serial("chat composer controls", () => {
         inputBox.y + 2,
       );
 
-      await input.fill("/resume");
-      await input.press("Enter");
+      const submitButton = overviewPane.locator('button[type="submit"]').first();
+      await input.fill("/res");
+      await submitButton.click();
       await expect
         .poll(async () => {
           const text = await overviewPane.textContent();
@@ -205,6 +211,20 @@ test.describe.serial("chat composer controls", () => {
           );
         })
         .toBe(true);
+      expect(llmSubmitCount).toBe(0);
+
+      await input.fill("/Resume");
+      await submitButton.click();
+      await expect
+        .poll(async () => {
+          const text = await overviewPane.textContent();
+          return Boolean(
+            text?.includes("No previous project chat found to resume.") ||
+              text?.includes("Resumed the latest project chat."),
+          );
+        })
+        .toBe(true);
+      expect(llmSubmitCount).toBe(0);
 
       await expect(
         overviewPane.getByRole("button", { name: /^minimal/i }),
@@ -219,6 +239,83 @@ test.describe.serial("chat composer controls", () => {
       await input.fill("/search off");
       await input.press("Enter");
       await expect(searchButton).toHaveAttribute("aria-pressed", "false");
+    } finally {
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("managed chat sections reject unavailable slash commands locally instead of forwarding to model", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    let llmSubmitCount = 0;
+    await page.route("**/api/getLLMResponse", async (route) => {
+      llmSubmitCount += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify("pw-managed-unavailable-slash"),
+      });
+    });
+    await page.route("**/api/getLLMChat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          llmConfig: null,
+        }),
+      });
+    });
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_managed_chat_unavailable_slash__",
+      );
+      const backendOrigin =
+        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const managedEngineId =
+        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
+        null;
+      if (!managedEngineId) {
+        throw new Error("Missing managed LLM engine config.");
+      }
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        managed: true,
+        engineConfigId: managedEngineId,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+      });
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      const input = section.locator("textarea").first();
+      const submitButton = section.locator('button[type="submit"]').first();
+
+      // `/search` is intentionally unavailable in managed section slash menus.
+      await input.fill("/search off");
+      await submitButton.click();
+
+      await expect(
+        section.getByText("Unknown or unavailable command. Use /help."),
+      ).toBeVisible();
+      expect(llmSubmitCount).toBe(0);
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);

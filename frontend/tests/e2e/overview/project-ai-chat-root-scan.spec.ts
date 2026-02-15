@@ -542,3 +542,100 @@ test("project chat recovers root polling after a transient getFileBrowserRoot fa
     await cleanupIsolatedProject(page, projectContext);
   }
 });
+
+test("project chat clears python-gated starters immediately when switching projects before the next root scan resolves", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+  let firstProjectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
+    null;
+  let secondProjectContext: Awaited<
+    ReturnType<typeof openIsolatedProject>
+  > | null = null;
+
+  let activeRootPath = "/tmp/workspace-switch-a";
+  let secondScanStarted = false;
+  let releaseSecondScan: (() => void) | null = null;
+
+  await page.route("**/api/getFileBrowserRoot", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        rootPath: activeRootPath,
+        pathSeparator: "/",
+        ignorePatterns: [],
+      }),
+    });
+  });
+  await page.route("**/api/getFolderContents", async (route) => {
+    const request = route.request().postDataJSON() as { folderPath?: string };
+    if (request.folderPath === "/tmp/workspace-switch-a") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            name: "pyproject.toml",
+            path: "/tmp/workspace-switch-a/pyproject.toml",
+            type: "file",
+            extension: "toml",
+          },
+        ]),
+      });
+      return;
+    }
+    if (request.folderPath === "/tmp/workspace-switch-b") {
+      secondScanStarted = true;
+      await new Promise<void>((resolve) => {
+        releaseSecondScan = () => {
+          releaseSecondScan = null;
+          resolve();
+        };
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+
+  try {
+    firstProjectContext = await openIsolatedProject(page);
+
+    const overviewPane = page.locator("#OverviewPane");
+    const createProjectButton = overviewPane.getByRole("button", {
+      name: /^Create Project$/,
+    });
+    await expect(createProjectButton).toBeVisible();
+
+    activeRootPath = "/tmp/workspace-switch-b";
+    secondProjectContext = await openIsolatedProject(page);
+    await expect
+      .poll(() => secondScanStarted, { timeout: 5000 })
+      .toBe(true);
+    await expect(createProjectButton).toHaveCount(0);
+
+    if (!releaseSecondScan) {
+      throw new Error("Second root scan did not block as expected.");
+    }
+    releaseSecondScan();
+    await expect(createProjectButton).toHaveCount(0);
+  } finally {
+    if (releaseSecondScan) {
+      releaseSecondScan();
+    }
+    await engineCleanup();
+    await cleanupIsolatedProject(page, secondProjectContext);
+    await cleanupIsolatedProject(page, firstProjectContext);
+  }
+});

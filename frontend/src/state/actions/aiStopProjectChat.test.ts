@@ -155,6 +155,46 @@ describe("stopProjectChatResponse", () => {
     expect(details?.waitingForResponse).toBe(true);
   });
 
+  it("restores local project chat waiting/tool-call state when stop and llm hydrate both fail", async () => {
+    const chatId = "chat-stop-rollback-hydrate-fail";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+          toolCallArguments: {
+            "tool-call-1": "{\"path\":\"/tmp/file.py\"}",
+          },
+        },
+      },
+    });
+    mockedRouteStopLlmChat.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "stop failed" },
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "hydrate failed" },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, false);
+
+    expect(stopped).toBe(false);
+    expect(mockedRouteStopLlmChat).toHaveBeenCalledWith({ chatId });
+    expect(mockedRouteGetLLMChat).toHaveBeenCalledTimes(1);
+    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
+      "Failed to stop project chat.",
+      SettaNotificationTypeEnum.warning,
+    );
+    const details = useAIStore.getState().chatDetails[chatId];
+    expect(details?.waitingForResponse).toBe(true);
+    expect(details?.toolCallArguments).toEqual({
+      "tool-call-1": "{\"path\":\"/tmp/file.py\"}",
+    });
+  });
+
   it("keeps project chat stopped when llm stop succeeds", async () => {
     const chatId = "chat-stop-success";
     useAIStore.setState({
@@ -233,6 +273,63 @@ describe("stopProjectChatResponse", () => {
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
+  });
+
+  it("restores local external project chat state when stop and hydrate both fail", async () => {
+    const chatId = "chat-stop-external-hydrate-fail";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+          toolCallArguments: {
+            "tool-call-2": "{\"action\":\"continue\"}",
+          },
+        },
+      },
+      agentRunsInitialLoadComplete: true,
+      agentRuns: [
+        createAgentRun({
+          id: "run-external-hydrate-fail",
+          status: AgentRunStatusEnum.running,
+          inputs: {
+            runType: "external_agent",
+            chatId,
+            projectConfigId: null,
+          },
+        }),
+      ],
+    });
+    mockedRouteStopExternalAgentRun.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "stop failed" },
+    });
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "hydrate failed" },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, true);
+
+    expect(stopped).toBe(false);
+    expect(mockedRouteStopExternalAgentRun).toHaveBeenCalledWith({
+      runId: "run-external-hydrate-fail",
+    });
+    expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
+      chatId,
+      projectConfigId: null,
+    });
+    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
+      "Failed to stop project chat.",
+      SettaNotificationTypeEnum.warning,
+    );
+    const details = useAIStore.getState().chatDetails[chatId];
+    expect(details?.waitingForResponse).toBe(true);
+    expect(details?.toolCallArguments).toEqual({
+      "tool-call-2": "{\"action\":\"continue\"}",
+    });
   });
 
   it("refreshes runs and retries external stop when local run cache is stale", async () => {
@@ -408,5 +505,50 @@ describe("stopProjectChatResponse", () => {
       "Failed to stop section chat.",
       SettaNotificationTypeEnum.warning,
     );
+  });
+
+  it("restores local managed section chat state when llm stop and hydrate both fail", async () => {
+    const chatId = "chat-stop-section-llm-hydrate-fail";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+          toolCallArguments: {
+            "tool-call-3": "{\"question\":\"proceed\"}",
+          },
+        },
+      },
+    });
+    mockedRouteStopLlmChat.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "stop failed" },
+    });
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "hydrate failed" },
+    });
+
+    const stopped = await stopManagedSectionChatResponse(
+      chatId,
+      false,
+      "project-a",
+      "section-a",
+    );
+
+    expect(stopped).toBe(false);
+    expect(mockedRouteStopLlmChat).toHaveBeenCalledWith({ chatId });
+    expect(mockedRouteGetLLMChat).toHaveBeenCalledTimes(1);
+    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
+      "Failed to stop section chat.",
+      SettaNotificationTypeEnum.warning,
+    );
+    const details = useAIStore.getState().chatDetails[chatId];
+    expect(details?.waitingForResponse).toBe(true);
+    expect(details?.toolCallArguments).toEqual({
+      "tool-call-3": "{\"question\":\"proceed\"}",
+    });
   });
 });

@@ -332,3 +332,22 @@ Implemented the consolidated fixes from the latest top-level review cycle across
 - Playwright: targeted e2e suite passed (`frontend/tests/e2e/chat/chat-composer-controls.spec.ts`, all 7 tests).
 - `pnpm -C frontend exec tsc --noEmit` still reports existing repo-wide TypeScript issues outside this change set.
 - CDP visual verification completed in a live session (Project AI Chat slash suggestions visible and `/search off` feedback/state verified).
+
+## 2026-02-17 17:51:02 PST
+
+### Summary
+Implemented the consolidated frontend review fixes across slash-command consistency, stop-flow rollback semantics, workspace-root starter prompt correctness, execution-control state update safety, and assistant message render efficiency, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Unified slash-command detection and parsing around one resolver: case-insensitive command tokens, deterministic unambiguous-prefix parsing, and aligned detect/parse semantics.
+- Updated `ChatInput` command interception to recognize known commands globally, then enforce local availability per surface so known-but-unavailable commands return deterministic local feedback instead of being sent to the model.
+- Switched managed execution control handlers to functional state updates to prevent sibling-field clobbering during rapid consecutive permission/search changes.
+- Fixed project and managed-section stop flows to snapshot local waiting/tool-call state before optimistic stop and restore that snapshot if stop fails and hydration also fails.
+- Updated `getLLMChat` to return hydration success and wired stop handlers to use that signal for rollback decisions.
+- Cleared project chat workspace-root identity immediately on project switch and adjusted same-root revalidation to bypass stale cache on periodic checks.
+- Reduced assistant-message rendering overhead by partitioning thinking/display content in a single pass instead of dual traversal.
+
+### Test and verification status
+- Frontend Vitest: targeted suites passed (`chatComposerControls`, `aiStopProjectChat`, `projectChatExecutionSettings`, `workspacePythonSignals`, `ChatMessages`).
+- Playwright: targeted e2e suites passed (`chat-composer-controls`, `project-ai-chat-root-scan`) including new send-button slash behavior, unavailable-command local rejection, and project-switch starter visibility coverage.
+- CDP visual verification completed in a live session (Project AI Chat slash send behavior for `/res` and `/Resume`, with immediate local command feedback).

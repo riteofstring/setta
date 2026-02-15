@@ -6,6 +6,7 @@ import {
   executeManagedChatSlashCommand,
   formatSlashCommandHelp,
   getSlashCommandSuggestions,
+  type ManagedChatExecutionSettings,
   parseSlashCommand,
   resolvePermissionModeArg,
   resolveToggleArg,
@@ -39,8 +40,18 @@ describe("chatComposerControls", () => {
 
   it("treats command-shaped slash input as command candidates", () => {
     expect(shouldTreatInputAsSlashCommand("/resume")).toBe(true);
+    expect(shouldTreatInputAsSlashCommand("/Resume")).toBe(true);
     expect(shouldTreatInputAsSlashCommand("/res")).toBe(true);
     expect(shouldTreatInputAsSlashCommand("  /permissions yolo")).toBe(true);
+  });
+
+  it("parses unambiguous slash prefixes", () => {
+    const parsed = parseSlashCommand("/res latest");
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.command).toBe("/resume");
+    expect(parsed?.action).toBe("resume");
+    expect(parsed?.args).toEqual(["latest"]);
   });
 
   it("ignores absolute-path style slash input", () => {
@@ -117,25 +128,35 @@ describe("chatComposerControls", () => {
     ]);
   });
 
-  it("creates shared managed execution setting handlers", () => {
-    const updateExecutionSettings = vi.fn();
-    const handlers = createManagedExecutionControlHandlers(
-      {
-        permissionMode: "minimal",
-        searchEnabled: true,
+  it("creates shared managed execution setting handlers without clobbering sibling settings", () => {
+    let currentSettings: ManagedChatExecutionSettings = {
+      permissionMode: "minimal",
+      searchEnabled: true,
+    };
+    const updateExecutionSettings = vi.fn(
+      (
+        nextSettings:
+          | ManagedChatExecutionSettings
+          | ((
+              previousSettings: ManagedChatExecutionSettings,
+            ) => ManagedChatExecutionSettings),
+      ) => {
+        currentSettings =
+          typeof nextSettings === "function"
+            ? nextSettings(currentSettings)
+            : nextSettings;
       },
+    );
+    const handlers = createManagedExecutionControlHandlers(
       updateExecutionSettings,
     );
 
     handlers.onPermissionModeChange("yolo");
-    expect(updateExecutionSettings).toHaveBeenNthCalledWith(1, {
-      permissionMode: "yolo",
-      searchEnabled: true,
-    });
-
     handlers.onSearchEnabledChange(false);
-    expect(updateExecutionSettings).toHaveBeenNthCalledWith(2, {
-      permissionMode: "minimal",
+
+    expect(updateExecutionSettings).toHaveBeenCalledTimes(2);
+    expect(currentSettings).toEqual({
+      permissionMode: "yolo",
       searchEnabled: false,
     });
   });

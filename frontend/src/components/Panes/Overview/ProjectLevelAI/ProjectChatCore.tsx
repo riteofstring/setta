@@ -120,6 +120,7 @@ function useWorkspaceRootIdentity(
       setWorkspaceRootIdentity(null);
       return;
     }
+    setWorkspaceRootIdentity(null);
     let cancelled = false;
     let inFlight = false;
     let stablePollCount = 0;
@@ -285,16 +286,19 @@ function useHasPythonInWorkspaceRoot(
     const load = async () => {
       const rootPath = scannedRootIdentity;
       pendingRootIdentityRef.current = null;
-      const cached = getCachedWorkspacePythonSignal(
-        hasPythonInWorkspaceRootCache,
-        rootPath,
-      );
-      if (cached !== null) {
-        if (cancelled) {
+      const shouldUseCache = revalidationTick === 0;
+      if (shouldUseCache) {
+        const cached = getCachedWorkspacePythonSignal(
+          hasPythonInWorkspaceRootCache,
+          rootPath,
+        );
+        if (cached !== null) {
+          if (cancelled) {
+            return;
+          }
+          setHasPython(cached);
           return;
         }
-        setHasPython(cached);
-        return;
       }
       try {
         const contentsResponse = await route_get_folder_contents({
@@ -587,23 +591,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [setChatId],
   );
 
-  const updateExecutionSettings = useCallback(
-    (nextSettings: ChatExecutionSettings): void => {
-      setExecutionSettings(nextSettings);
-    },
-    [],
-  );
   const executionControlHandlers = useMemo(
-    () =>
-      createManagedExecutionControlHandlers(
-        executionSettings,
-        updateExecutionSettings,
-      ),
-    [
-      executionSettings.permissionMode,
-      executionSettings.searchEnabled,
-      updateExecutionSettings,
-    ],
+    () => createManagedExecutionControlHandlers(setExecutionSettings),
+    [setExecutionSettings],
   );
 
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {

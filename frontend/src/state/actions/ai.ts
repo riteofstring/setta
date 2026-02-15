@@ -654,7 +654,45 @@ export function getDefaultChatDetails(): ChatDetails {
   };
 }
 
-function stopChatResponseLocally(chatId: string | null | undefined) {
+type StopChatResponseSnapshot = {
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+};
+
+function getStopChatResponseSnapshot(
+  chatId: string | null | undefined,
+): StopChatResponseSnapshot {
+  const state = useAIStore.getState();
+  const currentDetails =
+    typeof chatId === "string"
+      ? state.chatDetails[chatId] ?? getDefaultChatDetails()
+      : state.pendingChatDetails ?? getDefaultChatDetails();
+  return {
+    waitingForResponse: currentDetails.waitingForResponse,
+    toolCallArguments: { ...currentDetails.toolCallArguments },
+  };
+}
+
+function restoreStoppedChatResponseLocally(
+  chatId: string | null | undefined,
+  snapshot: StopChatResponseSnapshot,
+) {
+  const restoreDetails = (details: ChatDetails): ChatDetails => ({
+    ...details,
+    waitingForResponse: snapshot.waitingForResponse,
+    toolCallArguments: { ...snapshot.toolCallArguments },
+  });
+  if (typeof chatId === "string") {
+    updateChatDetails(chatId, restoreDetails);
+    return;
+  }
+  updatePendingChatDetails(restoreDetails);
+}
+
+function stopChatResponseLocally(
+  chatId: string | null | undefined,
+): StopChatResponseSnapshot {
+  const snapshot = getStopChatResponseSnapshot(chatId);
   const stopDetails = (details: ChatDetails): ChatDetails => ({
     ...details,
     waitingForResponse: false,
@@ -665,6 +703,7 @@ function stopChatResponseLocally(chatId: string | null | undefined) {
     updatePendingChatDetails(stopDetails);
   }
   clearAllAppSpecPatchStreams();
+  return snapshot;
 }
 
 async function resolveLatestRunningExternalRunIdWithRefresh(
@@ -685,11 +724,13 @@ async function stopExternalChatResponse({
   projectConfigId,
   sectionId,
   failureMessage,
+  localSnapshot,
 }: {
   chatId: string;
   projectConfigId: string | null;
   sectionId?: string;
   failureMessage: string;
+  localSnapshot: StopChatResponseSnapshot;
 }): Promise<boolean> {
   const refreshChatAndResolveWaiting = async (): Promise<{
     hydrated: boolean;
@@ -715,6 +756,9 @@ async function stopExternalChatResponse({
     if (refreshState.hydrated && !refreshState.waitingForResponse) {
       return true;
     }
+    if (!refreshState.hydrated) {
+      restoreStoppedChatResponseLocally(chatId, localSnapshot);
+    }
     addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
     return false;
   }
@@ -727,6 +771,9 @@ async function stopExternalChatResponse({
   if (refreshState.hydrated && !refreshState.waitingForResponse) {
     return true;
   }
+  if (!refreshState.hydrated) {
+    restoreStoppedChatResponseLocally(chatId, localSnapshot);
+  }
   addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
   return false;
 }
@@ -735,7 +782,7 @@ export async function stopProjectChatResponse(
   chatId: string | null | undefined,
   isExternalEngine: boolean,
 ): Promise<boolean> {
-  stopChatResponseLocally(chatId);
+  const localSnapshot = stopChatResponseLocally(chatId);
   if (typeof chatId !== "string") {
     return true;
   }
@@ -745,6 +792,7 @@ export async function stopProjectChatResponse(
       chatId,
       projectConfigId: null,
       failureMessage: "Failed to stop project chat.",
+      localSnapshot,
     });
   }
 
@@ -752,7 +800,10 @@ export async function stopProjectChatResponse(
   if (res200(response)) {
     return true;
   }
-  await getLLMChat(chatId);
+  const hydrated = await getLLMChat(chatId);
+  if (!hydrated) {
+    restoreStoppedChatResponseLocally(chatId, localSnapshot);
+  }
   addTemporaryNotification(
     "Failed to stop project chat.",
     SettaNotificationTypeEnum.warning,
@@ -766,7 +817,7 @@ export async function stopManagedSectionChatResponse(
   projectConfigId: string,
   sectionId: string,
 ): Promise<boolean> {
-  stopChatResponseLocally(chatId);
+  const localSnapshot = stopChatResponseLocally(chatId);
   if (typeof chatId !== "string") {
     return true;
   }
@@ -776,13 +827,17 @@ export async function stopManagedSectionChatResponse(
       projectConfigId,
       sectionId,
       failureMessage: "Failed to stop section chat.",
+      localSnapshot,
     });
   }
   const response = await route_stop_llm_chat({ chatId });
   if (res200(response)) {
     return true;
   }
-  await getLLMChat(chatId, sectionId);
+  const hydrated = await getLLMChat(chatId, sectionId);
+  if (!hydrated) {
+    restoreStoppedChatResponseLocally(chatId, localSnapshot);
+  }
   addTemporaryNotification(
     "Failed to stop section chat.",
     SettaNotificationTypeEnum.warning,
@@ -887,7 +942,7 @@ export function clearPendingChatDetails() {
 export async function getLLMChat(
   chatId: string,
   sectionId?: string,
-): Promise<void> {
+): Promise<boolean> {
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res200(res)) {
@@ -930,7 +985,9 @@ export async function getLLMChat(
         reason: "hydrate-llm-chat",
       });
     }
+    return true;
   }
+  return false;
 }
 
 export async function getExternalAgentChat(

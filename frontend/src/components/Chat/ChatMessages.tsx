@@ -1408,10 +1408,31 @@ const ChatMessage = memo(function ChatMessage({
   const spinnerDelayMs =
     assistantContent.length === 0 ? 0 : IDLE_SPINNER_DELAY_MS;
   const toolCalls = isAssistant ? message.tool_calls ?? [] : [];
-  const thinkingItems = useMemo(
-    () => (isAssistant ? message.content.filter(isThinkingContentItem) : []),
-    [isAssistant, message.content],
-  );
+  const { thinkingItems, displayItems } = useMemo(() => {
+    const nextThinkingItems: Array<
+      Extract<ChatContentItem, { type: typeof C.LLM_THINKING }>
+    > = [];
+    const nextDisplayItems: Array<{ item: ChatContentItem; fullIndex: number }> =
+      [];
+    if (!isAssistant) {
+      return {
+        thinkingItems: nextThinkingItems,
+        displayItems: nextDisplayItems,
+      };
+    }
+    for (let index = 0; index < message.content.length; index += 1) {
+      const item = message.content[index];
+      if (isThinkingContentItem(item)) {
+        nextThinkingItems.push(item);
+        continue;
+      }
+      nextDisplayItems.push({ item, fullIndex: index });
+    }
+    return {
+      thinkingItems: nextThinkingItems,
+      displayItems: nextDisplayItems,
+    };
+  }, [isAssistant, message.content]);
   const showAssistantSpinner = useIdleStreamSpinner(
     isAssistant && isStreaming && toolCalls.length === 0,
     activityKey,
@@ -1439,17 +1460,14 @@ const ChatMessage = memo(function ChatMessage({
             attachmentUrlMap={attachmentUrlMap}
             requestAttachmentUrls={requestAttachmentUrls}
           />
-          {message.content.map((item, idx) => {
-            if (isThinkingContentItem(item)) {
-              return null;
-            }
+          {displayItems.map(({ item, fullIndex }) => {
             return (
               <StreamItem
-                key={idx}
+                key={fullIndex}
                 item={item}
                 isStreaming={isStreaming}
                 showTypingIndicator={
-                  showTypingIndicator && idx === lastTextIndex
+                  showTypingIndicator && fullIndex === lastTextIndex
                 }
               />
             );
