@@ -324,11 +324,7 @@ function HomeWorkspaceLayout({
     }
   }
 
-  async function onClickMakeDefault() {
-    const projectConfigId = selectedProjects[0];
-    if (!projectConfigId) {
-      return;
-    }
+  async function onSetDefaultProject(projectConfigId: string) {
     await router_set_as_default_project({ projectConfigId });
   }
 
@@ -344,6 +340,7 @@ function HomeWorkspaceLayout({
     isDeploymentMode,
     activeProjectId,
     onActivateProject: setActiveProjectId,
+    onSetDefaultProject,
     onToggleFavoriteProjectConfig: toggleFavoriteProjectConfig,
     galleryViewMode: homeProjectGalleryViewMode,
   };
@@ -434,14 +431,6 @@ function HomeWorkspaceLayout({
                 >
                   <BiPlus />
                   New Project
-                </button>
-                <button
-                  className="nodrag inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-setta-300 bg-white px-3 text-xs font-semibold text-setta-700 transition-colors hover:border-green-500 hover:bg-green-50 hover:text-green-700 focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-55 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-100 dark:hover:border-green-600 dark:hover:bg-green-950/30 dark:hover:text-green-200"
-                  onClick={onClickMakeDefault}
-                  disabled={selectedProjects.length !== 1}
-                >
-                  <HiHome />
-                  Make Default
                 </button>
                 <button
                   className="nodrag inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-setta-300 bg-white px-3 text-xs font-semibold text-setta-700 transition-colors hover:border-red-500 hover:bg-red-50 hover:text-red-700 focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-55 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-100 dark:hover:border-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-200"
@@ -695,6 +684,7 @@ function HomeProjectGallery({
   isDeploymentMode,
   activeProjectId,
   onActivateProject,
+  onSetDefaultProject,
   onToggleFavoriteProjectConfig,
   galleryViewMode,
   fullScreenSurface = false,
@@ -710,6 +700,7 @@ function HomeProjectGallery({
   isDeploymentMode: boolean;
   activeProjectId: string | null;
   onActivateProject: (projectId: string) => void;
+  onSetDefaultProject: (projectConfigId: string) => Promise<void>;
   onToggleFavoriteProjectConfig: (projectConfigId: string) => void;
   galleryViewMode: "thumbnails" | "list";
   fullScreenSurface?: boolean;
@@ -798,6 +789,7 @@ function HomeProjectGallery({
                 isDeploymentMode={isDeploymentMode}
                 activeProjectId={activeProjectId}
                 onActivateProject={onActivateProject}
+                onSetDefaultProject={onSetDefaultProject}
                 onToggleFavoriteProjectConfig={onToggleFavoriteProjectConfig}
                 compactGrid
               />
@@ -814,6 +806,7 @@ function HomeProjectGallery({
                 isDeploymentMode={isDeploymentMode}
                 activeProjectId={activeProjectId}
                 onActivateProject={onActivateProject}
+                onSetDefaultProject={onSetDefaultProject}
                 onToggleFavoriteProjectConfig={onToggleFavoriteProjectConfig}
               />
             )}
@@ -835,6 +828,7 @@ function HomeProjectGallery({
               isDeploymentMode={isDeploymentMode}
               activeProjectId={activeProjectId}
               onActivateProject={onActivateProject}
+              onSetDefaultProject={onSetDefaultProject}
               onToggleFavoriteProjectConfig={onToggleFavoriteProjectConfig}
               dataTestId="home-project-grid"
             />
@@ -851,6 +845,7 @@ function HomeProjectGallery({
               isDeploymentMode={isDeploymentMode}
               activeProjectId={activeProjectId}
               onActivateProject={onActivateProject}
+              onSetDefaultProject={onSetDefaultProject}
               onToggleFavoriteProjectConfig={onToggleFavoriteProjectConfig}
             />
           )}
@@ -890,6 +885,7 @@ function ProjectGridItems({
   isDeploymentMode,
   activeProjectId,
   onActivateProject,
+  onSetDefaultProject,
   onToggleFavoriteProjectConfig,
   compactGrid = false,
   dataTestId,
@@ -904,6 +900,7 @@ function ProjectGridItems({
   isDeploymentMode: boolean;
   activeProjectId: string | null;
   onActivateProject: (projectId: string) => void;
+  onSetDefaultProject: (projectConfigId: string) => Promise<void>;
   onToggleFavoriteProjectConfig: (projectConfigId: string) => void;
   compactGrid?: boolean;
   dataTestId?: string;
@@ -937,6 +934,7 @@ function ProjectGridItems({
           selectionEnabled={selectionEnabled}
           isDeploymentMode={isDeploymentMode}
           onActivate={() => onActivateProject(project.id)}
+          onSetDefaultProject={onSetDefaultProject}
           onToggleFavoriteProjectConfig={onToggleFavoriteProjectConfig}
         />
       ))}
@@ -955,6 +953,7 @@ function ProjectCard({
   selectionEnabled,
   isDeploymentMode,
   onActivate,
+  onSetDefaultProject,
   onToggleFavoriteProjectConfig,
 }: {
   project: ProjectConfig;
@@ -967,12 +966,13 @@ function ProjectCard({
   selectionEnabled: boolean;
   isDeploymentMode: boolean;
   onActivate: () => void;
+  onSetDefaultProject: (projectConfigId: string) => Promise<void>;
   onToggleFavoriteProjectConfig: (projectConfigId: string) => void;
 }) {
   const navigate = useNavigate();
   const itemStyles = isActive
-    ? "relative isolate grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-2xl border border-blue-500/55 bg-blue-50/50 transition-colors dark:border-blue-500/45 dark:bg-blue-950/20"
-    : "relative isolate grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-2xl border border-setta-200/85 bg-setta-50/65 transition-colors hover:border-setta-300 dark:border-setta-700 dark:bg-setta-900/35 dark:hover:border-setta-600";
+    ? "group/projectcard relative isolate grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-2xl border border-blue-500/55 bg-blue-50/50 transition-colors dark:border-blue-500/45 dark:bg-blue-950/20"
+    : "group/projectcard relative isolate grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-2xl border border-setta-200/85 bg-setta-50/65 transition-colors hover:border-setta-300 dark:border-setta-700 dark:bg-setta-900/35 dark:hover:border-setta-600";
   const projectPath = resolveProjectPath(project.name, isDeploymentMode);
   function openProjectFromCard() {
     if (!projectPath) {
@@ -1009,8 +1009,28 @@ function ProjectCard({
               {project.name}
             </p>
             <div className="flex items-center gap-1">
-              {isDefault && (
-                <HiHome className="h-4 w-4 text-setta-600 dark:text-setta-100" />
+              {!isDeploymentMode && (
+                <button
+                  type="button"
+                  data-testid="home-project-default-toggle"
+                  className={`nodrag inline-flex h-5 w-5 items-center justify-center rounded-full bg-transparent transition-colors focus-visible:ring-2 ${
+                    isDefault
+                      ? "text-green-500"
+                      : "text-transparent hover:!text-setta-400 group-hover/projectcard:text-setta-400/60 dark:hover:!text-setta-300 dark:group-hover/projectcard:text-setta-500"
+                  }`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void onSetDefaultProject(project.id);
+                  }}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  aria-label={
+                    isDefault ? "Default project" : "Make default project"
+                  }
+                  title={isDefault ? "Default project" : "Make default project"}
+                >
+                  <HiHome size={13} />
+                </button>
               )}
               {isFavorite ? (
                 <IoStar className="h-4 w-4 text-amber-400" />
@@ -1163,6 +1183,7 @@ function ProjectListItems({
   isDeploymentMode,
   activeProjectId,
   onActivateProject,
+  onSetDefaultProject,
   onToggleFavoriteProjectConfig,
 }: {
   projects: Array<ProjectConfig>;
@@ -1176,6 +1197,7 @@ function ProjectListItems({
   isDeploymentMode: boolean;
   activeProjectId: string | null;
   onActivateProject: (projectId: string) => void;
+  onSetDefaultProject: (projectConfigId: string) => Promise<void>;
   onToggleFavoriteProjectConfig: (projectConfigId: string) => void;
 }) {
   if (projects.length === 0) {
@@ -1204,6 +1226,7 @@ function ProjectListItems({
           selectionEnabled={selectionEnabled}
           isDeploymentMode={isDeploymentMode}
           onActivate={() => onActivateProject(project.id)}
+          onSetDefaultProject={onSetDefaultProject}
           onToggleFavoriteProjectConfig={onToggleFavoriteProjectConfig}
         />
       ))}
@@ -1223,6 +1246,7 @@ function ProjectListItem({
   selectionEnabled,
   isDeploymentMode,
   onActivate,
+  onSetDefaultProject,
   onToggleFavoriteProjectConfig,
 }: {
   project: ProjectConfig;
@@ -1236,6 +1260,7 @@ function ProjectListItem({
   selectionEnabled: boolean;
   isDeploymentMode: boolean;
   onActivate: () => void;
+  onSetDefaultProject: (projectConfigId: string) => Promise<void>;
   onToggleFavoriteProjectConfig: (projectConfigId: string) => void;
 }) {
   const navigate = useNavigate();
@@ -1293,7 +1318,7 @@ function ProjectListItem({
   return (
     <div
       data-testid="home-project-list-row"
-      className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses} ${rowCursorClass}`}
+      className={`group/projectitem ${baseClasses} ${isActive ? activeClasses : inactiveClasses} ${rowCursorClass}`}
       onMouseEnter={onActivate}
       onClick={onRowClick}
       onDoubleClick={onRowDoubleClick}
@@ -1322,8 +1347,26 @@ function ProjectListItem({
         </button>
       )}
       <span className="min-w-0 flex-1 truncate">{project.name}</span>
-      {isDefault && (
-        <HiHome className="h-4 w-4 text-setta-500 dark:text-setta-300" />
+      {!isDeploymentMode && (
+        <button
+          type="button"
+          data-testid="home-project-default-toggle"
+          className={`inline-flex h-5 w-5 items-center justify-center rounded-full bg-transparent transition-colors focus-visible:ring-2 ${
+            isDefault
+              ? "text-green-500"
+              : "text-transparent hover:!text-setta-400 group-hover/projectitem:text-setta-400/55 dark:hover:!text-setta-300 dark:group-hover/projectitem:text-setta-500"
+          }`}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void onSetDefaultProject(project.id);
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+          aria-label={isDefault ? "Default project" : "Make default project"}
+          title={isDefault ? "Default project" : "Make default project"}
+        >
+          <HiHome size={13} />
+        </button>
       )}
       <button
         type="button"
