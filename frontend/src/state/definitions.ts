@@ -1,6 +1,7 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
 import type { AIFollowMode } from "state/types/aiFollow";
+import type { AppGenerationMode } from "state/types/appGenerationMode";
 import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
@@ -852,6 +853,10 @@ type ZustandLocalStorage = {
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
+  appGenerationMode: AppGenerationMode;
+  appGenerationPrompt: string;
+  appGenerationReferenceImageUrl: string;
+  appGenerationReferenceImageNotes: string;
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
@@ -890,6 +895,10 @@ export const useLocalStorage = createWithEqualityFn(
       showMinimap: true,
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
+      appGenerationMode: "json_render",
+      appGenerationPrompt: "",
+      appGenerationReferenceImageUrl: "",
+      appGenerationReferenceImageNotes: "",
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
