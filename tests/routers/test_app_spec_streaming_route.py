@@ -159,7 +159,9 @@ class TestAppSpecStreamingRoute:
         assert isinstance(response, JSONResponse)
         assert response.status_code == 400
         payload = json.loads(response.body.decode("utf-8"))
-        assert payload["message"] == "catalogSummary is too large. Reduce it or omit it."
+        assert (
+            payload["message"] == "catalogSummary is too large. Reduce it or omit it."
+        )
 
     async def test_rejects_large_sections_summary(self) -> None:
         state = _StateStub(
@@ -189,4 +191,71 @@ class TestAppSpecStreamingRoute:
         assert isinstance(response, JSONResponse)
         assert response.status_code == 400
         payload = json.loads(response.body.decode("utf-8"))
-        assert payload["message"] == "sectionsSummary is too large. Reduce it or omit it."
+        assert (
+            payload["message"] == "sectionsSummary is too large. Reduce it or omit it."
+        )
+
+    async def test_rejects_large_reference_image_url(self) -> None:
+        state = _StateStub(
+            agent_runner=_AgentRunnerStub(
+                config=AllLLMConfigs(
+                    configs={
+                        "primary": LLMConfig(
+                            id="primary",
+                            model="gpt-4o-mini",
+                        )
+                    }
+                ),
+                api_keys={},
+            ),
+            wmh_frontend_sender=object(),
+        )
+
+        with runtime_context(state) as ctx:
+            response = await route_stream_app_spec(
+                StreamAppSpecRequest(
+                    prompt="Build a minimal app",
+                    referenceImageUrl="h" * 4097,
+                ),
+                ctx,
+            )
+
+        assert isinstance(response, JSONResponse)
+        assert response.status_code == 400
+        payload = json.loads(response.body.decode("utf-8"))
+        assert (
+            payload["message"]
+            == "referenceImageUrl is too large. Reduce it or omit it."
+        )
+
+    async def test_rejects_large_reference_image_notes(self) -> None:
+        state = _StateStub(
+            agent_runner=_AgentRunnerStub(
+                config=AllLLMConfigs(
+                    configs={
+                        "primary": LLMConfig(
+                            id="primary",
+                            model="gpt-4o-mini",
+                        )
+                    }
+                ),
+                api_keys={},
+            ),
+            wmh_frontend_sender=object(),
+        )
+
+        with runtime_context(state) as ctx:
+            response = await route_stream_app_spec(
+                StreamAppSpecRequest(
+                    prompt="Build a minimal app",
+                    referenceImageNotes="n" * 100_001,
+                ),
+                ctx,
+            )
+
+        assert isinstance(response, JSONResponse)
+        assert response.status_code == 400
+        payload = json.loads(response.body.decode("utf-8"))
+        assert payload["message"] == (
+            "referenceImageNotes is too large. Reduce it or omit it."
+        )

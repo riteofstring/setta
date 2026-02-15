@@ -36,8 +36,6 @@ from setta.types.websocket import (
     WebsocketMsgListenerInit,
     WebsocketMsgListenerRegister,
     WebsocketMsgListenerRegisterAck,
-    WebsocketMsgListenerRouterEndpointCall,
-    WebsocketMsgListenerRouterEndpointResult,
     WebsocketConnectionType,
 )
 from setta.utils.paths import normalize_state_path
@@ -252,14 +250,14 @@ class _StubProjectManagerSwitcher:
     def __init__(self, states: dict[ID, ProjectStateSingleConfig]) -> None:
         self._manager = _StubProjectManager(states)
 
-    def get(self, _project_config_id: ID) -> _StubProjectManager:
+    def get(self, project_config_id: ID) -> _StubProjectManager:
         return self._manager
 
     def get_config_id_by_name(
         self,
         project_name: str,
         *,
-        _share_session_id: str | None = None,
+        share_session_id: str | None = None,
     ) -> ID:
         for state in self._manager._states.values():
             if state.projectConfig.name == project_name:
@@ -1136,121 +1134,6 @@ class TestPythonScriptReceiver:
             "reason": "expected type ChartData but received Image",
         }
         self._assert_backend_log_broadcast(websocket_manager, PROJECT_ID)
-
-    async def test_listener_router_endpoint_call_dispatches_plugin_endpoint(self):
-        # Listener router calls should dispatch to plugin_manager.invoke_listener_endpoint for plugin-owned endpoints.
-        project_state = _build_project_state(PROJECT_ID)
-        (
-            receiver,
-            websocket_manager,
-            _,
-            _,
-            listener_registry,
-        ) = _build_receiver_fixture({PROJECT_ID: project_state})
-
-        captured_calls: list[tuple[str, dict[str, object]]] = []
-
-        class _StubPluginManager:
-            def invoke_listener_endpoint(
-                self, *, endpoint_name: str, payload: dict[str, object]
-            ) -> object:
-                captured_calls.append((endpoint_name, dict(payload)))
-                return {
-                    "handledByPlugin": endpoint_name,
-                    "projectConfigId": payload["projectConfigId"],
-                }
-
-        websocket_manager._state.plugin_manager = _StubPluginManager()
-        listener_registry.upsert_registration(
-            websocket_id="socket-1",
-            project_config_id=PROJECT_ID,
-            callbacks={},
-        )
-        message = WebsocketMsgListenerRouterEndpointCall(
-            content={
-                "projectConfigId": PROJECT_ID,
-                "callId": "call-1",
-                "endpointName": "fixture_listener_endpoint",
-                "payload": {"value": "ok"},
-            }
-        )
-
-        await receiver.process_json_str(
-            message.model_dump_json(),
-            fromWebsocketId="socket-1",
-        )
-
-        assert captured_calls == [
-            (
-                "fixture_listener_endpoint",
-                {"projectConfigId": PROJECT_ID, "value": "ok"},
-            )
-        ]
-        assert len(websocket_manager.sent_messages) == 1
-        result_message, websocket_id = self._sent_message_as(
-            websocket_manager, 0, WebsocketMsgListenerRouterEndpointResult
-        )
-        assert websocket_id == "socket-1"
-        assert result_message.content.projectConfigId == PROJECT_ID
-        assert result_message.content.callId == "call-1"
-        assert result_message.content.ok is True
-        assert result_message.content.result == {
-            "handledByPlugin": "fixture_listener_endpoint",
-            "projectConfigId": PROJECT_ID,
-        }
-
-    async def test_listener_router_endpoint_call_returns_error_for_unknown_plugin_endpoint(
-        self,
-    ):
-        # Missing plugin listener endpoints should return listener_call_failed with endpoint details.
-        project_state = _build_project_state(PROJECT_ID)
-        (
-            receiver,
-            websocket_manager,
-            _,
-            _,
-            listener_registry,
-        ) = _build_receiver_fixture({PROJECT_ID: project_state})
-
-        class _MissingPluginEndpointManager:
-            def invoke_listener_endpoint(
-                self, *, endpoint_name: str, payload: dict[str, object]
-            ) -> object:
-                _ = payload
-                raise KeyError(endpoint_name)
-
-        websocket_manager._state.plugin_manager = _MissingPluginEndpointManager()
-        listener_registry.upsert_registration(
-            websocket_id="socket-1",
-            project_config_id=PROJECT_ID,
-            callbacks={},
-        )
-        message = WebsocketMsgListenerRouterEndpointCall(
-            content={
-                "projectConfigId": PROJECT_ID,
-                "callId": "call-2",
-                "endpointName": "missing_plugin_endpoint",
-                "payload": {},
-            }
-        )
-
-        await receiver.process_json_str(
-            message.model_dump_json(),
-            fromWebsocketId="socket-1",
-        )
-
-        assert len(websocket_manager.sent_messages) == 1
-        result_message, websocket_id = self._sent_message_as(
-            websocket_manager, 0, WebsocketMsgListenerRouterEndpointResult
-        )
-        assert websocket_id == "socket-1"
-        assert result_message.content.projectConfigId == PROJECT_ID
-        assert result_message.content.callId == "call-2"
-        assert result_message.content.ok is False
-        assert result_message.content.error == "listener_call_failed"
-        assert result_message.content.details == {
-            "message": "unknown listener endpoint: missing_plugin_endpoint"
-        }
 
 
 class TestPythonScriptSender:
