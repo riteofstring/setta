@@ -26,11 +26,7 @@ from setta.agentic.chat_view import (
     get_run_project_config_id,
     is_external_agent_run,
 )
-from setta.agentic.completion_guard import (
-    apply_completion_guard,
-    load_completion_guard_enabled,
-)
-from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
+from setta.agentic.completion_guard import apply_completion_guard
 from setta.agentic.external_adapters.base import (
     ExternalAgentAdapter,
     ExternalAgentRunContext,
@@ -78,6 +74,7 @@ from setta.llm.chat_toolkit.section_sync import apply_stream_delta
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.agentic_context_headers import build_agentic_context_headers
 from setta.mcp.client import MultiMCPClient
+from setta.mcp.tool_approval_policy import resolve_setta_mcp_tool_approval_policy
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
 from setta.mcp.tool_metadata import FollowIdType
 from setta.mcp.utils import convert_canonical_ids_to_temporary
@@ -559,11 +556,28 @@ class ExternalAgentRunner:
             profile=profile,
             payload_inputs=payload_inputs,
         )
+        permission_mode: str | None = None
+        raw_permission_mode = payload_inputs.get("permissionMode")
+        if raw_permission_mode is not None:
+            if not isinstance(raw_permission_mode, str):
+                raise TypeError("permissionMode must be a string")
+            permission_mode = raw_permission_mode
+        setta_tool_approval_policy = resolve_setta_mcp_tool_approval_policy(
+            permission_mode=permission_mode,
+            external_tool_type=effective_config.toolType,
+            external_approval_policy=effective_config.approvalPolicy,
+            has_approval_channel=False,
+        )
         agentic_headers = build_agentic_context_headers(
             project_config_id=project_config_id,
             chat_id=chat_id,
             section_id=section_id,
             allow_unscoped=allow_unscoped,
+            setta_tool_approval_policy=(
+                None
+                if setta_tool_approval_policy is None
+                else setta_tool_approval_policy.value
+            ),
         )
         system_prompt = self._build_system_prompt(profile, project_config_id)
         raw_system_prompt = payload_inputs.pop("systemPrompt", None)
@@ -1224,13 +1238,9 @@ class ExternalAgentRunner:
                     tools.append(f"mcp__{server_id}__{tool_name}")
                     continue
             tools.append(normalized)
-        required_tools = (
-            f"mcp__{SETTA_MCP_SERVER_ID}__set_agentic_context",
-            f"mcp__{SETTA_MCP_SERVER_ID}__{REPORT_COMPLETION_STATUS_TOOL_NAME}",
-        )
-        for required_tool in required_tools:
-            if required_tool not in tools:
-                tools.append(required_tool)
+        required_tool = f"mcp__{SETTA_MCP_SERVER_ID}__set_agentic_context"
+        if required_tool not in tools:
+            tools.append(required_tool)
         return tools or None
 
     def _resolve_working_dir(self, config: ExternalAgentConfig) -> Path:
@@ -1391,11 +1401,7 @@ class ExternalAgentRunner:
         if not isinstance(chunk.message, AssistantChatMessage):
             return chunk
         prior_messages = list(self._ensure_chat_state(run).messages)
-        apply_completion_guard(
-            prior_messages,
-            chunk.message,
-            completion_guard_enabled=load_completion_guard_enabled(self.dbe),
-        )
+        apply_completion_guard(prior_messages, chunk.message)
         return chunk
 
     def _store_tool_call_delta(self, run_id: ID, chunk: ToolCallDeltaEvent) -> None:
