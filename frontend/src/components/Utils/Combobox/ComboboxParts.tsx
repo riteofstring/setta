@@ -29,7 +29,7 @@ export function ComboboxInput({
   const resolvedOuterClasses = [inputOuterClasses, isPaneVariant ? "mx-0" : ""]
     .filter(Boolean)
     .join(" ");
-  const chevronScale = small ? 0.5 : 0.65;
+  const chevronScale = small ? (isPaneVariant ? 0.42 : 0.5) : 0.65;
   const chevronStyle = { "--ggs": chevronScale } as React.CSSProperties;
   const resolvedInputThemeClassName = inputThemeClassName
     ? ` ${inputThemeClassName}`
@@ -53,7 +53,7 @@ export function ComboboxInput({
     <i className="gg-chevron-down" style={chevronStyle} />
   );
   const rightButtonClassName = isPaneVariant
-    ? "right-1 text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+    ? "mr-1 text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
     : "right-1";
   const resolvedRightButtonThemeClassName = rightButtonThemeClassName
     ? ` ${rightButtonThemeClassName}`
@@ -83,7 +83,7 @@ export function ComboboxInput({
           size={
             isPaneVariant
               ? small
-                ? "h-5 w-5"
+                ? "h-4 w-4"
                 : "h-6 w-6"
               : small
                 ? "h-4 w-4"

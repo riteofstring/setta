@@ -1,43 +1,25 @@
 import _ from "lodash";
-import {
-  getCurrEffectiveSectionImplOfType,
-  getCurrProjectConfigId,
-} from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
   getPythonCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
-import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
   CodeLanguageEnum,
   CodeObjTypeEnum,
   createSectionSize,
-  DateCalendarWeekStart,
-  DateCalendarWeekStartEnum,
-  DateControlMode,
-  DateControlModeEnum,
-  DateSelectionMode,
-  DateSelectionModeEnum,
   Position,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { createTopLevelSection } from "./createSections";
 
-type ControlParamConfig = {
-  dateControlMode?: DateControlMode;
-  dateSelectionMode?: DateSelectionMode;
-  dateCalendarWeekStart?: DateCalendarWeekStart;
-};
-
 export type CreateSectionsContextMenuInfo = {
   name: string;
   implSpecs: Partial<BaseSectionImplUnion> &
     Required<Pick<BaseSectionImplUnion, "type">>;
   controlCodeObjType?: CodeObjTypeEnum;
-  controlParamConfig?: ControlParamConfig;
 };
 
 export function useCreateSectionsList() {
@@ -131,14 +113,6 @@ export function useCreateSectionsList() {
       name: "Browser",
       implSpecs: { type: SectionTypeEnum.Browser },
     },
-    {
-      name: "Spreadsheet",
-      implSpecs: { type: SectionTypeEnum.Spreadsheet },
-    },
-  ];
-
-  const otherGroupItems: Array<CreateSectionsContextMenuInfo> = [
-    { name: "Task Board", implSpecs: { type: SectionTypeEnum.TaskBoard } },
   ];
 
   const metaControlGroupItems: Array<CreateSectionsContextMenuInfo> = [
@@ -178,23 +152,18 @@ export function useCreateSectionsList() {
       controlCodeObjType: CodeObjTypeEnum.TextParam,
     },
     {
-      name: "Calendar",
-      implSpecs: {
-        type: SectionTypeEnum.MetaControl,
-      },
-      controlCodeObjType: CodeObjTypeEnum.DateParam,
-      controlParamConfig: {
-        dateControlMode: DateControlModeEnum.calendar,
-        dateSelectionMode: DateSelectionModeEnum.multiple,
-        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
-      },
-    },
-    {
       name: "Text Area",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
       },
       controlCodeObjType: CodeObjTypeEnum.TextAreaParam,
+    },
+    {
+      name: "Code Input",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+      },
+      controlCodeObjType: CodeObjTypeEnum.CodeParam,
     },
     {
       name: "Password Field",
@@ -241,10 +210,6 @@ export function useCreateSectionsList() {
       items: artifactGroupItems,
     },
     {
-      group: "Other",
-      items: otherGroupItems,
-    },
-    {
       group: "MetaControls",
       items: metaControlGroupItems,
     },
@@ -268,68 +233,8 @@ export function createTopLevelSectionFromImplSpecs(
     if (!sectionId) {
       return;
     }
-    if (menuItem.controlParamConfig) {
-      void applyMetaControlParamConfigAfterCreate(
-        sectionId,
-        menuItem.controlParamConfig,
-      );
-    }
     if (menuItem.implSpecs.type === SectionTypeEnum.Callable) {
       focusOnSectionSearch(sectionId);
     }
-  });
-}
-
-function getMetaControlParamId(sectionId: string): string | null {
-  const state = useProjectState.getState();
-  const variantId = state.projectConfig.sectionVariantMap[sectionId];
-  if (!variantId) {
-    return null;
-  }
-  const variant = state.sectionVariants[variantId];
-  if (!variant) {
-    return null;
-  }
-  if (!state.sectionImpls[variant.impl]) {
-    return null;
-  }
-  if (!state.sections[sectionId]) {
-    return null;
-  }
-  const impl = getCurrEffectiveSectionImplOfType(
-    state,
-    sectionId,
-    SectionTypeEnum.MetaControl,
-  );
-  return impl.metaControlParamId;
-}
-
-async function waitForMetaControlParamId(
-  sectionId: string,
-): Promise<string | null> {
-  const attempts = 45;
-  for (let idx = 0; idx < attempts; idx += 1) {
-    const paramId = getMetaControlParamId(sectionId);
-    if (paramId) {
-      return paramId;
-    }
-    await new Promise((resolve) => window.setTimeout(resolve, 16));
-  }
-  return null;
-}
-
-async function applyMetaControlParamConfigAfterCreate(
-  sectionId: string,
-  config: ControlParamConfig,
-) {
-  const controlParamId = await waitForMetaControlParamId(sectionId);
-  if (!controlParamId) {
-    return;
-  }
-  await route_update_param_impl_config({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionId,
-    paramInfoId: controlParamId,
-    newConfig: config,
   });
 }

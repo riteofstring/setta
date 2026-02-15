@@ -1,4 +1,8 @@
-import { type ColorModePreference, useLocalStorage } from "state/definitions";
+import {
+  type ColorModePreference,
+  type HomeProjectGalleryViewMode,
+  useLocalStorage,
+} from "state/definitions";
 
 export function setColorModePreference(colorMode: ColorModePreference) {
   useLocalStorage.setState((state) => ({
@@ -31,4 +35,24 @@ export function toggleArgEdges() {
   useLocalStorage.setState((state) => ({
     showArgEdges: !state.showArgEdges,
   }));
+}
+
+export function setHomeProjectGalleryViewMode(
+  viewMode: HomeProjectGalleryViewMode,
+) {
+  useLocalStorage.setState({ homeProjectGalleryViewMode: viewMode });
+}
+
+export function toggleFavoriteProjectConfig(projectConfigId: string) {
+  useLocalStorage.setState((state) => {
+    const current = state.favoriteProjectConfigIds;
+    if (current.includes(projectConfigId)) {
+      return {
+        favoriteProjectConfigIds: current.filter(
+          (id) => id !== projectConfigId,
+        ),
+      };
+    }
+    return { favoriteProjectConfigIds: [...current, projectConfigId] };
+  });
 }
