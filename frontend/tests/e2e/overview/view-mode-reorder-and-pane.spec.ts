@@ -13,6 +13,7 @@ const OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR =
   '[data-testid="overview-project-config-row"]';
 
 type ProjectMetadataResponse = {
+  defaultProjectConfigId?: string | null;
   projectMetadata: Array<{ id: string; name: string }>;
 };
 type LoadProjectConfigWithViewModes = {
@@ -49,6 +50,15 @@ async function createNamedViewMode(
 }
 
 async function dragToTarget(page: Page, source: Locator, target: Locator) {
+  return dragToTargetWithPosition(page, source, target, "center");
+}
+
+async function dragToTargetWithPosition(
+  page: Page,
+  source: Locator,
+  target: Locator,
+  position: "center" | "before",
+) {
   const sourceBox = await source.boundingBox();
   const targetBox = await target.boundingBox();
   if (!sourceBox || !targetBox) {
@@ -60,12 +70,30 @@ async function dragToTarget(page: Page, source: Locator, target: Locator) {
     sourceBox.y + sourceBox.height * 0.5,
   );
   await page.mouse.down();
-  await page.mouse.move(
-    targetBox.x + targetBox.width * 0.5,
-    targetBox.y + targetBox.height * 0.5,
-    { steps: 40 },
-  );
+  const dropX = targetBox.x + targetBox.width * 0.5;
+  const dropY =
+    position === "before"
+      ? targetBox.y + Math.max(2, targetBox.height * 0.15)
+      : targetBox.y + targetBox.height * 0.5;
+  await page.mouse.move(dropX, dropY, { steps: 40 });
   await page.mouse.up();
+}
+
+async function dragToTargetUntil(
+  page: Page,
+  source: Locator,
+  target: Locator,
+  hasReordered: () => Promise<boolean>,
+  position: "center" | "before" = "center",
+): Promise<void> {
+  const maxAttempts = 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    await dragToTargetWithPosition(page, source, target, position);
+    if (await hasReordered()) {
+      return;
+    }
+    await page.waitForTimeout(100);
+  }
 }
 
 async function readTabOrder(page: Page): Promise<string[]> {
@@ -122,6 +150,29 @@ async function createProjectConfigAndResolveId(
     throw new Error(`Unable to resolve project config id for ${createdName}.`);
   }
   return { id: match.id, name: match.name };
+}
+
+async function trimProjectConfigsTo(
+  page: Page,
+  keepProjectConfigIds: string[],
+): Promise<void> {
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  const keepIds = new Set(keepProjectConfigIds);
+  if (metadata?.defaultProjectConfigId) {
+    keepIds.add(metadata.defaultProjectConfigId);
+  }
+  const idsToDelete =
+    metadata?.projectMetadata
+      .map((entry) => entry.id)
+      .filter((id) => !keepIds.has(id)) ?? [];
+  if (idsToDelete.length === 0) {
+    return;
+  }
+  await postBackend(page, "/deleteProjectConfigs", { ids: idsToDelete });
 }
 
 async function readOverviewProjectConfigOrderById(
@@ -393,6 +444,10 @@ test("project config drag reorder persists across reload", async ({ page }) => {
     page,
     "bg-emerald-500/60",
   );
+  await trimProjectConfigsTo(page, [
+    context.projectConfigId,
+    secondaryConfig.id,
+  ]);
 
   const projectConfigRows = page.locator(OVERVIEW_PROJECT_CONFIG_ROW_SELECTOR);
   const hasRowsVisible = await projectConfigRows
@@ -427,7 +482,19 @@ test("project config drag reorder persists across reload", async ({ page }) => {
   );
   expect(beforeOrder.indexOf(secondaryConfig.id)).toBeGreaterThanOrEqual(0);
 
-  await dragToTarget(page, secondaryHandle, primaryRow);
+  await dragToTargetUntil(
+    page,
+    secondaryHandle,
+    primaryRow,
+    async () => {
+      const order = await readOverviewProjectConfigOrderById(page);
+      return (
+        order.indexOf(secondaryConfig.id) <
+        order.indexOf(context.projectConfigId)
+      );
+    },
+    "before",
+  );
 
   await expect
     .poll(async () => {
