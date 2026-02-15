@@ -18,3 +18,25 @@ Implemented the review findings across backend and frontend, explicitly avoiding
 - Frontend Vitest: targeted suites passed (chat rendering, AI resource load guards, submit/transcribe actions, overview activity).
 - Playwright: targeted e2e suites passed (`agentic-scope`, `app-config-generate-prompt`, `app-config-mcp-mode`).
 - CDP visual verification completed against a live app session.
+
+## 2026-02-17 08:55:25 PST
+
+### Summary
+Implemented the next review cycle fixes across backend and frontend, excluding backward-compatibility shims and removing top-level review docs.
+
+### Implemented fixes
+- Completion guard now scopes to the active create/scaffold task window so stale history cannot incorrectly block or unblock completion.
+- Transcription now forwards the full provider request payload from `build_llm_params()` (excluding transcription-config-only keys) and applies transcription options consistently.
+- MCP reconnect retry behavior now retries only read-only tools, preventing duplicate side effects for write/structural tools.
+- Replaced `submitMessage` positional compatibility overload with an explicit options object API and migrated callsites.
+- Project AI chat now lazily performs workspace-root Python detection only in empty state and reuses a session cache.
+- Provider dictation now negotiates supported recorder MIME types, derives blob/file type correctly, and falls back to browser dictation in `auto` mode when provider setup fails.
+- Removed dead/redundant code paths in AI routing and prompt composition, and removed the unused `hasRunningAgentRuns` helper.
+
+### Test and verification status
+- Backend pytest: targeted suites passed (`tests/agentic/test_completion_guard.py`, `tests/mcp/test_multi_mcp_client.py`, transcription-focused cases in `tests/routers/test_ai_agent_run_chats.py`).
+- Frontend Vitest: targeted suites passed (`aiSubmitMessage`, `aiTranscribeChatAudio`, `dictation`, `aiActivity`).
+- Playwright: new targeted e2e suites passed (`chat-dictation-fallback`, `project-ai-chat-root-scan`).
+- Ruff on changed backend/test files passed.
+- ESLint targeted run not executable in this environment due missing `@eslint/js` resolution.
+- CDP visual verification completed in Project AI Chat (composer controls/mic behavior visible after changes).

@@ -327,7 +327,7 @@ def _build_app_generation_mode_prompt(
         ),
     ]
 
-    if mode in (None, "json_render", "json_render_with_image", "prompt_builder"):
+    if mode in ("json_render", "json_render_with_image", "prompt_builder"):
         lines.extend(
             [
                 "- If you are generating/updating the App spec (json-render):",
@@ -609,7 +609,6 @@ async def route_get_llm_response(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     resolved_mode = x.appGenerationMode
-    prompt_mode: AppGenerationMode | None = resolved_mode
     normalized_reference_image_url, normalized_reference_image_notes = (
         _normalize_reference_image_inputs(
             reference_image_url=x.appGenerationReferenceImageUrl,
@@ -622,7 +621,7 @@ async def route_get_llm_response(
     else:
         reference_image_url, reference_image_notes = (None, None)
     app_generation_mode_prompt = _build_app_generation_mode_prompt(
-        mode=prompt_mode,
+        mode=resolved_mode,
         app_spec_streaming_enabled=x.appSpecStreamingEnabled,
         reference_image_url=reference_image_url,
         reference_image_notes=reference_image_notes,
@@ -653,8 +652,6 @@ async def route_get_llm_response(
                 "systemPrompt": combined_system_prompt,
             }
         )
-        if profile is None:
-            raise HTTPException(status_code=500, detail="Managed profile not found")
         inputs = {
             "chatId": str(chat_id),
             "projectConfigId": str(x.projectConfigId),
@@ -767,7 +764,6 @@ async def route_get_llm_response(
             ) from exc
         return chat_id
     raise HTTPException(status_code=400, detail="Unsupported engine config")
-    return chat_id
 
 
 @router.post(Route.TRANSCRIBE_CHAT_AUDIO)

@@ -44,10 +44,15 @@ def apply_completion_guard(
         return None
     if not _assistant_claims_completion(assistant_text):
         return None
-    if not _is_creation_flow(prior_messages):
+    creation_start_index = _resolve_creation_flow_start_index(prior_messages)
+    if creation_start_index is None:
         return None
+    scoped_prior_messages = prior_messages[creation_start_index:]
 
-    verification_status = _resolve_verification_status(prior_messages, assistant_text)
+    verification_status = _resolve_verification_status(
+        scoped_prior_messages,
+        assistant_text,
+    )
     if verification_status == "passed":
         return None
 
@@ -64,16 +69,30 @@ def _assistant_claims_completion(text: str) -> bool:
     return bool(_COMPLETION_CLAIM_RE.search(text))
 
 
-def _is_creation_flow(messages: list[Any]) -> bool:
-    for message in messages:
+def _resolve_creation_flow_start_index(messages: list[Any]) -> int | None:
+    latest_creation_index: int | None = None
+    latest_user_index: int | None = None
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
         if _normalize_role(message) != "user":
             continue
         text = _extract_text_from_message(message)
         if not text:
             continue
-        if _CREATION_VERB_RE.search(text) and _CREATION_OBJECT_RE.search(text):
-            return True
-    return False
+        if latest_user_index is None:
+            latest_user_index = index
+        if _is_creation_intent(text):
+            latest_creation_index = index
+            break
+    if latest_creation_index is None:
+        return None
+    if latest_user_index is not None and latest_user_index > latest_creation_index:
+        return None
+    return latest_creation_index
+
+
+def _is_creation_intent(text: str) -> bool:
+    return bool(_CREATION_VERB_RE.search(text) and _CREATION_OBJECT_RE.search(text))
 
 
 def _resolve_verification_status(

@@ -47,6 +47,24 @@ describe("transcribeChatAudio", () => {
     expect((uploadedFile as File).type).toBe("audio/webm");
   });
 
+  it("derives upload filename extension from the recorded mime type", async () => {
+    mockedRouteTranscribeChatAudio.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: { text: "transcribed text" },
+    });
+
+    const audioBlob = new Blob(["hello"], { type: "audio/mp4" });
+    await transcribeChatAudio("engine-1", audioBlob);
+
+    expect(mockedRouteTranscribeChatAudio).toHaveBeenCalledTimes(1);
+    const [form] = mockedRouteTranscribeChatAudio.mock.calls[0] ?? [];
+    const uploadedFile = (form as FormData).get("file");
+    expect(uploadedFile).toBeInstanceOf(File);
+    expect((uploadedFile as File).name).toBe("dictation.m4a");
+    expect((uploadedFile as File).type).toBe("audio/mp4");
+  });
+
   it("rejects oversized dictation files before upload", async () => {
     const oversizedBlob = new Blob([new Uint8Array(10 * 1024 * 1024 + 1)], {
       type: "audio/webm",

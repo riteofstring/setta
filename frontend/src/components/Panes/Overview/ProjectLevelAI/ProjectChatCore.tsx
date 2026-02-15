@@ -67,6 +67,7 @@ const PYTHON_ROOT_MARKER_FILES = new Set<string>([
   "poetry.lock",
   "uv.lock",
 ]);
+let hasPythonInWorkspaceRootCache: boolean | null = null;
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionModeValue;
@@ -131,15 +132,27 @@ function hasPythonSignalsInRoot(
   return false;
 }
 
-function useHasPythonInWorkspaceRoot(): boolean {
-  const [hasPython, setHasPython] = useState(false);
+function useHasPythonInWorkspaceRoot(enabled: boolean): boolean {
+  const [hasPython, setHasPython] = useState(
+    hasPythonInWorkspaceRootCache ?? false,
+  );
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+    if (hasPythonInWorkspaceRootCache !== null) {
+      setHasPython(hasPythonInWorkspaceRootCache);
+      return;
+    }
     let cancelled = false;
 
     const load = async () => {
       const rootResponse = await route_get_file_browser_root();
       if (!rootResponse || rootResponse.status !== 200 || !rootResponse.data) {
+        return;
+      }
+      if (cancelled) {
         return;
       }
       const contentsResponse = await route_get_folder_contents({
@@ -159,14 +172,16 @@ function useHasPythonInWorkspaceRoot(): boolean {
       if (cancelled) {
         return;
       }
-      setHasPython(hasPythonSignalsInRoot(contentsResponse.data));
+      const hasPythonSignals = hasPythonSignalsInRoot(contentsResponse.data);
+      hasPythonInWorkspaceRootCache = hasPythonSignals;
+      setHasPython(hasPythonSignals);
     };
 
     void load();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [enabled]);
 
   return hasPython;
 }
@@ -269,7 +284,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       permissionMode: "minimal",
       searchEnabled: true,
     });
-  const hasPythonInWorkspaceRoot = useHasPythonInWorkspaceRoot();
+  const showEmptyState = typeof chatId === "undefined";
+  const hasPythonInWorkspaceRoot = useHasPythonInWorkspaceRoot(showEmptyState);
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
   const canConfigureExecutionSettings =
     Boolean(engineConfigId) &&
@@ -478,12 +494,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           thinking,
           engineConfigId,
           isExternalEngine,
-          undefined,
-          null,
-          null,
           {
-            permissionMode: executionSettings.permissionMode,
-            searchEnabled: executionSettings.searchEnabled,
+            executionSettings: {
+              permissionMode: executionSettings.permissionMode,
+              searchEnabled: executionSettings.searchEnabled,
+            },
           },
         );
         succeeded = Boolean(submittedChatId);
@@ -604,7 +619,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       noLLMConfigsAvailable,
     ],
   );
-  const showEmptyState = typeof chatId === "undefined";
   const submitDisabled = useMemo(
     () => !waitingForResponse && hasPendingToolInteraction(messages),
     [messages, waitingForResponse],

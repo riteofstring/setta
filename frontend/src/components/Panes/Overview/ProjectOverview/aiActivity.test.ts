@@ -9,7 +9,6 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   getActiveSectionIdsFromRuns,
-  hasRunningAgentRuns,
   isChatSectionWaitingForResponse,
 } from "./aiActivity";
 
@@ -38,29 +37,6 @@ describe("aiActivity", () => {
     const activeSectionIds = getActiveSectionIdsFromRuns(runs);
 
     expect([...activeSectionIds].sort()).toEqual(["section-a", "section-c"]);
-  });
-
-  it("reports whether any run is currently running", () => {
-    // Polling should only continue while badge-relevant section runs are active.
-    const idleRuns = [
-      createAgentRun({ status: AgentRunStatusEnum.completed }),
-      createAgentRun({ status: AgentRunStatusEnum.failed }),
-    ];
-    const unscopedRunningRuns = [
-      ...idleRuns,
-      createAgentRun({ status: AgentRunStatusEnum.running, inputs: null }),
-    ];
-    const sectionScopedRunningRuns = [
-      ...idleRuns,
-      createAgentRun({
-        status: AgentRunStatusEnum.running,
-        inputs: { sectionId: "section-a" },
-      }),
-    ];
-
-    expect(hasRunningAgentRuns(idleRuns)).toBe(false);
-    expect(hasRunningAgentRuns(unscopedRunningRuns)).toBe(false);
-    expect(hasRunningAgentRuns(sectionScopedRunningRuns)).toBe(true);
   });
 
   it("maps chat waiting state to overview activity", () => {

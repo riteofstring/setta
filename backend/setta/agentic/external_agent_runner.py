@@ -1066,9 +1066,7 @@ class ExternalAgentRunner:
                 mcp_url,
                 allowlist.tool_names if allowlist is not None else None,
             )
-            codex_prompt = self._resolve_codex_developer_instructions(
-                system_prompt, payload_inputs
-            )
+            codex_prompt = self._resolve_codex_developer_instructions(system_prompt)
             codex_home: Path
             if agentic_headers and chat_id is not None:
                 base_config_path = resolve_codex_settings_path(self.dbe, config)
@@ -1106,22 +1104,9 @@ class ExternalAgentRunner:
             env["CODEX_HOME"] = str(codex_home)
 
     @staticmethod
-    def _resolve_codex_developer_instructions(
-        system_prompt: str, payload_inputs: dict[str, Any] | None
-    ) -> str | None:
+    def _resolve_codex_developer_instructions(system_prompt: str) -> str | None:
         base_prompt = system_prompt.strip()
-        extra_prompt = ""
-        if payload_inputs is not None:
-            raw = payload_inputs.get("systemPrompt")
-            if isinstance(raw, str) and raw.strip():
-                extra_prompt = raw.strip()
-        if base_prompt and extra_prompt:
-            return f"{base_prompt}\n\n{extra_prompt}"
-        if base_prompt:
-            return base_prompt
-        if extra_prompt:
-            return extra_prompt
-        return None
+        return base_prompt if base_prompt else None
 
     @staticmethod
     def _build_setta_mcp_url() -> str:

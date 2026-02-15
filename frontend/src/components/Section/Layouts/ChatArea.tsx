@@ -1334,12 +1334,14 @@ function ManagedChatArea({
           thinking,
           effectiveEngineConfigId,
           isExternalEngine,
-          messageId,
-          agentProfileId,
-          sectionId,
           {
-            permissionMode,
-            searchEnabled,
+            messageId,
+            agentProfileId,
+            sectionId,
+            executionSettings: {
+              permissionMode,
+              searchEnabled,
+            },
           },
         );
         succeeded = Boolean(submittedChatId);

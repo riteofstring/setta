@@ -142,15 +142,28 @@ const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
   searchEnabled: true,
 };
 
-function isChatExecutionSettings(
-  value: ChatExecutionSettings | ChatAppGenerationContext | null | undefined,
-): value is ChatExecutionSettings {
-  return Boolean(
-    value &&
-      typeof value === "object" &&
-      "permissionMode" in value &&
-      "searchEnabled" in value,
-  );
+function resolveTranscriptionFileExtension(mimeType: string): string {
+  const normalized = mimeType.trim().toLowerCase();
+  if (normalized.includes("webm")) {
+    return "webm";
+  }
+  if (normalized.includes("mpeg") || normalized.includes("mp3")) {
+    return "mp3";
+  }
+  if (normalized.includes("ogg")) {
+    return "ogg";
+  }
+  if (normalized.includes("wav")) {
+    return "wav";
+  }
+  if (
+    normalized.includes("mp4") ||
+    normalized.includes("m4a") ||
+    normalized.includes("aac")
+  ) {
+    return "m4a";
+  }
+  return "webm";
 }
 
 export async function transcribeChatAudio(
@@ -169,7 +182,8 @@ export async function transcribeChatAudio(
   }
   const form = new FormData();
   form.set("engineConfigId", engineConfigId);
-  form.set("file", audioBlob, "dictation.webm");
+  const extension = resolveTranscriptionFileExtension(audioBlob.type);
+  form.set("file", audioBlob, `dictation.${extension}`);
   const res = await route_transcribe_chat_audio(form);
   if (!res200(res)) {
     const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
@@ -864,29 +878,21 @@ export async function submitMessage(
   thinking: boolean,
   engineConfigId: string,
   isExternalEngine: boolean,
-  messageId?: string,
-  agentProfileId?: string | null,
-  sectionId?: string | null,
-  executionSettingsOrAppGeneration?:
-    | ChatExecutionSettings
-    | ChatAppGenerationContext
-    | null,
-  appGenerationArg?: ChatAppGenerationContext | null,
+  options: {
+    messageId?: string;
+    agentProfileId?: string | null;
+    sectionId?: string | null;
+    executionSettings?: ChatExecutionSettings | null;
+    appGeneration?: ChatAppGenerationContext | null;
+  } = {},
 ): Promise<string | null> {
   const trimmed = message.trim();
   if ((!trimmed && attachments.length === 0) || !engineConfigId) {
     return null;
   }
-  const resolvedExecutionSettings = isChatExecutionSettings(
-    executionSettingsOrAppGeneration,
-  )
-    ? executionSettingsOrAppGeneration
-    : DEFAULT_CHAT_EXECUTION_SETTINGS;
-  const appGeneration = isChatExecutionSettings(
-    executionSettingsOrAppGeneration,
-  )
-    ? appGenerationArg ?? null
-    : executionSettingsOrAppGeneration ?? appGenerationArg ?? null;
+  const resolvedExecutionSettings =
+    options.executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
+  const appGeneration = options.appGeneration ?? null;
 
   // Add user message immediately for responsive UI
   const content = [];
@@ -894,7 +900,7 @@ export async function submitMessage(
     content.push(createMessageTextContent({ text: message }));
   }
   const userMessage = {
-    id: messageId ?? createNewId(),
+    id: options.messageId ?? createNewId(),
     role: ChatRoleEnum.user,
     content,
     attachments,
@@ -915,15 +921,15 @@ export async function submitMessage(
       thinking,
       chatId,
       engineConfigId,
-      agentProfileId: agentProfileId ?? null,
+      agentProfileId: options.agentProfileId ?? null,
       appSpecStreamingEnabled: appSpecStreamingEnabledForSubmit,
       appGenerationMode: appGenerationMode,
       appGenerationReferenceImageUrl: appGeneration?.referenceImageUrl ?? null,
       appGenerationReferenceImageNotes:
         appGeneration?.referenceImageNotes ?? null,
       projectConfigId,
-      sectionId: sectionId ?? null,
-      allowUnscoped: sectionId == null,
+      sectionId: options.sectionId ?? null,
+      allowUnscoped: options.sectionId == null,
       permissionMode: resolvedExecutionSettings.permissionMode,
       searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
@@ -934,10 +940,10 @@ export async function submitMessage(
           await getExternalAgentChat(
             returnedChatId,
             projectConfigId,
-            sectionId ?? undefined,
+            options.sectionId ?? undefined,
           );
         } else {
-          await getLLMChat(returnedChatId, sectionId ?? undefined);
+          await getLLMChat(returnedChatId, options.sectionId ?? undefined);
         }
       }
       return returnedChatId;

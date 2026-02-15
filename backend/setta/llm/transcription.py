@@ -22,6 +22,19 @@ _TRANSCRIPTION_OPTIONS_KEYS = (
 )
 
 
+def _build_transcription_request_payload(request: dict[str, Any]) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+    for key, value in request.items():
+        if key in _TRANSCRIPTION_MODEL_KEYS:
+            continue
+        if key == "transcription":
+            continue
+        if key.startswith("transcription_"):
+            continue
+        output[key] = value
+    return output
+
+
 def _resolve_transcription_model(llm_config: LLMConfig) -> str:
     other_params = llm_config.other_params
     if not isinstance(other_params, dict):
@@ -76,20 +89,17 @@ async def transcribe_audio_with_llm(
     options = _resolve_transcription_options(llm_config)
     if language:
         options["language"] = language
-    api_key = None
+    request_payload = _build_transcription_request_payload(dict(request))
+    request_payload["model"] = model
+    request_payload["file"] = (file_name, audio_bytes, mime_type)
     if api_key_env:
         api_key = api_keys.get(api_key_env)
         if not api_key:
             raise KeyError(
                 f"Missing API key for '{api_key_env}'. Configure it in LLM API Keys."
             )
+        request_payload["api_key"] = api_key
+    request_payload.update(options)
 
-    response = await litellm.atranscription(
-        model=model,
-        file=(file_name, audio_bytes, mime_type),
-        custom_llm_provider=request.get("custom_llm_provider"),
-        api_base=request.get("api_base"),
-        api_key=api_key,
-        **options,
-    )
+    response = await litellm.atranscription(**request_payload)
     return _extract_transcribed_text(response)

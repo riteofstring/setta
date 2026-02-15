@@ -243,6 +243,13 @@ class MultiMCPClient:
         try:
             return await session.call_tool(tool_id, tool_args, meta=meta)
         except anyio.ClosedResourceError:
+            if not self._is_read_only_tool(tool_name):
+                logger.warning(
+                    "MCP session for server '%s' closed during tool call '%s'; not retrying because the tool is not read-only",
+                    server_id,
+                    tool_name,
+                )
+                raise
             logger.warning(
                 "MCP session for server '%s' closed during tool call '%s'; waiting for reconnect",
                 server_id,
@@ -264,6 +271,12 @@ class MultiMCPClient:
                 server_id,
             )
             return await reconnected_session.call_tool(tool_id, tool_args, meta=meta)
+
+    def _is_read_only_tool(self, tool_name: str) -> bool:
+        annotations = self.tool_annotations_by_name.get(tool_name)
+        if annotations is None:
+            return False
+        return annotations.accessType == "read"
 
     async def _wait_for_session_reconnect(
         self,

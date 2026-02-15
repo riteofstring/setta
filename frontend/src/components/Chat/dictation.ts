@@ -25,6 +25,14 @@ export type SpeechRecognitionLike = {
 };
 
 type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+const PROVIDER_RECORDER_MIME_CANDIDATES = [
+  "audio/webm;codecs=opus",
+  "audio/webm",
+  "audio/mp4",
+  "audio/ogg;codecs=opus",
+  "audio/ogg",
+  "audio/wav",
+];
 
 export function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | null {
   if (typeof window === "undefined") {
@@ -82,4 +90,18 @@ export function mapDictationError(errorCode: string | undefined): string {
     return "No speech was detected.";
   }
   return "Dictation failed.";
+}
+
+export function pickProviderRecorderMimeType(
+  isTypeSupported: ((mimeType: string) => boolean) | undefined,
+): string | null {
+  if (!isTypeSupported) {
+    return null;
+  }
+  for (const candidate of PROVIDER_RECORDER_MIME_CANDIDATES) {
+    if (isTypeSupported(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
 }

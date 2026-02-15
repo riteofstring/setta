@@ -764,7 +764,15 @@ class TestAgentRunChatRoutes:
                             model="gpt-4o-mini",
                             provider="openai",
                             api_key_env="OPENAI_API_KEY",
-                            other_params={"transcriptionModel": "whisper-1"},
+                            other_params={
+                                "transcriptionModel": "whisper-1",
+                                "api_version": "2025-01-01-preview",
+                                "extra_headers": {"x-trace-id": "abc-123"},
+                                "transcription": {
+                                    "prompt": "Prefer punctuation.",
+                                    "temperature": 0.2,
+                                },
+                            },
                             mcpServerIds=[],
                         )
                     },
@@ -803,6 +811,12 @@ class TestAgentRunChatRoutes:
             assert kwargs.get("custom_llm_provider") == "openai"
             assert kwargs.get("api_key") == "test-key"
             assert kwargs.get("api_base") is None
+            assert kwargs.get("api_version") == "2025-01-01-preview"
+            assert kwargs.get("extra_headers") == {"x-trace-id": "abc-123"}
+            assert kwargs.get("prompt") == "Prefer punctuation."
+            assert kwargs.get("temperature") == 0.2
+            assert "transcriptionModel" not in kwargs
+            assert "transcription" not in kwargs
             file_payload = kwargs.get("file")
             assert file_payload == ("voice.webm", b"hello", "audio/webm")
 

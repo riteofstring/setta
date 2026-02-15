@@ -101,3 +101,33 @@ def test_completion_guard_uses_latest_explicit_verification_result() -> None:
 
     assert replacement is None
     assert _assistant_text(assistant_message) == "Done. Ready to ship."
+
+
+def test_completion_guard_ignores_older_creation_task_when_latest_user_is_non_creation() -> None:
+    # A newer non-creation request should disable completion gating for old create work.
+    prior_messages = [
+        _user_message("Create a new project setup."),
+        _assistant_message("I ran tests and verification passed cleanly."),
+        _user_message("Can you explain what this helper does?"),
+    ]
+    assistant_message = _assistant_message("Done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Done."
+
+
+def test_completion_guard_does_not_use_stale_pass_results_from_older_creation_task() -> None:
+    # A stale pass result from an old creation task must not satisfy a new task.
+    prior_messages = [
+        _user_message("Create the first project setup."),
+        _assistant_message("I ran tests and verification passed cleanly."),
+        _user_message("Create a second project setup in a new folder."),
+    ]
+    assistant_message = _assistant_message("Done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE

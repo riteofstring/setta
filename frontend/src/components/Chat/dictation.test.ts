@@ -3,6 +3,7 @@ import {
   insertTextAtSelection,
   isDictationAvailable,
   mapDictationError,
+  pickProviderRecorderMimeType,
 } from "./dictation";
 
 describe("dictation helpers", () => {
@@ -38,5 +39,20 @@ describe("dictation helpers", () => {
     );
     expect(mapDictationError("no-speech")).toBe("No speech was detected.");
     expect(mapDictationError("unexpected")).toBe("Dictation failed.");
+  });
+
+  it("chooses the first supported provider recorder MIME type", () => {
+    const supported = new Set<string>(["audio/ogg", "audio/webm"]);
+    const picked = pickProviderRecorderMimeType((mimeType) =>
+      supported.has(mimeType),
+    );
+
+    expect(picked).toBe("audio/webm");
+  });
+
+  it("returns null when no provider recorder MIME type is supported", () => {
+    const picked = pickProviderRecorderMimeType(() => false);
+
+    expect(picked).toBeNull();
   });
 });

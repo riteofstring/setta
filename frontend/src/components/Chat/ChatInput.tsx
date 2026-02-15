@@ -40,6 +40,7 @@ import {
   insertTextAtSelection,
   isDictationAvailable,
   mapDictationError,
+  pickProviderRecorderMimeType,
 } from "./dictation";
 import { useChatAttachmentManager } from "./useChatAttachmentManager";
 
@@ -688,8 +689,19 @@ export const ChatInput = memo(function ChatInput({
     recognition.start();
   }, [canBrowserDictate, insertTranscript]);
 
+  const maybeFallbackToBrowserDictation = useCallback((): boolean => {
+    if (dictationMode !== "auto" || !canBrowserDictate) {
+      return false;
+    }
+    startBrowserDictation();
+    return true;
+  }, [canBrowserDictate, dictationMode, startBrowserDictation]);
+
   const startProviderDictation = useCallback(async () => {
     if (!canProviderDictate || !onProviderDictationTranscribe) {
+      if (maybeFallbackToBrowserDictation()) {
+        return;
+      }
       setDictationState("error");
       setDictationFeedback("Provider dictation is not available.");
       return;
@@ -699,16 +711,34 @@ export const ChatInput = memo(function ChatInput({
       !navigator.mediaDevices?.getUserMedia ||
       typeof MediaRecorder === "undefined"
     ) {
+      if (maybeFallbackToBrowserDictation()) {
+        return;
+      }
       setDictationState("error");
       setDictationFeedback("Provider dictation is not available.");
       return;
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported?.("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus"
-        : "audio/webm";
-      const recorder = new MediaRecorder(stream, { mimeType });
+      const mimeType = pickProviderRecorderMimeType(
+        MediaRecorder.isTypeSupported?.bind(MediaRecorder),
+      );
+      let recorder: MediaRecorder;
+      try {
+        recorder = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
+      } catch {
+        for (const track of stream.getTracks()) {
+          track.stop();
+        }
+        if (maybeFallbackToBrowserDictation()) {
+          return;
+        }
+        setDictationState("error");
+        setDictationFeedback("Provider dictation is not available.");
+        return;
+      }
       providerStreamRef.current = stream;
       providerRecorderRef.current = recorder;
       providerChunksRef.current = [];
@@ -736,9 +766,14 @@ export const ChatInput = memo(function ChatInput({
         providerStreamRef.current = null;
         const chunks = providerChunksRef.current;
         providerChunksRef.current = [];
-        const blob = new Blob(chunks, {
-          type: recorder.mimeType || "audio/webm",
-        });
+        let blobType = recorder.mimeType || mimeType || "audio/webm";
+        for (const chunk of chunks) {
+          if (chunk instanceof Blob && chunk.type) {
+            blobType = chunk.type;
+            break;
+          }
+        }
+        const blob = new Blob(chunks, { type: blobType });
         if (blob.size === 0) {
           setDictationState("error");
           setDictationFeedback("No speech was detected.");
@@ -772,10 +807,18 @@ export const ChatInput = memo(function ChatInput({
       setDictationFeedback("Listening...");
       recorder.start();
     } catch {
+      if (maybeFallbackToBrowserDictation()) {
+        return;
+      }
       setDictationState("error");
       setDictationFeedback("Microphone access was denied.");
     }
-  }, [canProviderDictate, insertTranscript, onProviderDictationTranscribe]);
+  }, [
+    canProviderDictate,
+    insertTranscript,
+    maybeFallbackToBrowserDictation,
+    onProviderDictationTranscribe,
+  ]);
 
   const startDictation = useCallback(() => {
     if (!canDictate) {
