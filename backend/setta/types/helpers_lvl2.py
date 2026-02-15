@@ -1425,9 +1425,7 @@ def create_child_sections_via_incrementer(
             p, parentId, BaseParentSectionImpl
         )
         startIdx = parent_impl.children.index(calledBy) + 1
-    create_child_sections(
-        settings, p, parentId, impl_type, numChildren, startIdx
-    )
+    create_child_sections(settings, p, parentId, impl_type, numChildren, startIdx)
 
 
 def delete_sections(p: "ProjectStateSingleConfig", sectionIds: list[ID]):
