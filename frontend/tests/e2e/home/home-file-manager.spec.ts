@@ -129,7 +129,7 @@ test("home page renders pane rails and toggles side panes", async ({
   await expect(
     page.getByTestId("home-project-favourites-section").first(),
   ).toBeVisible();
-  await expect(page.getByText("Other Project Configs")).toBeVisible();
+  await expect(page.getByText("Other Projects")).toBeVisible();
 });
 
 test("home browser marks Setta-initialized folders", async ({ page }) => {
@@ -155,7 +155,11 @@ test("home browser marks Setta-initialized folders", async ({ page }) => {
     await ensureAppReady(page);
     await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
 
-    const pathInput = page.getByTestId("home-file-browser-path-input").first();
+    const pathInput = page
+      .getByTestId("home-file-browser-path-input")
+      .first()
+      .locator('[contenteditable="true"]')
+      .first();
     await expect(pathInput).toBeVisible();
     await pathInput.fill(tempRoot);
     await pathInput.press("Enter");

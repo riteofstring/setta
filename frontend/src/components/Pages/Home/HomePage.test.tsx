@@ -41,10 +41,8 @@ describe("HomePage", () => {
   });
 
   it("labels the non-favorite section as 'Other' when favorites are present", () => {
-    expect(getHomeProjectConfigsSectionTitle(true)).toBe(
-      "Other Project Configs",
-    );
-    expect(getHomeProjectConfigsSectionTitle(false)).toBe("All Configs");
+    expect(getHomeProjectConfigsSectionTitle(true)).toBe("Other Projects");
+    expect(getHomeProjectConfigsSectionTitle(false)).toBe("All Projects");
   });
 
   it("opens from keyboard Space in list rows only when selection is disabled", () => {
