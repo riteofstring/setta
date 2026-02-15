@@ -346,7 +346,7 @@ async function loadPluginRuntime(): Promise<void> {
   const listData = runtimeResponse.data.list;
   const statusData = runtimeResponse.data.status;
 
-  const pluginListById = mapPluginListById(listData);
+  const pluginListById = mapPluginListById(listData, previousState.pluginListById);
   const pluginStatusById = mapPrimaryStatusByPluginId(statusData);
   const registryAccumulator: PluginRegistryAccumulator = {
     sectionKinds: {},
@@ -461,10 +461,26 @@ function setPluginRuntimeLoadError(message: string): void {
   runAllPluginCleanup();
   frontendSignatureByPluginId.clear();
   removeAllPluginStyles();
-  usePluginRuntimeStore.setState((state) => ({
+  usePluginRuntimeStore.setState((state) =>
+    buildClearedRuntimeState(state, {
+      status: "error",
+      statusMessage: message,
+    }),
+  );
+}
+
+function buildClearedRuntimeState(
+  state: PluginRuntimeStore,
+  options: {
+    status: PluginRuntimeStatus;
+    statusMessage: string | null;
+    loadGeneration?: number;
+  },
+): PluginRuntimeStore {
+  return {
     ...state,
-    status: "error",
-    statusMessage: message,
+    status: options.status,
+    statusMessage: options.statusMessage,
     schemaVersion: null,
     serverMode: null,
     restartCapability: null,
@@ -481,7 +497,8 @@ function setPluginRuntimeLoadError(message: string): void {
     topNavBarItemsByPluginId: {},
     sortedTopNavBarItems: [],
     frontendErrorsByPluginId: {},
-  }));
+    loadGeneration: options.loadGeneration ?? state.loadGeneration,
+  };
 }
 
 function buildPluginFrontendRefreshSignature(
@@ -1809,12 +1826,35 @@ function removeAllPluginStyles(): void {
 
 function mapPluginListById(
   response: PluginListResponse,
+  previousPluginListById: Record<string, PluginListEntry>,
 ): Record<string, PluginListEntry> {
   const pluginListById: Record<string, PluginListEntry> = {};
   for (const plugin of response.plugins) {
-    pluginListById[plugin.pluginId] = plugin;
+    const previousEntry = previousPluginListById[plugin.pluginId];
+    pluginListById[plugin.pluginId] = {
+      ...plugin,
+      effectiveCapabilities: stableCapabilitiesReference(
+        plugin.effectiveCapabilities,
+        previousEntry?.effectiveCapabilities,
+      ),
+    };
   }
   return pluginListById;
+}
+
+function stableCapabilitiesReference(
+  capabilities: string[],
+  previousCapabilities: string[] | undefined,
+): string[] {
+  if (!previousCapabilities || capabilities.length !== previousCapabilities.length) {
+    return capabilities;
+  }
+  for (let index = 0; index < capabilities.length; index += 1) {
+    if (capabilities[index] !== previousCapabilities[index]) {
+      return capabilities;
+    }
+  }
+  return previousCapabilities;
 }
 
 function mapPrimaryStatusByPluginId(
@@ -2051,22 +2091,18 @@ export function resetPluginRuntimeStoreForTests(): void {
   styleHrefByPluginId.clear();
   pluginRuntimeLoadPromise = null;
   pluginRuntimeRefreshQueued = false;
-  usePluginRuntimeStore.setState({
-    ...INITIAL_PLUGIN_RUNTIME_STORE,
-    pluginListById: {},
-    pluginStatusById: {},
-    statusEntries: [],
-    sectionKindsByKey: {},
-    panesByPluginId: {},
-    commandsByPluginId: {},
-    topNavBarItemsByPluginId: {},
-    frontendErrorsByPluginId: {},
-    statusMessage: null,
-    schemaVersion: null,
-    serverMode: null,
-    restartCapability: null,
-    loadGeneration: 0,
-  });
+  usePluginRuntimeStore.setState(
+    buildClearedRuntimeState(
+      {
+        ...INITIAL_PLUGIN_RUNTIME_STORE,
+      },
+      {
+        status: "idle",
+        statusMessage: null,
+        loadGeneration: 0,
+      },
+    ),
+  );
 }
 
 export const pluginRuntimeTestApi = {

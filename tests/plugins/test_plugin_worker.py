@@ -1,3 +1,4 @@
+import base64
 import json
 import shutil
 import subprocess
@@ -1609,6 +1610,202 @@ def test_worker_invoke_route_coerces_typed_params_and_supports_request_injection
             },
         )
         assert invalid_response["error"]["code"] == "PLUGIN_BACKEND_ROUTE_CALL_INVALID"
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_invoke_route_supports_model_body_and_query_defaults(
+    tmp_path: Path,
+) -> None:
+    # Route invocation should map unnamed body-model params and unwrap Query defaults.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "from fastapi import APIRouter, Query\n"
+        "from pydantic import BaseModel\n\n"
+        "class Payload(BaseModel):\n"
+        "    value: str\n\n"
+        "def register(plugin):\n"
+        "    router = APIRouter()\n\n"
+        "    @router.post('/from-model')\n"
+        "    def from_model(payload: Payload) -> dict[str, str]:\n"
+        "        return {'value': payload.value}\n\n"
+        "    @router.get('/query-default')\n"
+        "    def query_default(limit: int = Query(10, ge=1)) -> dict[str, int]:\n"
+        "        return {'limit': limit}\n\n"
+        "    plugin.register_router(router)\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(worker, request_id=1, method="plugin.initialize")
+        host_requests: list[dict[str, Any]] = []
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_requests=host_requests,
+        )
+        router_registration = next(
+            payload
+            for payload in host_requests
+            if payload.get("method") == "host.register_router"
+        )
+        routes = router_registration["params"]["routes"]
+        route_id_by_path = {route["path"]: route["routeId"] for route in routes}
+
+        model_response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id_by_path["/from-model"],
+                "pathParams": {},
+                "queryParams": {},
+                "jsonBody": {"value": "from-model"},
+            },
+        )
+        assert model_response["result"]["statusCode"] == 200
+        assert model_response["result"]["body"] == {"value": "from-model"}
+
+        query_default_response = _rpc_call(
+            worker,
+            request_id=4,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id_by_path["/query-default"],
+                "pathParams": {},
+                "queryParams": {},
+            },
+        )
+        assert query_default_response["result"]["statusCode"] == 200
+        assert query_default_response["result"]["body"] == {"limit": 10}
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_invoke_route_normalizes_responses_and_http_exceptions(
+    tmp_path: Path,
+) -> None:
+    # Route invocation should preserve response status/headers and normalize HTTPException payloads.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "from fastapi import APIRouter, HTTPException\n"
+        "from fastapi.responses import JSONResponse\n\n"
+        "def register(plugin):\n"
+        "    router = APIRouter()\n\n"
+        "    @router.post('/created')\n"
+        "    def created() -> JSONResponse:\n"
+        "        return JSONResponse(\n"
+        "            status_code=201,\n"
+        "            content={'ok': True},\n"
+        "            headers={'x-fixture': 'created'},\n"
+        "        )\n\n"
+        "    @router.get('/missing')\n"
+        "    def missing() -> None:\n"
+        "        raise HTTPException(status_code=404, detail='not found')\n\n"
+        "    plugin.register_router(router)\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(worker, request_id=1, method="plugin.initialize")
+        host_requests: list[dict[str, Any]] = []
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_requests=host_requests,
+        )
+        router_registration = next(
+            payload
+            for payload in host_requests
+            if payload.get("method") == "host.register_router"
+        )
+        routes = router_registration["params"]["routes"]
+        route_id_by_path = {route["path"]: route["routeId"] for route in routes}
+
+        created_response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id_by_path["/created"],
+                "pathParams": {},
+                "queryParams": {},
+            },
+        )
+        assert created_response["result"]["statusCode"] == 201
+        assert created_response["result"]["body"] == {"ok": True}
+        assert created_response["result"]["mediaType"] == "application/json"
+        assert created_response["result"]["headers"] == [["x-fixture", "created"]]
+
+        missing_response = _rpc_call(
+            worker,
+            request_id=4,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id_by_path["/missing"],
+                "pathParams": {},
+                "queryParams": {},
+            },
+        )
+        assert missing_response["result"]["statusCode"] == 404
+        assert missing_response["result"]["body"] == {"detail": "not found"}
+        assert missing_response["result"]["mediaType"] == "application/json"
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_invoke_route_prefers_raw_body_for_request_payload(
+    tmp_path: Path,
+) -> None:
+    # Request injection should preserve raw request bytes even when payload is non-UTF8.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "import base64\n"
+        "from fastapi import APIRouter, Request\n\n"
+        "def register(plugin):\n"
+        "    router = APIRouter()\n\n"
+        "    @router.post('/raw-body')\n"
+        "    async def raw_body(request: Request) -> dict[str, str]:\n"
+        "        payload = await request.body()\n"
+        "        return {'bodyBase64': base64.b64encode(payload).decode('ascii')}\n\n"
+        "    plugin.register_router(router)\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(worker, request_id=1, method="plugin.initialize")
+        host_requests: list[dict[str, Any]] = []
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_requests=host_requests,
+        )
+        router_registration = next(
+            payload
+            for payload in host_requests
+            if payload.get("method") == "host.register_router"
+        )
+        route_id = router_registration["params"]["routes"][0]["routeId"]
+        raw_payload = b"\xffabc\xfe"
+        encoded_payload = base64.b64encode(raw_payload).decode("ascii")
+        response = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id,
+                "pathParams": {},
+                "queryParams": {},
+                "rawBodyBase64": encoded_payload,
+            },
+        )
+        assert response["result"]["statusCode"] == 200
+        assert response["result"]["body"] == {
+            "bodyBase64": encoded_payload,
+        }
     finally:
         _stop_worker(worker)
 

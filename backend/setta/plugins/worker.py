@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import base64
 import importlib.util
 import inspect
 import json
@@ -512,6 +513,7 @@ class _WorkerState:
         path_params: dict[str, Any],
         query_params: dict[str, Any],
         json_body: Any,
+        raw_body: bytes | None,
         request_context: dict[str, Any] | None,
         route_path: str,
         route_id: str,
@@ -519,6 +521,7 @@ class _WorkerState:
         signature = inspect.signature(endpoint)
         kwargs: dict[str, Any] = {}
         request_object: Any = None
+        unresolved_parameters: list[inspect.Parameter] = []
         for param_name, parameter in signature.parameters.items():
             if self._route_param_expects_request(parameter):
                 if request_object is None:
@@ -527,6 +530,7 @@ class _WorkerState:
                         path_params=path_params,
                         query_params=query_params,
                         json_body=json_body,
+                        raw_body=raw_body,
                         request_context=request_context,
                     )
                 kwargs[param_name] = request_object
@@ -559,15 +563,68 @@ class _WorkerState:
                     route_id=route_id,
                 )
                 continue
-            if parameter.default is inspect.Signature.empty:
+            unresolved_parameters.append(parameter)
+
+        unresolved_required_parameters = [
+            parameter
+            for parameter in unresolved_parameters
+            if self._route_parameter_is_required(parameter)
+        ]
+        if json_body is not None and len(unresolved_required_parameters) == 1:
+            fallback_parameter = unresolved_required_parameters[0]
+            kwargs[fallback_parameter.name] = self._coerce_route_parameter_value(
+                parameter=fallback_parameter,
+                value=json_body,
+                route_id=route_id,
+            )
+            unresolved_parameters = [
+                parameter
+                for parameter in unresolved_parameters
+                if parameter.name != fallback_parameter.name
+            ]
+
+        for parameter in unresolved_parameters:
+            is_required, default_value = self._resolve_route_parameter_default(parameter)
+            if is_required:
                 raise WorkerError(
                     "PLUGIN_BACKEND_ROUTE_CALL_INVALID",
                     (
-                        f"Missing required parameter {param_name!r} for plugin "
+                        f"Missing required parameter {parameter.name!r} for plugin "
                         f"route {route_id} in {self.plugin_id}."
                     ),
                 )
+            kwargs[parameter.name] = default_value
         return kwargs
+
+    def _route_parameter_is_required(self, parameter: inspect.Parameter) -> bool:
+        is_required, _default_value = self._resolve_route_parameter_default(parameter)
+        return is_required
+
+    def _resolve_route_parameter_default(
+        self, parameter: inspect.Parameter
+    ) -> tuple[bool, Any]:
+        default_value = parameter.default
+        if default_value is inspect.Signature.empty:
+            return True, None
+        try:
+            from fastapi.params import Param
+        except Exception:
+            Param = None  # type: ignore[assignment]
+        if Param is not None and isinstance(default_value, Param):
+            param_default = default_value.default
+            if self._is_fastapi_required_default(param_default):
+                return True, None
+            return False, param_default
+        return False, default_value
+
+    def _is_fastapi_required_default(self, value: Any) -> bool:
+        if value is Ellipsis:
+            return True
+        try:
+            from pydantic_core import PydanticUndefined
+        except Exception:
+            return False
+        return value is PydanticUndefined
 
     def _route_param_expects_request(self, parameter: inspect.Parameter) -> bool:
         annotation = parameter.annotation
@@ -613,6 +670,7 @@ class _WorkerState:
         path_params: dict[str, Any],
         query_params: dict[str, Any],
         json_body: Any,
+        raw_body: bytes | None,
         request_context: dict[str, Any] | None,
     ) -> Any:
         from starlette.requests import Request
@@ -650,7 +708,11 @@ class _WorkerState:
         if len(headers) == 0:
             headers.append((b"content-type", b"application/json"))
 
-        body_bytes = self._encode_route_request_body(json_body)
+        body_bytes = (
+            raw_body
+            if raw_body is not None
+            else self._encode_route_request_body(json_body)
+        )
         body_sent = False
 
         async def _receive() -> dict[str, Any]:
@@ -715,6 +777,7 @@ class _WorkerState:
         raw_path_params = params.get("pathParams", {})
         raw_query_params = params.get("queryParams", {})
         json_body = params.get("jsonBody")
+        raw_body_base64 = params.get("rawBodyBase64")
         raw_request_context = params.get("requestContext")
 
         if not isinstance(raw_path_params, dict):
@@ -727,6 +790,20 @@ class _WorkerState:
                 "PLUGIN_BACKEND_ROUTE_CALL_INVALID",
                 "plugin.invoke_route queryParams must be an object.",
             )
+        route_raw_body: bytes | None = None
+        if raw_body_base64 is not None:
+            if not isinstance(raw_body_base64, str):
+                raise WorkerError(
+                    "PLUGIN_BACKEND_ROUTE_CALL_INVALID",
+                    "plugin.invoke_route rawBodyBase64 must be a string.",
+                )
+            try:
+                route_raw_body = base64.b64decode(raw_body_base64, validate=True)
+            except Exception as exc:
+                raise WorkerError(
+                    "PLUGIN_BACKEND_ROUTE_CALL_INVALID",
+                    "plugin.invoke_route rawBodyBase64 must be valid base64.",
+                ) from exc
         request_context: dict[str, Any] | None = None
         if raw_request_context is not None:
             if not isinstance(raw_request_context, dict):
@@ -741,30 +818,135 @@ class _WorkerState:
             path_params=raw_path_params,
             query_params=raw_query_params,
             json_body=json_body,
+            raw_body=route_raw_body,
             request_context=request_context,
             route_path=route_handler.path,
             route_id=route_id,
         )
+        from fastapi import HTTPException
+
         try:
             result = route_handler.endpoint(**kwargs)
+        except HTTPException as exc:
+            return self._normalize_http_exception_response(exc)
         except Exception as exc:
             raise WorkerError(
                 "PLUGIN_BACKEND_ROUTE_CALL_FAILED",
                 f"Plugin route {route_id} execution failed for {self.plugin_id}: {exc}",
             ) from exc
         if inspect.isawaitable(result):
-            result = self._run_awaitable(
-                result,
-                code="PLUGIN_BACKEND_ROUTE_CALL_FAILED",
-                message_prefix=(
+            try:
+                result = self._run_route_awaitable(result, route_id=route_id)
+            except HTTPException as exc:
+                return self._normalize_http_exception_response(exc)
+        return self._normalize_route_result(result)
+
+    def _run_route_awaitable(self, awaitable: Any, *, route_id: str) -> Any:
+        from fastapi import HTTPException
+
+        if self._async_loop is None:
+            self._async_loop = asyncio.new_event_loop()
+        try:
+            return self._async_loop.run_until_complete(awaitable)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise WorkerError(
+                "PLUGIN_BACKEND_ROUTE_CALL_FAILED",
+                (
                     f"Async plugin route {route_id} execution failed for "
-                    f"{self.plugin_id}"
+                    f"{self.plugin_id}: {exc}"
                 ),
-            )
+            ) from exc
+
+    def _normalize_http_exception_response(self, exc: Any) -> dict[str, Any]:
+        response: dict[str, Any] = {
+            "statusCode": exc.status_code,
+            "body": {"detail": exc.detail},
+            "mediaType": "application/json",
+        }
+        headers = self._normalize_route_response_headers(exc.headers or {})
+        if len(headers) > 0:
+            response["headers"] = headers
+        return response
+
+    def _normalize_route_result(self, result: Any) -> dict[str, Any]:
+        from starlette.responses import Response
+
+        if isinstance(result, Response):
+            return self._normalize_starlette_response(result)
         return {
             "statusCode": 200,
             "body": result,
         }
+
+    def _normalize_starlette_response(self, response: Any) -> dict[str, Any]:
+        media_type = response.media_type
+        response_payload: dict[str, Any] = {
+            "statusCode": response.status_code,
+        }
+        if isinstance(media_type, str) and media_type.strip() != "":
+            response_payload["mediaType"] = media_type
+        headers = self._normalize_route_response_headers(response.headers)
+        if len(headers) > 0:
+            response_payload["headers"] = headers
+        raw_body = getattr(response, "body", b"")
+        body = bytes(raw_body) if raw_body is not None else b""
+        if len(body) == 0:
+            response_payload["body"] = None
+            return response_payload
+        charset = response.charset or "utf-8"
+        content_type = (
+            response.headers.get("content-type")
+            if hasattr(response.headers, "get")
+            else None
+        )
+        if self._content_type_is_json(content_type):
+            try:
+                response_payload["body"] = json.loads(body.decode(charset))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                response_payload["body"] = body.decode(charset, errors="replace")
+            return response_payload
+        if self._content_type_is_text(content_type):
+            response_payload["body"] = body.decode(charset, errors="replace")
+            return response_payload
+        try:
+            response_payload["body"] = body.decode("utf-8")
+        except UnicodeDecodeError:
+            response_payload["body"] = base64.b64encode(body).decode("ascii")
+            response_payload["bodyEncoding"] = "base64"
+        return response_payload
+
+    def _normalize_route_response_headers(self, headers: Any) -> list[list[str]]:
+        normalized: list[list[str]] = []
+        if not hasattr(headers, "items"):
+            return normalized
+        for raw_name, raw_value in headers.items():
+            if not isinstance(raw_name, str) or not isinstance(raw_value, str):
+                continue
+            header_name = raw_name.strip()
+            if header_name == "":
+                continue
+            if header_name.lower() in {
+                "content-length",
+                "content-type",
+                "transfer-encoding",
+            }:
+                continue
+            normalized.append([header_name, raw_value])
+        return normalized
+
+    def _content_type_is_json(self, raw_content_type: Any) -> bool:
+        if not isinstance(raw_content_type, str):
+            return False
+        media_type = raw_content_type.split(";", 1)[0].strip().lower()
+        return media_type == "application/json" or media_type.endswith("+json")
+
+    def _content_type_is_text(self, raw_content_type: Any) -> bool:
+        if not isinstance(raw_content_type, str):
+            return False
+        media_type = raw_content_type.split(";", 1)[0].strip().lower()
+        return media_type.startswith("text/")
 
     def _invoke_mcp_tool(self, params: Any) -> dict[str, Any]:
         if not isinstance(params, dict):

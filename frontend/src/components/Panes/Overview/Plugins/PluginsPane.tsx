@@ -112,6 +112,16 @@ const cachedCodegenTargetsByStatus = new WeakMap<
   PluginStatusEntry,
   PluginRegisteredCodegenTarget[]
 >();
+const cachedFormattedCapabilitiesText = new WeakMap<string[], string>();
+const cachedCapabilitiesTooltipText = new WeakMap<string[], string>();
+const cachedFormattedBlockedCapabilitiesText = new WeakMap<
+  PluginBlockedCapability[],
+  string
+>();
+const cachedBlockedCapabilitiesTooltipText = new WeakMap<
+  PluginBlockedCapability[],
+  string
+>();
 
 function pluginListEntryCardRuntimeStateEqual(
   a: PluginListEntryCardRuntimeState,
@@ -595,29 +605,22 @@ export function PluginsPane() {
                     <td className="px-2 py-1">{entry.state}</td>
                     <td className="px-2 py-1">{entry.sourceScopeLabel}</td>
                     <td className="max-w-[150px] px-2 py-1 text-setta-600 dark:text-setta-300">
-                      <span title={entry.requestedCapabilities.join(", ")}>
-                        {formatCapabilitiesForTable(
+                      <span title={formatCapabilitiesTooltip(entry.requestedCapabilities)}>
+                        {formatCapabilitiesForTableCached(
                           entry.requestedCapabilities,
                         )}
                       </span>
                     </td>
                     <td className="max-w-[150px] px-2 py-1 text-setta-600 dark:text-setta-300">
-                      <span title={entry.effectiveCapabilities.join(", ")}>
-                        {formatCapabilitiesForTable(
+                      <span title={formatCapabilitiesTooltip(entry.effectiveCapabilities)}>
+                        {formatCapabilitiesForTableCached(
                           entry.effectiveCapabilities,
                         )}
                       </span>
                     </td>
                     <td className="max-w-[170px] px-2 py-1 text-setta-600 dark:text-setta-300">
-                      <span
-                        title={entry.blockedCapabilities
-                          .map(
-                            (blockedCapability) =>
-                              `${blockedCapability.capability} (${blockedCapability.reason})`,
-                          )
-                          .join(", ")}
-                      >
-                        {formatBlockedCapabilitiesForTable(
+                      <span title={formatBlockedCapabilitiesTooltip(entry.blockedCapabilities)}>
+                        {formatBlockedCapabilitiesForTableCached(
                           entry.blockedCapabilities,
                         )}
                       </span>
@@ -2150,6 +2153,27 @@ function formatCapabilitiesForTable(capabilities: string[]): string {
   return [...capabilities].sort((a, b) => a.localeCompare(b)).join(", ");
 }
 
+function formatCapabilitiesForTableCached(capabilities: string[]): string {
+  const cached = cachedFormattedCapabilitiesText.get(capabilities);
+  if (cached) {
+    return cached;
+  }
+  const formatted = formatCapabilitiesForTable(capabilities);
+  cachedFormattedCapabilitiesText.set(capabilities, formatted);
+  return formatted;
+}
+
+function formatCapabilitiesTooltip(capabilities: string[]): string {
+  const cached = cachedCapabilitiesTooltipText.get(capabilities);
+  if (cached) {
+    return cached;
+  }
+  const formatted =
+    capabilities.length === 0 ? "none" : capabilities.join(", ");
+  cachedCapabilitiesTooltipText.set(capabilities, formatted);
+  return formatted;
+}
+
 function formatBlockedCapabilitiesForTable(
   blockedCapabilities: PluginBlockedCapability[],
 ): string {
@@ -2169,6 +2193,38 @@ function formatBlockedCapabilitiesForTable(
         `${blockedCapability.capability} (${blockedCapability.reason})`,
     )
     .join(", ");
+}
+
+function formatBlockedCapabilitiesForTableCached(
+  blockedCapabilities: PluginBlockedCapability[],
+): string {
+  const cached = cachedFormattedBlockedCapabilitiesText.get(blockedCapabilities);
+  if (cached) {
+    return cached;
+  }
+  const formatted = formatBlockedCapabilitiesForTable(blockedCapabilities);
+  cachedFormattedBlockedCapabilitiesText.set(blockedCapabilities, formatted);
+  return formatted;
+}
+
+function formatBlockedCapabilitiesTooltip(
+  blockedCapabilities: PluginBlockedCapability[],
+): string {
+  const cached = cachedBlockedCapabilitiesTooltipText.get(blockedCapabilities);
+  if (cached) {
+    return cached;
+  }
+  const formatted =
+    blockedCapabilities.length === 0
+      ? "none"
+      : blockedCapabilities
+          .map(
+            (blockedCapability) =>
+              `${blockedCapability.capability} (${blockedCapability.reason})`,
+          )
+          .join(", ");
+  cachedBlockedCapabilitiesTooltipText.set(blockedCapabilities, formatted);
+  return formatted;
 }
 
 function validateInstallSourceSpec(sourceSpecRaw: string): string | null {

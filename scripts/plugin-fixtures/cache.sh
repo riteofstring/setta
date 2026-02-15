@@ -310,15 +310,16 @@ should_build_plugin_fixtures_for_targets() {
       return 0
     fi
     if [[ "${has_positional_target}" == "0" ]]; then
-      return 0
+      return 1
     fi
   fi
   if [[ "${mode}" == "playwright" ]] && [[ "${has_selector_filter}" == "1" ]]; then
     if [[ "${selector_filter_has_plugin_hint}" == "1" ]]; then
       return 0
     fi
-    # Grep-based runs are hard to classify reliably from paths alone; build fixtures by default.
-    return 0
+    if [[ "${has_positional_target}" == "0" ]]; then
+      return 1
+    fi
   fi
   if [[ "${has_positional_target}" == "0" ]]; then
     return 0

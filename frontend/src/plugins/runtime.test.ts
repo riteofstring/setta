@@ -1942,6 +1942,37 @@ describe("plugin runtime helpers", () => {
     expect(globalScope.__settaCleanupProbe?.callCount).toBe(1);
   });
 
+  it("keeps effective capability array references stable on no-op runtime refreshes", async () => {
+    const plugin = buildPluginListEntry({
+      effectiveCapabilities: ["registerSectionKinds", "registerPane"],
+    });
+    const pluginStatus = buildPluginStatusEntry({
+      pluginId: plugin.pluginId,
+      requestedCapabilities: ["registerSectionKinds", "registerPane"],
+      effectiveCapabilities: ["registerSectionKinds", "registerPane"],
+      blockedCapabilities: [],
+    });
+    const runtimePayload = buildRuntimeEndpointResponse(
+      buildPluginListResponse([plugin]),
+      buildPluginStatusResponse([pluginStatus]),
+    );
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue(
+      runtimePayload,
+    );
+
+    await refreshPluginRuntime();
+    const firstCapabilities =
+      usePluginRuntimeStore.getState().pluginListById[plugin.pluginId]
+        ?.effectiveCapabilities;
+    expect(firstCapabilities).toBeDefined();
+
+    await refreshPluginRuntime();
+    const secondCapabilities =
+      usePluginRuntimeStore.getState().pluginListById[plugin.pluginId]
+        ?.effectiveCapabilities;
+    expect(secondCapabilities).toBe(firstCapabilities);
+  });
+
   it("rejects updateSection calls for non-plugin sections", async () => {
     const sectionId = "section-runtime-dict-update";
     seedRuntimeSectionState(sectionId);

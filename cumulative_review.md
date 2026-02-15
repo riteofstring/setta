@@ -256,3 +256,16 @@
 - Corrected plugin fixture smoke docs/scripts static URL examples to `/plugin-static/...`, made fixture link/unlink rescans opt-in (`--rescan`), and added seeded fixture completeness checks before Playwright seed-skip decisions.
 - Removed redundant plugin-manager list-surface method usage by dropping `get_list_response` and using `get_runtime_response().list` in tests.
 - Added/updated backend unit/integration tests, frontend Vitest tests, Playwright E2E coverage, and script-structure assertions for all touched behavior; verification runs passed (`pytest` subset: 402 passed, additional targeted pytest: 24 passed, Vitest subset: 76 passed, Playwright targeted specs: 8 passed, Ruff checks clean), with CDP verification completed.
+
+## 2026-02-16T14:45:27-08:00
+
+- Implemented the current top-level `review*.md` findings end-to-end, explicitly excluding backward-compatibility additions.
+- Fixed backend worker route contract gaps by supporting single-parameter FastAPI body-model binding, unwrapping `Query`/`Path`/`Body` defaults, and preserving raw request body fidelity via `rawBodyBase64` transport.
+- Normalized backend plugin route HTTP semantics so `Response` returns and `HTTPException` map to transport-safe status/body/headers envelopes instead of collapsing into opaque transport failures.
+- Hardened backend route/listener proxy correctness by forwarding worker status/headers/media type, requiring strict valid `statusCode` handling, and serializing listener invocation under mutation lock.
+- Reduced backend plugin router duplication by centralizing `PluginManagerError -> HTTPException` mapping behind a shared helper.
+- Improved frontend plugin runtime stability by preserving `effectiveCapabilities` reference identity for no-op runtime refreshes and deduplicating runtime reset/load-error state shaping behind one helper.
+- Reduced Plugins pane render-path overhead by caching repeated discovery capability text/tooltip formatting per status-entry identity.
+- Tightened fixture-runner DX for targeted loops: selector-only `pytest -k`/Playwright `--grep` runs without plugin hints now skip plugin fixture builds by default.
+- Expanded backend fixture route coverage and added/updated backend unit tests, frontend Vitest coverage, and targeted Playwright E2E coverage for all changed runtime/route/fixture-gating paths.
+- Verified changes with targeted runs (`pytest` subset: 352 passed, `vitest` subset: 90 passed, targeted Playwright spec: passing) and completed CDP visual verification of Plugins pane/discovery rendering.

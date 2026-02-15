@@ -1,5 +1,6 @@
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeVar
+from collections.abc import Callable
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
@@ -28,6 +29,7 @@ assets_router = APIRouter()
 
 ScopeValue = Literal["workspace", "setta_files", "global"]
 InstallerValue = Literal["auto", "pip", "uv"]
+T = TypeVar("T")
 
 
 class PluginInstallRequest(BaseModel):
@@ -89,28 +91,26 @@ def _raise_http(exc: PluginManagerError) -> None:
     raise HTTPException(status_code=exc.status_code, detail=exc.to_dict()) from exc
 
 
-@router.get(Route.PLUGINS_RUNTIME)
-def route_plugins_runtime(state: AppStateFromRequest) -> PluginRuntimeResponse:
+def _run_manager_call(operation: Callable[[], T]) -> T:
     try:
-        return _manager(state).get_runtime_response()
+        return operation()
     except PluginManagerError as exc:
         _raise_http(exc)
+
+
+@router.get(Route.PLUGINS_RUNTIME)
+def route_plugins_runtime(state: AppStateFromRequest) -> PluginRuntimeResponse:
+    return _run_manager_call(lambda: _manager(state).get_runtime_response())
 
 
 @router.post(Route.PLUGINS_RESCAN, dependencies=[Depends(require_ide_mode)])
 def route_plugins_rescan(state: AppStateFromRequest) -> PluginsRescanResponse:
-    try:
-        return _manager(state).rescan()
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    return _run_manager_call(lambda: _manager(state).rescan())
 
 
 @router.post(Route.PLUGINS_RESTART, dependencies=[Depends(require_ide_mode)])
 def route_plugins_restart(state: AppStateFromRequest) -> PluginRestartResponse:
-    try:
-        payload = _manager(state).restart_backend()
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    payload = _run_manager_call(lambda: _manager(state).restart_backend())
     return PluginRestartResponse.model_validate(payload)
 
 
@@ -119,16 +119,15 @@ def route_plugins_install(
     x: PluginInstallRequest,
     state: AppStateFromRequest,
 ) -> PluginInstallResponse:
-    try:
-        return _manager(state).install_plugin(
+    return _run_manager_call(
+        lambda: _manager(state).install_plugin(
             source_spec=x.sourceSpec,
             scope=x.scope,
             installer=x.installer,
             enable=x.enable,
             force=x.force,
         )
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    )
 
 
 @router.post(Route.PLUGINS_UNINSTALL, dependencies=[Depends(require_ide_mode)])
@@ -136,10 +135,9 @@ def route_plugins_uninstall(
     x: PluginUninstallRequest,
     state: AppStateFromRequest,
 ) -> PluginUninstallResponse:
-    try:
-        return _manager(state).uninstall_plugin(plugin_id=x.pluginId, scope=x.scope)
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    return _run_manager_call(
+        lambda: _manager(state).uninstall_plugin(plugin_id=x.pluginId, scope=x.scope)
+    )
 
 
 @router.post(Route.PLUGINS_LINK, dependencies=[Depends(require_ide_mode)])
@@ -147,15 +145,14 @@ def route_plugins_link(
     x: PluginLinkRequest,
     state: AppStateFromRequest,
 ) -> PluginInstallResponse:
-    try:
-        return _manager(state).link_plugin(
+    return _run_manager_call(
+        lambda: _manager(state).link_plugin(
             local_plugin_root=x.localPluginRoot,
             scope=x.scope,
             enable=x.enable,
             force=x.force,
         )
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    )
 
 
 @router.post(Route.PLUGINS_UNLINK, dependencies=[Depends(require_ide_mode)])
@@ -163,10 +160,9 @@ def route_plugins_unlink(
     x: PluginUninstallRequest,
     state: AppStateFromRequest,
 ) -> PluginUninstallResponse:
-    try:
-        return _manager(state).unlink_plugin(plugin_id=x.pluginId, scope=x.scope)
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    return _run_manager_call(
+        lambda: _manager(state).unlink_plugin(plugin_id=x.pluginId, scope=x.scope)
+    )
 
 
 @router.post(Route.PLUGINS_ENABLE, dependencies=[Depends(require_ide_mode)])
@@ -174,10 +170,7 @@ def route_plugins_enable(
     x: PluginEnableDisableRequest,
     state: AppStateFromRequest,
 ) -> PluginEnableDisableResponse:
-    try:
-        return _manager(state).enable_plugin(plugin_id=x.pluginId)
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    return _run_manager_call(lambda: _manager(state).enable_plugin(plugin_id=x.pluginId))
 
 
 @router.post(Route.PLUGINS_DISABLE, dependencies=[Depends(require_ide_mode)])
@@ -185,10 +178,7 @@ def route_plugins_disable(
     x: PluginEnableDisableRequest,
     state: AppStateFromRequest,
 ) -> PluginEnableDisableResponse:
-    try:
-        return _manager(state).disable_plugin(plugin_id=x.pluginId)
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    return _run_manager_call(lambda: _manager(state).disable_plugin(plugin_id=x.pluginId))
 
 
 @router.post(Route.PLUGINS_CONFIG, dependencies=[Depends(require_ide_mode)])
@@ -196,12 +186,11 @@ def route_plugins_config(
     x: PluginConfigRequest,
     state: AppStateFromRequest,
 ) -> PluginConfigWriteResponse:
-    try:
-        return _manager(state).write_plugin_config(
+    return _run_manager_call(
+        lambda: _manager(state).write_plugin_config(
             plugin_id=x.pluginId, config=x.config
         )
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    )
 
 
 @router.post(Route.PLUGINS_UPDATE, dependencies=[Depends(require_ide_mode)])
@@ -209,14 +198,13 @@ def route_plugins_update(
     x: PluginUpdateRequest,
     state: AppStateFromRequest,
 ) -> PluginUpdateResponse:
-    try:
-        return _manager(state).update_plugin(
+    return _run_manager_call(
+        lambda: _manager(state).update_plugin(
             plugin_id=x.pluginId,
             scope=x.scope,
             to=x.to,
         )
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    )
 
 
 @router.post(Route.PLUGINS_ROLLBACK, dependencies=[Depends(require_ide_mode)])
@@ -224,18 +212,14 @@ def route_plugins_rollback(
     x: PluginRollbackRequest,
     state: AppStateFromRequest,
 ) -> PluginRollbackResponse:
-    try:
-        return _manager(state).rollback_plugin(plugin_id=x.pluginId, scope=x.scope)
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    return _run_manager_call(
+        lambda: _manager(state).rollback_plugin(plugin_id=x.pluginId, scope=x.scope)
+    )
 
 
 @router.post(Route.PLUGINS_LOCK_WRITE, dependencies=[Depends(require_ide_mode)])
 def route_plugins_lock_write(state: AppStateFromRequest) -> PluginLockWriteResponse:
-    try:
-        return _manager(state).write_lockfile()
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    return _run_manager_call(lambda: _manager(state).write_lockfile())
 
 
 @router.post(Route.PLUGINS_LOCK_APPLY, dependencies=[Depends(require_ide_mode)])
@@ -243,10 +227,7 @@ def route_plugins_lock_apply(
     x: PluginLockApplyRequest,
     state: AppStateFromRequest,
 ) -> PluginLockApplyResponse:
-    try:
-        return _manager(state).apply_lockfile(check=x.check)
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    return _run_manager_call(lambda: _manager(state).apply_lockfile(check=x.check))
 
 
 @assets_router.get("/plugins/{pluginId}/{assetPath:path}")
@@ -255,11 +236,10 @@ def route_plugin_asset(
     assetPath: str,
     state: AppStateFromRequest,
 ):
-    try:
-        asset_path = _manager(state).resolve_plugin_asset_path(
+    asset_path = _run_manager_call(
+        lambda: _manager(state).resolve_plugin_asset_path(
             plugin_id=pluginId,
             asset_path=assetPath,
         )
-    except PluginManagerError as exc:
-        _raise_http(exc)
+    )
     return FileResponse(Path(asset_path))

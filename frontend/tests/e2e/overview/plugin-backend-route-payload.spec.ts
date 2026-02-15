@@ -11,6 +11,8 @@ const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const BACKEND_ROUTE_QUERY_PATH =
   "/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-query";
+const BACKEND_ROUTE_NOT_FOUND_PATH =
+  "/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-not-found";
 
 test("plugin backend route proxy preserves query and json body payloads", async ({
   page,
@@ -124,6 +126,115 @@ test("plugin backend route proxy preserves query and json body payloads", async 
       token: "from-query",
       body: requestBody,
     });
+
+    const modelBodyPayload = (await page.evaluate(
+      async ({ backendOrigin, payload }) => {
+        const response = await fetch(
+          `${backendOrigin}/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-model-body`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          },
+        );
+        const body = await response.json();
+        return {
+          status: response.status,
+          body,
+        };
+      },
+      {
+        backendOrigin: BACKEND_ORIGIN,
+        payload: { value: "from-model", count: 7 },
+      },
+    )) as {
+      status: number;
+      body: {
+        value: string;
+        count: number;
+      };
+    };
+    expect(modelBodyPayload.status).toBe(200);
+    expect(modelBodyPayload.body).toEqual({
+      value: "from-model",
+      count: 7,
+    });
+
+    const queryDefaultPayload = (await page.evaluate(
+      async (backendOrigin) => {
+        const response = await fetch(
+          `${backendOrigin}/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-query-default`,
+          {
+            credentials: "include",
+          },
+        );
+        const body = await response.json();
+        return {
+          status: response.status,
+          body,
+        };
+      },
+      BACKEND_ORIGIN,
+    )) as {
+      status: number;
+      body: {
+        limit: number;
+      };
+    };
+    expect(queryDefaultPayload.status).toBe(200);
+    expect(queryDefaultPayload.body).toEqual({ limit: 10 });
+
+    const createdPayload = (await page.evaluate(async (backendOrigin) => {
+      const response = await fetch(
+        `${backendOrigin}/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-created`,
+        {
+          method: "POST",
+          credentials: "include",
+        },
+      );
+      const body = await response.json();
+      return {
+        status: response.status,
+        body,
+      };
+    }, BACKEND_ORIGIN)) as {
+      status: number;
+      body: {
+        ok: boolean;
+      };
+    };
+    expect(createdPayload.status).toBe(201);
+    expect(createdPayload.body).toEqual({ ok: true });
+
+    allowExpectedApiError(page, {
+      path: BACKEND_ROUTE_NOT_FOUND_PATH,
+      statuses: [404],
+      method: "GET",
+      count: 1,
+    });
+    const notFoundPayload = (await page.evaluate(async (backendOrigin) => {
+      const response = await fetch(
+        `${backendOrigin}/api/plugins/setta-fixture-backend-language-server-e2e/payload/echo-not-found`,
+        {
+          credentials: "include",
+        },
+      );
+      const body = await response.json();
+      return {
+        status: response.status,
+        body,
+      };
+    }, BACKEND_ORIGIN)) as {
+      status: number;
+      body: {
+        detail: string;
+      };
+    };
+    expect(notFoundPayload.status).toBe(404);
+    expect(notFoundPayload.body).toEqual({ detail: "fixture-not-found" });
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

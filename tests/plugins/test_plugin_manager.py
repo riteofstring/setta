@@ -6667,6 +6667,46 @@ def test_invoke_listener_endpoint_dispatches_worker_route(
     assert result == {"ok": True}
 
 
+def test_invoke_listener_endpoint_rejects_invalid_worker_status_code(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Listener endpoint invocation should fail when worker returns malformed statusCode values.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    manager._backend_listener_endpoint_route_by_name["fixture_listener_echo"] = (
+        entry.plugin_id,
+        "route_0",
+    )
+
+    monkeypatch.setattr(
+        manager,
+        "_call_backend_worker_method",
+        lambda **_kwargs: {"statusCode": "not-an-int", "body": {"ok": True}},
+    )
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager.invoke_listener_endpoint(
+            endpoint_name="fixture_listener_echo",
+            payload={"projectConfigId": "fixture-project"},
+        )
+    assert exc_info.value.code == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+    assert "invalid statusCode value" in exc_info.value.message
+
+
 def test_worker_route_proxy_returns_503_when_worker_process_unavailable(
     tmp_path: Path,
 ) -> None:
@@ -6704,11 +6744,11 @@ def test_worker_route_proxy_returns_503_when_worker_process_unavailable(
     assert "Backend worker unavailable" in response.json()["message"]
 
 
-def test_worker_route_proxy_maps_worker_errors_and_status_fallback(
+def test_worker_route_proxy_maps_worker_errors_and_rejects_invalid_status_codes(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    # Proxy routes should map worker errors and normalize malformed status codes.
+    # Proxy routes should map worker errors and reject malformed status codes.
     manager = _make_manager(tmp_path, backend_operation_timeout_seconds=27.0)
     _copy_fixture_to_scope(
         manager=manager,
@@ -6785,8 +6825,12 @@ def test_worker_route_proxy_maps_worker_errors_and_status_fallback(
                 _status_fallback_payload,
             )
             status_fallback_response = client.get(route_path)
-        assert status_fallback_response.status_code == 200
-        assert status_fallback_response.json() == {"ok": True, "source": "worker"}
+        assert status_fallback_response.status_code == 502
+        assert (
+            status_fallback_response.json()["code"]
+            == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+        )
+        assert "invalid statusCode value" in status_fallback_response.json()["message"]
         assert captured_timeout == 27.0
 
 
@@ -6832,7 +6876,13 @@ def test_worker_route_proxy_handles_plain_text_body_and_head_options_requests(
         params = kwargs["params"]
         assert isinstance(params, dict)
         captured_params.append(params)
-        return {"statusCode": 200, "body": {"jsonBody": params.get("jsonBody")}}
+        return {
+            "statusCode": 200,
+            "body": {
+                "jsonBody": params.get("jsonBody"),
+                "rawBodyBase64": params.get("rawBodyBase64"),
+            },
+        }
 
     monkeypatch.setattr(manager, "_call_backend_worker_method", _capture_call)
     route_path = "/api/plugins/setta-fixture-backend/proxy/echo"
@@ -6844,7 +6894,10 @@ def test_worker_route_proxy_handles_plain_text_body_and_head_options_requests(
             headers={"Content-Type": "text/plain"},
         )
         assert plain_text_response.status_code == 200
-        assert plain_text_response.json() == {"jsonBody": "plain-text-body"}
+        assert plain_text_response.json() == {
+            "jsonBody": "plain-text-body",
+            "rawBodyBase64": "cGxhaW4tdGV4dC1ib2R5",
+        }
 
         calls_after_post = len(captured_params)
         head_response = client.head(route_path)
@@ -6873,11 +6926,141 @@ def test_worker_route_proxy_handles_plain_text_body_and_head_options_requests(
 
     assert len(captured_params) >= 1
     assert captured_params[0]["jsonBody"] == "plain-text-body"
+    assert captured_params[0]["rawBodyBase64"] == "cGxhaW4tdGV4dC1ib2R5"
     request_context = captured_params[0].get("requestContext")
     assert isinstance(request_context, dict)
     assert request_context.get("method") == "POST"
     assert request_context.get("path") == route_path
     assert isinstance(request_context.get("headers"), list)
+
+
+def test_worker_route_proxy_preserves_non_utf8_request_payloads(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Proxy should preserve non-UTF8 request bytes via rawBodyBase64 transport.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    manager._register_backend_router_from_worker_request(
+        app=app,
+        entry=entry,
+        params={
+            "prefix": "/proxy",
+            "routes": [
+                {
+                    "routeId": "route_0",
+                    "path": "/echo",
+                    "methods": ["POST"],
+                }
+            ],
+        },
+    )
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    captured_params: list[dict[str, object]] = []
+
+    def _capture_call(**kwargs):
+        params = kwargs["params"]
+        assert isinstance(params, dict)
+        captured_params.append(params)
+        return {"statusCode": 200, "body": {"ok": True}}
+
+    monkeypatch.setattr(manager, "_call_backend_worker_method", _capture_call)
+    route_path = "/api/plugins/setta-fixture-backend/proxy/echo"
+
+    with TestClient(app) as client:
+        response = client.post(
+            route_path,
+            content=b"\xffabc\xfe",
+            headers={"Content-Type": "application/octet-stream"},
+        )
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert len(captured_params) == 1
+    assert captured_params[0]["jsonBody"] is None
+    assert captured_params[0]["rawBodyBase64"] == "/2FiY/4="
+
+
+def test_worker_route_proxy_forwards_worker_response_status_headers_and_errors(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Proxy should forward status, media type, and headers from worker route envelopes.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    manager._register_backend_router_from_worker_request(
+        app=app,
+        entry=entry,
+        params={
+            "prefix": "/proxy",
+            "routes": [
+                {
+                    "routeId": "route_0",
+                    "path": "/echo",
+                    "methods": ["GET"],
+                }
+            ],
+        },
+    )
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    route_path = "/api/plugins/setta-fixture-backend/proxy/echo"
+    payloads = [
+        {
+            "statusCode": 201,
+            "body": {"ok": True},
+            "mediaType": "application/json",
+            "headers": [["x-fixture", "created"]],
+        },
+        {
+            "statusCode": 404,
+            "body": {"detail": "missing"},
+            "mediaType": "application/json",
+        },
+    ]
+
+    def _next_payload(**_kwargs):
+        if len(payloads) == 0:
+            raise AssertionError("Expected worker payload fixture.")
+        return payloads.pop(0)
+
+    monkeypatch.setattr(manager, "_call_backend_worker_method", _next_payload)
+
+    with TestClient(app) as client:
+        created_response = client.get(route_path)
+        assert created_response.status_code == 201
+        assert created_response.headers["x-fixture"] == "created"
+        assert created_response.json() == {"ok": True}
+
+        missing_response = client.get(route_path)
+        assert missing_response.status_code == 404
+        assert missing_response.json() == {"detail": "missing"}
 
 
 def test_scoped_link_and_uninstall_work_for_shadowed_entries(tmp_path: Path) -> None:

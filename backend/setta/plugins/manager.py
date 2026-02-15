@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import hashlib
 import importlib.metadata
 import json
@@ -1065,6 +1066,7 @@ class PluginManager:
             default_file_name=registration.default_file_name,
         )
 
+    @_mutation_locked
     def invoke_listener_endpoint(
         self,
         *,
@@ -1114,8 +1116,10 @@ class PluginManager:
                     "a non-object response payload."
                 ),
             )
-        raw_status_code = route_response.get("statusCode", 200)
-        status_code = raw_status_code if isinstance(raw_status_code, int) else 200
+        status_code = self._normalize_worker_route_status_code(
+            route_response=route_response,
+            route_label=f"listener endpoint {endpoint_name}",
+        )
         if status_code < 200 or status_code > 299:
             raise PluginManagerError(
                 "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
@@ -2170,7 +2174,6 @@ class PluginManager:
         params: dict[str, Any],
     ) -> dict[str, Any]:
         from fastapi import APIRouter, Request
-        from fastapi.encoders import jsonable_encoder
         from fastapi.responses import JSONResponse
 
         raw_prefix = params.get("prefix")
@@ -2243,19 +2246,37 @@ class PluginManager:
                 query_params = self._normalize_worker_route_query_params(request)
                 path_params = dict(request.path_params)
                 json_body: Any = None
+                raw_body_base64: str | None = None
                 if request.method not in {"GET", "HEAD", "OPTIONS"}:
                     raw_body = await request.body()
                     if len(raw_body) > 0:
-                        try:
-                            json_body = json.loads(raw_body.decode("utf-8"))
-                        except (UnicodeDecodeError, json.JSONDecodeError):
-                            json_body = raw_body.decode("utf-8", errors="ignore")
+                        raw_body_base64 = base64.b64encode(raw_body).decode("ascii")
+                        content_type = request.headers.get("content-type")
+                        if self._worker_route_content_type_is_json(content_type):
+                            try:
+                                json_body = json.loads(raw_body.decode("utf-8"))
+                            except (UnicodeDecodeError, json.JSONDecodeError):
+                                json_body = None
+                        elif self._worker_route_content_type_is_text(content_type):
+                            try:
+                                json_body = raw_body.decode("utf-8")
+                            except UnicodeDecodeError:
+                                json_body = None
                 request_context = {
                     "method": request.method,
                     "path": request.url.path,
                     "queryString": request.url.query,
                     "headers": list(request.headers.items()),
                 }
+                worker_params: dict[str, Any] = {
+                    "routeId": _route_id,
+                    "pathParams": path_params,
+                    "queryParams": query_params,
+                    "jsonBody": json_body,
+                    "requestContext": request_context,
+                }
+                if raw_body_base64 is not None:
+                    worker_params["rawBodyBase64"] = raw_body_base64
                 try:
                     route_response = self._call_backend_worker_method(
                         process=process,
@@ -2266,13 +2287,7 @@ class PluginManager:
                         timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
                         entry=entry,
                         app=app,
-                        params={
-                            "routeId": _route_id,
-                            "pathParams": path_params,
-                            "queryParams": query_params,
-                            "jsonBody": json_body,
-                            "requestContext": request_context,
-                        },
+                        params=worker_params,
                     )
                 except PluginManagerError as exc:
                     return JSONResponse(
@@ -2292,14 +2307,21 @@ class PluginManager:
                             ),
                         },
                     )
-                raw_status_code = route_response.get("statusCode", 200)
-                status_code = (
-                    raw_status_code if isinstance(raw_status_code, int) else 200
-                )
-                return JSONResponse(
-                    status_code=status_code,
-                    content=jsonable_encoder(route_response.get("body")),
-                )
+                try:
+                    return self._build_worker_route_proxy_response(
+                        route_response=route_response,
+                        route_label=(
+                            f"plugin route {_route_id} for plugin {_plugin_id}"
+                        ),
+                    )
+                except PluginManagerError as exc:
+                    return JSONResponse(
+                        status_code=502,
+                        content={
+                            "code": exc.code,
+                            "message": exc.message,
+                        },
+                    )
 
             proxy_router.add_api_route(
                 route_path,
@@ -2313,6 +2335,172 @@ class PluginManager:
             prefix=raw_prefix,
         )
         return {"ok": True}
+
+    def _build_worker_route_proxy_response(
+        self,
+        *,
+        route_response: dict[str, Any],
+        route_label: str,
+    ) -> Any:
+        from fastapi.responses import JSONResponse, Response
+
+        status_code = self._normalize_worker_route_status_code(
+            route_response=route_response,
+            route_label=route_label,
+        )
+        headers = self._normalize_worker_route_headers(
+            route_response=route_response,
+            route_label=route_label,
+        )
+        body_encoding = route_response.get("bodyEncoding")
+        if body_encoding is not None and body_encoding != "base64":
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Plugin worker response for {route_label} returned an "
+                    "unsupported bodyEncoding value."
+                ),
+            )
+        raw_media_type = route_response.get("mediaType")
+        if raw_media_type is not None and not isinstance(raw_media_type, str):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Plugin worker response for {route_label} returned "
+                    "a non-string mediaType value."
+                ),
+            )
+        media_type = (
+            raw_media_type.strip()
+            if isinstance(raw_media_type, str) and raw_media_type.strip() != ""
+            else None
+        )
+        raw_body = route_response.get("body")
+        if body_encoding == "base64":
+            if not isinstance(raw_body, str):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                    (
+                        f"Plugin worker response for {route_label} returned "
+                        "a non-string base64 body."
+                    ),
+                )
+            try:
+                decoded_body = base64.b64decode(raw_body, validate=True)
+            except Exception as exc:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                    (
+                        f"Plugin worker response for {route_label} returned "
+                        "an invalid base64 body."
+                    ),
+                ) from exc
+            return Response(
+                status_code=status_code,
+                content=decoded_body,
+                media_type=media_type,
+                headers=headers,
+            )
+        if media_type is not None and not self._worker_route_content_type_is_json(
+            media_type
+        ):
+            content: Any = raw_body
+            if isinstance(content, (dict, list)):
+                content = json.dumps(jsonable_encoder(content))
+            elif content is None:
+                content = ""
+            elif not isinstance(content, (str, bytes, bytearray, memoryview)):
+                content = str(content)
+            if isinstance(content, (bytearray, memoryview)):
+                content = bytes(content)
+            return Response(
+                status_code=status_code,
+                content=content,
+                media_type=media_type,
+                headers=headers,
+            )
+        return JSONResponse(
+            status_code=status_code,
+            content=jsonable_encoder(raw_body),
+            media_type=media_type,
+            headers=headers,
+        )
+
+    def _normalize_worker_route_status_code(
+        self,
+        *,
+        route_response: dict[str, Any],
+        route_label: str,
+    ) -> int:
+        if "statusCode" not in route_response:
+            return 200
+        raw_status_code = route_response.get("statusCode")
+        if (
+            not isinstance(raw_status_code, int)
+            or isinstance(raw_status_code, bool)
+            or raw_status_code < 100
+            or raw_status_code > 599
+        ):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Plugin worker response for {route_label} returned "
+                    f"an invalid statusCode value: {raw_status_code!r}"
+                ),
+            )
+        return raw_status_code
+
+    def _normalize_worker_route_headers(
+        self,
+        *,
+        route_response: dict[str, Any],
+        route_label: str,
+    ) -> dict[str, str]:
+        raw_headers = route_response.get("headers")
+        if raw_headers is None:
+            return {}
+        if not isinstance(raw_headers, list):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Plugin worker response for {route_label} returned "
+                    "a non-array headers payload."
+                ),
+            )
+        headers: dict[str, str] = {}
+        for item in raw_headers:
+            if (
+                not isinstance(item, (list, tuple))
+                or len(item) != 2
+                or not isinstance(item[0], str)
+                or not isinstance(item[1], str)
+            ):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                    (
+                        f"Plugin worker response for {route_label} returned "
+                        "an invalid header entry."
+                    ),
+                )
+            header_name = item[0].strip()
+            if header_name == "":
+                continue
+            if header_name.lower() in {"content-length", "transfer-encoding"}:
+                continue
+            headers[header_name] = item[1]
+        return headers
+
+    def _worker_route_content_type_is_json(self, raw_content_type: str | None) -> bool:
+        if not isinstance(raw_content_type, str):
+            return False
+        media_type = raw_content_type.split(";", 1)[0].strip().lower()
+        return media_type == "application/json" or media_type.endswith("+json")
+
+    def _worker_route_content_type_is_text(self, raw_content_type: str | None) -> bool:
+        if not isinstance(raw_content_type, str):
+            return False
+        media_type = raw_content_type.split(";", 1)[0].strip().lower()
+        return media_type.startswith("text/")
 
     def _register_backend_listener_endpoint_from_worker_request(
         self,
