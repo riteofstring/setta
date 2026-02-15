@@ -25,6 +25,7 @@ import {
   useState,
 } from "react";
 import { TbLayoutDashboard } from "react-icons/tb";
+import { getRunInputString } from "state/actions/agentRunUtils";
 import {
   clearPendingChatDetails,
   finalizePendingChatDetails,
@@ -44,7 +45,6 @@ import {
   type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
-import { getRunInputString } from "state/actions/agentRunUtils";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
