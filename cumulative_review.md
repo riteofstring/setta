@@ -1,18 +1,20 @@
-## 2026-02-18 23:04:05 PST
+## 2026-02-18 22:24:34 PST
 
-- Implemented MCP runtime status correctness fixes:
-  - Tightened external status parsing so non-MCP Claude/system events do not create phantom servers.
-  - Prevented fallback `unknown` statuses from overwriting concrete non-`unknown` runtime states.
-- Implemented frontend correctness and performance fixes:
-  - Added queued/latest-params MCP runtime refresh logic to avoid stale context updates during in-flight requests.
-  - Included `disabled` in the MCP status summary line for consistency with computed status totals.
-  - Optimized active-skill resolution using a precomputed identifier index map instead of repeated full-list scans.
-- Updated automated coverage:
-  - Backend tests for non-MCP payload rejection and unknown-overwrite prevention.
-  - Backend route test for disabled external-runner behavior.
-  - Frontend Vitest updates for status summary, root-priority activity mapping, and performance scaling guardrails.
-  - Playwright MCP viewer spec updated to mock/assert `POST /api/mcpServerRuntimeStatus` directly.
-- Verification run:
-  - Targeted backend pytest: pass.
-  - Targeted frontend Vitest: pass.
-  - Targeted Playwright MCP viewer suite: pass.
+- Fixed completion-guard correctness in `backend/setta/agentic/completion_guard.py`:
+  - Guard now only rewrites completion-attempt messages, not general clarifications.
+  - Preserves backend error text (for example `[Error] ...`) instead of masking it.
+  - Blocks completion claims when the latest report has `completionIntent=false`.
+  - Requires fresh report evidence after the latest assistant turn to prevent stale-report bypass.
+  - Evaluates assistant text even when tool calls are present (if user-visible text exists).
+- Fixed scoped/internal tool availability and run-scoped config handling:
+  - Cached `completionGuardEnabled` once per run in managed and external runners.
+  - Ensured required internal completion-report tool stays available under scoped filtering.
+  - Allowed `report_completion_status` through MCP unscoped allowlist checks for scoped chat flows.
+- Added regression coverage:
+  - Unit tests for completion-guard edge cases and stale-report behavior.
+  - Unit tests for cached run context guard toggle.
+  - Integration test proving `report_completion_status` is callable in scoped chat context.
+- Validation:
+  - `pytest -q tests/agentic/test_completion_guard.py tests/llm/test_agent_runner.py tests/agentic/test_external_agent_runner.py tests/mcp/test_mcp_agentic_project_state_summary_filtering.py tests/agentic/test_external_tool_allowlist.py` passed (`109 passed`).
+  - `ruff check` on touched backend/tests passed.
+  - `./gcf.sh` failed in sandbox due `/dev/fd` restriction; equivalent sequence completed successfully: `source activate.sh && cd frontend && pnpm generate && pnpm full-cleanup && pnpm f`.
