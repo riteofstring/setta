@@ -16,6 +16,7 @@ from setta.types.code_obj_impls import (
     HttpRequestMethod,
     ParamNameType,
     TextParamInputUIType,
+    TimeControlMode,
     TimeDisplayFormat,
 )
 from setta.types.edges import EdgePort
@@ -291,6 +292,7 @@ class UserDefaultTextParamCodeObjImpl(
     UserDefaultBaseChildlessCodeObjImpl, extra="forbid"
 ):
     uiType: TextParamInputUIType = TextParamInputUIType.plain
+    timeControlMode: TimeControlMode = TimeControlMode.display
     timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
     dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.iso
 

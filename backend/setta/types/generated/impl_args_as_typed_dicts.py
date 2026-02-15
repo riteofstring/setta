@@ -24,6 +24,7 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,
     TextParamInputUIType,
+    TimeControlMode,
     TimeDisplayFormat,
 )
 from setta.types.edges import Edge, EdgePort
@@ -175,6 +176,7 @@ class CoreArgs(TypedDict):
                 "text",
                 "textDisplayMode",
                 "thinking",
+                "timeControlMode",
                 "timeDisplayFormat",
                 "toolCallArguments",
                 "topLevelParamId",
@@ -863,6 +865,7 @@ class CodeParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
 class TextParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.TextParam]]
     uiType: NotRequired[TextParamInputUIType]
+    timeControlMode: NotRequired[TimeControlMode]
     timeDisplayFormat: NotRequired[TimeDisplayFormat]
     dateDisplayFormat: NotRequired[DateDisplayFormat]
 
@@ -874,6 +877,9 @@ class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
     ]
     uiType: NotRequired[
         TextParamInputUIType | Callable[[TextParamInputUIType], TextParamInputUIType]
+    ]
+    timeControlMode: NotRequired[
+        TimeControlMode | Callable[[TimeControlMode], TimeControlMode]
     ]
     timeDisplayFormat: NotRequired[
         TimeDisplayFormat | Callable[[TimeDisplayFormat], TimeDisplayFormat]

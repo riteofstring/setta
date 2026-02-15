@@ -69,6 +69,11 @@ class TimeDisplayFormat(str, Enum):
     twelve_hour = "twelve_hour"
 
 
+class TimeControlMode(str, Enum):
+    input = "input"
+    display = "display"
+
+
 class DateDisplayFormat(str, Enum):
     iso = "iso"
     us = "us"
@@ -116,6 +121,7 @@ class CodeParamCodeObjImpl(BaseChildlessCodeObjImpl):
 class TextParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
     uiType: TextParamInputUIType = TextParamInputUIType.plain
+    timeControlMode: TimeControlMode = TimeControlMode.display
     timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
     dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.iso
 

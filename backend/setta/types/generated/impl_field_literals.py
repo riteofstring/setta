@@ -107,6 +107,7 @@ AllImplFields = Literal[
     "text",
     "textDisplayMode",
     "thinking",
+    "timeControlMode",
     "timeDisplayFormat",
     "toolCallArguments",
     "topLevelParamId",

@@ -234,6 +234,7 @@ from setta.types.code_obj_impls import (
     ParamNameType,
     DropzoneMode,
     TextParamInputUIType,
+    TimeControlMode,
     TimeDisplayFormat,
     DateDisplayFormat,
 )

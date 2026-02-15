@@ -1,9 +1,11 @@
 import _ from "lodash";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
   getPythonCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
+import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
   CodeLanguageEnum,
@@ -11,15 +13,25 @@ import {
   createSectionSize,
   Position,
   SectionTypeEnum,
+  TimeControlMode,
+  TimeControlModeEnum,
+  TextParamInputUIType,
+  TextParamInputUITypeEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { createTopLevelSection } from "./createSections";
+
+type ControlParamConfig = {
+  uiType?: TextParamInputUIType;
+  timeControlMode?: TimeControlMode;
+};
 
 export type CreateSectionsContextMenuInfo = {
   name: string;
   implSpecs: Partial<BaseSectionImplUnion> &
     Required<Pick<BaseSectionImplUnion, "type">>;
   controlCodeObjType?: CodeObjTypeEnum;
+  controlParamConfig?: ControlParamConfig;
 };
 
 export function useCreateSectionsList() {
@@ -157,6 +169,27 @@ export function useCreateSectionsList() {
       controlCodeObjType: CodeObjTypeEnum.TextParam,
     },
     {
+      name: "Date Picker",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+      },
+      controlCodeObjType: CodeObjTypeEnum.TextParam,
+      controlParamConfig: {
+        uiType: TextParamInputUITypeEnum.date,
+      },
+    },
+    {
+      name: "Time Input",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+      },
+      controlCodeObjType: CodeObjTypeEnum.TextParam,
+      controlParamConfig: {
+        uiType: TextParamInputUITypeEnum.time,
+        timeControlMode: TimeControlModeEnum.display,
+      },
+    },
+    {
       name: "Text Area",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
@@ -238,8 +271,59 @@ export function createTopLevelSectionFromImplSpecs(
     if (!sectionId) {
       return;
     }
+    if (menuItem.controlParamConfig) {
+      void applyMetaControlParamConfigAfterCreate(
+        sectionId,
+        menuItem.controlParamConfig,
+      );
+    }
     if (menuItem.implSpecs.type === SectionTypeEnum.Callable) {
       focusOnSectionSearch(sectionId);
     }
+  });
+}
+
+function getMetaControlParamId(sectionId: string): string | null {
+  const state = useProjectState.getState();
+  const variantId = state.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return null;
+  }
+  const variant = state.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = state.sectionImpls[variant.impl];
+  if (!impl || impl.type !== SectionTypeEnum.MetaControl) {
+    return null;
+  }
+  return impl.metaControlParamId;
+}
+
+async function waitForMetaControlParamId(sectionId: string): Promise<string | null> {
+  const attempts = 45;
+  for (let idx = 0; idx < attempts; idx += 1) {
+    const paramId = getMetaControlParamId(sectionId);
+    if (paramId) {
+      return paramId;
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 16));
+  }
+  return null;
+}
+
+async function applyMetaControlParamConfigAfterCreate(
+  sectionId: string,
+  config: ControlParamConfig,
+) {
+  const controlParamId = await waitForMetaControlParamId(sectionId);
+  if (!controlParamId) {
+    return;
+  }
+  await route_update_param_impl_config({
+    projectConfigId: getCurrProjectConfigId(),
+    sectionId,
+    paramInfoId: controlParamId,
+    newConfig: config,
   });
 }

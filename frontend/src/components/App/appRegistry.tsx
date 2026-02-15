@@ -64,9 +64,11 @@ import {
   SectionTypeEnum,
   TextBlockFormatEnum,
   TextParamInputUITypeEnum,
+  TimeControlModeEnum,
   TimeDisplayFormatEnum,
 } from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
+import { formatTimeForDisplay } from "utils/textParamDateTime";
 import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
 import {
   resolveActionBinding,
@@ -988,10 +990,35 @@ function AppParamUI({
         "timeDisplayFormat" in codeObjImpl
           ? codeObjImpl.timeDisplayFormat
           : TimeDisplayFormatEnum.twenty_four_hour;
+      const timeControlMode =
+        "timeControlMode" in codeObjImpl
+          ? codeObjImpl.timeControlMode
+          : TimeControlModeEnum.display;
       const dateDisplayFormat =
         "dateDisplayFormat" in codeObjImpl
           ? codeObjImpl.dateDisplayFormat
           : DateDisplayFormatEnum.iso;
+      const showDisplayOnlyTime =
+        uiType === TextParamInputUITypeEnum.time &&
+        timeControlMode === TimeControlModeEnum.display;
+      if (showDisplayOnlyTime) {
+        const formattedTimeValue = formatTimeForDisplay(
+          stringValue,
+          timeDisplayFormat,
+        );
+        const displayedTimeValue =
+          formattedTimeValue.trim().length > 0 ? formattedTimeValue : "--:--";
+        return (
+          <>
+            <span className="section-value self-end break-words font-mono [font-size:var(--app-text-sm)] text-[color:var(--app-text)]">
+              {displayedTimeValue}
+            </span>
+            <span
+              className={`section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)]`}
+            />
+          </>
+        );
+      }
       return (
         <TextParamDateTimeInput
           value={stringValue}

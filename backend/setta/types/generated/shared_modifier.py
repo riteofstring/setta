@@ -25,6 +25,7 @@ from setta.types.code_obj_impls import (
     ParameterPassingStyle,
     ParamNameType,
     TextParamInputUIType,
+    TimeControlMode,
     TimeDisplayFormat,
 )
 from setta.types.edges import EdgePort
@@ -167,6 +168,7 @@ class SharedModifier(TypedDict):
     text: NotRequired[str]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
     thinking: NotRequired[bool]
+    timeControlMode: NotRequired[TimeControlMode]
     timeDisplayFormat: NotRequired[TimeDisplayFormat]
     toolCallArguments: NotRequired[dict[str, str]]
     topLevelParamId: NotRequired[ID | None]

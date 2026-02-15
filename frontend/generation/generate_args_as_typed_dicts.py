@@ -136,6 +136,7 @@ from setta.types.code_obj_impls import (
     HttpRequestMethod,
     DropzoneMode,
     TextParamInputUIType,
+    TimeControlMode,
     TimeDisplayFormat,
     DateDisplayFormat,
 )
