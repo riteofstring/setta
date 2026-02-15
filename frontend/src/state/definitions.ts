@@ -5,7 +5,7 @@ import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
-  OverviewTabKey,
+  OverviewTabName,
   OverviewTabNameEnum,
   ProjectSearchMode,
   ProjectSearchModeEnum,
@@ -855,7 +855,7 @@ type ZustandLocalStorage = {
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
-  overviewTab: OverviewTabKey;
+  overviewTab: OverviewTabName;
   gitGraphSplitPct: number;
   gitGraphColWidthPx: number;
   gitGraphAuthorWidthPx: number;

@@ -35,12 +35,6 @@ __pycache__/
 .nfs*
 build/
 dist/
-# Keep canonical frontend fixture plugin artifacts tracked.
-!tests/fixtures/plugins/frontend/frontend/dist/
-!tests/fixtures/plugins/frontend/frontend/dist/index.js
-!tests/fixtures/plugins/frontend/frontend/dist/index.css
-# Local workspace plugin fixture links from scripts/plugin-fixtures/*.sh
-plugins/setta-fixture-*
 *.egg-info/
 site/
 venv/
