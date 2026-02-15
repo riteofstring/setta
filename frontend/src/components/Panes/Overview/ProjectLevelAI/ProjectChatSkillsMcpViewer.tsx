@@ -248,7 +248,7 @@ export function ProjectChatSkillsMcpViewer() {
   }, []);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 -mr-2 flex-col overflow-y-scroll overflow-x-hidden pr-2 pt-4 text-sm text-setta-600 dark:text-setta-300">
+    <div className="flex min-h-0 min-w-0 flex-1 -mr-1 flex-col overflow-y-scroll overflow-x-hidden pr-1 pt-4 text-sm text-setta-600 dark:text-setta-300">
       <div className="grid min-w-0 gap-5">
         <section className="min-w-0">
           <div className="grid min-w-0 gap-2">
