@@ -1,10 +1,106 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import {
   allowExpectedApiError,
   ensureAppReady,
   seedLocalStorage,
 } from "../../helpers";
+
+type McpRuntimeState =
+  | "connected"
+  | "connecting"
+  | "retrying"
+  | "error"
+  | "disabled"
+  | "unknown";
+
+type McpRuntimeServer = {
+  serverId: string;
+  source: string;
+  transport: string;
+  endpoint: string;
+  state: McpRuntimeState;
+  lastAttemptAt: string | null;
+  lastConnectedAt: string | null;
+  lastFailureAt: string | null;
+  consecutiveFailures: number;
+  lastError: string | null;
+  missingEnvVar: string | null;
+  toolCount: number;
+};
+
+type McpRuntimeStatusResponse = {
+  llmConfigPath: string;
+  activeSettaFilesLocation: string | null;
+  servers: McpRuntimeServer[];
+  externalServers: McpRuntimeServer[];
+};
+
+function buildMcpRuntimeServer(
+  overrides: Partial<McpRuntimeServer> & { serverId: string },
+): McpRuntimeServer {
+  return {
+    serverId: overrides.serverId,
+    source: overrides.source ?? "setta_mcp",
+    transport: overrides.transport ?? "sse",
+    endpoint: overrides.endpoint ?? "http://127.0.0.1:8000/mcp",
+    state: overrides.state ?? "unknown",
+    lastAttemptAt: overrides.lastAttemptAt ?? null,
+    lastConnectedAt: overrides.lastConnectedAt ?? null,
+    lastFailureAt: overrides.lastFailureAt ?? null,
+    consecutiveFailures: overrides.consecutiveFailures ?? 0,
+    lastError: overrides.lastError ?? null,
+    missingEnvVar: overrides.missingEnvVar ?? null,
+    toolCount: overrides.toolCount ?? 0,
+  };
+}
+
+function buildMcpRuntimeStatusResponse(
+  overrides: Partial<McpRuntimeStatusResponse> = {},
+): McpRuntimeStatusResponse {
+  return {
+    llmConfigPath: "/workspace/setta_files/llm_config.json",
+    activeSettaFilesLocation: "local",
+    servers: [],
+    externalServers: [],
+    ...overrides,
+  };
+}
+
+async function mockMcpRuntimeStatusRoute(
+  page: Page,
+  options: {
+    status?: number;
+    delayMs?: number;
+    detail?: string;
+    payload?: McpRuntimeStatusResponse;
+  } = {},
+): Promise<void> {
+  const {
+    status = 200,
+    delayMs = 0,
+    detail = "Unavailable",
+    payload = buildMcpRuntimeStatusResponse(),
+  } = options;
+  await page.route("**/api/mcpServerRuntimeStatus", async (route) => {
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    if (status !== 200) {
+      await route.fulfill({
+        status,
+        contentType: "application/json",
+        body: JSON.stringify({ detail }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(payload),
+    });
+  });
+}
 
 test("project ai chat can open the skills and mcp viewer side view", async ({
   page,
@@ -73,6 +169,28 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
       }),
     });
   });
+  await mockMcpRuntimeStatusRoute(page, {
+    payload: buildMcpRuntimeStatusResponse({
+      servers: [
+        buildMcpRuntimeServer({
+          serverId: "setta",
+          state: "connected",
+          transport: "sse",
+          endpoint: "http://127.0.0.1:8000/mcp",
+          toolCount: 12,
+        }),
+      ],
+      externalServers: [
+        buildMcpRuntimeServer({
+          serverId: "context7",
+          source: "external_runtime",
+          state: "unknown",
+          transport: "stdio",
+          endpoint: "npx @upstash/context7-mcp",
+        }),
+      ],
+    }),
+  });
 
   await ensureAppReady(page);
 
@@ -114,6 +232,7 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   ).toBeVisible();
   await expect(page.getByText(/setta.*sse/i)).toBeVisible();
   await expect(page.getByText(/context7.*stdio/i)).toBeVisible();
+  await expect(page.getByText(/0 disabled/)).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Copy path for Workspace .agents/skills" }),
   ).toBeVisible();
@@ -168,6 +287,7 @@ test("project ai chat shows inline skills endpoint error when routes are missing
       }),
     });
   });
+  await mockMcpRuntimeStatusRoute(page);
 
   await ensureAppReady(page);
 
@@ -220,18 +340,18 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
     });
   });
 
-  await page.route("**/api/settaHomeInfo", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        settaHome: "/home/test/.setta",
-        globalSettaFilesBase: "/home/test/.setta/files",
-        activeSettaFilesLocation: "local",
-        llmConfigPath: "/workspace/setta_files/llm_config.json",
-      }),
-    });
+  await mockMcpRuntimeStatusRoute(page, {
+    delayMs: 1000,
+    payload: buildMcpRuntimeStatusResponse({
+      servers: [
+        buildMcpRuntimeServer({
+          serverId: "setta",
+          state: "connected",
+          transport: "sse",
+          endpoint: "http://127.0.0.1:8000/mcp",
+        }),
+      ],
+    }),
   });
 
   await page.route("**/api/getAppGenSkillContent", async (route) => {
@@ -252,7 +372,7 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
   await expect(page.getByText("Loading skills...")).toBeVisible();
   await expect(page.getByText("No skills found.")).toHaveCount(0);
   await expect(page.getByText("Loading MCP servers...")).toBeVisible();
-  await expect(page.getByText("No MCP servers configured.")).toHaveCount(0);
+  await expect(page.getByText("No MCP runtime status available.")).toHaveCount(0);
 
   await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
   await expect(page.getByText("Loading skills...")).toHaveCount(0);
@@ -322,6 +442,7 @@ test("project ai chat keeps skills list stable during selection and ignores stal
       }),
     });
   });
+  await mockMcpRuntimeStatusRoute(page);
 
   let skillContentRequestCount = 0;
   await page.route("**/api/getAppGenSkillContent", async (route) => {
@@ -409,6 +530,7 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
       }),
     });
   });
+  await mockMcpRuntimeStatusRoute(page);
 
   await page.route("**/api/getAppGenSkillContent", async (route) => {
     const payload = route.request().postDataJSON() as { skillId?: string };
@@ -490,6 +612,7 @@ test("project ai chat refresh updates selected markdown content without requirin
       }),
     });
   });
+  await mockMcpRuntimeStatusRoute(page);
 
   let skillContentVersion = 0;
   await page.route("**/api/getAppGenSkillContent", async (route) => {
@@ -566,6 +689,7 @@ test("project ai chat keeps existing skills and markdown preview on refresh fail
       }),
     });
   });
+  await mockMcpRuntimeStatusRoute(page);
 
   await page.route("**/api/getAppGenSkillContent", async (route) => {
     await route.fulfill({
@@ -658,6 +782,7 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
       }),
     });
   });
+  await mockMcpRuntimeStatusRoute(page);
 
   await page.route("**/api/getAppGenSkillContent", async (route) => {
     const payload = route.request().postDataJSON() as { skillId?: string };
@@ -724,6 +849,7 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
       }),
     });
   });
+  await mockMcpRuntimeStatusRoute(page);
 
   await page.route("**/api/getAppGenSkillContent", async (route) => {
     await route.fulfill({
@@ -802,17 +928,14 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
     });
   });
 
-  await page.route("**/api/settaHomeInfo", async (route) => {
-    await route.fulfill({
-      status: 500,
-      contentType: "application/json",
-      body: JSON.stringify({ detail: "Unavailable" }),
-    });
+  await mockMcpRuntimeStatusRoute(page, {
+    status: 500,
+    detail: "Unavailable",
   });
   allowExpectedApiError(page, {
-    path: "/api/settaHomeInfo",
+    path: "/api/mcpServerRuntimeStatus",
     statuses: [500],
-    method: "GET",
+    method: "POST",
     count: 3,
   });
 
@@ -836,7 +959,7 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
   await expect(page.getByText("Unavailable")).toBeVisible();
   await expect(
     page.getByRole("button", { name: /Reveal path for Active setta_files/i }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
 
   const skillMarkdownToggle = page.getByRole("button", {
     name: "Skill Markdown Viewer",

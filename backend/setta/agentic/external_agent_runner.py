@@ -1421,6 +1421,13 @@ class ExternalAgentRunner:
             self._external_mcp_statuses_by_run_id[run_id] = {}
         destination = self._external_mcp_statuses_by_run_id[run_id]
         for status in statuses:
+            existing = destination.get(status.serverId)
+            if (
+                existing is not None
+                and existing.state != MCPServerRuntimeState.unknown
+                and status.state == MCPServerRuntimeState.unknown
+            ):
+                continue
             destination[status.serverId] = status
 
     def _build_unknown_statuses_from_claude_mcp_config(
@@ -2124,11 +2131,12 @@ def _extract_status_payloads(
                     normalized_row["serverId"] = row["id"]
                 elif isinstance(row.get("name"), str):
                     normalized_row["serverId"] = row["name"]
-            rows.append(normalized_row)
+            if _looks_like_status_entry(normalized_row):
+                rows.append(normalized_row)
         return rows
     if not isinstance(container, dict):
         return []
-    if _looks_like_status_entry(container):
+    if _looks_like_status_entry(container) and _extract_server_id(container) is not None:
         return [container]
     rows: list[dict[str, Any]] = []
     for server_id, row in container.items():
@@ -2138,7 +2146,8 @@ def _extract_status_payloads(
             continue
         normalized_row = dict(row)
         normalized_row.setdefault("serverId", server_id)
-        rows.append(normalized_row)
+        if _looks_like_status_entry(normalized_row):
+            rows.append(normalized_row)
     return rows
 
 
@@ -2149,13 +2158,16 @@ def _looks_like_status_entry(row: dict[str, Any]) -> bool:
         "connected",
         "enabled",
         "transport",
-        "type",
         "url",
         "command",
         "endpoint",
         "error",
         "lastError",
         "toolCount",
+        "tool_count",
+        "tools",
+        "missingEnvVar",
+        "missing_env_var",
     }
     return any(key in row for key in status_keys)
 

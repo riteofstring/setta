@@ -160,14 +160,29 @@ describe("projectChatSkillsMcpViewerUtils", () => {
             missingEnvVar: null,
             toolCount: 0,
           },
+          {
+            serverId: "local-only",
+            source: "setta_mcp",
+            transport: "stdio",
+            endpoint: "python -m local.mcp",
+            state: "disabled",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 0,
+          },
         ],
       },
     ]);
 
-    expect(summary.total).toBe(2);
+    expect(summary.total).toBe(3);
     expect(summary.connected).toBe(1);
     expect(summary.retrying).toBe(1);
     expect(summary.error).toBe(0);
+    expect(summary.disabled).toBe(1);
     expect(summary.unknown).toBe(0);
   });
 
@@ -283,6 +298,59 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(
       status["workspace_opencode_skills::documentation"]?.activityState,
     ).toBe("inactive");
+  });
+
+  it("prefers applicable roots when active skill token matches multiple skills", () => {
+    const skills = [
+      {
+        skillId: "workspace_agents_skills::shared-skill",
+        name: "shared-skill",
+        rootLabel: "Workspace .agents/skills",
+        rootPath: "/workspace/.agents/skills",
+        relativePath: "shared-skill",
+        description: "Codex shared skill",
+      },
+      {
+        skillId: "workspace_claude_skills::shared-skill",
+        name: "shared-skill",
+        rootLabel: "Workspace .claude/skills",
+        rootPath: "/workspace/.claude/skills",
+        relativePath: "shared-skill",
+        description: "Claude shared skill",
+      },
+    ];
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "tc-1",
+            type: "function",
+            function: {
+              name: "skill",
+              arguments: { name: "shared-skill" },
+            },
+          },
+        ],
+      },
+    ];
+
+    const status = buildSkillStatusBySkillId({
+      skills,
+      engineType: EngineTypeEnum.external_agent,
+      externalAgentToolType: ExternalAgentToolTypeEnum.codex,
+      messages,
+    });
+
+    expect(status["workspace_agents_skills::shared-skill"]?.activityState).toBe(
+      "active",
+    );
+    expect(status["workspace_claude_skills::shared-skill"]?.activityState).toBe(
+      "inactive",
+    );
   });
 
   it("keeps activity inactive when no signal is present", () => {

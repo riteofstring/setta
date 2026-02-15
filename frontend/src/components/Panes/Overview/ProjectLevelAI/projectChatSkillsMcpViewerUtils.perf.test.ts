@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type BaseChatMessageUnion,
+  EngineTypeEnum,
+  ExternalAgentToolTypeEnum,
+} from "utils/generatedTypes";
+import {
+  buildSkillStatusBySkillId,
   filterSkills,
   groupSkillsByRootPath,
 } from "./projectChatSkillsMcpViewerUtils";
@@ -32,6 +38,25 @@ function averageRunTimeMs(iterations: number, fn: () => void): number {
     fn();
   }
   return (performance.now() - start) / iterations;
+}
+
+function makeSkillActivityMessages(size: number): BaseChatMessageUnion[] {
+  return [
+    {
+      id: "assistant-1",
+      role: "assistant",
+      content: [],
+      attachments: [],
+      tool_calls: Array.from({ length: size }, (_, index) => ({
+        id: `tc-${index}`,
+        type: "function" as const,
+        function: {
+          name: "skill",
+          arguments: { name: `skill-${index}` },
+        },
+      })),
+    },
+  ];
 }
 
 describe("projectChatSkillsMcpViewerUtils (perf)", () => {
@@ -74,5 +99,45 @@ describe("projectChatSkillsMcpViewerUtils (perf)", () => {
 
     // Keep a strict superlinear guard but allow timing variance in shared CI hosts.
     expect(largeAverageMs / smallAverageMs).toBeLessThan(10);
+  });
+
+  it("active skill mapping scales roughly linearly with large active token sets", () => {
+    const smallRows = makeRows(250);
+    const largeRows = makeRows(1000);
+    const smallMessages = makeSkillActivityMessages(50);
+    const largeMessages = makeSkillActivityMessages(200);
+
+    buildSkillStatusBySkillId({
+      skills: smallRows,
+      engineType: EngineTypeEnum.external_agent,
+      externalAgentToolType: ExternalAgentToolTypeEnum.codex,
+      messages: smallMessages,
+    });
+    buildSkillStatusBySkillId({
+      skills: largeRows,
+      engineType: EngineTypeEnum.external_agent,
+      externalAgentToolType: ExternalAgentToolTypeEnum.codex,
+      messages: largeMessages,
+    });
+
+    const smallAverageMs = averageRunTimeMs(120, () => {
+      buildSkillStatusBySkillId({
+        skills: smallRows,
+        engineType: EngineTypeEnum.external_agent,
+        externalAgentToolType: ExternalAgentToolTypeEnum.codex,
+        messages: smallMessages,
+      });
+    });
+    const largeAverageMs = averageRunTimeMs(120, () => {
+      buildSkillStatusBySkillId({
+        skills: largeRows,
+        engineType: EngineTypeEnum.external_agent,
+        externalAgentToolType: ExternalAgentToolTypeEnum.codex,
+        messages: largeMessages,
+      });
+    });
+
+    // 4x scale on skills/messages should avoid quadratic blow-up.
+    expect(largeAverageMs / smallAverageMs).toBeLessThan(12);
   });
 });

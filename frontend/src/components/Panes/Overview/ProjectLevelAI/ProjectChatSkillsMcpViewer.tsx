@@ -207,6 +207,14 @@ export function ProjectChatSkillsMcpViewer({
   const [skillsRevision, setSkillsRevision] = useState(0);
   const skillsRefreshInFlight = useRef(false);
   const mcpStatusRefreshInFlight = useRef(false);
+  const mcpStatusRefreshQueued = useRef(false);
+  const mcpStatusRequestParamsRef = useRef<{
+    chatId: string | null;
+    engineConfigId: string | null;
+  }>({
+    chatId: chatId ?? null,
+    engineConfigId: engineConfigId ?? null,
+  });
   const skillContentRequestSequence = useRef(0);
   const selectedSkillIdRef = useRef<string | null>(null);
   const skillContentCache = useRef(
@@ -254,42 +262,63 @@ export function ProjectChatSkillsMcpViewer({
 
   const refreshMcpServerStatuses = useCallback(async () => {
     if (mcpStatusRefreshInFlight.current) {
+      mcpStatusRefreshQueued.current = true;
       return;
     }
     mcpStatusRefreshInFlight.current = true;
     setMcpServersLoading(true);
     setMcpServersError(null);
     try {
-      const res = await route_get_mcp_server_runtime_status({
-        chatId: chatId ?? null,
-        engineConfigId: engineConfigId ?? null,
-      });
-      if (!res200(res)) {
-        const detail = getErrorDetail(res.data);
-        setMcpServersError(detail ?? "Failed to load MCP runtime status.");
-        setMcpRuntimeStatuses([]);
-        setExternalMcpRuntimeStatuses([]);
-        setMcpConfigPath(null);
-        setSettaFilesLocation(null);
-        return;
+      while (true) {
+        mcpStatusRefreshQueued.current = false;
+        const requestParams = {
+          chatId: mcpStatusRequestParamsRef.current.chatId,
+          engineConfigId: mcpStatusRequestParamsRef.current.engineConfigId,
+        };
+        const res = await route_get_mcp_server_runtime_status(requestParams);
+        const requestParamsStillCurrent =
+          requestParams.chatId === mcpStatusRequestParamsRef.current.chatId &&
+          requestParams.engineConfigId ===
+            mcpStatusRequestParamsRef.current.engineConfigId;
+        if (!requestParamsStillCurrent) {
+          mcpStatusRefreshQueued.current = true;
+        }
+        if (requestParamsStillCurrent) {
+          if (!res200(res)) {
+            const detail = getErrorDetail(res.data);
+            setMcpServersError(detail ?? "Failed to load MCP runtime status.");
+            setMcpRuntimeStatuses([]);
+            setExternalMcpRuntimeStatuses([]);
+            setMcpConfigPath(null);
+            setSettaFilesLocation(null);
+          } else {
+            setMcpRuntimeStatuses(res.data.servers);
+            setExternalMcpRuntimeStatuses(res.data.externalServers);
+            setMcpConfigPath(res.data.llmConfigPath);
+            setSettaFilesLocation(res.data.activeSettaFilesLocation);
+          }
+        }
+        if (!mcpStatusRefreshQueued.current) {
+          break;
+        }
       }
-      setMcpRuntimeStatuses(res.data.servers);
-      setExternalMcpRuntimeStatuses(res.data.externalServers);
-      setMcpConfigPath(res.data.llmConfigPath);
-      setSettaFilesLocation(res.data.activeSettaFilesLocation);
     } finally {
       setMcpServersLoading(false);
       mcpStatusRefreshInFlight.current = false;
     }
-  }, [chatId, engineConfigId]);
+  }, []);
 
   useEffect(() => {
     void refreshSkillsBrowser();
   }, [refreshSkillsBrowser]);
 
   useEffect(() => {
+    mcpStatusRequestParamsRef.current = {
+      chatId: chatId ?? null,
+      engineConfigId: engineConfigId ?? null,
+    };
     void refreshMcpServerStatuses();
-  }, [refreshMcpServerStatuses]);
+  }, [chatId, engineConfigId, refreshMcpServerStatuses]);
 
   useEffect(() => {
     selectedSkillIdRef.current = selectedSkillId;
@@ -641,7 +670,7 @@ export function ProjectChatSkillsMcpViewer({
           <p className="text-[11px] text-setta-500 dark:text-setta-400">
             {mcpStatusSummary.total === 0
               ? "No runtime MCP status available yet."
-              : `${mcpStatusSummary.connected} connected · ${mcpStatusSummary.connecting} connecting · ${mcpStatusSummary.retrying} retrying · ${mcpStatusSummary.error} error · ${mcpStatusSummary.unknown} unknown`}
+              : `${mcpStatusSummary.connected} connected · ${mcpStatusSummary.connecting} connecting · ${mcpStatusSummary.retrying} retrying · ${mcpStatusSummary.error} error · ${mcpStatusSummary.disabled} disabled · ${mcpStatusSummary.unknown} unknown`}
           </p>
           <div className="max-h-[220px] min-h-[110px] min-w-0 overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
             {mcpServersError ? (

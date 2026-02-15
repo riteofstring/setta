@@ -120,3 +120,43 @@ def test_mcp_runtime_status_route_blocked_in_deployment_mode() -> None:
         )
 
     assert response.status_code == 403
+
+
+def test_mcp_runtime_status_route_skips_external_runner_when_disabled() -> None:
+    app = FastAPI()
+    mcp_status = MCPServerRuntimeStatus(
+        serverId="setta",
+        source="setta_mcp",
+        transport="sse",
+        endpoint="http://127.0.0.1:8000/mcp",
+        state="connected",
+        toolCount=1,
+    )
+    external_status = MCPServerRuntimeStatus(
+        serverId="filesystem",
+        source="external_runtime",
+        transport="stdio",
+        endpoint="npx @modelcontextprotocol/server-filesystem",
+        state="error",
+        lastError="boom",
+    )
+    external_runner = _FakeExternalRunner([external_status])
+    external_runner.disabled = True
+    app.state.setta = SimpleNamespace(
+        deployment_mode=False,
+        mcp_client=_FakeMCPClient([mcp_status]),
+        external_agent_runner=external_runner,
+    )
+    app.include_router(status_router, prefix=Route.PREFIX.value)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.GET_MCP_SERVER_RUNTIME_STATUS.value}",
+            json={"chatId": "chat-1", "engineConfigId": "engine-1"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload["servers"]) == 1
+    assert payload["externalServers"] == []
+    assert external_runner.calls == []

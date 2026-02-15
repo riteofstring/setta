@@ -271,6 +271,24 @@ function buildSkillIdentifierSet(skill: AppGenSkillEntry): Set<string> {
   return identifiers;
 }
 
+function buildSkillIdentifierIndex(
+  skills: AppGenSkillEntry[],
+): Map<string, AppGenSkillEntry[]> {
+  const index = new Map<string, AppGenSkillEntry[]>();
+  for (const skill of skills) {
+    const identifiers = buildSkillIdentifierSet(skill);
+    for (const identifier of identifiers) {
+      const existing = index.get(identifier);
+      if (existing) {
+        existing.push(skill);
+        continue;
+      }
+      index.set(identifier, [skill]);
+    }
+  }
+  return index;
+}
+
 function mapActiveSkillNamesToSkillIds({
   skills,
   activeSkillNames,
@@ -288,10 +306,9 @@ function mapActiveSkillNamesToSkillIds({
   for (const [index, rootId] of applicableRootIds.entries()) {
     applicableRootPriority.set(rootId, index);
   }
+  const skillIdentifierIndex = buildSkillIdentifierIndex(skills);
   for (const [activeSkillName, source] of activeSkillNames.entries()) {
-    const candidates = skills.filter((skill) => {
-      return buildSkillIdentifierSet(skill).has(activeSkillName);
-    });
+    const candidates = skillIdentifierIndex.get(activeSkillName) ?? [];
     if (candidates.length === 0) {
       continue;
     }

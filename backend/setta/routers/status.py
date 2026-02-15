@@ -80,7 +80,7 @@ def _build_allowed_reveal_roots_cache_key(
 
 @lru_cache(maxsize=32)
 def _build_allowed_reveal_roots_for_cache_key(
-    cache_key: tuple[str, str, str, str, str],
+    cache_key: tuple[str, str, str, str, str, str],
 ) -> tuple[Path, ...]:
     workspace_root = Path(cache_key[0])
     setta_files_root = Path(cache_key[1])
