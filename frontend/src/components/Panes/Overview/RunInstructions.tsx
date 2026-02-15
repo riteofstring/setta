@@ -55,9 +55,9 @@ import {
 } from "utils/generatedTypes";
 import { RunInstructionsAccordion } from "./RunInstructionsAccordion";
 import {
+  normalizeRunInstructionsAccordionOpenValues,
   RUN_INSTRUCTIONS_ACCORDION_DEFAULT_OPEN_VALUES,
   type RunInstructionsAccordionItemValue,
-  normalizeRunInstructionsAccordionOpenValues,
 } from "./runInstructionsAccordionState";
 
 type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
@@ -1210,8 +1210,8 @@ export function RunInstructions() {
   const accordionItemValueSet = new Set<string>(
     accordionItems.map((item) => item.value),
   );
-  const visibleAccordionOpenValues = resolvedAccordionOpenValues.filter((value) =>
-    accordionItemValueSet.has(value),
+  const visibleAccordionOpenValues = resolvedAccordionOpenValues.filter(
+    (value) => accordionItemValueSet.has(value),
   );
 
   return (

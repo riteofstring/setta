@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
 import { sectionTypeSupportsAppearanceSettings } from "./SectionConfig";
 
 describe("sectionTypeSupportsAppearanceSettings", () => {

@@ -410,7 +410,8 @@ function SelectedLogMessagePanel({
     >
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 flex-1 truncate text-[10px] uppercase tracking-[0.12em] text-setta-500 dark:text-setta-400">
-          {formatLogTimestamp(event.timestamp)} | {event.severity} | {projectName}
+          {formatLogTimestamp(event.timestamp)} | {event.severity} |{" "}
+          {projectName}
         </div>
         <button
           type="button"

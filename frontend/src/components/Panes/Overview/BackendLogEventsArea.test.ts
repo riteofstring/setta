@@ -104,10 +104,7 @@ describe("BackendLogEventsArea resize teardown", () => {
 
       expect(addEventListener).toHaveBeenCalledWith("mousemove", mouseMove);
       expect(addEventListener).toHaveBeenCalledWith("mouseup", mouseUp);
-      expect(removeEventListener).toHaveBeenCalledWith(
-        "mousemove",
-        mouseMove,
-      );
+      expect(removeEventListener).toHaveBeenCalledWith("mousemove", mouseMove);
       expect(removeEventListener).toHaveBeenCalledWith("mouseup", mouseUp);
     } finally {
       vi.unstubAllGlobals();
