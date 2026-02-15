@@ -348,7 +348,11 @@ export function getTopLevelSectionIdsForDisplay(
     // Only true top-level sections should be rendered as React Flow nodes. If a
     // section has a parent, it will be rendered via the nested section tree.
     const parentId = projectState.parentSectionMap[sectionId] ?? null;
-    return parentId === null;
+    if (parentId !== null) {
+      return false;
+    }
+    const sectionImpl = getEffectiveSectionImplIfPresent(projectState, sectionId);
+    return sectionImpl !== null;
   });
 }
 
@@ -436,6 +440,33 @@ export function getCurrEffectiveSectionImpl(
   const variant = getCurrSectionVariant(p, sectionId, preview);
   const baseImpl = getSectionImpl(p, variant.impl);
   const core = getSectionCore(p, sectionId);
+  return getEffectiveImpl(baseImpl, core, variant);
+}
+
+export function getCurrEffectiveSectionImplIfPresent(
+  p: ZustandProjectState,
+  sectionId: string,
+  preview = false,
+): BaseSectionImplUnion | null {
+  const variantId = preview
+    ? p.previewSectionVariantMap[sectionId] ??
+      p.projectConfig.sectionVariantMap[sectionId]
+    : p.projectConfig.sectionVariantMap[sectionId];
+  if (variantId === undefined) {
+    return null;
+  }
+  const variant = p.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const baseImpl = p.sectionImpls[variant.impl];
+  if (!baseImpl) {
+    return null;
+  }
+  const core = p.sections[sectionId];
+  if (!core) {
+    return null;
+  }
   return getEffectiveImpl(baseImpl, core, variant);
 }
 
