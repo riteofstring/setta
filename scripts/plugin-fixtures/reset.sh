@@ -45,7 +45,7 @@ removed_count=0
 while IFS= read -r plugin_id; do
   [[ -z "${plugin_id}" ]] && continue
   echo "reset: unlink attempts for ${plugin_id}..."
-  for scope in workspace environment global; do
+  for scope in workspace setta_files global; do
     if setta plugins unlink "${plugin_id}" --scope "${scope}" >/dev/null 2>&1; then
       echo "removed ${plugin_id} from ${scope}"
       removed_count=$((removed_count + 1))

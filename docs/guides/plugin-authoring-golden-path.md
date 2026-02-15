@@ -58,7 +58,7 @@ setta plugins install pypi:setta-my-plugin==0.1.0
 Optional scopes:
 
 - `--scope workspace`
-- `--scope environment` (alias for `setta_files`)
+- `--scope setta_files`
 - `--scope global`
 
 ## 7. Verify runtime status

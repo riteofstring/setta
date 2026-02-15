@@ -17,7 +17,7 @@ The smoke script:
 
 - removes previously linked fixture plugins,
 - links a core fixture set,
-- links scope-shadowing fixtures across `global`, `environment`, and `workspace`,
+- links scope-shadowing fixtures across `global`, `setta_files`, and `workspace`,
 - runs `setta plugins rescan`.
 
 ## Core Commands
@@ -57,7 +57,7 @@ scripts/plugin-fixtures/reset.sh
 6. Verify scope precedence fixture:
    - run `setta plugins list`.
    - confirm `setta-fixture-scope-shadowing` resolves to `workspace` and shadows
-     `environment`/`global` entries.
+     `setta_files`/`global` entries.
 7. Verify frontend project-state read/subscription fixture behavior:
    - open `setta-fixture-frontend` pane.
    - confirm `active sections`, `project config`, and `project state updates`

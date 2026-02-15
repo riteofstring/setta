@@ -1089,7 +1089,10 @@ def test_update_plugin_with_explicit_target_persists_source_metadata(
 
 def test_scope_environment_is_rejected() -> None:
     # Scope normalization should reject removed aliases so callers use canonical scope labels.
-    with pytest.raises(ValueError, match="Invalid plugin scope"):
+    with pytest.raises(
+        ValueError,
+        match="'environment' is not supported; use 'setta_files'",
+    ):
         normalize_scope("environment")
 
 

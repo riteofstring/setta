@@ -462,6 +462,10 @@ def normalize_scope(
         return PluginScope.setta_files
     if normalized == "global":
         return PluginScope.global_scope
+    if normalized == "environment":
+        raise ValueError(
+            "Invalid plugin scope: 'environment' is not supported; use 'setta_files'."
+        )
     raise ValueError(f"Invalid plugin scope: {raw_scope!r}")
 
 

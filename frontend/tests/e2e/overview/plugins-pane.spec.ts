@@ -60,6 +60,11 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   await expect(
     page.getByTestId("plugin-install-scope").locator("option[value='global']"),
   ).toHaveText("global");
+  await expect(
+    page
+      .getByTestId("plugin-install-scope")
+      .locator("option[value='environment']"),
+  ).toHaveCount(0);
   await page
     .getByPlaceholder("github:owner/repo[#ref] or pypi:package[==version]")
     .fill("file:/tmp/plugin");

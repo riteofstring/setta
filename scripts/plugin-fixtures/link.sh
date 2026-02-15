@@ -7,7 +7,7 @@ FIXTURE_ROOT="${ROOT_DIR}/tests/fixtures/plugins"
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/plugin-fixtures/link.sh <fixture-name> [--scope workspace|environment|global] [--no-rescan]
+Usage: scripts/plugin-fixtures/link.sh <fixture-name> [--scope workspace|setta_files|global] [--no-rescan]
 
 Examples:
   scripts/plugin-fixtures/link.sh frontend
@@ -57,10 +57,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "${scope}" in
-  workspace|environment|global)
+  workspace|setta_files|global)
     ;;
   *)
-    echo "Invalid scope: ${scope}" >&2
+    echo "Invalid scope: ${scope}. Expected workspace|setta_files|global." >&2
     exit 1
     ;;
 esac

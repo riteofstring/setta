@@ -43,7 +43,7 @@ Target fixture catalog (coverage baseline):
 - full-stack success paths
 - content-only paths
 - deterministic validation/runtime failures (manifest, metadata mismatch, worker handshake/timeouts, frontend registration errors)
-- precedence/scope scenarios (`workspace`, `environment`, `global`, shadowing)
+- precedence/scope scenarios (`workspace`, `setta_files`, `global`, shadowing)
 
 Current count:
 

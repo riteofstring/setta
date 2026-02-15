@@ -29,3 +29,11 @@ Read all the top-level review*.md docs. Present me the consolidated findings, in
 
 
 I ran a bunch of tests, I think there are some errors. See tests.log. Can you fix the errors?
+
+
+
+Read all the top-level review*.md docs. Present me the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes. Exclude fixes that involve adding backward compatibility. Also, are the findings in conflict with our past fixes outlined in cumulative_review.md?
+
+
+
+Read the diff of <commit hash>. Write a summary of the changes to a new doc called cumulative_review.md. We are going to be appending to this document in future commits with the same concept (writing a summary of changes of each commit), so put the summary under a heading with the commit hash in the heading.

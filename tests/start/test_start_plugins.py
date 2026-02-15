@@ -242,6 +242,30 @@ def test_plugins_install_cli_rejects_removed_environment_flag(
     assert "No such option: --environment" in result.output
 
 
+def test_plugins_install_cli_rejects_removed_environment_scope_value(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Install CLI should reject legacy scope values and point to canonical choices.
+    manager = _build_manager(tmp_path)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        plugins,
+        [
+            "install",
+            "pypi:setta-fixture-frontend==0.1.0",
+            "--scope",
+            "environment",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Invalid value for '--scope'" in result.output
+    assert "setta_files" in result.output
+
+
 def test_plugins_list_cli_text_reports_no_plugins(tmp_path: Path, monkeypatch) -> None:
     # Text-mode plugin list should emit an explicit empty-state message.
     manager = _build_manager(tmp_path)

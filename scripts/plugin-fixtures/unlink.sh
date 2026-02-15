@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/plugin-fixtures/unlink.sh <plugin-id> [--scope workspace|environment|global] [--no-rescan]
+Usage: scripts/plugin-fixtures/unlink.sh <plugin-id> [--scope workspace|setta_files|global] [--no-rescan]
 
 Examples:
   scripts/plugin-fixtures/unlink.sh setta-fixture-frontend
@@ -57,10 +57,10 @@ done
 
 if [[ -n "${scope}" ]]; then
   case "${scope}" in
-    workspace|environment|global)
+    workspace|setta_files|global)
       ;;
     *)
-      echo "Invalid scope: ${scope}" >&2
+      echo "Invalid scope: ${scope}. Expected workspace|setta_files|global." >&2
       exit 1
       ;;
   esac
