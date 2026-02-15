@@ -87,10 +87,25 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await expect(
     page.getByRole("button", { name: /frontend-design/i }),
   ).toBeVisible();
-  await expect(page.getByText("Skill Markdown Viewer")).toBeVisible();
+  const skillMarkdownToggle = page.getByRole("button", {
+    name: "Skill Markdown Viewer",
+  });
+  await expect(skillMarkdownToggle).toBeVisible();
+  await expect(skillMarkdownToggle).toHaveAttribute("aria-expanded", "false");
+  await skillMarkdownToggle.click();
+  await expect(skillMarkdownToggle).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByLabel("Skill Markdown Content")).toContainText(
     "Create dense dashboard layouts.",
   );
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.localStorage.getItem(
+          "setta.projectChatSkillsMcpViewer.skillMarkdownViewerOpen",
+        ),
+      ),
+    )
+    .toBe("true");
   await expect(page.getByText(/setta_files\/llm_config\.json/)).toBeVisible();
   await expect(
     page.getByText(/Active (local|global) setta_files/),

@@ -25,6 +25,10 @@ type PathGroupHeaderProps = {
   onRevealPath: (path: string) => void;
 };
 
+const SKILL_MARKDOWN_VIEWER_STORAGE_KEY =
+  "setta.projectChatSkillsMcpViewer.skillMarkdownViewerOpen";
+const SKILL_MARKDOWN_VIEWER_VALUE = "skill-markdown-viewer";
+
 function isActionablePath(path: string): boolean {
   const normalizedPath = path.trim().toLowerCase();
   return normalizedPath !== "" && normalizedPath !== "unavailable";
@@ -86,6 +90,16 @@ export function ProjectChatSkillsMcpViewer() {
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [selectedSkillContent, setSelectedSkillContent] = useState("");
   const [skillContentLoading, setSkillContentLoading] = useState(false);
+  const [isSkillMarkdownViewerOpen, setIsSkillMarkdownViewerOpen] =
+    useState(() => {
+      if (typeof window === "undefined") {
+        return false;
+      }
+      return (
+        window.localStorage.getItem(SKILL_MARKDOWN_VIEWER_STORAGE_KEY) ===
+        "true"
+      );
+    });
   const [mcpConfigPath, setMcpConfigPath] = useState<string | null>(null);
   const [settaFilesLocation, setSettaFilesLocation] = useState<string | null>(
     null,
@@ -166,6 +180,16 @@ export function ProjectChatSkillsMcpViewer() {
     void loadMcpConfigPath();
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(
+      SKILL_MARKDOWN_VIEWER_STORAGE_KEY,
+      isSkillMarkdownViewerOpen ? "true" : "false",
+    );
+  }, [isSkillMarkdownViewerOpen]);
+
   const filteredSkills = useMemo(() => {
     return filterSkills(skills, skillFilter);
   }, [skillFilter, skills]);
@@ -209,33 +233,34 @@ export function ProjectChatSkillsMcpViewer() {
   }, []);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4 text-sm text-setta-600 dark:text-setta-300">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-          Skills
-        </div>
-        <button
-          className="cursor-pointer rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-          onClick={() => void refreshSkillsBrowser()}
-        >
-          Refresh
-        </button>
-      </div>
-      <div className="grid gap-4">
-        <section className="grid gap-1">
-          <search className="relative flex min-w-0 items-center">
-            <div className="absolute left-0 grid select-none place-items-center pl-1">
-              <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
-            </div>
-            <input
-              aria-label="Filter skills"
-              className="min-w-0 flex-grow cursor-text truncate border-solid border-setta-200 bg-transparent py-1 pl-5 text-sm text-setta-700 placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:!border-blue-300 dark:border-setta-800 dark:text-setta-200 dark:placeholder-setta-700"
-              value={skillFilter}
-              onChange={(event) => setSkillFilter(event.target.value)}
-              placeholder="Filter"
-            />
-          </search>
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 text-sm text-setta-600 dark:text-setta-300">
+      <div className="grid gap-5">
+        <section>
           <div className="grid gap-2">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+                Skills
+              </div>
+              <button
+                className="cursor-pointer rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                onClick={() => void refreshSkillsBrowser()}
+              >
+                Refresh
+              </button>
+            </div>
+            <search className="relative flex min-w-0 items-center">
+              <div className="absolute left-0 grid select-none place-items-center pl-1">
+                <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
+              </div>
+              <input
+                aria-label="Filter skills"
+                className="min-w-0 flex-grow cursor-text truncate border-solid border-setta-200 bg-transparent py-1 pl-5 text-sm text-setta-700 placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:!border-blue-300 dark:border-setta-800 dark:text-setta-200 dark:placeholder-setta-700"
+                value={skillFilter}
+                onChange={(event) => setSkillFilter(event.target.value)}
+                placeholder="Filter"
+              />
+            </search>
+            <div className="grid gap-2">
             <div className="max-h-[360px] min-h-[220px] overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-xs dark:border-setta-700 dark:bg-setta-950/60">
               {skillsLoading ? (
                 <div className="text-setta-500 dark:text-setta-400">
@@ -272,7 +297,7 @@ export function ProjectChatSkillsMcpViewer() {
                             key={skill.skillId}
                             className={`flex min-w-0 max-w-full cursor-pointer flex-col items-start gap-0.5 overflow-hidden rounded pl-1 pr-2 py-1 text-left transition-colors ${
                               selected
-                                ? "-ml-px bg-blue-600 text-white"
+                                ? "-ml-px bg-setta-100 text-blue-700 dark:bg-setta-800/80 dark:text-blue-300"
                                 : "hover:bg-setta-100 dark:hover:bg-setta-800"
                             }`}
                             onClick={() => setSelectedSkillId(skill.skillId)}
@@ -291,48 +316,58 @@ export function ProjectChatSkillsMcpViewer() {
                 ))
               )}
             </div>
-            <Accordion.Root
-              type="single"
-              collapsible
-              defaultValue="skill-markdown-viewer"
-            >
-              <Accordion.Item
-                value="skill-markdown-viewer"
-                className="rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950"
+              <Accordion.Root
+                type="single"
+                collapsible
+                value={
+                  isSkillMarkdownViewerOpen
+                    ? SKILL_MARKDOWN_VIEWER_VALUE
+                    : undefined
+                }
+                onValueChange={(value) =>
+                  setIsSkillMarkdownViewerOpen(
+                    value === SKILL_MARKDOWN_VIEWER_VALUE,
+                  )
+                }
               >
-                <Accordion.Header>
-                  <Accordion.Trigger className="group flex w-full cursor-pointer items-center gap-2 px-2 py-1 text-left">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-                      Skill Markdown Viewer
-                    </span>
-                    <i className="gg-chevron-down ml-auto mr-1 shrink-0 !scale-75 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400" />
-                  </Accordion.Trigger>
-                </Accordion.Header>
-                <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-                  <div className="h-36 min-h-[120px] resize-y overflow-hidden border-t border-setta-200 dark:border-setta-700">
-                    <CodeMirror
-                      aria-label="Skill Markdown Content"
-                      className="h-full"
-                      height="100%"
-                      value={
-                        skillContentLoading
-                          ? "Loading skill content..."
-                          : selectedSkillContent ||
-                            "Select a skill to preview SKILL.md."
-                      }
-                      theme={codeMirrorTheme}
-                      extensions={markdownViewerExtensions}
-                      basicSetup={{
-                        lineNumbers: false,
-                        foldGutter: false,
-                        highlightActiveLine: false,
-                        tabSize: 4,
-                      }}
-                    />
-                  </div>
-                </Accordion.Content>
-              </Accordion.Item>
-            </Accordion.Root>
+                <Accordion.Item
+                  value={SKILL_MARKDOWN_VIEWER_VALUE}
+                  className="rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950"
+                >
+                  <Accordion.Header>
+                    <Accordion.Trigger className="group flex w-full cursor-pointer items-center gap-2 pl-2 pr-4 py-1 text-left">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+                        Skill Markdown Viewer
+                      </span>
+                      <i className="gg-chevron-down ml-auto mr-1 shrink-0 !scale-75 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400" />
+                    </Accordion.Trigger>
+                  </Accordion.Header>
+                  <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+                    <div className="h-36 min-h-[120px] resize-y overflow-hidden border-t border-setta-200 dark:border-setta-700">
+                      <CodeMirror
+                        aria-label="Skill Markdown Content"
+                        className="h-full"
+                        height="100%"
+                        value={
+                          skillContentLoading
+                            ? "Loading skill content..."
+                            : selectedSkillContent ||
+                              "Select a skill to preview SKILL.md."
+                        }
+                        theme={codeMirrorTheme}
+                        extensions={markdownViewerExtensions}
+                        basicSetup={{
+                          lineNumbers: false,
+                          foldGutter: false,
+                          highlightActiveLine: false,
+                          tabSize: 4,
+                        }}
+                      />
+                    </div>
+                  </Accordion.Content>
+                </Accordion.Item>
+              </Accordion.Root>
+            </div>
           </div>
         </section>
         <section className="grid gap-2">
