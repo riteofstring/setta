@@ -119,6 +119,25 @@ def test_completion_guard_keeps_creation_flow_open_across_clarification_turns() 
     assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
 
 
+def test_completion_guard_keeps_creation_flow_open_for_how_what_why_clarifications() -> (
+    None
+):
+    # Question-form clarifications should not close an active creation/scaffold task.
+    prefixes = ["How", "What", "Why"]
+    for prefix in prefixes:
+        prior_messages = [
+            _user_message("Create a new project scaffold."),
+            _assistant_message("Which language and framework should I use?"),
+            _user_message(f"{prefix} should we structure the folders?"),
+        ]
+        assistant_message = _assistant_message("Done. Ready to ship.")
+
+        replacement = apply_completion_guard(prior_messages, assistant_message)
+
+        assert replacement == MISSING_CHECKS_MESSAGE
+        assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+
+
 def test_completion_guard_uses_latest_explicit_verification_result() -> None:
     # A newer pass result should override older failed-check text.
     prior_messages = [

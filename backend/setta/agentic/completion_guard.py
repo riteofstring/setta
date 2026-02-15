@@ -20,7 +20,6 @@ _NON_CREATION_TASK_SWITCH_RE = re.compile(
     (
         r"^\s*(?:can you|could you|would you|please)?\s*"
         r"(?:explain|summari[sz]e|describe|review|debug|investigate|analy[sz]e)\b"
-        r"|^\s*(?:what|why|how)\b"
     ),
     re.IGNORECASE,
 )

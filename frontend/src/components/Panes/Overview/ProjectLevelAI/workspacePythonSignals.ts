@@ -9,7 +9,7 @@ const PYTHON_ROOT_MARKER_FILES = new Set<string>([
   "requirements-dev.txt",
   "setup.py",
   "setup.cfg",
-  "Pipfile",
+  "pipfile",
   "tox.ini",
   "poetry.lock",
   "uv.lock",

@@ -48,6 +48,7 @@ const SLASH_SUGGESTIONS_EDGE_PADDING_PX = 8;
 const SLASH_SUGGESTIONS_BASE_HEIGHT_PX = 12;
 const SLASH_SUGGESTIONS_ROW_HEIGHT_PX = 36;
 const SLASH_SUGGESTIONS_INPUT_INSET_PX = 4;
+const UNKNOWN_SLASH_COMMAND_FEEDBACK = "Unknown or unavailable command. Use /help.";
 
 type ChatExecutionControls = {
   permissionMode: ChatPermissionModeValue;
@@ -197,18 +198,29 @@ export const ChatInput = memo(function ChatInput({
 
   const runSlashCommand = useCallback(
     async (message: string): Promise<boolean> => {
+      const startsWithSlash = message.trimStart().startsWith("/");
       const parsed = parseSlashCommand(message, slashCommands);
-      if (!parsed || !onSlashCommand) {
-        return false;
+      if (!parsed) {
+        if (!startsWithSlash) {
+          return false;
+        }
+        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
+        return true;
+      }
+      if (!onSlashCommand) {
+        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
+        return true;
       }
       const result = await onSlashCommand(parsed);
       if (result === false) {
-        return false;
+        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
+        return true;
       }
       const slashResult =
         result && typeof result === "object" ? result : undefined;
       if (slashResult?.handled === false) {
-        return false;
+        setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
+        return true;
       }
       setSlashFeedback(slashResult?.feedback ?? `Ran ${parsed.command}`);
       if (!slashResult?.keepInput) {

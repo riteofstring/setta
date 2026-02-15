@@ -21,6 +21,12 @@ describe("workspacePythonSignals", () => {
     ).toBe(true);
     expect(
       hasPythonSignalsInRoot([
+        { type: "file", name: "Pipfile" },
+        { type: "file", name: "README.md" },
+      ]),
+    ).toBe(true);
+    expect(
+      hasPythonSignalsInRoot([
         { type: "directory", name: "backend" },
         { type: "file", name: "package.json" },
       ]),

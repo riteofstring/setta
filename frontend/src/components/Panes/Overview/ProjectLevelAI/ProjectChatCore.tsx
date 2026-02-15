@@ -40,7 +40,7 @@ import {
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
-import { useAIStore } from "state/definitions";
+import { useAIStore, useProjectState } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import {
@@ -73,6 +73,15 @@ type ProjectChatHistoryEntry = ReturnType<
   typeof buildChatHistoryEntries
 >[number];
 
+export function getDefaultProjectChatPermissionMode(
+  engineType: EngineTypeEnum | null,
+): ChatPermissionModeValue {
+  if (engineType === EngineTypeEnum.external_agent) {
+    return "config_toml_custom";
+  }
+  return "minimal";
+}
+
 function resolveToggleArg(
   rawArg: string | undefined,
   currentValue: boolean,
@@ -90,11 +99,15 @@ function resolveToggleArg(
   return null;
 }
 
-function useHasPythonInWorkspaceRoot(enabled: boolean): boolean {
+function useHasPythonInWorkspaceRoot(
+  enabled: boolean,
+  workspaceIdentity: string,
+): boolean {
   const [hasPython, setHasPython] = useState(false);
 
   useEffect(() => {
     if (!enabled) {
+      setHasPython(false);
       return;
     }
     let cancelled = false;
@@ -146,7 +159,7 @@ function useHasPythonInWorkspaceRoot(enabled: boolean): boolean {
     return () => {
       cancelled = true;
     };
-  }, [enabled]);
+  }, [enabled, workspaceIdentity]);
 
   return hasPython;
 }
@@ -245,13 +258,42 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const pendingPrompt = useAIStore((state) => state.pendingProjectChatPrompt);
   const [draftMessage, setDraftMessage] = useState("");
   const [executionSettings, setExecutionSettings] =
-    useState<ChatExecutionSettings>({
-      permissionMode: "minimal",
+    useState<ChatExecutionSettings>(() => ({
+      permissionMode: getDefaultProjectChatPermissionMode(engineType),
       searchEnabled: true,
-    });
+    }));
   const showEmptyState = typeof chatId === "undefined";
-  const hasPythonInWorkspaceRoot = useHasPythonInWorkspaceRoot(showEmptyState);
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const hasPythonInWorkspaceRoot = useHasPythonInWorkspaceRoot(
+    showEmptyState,
+    projectConfigId,
+  );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  useEffect(() => {
+    if (!isExternalEngine) {
+      setExecutionSettings((current) => {
+        if (current.permissionMode !== "config_toml_custom") {
+          return current;
+        }
+        return {
+          permissionMode: getDefaultProjectChatPermissionMode(
+            EngineTypeEnum.setta_llm,
+          ),
+          searchEnabled: current.searchEnabled,
+        };
+      });
+      return;
+    }
+    setExecutionSettings((current) => {
+      if (current.permissionMode !== "minimal") {
+        return current;
+      }
+      return {
+        permissionMode: "config_toml_custom",
+        searchEnabled: current.searchEnabled,
+      };
+    });
+  }, [isExternalEngine]);
   const canConfigureExecutionSettings =
     Boolean(engineConfigId) &&
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);

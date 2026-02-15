@@ -16,6 +16,11 @@ test.describe.serial("chat composer controls", () => {
   }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
+    let llmSubmitCount = 0;
+    await page.route("**/api/getLLMResponse", async (route) => {
+      llmSubmitCount += 1;
+      await route.continue();
+    });
 
     try {
       const { sectionId, sectionName } = await createChatSection(
@@ -84,6 +89,12 @@ test.describe.serial("chat composer controls", () => {
           );
         })
         .toBe(true);
+      await input.fill("/search off");
+      await input.press("Enter");
+      await expect(
+        section.getByText("Unknown or unavailable command. Use /help."),
+      ).toBeVisible();
+      expect(llmSubmitCount).toBe(0);
 
       await section
         .getByRole("button", { name: /^minimal/i })

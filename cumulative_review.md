@@ -86,3 +86,30 @@ Implemented the consolidated review fixes from the top-level review docs across 
 - Ruff check on changed backend/test files passed.
 - `tsc --noEmit` still reports existing repo-wide TypeScript errors outside this change set.
 - CDP visual verification completed in a live session (Project AI Chat composer/control surface and starter/chat layout sanity).
+
+## 2026-02-17 11:26:01 PST
+
+### Summary
+Implemented the latest consolidated review fixes across completion-guard scoping, external-agent execution policy defaults, slash-command handling, workspace Python detection, and endpoint codegen generalization, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Completion guard no longer treats leading `how/what/why` clarification turns as non-creation task switches.
+- Added backend regression coverage for clarification-question completion-gate behavior in both guard-level and runner-level tests.
+- Project AI chat now defaults external engines to `config_toml_custom` and preserves explicit user-selected non-config modes.
+- Added backend integration coverage ensuring external runs with `permissionMode=config_toml_custom` do not inject an `approvalPolicy` override.
+- Workspace Python marker detection now correctly matches `Pipfile` via lowercase normalization.
+- Workspace-root Python signal scanning now re-runs on workspace identity changes while empty-state chat is active.
+- Section chat Plan badge now reflects effective runtime behavior by requiring `permissionMode=config_toml_custom` in addition to external Claude plan config.
+- Removed section-chat nullish fallback shims for `permissionMode` and `searchEnabled` so state/schema issues surface at source.
+- Unknown or unavailable slash commands are now intercepted locally with deterministic feedback instead of being submitted to the model.
+- Playwright coverage now asserts unknown slash input does not issue `getLLMResponse` requests.
+- Endpoint TS generation no longer relies on route-name hardcoding for multipart wrappers; form-data wrappers are now inferred from endpoint metadata/signature.
+- Added generator unit tests for multipart, upload-by-request, and non-upload request POST generation paths.
+
+### Test and verification status
+- Backend pytest: targeted suites passed (`tests/agentic/test_completion_guard.py`, `tests/llm/test_agent_runner.py`, `tests/routers/test_ai_agent_run_chats.py`, `tests/code_gen/test_convert_endpoints.py`).
+- Frontend Vitest: targeted suites passed (`workspacePythonSignals`, `projectChatExecutionSettings`, `chatAreaPlanModeBadge`, `ChatInput`).
+- Playwright: targeted e2e suite passed (`chat-composer-controls`).
+- Ruff check on changed backend/test files passed.
+- ESLint targeted run remains blocked in this environment due missing `@eslint/js` resolution from `frontend/eslint.config.js`.
+- CDP visual verification completed in live app session: unknown slash command shows local feedback and does not trigger `getLLMResponse`.

@@ -129,6 +129,27 @@ type ChatSectionHistoryEntry = ReturnType<
   typeof buildChatHistoryEntries
 >[number];
 
+type PlanModeBadgeArgs = {
+  engineType: EngineTypeEnum | null;
+  externalAgentToolType: string | null;
+  approvalPolicy: string | null;
+  permissionMode: ChatPermissionModeValue;
+};
+
+export function shouldShowPlanModeBadge({
+  engineType,
+  externalAgentToolType,
+  approvalPolicy,
+  permissionMode,
+}: PlanModeBadgeArgs): boolean {
+  return (
+    engineType === EngineTypeEnum.external_agent &&
+    externalAgentToolType === "claude_code" &&
+    approvalPolicy === "plan" &&
+    permissionMode === "config_toml_custom"
+  );
+}
+
 function emitChatAction(payload: ChatActionPayload) {
   const literalPayload: LiteralDependencyValue = {
     payload: JSON.stringify(payload),
@@ -237,8 +258,8 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       engineConfigId: impl.engineConfigId,
       agentProfileId: impl.agentProfileId,
       thinking: impl.thinking,
-      permissionMode: impl.permissionMode ?? "minimal",
-      searchEnabled: impl.searchEnabled ?? true,
+      permissionMode: impl.permissionMode,
+      searchEnabled: impl.searchEnabled,
       messages: impl.messages,
       inputText: impl.inputText,
       waitingForResponse: impl.waitingForResponse,
@@ -1121,10 +1142,12 @@ function ManagedChatArea({
       ) ?? null
     );
   }, [externalAgentConfigs, selectedEngineConfig]);
-  const showPlanModeBadge =
-    engineType === EngineTypeEnum.external_agent &&
-    externalAgentConfig?.toolType === "claude_code" &&
-    externalAgentConfig.approvalPolicy === "plan";
+  const showPlanModeBadge = shouldShowPlanModeBadge({
+    engineType,
+    externalAgentToolType: externalAgentConfig?.toolType ?? null,
+    approvalPolicy: externalAgentConfig?.approvalPolicy ?? null,
+    permissionMode,
+  });
 
   const placeholderText = getChatPlaceholderText({
     engineType,
