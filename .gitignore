@@ -35,6 +35,8 @@ __pycache__/
 .nfs*
 build/
 dist/
+# Local workspace plugin fixture links from scripts/plugin-fixtures/*.sh
+.setta_plugins/setta-fixture-*
 *.egg-info/
 site/
 venv/
@@ -44,6 +46,7 @@ setta_code/
 .dmypy.json
 backend/setta/frontend
 setta_files/
+setta_files_dev/
 tests.log
 backend.log
 chrome_mcp_backend.log

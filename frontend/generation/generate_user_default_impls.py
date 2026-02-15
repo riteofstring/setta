@@ -52,6 +52,7 @@ SECTION_EXCLUSIONS: Dict[str, Set[str]] = {
     "IFrameSectionImpl": DEFAULT_EXCLUSIONS,
     "ChatSectionImpl": DEFAULT_EXCLUSIONS,
     "BrowserSectionImpl": DEFAULT_EXCLUSIONS,
+    "PluginSectionImpl": DEFAULT_EXCLUSIONS,
 }
 
 CODE_OBJ_EXCLUSIONS: Dict[str, Set[str]] = {
@@ -198,6 +199,7 @@ from setta.types.edges import EdgePort
 from setta.types.id import ID
 from setta.types.section_impls import (
     CodeLanguage,
+    CodeLanguageKey,
     ConfigLanguage,
     CodeSectionDiagnosticsIgnoreState,
     SectionSize,
