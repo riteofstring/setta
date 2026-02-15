@@ -1,11 +1,17 @@
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import Controls from "forks/xyflow/controls/Controls";
-import { useRef } from "react";
+import {
+  usePluginPaneTabs,
+  type PluginPaneIconName,
+  type PluginPaneTabEntry,
+} from "plugins/runtime";
+import { useMemo, useRef, type ReactElement, type RefObject } from "react";
 import { HiOutlineEye } from "react-icons/hi";
 import { IoChatbox } from "react-icons/io5";
 import {
   MdBugReport,
+  MdExtension,
   MdNotificationsNone,
   MdOutlineSmartToy,
 } from "react-icons/md";
@@ -18,10 +24,12 @@ import {
 } from "state/definitions";
 import { useHasViewModeTabs } from "state/hooks/viewModes";
 import {
+  OverviewTabKey,
   OverviewTabName,
   OverviewTabNameEnum,
   OverviewTabNamePrettified,
   PaneNameEnum,
+  parsePluginPaneOverviewTabName,
 } from "utils/constants";
 import { useTabScope } from "utils/focusManager";
 import {
@@ -34,6 +42,9 @@ import { BackendLogEventsArea } from "./BackendLogEventsArea";
 import { FileBrowserPane } from "./FileBrowser/FileBrowserPane";
 import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
+import { PluginOverviewPane } from "./Plugins/PluginOverviewPane";
+import { PluginsPane } from "./Plugins/PluginsPane";
+import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
@@ -41,7 +52,7 @@ import { RunInstructions } from "./RunInstructions";
 import { ViewingEditingMode } from "./ViewingEditingMode";
 import { WatchCodePane } from "./WatchCode/WatchCodePane";
 
-const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] pl-1.5";
+const FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const FILE_BROWSER_LIST_INSET_LEFT = 10;
 
 export function Overview() {
@@ -49,7 +60,7 @@ export function Overview() {
   useTabScope({
     scopeId: "overview",
     order: 10,
-    rootRef: overviewRef,
+    rootRef: overviewRef as RefObject<HTMLElement>,
   });
   const hasViewModeTabs = useHasViewModeTabs();
   const { selectedTabName, vis, width } = useLocalStorage((x) => ({
@@ -57,6 +68,14 @@ export function Overview() {
     vis: x.overviewVis,
     width: x.overviewWidth,
   }));
+  const pluginPaneTabs = usePluginPaneTabs();
+  const pluginPaneTabByKey = useMemo(() => {
+    const values: Record<string, PluginPaneTabEntry> = {};
+    for (const pluginPaneTab of pluginPaneTabs) {
+      values[pluginPaneTab.tabKey] = pluginPaneTab;
+    }
+    return values;
+  }, [pluginPaneTabs]);
   const { isDeploymentMode, allowLLM } = useShareSession((x) => ({
     isDeploymentMode: x.isDeploymentMode,
     allowLLM: x.sharePolicy?.allowLLM ?? false,
@@ -67,7 +86,12 @@ export function Overview() {
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
   let effectiveTabName = selectedTabName;
-  const viewModesInitialPane = "viewModes";
+  const selectedPluginPaneTab = pluginPaneTabByKey[selectedTabName] ?? null;
+  const selectedTabIsPluginPane =
+    parsePluginPaneOverviewTabName(selectedTabName) !== null;
+  if (selectedTabIsPluginPane && !selectedPluginPaneTab) {
+    effectiveTabName = OverviewTabNameEnum.Plugins;
+  }
   if (!showLLMTabs) {
     if (
       selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
@@ -91,6 +115,7 @@ export function Overview() {
   if (!showAppTab && selectedTabName === OverviewTabNameEnum.App) {
     effectiveTabName = OverviewTabNameEnum.Overview;
   }
+  const effectivePluginPaneTab = pluginPaneTabByKey[effectiveTabName] ?? null;
   const isFileBrowserTab = effectiveTabName === OverviewTabNameEnum.FileBrowser;
   const hasUnreadHighSeverityBackendLogs = useBackendLogEvents(
     (state) => state.unreadHighSeverityCount > 0,
@@ -120,7 +145,7 @@ export function Overview() {
         }}
       >
         {showLLMTabs && (
-          <TabButton<OverviewTabName>
+          <TabButton<OverviewTabKey>
             tabName={OverviewTabNameEnum.ProjectAIChat}
             {...commonProps}
             data-testid="overview-tab-project-ai-chat"
@@ -128,15 +153,34 @@ export function Overview() {
             icon={<IoChatbox size={20} />}
           />
         )}
-        <TabButton<OverviewTabName>
+        <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.Overview}
           {...commonProps}
           data-testid="overview-tab-overview"
           {...getFloatingBoxHandlers({ content: "Project Overview" })}
           icon={<i className="gg-list  !scale-100" />}
         />
+        <TabButton<OverviewTabKey>
+          id="overview-tab-plugins"
+          tabName={OverviewTabNameEnum.Plugins}
+          {...commonProps}
+          {...getFloatingBoxHandlers({ content: "Plugins" })}
+          icon={<MdExtension size={18} />}
+        />
+        {pluginPaneTabs.map((pluginPaneTab) => (
+          <TabButton<OverviewTabKey>
+            key={pluginPaneTab.tabKey}
+            id={`overview-plugin-pane-tab-${encodeURIComponent(pluginPaneTab.pluginId)}-${encodeURIComponent(pluginPaneTab.paneId)}`}
+            tabName={pluginPaneTab.tabKey}
+            {...commonProps}
+            {...getFloatingBoxHandlers({
+              content: `${pluginPaneTab.title} (${pluginPaneTab.pluginId})`,
+            })}
+            icon={renderPluginPaneTabIcon(pluginPaneTab.icon)}
+          />
+        ))}
         {showFileBrowserTab && (
-          <TabButton<OverviewTabName>
+          <TabButton<OverviewTabKey>
             tabName={OverviewTabNameEnum.FileBrowser}
             {...commonProps}
             data-testid="overview-tab-file-browser"
@@ -145,7 +189,7 @@ export function Overview() {
           />
         )}
         {showGitTab && (
-          <TabButton<OverviewTabName>
+          <TabButton<OverviewTabKey>
             tabName={OverviewTabNameEnum.Git}
             {...commonProps}
             data-testid="overview-tab-git"
@@ -154,7 +198,7 @@ export function Overview() {
           />
         )}
         {showWatchCodeTab && (
-          <TabButton<OverviewTabName>
+          <TabButton<OverviewTabKey>
             tabName={OverviewTabNameEnum.WatchCode}
             {...commonProps}
             data-testid="overview-tab-watch-code"
@@ -163,7 +207,7 @@ export function Overview() {
           />
         )}
         {showAppTab && (
-          <TabButton<OverviewTabName>
+          <TabButton<OverviewTabKey>
             tabName={OverviewTabNameEnum.App}
             {...commonProps}
             data-testid="overview-tab-app"
@@ -171,28 +215,35 @@ export function Overview() {
             icon={<TbLayoutDashboard size={18} />}
           />
         )}
-        <TabButton<OverviewTabName>
+        <TabButton<OverviewTabKey>
+          tabName={OverviewTabNameEnum.ProjectConfigs}
+          {...commonProps}
+          data-testid="overview-tab-project-configs"
+          {...getFloatingBoxHandlers({ content: "Config Preview" })}
+          icon={<i className="gg-git-branch !scale-100" />}
+        />
+        <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.RunInstructions}
           {...commonProps}
           data-testid="overview-tab-run-instructions"
           {...getFloatingBoxHandlers({ content: "Custom Runs" })}
           icon={<RiPlayList2Fill size={20} />}
         />
-        <TabButton<OverviewTabName>
+        <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.ViewModes}
           {...commonProps}
           data-testid="overview-tab-view-modes"
           {...getFloatingBoxHandlers({ content: "Viewing/Editing Mode" })}
           icon={<HiOutlineEye size={20} />}
         />
-        <TabButton<OverviewTabName>
+        <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.Notifications}
           {...commonProps}
           data-testid="overview-tab-notifications"
           {...getFloatingBoxHandlers({ content: "Notifications" })}
           icon={<MdNotificationsNone size={20} />}
         />
-        <TabButton<OverviewTabName>
+        <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.BackendLogs}
           {...commonProps}
           data-testid="overview-tab-backend-logs"
@@ -207,11 +258,11 @@ export function Overview() {
           }
         />
         {showLLMTabs && (
-          <TabButton<OverviewTabName>
+          <TabButton<OverviewTabKey>
             tabName={OverviewTabNameEnum.ProjectAISettings}
             {...commonProps}
             data-testid="overview-tab-project-ai-settings"
-            {...getFloatingBoxHandlers({ content: "ProjectAI Settings" })}
+            {...getFloatingBoxHandlers({ content: "ProjectAI Chat" })}
             icon={<MdOutlineSmartToy size={20} />}
           />
         )}
@@ -224,12 +275,12 @@ export function Overview() {
         vis={vis}
         width={width}
         minimumWidth={250}
-        paddingClassName={isFileBrowserTab ? "pt-2.5 pb-0" : undefined}
+        {...(isFileBrowserTab ? { paddingClassName: "pt-2.5 pb-0" } : {})}
       >
         {vis && (
           <TabsVisible
             selectedTabName={effectiveTabName}
-            viewModesInitialPane={viewModesInitialPane}
+            selectedPluginPaneTab={effectivePluginPaneTab}
           />
         )}
       </PaneContainer>
@@ -237,14 +288,65 @@ export function Overview() {
   );
 }
 
+function renderPluginPaneTabIcon(
+  iconName: PluginPaneIconName | undefined,
+): ReactElement {
+  switch (iconName) {
+    case "folder":
+      return <TbFolder size={14} className="setta-plugin-pane-icon--folder" />;
+    case "git":
+      return (
+        <RiGitCommitLine size={14} className="setta-plugin-pane-icon--git" />
+      );
+    case "radar":
+      return (
+        <RiRadarLine size={14} className="setta-plugin-pane-icon--radar" />
+      );
+    case "dashboard":
+      return (
+        <TbLayoutDashboard
+          size={14}
+          className="setta-plugin-pane-icon--dashboard"
+        />
+      );
+    case "eye":
+      return <HiOutlineEye size={14} className="setta-plugin-pane-icon--eye" />;
+    case "notifications":
+      return (
+        <MdNotificationsNone
+          size={14}
+          className="setta-plugin-pane-icon--notifications"
+        />
+      );
+    case "bug":
+      return <MdBugReport size={14} className="setta-plugin-pane-icon--bug" />;
+    case "chat":
+      return <IoChatbox size={14} className="setta-plugin-pane-icon--chat" />;
+    case "robot":
+      return (
+        <MdOutlineSmartToy
+          size={14}
+          className="setta-plugin-pane-icon--robot"
+        />
+      );
+    case "extension":
+    default:
+      return (
+        <MdExtension size={14} className="setta-plugin-pane-icon--extension" />
+      );
+  }
+}
+
 function TabsVisible({
   selectedTabName,
-  viewModesInitialPane,
+  selectedPluginPaneTab,
 }: {
-  selectedTabName: OverviewTabName;
-  viewModesInitialPane: "viewModes";
+  selectedTabName: OverviewTabKey;
+  selectedPluginPaneTab: PluginPaneTabEntry | null;
 }) {
-  const title = OverviewTabNamePrettified[selectedTabName];
+  const title = selectedPluginPaneTab
+    ? selectedPluginPaneTab.title
+    : resolveOverviewTitle(selectedTabName);
   const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
   return (
     <div
@@ -252,7 +354,7 @@ function TabsVisible({
       className={
         isFullWidth
           ? "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden"
-          : "mx-[1px] flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden pl-1.5"
+          : "mx-auto flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden px-1.5"
       }
     >
       {isFullWidth ? (
@@ -268,7 +370,7 @@ function TabsVisible({
       )}
       <TabContent
         selectedTabName={selectedTabName}
-        viewModesInitialPane={viewModesInitialPane}
+        selectedPluginPaneTab={selectedPluginPaneTab}
       />
     </div>
   );
@@ -276,14 +378,25 @@ function TabsVisible({
 
 function TabContent({
   selectedTabName,
-  viewModesInitialPane,
+  selectedPluginPaneTab,
 }: {
-  selectedTabName: OverviewTabName;
-  viewModesInitialPane: "viewModes";
+  selectedTabName: OverviewTabKey;
+  selectedPluginPaneTab: PluginPaneTabEntry | null;
 }) {
+  if (selectedPluginPaneTab) {
+    return (
+      <PluginOverviewPane
+        pluginId={selectedPluginPaneTab.pluginId}
+        paneId={selectedPluginPaneTab.paneId}
+      />
+    );
+  }
+
   switch (selectedTabName) {
     case OverviewTabNameEnum.Overview:
       return <ProjectOverview />;
+    case OverviewTabNameEnum.Plugins:
+      return <PluginsPane />;
     case OverviewTabNameEnum.FileBrowser:
       return (
         <FileBrowserPane
@@ -293,6 +406,8 @@ function TabContent({
       );
     case OverviewTabNameEnum.Git:
       return <GitPane />;
+    case OverviewTabNameEnum.ProjectConfigs:
+      return <ProjectConfigs />;
     case OverviewTabNameEnum.WatchCode:
       return <WatchCodePane />;
     case OverviewTabNameEnum.App:
@@ -300,7 +415,7 @@ function TabContent({
     case OverviewTabNameEnum.RunInstructions:
       return <RunInstructions />;
     case OverviewTabNameEnum.ViewModes:
-      return <ViewingEditingMode initialPane={viewModesInitialPane} />;
+      return <ViewingEditingMode />;
     case OverviewTabNameEnum.Notifications:
       return <NotificationsArea />;
     case OverviewTabNameEnum.BackendLogs:
@@ -310,6 +425,13 @@ function TabContent({
     case OverviewTabNameEnum.ProjectAISettings:
       return <ProjectAISettings />;
     default:
-      return selectedTabName satisfies never;
+      return <ProjectOverview />;
   }
+}
+
+function resolveOverviewTitle(selectedTabName: OverviewTabKey): string {
+  if (selectedTabName in OverviewTabNamePrettified) {
+    return OverviewTabNamePrettified[selectedTabName as OverviewTabName];
+  }
+  return OverviewTabNamePrettified[OverviewTabNameEnum.Overview];
 }

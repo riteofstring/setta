@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   flattenFileBrowserTree,
-  getSettaBadgeRefreshFolderPaths,
   sortChildPaths,
   type FileNode,
 } from "./FileBrowserPane";
@@ -262,49 +261,5 @@ describe("flattenFileBrowserTree", () => {
       rootPath,
       "/root/README.md",
     ]);
-  });
-});
-
-describe("getSettaBadgeRefreshFolderPaths", () => {
-  it("includes the root path and expanded folder paths only", () => {
-    const nodesByPath: Record<string, FileNode> = {
-      "/root": {
-        name: "root",
-        fullPath: "/root",
-        type: "folder",
-        parentPath: null,
-      },
-      "/root/folder-a": {
-        name: "folder-a",
-        fullPath: "/root/folder-a",
-        type: "folder",
-        parentPath: "/root",
-      },
-      "/root/file-a.txt": {
-        name: "file-a.txt",
-        fullPath: "/root/file-a.txt",
-        type: "file",
-        parentPath: "/root",
-      },
-      "/root/folder-b": {
-        name: "folder-b",
-        fullPath: "/root/folder-b",
-        type: "folder",
-        parentPath: "/root",
-      },
-    };
-    const expandedPaths = {
-      "/root/folder-a": true,
-      "/root/file-a.txt": true,
-      "/root/folder-b": false,
-    };
-
-    expect(
-      getSettaBadgeRefreshFolderPaths({
-        rootPath: "/root",
-        expandedPaths,
-        nodesByPath,
-      }),
-    ).toEqual(["/root", "/root/folder-a"]);
   });
 });

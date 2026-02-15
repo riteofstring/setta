@@ -27,8 +27,8 @@ export function ModalContainer({ children }) {
 
   const contentClassName =
     modalType === ModalTypeEnum.WORKSPACE_SWITCHER
-      ? "animate-[contentShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] fixed left-1/2 top-1/2 z-[100] flex max-h-[85vh] min-h-0 w-[92vw] max-w-[920px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-setta-200/80 bg-white/95 px-5 pb-4 pt-5 shadow-[0_22px_70px_-30px_rgba(15,23,42,0.6)] ring-1 ring-white/80 backdrop-blur dark:border-setta-700/80 dark:bg-setta-900/95 dark:ring-setta-800/70"
-      : "animate-[contentShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] fixed left-1/2 top-1/2 z-[100] flex max-h-[clamp(14rem,86vh,42rem)] min-h-0 w-[92vw] max-w-[920px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl border border-setta-200/80 bg-white/95 px-5 pb-4 pt-5 shadow-[0_22px_70px_-30px_rgba(15,23,42,0.6)] ring-1 ring-white/80 backdrop-blur dark:border-setta-700/80 dark:bg-setta-900/95 dark:ring-setta-800/70";
+      ? "animate-[contentShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] fixed left-1/2 top-1/2 z-[100] flex max-h-[85vh] min-h-0 w-[90vw] max-w-[900px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg bg-white px-7 pb-3 pt-7 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800"
+      : "animate-[contentShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] fixed left-1/2 top-1/2 z-[100] flex max-h-[clamp(10rem,85vh,30rem)] min-h-0 w-[90vw] max-w-[800px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-lg bg-white px-7 pb-3 pt-7 shadow-xl dark:border dark:border-setta-600 dark:bg-setta-800";
 
   return (
     <Dialog.Root
@@ -37,7 +37,7 @@ export function ModalContainer({ children }) {
     >
       {children}
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-20 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-black/45 backdrop-blur-sm" />
+        <Dialog.Overlay className="fixed inset-0 z-20 animate-[overlayShow_150ms_cubic-bezier(0.16,_1,_0.3,_1)] bg-[rgba(0,0,0,0.5)] backdrop-blur-sm " />
         <Dialog.Content className={contentClassName} data-tab-native>
           <ModalContent open={open} />
         </Dialog.Content>
