@@ -372,18 +372,19 @@ def _check_plugin_command(
         return "Plugin external agent command is empty"
     if _is_path_like_command(command):
         candidate_path = Path(command)
-        if not candidate_path.is_absolute() and working_dir is not None:
+        if not candidate_path.is_absolute():
+            if working_dir is None:
+                return (
+                    "Plugin external agent relative command requires an absolute "
+                    "path when using temp_dir workingDirStrategy "
+                    f"({command})"
+                )
             candidate_path = Path(working_dir) / candidate_path
         if candidate_path.is_file():
             if os.access(candidate_path, os.X_OK):
                 return None
             return f"Plugin external agent command is not executable ({command})"
         return f"Plugin external agent command not found ({command})"
-    command_candidate = Path(command)
-    if command_candidate.is_file():
-        if os.access(command_candidate, os.X_OK):
-            return None
-        return f"Plugin external agent command is not executable ({command})"
     if shutil.which(command):
         return None
     return f"Plugin external agent command not found ({command})"

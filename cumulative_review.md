@@ -242,3 +242,17 @@
 - Removed dead frontend runtime helper/API surface (`getPluginSectionKindsForCreateMenu` and related `EMPTY_RECORD` usage).
 - Hardened fixture-target detection and artifact seeding: Playwright `--grep` plugin hint checks are now case-insensitive/conservative, and seeded fixture wheels now emit a populated standards-compliant `RECORD` manifest.
 - Added/updated backend pytest, frontend Vitest, and Playwright coverage for all changed paths (including new lock, runtime, fixture-selection, route-removal, and websocket temporary-ID regressions), and appended before/after runtime refresh perf results under `perf/reports/frontend/2026-02-16_plugin-runtime-refresh-indexing.md`.
+
+## 2026-02-16T14:05:27-08:00
+
+- Implemented the requested top-level `review*.md` fix batch end-to-end, explicitly excluding backward-compatibility additions.
+- Fixed plugin external-agent preflight/runtime command resolution mismatches by rejecting relative path-like commands for `temp_dir` strategy and preferring PATH lookup for non-path command names.
+- Hardened plugin API reliability by mapping `PluginManagerError` from `/plugins/runtime` and `/plugins/rescan` into structured HTTP error payloads.
+- Unified plugin CLI error handling around manager initialization so plugin commands now surface clean `ClickException` output instead of tracebacks on invalid plugin state.
+- Fixed websocket listener test/dispatch drift by aligning `share_session_id` keyword usage and simplifying listener router payload preparation to return only the effective payload data.
+- Hardened backend plugin route/static mount prefix validation by rejecting traversal-like segments (including encoded dot-segments), empty segments, and invalid segment characters.
+- Removed redundant plugin section codegen JSON round-tripping by emitting deterministic Python literal payloads directly and consuming them directly in value codec formatting.
+- Reduced frontend plugin runtime rerender churn by switching `PluginArea` and `PluginRestartBanner` runtime subscriptions from object selectors to primitive selectors.
+- Corrected plugin fixture smoke docs/scripts static URL examples to `/plugin-static/...`, made fixture link/unlink rescans opt-in (`--rescan`), and added seeded fixture completeness checks before Playwright seed-skip decisions.
+- Removed redundant plugin-manager list-surface method usage by dropping `get_list_response` and using `get_runtime_response().list` in tests.
+- Added/updated backend unit/integration tests, frontend Vitest tests, Playwright E2E coverage, and script-structure assertions for all touched behavior; verification runs passed (`pytest` subset: 402 passed, additional targeted pytest: 24 passed, Vitest subset: 76 passed, Playwright targeted specs: 8 passed, Ruff checks clean), with CDP verification completed.

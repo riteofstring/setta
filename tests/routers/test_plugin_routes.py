@@ -874,6 +874,62 @@ def test_plugin_mutation_route_error_mappings_for_remaining_endpoints(
             }
 
 
+def test_plugin_runtime_and_rescan_routes_map_plugin_manager_errors() -> None:
+    # Runtime/rescan routes should map PluginManagerError payloads into structured HTTP errors.
+    with TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        workspace_root = root / "workspace"
+        setta_files_root = root / "setta_files"
+        setta_home = root / "setta_home"
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        setta_files_root.mkdir(parents=True, exist_ok=True)
+        setta_home.mkdir(parents=True, exist_ok=True)
+        manager = PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+        )
+
+        def _raise_runtime_error(*_args, **_kwargs):
+            raise PluginManagerError(
+                "PLUGIN_STATE_INVALID",
+                "plugins state file is malformed",
+                status_code=422,
+            )
+
+        def _raise_rescan_error(*_args, **_kwargs):
+            raise PluginManagerError(
+                "PLUGIN_STATE_INVALID",
+                "plugins state file is malformed",
+                status_code=422,
+            )
+
+        setattr(manager, "get_runtime_response", _raise_runtime_error)
+        setattr(manager, "rescan", _raise_rescan_error)
+        app = _build_test_app(manager=manager, deployment_mode=False)
+
+        with TestClient(app) as client:
+            runtime_response = client.get(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RUNTIME.value}"
+            )
+            assert runtime_response.status_code == 422
+            assert runtime_response.json()["detail"] == {
+                "code": "PLUGIN_STATE_INVALID",
+                "message": "plugins state file is malformed",
+            }
+
+            rescan_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RESCAN.value}"
+            )
+            assert rescan_response.status_code == 422
+            assert rescan_response.json()["detail"] == {
+                "code": "PLUGIN_STATE_INVALID",
+                "message": "plugins state file is malformed",
+            }
+
+
 def test_plugin_routes_install_enable_rescan_and_uninstall_roundtrip() -> None:
     # Install + enable + rescan + uninstall routes should roundtrip for pypi fixtures.
     with TemporaryDirectory() as tmpdir:

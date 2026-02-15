@@ -1,4 +1,3 @@
-import json
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -334,12 +333,30 @@ class DependencyGraph:
             full_path_name=ctx.full_path_name,
             type=section_impl.type,
             isTopLevel=ctx.is_top_level,
-            value=LiteralDependencyValue(json.dumps(section_impl.data, sort_keys=True)),
+            value=LiteralDependencyValue(
+                self._build_plugin_section_literal_payload(section_impl.data)
+            ),
             deps={},
             representation=ctx.codegen_policy.representation,
             include_in_codegen=ctx.codegen_policy.include_in_codegen,
         )
         self.add_to_graph(ctx.dep_key, node)
+
+    def _build_plugin_section_literal_payload(self, data: object) -> str:
+        normalized = self._normalize_plugin_section_data_for_literal(data)
+        return repr(normalized)
+
+    def _normalize_plugin_section_data_for_literal(self, value: object) -> object:
+        if isinstance(value, dict):
+            return {
+                str(key): self._normalize_plugin_section_data_for_literal(value[key])
+                for key in sorted(value.keys(), key=str)
+            }
+        if isinstance(value, list):
+            return [
+                self._normalize_plugin_section_data_for_literal(item) for item in value
+            ]
+        return value
 
     def _export_prompt_section(self, ctx: SectionExportContext):
         section_impl = ctx.section_impl

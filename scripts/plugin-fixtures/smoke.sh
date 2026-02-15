@@ -8,7 +8,7 @@ link_fixture() {
   local fixture_name="$1"
   local scope="$2"
   echo "[smoke] linking fixture '${fixture_name}' (scope=${scope})..."
-  "${SCRIPT_DIR}/link.sh" "${fixture_name}" --scope "${scope}" --no-rescan
+  "${SCRIPT_DIR}/link.sh" "${fixture_name}" --scope "${scope}"
 }
 
 source "${ROOT_DIR}/activate.sh"
@@ -55,7 +55,7 @@ Suggested manual checks:
    - if needed restart Setta, then re-check plugin status.
 5. Validate backend static/router fixture after restart:
    - GET `/api/plugins/setta-fixture-backend-static-router/info`
-   - GET `/plugins/setta-fixture-backend-static-router/fixture/hello.txt`
+   - GET `/plugin-static/setta-fixture-backend-static-router/fixture/hello.txt`
 6. Validate MCP fixture after restart:
    - plugin card shows MCP capability; registered tools should include
      `setta_fixture_mcp_read` and `setta_fixture_mcp_write`.

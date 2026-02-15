@@ -491,6 +491,40 @@ def test_plugins_restart_cli_surfaces_plugin_manager_errors(
     assert "PLUGIN_RESTART_FAILED: Programmatic restart callback failed: boom" in result.output
 
 
+@pytest.mark.parametrize(
+    ("argv",),
+    [
+        (["list"],),
+        (["rescan"],),
+        (["restart-required"],),
+        (["install", "file:/tmp/missing-plugin"],),
+        (["unlink", "setta-fixture-missing"],),
+    ],
+)
+def test_plugins_commands_wrap_manager_initialization_errors(
+    monkeypatch,
+    argv: list[str],
+) -> None:
+    # Plugin CLI commands should map manager-constructor PluginManagerError values to Click errors.
+    def _raise_manager_init_error(*, auto_rescan: bool = True) -> PluginManager:
+        raise PluginManagerError(
+            "PLUGIN_STATE_INVALID",
+            f"plugins state failed to load (auto_rescan={auto_rescan})",
+        )
+
+    monkeypatch.setattr(
+        start_module,
+        "_build_plugin_manager_for_cli",
+        _raise_manager_init_error,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(plugins, argv)
+
+    assert result.exit_code != 0
+    assert "PLUGIN_STATE_INVALID: plugins state failed to load" in result.output
+
+
 def test_plugins_init_and_validate_cli_flow(tmp_path: Path, monkeypatch) -> None:
     # CLI init/validate should scaffold and validate a plugin template end-to-end.
     manager = _build_manager(tmp_path)

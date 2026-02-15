@@ -259,10 +259,12 @@ class _StubProjectManagerSwitcher:
         self,
         project_name: str,
         *,
-        _share_session_id: str | None = None,
+        share_session_id: str | None = None,
     ) -> ID:
         for state in self._manager._states.values():
-            if state.projectConfig.name == project_name:
+            if state.projectConfig.name == project_name and (
+                share_session_id is None or share_session_id != ""
+            ):
                 return state.projectConfig.id
         raise ProjectNotFound
 
@@ -1288,9 +1290,13 @@ class TestPythonScriptReceiver:
 
         class _MissingPluginEndpointManager:
             def invoke_listener_endpoint(
-                self, *, endpoint_name: str, payload: dict[str, object]
+                self,
+                *,
+                endpoint_name: str,
+                **kwargs: object,
             ) -> object:
-                _ = payload
+                if "payload" not in kwargs:
+                    raise KeyError(endpoint_name)
                 raise KeyError(endpoint_name)
 
         websocket_manager._state.plugin_manager = _MissingPluginEndpointManager()

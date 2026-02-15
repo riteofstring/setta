@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/plugin-fixtures/unlink.sh <plugin-id> [--scope workspace|setta_files|global] [--no-rescan]
+Usage: scripts/plugin-fixtures/unlink.sh <plugin-id> [--scope workspace|setta_files|global] [--rescan]
 
 Examples:
   scripts/plugin-fixtures/unlink.sh setta-fixture-frontend
@@ -27,7 +27,7 @@ fi
 plugin_id="$1"
 shift
 scope=""
-rescan_after_unlink=1
+rescan_after_unlink=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -39,8 +39,8 @@ while [[ $# -gt 0 ]]; do
       scope="$2"
       shift 2
       ;;
-    --no-rescan)
-      rescan_after_unlink=0
+    --rescan)
+      rescan_after_unlink=1
       shift
       ;;
     -h|--help)

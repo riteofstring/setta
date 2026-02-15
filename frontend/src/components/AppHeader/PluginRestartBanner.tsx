@@ -20,10 +20,10 @@ export function PluginRestartBanner() {
   const [isRestarting, setIsRestarting] = useState(false);
   const pluginListEntries = usePluginListEntries();
   const pluginStatusEntries = usePluginStatusEntries();
-  const { restartCapability, serverMode } = usePluginRuntimeStore((state) => ({
-    restartCapability: state.restartCapability,
-    serverMode: state.serverMode,
-  }));
+  const restartCapability = usePluginRuntimeStore(
+    (state) => state.restartCapability,
+  );
+  const serverMode = usePluginRuntimeStore((state) => state.serverMode);
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
 
   const restartRequiredPluginIds = useMemo(

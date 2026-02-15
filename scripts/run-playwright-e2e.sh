@@ -295,6 +295,19 @@ compute_workspace_seed_fixture_signature() {
   done
 }
 
+seeded_plugin_fixture_is_complete() {
+  local fixture_root="$1"
+  local seeded_fixture_root="$2"
+  local source_file relative_path
+  while IFS= read -r source_file; do
+    relative_path="${source_file#${fixture_root}/}"
+    if [[ ! -f "${seeded_fixture_root}/${relative_path}" ]]; then
+      return 1
+    fi
+  done < <(find "${fixture_root}" -type f | sort)
+  return 0
+}
+
 seed_workspace_plugin_fixtures() {
   local fixtures=(
     "backend-language-server-e2e"
@@ -327,6 +340,10 @@ seed_workspace_plugin_fixtures() {
         continue
       fi
       if [[ ! -d "${seeded_fixture_root}" ]]; then
+        missing_seeded_fixture=1
+        break
+      fi
+      if ! seeded_plugin_fixture_is_complete "${fixture_root}" "${seeded_fixture_root}"; then
         missing_seeded_fixture=1
         break
       fi

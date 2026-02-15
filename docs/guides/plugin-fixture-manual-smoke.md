@@ -53,7 +53,7 @@ scripts/plugin-fixtures/reset.sh
 4. Restart Setta and confirm backend fixtures become active.
 5. Verify static/router fixture:
    - `GET /api/plugins/setta-fixture-backend-static-router/info`
-   - `GET /plugins/setta-fixture-backend-static-router/fixture/hello.txt`
+   - `GET /plugin-static/setta-fixture-backend-static-router/fixture/hello.txt`
 6. Verify scope precedence fixture:
    - run `setta plugins list`.
    - confirm `setta-fixture-scope-shadowing` resolves to `workspace` and shadows

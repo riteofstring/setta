@@ -874,7 +874,7 @@ def test_package_manager_plugins_are_discovered_from_environment_search_paths(
 
     list_entries = [
         plugin
-        for plugin in manager.get_list_response().plugins
+        for plugin in manager.get_runtime_response().list.plugins
         if plugin.pluginId == package_name
     ]
     assert len(list_entries) == 1
@@ -1059,7 +1059,7 @@ def test_same_scope_setta_plugins_shadow_package_manager_plugins(
 
     list_entries = [
         entry
-        for entry in manager.get_list_response().plugins
+        for entry in manager.get_runtime_response().list.plugins
         if entry.pluginId == package_name
     ]
     assert len(list_entries) == 1
@@ -1114,7 +1114,7 @@ def test_package_manager_plugins_shadow_global_setta_plugins_across_scopes(
 
     list_entries = [
         entry
-        for entry in manager.get_list_response().plugins
+        for entry in manager.get_runtime_response().list.plugins
         if entry.pluginId == package_name
     ]
     assert len(list_entries) == 1
@@ -1464,12 +1464,11 @@ def test_enable_disable_mutations_are_serialized(
 
 @pytest.mark.parametrize(
     "reader_method_name",
-    ["get_list_response", "get_status_response", "get_runtime_response"],
+    ["get_status_response", "get_runtime_response"],
 )
 def test_plugin_read_responses_wait_for_mutation_lock(
     tmp_path: Path,
     reader_method_name: Literal[
-        "get_list_response",
         "get_status_response",
         "get_runtime_response",
     ],
@@ -2491,7 +2490,7 @@ def test_mode_policy_blocks_backend_codegen_target_registration(
     )
     manager.rescan()
 
-    list_response = manager.get_list_response()
+    list_response = manager.get_runtime_response().list
     list_entries = [
         entry
         for entry in list_response.plugins
@@ -2550,7 +2549,7 @@ def test_mode_policy_blocks_backend_external_agent_registration(
     )
     manager.rescan()
 
-    list_response = manager.get_list_response()
+    list_response = manager.get_runtime_response().list
     list_entries = [
         entry
         for entry in list_response.plugins
@@ -3011,7 +3010,7 @@ def test_mode_policy_blocks_backend_language_server_registration(
     )
     manager.rescan()
 
-    list_response = manager.get_list_response()
+    list_response = manager.get_runtime_response().list
     list_entries = [
         entry
         for entry in list_response.plugins
@@ -3069,7 +3068,7 @@ def test_mode_policy_blocked_capabilities_are_exposed_in_status_and_list(
     )
     manager.rescan()
 
-    list_response = manager.get_list_response()
+    list_response = manager.get_runtime_response().list
     assert list_response.serverMode == server_mode
     list_entries = [
         entry
@@ -3148,7 +3147,7 @@ def test_list_response_redacts_config_payload_outside_ide(
 
     list_entry = next(
         plugin
-        for plugin in manager.get_list_response().plugins
+        for plugin in manager.get_runtime_response().list.plugins
         if plugin.pluginId == "setta-fixture-full"
     )
     assert list_entry.config.hasSchema is True
@@ -3246,7 +3245,7 @@ def test_source_redaction_tokens_use_canonical_scope_and_manager_values(
 
     list_entry = next(
         entry
-        for entry in manager.get_list_response().plugins
+        for entry in manager.get_runtime_response().list.plugins
         if entry.pluginId == "setta-fixture-frontend"
     )
     status_entry = next(
@@ -3307,8 +3306,8 @@ def test_list_response_caches_content_and_config_schema_descriptors(
     monkeypatch.setattr(manager, "_directory_has_files", _counting_directory_has_files)
     monkeypatch.setattr(Path, "read_text", _counting_read_text)
 
-    manager.get_list_response()
-    manager.get_list_response()
+    manager.get_runtime_response()
+    manager.get_runtime_response()
 
     assert directory_check_count == 3
     assert schema_read_count == 1
@@ -3316,7 +3315,7 @@ def test_list_response_caches_content_and_config_schema_descriptors(
     before_rescan_directory_checks = directory_check_count
     before_rescan_schema_reads = schema_read_count
     manager.rescan()
-    manager.get_list_response()
+    manager.get_runtime_response()
 
     assert directory_check_count > before_rescan_directory_checks
     assert schema_read_count > before_rescan_schema_reads
@@ -3581,7 +3580,7 @@ def test_plugin_config_schema_validation_and_list_descriptors(
     assert saved.validation["ok"] is True
     assert saved.config["enabled"] is True
 
-    plugin_entry = manager.get_list_response().plugins[0]
+    plugin_entry = manager.get_runtime_response().list.plugins[0]
     assert plugin_entry.pluginId == plugin_id
     assert plugin_entry.content.hasBlueprints is True
     assert plugin_entry.content.hasProjectTemplates is True
@@ -3615,7 +3614,7 @@ def test_plugin_config_is_cleared_when_plugin_is_removed(
     )
     configured_entry = next(
         plugin
-        for plugin in manager.get_list_response().plugins
+        for plugin in manager.get_runtime_response().list.plugins
         if plugin.pluginId == "setta-fixture-full"
     )
     assert configured_entry.config.currentConfig == {
@@ -3634,7 +3633,7 @@ def test_plugin_config_is_cleared_when_plugin_is_removed(
     )
     relinked_entry = next(
         plugin
-        for plugin in manager.get_list_response().plugins
+        for plugin in manager.get_runtime_response().list.plugins
         if plugin.pluginId == "setta-fixture-full"
     )
     assert relinked_entry.config.currentConfig == {}
@@ -3731,7 +3730,7 @@ def test_init_template_can_be_linked_and_served(tmp_path: Path) -> None:
     assert linked.state == PluginRuntimeState.active
     assert linked.restartRequired is False
 
-    listed = manager.get_list_response().plugins
+    listed = manager.get_runtime_response().list.plugins
     assert len(listed) == 1
     plugin_entry = listed[0]
     assert plugin_entry.pluginId == "setta-runtime-fixture"
@@ -3786,7 +3785,7 @@ def test_list_response_encodes_plugin_frontend_asset_urls(tmp_path: Path) -> Non
         enable=True,
         force=False,
     )
-    listed = manager.get_list_response().plugins
+    listed = manager.get_runtime_response().list.plugins
     assert len(listed) == 1
     entrypoint_url = listed[0].frontend.entrypointUrl
     assert entrypoint_url is not None
@@ -3940,7 +3939,7 @@ def test_init_build_install_golden_path_plugin_is_usable(tmp_path: Path) -> None
 
     listed_entries = [
         entry
-        for entry in manager.get_list_response().plugins
+        for entry in manager.get_runtime_response().list.plugins
         if entry.pluginId == plugin_id
     ]
     assert len(listed_entries) == 1
@@ -6247,6 +6246,69 @@ def test_build_plugin_route_prefix_normalizes_common_prefix_shapes(
     )
 
 
+@pytest.mark.parametrize(
+    "invalid_prefix",
+    [
+        "../escape",
+        "/foo//bar",
+        "/%2e%2e/escape",
+        "/with space",
+    ],
+)
+def test_build_plugin_route_prefix_rejects_invalid_segments(
+    tmp_path: Path,
+    invalid_prefix: str,
+) -> None:
+    # Route prefixes should reject traversal, empty, encoded-dot, and invalid character segments.
+    manager = _make_manager(tmp_path)
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._build_plugin_route_prefix("setta-fixture-backend", invalid_prefix)
+
+    assert exc_info.value.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+    assert "route prefix" in exc_info.value.message
+
+
+@pytest.mark.parametrize(
+    "invalid_url_prefix",
+    [
+        "../escape",
+        "/%2e%2e/escape",
+        "fixture//nested",
+        "fixture with spaces",
+    ],
+)
+def test_register_backend_static_dir_rejects_invalid_url_prefix(
+    tmp_path: Path,
+    invalid_url_prefix: str,
+) -> None:
+    # Static mount URL prefixes should reject traversal/empty/invalid segments.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-static-router",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry(
+        "setta-fixture-backend-static-router",
+        PluginScope.workspace,
+    )
+    assert entry is not None
+    static_root = _fixture_path("backend-static-router") / "backend" / "static"
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._register_backend_static_dir(
+            app=FastAPI(),
+            entry=entry,
+            url_prefix=invalid_url_prefix,
+            path=static_root,
+        )
+
+    assert exc_info.value.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+    assert "static url prefix" in exc_info.value.message
+
+
 def test_dispatch_backend_worker_host_request_rejects_unsupported_host_method(
     tmp_path: Path,
 ) -> None:
@@ -7042,7 +7104,7 @@ def test_scope_specific_plugin_config_persists_across_shadowing_lifecycle(
 
     list_entry = next(
         plugin
-        for plugin in manager.get_list_response().plugins
+        for plugin in manager.get_runtime_response().list.plugins
         if plugin.pluginId == plugin_id
     )
     assert list_entry.sourceScope == PluginScope.global_scope

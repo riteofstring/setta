@@ -3,6 +3,7 @@ import hashlib
 import importlib.metadata
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -20,7 +21,7 @@ from functools import wraps
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from queue import Empty, Full, Queue
 from typing import TYPE_CHECKING, Any, Literal, Optional
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 from uuid import uuid4
 
 from fastapi.encoders import jsonable_encoder
@@ -106,6 +107,8 @@ _SOURCE_MANAGER_ORDER = {
     PluginSourceManager.setta: 0,
     PluginSourceManager.package_manager: 1,
 }
+
+_PLUGIN_MOUNT_SEGMENT_PATTERN = re.compile(r"^[A-Za-z0-9._~-]+$")
 
 _MODE_ALLOWED_CAPABILITIES = {
     "ide": PLUGIN_CAPABILITIES_SET,
@@ -694,17 +697,6 @@ class PluginManager:
                 )
                 for entry in entries
             ],
-        )
-
-    @_mutation_locked
-    def get_list_response(self) -> PluginListResponse:
-        restart_capability = self.get_restart_capability()
-        return self._build_plugin_list_response(
-            entries=self._sorted_active_entries(),
-            plugins_state=self._load_plugins_state(),
-            restart_capability=restart_capability,
-            redact_source_details=self._should_redact_source_details(),
-            redact_config_details=self._should_redact_config_details(),
         )
 
     @_mutation_locked
@@ -2824,14 +2816,14 @@ class PluginManager:
         base = f"/api/plugins/{plugin_id}"
         if prefix is None:
             return base
-        trimmed = prefix.strip()
-        if not trimmed:
+        normalized_subpath = self._normalize_plugin_mount_subpath(
+            plugin_id=plugin_id,
+            raw_subpath=prefix,
+            context_label="route prefix",
+        )
+        if normalized_subpath == "":
             return base
-        if not trimmed.startswith("/"):
-            trimmed = f"/{trimmed}"
-        if trimmed == "/":
-            return base
-        return f"{base}{trimmed}"
+        return f"{base}/{normalized_subpath}"
 
     def _register_backend_static_dir(
         self,
@@ -2865,7 +2857,11 @@ class PluginManager:
                     f"{source_path}"
                 ),
             )
-        normalized_prefix = url_prefix.strip().strip("/")
+        normalized_prefix = self._normalize_plugin_mount_subpath(
+            plugin_id=entry.plugin_id,
+            raw_subpath=url_prefix,
+            context_label="static url prefix",
+        )
         mount_path = f"/plugin-static/{entry.plugin_id}"
         if normalized_prefix:
             mount_path = f"{mount_path}/{normalized_prefix}"
@@ -2875,6 +2871,66 @@ class PluginManager:
             StaticFiles(directory=str(source_path), html=False),
             name=mount_name,
         )
+
+    def _normalize_plugin_mount_subpath(
+        self,
+        *,
+        plugin_id: str,
+        raw_subpath: str,
+        context_label: str,
+    ) -> str:
+        trimmed = raw_subpath.strip()
+        if trimmed == "" or trimmed == "/":
+            return ""
+        normalized = trimmed.strip("/")
+        if normalized == "":
+            return ""
+        raw_segments = normalized.split("/")
+        normalized_segments: list[str] = []
+        for raw_segment in raw_segments:
+            if raw_segment == "":
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {plugin_id} {context_label} contains empty path "
+                        f"segments ({raw_subpath})"
+                    ),
+                )
+            decoded_segment = unquote(raw_segment)
+            if decoded_segment in {".", ".."}:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {plugin_id} {context_label} contains dot-segments "
+                        f"({raw_subpath})"
+                    ),
+                )
+            if decoded_segment.strip() != decoded_segment:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {plugin_id} {context_label} contains leading/trailing "
+                        f"whitespace in a path segment ({raw_subpath})"
+                    ),
+                )
+            if "/" in decoded_segment or "\\" in decoded_segment:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {plugin_id} {context_label} contains invalid path "
+                        f"separator characters ({raw_subpath})"
+                    ),
+                )
+            if not _PLUGIN_MOUNT_SEGMENT_PATTERN.fullmatch(decoded_segment):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {plugin_id} {context_label} contains invalid "
+                        f"characters ({raw_subpath})"
+                    ),
+                )
+            normalized_segments.append(decoded_segment)
+        return "/".join(normalized_segments)
 
     def _register_backend_mcp_tool(
         self,

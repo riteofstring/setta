@@ -91,12 +91,18 @@ def _raise_http(exc: PluginManagerError) -> None:
 
 @router.get(Route.PLUGINS_RUNTIME)
 def route_plugins_runtime(state: AppStateFromRequest) -> PluginRuntimeResponse:
-    return _manager(state).get_runtime_response()
+    try:
+        return _manager(state).get_runtime_response()
+    except PluginManagerError as exc:
+        _raise_http(exc)
 
 
 @router.post(Route.PLUGINS_RESCAN, dependencies=[Depends(require_ide_mode)])
 def route_plugins_rescan(state: AppStateFromRequest) -> PluginsRescanResponse:
-    return _manager(state).rescan()
+    try:
+        return _manager(state).rescan()
+    except PluginManagerError as exc:
+        _raise_http(exc)
 
 
 @router.post(Route.PLUGINS_RESTART, dependencies=[Depends(require_ide_mode)])

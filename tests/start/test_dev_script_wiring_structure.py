@@ -50,3 +50,27 @@ def test_playwright_runner_writes_non_empty_record_manifest_for_seeded_wheels() 
         'zipf.writestr(f"{dist_info_name}/RECORD", "\\n".join(record_lines) + "\\n")'
         in script
     )
+
+
+def test_playwright_runner_validates_seeded_fixture_completeness_before_skip() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "seeded_plugin_fixture_is_complete()" in script
+    assert (
+        'if ! seeded_plugin_fixture_is_complete "${fixture_root}" "${seeded_fixture_root}"; then'
+        in script
+    )
+
+
+def test_plugin_fixture_link_and_unlink_scripts_do_not_rescan_by_default() -> None:
+    root = repo_root()
+    link_script = (root / "scripts" / "plugin-fixtures" / "link.sh").read_text(
+        encoding="utf-8"
+    )
+    unlink_script = (root / "scripts" / "plugin-fixtures" / "unlink.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "rescan_after_link=0" in link_script
+    assert "rescan_after_unlink=0" in unlink_script

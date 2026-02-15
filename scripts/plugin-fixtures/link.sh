@@ -7,7 +7,7 @@ FIXTURE_ROOT="${ROOT_DIR}/tests/fixtures/plugins"
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/plugin-fixtures/link.sh <fixture-name> [--scope workspace|setta_files|global] [--no-rescan]
+Usage: scripts/plugin-fixtures/link.sh <fixture-name> [--scope workspace|setta_files|global] [--rescan]
 
 Examples:
   scripts/plugin-fixtures/link.sh frontend
@@ -28,7 +28,7 @@ fi
 fixture_name="$1"
 shift
 scope="workspace"
-rescan_after_link=1
+rescan_after_link=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -40,8 +40,8 @@ while [[ $# -gt 0 ]]; do
       scope="$2"
       shift 2
       ;;
-    --no-rescan)
-      rescan_after_link=0
+    --rescan)
+      rescan_after_link=1
       shift
       ;;
     -h|--help)

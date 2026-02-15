@@ -825,7 +825,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         if endpoint_name not in specs:
             state = self._get_listener_state(websocket_id)
             await state.wait_until_ready()
-            payload_data, _ = self._prepare_listener_router_payload_data(
+            payload_data = self._prepare_listener_router_payload_data(
                 websocket_id=websocket_id,
                 payload=payload,
                 project_config_id=project_config_id,
@@ -845,7 +845,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         await state.wait_until_ready()
 
         has_project_context = "projectConfigId" in spec.request_model.model_fields
-        payload_data, _ = self._prepare_listener_router_payload_data(
+        payload_data = self._prepare_listener_router_payload_data(
             websocket_id=websocket_id,
             payload=payload,
             project_config_id=project_config_id,
@@ -878,7 +878,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         project_config_id: ID,
         temporary_project_config_id: ID | None,
         has_project_context: bool,
-    ) -> tuple[dict[str, object], bool]:
+    ) -> dict[str, object]:
         use_temporary_ids = self.listener_registry.use_temporary_ids_for_socket(
             websocket_id
         )
@@ -896,7 +896,7 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
             payload_project_config_id = payload_data.get("projectConfigId")
             if payload_project_config_id != project_config_id:
                 raise ValueError("project_config_mismatch")
-        return payload_data, use_temporary_ids
+        return payload_data
 
     def _get_listener_state(self, websocket_id: str):
         if websocket_id not in self.websocket_manager.sockets:

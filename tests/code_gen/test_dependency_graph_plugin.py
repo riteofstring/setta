@@ -1,5 +1,3 @@
-import json
-
 from setta.code_gen.dependency_graph import DependencyGraph, SectionNode
 from setta.types.dependency_key import create_dep_key
 from setta.types.dependency_value import LiteralDependencyValue
@@ -12,7 +10,7 @@ from setta.types.section_impls import SectionType
 
 
 class TestPluginDependencyGraph:
-    def test_plugin_section_exports_literal_json_payload(self) -> None:
+    def test_plugin_section_exports_sorted_python_literal_payload(self) -> None:
         settings = SettingsState()
         project_state = ProjectStateSingleConfig(
             projectConfig=ProjectConfig(name="test-project")
@@ -41,7 +39,7 @@ class TestPluginDependencyGraph:
         assert isinstance(node, SectionNode)
         assert isinstance(node.value, LiteralDependencyValue)
         assert node.value is not None
-        assert node.value.payload == json.dumps(plugin_data, sort_keys=True)
+        assert node.value.payload == "{'alpha': 'ok', 'zeta': 1}"
 
     def test_plugin_section_is_registered_in_dependency_name_lookup(self) -> None:
         settings = SettingsState()

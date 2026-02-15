@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 from contextlib import contextmanager
@@ -363,6 +364,84 @@ class TestExternalAgentPreflight:
                 f"Plugin external agent command not found ({missing_command})" in issue
                 for issue in status.issues
             )
+
+    def test_plugin_tool_rejects_relative_command_for_temp_dir_strategy(self) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            plugin_adapter = PluginRegisteredExternalAgentAdapter(
+                adapterId="acme-plugin:temp-relative",
+                pluginId="acme-plugin",
+                name="Temp Relative Adapter",
+                runModes=["sdk"],
+                command="python",
+                args=[],
+                envVarWhitelist=[],
+                defaultModel=None,
+            )
+            config = ExternalAgentConfig(
+                name="Temp Relative Config",
+                toolType=ExternalAgentToolType.plugin,
+                pluginAdapterId=plugin_adapter.adapterId,
+                runMode=ExternalAgentRunMode.sdk,
+                commandPath="./bin/adapter",
+                workingDirStrategy=ExternalAgentWorkingDirStrategy.temp_dir,
+            )
+
+            status = build_external_agent_preflight_status(
+                dbe,
+                config,
+                plugin_external_agent_adapters=[plugin_adapter],
+            )
+
+            assert status.supported
+            assert not status.available
+            assert any(
+                "relative command requires an absolute path" in issue
+                for issue in status.issues
+            )
+
+    def test_plugin_tool_non_path_command_prefers_path_resolution_over_local_file(
+        self,
+    ) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            command_name = Path(sys.executable).name
+            resolved_command = shutil.which(command_name)
+            if resolved_command is None:
+                raise AssertionError(
+                    f"Expected PATH to resolve interpreter command {command_name!r}"
+                )
+            local_shadow = tmp / command_name
+            local_shadow.write_text("not executable", encoding="utf-8")
+            if os.name != "nt":
+                local_shadow.chmod(0o644)
+            plugin_adapter = PluginRegisteredExternalAgentAdapter(
+                adapterId="acme-plugin:path-command",
+                pluginId="acme-plugin",
+                name="Path Command Adapter",
+                runModes=["sdk"],
+                command=command_name,
+                args=[],
+                envVarWhitelist=[],
+                defaultModel=None,
+            )
+            config = ExternalAgentConfig(
+                name="Path Command Config",
+                toolType=ExternalAgentToolType.plugin,
+                pluginAdapterId=plugin_adapter.adapterId,
+                runMode=ExternalAgentRunMode.sdk,
+                commandPath=command_name,
+            )
+
+            status = build_external_agent_preflight_status(
+                dbe,
+                config,
+                plugin_external_agent_adapters=[plugin_adapter],
+            )
+
+            assert status.supported
+            assert status.available
+            assert status.issues == []
 
     def test_plugin_tool_whitespace_command_override_falls_back_to_adapter_command(
         self,

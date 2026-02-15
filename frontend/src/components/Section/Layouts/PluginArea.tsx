@@ -45,11 +45,9 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
     pluginSectionImplEqual,
   );
   const { pluginId, kind, data, schemaVersion } = pluginImpl;
-  const { runtimeStatus, runtimeStatusMessage } = usePluginRuntimeStore(
-    (state) => ({
-      runtimeStatus: state.status,
-      runtimeStatusMessage: state.statusMessage,
-    }),
+  const runtimeStatus = usePluginRuntimeStore((state) => state.status);
+  const runtimeStatusMessage = usePluginRuntimeStore(
+    (state) => state.statusMessage,
   );
   const pluginSectionKind = usePluginSectionKind(pluginId, kind);
   if (pluginSectionKind) {

@@ -1064,6 +1064,15 @@ def _build_plugin_manager_for_cli(*, auto_rescan: bool = True) -> PluginManager:
     )
 
 
+def _build_plugin_manager_for_cli_or_click_error(
+    *, auto_rescan: bool = True
+) -> PluginManager:
+    try:
+        return _build_plugin_manager_for_cli(auto_rescan=auto_rescan)
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
+
+
 def _plugin_scope_choice_to_value(
     *,
     scope: str | None,
@@ -1103,13 +1112,13 @@ def _run_scoped_plugin_mutation_for_cli(
     rescan_for_lookup: bool,
     operation: Callable[[PluginManager, str | None], Any],
 ) -> Any:
-    manager = _build_plugin_manager_for_cli(auto_rescan=False)
     resolved_scope = _plugin_scope_choice_to_value(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
     )
     try:
+        manager = _build_plugin_manager_for_cli_or_click_error(auto_rescan=False)
         if rescan_for_lookup:
             _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
         result = operation(manager, resolved_scope)
@@ -2433,7 +2442,7 @@ def plugins() -> None:
     help="Output directory (defaults to current workspace root).",
 )
 def plugins_init(plugin_id: str, template: str, out: Path | None) -> None:
-    manager = _build_plugin_manager_for_cli()
+    manager = _build_plugin_manager_for_cli_or_click_error()
     try:
         plugin_root = manager.init_plugin_template(
             plugin_id=plugin_id,
@@ -2448,7 +2457,7 @@ def plugins_init(plugin_id: str, template: str, out: Path | None) -> None:
 @plugins.command(name="validate")
 @click.argument("plugin_folder", type=click.Path(path_type=Path))
 def plugins_validate(plugin_folder: Path) -> None:
-    manager = _build_plugin_manager_for_cli()
+    manager = _build_plugin_manager_for_cli_or_click_error()
     try:
         manager.validate_plugin_folder(plugin_folder)
     except PluginManagerError as exc:
@@ -2459,8 +2468,11 @@ def plugins_validate(plugin_folder: Path) -> None:
 @plugins.command(name="list")
 @click.option("--json", "json_output", is_flag=True, help="Emit JSON output")
 def plugins_list(json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
-    status = manager.get_status_response()
+    manager = _build_plugin_manager_for_cli_or_click_error()
+    try:
+        status = manager.get_status_response()
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
     if json_output:
         _emit_json_output(status.model_dump(mode="json"))
         return
@@ -2628,8 +2640,11 @@ def plugins_disable(plugin_id: str, json_output: bool) -> None:
 @plugins.command(name="rescan")
 @click.option("--json", "json_output", is_flag=True)
 def plugins_rescan(json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    result = manager.rescan()
+    manager = _build_plugin_manager_for_cli_or_click_error(auto_rescan=False)
+    try:
+        result = manager.rescan()
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))
         return
@@ -2771,7 +2786,7 @@ def plugins_lock() -> None:
 @plugins_lock.command(name="write")
 @click.option("--json", "json_output", is_flag=True)
 def plugins_lock_write(json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
+    manager = _build_plugin_manager_for_cli_or_click_error()
     try:
         result = manager.write_lockfile()
     except PluginManagerError as exc:
@@ -2788,7 +2803,7 @@ def plugins_lock_write(json_output: bool) -> None:
 @click.option("--check", is_flag=True, help="Preview changes only.")
 @click.option("--json", "json_output", is_flag=True)
 def plugins_lock_apply(check: bool, json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
+    manager = _build_plugin_manager_for_cli_or_click_error()
     try:
         result = manager.apply_lockfile(check=check)
     except PluginManagerError as exc:
@@ -2809,7 +2824,7 @@ def plugins_lock_apply(check: bool, json_output: bool) -> None:
 @plugins.command(name="restart")
 @click.option("--json", "json_output", is_flag=True)
 def plugins_restart(json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli(auto_rescan=False)
+    manager = _build_plugin_manager_for_cli_or_click_error(auto_rescan=False)
     try:
         payload = manager.restart_backend()
     except PluginManagerError as exc:
@@ -2830,10 +2845,13 @@ def plugins_restart(json_output: bool) -> None:
 @plugins.command(name="restart-required")
 @click.option("--json", "json_output", is_flag=True)
 def plugins_restart_required(json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
-    status = manager.get_status_response()
-    restart_capability = manager.get_restart_capability()
-    pending_restart_ids = manager.get_pending_restart_backend_plugin_ids()
+    manager = _build_plugin_manager_for_cli_or_click_error()
+    try:
+        status = manager.get_status_response()
+        restart_capability = manager.get_restart_capability()
+        pending_restart_ids = manager.get_pending_restart_backend_plugin_ids()
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
     pending = [
         plugin for plugin in status.plugins if plugin.state.value == "pending_restart"
     ]
@@ -2938,7 +2956,7 @@ def plugins_unlink(
     ignore_missing: bool,
     json_output: bool,
 ) -> None:
-    manager = _build_plugin_manager_for_cli(auto_rescan=False)
+    manager = _build_plugin_manager_for_cli_or_click_error(auto_rescan=False)
     resolved_scope = _plugin_scope_choice_to_value(
         scope=scope,
         global_scope=global_scope,
