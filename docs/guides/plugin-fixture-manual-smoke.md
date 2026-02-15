@@ -58,6 +58,21 @@ scripts/plugin-fixtures/reset.sh
    - run `setta plugins list`.
    - confirm `setta-fixture-scope-shadowing` resolves to `workspace` and shadows
      `environment`/`global` entries.
+7. Verify frontend project-state read/subscription fixture behavior:
+   - open `setta-fixture-frontend` pane.
+   - confirm `active sections`, `project config`, and `project state updates`
+     metrics populate.
+   - trigger section selection changes and confirm `active sections` and
+     `project state updates` change without refreshing the page.
+8. Verify frontend command realtime + backend roundtrip:
+   - run `Fixture Command` from command search or pane button.
+   - confirm pane `last command` includes realtime emit count and backend status
+     summary fields.
+9. Verify backend fixture project-state read + listener emit routes:
+   - `GET /api/plugins/setta-fixture-backend/project-state-summary?projectConfigId=<id>`
+   - `POST /api/plugins/setta-fixture-backend/emit-listener` with JSON:
+     `{"projectConfigId":"<id>","sectionId":"<section-id>","payload":"fixture-ping"}`
+   - confirm responses return `200` with non-empty summary/emit metadata.
 
 ## Notes
 

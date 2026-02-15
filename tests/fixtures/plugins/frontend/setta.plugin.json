@@ -9,5 +9,12 @@
     "entrypoint": "frontend/dist/index.js",
     "style": "frontend/dist/index.css"
   },
-  "capabilities": ["registerSectionKinds", "registerPane", "registerCommand"]
+  "capabilities": [
+    "registerSectionKinds",
+    "registerPane",
+    "registerCommand",
+    "readProjectState",
+    "subscribeProjectState",
+    "emitListenerEvents"
+  ]
 }

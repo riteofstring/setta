@@ -5,6 +5,7 @@ const PANE_NOTE_STORAGE_KEY = "setta-fixture-frontend:pane-note";
 const cardStateBySectionId = new Map();
 const mountedCardContextBySectionId = new Map();
 let fixtureRuntimeStore = null;
+let disposeProjectStateSubscriptions = null;
 
 function createInitialFixtureRuntimeState() {
   return {
@@ -13,6 +14,9 @@ function createInitialFixtureRuntimeState() {
     renderCountBySectionId: {},
     lastCommandSummary: "No command run yet.",
     lastBackendCommandResult: null,
+    activeSectionIds: [],
+    projectConfigId: "unknown",
+    projectStateUpdateCount: 0,
   };
 }
 
@@ -22,7 +26,10 @@ function syncWindowMetricsFromStore() {
   window.__settaFixtureRenderCount = state.renderCount;
   window.__settaFixtureRenderBySectionId = { ...state.renderCountBySectionId };
   window.__settaFixtureLastCommandSummary = state.lastCommandSummary;
-  window.__settaFixtureBackendCommandLastResult = state.lastBackendCommandResult;
+  window.__settaFixtureBackendCommandLastResult =
+    state.lastBackendCommandResult;
+  window.__settaFixtureProjectConfigId = state.projectConfigId;
+  window.__settaFixtureActiveSectionIds = [...state.activeSectionIds];
 }
 
 function initFixtureRuntimeStore(host) {
@@ -30,7 +37,9 @@ function initFixtureRuntimeStore(host) {
     return fixtureRuntimeStore;
   }
   if (host && typeof host.createStore === "function") {
-    fixtureRuntimeStore = host.createStore(() => createInitialFixtureRuntimeState());
+    fixtureRuntimeStore = host.createStore(() =>
+      createInitialFixtureRuntimeState(),
+    );
   } else {
     let fallbackState = createInitialFixtureRuntimeState();
     fixtureRuntimeStore = {
@@ -69,6 +78,127 @@ function setFixtureRuntimeState(partialOrUpdater) {
 
 function readFixtureRuntimeState() {
   return getFixtureRuntimeStore().getState();
+}
+
+function hostHasCapability(host, capability) {
+  if (!host || !Array.isArray(host.effectiveCapabilities)) {
+    return false;
+  }
+  return host.effectiveCapabilities.includes(capability);
+}
+
+function readActiveSectionIdsFromSnapshot(snapshot) {
+  if (!Array.isArray(snapshot)) {
+    return [];
+  }
+  const activeSectionIds = [];
+  for (const rawSectionId of snapshot) {
+    if (typeof rawSectionId !== "string") {
+      continue;
+    }
+    const normalized = rawSectionId.trim();
+    if (normalized === "") {
+      continue;
+    }
+    activeSectionIds.push(normalized);
+  }
+  return activeSectionIds;
+}
+
+function syncRuntimeProjectStateSnapshot(host) {
+  if (!hostHasCapability(host, "readProjectState")) {
+    return;
+  }
+  if (typeof host.readProjectState !== "function") {
+    return;
+  }
+  const projectConfigSnapshot = host.readProjectState({
+    kind: "projectConfig",
+  });
+  const activeSectionIdsSnapshot = host.readProjectState({
+    kind: "activeSectionIds",
+  });
+
+  const nextProjectConfigId =
+    projectConfigSnapshot &&
+    typeof projectConfigSnapshot === "object" &&
+    typeof projectConfigSnapshot.id === "string"
+      ? projectConfigSnapshot.id
+      : "unknown";
+  const activeSectionIds = readActiveSectionIdsFromSnapshot(
+    activeSectionIdsSnapshot,
+  );
+
+  setFixtureRuntimeState((state) => ({
+    projectConfigId: nextProjectConfigId,
+    activeSectionIds,
+    projectStateUpdateCount: Number(state.projectStateUpdateCount || 0) + 1,
+  }));
+}
+
+function startRuntimeProjectStateSubscriptions(host) {
+  if (disposeProjectStateSubscriptions) {
+    disposeProjectStateSubscriptions();
+    disposeProjectStateSubscriptions = null;
+  }
+  if (!hostHasCapability(host, "subscribeProjectState")) {
+    return;
+  }
+  if (typeof host.subscribeProjectState !== "function") {
+    return;
+  }
+
+  const unsubscribers = [];
+  unsubscribers.push(
+    host.subscribeProjectState(
+      {
+        kind: "activeSectionIds",
+      },
+      (nextValue) => {
+        const activeSectionIds = readActiveSectionIdsFromSnapshot(nextValue);
+        setFixtureRuntimeState((state) => ({
+          activeSectionIds,
+          projectStateUpdateCount:
+            Number(state.projectStateUpdateCount || 0) + 1,
+        }));
+      },
+      {
+        fireImmediately: true,
+      },
+    ),
+  );
+  unsubscribers.push(
+    host.subscribeProjectState(
+      {
+        kind: "projectConfig",
+      },
+      (nextValue) => {
+        const nextProjectConfigId =
+          nextValue &&
+          typeof nextValue === "object" &&
+          typeof nextValue.id === "string"
+            ? nextValue.id
+            : "unknown";
+        setFixtureRuntimeState((state) => ({
+          projectConfigId: nextProjectConfigId,
+          projectStateUpdateCount:
+            Number(state.projectStateUpdateCount || 0) + 1,
+        }));
+      },
+      {
+        fireImmediately: true,
+      },
+    ),
+  );
+
+  disposeProjectStateSubscriptions = () => {
+    for (const unsubscribe of unsubscribers) {
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    }
+    disposeProjectStateSubscriptions = null;
+  };
 }
 
 function getCardText(data) {
@@ -417,15 +547,45 @@ async function runBackendRoundtripForFixtureCommand(host) {
   return backendSummary;
 }
 
+function emitFixtureRealtimeSignals(host) {
+  if (!hostHasCapability(host, "emitListenerEvents")) {
+    return 0;
+  }
+  if (typeof host.emitSectionRealtimeValue !== "function") {
+    return 0;
+  }
+  let emittedCount = 0;
+  for (const [sectionId] of mountedCardContextBySectionId.entries()) {
+    if (typeof sectionId !== "string" || sectionId.trim() === "") {
+      continue;
+    }
+    const cardState = getCardState(sectionId);
+    host.emitSectionRealtimeValue(sectionId, {
+      fixtureSignalScore: Number(cardState.signalScore || 0),
+      emittedAtMs: Date.now(),
+    });
+    emittedCount += 1;
+  }
+  return emittedCount;
+}
+
 async function executeFixtureCommand(host) {
   const runCount = recordFixtureCommandRun();
   const boostedCardCount = pulseMountedFixtureCards();
-  let summary = `run ${runCount}: pulsed ${boostedCardCount} card(s)`;
+  const realtimeEmitCount = emitFixtureRealtimeSignals(host);
+  let summary = `run ${runCount}: pulsed ${boostedCardCount} card(s), emitted ${realtimeEmitCount} realtime update(s)`;
   if (host && typeof host.getProjectContext === "function") {
     const context = host.getProjectContext();
     if (context && typeof context.serverMode === "string") {
       summary = `${summary} in ${context.serverMode} mode`;
     }
+  }
+  if (hostHasCapability(host, "readProjectState")) {
+    syncRuntimeProjectStateSnapshot(host);
+    const state = readFixtureRuntimeState();
+    summary =
+      `${summary}; active sections:${state.activeSectionIds.length} ` +
+      `project:${state.projectConfigId}`;
   }
   const backendSummary = await runBackendRoundtripForFixtureCommand(host);
   summary = `${summary}; ${backendSummary}`;
@@ -552,6 +712,14 @@ function mountFixturePane(el, host) {
     "sections touched",
     "fixture-pane-section-count",
   );
+  const activeSectionMetric = createPaneMetric(
+    "active sections",
+    "fixture-pane-active-section-count",
+  );
+  const projectConfigMetric = createPaneMetric(
+    "project config",
+    "fixture-pane-project-config-id",
+  );
   const updatedMetric = createPaneMetric(
     "last refresh",
     "fixture-pane-updated-at",
@@ -560,12 +728,19 @@ function mountFixturePane(el, host) {
     "last command",
     "fixture-pane-last-command",
   );
+  const projectStateUpdateMetric = createPaneMetric(
+    "project state updates",
+    "fixture-pane-project-state-updates",
+  );
 
   metrics.appendChild(commandMetric.metric);
   metrics.appendChild(renderMetric.metric);
   metrics.appendChild(sectionMetric.metric);
+  metrics.appendChild(activeSectionMetric.metric);
+  metrics.appendChild(projectConfigMetric.metric);
   metrics.appendChild(updatedMetric.metric);
   metrics.appendChild(commandSummaryMetric.metric);
+  metrics.appendChild(projectStateUpdateMetric.metric);
   runtimePanel.appendChild(metrics);
 
   const controls = document.createElement("div");
@@ -588,8 +763,18 @@ function mountFixturePane(el, host) {
     sectionMetric.metricValue.textContent = String(
       Object.keys(bySection).length,
     );
+    activeSectionMetric.metricValue.textContent = String(
+      Array.isArray(state.activeSectionIds) ? state.activeSectionIds.length : 0,
+    );
+    projectConfigMetric.metricValue.textContent =
+      typeof state.projectConfigId === "string"
+        ? state.projectConfigId
+        : "unknown";
     updatedMetric.metricValue.textContent = new Date().toLocaleTimeString();
     commandSummaryMetric.metricValue.textContent = getLastCommandSummary();
+    projectStateUpdateMetric.metricValue.textContent = String(
+      Number(state.projectStateUpdateCount || 0),
+    );
   };
 
   controls.appendChild(
@@ -600,11 +785,15 @@ function mountFixturePane(el, host) {
   );
 
   controls.appendChild(
-    createPaneButton("Run Demo Command", "fixture-pane-run-command", async () => {
-      const summary = await executeFixtureCommand(host);
-      refreshMetrics();
-      status.textContent = summary;
-    }),
+    createPaneButton(
+      "Run Demo Command",
+      "fixture-pane-run-command",
+      async () => {
+        const summary = await executeFixtureCommand(host);
+        refreshMetrics();
+        status.textContent = summary;
+      },
+    ),
   );
 
   controls.appendChild(
@@ -618,7 +807,11 @@ function mountFixturePane(el, host) {
           renderCountBySectionId: {},
           lastCommandSummary: "No command run yet.",
           lastBackendCommandResult: null,
+          activeSectionIds: [],
+          projectConfigId: "unknown",
+          projectStateUpdateCount: 0,
         });
+        syncRuntimeProjectStateSnapshot(host);
         refreshMetrics();
         status.textContent = "Metrics reset.";
       },
@@ -716,6 +909,9 @@ export function register(host) {
   initFixtureRuntimeStore(host);
   const effectiveCapabilities = new Set(host.effectiveCapabilities || []);
 
+  syncRuntimeProjectStateSnapshot(host);
+  startRuntimeProjectStateSubscriptions(host);
+
   if (effectiveCapabilities.has("registerSectionKinds")) {
     host.registerSectionKind({
       kind: "fixture-card",
@@ -759,7 +955,8 @@ export function register(host) {
     host.registerCommand({
       id: "fixture-command",
       title: "Fixture Command",
-      description: "Pulse fixture cards and run a multi-call backend roundtrip.",
+      description:
+        "Pulse fixture cards and run a multi-call backend roundtrip.",
       run() {
         return executeFixtureCommand(host);
       },
