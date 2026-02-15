@@ -1,8 +1,9 @@
 import * as Dialog from "@radix-ui/react-dialog";
-import { getNodesBounds } from "forks/xyflow/core/utils/graph";
-import { getXYWidthHeight, MinimapSvg } from "forks/xyflow/minimap/MiniMap";
+import { ProjectConfigThumbnailSurface } from "components/ProjectConfigs/ProjectConfigThumbnailSurface";
 import { useEffect, useMemo, useState } from "react";
+import { FiGrid, FiList } from "react-icons/fi";
 import { closeModal } from "state/actions/modal";
+import { type HomeProjectGalleryViewMode } from "state/definitions";
 import { ObjectValues, ProjectConfig } from "utils/generatedTypes";
 import { FileNameInput } from "./FileNameInput";
 
@@ -12,6 +13,8 @@ type SaveLoadConfigEntry = Pick<
   ProjectConfig,
   "id" | "name" | "previewImgColor" | "topLevelSections"
 >;
+const SAVE_LOAD_CONFIG_GRID_TEMPLATE_COLUMNS =
+  "repeat(auto-fill, minmax(10.5rem, 14rem))";
 
 export function SaveLoadModal({
   open,
@@ -33,8 +36,12 @@ export function SaveLoadModal({
   buttonText: string;
   placeholder: string;
 }) {
-  const [selectedConfigName, setSelectedConfigName] = useState<string | null>(null);
+  const [selectedConfigName, setSelectedConfigName] = useState<string | null>(
+    null,
+  );
   const [filename, setFilename] = useState("");
+  const [configViewMode, setConfigViewMode] =
+    useState<HomeProjectGalleryViewMode>("thumbnails");
 
   const sortedFiles = useMemo(
     () => [...files].sort((a, b) => a.name.localeCompare(b.name)),
@@ -47,6 +54,7 @@ export function SaveLoadModal({
     }
     setSelectedConfigName(null);
     setFilename("");
+    setConfigViewMode("thumbnails");
   }, [open]);
 
   const existingByTypedName = useMemo(() => {
@@ -54,12 +62,34 @@ export function SaveLoadModal({
     if (!normalizedFilename) {
       return null;
     }
-    return sortedFiles.find((config) => config.name === normalizedFilename) ?? null;
+    return (
+      sortedFiles.find((config) => config.name === normalizedFilename) ?? null
+    );
   }, [filename, sortedFiles]);
 
   function onClose() {
     setSelectedConfigName(null);
     setFilename("");
+    setConfigViewMode("thumbnails");
+  }
+
+  function onPickConfig(configName: string) {
+    setSelectedConfigName(configName);
+    if (modalMode === SaveLoadModalModeEnum.save) {
+      setFilename(configName);
+    }
+  }
+
+  function onOpenConfig(configName: string) {
+    if (modalMode !== SaveLoadModalModeEnum.load) {
+      return;
+    }
+    onClickActionButton({
+      selectedName: configName,
+      filename: configName,
+    });
+    closeModal();
+    onClose();
   }
 
   function onLoadSelectedConfig() {
@@ -103,7 +133,9 @@ export function SaveLoadModal({
         <Dialog.Title className="text-sm font-semibold text-setta-800 dark:text-setta-100">
           {title}
         </Dialog.Title>
-        <p className="mt-1 text-xs text-setta-500 dark:text-setta-400">{helperText}</p>
+        <p className="mt-1 text-xs text-setta-500 dark:text-setta-400">
+          {helperText}
+        </p>
       </header>
 
       <section className="min-h-0 flex-1 overflow-hidden rounded-xl border border-setta-200/70 p-2 dark:border-setta-800/80">
@@ -111,63 +143,71 @@ export function SaveLoadModal({
           <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-setta-400">
             Project Configs
           </h3>
-          <span className="text-[10px] uppercase tracking-[0.14em] text-setta-400">
-            {sortedFiles.length}
-          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              data-testid="save-load-view-thumbnails"
+              className={`flex h-6 w-6 items-center justify-center rounded-md border transition-colors ${
+                configViewMode === "thumbnails"
+                  ? "border-blue-500/60 bg-blue-100 text-blue-700 dark:border-blue-500/70 dark:bg-blue-950/40 dark:text-blue-200"
+                  : "border-setta-200 text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+              }`}
+              aria-label="Show thumbnail gallery"
+              onClick={() => setConfigViewMode("thumbnails")}
+            >
+              <FiGrid size={12} />
+            </button>
+            <button
+              type="button"
+              data-testid="save-load-view-list"
+              className={`flex h-6 w-6 items-center justify-center rounded-md border transition-colors ${
+                configViewMode === "list"
+                  ? "border-blue-500/60 bg-blue-100 text-blue-700 dark:border-blue-500/70 dark:bg-blue-950/40 dark:text-blue-200"
+                  : "border-setta-200 text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+              }`}
+              aria-label="Show list view"
+              onClick={() => setConfigViewMode("list")}
+            >
+              <FiList size={12} />
+            </button>
+            <span className="ml-1 text-[10px] uppercase tracking-[0.14em] text-setta-400">
+              {sortedFiles.length}
+            </span>
+          </div>
         </div>
 
         {sortedFiles.length === 0 ? (
           <div className="grid h-full place-items-center rounded-lg border border-dashed border-setta-200/70 text-xs text-setta-500 dark:border-setta-800/70 dark:text-setta-400">
             No saved project configs found.
           </div>
+        ) : configViewMode === "thumbnails" ? (
+          <div
+            className="grid max-h-full min-h-0 justify-start gap-4 overflow-y-auto pr-1"
+            style={{
+              gridTemplateColumns: SAVE_LOAD_CONFIG_GRID_TEMPLATE_COLUMNS,
+            }}
+          >
+            {sortedFiles.map((config) => (
+              <ConfigThumbnailCard
+                key={config.id}
+                config={config}
+                isSelected={selectedConfigName === config.name}
+                onSelect={onPickConfig}
+                onOpen={onOpenConfig}
+              />
+            ))}
+          </div>
         ) : (
-          <div className="grid max-h-full min-h-0 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-            {sortedFiles.map((config) => {
-              const isSelected = selectedConfigName === config.name;
-              const cardClasses = isSelected
-                ? "border-blue-500/70 bg-blue-50/60 dark:border-blue-500/70 dark:bg-blue-950/30"
-                : "border-setta-200 bg-white/70 hover:border-setta-300 hover:bg-white dark:border-setta-700 dark:bg-setta-900/40 dark:hover:border-setta-600 dark:hover:bg-setta-900/70";
-              return (
-                <button
-                  key={config.id}
-                  type="button"
-                  data-testid="save-load-config-card"
-                  data-config-name={config.name}
-                  className={`flex min-h-[8.25rem] cursor-pointer flex-col overflow-hidden rounded-lg border text-left transition-colors ${cardClasses}`}
-                  onClick={() => {
-                    setSelectedConfigName(config.name);
-                    if (modalMode === SaveLoadModalModeEnum.save) {
-                      setFilename(config.name);
-                    }
-                  }}
-                  onDoubleClick={() => {
-                    if (modalMode !== SaveLoadModalModeEnum.load) {
-                      return;
-                    }
-                    setSelectedConfigName(config.name);
-                    onClickActionButton({
-                      selectedName: config.name,
-                      filename: config.name,
-                    });
-                    closeModal();
-                    onClose();
-                  }}
-                >
-                  <div
-                    className={`h-[5.6rem] w-full p-2 ${config.previewImgColor || "bg-setta-100 dark:bg-setta-800"}`}
-                  >
-                    <div className="h-full w-full overflow-hidden rounded-md bg-white/35 dark:bg-setta-900/35">
-                      <PreviewImg topLevelSections={config.topLevelSections} />
-                    </div>
-                  </div>
-                  <div className="flex min-h-[2.6rem] items-center px-2 py-1">
-                    <p className="truncate text-xs font-medium text-setta-700 dark:text-setta-200">
-                      {config.name}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
+          <div className="flex max-h-full min-h-0 flex-col gap-2 overflow-y-auto pr-1">
+            {sortedFiles.map((config) => (
+              <ConfigListRow
+                key={config.id}
+                config={config}
+                isSelected={selectedConfigName === config.name}
+                onSelect={onPickConfig}
+                onOpen={onOpenConfig}
+              />
+            ))}
           </div>
         )}
       </section>
@@ -190,51 +230,80 @@ export function SaveLoadModal({
   );
 }
 
-function PreviewImg({
-  topLevelSections,
+function ConfigThumbnailCard({
+  config,
+  isSelected,
+  onSelect,
+  onOpen,
 }: {
-  topLevelSections: ProjectConfig["topLevelSections"];
+  config: SaveLoadConfigEntry;
+  isSelected: boolean;
+  onSelect: (configName: string) => void;
+  onOpen: (configName: string) => void;
 }) {
-  const sectionLayouts = Array.isArray(topLevelSections)
-    ? topLevelSections
-    : Object.values(topLevelSections);
-  const nodes = sectionLayouts.map((section) => ({
-    position: { x: section.x, y: section.y },
-    width: section.w,
-    height: section.h,
-  }));
+  const cardClasses = isSelected
+    ? "border-blue-500/70 bg-blue-50/60 dark:border-blue-500/70 dark:bg-blue-950/30"
+    : "border-setta-200/85 bg-setta-50/65 hover:border-setta-300 hover:bg-setta-50/85 dark:border-setta-700 dark:bg-setta-900/35 dark:hover:border-setta-600 dark:hover:bg-setta-900/55";
 
-  const elementWidth = 200;
-  const elementHeight = 150;
-  const boundingRect = getNodesBounds(nodes);
-  const { x, y, width, height, offset } = getXYWidthHeight({
-    boundingRect,
-    elementHeight,
-    elementWidth,
-    offsetScale: 5,
-  });
+  return (
+    <button
+      type="button"
+      data-testid="save-load-config-card"
+      data-config-name={config.name}
+      className={`relative grid min-h-[13rem] w-full max-w-[14rem] cursor-default grid-rows-[1fr_min-content] overflow-hidden rounded-2xl border text-left transition-colors ${cardClasses}`}
+      onClick={() => onSelect(config.name)}
+      onDoubleClick={() => onOpen(config.name)}
+    >
+      <div
+        data-testid="save-load-config-preview"
+        className="col-start-1 col-end-2 row-start-1 row-end-2"
+      >
+        <ProjectConfigThumbnailSurface
+          previewImgColor={
+            config.previewImgColor || "bg-setta-100 dark:bg-setta-800"
+          }
+          topLevelSections={config.topLevelSections}
+        />
+      </div>
+      <div className="col-start-1 col-end-2 row-start-2 row-end-3 flex min-h-[2.6rem] items-center bg-white px-3 py-2 dark:bg-setta-860">
+        <p className="truncate text-xs font-medium text-setta-700 dark:text-setta-200">
+          {config.name}
+        </p>
+      </div>
+    </button>
+  );
+}
 
-  return MinimapSvg({
-    elementWidth: 200,
-    elementHeight: 150,
-    x,
-    y,
-    width,
-    height,
-    offset,
-    nodes,
-    nodeColor: (node) => {
-      if (node.className?.includes("selected")) return "#ffffff";
-      return "#d6dee8";
-    },
-    nodeBorderRadius: 2,
-    nodeStrokeWidth: 2,
-    nodeStrokeColor: "transparent",
-    maskColor: "rgba(255,255,255,0.35)",
-    maskStrokeColor: "transparent",
-    maskStrokeWidth: 1,
-    shapeRendering: "geometricPrecision",
-  });
+function ConfigListRow({
+  config,
+  isSelected,
+  onSelect,
+  onOpen,
+}: {
+  config: SaveLoadConfigEntry;
+  isSelected: boolean;
+  onSelect: (configName: string) => void;
+  onOpen: (configName: string) => void;
+}) {
+  const baseClasses =
+    "flex w-full cursor-default items-center gap-2 rounded border px-2 py-2 text-left text-xs transition-colors";
+  const activeClasses =
+    "border-blue-500/60 bg-blue-50/60 text-blue-700 dark:border-blue-500/70 dark:bg-blue-950/35 dark:text-blue-200";
+  const inactiveClasses =
+    "border-setta-200 text-setta-700 hover:bg-setta-50 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-850";
+
+  return (
+    <button
+      type="button"
+      data-testid="save-load-config-list-row"
+      data-config-name={config.name}
+      className={`${baseClasses} ${isSelected ? activeClasses : inactiveClasses}`}
+      onClick={() => onSelect(config.name)}
+      onDoubleClick={() => onOpen(config.name)}
+    >
+      <span className="truncate">{config.name}</span>
+    </button>
+  );
 }
 
 function Footer({

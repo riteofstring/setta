@@ -973,7 +973,7 @@ export function FileBrowserPane({
         onKeyDown={handleKeyDown}
       >
         <div
-          className="group grid h-7 items-center border-b border-setta-100/80 bg-setta-50/70 px-2 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800/80 dark:bg-setta-900/40 dark:text-setta-400"
+          className="group box-border grid h-7 items-center border-b border-setta-100/80 bg-setta-50/70 px-2 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800/80 dark:bg-setta-900/40 dark:text-setta-400"
           style={{
             gridTemplateColumns,
           }}
@@ -1042,13 +1042,13 @@ export function FileBrowserPane({
             </button>
           </div>
         </div>
-        <div className="h-full w-full">
+        <div className="h-full w-full overflow-x-hidden">
           <List
             listRef={listRef}
             rowComponent={FileBrowserRow}
             rowCount={displayedItems.length}
             rowHeight={ROW_HEIGHT}
-            className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag`}
+            className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag overflow-x-hidden`}
             onRowsRendered={(visibleRows) => {
               if (displayedItems.length === 0) {
                 return;
@@ -1175,7 +1175,7 @@ function FileBrowserRow({
         display: "grid",
         gridTemplateColumns: `minmax(${FILE_BROWSER_FILE_COLUMN_MIN_WIDTH}px, min(${columnWidth}, calc(100% - ${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px))) minmax(${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px, 1fr)`,
       }}
-      className={`cursor-pointer items-center gap-2 pr-2 text-left text-xs ${rowClasses}`}
+      className={`box-border cursor-pointer items-center gap-2 pr-2 text-left text-xs ${rowClasses}`}
       {...(tooltipHandlers ?? {})}
       onMouseDown={(event) => {
         event.stopPropagation();

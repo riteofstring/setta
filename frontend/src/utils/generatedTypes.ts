@@ -939,6 +939,7 @@ export const RouteEnum = {
   SET_AGENTIC_EDGES: "/setAgenticEdges",
   SET_SECTION_VARIANT: "/setSectionVariant",
   SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
+  SET_SECTION_VARIANT_SORT_ORDER: "/setSectionVariantSortOrder",
   SET_SECTION_VARIANT_NAME: "setSectionVariantName",
   TOGGLE_VARIANT_FROZEN: "/toggleVariantFrozen",
   SET_SECTION_SIZES: "/setSectionSizes",
@@ -17796,6 +17797,27 @@ export function createSetSectionVariantRequest(
   options: Partial<SetSectionVariantRequest> = {},
 ): SetSectionVariantRequest {
   return SetSectionVariantRequestSchema.parse(options);
+}
+
+export const SetSectionVariantSortOrderRequestSchema = z.object({
+  frontendOpId: z.union([z.string(), z.null()]).default(null),
+  projectConfigId: IDSchema,
+  sectionId: IDSchema,
+  orderedVariantIds: z.array(IDSchema),
+});
+
+export type SetSectionVariantSortOrderRequest = z.infer<
+  typeof SetSectionVariantSortOrderRequestSchema
+>;
+
+export type SetSectionVariantSortOrderRequestInput = z.input<
+  typeof SetSectionVariantSortOrderRequestSchema
+>;
+
+export function createSetSectionVariantSortOrderRequest(
+  options: Partial<SetSectionVariantSortOrderRequest> = {},
+): SetSectionVariantSortOrderRequest {
+  return SetSectionVariantSortOrderRequestSchema.parse(options);
 }
 
 export const SetShowParamDisplayNamesRequestSchema = z.object({

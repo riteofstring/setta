@@ -942,6 +942,14 @@ class SetDefaultSectionVariantRequest(ProjectManagerRequestWithSectionVariant):
     pass
 
 
+class SetSectionVariantSortOrderRequest(ProjectManagerRequestWithSection):
+    """Persist the ordered list of variants for a section."""
+
+    orderedVariantIds: list[ID] = Field(
+        description="Complete list of variant IDs in desired order.",
+    )
+
+
 class ToggleVariantFrozenRequest(ProjectManagerRequestWithVariant):
     pass
 

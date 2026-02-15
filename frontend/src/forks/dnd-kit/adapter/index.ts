@@ -11,6 +11,7 @@ export type {
   DragMoveEvent,
   DragOverEvent,
   DragStartEvent,
+  SettaCollision,
 } from "./types";
 export { useDndMonitor } from "./useDndMonitor";
 export { useDraggable } from "./useDraggable";

@@ -196,6 +196,7 @@ from setta.project_state.project_manager_types import (
     SetSectionTagColorRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
+    SetSectionVariantSortOrderRequest,
     SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
@@ -2679,6 +2680,42 @@ class BaseProjectManager(ABC):
         """Change the default variant automatically used for a section."""
         project_state = self.get_single_config_state(x.projectConfigId)
         set_default_section_variant(project_state, x.sectionId, x.variantId)
+        await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(
+        ai_follow_tool_arguments=AIFollowToolArgumentsMetadata(
+            pathsByIdType={"section": ["sectionId"]}
+        ),
+        access_type="write",
+    )
+    async def set_section_variant_sort_order(
+        self, x: SetSectionVariantSortOrderRequest
+    ) -> None:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        section = project_state.sections[x.sectionId]
+        existing_ids = set(section.variants)
+        ordered_ids = x.orderedVariantIds
+        if len(ordered_ids) != len(existing_ids):
+            raise ValueError(
+                "orderedVariantIds must contain every variant exactly once."
+            )
+        seen: set[str] = set()
+        for variant_id in ordered_ids:
+            if variant_id not in existing_ids:
+                raise KeyError(
+                    f"Variant {variant_id} not found in section {x.sectionId}"
+                )
+            if variant_id in seen:
+                raise ValueError(
+                    "orderedVariantIds must not contain duplicate variant IDs."
+                )
+            seen.add(variant_id)
+        if seen != existing_ids:
+            raise ValueError(
+                "orderedVariantIds must contain every variant exactly once."
+            )
+        section.variants = ordered_ids
         await self.update_and_broadcast_project_state(project_state)
 
     @enqueue_method

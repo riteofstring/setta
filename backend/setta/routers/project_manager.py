@@ -100,6 +100,7 @@ from setta.project_state.project_manager_types import (
     SetSectionTagColorRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
+    SetSectionVariantSortOrderRequest,
     SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
     SetTextBlockDisplayModeRequest,
@@ -1054,6 +1055,15 @@ async def route_set_default_section_variant(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
     await manager.set_default_section_variant(x)
+
+
+@router.post(Route.SET_SECTION_VARIANT_SORT_ORDER)
+async def route_set_section_variant_sort_order(
+    x: SetSectionVariantSortOrderRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
+    await manager.set_section_variant_sort_order(x)
 
 
 @router.post(Route.TOGGLE_VARIANT_FROZEN)

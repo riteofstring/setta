@@ -1115,6 +1115,12 @@ export async function route_set_default_section_variant(
   return await post("/setDefaultSectionVariant", x);
 }
 
+export async function route_set_section_variant_sort_order(
+  x: gt.SetSectionVariantSortOrderRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionVariantSortOrder", x);
+}
+
 export async function route_toggle_variant_frozen(
   x: gt.ToggleVariantFrozenRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {

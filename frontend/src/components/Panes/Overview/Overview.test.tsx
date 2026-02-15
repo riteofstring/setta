@@ -14,11 +14,7 @@ import { syncStoreInitialState } from "../paneTestUtils";
 import { Overview } from "./Overview";
 
 vi.mock("components/Pages/Project/ViewModeDnd", () => ({
-  ViewModeSortableProvider: ({
-    children,
-  }: {
-    children: unknown;
-  }) => children,
+  ViewModeSortableProvider: ({ children }: { children: unknown }) => children,
   useViewModeSortableItem: () => ({
     attributes: {},
     listeners: {},
@@ -175,7 +171,9 @@ describe("Overview rail offsets", () => {
     useProjectState.setState((state) => {
       state.projectConfig = projectConfig;
     });
-    useLocalStorage.setState({ overviewTab: OverviewTabNameEnum.ProjectConfigs });
+    useLocalStorage.setState({
+      overviewTab: OverviewTabNameEnum.ProjectConfigs,
+    });
     syncStoreInitialState(useProjectState);
     syncStoreInitialState(useLocalStorage);
 
@@ -188,6 +186,7 @@ describe("Overview rail offsets", () => {
     expect(markup).toContain("View Modes");
     expect(markup).toContain("Project Configs");
     expect(markup).toContain("view-modes-project-configs-toggle");
+    expect(markup).toContain("view-modes-project-configs-resize-handle");
     expect(markup).toContain("view-modes-project-configs-section");
     expect(markup).toContain("Toggle config previews.");
   });

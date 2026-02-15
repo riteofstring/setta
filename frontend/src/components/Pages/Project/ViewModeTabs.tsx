@@ -1,17 +1,15 @@
 import _ from "lodash";
-import { HiOutlineBars3 } from "react-icons/hi2";
 import { persistViewModeSortOrder } from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { route_set_active_view_mode } from "utils/generatedEndpoints";
-import { reorderViewModeIdList, sortViewModes } from "utils/viewModeOrdering";
+import { sortViewModes } from "utils/viewModeOrdering";
 import {
   useViewModeSortableItem,
   ViewModeSortableProvider,
 } from "./ViewModeDnd";
 
 const TAB_LABEL_FALLBACK = "Untitled View";
-const VIEW_MODE_DRAG_MIME = "application/x-setta-view-mode-id";
 
 export function ViewModeTabs() {
   const {
@@ -27,10 +25,12 @@ export function ViewModeTabs() {
       tabModes: sortViewModes(Object.values(x.projectConfig.viewModes))
         .filter((mode) => mode.isTab)
         .map((mode) => ({ id: mode.id, name: mode.name })),
-      orderedViewModeIds: sortViewModes(Object.values(x.projectConfig.viewModes))
-        .map((mode) => mode.id),
-      tabSlotIndices: sortViewModes(Object.values(x.projectConfig.viewModes))
-        .flatMap((mode, index) => (mode.isTab ? [index] : [])),
+      orderedViewModeIds: sortViewModes(
+        Object.values(x.projectConfig.viewModes),
+      ).map((mode) => mode.id),
+      tabSlotIndices: sortViewModes(
+        Object.values(x.projectConfig.viewModes),
+      ).flatMap((mode, index) => (mode.isTab ? [index] : [])),
     }),
     _.isEqual,
   );
@@ -50,13 +50,15 @@ export function ViewModeTabs() {
     });
   };
 
-  const handleReorder = (activeId: string, overId: string) => {
+  const handleReorder = (reorderedTabIds: Array<string>) => {
     if (!canEditStructure) {
       return;
     }
     const currentTabIds = tabModes.map((mode) => mode.id);
-    const reorderedTabIds = reorderViewModeIdList(currentTabIds, activeId, overId);
-    if (reorderedTabIds === currentTabIds) {
+    if (
+      reorderedTabIds.length !== currentTabIds.length ||
+      reorderedTabIds.every((id, idx) => id === currentTabIds[idx])
+    ) {
       return;
     }
     const nextOrderedIds = [...orderedViewModeIds];
@@ -95,7 +97,6 @@ export function ViewModeTabs() {
                 canEditVariants={canEditVariants}
                 canEditStructure={canEditStructure}
                 onSelect={handleSelect}
-                onNativeReorder={handleReorder}
               />
             );
           })}
@@ -112,7 +113,6 @@ function ViewModeTabButton({
   canEditVariants,
   canEditStructure,
   onSelect,
-  onNativeReorder,
 }: {
   modeId: string;
   modeName: string;
@@ -120,9 +120,12 @@ function ViewModeTabButton({
   canEditVariants: boolean;
   canEditStructure: boolean;
   onSelect: (modeId: string) => void;
-  onNativeReorder: (activeId: string, overId: string) => void;
 }) {
-  const sortable = useViewModeSortableItem(modeId, !canEditStructure);
+  const sortable = useViewModeSortableItem(
+    modeId,
+    !canEditStructure,
+    "horizontal",
+  );
   const label = modeName ? modeName : TAB_LABEL_FALLBACK;
   let tabClasses =
     "box-border flex h-[30px] min-w-[96px] max-w-[240px] flex-[0_1_200px] select-none items-center gap-2 rounded-t-md border border-solid border-b-0 px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500";
@@ -133,8 +136,6 @@ function ViewModeTabButton({
   }
   if (!canEditVariants) {
     tabClasses = `${tabClasses} cursor-not-allowed opacity-60`;
-  } else if (canEditStructure) {
-    tabClasses = `${tabClasses} cursor-grab active:cursor-grabbing`;
   }
 
   return (
@@ -144,39 +145,19 @@ function ViewModeTabButton({
       data-view-mode-id={modeId}
       className={tabClasses}
       style={sortable.style}
-      draggable={canEditStructure}
-      onDragStart={(event) => {
-        if (!canEditStructure) {
-          return;
-        }
-        event.dataTransfer.setData(VIEW_MODE_DRAG_MIME, modeId);
-        event.dataTransfer.effectAllowed = "move";
-      }}
-      onDragOver={(event) => {
-        if (!canEditStructure) {
-          return;
-        }
-        event.preventDefault();
-      }}
-      onDrop={(event) => {
-        if (!canEditStructure) {
-          return;
-        }
-        event.preventDefault();
-        const draggedId = event.dataTransfer.getData(VIEW_MODE_DRAG_MIME);
-        if (!draggedId || draggedId === modeId) {
-          return;
-        }
-        onNativeReorder(draggedId, modeId);
-      }}
-      {...sortable.attributes}
-      {...sortable.listeners}
       onClick={canEditVariants ? () => onSelect(modeId) : undefined}
       title={label}
       disabled={!canEditVariants}
     >
       {canEditStructure && (
-        <HiOutlineBars3 className="h-3.5 w-3.5 shrink-0 text-setta-400 dark:text-setta-500" />
+        <span
+          ref={sortable.setActivatorNodeRef}
+          data-testid="view-mode-tab-drag-handle"
+          className="inline-flex h-3.5 w-3.5 cursor-grab touch-none text-setta-400 active:cursor-grabbing dark:text-setta-500"
+          {...sortable.attributes}
+          {...sortable.listeners}
+          onClick={(event) => event.stopPropagation()}
+        />
       )}
       <span className="relative -top-px min-w-0 flex-1 truncate">{label}</span>
     </button>

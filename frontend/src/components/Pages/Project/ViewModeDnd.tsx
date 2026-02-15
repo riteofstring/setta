@@ -1,4 +1,5 @@
 import { KeyboardSensor, PointerSensor } from "@dnd-kit/dom";
+import { arrayMove } from "@dnd-kit/helpers";
 import {
   DragDropProvider,
   horizontalListSortingStrategy,
@@ -6,31 +7,40 @@ import {
   useSortable,
   verticalListSortingStrategy,
   type DragEndEvent,
+  type SettaCollision,
 } from "forks/dnd-kit/adapter";
 import { transformToString } from "forks/dnd-kit/adapter/zoom";
+import { DragOperationShapeSync } from "forks/dnd-kit/DragOperationShapeSync";
 import { useMemo, type CSSProperties } from "react";
 
-type ViewModeSortableProviderProps = {
+type SortableListProviderProps = {
   id: string;
   items: Array<string>;
   direction: "horizontal" | "vertical";
-  onReorder: (activeId: string, overId: string) => void;
+  onReorder: (orderedIds: Array<string>) => void;
   children: React.ReactNode;
 };
 
-export function ViewModeSortableProvider({
+export function SortableListProvider({
   id,
   items,
   direction,
   onReorder,
   children,
-}: ViewModeSortableProviderProps) {
+}: SortableListProviderProps) {
   if (typeof window === "undefined") {
     return <>{children}</>;
   }
 
   const sensors = useMemo(
-    () => [PointerSensor.configure({}), KeyboardSensor.configure({})],
+    () => [
+      PointerSensor.configure({
+        preventActivation: () => false,
+      }),
+      KeyboardSensor.configure({
+        preventActivation: () => false,
+      }),
+    ],
     [],
   );
   const dndContext = useMemo(
@@ -46,12 +56,15 @@ export function ViewModeSortableProvider({
       : verticalListSortingStrategy;
 
   function handleDragEnd(event: DragEndEvent) {
-    const activeId = String(event.active.id);
-    const overId = event.over ? String(event.over.id) : null;
-    if (!overId || overId === activeId) {
+    const nextOrderedIds = resolveReorderedIds({
+      event,
+      orderedIds: items,
+      direction,
+    });
+    if (!nextOrderedIds) {
       return;
     }
-    onReorder(activeId, overId);
+    onReorder(nextOrderedIds);
   }
 
   return (
@@ -59,30 +72,40 @@ export function ViewModeSortableProvider({
       sensors={sensors}
       dndContext={dndContext}
       onDragEnd={handleDragEnd}
-      onDragCancel={handleDragEnd}
-      debugLabel={id}
     >
-      <SortableContext
-        id={id}
-        items={items}
-        strategy={strategy}
-        forceSorting
-      >
+      <DragOperationShapeSync enabled />
+      <SortableContext id={id} items={items} strategy={strategy} forceSorting>
         {children}
       </SortableContext>
     </DragDropProvider>
   );
 }
 
-export function useViewModeSortableItem(id: string, disabled: boolean) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({
-      id,
-      data: {
-        type: "view-mode",
-      },
-      disabled,
-    });
+export function useSortableListItem(
+  id: string,
+  disabled: boolean,
+  direction: "horizontal" | "vertical" = "vertical",
+) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id,
+    data: {
+      type: "sortable-list-item",
+      sortableOrientation: direction,
+    },
+    disabled,
+    transition: {
+      duration: 30,
+      easing: "cubic-bezier(0.2, 0, 0, 1)",
+    },
+  });
   const style: CSSProperties = {
     transform: transformToString(transform),
     transition,
@@ -92,7 +115,120 @@ export function useViewModeSortableItem(id: string, disabled: boolean) {
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     style,
     isDragging,
   };
 }
+
+function resolveOverId(
+  event: DragEndEvent,
+  orderedIds: Array<string>,
+  activeId: string,
+): string | null {
+  const itemIds = new Set(orderedIds);
+  const collisions = event.collisions as SettaCollision[] | null;
+  if (collisions) {
+    for (const collision of collisions) {
+      const collisionId = String(collision.id);
+      if (itemIds.has(collisionId) && collisionId !== activeId) {
+        return collisionId;
+      }
+    }
+  }
+  const overId = event.over ? String(event.over.id) : null;
+  if (overId && itemIds.has(overId) && overId !== activeId) {
+    return overId;
+  }
+  return null;
+}
+
+const DRAG_RELEASE_THRESHOLD_PX = 4;
+
+function hasDragged(
+  event: DragEndEvent,
+  direction: "horizontal" | "vertical",
+): boolean {
+  const primaryDelta =
+    direction === "horizontal"
+      ? Math.abs(event.delta.x)
+      : Math.abs(event.delta.y);
+  const secondaryDelta =
+    direction === "horizontal"
+      ? Math.abs(event.delta.y)
+      : Math.abs(event.delta.x);
+  return (
+    primaryDelta > DRAG_RELEASE_THRESHOLD_PX ||
+    secondaryDelta > DRAG_RELEASE_THRESHOLD_PX
+  );
+}
+
+function resolveReorderedIds({
+  event,
+  orderedIds,
+  direction,
+}: {
+  event: DragEndEvent;
+  orderedIds: Array<string>;
+  direction: "horizontal" | "vertical";
+}): Array<string> | null {
+  if (!hasDragged(event, direction)) {
+    return null;
+  }
+  const activeId = String(event.active.id);
+  const activeIndex = orderedIds.indexOf(activeId);
+  if (activeIndex === -1) {
+    return null;
+  }
+  const overId = resolveOverId(event, orderedIds, activeId);
+  if (!overId) {
+    return null;
+  }
+  const overIndex = orderedIds.indexOf(overId);
+  if (overIndex === -1) {
+    return null;
+  }
+  if (isOppositeDropDirection(event, direction, activeIndex, overIndex)) {
+    return null;
+  }
+  const nextIndex = overIndex;
+  if (nextIndex === activeIndex) {
+    return null;
+  }
+  const nextOrderedIds = arrayMove(orderedIds, activeIndex, nextIndex);
+  if (isSameOrder(nextOrderedIds, orderedIds)) {
+    return null;
+  }
+  return nextOrderedIds;
+}
+
+function isOppositeDropDirection(
+  event: DragEndEvent,
+  direction: "horizontal" | "vertical",
+  activeIndex: number,
+  overIndex: number,
+): boolean {
+  const axisDelta = direction === "horizontal" ? event.delta.x : event.delta.y;
+  if (axisDelta > 0 && overIndex < activeIndex) {
+    return true;
+  }
+  if (axisDelta < 0 && overIndex > activeIndex) {
+    return true;
+  }
+  return false;
+}
+
+function isSameOrder(left: Array<string>, right: Array<string>): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let idx = 0; idx < left.length; idx += 1) {
+    if (left[idx] !== right[idx]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export const ViewModeSortableProvider = SortableListProvider;
+export const useViewModeSortableItem = useSortableListItem;

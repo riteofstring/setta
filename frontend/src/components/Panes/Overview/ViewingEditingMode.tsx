@@ -4,12 +4,19 @@ import {
 } from "components/Pages/Project/ViewModeDnd";
 import _ from "lodash";
 import { Resizable } from "re-resizable";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  FiBookmark,
+  FiCheck,
+  FiChevronDown,
+  FiEdit3,
+  FiPlus,
+} from "react-icons/fi";
 import { HiCode } from "react-icons/hi";
-import { HiOutlineBars3 } from "react-icons/hi2";
-import { FiBookmark, FiCheck, FiEdit3 } from "react-icons/fi";
+import { RxDragHandleDots2 } from "react-icons/rx";
 import { TbUser } from "react-icons/tb";
 import { pruneActiveSectionIdsForViewMode } from "state/actions/activeSections";
+import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
 import { persistViewModeSortOrder } from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
@@ -29,10 +36,12 @@ import {
   sanitizeNameForSlug,
   validateViewModeNameInput,
 } from "utils/nameValidation";
-import { reorderViewModeIdList, sortViewModes } from "utils/viewModeOrdering";
+import { sortViewModes } from "utils/viewModeOrdering";
 import { ProjectConfigs } from "./ProjectConfigs";
 
-const VIEW_MODE_DRAG_MIME = "application/x-setta-view-mode-id";
+const PROJECT_CONFIGS_MIN_HEIGHT = 140;
+const VIEW_MODES_MIN_HEIGHT = 120;
+const PROJECT_CONFIGS_RESIZE_HANDLE_HEIGHT = 12;
 
 export function ViewingEditingMode({
   initialPane = "viewModes",
@@ -41,7 +50,9 @@ export function ViewingEditingMode({
 }) {
   const { projectConfigId, viewModeList, activeViewModeId, isEditingViewMode } =
     useProjectState((x) => {
-      const sortedViewModes = sortViewModes(Object.values(x.projectConfig.viewModes));
+      const sortedViewModes = sortViewModes(
+        Object.values(x.projectConfig.viewModes),
+      );
       return {
         projectConfigId: x.projectConfig.id,
         viewModeList: sortedViewModes,
@@ -50,15 +61,39 @@ export function ViewingEditingMode({
       };
     }, _.isEqual);
   const { canEditVariants, canEditStructure } = useShareCapabilities();
-  const [isProjectConfigsMinimized, setIsProjectConfigsMinimized] =
+  const createAndGoToProjectConfig = useCreateAndGoToProjectConfig();
+  const [isViewModesCollapsed, setIsViewModesCollapsed] = useState(false);
+  const [isProjectConfigsCollapsed, setIsProjectConfigsCollapsed] =
     useState(false);
-  const [projectConfigsHeight, setProjectConfigsHeight] = useState(220);
+  const [projectConfigsHeight, setProjectConfigsHeight] = useState(280);
+  const [panesHeight, setPanesHeight] = useState<number | null>(null);
+  const panesContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (initialPane === "projectConfigs") {
-      setIsProjectConfigsMinimized(false);
+      setIsProjectConfigsCollapsed(false);
+      setIsViewModesCollapsed(false);
     }
   }, [initialPane]);
+
+  useEffect(() => {
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const target = panesContainerRef.current;
+    if (!target) {
+      return;
+    }
+    const updateHeight = () => {
+      setPanesHeight(target.clientHeight);
+    };
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(target);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   const editLabel = isEditingViewMode ? "Done editing" : "Edit";
   const editTitle = isEditingViewMode
@@ -119,17 +154,44 @@ export function ViewingEditingMode({
     });
   };
 
-  const handleReorder = (activeId: string, overId: string): void => {
+  const handleReorder = (nextOrderedIds: Array<string>): void => {
     if (!canEditStructure) {
       return;
     }
     const orderedIds = viewModeList.map((mode) => mode.id);
-    const nextOrderedIds = reorderViewModeIdList(orderedIds, activeId, overId);
-    if (nextOrderedIds === orderedIds) {
+    if (
+      nextOrderedIds.length !== orderedIds.length ||
+      nextOrderedIds.every((id, idx) => id === orderedIds[idx])
+    ) {
       return;
     }
     persistViewModeSortOrder(projectConfigId, nextOrderedIds);
   };
+  const availableProjectConfigsHeight =
+    (panesHeight ?? 760) -
+    (isViewModesCollapsed ? 0 : VIEW_MODES_MIN_HEIGHT) -
+    PROJECT_CONFIGS_RESIZE_HANDLE_HEIGHT;
+  const projectConfigsMaxHeight = Math.max(
+    PROJECT_CONFIGS_MIN_HEIGHT,
+    availableProjectConfigsHeight,
+  );
+
+  useEffect(() => {
+    setProjectConfigsHeight((currentHeight) => {
+      if (currentHeight <= projectConfigsMaxHeight) {
+        return currentHeight;
+      }
+      return projectConfigsMaxHeight;
+    });
+  }, [projectConfigsMaxHeight]);
+
+  function updateProjectConfigsHeight(rawHeight: number) {
+    const clampedHeight = Math.max(
+      PROJECT_CONFIGS_MIN_HEIGHT,
+      Math.min(rawHeight, projectConfigsMaxHeight),
+    );
+    setProjectConfigsHeight(clampedHeight);
+  }
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-2">
@@ -148,7 +210,7 @@ export function ViewingEditingMode({
           {editLabel}
         </button>
         <button
-          className={`rounded border px-2 py-1 text-xs transition-all ${
+          className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-xs transition-all ${
             canEditStructure
               ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
               : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
@@ -157,93 +219,138 @@ export function ViewingEditingMode({
           title="Create a new view mode"
           disabled={!canEditStructure}
         >
+          <FiPlus size={14} />
           New View Mode
         </button>
       </div>
 
-      <section className="min-h-[8rem] flex-1 overflow-hidden rounded border border-setta-200/60 p-2 dark:border-setta-800/70">
-        <div className="mb-1 flex items-center justify-between">
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-setta-400">
-            View Modes
-          </h3>
-          <span className="text-[10px] uppercase tracking-[0.14em] text-setta-400">
-            {viewModeList.length}
-          </span>
-        </div>
-        <div className="h-[calc(100%_-_1.5rem)] overflow-y-auto pr-1">
-          {!hasViewModes && (
-            <div className="rounded border border-dashed border-setta-200 px-2 py-2 text-xs text-setta-500 dark:border-setta-800 dark:text-setta-400">
-              No view modes yet. Create one to start customizing visibility.
+      <div
+        ref={panesContainerRef}
+        className="flex min-h-0 flex-1 flex-col gap-0"
+      >
+        <section
+          className={`overflow-hidden rounded border border-setta-200/60 p-2 dark:border-setta-800/70 ${
+            isViewModesCollapsed ? "" : "min-h-[8rem] flex-1"
+          }`}
+        >
+          <div className="mb-1 flex items-center gap-2">
+            <button
+              type="button"
+              data-testid="view-modes-view-modes-toggle"
+              className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-setta-400 transition-colors hover:text-setta-600 dark:hover:text-setta-200"
+              onClick={() => setIsViewModesCollapsed((prev) => !prev)}
+              aria-expanded={!isViewModesCollapsed}
+              title={
+                isViewModesCollapsed
+                  ? "Expand view modes"
+                  : "Collapse view modes"
+              }
+            >
+              <FiChevronDown
+                className={`h-3.5 w-3.5 transition-transform ${
+                  isViewModesCollapsed ? "-rotate-90" : "rotate-0"
+                }`}
+              />
+              <span>View Modes</span>
+            </button>
+          </div>
+
+          {!isViewModesCollapsed && (
+            <div className="h-[calc(100%_-_1.5rem)] overflow-y-auto overflow-x-hidden pr-1">
+              {!hasViewModes && (
+                <div className="rounded border border-dashed border-setta-200 px-2 py-2 text-xs text-setta-500 dark:border-setta-800 dark:text-setta-400">
+                  No view modes yet. Create one to start customizing visibility.
+                </div>
+              )}
+
+              <ViewModeSortableProvider
+                id="overview-view-modes-sortable"
+                items={viewModeList.map((mode) => mode.id)}
+                direction="vertical"
+                onReorder={handleReorder}
+              >
+                <div className="flex w-full min-w-0 flex-col gap-0">
+                  {viewModeList.map((mode) => {
+                    const isActive = activeViewModeId === mode.id;
+                    if (isEditingViewMode) {
+                      return (
+                        <ViewModeEditingRow
+                          key={mode.id}
+                          mode={mode}
+                          isActive={isActive}
+                          isDeletable={canDeleteViewModes}
+                          projectConfigId={projectConfigId}
+                          onSelect={handleModeChange}
+                          onToggleTab={handleToggleTab}
+                          onToggleUserFacing={handleToggleUserFacing}
+                          canEditVariants={canEditVariants}
+                          canEditStructure={canEditStructure}
+                          sortableEnabled={canEditStructure}
+                        />
+                      );
+                    }
+
+                    return (
+                      <ViewModeRow
+                        key={mode.id}
+                        mode={mode}
+                        isActive={isActive}
+                        onSelect={handleModeChange}
+                        disabled={!canEditVariants}
+                        sortableEnabled={canEditStructure}
+                      />
+                    );
+                  })}
+                </div>
+              </ViewModeSortableProvider>
             </div>
           )}
+        </section>
 
-          <ViewModeSortableProvider
-            id="overview-view-modes-sortable"
-            items={viewModeList.map((mode) => mode.id)}
-            direction="vertical"
-            onReorder={handleReorder}
-          >
-            <div className="flex flex-col gap-2">
-              {viewModeList.map((mode) => {
-                const isActive = activeViewModeId === mode.id;
-                if (isEditingViewMode) {
-                  return (
-                    <ViewModeEditingRow
-                      key={mode.id}
-                      mode={mode}
-                      isActive={isActive}
-                      isDeletable={canDeleteViewModes}
-                      projectConfigId={projectConfigId}
-                      onSelect={handleModeChange}
-                      onToggleTab={handleToggleTab}
-                      onToggleUserFacing={handleToggleUserFacing}
-                      canEditVariants={canEditVariants}
-                      canEditStructure={canEditStructure}
-                      sortableEnabled={canEditStructure}
-                      onNativeReorder={handleReorder}
-                    />
-                  );
-                }
-
-                return (
-                  <ViewModeRow
-                    key={mode.id}
-                    mode={mode}
-                    isActive={isActive}
-                    onSelect={handleModeChange}
-                    disabled={!canEditVariants}
-                    sortableEnabled={canEditStructure}
-                    onNativeReorder={handleReorder}
-                  />
-                );
-              })}
+        {isProjectConfigsCollapsed ? (
+          <section className="mt-2 overflow-hidden rounded border border-setta-200/60 p-2 dark:border-setta-800/70">
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                data-testid="view-modes-project-configs-toggle"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-setta-400 transition-colors hover:text-setta-600 dark:hover:text-setta-200"
+                onClick={() => setIsProjectConfigsCollapsed(false)}
+                aria-expanded={false}
+                title="Expand project configs"
+              >
+                <FiChevronDown className="h-3.5 w-3.5 -rotate-90 transition-transform" />
+                <span>Project Configs</span>
+              </button>
+              <button
+                type="button"
+                data-testid="view-modes-project-configs-create"
+                className={`inline-flex items-center gap-1 rounded border px-2 py-[2px] text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors ${
+                  canEditStructure
+                    ? "border-setta-200 text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                    : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
+                }`}
+                onClick={() => {
+                  if (!canEditStructure) {
+                    return;
+                  }
+                  void createAndGoToProjectConfig();
+                }}
+                disabled={!canEditStructure}
+                title="Create and open a new project config"
+              >
+                <FiPlus size={11} />
+                New Project Config
+              </button>
             </div>
-          </ViewModeSortableProvider>
-        </div>
-      </section>
-
-      <section className="rounded border border-setta-200/60 p-2 dark:border-setta-800/70">
-        <div className="mb-1 flex items-center justify-between">
-          <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-setta-400">
-            Project Configs
-          </h3>
-          <button
-            type="button"
-            data-testid="view-modes-project-configs-toggle"
-            className="rounded border border-setta-200 px-2 py-[2px] text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-            onClick={() => setIsProjectConfigsMinimized((prev) => !prev)}
-          >
-            {isProjectConfigsMinimized ? "Show" : "Hide"}
-          </button>
-        </div>
-
-        {!isProjectConfigsMinimized && (
+          </section>
+        ) : (
           <Resizable
+            className="mt-2"
             size={{ width: "100%", height: projectConfigsHeight }}
-            minHeight={120}
-            maxHeight={460}
+            minHeight={PROJECT_CONFIGS_MIN_HEIGHT}
+            maxHeight={projectConfigsMaxHeight}
             enable={{
-              top: true,
+              top: !isViewModesCollapsed,
               right: false,
               bottom: false,
               left: false,
@@ -252,23 +359,73 @@ export function ViewingEditingMode({
               bottomLeft: false,
               topLeft: false,
             }}
-            handleStyles={{ top: { top: "-4px" } }}
-            handleClasses={{
-              top: "h-2 cursor-row-resize bg-transparent hover:bg-blue-500/20",
+            handleComponent={{
+              top: (
+                <div
+                  data-testid="view-modes-project-configs-resize-handle"
+                  className="group flex h-3 cursor-row-resize select-none items-center justify-center border-0 outline-none"
+                  title="Drag to resize project configs"
+                >
+                  <div className="h-[2px] w-20 rounded-full bg-setta-500/70 transition-colors group-hover:bg-blue-500 dark:bg-setta-500 dark:group-hover:bg-blue-300" />
+                </div>
+              ),
+            }}
+            handleStyles={{
+              top: {
+                top: "-9px",
+              },
+            }}
+            onResize={(_event, _direction, elementRef) => {
+              updateProjectConfigsHeight(elementRef.offsetHeight);
             }}
             onResizeStop={(_event, _direction, elementRef) => {
-              setProjectConfigsHeight(elementRef.offsetHeight);
+              updateProjectConfigsHeight(elementRef.offsetHeight);
             }}
           >
-            <div
-              className="h-full min-h-0 overflow-y-auto rounded border border-setta-200/70 p-2 dark:border-setta-800/80"
-              data-testid="view-modes-project-configs-section"
-            >
-              <ProjectConfigs />
-            </div>
+            <section className="flex h-full min-h-0 flex-col overflow-hidden rounded border border-setta-200/60 p-2 dark:border-setta-800/70">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  data-testid="view-modes-project-configs-toggle"
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-setta-400 transition-colors hover:text-setta-600 dark:hover:text-setta-200"
+                  onClick={() => setIsProjectConfigsCollapsed(true)}
+                  aria-expanded
+                  title="Collapse project configs"
+                >
+                  <FiChevronDown className="h-3.5 w-3.5 transition-transform" />
+                  <span>Project Configs</span>
+                </button>
+                <button
+                  type="button"
+                  data-testid="view-modes-project-configs-create"
+                  className={`inline-flex items-center gap-1 rounded border px-2 py-[2px] text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors ${
+                    canEditStructure
+                      ? "border-setta-200 text-setta-500 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                      : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
+                  }`}
+                  onClick={() => {
+                    if (!canEditStructure) {
+                      return;
+                    }
+                    void createAndGoToProjectConfig();
+                  }}
+                  disabled={!canEditStructure}
+                  title="Create and open a new project config"
+                >
+                  <FiPlus size={11} />
+                  New Project Config
+                </button>
+              </div>
+              <div
+                className="min-h-0 flex-1"
+                data-testid="view-modes-project-configs-section"
+              >
+                <ProjectConfigs />
+              </div>
+            </section>
           </Resizable>
         )}
-      </section>
+      </div>
     </div>
   );
 }
@@ -279,7 +436,6 @@ type ViewModeRowProps = {
   onSelect: (modeId: string) => void;
   disabled: boolean;
   sortableEnabled: boolean;
-  onNativeReorder: (activeId: string, overId: string) => void;
 };
 
 function ViewModeRow({
@@ -288,9 +444,12 @@ function ViewModeRow({
   onSelect,
   disabled,
   sortableEnabled,
-  onNativeReorder,
 }: ViewModeRowProps) {
-  const sortable = useViewModeSortableItem(mode.id, !sortableEnabled);
+  const sortable = useViewModeSortableItem(
+    mode.id,
+    !sortableEnabled,
+    "vertical",
+  );
   let modeLabel = mode.name;
   if (!modeLabel) {
     modeLabel = "Untitled View";
@@ -299,61 +458,45 @@ function ViewModeRow({
   if (mode.isUserFacing) {
     icon = <TbUser size={18} />;
   }
-  const baseClasses = "flex items-center gap-2 rounded p-2 text-xs transition-all";
-  const activeClasses = "bg-white text-blue-600 shadow-sm dark:bg-setta-800";
+  const baseClasses =
+    "box-border flex h-8 w-full min-w-0 items-center gap-2 rounded-md border border-transparent px-2 text-xs transition-colors";
+  const activeClasses =
+    "border-blue-500/40 bg-white text-blue-600 dark:border-blue-500/35 dark:bg-setta-800 dark:text-blue-300";
   const inactiveClasses =
-    "text-setta-700 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800/50";
+    "text-setta-700 hover:border-setta-500/30 hover:bg-setta-100 dark:text-setta-300 dark:hover:border-setta-500/30 dark:hover:bg-setta-800/50";
   const rowClasses = isActive
     ? `${baseClasses} ${activeClasses}`
     : `${baseClasses} ${inactiveClasses}`;
   const iconClasses = isActive
-    ? "text-blue-600 dark:text-blue-400"
+    ? "text-blue-600 dark:text-blue-300"
     : "text-setta-500 dark:text-setta-400";
-  const dragClasses = sortableEnabled ? "cursor-grab active:cursor-grabbing" : "";
-
   return (
     <button
       ref={sortable.setNodeRef}
       data-testid="overview-view-mode-row"
       data-view-mode-id={mode.id}
-      className={`${rowClasses} ${dragClasses}`}
+      className={rowClasses}
       style={sortable.style}
-      draggable={sortableEnabled}
-      onDragStart={(event) => {
-        if (!sortableEnabled) {
-          return;
-        }
-        event.dataTransfer.setData(VIEW_MODE_DRAG_MIME, mode.id);
-        event.dataTransfer.effectAllowed = "move";
-      }}
-      onDragOver={(event) => {
-        if (!sortableEnabled) {
-          return;
-        }
-        event.preventDefault();
-      }}
-      onDrop={(event) => {
-        if (!sortableEnabled) {
-          return;
-        }
-        event.preventDefault();
-        const draggedId = event.dataTransfer.getData(VIEW_MODE_DRAG_MIME);
-        if (!draggedId || draggedId === mode.id) {
-          return;
-        }
-        onNativeReorder(draggedId, mode.id);
-      }}
-      {...sortable.attributes}
-      {...sortable.listeners}
       onClick={disabled ? undefined : () => onSelect(mode.id)}
       title={modeLabel}
       disabled={disabled}
     >
       {sortableEnabled && (
-        <HiOutlineBars3 className="h-3.5 w-3.5 shrink-0 text-setta-400 dark:text-setta-500" />
+        <span
+          ref={sortable.setActivatorNodeRef}
+          data-testid="overview-view-mode-drag-handle"
+          className="inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
+          {...sortable.attributes}
+          {...sortable.listeners}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
+        </span>
       )}
-      <span className={`flex items-center justify-center ${iconClasses}`}>{icon}</span>
-      <span className="truncate">{modeLabel}</span>
+      <span className={`flex items-center justify-center ${iconClasses}`}>
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1 truncate text-left">{modeLabel}</span>
     </button>
   );
 }
@@ -369,7 +512,6 @@ type ViewModeEditingRowProps = {
   canEditVariants: boolean;
   canEditStructure: boolean;
   sortableEnabled: boolean;
-  onNativeReorder: (activeId: string, overId: string) => void;
 };
 
 function ViewModeEditingRow({
@@ -383,9 +525,12 @@ function ViewModeEditingRow({
   canEditVariants,
   canEditStructure,
   sortableEnabled,
-  onNativeReorder,
 }: ViewModeEditingRowProps) {
-  const sortable = useViewModeSortableItem(mode.id, !sortableEnabled);
+  const sortable = useViewModeSortableItem(
+    mode.id,
+    !sortableEnabled,
+    "vertical",
+  );
   const normalizeName = (value: string) => value.trim();
 
   function onSetName(name: string) {
@@ -495,16 +640,22 @@ function ViewModeEditingRow({
   const handleInputClick = (event: React.MouseEvent<HTMLInputElement>) => {
     event.stopPropagation();
   };
+  const stopDragPointerDown = (event: React.PointerEvent<HTMLElement>) => {
+    event.stopPropagation();
+  };
 
   const baseClasses =
-    "section-key-value group/viewmode flex cursor-pointer items-center gap-2 rounded border px-2 py-1 text-xs transition-colors";
+    "section-key-value group/viewmode box-border flex h-8 w-full min-w-0 cursor-pointer items-center gap-2 rounded border px-2 text-xs transition-colors";
   const activeClasses =
-    "border-blue-500/70 bg-blue-500/10 text-setta-700 dark:text-setta-200";
+    "border-blue-500/70 bg-blue-500/10 text-blue-700 dark:text-blue-300";
   const inactiveClasses =
     "border-setta-200 text-setta-600 hover:border-setta-500/70 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500/70";
   const rowClasses = isActive
     ? `${baseClasses} ${activeClasses}`
     : `${baseClasses} ${inactiveClasses}`;
+  const inputClasses = isActive
+    ? "flex-1 truncate bg-transparent text-blue-700 focus:text-blue-700 focus:outline-none focus:ring-0 dark:text-blue-300 dark:focus:text-blue-200"
+    : "flex-1 truncate bg-transparent text-setta-500 focus:text-setta-900 focus:outline-none focus:ring-0 dark:text-setta-400 dark:focus:text-setta-100";
 
   let userFacingClasses = "text-setta-400 hover:text-setta-600";
   let userFacingIcon = <HiCode size={16} />;
@@ -523,47 +674,28 @@ function ViewModeEditingRow({
   }
 
   const rowClick = canEditVariants ? () => onSelect(mode.id) : undefined;
-  const dragClasses = sortableEnabled ? "cursor-grab active:cursor-grabbing" : "";
   return (
     <div
       ref={sortable.setNodeRef}
       data-testid="overview-view-mode-edit-row"
       data-view-mode-id={mode.id}
       style={sortable.style}
-      {...sortable.attributes}
-      {...sortable.listeners}
-      draggable={sortableEnabled}
-      onDragStart={(event) => {
-        if (!sortableEnabled) {
-          return;
-        }
-        event.dataTransfer.setData(VIEW_MODE_DRAG_MIME, mode.id);
-        event.dataTransfer.effectAllowed = "move";
-      }}
-      onDragOver={(event) => {
-        if (!sortableEnabled) {
-          return;
-        }
-        event.preventDefault();
-      }}
-      onDrop={(event) => {
-        if (!sortableEnabled) {
-          return;
-        }
-        event.preventDefault();
-        const draggedId = event.dataTransfer.getData(VIEW_MODE_DRAG_MIME);
-        if (!draggedId || draggedId === mode.id) {
-          return;
-        }
-        onNativeReorder(draggedId, mode.id);
-      }}
-      className={`${rowClasses} ${dragClasses} ${
+      className={`${rowClasses} ${
         canEditVariants ? "" : "cursor-not-allowed opacity-60"
       }`}
       onClick={rowClick}
     >
       {sortableEnabled && (
-        <HiOutlineBars3 className="h-3.5 w-3.5 shrink-0 text-setta-400 dark:text-setta-500" />
+        <span
+          ref={sortable.setActivatorNodeRef}
+          data-testid="overview-view-mode-edit-drag-handle"
+          className="inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
+          {...sortable.attributes}
+          {...sortable.listeners}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
+        </span>
       )}
       <input
         value={inputValue}
@@ -571,13 +703,15 @@ function ViewModeEditingRow({
         onBlur={onBlur}
         onKeyDown={onKeyDown}
         onClick={handleInputClick}
+        onPointerDown={stopDragPointerDown}
         placeholder="View mode name"
-        className="flex-1 truncate bg-transparent text-setta-500 focus:text-setta-900 focus:outline-none focus:ring-0 dark:text-setta-400 dark:focus:text-setta-100"
+        className={inputClasses}
         disabled={!canEditStructure}
       />
       <button
         className={`cursor-pointer bg-transparent ${tabClasses}`}
         onClick={handleToggleTab}
+        onPointerDown={stopDragPointerDown}
         title={tabTitle}
         disabled={!canEditStructure}
       >
@@ -586,6 +720,7 @@ function ViewModeEditingRow({
       <button
         className={`cursor-pointer bg-transparent ${userFacingClasses}`}
         onClick={handleToggleUserFacing}
+        onPointerDown={stopDragPointerDown}
         title={userFacingTitle}
         disabled={!canEditStructure}
       >
@@ -595,6 +730,7 @@ function ViewModeEditingRow({
         <button
           className="cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/viewmode:text-setta-400/50"
           onClick={handleDelete}
+          onPointerDown={stopDragPointerDown}
           title="Delete view mode"
           disabled={!canEditStructure}
         >
