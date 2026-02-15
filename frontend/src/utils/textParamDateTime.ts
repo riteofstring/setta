@@ -136,11 +136,13 @@ export function normalizeDateToIso(
   if (displayFormat === DateDisplayFormatEnum.long) {
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) {
-      return normalizeDateParts(
-        parsed.getUTCFullYear(),
-        parsed.getUTCMonth() + 1,
-        parsed.getUTCDate(),
-      ) ?? "";
+      return (
+        normalizeDateParts(
+          parsed.getUTCFullYear(),
+          parsed.getUTCMonth() + 1,
+          parsed.getUTCDate(),
+        ) ?? ""
+      );
     }
   }
   return "";

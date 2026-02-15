@@ -2,9 +2,9 @@ import * as XLSX from "xlsx/xlsx.mjs";
 
 const DEFAULT_SHEET_NAME = "Sheet1";
 
-export const SPREADSHEET_EXTENSIONS = new Set(["csv", "tsv", "xlsx", "xls"]);
+const SPREADSHEET_EXTENSIONS = new Set(["csv", "tsv", "xlsx", "xls"]);
 
-export type SpreadsheetData = {
+type SpreadsheetData = {
   fileExtension: string;
   sheetName: string;
   rows: string[][];
@@ -129,8 +129,7 @@ export function serializeSpreadsheetBytes(
 ): Uint8Array {
   const extension = getExtension(filePath);
   const trimmedRows = trimTrailingEmptyRows(rows);
-  const rowsToWrite =
-    trimmedRows.length > 0 ? trimmedRows : [[""]];
+  const rowsToWrite = trimmedRows.length > 0 ? trimmedRows : [[""]];
   const workbook = XLSX.utils.book_new();
   const worksheet = XLSX.utils.aoa_to_sheet(rowsToWrite);
   XLSX.utils.book_append_sheet(

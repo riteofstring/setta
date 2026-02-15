@@ -1,6 +1,6 @@
+import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
-import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import _ from "lodash";
 import {
   useEffect,

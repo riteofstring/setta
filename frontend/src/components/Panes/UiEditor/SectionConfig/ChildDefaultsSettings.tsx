@@ -23,7 +23,9 @@ const DISALLOWED_CHILD_DEFAULTS = new Set<SectionType>([
   SectionTypeEnum.GenPythonMetadata,
 ]);
 
-const CHILD_SECTION_TYPE_OPTIONS = (Object.values(SectionTypeEnum) as Array<SectionType>)
+const CHILD_SECTION_TYPE_OPTIONS = (
+  Object.values(SectionTypeEnum) as Array<SectionType>
+)
   .filter((type) => !DISALLOWED_CHILD_DEFAULTS.has(type))
   .map((type) => ({ value: type, label: type }));
 
@@ -65,9 +67,13 @@ export function ChildDefaultsSettings({ sectionId }: { sectionId: string }) {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         if (sectionType === SectionTypeEnum.ListRoot) {
-          setCurrEffectiveSectionImplValue<"ListRootSection">(state, sectionId, {
-            defaultChildSectionType: nextType,
-          });
+          setCurrEffectiveSectionImplValue<"ListRootSection">(
+            state,
+            sectionId,
+            {
+              defaultChildSectionType: nextType,
+            },
+          );
           return;
         }
         setCurrEffectiveSectionImplValue<"GroupSection">(state, sectionId, {
@@ -126,30 +132,31 @@ export function ChildDefaultsSettings({ sectionId }: { sectionId: string }) {
           </option>
         ))}
       </select>
-      {sectionType === SectionTypeEnum.ListRoot && listRootViewMode !== null && (
-        <>
-          <p className="mt-1 text-xs font-bold text-setta-700 dark:text-setta-300">
-            List Root View
-          </p>
-          <p className="text-[11px] text-setta-500 dark:text-setta-400">
-            Switch between stacked, task-list, and kanban-style child layouts.
-          </p>
-          <select
-            className="rounded-md border border-setta-300 bg-white px-2 py-1 text-xs text-setta-700 focus-visible:border-blue-400 focus-visible:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
-            value={listRootViewMode}
-            onChange={(event) =>
-              onChangeListRootViewMode(event.target.value as ListRootViewMode)
-            }
-            disabled={isFrozen || !canEditStructure}
-          >
-            {LIST_ROOT_VIEW_MODE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </>
-      )}
+      {sectionType === SectionTypeEnum.ListRoot &&
+        listRootViewMode !== null && (
+          <>
+            <p className="mt-1 text-xs font-bold text-setta-700 dark:text-setta-300">
+              List Root View
+            </p>
+            <p className="text-[11px] text-setta-500 dark:text-setta-400">
+              Switch between stacked, task-list, and kanban-style child layouts.
+            </p>
+            <select
+              className="rounded-md border border-setta-300 bg-white px-2 py-1 text-xs text-setta-700 focus-visible:border-blue-400 focus-visible:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
+              value={listRootViewMode}
+              onChange={(event) =>
+                onChangeListRootViewMode(event.target.value as ListRootViewMode)
+              }
+              disabled={isFrozen || !canEditStructure}
+            >
+              {LIST_ROOT_VIEW_MODE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </>
+        )}
     </div>
   );
 }

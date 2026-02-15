@@ -1,8 +1,8 @@
-export const TEXT_BLOCK_FONT_SIZE_MIN = 8;
-export const TEXT_BLOCK_FONT_SIZE_MAX = 48;
-export const TEXT_BLOCK_FONT_SIZE_DEFAULT = 14;
+const TEXT_BLOCK_FONT_SIZE_MIN = 8;
+const TEXT_BLOCK_FONT_SIZE_MAX = 48;
+const TEXT_BLOCK_FONT_SIZE_DEFAULT = 14;
 
-export type TextBlockTypographyScale = {
+type TextBlockTypographyScale = {
   bodyPx: number;
   codePx: number;
   h1Px: number;

@@ -61,21 +61,29 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
 
   const isDisabled = isFrozen || !canEditLayout;
   const normalizedState = useMemo(
-    () => normalizeTaskBoardState(toTaskBoardState({ viewMode, columns, tasks })),
+    () =>
+      normalizeTaskBoardState(toTaskBoardState({ viewMode, columns, tasks })),
     [viewMode, columns, tasks],
   );
-  const lanes = useMemo(() => buildTaskBoardLanes(normalizedState), [normalizedState]);
+  const lanes = useMemo(
+    () => buildTaskBoardLanes(normalizedState),
+    [normalizedState],
+  );
   const [newTaskTitle, setNewTaskTitle] = useState("");
 
   const persistState = useCallback(
     (next: TaskBoardState) => {
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
-          setCurrEffectiveSectionImplValue<"TaskBoardSection">(state, sectionId, {
-            viewMode: next.viewMode,
-            columns: next.columns,
-            tasks: next.tasks,
-          });
+          setCurrEffectiveSectionImplValue<"TaskBoardSection">(
+            state,
+            sectionId,
+            {
+              viewMode: next.viewMode,
+              columns: next.columns,
+              tasks: next.tasks,
+            },
+          );
         },
         send: (frontendOpId) =>
           route_set_task_board_section_state({
@@ -105,7 +113,8 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
         return;
       }
       const title = newTaskTitle.trim();
-      const defaultColumnId = columnId ?? normalizedState.columns[0]?.id ?? null;
+      const defaultColumnId =
+        columnId ?? normalizedState.columns[0]?.id ?? null;
       if (!defaultColumnId) {
         return;
       }
@@ -121,7 +130,13 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
         tasks: [...current.tasks, task],
       }));
     },
-    [isDisabled, newTaskTitle, normalizedState.columns, normalizedState.tasks, updateState],
+    [
+      isDisabled,
+      newTaskTitle,
+      normalizedState.columns,
+      normalizedState.tasks,
+      updateState,
+    ],
   );
 
   const addColumn = useCallback(() => {
@@ -346,7 +361,9 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
                       type="color"
                       value={lane.column.color}
                       onChange={(event) =>
-                        updateColumn(lane.column.id, { color: event.target.value })
+                        updateColumn(lane.column.id, {
+                          color: event.target.value,
+                        })
                       }
                       disabled={isDisabled}
                       className="h-6 w-8 cursor-pointer rounded border border-setta-200 bg-transparent p-0 disabled:opacity-50 dark:border-setta-700"
@@ -378,7 +395,9 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
                           type="checkbox"
                           checked={task.completed}
                           onChange={(event) =>
-                            updateTask(task.id, { completed: event.target.checked })
+                            updateTask(task.id, {
+                              completed: event.target.checked,
+                            })
                           }
                           disabled={isDisabled}
                         />
@@ -401,7 +420,9 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
                           type="date"
                           value={task.dueDateIso}
                           onChange={(event) =>
-                            updateTask(task.id, { dueDateIso: event.target.value })
+                            updateTask(task.id, {
+                              dueDateIso: event.target.value,
+                            })
                           }
                           disabled={isDisabled}
                           className="min-w-0 flex-1 rounded border border-setta-200 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"

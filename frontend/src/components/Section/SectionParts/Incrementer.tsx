@@ -25,7 +25,8 @@ export function Incrementer({
   const { variantIsFrozen, defaultChildSectionType } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
     const defaultChildSectionType =
-      impl.type === SectionTypeEnum.ListRoot || impl.type === SectionTypeEnum.Group
+      impl.type === SectionTypeEnum.ListRoot ||
+      impl.type === SectionTypeEnum.Group
         ? impl.defaultChildSectionType
         : SectionTypeEnum.Callable;
     return {

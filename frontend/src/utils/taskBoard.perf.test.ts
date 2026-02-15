@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
 import {
   createTaskBoardColumn,
   createTaskBoardTask,
   TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
 import { buildTaskBoardLanes, normalizeTaskBoardState } from "./taskBoard";
 
 describe("task board performance", () => {

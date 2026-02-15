@@ -14,7 +14,10 @@ export function setFileBrowserDragPayload(
 ) {
   const serialized = JSON.stringify(payload);
   dataTransfer.setData(FILE_BROWSER_DRAG_MIME_TYPE, serialized);
-  dataTransfer.setData("text/plain", `${FILE_BROWSER_DRAG_TEXT_PREFIX}${serialized}`);
+  dataTransfer.setData(
+    "text/plain",
+    `${FILE_BROWSER_DRAG_TEXT_PREFIX}${serialized}`,
+  );
 }
 
 function parsePayload(value: string | null): FileBrowserDragPayload | null {

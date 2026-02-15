@@ -64,6 +64,7 @@ import { resolvePathWithinRoot } from "utils/browserPaths";
 import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
+import { setFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import {
   filterFileBrowserFolderItems,
   parseFileBrowserFilterText,
@@ -90,7 +91,6 @@ import {
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { setFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
 import { isSpreadsheetPath } from "utils/spreadsheet";
 import { clamp } from "utils/utils";
 
@@ -767,7 +767,7 @@ function ViewSwitch({
       }
       if (previewKind === "spreadsheet") {
         return (
-          <div className="h-full w-full min-h-0">
+          <div className="h-full min-h-0 w-full">
             <FileBrowserSpreadsheetEditor
               selectedFile={{
                 name: data.name,

@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
 import {
   createTaskBoardColumn,
   createTaskBoardTask,
   TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
 import {
   buildTaskBoardLanes,
   getNextColumnSortIndex,
@@ -25,7 +25,11 @@ describe("taskBoard utils", () => {
   });
 
   it("normalizes task column assignments and ordering", () => {
-    const todo = createTaskBoardColumn({ id: "todo", name: "Todo", sortIndex: 2 });
+    const todo = createTaskBoardColumn({
+      id: "todo",
+      name: "Todo",
+      sortIndex: 2,
+    });
     const doing = createTaskBoardColumn({
       id: "doing",
       name: "Doing",
@@ -67,14 +71,32 @@ describe("taskBoard utils", () => {
   });
 
   it("builds lanes with grouped tasks", () => {
-    const todo = createTaskBoardColumn({ id: "todo", name: "Todo", sortIndex: 0 });
-    const done = createTaskBoardColumn({ id: "done", name: "Done", sortIndex: 1 });
+    const todo = createTaskBoardColumn({
+      id: "todo",
+      name: "Todo",
+      sortIndex: 0,
+    });
+    const done = createTaskBoardColumn({
+      id: "done",
+      name: "Done",
+      sortIndex: 1,
+    });
     const lanes = buildTaskBoardLanes({
       viewMode: TaskBoardViewModeEnum.kanban,
       columns: [todo, done],
       tasks: [
-        createTaskBoardTask({ id: "a", title: "A", columnId: "todo", sortIndex: 0 }),
-        createTaskBoardTask({ id: "b", title: "B", columnId: "done", sortIndex: 1 }),
+        createTaskBoardTask({
+          id: "a",
+          title: "A",
+          columnId: "todo",
+          sortIndex: 0,
+        }),
+        createTaskBoardTask({
+          id: "b",
+          title: "B",
+          columnId: "done",
+          sortIndex: 1,
+        }),
       ],
     });
 

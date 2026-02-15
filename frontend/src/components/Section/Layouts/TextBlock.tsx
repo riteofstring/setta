@@ -12,12 +12,12 @@ import { useProjectState } from "state/definitions";
 import { useIsScrollable } from "state/hooks/sectionSizes";
 import { getTextBlockText } from "state/hooks/sectionVariants";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
 import {
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
 } from "utils/generatedTypes";
+import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
 
 function _TextBlock({ sectionId }) {
   const textDisplayMode = useProjectState((x) => {
@@ -73,7 +73,7 @@ function _Markdown({ sectionId }) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
-        className={`prose-headings: prose min-w-[100%] [flex:1_1_auto] dark:prose-invert prose-headings:tracking-tighter ${proseContrastClassName} prose-code:before:hidden prose-code:after:hidden prose-p:text-[length:var(--setta-textblock-body-size)] prose-li:text-[length:var(--setta-textblock-body-size)] prose-code:text-[length:var(--setta-textblock-code-size)] prose-pre:text-[length:var(--setta-textblock-code-size)] prose-h1:text-[length:var(--setta-textblock-h1-size)] prose-h2:text-[length:var(--setta-textblock-h2-size)] prose-h3:text-[length:var(--setta-textblock-h3-size)] prose-h4:text-[length:var(--setta-textblock-h4-size)] prose-h5:text-[length:var(--setta-textblock-h5-size)] prose-h6:text-[length:var(--setta-textblock-h6-size)] [&_*]:[word-wrap:break-word]`}
+        className={`prose-headings: prose min-w-[100%] [flex:1_1_auto] dark:prose-invert prose-headings:tracking-tighter ${proseContrastClassName} prose-h1:text-[length:var(--setta-textblock-h1-size)] prose-h2:text-[length:var(--setta-textblock-h2-size)] prose-h3:text-[length:var(--setta-textblock-h3-size)] prose-h4:text-[length:var(--setta-textblock-h4-size)] prose-h5:text-[length:var(--setta-textblock-h5-size)] prose-h6:text-[length:var(--setta-textblock-h6-size)] prose-p:text-[length:var(--setta-textblock-body-size)] prose-code:text-[length:var(--setta-textblock-code-size)] prose-code:before:hidden prose-code:after:hidden prose-pre:text-[length:var(--setta-textblock-code-size)] prose-li:text-[length:var(--setta-textblock-body-size)] [&_*]:[word-wrap:break-word]`}
         components={{
           code: CodeBlock,
         }}

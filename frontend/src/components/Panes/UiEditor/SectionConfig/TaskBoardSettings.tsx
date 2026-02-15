@@ -84,7 +84,8 @@ export function TaskBoardSettings({ sectionId }: { sectionId: string }) {
         </select>
       </label>
       <p className="text-[11px] text-setta-500 dark:text-setta-400">
-        {normalized.tasks.length} tasks across {normalized.columns.length} columns.
+        {normalized.tasks.length} tasks across {normalized.columns.length}{" "}
+        columns.
       </p>
     </div>
   );

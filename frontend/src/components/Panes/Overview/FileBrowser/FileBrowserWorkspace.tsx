@@ -106,7 +106,10 @@ export function FileBrowserWorkspace({
   );
 
   return (
-    <div ref={containerRef} className="flex h-full min-h-0 w-full min-w-0 flex-col pb-2">
+    <div
+      ref={containerRef}
+      className="flex h-full min-h-0 w-full min-w-0 flex-col pb-2"
+    >
       <div
         data-testid="file-browser-list-pane"
         className="min-h-[220px] min-w-0 shrink-0"
@@ -141,7 +144,11 @@ export function FileBrowserWorkspace({
           onClick={() => setIsPreviewMinimized((prev) => !prev)}
           aria-expanded={!isPreviewMinimized}
         >
-          {isPreviewMinimized ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />}
+          {isPreviewMinimized ? (
+            <FiChevronUp size={12} />
+          ) : (
+            <FiChevronDown size={12} />
+          )}
           {isPreviewMinimized ? "Expand" : "Minimize"}
         </button>
       </div>

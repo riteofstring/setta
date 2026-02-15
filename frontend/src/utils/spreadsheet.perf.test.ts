@@ -1,6 +1,9 @@
-import * as XLSX from "xlsx/xlsx.mjs";
 import { describe, expect, it } from "vitest";
-import { parseSpreadsheetBytes, serializeSpreadsheetBytes } from "./spreadsheet";
+import * as XLSX from "xlsx/xlsx.mjs";
+import {
+  parseSpreadsheetBytes,
+  serializeSpreadsheetBytes,
+} from "./spreadsheet";
 
 function buildLargeSheet(rows: number, columns: number): string[][] {
   return Array.from({ length: rows }, (_, rowIndex) =>

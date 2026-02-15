@@ -401,7 +401,7 @@ export async function openFileInSpreadsheetSection({
   return newSectionId;
 }
 
-export type OpenFileAsSectionResult =
+type OpenFileAsSectionResult =
   | { status: "opened"; sectionId: string }
   | { status: "unsupported_binary" }
   | { status: "failed" };

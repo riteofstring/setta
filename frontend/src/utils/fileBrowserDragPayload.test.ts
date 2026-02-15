@@ -60,7 +60,7 @@ describe("fileBrowserDragPayload", () => {
 
   it("returns null for invalid payloads", () => {
     const transfer = createMockDataTransfer();
-    transfer.setData(FILE_BROWSER_DRAG_MIME_TYPE, "{\"name\":1}");
+    transfer.setData(FILE_BROWSER_DRAG_MIME_TYPE, '{"name":1}');
 
     expect(
       getFileBrowserDragPayload(transfer as unknown as DataTransfer),

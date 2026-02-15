@@ -1,7 +1,7 @@
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
 import { isSpreadsheetPath } from "utils/spreadsheet";
 
-export type FileDropSectionKind =
+type FileDropSectionKind =
   | "spreadsheet"
   | "image"
   | "code"

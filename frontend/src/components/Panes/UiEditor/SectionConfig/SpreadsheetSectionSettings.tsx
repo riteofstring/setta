@@ -14,23 +14,32 @@ import {
   SpreadsheetGridDensityEnum,
 } from "utils/generatedTypes";
 
-export function SpreadsheetSectionSettings({ sectionId }: { sectionId: string }) {
+export function SpreadsheetSectionSettings({
+  sectionId,
+}: {
+  sectionId: string;
+}) {
   const { canEditLayout } = useShareCapabilities();
-  const { readOnly, showRowNumbers, density, autoReloadOnExternalChange, isFrozen } =
-    useProjectState((state) => {
-      const impl = getCurrEffectiveSectionImplOfType(
-        state,
-        sectionId,
-        SectionTypeEnum.Spreadsheet,
-      );
-      return {
-        readOnly: impl.readOnly,
-        showRowNumbers: impl.showRowNumbers,
-        density: impl.density,
-        autoReloadOnExternalChange: impl.autoReloadOnExternalChange,
-        isFrozen: impl.isFrozen,
-      };
-    }, _.isEqual);
+  const {
+    readOnly,
+    showRowNumbers,
+    density,
+    autoReloadOnExternalChange,
+    isFrozen,
+  } = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      state,
+      sectionId,
+      SectionTypeEnum.Spreadsheet,
+    );
+    return {
+      readOnly: impl.readOnly,
+      showRowNumbers: impl.showRowNumbers,
+      density: impl.density,
+      autoReloadOnExternalChange: impl.autoReloadOnExternalChange,
+      isFrozen: impl.isFrozen,
+    };
+  }, _.isEqual);
 
   const isDisabled = isFrozen || !canEditLayout;
 
@@ -42,12 +51,16 @@ export function SpreadsheetSectionSettings({ sectionId }: { sectionId: string })
   }) {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveSectionImplValue<"SpreadsheetSection">(state, sectionId, {
-          readOnly: next.readOnly,
-          showRowNumbers: next.showRowNumbers,
-          density: next.density,
-          autoReloadOnExternalChange: next.autoReloadOnExternalChange,
-        });
+        setCurrEffectiveSectionImplValue<"SpreadsheetSection">(
+          state,
+          sectionId,
+          {
+            readOnly: next.readOnly,
+            showRowNumbers: next.showRowNumbers,
+            density: next.density,
+            autoReloadOnExternalChange: next.autoReloadOnExternalChange,
+          },
+        );
       },
       send: (frontendOpId) =>
         route_set_spreadsheet_section_settings({
@@ -88,7 +101,9 @@ export function SpreadsheetSectionSettings({ sectionId }: { sectionId: string })
           className="mt-1 w-full rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-700 outline-none focus-visible:border-blue-400 disabled:opacity-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
         >
           <option value={SpreadsheetGridDensityEnum.compact}>Compact</option>
-          <option value={SpreadsheetGridDensityEnum.comfortable}>Comfortable</option>
+          <option value={SpreadsheetGridDensityEnum.comfortable}>
+            Comfortable
+          </option>
         </select>
       </label>
 

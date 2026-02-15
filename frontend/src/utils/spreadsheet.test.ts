@@ -1,5 +1,5 @@
-import * as XLSX from "xlsx/xlsx.mjs";
 import { describe, expect, it } from "vitest";
+import * as XLSX from "xlsx/xlsx.mjs";
 import {
   getSpreadsheetColumnLabel,
   isSpreadsheetPath,

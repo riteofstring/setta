@@ -37,10 +37,10 @@ export const SPREADSHEET_HEADER_HEIGHT = 24;
 export const SPREADSHEET_ROW_HEIGHT = 22;
 export const SPREADSHEET_INDEX_COLUMN_WIDTH = 36;
 export const SPREADSHEET_DATA_COLUMN_WIDTH = 88;
-export const SPREADSHEET_COMFORTABLE_HEADER_HEIGHT = 28;
-export const SPREADSHEET_COMFORTABLE_ROW_HEIGHT = 26;
-export const SPREADSHEET_COMFORTABLE_INDEX_COLUMN_WIDTH = 44;
-export const SPREADSHEET_COMFORTABLE_DATA_COLUMN_WIDTH = 108;
+const SPREADSHEET_COMFORTABLE_HEADER_HEIGHT = 28;
+const SPREADSHEET_COMFORTABLE_ROW_HEIGHT = 26;
+const SPREADSHEET_COMFORTABLE_INDEX_COLUMN_WIDTH = 44;
+const SPREADSHEET_COMFORTABLE_DATA_COLUMN_WIDTH = 108;
 const SPREADSHEET_AUTO_RELOAD_INTERVAL_MS = 2000;
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const SPREADSHEET_GLIDE_MAX_DENSITY_MULTIPLIER = 6;
@@ -68,13 +68,13 @@ type SpreadsheetRowProps = SpreadsheetRowData & {
   style: CSSProperties;
 };
 
-export type SpreadsheetSelectedFile = {
+type SpreadsheetSelectedFile = {
   name: string;
   fullPath: string;
 };
 
-export type SpreadsheetGridMode = "dom" | "glide";
-export type SpreadsheetDensityMode = "compact" | "comfortable";
+type SpreadsheetGridMode = "dom" | "glide";
+type SpreadsheetDensityMode = "compact" | "comfortable";
 
 type SpreadsheetDensityMetrics = {
   headerHeight: number;

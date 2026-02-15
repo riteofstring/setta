@@ -8,8 +8,8 @@ import {
   route_get_file_browser_file_content,
 } from "utils/generatedEndpoints";
 import { isSpreadsheetPath } from "utils/spreadsheet";
-import { FileBrowserSpreadsheetEditor } from "./FileBrowserSpreadsheetEditor";
 import type { FileNode } from "./FileBrowserPane";
+import { FileBrowserSpreadsheetEditor } from "./FileBrowserSpreadsheetEditor";
 
 const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
 const TEXT_PREVIEW_MAX_BYTES = 1024 * 1024;
@@ -225,7 +225,10 @@ export function FileBrowserUniversalPreview({
 
   if (previewKind === "spreadsheet") {
     return (
-      <div data-testid="file-browser-universal-preview" className="h-full min-h-0">
+      <div
+        data-testid="file-browser-universal-preview"
+        className="h-full min-h-0"
+      >
         <FileBrowserSpreadsheetEditor selectedFile={selectedFile} />
       </div>
     );
@@ -326,7 +329,11 @@ export function FileBrowserUniversalPreview({
         data-testid="file-browser-universal-preview-pdf"
         className="h-full min-h-0 overflow-hidden rounded-lg border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/50"
       >
-        <iframe src={fileUrl} title={selectedFile.name} className="h-full w-full" />
+        <iframe
+          src={fileUrl}
+          title={selectedFile.name}
+          className="h-full w-full"
+        />
       </div>
     );
   }

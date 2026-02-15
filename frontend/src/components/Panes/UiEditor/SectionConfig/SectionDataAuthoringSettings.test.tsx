@@ -3,10 +3,8 @@ import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createCallableSectionImpl,
-  SectionTypeEnum,
   createCore,
   createListRootSectionImpl,
-  ListRootViewModeEnum,
   createProjectConfig,
   createSpreadsheetSectionImpl,
   createTaskBoardSectionImpl,
@@ -17,6 +15,8 @@ import {
   createUserDefaultTaskBoardSectionImpl,
   createUserDefaultTextBlockSectionImpl,
   createVariant,
+  ListRootViewModeEnum,
+  SectionTypeEnum,
   TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -113,13 +113,18 @@ describe("Section data-authoring settings", () => {
       sectionName: "TextBlock",
       variantId: "textblock-variant",
       implId,
-      impl: createTextBlockSectionImpl(createUserDefaultTextBlockSectionImpl(), {
-        id: implId,
-        masterFontSizePx: 19,
-      }),
+      impl: createTextBlockSectionImpl(
+        createUserDefaultTextBlockSectionImpl(),
+        {
+          id: implId,
+          masterFontSizePx: 19,
+        },
+      ),
     });
 
-    const markup = renderToStaticMarkup(<TextBlockSettings sectionId={sectionId} />);
+    const markup = renderToStaticMarkup(
+      <TextBlockSettings sectionId={sectionId} />,
+    );
     expect(markup).toContain("Master Font Size");
     expect(markup).toContain('type="range"');
     expect(markup).toContain("19px");
@@ -152,9 +157,9 @@ describe("Section data-authoring settings", () => {
     expect(markup).not.toContain('option value="GenPythonCode"');
     expect(markup).not.toContain('option value="GenPythonMetadata"');
     expect(markup).toContain("List Root View");
-    expect(markup).toContain("option value=\"default\"");
-    expect(markup).toContain("option value=\"task_list\" selected");
-    expect(markup).toContain("option value=\"kanban\"");
+    expect(markup).toContain('option value="default"');
+    expect(markup).toContain('option value="task_list" selected');
+    expect(markup).toContain('option value="kanban"');
   });
 
   it("renders callable string-args toggle in section config", () => {
@@ -171,7 +176,9 @@ describe("Section data-authoring settings", () => {
       }),
     });
 
-    const markup = renderToStaticMarkup(<EdgePortsSettings sectionId={sectionId} />);
+    const markup = renderToStaticMarkup(
+      <EdgePortsSettings sectionId={sectionId} />,
+    );
     expect(markup).toContain("String Args");
     expect(markup).toContain(
       "When enabled, string-typed code params accept unquoted values.",
@@ -186,16 +193,21 @@ describe("Section data-authoring settings", () => {
       sectionName: "TaskBoard",
       variantId: "task-board-variant",
       implId,
-      impl: createTaskBoardSectionImpl(createUserDefaultTaskBoardSectionImpl(), {
-        id: implId,
-        viewMode: TaskBoardViewModeEnum.task_list,
-      }),
+      impl: createTaskBoardSectionImpl(
+        createUserDefaultTaskBoardSectionImpl(),
+        {
+          id: implId,
+          viewMode: TaskBoardViewModeEnum.task_list,
+        },
+      ),
     });
 
-    const markup = renderToStaticMarkup(<TaskBoardSettings sectionId={sectionId} />);
+    const markup = renderToStaticMarkup(
+      <TaskBoardSettings sectionId={sectionId} />,
+    );
     expect(markup).toContain("Task Board");
     expect(markup).toContain("View mode");
-    expect(markup).toContain("option value=\"task_list\" selected");
+    expect(markup).toContain('option value="task_list" selected');
   });
 
   it("renders spreadsheet section settings", () => {

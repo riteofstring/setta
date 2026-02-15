@@ -5,7 +5,7 @@ import {
   TaskBoardViewMode,
 } from "utils/generatedTypes";
 
-export type TaskBoardLane = {
+type TaskBoardLane = {
   column: TaskBoardColumn;
   tasks: TaskBoardTask[];
 };
@@ -63,16 +63,14 @@ function normalizeTasks({
   validColumnIds: Set<string>;
   fallbackColumnId: string;
 }): TaskBoardTask[] {
-  return [...tasks]
-    .sort(compareTasks)
-    .map((task, index) => ({
-      ...task,
-      columnId:
-        task.columnId && validColumnIds.has(task.columnId)
-          ? task.columnId
-          : fallbackColumnId,
-      sortIndex: index,
-    }));
+  return [...tasks].sort(compareTasks).map((task, index) => ({
+    ...task,
+    columnId:
+      task.columnId && validColumnIds.has(task.columnId)
+        ? task.columnId
+        : fallbackColumnId,
+    sortIndex: index,
+  }));
 }
 
 export function normalizeTaskBoardState(state: TaskBoardState): TaskBoardState {

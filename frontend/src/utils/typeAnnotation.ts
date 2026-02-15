@@ -7,7 +7,9 @@ function isStringLikeTypeName(typeName: string): boolean {
 }
 
 function isNoneTypeName(typeName: string): boolean {
-  return typeName === "none" || typeName === "nonetype" || typeName === "noneType";
+  return (
+    typeName === "none" || typeName === "nonetype" || typeName === "noneType"
+  );
 }
 
 function splitUnionMembers(raw: string): string[] {

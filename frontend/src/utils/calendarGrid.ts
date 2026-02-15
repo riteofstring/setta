@@ -1,12 +1,12 @@
 import { CalendarWeekStart, CalendarWeekStartEnum } from "utils/generatedTypes";
 
-export type CalendarMonthCell = {
+type CalendarMonthCell = {
   isoDate: string;
   dayOfMonth: number;
   inCurrentMonth: boolean;
 };
 
-export type CalendarMonthAnchor = {
+type CalendarMonthAnchor = {
   year: number;
   monthIndex: number;
 };
@@ -21,7 +21,11 @@ function formatIsoDate(year: number, monthIndex: number, day: number): string {
   return `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
 }
 
-function isValidDateParts(year: number, monthIndex: number, day: number): boolean {
+function isValidDateParts(
+  year: number,
+  monthIndex: number,
+  day: number,
+): boolean {
   const date = new Date(Date.UTC(year, monthIndex, day));
   return (
     date.getUTCFullYear() === year &&
@@ -30,7 +34,9 @@ function isValidDateParts(year: number, monthIndex: number, day: number): boolea
   );
 }
 
-export function parseIsoDate(value: string): CalendarMonthAnchor & { day: number } | null {
+export function parseIsoDate(
+  value: string,
+): (CalendarMonthAnchor & { day: number }) | null {
   const match = ISO_DATE_REGEX.exec(value.trim());
   if (!match) {
     return null;
@@ -44,7 +50,7 @@ export function parseIsoDate(value: string): CalendarMonthAnchor & { day: number
   return { year, monthIndex, day };
 }
 
-export function getTodayIsoDate(date: Date = new Date()): string {
+function getTodayIsoDate(date: Date = new Date()): string {
   return formatIsoDate(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
@@ -69,7 +75,9 @@ export function shiftCalendarMonth(
   anchor: CalendarMonthAnchor,
   deltaMonths: number,
 ): CalendarMonthAnchor {
-  const shifted = new Date(Date.UTC(anchor.year, anchor.monthIndex + deltaMonths, 1));
+  const shifted = new Date(
+    Date.UTC(anchor.year, anchor.monthIndex + deltaMonths, 1),
+  );
   return {
     year: shifted.getUTCFullYear(),
     monthIndex: shifted.getUTCMonth(),

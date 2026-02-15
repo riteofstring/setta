@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
 import {
   DateDisplayFormatEnum,
   TimeDisplayFormatEnum,
 } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
 import { buildTextBlockTypographyScale } from "./textBlockTypography";
 import {
   formatDateForDisplay,
