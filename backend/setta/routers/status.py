@@ -29,7 +29,7 @@ _REVEAL_PATH_COMMAND_TIMEOUT_SECONDS = 5
 class SettaHomeInfoResponse(BaseModel):
     settaHome: str
     globalSettaFilesBase: str
-    activeSettaFilesLocation: str
+    activeSettaFilesLocation: str | None
     llmConfigPath: str
 
 
