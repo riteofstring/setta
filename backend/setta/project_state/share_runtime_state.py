@@ -44,6 +44,7 @@ from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
+    CodeLanguageKey,
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
     GenPythonMetadataSectionImpl,
@@ -619,8 +620,8 @@ class ShareRuntimeState:
 
     def _collect_code_sections(
         self, project_state: "ProjectStateSingleConfig"
-    ) -> dict[ID, tuple[str, "CodeFileBinding", CodeLanguage]]:
-        output: dict[ID, tuple[str, "CodeFileBinding", CodeLanguage]] = {}
+    ) -> dict[ID, tuple[str, "CodeFileBinding", CodeLanguageKey]]:
+        output: dict[ID, tuple[str, "CodeFileBinding", CodeLanguageKey]] = {}
         for section_id in project_state.sections.keys():
             section_impl = get_curr_effective_section_impl(project_state, section_id)
             if not isinstance(section_impl, CodeSectionImpl):

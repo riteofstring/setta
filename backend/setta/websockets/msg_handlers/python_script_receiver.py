@@ -823,23 +823,35 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
     ) -> object:
         specs = get_listener_router_endpoint_specs()
         if endpoint_name not in specs:
-            raise ValueError(f"unknown listener endpoint: {endpoint_name}")
+            state = self._get_listener_state(websocket_id)
+            await state.wait_until_ready()
+            payload_data, _ = self._prepare_listener_router_payload_data(
+                websocket_id=websocket_id,
+                payload=payload,
+                project_config_id=project_config_id,
+                temporary_project_config_id=temporary_project_config_id,
+                has_project_context=True,
+            )
+            try:
+                return state.plugin_manager.invoke_listener_endpoint(
+                    endpoint_name=endpoint_name,
+                    payload=payload_data,
+                )
+            except KeyError as exc:
+                raise ValueError(f"unknown listener endpoint: {endpoint_name}") from exc
+
         spec = specs[endpoint_name]
         state = self._get_listener_state(websocket_id)
         await state.wait_until_ready()
 
-        use_temporary_ids = self.listener_registry.use_temporary_ids_for_socket(
-            websocket_id
-        )
-        payload_data = dict(payload)
         has_project_context = "projectConfigId" in spec.request_model.model_fields
-        if "projectConfigId" not in payload_data and has_project_context:
-            if use_temporary_ids:
-                if temporary_project_config_id is None:
-                    raise ValueError("project_config_mismatch")
-                payload_data["projectConfigId"] = temporary_project_config_id
-            else:
-                payload_data["projectConfigId"] = project_config_id
+        payload_data, use_temporary_ids = self._prepare_listener_router_payload_data(
+            websocket_id=websocket_id,
+            payload=payload,
+            project_config_id=project_config_id,
+            temporary_project_config_id=temporary_project_config_id,
+            has_project_context=has_project_context,
+        )
 
         request_model = spec.request_model(**payload_data)
         if use_temporary_ids:
@@ -862,6 +874,34 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
         if inspect.isawaitable(result):
             return await result
         return result
+
+    def _prepare_listener_router_payload_data(
+        self,
+        *,
+        websocket_id: str,
+        payload: dict[str, object],
+        project_config_id: ID,
+        temporary_project_config_id: ID | None,
+        has_project_context: bool,
+    ) -> tuple[dict[str, object], bool]:
+        use_temporary_ids = self.listener_registry.use_temporary_ids_for_socket(
+            websocket_id
+        )
+        payload_data = dict(payload)
+        if "projectConfigId" not in payload_data and has_project_context:
+            if use_temporary_ids:
+                if temporary_project_config_id is None:
+                    raise ValueError("project_config_mismatch")
+                payload_data["projectConfigId"] = temporary_project_config_id
+            else:
+                payload_data["projectConfigId"] = project_config_id
+        if use_temporary_ids:
+            payload_data = self._convert_incoming_payload(payload_data)
+        if has_project_context:
+            payload_project_config_id = payload_data.get("projectConfigId")
+            if payload_project_config_id != project_config_id:
+                raise ValueError("project_config_mismatch")
+        return payload_data, use_temporary_ids
 
     def _get_listener_state(self, websocket_id: str):
         if websocket_id not in self.websocket_manager.sockets:

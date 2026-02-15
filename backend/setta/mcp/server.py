@@ -85,7 +85,7 @@ if TYPE_CHECKING:
     from setta.types.project_state import ProjectStateSingleConfig
 
 logger = logging.getLogger(__name__)
-_CATCH_ALL_PATH = "/{full_path:path}"
+_CATCH_ALL_PATH = "/{_full_path:path}"
 AGENTIC_SCOPE_CACHE_MAX_ENTRIES_PER_SESSION = 32
 
 # Init/utility tools that are allowed to run without agentic context. Keep this list
