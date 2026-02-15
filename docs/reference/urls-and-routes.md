@@ -50,6 +50,18 @@ use the `Route` enum (`backend/setta/types/routes.py`) and are called via
 `/api/<route>` using the generated endpoint helpers in
 `frontend/src/utils/generatedEndpoints.ts`.
 
+### Chat dictation multipart route
+
+Chat dictation adds a multipart backend route:
+- `/api/transcribeChatAudio`
+  - Method: `POST`
+  - Content type: `multipart/form-data`
+  - Required fields: `engineConfigId` (string), `file` (binary)
+  - Optional field: `language` (string)
+
+Generated endpoint helpers expose multipart routes as `FormData` functions
+(for example `route_transcribe_chat_audio(form)` and `route_binary_upload(form)`).
+
 ## Frontend API Origin Mapping
 
 Most generated endpoint calls use the backend origin (`C_ADDRESSES.BACKEND`),
