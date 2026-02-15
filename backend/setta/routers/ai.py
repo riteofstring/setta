@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from typing import Literal
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
@@ -43,15 +42,6 @@ from setta.types.routes import Route
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 
 router = SettaProjectContextAPIRouter()
-
-AppGenerationMode = Literal[
-    "json_render",
-    "json_render_with_image",
-    "prompt_builder",
-    "mcp_server",
-]
-_MAX_REFERENCE_IMAGE_URL_CHARS = 4096
-_MAX_REFERENCE_IMAGE_NOTES_CHARS = 100_000
 
 
 def _get_llm_chat_runs(
@@ -237,115 +227,6 @@ def _resolve_branch_root_chat_id(
     return parent_chat_id
 
 
-def _build_app_generation_mode_prompt(
-    *,
-    mode: AppGenerationMode | None,
-    app_spec_streaming_enabled: bool,
-    reference_image_url: str | None,
-    reference_image_notes: str | None,
-) -> str | None:
-    if mode is None and not app_spec_streaming_enabled:
-        return None
-
-    lines = [
-        "## App spec generation mode",
-        f"- mode: {mode or 'unspecified'}",
-        (
-            "- streamingPreview: enabled"
-            if app_spec_streaming_enabled
-            else "- streamingPreview: disabled"
-        ),
-    ]
-
-    if mode in (None, "json_render", "json_render_with_image", "prompt_builder"):
-        lines.extend(
-            [
-                "- If you are generating/updating the App spec (json-render):",
-                "  - Use catalog-compatible components only.",
-                "  - Persist via Setta app tools.",
-            ]
-        )
-        if app_spec_streaming_enabled:
-            lines.extend(
-                [
-                    "  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.",
-                    "  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).",
-                ]
-            )
-        else:
-            lines.extend(
-                [
-                    "  - Prefer `setta__set_app_definition` with the full UITree appSpec payload.",
-                    "  - Optionally call `setta__validate_app_definition` first and fix errors before persisting.",
-                ]
-            )
-
-    if mode == "json_render_with_image":
-        lines.extend(
-            [
-                "- Prioritize reference-image fidelity in this order: layout structure, spacing rhythm, typography scale, then color intent.",
-                "- If exact parity is impossible with catalog constraints, preserve hierarchy and explain the closest approximation.",
-            ]
-        )
-
-    if mode == "prompt_builder":
-        lines.extend(
-            [
-                "- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
-            ]
-        )
-
-    if mode == "mcp_server":
-        lines.extend(
-            [
-                "- MCP-server flow: use MCP tools as the source of truth for design artifacts when available.",
-                "- For Figma-oriented requests, support both paths:",
-                "  - Pull an existing Figma design into a JSON-render appSpec.",
-                "  - Generate/update in Figma first, then pull the resulting design back into Setta.",
-                "- After MCP design retrieval, persist into Setta via `setta__set_app_definition` or `setta__stream_app_definition`.",
-            ]
-        )
-
-    if reference_image_url:
-        lines.extend(
-            [
-                f"- Reference image URL: {reference_image_url}",
-                "- Use this image as layout/style guidance when composing the app spec.",
-            ]
-        )
-        if reference_image_notes:
-            lines.append(f"- Reference image notes: {reference_image_notes}")
-
-    return "\n".join(lines)
-
-
-def _normalize_reference_image_inputs(
-    *,
-    reference_image_url: str | None,
-    reference_image_notes: str | None,
-) -> tuple[str | None, str | None]:
-    normalized_url = (
-        reference_image_url.strip() if isinstance(reference_image_url, str) else ""
-    )
-    normalized_notes = (
-        reference_image_notes.strip() if isinstance(reference_image_notes, str) else ""
-    )
-    if len(normalized_url) > _MAX_REFERENCE_IMAGE_URL_CHARS:
-        raise HTTPException(
-            status_code=400,
-            detail="appGenerationReferenceImageUrl is too large. Reduce it or omit it.",
-        )
-    if len(normalized_notes) > _MAX_REFERENCE_IMAGE_NOTES_CHARS:
-        raise HTTPException(
-            status_code=400,
-            detail="appGenerationReferenceImageNotes is too large. Reduce it or omit it.",
-        )
-    return (
-        normalized_url if normalized_url else None,
-        normalized_notes if normalized_notes else None,
-    )
-
-
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
@@ -362,18 +243,6 @@ class GetLLMResponseRequest(BaseModel):
         description=(
             "Whether the UI is configured to stream app spec patches for live preview."
         ),
-    )
-    appGenerationMode: AppGenerationMode | None = Field(
-        default=None,
-        description="Optional app generation mode selected in the UI.",
-    )
-    appGenerationReferenceImageUrl: str | None = Field(
-        default=None,
-        description="Optional reference image URL for app generation fidelity.",
-    )
-    appGenerationReferenceImageNotes: str | None = Field(
-        default=None,
-        description="Optional notes describing reference-image fidelity goals.",
     )
 
 
@@ -482,17 +351,15 @@ async def route_get_llm_response(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    resolved_mode = x.appGenerationMode
-    reference_image_url, reference_image_notes = _normalize_reference_image_inputs(
-        reference_image_url=x.appGenerationReferenceImageUrl,
-        reference_image_notes=x.appGenerationReferenceImageNotes,
-    )
-    app_generation_mode_prompt = _build_app_generation_mode_prompt(
-        mode=resolved_mode,
-        app_spec_streaming_enabled=x.appSpecStreamingEnabled,
-        reference_image_url=reference_image_url,
-        reference_image_notes=reference_image_notes,
-    )
+    app_generation_mode_prompt: str | None = None
+    if x.appSpecStreamingEnabled:
+        app_generation_mode_prompt = (
+            "## App spec generation mode\n"
+            "- streamingPreview: enabled\n"
+            "- If you are generating/updating the App spec (json-render):\n"
+            "  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.\n"
+            "  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).\n"
+        )
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")

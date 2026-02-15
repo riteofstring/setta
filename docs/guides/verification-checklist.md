@@ -18,3 +18,8 @@ Use this checklist for every task. Treat CDP visual verification as a hard gate 
 
 ## 4) Tests
 - Run relevant tests if they exist; otherwise call out missing tests and propose what should be added.
+
+## 5) Resizable Extremes (required when a resizable UI is touched)
+- Verify the smallest supported size and a larger near-max size for every resizable area affected by your change.
+- Confirm there is no content bleed, clipping, overlap, duplicate scrollbars, or unexpected layout shifts at either size.
+- Prefer automated Playwright coverage with geometry assertions over manual-only checks.
