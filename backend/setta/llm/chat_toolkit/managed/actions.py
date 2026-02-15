@@ -48,6 +48,7 @@ class ExecuteToolCallsAction:
     allowed_server_ids: set[str] | None
     share_session_id: str | None
     agentic_context: AgenticContext
+    setta_tool_approval_policy: str | None
 
 
 ManagedAction = (

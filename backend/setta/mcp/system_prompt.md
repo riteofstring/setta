@@ -118,6 +118,14 @@ unavailable, empty, or fail to respond and the host provides built-in tools (for
   generated-code type errors plus code-section diagnostics (line/col ranges).
 - If `setta__search_mcp_tools` is available, use it when you do not know the tool name.
 - It returns entries with `name`, `description`, and `category` (or tool references when tool search is enabled); always use the tool name when calling a tool.
+- For "where is this setting?" requests, call `search_ui_settings`.
+- For "open/show/highlight this setting", call `reveal_ui_setting`.
+- For right-pane setting reveals, if no section is active, pick an appropriate
+  section first and set it active (for example with `set_active_ids`) before
+  calling `reveal_ui_setting`.
+- For "what is this setting value?", call `get_ui_setting_value`.
+- For "set/change/update this setting", call `set_ui_setting_value`.
+- If multiple settings match and intent is ambiguous, ask a short disambiguation question before mutating.
 
 ## Don't-do list
 - No direct file edits, no writing to `setta_files`, no editing `setta_gen.py`.

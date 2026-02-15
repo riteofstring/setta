@@ -3,6 +3,7 @@ import { resetProjectStores } from "state/utils";
 import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
+  WebsocketMsgTypeForFrontendEnum,
   createProjectConfig,
   createSettaLspDiagnosticsPayload,
   createSettaProjectConfigDiagnostics,
@@ -29,6 +30,10 @@ vi.mock("state/actions/aiFollow", () => ({
 vi.mock("state/actions/notifications", () => ({
   addNotificationFromWebsocketMsg: vi.fn(),
   addTemporaryNotification: vi.fn(),
+}));
+
+vi.mock("state/actions/uiSettingReveal", () => ({
+  receiveUISettingReveal: vi.fn(),
 }));
 
 vi.mock("state/actions/websocketConnectionList", () => ({
@@ -228,5 +233,53 @@ describe("openWebSocket", () => {
     );
 
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
+  });
+
+  it("routes UISettingReveal websocket messages to the reveal action", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { receiveUISettingReveal } = await import(
+      "state/actions/uiSettingReveal"
+    );
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "msg-1",
+        messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
+        content: {
+          projectConfigId: "project-1",
+          chatId: null,
+          requestId: "request-1",
+          durationMs: 1500,
+          reveals: [
+            {
+              settingId: "core.watch_code.enabled",
+              side: "left",
+              overviewTabKey: "WatchCode",
+              uiEditorTabName: null,
+              pluginId: null,
+              paneId: null,
+              strategy: "dom_anchor",
+              anchorId: "core.watch_code.enabled",
+              pluginRevealKey: null,
+            },
+          ],
+        },
+      }),
+    });
+
+    expect(receiveUISettingReveal).toHaveBeenCalledTimes(1);
   });
 });
