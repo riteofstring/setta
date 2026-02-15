@@ -93,7 +93,7 @@ export function getHomeProjectConfigsSectionTitle(
   if (hasFavorites) {
     return "Other Project Configs";
   }
-  return "Project Configs";
+  return "All Configs";
 }
 
 export function shouldOpenProjectOnListRowSpace(
@@ -397,27 +397,38 @@ function HomeWorkspaceLayout({
       </PaneContainer>
       <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-dark">
         <main
-          className="flex h-full min-h-0 min-w-0 flex-col"
+          className="relative z-0 flex h-full min-h-0 min-w-0 flex-col bg-[linear-gradient(180deg,rgba(15,23,42,0.06)_0%,rgba(15,23,42,0)_32%)] dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.45)_0%,rgba(15,23,42,0)_34%)]"
           style={{ paddingLeft: middleInsetLeft, paddingRight: middleInsetRight }}
           onKeyDown={onEscapeClearSelectedProjects}
           data-testid="home-file-manager-layout"
         >
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-setta-200/75 px-4 py-3 dark:border-setta-800/75">
+          <header className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-setta-200/80 bg-white/75 px-3 py-2 shadow-sm dark:border-setta-800 dark:bg-setta-950/60">
             {isDeploymentMode ? (
-              <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-                Sharing mode is read-only
+              <div className="inline-flex items-center gap-2 text-xs font-semibold text-setta-500 dark:text-setta-300">
+                Sharing mode is read-only.
               </div>
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <>
+                <div className="min-w-0">
+                  <h2 className="truncate text-xs font-semibold uppercase tracking-[0.18em] text-setta-500 dark:text-setta-300">
+                    Workspace Configs
+                  </h2>
+                  <p className="truncate text-[11px] text-setta-500 dark:text-setta-400">
+                    {selectedProjects.length > 0
+                      ? `${selectedProjects.length} selected`
+                      : `${totalProjectsCount} total`}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
                 <button
-                  className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-600 px-4 py-2 font-bold text-white hover:bg-blue-500 focus-visible:ring-2 dark:hover:bg-blue-700"
+                  className="nodrag inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-setta-300 bg-white px-3 text-xs font-semibold text-setta-700 transition-colors hover:border-setta-400 hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-700 dark:bg-setta-930 dark:text-setta-100 dark:hover:border-setta-600 dark:hover:bg-setta-900"
                   onClick={handleCreateConfig}
                 >
                   <BiPlus />
                   New Config
                 </button>
                 <button
-                  className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-400 px-4 py-2 font-medium text-white hover:!bg-green-500 hover:text-white focus-visible:ring-2 dark:bg-setta-500/25 dark:text-white/75 dark:hover:!bg-green-700"
+                  className="nodrag inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-setta-300 bg-white px-3 text-xs font-semibold text-setta-700 transition-colors hover:border-green-500 hover:bg-green-50 hover:text-green-700 focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-55 dark:border-setta-700 dark:bg-setta-930 dark:text-setta-100 dark:hover:border-green-600 dark:hover:bg-green-950/30 dark:hover:text-green-200"
                   onClick={onClickMakeDefault}
                   disabled={selectedProjects.length !== 1}
                 >
@@ -425,7 +436,7 @@ function HomeWorkspaceLayout({
                   Make Default
                 </button>
                 <button
-                  className="nodrag inline-flex cursor-pointer items-center gap-2 rounded-full bg-setta-400 px-4 py-2 font-medium text-white hover:!bg-red-500 hover:text-white focus-visible:ring-2 dark:bg-setta-500/25 dark:text-white/75"
+                  className="nodrag inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-setta-300 bg-white px-3 text-xs font-semibold text-setta-700 transition-colors hover:border-red-500 hover:bg-red-50 hover:text-red-700 focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-55 dark:border-setta-700 dark:bg-setta-930 dark:text-setta-100 dark:hover:border-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-200"
                   onClick={onClickDelete}
                   disabled={selectedProjects.length === 0}
                 >
@@ -433,6 +444,7 @@ function HomeWorkspaceLayout({
                   Delete
                 </button>
               </div>
+              </>
             )}
           </header>
           <HomeProjectGallery {...commonGalleryProps} fullScreenSurface />
@@ -647,7 +659,7 @@ function HomeProjectGallery({
   fullScreenSurface?: boolean;
 }) {
   const gallerySurfaceClassName = fullScreenSurface
-    ? "flex h-full min-h-0 min-w-0 flex-1 flex-col px-4 py-3"
+    ? "mx-4 mb-3 mt-3 flex h-full min-h-0 min-w-0 flex-1 flex-col rounded-lg border border-setta-200/80 bg-white/75 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-950/60"
     : "flex h-full min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-setta-200/75 bg-white/75 p-3 shadow-sm dark:border-setta-800/80 dark:bg-setta-900/40";
 
   if (totalProjectsCount === 0) {
@@ -655,8 +667,8 @@ function HomeProjectGallery({
       <section className={gallerySurfaceClassName} data-testid="home-project-gallery">
         <div className="grid flex-1 place-items-center">
           <div className="text-center">
-            <LuPenLine className="mx-auto h-16 w-16 text-setta-200 dark:text-setta-700/50" />
-            <p className="text-sm font-semibold text-setta-300 dark:text-setta-700">
+            <LuPenLine className="mx-auto h-16 w-16 text-setta-300 dark:text-setta-600/70" />
+            <p className="text-sm font-semibold text-setta-500 dark:text-setta-300">
               Create a New Config!
             </p>
           </div>
@@ -671,7 +683,7 @@ function HomeProjectGallery({
     <section className={gallerySurfaceClassName} data-testid="home-project-gallery">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
-          Project Configs
+          Configs
         </h2>
         <div className="flex items-center gap-1">
           <button
@@ -897,8 +909,8 @@ function ProjectCard({
 }) {
   const navigate = useNavigate();
   const itemStyles = isActive
-    ? "relative grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-2xl border border-blue-500/55 bg-blue-50/50 transition-colors dark:border-blue-500/45 dark:bg-blue-950/20"
-    : "relative grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-2xl border border-setta-200/85 bg-setta-50/65 transition-colors hover:border-setta-300 dark:border-setta-700 dark:bg-setta-900/35 dark:hover:border-setta-600";
+    ? "relative isolate grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-2xl border border-blue-500/55 bg-blue-50/50 transition-colors dark:border-blue-500/45 dark:bg-blue-950/20"
+    : "relative isolate grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-2xl border border-setta-200/85 bg-setta-50/65 transition-colors hover:border-setta-300 dark:border-setta-700 dark:bg-setta-900/35 dark:hover:border-setta-600";
   const projectPath = resolveProjectPath(project.name, isDeploymentMode);
   function openProjectFromCard() {
     if (!projectPath) {
@@ -1035,7 +1047,7 @@ function ThumbnailArea({
       className="absolute bottom-0 left-0 top-0"
       previewContainerProps={{ tabIndex: 0, onKeyDown: onThumbnailKeyDown }}
       overlay={
-        <aside className="z-[10] col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
+        <aside className="z-[1] col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
           {selectionEnabled && (
             <button
               className={`nodrag inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-full px-1 py-1 text-white/80 focus-visible:ring-2 ${

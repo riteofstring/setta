@@ -44,7 +44,7 @@ describe("HomePage", () => {
     expect(getHomeProjectConfigsSectionTitle(true)).toBe(
       "Other Project Configs",
     );
-    expect(getHomeProjectConfigsSectionTitle(false)).toBe("Project Configs");
+    expect(getHomeProjectConfigsSectionTitle(false)).toBe("All Configs");
   });
 
   it("opens from keyboard Space in list rows only when selection is disabled", () => {
