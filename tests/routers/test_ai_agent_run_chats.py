@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from fastapi import FastAPI, HTTPException
 import pytest
 from starlette.datastructures import Headers, UploadFile
+from starlette.requests import Request
 
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
 from setta.agentic.external_agent_runner import ExternalAgentRunner
@@ -99,6 +100,34 @@ def _seed_engine_config(dbe: DBE, engine_config_id: ID, llm_config_id: str) -> N
         settaLlmConfigId=llm_config_id,
     )
     save_engine_configs(dbe, [engine_config])
+
+
+def _build_test_request(*, content_type: str | None = None) -> Request:
+    header_items: list[tuple[bytes, bytes]] = []
+    if content_type is not None:
+        header_items.append((b"content-type", content_type.encode("utf-8")))
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": "/api/transcribeChatAudio",
+        "raw_path": b"/api/transcribeChatAudio",
+        "query_string": b"",
+        "headers": header_items,
+        "client": ("127.0.0.1", 12345),
+        "server": ("127.0.0.1", 8000),
+    }
+
+    async def _receive() -> dict[str, object]:
+        return {
+            "type": "http.request",
+            "body": b"",
+            "more_body": False,
+        }
+
+    return Request(scope, _receive)
 
 
 def _build_share_deployment_root(
@@ -381,7 +410,10 @@ class TestAgentRunChatRoutes:
             assert not response.waitingForResponse
             assert response.llmConfig.id == "primary"
 
-    async def test_external_engine_rejects_llm_chat_id(self) -> None:
+    async def test_external_engine_rejects_llm_chat_id(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             project_config = ProjectConfig()
@@ -436,6 +468,17 @@ class TestAgentRunChatRoutes:
                 output_messages=[user_message],
             )
             save_agent_run(dbe, run)
+            prior_message_loader_called = False
+
+            def _capture_prior_messages(*_args, **_kwargs):
+                nonlocal prior_message_loader_called
+                prior_message_loader_called = True
+                return []
+
+            monkeypatch.setattr(
+                "setta.routers.ai._get_prior_messages_for_engine",
+                _capture_prior_messages,
+            )
 
             with runtime_context(state) as ctx:
                 with pytest.raises(HTTPException) as exc:
@@ -456,6 +499,7 @@ class TestAgentRunChatRoutes:
 
             assert exc.value.status_code == 409
             assert exc.value.detail == "Chat engine mismatch; start a new chat."
+            assert prior_message_loader_called is False
 
     async def test_branch_edit_missing_message_returns_404(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -890,6 +934,7 @@ class TestAgentRunChatRoutes:
                     )
                     response = await route_transcribe_chat_audio(
                         ctx=ctx,
+                        request=_build_test_request(),
                         engineConfigId=engine_config_id,
                         file=upload,
                     )
@@ -932,6 +977,7 @@ class TestAgentRunChatRoutes:
                     )
                     await route_transcribe_chat_audio(
                         ctx=ctx,
+                        request=_build_test_request(),
                         engineConfigId=engine_config_id,
                         file=upload,
                     )
@@ -974,6 +1020,7 @@ class TestAgentRunChatRoutes:
                     )
                     await route_transcribe_chat_audio(
                         ctx=ctx,
+                        request=_build_test_request(),
                         engineConfigId=engine_config_id,
                         file=upload,
                     )
@@ -1019,6 +1066,7 @@ class TestAgentRunChatRoutes:
                     )
                     await route_transcribe_chat_audio(
                         ctx=ctx,
+                        request=_build_test_request(),
                         engineConfigId=external_engine_config_id,
                         file=upload,
                     )
@@ -1027,6 +1075,56 @@ class TestAgentRunChatRoutes:
             assert "Provider dictation is available only for managed LLM engines." in str(
                 exc.value.detail
             )
+
+    async def test_transcribe_chat_audio_checks_authorization_before_multipart_parse(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            multipart_enforced = False
+
+            async def _capture_multipart_enforcement(*_args, **_kwargs) -> None:
+                nonlocal multipart_enforced
+                multipart_enforced = True
+
+            monkeypatch.setattr(
+                "setta.routers.ai.enforce_multipart_max_part_size",
+                _capture_multipart_enforcement,
+            )
+
+            with runtime_context(state) as ctx:
+
+                async def _raise_not_allowed() -> None:
+                    raise HTTPException(status_code=403, detail="LLM disabled")
+
+                monkeypatch.setattr(ctx, "enforce_llm_allowed", _raise_not_allowed)
+
+                with pytest.raises(HTTPException) as exc:
+                    upload = UploadFile(
+                        io.BytesIO(b"hello"),
+                        filename="voice.webm",
+                        headers=Headers({"content-type": "audio/webm"}),
+                    )
+                    await route_transcribe_chat_audio(
+                        ctx=ctx,
+                        request=_build_test_request(
+                            content_type="multipart/form-data; boundary=test"
+                        ),
+                        engineConfigId=engine_config_id,
+                        file=upload,
+                    )
+
+            assert exc.value.status_code == 403
+            assert multipart_enforced is False
 
     async def test_transcribe_chat_audio_rejects_empty_payload(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1049,6 +1147,7 @@ class TestAgentRunChatRoutes:
                     )
                     await route_transcribe_chat_audio(
                         ctx=ctx,
+                        request=_build_test_request(),
                         engineConfigId=engine_config_id,
                         file=upload,
                     )
@@ -1081,6 +1180,7 @@ class TestAgentRunChatRoutes:
                     )
                     await route_transcribe_chat_audio(
                         ctx=ctx,
+                        request=_build_test_request(),
                         engineConfigId=engine_config_id,
                         file=upload,
                     )
@@ -1338,6 +1438,40 @@ class TestAgentRunChatRoutes:
 
             assert len(prior_messages) == 2
             assert prior_messages[1].content[0].text == "External reply"
+
+    async def test_external_agent_prior_messages_do_not_fallback_to_llm_runs(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            chat_id = ID("external-chat-no-fallback")
+            project_config_id = ID("project-ext-no-fallback")
+            user_message = UserChatMessage(
+                content=[MessageTextContent(text="Hello external")],
+            )
+            llm_reply = AssistantChatMessage(
+                id="assistant-llm-only",
+                content=[MessageTextContent(text="LLM-only reply")],
+            )
+            llm_run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=ID("engine-primary"),
+                started_at=datetime(2024, 1, 7, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message, llm_reply],
+            )
+            save_agent_run(dbe, llm_run)
+
+            prior_messages = _get_prior_messages_for_engine(
+                dbe=dbe,
+                engine_type=EngineType.external_agent,
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+            )
+
+            assert prior_messages == []
 
     async def test_stop_llm_chat(self) -> None:
         with TemporaryDirectory() as tmpdir:

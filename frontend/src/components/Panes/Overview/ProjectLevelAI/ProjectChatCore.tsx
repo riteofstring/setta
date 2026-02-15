@@ -218,6 +218,7 @@ function useHasPythonInWorkspaceRoot(
   const [hasPython, setHasPython] = useState(false);
   const [revalidationTick, setRevalidationTick] = useState(0);
   const previousRootRef = useRef<string | null>(null);
+  const inFlightRootScanRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     if (workspaceRootIdentity === previousRootRef.current) {
@@ -273,6 +274,9 @@ function useHasPythonInWorkspaceRoot(
       setHasPython(false);
       return;
     }
+    if (inFlightRootScanRef.current !== null) {
+      return;
+    }
     let cancelled = false;
 
     const load = async () => {
@@ -323,7 +327,13 @@ function useHasPythonInWorkspaceRoot(
       }
     };
 
-    void load();
+    const loadPromise = load().finally(() => {
+      if (inFlightRootScanRef.current === loadPromise) {
+        inFlightRootScanRef.current = null;
+      }
+    });
+    inFlightRootScanRef.current = loadPromise;
+    void loadPromise;
     return () => {
       cancelled = true;
     };

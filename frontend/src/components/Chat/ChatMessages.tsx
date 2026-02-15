@@ -7,7 +7,6 @@ import {
 } from "components/Utils/MediaCarousel";
 import {
   ReactNode,
-  Ref,
   memo,
   useCallback,
   useEffect,
@@ -1116,26 +1115,35 @@ function StreamItem({
 
 function AssistantReasoningCard({
   children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <div className="my-2 w-full">
+      <div
+        className={`flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-0.5 rounded-b-lg rounded-tr-lg border ${ASSISTANT_REASONING_BORDER_CLASS} bg-transparent px-1.5 py-1`}
+        data-chat-assistant-reasoning-card="true"
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function AssistantMessageGroup({
+  children,
   messageId,
-  bubbleWidthPx,
 }: {
   children: ReactNode;
   messageId?: string;
-  bubbleWidthPx?: number | null;
 }) {
   return (
     <div className="my-2 flex justify-start">
       <div
-        className={`flex ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-start`}
+        className={`group inline-flex w-fit ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} max-w-full flex-col items-start`}
         data-message-id={messageId}
       >
-        <div
-          className={`flex min-h-[24px] ${bubbleWidthPx ? "w-full" : "w-fit"} min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-0.5 rounded-b-lg rounded-tr-lg border ${ASSISTANT_REASONING_BORDER_CLASS} bg-transparent px-1.5 py-1`}
-          style={bubbleWidthPx ? { width: `${bubbleWidthPx}px` } : undefined}
-          data-chat-assistant-reasoning-card="true"
-        >
-          {children}
-        </div>
+        {children}
       </div>
     </div>
   );
@@ -1144,29 +1152,19 @@ function AssistantReasoningCard({
 function LLMChatBubble({
   children,
   actions,
-  messageId,
-  bubbleRef,
 }: {
   children: ReactNode;
   actions?: ReactNode;
-  messageId?: string;
-  bubbleRef?: Ref<HTMLDivElement>;
 }) {
   return (
-    <div className="my-2 flex justify-start">
+    <div className="my-2 w-full">
       <div
-        className={`group flex ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-start`}
-        data-message-id={messageId}
+        className="flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg bg-setta-100 px-3 py-2 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50"
+        data-chat-assistant-bubble="true"
       >
-        <div
-          ref={bubbleRef}
-          className="flex min-h-[24px] w-fit min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg bg-setta-100 px-3 py-2 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50"
-          data-chat-assistant-bubble="true"
-        >
-          {children}
-        </div>
-        {actions}
+        {children}
       </div>
+      {actions}
     </div>
   );
 }
@@ -1403,10 +1401,6 @@ const ChatMessage = memo(function ChatMessage({
     />
   ) : null;
   const isAssistant = message.role === ChatRoleEnum.assistant;
-  const assistantBubbleRef = useRef<HTMLDivElement | null>(null);
-  const [assistantBubbleWidth, setAssistantBubbleWidth] = useState<
-    number | null
-  >(null);
   const assistantContent = isAssistant
     ? message.content
     : EMPTY_ASSISTANT_CONTENT;
@@ -1427,42 +1421,12 @@ const ChatMessage = memo(function ChatMessage({
     spinnerDelayMs,
   );
 
-  useEffect(() => {
-    if (!isAssistant || thinkingItems.length === 0) {
-      setAssistantBubbleWidth(null);
-      return;
-    }
-    const bubble = assistantBubbleRef.current;
-    if (!bubble) {
-      return;
-    }
-    const syncBubbleWidth = () => {
-      const nextWidth = bubble.getBoundingClientRect().width;
-      setAssistantBubbleWidth((prevWidth) => {
-        if (Math.abs((prevWidth ?? 0) - nextWidth) < 1) {
-          return prevWidth;
-        }
-        return nextWidth;
-      });
-    };
-    syncBubbleWidth();
-    const resizeObserver = new ResizeObserver(syncBubbleWidth);
-    resizeObserver.observe(bubble);
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [isAssistant, message.id, thinkingItems.length]);
-
   if (message.role === ChatRoleEnum.assistant) {
     const showTypingIndicator = showAssistantSpinner;
     return (
-      <>
+      <AssistantMessageGroup messageId={message.id}>
         {thinkingItems.map((item, idx) => (
-          <AssistantReasoningCard
-            key={`${message.id}-thinking-${idx}`}
-            messageId={message.id}
-            bubbleWidthPx={assistantBubbleWidth}
-          >
+          <AssistantReasoningCard key={`${message.id}-thinking-${idx}`}>
             <ThinkingBox
               content={item.thinking}
               summary={item.summary}
@@ -1471,11 +1435,7 @@ const ChatMessage = memo(function ChatMessage({
             />
           </AssistantReasoningCard>
         ))}
-        <LLMChatBubble
-          messageId={message.id}
-          actions={actionBar}
-          bubbleRef={assistantBubbleRef}
-        >
+        <LLMChatBubble actions={actionBar}>
           <ChatAttachmentList
             attachments={attachments}
             isUser={false}
@@ -1584,7 +1544,7 @@ const ChatMessage = memo(function ChatMessage({
             </div>
           ) : null}
         </LLMChatBubble>
-      </>
+      </AssistantMessageGroup>
     );
   }
 

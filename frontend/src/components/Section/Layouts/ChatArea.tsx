@@ -107,7 +107,24 @@ type ChatSectionChatId = string | null;
 type ChatSectionChatIdUpdate =
   | ChatSectionChatId
   | ((current: ChatSectionChatId) => ChatSectionChatId);
-const MANAGED_CHAT_HISTORY_POLL_INTERVAL_MS = 5000;
+const MANAGED_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS = 5000;
+const MANAGED_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS = 10000;
+
+export function resolveManagedChatHistoryPollIntervalMs({
+  hasLoadError,
+  hasRunningHistoryEntry,
+}: {
+  hasLoadError: boolean;
+  hasRunningHistoryEntry: boolean;
+}): number | null {
+  if (hasRunningHistoryEntry) {
+    return MANAGED_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS;
+  }
+  if (hasLoadError) {
+    return MANAGED_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS;
+  }
+  return null;
+}
 
 type EmitChatSendActionArgs = {
   sectionId: string;
@@ -983,6 +1000,10 @@ function ManagedChatHistoryPanel({
     () => sectionHistoryEntries.some((entry) => entry.waitingForResponse),
     [sectionHistoryEntries],
   );
+  const pollIntervalMs = resolveManagedChatHistoryPollIntervalMs({
+    hasLoadError: Boolean(agentRunsLoadError),
+    hasRunningHistoryEntry,
+  });
 
   useEffect(() => {
     let intervalId: number | null = null;
@@ -997,12 +1018,12 @@ function ManagedChatHistoryPanel({
 
     const startPollingIfNeeded = () => {
       clearPollingInterval();
-      if (!hasRunningHistoryEntry || document.visibilityState !== "visible") {
+      if (pollIntervalMs === null || document.visibilityState !== "visible") {
         return;
       }
       intervalId = window.setInterval(() => {
         void loadAgentRuns();
-      }, MANAGED_CHAT_HISTORY_POLL_INTERVAL_MS);
+      }, pollIntervalMs);
     };
 
     const handleVisibilityChange = () => {
@@ -1022,7 +1043,7 @@ function ManagedChatHistoryPanel({
       clearPollingInterval();
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [hasRunningHistoryEntry]);
+  }, [pollIntervalMs]);
 
   return (
     <ChatSectionHistoryList

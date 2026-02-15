@@ -260,3 +260,26 @@ Implemented the next consolidated review fixes across completion-guard false-pas
 - Playwright: targeted e2e suites passed (`chat-composer-controls`, `project-ai-chat-root-scan`).
 - ESLint targeted run remains blocked in this environment due missing `@eslint/js` resolution from `frontend/eslint.config.js`.
 - CDP visual verification completed in a live session (Project AI Chat accepted `/Users/...` prompt as a normal message and did not show unknown-command feedback).
+
+## 2026-02-17 15:43:53 PST
+
+### Summary
+Implemented the requested consolidated review fixes across slash-command/path handling, completion-guard scope precision, history/overview/workspace polling behavior, external chat/transcription routing order, and reasoning-card rendering performance cleanup, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Slash-command interception now only handles exact commands or unambiguous command prefixes; path-like prompts such as `/tmp ...` submit as normal chat.
+- Completion guard creation intent matching now excludes generic `app` phrasing to avoid false gating on regular implementation tasks.
+- Managed section chat history polling now retries on load errors even when no run is currently active.
+- Overview polling now stops interval wakeups while the tab is hidden and resumes with immediate refresh on visibility return.
+- Project chat workspace-root Python revalidation now dedupes in-flight scans to prevent overlapping `getFolderContents` requests under latency.
+- External-chat prior-history fallback to LLM runs was removed; external compatibility checks now run earlier before prior-history loading.
+- Transcription multipart-size enforcement now executes after `enforce_llm_allowed()` inside the route body.
+- Assistant reasoning-card width alignment now uses shared layout grouping (observer-free) instead of per-message `ResizeObserver` state synchronization.
+- Added perf report for reasoning observer removal: `perf/reports/frontend/2026-02-17_chat-reasoning-width-observer-removal.md`.
+
+### Test and verification status
+- Backend pytest: targeted suites passed (`tests/agentic/test_completion_guard.py`, `tests/llm/test_agent_runner.py`, targeted transcription/external-chat cases in `tests/routers/test_ai_agent_run_chats.py`).
+- Frontend Vitest: targeted suites passed (`chatComposerControls`, `ChatInput`, `ChatMessages`, `projectOverviewPolling`, `projectChatExecutionSettings`, `chatAreaHistoryPolling`).
+- Playwright: targeted e2e suites passed (`chat-composer-controls`, `project-ai-chat-root-scan`, `chat-streaming-resize`).
+- CDP visual verification completed in a live app session (`/tmp ...` path prompt accepted as chat; reasoning-card/bubble width alignment verified with `delta=0`).
+- CDP perf profiling completed with before/after trace artifacts for reasoning width scenario and observer instrumentation (`ResizeObserver` constructions reduced from 60 to 0 in seeded 30-message scenario).

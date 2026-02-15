@@ -37,6 +37,7 @@ describe("chatComposerControls", () => {
 
   it("treats command-shaped slash input as command candidates", () => {
     expect(shouldTreatInputAsSlashCommand("/resume")).toBe(true);
+    expect(shouldTreatInputAsSlashCommand("/res")).toBe(true);
     expect(shouldTreatInputAsSlashCommand("  /permissions yolo")).toBe(true);
   });
 
@@ -49,6 +50,27 @@ describe("chatComposerControls", () => {
     expect(shouldTreatInputAsSlashCommand("/tmp/workspace/notes.txt")).toBe(
       false,
     );
+    expect(shouldTreatInputAsSlashCommand("/tmp build logs look stale")).toBe(
+      false,
+    );
+  });
+
+  it("ignores ambiguous slash prefixes that do not map to one command", () => {
+    const commands = [
+      {
+        command: "/run",
+        action: "new",
+        summary: "Run command",
+      },
+      {
+        command: "/reset",
+        action: "resume",
+        summary: "Reset command",
+      },
+    ];
+
+    expect(shouldTreatInputAsSlashCommand("/r", commands)).toBe(false);
+    expect(shouldTreatInputAsSlashCommand("/run", commands)).toBe(true);
   });
 
   it("does not parse deprecated advisory slash commands", () => {

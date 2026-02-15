@@ -200,7 +200,7 @@ export const ChatInput = memo(function ChatInput({
 
   const runSlashCommand = useCallback(
     async (message: string): Promise<boolean> => {
-      if (!shouldTreatInputAsSlashCommand(message)) {
+      if (!shouldTreatInputAsSlashCommand(message, slashCommands)) {
         return false;
       }
       const parsed = parseSlashCommand(message, slashCommands);

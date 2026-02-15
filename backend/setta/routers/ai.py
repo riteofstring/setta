@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import File, Form, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field
 
 from setta.agentic.chat_view import (
@@ -225,13 +225,6 @@ def _get_prior_messages_for_engine(
             project_config_id=project_config_id,
         )
         latest_run = _select_latest_run(external_runs)
-        if latest_run is None:
-            llm_runs = _get_llm_chat_runs(
-                dbe=dbe,
-                chat_id=chat_id,
-                project_config_id=project_config_id,
-            )
-            latest_run = _select_latest_run(llm_runs)
     else:
         llm_runs = _get_llm_chat_runs(
             dbe=dbe,
@@ -585,6 +578,13 @@ async def route_get_llm_response(
     resolved = resolve_engine_config(
         ctx.state.dbe, ctx.state.agent_runner.config, x.engineConfigId
     )
+    if resolved.engine_config.engineType == EngineType.external_agent:
+        _ensure_external_chat_id_compatible(
+            dbe=ctx.state.dbe,
+            chat_id=x.branchParentChatId if is_branch_request else x.chatId,
+            engine_config_id=x.engineConfigId,
+            project_config_id=x.projectConfigId,
+        )
     prior_messages: list[BaseChatMessageUnion] = []
     parent_run: AgentRun | None = None
     if is_branch_request:
@@ -707,12 +707,6 @@ async def route_get_llm_response(
             raise HTTPException(
                 status_code=503, detail="External agent runner is not available"
             )
-        _ensure_external_chat_id_compatible(
-            dbe=ctx.state.dbe,
-            chat_id=x.branchParentChatId if is_branch_request else x.chatId,
-            engine_config_id=x.engineConfigId,
-            project_config_id=x.projectConfigId,
-        )
         external_config = resolved.external_agent_config
         if external_config is None:
             raise HTTPException(
@@ -789,12 +783,13 @@ async def route_get_llm_response(
 @router.post(Route.TRANSCRIBE_CHAT_AUDIO)
 async def route_transcribe_chat_audio(
     ctx: RuntimeContextFromRequest,
-    _multipart_limit_guard: None = Depends(_enforce_transcribe_audio_multipart_limit),
+    request: Request,
     engineConfigId: ID = Form(...),
     file: UploadFile = File(...),
     language: str | None = Form(default=None),
 ) -> TranscribeChatAudioResponse:
     await ctx.enforce_llm_allowed()
+    await _enforce_transcribe_audio_multipart_limit(request)
     if ctx.state.agent_runner.disabled:
         raise HTTPException(status_code=503, detail="Agent runner is not available")
     resolved = resolve_engine_config(

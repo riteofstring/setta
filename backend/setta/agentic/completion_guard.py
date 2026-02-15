@@ -8,7 +8,7 @@ _CREATION_VERB_RE = re.compile(
     re.IGNORECASE,
 )
 _CREATION_OBJECT_RE = re.compile(
-    r"\b(projects?|sections?|workspaces?|apps?|codebases?)\b", re.IGNORECASE
+    r"\b(projects?|sections?|workspaces?|codebases?)\b", re.IGNORECASE
 )
 _COMPLETION_CLAIM_RE = re.compile(
     r"\b(done|completed?|finished|all set|ready to ship)\b", re.IGNORECASE
@@ -40,9 +40,8 @@ _CREATION_CLARIFICATION_CONTEXT_RE = re.compile(
     (
         r"\b("
         r"create|build|scaffold|setup|set up|initialize|generate|implement|"
-        r"projects?|sections?|workspaces?|apps?|codebases?|"
-        r"folders?|structure|architecture|module|component|feature|"
-        r"framework|language|"
+        r"projects?|sections?|workspaces?|codebases?|"
+        r"folders?|structure|architecture|"
         r"check|checks|test|tests|testing|lint|verify|verification|errors?"
         r")\b"
     ),

@@ -261,6 +261,65 @@ test("project chat revalidates python starter visibility when root path stays th
   }
 });
 
+test("project chat avoids overlapping root scans while a folder request is in flight", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+
+  let getFolderContentsCalls = 0;
+  const pendingResolvers: Array<() => void> = [];
+
+  await page.route("**/api/getFileBrowserRoot", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        rootPath: "/tmp/workspace-overlap-guard",
+        pathSeparator: "/",
+        ignorePatterns: [],
+      }),
+    });
+  });
+  await page.route("**/api/getFolderContents", async (route) => {
+    getFolderContentsCalls += 1;
+    await new Promise<void>((resolve) => {
+      pendingResolvers.push(resolve);
+    });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+    await expect.poll(() => getFolderContentsCalls, { timeout: 5000 }).toBe(1);
+
+    // Keep the first request unresolved past the 5s revalidation interval.
+    await page.waitForTimeout(6200);
+    expect(getFolderContentsCalls).toBe(1);
+  } finally {
+    while (pendingResolvers.length > 0) {
+      const resolve = pendingResolvers.shift();
+      if (resolve) {
+        resolve();
+      }
+    }
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project chat backs off root polling after repeated stable root scans", async ({
   page,
 }) => {

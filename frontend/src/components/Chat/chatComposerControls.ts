@@ -232,13 +232,40 @@ export const CHAT_SLASH_COMMANDS: ChatSlashCommandDefinition[] =
 const SLASH_SUGGESTION_LIMIT = 8;
 const SLASH_COMMAND_TOKEN_RE = /^\/[a-z][a-z0-9_-]*$/u;
 
-export function shouldTreatInputAsSlashCommand(text: string): boolean {
+export function shouldTreatInputAsSlashCommand(
+  text: string,
+  commands: ChatSlashCommandDefinition[] = CHAT_SLASH_COMMANDS,
+): boolean {
+  return shouldTreatInputAsSlashCommandWithCommands(text, commands);
+}
+
+function shouldTreatInputAsSlashCommandWithCommands(
+  text: string,
+  commands: ChatSlashCommandDefinition[],
+): boolean {
   const trimmedStart = text.trimStart();
   if (!trimmedStart.startsWith("/")) {
     return false;
   }
   const firstToken = trimmedStart.split(/\s+/u)[0] ?? "";
-  return SLASH_COMMAND_TOKEN_RE.test(firstToken);
+  if (!SLASH_COMMAND_TOKEN_RE.test(firstToken)) {
+    return false;
+  }
+  const commandToken = firstToken.toLowerCase();
+  if (commands.some((entry) => entry.command === commandToken)) {
+    return true;
+  }
+  let prefixMatches = 0;
+  for (const entry of commands) {
+    if (!entry.command.startsWith(commandToken)) {
+      continue;
+    }
+    prefixMatches += 1;
+    if (prefixMatches > 1) {
+      return false;
+    }
+  }
+  return prefixMatches === 1;
 }
 
 export function parseSlashCommand(

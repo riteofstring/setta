@@ -168,6 +168,19 @@ def test_completion_guard_keeps_creation_flow_open_for_implement_section_followu
     assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
 
 
+def test_completion_guard_ignores_non_scaffolding_implement_app_requests() -> None:
+    # Product implementation work should not be treated as project scaffolding.
+    prior_messages = [
+        _user_message("Implement app settings page and wire it to existing state."),
+    ]
+    assistant_message = _assistant_message("Done. Ready to ship.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Done. Ready to ship."
+
+
 def test_completion_guard_closes_creation_scope_for_unrelated_question_pivot() -> None:
     # Unrelated question pivots should close prior creation scope.
     prior_messages = [

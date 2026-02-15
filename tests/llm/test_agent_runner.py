@@ -235,6 +235,26 @@ class TestAgentRunner:
 
         assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
 
+    def test_completion_guard_ignores_non_scaffolding_implement_app_requests(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="Implement app settings page and wire it to existing state."
+                    )
+                ]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Ready to ship.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "Done. Ready to ship."
+
     def test_completion_guard_closes_scope_for_unrelated_question_pivot(
         self,
     ) -> None:

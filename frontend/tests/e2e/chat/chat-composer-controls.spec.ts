@@ -266,7 +266,7 @@ test.describe.serial("chat composer controls", () => {
 
       const overviewPane = page.locator("#OverviewPane");
       const input = overviewPane.getByPlaceholder("Type a message...");
-      await input.fill("/Users/kevin/project/main.py has failing tests");
+      await input.fill("/tmp build logs look stale");
       await input.press("Enter");
 
       await expect.poll(() => llmSubmitCount).toBe(1);

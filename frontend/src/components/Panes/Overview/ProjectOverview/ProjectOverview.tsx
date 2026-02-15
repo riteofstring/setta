@@ -292,13 +292,41 @@ function useActiveAgentSectionIds(): ReadonlySet<string> {
       hasLoadError: Boolean(agentRunsLoadError),
       hasRunningRuns,
     });
-    const intervalId = setInterval(() => {
+    let intervalId: number | null = null;
+
+    const clearPollingInterval = () => {
+      if (intervalId === null) {
+        return;
+      }
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+
+    const startPollingIfVisible = () => {
+      clearPollingInterval();
       if (document.visibilityState !== "visible") {
         return;
       }
+      intervalId = window.setInterval(() => {
+        void loadAgentRuns();
+      }, intervalMs);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        clearPollingInterval();
+        return;
+      }
       void loadAgentRuns();
-    }, intervalMs);
-    return () => clearInterval(intervalId);
+      startPollingIfVisible();
+    };
+
+    startPollingIfVisible();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      clearPollingInterval();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [agentRunsInitialLoadComplete, agentRunsLoadError, hasRunningRuns]);
 
   return activeSectionIds;
