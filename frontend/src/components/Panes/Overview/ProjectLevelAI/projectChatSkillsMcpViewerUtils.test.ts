@@ -300,6 +300,93 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ).toBe("inactive");
   });
 
+  it("marks active skills from namespaced skill path tool names", () => {
+    const skills = [
+      {
+        skillId: "workspace_agents_skills::ui-layout",
+        name: "ui-layout",
+        rootLabel: "Workspace .agents/skills",
+        rootPath: "/workspace/.agents/skills",
+        relativePath: "ui-layout",
+        description: "Codex skill",
+      },
+    ];
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "tc-1",
+            type: "function",
+            function: {
+              name: "mcp__setta__skill/ui-layout",
+              arguments: "{}",
+            },
+          },
+        ],
+      },
+    ];
+
+    const status = buildSkillStatusBySkillId({
+      skills,
+      engineType: EngineTypeEnum.external_agent,
+      externalAgentToolType: ExternalAgentToolTypeEnum.codex,
+      messages,
+    });
+
+    expect(status["workspace_agents_skills::ui-layout"]?.activityState).toBe(
+      "active",
+    );
+    expect(status["workspace_agents_skills::ui-layout"]?.activitySource).toBe(
+      "codex_skill_item",
+    );
+  });
+
+  it("ignores tool names that only contain the word skill as a substring", () => {
+    const skills = [
+      {
+        skillId: "workspace_agents_skills::readme",
+        name: "readme",
+        rootLabel: "Workspace .agents/skills",
+        rootPath: "/workspace/.agents/skills",
+        relativePath: "readme",
+        description: "Codex skill",
+      },
+    ];
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "tc-1",
+            type: "function",
+            function: {
+              name: "mcp__repo__skillful_search",
+              arguments: { name: "readme" },
+            },
+          },
+        ],
+      },
+    ];
+
+    const status = buildSkillStatusBySkillId({
+      skills,
+      engineType: EngineTypeEnum.external_agent,
+      externalAgentToolType: ExternalAgentToolTypeEnum.codex,
+      messages,
+    });
+
+    expect(status["workspace_agents_skills::readme"]?.activityState).toBe(
+      "inactive",
+    );
+  });
+
   it("prefers applicable roots when active skill token matches multiple skills", () => {
     const skills = [
       {

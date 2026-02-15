@@ -32,3 +32,25 @@
   - Targeted backend pytest: pass (`10 passed`).
   - Targeted frontend Vitest: pass (`11 passed`).
   - Targeted Playwright MCP viewer suite: pass (`11 passed`).
+
+## 2026-02-18 23:57:21 PST
+
+- Implemented external MCP runtime status durability and parsing fixes:
+  - Persisted external MCP runtime status snapshots into run outputs and made status reads fall back to persisted snapshots after run cleanup.
+  - Removed broad dict-of-dicts parsing heuristics outside explicit MCP containers to prevent phantom MCP server rows from non-MCP payloads.
+  - Normalized single-object MCP status rows with `id` fallback into canonical `serverId` so valid rows are no longer dropped.
+- Implemented MCP startup latency protections for external adapters:
+  - Codex app-server `mcpServerStatus/list` probe now uses a short bounded timeout and no longer uses full request timeout.
+  - OpenCode server-mode `/mcp` status probe now uses a short bounded HTTP timeout.
+- Implemented active-skill badge correctness fix in the MCP/skills viewer:
+  - Replaced broad substring matching with strict skill tool recognition (`skill`, `skill/<id>`) after optional MCP namespace stripping.
+  - Prevented false-positive active badges from unrelated tool names such as `mcp__repo__skillful_search`.
+- Updated automated coverage:
+  - Backend pytest additions for nested non-MCP dict rejection, single-object MCP id fallback preservation, and persisted status snapshot retrieval.
+  - Adapter tests validating short MCP probe timeouts and non-blocking startup behavior when probes fail/timeout.
+  - Frontend Vitest additions for namespaced skill path detection and false-positive suppression.
+  - Playwright e2e addition asserting no `Active` badge for non-skill tool-name substring matches.
+- Verification run:
+  - Targeted backend pytest: pass (`13 + 33 + 5` tests across updated suites).
+  - Targeted frontend Vitest: pass (`13 passed`).
+  - Targeted Playwright MCP viewer suite: pass (`12 passed`).

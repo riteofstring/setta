@@ -144,6 +144,17 @@ function normalizeSkillToken(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function stripMcpToolNamespace(toolName: string): string {
+  if (!toolName.startsWith("mcp__")) {
+    return toolName;
+  }
+  const namespaceSeparatorIndex = toolName.indexOf("__", "mcp__".length);
+  if (namespaceSeparatorIndex < 0) {
+    return toolName;
+  }
+  return toolName.slice(namespaceSeparatorIndex + "__".length);
+}
+
 function extractSkillNameFromArguments(
   argumentsValue: Record<string, unknown>,
 ): string | null {
@@ -185,22 +196,24 @@ function extractSkillNameFromInvocation({
   if (typeof toolName !== "string" || !toolName.trim()) {
     return null;
   }
-  const normalizedToolName = toolName.trim().toLowerCase();
+  const normalizedToolName = stripMcpToolNamespace(
+    toolName.trim().toLowerCase(),
+  );
   if (normalizedToolName === "skills" || normalizedToolName === "skills/list") {
     return null;
+  }
+  if (normalizedToolName === "skill") {
+    const argumentRecord = getArgumentsRecord(toolArguments);
+    if (!argumentRecord) {
+      return null;
+    }
+    return extractSkillNameFromArguments(argumentRecord);
   }
   if (normalizedToolName.startsWith("skill/")) {
     const suffix = normalizedToolName.slice("skill/".length).trim();
     return suffix || null;
   }
-  if (!normalizedToolName.includes("skill")) {
-    return null;
-  }
-  const argumentRecord = getArgumentsRecord(toolArguments);
-  if (!argumentRecord) {
-    return null;
-  }
-  return extractSkillNameFromArguments(argumentRecord);
+  return null;
 }
 
 function collectActiveSkillNames({

@@ -67,7 +67,10 @@ from setta.types.external_agents import (
     ExternalAgentWorkingDirStrategy,
 )
 from setta.types.id import ID
-from setta.types.mcp_runtime_status import MCPServerRuntimeState
+from setta.types.mcp_runtime_status import (
+    MCPServerRuntimeState,
+    MCPServerRuntimeStatus,
+)
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import create_agentic_edge, create_top_level_section
 from setta.types.project_config import ProjectConfig
@@ -2638,6 +2641,23 @@ class TestExternalAgentRunnerMcpRuntimeStatus:
         assert len(rows) == 1
         assert rows[0]["serverId"] == "filesystem"
 
+    def test_extract_status_payloads_ignores_non_mcp_nested_dict_map(self) -> None:
+        # Non-MCP envelopes can include nested dict maps that should not become
+        # phantom MCP server rows.
+        rows = _extract_status_payloads(
+            {
+                "type": "system_message",
+                "message": {
+                    "result": {
+                        "auth": {
+                            "error": "token missing",
+                        }
+                    }
+                },
+            }
+        )
+        assert rows == []
+
     def test_resolve_mcp_runtime_state_prefers_explicit_disabled_status(self) -> None:
         # Some providers report disabled via textual status even when connected=false.
         state = _resolve_mcp_runtime_state(
@@ -2730,6 +2750,75 @@ class TestExternalAgentRunnerMcpRuntimeStatus:
                 )
                 == []
             )
+
+    def test_single_object_mcp_container_with_id_fallback_is_not_dropped(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+
+            statuses = runner._build_external_statuses_from_payload(
+                payload={
+                    "message": {
+                        "mcp_servers": {
+                            "id": "filesystem",
+                            "status": "failed",
+                            "error": "spawn failed",
+                        }
+                    }
+                },
+                provider=ExternalAgentToolType.claude_code.value,
+            )
+
+            # MCP rows that rely on "id" fallback should survive normalization.
+            assert len(statuses) == 1
+            assert statuses[0].serverId == "filesystem"
+            assert statuses[0].state == MCPServerRuntimeState.error
+            assert statuses[0].lastError == "spawn failed"
+
+    def test_completed_run_reads_persisted_mcp_status_snapshot(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-1"),
+            )
+            run = context.run
+            runner._runs[run.id] = run
+            runner._external_mcp_statuses_by_run_id[run.id] = {
+                "filesystem": MCPServerRuntimeStatus(
+                    serverId="filesystem",
+                    source="external_runtime",
+                    transport="stdio",
+                    endpoint="npx @modelcontextprotocol/server-filesystem",
+                    state=MCPServerRuntimeState.connected,
+                    toolCount=3,
+                )
+            }
+            runner._persist_external_mcp_status_snapshot(run.id, run=run)
+
+            # Simulate normal task cleanup after completion.
+            runner._runs.pop(run.id, None)
+            runner._run_state.pop(run.id, None)
+            runner._external_mcp_statuses_by_run_id.pop(run.id, None)
+
+            statuses = runner.get_mcp_server_runtime_statuses(
+                chat_id=run.id,
+                engine_config_id=ID("engine-1"),
+            )
+
+            assert len(statuses) == 1
+            assert statuses[0].serverId == "filesystem"
+            assert statuses[0].state == MCPServerRuntimeState.connected
+            assert statuses[0].toolCount == 3
 
     def test_claude_raw_status_payload_is_captured(self) -> None:
         with TemporaryDirectory() as tmpdir:

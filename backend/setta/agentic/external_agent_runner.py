@@ -126,6 +126,7 @@ _APPROVAL_REQUEST_EVENT_TYPE = "approval_request"
 _APPROVAL_TOOL_NAME = "setta.approval"
 _ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion"
 _EXTERNAL_MCP_STATUS_SOURCE = "external_runtime"
+_EXTERNAL_MCP_STATUS_SNAPSHOT_KEY = "externalMcpServerRuntimeStatuses"
 _SUMMARY_EVENT_TYPES = {
     "run_started",
     "run_completed",
@@ -254,20 +255,19 @@ class ExternalAgentRunner:
         if chat_id is None or engine_config_id is None:
             return []
         run_id = chat_id
-        if run_id not in self._run_state:
-            return []
         run = self._runs.get(run_id) or load_agent_run(self.dbe, run_id)
         if run is None:
             return []
         if self._get_run_engine_config_id(run) != engine_config_id:
             return []
         statuses = self._external_mcp_statuses_by_run_id.get(run_id)
-        if statuses is None:
-            return []
-        return [
-            status.model_copy(deep=True)
-            for _, status in sorted(statuses.items(), key=lambda item: item[0])
-        ]
+        if statuses is not None:
+            return [
+                status.model_copy(deep=True)
+                for _, status in sorted(statuses.items(), key=lambda item: item[0])
+            ]
+        persisted = self._load_external_mcp_status_snapshot(run.outputs)
+        return [status.model_copy(deep=True) for status in persisted]
 
     def start_run(
         self,
@@ -417,6 +417,7 @@ class ExternalAgentRunner:
             if return_code not in (None, 0):
                 raise RuntimeError(f"External agent exited with code {return_code}")
             self._persist_outputs_from_state(run, context.config)
+            self._persist_external_mcp_status_snapshot(run.id, run=run)
             run.status = AgentRunStatus.completed
             run.finishedAt = get_now_timestamp()
             save_agent_run(self.dbe, run)
@@ -429,6 +430,7 @@ class ExternalAgentRunner:
             if not was_cancelled:
                 run.status = AgentRunStatus.cancelled
                 run.finishedAt = get_now_timestamp()
+            self._persist_external_mcp_status_snapshot(run.id, run=run)
             save_agent_run(self.dbe, run)
             if not was_cancelled:
                 self._record_event(run, "run_cancelled", {})
@@ -459,6 +461,7 @@ class ExternalAgentRunner:
             )
             run.status = AgentRunStatus.failed
             run.finishedAt = get_now_timestamp()
+            self._persist_external_mcp_status_snapshot(run.id, run=run)
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_failed", error_payload)
         finally:
@@ -1430,6 +1433,42 @@ class ExternalAgentRunner:
                 continue
             destination[status.serverId] = status
 
+    def _persist_external_mcp_status_snapshot(
+        self,
+        run_id: ID,
+        *,
+        run: AgentRun | None = None,
+    ) -> None:
+        statuses = self._external_mcp_statuses_by_run_id.get(run_id)
+        if statuses is None:
+            return
+        target_run = run or self._runs.get(run_id) or load_agent_run(self.dbe, run_id)
+        if target_run is None:
+            return
+        outputs = target_run.outputs or {}
+        outputs[_EXTERNAL_MCP_STATUS_SNAPSHOT_KEY] = [
+            status.model_dump(mode="json")
+            for _, status in sorted(statuses.items(), key=lambda item: item[0])
+        ]
+        target_run.outputs = outputs
+        save_agent_run(self.dbe, target_run)
+
+    @staticmethod
+    def _load_external_mcp_status_snapshot(
+        outputs: dict[str, Any] | None,
+    ) -> list[MCPServerRuntimeStatus]:
+        if not outputs:
+            return []
+        raw_snapshot = outputs.get(_EXTERNAL_MCP_STATUS_SNAPSHOT_KEY)
+        if not isinstance(raw_snapshot, list):
+            return []
+        statuses: list[MCPServerRuntimeStatus] = []
+        for raw_status in raw_snapshot:
+            if not isinstance(raw_status, dict):
+                continue
+            statuses.append(MCPServerRuntimeStatus.model_validate(raw_status))
+        return statuses
+
     def _build_unknown_statuses_from_claude_mcp_config(
         self,
         inputs: dict[str, Any] | None,
@@ -2158,14 +2197,18 @@ def _extract_status_payloads_from_container(
     if _looks_like_status_entry(
         container,
         is_mcp_container=is_mcp_container,
-    ) and _extract_server_id(
-        container,
-        allow_fallback_id=is_mcp_container,
-    ) is not None:
-        return [container]
-    should_parse_dict_as_server_map = is_mcp_container or all(
-        isinstance(value, dict) for value in container.values()
-    )
+    ):
+        normalized_container = dict(container)
+        if is_mcp_container and "serverId" not in normalized_container:
+            fallback_server_id = _extract_server_id(
+                normalized_container,
+                allow_fallback_id=True,
+            )
+            if fallback_server_id is not None:
+                normalized_container["serverId"] = fallback_server_id
+        if _extract_server_id(normalized_container) is not None:
+            return [normalized_container]
+    should_parse_dict_as_server_map = is_mcp_container
     if not should_parse_dict_as_server_map:
         return []
     rows: list[dict[str, Any]] = []

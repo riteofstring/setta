@@ -47,6 +47,7 @@ from setta.utils.timestamps import get_now_timestamp
 
 _SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "opencode_sdk_runner.mjs"
 _OPENCODE_STDERR_MAX_LINES = 200
+_MCP_STATUS_HTTP_TIMEOUT_SECONDS = 1.0
 
 
 class OpenCodeSdkAdapter(ExternalAgentAdapter):
@@ -113,7 +114,10 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
         status_url = f"{normalized_base_url}/mcp"
         try:
             async with create_mcp_http_client() as client:
-                response = await client.get(status_url)
+                response = await asyncio.wait_for(
+                    client.get(status_url),
+                    timeout=_MCP_STATUS_HTTP_TIMEOUT_SECONDS,
+                )
                 response.raise_for_status()
                 payload = response.json()
         except Exception:
