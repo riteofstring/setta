@@ -250,6 +250,78 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await expect(page.getByText(/^Skills$/)).toHaveCount(0);
 });
 
+test("project ai chat surfaces disabled MCP runtime servers in the summary", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_agents_skills::ui-layout",
+          name: "ui-layout",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "ui-layout",
+          description: "Create dense dashboard layouts.",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {
+          setta: {
+            transport: "sse",
+            url: "http://127.0.0.1:8000/mcp",
+          },
+        },
+        defaultMcpServerIds: ["setta"],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await mockMcpRuntimeStatusRoute(page, {
+    payload: buildMcpRuntimeStatusResponse({
+      servers: [
+        buildMcpRuntimeServer({
+          serverId: "setta",
+          state: "connected",
+          transport: "sse",
+          endpoint: "http://127.0.0.1:8000/mcp",
+        }),
+      ],
+      externalServers: [
+        buildMcpRuntimeServer({
+          serverId: "context7",
+          source: "external_runtime",
+          state: "disabled",
+          transport: "stdio",
+          endpoint: "npx @upstash/context7-mcp",
+        }),
+      ],
+    }),
+  });
+
+  await ensureAppReady(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+
+  await expect(page.getByText(/1 disabled/)).toBeVisible();
+  await expect(page.getByText(/context7.*disabled/i)).toBeVisible();
+});
+
 test("project ai chat shows inline skills endpoint error when routes are missing", async ({
   page,
 }) => {

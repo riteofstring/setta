@@ -2104,20 +2104,36 @@ class ExternalAgentRunner:
 def _extract_status_payloads(
     payload: dict[str, Any] | list[Any],
 ) -> list[dict[str, Any]]:
+    return _extract_status_payloads_from_container(
+        payload,
+        is_mcp_container=isinstance(payload, list),
+    )
+
+
+def _extract_status_payloads_from_container(
+    payload: dict[str, Any] | list[Any],
+    *,
+    is_mcp_container: bool,
+) -> list[dict[str, Any]]:
     container: dict[str, Any] | list[Any] | None
     if isinstance(payload, dict):
         container = payload
         for key in ("result", "message", "event", "stream_event"):
             nested = container.get(key)
             if isinstance(nested, dict | list):
-                nested_payloads = _extract_status_payloads(nested)
+                nested_payloads = _extract_status_payloads_from_container(
+                    nested,
+                    is_mcp_container=is_mcp_container,
+                )
                 if len(nested_payloads) > 0:
                     return nested_payloads
         for key in ("mcp_servers", "mcpServers", "servers", "items"):
             nested = container.get(key)
             if isinstance(nested, dict | list):
-                container = nested
-                break
+                return _extract_status_payloads_from_container(
+                    nested,
+                    is_mcp_container=True,
+                )
     else:
         container = payload
     if isinstance(container, list):
@@ -2126,18 +2142,32 @@ def _extract_status_payloads(
             if not isinstance(row, dict):
                 continue
             normalized_row = dict(row)
-            if "serverId" not in normalized_row:
+            if is_mcp_container and "serverId" not in normalized_row:
                 if isinstance(row.get("id"), str):
                     normalized_row["serverId"] = row["id"]
                 elif isinstance(row.get("name"), str):
                     normalized_row["serverId"] = row["name"]
-            if _looks_like_status_entry(normalized_row):
+            if _looks_like_status_entry(
+                normalized_row,
+                is_mcp_container=is_mcp_container,
+            ):
                 rows.append(normalized_row)
         return rows
     if not isinstance(container, dict):
         return []
-    if _looks_like_status_entry(container) and _extract_server_id(container) is not None:
+    if _looks_like_status_entry(
+        container,
+        is_mcp_container=is_mcp_container,
+    ) and _extract_server_id(
+        container,
+        allow_fallback_id=is_mcp_container,
+    ) is not None:
         return [container]
+    should_parse_dict_as_server_map = is_mcp_container or all(
+        isinstance(value, dict) for value in container.values()
+    )
+    if not should_parse_dict_as_server_map:
+        return []
     rows: list[dict[str, Any]] = []
     for server_id, row in container.items():
         if not isinstance(server_id, str):
@@ -2146,12 +2176,19 @@ def _extract_status_payloads(
             continue
         normalized_row = dict(row)
         normalized_row.setdefault("serverId", server_id)
-        if _looks_like_status_entry(normalized_row):
+        if _looks_like_status_entry(
+            normalized_row,
+            is_mcp_container=True,
+        ):
             rows.append(normalized_row)
     return rows
 
 
-def _looks_like_status_entry(row: dict[str, Any]) -> bool:
+def _looks_like_status_entry(
+    row: dict[str, Any],
+    *,
+    is_mcp_container: bool = False,
+) -> bool:
     status_keys = {
         "status",
         "state",
@@ -2169,14 +2206,31 @@ def _looks_like_status_entry(row: dict[str, Any]) -> bool:
         "missingEnvVar",
         "missing_env_var",
     }
-    return any(key in row for key in status_keys)
+    if not any(key in row for key in status_keys):
+        return False
+    return (
+        _extract_server_id(
+            row,
+            allow_fallback_id=is_mcp_container,
+        )
+        is not None
+    )
 
 
-def _extract_server_id(row: dict[str, Any]) -> str | None:
-    for key in ("serverId", "id", "name", "server", "server_name"):
+def _extract_server_id(
+    row: dict[str, Any],
+    *,
+    allow_fallback_id: bool = False,
+) -> str | None:
+    for key in ("serverId", "server", "server_name"):
         value = row.get(key)
         if isinstance(value, str) and value.strip() != "":
             return value
+    if allow_fallback_id:
+        for key in ("id", "name"):
+            value = row.get(key)
+            if isinstance(value, str) and value.strip() != "":
+                return value
     return None
 
 
@@ -2230,16 +2284,25 @@ def _resolve_mcp_runtime_state(row: dict[str, Any]) -> MCPServerRuntimeState:
     connected = row.get("connected")
     if connected is True:
         return MCPServerRuntimeState.connected
+    status_state = _resolve_mcp_status_state_value(row)
+    if status_state is not None:
+        return status_state
     if connected is False:
         error_message = _extract_error_message(row)
         if error_message is not None:
             return MCPServerRuntimeState.error
         return MCPServerRuntimeState.unknown
+    return MCPServerRuntimeState.unknown
+
+
+def _resolve_mcp_status_state_value(
+    row: dict[str, Any],
+) -> MCPServerRuntimeState | None:
     raw_status = row.get("state")
     if not isinstance(raw_status, str):
         raw_status = row.get("status")
     if not isinstance(raw_status, str):
-        return MCPServerRuntimeState.unknown
+        return None
     normalized = raw_status.strip().lower()
     if normalized in {"connected", "ready", "ok", "online", "active"}:
         return MCPServerRuntimeState.connected
@@ -2258,7 +2321,7 @@ def _resolve_mcp_runtime_state(row: dict[str, Any]) -> MCPServerRuntimeState:
         return MCPServerRuntimeState.error
     if normalized in {"disabled"}:
         return MCPServerRuntimeState.disabled
-    return MCPServerRuntimeState.unknown
+    return None
 
 
 def _format_question_answers(answers: dict[str, str]) -> str:

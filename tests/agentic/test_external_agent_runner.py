@@ -28,6 +28,8 @@ from setta.agentic.external_agent_runner import (
     ExternalAgentApprovalState,
     ExternalAgentRunState,
     ExternalAgentRunner,
+    _extract_status_payloads,
+    _resolve_mcp_runtime_state,
 )
 from setta.agentic.completion_guard import MISSING_CHECKS_MESSAGE
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
@@ -2604,6 +2606,48 @@ class TestExternalAgentRunnerMcpAuth:
 
 
 class TestExternalAgentRunnerMcpRuntimeStatus:
+    def test_extract_status_payloads_ignores_non_mcp_error_event(self) -> None:
+        # Non-MCP system events can include id/error fields; they should not be
+        # surfaced as MCP server rows.
+        rows = _extract_status_payloads(
+            {
+                "type": "system_message",
+                "message": {
+                    "id": "evt-123",
+                    "error": "initialization failed",
+                },
+            }
+        )
+        assert rows == []
+
+    def test_extract_status_payloads_keeps_id_fallback_in_mcp_container(self) -> None:
+        # MCP payloads that omit serverId but include id should still normalize.
+        rows = _extract_status_payloads(
+            {
+                "message": {
+                    "mcp_servers": [
+                        {
+                            "id": "filesystem",
+                            "status": "failed",
+                            "error": "spawn failed",
+                        }
+                    ]
+                }
+            }
+        )
+        assert len(rows) == 1
+        assert rows[0]["serverId"] == "filesystem"
+
+    def test_resolve_mcp_runtime_state_prefers_explicit_disabled_status(self) -> None:
+        # Some providers report disabled via textual status even when connected=false.
+        state = _resolve_mcp_runtime_state(
+            {
+                "connected": False,
+                "status": "disabled",
+            }
+        )
+        assert state == MCPServerRuntimeState.disabled
+
     def test_get_mcp_runtime_statuses_empty_without_chat_or_engine(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -2776,6 +2820,97 @@ class TestExternalAgentRunnerMcpRuntimeStatus:
                 engine_config_id=ID("engine-1"),
             )
             assert statuses == []
+
+    def test_claude_raw_non_mcp_error_message_is_ignored(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-1"),
+            )
+            run = context.run
+            handle = ExternalAgentRunHandle(run_id=run.id)
+            runner._runs[run.id] = run
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=ClaudeSdkAdapter(),
+            )
+
+            runner._capture_external_mcp_statuses_from_raw(
+                context,
+                run_id=run.id,
+                raw_payload={
+                    "type": "system_message",
+                    "message": {
+                        "id": "evt-123",
+                        "error": "initialization failed",
+                    },
+                },
+            )
+
+            statuses = runner.get_mcp_server_runtime_statuses(
+                chat_id=run.id,
+                engine_config_id=ID("engine-1"),
+            )
+            assert statuses == []
+
+    def test_claude_disabled_status_with_connected_false_is_preserved(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-1"),
+            )
+            run = context.run
+            handle = ExternalAgentRunHandle(run_id=run.id)
+            runner._runs[run.id] = run
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=ClaudeSdkAdapter(),
+            )
+
+            runner._capture_external_mcp_statuses_from_raw(
+                context,
+                run_id=run.id,
+                raw_payload={
+                    "type": "system_message",
+                    "message": {
+                        "mcp_servers": [
+                            {
+                                "serverId": "filesystem",
+                                "connected": False,
+                                "status": "disabled",
+                                "transport": "stdio",
+                                "command": "npx @modelcontextprotocol/server-filesystem .",
+                            }
+                        ]
+                    },
+                },
+            )
+
+            statuses = runner.get_mcp_server_runtime_statuses(
+                chat_id=run.id,
+                engine_config_id=ID("engine-1"),
+            )
+            assert len(statuses) == 1
+            assert statuses[0].serverId == "filesystem"
+            assert statuses[0].state == MCPServerRuntimeState.disabled
 
     def test_seeded_unknown_fallback_does_not_override_payload_status(self) -> None:
         with TemporaryDirectory() as tmpdir:
