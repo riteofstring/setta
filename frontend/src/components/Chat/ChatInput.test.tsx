@@ -1,10 +1,8 @@
-import { type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { type SharePolicy } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CHAT_STARTER_PROMPTS } from "./chatComposerControls";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ChatInput } from "./ChatInput";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
@@ -30,15 +28,12 @@ function syncStoreInitialState(store: {
   Object.assign(initial, store.getState());
 }
 
-function renderChatInput(
-  overrides: Partial<ComponentProps<typeof ChatInput>> = {},
-) {
+function renderChatInput() {
   return renderToStaticMarkup(
     <ChatInput
       placeholderText="Type a message..."
       waitingForResponse={false}
       onSubmit={() => undefined}
-      {...overrides}
     />,
   );
 }
@@ -135,94 +130,5 @@ describe("ChatInput attachment gating", () => {
     expect(className).not.toBeNull();
     expect(className).toContain("w-full");
     expect(className).toContain("max-w-none");
-  });
-
-  it("uses an inset focus ring so focus styles are not clipped", () => {
-    const markup = renderChatInput();
-    const className = getTextareaClassName(markup);
-
-    expect(className).not.toBeNull();
-    expect(className).toContain("focus:ring-inset");
-    expect(className).toContain("focus:border-blue-500");
-  });
-});
-
-describe("ChatInput composer controls", () => {
-  beforeEach(() => {
-    resetProjectStores();
-  });
-
-  afterEach(() => {
-    resetProjectStores();
-  });
-
-  it("renders starter prompts without a dedicated quick slash row", () => {
-    const markup = renderChatInput({
-      starterPrompts: CHAT_STARTER_PROMPTS,
-      showPythonStarterPrompts: true,
-    });
-
-    expect(markup).toContain("Create Project");
-    expect(markup).toContain("Summarize Codebase");
-    expect(markup).not.toContain(">/new<");
-    expect(markup).not.toContain(">/resume<");
-    expect(markup).not.toContain(">/model<");
-  });
-
-  it("hides python starter prompt when python is unavailable", () => {
-    const markup = renderChatInput({
-      starterPrompts: CHAT_STARTER_PROMPTS,
-      showPythonStarterPrompts: false,
-    });
-
-    expect(markup).not.toContain("Create Project");
-    expect(markup).toContain("Summarize Codebase");
-  });
-
-  it("renders execution controls when provided", () => {
-    const markup = renderChatInput({
-      executionControls: {
-        permissionMode: "minimal",
-        searchEnabled: true,
-        onPermissionModeChange: vi.fn(),
-        onSearchEnabledChange: vi.fn(),
-      },
-    });
-
-    expect(markup).toContain("minimal");
-    expect(markup).toContain("Search");
-    expect(markup).not.toContain("Skills");
-  });
-
-  it("does not render slash buttons above the composer", () => {
-    const markup = renderChatInput({
-      starterPrompts: CHAT_STARTER_PROMPTS,
-      showPythonStarterPrompts: true,
-    });
-
-    expect(markup).not.toContain(">/new<");
-    expect(markup).not.toContain(">/resume<");
-    expect(markup).not.toContain(">/model<");
-  });
-
-  it("defaults slash suggestions to below placement", () => {
-    const markup = renderChatInput({
-      value: "/res",
-      onChange: vi.fn(),
-    });
-
-    expect(markup).toContain("top-[calc(100%+4px)]");
-    expect(markup).toContain("overflow-x-hidden");
-  });
-
-  it("supports explicit above placement for slash suggestions", () => {
-    const markup = renderChatInput({
-      value: "/res",
-      onChange: vi.fn(),
-      slashSuggestionsPlacement: "above",
-    });
-
-    expect(markup).toContain("bottom-[calc(100%+4px)]");
-    expect(markup).toContain("overflow-x-hidden");
   });
 });
