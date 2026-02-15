@@ -104,7 +104,7 @@ export function SectionStyleColorSettings({
   const isResetDisabled = !canEditStyleColor || localStyleColor === null;
 
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-white bg-white px-3 py-2 shadow-[inset_0_3px_8px_0_rgb(0_0_0_/_0.08)] dark:border-setta-700 dark:bg-setta-800 dark:shadow-[inset_0_1px_8px_0_rgb(0_0_0_/_0.5)]">
+    <div className="flex flex-col gap-2 rounded-lg bg-setta-100/70 px-3 py-2 dark:bg-setta-900/60">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-bold uppercase tracking-wide text-setta-600 dark:text-setta-400">
           Style

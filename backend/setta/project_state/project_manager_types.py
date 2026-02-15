@@ -38,10 +38,16 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatPermissionMode,
     ChatSectionState,
     CodeFileAccessMode,
+    ListRootViewMode,
     SectionSize,
     SectionType,
+    SpreadsheetGridDensity,
+    TaskBoardColumn,
+    TaskBoardTask,
+    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
 )
@@ -361,6 +367,12 @@ class CreateTopLevelSectionResponse(BaseModel):
     sectionId: ID = Field(
         description="Identifier for the newly created top-level section.",
     )
+    metaControlParamId: ID | None = Field(
+        default=None,
+        description=(
+            "Meta control param identifier created with this section when applicable."
+        ),
+    )
     panTo: Position | None = Field(
         default=None,
         description="Optional viewport center for panning to the new section.",
@@ -461,6 +473,14 @@ class SetViewModeNameRequest(ProjectManagerRequestWithProjectConfig):
     )
     name: str = Field(
         description="New display name for the view mode.",
+    )
+
+
+class SetViewModeSortOrderRequest(ProjectManagerRequestWithProjectConfig):
+    """Persist a full ordered list of view mode IDs."""
+
+    orderedViewModeIds: list[ID] = Field(
+        description="Complete list of view mode IDs in desired order.",
     )
 
 
@@ -934,6 +954,14 @@ class SetDefaultSectionVariantRequest(ProjectManagerRequestWithSectionVariant):
     pass
 
 
+class SetSectionVariantSortOrderRequest(ProjectManagerRequestWithSection):
+    """Persist the ordered list of variants for a section."""
+
+    orderedVariantIds: list[ID] = Field(
+        description="Complete list of variant IDs in desired order.",
+    )
+
+
 class ToggleVariantFrozenRequest(ProjectManagerRequestWithVariant):
     pass
 
@@ -1013,6 +1041,10 @@ class SetTextBlockDisplayModeRequest(ProjectManagerRequestWithSection):
     textDisplayMode: TextBlockDisplayMode
 
 
+class SetTextBlockMasterFontSizeRequest(ProjectManagerRequestWithSection):
+    masterFontSizePx: float
+
+
 class SetTextBlockHeadingAsSectionNameRequest(ProjectManagerRequestWithSection):
     """Request payload for toggling text block heading-as-title behavior."""
 
@@ -1062,11 +1094,39 @@ class SetTextBlockFormatRequest(ProjectManagerRequestWithSection):
     format: TextBlockFormat
 
 
+class SetParentDefaultChildSectionTypeRequest(ProjectManagerRequestWithSection):
+    defaultChildSectionType: SectionType
+
+
+class SetListRootViewModeRequest(ProjectManagerRequestWithSection):
+    viewMode: ListRootViewMode
+
+
+class SetTaskBoardSectionStateRequest(ProjectManagerRequestWithSection):
+    viewMode: TaskBoardViewMode
+    columns: list[TaskBoardColumn]
+    tasks: list[TaskBoardTask]
+
+
+class SetSpreadsheetFilePathRequest(ProjectManagerRequestWithSection):
+    filePath: str
+    activeSheet: str | None
+
+
+class SetSpreadsheetSectionSettingsRequest(ProjectManagerRequestWithSection):
+    readOnly: bool
+    showRowNumbers: bool
+    density: SpreadsheetGridDensity
+    autoReloadOnExternalChange: bool
+
+
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     managed: bool
     engineConfigId: ID | None
     agentProfileId: ID | None
     thinking: bool
+    permissionMode: ChatPermissionMode
+    searchEnabled: bool
 
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):

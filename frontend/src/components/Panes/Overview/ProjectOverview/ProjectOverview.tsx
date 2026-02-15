@@ -1,15 +1,16 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { loadAgentRuns } from "state/actions/ai";
 import {
   getActiveViewModeConfig,
-  getCurrEffectiveSectionImpl,
-  getSectionCore,
+  getCurrEffectiveSectionImplIfPresent,
   getSectionShouldRender,
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
 import {
+  useAIStore,
   useProjectState,
   useSettings,
   ZustandProjectState,
@@ -23,6 +24,11 @@ import {
   type Core,
   type ViewModeConfig,
 } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
+import {
+  getActiveSectionIdsFromRuns,
+  isChatSectionWaitingForResponse,
+} from "./aiActivity";
 import { ProjectName } from "./ProjectName";
 import { OverviewListingType, SectionListItems } from "./SectionListItems";
 
@@ -31,21 +37,44 @@ const DEFAULT_SECTION_TAG_COLOR_CHOICES: ColorPickerChoice[] =
 
 const TAG_FILTER_ALL = "__all__" as const;
 const TAG_FILTER_UNTAGGED = "__untagged__" as const;
+const AGENT_RUNS_FAST_POLL_MS = 2500;
+const AGENT_RUNS_IDLE_POLL_MS = 20000;
 
 type TagFilterValue =
   | typeof TAG_FILTER_ALL
   | typeof TAG_FILTER_UNTAGGED
   | string;
 
+export function resolveAgentRunsPollIntervalMs({
+  hasLoadError,
+  hasRunningRuns,
+}: {
+  hasLoadError: boolean;
+  hasRunningRuns: boolean;
+}): number {
+  if (hasLoadError || hasRunningRuns) {
+    return AGENT_RUNS_FAST_POLL_MS;
+  }
+  return AGENT_RUNS_IDLE_POLL_MS;
+}
+
 export function ProjectOverview() {
   const sectionList = useOverviewListing();
-  return <ProjectOverviewCore sectionList={sectionList} />;
+  const activeSectionIds = useActiveAgentSectionIds();
+  return (
+    <ProjectOverviewCore
+      sectionList={sectionList}
+      activeSectionIds={activeSectionIds}
+    />
+  );
 }
 
 function ProjectOverviewCore({
   sectionList,
+  activeSectionIds,
 }: {
   sectionList: Array<OverviewListingType>;
+  activeSectionIds: ReadonlySet<string>;
 }) {
   const [filteredList, setFilter] = useMatchSorterFilter(sectionList, ["name"]);
   const sectionTagColorChoices =
@@ -94,14 +123,17 @@ function ProjectOverviewCore({
           />
         </div>
       </search>
-      <div className="min-h-0 flex-grow overflow-y-scroll">
+      <div className="setta-pane-scroll min-h-0 flex-grow">
         <ul
           className="min-h-0 flex-grow"
           {...getFloatingBoxHandlers({
             content: "Click on a section name to pan to it.",
           })}
         >
-          <SectionListItems listOfSectionIdsAndNames={tagFilteredList} />
+          <SectionListItems
+            listOfSectionIdsAndNames={tagFilteredList}
+            activeSectionIds={activeSectionIds}
+          />
         </ul>
       </div>
     </>
@@ -209,8 +241,11 @@ export function useOverviewListing() {
     const { isEditingViewMode } = x.projectConfig;
     const topLevelSectionIds = getTopLevelSectionIdsForDisplay(x);
     for (const sectionId of topLevelSectionIds) {
-      const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
-      const sectionCore = getSectionCore(x, sectionId);
+      const sectionImpl = getCurrEffectiveSectionImplIfPresent(x, sectionId);
+      const sectionCore = x.sections[sectionId];
+      if (!sectionImpl || !sectionCore) {
+        continue;
+      }
       getDepthListingHelper(
         sectionCore,
         sectionImpl,
@@ -225,6 +260,78 @@ export function useOverviewListing() {
   }, _.isEqual);
 }
 
+function useActiveAgentSectionIds(): ReadonlySet<string> {
+  const { agentRuns, agentRunsInitialLoadComplete, agentRunsLoadError } =
+    useAIStore(
+      (state) => ({
+        agentRuns: state.agentRuns,
+        agentRunsInitialLoadComplete: state.agentRunsInitialLoadComplete,
+        agentRunsLoadError: state.agentRunsLoadError,
+      }),
+      shallow,
+    );
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
+
+  useEffect(() => {
+    if (!agentRunsInitialLoadComplete) {
+      void loadAgentRuns();
+    }
+  }, [agentRunsInitialLoadComplete]);
+
+  const activeSectionIds = useMemo(
+    () => getActiveSectionIdsFromRuns(agentRuns, projectConfigId),
+    [agentRuns, projectConfigId],
+  );
+  const hasRunningRuns = activeSectionIds.size > 0;
+
+  useEffect(() => {
+    if (!agentRunsInitialLoadComplete) {
+      return;
+    }
+    const intervalMs = resolveAgentRunsPollIntervalMs({
+      hasLoadError: Boolean(agentRunsLoadError),
+      hasRunningRuns,
+    });
+    let intervalId: number | null = null;
+
+    const clearPollingInterval = () => {
+      if (intervalId === null) {
+        return;
+      }
+      window.clearInterval(intervalId);
+      intervalId = null;
+    };
+
+    const startPollingIfVisible = () => {
+      clearPollingInterval();
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      intervalId = window.setInterval(() => {
+        void loadAgentRuns();
+      }, intervalMs);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        clearPollingInterval();
+        return;
+      }
+      void loadAgentRuns();
+      startPollingIfVisible();
+    };
+
+    startPollingIfVisible();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      clearPollingInterval();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [agentRunsInitialLoadComplete, agentRunsLoadError, hasRunningRuns]);
+
+  return activeSectionIds;
+}
+
 function getDepthListingHelper(
   section: Core,
   sectionImpl: BaseSectionImplUnion,
@@ -236,9 +343,7 @@ function getDepthListingHelper(
 ) {
   const visibility = viewMode.visibilityBySectionId[section.id];
   if (visibility === undefined) {
-    throw new Error(
-      `Missing visibility for section ${section.id} in view mode ${viewMode.id}`,
-    );
+    return;
   }
   const shouldRender = getSectionShouldRender(visibility, isEditingViewMode);
   if (!shouldRender) {
@@ -249,23 +354,28 @@ function getDepthListingHelper(
     name: section.name,
     depth: depth,
     tagColor: sectionImpl.tagColor ?? null,
+    aiWorking: isChatSectionWaitingForResponse(sectionImpl),
   });
 
   if (isBaseParentSectionImpl(sectionImpl)) {
     for (const childId of sectionImpl.children) {
       const childSection = x.sections[childId];
-      const childSectionImpl = getCurrEffectiveSectionImpl(x, childId);
-      if (childSection) {
-        getDepthListingHelper(
-          childSection,
-          childSectionImpl,
-          depth + 1,
-          x,
-          viewMode,
-          isEditingViewMode,
-          outputList,
-        );
+      if (!childSection) {
+        continue;
       }
+      const childSectionImpl = getCurrEffectiveSectionImplIfPresent(x, childId);
+      if (!childSectionImpl) {
+        continue;
+      }
+      getDepthListingHelper(
+        childSection,
+        childSectionImpl,
+        depth + 1,
+        x,
+        viewMode,
+        isEditingViewMode,
+        outputList,
+      );
     }
   }
 }

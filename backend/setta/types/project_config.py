@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.database.utils import create_new_id
@@ -120,6 +120,8 @@ def default_section_allowlist() -> list[SectionType]:
         SectionType.TextBlock,
         SectionType.Draw,
         SectionType.MetaControl,
+        SectionType.TaskBoard,
+        SectionType.Spreadsheet,
     ]
 
 
@@ -127,6 +129,8 @@ def default_meta_control_allowlist() -> list[CodeObjType]:
     return [
         CodeObjType.CodeParam,
         CodeObjType.TextParam,
+        CodeObjType.DateParam,
+        CodeObjType.TimeParam,
         CodeObjType.TextAreaParam,
         CodeObjType.SliderParam,
         CodeObjType.RotaryParam,
@@ -210,6 +214,8 @@ def default_code_obj_representation(
 ) -> CodeObjValueRepresentationMode:
     if code_obj_type in (
         CodeObjType.TextParam,
+        CodeObjType.DateParam,
+        CodeObjType.TimeParam,
         CodeObjType.TextAreaParam,
         CodeObjType.PasswordParam,
         CodeObjType.ColorPickerParam,
@@ -308,6 +314,8 @@ def _is_code_obj_value_representation_supported(
         )
     if code_obj_type in (
         CodeObjType.TextParam,
+        CodeObjType.DateParam,
+        CodeObjType.TimeParam,
         CodeObjType.TextAreaParam,
         CodeObjType.PasswordParam,
         CodeObjType.ColorPickerParam,
@@ -374,7 +382,22 @@ class ProjectCodegenPythonTarget(BaseModel, extra="forbid"):
     codeObjValuePolicy: CodeObjValuePolicy = Field(default_factory=CodeObjValuePolicy)
 
 
-ProjectCodegenTarget = ProjectCodegenPythonTarget
+class ProjectCodegenPluginTarget(BaseModel, extra="forbid"):
+    language: str
+    options: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, value: str) -> str:
+        normalized = value.strip()
+        if normalized == "":
+            raise ValueError("Plugin codegen target language cannot be empty.")
+        if normalized == ProjectCodegenLanguage.python.value:
+            raise ValueError("Plugin codegen target language cannot be python.")
+        return normalized
+
+
+ProjectCodegenTarget = ProjectCodegenPythonTarget | ProjectCodegenPluginTarget
 
 
 def default_codegen_targets() -> list[ProjectCodegenTarget]:
@@ -383,9 +406,14 @@ def default_codegen_targets() -> list[ProjectCodegenTarget]:
 
 def project_config_has_codegen_language(
     project_config: "ProjectConfig",
-    language: ProjectCodegenLanguage,
+    language: ProjectCodegenLanguage | str,
 ) -> bool:
-    return any(target.language == language for target in project_config.codegenTargets)
+    language_value = (
+        language.value if isinstance(language, ProjectCodegenLanguage) else language
+    )
+    return any(
+        target.language == language_value for target in project_config.codegenTargets
+    )
 
 
 def get_python_codegen_target(
@@ -397,6 +425,19 @@ def get_python_codegen_target(
                 raise TypeError("Expected python codegen target.")
             return target
     return None
+
+
+def get_plugin_codegen_targets(
+    project_config: "ProjectConfig",
+) -> list[ProjectCodegenPluginTarget]:
+    targets: list[ProjectCodegenPluginTarget] = []
+    for target in project_config.codegenTargets:
+        if target.language == ProjectCodegenLanguage.python:
+            continue
+        if not isinstance(target, ProjectCodegenPluginTarget):
+            raise TypeError("Expected plugin codegen target.")
+        targets.append(target)
+    return targets
 
 
 def get_python_codegen_target_with_type_guard(
@@ -436,7 +477,7 @@ class ProjectConfig(BaseModel, extra="forbid"):
 
     @model_validator(mode="after")
     def _validate_codegen_targets(self):
-        seen: set[ProjectCodegenLanguage] = set()
+        seen: set[str] = set()
         for target in self.codegenTargets:
             if target.language in seen:
                 raise ValueError(

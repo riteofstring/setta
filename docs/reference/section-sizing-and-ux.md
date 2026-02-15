@@ -58,6 +58,8 @@ experience around resizing.
 | Chart | 300 x 300 |
 | Draw | 402 x 100 |
 | TextBlock | width 500, height auto |
+| TaskBoard | 720 x 430 |
+| Spreadsheet | 760 x 500 |
 | Terminal | 250 x 150 |
 | Chat | 400 x 200 |
 | Code | width 500, height auto |

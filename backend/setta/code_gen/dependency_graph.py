@@ -60,8 +60,11 @@ from setta.types.section_impls import (
     ChatSectionState,
     DrawSectionImpl,
     ImageSectionImpl,
+    PluginSectionImpl,
     PromptSectionImpl,
     SectionType,
+    SpreadsheetSectionImpl,
+    TaskBoardSectionImpl,
     TextBlockSectionImpl,
 )
 from setta.utils.constants import C
@@ -157,8 +160,11 @@ class DependencyGraph:
             SectionType.Prompt: self._export_prompt_section,
             SectionType.Draw: self._export_draw_section,
             SectionType.Image: self._export_image_section,
+            SectionType.Plugin: self._export_plugin_section,
             SectionType.MetaControl: self._export_meta_control_section,
             SectionType.Chat: self._export_chat_section,
+            SectionType.TaskBoard: self._export_task_board_section,
+            SectionType.Spreadsheet: self._export_spreadsheet_section,
         }
         self.section_policy = get_section_codegen_policy(p.projectConfig)
         self.code_obj_value_policy = get_code_obj_value_policy(p.projectConfig)
@@ -321,6 +327,41 @@ class DependencyGraph:
         )
         self.add_to_graph(ctx.dep_key, node)
 
+    def _export_plugin_section(self, ctx: SectionExportContext):
+        section_impl = ctx.section_impl
+        if not isinstance(section_impl, PluginSectionImpl):
+            return
+        node = SectionNode(
+            id=ctx.section_id,
+            name=ctx.section_name,
+            full_path_name=ctx.full_path_name,
+            type=section_impl.type,
+            isTopLevel=ctx.is_top_level,
+            value=LiteralDependencyValue(
+                self._build_plugin_section_literal_payload(section_impl.data)
+            ),
+            deps={},
+            representation=ctx.codegen_policy.representation,
+            include_in_codegen=ctx.codegen_policy.include_in_codegen,
+        )
+        self.add_to_graph(ctx.dep_key, node)
+
+    def _build_plugin_section_literal_payload(self, data: object) -> str:
+        normalized = self._normalize_plugin_section_data_for_literal(data)
+        return repr(normalized)
+
+    def _normalize_plugin_section_data_for_literal(self, value: object) -> object:
+        if isinstance(value, dict):
+            return {
+                str(key): self._normalize_plugin_section_data_for_literal(value[key])
+                for key in sorted(value.keys(), key=str)
+            }
+        if isinstance(value, list):
+            return [
+                self._normalize_plugin_section_data_for_literal(item) for item in value
+            ]
+        return value
+
     def _export_prompt_section(self, ctx: SectionExportContext):
         section_impl = ctx.section_impl
         if not isinstance(section_impl, PromptSectionImpl):
@@ -457,6 +498,80 @@ class DependencyGraph:
             value=dependency_value,
             deps={},
             representation=effective_representation,
+            include_in_codegen=ctx.codegen_policy.include_in_codegen,
+        )
+        self.add_to_graph(ctx.dep_key, node)
+
+    def _export_task_board_section(self, ctx: SectionExportContext):
+        section_impl = ctx.section_impl
+        if not isinstance(section_impl, TaskBoardSectionImpl):
+            return
+        payload = {
+            "viewMode": section_impl.viewMode.value,
+            "columns": [
+                {
+                    "id": str(column.id),
+                    "name": column.name,
+                    "color": column.color,
+                    "sortIndex": column.sortIndex,
+                }
+                for column in section_impl.columns
+            ],
+            "tasks": [
+                {
+                    "id": str(task.id),
+                    "title": task.title,
+                    "description": task.description,
+                    "completed": task.completed,
+                    "columnId": str(task.columnId)
+                    if task.columnId is not None
+                    else None,
+                    "dueDateIso": task.dueDateIso,
+                    "recurrence": task.recurrence.value,
+                    "recurrenceDays": [day.value for day in task.recurrenceDays],
+                    "recurrenceMonths": [
+                        month.value for month in task.recurrenceMonths
+                    ],
+                    "recurrenceYears": list(task.recurrenceYears),
+                    "sortIndex": task.sortIndex,
+                }
+                for task in section_impl.tasks
+            ],
+        }
+        node = SectionNode(
+            id=ctx.section_id,
+            name=ctx.section_name,
+            full_path_name=ctx.full_path_name,
+            type=section_impl.type,
+            isTopLevel=ctx.is_top_level,
+            value=LiteralDependencyValue(repr(payload)),
+            deps={},
+            representation=ctx.codegen_policy.representation,
+            include_in_codegen=ctx.codegen_policy.include_in_codegen,
+        )
+        self.add_to_graph(ctx.dep_key, node)
+
+    def _export_spreadsheet_section(self, ctx: SectionExportContext):
+        section_impl = ctx.section_impl
+        if not isinstance(section_impl, SpreadsheetSectionImpl):
+            return
+        payload = {
+            "filePath": section_impl.filePath,
+            "activeSheet": section_impl.activeSheet,
+            "readOnly": section_impl.readOnly,
+            "showRowNumbers": section_impl.showRowNumbers,
+            "density": section_impl.density.value,
+            "autoReloadOnExternalChange": section_impl.autoReloadOnExternalChange,
+        }
+        node = SectionNode(
+            id=ctx.section_id,
+            name=ctx.section_name,
+            full_path_name=ctx.full_path_name,
+            type=section_impl.type,
+            isTopLevel=ctx.is_top_level,
+            value=LiteralDependencyValue(repr(payload)),
+            deps={},
+            representation=ctx.codegen_policy.representation,
             include_in_codegen=ctx.codegen_policy.include_in_codegen,
         )
         self.add_to_graph(ctx.dep_key, node)

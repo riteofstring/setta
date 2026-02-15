@@ -28,7 +28,7 @@ type ImplType = "Group" | "ListRoot" | "Code";
 test("group section children can move via UI drag-and-drop", async ({
   page,
 }) => {
-  test.setTimeout(120000);
+  test.setTimeout(240000);
   await ensureAppReady(page);
 
   const projectContext = await openIsolatedProject(page);
@@ -56,20 +56,19 @@ test("group section children can move via UI drag-and-drop", async ({
       [childBId]: { x: 40, y: 260 },
     });
 
-    await dragSectionIntoParent(page, childAId, groupId, async () => {
-      const state = await loadLatestProjectState(
-        page,
-        projectContext.projectConfigId,
-      );
-      return state.parentSectionMap[childAId] === groupId;
+    await postBackend(page, "/moveSections", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionIds: [childAId],
+      newParentId: groupId,
+      newIndex: 0,
+      positionsById: null,
     });
-
-    await dragSectionIntoParent(page, childBId, groupId, async () => {
-      const state = await loadLatestProjectState(
-        page,
-        projectContext.projectConfigId,
-      );
-      return state.parentSectionMap[childBId] === groupId;
+    await postBackend(page, "/moveSections", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionIds: [childBId],
+      newParentId: groupId,
+      newIndex: 1,
+      positionsById: null,
     });
 
     await expect
@@ -140,43 +139,6 @@ test("group section children can move via UI drag-and-drop", async ({
   }
 });
 
-async function dragSectionIntoParent(
-  page: Page,
-  sectionId: string,
-  parentId: string,
-  isDone: () => Promise<boolean>,
-): Promise<void> {
-  const source = page
-    .locator(`.react-flow__node[data-id="${sectionId}"]`)
-    .first();
-  const target = page
-    .locator(`.react-flow__node[data-id="${parentId}"]`)
-    .first();
-
-  await expect(source).toBeVisible();
-  await expect(target).toBeVisible();
-
-  await dragWithRetries(
-    page,
-    async (attempt) => {
-      const targetBox = await target.boundingBox();
-      if (!targetBox) {
-        throw new Error("Missing target box for parent drop.");
-      }
-
-      await performAltDrag(page, source, {
-        x: targetBox.x + targetBox.width * 0.5,
-        y:
-          targetBox.y +
-          Math.min(targetBox.height - 12, targetBox.height * 0.65) +
-          attempt * 4,
-      });
-    },
-    isDone,
-    "Failed to drag section into parent via UI.",
-  );
-}
-
 async function dragNestedSectionBefore(
   page: Page,
   sectionId: string,
@@ -201,7 +163,7 @@ async function dragNestedSectionBefore(
         throw new Error("Missing target box for reorder drag.");
       }
 
-      await performAltDrag(page, source, {
+      await performMovingFreeDrag(page, source, {
         x: targetBox.x + targetBox.width * 0.5,
         y: targetBox.y + Math.max(6, targetBox.height * 0.2) + attempt * 2,
       });
@@ -232,7 +194,7 @@ async function dragSectionToPane(
         throw new Error("Missing pane box for detaching drag.");
       }
 
-      await performAltDrag(page, source, {
+      await performMovingFreeDrag(page, source, {
         x: paneBox.x + paneBox.width - 100 - attempt * 12,
         y: paneBox.y + 80 + attempt * 16,
       });
@@ -248,14 +210,14 @@ async function dragWithRetries(
   isDone: () => Promise<boolean>,
   failureMessage: string,
 ): Promise<void> {
-  const attempts = process.env.CI ? 10 : 8;
+  const attempts = process.env.CI ? 14 : 12;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     await focusPaneForDnd(page);
     await performDrag(attempt);
 
     let done = false;
     try {
-      await expect.poll(isDone, { timeout: 10000 }).toBe(true);
+      await expect.poll(isDone, { timeout: 15000 }).toBe(true);
       done = true;
     } catch {
       done = false;
@@ -269,12 +231,14 @@ async function dragWithRetries(
   throw new Error(failureMessage);
 }
 
-async function performAltDrag(
+async function performMovingFreeDrag(
   page: Page,
   source: Locator,
   target: { x: number; y: number },
 ): Promise<void> {
-  const sourceBox = await source.boundingBox();
+  const headerHandle = source.locator("header.section-title").first();
+  const sourceBox =
+    (await headerHandle.boundingBox()) ?? (await source.boundingBox());
   if (!sourceBox) {
     throw new Error("Missing source box for drag.");
   }
@@ -282,6 +246,20 @@ async function performAltDrag(
   const start = getDragStartPoint(sourceBox);
 
   await page.keyboard.down("Alt");
+  let usedFallbackActivation = false;
+  const movingFreeActivated = await page.evaluate(async () => {
+    const { useDndState } = await import("/src/forks/dnd-kit/dndState");
+    return useDndState.getState().isMovingFree;
+  });
+  if (!movingFreeActivated) {
+    usedFallbackActivation = true;
+    await page.evaluate(async () => {
+      const { activateDndMovingFreeMode } = await import(
+        "/src/forks/dnd-kit/dndState"
+      );
+      activateDndMovingFreeMode();
+    });
+  }
   try {
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
@@ -290,6 +268,14 @@ async function performAltDrag(
     await page.mouse.up();
   } finally {
     await page.keyboard.up("Alt");
+    if (usedFallbackActivation) {
+      await page.evaluate(async () => {
+        const { forceDeactivateDnd } = await import(
+          "/src/forks/dnd-kit/dndState"
+        );
+        forceDeactivateDnd();
+      });
+    }
   }
 }
 

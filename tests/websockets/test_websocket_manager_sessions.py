@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 import pytest_asyncio
 from starlette.types import Message, Scope
@@ -107,6 +109,32 @@ class TestWebsocketManagerSession:
 
         assert connections["frontend-a"].shareSessionId == "session-a"
         assert connections["frontend-b"].shareSessionId == "session-b"
+
+    async def test_broadcast_sends_to_targets_concurrently(self, monkeypatch) -> None:
+        notification = SettaNotification(message="Concurrent fanout")
+        message = WebsocketMsgNotification(content=notification)
+        active = 0
+        max_active = 0
+
+        async def fake_send_message(_message, _to_websocket_id: str) -> None:
+            nonlocal active, max_active
+            active += 1
+            max_active = max(max_active, active)
+            await asyncio.sleep(0.02)
+            active -= 1
+
+        monkeypatch.setattr(
+            self.websocket_manager,
+            "send_message",
+            fake_send_message,
+        )
+
+        await self.websocket_manager.broadcast(
+            message,
+            connectionType=WebsocketConnectionType.FRONTEND,
+        )
+
+        assert max_active >= 2
 
     async def test_on_connect_can_skip_connection_broadcast(self) -> None:
         messages_c: list[Message] = []

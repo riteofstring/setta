@@ -7,12 +7,15 @@ This document explains how column width sizing is calculated, persisted, and app
 - Drag/resize logic lives in `frontend/src/state/hooks/useColumnWidthDrag.ts`.
 - A shared width ref tracks the current width, container width, percentage, and drag state.
 - A `ResizeObserver` keeps the same percentage width when the container resizes.
-- Double-click resets to the default width (50% of the container) and persists it.
+- Double-click resets to the configured default width and persists it.
 - Column width updates are applied via CSS variables, so updates do not require React re-renders.
 
 ## Defaults And Bounds
 
-- Default raw width is `containerWidth / 2` in `frontend/src/state/hooks/columnWidthUtils.ts`.
+- Global default raw width is `containerWidth / 2` in
+  `frontend/src/state/hooks/columnWidthUtils.ts`.
+- Some consumers provide custom defaults (for example Browser columns use
+  per-column ratios instead of 50/50).
 - Base bounds use `calculateBoundedWidth`, which keeps a margin based on nested depth.
 - Param columns additionally enforce a minimum remaining value column width via
   `calculateBoundedWidthWithMinRemainingWidth`.
@@ -35,6 +38,9 @@ This document explains how column width sizing is calculated, persisted, and app
 - Applied via the CSS variables `--browser-column-width` and
   `--browser-types-column-width` in `frontend/src/components/Section/Layouts/BrowserArea.tsx`.
 - Browser widths are raw pixel values, so no offset translation is applied.
+- Browser defaults are custom:
+  - types column defaults to ~24% of container width, clamped to roughly 180-260px.
+  - files column defaults to ~72% of container width, clamped to respect date-column minimum.
 
 ## Git Graph Overlay Widths
 
@@ -59,6 +65,33 @@ This document explains how column width sizing is calculated, persisted, and app
 - The pane splitter and each column boundary clamp width changes to min/max
   bounds to prevent overlap and preserve a minimum message column width.
 - Double-clicking a graph-column boundary resets that boundary to its default.
+
+## Backend Log Pane Columns
+
+- The Overview `Backend Logs` tab has resizable columns for:
+  - `Time`
+  - `Severity`
+  - `Project`
+- Widths are held in component state in
+  `frontend/src/components/Panes/Overview/BackendLogEventsArea.tsx` and are not
+  persisted across reloads.
+- Default widths (px):
+  - `timestamp`: `72`
+  - `severity`: `74`
+  - `project`: `176`
+- Clamp bounds (px), enforced in
+  `frontend/src/components/Panes/Overview/BackendLogEventsArea.utils.ts`:
+  - `timestamp`: `64..160`
+  - `severity`: `64..170`
+  - `project`: `120..380`
+- The grid always reserves:
+  - message column minimum: `220px`
+  - copy column width: `56px`
+- Horizontal overflow behavior:
+  - outer shell uses `overflow-x: auto`,
+  - virtualized list keeps `overflow-x: hidden`,
+  - rendered list width is `max(gridMinWidth, viewportWidth)` so columns can be
+    widened without clipping content.
 
 ## Persistence
 

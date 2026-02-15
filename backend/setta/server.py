@@ -31,6 +31,7 @@ from setta.routers import (
     agentic_router,
     ai_router,
     app_deployments_router,
+    app_gen_extensions_router,
     app_spec_streaming_router,
     artifact_router,
     attachments_router,
@@ -43,6 +44,8 @@ from setta.routers import (
     llm_router,
     lsp_router,
     mcp_tools_router,
+    plugins_assets_router,
+    plugins_router,
     project_manager_router,
     projects_router,
     runs_router,
@@ -115,6 +118,10 @@ async def lifespan(app: FastAPI):
     finally:
         if browser_task is not None:
             await browser_task
+        try:
+            app.state.setta.plugin_manager.shutdown_backend_plugins()
+        except Exception:
+            logger.exception("Plugin manager shutdown failed during lifespan teardown.")
         if app.state.setta.specific_file_watcher:
             app.state.setta.specific_file_watcher.stop()
         if not app.state.setta.mcp_client.disabled:
@@ -152,6 +159,7 @@ websocket_router_kwargs = {"prefix": Route.PREFIX.value}
 
 app.include_router(bootstrap_router)
 app.include_router(mcp_tools_router)
+app.include_router(plugins_assets_router)
 app.include_router(projects_router, **http_router_kwargs)
 app.include_router(sections_router, **http_router_kwargs)
 app.include_router(terminals_http_router, **http_router_kwargs)
@@ -169,9 +177,11 @@ app.include_router(launch_router, **http_router_kwargs)
 app.include_router(lsp_router, **http_router_kwargs)
 app.include_router(llm_router, **http_router_kwargs)
 app.include_router(ai_router, **http_router_kwargs)
+app.include_router(app_gen_extensions_router, **http_router_kwargs)
 app.include_router(agentic_router, **http_router_kwargs)
 app.include_router(app_spec_streaming_router, **http_router_kwargs)
 app.include_router(project_manager_router, **http_router_kwargs)
+app.include_router(plugins_router, **http_router_kwargs)
 app.include_router(status_router, **http_router_kwargs)
 app.include_router(share_deployments_router, **http_router_kwargs)
 app.include_router(app_deployments_router, **http_router_kwargs)

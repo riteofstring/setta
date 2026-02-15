@@ -69,26 +69,31 @@ jobs:
 
           root = Path("frontend/tests/e2e")
           excluded = {"__pycache__", "fixtures"}
-          suites = []
+          suites = set()
 
           if root.exists():
-              root_specs = list(root.glob("*.spec.*"))
-              if root_specs:
-                  suites.append("root")
+              if any(root.glob("*.spec.*")):
+                  suites.add("root")
 
-              for path in sorted(root.iterdir()):
-                  if path.is_dir() and path.name not in excluded:
-                      if any(path.rglob("*.spec.*")):
-                          suites.append(path.name)
+              for spec in root.rglob("*.spec.*"):
+                  rel = spec.relative_to(root)
+                  if any(part in excluded for part in rel.parts):
+                      continue
 
-          print(json.dumps(suites))
+                  # Root-level specs are covered by the dedicated "root" suite.
+                  if len(rel.parts) <= 1:
+                      continue
+
+                  suites.add(rel.parent.as_posix())
+
+          print(json.dumps(sorted(suites)))
           PY
           echo "suites=$(cat /tmp/playwright_suites.json)" >> "$GITHUB_OUTPUT"
 
   backend:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     needs: discover-tests
     strategy:
       fail-fast: false
@@ -103,6 +108,26 @@ jobs:
 
       - uses: astral-sh/setup-uv@v3
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: scripts/node_version.txt
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Get pnpm store path
+        run: echo "PNPM_STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PNPM_STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('frontend/pnpm-lock.yaml') }}-v1
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
       - name: Cache uv downloads
         uses: actions/cache@v4
         with:
@@ -110,6 +135,9 @@ jobs:
           key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}-v1
           restore-keys: |
             ${{ runner.os }}-uv-
+
+      - name: Install frontend deps
+        run: pnpm -C frontend install --frozen-lockfile
 
       - name: Install Python deps
         run: uv sync --all-extras

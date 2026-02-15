@@ -49,6 +49,7 @@ import {
   isBaseParamCodeObjImpl,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
+  ListRootViewModeEnum,
   ProjectStateSingleConfig,
   ProjectStateSingleConfigWithCompletedOpIds,
   SectionType,
@@ -59,9 +60,35 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { applyActiveSectionChange } from "./activeSectionController";
 
-function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
+const effectiveImplCacheByImpl = new WeakMap<
+  object,
+  WeakMap<object, WeakMap<object, unknown>>
+>();
+
+function getEffectiveImpl<T extends object>(
+  impl: T,
+  core: Core,
+  variant: Variant,
+): T {
+  const sharedModifier = core.sharedModifier;
+  const variantModifier = variant.modifier;
+  let cacheBySharedModifier = effectiveImplCacheByImpl.get(impl);
+  if (!cacheBySharedModifier) {
+    cacheBySharedModifier = new WeakMap<object, WeakMap<object, unknown>>();
+    effectiveImplCacheByImpl.set(impl, cacheBySharedModifier);
+  }
+  let cacheByVariantModifier = cacheBySharedModifier.get(sharedModifier);
+  if (!cacheByVariantModifier) {
+    cacheByVariantModifier = new WeakMap<object, unknown>();
+    cacheBySharedModifier.set(sharedModifier, cacheByVariantModifier);
+  }
+  const cached = cacheByVariantModifier.get(variantModifier);
+  if (cached) {
+    return cached as T;
+  }
   const effective = _.cloneDeep(impl);
-  Object.assign(effective, { ...core.sharedModifier, ...variant.modifier });
+  Object.assign(effective, { ...sharedModifier, ...variantModifier });
+  cacheByVariantModifier.set(variantModifier, effective);
   return effective;
 }
 
@@ -348,7 +375,14 @@ export function getTopLevelSectionIdsForDisplay(
     // Only true top-level sections should be rendered as React Flow nodes. If a
     // section has a parent, it will be rendered via the nested section tree.
     const parentId = projectState.parentSectionMap[sectionId] ?? null;
-    return parentId === null;
+    if (parentId !== null) {
+      return false;
+    }
+    const sectionImpl = getEffectiveSectionImplIfPresent(
+      projectState,
+      sectionId,
+    );
+    return sectionImpl !== null;
   });
 }
 
@@ -436,6 +470,33 @@ export function getCurrEffectiveSectionImpl(
   const variant = getCurrSectionVariant(p, sectionId, preview);
   const baseImpl = getSectionImpl(p, variant.impl);
   const core = getSectionCore(p, sectionId);
+  return getEffectiveImpl(baseImpl, core, variant);
+}
+
+export function getCurrEffectiveSectionImplIfPresent(
+  p: ZustandProjectState,
+  sectionId: string,
+  preview = false,
+): BaseSectionImplUnion | null {
+  const variantId = preview
+    ? p.previewSectionVariantMap[sectionId] ??
+      p.projectConfig.sectionVariantMap[sectionId]
+    : p.projectConfig.sectionVariantMap[sectionId];
+  if (variantId === undefined) {
+    return null;
+  }
+  const variant = p.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const baseImpl = p.sectionImpls[variant.impl];
+  if (!baseImpl) {
+    return null;
+  }
+  const core = p.sections[sectionId];
+  if (!core) {
+    return null;
+  }
   return getEffectiveImpl(baseImpl, core, variant);
 }
 
@@ -638,6 +699,7 @@ function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
       variant.modifier[k] = typeof v === "function" ? v(currV) : v;
     }
   }
+  effectiveImplCacheByImpl.delete(impl);
   return getEffectiveImpl(impl, core, variant);
 }
 
@@ -833,6 +895,9 @@ export function getSectionIsHorizontalOrientation(sectionId: string): boolean {
   const state = useProjectState.getState();
   const variant = getCurrSectionVariant(state, sectionId);
   const impl = getSectionImpl(state, variant.impl);
+  if (impl.type === SectionTypeEnum.ListRoot) {
+    return impl.viewMode === ListRootViewModeEnum.kanban;
+  }
   if (impl.type !== SectionTypeEnum.Group) {
     return false;
   }
@@ -1136,11 +1201,19 @@ export function createNodesMapFromProjectConfigChildren(
       continue;
     }
     if (canFilterByView) {
-      const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
+      const visibilityInfo = getSectionViewModeVisibilityIfPresent(
         sectionId,
         p,
       );
-      if (!getSectionShouldRender(visibility, isEditingViewMode)) {
+      if (!visibilityInfo) {
+        continue;
+      }
+      if (
+        !getSectionShouldRender(
+          visibilityInfo.visibility,
+          visibilityInfo.isEditingViewMode,
+        )
+      ) {
         continue;
       }
     }
@@ -1169,17 +1242,24 @@ export function setSectionChildren(
 
 function getDisplayedSectionIdToChildrenHelper(
   sectionId: string,
-  sectionImpl: BaseSectionImplUnion,
+  sectionImpl: BaseSectionImplUnion | null,
   state: ZustandProjectState,
   output: Record<string, Array<string>>,
 ) {
+  if (!sectionImpl) {
+    return;
+  }
   if (isBaseParentSectionImpl(sectionImpl)) {
-    const { children } = sectionImpl;
-    output[sectionId] = children;
-    for (const childId of children) {
-      const childImpl = getCurrEffectiveSectionImpl(state, childId);
+    const displayedChildren: string[] = [];
+    for (const childId of sectionImpl.children) {
+      const childImpl = getEffectiveSectionImplIfPresent(state, childId);
+      if (!childImpl) {
+        continue;
+      }
+      displayedChildren.push(childId);
       getDisplayedSectionIdToChildrenHelper(childId, childImpl, state, output);
     }
+    output[sectionId] = displayedChildren;
   } else {
     output[sectionId] = [];
   }
@@ -1189,7 +1269,7 @@ export function getDisplayedSectionIdToChildren(state: ZustandProjectState) {
   const output: Record<string, Array<string>> = {};
   const topLevelSectionIds = getTopLevelSectionIdsForDisplay(state);
   for (const sectionId of topLevelSectionIds) {
-    const impl = getCurrEffectiveSectionImpl(state, sectionId);
+    const impl = getEffectiveSectionImplIfPresent(state, sectionId);
     getDisplayedSectionIdToChildrenHelper(sectionId, impl, state, output);
   }
   return output;
@@ -1280,6 +1360,22 @@ function getSectionVisibilityForActiveViewMode(
   return {
     visibility,
     viewMode,
+  };
+}
+
+function getSectionViewModeVisibilityIfPresent(
+  sectionId: string,
+  state: ZustandProjectState,
+): { visibility: boolean; isEditingViewMode: boolean } | null {
+  const { isEditingViewMode } = state.projectConfig;
+  const viewMode = getActiveViewModeConfig(state);
+  const visibility = viewMode.visibilityBySectionId[sectionId];
+  if (visibility === undefined) {
+    return null;
+  }
+  return {
+    visibility,
+    isEditingViewMode,
   };
 }
 

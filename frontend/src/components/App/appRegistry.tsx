@@ -6,6 +6,7 @@ import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { RotaryInput } from "components/Params/ParamUIs/RotaryInput";
 import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
+import { TextParamDateTimeInput } from "components/Params/ParamUIs/TextParamInput";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import "katex/dist/katex.min.css";
@@ -48,11 +49,19 @@ import {
   route_load_cached_image_artifacts,
   route_set_param_entered_value,
 } from "utils/generatedEndpoints";
+import type {
+  DateParamCodeObjImpl,
+  TimeParamCodeObjImpl,
+} from "utils/generatedTypes";
 import {
   BaseChildlessCodeObjImplUnion,
   BaseSectionImplUnion,
   CodeObjTypeEnum,
   ConfigLanguageEnum,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
+  DateDisplayFormatEnum,
+  DateSelectionModeEnum,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   DropzoneModeEnum,
@@ -61,8 +70,13 @@ import {
   LiteralDependencyValue,
   SectionTypeEnum,
   TextBlockFormatEnum,
+  TextParamInputUITypeEnum,
+  TimeControlModeEnum,
+  TimeDisplayFontEnum,
+  TimeDisplayFormatEnum,
 } from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
+import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
 import {
   resolveActionBinding,
   resolveActionType,
@@ -350,23 +364,56 @@ function ConfigScope({ element, children }: AppComponentProps) {
   );
 }
 
+function hasNonEmptyChildrenMetadata(element: RawElementProps | null): boolean {
+  if (!element) {
+    return false;
+  }
+  const childKeys = element.children;
+  if (Array.isArray(childKeys)) {
+    return childKeys.length > 0;
+  }
+  if (
+    childKeys === null ||
+    childKeys === undefined ||
+    typeof childKeys === "boolean"
+  ) {
+    return false;
+  }
+  if (typeof childKeys === "string") {
+    return childKeys.trim().length > 0;
+  }
+  return true;
+}
+
 function Tabs({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
   const defaultKey =
     typeof props.defaultKey === "string" ? props.defaultKey : null;
   const className = typeof props.className === "string" ? props.className : "";
-  const tabs = React.Children.toArray(children).filter(React.isValidElement);
-  const resolvedTabs = tabs.map((child, index) => {
-    const tabElement = child.props?.element ?? null;
-    const tabKey =
-      (tabElement && typeof tabElement.key === "string" && tabElement.key) ||
-      (typeof child.key === "string" ? child.key : `tab-${index}`);
-    const title =
-      tabElement?.props && typeof tabElement.props.title === "string"
-        ? tabElement.props.title
-        : `Tab ${index + 1}`;
-    return { key: tabKey, title, child };
-  });
+  const tabs = React.useMemo(() => {
+    return React.Children.toArray(children).filter(React.isValidElement);
+  }, [children]);
+  const resolvedTabs = React.useMemo(() => {
+    return tabs
+      .map((child, index) => {
+        const tabElement = child.props?.element ?? null;
+        const tabKey =
+          (tabElement &&
+            typeof tabElement.key === "string" &&
+            tabElement.key) ||
+          (typeof child.key === "string" ? child.key : `tab-${index}`);
+        const title =
+          tabElement?.props && typeof tabElement.props.title === "string"
+            ? tabElement.props.title
+            : `Tab ${index + 1}`;
+        const hasContent =
+          hasNonEmptyChildrenMetadata(tabElement) ||
+          React.Children.count(child.props?.children) > 0;
+        return { key: tabKey, title, child, hasContent };
+      })
+      .filter((tab) => tab.hasContent);
+  }, [tabs]);
+
   const [activeKey, setActiveKey] = React.useState(() => {
     if (defaultKey && resolvedTabs.some((tab) => tab.key === defaultKey)) {
       return defaultKey;
@@ -375,10 +422,18 @@ function Tabs({ element, children }: AppComponentProps) {
   });
 
   React.useEffect(() => {
-    if (!activeKey && resolvedTabs.length > 0) {
-      setActiveKey(resolvedTabs[0]?.key ?? null);
+    if (activeKey && resolvedTabs.some((tab) => tab.key === activeKey)) {
+      return;
+    }
+    const fallbackKey = resolvedTabs[0]?.key ?? null;
+    if (activeKey !== fallbackKey) {
+      setActiveKey(fallbackKey);
     }
   }, [activeKey, resolvedTabs]);
+
+  if (resolvedTabs.length === 0) {
+    return null;
+  }
 
   return (
     <div className={`flex flex-col gap-4 ${className}`.trim()}>
@@ -916,9 +971,26 @@ function AppParamUI({
 
   const onEscape = () => {};
 
+  const getDateParamImpl = (): DateParamCodeObjImpl => {
+    if (codeObjImpl.type !== CodeObjTypeEnum.DateParam) {
+      throw new TypeError(
+        `Expected DateParam impl, got ${codeObjImpl.type ?? "unknown"}.`,
+      );
+    }
+    return codeObjImpl;
+  };
+
+  const getTimeParamImpl = (): TimeParamCodeObjImpl => {
+    if (codeObjImpl.type !== CodeObjTypeEnum.TimeParam) {
+      throw new TypeError(
+        `Expected TimeParam impl, got ${codeObjImpl.type ?? "unknown"}.`,
+      );
+    }
+    return codeObjImpl;
+  };
+
   switch (codeObjType) {
     case CodeObjTypeEnum.CodeParam:
-    case CodeObjTypeEnum.TextParam:
     case CodeObjTypeEnum.TextAreaParam: {
       return (
         <>
@@ -945,6 +1017,84 @@ function AppParamUI({
             className={`section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]`}
           />
         </>
+      );
+    }
+    case CodeObjTypeEnum.TextParam: {
+      return (
+        <>
+          <TextInputCodeMirror
+            dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
+            sectionId={sectionId}
+            paramInfoId={paramInfoId}
+            value={stringValue}
+            defaultVal={_.toString(defaultVal ?? "")}
+            onChange={onChange}
+            onEscape={(completionResult) => {
+              if (!completionResult) {
+                onEscape();
+              }
+            }}
+            dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+            realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-[color:var(--app-surface-alt)] [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
+            language={configLanguage}
+            isDisabled={isDisabled}
+            tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+            autocomplete={false}
+          />
+          <span
+            className={`section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]`}
+          />
+        </>
+      );
+    }
+    case CodeObjTypeEnum.TimeParam: {
+      const timeParamImpl = getTimeParamImpl();
+      return (
+        <TextParamDateTimeInput
+          value={stringValue}
+          onChange={onChange}
+          onEscape={onEscape}
+          isDisabled={isDisabled}
+          uiType={TextParamInputUITypeEnum.time}
+          timeControlMode={timeParamImpl.timeControlMode}
+          timeDisplayFormat={timeParamImpl.timeDisplayFormat}
+          timeDisplayTransparent={timeParamImpl.timeDisplayTransparent}
+          timeDisplayScale={timeParamImpl.timeDisplayScale}
+          timeDisplayFont={timeParamImpl.timeDisplayFont}
+          dateDisplayFormat={DateDisplayFormatEnum.iso}
+          dateControlMode={DateControlModeEnum.input}
+          dateSelectionMode={DateSelectionModeEnum.single}
+          dateCalendarWeekStart={DateCalendarWeekStartEnum.sunday}
+          dateIncludesTime={false}
+          inputClassName={`${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]`}
+          formattedValueClassName="text-[10px] font-mono text-[color:var(--app-muted)]"
+          borderClassName="section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]"
+        />
+      );
+    }
+    case CodeObjTypeEnum.DateParam: {
+      const dateParamImpl = getDateParamImpl();
+      return (
+        <TextParamDateTimeInput
+          value={stringValue}
+          onChange={onChange}
+          onEscape={onEscape}
+          isDisabled={isDisabled}
+          uiType={TextParamInputUITypeEnum.date}
+          timeControlMode={TimeControlModeEnum.display}
+          timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
+          timeDisplayTransparent={false}
+          timeDisplayScale={1}
+          timeDisplayFont={TimeDisplayFontEnum.monospace}
+          dateDisplayFormat={dateParamImpl.dateDisplayFormat}
+          dateControlMode={dateParamImpl.dateControlMode}
+          dateSelectionMode={dateParamImpl.dateSelectionMode}
+          dateCalendarWeekStart={dateParamImpl.dateCalendarWeekStart}
+          dateIncludesTime={dateParamImpl.dateIncludesTime}
+          inputClassName={`${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]`}
+          formattedValueClassName="text-[10px] font-mono text-[color:var(--app-muted)]"
+          borderClassName="section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]"
+        />
       );
     }
     case CodeObjTypeEnum.SliderParam: {
@@ -1320,7 +1470,11 @@ function TextOutput({ element }: AppComponentProps) {
     if (effectiveImpl.type !== SectionTypeEnum.TextBlock) {
       return null;
     }
-    return { text: effectiveImpl.text, format: effectiveImpl.format };
+    return {
+      text: effectiveImpl.text,
+      format: effectiveImpl.format,
+      masterFontSizePx: effectiveImpl.masterFontSizePx,
+    };
   }, [configState, resolvedConfigId, sectionId]);
 
   if (!resolvedConfigId || !sectionId || !textData) {
@@ -1331,7 +1485,18 @@ function TextOutput({ element }: AppComponentProps) {
     );
   }
 
-  const { text, format } = textData;
+  const { text, format, masterFontSizePx } = textData;
+  const typography = buildTextBlockTypographyScale(masterFontSizePx);
+  const markdownTypographyStyle: React.CSSProperties = {
+    "--setta-textblock-body-size": `${typography.bodyPx}px`,
+    "--setta-textblock-code-size": `${typography.codePx}px`,
+    "--setta-textblock-h1-size": `${typography.h1Px}px`,
+    "--setta-textblock-h2-size": `${typography.h2Px}px`,
+    "--setta-textblock-h3-size": `${typography.h3Px}px`,
+    "--setta-textblock-h4-size": `${typography.h4Px}px`,
+    "--setta-textblock-h5-size": `${typography.h5Px}px`,
+    "--setta-textblock-h6-size": `${typography.h6Px}px`,
+  };
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-3">
@@ -1344,13 +1509,17 @@ function TextOutput({ element }: AppComponentProps) {
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex]}
-          className="prose prose-sm max-w-none text-[color:var(--app-text)] dark:prose-invert"
+          className="prose max-w-none text-[color:var(--app-text)] dark:prose-invert prose-h1:text-[length:var(--setta-textblock-h1-size)] prose-h2:text-[length:var(--setta-textblock-h2-size)] prose-h3:text-[length:var(--setta-textblock-h3-size)] prose-h4:text-[length:var(--setta-textblock-h4-size)] prose-h5:text-[length:var(--setta-textblock-h5-size)] prose-h6:text-[length:var(--setta-textblock-h6-size)] prose-p:text-[length:var(--setta-textblock-body-size)] prose-code:text-[length:var(--setta-textblock-code-size)] prose-pre:text-[length:var(--setta-textblock-code-size)] prose-li:text-[length:var(--setta-textblock-body-size)]"
+          style={markdownTypographyStyle}
           components={{ code: CodeBlock }}
         >
           {text}
         </ReactMarkdown>
       ) : (
-        <pre className="whitespace-pre-wrap text-[color:var(--app-text)] [font-size:var(--app-text-xs)]">
+        <pre
+          className="whitespace-pre-wrap text-[color:var(--app-text)]"
+          style={{ fontSize: `${typography.bodyPx}px` }}
+        >
           {text}
         </pre>
       )}
