@@ -1,7 +1,6 @@
 import * as Switch from "@radix-ui/react-switch";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import { usePluginStatusEntries } from "plugins/runtime";
 import React from "react";
 import { RiLoopRightFill, RiPlayMiniFill } from "react-icons/ri";
 import {
@@ -32,7 +31,6 @@ import {
 import { useShareCapabilities } from "state/hooks/share";
 import {
   getPythonCodegenTarget,
-  isPluginCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
 import { route_set_project_config_codegen_targets } from "utils/generatedEndpoints";
@@ -40,23 +38,22 @@ import {
   CodeObjTypeEnum,
   CodeObjValueRepresentationModeEnum,
   createCodeObjValuePolicy,
-  createProjectCodegenPluginTarget,
   createProjectCodegenPythonTarget,
   createSectionCodegenPolicy,
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
+  ProjectCodegenLanguageEnum,
   SectionTypeEnum,
   type BaseSectionImplUnion,
   type CodeObjType,
   type CodeObjValueRepresentationMode,
   type Core,
-  type PluginStatusEntry,
   type ProjectCodegenPythonTarget,
-  type ProjectCodegenTarget,
   type SectionType,
   type SettingsState,
   type ViewModeConfig,
 } from "utils/generatedTypes";
+import { RunInstructionsAccordion } from "./RunInstructionsAccordion";
 
 type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
@@ -70,13 +67,6 @@ type CodeObjOption = {
   type: CodeObjType;
   sectionName: string;
   label: string;
-};
-type PluginCodegenRegistration = {
-  targetId: string;
-  pluginId: string;
-  language: string;
-  name: string;
-  defaultFileName: string;
 };
 
 const TOGGLE_ROOT_CLASSES =
@@ -208,7 +198,6 @@ export function RunInstructions() {
   const customRuns = useLocalStorage(
     (x) => x.customRunsByProjectConfigId[projectConfigId] ?? [],
   );
-  const pluginStatusEntries = usePluginStatusEntries();
   const { runMode, continuousRunStarted, continuousRunCustomRunId } =
     useRunControl((x) => ({
       runMode: x.runMode,
@@ -218,12 +207,8 @@ export function RunInstructions() {
   const runnableCodeBlocks = useRunnableCodeBlockListing();
   const pythonCodegenEnabled = projectConfigHasPythonCodegen(projectConfig);
   const currentPythonTarget = getPythonCodegenTarget(projectConfig);
-  const pluginCodegenTargets = projectConfig.codegenTargets.filter((target) =>
-    isPluginCodegenTarget(target),
-  );
-  const pluginCodegenRegistrations = React.useMemo(
-    () => collectPluginCodegenRegistrations(pluginStatusEntries),
-    [pluginStatusEntries],
+  const nonPythonTargets = projectConfig.codegenTargets.filter(
+    (target) => target.language !== ProjectCodegenLanguageEnum.python,
   );
   const defaultSectionPolicy = React.useMemo(
     () => createSectionCodegenPolicy(),
@@ -274,7 +259,9 @@ export function RunInstructions() {
     );
   }, [sectionPolicy.allowlist]);
 
-  const applyCodegenTargets = (nextTargets: ProjectCodegenTarget[]): void => {
+  const applyCodegenTargets = (
+    nextTargets: ProjectCodegenPythonTarget[],
+  ): void => {
     void route_set_project_config_codegen_targets({
       projectConfigId,
       codegenTargets: nextTargets,
@@ -298,10 +285,10 @@ export function RunInstructions() {
     }
     const nextTargets = checked
       ? [
-          ...pluginCodegenTargets,
+          ...nonPythonTargets,
           currentPythonTarget ?? createProjectCodegenPythonTarget(),
         ]
-      : pluginCodegenTargets;
+      : nonPythonTargets;
     applyCodegenTargets(nextTargets);
   };
 
@@ -312,7 +299,7 @@ export function RunInstructions() {
       return;
     }
     const nextTarget = updater(pythonTarget);
-    const nextTargets = [...pluginCodegenTargets, nextTarget];
+    const nextTargets = [...nonPythonTargets, nextTarget];
     applyCodegenTargets(nextTargets);
   };
 
@@ -332,38 +319,6 @@ export function RunInstructions() {
       ...target,
       codeObjValuePolicy: nextPolicy,
     }));
-  };
-  const enabledPluginTargetIds = React.useMemo(
-    () => new Set(pluginCodegenTargets.map((target) => target.language)),
-    [pluginCodegenTargets],
-  );
-
-  const togglePluginCodegenTarget = (
-    registration: PluginCodegenRegistration,
-    checked: boolean,
-  ): void => {
-    if (isDeploymentMode) {
-      return;
-    }
-    const alreadyEnabled = enabledPluginTargetIds.has(registration.targetId);
-    if (checked === alreadyEnabled) {
-      return;
-    }
-    const nextPluginTargets = checked
-      ? [
-          ...pluginCodegenTargets,
-          createProjectCodegenPluginTarget({
-            language: registration.targetId,
-            options: {},
-          }),
-        ]
-      : pluginCodegenTargets.filter(
-          (target) => target.language !== registration.targetId,
-        );
-    const nextTargets = pythonCodegenEnabled
-      ? [...nextPluginTargets, pythonTarget]
-      : nextPluginTargets;
-    applyCodegenTargets(nextTargets);
   };
 
   React.useEffect(() => {
@@ -508,63 +463,27 @@ export function RunInstructions() {
         </div>
       )}
       {!isDeploymentMode && (
-        <div className={`${PANEL_ROW_CLASSES} flex min-w-0 flex-col gap-2`}>
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
-                Codegen Targets
-              </div>
-              <div className="text-[11px] text-setta-600 dark:text-setta-300">
-                Enable generated code sections for this project.
-              </div>
+        <div
+          className={`${PANEL_ROW_CLASSES} flex min-w-0 flex-wrap items-center gap-2`}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
+              Codegen Targets
             </div>
-            <div className="ml-auto flex items-center gap-1">
-              <span className={TOGGLE_LABEL_CLASSES}>Python</span>
-              <Switch.Root
-                className={TOGGLE_ROOT_CLASSES}
-                checked={pythonCodegenEnabled}
-                disabled={isDeploymentMode}
-                onCheckedChange={handleCodegenTargetToggle}
-              >
-                <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
-              </Switch.Root>
+            <div className="text-[11px] text-setta-600 dark:text-setta-300">
+              Enable generated code sections for this project.
             </div>
           </div>
-          <div className="flex min-w-0 flex-col gap-1">
-            {pluginCodegenRegistrations.length === 0 ? (
-              <div className="text-[11px] text-setta-500 dark:text-setta-400">
-                No plugin codegen targets registered.
-              </div>
-            ) : (
-              pluginCodegenRegistrations.map((registration) => (
-                <div
-                  key={registration.targetId}
-                  className="flex min-w-0 flex-wrap items-center gap-2 rounded bg-white/45 px-2 py-1 dark:bg-setta-950/35"
-                >
-                  <div className="min-w-0 flex-1 text-[11px] text-setta-700 dark:text-setta-200">
-                    {registration.name} ({registration.language})
-                    <span className="ml-1 text-[10px] text-setta-500 dark:text-setta-400">
-                      {registration.targetId}
-                    </span>
-                  </div>
-                  <div className="ml-auto flex items-center gap-1">
-                    <span className={TOGGLE_LABEL_CLASSES}>Enabled</span>
-                    <Switch.Root
-                      className={TOGGLE_ROOT_CLASSES}
-                      checked={enabledPluginTargetIds.has(
-                        registration.targetId,
-                      )}
-                      disabled={isDeploymentMode}
-                      onCheckedChange={(checked) =>
-                        togglePluginCodegenTarget(registration, checked)
-                      }
-                    >
-                      <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
-                    </Switch.Root>
-                  </div>
-                </div>
-              ))
-            )}
+          <div className="ml-auto flex items-center gap-1">
+            <span className={TOGGLE_LABEL_CLASSES}>Python</span>
+            <Switch.Root
+              className={TOGGLE_ROOT_CLASSES}
+              checked={pythonCodegenEnabled}
+              disabled={isDeploymentMode}
+              onCheckedChange={handleCodegenTargetToggle}
+            >
+              <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
+            </Switch.Root>
           </div>
         </div>
       )}
@@ -1215,47 +1134,60 @@ export function RunInstructions() {
           </div>
         )}
 
-        <h3 className="mb-1 px-1 text-[11px] font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
-          Run Button Dropdown Items
-        </h3>
-        {customRuns.length === 0 ? (
-          <div
-            className={`${PANEL_CARD_CLASSES} text-setta-600 dark:text-setta-300`}
-          >
-            No custom runs yet.
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {customRuns.map((run) => {
-              const isActiveContinuousRun =
-                runMode === "continuous" &&
-                continuousRunStarted &&
-                continuousRunCustomRunId === run.id;
+        <RunInstructionsAccordion
+          defaultOpenValues={["run-instructions-custom-runs"]}
+          items={[
+            {
+              value: "run-instructions-custom-runs",
+              title: "Run Button Dropdown Items",
+              triggerTestId: "run-instructions-accordion-custom-runs",
+              content:
+                customRuns.length === 0 ? (
+                  <div
+                    className={`${PANEL_CARD_CLASSES} text-setta-600 dark:text-setta-300`}
+                  >
+                    No custom runs yet.
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {customRuns.map((run) => {
+                      const isActiveContinuousRun =
+                        runMode === "continuous" &&
+                        continuousRunStarted &&
+                        continuousRunCustomRunId === run.id;
 
-              return (
-                <CustomRunRow
-                  key={run.id}
-                  run={run}
-                  projectConfigId={projectConfigId}
-                  isActiveContinuousRun={isActiveContinuousRun}
-                />
-              );
-            })}
-          </div>
-        )}
-
-        <h3 className="mb-1 mt-4 px-1 text-[11px] font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500">
-          Add From Code Blocks
-        </h3>
-        <div className="space-y-1">
-          {runnableCodeBlocks.map((item) => (
-            <AddCodeBlockRow
-              key={item.sectionId}
-              projectConfigId={projectConfigId}
-              item={item}
-            />
-          ))}
-        </div>
+                      return (
+                        <CustomRunRow
+                          key={run.id}
+                          run={run}
+                          projectConfigId={projectConfigId}
+                          isActiveContinuousRun={isActiveContinuousRun}
+                        />
+                      );
+                    })}
+                  </div>
+                ),
+            },
+            {
+              value: "run-instructions-add-from-code-blocks",
+              title: "Add From Code Blocks",
+              triggerTestId: "run-instructions-accordion-add-from-code-blocks",
+              disabled: runnableCodeBlocks.length === 0,
+              disabledReason: "No runnable code blocks are available",
+              content: (
+                <div className="space-y-1">
+                  {runnableCodeBlocks.map((item) => (
+                    <AddCodeBlockRow
+                      key={item.sectionId}
+                      projectConfigId={projectConfigId}
+                      item={item}
+                    />
+                  ))}
+                </div>
+              ),
+            },
+          ]}
+        />
       </div>
     </div>
   );
@@ -1368,37 +1300,6 @@ function AddCodeBlockRow({
       </div>
     </div>
   );
-}
-
-function collectPluginCodegenRegistrations(
-  pluginStatusEntries: PluginStatusEntry[],
-): PluginCodegenRegistration[] {
-  const registrationsById = new Map<string, PluginCodegenRegistration>();
-  for (const pluginStatusEntry of pluginStatusEntries) {
-    for (const registration of pluginStatusEntry.registeredCodegenTargets) {
-      if (registrationsById.has(registration.targetId)) {
-        continue;
-      }
-      registrationsById.set(registration.targetId, {
-        targetId: registration.targetId,
-        pluginId: registration.pluginId,
-        language: registration.language,
-        name: registration.name,
-        defaultFileName: registration.defaultFileName,
-      });
-    }
-  }
-  return [...registrationsById.values()].sort((a, b) => {
-    const byName = a.name.localeCompare(b.name);
-    if (byName !== 0) {
-      return byName;
-    }
-    const byLanguage = a.language.localeCompare(b.language);
-    if (byLanguage !== 0) {
-      return byLanguage;
-    }
-    return a.targetId.localeCompare(b.targetId);
-  });
 }
 
 function useRunnableCodeBlockListing() {

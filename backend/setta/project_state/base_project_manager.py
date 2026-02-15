@@ -1,16 +1,12 @@
 import asyncio
 import contextvars
 import copy
-import hashlib
-import json
 import logging
-import shutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from functools import wraps
 from pathlib import Path
 from typing import (
-    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -99,7 +95,6 @@ from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectBasicCode,
     ProjectGenPythonCode,
-    ProjectLSPCode,
     ProjectPythonCode,
     build_python_code_generator,
 )
@@ -378,8 +373,6 @@ from setta.types.notifications import (
 from setta.types.project_config import (
     Position,
     ProjectCodegenLanguage,
-    ProjectCodegenPluginTarget,
-    ProjectCodegenTarget,
     ProjectConfig,
     TopLevelSectionLayout,
     ViewModeConfig,
@@ -401,7 +394,6 @@ from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
-    CodeLanguageKey,
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
     GenPythonMetadataSectionImpl,
@@ -426,12 +418,8 @@ from setta.utils.name_validation import (
     validate_view_mode_name,
 )
 from setta.utils.paths import get_setta_paths, normalize_workspace_path
-from setta.utils.utils import build_project_sections_dir
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
-
-if TYPE_CHECKING:
-    from setta.plugins.manager import PluginManager
 
 logger = logging.getLogger(__name__)
 
@@ -452,14 +440,14 @@ def _parse_param_override_key(key: str) -> SectionParamDependencyKey:
 
 
 def _resolve_run_command_builder(
-    code_language: CodeLanguageKey,
+    code_language: CodeLanguage,
 ) -> Callable[[Path], str]:
     if code_language == CodeLanguage.python:
         return build_python_module_run_command
     if code_language == CodeLanguage.bash:
         return build_bash_run_command
 
-    def _unsupported(_path: Path, *, _language: CodeLanguageKey = code_language) -> str:
+    def _unsupported(_path: Path, *, _language: CodeLanguage = code_language) -> str:
         raise ValueError(f"Run is not supported for language {_language}")
 
     return _unsupported
@@ -533,12 +521,6 @@ def _apply_json_merge_patch(
     return base_obj
 
 
-def _is_lsp_code_entry(
-    code_entry: object,
-) -> bool:
-    return isinstance(code_entry, (ProjectPythonCode, ProjectLSPCode))
-
-
 class BaseProjectManager(ABC):
     def __init__(
         self,
@@ -551,7 +533,6 @@ class BaseProjectManager(ABC):
         artifacts: Artifacts,
         json_source: JSONSource,
         code_files: CodeFiles,
-        plugin_manager: "PluginManager | None" = None,
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
@@ -562,7 +543,6 @@ class BaseProjectManager(ABC):
         self.artifacts = artifacts
         self.json_source = json_source
         self.code_files = code_files
-        self.plugin_manager = plugin_manager
         self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
         watch_loop = None
@@ -573,14 +553,7 @@ class BaseProjectManager(ABC):
         self.watch_code_manager = WatchCodeManager(self, loop=watch_loop)
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[
-            str,
-            dict[
-                str,
-                ProjectPythonCode | ProjectLSPCode | ProjectBashCode | ProjectBasicCode,
-            ],
-        ] = {}
-        self._plugin_codegen_target_state_by_project_config: dict[
-            ID, dict[str, tuple[str, set[str]]]
+            str, dict[str, ProjectPythonCode | ProjectBashCode | ProjectBasicCode]
         ] = {}
         self.lsp_diagnostics_state_by_project_config: dict[
             ID, ProjectLspDiagnosticsState
@@ -853,9 +826,7 @@ class BaseProjectManager(ABC):
         self, projectConfigId: ID
     ) -> tuple[
         ProjectGenPythonCode | None,
-        dict[
-            ID, ProjectPythonCode | ProjectLSPCode | ProjectBashCode | ProjectBasicCode
-        ],
+        dict[ID, ProjectPythonCode | ProjectBashCode | ProjectBasicCode],
     ]:
         gen_code = self.gen_code.get(projectConfigId)
         code_entries = self.code_dict.get(projectConfigId, {})
@@ -1173,187 +1144,6 @@ class BaseProjectManager(ABC):
             return C.CODE_FOLDER
         raise ValueError(f"Unsupported run snapshot mode: {run_snapshot_mode}")
 
-    def _plugin_codegen_output_root(self, project_config_name: str) -> Path:
-        return (
-            build_project_sections_dir(C.CODE_FOLDER, project_config_name)
-            / "plugin_codegen"
-        )
-
-    def _plugin_codegen_target_dir_name(self, target_id: str) -> str:
-        normalized_chars: list[str] = []
-        for char in target_id:
-            if char.isalnum() or char in {"-", "_", "."}:
-                normalized_chars.append(char)
-            else:
-                normalized_chars.append("_")
-        normalized = "".join(normalized_chars).strip("_")
-        if normalized == "":
-            normalized = "_"
-        short_hash = hashlib.sha256(target_id.encode("utf-8")).hexdigest()[:12]
-        return f"{normalized}__{short_hash}"
-
-    def _resolve_plugin_codegen_targets(
-        self,
-        codegen_targets: list[ProjectCodegenTarget],
-    ) -> list[ProjectCodegenPluginTarget]:
-        plugin_targets: list[ProjectCodegenPluginTarget] = []
-        for target in codegen_targets:
-            if target.language == ProjectCodegenLanguage.python:
-                continue
-            if not isinstance(target, ProjectCodegenPluginTarget):
-                raise TypeError("Expected plugin codegen target.")
-            plugin_targets.append(target)
-        if len(plugin_targets) == 0:
-            return []
-        if self.plugin_manager is None:
-            raise KeyError(
-                "Plugin codegen targets are enabled, but plugin manager is unavailable."
-            )
-        for target in plugin_targets:
-            if not self.plugin_manager.has_backend_codegen_target(target.language):
-                raise KeyError(
-                    f"Plugin codegen target is not registered: {target.language}"
-                )
-        return plugin_targets
-
-    def _refresh_plugin_codegen_outputs(
-        self,
-        project_state: ProjectStateSingleConfig,
-    ) -> None:
-        plugin_targets = self._resolve_plugin_codegen_targets(
-            project_state.projectConfig.codegenTargets
-        )
-        project_config_id = project_state.projectConfig.id
-        output_root = self._plugin_codegen_output_root(project_state.projectConfig.name)
-        if len(plugin_targets) == 0:
-            self._plugin_codegen_target_state_by_project_config.pop(
-                project_config_id, None
-            )
-            if output_root.exists():
-                shutil.rmtree(output_root)
-            return
-        assert self.plugin_manager is not None
-        project_state_payload = project_state.model_dump(mode="json")
-        project_state_hash = self._hash_plugin_codegen_project_state(
-            project_state_payload
-        )
-        current_target_dir_names = {
-            self._plugin_codegen_target_dir_name(target.language)
-            for target in plugin_targets
-        }
-        if output_root.exists():
-            for child in output_root.iterdir():
-                if not child.is_dir():
-                    continue
-                if child.name in current_target_dir_names:
-                    continue
-                shutil.rmtree(child)
-        previous_target_state = self._plugin_codegen_target_state_by_project_config.get(
-            project_config_id, {}
-        )
-        next_target_state: dict[str, tuple[str, set[str]]] = {}
-
-        for target in plugin_targets:
-            target_language = target.language
-            target_root = output_root / self._plugin_codegen_target_dir_name(
-                target_language
-            )
-            target_fingerprint = self._build_plugin_codegen_target_fingerprint(
-                project_state_hash=project_state_hash,
-                target_id=target_language,
-                target_options=target.options,
-                target_implementation_key=self.plugin_manager.get_backend_codegen_target_implementation_key(
-                    target_language
-                ),
-            )
-            previous_state = previous_target_state.get(target_language)
-            if previous_state is not None and previous_state[0] == target_fingerprint:
-                next_target_state[target_language] = previous_state
-                continue
-
-            if previous_state is None and target_root.exists():
-                shutil.rmtree(target_root)
-            generated_files = self.plugin_manager.generate_backend_codegen_target(
-                target_id=target_language,
-                project_state=project_state_payload,
-                target_options=target.options,
-            )
-            generated_relative_paths: set[str] = set()
-            for relative_path, content in generated_files:
-                output_path = target_root / relative_path
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                generated_relative_paths.add(relative_path)
-                if output_path.exists():
-                    existing_content = output_path.read_text(encoding="utf-8")
-                    if existing_content == content:
-                        continue
-                self.dbe.write(output_path, content)
-
-            previous_paths = previous_state[1] if previous_state is not None else set()
-            stale_relative_paths = previous_paths - generated_relative_paths
-            for relative_path in stale_relative_paths:
-                stale_path = target_root / relative_path
-                if not stale_path.exists() or not stale_path.is_file():
-                    continue
-                stale_path.unlink()
-                self._prune_empty_codegen_directories(
-                    directory=stale_path.parent,
-                    stop_root=target_root,
-                )
-            next_target_state[target_language] = (
-                target_fingerprint,
-                generated_relative_paths,
-            )
-        self._plugin_codegen_target_state_by_project_config[project_config_id] = (
-            next_target_state
-        )
-
-    def _hash_plugin_codegen_project_state(self, project_state: dict[str, Any]) -> str:
-        encoded = json.dumps(
-            project_state,
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
-
-    def _hash_plugin_codegen_target_options(
-        self, target_options: dict[str, Any]
-    ) -> str:
-        encoded = json.dumps(
-            target_options,
-            sort_keys=True,
-            separators=(",", ":"),
-        )
-        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
-
-    def _build_plugin_codegen_target_fingerprint(
-        self,
-        *,
-        project_state_hash: str,
-        target_id: str,
-        target_options: dict[str, Any],
-        target_implementation_key: str,
-    ) -> str:
-        target_options_hash = self._hash_plugin_codegen_target_options(target_options)
-        encoded = (
-            f"{project_state_hash}:{target_id}:{target_options_hash}:"
-            f"{target_implementation_key}"
-        )
-        return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
-
-    def _prune_empty_codegen_directories(
-        self, *, directory: Path, stop_root: Path
-    ) -> None:
-        current = directory
-        while current != stop_root and current.is_relative_to(stop_root):
-            if not current.exists() or not current.is_dir():
-                current = current.parent
-                continue
-            if any(current.iterdir()):
-                return
-            current.rmdir()
-            current = current.parent
-
     def _require_python_codegen(self, project_config_id: ID) -> ProjectGenPythonCode:
         project_config = self.project_state_backend.projectConfigs[project_config_id]
         if not project_config_has_codegen_language(
@@ -1423,16 +1213,7 @@ class BaseProjectManager(ABC):
         if view_mode is None:
             raise KeyError(f"View mode {active_view_mode_id} not found")
         existing_layouts = view_mode.topLevelSections
-        section_variant_ids = set(project_config.sectionVariantMap.keys())
-        merged_layouts = {
-            section_id: layout
-            for section_id, layout in existing_layouts.items()
-            if section_id in section_variant_ids
-        }
-        for section_id, layout in x.topLevelSections.items():
-            if section_id not in merged_layouts:
-                continue
-            merged_layouts[section_id] = layout
+        merged_layouts = {**existing_layouts, **x.topLevelSections}
         project_config.topLevelSections = merged_layouts
         view_mode.topLevelSections = merged_layouts
 
@@ -1578,11 +1359,10 @@ class BaseProjectManager(ABC):
                 clear_gen_code=True,
                 clear_unmapped=True,
             )
-        self._refresh_plugin_codegen_outputs(projectState)
 
         if self.code_dict.get(projectConfigId):
             for c in self.code_dict[projectConfigId].values():
-                if _is_lsp_code_entry(c):
+                if isinstance(c, ProjectPythonCode):
                     c.callback_cleanup()
         self.code_dict[projectConfigId] = {}
 
@@ -1598,10 +1378,7 @@ class BaseProjectManager(ABC):
 
                 if not section_code.binding.canonical_path.exists():
                     section_code.write_to_disk(section_code.code)
-                if (
-                    _is_lsp_code_entry(section_code)
-                    and section_code.lsp_writer is not None
-                ):
+                if self.lsp_writers.full is not None:
                     await section_code.sync_lsp(section_code.code)
                 self.code_dict[projectConfigId][sectionId] = section_code
 
@@ -1680,7 +1457,7 @@ class BaseProjectManager(ABC):
         if gen_code is not None:
             await gen_code.type_check()
         for code_entry in code_entries:
-            if _is_lsp_code_entry(code_entry):
+            if isinstance(code_entry, ProjectPythonCode):
                 await code_entry.type_check()
 
     async def _refetch_callable_params(
@@ -1848,7 +1625,7 @@ class BaseProjectManager(ABC):
     async def code_area_completion(self, x: CodeAreaCompletionRequest):
         async with self._project_state_lock.read_lock():
             code = self.code_dict[x.projectConfigId][x.sectionId]
-        if _is_lsp_code_entry(code):
+        if isinstance(code, ProjectPythonCode):
             return await code.code_area_completion(x.fullText, x.position)
         return []
 
@@ -1900,14 +1677,13 @@ class BaseProjectManager(ABC):
         """Update the codegen targets for a project configuration."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        seen_languages: set[str] = set()
+        seen_languages: set[ProjectCodegenLanguage] = set()
         for target in x.codegenTargets:
             if target.language in seen_languages:
                 raise ValueError(
                     f"Duplicate codegen target language: {target.language}"
                 )
             seen_languages.add(target.language)
-        self._resolve_plugin_codegen_targets(x.codegenTargets)
         prev_python_target = get_python_codegen_target(project_state.projectConfig)
         prev_python_enabled = project_config_has_codegen_language(
             project_state.projectConfig,
@@ -2248,7 +2024,7 @@ class BaseProjectManager(ABC):
         if section_id not in code_entries:
             return
         code_entry = code_entries[section_id]
-        if not _is_lsp_code_entry(code_entry):
+        if not isinstance(code_entry, ProjectPythonCode):
             return
         project_state = self.get_single_config_state(project_config_id)
         section_impl = get_curr_effective_section_impl_with_type_guard(
@@ -2600,7 +2376,7 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         section_impl = get_curr_effective_section_impl(project_state, x.sectionId)
         if isinstance(section_impl, CodeSectionImpl):
-            if section_impl.codeLanguage != CodeLanguage.python:
+            if section_impl.codeLanguage is not CodeLanguage.python:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Format code only supports Python code sections.",
@@ -2686,20 +2462,22 @@ class BaseProjectManager(ABC):
             project_config, ProjectCodegenLanguage.python
         ):
             return
+        if self.lsp_writers.full is None:
+            return
         section_impl = get_curr_effective_section_impl(project_state, section_id)
         if not isinstance(section_impl, CodeSectionImpl):
             return
-        if self.lsp_writers.get_for_language(section_impl.codeLanguage) is None:
+        if section_impl.codeLanguage is not CodeLanguage.python:
             return
         if section_impl.codeFileBinding is None:
             return
         code_entries = self.code_dict.setdefault(project_config.id, {})
         section_code = code_entries.get(section_id)
-        if not _is_lsp_code_entry(section_code):
+        if not isinstance(section_code, ProjectPythonCode):
             section_code = self.create_project_code(
                 project_state, section_id, section_impl
             )
-            if not _is_lsp_code_entry(section_code):
+            if not isinstance(section_code, ProjectPythonCode):
                 return
             code_entries[section_id] = section_code
         section_code.code = code
@@ -3148,18 +2926,6 @@ class BaseProjectManager(ABC):
                 project_state,
                 sectionId,
             )
-        lsp_writer = self.lsp_writers.get_for_language(codeLanguage)
-        if lsp_writer is not None:
-            return ProjectLSPCode(
-                self.dbe,
-                self.code_files,
-                self.lsp_writers,
-                self.websocket_msg_handler,
-                self._get_lsp_diagnostics_state(project_state.projectConfig.id),
-                project_state,
-                sectionId,
-                code_language=codeLanguage,
-            )
         return ProjectBasicCode(
             self.dbe,
             self.code_files,
@@ -3322,12 +3088,9 @@ class BaseProjectManager(ABC):
             code_entries = self.code_dict.pop(project_config_id, None)
             if code_entries:
                 for code_entry in code_entries.values():
-                    if _is_lsp_code_entry(code_entry):
+                    if isinstance(code_entry, ProjectPythonCode):
                         code_entry.callback_cleanup()
             self.lsp_diagnostics_state_by_project_config.pop(project_config_id, None)
-            self._plugin_codegen_target_state_by_project_config.pop(
-                project_config_id, None
-            )
         self.project_state_backend.validate_default_project_id()
         self.watch_code_manager.sync_from_backend(self.project_state_backend)
         await self.broadcast_all_project_metadata()
