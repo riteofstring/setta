@@ -1,14 +1,24 @@
-import { CodeLanguageEnum, ObjectValues } from "utils/generatedTypes";
+import { CodeLanguageEnum } from "utils/generatedTypes";
 
-export type CodeLanguage = ObjectValues<typeof CodeLanguageEnum>;
+type BuiltinCodeLanguage =
+  (typeof CodeLanguageEnum)[keyof typeof CodeLanguageEnum];
+export type CodeLanguage = string;
 
-const RUNNABLE_CODE_LANGUAGES = new Set<CodeLanguage>([
+const BUILTIN_CODE_LANGUAGES = new Set<string>(Object.values(CodeLanguageEnum));
+
+const RUNNABLE_CODE_LANGUAGES = new Set<string>([
   CodeLanguageEnum.python,
   CodeLanguageEnum.bash,
 ]);
 
 export function isRunnableCodeLanguage(language: CodeLanguage): boolean {
   return RUNNABLE_CODE_LANGUAGES.has(language);
+}
+
+export function isBuiltinCodeLanguage(
+  language: CodeLanguage,
+): language is BuiltinCodeLanguage {
+  return BUILTIN_CODE_LANGUAGES.has(language);
 }
 
 export function resolveCodeLanguageFromPath(path: string): CodeLanguage {
@@ -34,9 +44,6 @@ export function resolveCodeLanguageFromPath(path: string): CodeLanguage {
   }
   if (normalized.endsWith(".yaml") || normalized.endsWith(".yml")) {
     return CodeLanguageEnum.yaml;
-  }
-  if (normalized.endsWith(".toml")) {
-    return CodeLanguageEnum.toml;
   }
   if (normalized.endsWith(".md") || normalized.endsWith(".markdown")) {
     return CodeLanguageEnum.markdown;

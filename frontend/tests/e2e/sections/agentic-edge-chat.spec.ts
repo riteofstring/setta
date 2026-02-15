@@ -435,9 +435,7 @@ async function createChatSectionViaCommandPalette(
   const isMac = process.platform === "darwin";
   const shortcut = isMac ? "Meta+Shift+P" : "Control+Shift+P";
   const searchInput = page.locator("#ProjectPageSearchBar");
-  const chatOption = page
-    .getByRole("option", { name: "Chat", exact: true })
-    .first();
+  const chatOption = page.getByRole("option", { name: /Chat/i }).first();
   const currChatCount = (await getChatSectionIds(page, projectConfigId))
     .length;
   if (currChatCount === expectedChatCount) {
@@ -458,6 +456,13 @@ async function createChatSectionViaCommandPalette(
   await expect(searchInput).toBeVisible({ timeout: 3000 });
   await searchInput.fill("Chat");
 
+  const createResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/createTopLevelSection") &&
+      response.request().method() === "POST",
+    { timeout: 8000 },
+  );
+
   let selectedChatOption = false;
   const optionTimeoutMs = 2500;
   const optionStartedAt = Date.now();
@@ -475,11 +480,27 @@ async function createChatSectionViaCommandPalette(
     await page.keyboard.press("Enter");
   }
 
+  const createResponse = await createResponsePromise;
+  const createResponseText = await createResponse.text();
+  if (!createResponse.ok()) {
+    const detail = createResponseText ? ` ${createResponseText}` : "";
+    throw new Error(
+      `Command palette chat create failed (${createResponse.status()})${detail}`,
+    );
+  }
+  if (!createResponseText) {
+    throw new Error("Command palette chat create returned an empty response.");
+  }
+  const created = JSON.parse(createResponseText) as CreateSectionResponse;
+  if (!created.sectionId) {
+    throw new Error("Missing sectionId in command palette chat create response.");
+  }
+
   const finalChatCount = await waitForExactChatSectionCount(
     page,
     projectConfigId,
     expectedChatCount,
-    12000,
+    8000,
   );
   if (finalChatCount !== expectedChatCount) {
     throw new Error(

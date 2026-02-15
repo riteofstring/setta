@@ -64,16 +64,7 @@ it opens files into Code sections.
 - If a Code section already targets the same file path, the pane focuses it instead of
   creating a duplicate.
 - New Code sections are named after the file and infer the code language from the file
-  extension. Current mapping includes:
-  - `.py` -> python
-  - `.sh`, `.bash` -> bash
-  - `.ts`, `.tsx` -> typescript
-  - `.js`, `.jsx`, `.mjs` -> javascript
-  - `.json` -> json
-  - `.yaml`, `.yml` -> yaml
-  - `.toml` -> toml
-  - `.md`, `.markdown` -> markdown
-  - fallback -> plaintext
+  extension.
 
 ## Keyboard Navigation
 

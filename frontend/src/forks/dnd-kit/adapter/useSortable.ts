@@ -85,7 +85,6 @@ export function useSortable({
   const shouldTrackSorting = sortingEnabled && isDragActive;
   const itemType =
     typeof customData?.type === "string" ? customData.type : null;
-  const sortablePlugins = [SortableKeyboardPlugin];
   const disableFeedback =
     sortingEnabled || isMovingFree || itemType === "param";
   const feedback = disableFeedback ? "none" : undefined;
@@ -120,7 +119,6 @@ export function useSortable({
   const {
     sortable,
     ref: setNodeRef,
-    handleRef: setActivatorNodeRef,
     isDragging,
     isDropTarget,
   } = useDndKitSortable({
@@ -132,9 +130,8 @@ export function useSortable({
     modifiers: dragModifiers,
     collisionDetector,
     transition: sortableTransition,
-    // Keep Setta's custom transform-based sortable behavior for list sortables.
-    // Optimistic DOM reordering can cause scroll jumps in constrained panes.
-    plugins: sortablePlugins,
+    // Skip OptimisticSortingPlugin; Setta controls reorder/placeholder behavior.
+    plugins: [SortableKeyboardPlugin],
   });
   const listeners = {};
   const isOver = isDropTarget;
@@ -248,7 +245,6 @@ export function useSortable({
     attributes: attributes ?? {},
     listeners: listeners ?? {},
     setNodeRef,
-    setActivatorNodeRef,
     transform: finalTransform,
     transition: transitionValue,
     overIndex: effectiveOverIndex,

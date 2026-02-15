@@ -41,11 +41,14 @@ from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
+    CodeLanguageKey,
     DrawSectionImpl,
     GenPythonCodeSectionImpl,
     GenPythonMetadataSectionImpl,
     MetaControlSectionImpl,
     SectionType,
+    code_language_to_string,
+    normalize_code_language,
 )
 from setta.types.shown_params import (
     ShownParamIds,
@@ -85,6 +88,18 @@ CODE_LANGUAGE_EXTENSIONS = {
 }
 
 RUNNABLE_CODE_LANGUAGES = {CodeLanguage.python, CodeLanguage.bash}
+DEFAULT_CODE_LANGUAGE_EXTENSION = "txt"
+
+
+def get_code_language_extension(language: CodeLanguageKey) -> str:
+    normalized_language = normalize_code_language(language)
+    if normalized_language in CODE_LANGUAGE_EXTENSIONS:
+        return CODE_LANGUAGE_EXTENSIONS[normalized_language]
+    language_key = code_language_to_string(normalized_language)
+    normalized = "".join(
+        char.lower() if char.isalnum() else "_" for char in language_key
+    ).strip("_")
+    return normalized or DEFAULT_CODE_LANGUAGE_EXTENSION
 
 
 class SingletonSections(BaseModel, extra="forbid"):
@@ -339,7 +354,7 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
                 section_full_name = get_section_path_full_name(self, section_id)
                 section_slug = sanitize_slug(section_full_name)
                 language = effective_impl.codeLanguage
-                extension = CODE_LANGUAGE_EXTENSIONS[language]
+                extension = get_code_language_extension(language)
                 canonical_binding_path = normalize_state_path(
                     canonical_sections_dir / f"{section_slug}.{extension}"
                 )
@@ -428,13 +443,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
 
         section_ids = set(self.sections.keys())
         top_level_sections = project_config.topLevelSections
-        stale_top_level_ids = [
-            section_id
-            for section_id in top_level_sections
-            if section_id not in section_ids
-        ]
-        for section_id in stale_top_level_ids:
-            del top_level_sections[section_id]
         for view_mode in project_config.viewModes.values():
             visibility = view_mode.visibilityBySectionId
             for section_id in section_ids:
