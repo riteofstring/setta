@@ -1,4 +1,4 @@
-import { type AppGenSkillEntry } from "utils/generatedTypes";
+import { type AllLLMConfigs, type AppGenSkillEntry } from "utils/generatedTypes";
 
 export function filterSkills(
   skills: AppGenSkillEntry[],
@@ -18,7 +18,7 @@ export function filterSkills(
   });
 }
 
-export type SkillsByRootPath = {
+type SkillsByRootPath = {
   rootPath: string;
   rootLabel: string;
   skills: AppGenSkillEntry[];
@@ -53,4 +53,68 @@ export function groupSkillsByRootPath(
       }),
     }))
     .sort((a, b) => a.rootPath.localeCompare(b.rootPath));
+}
+
+type McpServerListEntry = {
+  serverId: string;
+  transport: string;
+  endpoint: string;
+};
+
+type McpServersByConfigPath = {
+  configPath: string;
+  configLabel: string;
+  servers: McpServerListEntry[];
+};
+
+function resolveMcpServerEndpoint(
+  config: AllLLMConfigs["mcpServers"][string],
+): string {
+  if (typeof config.url === "string" && config.url.length > 0) {
+    return config.url;
+  }
+  if (typeof config.command === "string" && config.command.length > 0) {
+    return config.command;
+  }
+  return "(no endpoint)";
+}
+
+function resolveMcpConfigLabel(settaFilesLocation: string | null): string {
+  if (!settaFilesLocation) {
+    return "Active setta_files";
+  }
+  return `Active ${settaFilesLocation} setta_files`;
+}
+
+export function groupMcpServersByConfigPath({
+  mcpServers,
+  mcpConfigPath,
+  settaFilesLocation,
+}: {
+  mcpServers: AllLLMConfigs["mcpServers"] | undefined;
+  mcpConfigPath: string | null;
+  settaFilesLocation: string | null;
+}): McpServersByConfigPath[] {
+  if (!mcpServers) {
+    return [];
+  }
+  const serverEntries = Object.entries(mcpServers)
+    .map(([serverId, config]) => {
+      return {
+        serverId,
+        transport: config.transport,
+        endpoint: resolveMcpServerEndpoint(config),
+      };
+    })
+    .sort((a, b) => a.serverId.localeCompare(b.serverId));
+  if (serverEntries.length === 0) {
+    return [];
+  }
+  return [
+    {
+      configPath: mcpConfigPath ?? "Unavailable",
+      configLabel: resolveMcpConfigLabel(settaFilesLocation),
+      servers: serverEntries,
+    },
+  ];
 }

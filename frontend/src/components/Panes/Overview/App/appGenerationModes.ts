@@ -4,7 +4,7 @@ export type AppGenerationMode =
   | "prompt_builder"
   | "mcp_server";
 
-export type AppGenerationModeOption = {
+type AppGenerationModeOption = {
   mode: AppGenerationMode;
   label: string;
   description: string;

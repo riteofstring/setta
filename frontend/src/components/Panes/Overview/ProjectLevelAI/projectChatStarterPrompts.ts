@@ -1,4 +1,4 @@
-export const DESIGN_FIRST_FIGMA_STARTER_PROMPT = [
+const DESIGN_FIRST_FIGMA_STARTER_PROMPT = [
   "I want to run a design-first workflow before implementation.",
   "",
   "Please do this in order:",

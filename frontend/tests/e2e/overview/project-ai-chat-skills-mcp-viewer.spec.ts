@@ -88,6 +88,10 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await expect(page.getByLabel("Skill Preview")).toContainText(
     "Create dense dashboard layouts.",
   );
+  await expect(page.getByText(/setta_files\/llm_config\.json/)).toBeVisible();
+  await expect(
+    page.getByText(/Active (local|global) setta_files/),
+  ).toBeVisible();
   await expect(page.getByText(/setta.*sse/i)).toBeVisible();
   await expect(page.getByText(/context7.*stdio/i)).toBeVisible();
   await expect(page.getByLabel("Filter MCP tools")).toHaveCount(0);

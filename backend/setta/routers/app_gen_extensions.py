@@ -61,9 +61,7 @@ def _iter_skill_roots(workspace_root: Path) -> list[tuple[str, str, Path]]:
         if not raw_path:
             continue
         base_path = Path(raw_path).expanduser().resolve(strict=False)
-        root_path = (
-            base_path if base_path.name == "skills" else base_path / "skills"
-        )
+        root_path = base_path if base_path.name == "skills" else base_path / "skills"
         candidates.append((root_id, label, root_path))
 
     roots: list[tuple[str, str, Path]] = []

@@ -842,7 +842,7 @@ export const useToolArgumentPreview = withProjectState(
 );
 
 export type ColorModePreference = "dark" | "light" | "auto";
-export type AppGenerationModePreference =
+type AppGenerationModePreference =
   | "json_render"
   | "json_render_with_image"
   | "prompt_builder"
