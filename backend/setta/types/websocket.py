@@ -9,11 +9,7 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
-from setta.types.agentic import (
-    AgentProfileList,
-    EngineConfigList,
-    TranscriptionProfileList,
-)
+from setta.types.agentic import AgentProfileList, EngineConfigList
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import LLMStreamingResponse
@@ -65,7 +61,6 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     PromptTemplatesUpdated = "PromptTemplatesUpdated"
     ExternalAgentConfigsUpdated = "ExternalAgentConfigsUpdated"
     EngineConfigsUpdated = "EngineConfigsUpdated"
-    TranscriptionProfilesUpdated = "TranscriptionProfilesUpdated"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -261,13 +256,6 @@ class WebsocketMsgEngineConfigsUpdated(FrontendWebsocketMsg):
     content: EngineConfigList
     messageType: Literal[WebsocketMsgTypeForFrontend.EngineConfigsUpdated] = (
         WebsocketMsgTypeForFrontend.EngineConfigsUpdated
-    )
-
-
-class WebsocketMsgTranscriptionProfilesUpdated(FrontendWebsocketMsg):
-    content: TranscriptionProfileList
-    messageType: Literal[WebsocketMsgTypeForFrontend.TranscriptionProfilesUpdated] = (
-        WebsocketMsgTypeForFrontend.TranscriptionProfilesUpdated
     )
 
 

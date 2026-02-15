@@ -8,12 +8,12 @@ import pytest
 import pytest_asyncio
 from starlette.requests import Request
 
-from setta.agentic.store import save_transcription_profiles
+from setta.agentic.store import save_engine_configs
 from setta.lsp.managers import stop_file_watcher, stop_lsps
 from setta.routers.ai import router as ai_router
 from setta.routers.binary import router as binary_router
 from setta.server_state import SettaFastAPIState
-from setta.types.agentic import TranscriptionProfile
+from setta.types.agentic import EngineConfig, EngineType
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.routes import Route
@@ -101,14 +101,15 @@ class TestMultipartRouteLimits:
     ) -> None:
         # Dictation uploads should also respect Setta's configured limit, not the parser default.
         self.app.include_router(ai_router, prefix=Route.PREFIX.value)
-        transcription_profile_id = ID("transcription-primary")
-        save_transcription_profiles(
+        engine_config_id = ID("engine-primary")
+        save_engine_configs(
             self.state.dbe,
             [
-                TranscriptionProfile(
-                    id=transcription_profile_id,
-                    name="Primary Transcription",
-                    transcriptionLlmConfigId="primary",
+                EngineConfig(
+                    id=engine_config_id,
+                    name="Primary Engine",
+                    engineType=EngineType.setta_llm,
+                    settaLlmConfigId="primary",
                 )
             ],
         )
@@ -147,7 +148,7 @@ class TestMultipartRouteLimits:
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.post(
                 f"{Route.PREFIX.value}{Route.TRANSCRIBE_CHAT_AUDIO.value}",
-                data={"transcriptionProfileId": str(transcription_profile_id)},
+                data={"engineConfigId": str(engine_config_id)},
                 files={"file": ("voice.webm", payload, "audio/webm")},
             )
 
@@ -178,10 +179,10 @@ class TestMultipartRouteLimits:
         schema = multipart_content.get("schema")
         assert isinstance(schema, dict)
         required_fields = schema.get("required")
-        assert required_fields == ["transcriptionProfileId", "file"]
+        assert required_fields == ["engineConfigId", "file"]
         properties = schema.get("properties")
         assert isinstance(properties, dict)
-        assert properties["transcriptionProfileId"]["type"] == "string"
+        assert properties["engineConfigId"]["type"] == "string"
         assert properties["file"]["type"] == "string"
         assert properties["file"]["format"] == "binary"
         assert properties["language"]["type"] == "string"
@@ -224,7 +225,7 @@ class TestMultipartRouteLimits:
         ) as client:
             response = await client.post(
                 f"{Route.PREFIX.value}{Route.TRANSCRIBE_CHAT_AUDIO.value}",
-                data={"transcriptionProfileId": "transcription-primary"},
+                data={"engineConfigId": "engine-primary"},
                 files={"file": ("voice.webm", b"hello", "audio/webm")},
             )
 
