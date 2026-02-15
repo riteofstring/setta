@@ -1,5 +1,6 @@
 import { resetProjectStores } from "state/utils";
 import {
+  route_get_agent_runs,
   route_get_external_agent_chat,
   route_get_llm_chat,
   route_stop_external_agent_run,
@@ -28,6 +29,7 @@ vi.mock("utils/generatedEndpoints", async () => {
   >("utils/generatedEndpoints");
   return {
     ...actual,
+    route_get_agent_runs: vi.fn(),
     route_get_external_agent_chat: vi.fn(),
     route_get_llm_chat: vi.fn(),
     route_stop_external_agent_run: vi.fn(),
@@ -43,6 +45,7 @@ const mockedRouteGetExternalAgentChat = vi.mocked(
   route_get_external_agent_chat,
 );
 const mockedRouteGetLLMChat = vi.mocked(route_get_llm_chat);
+const mockedRouteGetAgentRuns = vi.mocked(route_get_agent_runs);
 const mockedRouteStopExternalAgentRun = vi.mocked(
   route_stop_external_agent_run,
 );
@@ -52,6 +55,7 @@ const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 let useAIStore: typeof import("state/definitions").useAIStore;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let stopProjectChatResponse: typeof import("state/actions/ai").stopProjectChatResponse;
+let stopManagedSectionChatResponse: typeof import("state/actions/ai").stopManagedSectionChatResponse;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
 let memoryStorage: Storage;
 
@@ -81,6 +85,7 @@ describe("stopProjectChatResponse", () => {
     useLocalStorage = definitions.useLocalStorage;
     const ai = await import("state/actions/ai");
     stopProjectChatResponse = ai.stopProjectChatResponse;
+    stopManagedSectionChatResponse = ai.stopManagedSectionChatResponse;
     getDefaultChatDetails = ai.getDefaultChatDetails;
   });
 
@@ -228,5 +233,138 @@ describe("stopProjectChatResponse", () => {
     );
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details?.waitingForResponse).toBe(true);
+  });
+
+  it("refreshes runs and retries external stop when local run cache is stale", async () => {
+    const chatId = "chat-stop-external-stale-refresh";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+        },
+      },
+      agentRunsInitialLoadComplete: true,
+      agentRuns: [],
+    });
+    mockedRouteGetAgentRuns.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [
+        createAgentRun({
+          id: "run-refresh",
+          status: AgentRunStatusEnum.running,
+          inputs: {
+            runType: "external_agent",
+            chatId,
+            projectConfigId: null,
+          },
+        }),
+      ],
+    });
+    mockedRouteStopExternalAgentRun.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, true);
+
+    expect(stopped).toBe(true);
+    expect(mockedRouteGetAgentRuns.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(mockedRouteStopExternalAgentRun).toHaveBeenCalledWith({
+      runId: "run-refresh",
+    });
+    expect(mockedRouteGetExternalAgentChat).not.toHaveBeenCalled();
+    expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+  });
+
+  it("rehydrates and warns when external stop cannot find a running run after refresh", async () => {
+    const chatId = "chat-stop-external-stale-miss";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+        },
+      },
+      agentRunsInitialLoadComplete: true,
+      agentRuns: [],
+    });
+    mockedRouteGetAgentRuns.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [],
+    });
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        waitingForResponse: true,
+        toolCallArguments: {},
+      },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, true);
+
+    expect(stopped).toBe(false);
+    expect(mockedRouteGetAgentRuns).toHaveBeenCalledTimes(1);
+    expect(mockedRouteStopExternalAgentRun).not.toHaveBeenCalled();
+    expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
+      chatId,
+      projectConfigId: null,
+    });
+    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
+      "Failed to stop project chat.",
+      SettaNotificationTypeEnum.warning,
+    );
+    const details = useAIStore.getState().chatDetails[chatId];
+    expect(details?.waitingForResponse).toBe(true);
+  });
+
+  it("uses section-specific warning copy for managed section stop failures", async () => {
+    const chatId = "chat-stop-section-stale-miss";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+        },
+      },
+      agentRunsInitialLoadComplete: true,
+      agentRuns: [],
+    });
+    mockedRouteGetAgentRuns.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [],
+    });
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        waitingForResponse: true,
+        toolCallArguments: {},
+      },
+    });
+
+    const stopped = await stopManagedSectionChatResponse(
+      chatId,
+      true,
+      "project-a",
+      "section-a",
+    );
+
+    expect(stopped).toBe(false);
+    expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
+      chatId,
+      projectConfigId: "project-a",
+    });
+    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
+      "Failed to stop section chat.",
+      SettaNotificationTypeEnum.warning,
+    );
   });
 });

@@ -667,6 +667,52 @@ export function stopChatResponseLocally(chatId: string | null | undefined) {
   clearAllAppSpecPatchStreams();
 }
 
+async function resolveLatestRunningExternalRunIdWithRefresh(
+  chatId: string,
+  projectConfigId: string | null,
+): Promise<string | null> {
+  let runId = await findLatestRunningExternalRunId(chatId, projectConfigId);
+  if (runId) {
+    return runId;
+  }
+  await loadAgentRuns();
+  runId = await findLatestRunningExternalRunId(chatId, projectConfigId);
+  return runId;
+}
+
+async function stopExternalChatResponse({
+  chatId,
+  projectConfigId,
+  sectionId,
+  failureMessage,
+}: {
+  chatId: string;
+  projectConfigId: string | null;
+  sectionId?: string;
+  failureMessage: string;
+}): Promise<boolean> {
+  const runId = await resolveLatestRunningExternalRunIdWithRefresh(
+    chatId,
+    projectConfigId,
+  );
+  if (!runId) {
+    await getExternalAgentChat(chatId, projectConfigId, sectionId);
+    addTemporaryNotification(
+      failureMessage,
+      SettaNotificationTypeEnum.warning,
+    );
+    return false;
+  }
+  const response = await route_stop_external_agent_run({ runId });
+  if (res200(response)) {
+    void loadAgentRuns();
+    return true;
+  }
+  await getExternalAgentChat(chatId, projectConfigId, sectionId);
+  addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
+  return false;
+}
+
 export async function stopProjectChatResponse(
   chatId: string | null | undefined,
   isExternalEngine: boolean,
@@ -677,21 +723,11 @@ export async function stopProjectChatResponse(
   }
 
   if (isExternalEngine) {
-    const runId = await findLatestRunningExternalRunId(chatId, null);
-    if (!runId) {
-      return true;
-    }
-    const response = await route_stop_external_agent_run({ runId });
-    if (res200(response)) {
-      void loadAgentRuns();
-      return true;
-    }
-    await getExternalAgentChat(chatId, null);
-    addTemporaryNotification(
-      "Failed to stop project chat.",
-      SettaNotificationTypeEnum.warning,
-    );
-    return false;
+    return stopExternalChatResponse({
+      chatId,
+      projectConfigId: null,
+      failureMessage: "Failed to stop project chat.",
+    });
   }
 
   const response = await route_stop_llm_chat({ chatId });
@@ -701,6 +737,36 @@ export async function stopProjectChatResponse(
   await getLLMChat(chatId);
   addTemporaryNotification(
     "Failed to stop project chat.",
+    SettaNotificationTypeEnum.warning,
+  );
+  return false;
+}
+
+export async function stopManagedSectionChatResponse(
+  chatId: string | null | undefined,
+  isExternalEngine: boolean,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<boolean> {
+  stopChatResponseLocally(chatId);
+  if (typeof chatId !== "string") {
+    return true;
+  }
+  if (isExternalEngine) {
+    return stopExternalChatResponse({
+      chatId,
+      projectConfigId,
+      sectionId,
+      failureMessage: "Failed to stop section chat.",
+    });
+  }
+  const response = await route_stop_llm_chat({ chatId });
+  if (res200(response)) {
+    return true;
+  }
+  await getLLMChat(chatId, sectionId);
+  addTemporaryNotification(
+    "Failed to stop section chat.",
     SettaNotificationTypeEnum.warning,
   );
   return false;

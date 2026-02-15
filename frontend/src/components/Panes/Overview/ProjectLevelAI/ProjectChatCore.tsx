@@ -60,12 +60,14 @@ import {
   getCachedWorkspacePythonSignal,
   hasPythonSignalsInRoot,
   setCachedWorkspacePythonSignal,
+  type WorkspacePythonSignalCache,
 } from "./workspacePythonSignals";
 
-const hasPythonInWorkspaceRootCache = new Map<string, boolean>();
+const hasPythonInWorkspaceRootCache: WorkspacePythonSignalCache = new Map();
 const WORKSPACE_ROOT_FAST_POLL_MS = 5000;
 const WORKSPACE_ROOT_BACKOFF_POLL_MS = 30000;
 const WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF = 2;
+const WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS = 5000;
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionModeValue;
@@ -214,6 +216,28 @@ function useHasPythonInWorkspaceRoot(
   workspaceRootIdentity: string | null,
 ): boolean {
   const [hasPython, setHasPython] = useState(false);
+  const [revalidationTick, setRevalidationTick] = useState(0);
+  const previousRootRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (workspaceRootIdentity === previousRootRef.current) {
+      return;
+    }
+    previousRootRef.current = workspaceRootIdentity;
+    setHasPython(false);
+  }, [workspaceRootIdentity]);
+
+  useEffect(() => {
+    if (!enabled || !workspaceRootIdentity) {
+      return;
+    }
+    const intervalId = window.setInterval(() => {
+      setRevalidationTick((current) => current + 1);
+    }, WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [enabled, workspaceRootIdentity]);
 
   useEffect(() => {
     if (!enabled || !workspaceRootIdentity) {
@@ -224,7 +248,6 @@ function useHasPythonInWorkspaceRoot(
 
     const load = async () => {
       const rootPath = workspaceRootIdentity;
-      setHasPython(false);
       const cached = getCachedWorkspacePythonSignal(
         hasPythonInWorkspaceRootCache,
         rootPath,
@@ -275,7 +298,7 @@ function useHasPythonInWorkspaceRoot(
     return () => {
       cancelled = true;
     };
-  }, [enabled, workspaceRootIdentity]);
+  }, [enabled, revalidationTick, workspaceRootIdentity]);
 
   return hasPython;
 }

@@ -246,6 +246,26 @@ def test_completion_guard_treats_no_errors_found_as_passed_checks() -> None:
     assert _assistant_text(assistant_message) == "Done."
 
 
+def test_completion_guard_treats_negated_failure_phrases_as_passed_checks() -> None:
+    # Common "no failed/no failing/without failures" summaries must pass checks.
+    pass_phrases = [
+        "Ran tests with no failed tests.",
+        "No failing checks remained after the rerun.",
+        "Verification completed without failures.",
+    ]
+    for phrase in pass_phrases:
+        prior_messages = [
+            _user_message("Create a new project setup."),
+            _assistant_message(phrase),
+        ]
+        assistant_message = _assistant_message("Done.")
+
+        replacement = apply_completion_guard(prior_messages, assistant_message)
+
+        assert replacement is None
+        assert _assistant_text(assistant_message) == "Done."
+
+
 def test_completion_guard_treats_zero_failed_and_zero_errors_as_passed_checks() -> (
     None
 ):

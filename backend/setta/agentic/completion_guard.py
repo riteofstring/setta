@@ -55,6 +55,10 @@ _PASS_RE = re.compile(
     (
         r"\b("
         r"pass(?:ed)?|success(?:ful(?:ly)?)?|no errors?|"
+        r"no\s+failed\s+tests?|"
+        r"no\s+failing\s+checks?|"
+        r"no\s+failures?|"
+        r"without\s+failures?|"
         r"(?:0|zero)\s+(?:fail(?:ed|ing)?|errors?\s+found)"
         r")\b"
     ),
@@ -63,11 +67,11 @@ _PASS_RE = re.compile(
 _FAIL_RE = re.compile(
     (
         r"\b("
-        r"(?<!\b0\s)(?<!\bzero\s)fail(?:ed|ing)?|"
+        r"(?<!\b0\s)(?<!\bzero\s)(?<!\bno\s)(?<!\bwithout\s)fail(?:ed|ing|ures?)|"
         r"did not pass|"
-        r"found errors?|"
+        r"(?<!\bno\s)found errors?|"
         r"(?<!\bno\s)(?<!\b0\s)(?<!\bzero\s)errors?\s+found|"
-        r"failing checks?"
+        r"(?<!\bno\s)failing checks?"
         r")\b"
     ),
     re.IGNORECASE,

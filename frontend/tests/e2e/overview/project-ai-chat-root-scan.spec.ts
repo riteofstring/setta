@@ -202,6 +202,65 @@ test("project chat clears python starter visibility when a new root scan cannot 
   }
 });
 
+test("project chat revalidates python starter visibility when root path stays the same", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+
+  let hasPythonMarkers = true;
+  await page.route("**/api/getFileBrowserRoot", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        rootPath: "/tmp/workspace-cache-revalidate",
+        pathSeparator: "/",
+        ignorePatterns: [],
+      }),
+    });
+  });
+  await page.route("**/api/getFolderContents", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        hasPythonMarkers
+          ? [
+              {
+                name: "pyproject.toml",
+                path: "/tmp/workspace-cache-revalidate/pyproject.toml",
+                type: "file",
+                extension: "toml",
+              },
+            ]
+          : [],
+      ),
+    });
+  });
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    const createProjectButton = overviewPane.getByRole("button", {
+      name: /^Create Project$/,
+    });
+    await expect(createProjectButton).toBeVisible();
+
+    hasPythonMarkers = false;
+    await expect
+      .poll(async () => createProjectButton.count(), { timeout: 20000 })
+      .toBe(0);
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project chat backs off root polling after repeated stable root scans", async ({
   page,
 }) => {

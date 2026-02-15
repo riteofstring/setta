@@ -29,12 +29,12 @@ import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearPendingChatDetails,
-  findLatestRunningExternalRunId,
   getDefaultChatDetails,
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
   loadAgentRuns,
+  stopManagedSectionChatResponse,
   submitEditedMessage,
   submitMessage,
   transcribeChatAudio,
@@ -66,8 +66,6 @@ import {
   route_set_chat_section_chat_id,
   route_set_chat_section_settings,
   route_set_chat_section_state,
-  route_stop_external_agent_run,
-  route_stop_llm_chat,
 } from "utils/generatedEndpoints";
 import {
   AgentRun,
@@ -958,6 +956,63 @@ function ChatSectionHistoryList({
   );
 }
 
+function ManagedChatHistoryPanel({
+  sectionId,
+  activeChatId,
+  historyCompatibility,
+  onSelect,
+}: {
+  sectionId: string;
+  activeChatId: string | null;
+  historyCompatibility: ChatHistoryCompatibility | null;
+  onSelect: (chatId: string) => void;
+}) {
+  const { agentRuns, agentRunsInitialLoadComplete, agentRunsLoadError } =
+    useAIStore(
+      (state) => ({
+        agentRuns: state.agentRuns,
+        agentRunsInitialLoadComplete: state.agentRunsInitialLoadComplete,
+        agentRunsLoadError: state.agentRunsLoadError,
+      }),
+      shallow,
+    );
+  const sectionHistoryEntries = useMemo(
+    () => toSortedHistoryEntries(agentRuns, sectionId, historyCompatibility),
+    [agentRuns, historyCompatibility, sectionId],
+  );
+  const hasRunningHistoryEntry = useMemo(
+    () => sectionHistoryEntries.some((entry) => entry.waitingForResponse),
+    [sectionHistoryEntries],
+  );
+
+  useEffect(() => {
+    void loadAgentRuns();
+  }, []);
+
+  useEffect(() => {
+    void loadAgentRuns();
+    if (!hasRunningHistoryEntry) {
+      return;
+    }
+    const intervalId = window.setInterval(() => {
+      void loadAgentRuns();
+    }, 5000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [hasRunningHistoryEntry]);
+
+  return (
+    <ChatSectionHistoryList
+      entries={sectionHistoryEntries}
+      activeChatId={activeChatId}
+      initialLoadComplete={agentRunsInitialLoadComplete}
+      loadError={agentRunsLoadError}
+      onSelect={onSelect}
+    />
+  );
+}
+
 type ManagedChatAreaProps = {
   sectionId: string;
   engineConfigId: string | null;
@@ -1018,15 +1073,6 @@ function ManagedChatArea({
       lastChatIdRef.current = chatId;
     }
   }, [chatId]);
-  const { agentRuns, agentRunsInitialLoadComplete, agentRunsLoadError } =
-    useAIStore(
-      (state) => ({
-        agentRuns: state.agentRuns,
-        agentRunsInitialLoadComplete: state.agentRunsInitialLoadComplete,
-        agentRunsLoadError: state.agentRunsLoadError,
-      }),
-      shallow,
-    );
   const { messages, toolCallArguments, waitingForResponse } = useAIStore(
     (state) => {
       if (chatId === null) {
@@ -1109,14 +1155,6 @@ function ManagedChatArea({
       engineConfigId: effectiveEngineConfigId ?? null,
     };
   }, [effectiveEngineConfigId, engineType]);
-  const sectionHistoryEntries = useMemo(
-    () => toSortedHistoryEntries(agentRuns, sectionId, historyCompatibility),
-    [agentRuns, historyCompatibility, sectionId],
-  );
-  const hasRunningHistoryEntry = useMemo(
-    () => sectionHistoryEntries.some((entry) => entry.waitingForResponse),
-    [sectionHistoryEntries],
-  );
   const selectedLLMConfigId = useMemo(() => {
     if (!selectedEngineConfig) {
       return null;
@@ -1210,26 +1248,6 @@ function ManagedChatArea({
     }
     getLLMChat(chatId);
   }, [chatId, isExternalEngine, projectConfigId]);
-
-  useEffect(() => {
-    void loadAgentRuns();
-  }, []);
-
-  useEffect(() => {
-    if (!showHistory) {
-      return;
-    }
-    void loadAgentRuns();
-    if (!hasRunningHistoryEntry) {
-      return;
-    }
-    const intervalId = window.setInterval(() => {
-      void loadAgentRuns();
-    }, 5000);
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [hasRunningHistoryEntry, showHistory]);
 
   const setChatId = useCallback(
     (next: ChatSectionChatIdUpdate) => {
@@ -1415,24 +1433,12 @@ function ManagedChatArea({
       managed: true,
       timestampMs: Date.now(),
     });
-    if (isExternalEngine) {
-      if (typeof chatId !== "string") {
-        return;
-      }
-      const runId = await findLatestRunningExternalRunId(
-        chatId,
-        projectConfigId,
-      );
-      if (!runId) {
-        return;
-      }
-      await route_stop_external_agent_run({ runId });
-      return;
-    }
-    if (typeof chatId !== "string") {
-      return;
-    }
-    await route_stop_llm_chat({ chatId });
+    await stopManagedSectionChatResponse(
+      chatId,
+      isExternalEngine,
+      projectConfigId,
+      sectionId,
+    );
   }, [chatId, isExternalEngine, projectConfigId, sectionId]);
 
   const handleEditMessage = useCallback(
@@ -1669,11 +1675,10 @@ function ManagedChatArea({
         </button>
       </div>
       {showHistory ? (
-        <ChatSectionHistoryList
-          entries={sectionHistoryEntries}
+        <ManagedChatHistoryPanel
+          sectionId={sectionId}
           activeChatId={chatId}
-          initialLoadComplete={agentRunsInitialLoadComplete}
-          loadError={agentRunsLoadError}
+          historyCompatibility={historyCompatibility}
           onSelect={handleSelectHistoryChat}
         />
       ) : (

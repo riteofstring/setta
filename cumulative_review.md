@@ -210,3 +210,27 @@ Implemented the consolidated fixes from the latest top-level reviews across queu
 - Ruff check on changed backend/test files passed.
 - ESLint targeted run remains blocked in this environment due missing `@eslint/js` resolution from `frontend/eslint.config.js`.
 - CDP visual verification completed in a live app session (Overview and Project AI Chat panes rendered and navigated successfully).
+
+## 2026-02-17 14:06:57 PST
+
+### Summary
+Implemented the latest consolidated review fixes across completion-guard false failures, binary upload size-policy enforcement, robust external stop behavior, managed section history lazy loading, and workspace Python-signal cache revalidation/bounding, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Completion guard now treats negated-failure phrases (`no failed tests`, `no failing checks`, `without failures`) as passing verification rather than false failures.
+- Reintroduced explicit `/binary/upload` max-size enforcement with deterministic `413` handling using `C.BINARY_UPLOAD_MAX_BYTES`.
+- Added bounded binary stream handling with explicit overflow error and partial-file cleanup.
+- Hardened project external-stop flow to refresh `agentRuns` and retry run resolution before reporting failure.
+- External stop now rehydrates chat state and shows a warning when no running run is found after refresh.
+- Added `stopManagedSectionChatResponse` and switched managed section chat stop to use the same robust status/rehydration semantics.
+- Refactored managed section history into a lazily mounted panel so `agentRuns` subscription/loading/polling only occurs when History is open.
+- Added TTL and max-size bounds for workspace Python-signal cache entries.
+- Added periodic root revalidation while project chat empty-state is visible so starter prompts converge even when root path stays constant.
+- Logged before/after perf results for managed history lazy-load behavior in `perf/chat-history-lazy-load.md`.
+
+### Test and verification status
+- Backend pytest: targeted suites passed (`tests/agentic/test_completion_guard.py`, binary upload coverage in `tests/routers/test_file_browser_routes.py`).
+- Frontend Vitest: targeted suites passed (`workspacePythonSignals`, `aiStopProjectChat`, `projectChatExecutionSettings`).
+- Playwright: targeted e2e suites passed (`chat-composer-controls`, `project-ai-chat-root-scan`, including new lazy-history and same-root revalidation coverage).
+- `tsc --noEmit` still reports existing repo-wide TypeScript errors outside this change set.
+- CDP visual + perf verification completed in a live session (managed section history no longer issues `getAgentRuns` while closed; request starts on History open).

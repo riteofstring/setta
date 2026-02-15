@@ -439,6 +439,54 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
+  test("chat section defers run history loading until history is opened", async ({
+    page,
+  }) => {
+    let getAgentRunsRequestCount = 0;
+    await page.route("**/api/getAgentRuns", async (route) => {
+      getAgentRunsRequestCount += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    });
+
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const requestCountBeforeSection = getAgentRunsRequestCount;
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_chat_history_lazy__",
+      );
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        managed: true,
+        engineConfigId: null,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+      });
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+      await page.waitForTimeout(1200);
+      expect(getAgentRunsRequestCount).toBe(requestCountBeforeSection);
+
+      await section.getByRole("button", { name: "History" }).click();
+      await expect
+        .poll(() => getAgentRunsRequestCount, { timeout: 15000 })
+        .toBeGreaterThan(requestCountBeforeSection);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("chat section history avoids polling while all runs are idle", async ({
     page,
   }) => {

@@ -3,11 +3,12 @@ from typing import Any
 from fastapi import File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
-from setta.binary import BinaryStore
+from setta.binary import BinaryPayloadTooLargeError, BinaryStore
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.binary_content import BinaryContentRef
 from setta.types.routes import Route
+from setta.utils.constants import C
 
 router = SettaAPIRouter()
 
@@ -32,7 +33,13 @@ async def route_binary_upload(
             file.file,
             mime_type=file.content_type,
             durable=durable_flag,
+            max_bytes=C.BINARY_UPLOAD_MAX_BYTES,
         )
+    except BinaryPayloadTooLargeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=str(exc),
+        ) from exc
     finally:
         await file.close()
     return ref
