@@ -51,14 +51,6 @@ AppGenerationMode = Literal[
     "mcp_server",
 ]
 
-_APP_GENERATION_MODES: set[str] = {
-    "json_render",
-    "json_render_with_image",
-    "prompt_builder",
-    "mcp_server",
-}
-
-
 def _get_llm_chat_runs(
     *,
     dbe,
@@ -240,15 +232,6 @@ def _resolve_branch_root_chat_id(
         if isinstance(raw_parent, str) and raw_parent:
             return ID(raw_parent)
     return parent_chat_id
-
-
-def _normalize_app_generation_mode(raw_mode: str | None) -> AppGenerationMode | None:
-    if raw_mode is None:
-        return None
-    normalized = raw_mode.strip().lower()
-    if normalized not in _APP_GENERATION_MODES:
-        return None
-    return normalized  # type: ignore[return-value]
 
 
 def _build_app_generation_mode_prompt(
@@ -469,7 +452,7 @@ async def route_get_llm_response(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    resolved_mode = _normalize_app_generation_mode(x.appGenerationMode)
+    resolved_mode = x.appGenerationMode
     reference_image_url = (
         x.appGenerationReferenceImageUrl.strip()
         if isinstance(x.appGenerationReferenceImageUrl, str)

@@ -108,7 +108,6 @@ export function buildHiddenChatAppGenerationPrompt({
     effectivePrompt,
     "",
     referenceImageLines,
-    referenceImageLines ? "" : "",
     catalogSummary,
     "",
     "Available sections (use section ids and param ids exactly):",

@@ -1231,7 +1231,7 @@ function extractRunMessages(
   return raw as Array<BaseChatMessageUnion>;
 }
 
-async function resolveEngineConfigIdForChat(
+export async function resolveEngineConfigIdForChat(
   chatId: string,
   engineConfigId: string | null,
 ): Promise<string | null> {

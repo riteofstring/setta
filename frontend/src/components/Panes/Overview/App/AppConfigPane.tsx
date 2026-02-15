@@ -6,6 +6,7 @@ import {
   loadExternalAgentHealth,
   loadLLMApiKeys,
   loadLLMConfig,
+  resolveEngineConfigIdForChat,
   submitMessage,
 } from "state/actions/ai";
 import { addTemporaryNotification } from "state/actions/notifications";
@@ -425,17 +426,12 @@ function parseSpecPayloadForRequest(
   return { ok: true, value: parsed };
 }
 
-function cloneSpec(spec: Spec): Spec {
-  return {
-    ...spec,
-    elements: {
-      ...(spec.elements ?? {}),
-    },
-  };
-}
-
 function cloneSpecSeed(spec: unknown): Spec {
   return structuredClone(spec) as Spec;
+}
+
+export function cloneSpecForPreview(spec: Spec): Spec {
+  return cloneSpecSeed(spec);
 }
 
 export function buildSpecSeed({
@@ -462,12 +458,7 @@ export function buildSpecSeed({
 }
 
 function pickHiddenGenerationEngine(args: {
-  engineConfigs: Array<{
-    id: string;
-    engineType: EngineTypeEnum;
-    settaLlmConfigId?: string | null;
-    externalAgentConfigId?: string | null;
-  }>;
+  engineConfigs: HiddenGenerationEngineConfig[];
   availableLLMConfigIds: Set<string>;
 }): {
   engineConfigId: string | null;
@@ -491,6 +482,104 @@ function pickHiddenGenerationEngine(args: {
   return { engineConfigId: null, isExternalEngine: false };
 }
 
+type HiddenGenerationEngineConfig = {
+  id: string;
+  engineType: EngineTypeEnum;
+  settaLlmConfigId?: string | null;
+  externalAgentConfigId?: string | null;
+};
+
+type HiddenGenerationEngineSelection = {
+  engineConfigId: string | null;
+  isExternalEngine: boolean;
+  forceNewChat: boolean;
+};
+
+function isHiddenGenerationEngineUsable(args: {
+  config: HiddenGenerationEngineConfig;
+  availableLLMConfigIds: Set<string>;
+}): boolean {
+  if (args.config.engineType === EngineTypeEnum.setta_llm) {
+    const llmConfigId = args.config.settaLlmConfigId ?? null;
+    return Boolean(llmConfigId && args.availableLLMConfigIds.has(llmConfigId));
+  }
+  return args.config.engineType === EngineTypeEnum.external_agent;
+}
+
+export function resolveHiddenGenerationEngineSelection(args: {
+  activeChatEngineConfigId: string | null;
+  engineConfigs: HiddenGenerationEngineConfig[];
+  availableLLMConfigIds: Set<string>;
+}): HiddenGenerationEngineSelection {
+  const fallback = pickHiddenGenerationEngine({
+    engineConfigs: args.engineConfigs,
+    availableLLMConfigIds: args.availableLLMConfigIds,
+  });
+
+  if (!args.activeChatEngineConfigId) {
+    return {
+      engineConfigId: fallback.engineConfigId,
+      isExternalEngine: fallback.isExternalEngine,
+      forceNewChat: false,
+    };
+  }
+
+  const activeChatEngine = args.engineConfigs.find(
+    (config) => config.id === args.activeChatEngineConfigId,
+  );
+  if (activeChatEngine) {
+    if (
+      isHiddenGenerationEngineUsable({
+        config: activeChatEngine,
+        availableLLMConfigIds: args.availableLLMConfigIds,
+      })
+    ) {
+      return {
+        engineConfigId: activeChatEngine.id,
+        isExternalEngine:
+          activeChatEngine.engineType === EngineTypeEnum.external_agent,
+        forceNewChat: false,
+      };
+    }
+  }
+
+  const forceNewChat =
+    Boolean(fallback.engineConfigId) &&
+    fallback.engineConfigId !== args.activeChatEngineConfigId;
+
+  return {
+    engineConfigId: fallback.engineConfigId,
+    isExternalEngine: fallback.isExternalEngine,
+    forceNewChat,
+  };
+}
+
+export async function resolveGenerationFailureMessage(
+  response: Response,
+): Promise<string> {
+  const fallback = `Generation request failed (status ${response.status}).`;
+  let payload: unknown = null;
+  try {
+    payload = (await response.json()) as unknown;
+  } catch {
+    return fallback;
+  }
+  if (typeof payload === "string" && payload.trim()) {
+    return payload.trim();
+  }
+  if (isRecord(payload)) {
+    const message = payload.message;
+    if (typeof message === "string" && message.trim()) {
+      return message.trim();
+    }
+    const detail = payload.detail;
+    if (typeof detail === "string" && detail.trim()) {
+      return detail.trim();
+    }
+  }
+  return fallback;
+}
+
 export function AppConfigPane() {
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const appSpec = useAppDefinition((x) => x.appSpec);
@@ -511,10 +600,26 @@ export function AppConfigPane() {
     appGenerationReferenceImageUrl: x.appGenerationReferenceImageUrl,
     appGenerationReferenceImageNotes: x.appGenerationReferenceImageNotes,
   }));
-  const engineConfigs = useAIStore((x) => x.engineConfigs);
-  const allLLMConfigs = useAIStore((x) => x.allLLMConfigs);
-  const apiKeys = useAIStore((x) => x.apiKeys);
-  const activeChatId = useAIStore((x) => x.activeChatId);
+  const {
+    engineConfigs,
+    engineConfigsInitialLoadComplete,
+    allLLMConfigs,
+    allLLMConfigsInitialLoadComplete,
+    apiKeys,
+    apiKeysInitialLoadComplete,
+    activeChatId,
+    externalAgentHealthInitialLoadComplete,
+  } = useAIStore((x) => ({
+    engineConfigs: x.engineConfigs,
+    engineConfigsInitialLoadComplete: x.engineConfigsInitialLoadComplete,
+    allLLMConfigs: x.allLLMConfigs,
+    allLLMConfigsInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
+    apiKeys: x.apiKeys,
+    apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
+    activeChatId: x.activeChatId,
+    externalAgentHealthInitialLoadComplete:
+      x.externalAgentHealthInitialLoadComplete,
+  }));
   const { projectMetadata } = useAllProjectMetadata((x) => x);
   const [draftSpec, setDraftSpec] = useState("");
   const [draftTheme, setDraftTheme] = useState("");
@@ -544,13 +649,31 @@ export function AppConfigPane() {
     };
   } | null>(null);
   const hasDraft = useMemo(() => draftSpec.trim().length > 0, [draftSpec]);
+  const activeGenerationMode = appGenerationMode || DEFAULT_APP_GENERATION_MODE;
 
   useEffect(() => {
-    void loadLLMConfig();
-    void loadLLMApiKeys();
-    void loadEngineConfigs();
-    void loadExternalAgentHealth();
-  }, []);
+    if (isJsonRenderMode(activeGenerationMode)) {
+      return;
+    }
+    if (!allLLMConfigsInitialLoadComplete) {
+      void loadLLMConfig();
+    }
+    if (!apiKeysInitialLoadComplete) {
+      void loadLLMApiKeys();
+    }
+    if (!engineConfigsInitialLoadComplete) {
+      void loadEngineConfigs();
+    }
+    if (!externalAgentHealthInitialLoadComplete) {
+      void loadExternalAgentHealth();
+    }
+  }, [
+    activeGenerationMode,
+    allLLMConfigsInitialLoadComplete,
+    apiKeysInitialLoadComplete,
+    engineConfigsInitialLoadComplete,
+    externalAgentHealthInitialLoadComplete,
+  ]);
 
   useEffect(() => {
     let isMounted = true;
@@ -739,6 +862,27 @@ export function AppConfigPane() {
     [appSpecPath, catalogId, draftAssets, draftTheme, specVersion, themeMode],
   );
 
+  const ensureHiddenGenerationResources = useCallback(async () => {
+    const pendingLoads: Array<Promise<void>> = [];
+    const state = useAIStore.getState();
+    if (!state.allLLMConfigsInitialLoadComplete) {
+      pendingLoads.push(loadLLMConfig());
+    }
+    if (!state.apiKeysInitialLoadComplete) {
+      pendingLoads.push(loadLLMApiKeys());
+    }
+    if (!state.engineConfigsInitialLoadComplete) {
+      pendingLoads.push(loadEngineConfigs());
+    }
+    if (!state.externalAgentHealthInitialLoadComplete) {
+      pendingLoads.push(loadExternalAgentHealth());
+    }
+    if (pendingLoads.length === 0) {
+      return;
+    }
+    await Promise.all(pendingLoads);
+  }, []);
+
   const runJsonRenderGeneration = useCallback(
     async (mode: AppGenerationMode) => {
       setGenerating(true);
@@ -751,6 +895,10 @@ export function AppConfigPane() {
         const userPrompt = appGenerationPrompt.trim();
         const effectivePrompt =
           userPrompt || buildDefaultAppGenerationPrompt(mode);
+        const requestSpecSeed = buildSpecSeed({
+          draftSpec,
+          persistedSpec: appSpec,
+        });
         const response = await fetch(
           `${C_ADDRESSES.BACKEND}${RouteEnum.STREAM_APP_SPEC}`,
           {
@@ -769,17 +917,12 @@ export function AppConfigPane() {
                 catalogSummary,
                 sectionsSummary,
               },
-              currentSpec: buildSpecSeed({
-                draftSpec,
-                persistedSpec: appSpec,
-              }),
+              currentSpec: requestSpecSeed,
             }),
           },
         );
         if (!response.ok || !response.body) {
-          setErrorMessage(
-            `Generation request failed (status ${response.status}).`,
-          );
+          setErrorMessage(await resolveGenerationFailureMessage(response));
           return;
         }
 
@@ -787,10 +930,7 @@ export function AppConfigPane() {
         const decoder = new TextDecoder();
         let streamRemainder = "";
         let patchCount = 0;
-        const generated = buildSpecSeed({
-          draftSpec,
-          persistedSpec: appSpec,
-        });
+        const generated = cloneSpecSeed(requestSpecSeed);
 
         while (true) {
           const chunk = await reader.read();
@@ -814,7 +954,7 @@ export function AppConfigPane() {
             patchCount += 1;
             if (patchCount % 5 === 0) {
               useAppPreview.setState({
-                previewSpecOverride: cloneSpec(generated),
+                previewSpecOverride: cloneSpecForPreview(generated),
               });
               setGenerationPatchCount(patchCount);
             }
@@ -832,7 +972,9 @@ export function AppConfigPane() {
           );
           return;
         }
-        useAppPreview.setState({ previewSpecOverride: cloneSpec(generated) });
+        useAppPreview.setState({
+          previewSpecOverride: cloneSpecForPreview(generated),
+        });
         const persisted = await persistGeneratedSpec(generated);
         if (!persisted) {
           return;
@@ -880,6 +1022,7 @@ export function AppConfigPane() {
       setErrorMessage(null);
       setGenerationHint(null);
       try {
+        await ensureHiddenGenerationResources();
         const { catalogSummary, sectionsSummary } =
           await preparePromptContext();
         const availableLLMConfigIds = new Set<string>();
@@ -893,7 +1036,11 @@ export function AppConfigPane() {
             availableLLMConfigIds.add(configId);
           }
         }
-        const engineSelection = pickHiddenGenerationEngine({
+        const activeChatEngineConfigId = activeChatId
+          ? await resolveEngineConfigIdForChat(activeChatId, null)
+          : null;
+        const engineSelection = resolveHiddenGenerationEngineSelection({
+          activeChatEngineConfigId,
           engineConfigs,
           availableLLMConfigIds,
         });
@@ -911,8 +1058,11 @@ export function AppConfigPane() {
           referenceImageUrl: appGenerationReferenceImageUrl.trim() || null,
           referenceImageNotes: appGenerationReferenceImageNotes.trim() || null,
         });
+        const targetChatId = engineSelection.forceNewChat
+          ? null
+          : activeChatId ?? null;
         const chatId = await submitMessage(
-          activeChatId ?? null,
+          targetChatId,
           prompt,
           [],
           true,
@@ -932,9 +1082,15 @@ export function AppConfigPane() {
           setErrorMessage("Failed to send generation request to chat.");
           return;
         }
-        setGenerationHint(
-          "Generation request sent to chat. Stay on this pane while the app spec updates via tool results.",
-        );
+        if (engineSelection.forceNewChat) {
+          setGenerationHint(
+            "Generation request sent to a new chat because the active chat engine is unavailable. Stay on this pane while the app spec updates via tool results.",
+          );
+        } else {
+          setGenerationHint(
+            "Generation request sent to chat. Stay on this pane while the app spec updates via tool results.",
+          );
+        }
         addTemporaryNotification("App generation request sent to chat.");
       } catch (error) {
         console.error("Failed to send hidden app generation prompt", error);
@@ -950,13 +1106,14 @@ export function AppConfigPane() {
       appGenerationPrompt,
       appGenerationReferenceImageNotes,
       appGenerationReferenceImageUrl,
+      ensureHiddenGenerationResources,
       engineConfigs,
       preparePromptContext,
     ],
   );
 
   async function handleGenerate() {
-    const mode = appGenerationMode || DEFAULT_APP_GENERATION_MODE;
+    const mode = activeGenerationMode;
     if (isJsonRenderMode(mode)) {
       await runJsonRenderGeneration(mode);
       return;
@@ -1079,7 +1236,6 @@ export function AppConfigPane() {
     }
   }
 
-  const activeGenerationMode = appGenerationMode || DEFAULT_APP_GENERATION_MODE;
   const activeModeDetails =
     APP_GENERATION_MODE_OPTIONS.find(
       (entry) => entry.mode === activeGenerationMode,

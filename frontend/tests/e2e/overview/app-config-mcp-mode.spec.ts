@@ -29,7 +29,9 @@ test("mcp mode sends hidden app generation request without app-config browser co
 
   await expect(page.getByText("Skills / MCP Browser")).toHaveCount(0);
   await expect(page.getByLabel("Figma source")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Send To Chat" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Send To Chat" }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Send To Chat" }).click();
   await expect(
@@ -47,5 +49,7 @@ test("mcp mode sends hidden app generation request without app-config browser co
     .map((part) => part.text ?? "")
     .join("\n");
   expect(textContent).toContain("App generation mode: mcp_server");
-  expect(textContent).toContain("MCP/Figma flow guidance:");
+  expect(textContent).toContain(
+    "Generate using MCP tools and persist app spec.",
+  );
 });

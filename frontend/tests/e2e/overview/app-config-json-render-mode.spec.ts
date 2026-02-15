@@ -67,3 +67,100 @@ test("json-render mode streams patches in-pane and persists generated spec", asy
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
   await expect(page.getByLabel("App Spec JSON")).toContainText(title);
 });
+
+test("json-render mode surfaces backend stream error details", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "App",
+    overviewVis: true,
+    appGenerationMode: "json_render",
+    appGenerationPrompt: "Build a compact result card.",
+  });
+  await ensureAppReady(page);
+
+  await expect(page.getByText("App Config")).toBeVisible();
+
+  await page.route("**/api/streamAppSpec", async (route) => {
+    await route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({
+        message: "Missing API key for app spec streaming.",
+      }),
+    });
+  });
+
+  await page.getByRole("button", { name: "Generate In Pane" }).click();
+  await expect(
+    page.getByText("Missing API key for app spec streaming."),
+  ).toBeVisible();
+});
+
+test("json-render mode does not eager-load AI chat config until chat-backed modes", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "App",
+    overviewVis: true,
+    appGenerationMode: "json_render",
+  });
+
+  let llmConfigCalls = 0;
+  let apiKeyCalls = 0;
+  let engineConfigCalls = 0;
+  let externalAgentHealthCalls = 0;
+
+  await page.route("**/api/llm/config", async (route) => {
+    llmConfigCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ configs: {} }),
+    });
+  });
+  await page.route("**/api/llm/apiKeys", async (route) => {
+    apiKeyCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({}),
+    });
+  });
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    engineConfigCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+  await page.route("**/api/getExternalAgentHealth", async (route) => {
+    externalAgentHealthCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+
+  await ensureAppReady(page);
+  await expect(page.getByText("App Config")).toBeVisible();
+
+  expect(llmConfigCalls).toBe(0);
+  expect(apiKeyCalls).toBe(0);
+  expect(engineConfigCalls).toBe(0);
+  expect(externalAgentHealthCalls).toBe(0);
+
+  await page.getByRole("button", { name: "Prompt Builder" }).click();
+
+  await expect
+    .poll(
+      () =>
+        llmConfigCalls +
+        apiKeyCalls +
+        engineConfigCalls +
+        externalAgentHealthCalls,
+    )
+    .toBeGreaterThan(0);
+});

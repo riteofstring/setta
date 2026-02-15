@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
+from setta.routers.app_gen_extensions import _iter_skill_roots
 from setta.routers.dependencies import AppStateFromRequest, require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
@@ -45,6 +46,31 @@ def _build_reveal_path_command(path: Path) -> list[str]:
         return ["explorer", str(path)]
     directory = path if path.is_dir() else path.parent
     return ["xdg-open", str(directory)]
+
+
+def _build_allowed_reveal_roots() -> list[Path]:
+    paths = get_setta_paths()
+    roots = [
+        paths.workspace_root.resolve(strict=False),
+        paths.setta_files_root.resolve(strict=False),
+    ]
+    for _, _, skill_root in _iter_skill_roots(paths.workspace_root):
+        roots.append(skill_root.resolve(strict=False))
+    unique_roots: list[Path] = []
+    seen: set[Path] = set()
+    for root in roots:
+        if root in seen:
+            continue
+        seen.add(root)
+        unique_roots.append(root)
+    return unique_roots
+
+
+def _is_path_within_allowed_reveal_roots(path: Path) -> bool:
+    for root in _build_allowed_reveal_roots():
+        if path.is_relative_to(root):
+            return True
+    return False
 
 
 @router.get(Route.GET_BACKEND_INIT_STATUS)
@@ -96,6 +122,11 @@ def route_reveal_path_in_os_file_explorer(
     if not resolved_path.exists():
         raise HTTPException(
             status_code=404, detail=f"Path does not exist: {resolved_path}"
+        )
+    if not _is_path_within_allowed_reveal_roots(resolved_path):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Path is outside allowed reveal roots: {resolved_path}",
         )
     command = _build_reveal_path_command(resolved_path)
     executable = shutil.which(command[0])

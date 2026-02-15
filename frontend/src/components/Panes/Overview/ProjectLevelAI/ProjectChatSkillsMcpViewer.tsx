@@ -180,16 +180,8 @@ export function ProjectChatSkillsMcpViewer() {
         setMcpConfigInfoLoading(false);
         return;
       }
-      const path =
-        typeof res.data.llmConfigPath === "string"
-          ? res.data.llmConfigPath
-          : null;
-      setMcpConfigPath(path);
-      const location =
-        typeof res.data.activeSettaFilesLocation === "string"
-          ? res.data.activeSettaFilesLocation
-          : null;
-      setSettaFilesLocation(location);
+      setMcpConfigPath(res.data.llmConfigPath);
+      setSettaFilesLocation(res.data.activeSettaFilesLocation);
       setMcpConfigInfoLoading(false);
     }
     void loadMcpConfigPath();
