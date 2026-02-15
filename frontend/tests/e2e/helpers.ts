@@ -327,8 +327,14 @@ export async function cleanupIsolatedProject(
   if (!context) {
     return;
   }
-  // Isolated configs are created for tests only; deleting the config is enough
-  // and avoids an extra metadata write call that has proven flaky under CI load.
+  if (
+    context.defaultProjectConfigId &&
+    context.defaultProjectConfigId !== context.projectConfigId
+  ) {
+    await postBackend(page, "/setAsDefaultProject", {
+      projectConfigId: context.defaultProjectConfigId,
+    });
+  }
   await postBackend(page, "/deleteProjectConfigs", {
     ids: [context.projectConfigId],
   });
@@ -782,11 +788,7 @@ function consumeExpectedApiErrorOverride(
   method: HttpMethod,
 ): boolean {
   const now = Date.now();
-  for (
-    let index = 0;
-    index < guard.expectedApiErrorOverrides.length;
-    index += 1
-  ) {
+  for (let index = 0; index < guard.expectedApiErrorOverrides.length; index += 1) {
     const override = guard.expectedApiErrorOverrides[index];
     if (override.expiresAtMs < now) {
       guard.expectedApiErrorOverrides.splice(index, 1);
@@ -953,10 +955,7 @@ async function navigateToDefaultProject(page: Page): Promise<void> {
       return;
     }
 
-    const targetUrl = new URL(
-      encodeURIComponent(targetName),
-      BASE_URL,
-    ).toString();
+    const targetUrl = new URL(encodeURIComponent(targetName), BASE_URL).toString();
     await page.goto(withBackendOriginOverride(targetUrl), {
       waitUntil: "domcontentloaded",
     });
