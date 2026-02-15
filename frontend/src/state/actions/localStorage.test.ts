@@ -1,6 +1,11 @@
 import { useLocalStorage } from "state/definitions";
-import { beforeEach, describe, expect, it } from "vitest";
-import { setColorModePreference } from "./localStorage";
+import { resetProjectStores } from "state/utils";
+import { OverviewTabNameEnum } from "utils/constants";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import {
+  setColorModePreference,
+  setOverviewProjectConfigOrder,
+} from "./localStorage";
 
 describe("setColorModePreference", () => {
   beforeEach(() => {
@@ -49,5 +54,70 @@ describe("local storage merge", () => {
     ) as typeof current;
 
     expect(merged.colorMode).toBe("auto");
+  });
+
+  it("sanitizes invalid persisted overviewTab values", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      { overviewTab: "InvalidOverviewTabValue" } as Record<string, unknown>,
+      current,
+    ) as typeof current;
+
+    expect(merged.overviewTab).toBe(OverviewTabNameEnum.Overview);
+  });
+});
+
+describe("setOverviewProjectConfigOrder", () => {
+  const memoryStorage = (() => {
+    let store = new Map<string, string>();
+    return {
+      getItem: (name: string) => store.get(name) ?? null,
+      setItem: (name: string, value: string) => {
+        store.set(name, value);
+      },
+      removeItem: (name: string) => {
+        store.delete(name);
+      },
+      reset: () => {
+        store = new Map<string, string>();
+      },
+    };
+  })();
+
+  beforeEach(() => {
+    resetProjectStores();
+    memoryStorage.reset();
+    useLocalStorage.persist.setOptions({
+      storage: {
+        getItem: memoryStorage.getItem,
+        setItem: memoryStorage.setItem,
+        removeItem: memoryStorage.removeItem,
+      },
+    });
+    useLocalStorage.setState({ overviewProjectConfigOrder: [] });
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+  });
+
+  it("dedupes overview project-config order while preserving first occurrence", () => {
+    setOverviewProjectConfigOrder(["config-a", "config-b", "config-a"]);
+
+    expect(useLocalStorage.getState().overviewProjectConfigOrder).toEqual([
+      "config-a",
+      "config-b",
+    ]);
+  });
+
+  it("keeps unique overview project-config ids unchanged", () => {
+    setOverviewProjectConfigOrder(["config-b", "config-a"]);
+
+    expect(useLocalStorage.getState().overviewProjectConfigOrder).toEqual([
+      "config-b",
+      "config-a",
+    ]);
   });
 });

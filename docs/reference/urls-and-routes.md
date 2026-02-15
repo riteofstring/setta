@@ -50,6 +50,18 @@ use the `Route` enum (`backend/setta/types/routes.py`) and are called via
 `/api/<route>` using the generated endpoint helpers in
 `frontend/src/utils/generatedEndpoints.ts`.
 
+### Chat dictation multipart route
+
+Chat dictation adds a multipart backend route:
+- `/api/transcribeChatAudio`
+  - Method: `POST`
+  - Content type: `multipart/form-data`
+  - Required fields: `engineConfigId` (string), `file` (binary)
+  - Optional field: `language` (string)
+
+Generated endpoint helpers expose multipart routes as `FormData` functions
+(for example `route_transcribe_chat_audio(form)` and `route_binary_upload(form)`).
+
 ## Frontend API Origin Mapping
 
 Most generated endpoint calls use the backend origin (`C_ADDRESSES.BACKEND`),
@@ -76,3 +88,17 @@ The app-generation/skills viewer flow adds these backend routes:
     for chat-driven app generation modes.
 
 For git route details (`/api/git/*`), see `docs/reference/git-pane.md`.
+
+## View Mode + File Browser Route Notes
+
+Recent frontend features in this branch rely on these backend API routes:
+
+- `/api/setViewModeSortOrder`
+  - Persists drag-reordered view mode order from tabs and the Overview View
+    Modes pane.
+- `/api/setSectionVariantSortOrder`
+  - Persists drag-reordered section variant order in the UI Editor variants
+    list.
+- `/api/getFolderContents` with `includeSettaInitialized: true`
+  - Adds `isSettaInitialized` on folder entries, used by Home page file-browser
+    "Setta" badges.

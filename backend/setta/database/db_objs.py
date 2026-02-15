@@ -206,10 +206,7 @@ class DBE:
             Path(tmp_path).replace(path)
 
     def read_project(self):
-        payload = self.read_json(self.project)
-        if not isinstance(payload, dict):
-            raise TypeError("Project payload must be a JSON object.")
-        return ProjectStateBackend.model_validate(payload)
+        return ProjectStateBackend.model_validate(self.read_json(self.project))
 
     def write_project(self, project: ProjectStateBackend):
         self.write_json(self.project, project.model_dump(mode="json"))
@@ -220,8 +217,6 @@ class DBE:
         payload = json.loads(self.project.read_text(encoding="utf-8"))
         if not payload:
             raise ValueError(f"Project file is empty: {self.project}")
-        if not isinstance(payload, dict):
-            raise TypeError("Project payload must be a JSON object.")
         return ProjectStateBackend.model_validate(payload)
 
     def read_deployment_manifest(self) -> DeploymentManifest:

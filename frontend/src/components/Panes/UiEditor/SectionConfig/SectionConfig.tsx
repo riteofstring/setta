@@ -5,7 +5,6 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { BrowserAreaSettings } from "./BrowserAreaSettings";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
-import { ChildDefaultsSettings } from "./ChildDefaultsSettings";
 import { CodeAreaSettings } from "./CodeAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
 import { EdgePortsSettings } from "./EdgePortsSettings";
@@ -17,8 +16,6 @@ import { SectionConfigAccordion } from "./SectionConfigAccordion";
 import { SectionStyleColorSettings } from "./SectionStyleColorSettings";
 import { SectionTagColorSettings } from "./SectionTagColorSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
-import { SpreadsheetSectionSettings } from "./SpreadsheetSectionSettings";
-import { TaskBoardSettings } from "./TaskBoardSettings";
 import { TextBlockSettings } from "./TextBlockSettings";
 
 const SECTION_CONFIG_MAIN_VALUE = "section-config-main";
@@ -209,8 +206,6 @@ export function sectionTypeSupportsAppearanceSettings(
     case SectionTypeEnum.GenPythonCode:
     case SectionTypeEnum.GenPythonMetadata:
     case SectionTypeEnum.Terminal:
-    case SectionTypeEnum.TaskBoard:
-    case SectionTypeEnum.Spreadsheet:
       return true;
   }
 }
@@ -224,9 +219,6 @@ function getSpecializedConfigurationContent(
     case SectionTypeEnum.Dict:
     case SectionTypeEnum.GlobalVariables:
       return <EdgePortsSettings sectionId={sectionId} />;
-    case SectionTypeEnum.ListRoot:
-    case SectionTypeEnum.Group:
-      return <ChildDefaultsSettings sectionId={sectionId} />;
     case SectionTypeEnum.Code:
       return <CodeAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.TextBlock:
@@ -249,10 +241,8 @@ function getSpecializedConfigurationContent(
       return <ChatAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.Browser:
       return <BrowserAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.TaskBoard:
-      return <TaskBoardSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Spreadsheet:
-      return <SpreadsheetSectionSettings sectionId={sectionId} />;
+    case SectionTypeEnum.ListRoot:
+    case SectionTypeEnum.Group:
     case SectionTypeEnum.GenPythonCode:
     case SectionTypeEnum.GenPythonMetadata:
     case SectionTypeEnum.Terminal:

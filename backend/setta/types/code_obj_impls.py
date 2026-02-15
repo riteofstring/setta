@@ -20,8 +20,6 @@ class CodeObjType(str, Enum):
     CodeCallable = "CodeCallable"
     CodeParam = "CodeParam"
     TextParam = "TextParam"
-    DateParam = "DateParam"
-    TimeParam = "TimeParam"
     ButtonParam = "ButtonParam"
     SliderParam = "SliderParam"
     RotaryParam = "RotaryParam"
@@ -60,50 +58,6 @@ class DropzoneMode(str, Enum):
     STATELESS = "STATELESS"
 
 
-class TextParamInputUIType(str, Enum):
-    plain = "plain"
-    time = "time"
-    date = "date"
-
-
-class TimeDisplayFormat(str, Enum):
-    twenty_four_hour = "twenty_four_hour"
-    twelve_hour = "twelve_hour"
-
-
-class TimeControlMode(str, Enum):
-    input = "input"
-    display = "display"
-
-
-class TimeDisplayFont(str, Enum):
-    clock = "clock"
-    monospace = "monospace"
-    system = "system"
-
-
-class DateDisplayFormat(str, Enum):
-    iso = "iso"
-    us = "us"
-    eu = "eu"
-    long = "long"
-
-
-class DateControlMode(str, Enum):
-    input = "input"
-    calendar = "calendar"
-
-
-class DateSelectionMode(str, Enum):
-    single = "single"
-    multiple = "multiple"
-
-
-class DateCalendarWeekStart(str, Enum):
-    sunday = "sunday"
-    monday = "monday"
-
-
 class ColorPickerChoice(BaseModel):
     color: str
     description: str
@@ -121,7 +75,6 @@ class BaseParamCodeObjImpl(BaseCodeObjImpl):
     coreNameType: ParamNameType = ParamNameType.TEXT
     coreNameEditable: bool = False
     passingStyle: ParameterPassingStyle = ParameterPassingStyle.DEFAULT
-    typeAnnotation: str = ""
 
 
 class BaseChildlessCodeObjImpl(BaseParamCodeObjImpl):
@@ -143,25 +96,6 @@ class CodeParamCodeObjImpl(BaseChildlessCodeObjImpl):
 
 class TextParamCodeObjImpl(BaseChildlessCodeObjImpl):
     type: Literal[CodeObjType.TextParam] = CodeObjType.TextParam
-    uiType: TextParamInputUIType = TextParamInputUIType.plain
-
-
-class DateParamCodeObjImpl(BaseChildlessCodeObjImpl):
-    type: Literal[CodeObjType.DateParam] = CodeObjType.DateParam
-    dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.iso
-    dateControlMode: DateControlMode = DateControlMode.input
-    dateSelectionMode: DateSelectionMode = DateSelectionMode.single
-    dateCalendarWeekStart: DateCalendarWeekStart = DateCalendarWeekStart.sunday
-    dateIncludesTime: bool = False
-
-
-class TimeParamCodeObjImpl(BaseChildlessCodeObjImpl):
-    type: Literal[CodeObjType.TimeParam] = CodeObjType.TimeParam
-    timeControlMode: TimeControlMode = TimeControlMode.input
-    timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
-    timeDisplayTransparent: bool = False
-    timeDisplayScale: float = Field(default=1.0, ge=0.5, le=3.0)
-    timeDisplayFont: TimeDisplayFont = TimeDisplayFont.monospace
 
 
 class ButtonParamCodeObjImpl(BaseParamCodeObjImpl):
@@ -231,8 +165,6 @@ ControlCodeObjTypeSet = frozenset(
     {
         CodeObjType.CodeParam,
         CodeObjType.TextParam,
-        CodeObjType.DateParam,
-        CodeObjType.TimeParam,
         CodeObjType.TextAreaParam,
         CodeObjType.ButtonParam,
         CodeObjType.SliderParam,
@@ -249,8 +181,6 @@ SectionParamCodeObjTypeSet = frozenset(
     {
         CodeObjType.CodeParam,
         CodeObjType.TextParam,
-        CodeObjType.DateParam,
-        CodeObjType.TimeParam,
         CodeObjType.TextAreaParam,
         CodeObjType.SliderParam,
         CodeObjType.RotaryParam,

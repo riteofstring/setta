@@ -7,16 +7,8 @@
   filters sections and layout based on the active mode.
 - `isTab` view modes render as tabs. `isUserFacing` gates whether a mode is
   intended for share/user-facing surfaces.
-
-## ListRoot Section View Modes
-
-- `ListRootSectionImpl` also has a section-local `viewMode`
-  (`default`, `task_list`, `kanban`) that controls how that section arranges its
-  direct child sections.
-- This is separate from `ProjectConfig.viewModes`; changing one does not change the other.
-- Section-local updates are sent through `route_set_list_root_view_mode`.
-- `ListRoot` and `Group` sections additionally store `defaultChildSectionType`
-  (updated via `route_set_parent_default_child_section_type`) for incrementer-created children.
+- The Overview `View Modes` pane now also includes the project-config list and
+  controls that used to live in the separate `Project Configs` tab.
 
 ## IDE tab bar + pane rails
 - In IDE mode, `isTab` view modes render in `ViewModeTabs` as a dedicated bottom
@@ -40,6 +32,27 @@
   lists.
 - Ties fall back to a case-insensitive name sort and then by id (see
   `frontend/src/utils/viewModeOrdering.ts`).
+- Drag-reordering view modes persists through `route_set_view_mode_sort_order`
+  (`/api/setViewModeSortOrder`) and updates every mode's `sortIndex`.
+- The backend requires a full, deduplicated order list (`orderedViewModeIds`)
+  and returns:
+  - `422` for invalid order payloads (duplicates/length mismatch).
+  - `404` when any referenced view mode id is missing.
+- Reordering tabs in `ViewModeTabs` only reorders the tabbed subset while keeping
+  non-tab view modes in their existing relative slots.
+- Deleting the active view mode falls back to the first remaining mode in sorted
+  order (not insertion order), then compacts `sortIndex` values.
+
+## Overview pane behavior
+- `ViewingEditingMode` contains two stacked panes:
+  - `View Modes` (collapsible)
+  - `Project Configs` (collapsible + vertically resizable)
+- The embedded `Project Configs` list supports drag-reorder and persists local
+  order in `useLocalStorage().overviewProjectConfigOrder`.
+- Persisted project-config order is merged with server metadata:
+  - stale ids are removed;
+  - unseen ids are appended in server order.
+- Reorder/edit controls are disabled in deployment/read-only mode.
 
 ## Layout + viewport storage
 - Each view mode stores its own `topLevelSections` layout and

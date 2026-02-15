@@ -7,8 +7,8 @@ This document explains how code generation decides which sections to emit and ho
 Section policy lives on the Python codegen target as `ProjectCodegenPythonTarget.sectionPolicy` (`backend/setta/types/project_config.py`). When no Python target is present, `get_section_codegen_policy` falls back to the default policy.
 
 The policy has five levers:
-- `allowlist`: section types that are eligible for codegen. `None` means "no allowlist" (everything is eligible). Defaults to Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, MetaControl, TaskBoard, and Spreadsheet (Image and Chat are excluded by default).
-- `metaControlAllowlist`: optional allowlist of control code obj types; MetaControl sections whose control type is not listed are excluded even if the section type is otherwise allowed. Defaults include DateParam and TimeParam in addition to the previous control types.
+- `allowlist`: section types that are eligible for codegen. `None` means "no allowlist" (everything is eligible). Defaults to Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, and MetaControl (Image and Chat are excluded by default).
+- `metaControlAllowlist`: optional allowlist of control code obj types; MetaControl sections whose control type is not listed are excluded even if the section type is otherwise allowed.
 - `exclude`: section ids that are always excluded.
 - `typePolicies`: per-section-type defaults (mode + representation).
 - `sectionOverrides`: per-section-id overrides (mode + representation).
@@ -18,7 +18,7 @@ The policy has five levers:
 Section representation is the "value policy" for sections: it decides how a section's value is encoded in the dependency graph and emitted in generated Python. Representation comes from `typePolicies` + `sectionOverrides` and is validated by `resolve_section_codegen_policy`.
 
 Supported representations by section type:
-- Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, MetaControl, TaskBoard, Spreadsheet: `expression` only. (MetaControl formatting is driven by code obj value policy.)
+- Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, MetaControl: `expression` only. (MetaControl formatting is driven by code obj value policy.)
 - Chat: `expression`, `file_path`, `file_read`.
 - Draw, Image: `file_path`, `file_read`.
 - Chart: `expression`, `file_path` (policy supports it, but Chart sections are not exported by the dependency graph yet).
@@ -48,7 +48,7 @@ Supported representations:
 Some code obj types only support specific representations; unsupported combinations raise `ValueError`.
 Current limits:
 - Expression only: `ButtonParam`, `NestedParam`, `CodeCallable`.
-- String only: `TextParam`, `DateParam`, `TimeParam`, `TextAreaParam`, `PasswordParam`, `ColorPickerParam`.
+- String only: `TextParam`, `TextAreaParam`, `PasswordParam`, `ColorPickerParam`.
 - Expression + string: `CodeParam`, `RotaryParam`, `SwitchParam`, `DropdownParam`.
 - Expression + json_parsed + string: `SliderParam`.
 - File path/read only: `DropzoneParam`.
@@ -85,7 +85,7 @@ The result is `include_in_codegen` plus the chosen `representation`.
 The dependency graph uses the resolved policy when exporting nodes (`backend/setta/code_gen/dependency_graph.py`):
 - Each `SectionNode` and `ParamNode` carries `include_in_codegen`.
 - The Python generator and value codec skip nodes that are excluded, so excluded sections and their params never produce assignments or arguments (`backend/setta/code_gen/python/code_generator.py`, `backend/setta/code_gen/value_codec.py`).
-- Only section types registered in `DependencyGraph.section_exporters` are considered for codegen at all (Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, Image, MetaControl, Chat, TaskBoard, Spreadsheet).
+- Only section types registered in `DependencyGraph.section_exporters` are considered for codegen at all (Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, Image, MetaControl, Chat).
 - MetaControl sections are filtered by `metaControlAllowlist` (control code obj types not listed are excluded).
 
 Code obj value policies are resolved during dependency graph export:

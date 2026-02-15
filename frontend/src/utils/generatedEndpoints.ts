@@ -1,4 +1,4 @@
-import { get, getBinary, post, ResponseDataAndStatus } from "./endpointUtils";
+import { get, post, ResponseDataAndStatus } from "./endpointUtils";
 import * as gt from "./generatedTypes";
 
 export async function route_bootstrap_page(): Promise<
@@ -181,30 +181,6 @@ export async function route_get_file_browser_download_urls(
   return await post("/getFileBrowserDownloadUrls", x);
 }
 
-export async function route_get_file_browser_file_content(
-  x: gt.GetFileBrowserFileContentRequestInput,
-): Promise<ResponseDataAndStatus<gt.FileBrowserFileContentResponse>> {
-  return await post("/getFileBrowserFileContent", x);
-}
-
-export async function route_get_file_browser_file_stat(
-  x: gt.GetFileBrowserFileStatRequestInput,
-): Promise<ResponseDataAndStatus<gt.FileBrowserFileStatResponse>> {
-  return await post("/getFileBrowserFileStat", x);
-}
-
-export async function route_write_file_browser_file_content(
-  x: gt.WriteFileBrowserFileContentRequestInput,
-): Promise<ResponseDataAndStatus<gt.WriteFileBrowserFileContentResponse>> {
-  return await post("/writeFileBrowserFileContent", x);
-}
-
-export async function route_transfer_file_browser_entry(
-  x: gt.TransferFileBrowserEntryRequestInput,
-): Promise<ResponseDataAndStatus<gt.TransferFileBrowserEntryResponse>> {
-  return await post("/transferFileBrowserEntry", x);
-}
-
 export async function route_file_browser_download(
   token: string,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -313,8 +289,8 @@ export async function route_binary_upload(
 
 export async function route_binary_download(
   contentId: string,
-): Promise<ResponseDataAndStatus<Uint8Array>> {
-  return await getBinary("/binary/{contentId}", { contentId });
+): Promise<ResponseDataAndStatus<null>> {
+  return await get("/binary/{contentId}", { contentId });
 }
 
 export async function route_get_listener_coverage(
@@ -417,6 +393,12 @@ export async function route_get_llm_response(
   x: gt.GetLLMResponseRequestInput,
 ): Promise<ResponseDataAndStatus<string | null>> {
   return await post("/getLLMResponse", x);
+}
+
+export async function route_transcribe_chat_audio(
+  form: FormData,
+): Promise<ResponseDataAndStatus<gt.TranscribeChatAudioResponse>> {
+  return await post("/transcribeChatAudio", form);
 }
 
 export async function route_stop_llm_chat(
@@ -795,6 +777,12 @@ export async function route_set_view_mode_name(
   return await post("/setViewModeName", x);
 }
 
+export async function route_set_view_mode_sort_order(
+  x: gt.SetViewModeSortOrderRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setViewModeSortOrder", x);
+}
+
 export async function route_delete_view_mode(
   x: gt.DeleteViewModeRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1145,6 +1133,12 @@ export async function route_set_default_section_variant(
   return await post("/setDefaultSectionVariant", x);
 }
 
+export async function route_set_section_variant_sort_order(
+  x: gt.SetSectionVariantSortOrderRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/setSectionVariantSortOrder", x);
+}
+
 export async function route_toggle_variant_frozen(
   x: gt.ToggleVariantFrozenRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1217,12 +1211,6 @@ export async function route_set_text_block_display_mode(
   return await post("/setTextBlockDisplayMode", x);
 }
 
-export async function route_set_text_block_master_font_size(
-  x: gt.SetTextBlockMasterFontSizeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setTextBlockMasterFontSize", x);
-}
-
 export async function route_set_text_block_heading_as_section_name(
   x: gt.SetTextBlockHeadingAsSectionNameRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1257,36 +1245,6 @@ export async function route_set_section_column_width(
   x: gt.SetSectionColumnWidthRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setSectionColumnWidth", x);
-}
-
-export async function route_set_parent_default_child_section_type(
-  x: gt.SetParentDefaultChildSectionTypeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setParentDefaultChildSectionType", x);
-}
-
-export async function route_set_list_root_view_mode(
-  x: gt.SetListRootViewModeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setListRootViewMode", x);
-}
-
-export async function route_set_task_board_section_state(
-  x: gt.SetTaskBoardSectionStateRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setTaskBoardSectionState", x);
-}
-
-export async function route_set_spreadsheet_file_path(
-  x: gt.SetSpreadsheetFilePathRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSpreadsheetFilePath", x);
-}
-
-export async function route_set_spreadsheet_section_settings(
-  x: gt.SetSpreadsheetSectionSettingsRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/setSpreadsheetSectionSettings", x);
 }
 
 export async function route_set_browser_column_widths(
@@ -1443,6 +1401,84 @@ export async function route_set_chart_settings(
   x: gt.SetChartSettingsRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/setChartSettings", x);
+}
+
+export async function route_plugins_runtime(): Promise<
+  ResponseDataAndStatus<gt.PluginRuntimeResponse>
+> {
+  return await get("/plugins/runtime");
+}
+
+export async function route_plugins_rescan(): Promise<
+  ResponseDataAndStatus<gt.PluginsRescanResponse>
+> {
+  return await post("/plugins/rescan", null);
+}
+
+export async function route_plugins_restart(): Promise<
+  ResponseDataAndStatus<gt.PluginRestartResponse>
+> {
+  return await post("/plugins/restart", null);
+}
+
+export async function route_plugins_install(
+  x: gt.PluginInstallRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginInstallResponse>> {
+  return await post("/plugins/install", x);
+}
+
+export async function route_plugins_uninstall(
+  x: gt.PluginUninstallRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginUninstallResponse>> {
+  return await post("/plugins/uninstall", x);
+}
+
+export async function route_plugins_link(
+  x: gt.PluginLinkRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginInstallResponse>> {
+  return await post("/plugins/link", x);
+}
+
+export async function route_plugins_enable(
+  x: gt.PluginEnableDisableRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginEnableDisableResponse>> {
+  return await post("/plugins/enable", x);
+}
+
+export async function route_plugins_disable(
+  x: gt.PluginEnableDisableRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginEnableDisableResponse>> {
+  return await post("/plugins/disable", x);
+}
+
+export async function route_plugins_config(
+  x: gt.PluginConfigRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginConfigWriteResponse>> {
+  return await post("/plugins/config", x);
+}
+
+export async function route_plugins_update(
+  x: gt.PluginUpdateRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginUpdateResponse>> {
+  return await post("/plugins/update", x);
+}
+
+export async function route_plugins_rollback(
+  x: gt.PluginRollbackRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginRollbackResponse>> {
+  return await post("/plugins/rollback", x);
+}
+
+export async function route_plugins_lock_write(): Promise<
+  ResponseDataAndStatus<gt.PluginLockWriteResponse>
+> {
+  return await post("/plugins/lock/write", null);
+}
+
+export async function route_plugins_lock_apply(
+  x: gt.PluginLockApplyRequestInput,
+): Promise<ResponseDataAndStatus<gt.PluginLockApplyResponse>> {
+  return await post("/plugins/lock/apply", x);
 }
 
 export async function route_get_backend_init_status(): Promise<

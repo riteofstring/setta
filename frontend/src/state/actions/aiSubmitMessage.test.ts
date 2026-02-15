@@ -163,13 +163,12 @@ describe("submitMessage", () => {
         true,
         "engine-primary",
         false,
-        undefined,
-        null,
-        null,
         {
-          mode: "mcp_server",
-          referenceImageUrl: "https://example.com/reference.png",
-          referenceImageNotes: "Preserve hierarchy first.",
+          appGeneration: {
+            mode: "mcp_server",
+            referenceImageUrl: "https://example.com/reference.png",
+            referenceImageNotes: "Preserve hierarchy first.",
+          },
         },
       ),
     ).resolves.toBeNull();
@@ -223,5 +222,52 @@ describe("submitMessage", () => {
     ];
     expect(payload.appSpecStreamingEnabled).toBe(false);
     expect(payload.appGenerationMode).toBeNull();
+  });
+
+  it("uses explicit execution settings and app-generation options together", async () => {
+    useLocalStorage.setState({
+      appSpecStreamingEnabled: true,
+    });
+    const route_get_llm_response = (await import("utils/generatedEndpoints"))
+      .route_get_llm_response as unknown as vi.Mock;
+    route_get_llm_response.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    await expect(
+      submitMessage(
+        null,
+        "Generate from MCP context.",
+        [],
+        true,
+        "engine-primary",
+        false,
+        {
+          executionSettings: {
+            permissionMode: "yolo",
+            searchEnabled: false,
+          },
+          appGeneration: {
+            mode: "mcp_server",
+            referenceImageUrl: null,
+            referenceImageNotes: null,
+          },
+        },
+      ),
+    ).resolves.toBeNull();
+
+    expect(route_get_llm_response).toHaveBeenCalledTimes(1);
+    const [payload] = route_get_llm_response.mock.calls[0] as [
+      {
+        permissionMode: string;
+        searchEnabled: boolean;
+        appSpecStreamingEnabled: boolean;
+      },
+    ];
+    expect(payload.permissionMode).toBe("yolo");
+    expect(payload.searchEnabled).toBe(false);
+    expect(payload.appSpecStreamingEnabled).toBe(true);
   });
 });
