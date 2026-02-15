@@ -44,7 +44,6 @@ import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
 import { PluginOverviewPane } from "./Plugins/PluginOverviewPane";
 import { PluginsPane } from "./Plugins/PluginsPane";
-import { ProjectConfigs } from "./ProjectConfigs";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
@@ -215,13 +214,6 @@ export function Overview() {
             icon={<TbLayoutDashboard size={18} />}
           />
         )}
-        <TabButton<OverviewTabKey>
-          tabName={OverviewTabNameEnum.ProjectConfigs}
-          {...commonProps}
-          data-testid="overview-tab-project-configs"
-          {...getFloatingBoxHandlers({ content: "Config Preview" })}
-          icon={<i className="gg-git-branch !scale-100" />}
-        />
         <TabButton<OverviewTabKey>
           tabName={OverviewTabNameEnum.RunInstructions}
           {...commonProps}
@@ -406,8 +398,6 @@ function TabContent({
       );
     case OverviewTabNameEnum.Git:
       return <GitPane />;
-    case OverviewTabNameEnum.ProjectConfigs:
-      return <ProjectConfigs />;
     case OverviewTabNameEnum.WatchCode:
       return <WatchCodePane />;
     case OverviewTabNameEnum.App:
