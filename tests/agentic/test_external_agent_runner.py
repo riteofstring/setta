@@ -75,6 +75,7 @@ from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
+from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.utils.constants import C
@@ -1038,6 +1039,82 @@ class TestExternalAgentRunner:
 
             assert env.get("OPENAI_API_KEY") == "secret"
 
+    def test_plugin_adapter_env_whitelist_is_applied_in_runtime_env(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            dbe.dot_env = Path(tmpdir) / ".env"
+            dbe.write_dot_env({"FIXTURE_EXTERNAL_AGENT_TOKEN": "secret"})
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            registration = PluginRegisteredExternalAgentAdapter(
+                adapterId="setta-fixture-backend-external-agent:fixture-agent",
+                pluginId="setta-fixture-backend-external-agent",
+                name="Fixture External Agent",
+                runModes=["sdk"],
+                command=sys.executable,
+                args=["-c", "print('fixture')"],
+                envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
+                defaultModel="fixture-model",
+            )
+            runner = ExternalAgentRunner(
+                dbe,
+                frontend_sender,
+                plugin_external_agent_adapters=[registration],
+            )
+            config = ExternalAgentConfig(
+                name="Fixture Plugin Adapter",
+                toolType=ExternalAgentToolType.plugin,
+                pluginAdapterId=registration.adapterId,
+                runMode=ExternalAgentRunMode.sdk,
+                envVarWhitelist=[],
+            )
+
+            env = runner._build_env(config)
+
+            assert env.get("FIXTURE_EXTERNAL_AGENT_TOKEN") == "secret"
+
+    def test_non_plugin_tool_ignores_plugin_adapter_env_whitelist(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            dbe.dot_env = Path(tmpdir) / ".env"
+            dbe.write_dot_env(
+                {
+                    "OPENAI_API_KEY": "openai-secret",
+                    "FIXTURE_EXTERNAL_AGENT_TOKEN": "plugin-secret",
+                }
+            )
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            registration = PluginRegisteredExternalAgentAdapter(
+                adapterId="setta-fixture-backend-external-agent:fixture-agent",
+                pluginId="setta-fixture-backend-external-agent",
+                name="Fixture External Agent",
+                runModes=["sdk"],
+                command=sys.executable,
+                args=["-c", "print('fixture')"],
+                envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
+                defaultModel="fixture-model",
+            )
+            runner = ExternalAgentRunner(
+                dbe,
+                frontend_sender,
+                plugin_external_agent_adapters=[registration],
+            )
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                pluginAdapterId=registration.adapterId,
+                runMode=ExternalAgentRunMode.app_server,
+                envVarWhitelist=["OPENAI_API_KEY"],
+            )
+
+            env = runner._build_env(config)
+
+            assert env.get("OPENAI_API_KEY") == "openai-secret"
+            assert "FIXTURE_EXTERNAL_AGENT_TOKEN" not in env
+
     def test_claude_mcp_config_is_written(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1359,6 +1436,86 @@ class TestExternalAgentRunner:
             assert context.working_dir.exists()
             runner._cleanup_context(context)
             assert not context.working_dir.exists()
+
+
+class TestExternalAgentRunnerPluginAdapter:
+    pytestmark = pytest.mark.asyncio
+
+    async def test_plugin_process_adapter_runs_and_streams_text(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        fixture_script = (
+            Path(__file__).resolve().parents[1]
+            / "fixtures"
+            / "plugins"
+            / "backend-external-agent"
+            / "backend"
+            / "mini_external_agent.py"
+        )
+        assert fixture_script.exists()
+
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            registration = PluginRegisteredExternalAgentAdapter(
+                adapterId="setta-fixture-backend-external-agent:fixture-agent",
+                pluginId="setta-fixture-backend-external-agent",
+                name="Fixture External Agent",
+                runModes=["sdk"],
+                command=sys.executable,
+                args=[str(fixture_script)],
+                envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
+                defaultModel="fixture-model",
+            )
+            runner = ExternalAgentRunner(
+                dbe,
+                frontend_sender,
+                plugin_external_agent_adapters=[registration],
+            )
+            lookup_call_count = 0
+            original_lookup = runner._adapter_registry.lookup
+
+            def _record_lookup(*args, **kwargs):
+                nonlocal lookup_call_count
+                lookup_call_count += 1
+                return original_lookup(*args, **kwargs)
+
+            monkeypatch.setattr(runner._adapter_registry, "lookup", _record_lookup)
+            config = ExternalAgentConfig(
+                name="Fixture Plugin Adapter",
+                toolType=ExternalAgentToolType.plugin,
+                pluginAdapterId=registration.adapterId,
+                runMode=ExternalAgentRunMode.sdk,
+                envVarWhitelist=[],
+            )
+
+            run = runner.start_run(
+                ID("engine-plugin"),
+                config,
+                None,
+                {
+                    "prompt": "hello world",
+                    "allowUnscoped": True,
+                },
+            )
+            completed = await runner.wait_for_run(run.id, timeout=10.0)
+
+            assert completed.status == AgentRunStatus.completed
+            assert completed.outputs is not None
+            assert completed.outputs.get("sessionId") == "fixture-session"
+            final_text = completed.outputs.get("finalText")
+            assert isinstance(final_text, str)
+            assert "fixture external adapter reply: hello world" in final_text
+            metadata = completed.outputs.get("metadata")
+            assert isinstance(metadata, dict)
+            if isinstance(metadata, dict):
+                assert metadata.get("toolType") == "plugin"
+                assert metadata.get("runMode") == "sdk"
+                assert metadata.get("externalAgentConfigId") == str(config.id)
+            assert lookup_call_count == 1
 
 
 class TestExternalAgentRunnerApproval:

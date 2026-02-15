@@ -80,6 +80,15 @@ These are used by the top-level wrappers or for advanced workflows.
   - Backend pytest runner (invoked by `t.sh`).
 - `./scripts/run-playwright-e2e.sh`
   - Playwright E2E runner (invoked by `t.sh`).
+- `./scripts/plugin-fixtures/build.sh`
+  - Builds fixture frontend assets under `tests/fixtures/plugins/**/frontend/dist`.
+  - Used by fixture link/smoke flows and test runners.
+- `./scripts/plugin-fixtures/cache.sh`
+  - Shared cache/signature helpers used by backend test and Playwright runners.
+  - Skips fixture rebuild/copy when fixture inputs are unchanged.
+- `./scripts/plugin-fixtures/link.sh`, `./scripts/plugin-fixtures/reset.sh`, `./scripts/plugin-fixtures/smoke.sh`
+  - Fixture plugin helpers for manual plugin verification.
+  - See `docs/guides/plugin-fixture-manual-smoke.md`.
 - `./scripts/cdp-port.sh`
   - Prints the Chrome DevTools Protocol port for the worktree.
   - Falls back to scanning running Chrome commands for this worktree profile when the MCP pid file is missing (for example when `TMPDIR` differs between shells).

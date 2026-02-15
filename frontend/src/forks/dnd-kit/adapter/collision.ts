@@ -6,10 +6,8 @@ import {
 import type { Draggable } from "@dnd-kit/dom";
 import { Rectangle, type Coordinates } from "@dnd-kit/geometry";
 import { useReactFlow } from "forks/xyflow/core/store";
-import {
-  getSectionInfo,
-  getSectionIsHorizontalOrientation,
-} from "state/actions/sectionInfos";
+import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
+import { useProjectState } from "state/definitions";
 import { useDndChildren } from "../dndChildren";
 import { isTempSection, useDndState } from "../dndState";
 import { isTempParam } from "../paramDndState";
@@ -44,6 +42,7 @@ type CollisionTrackerOptions = {
 
 type DndEntityData = {
   type?: string;
+  sortableOrientation?: "horizontal" | "vertical";
   isTopLevel?: boolean;
   hasNested?: boolean;
   onlyChildId?: string | null;
@@ -122,13 +121,15 @@ export function createCollisionTracker({
       return null;
     }
 
+    const activeData = getEntityData(active);
     const droppableData = getEntityData(droppable);
     const containerId = droppableData?.sortable?.containerId;
-    const containerIsHorizontal =
-      mode === "section" && containerId
-        ? getSectionInfo(containerId) !== undefined &&
-          getSectionIsHorizontalOrientation(containerId)
-        : false;
+    const containerIsHorizontal = getContainerIsHorizontal({
+      mode,
+      containerId,
+      activeData,
+      droppableData,
+    });
 
     const triggerDist = containerIsHorizontal
       ? activeRect.top - droppableRect.top
@@ -234,11 +235,12 @@ export function createCollisionTracker({
     }
     const droppableRect = toClientRect(droppableShape.boundingRectangle);
     const pointerCoordinates = dragOperation.position?.current ?? null;
-    const containerIsHorizontal =
-      mode === "section"
-        ? getSectionInfo(activeContainerId) !== undefined &&
-          getSectionIsHorizontalOrientation(activeContainerId)
-        : false;
+    const containerIsHorizontal = getContainerIsHorizontal({
+      mode,
+      containerId: activeContainerId,
+      activeData,
+      droppableData,
+    });
 
     const distance = getEdgeDistance({
       activeRect,
@@ -351,6 +353,40 @@ function getEntityData(entity: { data?: Record<string, unknown> } | null) {
 
   const wrapped = entity.data as { current?: DndEntityData };
   return wrapped.current ?? null;
+}
+
+function getContainerIsHorizontal({
+  mode,
+  containerId,
+  activeData,
+  droppableData,
+}: {
+  mode: CollisionMode;
+  containerId?: string;
+  activeData: DndEntityData | null;
+  droppableData: DndEntityData | null;
+}): boolean {
+  if (mode !== "section") {
+    return false;
+  }
+
+  const sortableOrientation =
+    activeData?.sortableOrientation ?? droppableData?.sortableOrientation;
+  if (sortableOrientation === "horizontal") {
+    return true;
+  }
+  if (sortableOrientation === "vertical") {
+    return false;
+  }
+  if (!containerId) {
+    return false;
+  }
+
+  const sections = useProjectState.getState().sections;
+  if (!(containerId in sections)) {
+    return false;
+  }
+  return getSectionIsHorizontalOrientation(containerId);
 }
 
 function getIntersectionRatio(entry: ClientRect, target: ClientRect): number {

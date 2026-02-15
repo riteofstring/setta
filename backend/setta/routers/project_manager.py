@@ -82,10 +82,8 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetGroupOverflowModeRequest,
     SetImageAreaImagePathRequest,
-    SetListRootViewModeRequest,
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
-    SetParentDefaultChildSectionTypeRequest,
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
     SetPromptInputsRequest,
@@ -102,21 +100,19 @@ from setta.project_state.project_manager_types import (
     SetSectionTagColorRequest,
     SetSectionVariantNameRequest,
     SetSectionVariantRequest,
+    SetSectionVariantSortOrderRequest,
     SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
-    SetSpreadsheetFilePathRequest,
-    SetSpreadsheetSectionSettingsRequest,
-    SetTaskBoardSectionStateRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
     SetTextBlockHeadingAsSectionNameRequest,
-    SetTextBlockMasterFontSizeRequest,
     SetTextBlockMetaControlStyleRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
     SetTypeErrorIgnoreRequest,
     SetVariantJsonSourceKeysRequest,
     SetViewModeNameRequest,
+    SetViewModeSortOrderRequest,
     SetViewportRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
@@ -462,6 +458,26 @@ async def route_set_view_mode_name(
     try:
         await manager.set_view_mode_name(x)
     except InvalidViewModeName as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post(Route.SET_VIEW_MODE_SORT_ORDER)
+async def route_set_view_mode_sort_order(
+    x: SetViewModeSortOrderRequest, ctx: RuntimeContextFromRequest
+) -> None:
+    await _deny_deployment_mode_view_modes(ctx)
+    manager = ctx.get_project_manager(x.projectConfigId)
+    try:
+        await manager.set_view_mode_sort_order(x)
+    except KeyError as exc:
+        message = (
+            exc.args[0]
+            if exc.args and isinstance(exc.args[0], str)
+            else str(exc) or exc.__class__.__name__
+        )
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+    except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
@@ -1052,6 +1068,26 @@ async def route_set_default_section_variant(
     await manager.set_default_section_variant(x)
 
 
+@router.post(Route.SET_SECTION_VARIANT_SORT_ORDER)
+async def route_set_section_variant_sort_order(
+    x: SetSectionVariantSortOrderRequest, ctx: RuntimeContextFromRequest
+):
+    manager = ctx.get_project_manager(x.projectConfigId)
+    await enforce_share_policy_guard(ctx, SharePolicyGuard.variant)
+    try:
+        await manager.set_section_variant_sort_order(x)
+    except KeyError as exc:
+        message = (
+            exc.args[0]
+            if exc.args and isinstance(exc.args[0], str)
+            else str(exc) or exc.__class__.__name__
+        )
+        status_code = 404 if "not found" in message.lower() else 400
+        raise HTTPException(status_code=status_code, detail=message) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @router.post(Route.TOGGLE_VARIANT_FROZEN)
 async def route_toggle_variant_frozen(
     x: ToggleVariantFrozenRequest, ctx: RuntimeContextFromRequest
@@ -1156,15 +1192,6 @@ async def route_set_text_block_display_mode(
     await manager.set_text_block_display_mode(x)
 
 
-@router.post(Route.SET_TEXT_BLOCK_MASTER_FONT_SIZE)
-async def route_set_text_block_master_font_size(
-    x: SetTextBlockMasterFontSizeRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_text_block_master_font_size(x)
-
-
 @router.post(Route.SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME)
 async def route_set_text_block_heading_as_section_name(
     x: SetTextBlockHeadingAsSectionNameRequest, state: AppStateFromRequest
@@ -1217,52 +1244,6 @@ async def route_set_section_column_width(
     manager = ctx.get_project_manager(x.projectConfigId)
     await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
     await manager.set_section_column_width(x)
-
-
-@router.post(Route.SET_PARENT_DEFAULT_CHILD_SECTION_TYPE)
-async def route_set_parent_default_child_section_type(
-    x: SetParentDefaultChildSectionTypeRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_parent_default_child_section_type(x)
-
-
-@router.post(Route.SET_LIST_ROOT_VIEW_MODE)
-async def route_set_list_root_view_mode(
-    x: SetListRootViewModeRequest, ctx: RuntimeContextFromRequest
-):
-    await _deny_deployment_mode_structural(ctx)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await manager.set_list_root_view_mode(x)
-
-
-@router.post(Route.SET_TASK_BOARD_SECTION_STATE)
-async def route_set_task_board_section_state(
-    x: SetTaskBoardSectionStateRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_task_board_section_state(x)
-
-
-@router.post(Route.SET_SPREADSHEET_FILE_PATH)
-async def route_set_spreadsheet_file_path(
-    x: SetSpreadsheetFilePathRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_spreadsheet_file_path(x)
-
-
-@router.post(Route.SET_SPREADSHEET_SECTION_SETTINGS)
-async def route_set_spreadsheet_section_settings(
-    x: SetSpreadsheetSectionSettingsRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_spreadsheet_section_settings(x)
 
 
 @router.post(Route.SET_BROWSER_COLUMN_WIDTHS)

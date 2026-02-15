@@ -50,6 +50,42 @@ use the `Route` enum (`backend/setta/types/routes.py`) and are called via
 `/api/<route>` using the generated endpoint helpers in
 `frontend/src/utils/generatedEndpoints.ts`.
 
+## Plugin API Endpoints
+
+The plugin management UI and runtime calls use these backend routes:
+
+- `GET /api/plugins/runtime`
+  - Returns plugin list + status + restart capability.
+- `POST /api/plugins/install`
+- `POST /api/plugins/uninstall`
+- `POST /api/plugins/link`
+- `POST /api/plugins/enable`
+- `POST /api/plugins/disable`
+- `POST /api/plugins/config`
+- `POST /api/plugins/update`
+- `POST /api/plugins/rollback`
+- `POST /api/plugins/lock/write`
+- `POST /api/plugins/lock/apply`
+- `POST /api/plugins/rescan`
+- `POST /api/plugins/restart`
+
+Notes:
+
+- In IDE mode, all mutation routes above are enabled.
+- In share/app mode, plugin runtime is read-only via `GET /api/plugins/runtime`.
+
+## Plugin Runtime Mount Paths
+
+Plugins can register additional routes/mounts at runtime:
+
+- `/api/plugins/{pluginId}[/{prefix...}]`
+  - Added by backend plugins via `register_router`.
+- `/plugin-static/{pluginId}[/{prefix...}]`
+  - Added by backend plugins via `register_static_dir`.
+- `/plugins/{pluginId}/{assetPath}`
+  - Frontend plugin assets (entrypoint/style) served by the core assets router.
+  - When query param `v=<sha256>` is present, responses are cacheable as immutable.
+
 ## Frontend API Origin Mapping
 
 Most generated endpoint calls use the backend origin (`C_ADDRESSES.BACKEND`),
@@ -76,3 +112,17 @@ The app-generation/skills viewer flow adds these backend routes:
     for chat-driven app generation modes.
 
 For git route details (`/api/git/*`), see `docs/reference/git-pane.md`.
+
+## View Mode + File Browser Route Notes
+
+Recent frontend features in this branch rely on these backend API routes:
+
+- `/api/setViewModeSortOrder`
+  - Persists drag-reordered view mode order from tabs and the Overview View
+    Modes pane.
+- `/api/setSectionVariantSortOrder`
+  - Persists drag-reordered section variant order in the UI Editor variants
+    list.
+- `/api/getFolderContents` with `includeSettaInitialized: true`
+  - Adds `isSettaInitialized` on folder entries, used by Home page file-browser
+    "Setta" badges.

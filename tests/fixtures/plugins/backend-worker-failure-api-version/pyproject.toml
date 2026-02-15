@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "setta-fixture-backend-worker-failure-api-version"
+version = "0.1.0"
+description = "Backend worker failure fixture (API version mismatch)"
+requires-python = ">=3.12"

@@ -12,9 +12,7 @@ from setta.types.artifact import (
     DrawAreaMode,
     LineChartSettings,
 )
-from setta.types.code_obj_impls import (
-    ColorPickerChoice,
-)
+from setta.types.code_obj_impls import ColorPickerChoice
 from setta.types.edges import EdgePort
 from setta.types.generated.chart_settings_unions import (
     BaseChartSettingsUnionWithDiscriminator,
@@ -45,8 +43,7 @@ class SectionType(str, Enum):
     IFrame = "IFrame"
     Chat = "Chat"
     Browser = "Browser"
-    TaskBoard = "TaskBoard"
-    Spreadsheet = "Spreadsheet"
+    Plugin = "Plugin"
 
 
 class SectionSizeMode(str, Enum):
@@ -78,6 +75,29 @@ class CodeLanguage(str, Enum):
     plaintext = "plaintext"
 
 
+CodeLanguageKey = CodeLanguage | str
+
+
+def normalize_code_language(language: CodeLanguageKey) -> CodeLanguageKey:
+    if isinstance(language, CodeLanguage):
+        return language
+    if not isinstance(language, str):
+        raise TypeError("Code language must be a string.")
+    normalized = language.strip().lower()
+    if normalized == "":
+        raise ValueError("Code language must be a non-empty string.")
+    try:
+        return CodeLanguage(normalized)
+    except ValueError:
+        return normalized
+
+
+def code_language_to_string(language: CodeLanguageKey) -> str:
+    if isinstance(language, CodeLanguage):
+        return language.value
+    return language
+
+
 class ConfigLanguage(str, Enum):
     python = "python"
     json = "json"
@@ -103,12 +123,6 @@ class TextBlockFormat(str, Enum):
     Markdown = "Markdown"
 
 
-class ListRootViewMode(str, Enum):
-    default = "default"
-    task_list = "task_list"
-    kanban = "kanban"
-
-
 class BrowserAreaViewMode(str, Enum):
     list = "list"
     thumbnail = "thumbnail"
@@ -118,11 +132,6 @@ class BrowserAreaViewMode(str, Enum):
 class BrowserSearchScope(str, Enum):
     recursive = "recursive"
     local = "local"
-
-
-class TaskBoardViewMode(str, Enum):
-    task_list = "task_list"
-    kanban = "kanban"
 
 
 class BrowserSavedSearchTypeFilters(BaseModel, extra="forbid"):
@@ -158,61 +167,6 @@ class BrowserAreaItem(BaseModel, extra="forbid"):
     id: str
     type: Any
     lastModified: datetime
-
-
-class TaskBoardColumn(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    name: str = ""
-    color: str = "#3b82f6"
-    sortIndex: int = 0
-
-
-class TaskBoardTaskRecurrence(str, Enum):
-    none = "none"
-    hourly = "hourly"
-    daily = "daily"
-    specified_days = "specified_days"
-    specified_months = "specified_months"
-    specified_years = "specified_years"
-
-
-class TaskBoardRecurringWeekday(str, Enum):
-    monday = "monday"
-    tuesday = "tuesday"
-    wednesday = "wednesday"
-    thursday = "thursday"
-    friday = "friday"
-    saturday = "saturday"
-    sunday = "sunday"
-
-
-class TaskBoardRecurringMonth(str, Enum):
-    january = "january"
-    february = "february"
-    march = "march"
-    april = "april"
-    may = "may"
-    june = "june"
-    july = "july"
-    august = "august"
-    september = "september"
-    october = "october"
-    november = "november"
-    december = "december"
-
-
-class TaskBoardTask(BaseModel, extra="forbid"):
-    id: ID = Field(default_factory=create_new_id)
-    title: str = ""
-    description: str = ""
-    completed: bool = False
-    columnId: ID | None = None
-    dueDateIso: str = ""
-    recurrence: TaskBoardTaskRecurrence = TaskBoardTaskRecurrence.none
-    recurrenceDays: list[TaskBoardRecurringWeekday] = Field(default_factory=list)
-    recurrenceMonths: list[TaskBoardRecurringMonth] = Field(default_factory=list)
-    recurrenceYears: list[int] = Field(default_factory=list)
-    sortIndex: int = 0
 
 
 class BaseSectionImpl(BaseModel, extra="forbid"):
@@ -295,15 +249,12 @@ class DictSectionImpl(BaseDictSectionImpl):
 
 class ListRootSectionImpl(BaseParentSectionImpl):
     type: Literal[SectionType.ListRoot] = SectionType.ListRoot
-    defaultChildSectionType: SectionType = SectionType.Callable
-    viewMode: ListRootViewMode = ListRootViewMode.default
 
 
 class GroupSectionImpl(BaseParentSectionImpl):
     type: Literal[SectionType.Group] = SectionType.Group
     isHorizontalOrientation: bool = False
     overflowMode: bool = False
-    defaultChildSectionType: SectionType = SectionType.Callable
 
 
 class ImageSectionImpl(BaseSectionImpl):
@@ -344,7 +295,6 @@ class TextBlockSectionImpl(BaseSectionImpl):
     type: Literal[SectionType.TextBlock] = SectionType.TextBlock
     size: SectionSize = Field(default_factory=lambda: SectionSize(width=500.0))
     format: TextBlockFormat = TextBlockFormat.Plaintext
-    masterFontSizePx: float = 14.0
     headingAsSectionName: bool = False
     metaControlStyle: bool = False
     textDisplayMode: TextBlockDisplayMode = TextBlockDisplayMode.Render
@@ -382,7 +332,7 @@ class GlobalVariablesSectionImpl(BaseDictSectionImpl):
 
 class CodeSectionImpl(BaseCodeSectionImpl):
     type: Literal[SectionType.Code] = SectionType.Code
-    codeLanguage: CodeLanguage = CodeLanguage.python
+    codeLanguage: CodeLanguageKey = CodeLanguage.python
     diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState = Field(
         default_factory=CodeSectionDiagnosticsIgnoreState
     )
@@ -454,35 +404,9 @@ class BrowserSectionImpl(BaseSectionImpl):
     savedSearches: list[BrowserSavedSearch] = Field(default_factory=list)
 
 
-class TaskBoardSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.TaskBoard] = SectionType.TaskBoard
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=720.0, height=430.0)
-    )
-    viewMode: TaskBoardViewMode = TaskBoardViewMode.kanban
-    columns: list[TaskBoardColumn] = Field(
-        default_factory=lambda: [
-            TaskBoardColumn(name="Todo", color="#3b82f6", sortIndex=0),
-            TaskBoardColumn(name="Doing", color="#a855f7", sortIndex=1),
-            TaskBoardColumn(name="Done", color="#10b981", sortIndex=2),
-        ]
-    )
-    tasks: list[TaskBoardTask] = Field(default_factory=list)
-
-
-class SpreadsheetGridDensity(str, Enum):
-    compact = "compact"
-    comfortable = "comfortable"
-
-
-class SpreadsheetSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.Spreadsheet] = SectionType.Spreadsheet
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=760.0, height=500.0)
-    )
-    filePath: str = ""
-    activeSheet: str | None = None
-    readOnly: bool = False
-    showRowNumbers: bool = True
-    density: SpreadsheetGridDensity = SpreadsheetGridDensity.compact
-    autoReloadOnExternalChange: bool = False
+class PluginSectionImpl(BaseSectionImpl):
+    type: Literal[SectionType.Plugin] = SectionType.Plugin
+    pluginId: str = ""
+    kind: str = "default"
+    data: dict[str, Any] = Field(default_factory=dict)
+    schemaVersion: int | None = None

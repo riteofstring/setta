@@ -138,7 +138,6 @@ function _SortableCore({
   return (
     <div
       className={`relative flex w-full outline-none ${className ?? ""}`}
-      data-sortable-section-id={sectionId}
       {...stackProps}
       tabIndex={-1}
     >
