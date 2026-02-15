@@ -3,6 +3,10 @@ from tempfile import TemporaryDirectory
 
 import pytest
 
+from setta.agentic.completion_guard import (
+    FAILED_CHECKS_MESSAGE,
+    MISSING_CHECKS_MESSAGE,
+)
 from setta.agentic.store import load_agent_run, save_agent_run, save_engine_configs
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
@@ -124,6 +128,41 @@ class TestAgentRunner:
             assert allowlist.tool_names == {"server-a__tool.alpha"}
             assert allowlist.tool_basenames == {"tool.beta"}
             assert allowlist.server_ids == {"server-a", "server-b"}
+
+    def test_completion_guard_rewrites_done_claim_when_checks_missing(self) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="Create a new project and scaffold all sections."
+                    )
+                ],
+            )
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Everything is complete.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
+    def test_completion_guard_rewrites_done_claim_when_checks_failed(self) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            AssistantChatMessage(
+                content=[MessageTextContent(text="I ran checks and tests failed.")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="All done.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == FAILED_CHECKS_MESSAGE
 
     def test_allowlist_rejects_unknown_server(self) -> None:
         with TemporaryDirectory() as tmpdir:

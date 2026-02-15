@@ -5,7 +5,7 @@ import { useAllProjectMetadata } from "state/definitions";
 
 export function useProjectMetadataForFileMenu(open: boolean) {
   const projectMetadata = useAllProjectMetadata(
-    (x) => x.projectMetadata,
+    (x) => x.projectMetadata.map((m) => ({ id: m.id, name: m.name })),
     _.isEqual,
   );
   useEffect(() => {

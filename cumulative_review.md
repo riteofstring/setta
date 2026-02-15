@@ -1,9 +1,42 @@
-## 2026-02-17 09:04:23 PST
+## 2026-02-17 08:26:35 PST
 
-- Fixed Overview rail regression by restoring stable tab `data-testid` hooks, restoring chat-first ordering, and restoring `overview-tab-content-shell` for overflow/inset checks.
-- Fixed project-config reorder UX defects by persisting order in local storage (`overviewProjectConfigOrder`) and preventing drag-handle clicks from triggering navigation.
-- Fixed Home selected-project section count to use object keys and reduced per-item favorite subscriptions by passing favorite state from parent sections.
-- Removed redundant view-mode ordering utility code and consolidated `ViewModeTabs` sorting to a single pass.
-- Hardened backend init status response by removing exposed worktree paths, removing duplicate `worktreeOptions`, and eliminating duplicate git worktree-list calls per snapshot.
-- Added/updated coverage across backend pytest, frontend Vitest, and Playwright overview E2E flows for rail order, pane overflow, view-mode/project-config reordering, and drag-handle behavior.
+### Summary
+Implemented the review findings across backend and frontend, explicitly avoiding backward-compatibility shims.
 
+### Implemented fixes
+- Completion guard now avoids conversational `ready` false positives and resolves verification status newest-first.
+- External agent stream chunk preparation is applied exactly once per delivered chunk path.
+- Removed deprecated `skillsEnabled` surface from chat request/state/update paths and regenerated generated types/endpoints.
+- Removed implicit app-generation mode inference from `appSpecStreamingEnabled` when `appGenerationMode` is unset.
+- Switched `/transcribeChatAudio` from base64 JSON to multipart binary upload with payload-size limits and clearer errors.
+- Added client-side dictation size guard and `FormData` upload path.
+- Reduced overview polling scope to section-relevant running runs and deduped in-flight `loadAgentRuns` calls.
+- Avoided unnecessary `ResizeObserver` setup for assistant messages without reasoning cards.
+
+### Test and verification status
+- Backend pytest: targeted suites passed (completion guard, external runner, AI chat routes, helper/type tests).
+- Frontend Vitest: targeted suites passed (chat rendering, AI resource load guards, submit/transcribe actions, overview activity).
+- Playwright: targeted e2e suites passed (`agentic-scope`, `app-config-generate-prompt`, `app-config-mcp-mode`).
+- CDP visual verification completed against a live app session.
+
+## 2026-02-17 08:55:25 PST
+
+### Summary
+Implemented the next review cycle fixes across backend and frontend, excluding backward-compatibility shims and removing top-level review docs.
+
+### Implemented fixes
+- Completion guard now scopes to the active create/scaffold task window so stale history cannot incorrectly block or unblock completion.
+- Transcription now forwards the full provider request payload from `build_llm_params()` (excluding transcription-config-only keys) and applies transcription options consistently.
+- MCP reconnect retry behavior now retries only read-only tools, preventing duplicate side effects for write/structural tools.
+- Replaced `submitMessage` positional compatibility overload with an explicit options object API and migrated callsites.
+- Project AI chat now lazily performs workspace-root Python detection only in empty state and reuses a session cache.
+- Provider dictation now negotiates supported recorder MIME types, derives blob/file type correctly, and falls back to browser dictation in `auto` mode when provider setup fails.
+- Removed dead/redundant code paths in AI routing and prompt composition, and removed the unused `hasRunningAgentRuns` helper.
+
+### Test and verification status
+- Backend pytest: targeted suites passed (`tests/agentic/test_completion_guard.py`, `tests/mcp/test_multi_mcp_client.py`, transcription-focused cases in `tests/routers/test_ai_agent_run_chats.py`).
+- Frontend Vitest: targeted suites passed (`aiSubmitMessage`, `aiTranscribeChatAudio`, `dictation`, `aiActivity`).
+- Playwright: new targeted e2e suites passed (`chat-dictation-fallback`, `project-ai-chat-root-scan`).
+- Ruff on changed backend/test files passed.
+- ESLint targeted run not executable in this environment due missing `@eslint/js` resolution.
+- CDP visual verification completed in Project AI Chat (composer controls/mic behavior visible after changes).
