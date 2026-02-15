@@ -3,6 +3,7 @@ import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { FiChevronDown } from "react-icons/fi";
 import { useAIStore } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
@@ -233,10 +234,10 @@ export function ProjectChatSkillsMcpViewer() {
   }, []);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 text-sm text-setta-600 dark:text-setta-300">
-      <div className="grid gap-5">
-        <section>
-          <div className="grid gap-2">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overflow-x-hidden p-4 text-sm text-setta-600 dark:text-setta-300">
+      <div className="grid min-w-0 gap-5">
+        <section className="min-w-0">
+          <div className="grid min-w-0 gap-2">
             <div className="relative grid gap-2">
               <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
                 Skills
@@ -260,62 +261,62 @@ export function ProjectChatSkillsMcpViewer() {
                 />
               </search>
             </div>
-            <div className="grid gap-2">
-            <div className="max-h-[360px] min-h-[220px] overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-xs dark:border-setta-700 dark:bg-setta-950/60">
-              {skillsLoading ? (
-                <div className="text-setta-500 dark:text-setta-400">
-                  Loading skills...
-                </div>
-              ) : skillsError ? (
-                <div className="text-setta-500 dark:text-setta-400">
-                  Skills unavailable ({skillsError}). Restart the backend if
-                  this route was just added.
-                </div>
-              ) : groupedSkills.length === 0 ? (
-                <div className="text-setta-500 dark:text-setta-400">
-                  No skills found.
-                </div>
-              ) : (
-                groupedSkills.map((group, groupIndex) => (
-                  <div
-                    key={group.rootPath}
-                    className={groupIndex === 0 ? "" : "mt-3"}
-                  >
-                    <PathGroupHeader
-                      title={group.rootLabel}
-                      path={group.rootPath}
-                      onCopyPath={copyPathToClipboard}
-                      onRevealPath={(path) =>
-                        void revealPathInFileExplorer(path)
-                      }
-                    />
-                    <div className="mt-1 grid gap-1 px-1">
-                      {group.skills.slice(0, 200).map((skill) => {
-                        const selected = skill.skillId === selectedSkillId;
-                        return (
-                          <button
-                            key={skill.skillId}
-                            className={`flex min-w-0 max-w-full cursor-pointer flex-col items-start gap-0.5 overflow-hidden rounded pl-1 pr-2 py-1 text-left transition-colors ${
-                              selected
-                                ? "-ml-px bg-setta-100 text-blue-700 dark:bg-setta-800/80 dark:text-blue-300"
-                                : "hover:bg-setta-100 dark:hover:bg-setta-800"
-                            }`}
-                            onClick={() => setSelectedSkillId(skill.skillId)}
-                          >
-                            <span className="block w-full truncate font-semibold">
-                              {skill.name}
-                            </span>
-                            <span className="block w-full truncate text-[11px] opacity-80">
-                              {skill.relativePath}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
+            <div className="grid min-w-0 gap-2">
+              <div className="max-h-[360px] min-h-[220px] min-w-0 overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-xs dark:border-setta-700 dark:bg-setta-950/60">
+                {skillsLoading ? (
+                  <div className="text-setta-500 dark:text-setta-400">
+                    Loading skills...
                   </div>
-                ))
-              )}
-            </div>
+                ) : skillsError ? (
+                  <div className="text-setta-500 dark:text-setta-400">
+                    Skills unavailable ({skillsError}). Restart the backend if
+                    this route was just added.
+                  </div>
+                ) : groupedSkills.length === 0 ? (
+                  <div className="text-setta-500 dark:text-setta-400">
+                    No skills found.
+                  </div>
+                ) : (
+                  groupedSkills.map((group, groupIndex) => (
+                    <div
+                      key={group.rootPath}
+                      className={groupIndex === 0 ? "" : "mt-3"}
+                    >
+                      <PathGroupHeader
+                        title={group.rootLabel}
+                        path={group.rootPath}
+                        onCopyPath={copyPathToClipboard}
+                        onRevealPath={(path) =>
+                          void revealPathInFileExplorer(path)
+                        }
+                      />
+                      <div className="mt-1 grid gap-1 px-1">
+                        {group.skills.slice(0, 200).map((skill) => {
+                          const selected = skill.skillId === selectedSkillId;
+                          return (
+                            <button
+                              key={skill.skillId}
+                              className={`flex min-w-0 max-w-full cursor-pointer flex-col items-start gap-0.5 overflow-hidden rounded pl-1 pr-2 py-1 text-left transition-colors ${
+                                selected
+                                  ? "-ml-px bg-setta-100 text-blue-700 dark:bg-setta-800/80 dark:text-blue-300"
+                                  : "hover:bg-setta-100 dark:hover:bg-setta-800"
+                              }`}
+                              onClick={() => setSelectedSkillId(skill.skillId)}
+                            >
+                              <span className="block w-full truncate font-semibold">
+                                {skill.name}
+                              </span>
+                              <span className="block w-full truncate text-[11px] opacity-80">
+                                {skill.relativePath}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
               <Accordion.Root
                 type="single"
                 collapsible
@@ -335,11 +336,14 @@ export function ProjectChatSkillsMcpViewer() {
                   className="rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950"
                 >
                   <Accordion.Header>
-                    <Accordion.Trigger className="group flex w-full cursor-pointer items-center gap-2 pl-2 pr-6 py-1 text-left">
-                      <span className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+                    <Accordion.Trigger className="group box-border flex w-full cursor-pointer items-center justify-between gap-2 pl-2 pr-5 py-1 text-left">
+                      <span className="min-w-0 text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
                         Skill Markdown Viewer
                       </span>
-                      <i className="gg-chevron-down ml-auto mr-2 shrink-0 !scale-75 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400" />
+                      <FiChevronDown
+                        aria-hidden="true"
+                        className="h-3 w-3 shrink-0 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400"
+                      />
                     </Accordion.Trigger>
                   </Accordion.Header>
                   <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
@@ -370,11 +374,11 @@ export function ProjectChatSkillsMcpViewer() {
             </div>
           </div>
         </section>
-        <section className="grid gap-2">
+        <section className="grid min-w-0 gap-2">
           <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
             MCP Servers
           </div>
-          <div className="max-h-[220px] min-h-[110px] overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
+          <div className="max-h-[220px] min-h-[110px] min-w-0 overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
             {mcpServerGroups.length === 0 ? (
               <div className="text-setta-500 dark:text-setta-400">
                 No MCP servers configured.
