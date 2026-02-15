@@ -744,12 +744,16 @@ function PluginListEntryCard({
         <ActionButton
           label="Enable"
           onClick={onEnable}
-          disabled={writeActionsLocked || isActionBusy(`enable:${plugin.pluginId}`)}
+          disabled={
+            writeActionsLocked || isActionBusy(`enable:${plugin.pluginId}`)
+          }
         />
         <ActionButton
           label="Disable"
           onClick={onDisable}
-          disabled={writeActionsLocked || isActionBusy(`disable:${plugin.pluginId}`)}
+          disabled={
+            writeActionsLocked || isActionBusy(`disable:${plugin.pluginId}`)
+          }
         />
         <ActionButton
           label="Update"

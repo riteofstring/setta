@@ -66,7 +66,9 @@ function ProjectNavSwitch() {
 
 function PluginTopNavBarItems() {
   const items = usePluginTopNavBarItems();
-  const [busyItemKeys, setBusyItemKeys] = useState<Set<string>>(() => new Set());
+  const [busyItemKeys, setBusyItemKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
   if (items.length === 0) {
     return null;
   }

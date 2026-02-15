@@ -6,8 +6,8 @@ import {
 import {
   refreshPluginRuntime,
   usePluginListEntries,
-  usePluginStatusEntries,
   usePluginRuntimeStore,
+  usePluginStatusEntries,
 } from "plugins/runtime";
 import { useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";

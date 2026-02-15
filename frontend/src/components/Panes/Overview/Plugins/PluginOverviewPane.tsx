@@ -21,7 +21,9 @@ export function PluginOverviewPane({
     }
     return null;
   });
-  const serverMode = usePluginRuntimeStore((state) => state.serverMode ?? "ide");
+  const serverMode = usePluginRuntimeStore(
+    (state) => state.serverMode ?? "ide",
+  );
   const effectiveCapabilities = usePluginRuntimeStore(
     (state) =>
       state.pluginListById[pluginId]?.effectiveCapabilities ??

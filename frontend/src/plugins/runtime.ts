@@ -58,9 +58,9 @@ export const PluginSectionFallbackReasonEnum = {
 type PluginSectionFallbackReason =
   (typeof PluginSectionFallbackReasonEnum)[keyof typeof PluginSectionFallbackReasonEnum];
 
-export type PluginServerMode = "ide" | "share" | "app";
+type PluginServerMode = "ide" | "share" | "app";
 
-export type PluginSectionProps = {
+type PluginSectionProps = {
   sectionId: string;
   pluginId: string;
   kind: string;
@@ -70,13 +70,13 @@ export type PluginSectionProps = {
   effectiveCapabilities: string[];
 };
 
-export type PluginSectionRenderer = {
+type PluginSectionRenderer = {
   mount: (el: HTMLElement, props: PluginSectionProps) => void;
   update?: (el: HTMLElement, props: PluginSectionProps) => void;
   unmount?: (el: HTMLElement) => void;
 };
 
-export type PluginSectionKindDefinition = {
+type PluginSectionKindDefinition = {
   kind: string;
   title: string;
   description?: string;
@@ -88,7 +88,7 @@ export type RegisteredPluginSectionKind = PluginSectionKindDefinition & {
   pluginId: string;
 };
 
-export type PluginPaneProps = {
+type PluginPaneProps = {
   pluginId: string;
   serverMode: PluginServerMode;
   effectiveCapabilities: string[];
@@ -100,7 +100,7 @@ type PluginPaneRenderer = {
   unmount?: (el: HTMLElement) => void;
 };
 
-export type PluginPaneDefinition = {
+type PluginPaneDefinition = {
   id: string;
   title: string;
   description?: string;
@@ -112,7 +112,7 @@ export type RegisteredPluginPane = PluginPaneDefinition & {
   pluginId: string;
 };
 
-export type PluginCommandDefinition = {
+type PluginCommandDefinition = {
   id: string;
   title: string;
   description?: string;
@@ -154,30 +154,30 @@ type PluginProjectContext = {
   serverMode: PluginServerMode;
 };
 
-export type PluginProjectStateSelector =
+type PluginProjectStateSelector =
   | { kind: "projectConfig" }
   | { kind: "activeSectionIds" }
   | { kind: "section"; sectionId: string }
   | { kind: "sections"; sectionIds: string[] }
   | { kind: "singletonSections" };
 
-export type PluginProjectStateSubscriptionOptions = {
+type PluginProjectStateSubscriptionOptions = {
   fireImmediately?: boolean;
   throttleMs?: number;
 };
 
-export type PluginRealtimeDependencyEvent = {
+type PluginRealtimeDependencyEvent = {
   dependencyKey: BaseDependencyKeyUnion;
   payload?: BaseDependencyValueUnion | null;
   binaryPayload?: ArrayBuffer;
   timestampMs?: number;
 };
 
-export type PluginSectionRealtimeEmitOptions = {
+type PluginSectionRealtimeEmitOptions = {
   timestampMs?: number;
 };
 
-export type SettaPluginHost = {
+type SettaPluginHost = {
   apiVersion: number;
   pluginId: string;
   serverMode: PluginServerMode;
@@ -1253,7 +1253,7 @@ function isTraversalSegment(segment: string): boolean {
   }
 }
 
-export function normalizePluginPath(path: string): string {
+function normalizePluginPath(path: string): string {
   const trimmed = path.trim();
   if (trimmed === "") {
     return "";

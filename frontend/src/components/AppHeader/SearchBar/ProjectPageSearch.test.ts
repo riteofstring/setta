@@ -83,7 +83,9 @@ describe("project page command palette model", () => {
       pluginCommands: [],
     });
 
-    const pluginGroup = model.allItems.find((entry) => entry.group === "Plugins");
+    const pluginGroup = model.allItems.find(
+      (entry) => entry.group === "Plugins",
+    );
     expect(pluginGroup?.items.map((item) => item.id)).toEqual([
       "plugin-section:alpha.plugin:form",
       "plugin-section:beta.plugin:form",

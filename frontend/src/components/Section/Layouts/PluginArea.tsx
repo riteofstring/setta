@@ -1,8 +1,9 @@
+import { onOverviewTabClick } from "components/Panes/paneFns";
 import {
-  type RegisteredPluginSectionKind,
   usePluginRuntimeStore,
   usePluginSectionFallbackReason,
   usePluginSectionKind,
+  type RegisteredPluginSectionKind,
 } from "plugins/runtime";
 import {
   useEffect,
@@ -12,7 +13,6 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { onOverviewTabClick } from "components/Panes/paneFns";
 import {
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
@@ -41,11 +41,7 @@ const EMPTY_PLUGIN_CAPABILITIES: readonly string[] = [];
 
 export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
   const pluginImpl = useProjectState((state) =>
-    getCurrEffectiveSectionImplOfType(
-      state,
-      sectionId,
-      SectionTypeEnum.Plugin,
-    ),
+    getCurrEffectiveSectionImplOfType(state, sectionId, SectionTypeEnum.Plugin),
   );
   const { pluginId, kind, data, schemaVersion } = pluginImpl;
   const pluginSectionKind = usePluginSectionKind(pluginId, kind);
@@ -84,7 +80,9 @@ function PluginSectionRendererHost({
   const mountRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
   const previousSectionPropsRef = useRef<object | null>(null);
-  const serverMode = usePluginRuntimeStore((state) => state.serverMode ?? "ide");
+  const serverMode = usePluginRuntimeStore(
+    (state) => state.serverMode ?? "ide",
+  );
   const effectiveCapabilities = usePluginRuntimeStore(
     (state) =>
       state.pluginListById[pluginId]?.effectiveCapabilities ??
