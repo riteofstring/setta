@@ -6,17 +6,14 @@ export type OverviewListingType = {
   name: string;
   depth: number;
   tagColor: string | null;
-  aiWorking: boolean;
 };
 
 export function SectionListItems({
   listOfSectionIdsAndNames = [],
   checkbox = false,
-  activeSectionIds,
 }: {
   listOfSectionIdsAndNames: Array<OverviewListingType>;
   checkbox?: boolean;
-  activeSectionIds?: ReadonlySet<string>;
 }) {
   return listOfSectionIdsAndNames.map((e, idx) => (
     <SectionItem
@@ -25,7 +22,6 @@ export function SectionListItems({
       checkbox={checkbox}
       depth={e.depth}
       tagColor={e.tagColor}
-      isAIWorking={Boolean(e.aiWorking || activeSectionIds?.has(e.id))}
       key={`SectionItem-${e.id}-${idx}`}
     />
   ));
@@ -37,14 +33,12 @@ function _SectionItem({
   checkbox,
   depth,
   tagColor,
-  isAIWorking,
 }: {
   sectionId: string;
   sectionHeading: string;
   checkbox: boolean;
   depth: number;
   tagColor: string | null;
-  isAIWorking: boolean;
 }) {
   const handleSelection = () => {
     goToSection(sectionId);
@@ -96,17 +90,7 @@ function _SectionItem({
         title={tagColor ? `Color tag: ${tagColor}` : undefined}
         aria-hidden="true"
       />
-      <span className="min-w-0 flex-1 truncate">{sectionHeading}</span>
-      {isAIWorking ? (
-        <span
-          className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-700 dark:bg-blue-400/20 dark:text-blue-200"
-          aria-label="AI working on this section"
-          data-testid={`overview-ai-working-${sectionId}`}
-        >
-          <i className="gg-spinner !scale-[0.55]" aria-hidden="true" />
-          AI
-        </span>
-      ) : null}
+      <span className="min-w-0 truncate">{sectionHeading}</span>
     </li>
   );
 }

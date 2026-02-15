@@ -25,6 +25,7 @@ type UseBrowserColumnWidthArgs = {
   widthKey: BrowserColumnWidthKey;
   cssVarName: string;
   getBoundedWidth?: (width: number, containerWidth: number) => number;
+  getDefaultWidth?: (containerWidth: number) => number;
 };
 
 export function useBrowserColumnWidth({
@@ -33,6 +34,7 @@ export function useBrowserColumnWidth({
   widthKey,
   cssVarName,
   getBoundedWidth,
+  getDefaultWidth,
 }: UseBrowserColumnWidthArgs): MouseEventHandler<HTMLDivElement> {
   const maxNestedDepthRef = useRef(1);
   const widthsRef = useRef<{
@@ -120,7 +122,9 @@ export function useBrowserColumnWidth({
           widthKey === "typesColumnWidth"
             ? nextWidths.typesColumnWidth
             : nextWidths.columnWidth;
-        let rawWidth = getDefaultColumnWidth(containerWidth);
+        let rawWidth = getDefaultWidth
+          ? getDefaultWidth(containerWidth)
+          : getDefaultColumnWidth(containerWidth);
         if (columnWidth !== null && columnWidth !== undefined) {
           rawWidth = columnWidth;
         }
@@ -128,7 +132,7 @@ export function useBrowserColumnWidth({
       },
       { fireImmediately: true },
     );
-  }, [outerRef, sectionId, setNewWidth, widthKey]);
+  }, [getDefaultWidth, outerRef, sectionId, setNewWidth, widthKey]);
 
   return handleResizeStart;
 }

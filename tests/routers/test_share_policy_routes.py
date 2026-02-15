@@ -34,6 +34,7 @@ from setta.project_state.project_manager_types import (
     SetGenCodePrefixRequest,
     SetGenCodeSuffixRequest,
     SetImageAreaImagePathRequest,
+    SetListRootViewModeRequest,
     SetParamEnteredValueRequest,
     SetSectionNameRequest,
     SetSocialUrlRequest,
@@ -88,6 +89,7 @@ from setta.routers.project_manager import (
     route_set_gen_code_suffix,
     route_get_password_param_value,
     route_set_image_area_image_path,
+    route_set_list_root_view_mode,
     route_set_param_entered_value,
     route_set_section_name,
     route_set_social_url,
@@ -934,6 +936,17 @@ class TestSharePolicyRoutes:
             with runtime_context(state, session.id) as runtime_ctx:
                 with pytest.raises(HTTPException) as ctx:
                     await route_set_callable_hide_params(request, runtime_ctx)
+                assert ctx.value.status_code == 403
+
+                with pytest.raises(HTTPException) as ctx:
+                    await route_set_list_root_view_mode(
+                        SetListRootViewModeRequest(
+                            projectConfigId=project_config_id,
+                            sectionId=create_new_id(),
+                            viewMode="task_list",
+                        ),
+                        runtime_ctx,
+                    )
                 assert ctx.value.status_code == 403
 
     async def test_param_selection_routes_blocked(self) -> None:
