@@ -428,14 +428,7 @@ async def route_get_llm_response(
             raise HTTPException(
                 status_code=500, detail="External agent config not found"
             )
-        plugin_external_agent_adapters = (
-            runner.get_plugin_external_agent_adapters()
-        )
-        status = build_external_agent_preflight_status(
-            ctx.state.dbe,
-            external_config,
-            plugin_external_agent_adapters=plugin_external_agent_adapters,
-        )
+        status = build_external_agent_preflight_status(ctx.state.dbe, external_config)
         if not status.available:
             issues = "; ".join(status.issues) if status.issues else "preflight failed"
             raise HTTPException(
@@ -552,8 +545,8 @@ async def route_get_external_agent_chat(
         raise HTTPException(status_code=404, detail="Chat not found")
     state = build_chat_state_from_run(latest_run)
     if latest_run.status == AgentRunStatus.running:
-        runner = ctx.state.external_agent_runner
-        if not runner.disabled:
+        runner = getattr(ctx.state, "external_agent_runner", None)
+        if runner is not None and not runner.disabled:
             live_state = runner.get_live_chat_state(latest_run.id)
             if live_state is not None:
                 state = live_state

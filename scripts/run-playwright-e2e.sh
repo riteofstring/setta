@@ -122,32 +122,17 @@ SETTA_HOME="${SETTA_HOME:-}"
 TEMP_SETTA_HOME=""
 if [[ -z "${SETTA_HOME}" ]]; then
   TEMP_SETTA_HOME="$(mktemp -d "${TMPDIR:-/tmp}/setta-e2e-home-XXXXXX")"
-  SETTA_HOME="${TEMP_SETTA_HOME}/.setta"
-  mkdir -p "${SETTA_HOME}"
+  SETTA_HOME="${TEMP_SETTA_HOME}"
 fi
 export SETTA_HOME
 SETTA_AUTH_COOKIE_NAME="${SETTA_AUTH_COOKIE_NAME:-setta_auth_${INSTANCE_NAME}}"
 export SETTA_AUTH_COOKIE_NAME
 LOG_DIR="${SETTA_E2E_LOG_DIR:-${TMPDIR:-/tmp}/setta-e2e-logs-${INSTANCE_NAME}-$(date +%Y%m%d-%H%M%S)}"
 mkdir -p "${LOG_DIR}"
-PLUGIN_FIXTURE_CACHE_DIR="${ROOT_DIR}/setta_files/.cache"
-PLUGIN_FIXTURE_CACHE_FILE="${PLUGIN_FIXTURE_CACHE_DIR}/playwright-e2e-plugin-fixtures-all.signature"
-PLUGIN_ARTIFACT_CACHE_FILE="${PLUGIN_FIXTURE_CACHE_DIR}/playwright-e2e-plugin-artifacts.signature"
-# shellcheck source=scripts/plugin-fixtures/cache.sh
-. "${ROOT_DIR}/scripts/plugin-fixtures/cache.sh"
 
 log() {
   echo "[$(date +"%Y-%m-%d %H:%M:%S")] $*"
 }
-
-while IFS= read -r log_line; do
-  log "${log_line}"
-done < <(
-  build_plugin_fixtures_if_needed \
-    "${ROOT_DIR}" \
-    "${PLUGIN_FIXTURE_CACHE_FILE}" \
-    "build"
-)
 
 BACKEND_PID=""
 FRONTEND_PID=""
@@ -239,156 +224,7 @@ setta_root = workspace / "setta_files"
 _seed_minimal_setta_files(setta_root)
 PY
   ) >"${LOG_DIR}/seed.log" 2>&1
-  if [[ "${SETTA_E2E_SEED_PLUGIN_FIXTURES:-1}" != "0" ]]; then
-    local fixtures=(
-      "backend-language-server-e2e"
-      "backend-external-agent"
-      "backend-codegen"
-    )
-    local plugins_root="${SETTA_WORKSPACE_ROOT}/.setta_plugins"
-    mkdir -p "${plugins_root}"
-    for fixture_name in "${fixtures[@]}"; do
-      local fixture_root="${ROOT_DIR}/tests/fixtures/plugins/${fixture_name}"
-      if [[ ! -d "${fixture_root}" ]]; then
-        continue
-      fi
-      local seeded_fixture_root="${plugins_root}/${fixture_name}"
-      rm -rf "${seeded_fixture_root}"
-      cp -R "${fixture_root}" "${seeded_fixture_root}"
-      log "Seeded plugin fixture: ${seeded_fixture_root}"
-    done
-  fi
   log "Seeded workspace. Logs: ${LOG_DIR}/seed.log"
-}
-
-compute_local_plugin_artifact_signature() {
-  local root_dir="$1"
-  local fixture_file
-  local signature_files=(
-    "${root_dir}/scripts/run-playwright-e2e.sh"
-  )
-  while IFS= read -r fixture_file; do
-    signature_files+=("${fixture_file}")
-  done < <(find "${root_dir}/tests/fixtures/plugins/frontend" -type f | sort)
-  printf '%s\n' "wheel:setta-fixture-frontend:0.1.0"
-  for fixture_file in "${signature_files[@]}"; do
-    if [[ ! -f "${fixture_file}" ]]; then
-      continue
-    fi
-    printf '%s|' "${fixture_file#${root_dir}/}"
-    cksum < "${fixture_file}"
-  done
-}
-
-seed_local_plugin_artifacts() {
-  if [[ "${SETTA_E2E_SEED_PLUGIN_ARTIFACTS:-1}" == "0" ]]; then
-    log "Skipping local plugin artifact seed (SETTA_E2E_SEED_PLUGIN_ARTIFACTS=0)."
-    return
-  fi
-  local artifact_dir="${SETTA_E2E_PLUGIN_ARTIFACT_DIR:-${ROOT_DIR}/setta_files/.cache/playwright-plugin-artifacts}"
-  local package_name="setta-fixture-frontend"
-  local package_version="0.1.0"
-  local wheel_name="${package_name//-/_}-${package_version}-py3-none-any.whl"
-  local wheel_path="${artifact_dir}/${wheel_name}"
-  local current_signature cached_signature
-  current_signature="$(compute_local_plugin_artifact_signature "${ROOT_DIR}" | cksum | awk '{print $1 ":" $2}')"
-  mkdir -p "${artifact_dir}"
-  mkdir -p "${PLUGIN_FIXTURE_CACHE_DIR}"
-  if [[ "${SETTA_FORCE_PLUGIN_ARTIFACT_BUILD:-0}" != "1" ]] && [[ -f "${PLUGIN_ARTIFACT_CACHE_FILE}" ]]; then
-    cached_signature="$(<"${PLUGIN_ARTIFACT_CACHE_FILE}")"
-  else
-    cached_signature=""
-  fi
-  if [[ "${SETTA_FORCE_PLUGIN_ARTIFACT_BUILD:-0}" != "1" ]] && [[ "${cached_signature}" == "${current_signature}" ]] && [[ -f "${wheel_path}" ]]; then
-    log "Skipping local plugin artifact seed; artifacts unchanged."
-    export PIP_NO_INDEX="${PIP_NO_INDEX:-1}"
-    if [[ -z "${PIP_FIND_LINKS:-}" ]]; then
-      export PIP_FIND_LINKS="${artifact_dir}"
-    else
-      export PIP_FIND_LINKS="${artifact_dir} ${PIP_FIND_LINKS}"
-    fi
-    export UV_NO_INDEX="${UV_NO_INDEX:-${PIP_NO_INDEX}}"
-    if [[ -z "${UV_FIND_LINKS:-}" ]]; then
-      export UV_FIND_LINKS="${PIP_FIND_LINKS}"
-    else
-      export UV_FIND_LINKS="${artifact_dir} ${UV_FIND_LINKS}"
-    fi
-    return
-  fi
-  (
-    cd "${ROOT_DIR}"
-    source "./activate.sh"
-    "${PYTHON_BIN}" - "${ROOT_DIR}" "${artifact_dir}" <<'PY'
-import sys
-import zipfile
-from pathlib import Path
-
-root_dir = Path(sys.argv[1])
-artifact_dir = Path(sys.argv[2])
-artifact_dir.mkdir(parents=True, exist_ok=True)
-
-fixtures = [
-    ("frontend", "setta-fixture-frontend", "0.1.0"),
-]
-
-for fixture_name, package_name, version in fixtures:
-    source_root = root_dir / "tests" / "fixtures" / "plugins" / fixture_name
-    wheel_name = f"{package_name.replace('-', '_')}-{version}-py3-none-any.whl"
-    artifact_path = artifact_dir / wheel_name
-    dist_info_name = f"{package_name.replace('-', '_')}-{version}.dist-info"
-    with zipfile.ZipFile(
-        artifact_path, "w", compression=zipfile.ZIP_DEFLATED
-    ) as zipf:
-        for path in sorted(source_root.rglob("*"), key=lambda item: str(item)):
-            if not path.is_file():
-                continue
-            relative_path = path.relative_to(source_root).as_posix()
-            zipf.write(path, arcname=relative_path)
-        zipf.writestr(
-            f"{dist_info_name}/METADATA",
-            "\n".join(
-                [
-                    "Metadata-Version: 2.1",
-                    f"Name: {package_name}",
-                    f"Version: {version}",
-                    "Summary: Setta fixture plugin",
-                    "",
-                ]
-            ),
-        )
-        zipf.writestr(
-            f"{dist_info_name}/WHEEL",
-            "\n".join(
-                [
-                    "Wheel-Version: 1.0",
-                    "Generator: setta-e2e",
-                    "Root-Is-Purelib: true",
-                    "Tag: py3-none-any",
-                    "",
-                ]
-            ),
-        )
-        zipf.writestr(f"{dist_info_name}/RECORD", "")
-PY
-  ) >"${LOG_DIR}/seed-plugin-artifacts.log" 2>&1
-  printf '%s' "${current_signature}" > "${PLUGIN_ARTIFACT_CACHE_FILE}"
-
-  export PIP_NO_INDEX="${PIP_NO_INDEX:-1}"
-  if [[ -z "${PIP_FIND_LINKS:-}" ]]; then
-    export PIP_FIND_LINKS="${artifact_dir}"
-  else
-    export PIP_FIND_LINKS="${artifact_dir} ${PIP_FIND_LINKS}"
-  fi
-
-  export UV_NO_INDEX="${UV_NO_INDEX:-${PIP_NO_INDEX}}"
-  if [[ -z "${UV_FIND_LINKS:-}" ]]; then
-    export UV_FIND_LINKS="${PIP_FIND_LINKS}"
-  else
-    export UV_FIND_LINKS="${artifact_dir} ${UV_FIND_LINKS}"
-  fi
-
-  log "Seeded local plugin artifacts at ${artifact_dir}."
-  log "Plugin source lookup configured via PIP_FIND_LINKS and UV_FIND_LINKS."
 }
 
 if [[ -z "${PLAYWRIGHT_HOST_PLATFORM_OVERRIDE:-}" ]]; then
@@ -484,7 +320,6 @@ PY
 }
 
 seed_workspace
-seed_local_plugin_artifacts
 start_backend
 start_frontend
 
@@ -554,28 +389,6 @@ PY
 )"
 
 declare -a PLAYWRIGHT_EXTRA_ARGS=()
-
-user_supplied_max_failures=0
-for arg in "$@"; do
-  case "${arg}" in
-    --max-failures|--max-failures=*)
-      user_supplied_max_failures=1
-      break
-      ;;
-  esac
-done
-
-if [[ "${user_supplied_max_failures}" -eq 0 ]]; then
-  max_failures_raw="${SETTA_E2E_MAX_FAILURES:-1}"
-  if ! [[ "${max_failures_raw}" =~ ^[0-9]+$ ]]; then
-    echo "Invalid SETTA_E2E_MAX_FAILURES: ${max_failures_raw}. Expected a non-negative integer." >&2
-    exit 1
-  fi
-  if [[ "${max_failures_raw}" != "0" ]]; then
-    PLAYWRIGHT_EXTRA_ARGS+=(--max-failures "${max_failures_raw}")
-  fi
-fi
-
 if [[ -n "${SETTA_E2E_TEST_TIMEOUT_SECONDS:-}" ]]; then
   timeout_ms="$(
     "${PYTHON_BIN}" - <<'PY'

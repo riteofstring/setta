@@ -1,6 +1,6 @@
 import json
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -16,7 +16,6 @@ from setta.agentic.external_agent_defaults import (
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.mcp.client import MultiMCPClient
-from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.routers.agentic import (
     CreateAgentProfileRequest,
     CreateExternalAgentConfigRequest,
@@ -60,6 +59,7 @@ from setta.types.agentic import (
     EngineType,
 )
 from setta.types.external_agents import (
+    ExternalAgentConfig,
     ExternalAgentEnvVarStatus,
     ExternalAgentPreflightStatus,
     ExternalAgentRunMode,
@@ -86,19 +86,8 @@ class _AgenticTestState:
     wmh_frontend_sender: WMHFrontendSender | None = None
     chat_manager: None = None
     agent_runner: AgentRunner | None = None
-    external_agent_runner: object = field(
-        default_factory=lambda: _DisabledExternalAgentRunner()
-    )
+    external_agent_runner: object | None = None
     prompt_template_watcher: object | None = None
-
-
-class _DisabledExternalAgentRunner:
-    disabled = True
-
-    def get_plugin_external_agent_adapters(
-        self,
-    ) -> list[PluginRegisteredExternalAgentAdapter]:
-        return []
 
 
 class TestAgenticRoutes:
@@ -326,107 +315,6 @@ class TestAgenticRoutes:
                         ctx,
                     )
 
-    async def test_external_agent_config_supports_plugin_adapter_defaults(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            setta_root = Path(tmpdir) / "setta_files"
-            setta_root.mkdir(parents=True, exist_ok=True)
-            dbe = DBE(setta_root)
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-
-            class _Runner:
-                disabled = False
-
-                def get_plugin_external_agent_adapters(
-                    self,
-                ) -> list[PluginRegisteredExternalAgentAdapter]:
-                    return [
-                        PluginRegisteredExternalAgentAdapter(
-                            adapterId="acme-plugin:openhands",
-                            pluginId="acme-plugin",
-                            name="OpenHands",
-                            runModes=["sdk"],
-                            command="openhands",
-                            args=[],
-                            envVarWhitelist=["OPENHANDS_API_KEY"],
-                            defaultModel="openhands/default",
-                        )
-                    ]
-
-            state = _AgenticTestState(
-                dbe=dbe,
-                wmh_frontend_sender=frontend_sender,
-                external_agent_runner=_Runner(),
-            )
-
-            with runtime_context(state) as ctx:
-                created = await route_create_external_agent_config(
-                    CreateExternalAgentConfigRequest(
-                        name="OpenHands",
-                        toolType=ExternalAgentToolType.plugin,
-                        pluginAdapterId="acme-plugin:openhands",
-                        runMode=ExternalAgentRunMode.sdk,
-                    ),
-                    ctx,
-                )
-
-                assert created.toolType == ExternalAgentToolType.plugin
-                assert created.pluginAdapterId == "acme-plugin:openhands"
-                assert created.defaultModel is None
-                assert created.envVarWhitelist == []
-
-                updated = await route_update_external_agent_config(
-                    UpdateExternalAgentConfigRequest(
-                        config=created.model_copy(
-                            update={
-                                "name": "OpenHands v2",
-                                "defaultModel": None,
-                                "envVarWhitelist": [],
-                            }
-                        )
-                    ),
-                    ctx,
-                )
-                assert updated.name == "OpenHands v2"
-                assert updated.defaultModel is None
-                assert updated.envVarWhitelist == []
-
-    async def test_external_agent_config_rejects_unknown_plugin_adapter(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            setta_root = Path(tmpdir) / "setta_files"
-            setta_root.mkdir(parents=True, exist_ok=True)
-            dbe = DBE(setta_root)
-            websocket_manager = WebsocketManager()
-            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-
-            class _Runner:
-                disabled = False
-
-                def get_plugin_external_agent_adapters(
-                    self,
-                ) -> list[PluginRegisteredExternalAgentAdapter]:
-                    return []
-
-            state = _AgenticTestState(
-                dbe=dbe,
-                wmh_frontend_sender=frontend_sender,
-                external_agent_runner=_Runner(),
-            )
-
-            with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc_info:
-                    await route_create_external_agent_config(
-                        CreateExternalAgentConfigRequest(
-                            name="Missing plugin adapter",
-                            toolType=ExternalAgentToolType.plugin,
-                            pluginAdapterId="acme-plugin:missing",
-                            runMode=ExternalAgentRunMode.sdk,
-                        ),
-                        ctx,
-                    )
-                assert exc_info.value.status_code == 400
-                assert "adapter not found" in str(exc_info.value.detail)
-
     async def test_external_agent_config_initializes_claude_settings_file(self) -> None:
         with TemporaryDirectory() as tmpdir:
             setta_root = Path(tmpdir) / "setta_files"
@@ -548,11 +436,6 @@ class TestAgenticRoutes:
     async def test_external_agent_run_blocks_on_preflight(self) -> None:
         class _Runner:
             disabled = False
-
-            def get_plugin_external_agent_adapters(
-                self,
-            ) -> list[PluginRegisteredExternalAgentAdapter]:
-                return []
 
             def start_run(self, *_args, **_kwargs):
                 raise AssertionError("start_run should not be called on preflight fail")

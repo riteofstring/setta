@@ -260,32 +260,6 @@ class TestPythonValueCodec:
         )
         assert codec.format_section(section_node) == "'Hello Ada'"
 
-    def test_plugin_section_formats_json_payload_as_python_literal(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        section_node = SectionNode(
-            id=ID("section"),
-            name="Plugin",
-            full_path_name="plugin",
-            type=SectionType.Plugin,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue('{"alpha": 1, "beta": "ok"}'),
-        )
-        assert codec.format_section(section_node) == "{'alpha': 1, 'beta': 'ok'}"
-
-    def test_plugin_section_invalid_json_falls_back_to_string_literal(self) -> None:
-        codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
-        section_node = SectionNode(
-            id=ID("section"),
-            name="Plugin",
-            full_path_name="plugin",
-            type=SectionType.Plugin,
-            isTopLevel=True,
-            deps={},
-            value=LiteralDependencyValue("{invalid"),
-        )
-        assert codec.format_section(section_node) == "'{invalid'"
-
     def test_draw_section_uses_dependency_value_helpers(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
         section_node = SectionNode(
