@@ -38,6 +38,7 @@ basic_type_map = {
 }
 
 GENERATED_TYPE_ALIAS = "gt"
+EXCLUDED_ENDPOINT_FUNCTION_NAMES = {"route_plugin_asset"}
 
 
 def get_path_input_output_types():
@@ -256,18 +257,12 @@ def python_type_to_ts(
 def create_ts_fn_def(
     endpoint_path, method, fn_name, args, args_with_annotations, output_annotation
 ):
+    definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<ResponseDataAndStatus<{output_annotation}>>"
     endpoint_path_without_prefix = endpoint_path
     if endpoint_path_without_prefix.startswith(Route.PREFIX.value):
         endpoint_path_without_prefix = endpoint_path_without_prefix[
             len(Route.PREFIX.value) :
         ]
-    if fn_name == "route_binary_download":
-        return f"""
-export async function {fn_name}(contentId: string): Promise<ResponseDataAndStatus<Uint8Array>> {{
-    return await getBinary("{endpoint_path_without_prefix}", {{ contentId }})
-}}
-"""
-    definition = f"\nexport async function {fn_name}({', '.join(args_with_annotations)}): Promise<ResponseDataAndStatus<{output_annotation}>>"
     if fn_name == "route_binary_upload":
         return f"""
 export async function {fn_name}(form: FormData): Promise<ResponseDataAndStatus<{output_annotation}>> {{
@@ -309,7 +304,7 @@ export async function {fn_name}(form: FormData): Promise<ResponseDataAndStatus<{
 def create_imports():
     return f"""
 import * as {GENERATED_TYPE_ALIAS} from "./generatedTypes"
-import {{ get, getBinary, post, ResponseDataAndStatus }} from "./endpointUtils"
+import {{ get, post, ResponseDataAndStatus }} from "./endpointUtils"
 
 """
 
@@ -318,6 +313,8 @@ def main(output_path):
     specs = get_path_input_output_types()
     ts_code = create_imports()
     for endpoint_fn_name, s in specs.items():
+        if endpoint_fn_name in EXCLUDED_ENDPOINT_FUNCTION_NAMES:
+            continue
         output_annotation = python_type_to_ts(s["output"], {}, set())
         args, args_with_annotations = create_args(s["inputs"])
         ts_code += create_ts_fn_def(

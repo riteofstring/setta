@@ -9,7 +9,7 @@ import sys
 import webbrowser
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import click
 import requests
@@ -36,6 +36,8 @@ from setta.launch import (
 from setta.logging.config import configure_logging
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
 from setta.mcp.tool_registry import build_setta_tool_payloads
+from setta.plugins.errors import PluginManagerError
+from setta.plugins.manager import PluginManager
 from setta.project_state.readable_export import build_readable_project_export
 from setta.sessions import SessionMetadata, SessionRegistry
 from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
@@ -65,6 +67,7 @@ from setta.utils.paths import (
     resolve_setta_paths,
     validate_workspace_root,
 )
+from setta.utils.setta_home import resolve_setta_home
 from setta.utils.user_config import ensure_setta_user_config_exists
 from setta.utils.utils import normalize_path
 
@@ -1047,6 +1050,81 @@ def _select_remote_stop_targets(
     raise click.ClickException(
         "Multiple sessions found; use --session <id>, --latest, or --all."
     )
+
+
+def _build_plugin_manager_for_cli(*, auto_rescan: bool = True) -> PluginManager:
+    paths = get_setta_paths()
+    return PluginManager(
+        workspace_root=paths.workspace_root,
+        setta_files_root=paths.setta_files_root,
+        setta_home=resolve_setta_home(),
+        server_mode="ide",
+        setta_version=__version__,
+        auto_rescan=auto_rescan,
+    )
+
+
+def _build_plugin_manager_for_cli_or_click_error(
+    *, auto_rescan: bool = True
+) -> PluginManager:
+    try:
+        return _build_plugin_manager_for_cli(auto_rescan=auto_rescan)
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
+
+
+def _plugin_scope_choice_to_value(
+    *,
+    scope: str | None,
+    global_scope: bool,
+    setta_files_scope: bool,
+) -> str | None:
+    explicit_flags = [global_scope, setta_files_scope]
+    if sum(1 for flag in explicit_flags if flag) > 1:
+        raise click.ClickException("Use only one of --global or --setta-files.")
+    if scope and any(explicit_flags):
+        raise click.ClickException(
+            "Use either --scope or scope shortcut flags, not both."
+        )
+    if global_scope:
+        return "global"
+    if setta_files_scope:
+        return "setta_files"
+    return scope
+
+
+def _raise_click_plugin_error(exc: PluginManagerError) -> None:
+    raise click.ClickException(f"{exc.code}: {exc.message}") from exc
+
+
+def _rescan_plugin_manager_for_lookup(
+    manager: PluginManager, *, scope: str | None
+) -> None:
+    include_package_manager_plugins = scope in (None, "setta_files")
+    manager.rescan(include_package_manager_plugins=include_package_manager_plugins)
+
+
+def _run_scoped_plugin_mutation_for_cli(
+    *,
+    scope: str | None,
+    global_scope: bool,
+    setta_files_scope: bool,
+    rescan_for_lookup: bool,
+    operation: Callable[[PluginManager, str | None], Any],
+) -> Any:
+    resolved_scope = _plugin_scope_choice_to_value(
+        scope=scope,
+        global_scope=global_scope,
+        setta_files_scope=setta_files_scope,
+    )
+    try:
+        manager = _build_plugin_manager_for_cli_or_click_error(auto_rescan=False)
+        if rescan_for_lookup:
+            _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
+        result = operation(manager, resolved_scope)
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
+    return result
 
 
 @click.command()
@@ -2344,6 +2422,584 @@ def connect(
     proc.wait()
 
 
+@click.group()
+def plugins() -> None:
+    """Manage Setta plugins."""
+
+
+@plugins.command(name="init")
+@click.argument("plugin_id")
+@click.option(
+    "--template",
+    type=click.Choice(["backend", "frontend", "full", "content"]),
+    default="full",
+    show_default=True,
+)
+@click.option(
+    "--out",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output directory (defaults to current workspace root).",
+)
+def plugins_init(plugin_id: str, template: str, out: Path | None) -> None:
+    manager = _build_plugin_manager_for_cli_or_click_error()
+    try:
+        plugin_root = manager.init_plugin_template(
+            plugin_id=plugin_id,
+            template=template,
+            out_dir=str(out) if out is not None else None,
+        )
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
+    click.echo(f"Initialized plugin template at {plugin_root}")
+
+
+@plugins.command(name="validate")
+@click.argument("plugin_folder", type=click.Path(path_type=Path))
+def plugins_validate(plugin_folder: Path) -> None:
+    manager = _build_plugin_manager_for_cli_or_click_error()
+    try:
+        manager.validate_plugin_folder(plugin_folder)
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
+    click.echo(f"Plugin manifest is valid: {plugin_folder}")
+
+
+@plugins.command(name="list")
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON output")
+def plugins_list(json_output: bool) -> None:
+    manager = _build_plugin_manager_for_cli_or_click_error()
+    try:
+        status = manager.get_status_response()
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
+    if json_output:
+        _emit_json_output(status.model_dump(mode="json"))
+        return
+    if len(status.plugins) == 0:
+        click.echo("No plugins discovered.")
+        return
+    for plugin in status.plugins:
+        scope = plugin.sourceScopeLabel
+        restart = " (restart required)" if plugin.restartRequired else ""
+        shadowed_suffix = (
+            f" shadowed_by={plugin.shadowedBySourcePath}"
+            if plugin.shadowedBySourcePath
+            else ""
+        )
+        click.echo(
+            f"{plugin.pluginId} {plugin.version} [{plugin.state}] scope={scope}{restart}{shadowed_suffix}"
+        )
+        if plugin.errors:
+            for error in plugin.errors:
+                click.echo(f"  - {error.code}: {error.message}")
+
+
+@plugins.command(name="install")
+@click.argument("source_spec")
+@click.option(
+    "--scope",
+    type=click.Choice(["workspace", "setta_files", "global"]),
+    default=None,
+)
+@click.option("--global", "global_scope", is_flag=True, help="Install globally")
+@click.option(
+    "--setta-files",
+    "setta_files_scope",
+    is_flag=True,
+    help="Install into setta_files scope",
+)
+@click.option(
+    "--no-enable",
+    is_flag=True,
+    help="Install without enabling by default.",
+)
+@click.option(
+    "--installer",
+    type=click.Choice(["auto", "pip", "uv"]),
+    default="auto",
+    show_default=True,
+    help="Installer backend for source fetch/install.",
+)
+@click.option("--force", is_flag=True, help="Overwrite existing plugin folder.")
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON output")
+def plugins_install(
+    source_spec: str,
+    scope: str | None,
+    global_scope: bool,
+    setta_files_scope: bool,
+    no_enable: bool,
+    installer: str,
+    force: bool,
+    json_output: bool,
+) -> None:
+    result = _run_scoped_plugin_mutation_for_cli(
+        scope=scope,
+        global_scope=global_scope,
+        setta_files_scope=setta_files_scope,
+        rescan_for_lookup=False,
+        operation=lambda manager, resolved_scope: manager.install_plugin(
+            source_spec=source_spec,
+            scope=resolved_scope,
+            installer=installer,
+            enable=not no_enable,
+            force=force,
+        ),
+    )
+    if json_output:
+        _emit_json_output(result.model_dump(mode="json"))
+        return
+    click.echo(
+        f"Installed {result.pluginId} {result.version} "
+        f"to {result.sourceScopeLabel} ({result.sourcePath})"
+    )
+    click.echo(f"Source: {result.canonicalSourceKey}")
+    if result.restartRequired:
+        click.echo("Backend restart required.")
+
+
+@plugins.command(name="uninstall")
+@click.argument("plugin_id")
+@click.option(
+    "--scope",
+    type=click.Choice(["workspace", "setta_files", "global"]),
+    default=None,
+)
+@click.option("--global", "global_scope", is_flag=True)
+@click.option("--setta-files", "setta_files_scope", is_flag=True)
+@click.option("--json", "json_output", is_flag=True)
+def plugins_uninstall(
+    plugin_id: str,
+    scope: str | None,
+    global_scope: bool,
+    setta_files_scope: bool,
+    json_output: bool,
+) -> None:
+    result = _run_scoped_plugin_mutation_for_cli(
+        scope=scope,
+        global_scope=global_scope,
+        setta_files_scope=setta_files_scope,
+        rescan_for_lookup=True,
+        operation=lambda manager, resolved_scope: manager.uninstall_plugin(
+            plugin_id=plugin_id,
+            scope=resolved_scope,
+            rescan=False,
+        ),
+    )
+    if json_output:
+        _emit_json_output(result.model_dump(mode="json"))
+        return
+    click.echo(
+        f"Uninstalled {result.pluginId} from {result.removedFromScope.value} scope"
+    )
+    if result.restartRequired:
+        click.echo("Backend restart required.")
+
+
+@plugins.command(name="enable")
+@click.argument("plugin_id")
+@click.option("--json", "json_output", is_flag=True)
+def plugins_enable(plugin_id: str, json_output: bool) -> None:
+    result = _run_scoped_plugin_mutation_for_cli(
+        scope=None,
+        global_scope=False,
+        setta_files_scope=False,
+        rescan_for_lookup=True,
+        operation=lambda manager, _resolved_scope: manager.enable_plugin(
+            plugin_id=plugin_id,
+            rescan=False,
+        ),
+    )
+    if json_output:
+        _emit_json_output(result.model_dump(mode="json"))
+        return
+    click.echo(f"{result.pluginId} -> {result.state.value}")
+    if result.restartRequired:
+        click.echo("Backend restart required.")
+
+
+@plugins.command(name="disable")
+@click.argument("plugin_id")
+@click.option("--json", "json_output", is_flag=True)
+def plugins_disable(plugin_id: str, json_output: bool) -> None:
+    result = _run_scoped_plugin_mutation_for_cli(
+        scope=None,
+        global_scope=False,
+        setta_files_scope=False,
+        rescan_for_lookup=True,
+        operation=lambda manager, _resolved_scope: manager.disable_plugin(
+            plugin_id=plugin_id,
+            rescan=False,
+        ),
+    )
+    if json_output:
+        _emit_json_output(result.model_dump(mode="json"))
+        return
+    click.echo(f"{result.pluginId} -> {result.state.value}")
+    if result.restartRequired:
+        click.echo("Backend restart required.")
+
+
+@plugins.command(name="rescan")
+@click.option("--json", "json_output", is_flag=True)
+def plugins_rescan(json_output: bool) -> None:
+    manager = _build_plugin_manager_for_cli_or_click_error(auto_rescan=False)
+    try:
+        result = manager.rescan()
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
+    if json_output:
+        _emit_json_output(result.model_dump(mode="json"))
+        return
+    click.echo(
+        f"Rescanned plugins: installed={result.installedPlugins} active={result.activePlugins}"
+    )
+
+
+def _run_plugin_update_like_command(
+    *,
+    plugin_id: str,
+    scope: str | None,
+    global_scope: bool,
+    setta_files_scope: bool,
+    to_target: str | None,
+):
+    result = _run_scoped_plugin_mutation_for_cli(
+        scope=scope,
+        global_scope=global_scope,
+        setta_files_scope=setta_files_scope,
+        rescan_for_lookup=True,
+        operation=lambda manager, resolved_scope: manager.update_plugin(
+            plugin_id=plugin_id,
+            scope=resolved_scope,
+            to=to_target,
+            rescan=False,
+        ),
+    )
+    return result
+
+
+@plugins.command(name="update")
+@click.argument("plugin_id")
+@click.option(
+    "--scope",
+    type=click.Choice(["workspace", "setta_files", "global"]),
+    default=None,
+)
+@click.option("--global", "global_scope", is_flag=True)
+@click.option("--setta-files", "setta_files_scope", is_flag=True)
+@click.option("--to", "to_target", default=None)
+@click.option("--json", "json_output", is_flag=True)
+def plugins_update(
+    plugin_id: str,
+    scope: str | None,
+    global_scope: bool,
+    setta_files_scope: bool,
+    to_target: str | None,
+    json_output: bool,
+) -> None:
+    result = _run_plugin_update_like_command(
+        plugin_id=plugin_id,
+        scope=scope,
+        global_scope=global_scope,
+        setta_files_scope=setta_files_scope,
+        to_target=to_target,
+    )
+    if json_output:
+        _emit_json_output(result.model_dump(mode="json"))
+        return
+    click.echo(f"Updated {result.pluginId}: {result.fromVersion} -> {result.toVersion}")
+    if result.restartRequired:
+        click.echo("Backend restart required.")
+
+
+@plugins.command(name="pin")
+@click.argument("plugin_id")
+@click.argument("source_spec_or_version")
+@click.option(
+    "--scope",
+    type=click.Choice(["workspace", "setta_files", "global"]),
+    default=None,
+)
+@click.option("--global", "global_scope", is_flag=True)
+@click.option("--setta-files", "setta_files_scope", is_flag=True)
+@click.option("--json", "json_output", is_flag=True)
+def plugins_pin(
+    plugin_id: str,
+    source_spec_or_version: str,
+    scope: str | None,
+    global_scope: bool,
+    setta_files_scope: bool,
+    json_output: bool,
+) -> None:
+    result = _run_plugin_update_like_command(
+        plugin_id=plugin_id,
+        scope=scope,
+        global_scope=global_scope,
+        setta_files_scope=setta_files_scope,
+        to_target=source_spec_or_version,
+    )
+    if json_output:
+        _emit_json_output(result.model_dump(mode="json"))
+        return
+    click.echo(f"Pinned {result.pluginId}: {result.fromVersion} -> {result.toVersion}")
+    if result.restartRequired:
+        click.echo("Backend restart required.")
+
+
+@plugins.command(name="rollback")
+@click.argument("plugin_id")
+@click.option(
+    "--scope",
+    type=click.Choice(["workspace", "setta_files", "global"]),
+    default=None,
+)
+@click.option("--global", "global_scope", is_flag=True)
+@click.option("--setta-files", "setta_files_scope", is_flag=True)
+@click.option("--json", "json_output", is_flag=True)
+def plugins_rollback(
+    plugin_id: str,
+    scope: str | None,
+    global_scope: bool,
+    setta_files_scope: bool,
+    json_output: bool,
+) -> None:
+    result = _run_scoped_plugin_mutation_for_cli(
+        scope=scope,
+        global_scope=global_scope,
+        setta_files_scope=setta_files_scope,
+        rescan_for_lookup=True,
+        operation=lambda manager, resolved_scope: manager.rollback_plugin(
+            plugin_id=plugin_id,
+            scope=resolved_scope,
+            rescan=False,
+        ),
+    )
+    if json_output:
+        _emit_json_output(result.model_dump(mode="json"))
+        return
+    click.echo(f"Rolled back {result.pluginId} to version {result.restoredVersion}")
+    if result.restartRequired:
+        click.echo("Backend restart required.")
+
+
+@plugins.group(name="lock")
+def plugins_lock() -> None:
+    """Manage plugins lockfile state."""
+
+
+@plugins_lock.command(name="write")
+@click.option("--json", "json_output", is_flag=True)
+def plugins_lock_write(json_output: bool) -> None:
+    manager = _build_plugin_manager_for_cli_or_click_error()
+    try:
+        result = manager.write_lockfile()
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
+    if json_output:
+        _emit_json_output(result.model_dump(mode="json"))
+        return
+    click.echo(
+        f"Wrote lockfile {result.lockfilePath} with {result.pluginCount} plugin entries"
+    )
+
+
+@plugins_lock.command(name="apply")
+@click.option("--check", is_flag=True, help="Preview changes only.")
+@click.option("--json", "json_output", is_flag=True)
+def plugins_lock_apply(check: bool, json_output: bool) -> None:
+    manager = _build_plugin_manager_for_cli_or_click_error()
+    try:
+        result = manager.apply_lockfile(check=check)
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
+    if json_output:
+        _emit_json_output(result.model_dump(mode="json"))
+        return
+    click.echo(f"Lockfile: {result.lockfilePath}")
+    if len(result.plannedChanges) == 0:
+        click.echo("No plugin changes needed.")
+    else:
+        click.echo("Planned changes:")
+        for item in result.plannedChanges:
+            click.echo(f"- {item}")
+    click.echo(f"Applied: {'yes' if result.applied else 'no'}")
+
+
+@plugins.command(name="restart")
+@click.option("--json", "json_output", is_flag=True)
+def plugins_restart(json_output: bool) -> None:
+    manager = _build_plugin_manager_for_cli_or_click_error(auto_rescan=False)
+    try:
+        payload = manager.restart_backend()
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
+    if json_output:
+        _emit_json_output(payload)
+        return
+    if payload["accepted"]:
+        click.echo("Restart request accepted.")
+        return
+    click.echo("Programmatic restart unavailable.")
+    if payload.get("command"):
+        click.echo(f"Run: {payload['command']}")
+    if payload.get("reason"):
+        click.echo(payload["reason"])
+
+
+@plugins.command(name="restart-required")
+@click.option("--json", "json_output", is_flag=True)
+def plugins_restart_required(json_output: bool) -> None:
+    manager = _build_plugin_manager_for_cli_or_click_error()
+    try:
+        status = manager.get_status_response()
+        restart_capability = manager.get_restart_capability()
+        pending_restart_ids = manager.get_pending_restart_backend_plugin_ids()
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
+    pending = [
+        plugin for plugin in status.plugins if plugin.state.value == "pending_restart"
+    ]
+    pending_ids_from_status = {plugin.pluginId for plugin in pending}
+    pending_ids_without_status = [
+        plugin_id
+        for plugin_id in pending_restart_ids
+        if plugin_id not in pending_ids_from_status
+    ]
+    if json_output:
+        _emit_json_output(
+            {
+                "pendingPlugins": [
+                    plugin.model_dump(mode="json") for plugin in pending
+                ],
+                "pendingPluginIds": pending_restart_ids,
+                "pendingPluginIdsWithoutStatus": pending_ids_without_status,
+                "restartCapability": restart_capability.model_dump(mode="json"),
+            }
+        )
+        return
+    if len(pending) == 0 and len(pending_ids_without_status) == 0:
+        click.echo("No pending restart plugins.")
+    else:
+        click.echo("Pending restart plugins:")
+        for plugin in pending:
+            click.echo(f"- {plugin.pluginId} ({plugin.version})")
+        for plugin_id in pending_ids_without_status:
+            click.echo(f"- {plugin_id} (status unavailable)")
+    if restart_capability.mode == "programmatic":
+        click.echo("Programmatic restart available: setta plugins restart")
+        return
+    if restart_capability.command:
+        click.echo(f"Manual restart command: {restart_capability.command}")
+    if restart_capability.reason:
+        click.echo(restart_capability.reason)
+
+
+@plugins.command(name="link")
+@click.argument("local_plugin_root", type=click.Path(path_type=Path))
+@click.option(
+    "--scope",
+    type=click.Choice(["workspace", "setta_files", "global"]),
+    default=None,
+)
+@click.option("--global", "global_scope", is_flag=True)
+@click.option("--setta-files", "setta_files_scope", is_flag=True)
+@click.option("--no-enable", is_flag=True)
+@click.option("--force", is_flag=True)
+@click.option("--json", "json_output", is_flag=True)
+def plugins_link(
+    local_plugin_root: Path,
+    scope: str | None,
+    global_scope: bool,
+    setta_files_scope: bool,
+    no_enable: bool,
+    force: bool,
+    json_output: bool,
+) -> None:
+    result = _run_scoped_plugin_mutation_for_cli(
+        scope=scope,
+        global_scope=global_scope,
+        setta_files_scope=setta_files_scope,
+        rescan_for_lookup=False,
+        operation=lambda manager, resolved_scope: manager.link_plugin(
+            local_plugin_root=str(local_plugin_root),
+            scope=resolved_scope,
+            enable=not no_enable,
+            force=force,
+        ),
+    )
+    if json_output:
+        _emit_json_output(result.model_dump(mode="json"))
+        return
+    click.echo(
+        f"Linked {result.pluginId} from {local_plugin_root} into {result.sourceScopeLabel}"
+    )
+    if result.restartRequired:
+        click.echo("Backend restart required.")
+
+
+@plugins.command(name="unlink")
+@click.argument("plugin_id")
+@click.option(
+    "--scope",
+    type=click.Choice(["workspace", "setta_files", "global"]),
+    default=None,
+)
+@click.option("--global", "global_scope", is_flag=True)
+@click.option("--setta-files", "setta_files_scope", is_flag=True)
+@click.option(
+    "--ignore-missing",
+    is_flag=True,
+    help="Return success when the plugin is not present in the selected scope.",
+)
+@click.option("--json", "json_output", is_flag=True)
+def plugins_unlink(
+    plugin_id: str,
+    scope: str | None,
+    global_scope: bool,
+    setta_files_scope: bool,
+    ignore_missing: bool,
+    json_output: bool,
+) -> None:
+    manager = _build_plugin_manager_for_cli_or_click_error(auto_rescan=False)
+    resolved_scope = _plugin_scope_choice_to_value(
+        scope=scope,
+        global_scope=global_scope,
+        setta_files_scope=setta_files_scope,
+    )
+    try:
+        _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
+        result = manager.uninstall_plugin(
+            plugin_id=plugin_id,
+            scope=resolved_scope,
+            rescan=False,
+        )
+    except PluginManagerError as exc:
+        if ignore_missing and exc.code == "PLUGIN_NOT_FOUND":
+            resolved_scope_label = resolved_scope if resolved_scope is not None else "any"
+            if json_output:
+                _emit_json_output(
+                    {
+                        "pluginId": plugin_id,
+                        "removedFromScope": resolved_scope_label,
+                        "restartRequired": False,
+                        "ignoredMissing": True,
+                    }
+                )
+                return
+            click.echo(
+                f"Plugin {plugin_id} not found in {resolved_scope_label} scope; skipping."
+            )
+            return
+        _raise_click_plugin_error(exc)
+    if json_output:
+        _emit_json_output(result.model_dump(mode="json"))
+        return
+    click.echo(f"Unlinked {result.pluginId} from {result.removedFromScope.value} scope")
+    if result.restartRequired:
+        click.echo("Backend restart required.")
+
+
 @click.group(invoke_without_command=True)
 @click.option("--reload", is_flag=True)
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")
@@ -2532,6 +3188,7 @@ cli.add_command(status)
 cli.add_command(auth)
 cli.add_command(tools)
 cli.add_command(api)
+cli.add_command(plugins)
 cli.add_command(stop)
 cli.add_command(connect)
 cli.add_command(connect, name="c")

@@ -3,22 +3,14 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { getNodesInside } from "forks/xyflow/core/utils/graph";
 import React, {
   memo,
-  DragEvent as ReactDragEvent,
   MouseEvent as ReactMouseEvent,
   ReactNode,
   useRef,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { openPaneContextMenu } from "state/actions/contextMenus";
-import { addTemporaryNotification } from "state/actions/notifications";
-import { openFileAsSectionForDrop } from "state/actions/sections/createSections";
 import { useMisc, useSettings } from "state/definitions";
-import { getFileBrowserDragPayload } from "utils/fileBrowserDragPayload";
-import {
-  SelectionModeEnum,
-  SettaNotificationTypeEnum,
-} from "utils/generatedTypes";
-import { importNativeFileToWorkspace } from "utils/nativeFileImport";
+import { SelectionModeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import UserSelection from "../components/UserSelection";
 import { containerStyle } from "../styles";
@@ -190,73 +182,6 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
     resetUserSelection();
   };
 
-  const onDragOver = (event: ReactDragEvent<HTMLDivElement>) => {
-    if (event.target !== container.current) {
-      return;
-    }
-    const payload = getFileBrowserDragPayload(event.dataTransfer);
-    const hasNativeFiles = event.dataTransfer.files.length > 0;
-    if ((!payload || payload.type !== "file") && !hasNativeFiles) {
-      return;
-    }
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
-  };
-
-  const onDrop = (event: ReactDragEvent<HTMLDivElement>) => {
-    if (event.target !== container.current) {
-      return;
-    }
-    const position = screenToFlowPosition({
-      x: event.clientX,
-      y: event.clientY,
-    });
-    const payload = getFileBrowserDragPayload(event.dataTransfer);
-    const openFileForDrop = async (filePath: string, fileName: string) => {
-      const result = await openFileAsSectionForDrop({
-        filePath,
-        fileName,
-        position,
-        focusOnSection: false,
-      });
-      if (result.status === "unsupported_binary") {
-        addTemporaryNotification(
-          "Binary files cannot be auto-opened as sections from drag-and-drop.",
-          SettaNotificationTypeEnum.warning,
-        );
-        return;
-      }
-      if (result.status === "failed") {
-        addTemporaryNotification(
-          "Failed to create a section from the dropped file.",
-          SettaNotificationTypeEnum.error,
-        );
-      }
-    };
-    if (payload && payload.type === "file") {
-      event.preventDefault();
-      void openFileForDrop(payload.fullPath, payload.name);
-      return;
-    }
-    const nativeFile = event.dataTransfer.files.item(0);
-    if (!nativeFile) {
-      return;
-    }
-    event.preventDefault();
-    const openNativeFileDrop = async () => {
-      const importResult = await importNativeFileToWorkspace(nativeFile);
-      if (importResult.status !== "ok") {
-        addTemporaryNotification(
-          importResult.error,
-          SettaNotificationTypeEnum.error,
-        );
-        return;
-      }
-      await openFileForDrop(importResult.filePath, importResult.fileName);
-    };
-    void openNativeFileDrop();
-  };
-
   const hasActiveSelection = isSelecting || userSelectionActive;
 
   return (
@@ -268,8 +193,6 @@ const Pane = memo(({ isSelecting, panOnDrag, children }: PaneProps) => {
       onMouseMove={hasActiveSelection ? onMouseMove : undefined}
       onMouseUp={hasActiveSelection ? onMouseUp : undefined}
       onMouseLeave={hasActiveSelection ? onMouseLeave : undefined}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
       ref={container}
       style={containerStyle}
     >
