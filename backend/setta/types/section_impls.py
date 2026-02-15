@@ -150,6 +150,12 @@ class ChatPermissionMode(str, Enum):
     config_toml_custom = "config_toml_custom"
 
 
+class ChatDictationMode(str, Enum):
+    auto = "auto"
+    browser = "browser"
+    provider = "provider"
+
+
 class TaskBoardViewMode(str, Enum):
     task_list = "task_list"
     kanban = "kanban"
@@ -465,6 +471,7 @@ class ChatSectionImpl(BaseSectionImpl):
     thinking: bool = True
     permissionMode: ChatPermissionMode = ChatPermissionMode.minimal
     searchEnabled: bool = True
+    dictationMode: ChatDictationMode = ChatDictationMode.auto
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False

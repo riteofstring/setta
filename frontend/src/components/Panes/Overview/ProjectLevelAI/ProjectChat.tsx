@@ -14,6 +14,7 @@ import {
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
+import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
 import {
@@ -50,11 +51,26 @@ type ProjectAISettingsPopoverProps = {
   availableConfigGroups: ReturnType<typeof buildLLMConfigGroups>;
   selectedEngineId: string | null;
   selectedLLMConfigId: string | null;
+  selectedTranscriptionLLMConfigId: string | null;
+  dictationMode: "auto" | "browser" | "provider";
   engineType: EngineTypeEnum | null;
   noConfigsAvailable: boolean;
   onEngineChange: (value: string | null) => void;
   onLLMConfigChange: (value: string | null) => void;
+  onTranscriptionLLMConfigChange: (value: string | null) => void;
+  onDictationModeChange: (value: string | null) => void;
 };
+
+const DICTATION_MODE_ITEMS: AllItemsType<string> = [
+  {
+    group: "Dictation Modes",
+    items: [
+      { id: "auto", name: "Auto" },
+      { id: "browser", name: "Browser" },
+      { id: "provider", name: "Provider" },
+    ],
+  },
+];
 
 export function ProjectChat() {
   const chatId = useAIStore((state) => state.activeChatId);
@@ -76,6 +92,7 @@ export function ProjectChat() {
     apiKeys,
     apiKeysInitialLoadComplete,
     viewHistory,
+    projectChatDictationMode,
     allLLMConfigs,
     llmConfigInitialLoadComplete,
     externalAgentHealth,
@@ -88,6 +105,7 @@ export function ProjectChat() {
       apiKeys: x.apiKeys,
       apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
       viewHistory: x.viewHistory,
+      projectChatDictationMode: x.projectChatDictationMode,
       allLLMConfigs: x.allLLMConfigs,
       llmConfigInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
       externalAgentHealth: x.externalAgentHealth,
@@ -175,6 +193,33 @@ export function ProjectChat() {
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, effectiveEngineConfig]);
+  const selectedTranscriptionLLMConfigId = useMemo(() => {
+    if (!effectiveEngineConfig) {
+      return null;
+    }
+    if (effectiveEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
+      return null;
+    }
+    return effectiveEngineConfig.transcriptionLlmConfigId ?? null;
+  }, [effectiveEngineConfig]);
+  const hasValidTranscriptionConfig = Boolean(
+    selectedTranscriptionLLMConfigId &&
+      allLLMConfigs?.configs?.[selectedTranscriptionLLMConfigId],
+  );
+  const providerDictationAvailable =
+    engineType === EngineTypeEnum.setta_llm && hasValidTranscriptionConfig;
+  const providerDictationUnavailableReason = useMemo(() => {
+    if (engineType === EngineTypeEnum.external_agent) {
+      return "Provider dictation is available only for managed LLM engines.";
+    }
+    if (
+      engineType === EngineTypeEnum.setta_llm &&
+      !providerDictationAvailable
+    ) {
+      return "Provider dictation requires a valid transcription config.";
+    }
+    return "Provider dictation is not available.";
+  }, [engineType, providerDictationAvailable]);
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
   );
@@ -285,6 +330,27 @@ export function ProjectChat() {
     },
     [effectiveEngineConfig],
   );
+  const handleTranscriptionLLMConfigChange = useCallback(
+    (value: string | null) => {
+      if (!effectiveEngineConfig) {
+        return;
+      }
+      if (effectiveEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
+        return;
+      }
+      const nextConfig = {
+        ...effectiveEngineConfig,
+        transcriptionLlmConfigId: value,
+      };
+      void updateEngineConfig({ config: nextConfig });
+    },
+    [effectiveEngineConfig],
+  );
+  const handleDictationModeChange = useCallback((value: string | null) => {
+    const nextMode =
+      value === "browser" || value === "provider" ? value : "auto";
+    useAIStore.setState({ projectChatDictationMode: nextMode });
+  }, []);
 
   useEffect(() => {
     if (!engineConfigsInitialLoadComplete) {
@@ -425,10 +491,18 @@ export function ProjectChat() {
                   availableConfigGroups={availableConfigGroups}
                   selectedEngineId={effectiveEngineId}
                   selectedLLMConfigId={selectedLLMConfigId}
+                  selectedTranscriptionLLMConfigId={
+                    selectedTranscriptionLLMConfigId
+                  }
+                  dictationMode={projectChatDictationMode}
                   engineType={engineType}
                   noConfigsAvailable={noConfigsAvailable}
                   onEngineChange={handleEngineChange}
                   onLLMConfigChange={handleLLMConfigChange}
+                  onTranscriptionLLMConfigChange={
+                    handleTranscriptionLLMConfigChange
+                  }
+                  onDictationModeChange={handleDictationModeChange}
                 />
               </div>
             ) : null}
@@ -462,6 +536,11 @@ export function ProjectChat() {
               hasLLMConfig={hasLLMConfig}
               externalEngineAvailable={externalEngineAvailable}
               noLLMConfigsAvailable={noConfigsAvailable}
+              dictationMode={projectChatDictationMode}
+              providerDictationAvailable={providerDictationAvailable}
+              providerDictationUnavailableReason={
+                providerDictationUnavailableReason
+              }
               setChatId={setChatId}
               onPermissionModeChange={setRuntimePermissionMode}
             />
@@ -556,10 +635,14 @@ function ProjectAISettingsPopover({
   availableConfigGroups,
   selectedEngineId,
   selectedLLMConfigId,
+  selectedTranscriptionLLMConfigId,
+  dictationMode,
   engineType,
   noConfigsAvailable,
   onEngineChange,
   onLLMConfigChange,
+  onTranscriptionLLMConfigChange,
+  onDictationModeChange,
 }: ProjectAISettingsPopoverProps) {
   const showLLMConfig = engineType === EngineTypeEnum.setta_llm;
   const llmPlaceholder = noConfigsAvailable
@@ -619,6 +702,35 @@ function ProjectAISettingsPopover({
               />
             </div>
           ) : null}
+          {showLLMConfig ? (
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+                Transcription Config
+              </span>
+              <IdNameCombobox
+                allItems={availableConfigGroups}
+                value={selectedTranscriptionLLMConfigId}
+                small={false}
+                onSelectedItemChange={onTranscriptionLLMConfigChange}
+                placeholder="Select a transcription config"
+                outerDivClasses="w-full"
+                selectedItemCanBeNull
+              />
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+              Dictation Mode
+            </span>
+            <IdNameCombobox
+              allItems={DICTATION_MODE_ITEMS}
+              value={dictationMode}
+              small={false}
+              onSelectedItemChange={onDictationModeChange}
+              placeholder="Select dictation mode"
+              outerDivClasses="w-full"
+            />
+          </div>
         </div>
       </div>
     </StandardPopover>

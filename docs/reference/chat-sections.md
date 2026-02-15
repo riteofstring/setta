@@ -34,9 +34,15 @@ The chat composer supports local slash commands and execution controls:
 - Footer controls always show permission mode when execution controls are enabled; search toggle is shown only where `searchEnabled` is mutable in that surface.
 
 ## Dictation
-- The `Mic` control appears when browser speech recognition and/or provider capture is available for the current surface.
-- Provider dictation records audio and uploads it via `route_transcribe_chat_audio` (`/api/transcribeChatAudio`) for managed LLM engines.
-- External-agent engines do not support provider dictation; in `auto` mode the UI falls back to browser dictation when provider capture/transcription is unavailable.
+- Managed engines now use separate configs for chat and transcription:
+  - `settaLlmConfigId` for chat completions.
+  - `transcriptionLlmConfigId` for provider transcription.
+- Provider dictation uses `transcriptionLlmConfigId` only; chat config `other_params` transcription overrides are no longer used.
+- Dictation mode is explicit in AI settings (`auto`, `browser`, `provider`):
+  - `auto`: prefers provider dictation when a valid transcription config is set, otherwise falls back to browser dictation.
+  - `browser`: always uses browser dictation and never calls provider transcription.
+  - `provider`: always attempts provider dictation and shows an explicit configuration error when unavailable.
+- Provider dictation is restricted to managed LLM engines. External-agent engines use browser dictation behavior.
 - Browser dictation uses `SpeechRecognition`/`webkitSpeechRecognition` and keeps listening across `onend` events until the user stops mic capture.
 
 ## Scriptable mode

@@ -46,6 +46,7 @@ from setta.types.project_config import (
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatDictationMode,
     ChatPermissionMode,
     ChatSectionBranch,
     CodeFileBinding,
@@ -119,6 +120,7 @@ class CoreArgs(TypedDict):
                 "density",
                 "description",
                 "diagnosticsIgnoreState",
+                "dictationMode",
                 "drawThrottleDelay",
                 "edgeInputParams",
                 "edgeOutputPorts",
@@ -672,6 +674,7 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     thinking: NotRequired[bool]
     permissionMode: NotRequired[ChatPermissionMode]
     searchEnabled: NotRequired[bool]
+    dictationMode: NotRequired[ChatDictationMode]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -698,6 +701,9 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         ChatPermissionMode | Callable[[ChatPermissionMode], ChatPermissionMode]
     ]
     searchEnabled: NotRequired[bool | Callable[[bool], bool]]
+    dictationMode: NotRequired[
+        ChatDictationMode | Callable[[ChatDictationMode], ChatDictationMode]
+    ]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage

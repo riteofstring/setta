@@ -717,6 +717,7 @@ type ZustandAIStore = {
   engineConfigsLoadError: string | null;
   engineConfigsLoading: boolean;
   pendingProjectChatPrompt: string | null;
+  projectChatDictationMode: "auto" | "browser" | "provider";
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -759,11 +760,13 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         engineConfigsLoadError: null,
         engineConfigsLoading: false,
         pendingProjectChatPrompt: null,
+        projectChatDictationMode: "auto",
       }),
       {
         name: "setta_ai_data",
         partialize: (state) => ({
           viewHistory: state.viewHistory,
+          projectChatDictationMode: state.projectChatDictationMode,
         }),
         storage: getPersistStorage(),
       },
