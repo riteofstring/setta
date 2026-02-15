@@ -201,6 +201,37 @@ class TestExternalAgentRunnerStopRun:
 
 
 class TestExternalAgentRunnerContext:
+    def test_context_caches_completion_guard_toggle_for_run(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": False,
+                    }
+                },
+            )
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = _build_context_for_test(runner, config)
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": True,
+                    }
+                },
+            )
+
+            assert context.completion_guard_enabled is False
+
     def test_context_rejects_mismatched_engine_config_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

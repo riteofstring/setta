@@ -185,6 +185,7 @@ class AgentRunContext:
     context_payload: AgenticContextPayload | None
     emit_stream: bool
     emit_ai_follow: bool
+    completion_guard_enabled: bool = True
 
 
 @dataclass
@@ -496,7 +497,7 @@ class AgentRunner:
                     self._apply_completion_guard(
                         messages,
                         assistant_message,
-                        completion_guard_enabled=self._is_completion_guard_enabled(),
+                        completion_guard_enabled=context.completion_guard_enabled,
                     )
                     if assistant_message.tool_calls:
                         await self._apply_actions(
@@ -544,11 +545,6 @@ class AgentRunner:
                         await self._maybe_emit_tool_call_follow_update(
                             context,
                             parsed_tool_calls,
-                        )
-                        self._apply_completion_guard(
-                            messages,
-                            assistant_message,
-                            completion_guard_enabled=self._is_completion_guard_enabled(),
                         )
                         messages.append(assistant_message)
                         await self._apply_actions(
@@ -629,11 +625,6 @@ class AgentRunner:
                         await self._maybe_emit_tool_call_follow_update(
                             context,
                             parsed_tool_calls,
-                        )
-                        self._apply_completion_guard(
-                            messages,
-                            assistant_message,
-                            completion_guard_enabled=self._is_completion_guard_enabled(),
                         )
                         messages.append(assistant_message)
                         await self._apply_actions(
@@ -915,6 +906,7 @@ class AgentRunner:
             context_payload=None,
             emit_stream=emit_stream,
             emit_ai_follow=emit_ai_follow,
+            completion_guard_enabled=load_completion_guard_enabled(self.dbe),
         )
 
     def _normalize_tool_allowlist(self, profile: AgentProfile) -> ToolAllowlist | None:
@@ -1662,6 +1654,10 @@ class AgentRunner:
         filtered: list[str] = []
         for name in tool_names:
             if not is_setta_tool_name(name):
+                filtered.append(name)
+                continue
+            _, tool_basename = split_namespaced_tool_name(name)
+            if tool_basename in _REQUIRED_INTERNAL_TOOL_BASENAMES:
                 filtered.append(name)
                 continue
             annotations = self.mcp_client.tool_annotations_by_name.get(name)
@@ -2496,9 +2492,6 @@ class AgentRunner:
         if assistant_message.tool_calls:
             return True
         return False
-
-    def _is_completion_guard_enabled(self) -> bool:
-        return load_completion_guard_enabled(self.dbe)
 
     @staticmethod
     def _apply_completion_guard(

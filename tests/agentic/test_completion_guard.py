@@ -8,6 +8,8 @@ from setta.database.db_objs import DBE
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
+    ToolCall,
+    ToolCallFunction,
     ToolChatMessage,
     UserChatMessage,
 )
@@ -19,6 +21,21 @@ def _text_message(text: str) -> MessageTextContent:
 
 def _assistant_message(text: str) -> AssistantChatMessage:
     return AssistantChatMessage(content=[_text_message(text)])
+
+
+def _assistant_message_with_tool_call(text: str) -> AssistantChatMessage:
+    return AssistantChatMessage(
+        content=[_text_message(text)],
+        tool_calls=[
+            ToolCall(
+                id="tool-call-1",
+                function=ToolCallFunction(
+                    name="setta__report_completion_status",
+                    arguments={},
+                ),
+            )
+        ],
+    )
 
 
 def _user_message(text: str) -> UserChatMessage:
@@ -63,6 +80,33 @@ def test_completion_guard_blocks_when_report_is_missing() -> None:
 
     assert replacement == MISSING_CHECKS_MESSAGE
     assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+
+
+def test_completion_guard_keeps_non_completion_text_when_report_is_missing() -> None:
+    # Clarification messages should remain unchanged even without a report payload.
+    prior_messages = [_user_message("Implement task A.")]
+    assistant_message = _assistant_message("I need one clarification before I continue.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "I need one clarification before I continue."
+
+
+def test_completion_guard_keeps_error_text_when_report_is_missing() -> None:
+    # Backend-generated error text should not be masked by completion-guard copy.
+    prior_messages = [_user_message("Implement task A.")]
+    assistant_message = _assistant_message(
+        "[Error] AI request failed. See Backend Logs for details."
+    )
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert (
+        _assistant_text(assistant_message)
+        == "[Error] AI request failed. See Backend Logs for details."
+    )
 
 
 def test_completion_guard_bypasses_when_toggle_is_disabled() -> None:
@@ -153,6 +197,23 @@ def test_completion_guard_allows_when_report_says_not_completion_intent() -> Non
     assert _assistant_text(assistant_message) == "I need one clarification."
 
 
+def test_completion_guard_blocks_completion_claim_when_report_intent_is_false() -> None:
+    # A stale/non-completion report must not allow a later completion claim.
+    prior_messages = [
+        _user_message("Implement task A."),
+        _completion_report_tool_message(
+            completion_intent=False,
+            requires_verification=False,
+        ),
+    ]
+    assistant_message = _assistant_message("Task A is done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+
+
 def test_completion_guard_allows_when_verification_not_required() -> None:
     prior_messages = [
         _user_message("Explain this design."),
@@ -182,6 +243,38 @@ def test_completion_guard_uses_only_active_task_scope() -> None:
         _user_message("Implement task B."),
     ]
     assistant_message = _assistant_message("Task B is done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+
+
+def test_completion_guard_requires_fresh_report_after_latest_assistant() -> None:
+    # Reports that predate the latest assistant turn should not satisfy new completion claims.
+    prior_messages = [
+        _user_message("Implement task A."),
+        _completion_report_tool_message(
+            completion_intent=True,
+            requires_verification=True,
+            check_results=[
+                {"checkName": "pytest", "required": True, "status": "passed"},
+            ],
+        ),
+        _assistant_message("I still need one detail from you."),
+    ]
+    assistant_message = _assistant_message("Task A is complete.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+
+
+def test_completion_guard_evaluates_completion_text_with_tool_calls() -> None:
+    # Text+tool-call assistant turns should still be guarded for visible completion claims.
+    prior_messages = [_user_message("Implement task A.")]
+    assistant_message = _assistant_message_with_tool_call("Task A is done.")
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 

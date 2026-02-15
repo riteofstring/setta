@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 from setta.agentic.completion_report import (
@@ -18,6 +19,17 @@ FAILED_CHECKS_MESSAGE = (
     "I cannot mark this complete because required error checks are failing. "
     "I need to report failing checks and fixes before completion."
 )
+_COMPLETION_WORD_PATTERN = re.compile(
+    r"\b(done|complete|completed|finished|all set|shipped)\b",
+    re.IGNORECASE,
+)
+_NEGATED_COMPLETION_PATTERN = re.compile(
+    (
+        r"\b(not|isn't|isnt|aren't|arent|cannot|can't|cant|won't|wont|pending|incomplete)\b"
+        r".{0,24}\b(done|complete|completed|finished|all set|shipped)\b"
+    ),
+    re.IGNORECASE,
+)
 
 
 def apply_completion_guard(
@@ -28,17 +40,25 @@ def apply_completion_guard(
 ) -> str | None:
     if not completion_guard_enabled:
         return None
-    if assistant_message.tool_calls:
+    assistant_text = _extract_assistant_text(assistant_message)
+    has_user_visible_text = bool(assistant_text.strip())
+    if assistant_message.tool_calls and not has_user_visible_text:
         return None
     scoped_messages = _resolve_active_task_messages(prior_messages)
     if scoped_messages is None:
         return None
     report = _resolve_latest_completion_report(scoped_messages)
+    is_completion_attempt = _is_completion_claim_text(assistant_text) or (
+        report is not None and report.completionIntent
+    )
+    if not is_completion_attempt:
+        return None
     if report is None:
         _replace_assistant_text(assistant_message, MISSING_CHECKS_MESSAGE)
         return MISSING_CHECKS_MESSAGE
     if not report.completionIntent:
-        return None
+        _replace_assistant_text(assistant_message, MISSING_CHECKS_MESSAGE)
+        return MISSING_CHECKS_MESSAGE
     if not report.requiresVerification:
         return None
     if report.verificationStatus == VerificationStatus.passed:
@@ -75,7 +95,8 @@ def _resolve_active_task_messages(messages: list[Any]) -> list[Any] | None:
 def _resolve_latest_completion_report(
     messages: list[Any],
 ) -> CompletionStatusReport | None:
-    for message in reversed(messages):
+    candidate_messages = _messages_after_latest_assistant(messages)
+    for message in reversed(candidate_messages):
         if _normalize_role(message) != "tool":
             continue
         tool_name = getattr(message, "tool_name", None)
@@ -98,6 +119,35 @@ def _extract_report_candidates(message: Any) -> list[object]:
         candidates.append(structured_content)
     candidates.append(result)
     return candidates
+
+
+def _messages_after_latest_assistant(messages: list[Any]) -> list[Any]:
+    for index in range(len(messages) - 1, -1, -1):
+        if _normalize_role(messages[index]) == "assistant":
+            return messages[index + 1 :]
+    return messages
+
+
+def _extract_assistant_text(message: AssistantChatMessage) -> str:
+    text_blocks: list[str] = []
+    for block in message.content:
+        if block.type != "text":
+            continue
+        normalized = block.text.strip()
+        if normalized:
+            text_blocks.append(normalized)
+    return "\n".join(text_blocks)
+
+
+def _is_completion_claim_text(text: str) -> bool:
+    normalized = text.strip()
+    if not normalized:
+        return False
+    if normalized.lower().startswith("[error]"):
+        return False
+    if _NEGATED_COMPLETION_PATTERN.search(normalized):
+        return False
+    return _COMPLETION_WORD_PATTERN.search(normalized) is not None
 
 
 def _replace_assistant_text(

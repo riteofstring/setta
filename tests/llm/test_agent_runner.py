@@ -11,7 +11,10 @@ from setta.agentic.store import load_agent_run, save_agent_run, save_engine_conf
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.llm.chat_toolkit.managed.actions import EmitChunkAction
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.client import MultiMCPClient
+from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
+from setta.agentic.agentic_scope import AgenticScope
 from setta.types.agentic import (
     AgentProfile,
     AgentRun,
@@ -150,6 +153,43 @@ class TestAgentRunner:
                 "tool.beta",
             }
             assert allowlist.server_ids == {"server-a", "server-b"}
+
+    def test_scope_filter_keeps_required_completion_report_tool(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[SETTA_MCP_SERVER_ID],
+                    )
+                },
+                mcpServers={
+                    SETTA_MCP_SERVER_ID: MCPServerConfig(
+                        transport="sse",
+                        url="http://localhost:8000/mcp",
+                    )
+                },
+            )
+            runner = _build_runner(dbe, config)
+            completion_tool_name = f"{SETTA_MCP_SERVER_ID}__report_completion_status"
+            runner.mcp_client.tool_annotations_by_name[completion_tool_name] = (
+                SettaToolAnnotations(
+                    settaToolType=SettaToolType.discoverable,
+                    accessType="structural",
+                )
+            )
+
+            filtered = runner._filter_tool_names_by_scope(
+                [completion_tool_name],
+                AgenticScope(),
+            )
+
+            assert filtered == [completion_tool_name]
 
     def test_completion_guard_blocks_missing_report_when_enabled(self) -> None:
         prior_messages = [
@@ -387,6 +427,51 @@ class TestAgentRunner:
             assert override_context.chat_id == ID("chat-1")
             assert override_context.section_id == chat_section_id
             assert override_context.thinking is True
+
+    def test_context_caches_completion_guard_toggle_for_run(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": False,
+                    }
+                },
+            )
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            runner = _build_runner(dbe, config)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
+
+            context = runner._build_context(
+                profile,
+                inputs={"allowUnscoped": True},
+            )
+
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": True,
+                    }
+                },
+            )
+
+            assert context.completion_guard_enabled is False
 
     def test_context_validates_input_types(self) -> None:
         with TemporaryDirectory() as tmpdir:

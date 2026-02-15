@@ -366,7 +366,7 @@ class ExternalAgentRunner:
                     continue
                 if event.stream_chunk is not None:
                     chunk = self._prepare_stream_chunk_for_delivery(
-                        run, event.stream_chunk
+                        context, run, event.stream_chunk
                     )
                     await self.websocket_msg_handler.send_streaming_response(
                         context.chat_id,
@@ -645,6 +645,7 @@ class ExternalAgentRunner:
             env=env,
             agentic_context_section_ids=agentic_context_section_ids,
             cleanup_paths=tuple(cleanup_paths),
+            completion_guard_enabled=load_completion_guard_enabled(self.dbe),
         ), is_new
 
     def _build_attachment_payload(
@@ -1327,7 +1328,7 @@ class ExternalAgentRunner:
         prepared: bool = False,
     ) -> None:
         if not prepared:
-            chunk = self._prepare_stream_chunk_for_delivery(run, chunk)
+            chunk = self._prepare_stream_chunk_for_delivery(context, run, chunk)
         state = self._apply_stream_chunk_to_state(run, chunk)
         if isinstance(chunk, ToolCallDeltaEvent):
             self._store_tool_call_delta(run.id, chunk)
@@ -1385,7 +1386,9 @@ class ExternalAgentRunner:
             )
             self._persist_outputs_from_state(run, context.config, state)
 
-    def _prepare_stream_chunk_for_delivery(self, run: AgentRun, chunk: Any) -> Any:
+    def _prepare_stream_chunk_for_delivery(
+        self, context: ExternalAgentRunContext, run: AgentRun, chunk: Any
+    ) -> Any:
         if not isinstance(chunk, MessageFinalizedEvent):
             return chunk
         if not isinstance(chunk.message, AssistantChatMessage):
@@ -1394,7 +1397,7 @@ class ExternalAgentRunner:
         apply_completion_guard(
             prior_messages,
             chunk.message,
-            completion_guard_enabled=load_completion_guard_enabled(self.dbe),
+            completion_guard_enabled=context.completion_guard_enabled,
         )
         return chunk
 
