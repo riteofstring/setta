@@ -37,7 +37,9 @@ import {
   type SpeechRecognitionLike,
   getSpeechRecognitionConstructor,
   insertTextAtSelection,
+  isDictationAvailable,
   mapDictationError,
+  pickProviderRecorderMimeType,
 } from "./dictation";
 import { useChatAttachmentManager } from "./useChatAttachmentManager";
 
@@ -55,79 +57,6 @@ const SLASH_SUGGESTIONS_PORTAL_STYLE_KEYS = [
   "top",
   "bottom",
 ] as const;
-const PROVIDER_DEFAULT_CHUNK_MS = 1200;
-const PROVIDER_TARGET_SAMPLE_RATE_HZ = 24_000;
-const PROVIDER_CHANNELS = 1;
-
-type ProviderTranscriptionSessionStart = {
-  sessionId: string;
-  resolvedTransportMode: "file" | "realtime";
-  chunkMs: number;
-};
-
-function concatInt16(a: Int16Array, b: Int16Array): Int16Array {
-  const merged = new Int16Array(a.length + b.length);
-  merged.set(a, 0);
-  merged.set(b, a.length);
-  return merged;
-}
-
-function resampleFloat32ToMonoPcm16(
-  input: Float32Array,
-  inputSampleRateHz: number,
-  targetSampleRateHz: number,
-): Int16Array {
-  if (input.length === 0) {
-    return new Int16Array(0);
-  }
-  if (inputSampleRateHz === targetSampleRateHz) {
-    const pcm = new Int16Array(input.length);
-    for (let index = 0; index < input.length; index += 1) {
-      const sample = Math.max(-1, Math.min(1, input[index]));
-      pcm[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-    }
-    return pcm;
-  }
-  const ratio = inputSampleRateHz / targetSampleRateHz;
-  const outputLength = Math.max(1, Math.floor(input.length / ratio));
-  const pcm = new Int16Array(outputLength);
-  for (let index = 0; index < outputLength; index += 1) {
-    const sourceIndex = Math.min(input.length - 1, Math.floor(index * ratio));
-    const sample = Math.max(-1, Math.min(1, input[sourceIndex]));
-    pcm[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-  }
-  return pcm;
-}
-
-function int16ToArrayBuffer(samples: Int16Array): ArrayBuffer {
-  const view = new Uint8Array(
-    samples.buffer,
-    samples.byteOffset,
-    samples.byteLength,
-  );
-  return view.slice().buffer;
-}
-
-function mergeArrayBuffers(chunks: ArrayBuffer[]): ArrayBuffer {
-  if (chunks.length === 0) {
-    return new ArrayBuffer(0);
-  }
-  if (chunks.length === 1) {
-    return chunks[0];
-  }
-  let totalBytes = 0;
-  for (const chunk of chunks) {
-    totalBytes += chunk.byteLength;
-  }
-  const merged = new Uint8Array(totalBytes);
-  let offset = 0;
-  for (const chunk of chunks) {
-    const bytes = new Uint8Array(chunk);
-    merged.set(bytes, offset);
-    offset += bytes.byteLength;
-  }
-  return merged.buffer;
-}
 
 export function areSlashSuggestionsPortalStylesEqual(
   current: CSSProperties | null,
@@ -159,8 +88,6 @@ type ChatExecutionControlVisibility = {
   search?: boolean;
 };
 
-type DictationStartPath = "provider" | "browser" | "unavailable";
-
 export type ChatSlashCommand = {
   command: string;
   action: ChatSlashCommandAction;
@@ -174,43 +101,6 @@ export type ChatSlashCommandResult =
       feedback?: string;
       keepInput?: boolean;
     };
-
-export function resolveDictationStartPath({
-  dictationMode,
-  canProviderDictate,
-  canBrowserDictate,
-}: {
-  dictationMode: "auto" | "browser" | "provider";
-  canProviderDictate: boolean;
-  canBrowserDictate: boolean;
-}): DictationStartPath {
-  if (dictationMode === "provider") {
-    return canProviderDictate ? "provider" : "unavailable";
-  }
-  if (dictationMode === "browser") {
-    return canBrowserDictate ? "browser" : "unavailable";
-  }
-  if (canProviderDictate) {
-    return "provider";
-  }
-  if (canBrowserDictate) {
-    return "browser";
-  }
-  return "unavailable";
-}
-
-export function resolveDictationUnavailableFeedback({
-  dictationMode,
-  providerUnavailableMessage,
-}: {
-  dictationMode: "auto" | "browser" | "provider";
-  providerUnavailableMessage: string;
-}): string {
-  if (dictationMode === "provider") {
-    return providerUnavailableMessage;
-  }
-  return "Dictation is not available.";
-}
 
 type ChatInputProps = {
   placeholderText: string | undefined;
@@ -232,19 +122,8 @@ type ChatInputProps = {
   ) => Promise<ChatSlashCommandResult | void> | ChatSlashCommandResult | void;
   slashSuggestionsPlacement?: "auto" | "above" | "below";
   dictationMode?: "auto" | "browser" | "provider";
-  onProviderTranscriptionSessionStart?: () => Promise<ProviderTranscriptionSessionStart | null>;
-  onProviderTranscriptionSessionAppend?: (
-    sessionId: string,
-    audioPcm16: ArrayBuffer,
-    sampleRateHz: number,
-    channels: number,
-  ) => Promise<string | null>;
-  onProviderTranscriptionSessionStop?: (
-    sessionId: string,
-  ) => Promise<string | null>;
-  onProviderTranscriptionSessionCancel?: (sessionId: string) => Promise<void>;
+  onProviderDictationTranscribe?: (audioBlob: Blob) => Promise<string | null>;
   dictationEnabledByProvider?: boolean;
-  providerDictationUnavailableMessage?: string;
 };
 
 export const ChatInput = memo(function ChatInput({
@@ -265,12 +144,8 @@ export const ChatInput = memo(function ChatInput({
   onSlashCommand,
   slashSuggestionsPlacement = "auto",
   dictationMode = "auto",
-  onProviderTranscriptionSessionStart,
-  onProviderTranscriptionSessionAppend,
-  onProviderTranscriptionSessionStop,
-  onProviderTranscriptionSessionCancel,
+  onProviderDictationTranscribe,
   dictationEnabledByProvider = true,
-  providerDictationUnavailableMessage,
 }: ChatInputProps) {
   const [internalValue, setInternalValue] = useState("");
   const [slashFeedback, setSlashFeedback] = useState<string | null>(null);
@@ -289,20 +164,9 @@ export const ChatInput = memo(function ChatInput({
   const inputValueRef = useRef(inputValue);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  const providerAudioContextRef = useRef<AudioContext | null>(null);
-  const providerSourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const providerProcessorNodeRef = useRef<ScriptProcessorNode | null>(null);
+  const providerRecorderRef = useRef<MediaRecorder | null>(null);
   const providerStreamRef = useRef<MediaStream | null>(null);
-  const providerPcmPendingRef = useRef<Int16Array>(new Int16Array(0));
-  const providerFilePcmChunksRef = useRef<ArrayBuffer[]>([]);
-  const providerPcmQueueRef = useRef<ArrayBuffer[]>([]);
-  const providerTranscriptionInFlightRef = useRef(false);
-  const providerStopRequestedRef = useRef(false);
-  const providerHasTranscriptRef = useRef(false);
-  const providerBackendSessionIdRef = useRef<string | null>(null);
-  const providerResolvedTransportModeRef = useRef<"file" | "realtime">("file");
-  const providerChunkMsRef = useRef(PROVIDER_DEFAULT_CHUNK_MS);
-  const providerSessionRef = useRef(0);
+  const providerChunksRef = useRef<Array<BlobPart>>([]);
   const dictationSourceRef = useRef<"browser" | "provider" | null>(null);
   const isDisabled = disabled;
 
@@ -713,32 +577,27 @@ export const ChatInput = memo(function ChatInput({
   }, [isDisabled, isDragActive]);
 
   const dictationSupported = Boolean(getSpeechRecognitionConstructor());
-  const canBrowserDictate = dictationSupported;
-  const providerCaptureSupported =
+  const canBrowserDictate = isDictationAvailable(
+    dictationEnabledByProvider,
+    dictationSupported,
+  );
+  const mediaRecorderSupported =
     typeof window !== "undefined" &&
-    typeof window.AudioContext !== "undefined" &&
+    typeof window.MediaRecorder !== "undefined" &&
     typeof navigator !== "undefined" &&
     Boolean(navigator.mediaDevices?.getUserMedia);
   const canProviderDictate = Boolean(
     dictationEnabledByProvider &&
-      onProviderTranscriptionSessionStart &&
-      onProviderTranscriptionSessionAppend &&
-      onProviderTranscriptionSessionStop &&
-      onProviderTranscriptionSessionCancel &&
-      providerCaptureSupported,
+      onProviderDictationTranscribe &&
+      mediaRecorderSupported,
   );
-  const resolvedProviderUnavailableMessage =
-    providerDictationUnavailableMessage?.trim() ||
-    "Provider dictation is not available.";
-  const dictationStartPath = resolveDictationStartPath({
-    dictationMode,
-    canProviderDictate,
-    canBrowserDictate,
-  });
-  const canDictate = !isDisabled && dictationStartPath !== "unavailable";
-  const showDictationButton =
+  const canDictate =
     !isDisabled &&
-    (dictationStartPath !== "unavailable" || dictationMode === "provider");
+    (dictationMode === "provider"
+      ? canProviderDictate
+      : dictationMode === "browser"
+        ? canBrowserDictate
+        : canProviderDictate || canBrowserDictate);
   const showPermissionControl = Boolean(
     executionControls && executionControlVisibility.permissionMode !== false,
   );
@@ -758,18 +617,13 @@ export const ChatInput = memo(function ChatInput({
     typeof document !== "undefined" &&
     Boolean(document.body);
 
-  const teardownProviderAudioCapture = useCallback(() => {
-    const processor = providerProcessorNodeRef.current;
-    if (processor) {
-      processor.onaudioprocess = null;
-      processor.disconnect();
+  const cleanupProviderCapture = useCallback(() => {
+    const recorder = providerRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.onstop = null;
+      recorder.stop();
     }
-    providerProcessorNodeRef.current = null;
-    const sourceNode = providerSourceNodeRef.current;
-    if (sourceNode) {
-      sourceNode.disconnect();
-    }
-    providerSourceNodeRef.current = null;
+    providerRecorderRef.current = null;
     const stream = providerStreamRef.current;
     if (stream) {
       for (const track of stream.getTracks()) {
@@ -777,46 +631,45 @@ export const ChatInput = memo(function ChatInput({
       }
     }
     providerStreamRef.current = null;
-    const audioContext = providerAudioContextRef.current;
-    if (audioContext) {
-      void audioContext.close();
-    }
-    providerAudioContextRef.current = null;
-  }, []);
-
-  const resetProviderCaptureSession = useCallback(() => {
-    providerPcmPendingRef.current = new Int16Array(0);
-    providerFilePcmChunksRef.current = [];
-    providerPcmQueueRef.current = [];
-    providerTranscriptionInFlightRef.current = false;
-    providerStopRequestedRef.current = false;
-    providerHasTranscriptRef.current = false;
-    providerBackendSessionIdRef.current = null;
-    providerResolvedTransportModeRef.current = "file";
-    providerChunkMsRef.current = PROVIDER_DEFAULT_CHUNK_MS;
-    providerSessionRef.current += 1;
+    providerChunksRef.current = [];
     dictationSourceRef.current = null;
   }, []);
 
-  const cleanupProviderCapture = useCallback(
-    (cancelBackendSession: boolean) => {
-      const backendSessionId = providerBackendSessionIdRef.current;
-      teardownProviderAudioCapture();
-      resetProviderCaptureSession();
-      if (
-        cancelBackendSession &&
-        backendSessionId &&
-        onProviderTranscriptionSessionCancel
-      ) {
-        void onProviderTranscriptionSessionCancel(backendSessionId);
-      }
-    },
-    [
-      onProviderTranscriptionSessionCancel,
-      resetProviderCaptureSession,
-      teardownProviderAudioCapture,
-    ],
-  );
+  const stopProviderCapture = useCallback(() => {
+    const recorder = providerRecorderRef.current;
+    if (!recorder) {
+      return;
+    }
+    if (recorder.state !== "inactive") {
+      recorder.stop();
+    }
+    providerRecorderRef.current = null;
+    dictationSourceRef.current = null;
+    setDictationState("transcribing");
+    setDictationFeedback("Transcribing...");
+  }, []);
+
+  const stopBrowserDictation = useCallback(() => {
+    const recognition = recognitionRef.current;
+    if (!recognition) {
+      return;
+    }
+    recognition.stop();
+    recognitionRef.current = null;
+    dictationSourceRef.current = null;
+    setDictationState("idle");
+    setDictationFeedback(null);
+  }, []);
+
+  const stopActiveDictationImmediately = useCallback(() => {
+    if (dictationSourceRef.current === "provider") {
+      cleanupProviderCapture();
+    } else {
+      stopBrowserDictation();
+    }
+    setDictationState("idle");
+    setDictationFeedback(null);
+  }, [cleanupProviderCapture, stopBrowserDictation]);
 
   const insertTranscript = useCallback(
     (transcript: string) => {
@@ -836,184 +689,6 @@ export const ChatInput = memo(function ChatInput({
     },
     [setInputValue],
   );
-
-  const maybeFinalizeProviderSession = useCallback(
-    (sessionId: number) => {
-      if (providerSessionRef.current !== sessionId) {
-        return;
-      }
-      if (!providerStopRequestedRef.current) {
-        return;
-      }
-      if (providerTranscriptionInFlightRef.current) {
-        return;
-      }
-      if (providerPcmQueueRef.current.length > 0) {
-        return;
-      }
-      void (async () => {
-        let stopTranscript: string | null = null;
-        const backendSessionId = providerBackendSessionIdRef.current;
-        try {
-          if (backendSessionId && onProviderTranscriptionSessionStop) {
-            stopTranscript =
-              await onProviderTranscriptionSessionStop(backendSessionId);
-          }
-        } catch (error) {
-          if (providerSessionRef.current !== sessionId) {
-            return;
-          }
-          cleanupProviderCapture(true);
-          setDictationState("error");
-          setDictationFeedback(
-            error instanceof Error && error.message
-              ? error.message
-              : "Provider transcription failed.",
-          );
-          return;
-        }
-        if (providerSessionRef.current !== sessionId) {
-          return;
-        }
-        const normalizedStopTranscript = (stopTranscript ?? "").trim();
-        if (normalizedStopTranscript) {
-          providerHasTranscriptRef.current = true;
-          insertTranscript(stopTranscript ?? "");
-        }
-        const hasTranscript = providerHasTranscriptRef.current;
-        cleanupProviderCapture(false);
-        if (hasTranscript) {
-          setDictationState("idle");
-          setDictationFeedback(null);
-          return;
-        }
-        setDictationState("error");
-        setDictationFeedback("No speech was detected.");
-      })();
-    },
-    [
-      cleanupProviderCapture,
-      insertTranscript,
-      onProviderTranscriptionSessionStop,
-    ],
-  );
-
-  const flushProviderPcmQueue = useCallback(
-    (sessionId: number) => {
-      if (providerSessionRef.current !== sessionId) {
-        return;
-      }
-      if (providerTranscriptionInFlightRef.current) {
-        return;
-      }
-      const backendSessionId = providerBackendSessionIdRef.current;
-      if (!backendSessionId || !onProviderTranscriptionSessionAppend) {
-        maybeFinalizeProviderSession(sessionId);
-        return;
-      }
-      const nextChunk = providerPcmQueueRef.current.shift();
-      if (!nextChunk) {
-        maybeFinalizeProviderSession(sessionId);
-        return;
-      }
-      providerTranscriptionInFlightRef.current = true;
-      void (async () => {
-        try {
-          const transcript = await onProviderTranscriptionSessionAppend(
-            backendSessionId,
-            nextChunk,
-            PROVIDER_TARGET_SAMPLE_RATE_HZ,
-            PROVIDER_CHANNELS,
-          );
-          if (providerSessionRef.current !== sessionId) {
-            return;
-          }
-          const normalized = (transcript ?? "").trim();
-          if (normalized) {
-            providerHasTranscriptRef.current = true;
-            insertTranscript(transcript ?? "");
-          }
-          if (!providerStopRequestedRef.current) {
-            setDictationFeedback("Listening...");
-          }
-        } catch (error) {
-          if (providerSessionRef.current !== sessionId) {
-            return;
-          }
-          cleanupProviderCapture(true);
-          setDictationState("error");
-          setDictationFeedback(
-            error instanceof Error && error.message
-              ? error.message
-              : "Provider transcription failed.",
-          );
-          return;
-        } finally {
-          if (providerSessionRef.current !== sessionId) {
-            return;
-          }
-          providerTranscriptionInFlightRef.current = false;
-          flushProviderPcmQueue(sessionId);
-        }
-      })();
-    },
-    [
-      cleanupProviderCapture,
-      insertTranscript,
-      maybeFinalizeProviderSession,
-      onProviderTranscriptionSessionAppend,
-      onProviderTranscriptionSessionStop,
-      onProviderTranscriptionSessionCancel,
-    ],
-  );
-
-  const stopProviderCapture = useCallback(() => {
-    const sessionId = providerSessionRef.current;
-    if (sessionId <= 0) {
-      return;
-    }
-    providerStopRequestedRef.current = true;
-    dictationSourceRef.current = null;
-    if (providerResolvedTransportModeRef.current === "realtime") {
-      const pending = providerPcmPendingRef.current;
-      if (pending.length > 0) {
-        providerPcmQueueRef.current.push(int16ToArrayBuffer(pending));
-        providerPcmPendingRef.current = new Int16Array(0);
-      }
-    } else {
-      const mergedChunk = mergeArrayBuffers(providerFilePcmChunksRef.current);
-      providerFilePcmChunksRef.current = [];
-      if (mergedChunk.byteLength > 0) {
-        providerPcmQueueRef.current.push(mergedChunk);
-      }
-    }
-    teardownProviderAudioCapture();
-    setDictationState("transcribing");
-    setDictationFeedback("Transcribing...");
-    flushProviderPcmQueue(sessionId);
-  }, [flushProviderPcmQueue, teardownProviderAudioCapture]);
-
-  const stopBrowserDictation = useCallback(() => {
-    const recognition = recognitionRef.current;
-    if (!recognition) {
-      return;
-    }
-    recognition.stop();
-    recognitionRef.current = null;
-    dictationSourceRef.current = null;
-    setDictationState("idle");
-    setDictationFeedback(null);
-  }, []);
-
-  const stopActiveDictationImmediately = useCallback(() => {
-    if (dictationSourceRef.current === "provider") {
-      cleanupProviderCapture(true);
-    } else {
-      stopBrowserDictation();
-    }
-    setDictationState("idle");
-    setDictationFeedback(null);
-  }, [cleanupProviderCapture, stopBrowserDictation]);
 
   const startBrowserDictation = useCallback(() => {
     if (!canBrowserDictate) {
@@ -1098,128 +773,113 @@ export const ChatInput = memo(function ChatInput({
   }, [canBrowserDictate, dictationMode, startBrowserDictation]);
 
   const startProviderDictation = useCallback(async () => {
-    if (
-      !canProviderDictate ||
-      !onProviderTranscriptionSessionStart ||
-      !onProviderTranscriptionSessionAppend ||
-      !onProviderTranscriptionSessionStop ||
-      !onProviderTranscriptionSessionCancel
-    ) {
+    if (!canProviderDictate || !onProviderDictationTranscribe) {
       if (maybeFallbackToBrowserDictation()) {
         return;
       }
       setDictationState("error");
-      setDictationFeedback(resolvedProviderUnavailableMessage);
+      setDictationFeedback("Provider dictation is not available.");
       return;
     }
     if (
       typeof navigator === "undefined" ||
       !navigator.mediaDevices?.getUserMedia ||
-      typeof window === "undefined" ||
-      typeof window.AudioContext === "undefined"
+      typeof MediaRecorder === "undefined"
     ) {
       if (maybeFallbackToBrowserDictation()) {
         return;
       }
       setDictationState("error");
-      setDictationFeedback(resolvedProviderUnavailableMessage);
+      setDictationFeedback("Provider dictation is not available.");
       return;
     }
-    cleanupProviderCapture(false);
-    let backendSessionId: string | null = null;
     try {
-      const startedSession = await onProviderTranscriptionSessionStart();
-      if (!startedSession || !startedSession.sessionId) {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      providerStreamRef.current = stream;
+      const mimeType = pickProviderRecorderMimeType(
+        MediaRecorder.isTypeSupported?.bind(MediaRecorder),
+      );
+      let recorder: MediaRecorder;
+      try {
+        recorder = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
+      } catch {
+        cleanupProviderCapture();
         if (maybeFallbackToBrowserDictation()) {
           return;
         }
         setDictationState("error");
-        setDictationFeedback(resolvedProviderUnavailableMessage);
+        setDictationFeedback("Provider dictation is not available.");
         return;
       }
-      backendSessionId = startedSession.sessionId;
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      providerStreamRef.current = stream;
-      const sessionId = providerSessionRef.current + 1;
-      providerSessionRef.current = sessionId;
-      providerBackendSessionIdRef.current = backendSessionId;
-      providerResolvedTransportModeRef.current =
-        startedSession.resolvedTransportMode;
-      providerChunkMsRef.current =
-        startedSession.resolvedTransportMode === "realtime"
-          ? Math.max(200, startedSession.chunkMs || PROVIDER_DEFAULT_CHUNK_MS)
-          : PROVIDER_DEFAULT_CHUNK_MS;
-      providerPcmPendingRef.current = new Int16Array(0);
-      providerFilePcmChunksRef.current = [];
-      providerPcmQueueRef.current = [];
-      providerTranscriptionInFlightRef.current = false;
-      providerStopRequestedRef.current = false;
-      providerHasTranscriptRef.current = false;
+      providerRecorderRef.current = recorder;
+      providerChunksRef.current = [];
       dictationSourceRef.current = "provider";
-      const audioContext = new window.AudioContext();
-      providerAudioContextRef.current = audioContext;
-      await audioContext.resume();
-      const sourceNode = audioContext.createMediaStreamSource(stream);
-      providerSourceNodeRef.current = sourceNode;
-      const processorNode = audioContext.createScriptProcessor(4096, 1, 1);
-      providerProcessorNodeRef.current = processorNode;
-      const silentGain = audioContext.createGain();
-      silentGain.gain.value = 0;
-      sourceNode.connect(processorNode);
-      processorNode.connect(silentGain);
-      silentGain.connect(audioContext.destination);
-      processorNode.onaudioprocess = (event) => {
-        if (providerSessionRef.current !== sessionId) {
-          return;
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          providerChunksRef.current.push(event.data);
         }
-        if (providerStopRequestedRef.current) {
-          return;
-        }
-        const channelData = event.inputBuffer.getChannelData(0);
-        if (!channelData || channelData.length === 0) {
-          return;
-        }
-        const pcmChunk = resampleFloat32ToMonoPcm16(
-          channelData,
-          audioContext.sampleRate,
-          PROVIDER_TARGET_SAMPLE_RATE_HZ,
-        );
-        if (pcmChunk.length === 0) {
-          return;
-        }
-        if (providerResolvedTransportModeRef.current === "realtime") {
-          providerPcmPendingRef.current = concatInt16(
-            providerPcmPendingRef.current,
-            pcmChunk,
-          );
-          const chunkSamples = Math.max(
-            1,
-            Math.floor(
-              (providerChunkMsRef.current * PROVIDER_TARGET_SAMPLE_RATE_HZ) /
-                1000,
-            ),
-          );
-          while (providerPcmPendingRef.current.length >= chunkSamples) {
-            const nextSamples = providerPcmPendingRef.current.slice(
-              0,
-              chunkSamples,
-            );
-            providerPcmQueueRef.current.push(int16ToArrayBuffer(nextSamples));
-            providerPcmPendingRef.current =
-              providerPcmPendingRef.current.slice(chunkSamples);
+      };
+      recorder.onerror = () => {
+        cleanupProviderCapture();
+        setDictationState("error");
+        setDictationFeedback("Microphone input failed.");
+      };
+      recorder.onstop = () => {
+        providerRecorderRef.current = null;
+        dictationSourceRef.current = null;
+        const streamRef = providerStreamRef.current;
+        if (streamRef) {
+          for (const track of streamRef.getTracks()) {
+            track.stop();
           }
-          flushProviderPcmQueue(sessionId);
+        }
+        providerStreamRef.current = null;
+        const chunks = providerChunksRef.current;
+        providerChunksRef.current = [];
+        let blobType = recorder.mimeType || mimeType || "audio/webm";
+        for (const chunk of chunks) {
+          if (chunk instanceof Blob && chunk.type) {
+            blobType = chunk.type;
+            break;
+          }
+        }
+        const blob = new Blob(chunks, { type: blobType });
+        if (blob.size === 0) {
+          setDictationState("error");
+          setDictationFeedback("No speech was detected.");
           return;
         }
-        providerFilePcmChunksRef.current.push(int16ToArrayBuffer(pcmChunk));
+        setDictationState("transcribing");
+        setDictationFeedback("Transcribing...");
+        void (async () => {
+          try {
+            const transcript = await onProviderDictationTranscribe(blob);
+            const normalized = (transcript ?? "").trim();
+            if (!normalized) {
+              setDictationState("error");
+              setDictationFeedback("Provider transcription failed.");
+              return;
+            }
+            insertTranscript(`${normalized} `);
+            setDictationState("idle");
+            setDictationFeedback(null);
+          } catch (error) {
+            setDictationState("error");
+            setDictationFeedback(
+              error instanceof Error && error.message
+                ? error.message
+                : "Provider transcription failed.",
+            );
+          }
+        })();
       };
       setDictationState("listening");
       setDictationFeedback("Listening...");
+      recorder.start();
     } catch {
-      if (backendSessionId) {
-        await onProviderTranscriptionSessionCancel(backendSessionId);
-      }
-      cleanupProviderCapture(false);
+      cleanupProviderCapture();
       if (maybeFallbackToBrowserDictation()) {
         return;
       }
@@ -1229,36 +889,34 @@ export const ChatInput = memo(function ChatInput({
   }, [
     canProviderDictate,
     cleanupProviderCapture,
-    flushProviderPcmQueue,
+    insertTranscript,
     maybeFallbackToBrowserDictation,
-    onProviderTranscriptionSessionAppend,
-    onProviderTranscriptionSessionCancel,
-    onProviderTranscriptionSessionStart,
-    onProviderTranscriptionSessionStop,
-    resolvedProviderUnavailableMessage,
+    onProviderDictationTranscribe,
   ]);
 
   const startDictation = useCallback(() => {
     if (!canDictate) {
       setDictationState("error");
-      setDictationFeedback(
-        resolveDictationUnavailableFeedback({
-          dictationMode,
-          providerUnavailableMessage: resolvedProviderUnavailableMessage,
-        }),
-      );
+      setDictationFeedback("Dictation is not available.");
       return;
     }
-    if (dictationStartPath === "provider") {
+    if (dictationMode === "provider") {
+      void startProviderDictation();
+      return;
+    }
+    if (dictationMode === "browser") {
+      startBrowserDictation();
+      return;
+    }
+    if (canProviderDictate) {
       void startProviderDictation();
       return;
     }
     startBrowserDictation();
   }, [
     canDictate,
+    canProviderDictate,
     dictationMode,
-    dictationStartPath,
-    resolvedProviderUnavailableMessage,
     startBrowserDictation,
     startProviderDictation,
   ]);
@@ -1267,7 +925,7 @@ export const ChatInput = memo(function ChatInput({
     return () => {
       recognitionRef.current?.stop();
       recognitionRef.current = null;
-      cleanupProviderCapture(true);
+      cleanupProviderCapture();
     };
   }, [cleanupProviderCapture]);
 
@@ -1520,7 +1178,7 @@ export const ChatInput = memo(function ChatInput({
                   Search
                 </button>
               ) : null}
-              {showDictationButton ? (
+              {canDictate ? (
                 <button
                   type="button"
                   disabled={isDisabled || dictationState === "transcribing"}

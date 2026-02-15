@@ -1,14 +1,18 @@
-## 2026-02-18 23:13:49 PST
+## 2026-02-18 23:04:05 PST
 
-- Reviewed and consolidated findings from `review1.md`, `review2.md`, and `review3.md`.
-- Fixed pre-merge reliability issues in transcription sessions:
-  - auto transport now falls back only on realtime capability failures and fast-fails on auth/config errors
-  - realtime engine init now closes connections on setup failure
-  - session ownership checks now validate scope before removing sessions
-  - base64 append payloads are size-guarded before decode
-- Aligned dictation behavior to target modes:
-  - realtime mode uses chunked streaming append
-  - file mode captures full audio and uploads/transcribes once on stop
-  - file mode no longer exposes misleading effective chunking semantics (`chunkMs` now `0` in file mode responses)
-- Updated documentation to match session-based dictation routes and current transport behavior.
-- Added/updated tests across backend unit/integration, frontend unit, and Playwright e2e to cover the above behavior.
+- Implemented MCP runtime status correctness fixes:
+  - Tightened external status parsing so non-MCP Claude/system events do not create phantom servers.
+  - Prevented fallback `unknown` statuses from overwriting concrete non-`unknown` runtime states.
+- Implemented frontend correctness and performance fixes:
+  - Added queued/latest-params MCP runtime refresh logic to avoid stale context updates during in-flight requests.
+  - Included `disabled` in the MCP status summary line for consistency with computed status totals.
+  - Optimized active-skill resolution using a precomputed identifier index map instead of repeated full-list scans.
+- Updated automated coverage:
+  - Backend tests for non-MCP payload rejection and unknown-overwrite prevention.
+  - Backend route test for disabled external-runner behavior.
+  - Frontend Vitest updates for status summary, root-priority activity mapping, and performance scaling guardrails.
+  - Playwright MCP viewer spec updated to mock/assert `POST /api/mcpServerRuntimeStatus` directly.
+- Verification run:
+  - Targeted backend pytest: pass.
+  - Targeted frontend Vitest: pass.
+  - Targeted Playwright MCP viewer suite: pass.

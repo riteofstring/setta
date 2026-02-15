@@ -65,6 +65,7 @@ from setta.types.external_agents import (
     ExternalAgentWorkingDirStrategy,
 )
 from setta.types.id import ID
+from setta.types.mcp_runtime_status import MCPServerRuntimeState
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl2 import create_agentic_edge, create_top_level_section
 from setta.types.project_config import ProjectConfig
@@ -2600,3 +2601,246 @@ class TestExternalAgentRunnerMcpAuth:
                 assert function.get("arguments") == {"path": "README.md"}
 
         asyncio.run(_run())
+
+
+class TestExternalAgentRunnerMcpRuntimeStatus:
+    def test_get_mcp_runtime_statuses_empty_without_chat_or_engine(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+
+            assert (
+                runner.get_mcp_server_runtime_statuses(
+                    chat_id=None,
+                    engine_config_id=ID("engine-1"),
+                )
+                == []
+            )
+            assert (
+                runner.get_mcp_server_runtime_statuses(
+                    chat_id=ID("chat-1"),
+                    engine_config_id=None,
+                )
+                == []
+            )
+
+    def test_seeded_handle_payload_is_available_from_runtime_getter(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-1"),
+            )
+            run = context.run
+            handle = ExternalAgentRunHandle(
+                run_id=run.id,
+                metadata={
+                    "mcp_server_status_payload": {
+                        "servers": [
+                            {
+                                "id": "setta",
+                                "connected": True,
+                                "transport": "streamable_http",
+                                "endpoint": "http://127.0.0.1:8000/mcp",
+                                "toolCount": 4,
+                            }
+                        ]
+                    }
+                },
+            )
+            runner._runs[run.id] = run
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=ClaudeSdkAdapter(),
+            )
+
+            runner._seed_external_mcp_statuses_from_handle(
+                context,
+                run_id=run.id,
+                handle=handle,
+            )
+
+            statuses = runner.get_mcp_server_runtime_statuses(
+                chat_id=run.id,
+                engine_config_id=ID("engine-1"),
+            )
+            assert len(statuses) == 1
+            assert statuses[0].serverId == "setta"
+            assert statuses[0].state == MCPServerRuntimeState.connected
+            assert statuses[0].toolCount == 4
+            assert statuses[0].source == "external_runtime"
+
+            assert (
+                runner.get_mcp_server_runtime_statuses(
+                    chat_id=run.id,
+                    engine_config_id=ID("engine-2"),
+                )
+                == []
+            )
+
+    def test_claude_raw_status_payload_is_captured(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-1"),
+            )
+            run = context.run
+            handle = ExternalAgentRunHandle(run_id=run.id)
+            runner._runs[run.id] = run
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=ClaudeSdkAdapter(),
+            )
+
+            runner._capture_external_mcp_statuses_from_raw(
+                context,
+                run_id=run.id,
+                raw_payload={
+                    "type": "system_message",
+                    "message": {
+                        "mcp_servers": [
+                            {
+                                "serverId": "filesystem",
+                                "status": "failed",
+                                "transport": "stdio",
+                                "command": "npx @modelcontextprotocol/server-filesystem .",
+                                "error": "spawn failed",
+                            }
+                        ]
+                    },
+                },
+            )
+
+            statuses = runner.get_mcp_server_runtime_statuses(
+                chat_id=run.id,
+                engine_config_id=ID("engine-1"),
+            )
+            assert len(statuses) == 1
+            assert statuses[0].serverId == "filesystem"
+            assert statuses[0].state == MCPServerRuntimeState.error
+            assert statuses[0].lastError == "spawn failed"
+            assert statuses[0].endpoint == "npx @modelcontextprotocol/server-filesystem ."
+
+    def test_claude_raw_non_mcp_system_message_is_ignored(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-1"),
+            )
+            run = context.run
+            handle = ExternalAgentRunHandle(run_id=run.id)
+            runner._runs[run.id] = run
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=ClaudeSdkAdapter(),
+            )
+
+            runner._capture_external_mcp_statuses_from_raw(
+                context,
+                run_id=run.id,
+                raw_payload={
+                    "type": "system_message",
+                    "message": {"type": "init", "id": "bootstrap-event"},
+                },
+            )
+
+            statuses = runner.get_mcp_server_runtime_statuses(
+                chat_id=run.id,
+                engine_config_id=ID("engine-1"),
+            )
+            assert statuses == []
+
+    def test_seeded_unknown_fallback_does_not_override_payload_status(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            mcp_config_path = Path(tmpdir) / "claude-mcp.json"
+            mcp_config_path.write_text(
+                json.dumps(
+                    {
+                        "mcpServers": {
+                            "filesystem": {
+                                "type": "stdio",
+                                "command": "npx @modelcontextprotocol/server-filesystem .",
+                            }
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-1"),
+                inputs={"mcpConfig": str(mcp_config_path)},
+            )
+            run = context.run
+            handle = ExternalAgentRunHandle(
+                run_id=run.id,
+                metadata={
+                    "mcp_server_status_payload": {
+                        "mcp_servers": [
+                            {
+                                "serverId": "filesystem",
+                                "connected": True,
+                                "transport": "stdio",
+                                "command": "npx @modelcontextprotocol/server-filesystem .",
+                                "toolCount": 4,
+                            }
+                        ]
+                    }
+                },
+            )
+            runner._runs[run.id] = run
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=ClaudeSdkAdapter(),
+            )
+
+            runner._seed_external_mcp_statuses_from_handle(
+                context,
+                run_id=run.id,
+                handle=handle,
+            )
+
+            statuses = runner.get_mcp_server_runtime_statuses(
+                chat_id=run.id,
+                engine_config_id=ID("engine-1"),
+            )
+            assert len(statuses) == 1
+            assert statuses[0].serverId == "filesystem"
+            assert statuses[0].state == MCPServerRuntimeState.connected
+            assert statuses[0].toolCount == 4

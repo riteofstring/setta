@@ -27,8 +27,6 @@ import {
 import { TbLayoutDashboard } from "react-icons/tb";
 import { getRunInputString } from "state/actions/agentRunUtils";
 import {
-  appendTranscriptionAudio,
-  cancelTranscriptionSession,
   clearPendingChatDetails,
   finalizePendingChatDetails,
   getDefaultChatDetails,
@@ -36,11 +34,10 @@ import {
   getLLMChat,
   initializePendingChatDetails,
   loadAgentRuns,
-  startTranscriptionSession,
   stopProjectChatResponse,
-  stopTranscriptionSession,
   submitEditedMessage,
   submitMessage,
+  transcribeChatAudio,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
@@ -417,10 +414,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hasLLMConfig,
   externalEngineAvailable,
   noLLMConfigsAvailable,
-  transcriptionProfileId,
-  dictationMode,
-  providerDictationAvailable,
-  providerDictationUnavailableReason,
   setChatId,
   onPermissionModeChange,
 }: {
@@ -432,10 +425,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hasLLMConfig: boolean;
   externalEngineAvailable: boolean;
   noLLMConfigsAvailable: boolean;
-  transcriptionProfileId: string | null;
-  dictationMode: "auto" | "browser" | "provider";
-  providerDictationAvailable: boolean;
-  providerDictationUnavailableReason: string;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
   onPermissionModeChange?: (
     nextPermissionMode: ChatPermissionModeValue,
@@ -819,50 +808,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     const starterPrompt = buildDesignFirstFigmaStarterPrompt();
     setDraftMessage((current) => (current.trim() ? current : starterPrompt));
   }, []);
-  const handleProviderTranscriptionSessionStart = useCallback(async () => {
-    if (!transcriptionProfileId) {
-      return null;
-    }
-    return startTranscriptionSession(transcriptionProfileId);
-  }, [transcriptionProfileId]);
-
-  const handleProviderTranscriptionSessionAppend = useCallback(
-    async (
-      sessionId: string,
-      audioPcm16: ArrayBuffer,
-      sampleRateHz: number,
-      channels: number,
-    ) => {
-      const response = await appendTranscriptionAudio(
-        sessionId,
-        audioPcm16,
-        sampleRateHz,
-        channels,
-      );
-      if (!response) {
+  const handleProviderDictationTranscribe = useCallback(
+    async (audioBlob: Blob) => {
+      if (!engineConfigId || isExternalEngine) {
         return null;
       }
-      return response.appendText || null;
+      return transcribeChatAudio(engineConfigId, audioBlob);
     },
-    [],
-  );
-
-  const handleProviderTranscriptionSessionStop = useCallback(
-    async (sessionId: string) => {
-      const response = await stopTranscriptionSession(sessionId);
-      if (!response) {
-        return null;
-      }
-      return response.appendText || null;
-    },
-    [],
-  );
-
-  const handleProviderTranscriptionSessionCancel = useCallback(
-    async (sessionId: string) => {
-      await cancelTranscriptionSession(sessionId);
-    },
-    [],
+    [engineConfigId, isExternalEngine],
   );
 
   return (
@@ -903,20 +856,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           permissionMode: showPermissionExecutionControl,
           search: showSearchExecutionControl,
         }}
-        dictationMode={dictationMode}
-        dictationEnabledByProvider={providerDictationAvailable}
-        providerDictationUnavailableMessage={providerDictationUnavailableReason}
-        onProviderTranscriptionSessionStart={
-          handleProviderTranscriptionSessionStart
-        }
-        onProviderTranscriptionSessionAppend={
-          handleProviderTranscriptionSessionAppend
-        }
-        onProviderTranscriptionSessionStop={
-          handleProviderTranscriptionSessionStop
-        }
-        onProviderTranscriptionSessionCancel={
-          handleProviderTranscriptionSessionCancel
+        dictationEnabledByProvider={Boolean(engineConfigId)}
+        onProviderDictationTranscribe={
+          isExternalEngine ? undefined : handleProviderDictationTranscribe
         }
       />
     </>
