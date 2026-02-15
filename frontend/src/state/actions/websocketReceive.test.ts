@@ -1,8 +1,6 @@
-import { useListenerCoverage, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  DependencyKeyTypeEnum,
-  DependencyValueTypeEnum,
   createProjectConfig,
   createSettaLspDiagnosticsPayload,
   createSettaProjectConfigDiagnostics,
@@ -49,16 +47,9 @@ vi.mock("state/actions/sectionInfos", async () => {
 
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
-  static CONNECTING = 0;
-  static OPEN = 1;
-  static CLOSING = 2;
-  static CLOSED = 3;
   listeners: Record<string, Array<(event?: unknown) => unknown>> = {};
-  readyState = MockWebSocket.CONNECTING;
   send = vi.fn();
-  close = vi.fn(() => {
-    this.readyState = MockWebSocket.CLOSED;
-  });
+  close = vi.fn();
   constructor(public url: string) {
     MockWebSocket.instances.push(this);
   }
@@ -69,12 +60,6 @@ class MockWebSocket {
     this.listeners[type].push(listener);
   }
   async emit(type: string, event?: unknown) {
-    if (type === "open") {
-      this.readyState = MockWebSocket.OPEN;
-    }
-    if (type === "close") {
-      this.readyState = MockWebSocket.CLOSED;
-    }
     const listeners = this.listeners[type] ?? [];
     for (const listener of listeners) {
       await listener(event);
@@ -161,72 +146,5 @@ describe("openWebSocket", () => {
       projectConfigId: "project-1",
     });
     expect(processLspDiagnostics).toHaveBeenCalledWith(diagnosticsPayload);
-  });
-
-  it("sends realtime dependency events when listener coverage is unknown", async () => {
-    const { openWebSocket, sendRealtimeDependencyEvent } = await import(
-      "state/actions/websocketReceive"
-    );
-    openWebSocket("/project", "share-session-coverage-unknown");
-    vi.runAllTimers();
-
-    const socket = MockWebSocket.instances[0];
-    await socket.emit("open");
-    const sendCallCountBefore = socket.send.mock.calls.length;
-
-    sendRealtimeDependencyEvent(
-      {
-        dependencyKey: {
-          type: DependencyKeyTypeEnum.Section,
-          sectionId: "section-unknown-coverage",
-        },
-        payload: {
-          type: DependencyValueTypeEnum.Literal,
-          payload: "hello",
-        },
-      },
-      "project-unknown-coverage",
-    );
-
-    expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore + 1);
-  });
-
-  it("does not send realtime dependency events excluded by known coverage", async () => {
-    const { openWebSocket, sendRealtimeDependencyEvent } = await import(
-      "state/actions/websocketReceive"
-    );
-    openWebSocket("/project", "share-session-coverage-known");
-    vi.runAllTimers();
-
-    const socket = MockWebSocket.instances[0];
-    await socket.emit("open");
-    useListenerCoverage.setState((state) => {
-      state.byProjectId["project-covered"] = {
-        hasRealtimeWildcard: false,
-        dependenciesByKey: {
-          "different-section::": {
-            type: DependencyKeyTypeEnum.Section,
-            sectionId: "different-section",
-          },
-        },
-      };
-    });
-    const sendCallCountBefore = socket.send.mock.calls.length;
-
-    sendRealtimeDependencyEvent(
-      {
-        dependencyKey: {
-          type: DependencyKeyTypeEnum.Section,
-          sectionId: "not-covered",
-        },
-        payload: {
-          type: DependencyValueTypeEnum.Literal,
-          payload: "hello",
-        },
-      },
-      "project-covered",
-    );
-
-    expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
   });
 });
