@@ -60,6 +60,33 @@ function clampToBounds(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+export function partitionProjectsByFavoriteStatus({
+  projects,
+  favoriteProjectConfigIds,
+}: {
+  projects: Array<ProjectConfig>;
+  favoriteProjectConfigIds: Set<string>;
+}): {
+  favoriteProjects: Array<ProjectConfig>;
+  nonFavoriteProjects: Array<ProjectConfig>;
+  totalProjectsCount: number;
+} {
+  const favoriteProjects: Array<ProjectConfig> = [];
+  const nonFavoriteProjects: Array<ProjectConfig> = [];
+  for (const project of projects) {
+    if (favoriteProjectConfigIds.has(project.id)) {
+      favoriteProjects.push(project);
+      continue;
+    }
+    nonFavoriteProjects.push(project);
+  }
+  return {
+    favoriteProjects,
+    nonFavoriteProjects,
+    totalProjectsCount: projects.length,
+  };
+}
+
 export function getHomeMaxTotalSideWidth(desktopColumnsWidth: number): number {
   return Math.max(
     HOME_MIN_LEFT_COLUMN_WIDTH + HOME_MIN_RIGHT_COLUMN_WIDTH,
@@ -169,12 +196,12 @@ function HomeWorkspaceLayout({
     () => new Set(favoriteProjectConfigIds),
     [favoriteProjectConfigIds],
   );
-  const favoriteProjects = useMemo(
-    () => filteredProjects.filter((project) => favoriteIdSet.has(project.id)),
-    [filteredProjects, favoriteIdSet],
-  );
-  const nonFavoriteProjects = useMemo(
-    () => filteredProjects.filter((project) => !favoriteIdSet.has(project.id)),
+  const { favoriteProjects, nonFavoriteProjects, totalProjectsCount } = useMemo(
+    () =>
+      partitionProjectsByFavoriteStatus({
+        projects: filteredProjects,
+        favoriteProjectConfigIds: favoriteIdSet,
+      }),
     [filteredProjects, favoriteIdSet],
   );
 
@@ -452,6 +479,7 @@ function HomeWorkspaceLayout({
   const commonGalleryProps = {
     favoriteProjects,
     nonFavoriteProjects,
+    totalProjectsCount,
     defaultProjectConfigId,
     selectedProjects,
     onSelectProject,
@@ -690,6 +718,7 @@ function HomeFileBrowserColumn() {
 function HomeProjectGallery({
   favoriteProjects,
   nonFavoriteProjects,
+  totalProjectsCount,
   defaultProjectConfigId,
   selectedProjects,
   onSelectProject,
@@ -703,6 +732,7 @@ function HomeProjectGallery({
 }: {
   favoriteProjects: Array<ProjectConfig>;
   nonFavoriteProjects: Array<ProjectConfig>;
+  totalProjectsCount: number;
   defaultProjectConfigId: string | null;
   selectedProjects: Array<string>;
   onSelectProject: (id: string) => void;
@@ -714,9 +744,7 @@ function HomeProjectGallery({
   onToggleFavoriteProjectConfig: (projectConfigId: string) => void;
   galleryViewMode: "thumbnails" | "list";
 }) {
-  const allProjects = [...favoriteProjects, ...nonFavoriteProjects];
-
-  if (allProjects.length === 0) {
+  if (totalProjectsCount === 0) {
     return (
       <section
         className="flex h-full min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-setta-200/75 bg-white/75 p-3 shadow-sm dark:border-setta-800/80 dark:bg-setta-900/40"
@@ -773,7 +801,7 @@ function HomeProjectGallery({
             <FiList size={12} />
           </button>
           <span className="ml-1 text-[10px] uppercase tracking-[0.14em] text-setta-400">
-            {allProjects.length}
+            {totalProjectsCount}
           </span>
         </div>
       </div>
@@ -1255,7 +1283,17 @@ function ProjectListItem({
     if (event.target !== event.currentTarget) {
       return;
     }
-    if (event.key !== "Enter" && event.key !== " ") {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      if (!projectPath) {
+        return;
+      }
+      navigate(projectPath, {
+        state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+      });
+      return;
+    }
+    if (event.key !== " ") {
       return;
     }
     event.preventDefault();

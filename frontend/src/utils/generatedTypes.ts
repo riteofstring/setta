@@ -9619,18 +9619,12 @@ const BackendInitEventSchema = z.object({
   timestamp: z.iso.datetime().default(get_now_timestamp),
 });
 
-const BackendInitWorktreeOptionSchema = z.object({
-  name: z.string(),
-  isActive: z.boolean(),
-});
-
 const BackendInitStatusResponseSchema = z.object({
   events: z.array(BackendInitEventSchema),
   isReady: z.boolean(),
   error: z.union([z.string(), z.null()]),
   authCookieRefreshWindowSeconds: z.int(),
   worktreeName: z.union([z.string(), z.null()]),
-  worktreeOptionDetails: z.array(BackendInitWorktreeOptionSchema),
 });
 
 export type BackendInitStatusResponse = z.infer<

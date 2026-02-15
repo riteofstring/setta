@@ -148,7 +148,7 @@ describe("Overview rail offsets", () => {
     expect(style).toContain("bottom:36px");
   });
 
-  it("maps legacy ProjectConfigs tab selection into the View Modes pane with project configs section", () => {
+  it("renders the View Modes pane content when the view modes tab is selected", () => {
     const viewId = "view-1";
     const projectConfig = createProjectConfig({
       id: "project-1",
@@ -171,9 +171,7 @@ describe("Overview rail offsets", () => {
     useProjectState.setState((state) => {
       state.projectConfig = projectConfig;
     });
-    useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.ProjectConfigs,
-    });
+    useLocalStorage.setState({ overviewTab: OverviewTabNameEnum.ViewModes });
     syncStoreInitialState(useProjectState);
     syncStoreInitialState(useLocalStorage);
     const markup = renderToStaticMarkup(

@@ -135,10 +135,13 @@ test("home browser marks Setta-initialized folders", async ({ page }) => {
     path.join(workspaceRoot, "setta-home-browser-"),
   );
   const initializedFolder = path.join(tempRoot, "initialized-folder");
+  const nestedFolder = path.join(initializedFolder, "nested-folder");
   const plainFolder = path.join(tempRoot, "plain-folder");
   await fs.mkdir(path.join(initializedFolder, "setta_files"), {
     recursive: true,
   });
+  await fs.mkdir(nestedFolder, { recursive: true });
+  await fs.writeFile(path.join(nestedFolder, "readme.txt"), "hello");
   await fs.mkdir(plainFolder, { recursive: true });
 
   try {
@@ -153,6 +156,10 @@ test("home browser marks Setta-initialized folders", async ({ page }) => {
     const initializedRow = page
       .getByTestId("file-browser-row")
       .filter({ hasText: "initialized-folder" })
+      .first();
+    const nestedRow = page
+      .getByTestId("file-browser-row")
+      .filter({ hasText: "nested-folder" })
       .first();
     const plainRow = page
       .getByTestId("file-browser-row")
@@ -170,11 +177,17 @@ test("home browser marks Setta-initialized folders", async ({ page }) => {
     await expect(
       initializedRow.getByTestId("setta-initialized-badge"),
     ).toHaveCount(0);
+    await initializedRow.getByLabel("Expand folder").click();
+    await expect(nestedRow).toBeVisible();
+    await nestedRow.click();
+    await expect(nestedRow).toHaveClass(/bg-blue-50/);
 
     await settaBadgeToggle.click();
     await expect(
       initializedRow.getByTestId("setta-initialized-badge"),
     ).toBeVisible();
+    await expect(nestedRow).toBeVisible();
+    await expect(nestedRow).toHaveClass(/bg-blue-50/);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
@@ -221,10 +234,18 @@ test("home project items select on single click and open on double click", async
     await expect(firstRow).toBeVisible();
     await expect(secondRow).toBeVisible();
     await firstRow.click();
-    const detailsPanel = page.getByTestId("home-selected-project-details").first();
+    const detailsPanel = page
+      .getByTestId("home-selected-project-details")
+      .first();
     const firstRowName = (await firstRow.locator("span").first().textContent())
       ?.trim()
       .replace(/\s+/g, " ");
+    const primaryRow = firstRowName
+      ? page
+          .getByTestId("home-project-list-row")
+          .filter({ hasText: firstRowName })
+          .first()
+      : firstRow;
     if (firstRowName) {
       await expect(detailsPanel).toContainText(firstRowName);
     }
@@ -246,7 +267,21 @@ test("home project items select on single click and open on double click", async
       await expect(detailsPanel).toContainText(firstRowName);
     }
 
-    await firstRow.dblclick();
+    await primaryRow.focus();
+    await page.keyboard.press("Space");
+    await expect(page).toHaveURL(HOME_URL);
+    if (firstRowName) {
+      await expect(detailsPanel).toContainText(firstRowName);
+    }
+
+    await secondRow.focus();
+    await page.keyboard.press("Enter");
+    await expect(page).not.toHaveURL(HOME_URL);
+    await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+    await page.getByTestId("home-project-view-list").first().click();
+    await expect(primaryRow).toBeVisible();
+
+    await primaryRow.dblclick();
     await expect(page).not.toHaveURL(HOME_URL);
   } finally {
     if (createdProjectIds.length > 0) {

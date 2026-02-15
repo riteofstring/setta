@@ -334,10 +334,7 @@ function Footer({
       <Dialog.Close asChild>
         <button
           className="nodrag inline-flex h-8 cursor-pointer items-center rounded-md border border-setta-200 px-3 text-sm font-semibold text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 focus-visible:ring-2 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
-          onClick={() => {
-            closeModal();
-            onClose();
-          }}
+          onClick={onClose}
         >
           Close
         </button>

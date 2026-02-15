@@ -67,13 +67,7 @@ export function Overview() {
   const showAppTab = !isDeploymentMode;
   const showLLMTabs = !isDeploymentMode || allowLLM;
   let effectiveTabName = selectedTabName;
-  const viewModesInitialPane =
-    selectedTabName === OverviewTabNameEnum.ProjectConfigs
-      ? "projectConfigs"
-      : "viewModes";
-  if (selectedTabName === OverviewTabNameEnum.ProjectConfigs) {
-    effectiveTabName = OverviewTabNameEnum.ViewModes;
-  }
+  const viewModesInitialPane = "viewModes";
   if (!showLLMTabs) {
     if (
       selectedTabName === OverviewTabNameEnum.ProjectAIChat ||
@@ -248,7 +242,7 @@ function TabsVisible({
   viewModesInitialPane,
 }: {
   selectedTabName: OverviewTabName;
-  viewModesInitialPane: "viewModes" | "projectConfigs";
+  viewModesInitialPane: "viewModes";
 }) {
   const title = OverviewTabNamePrettified[selectedTabName];
   const isFullWidth = selectedTabName === OverviewTabNameEnum.FileBrowser;
@@ -285,7 +279,7 @@ function TabContent({
   viewModesInitialPane,
 }: {
   selectedTabName: OverviewTabName;
-  viewModesInitialPane: "viewModes" | "projectConfigs";
+  viewModesInitialPane: "viewModes";
 }) {
   switch (selectedTabName) {
     case OverviewTabNameEnum.Overview:

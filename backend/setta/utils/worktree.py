@@ -100,3 +100,10 @@ def list_dev_worktree_options() -> list[DevWorktreeOption]:
             isActive=True,
         )
     ]
+
+
+def get_active_dev_worktree_name() -> str | None:
+    repo_root = get_repo_root_dir()
+    if repo_root is None:
+        return None
+    return derive_dev_worktree_name(repo_root.resolve(strict=False))

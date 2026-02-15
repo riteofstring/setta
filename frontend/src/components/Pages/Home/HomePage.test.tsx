@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   getHomeMaxTotalSideWidth,
   getProjectTopLevelSectionCount,
+  partitionProjectsByFavoriteStatus,
   shouldClampHomeSideColumnWidths,
 } from "./HomePage";
 
@@ -31,5 +32,25 @@ describe("HomePage", () => {
     });
 
     expect(getProjectTopLevelSectionCount(project)).toBe(2);
+  });
+
+  it("partitions favorite and non-favorite projects in a single pass result", () => {
+    const projectA = createProjectConfig({ id: "project-a", name: "A" });
+    const projectB = createProjectConfig({ id: "project-b", name: "B" });
+    const projectC = createProjectConfig({ id: "project-c", name: "C" });
+
+    const partitioned = partitionProjectsByFavoriteStatus({
+      projects: [projectA, projectB, projectC],
+      favoriteProjectConfigIds: new Set(["project-a", "project-c"]),
+    });
+
+    expect(partitioned.favoriteProjects.map((project) => project.id)).toEqual([
+      "project-a",
+      "project-c",
+    ]);
+    expect(
+      partitioned.nonFavoriteProjects.map((project) => project.id),
+    ).toEqual(["project-b"]);
+    expect(partitioned.totalProjectsCount).toBe(3);
   });
 });

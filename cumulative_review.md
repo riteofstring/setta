@@ -26,3 +26,14 @@
 - Simplified backend sort-order validation by removing redundant post-loop set-equivalence checks while keeping length, membership, and duplicate guards intact.
 - Added/updated Vitest, pytest, and Playwright coverage for dedupe utility behavior, file-browser default badge payload behavior, sort-order duplicate rejection, Home keyboard interactions, and project-config delete-button keyboard bubbling.
 - Added an append-only perf report documenting before/after Home file-browser request behavior for `includeSettaInitialized`.
+
+## 2026-02-17 11:00:08 PST
+
+- Removed unused backend init-status payload surface by dropping `worktreeOptionDetails` and deriving `worktreeName` directly from repo root to avoid per-poll `git worktree list` subprocess work.
+- Fixed Home list-view keyboard parity so `Enter` opens the active project while `Space` keeps selection behavior.
+- Optimized Home project partitioning to a single-pass favorite/non-favorite split and removed temporary concat-based counting.
+- Fixed Home file-browser Setta badge toggle behavior to refresh loaded folders in place without resetting `selectedPath` or collapsing expanded folders.
+- Removed legacy Overview `ProjectConfigs` compatibility remap and standardized View Modes initial-pane routing to current behavior only.
+- Removed duplicate Save/Load modal close transitions by keeping one close path.
+- Updated backend pytest, frontend Vitest, and Playwright coverage for init-status/worktree behavior, Home keyboard interactions, Home badge-toggle state retention, and new partition logic.
+- Added a new append-only frontend perf report for Home project partitioning (`single-pass` vs legacy filtering).

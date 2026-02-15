@@ -4,6 +4,7 @@ from pathlib import Path
 from setta.utils.worktree import (
     _parse_git_worktree_list_porcelain,
     derive_dev_worktree_name,
+    get_active_dev_worktree_name,
     get_repo_root_dir,
     list_dev_worktree_options,
 )
@@ -61,3 +62,18 @@ def test_list_dev_worktree_options_falls_back_to_repo_root_when_git_fails(
     assert options[0].name == "feature-b"
     assert options[0].isActive is True
     assert Path(options[0].path) == repo_root.resolve(strict=False)
+
+
+def test_get_active_dev_worktree_name_returns_none_when_repo_root_missing(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr("setta.utils.worktree.get_repo_root_dir", lambda: None)
+    assert get_active_dev_worktree_name() is None
+
+
+def test_get_active_dev_worktree_name_derives_name_from_repo_root(
+    monkeypatch,
+) -> None:
+    repo_root = Path("/tmp/setta.feature-c")
+    monkeypatch.setattr("setta.utils.worktree.get_repo_root_dir", lambda: repo_root)
+    assert get_active_dev_worktree_name() == "feature-c"

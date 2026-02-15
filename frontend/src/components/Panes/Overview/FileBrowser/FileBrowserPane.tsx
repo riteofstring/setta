@@ -83,6 +83,28 @@ type FlattenedNode = FileNode & {
 
 type FlattenedFileNode = FlattenedNode;
 
+export function getSettaBadgeRefreshFolderPaths({
+  rootPath,
+  expandedPaths,
+  nodesByPath,
+}: {
+  rootPath: string;
+  expandedPaths: Record<string, boolean>;
+  nodesByPath: Record<string, FileNode>;
+}): string[] {
+  const paths = new Set<string>([rootPath]);
+  for (const [path, isExpanded] of Object.entries(expandedPaths)) {
+    if (!isExpanded) {
+      continue;
+    }
+    const node = nodesByPath[path];
+    if (node?.type === "folder") {
+      paths.add(path);
+    }
+  }
+  return Array.from(paths);
+}
+
 export function flattenFileBrowserTree({
   rootPath,
   nodesByPath,
@@ -507,6 +529,25 @@ export function FileBrowserPane({
     [fetchFolderContents, fileBrowserState, pathSeparator],
   );
 
+  const refreshLoadedFoldersForSettaBadges = useCallback(async () => {
+    if (!rootPath) {
+      return;
+    }
+    rootRequestIdRef.current += 1;
+    const refreshRequestId = rootRequestIdRef.current;
+    folderRequestIdRef.current = {};
+    const folderPaths = getSettaBadgeRefreshFolderPaths({
+      rootPath,
+      expandedPaths,
+      nodesByPath: nodesByPathRef.current,
+    });
+    await Promise.all(
+      folderPaths.map((path) =>
+        fetchFolderContents(path, undefined, refreshRequestId),
+      ),
+    );
+  }, [expandedPaths, fetchFolderContents, rootPath]);
+
   const handleSort = useCallback((nextKey: SortKey) => {
     setSortKey((prevKey) => {
       if (prevKey === nextKey) {
@@ -557,18 +598,14 @@ export function FileBrowserPane({
       includeSettaInitializedRef.current = includeSettaInitializedFolders;
       return;
     }
-    if (
-      includeSettaInitializedRef.current === includeSettaInitializedFolders
-    ) {
+    if (includeSettaInitializedRef.current === includeSettaInitializedFolders) {
       return;
     }
     includeSettaInitializedRef.current = includeSettaInitializedFolders;
-    applyRootPath(rootPath, pathSeparator, ignorePatterns);
+    void refreshLoadedFoldersForSettaBadges();
   }, [
-    applyRootPath,
-    ignorePatterns,
     includeSettaInitializedFolders,
-    pathSeparator,
+    refreshLoadedFoldersForSettaBadges,
     rootPath,
   ]);
 
