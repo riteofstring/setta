@@ -302,7 +302,6 @@ export const CodeLanguageEnum = {
   typescript: "typescript",
   json: "json",
   yaml: "yaml",
-  toml: "toml",
   markdown: "markdown",
   plaintext: "plaintext",
 } as const;
@@ -402,6 +401,7 @@ export const RouteEnum = {
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   GET_SERVER_MODE: "/serverMode",
   GET_SETTA_HOME_INFO: "/settaHomeInfo",
+  REVEAL_PATH_IN_OS_FILE_EXPLORER: "/revealPathInOsFileExplorer",
   LAUNCH: "/launch",
   SAVE_SETTINGS_PROJECT: "/saveSettingsProject",
   LOAD_SETTINGS_PROJECT: "/loadSettingsProject",
@@ -537,6 +537,8 @@ export const RouteEnum = {
   GET_APP_CATALOG: "/getAppCatalog",
   LIST_APP_COMPONENTS: "/listAppComponents",
   STREAM_APP_SPEC: "/streamAppSpec",
+  GET_APP_GEN_SKILLS: "/getAppGenSkills",
+  GET_APP_GEN_SKILL_CONTENT: "/getAppGenSkillContent",
   SET_PROMPT_TEMPLATE: "/setPromptTemplate",
   SET_PROMPT_INPUTS: "/setPromptInputs",
   SET_PROMPT_FORMAT: "/setPromptFormat",
@@ -7395,6 +7397,21 @@ const GetLLMResponseRequestSchema = z.object({
   branchParentChatId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
   appSpecStreamingEnabled: z.boolean().default(false),
+  appGenerationMode: z
+    .union([
+      z.literal([
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+      ]),
+      z.null(),
+    ])
+    .default(null),
+  appGenerationReferenceImageUrl: z.union([z.string(), z.null()]).default(null),
+  appGenerationReferenceImageNotes: z
+    .union([z.string(), z.null()])
+    .default(null),
 });
 
 export type GetLLMResponseRequestInput = z.input<
@@ -7443,8 +7460,48 @@ export type PublishAppDeploymentRequestInput = z.input<
   typeof PublishAppDeploymentRequestSchema
 >;
 
+const AppGenSkillContentSchema = z.object({
+  skillId: z.string(),
+  content: z.string(),
+});
+
+export type AppGenSkillContent = z.infer<typeof AppGenSkillContentSchema>;
+
+const AppGenSkillEntrySchema = z.object({
+  skillId: z.string(),
+  name: z.string(),
+  rootLabel: z.string(),
+  rootPath: z.string(),
+  relativePath: z.string(),
+  skillPath: z.string(),
+  description: z.string().default("" as const),
+});
+
+export type AppGenSkillEntry = z.infer<typeof AppGenSkillEntrySchema>;
+
+const GetAppGenSkillContentRequestSchema = z.object({
+  skillId: z.string(),
+});
+
+export type GetAppGenSkillContentRequestInput = z.input<
+  typeof GetAppGenSkillContentRequestSchema
+>;
+
 const StreamAppSpecRequestSchema = z.object({
   prompt: z.string(),
+  mode: z
+    .union([
+      z.literal([
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+      ]),
+      z.null(),
+    ])
+    .default(null),
+  referenceImageUrl: z.union([z.string(), z.null()]).default(null),
+  referenceImageNotes: z.union([z.string(), z.null()]).default(null),
   context: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
   currentSpec: z.union([z.any(), z.null()]).default(null),
 });
@@ -9530,9 +9587,20 @@ export type BackendInitStatusResponse = z.infer<
   typeof BackendInitStatusResponseSchema
 >;
 
+const RevealPathInOsFileExplorerRequestSchema = z.object({
+  path: z.string(),
+});
+
+export type RevealPathInOsFileExplorerRequestInput = z.input<
+  typeof RevealPathInOsFileExplorerRequestSchema
+>;
+
 const SettaHomeInfoResponseSchema = z.object({
   settaHome: z.string(),
   globalSettaFilesBase: z.string(),
+  activeSettaFilesRoot: z.string(),
+  activeSettaFilesLocation: z.string(),
+  llmConfigPath: z.string(),
 });
 
 export type SettaHomeInfoResponse = z.infer<typeof SettaHomeInfoResponseSchema>;

@@ -1,11 +1,20 @@
-# Cumulative Review Notes
+## 2026-02-17T00:02:09Z
 
-## 2026-02-17 16:17
+Status: Implemented
 
-- Restored Appearance settings availability in `SectionConfig` for section types that still expose base style/tag fields (`ListRoot`, `Group`, `GenPythonCode`, `GenPythonMetadata`, `Terminal`).
-- Hardened backend log copy flow so unsupported clipboard environments resolve to explicit failure feedback instead of uncaught sync-throw paths.
-- Added backend log resize listener teardown on unmount-mid-drag to prevent lingering global mouse listeners.
-- Realigned non-small pill combobox spacing by increasing right input padding to match larger chevron button footprint.
-- Consolidated duplicated pane accordion scaffolding behind a shared `PaneAccordion` primitive used by both Run Instructions and Section Config wrappers.
-- Added targeted automated coverage for the review fixes in Vitest and Playwright, including Terminal Appearance availability in Section Config.
-- Per branch direction, retained unrelated `docs/plans/worktrees/**` deletions and excluded top-level `review*.md` working notes from final tracked changes.
+Accepted findings fixed in this batch:
+- Removed app-generation mode inference from arbitrary chat text; only explicit `appGenerationMode` is honored.
+- Stabilized Skills/MCP list refresh so skill selection no longer refetches the full skills list.
+- Added stale-response protection for skill markdown fetches to prevent out-of-order overwrite.
+- Removed silent 200-item cap in the skills list.
+- Ensured app spec generation seeds are detached clones to avoid mutating persisted state by reference.
+- Removed duplicate hidden-chat delivery/tool instructions and kept those rules in backend system prompt guidance.
+- Switched app-gen skill discovery to top-down directory walking with skip-directory pruning.
+- Updated generated type export filtering to exclude private set constants.
+- Removed backward-compat route-missing guidance shim in the Skills/MCP panel.
+
+Test and verification coverage added/updated:
+- Backend router unit/integration tests for explicit app-generation mode behavior and traversal pruning.
+- Frontend unit/perf tests for hidden prompt construction and detached `buildSpecSeed` behavior.
+- Playwright regression coverage for skills-list stability and stale markdown response handling.
+- CDP visual verification completed for the updated Skills/MCP panel behavior.
