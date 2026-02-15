@@ -11,6 +11,26 @@ import {
 const SELECT_ALL_SHORTCUT =
   process.platform === "darwin" ? "Meta+A" : "Control+A";
 
+function normalizePathForComparison(value: string): string {
+  const withoutPrivate = value.startsWith("/private")
+    ? value.slice("/private".length)
+    : value;
+  return withoutPrivate.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+}
+
+async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
+  const value = await page.evaluate((targetId) => {
+    const root = document.getElementById(targetId);
+    if (!root) {
+      return null;
+    }
+    const content =
+      root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
+    return content?.textContent ?? root.textContent ?? "";
+  }, id);
+  return value ?? "";
+}
+
 async function setBrowserPath({
   page,
   sectionNode,
@@ -27,9 +47,33 @@ async function setBrowserPath({
   await expect(pathInput).toBeVisible();
   const cmContent = pathInput.locator(".cm-content");
   await expect(cmContent).toBeVisible();
-  await cmContent.click();
-  await cmContent.fill(targetPath);
-  await page.keyboard.press("Enter");
+  const normalizedTarget = normalizePathForComparison(targetPath);
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await cmContent.click();
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.type(targetPath);
+    await page.keyboard.press("Enter");
+
+    const startedAt = Date.now();
+    const timeoutMs = 2500;
+    while (Date.now() - startedAt < timeoutMs) {
+      const committedPath = normalizePathForComparison(
+        await readCodeMirrorValue(page, pathInputId),
+      );
+      if (committedPath === normalizedTarget) {
+        return;
+      }
+      await page.waitForTimeout(50);
+    }
+  }
+
+  const finalPath = normalizePathForComparison(
+    await readCodeMirrorValue(page, pathInputId),
+  );
+  throw new Error(
+    `Browser path did not commit cleanly. Expected "${normalizedTarget}", received "${finalPath}".`,
+  );
 }
 
 async function setBrowserFilter({
@@ -45,11 +89,69 @@ async function setBrowserFilter({
     .locator('[id^="CodeMirror-FileBrowserFilter-"]')
     .first();
   await expect(filterRoot).toBeVisible();
+  const filterInputId = await filterRoot.getAttribute("id");
+  if (!filterInputId) {
+    throw new Error("Missing browser filter CodeMirror id.");
+  }
   const cmContent = filterRoot.locator(".cm-content");
   await expect(cmContent).toBeVisible();
-  await cmContent.click();
-  await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.type(value);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await cmContent.click();
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.type(value);
+
+    const startedAt = Date.now();
+    const timeoutMs = 2500;
+    while (Date.now() - startedAt < timeoutMs) {
+      const committedValue = await readCodeMirrorValue(page, filterInputId);
+      if (committedValue === value) {
+        return;
+      }
+      await page.waitForTimeout(50);
+    }
+  }
+
+  const finalValue = await readCodeMirrorValue(page, filterInputId);
+  throw new Error(
+    `Browser filter did not commit cleanly. Expected "${value}", received "${finalValue}".`,
+  );
+}
+
+async function setSearchScope({
+  page,
+  sectionNode,
+  scope,
+}: {
+  page: Page;
+  sectionNode: Locator;
+  scope: "recursive" | "local";
+}) {
+  const trigger = sectionNode.locator(
+    'button[aria-label="Search scope options"]',
+  );
+  await expect(trigger).toBeVisible();
+  const menu = page
+    .getByRole("dialog")
+    .filter({ hasText: /Recursive search/i })
+    .first();
+  await trigger.click();
+  await expect(menu).toBeVisible();
+
+  const label = scope === "recursive" ? /Recursive search/i : /Local search/i;
+  const scopeButton = menu.getByRole("button", { name: label });
+  await expect(scopeButton).toBeVisible();
+  await scopeButton.click();
+
+  if (!(await menu.isVisible())) {
+    await trigger.click();
+    await expect(menu).toBeVisible();
+  }
+  await expect(menu.getByRole("button", { name: label })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
 }
 
 test("browser filter shows matches in subfolders (glob + fuzzy)", async ({
@@ -64,7 +166,9 @@ test("browser filter shows matches in subfolders (glob + fuzzy)", async ({
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error("Unable to resolve viewport bounds for section placement.");
+      throw new Error(
+        "Unable to resolve viewport bounds for section placement.",
+      );
     }
 
     const browserSection = await postBackend<{ sectionId?: string }>(
@@ -110,7 +214,14 @@ test("browser filter shows matches in subfolders (glob + fuzzy)", async ({
         targetPath: parentDir,
       });
 
-      const deepJpgTile = sectionNode.locator('button[aria-label="cat.jpg"]').first();
+      await setSearchScope({ page, sectionNode, scope: "recursive" });
+      await expect(
+        sectionNode.locator('button[aria-label="alpha"]').first(),
+      ).toHaveCount(1, { timeout: 15000 });
+
+      const deepJpgTile = sectionNode
+        .locator('button[aria-label="cat.jpg"]')
+        .first();
       await expect(deepJpgTile).toHaveCount(0);
 
       await setBrowserFilter({ page, sectionNode, value: "*.jpg" });

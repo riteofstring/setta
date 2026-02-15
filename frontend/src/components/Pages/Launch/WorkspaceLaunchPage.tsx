@@ -6,6 +6,7 @@ import { dedupeInFlightJson } from "utils/dedupeInFlight";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_launch } from "utils/generatedEndpoints";
 import { appendLauncherOriginToBootstrapUrlFragment } from "utils/launcherOrigin";
+import { buildLaunchRequestDedupeKey } from "utils/launchRequestDedupeKey";
 import { chooseWorkspaceHistorySettaFilesLocation } from "utils/settaFilesLocation";
 import {
   appendWorkspaceHistoryToBootstrapUrlFragment,
@@ -97,15 +98,7 @@ export function WorkspaceLaunchPage() {
         inFlightLaunchesByKey,
         pending.request,
         route_launch,
-        (request) =>
-          JSON.stringify({
-            workspaceRoot: request.workspaceRoot ?? null,
-            settaFilesLocation: request.settaFilesLocation ?? null,
-            sshTarget: request.sshTarget ?? null,
-            sshArgs: request.sshArgs ?? null,
-            remoteCmd: request.remoteCmd ?? null,
-            localPort: request.localPort ?? null,
-          }),
+        buildLaunchRequestDedupeKey,
       );
       if (!isMounted) {
         return;
