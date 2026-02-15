@@ -74,7 +74,11 @@ function getPluginSectionImplForRender(
   state: ReturnType<typeof useProjectState.getState>,
   sectionId: string,
 ) {
-  return getCurrEffectiveSectionImplOfType(state, sectionId, SectionTypeEnum.Plugin);
+  return getCurrEffectiveSectionImplOfType(
+    state,
+    sectionId,
+    SectionTypeEnum.Plugin,
+  );
 }
 
 function pluginSectionImplEqual(

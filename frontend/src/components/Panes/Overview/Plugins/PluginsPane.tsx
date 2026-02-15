@@ -809,7 +809,9 @@ function PluginListEntryCard({
           data-testid={`plugin-linked-source-guidance-${plugin.pluginId}`}
           className="mt-2 rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200"
         >
-          <p className="font-semibold uppercase tracking-wide">Linked local plugin</p>
+          <p className="font-semibold uppercase tracking-wide">
+            Linked local plugin
+          </p>
           <p className="mt-1">
             Update and rollback are unavailable for linked local sources. Unlink
             and link the desired local plugin directory instead.
