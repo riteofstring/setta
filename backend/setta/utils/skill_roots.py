@@ -6,6 +6,7 @@ def iter_skill_roots(workspace_root: Path) -> list[tuple[str, str, Path]]:
     """Return deduplicated skill roots discovered from workspace, user, and env."""
     home = Path.home()
     candidates = [
+        ("workspace_skills", "Workspace skills", workspace_root / "skills"),
         (
             "workspace_agents_skills",
             "Workspace .agents/skills",

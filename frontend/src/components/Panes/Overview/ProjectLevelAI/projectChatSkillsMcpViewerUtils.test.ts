@@ -10,10 +10,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("filters skills by name/path/root/description", () => {
     const rows = [
       {
-        skillId: "workspace_agents_skills::ui-layout",
+        skillId: "workspace_skills::ui-layout",
         name: "ui-layout",
-        rootLabel: "Workspace .agents/skills",
-        rootPath: "/workspace/.agents/skills",
+        rootLabel: "Workspace skills",
+        rootPath: "/workspace/skills",
         relativePath: "ui-layout",
         description: "Create dense dashboard layouts.",
       },
@@ -45,10 +45,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         description: "Create polished frontend interfaces.",
       },
       {
-        skillId: "workspace_agents_skills::setta-cli",
+        skillId: "workspace_skills::setta-cli",
         name: "setta-cli",
-        rootLabel: "Workspace .agents/skills",
-        rootPath: "/workspace/.agents/skills",
+        rootLabel: "Workspace skills",
+        rootPath: "/workspace/skills",
         relativePath: "setta-cli",
         description: "Project-local CLI helpers.",
       },
@@ -69,7 +69,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       "user_codex_skills::.system/skill-installer",
       "user_codex_skills::frontend-design",
     ]);
-    expect(groups[1]?.rootPath).toBe("/workspace/.agents/skills");
+    expect(groups[1]?.rootPath).toBe("/workspace/skills");
   });
 
   it("keeps missing MCP config path nullable instead of using a sentinel string", () => {
