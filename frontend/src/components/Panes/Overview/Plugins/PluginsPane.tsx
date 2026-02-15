@@ -620,7 +620,9 @@ export function PluginsPane() {
                     >
                       {entry.sourcePath}
                     </td>
-                    <td className="px-2 py-1">{renderStatusRowAction(entry)}</td>
+                    <td className="px-2 py-1">
+                      {renderStatusRowAction(entry)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

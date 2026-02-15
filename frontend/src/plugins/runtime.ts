@@ -411,7 +411,8 @@ async function loadPluginRuntime(): Promise<void> {
         pluginStatusById[pluginId],
       );
       const previousSignature = frontendSignatureByPluginId.get(pluginId);
-      const previousFrontendError = previousState.frontendErrorsByPluginId[pluginId];
+      const previousFrontendError =
+        previousState.frontendErrorsByPluginId[pluginId];
       if (previousSignature === signature && !previousFrontendError) {
         mergePluginRegistryFromState(
           previousState,

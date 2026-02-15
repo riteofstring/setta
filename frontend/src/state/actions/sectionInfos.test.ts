@@ -5,11 +5,11 @@ import {
   createTopLevelSectionLayoutDict,
   getAttachedTerminalParentIdForTerminalSection,
   getCurrEffectiveSectionImpl,
-  setCurrEffectiveSectionImplValue,
   getCurrShownParamIds,
   getEmbeddedAttachedTerminalForCodeSection,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,
   processProjectStateUpdateFromBackend,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
 import {
@@ -235,13 +235,17 @@ describe("getCurrEffectiveSectionImpl", () => {
       requiredDecodedImages: [],
     } as ZustandProjectState;
 
-    expect(getCurrEffectiveSectionImpl(state, sectionId).inputText).toBe("base");
+    expect(getCurrEffectiveSectionImpl(state, sectionId).inputText).toBe(
+      "base",
+    );
 
     setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
       inputText: "updated",
     });
 
-    expect(getCurrEffectiveSectionImpl(state, sectionId).inputText).toBe("updated");
+    expect(getCurrEffectiveSectionImpl(state, sectionId).inputText).toBe(
+      "updated",
+    );
   });
 });
 
