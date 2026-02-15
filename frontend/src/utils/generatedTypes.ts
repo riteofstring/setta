@@ -213,11 +213,9 @@ export const BaseParentSectionImplTypeSet = new Set([
 
 export const BaseSectionImplArgsTypeSet = new Set([
   "Browser",
-  "Calendar",
   "Callable",
   "Chart",
   "Chat",
-  "Clock",
   "Code",
   "Dict",
   "Draw",
@@ -239,11 +237,9 @@ export const BaseSectionImplArgsTypeSet = new Set([
 
 export const BaseSectionImplTypeSet = new Set([
   "Browser",
-  "Calendar",
   "Callable",
   "Chart",
   "Chat",
-  "Clock",
   "Code",
   "Dict",
   "Draw",
@@ -579,8 +575,6 @@ export const SectionTypeEnum = {
   IFrame: "IFrame",
   Chat: "Chat",
   Browser: "Browser",
-  Clock: "Clock",
-  Calendar: "Calendar",
   TaskBoard: "TaskBoard",
   Spreadsheet: "Spreadsheet",
 } as const;
@@ -661,13 +655,6 @@ export const BrowserAreaViewModeEnum = {
 } as const;
 
 export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
-
-export const CalendarWeekStartEnum = {
-  sunday: "sunday",
-  monday: "monday",
-} as const;
-
-export type CalendarWeekStart = ObjectValues<typeof CalendarWeekStartEnum>;
 
 export const CodeLanguageEnum = {
   python: "python",
@@ -1033,8 +1020,6 @@ export const RouteEnum = {
   SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
   SET_PARENT_DEFAULT_CHILD_SECTION_TYPE: "/setParentDefaultChildSectionType",
   SET_LIST_ROOT_VIEW_MODE: "/setListRootViewMode",
-  SET_CLOCK_SECTION_SETTINGS: "/setClockSectionSettings",
-  SET_CALENDAR_SECTION_SETTINGS: "/setCalendarSectionSettings",
   SET_TASK_BOARD_SECTION_STATE: "/setTaskBoardSectionState",
   SET_SPREADSHEET_FILE_PATH: "/setSpreadsheetFilePath",
   SET_SPREADSHEET_SECTION_SETTINGS: "/setSpreadsheetSectionSettings",
@@ -2418,11 +2403,8 @@ export const AllImplFieldsSchema = z.literal([
   "requestMethod",
   "requestUrl",
   "savedSearches",
-  "selectedDateIso",
   "selectedParams",
-  "showDate",
   "showRowNumbers",
-  "showSeconds",
   "showSectionTitle",
   "size",
   "step",
@@ -2434,7 +2416,6 @@ export const AllImplFieldsSchema = z.literal([
   "textDisplayMode",
   "thinking",
   "timeDisplayFormat",
-  "timezone",
   "toolCallArguments",
   "topLevelParamId",
   "type",
@@ -2445,7 +2426,6 @@ export const AllImplFieldsSchema = z.literal([
   "value",
   "viewMode",
   "waitingForResponse",
-  "weekStartsOn",
 ]);
 
 export type AllImplFields = z.infer<typeof AllImplFieldsSchema>;
@@ -2968,11 +2948,8 @@ export const SharedModifierSchema = z.object({
   requestMethod: z.enum(HttpRequestMethodEnum).optional(),
   requestUrl: z.string().optional(),
   savedSearches: z.array(BrowserSavedSearchSchema).optional(),
-  selectedDateIso: z.string().optional(),
   selectedParams: z.array(IDSchema).optional(),
-  showDate: z.boolean().optional(),
   showRowNumbers: z.boolean().optional(),
-  showSeconds: z.boolean().optional(),
   showSectionTitle: z.boolean().optional(),
   size: SectionSizeSchema.optional(),
   step: z.union([z.number(), z.int()]).optional(),
@@ -2984,7 +2961,6 @@ export const SharedModifierSchema = z.object({
   textDisplayMode: z.enum(TextBlockDisplayModeEnum).optional(),
   thinking: z.boolean().optional(),
   timeDisplayFormat: z.enum(TimeDisplayFormatEnum).optional(),
-  timezone: z.string().optional(),
   toolCallArguments: z.record(z.string(), z.string()).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
   typeAnnotation: z.string().optional(),
@@ -3000,7 +2976,6 @@ export const SharedModifierSchema = z.object({
     ])
     .optional(),
   waitingForResponse: z.boolean().optional(),
-  weekStartsOn: z.enum(CalendarWeekStartEnum).optional(),
 });
 
 export type SharedModifier = z.infer<typeof SharedModifierSchema>;
@@ -3117,11 +3092,8 @@ export const CoreSchema = z.object({
         "requestMethod",
         "requestUrl",
         "savedSearches",
-        "selectedDateIso",
         "selectedParams",
-        "showDate",
         "showRowNumbers",
-        "showSeconds",
         "showSectionTitle",
         "size",
         "step",
@@ -3133,7 +3105,6 @@ export const CoreSchema = z.object({
         "textDisplayMode",
         "thinking",
         "timeDisplayFormat",
-        "timezone",
         "toolCallArguments",
         "topLevelParamId",
         "type",
@@ -3144,7 +3115,6 @@ export const CoreSchema = z.object({
         "value",
         "viewMode",
         "waitingForResponse",
-        "weekStartsOn",
       ]),
     )
     .default(() => [
@@ -3879,81 +3849,6 @@ export function createBrowserSectionImpl(
   return BrowserSectionImplSchema.parse({ ...defaults, ...overrides });
 }
 
-export const ClockSectionImplSchema = z.object({
-  type: z.literal("Clock").default(SectionTypeEnum.Clock),
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  isFrozen: z.boolean().default(false),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  tagColor: z.union([z.string(), z.null()]).default(null),
-  styleColor: z.union([z.string(), z.null()]).default(null),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 320.0, height: 170.0 }),
-  ),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  timeDisplayFormat: z
-    .enum(TimeDisplayFormatEnum)
-    .default(TimeDisplayFormatEnum.twenty_four_hour),
-  dateDisplayFormat: z
-    .enum(DateDisplayFormatEnum)
-    .default(DateDisplayFormatEnum.long),
-  showSeconds: z.boolean().default(true),
-  showDate: z.boolean().default(true),
-  timezone: z.string().default("local" as const),
-});
-
-export type ClockSectionImpl = z.infer<typeof ClockSectionImplSchema>;
-
-export type ClockSectionImplInput = z.input<typeof ClockSectionImplSchema>;
-
-export function createClockSectionImpl(
-  defaults: UserDefaultClockSectionImpl,
-  overrides: Partial<ClockSectionImpl> = {},
-): ClockSectionImpl {
-  return ClockSectionImplSchema.parse({ ...defaults, ...overrides });
-}
-
-export const CalendarSectionImplSchema = z.object({
-  type: z.literal("Calendar").default(SectionTypeEnum.Calendar),
-  id: IDSchema.default(create_new_id),
-  name: z.string().default(generate_memorable_string),
-  isFrozen: z.boolean().default(false),
-  isInOtherProjectConfigs: z.boolean().default(false),
-  tagColor: z.union([z.string(), z.null()]).default(null),
-  styleColor: z.union([z.string(), z.null()]).default(null),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 420.0, height: 360.0 }),
-  ),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  aspectRatioExtraHeight: z.int().default(0),
-  aspectRatioExtraWidth: z.int().default(0),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  isPreset: z.boolean().default(false),
-  selectedDateIso: z.string().default("" as const),
-  weekStartsOn: z
-    .enum(CalendarWeekStartEnum)
-    .default(CalendarWeekStartEnum.sunday),
-});
-
-export type CalendarSectionImpl = z.infer<typeof CalendarSectionImplSchema>;
-
-export type CalendarSectionImplInput = z.input<
-  typeof CalendarSectionImplSchema
->;
-
-export function createCalendarSectionImpl(
-  defaults: UserDefaultCalendarSectionImpl,
-  overrides: Partial<CalendarSectionImpl> = {},
-): CalendarSectionImpl {
-  return CalendarSectionImplSchema.parse({ ...defaults, ...overrides });
-}
-
 export const TaskBoardSectionImplSchema = z.object({
   type: z.literal("TaskBoard").default(SectionTypeEnum.TaskBoard),
   id: IDSchema.default(create_new_id),
@@ -3976,17 +3871,17 @@ export const TaskBoardSectionImplSchema = z.object({
     .array(TaskBoardColumnSchema)
     .default(() => [
       createTaskBoardColumn({
-        id: "d4994e28-d43b-4d85-9d76-f80d3f58727b" as const,
+        id: "22798ee6-0f2d-46e5-9424-4de920cee235" as const,
         name: "Todo" as const,
       }),
       createTaskBoardColumn({
-        id: "295f00fa-3bca-41ff-a860-bb302ca0dc5a" as const,
+        id: "f059a0b8-75a5-4595-ab54-19f114f6f5ae" as const,
         name: "Doing" as const,
         color: "#a855f7" as const,
         sortIndex: 1,
       }),
       createTaskBoardColumn({
-        id: "90cc0a71-acad-4849-848e-7042030e19f3" as const,
+        id: "7b10f5da-ac8b-4783-91e1-548238951548" as const,
         name: "Done" as const,
         color: "#10b981" as const,
         sortIndex: 2,
@@ -4513,8 +4408,6 @@ export const ProjectStateCoreSchema = z.object({
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
         BrowserSectionImplSchema,
-        ClockSectionImplSchema,
-        CalendarSectionImplSchema,
         TaskBoardSectionImplSchema,
         SpreadsheetSectionImplSchema,
       ]),
@@ -4917,8 +4810,6 @@ export const BaseSectionImplUnionSchema = z.union([
   IFrameSectionImplSchema,
   ChatSectionImplSchema,
   BrowserSectionImplSchema,
-  ClockSectionImplSchema,
-  CalendarSectionImplSchema,
   TaskBoardSectionImplSchema,
   SpreadsheetSectionImplSchema,
 ]);
@@ -6548,73 +6439,6 @@ export function createBrowserSectionImplArgs(
   return BrowserSectionImplArgsSchema.parse(options);
 }
 
-export const ClockSectionImplArgsSchema = z.object({
-  type: z.literal("Clock").optional(),
-  id: IDSchema.optional(),
-  name: z.string().optional(),
-  isFrozen: z.boolean().optional(),
-  isInOtherProjectConfigs: z.boolean().optional(),
-  tagColor: z.union([z.string(), z.null()]).optional(),
-  styleColor: z.union([z.string(), z.null()]).optional(),
-  size: SectionSizeSchema.optional(),
-  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
-  aspectRatioExtraHeight: z.int().optional(),
-  aspectRatioExtraWidth: z.int().optional(),
-  isMinimized: z.boolean().optional(),
-  positionAndSizeLocked: z.boolean().optional(),
-  isPreset: z.boolean().optional(),
-  timeDisplayFormat: z.enum(TimeDisplayFormatEnum).optional(),
-  dateDisplayFormat: z.enum(DateDisplayFormatEnum).optional(),
-  showSeconds: z.boolean().optional(),
-  showDate: z.boolean().optional(),
-  timezone: z.string().optional(),
-});
-
-export type ClockSectionImplArgs = z.infer<typeof ClockSectionImplArgsSchema>;
-
-export type ClockSectionImplArgsInput = z.input<
-  typeof ClockSectionImplArgsSchema
->;
-
-export function createClockSectionImplArgs(
-  options: Partial<ClockSectionImplArgs> = {},
-): ClockSectionImplArgs {
-  return ClockSectionImplArgsSchema.parse(options);
-}
-
-export const CalendarSectionImplArgsSchema = z.object({
-  type: z.literal("Calendar").optional(),
-  id: IDSchema.optional(),
-  name: z.string().optional(),
-  isFrozen: z.boolean().optional(),
-  isInOtherProjectConfigs: z.boolean().optional(),
-  tagColor: z.union([z.string(), z.null()]).optional(),
-  styleColor: z.union([z.string(), z.null()]).optional(),
-  size: SectionSizeSchema.optional(),
-  aspectRatio: z.union([z.boolean(), z.number()]).optional(),
-  aspectRatioExtraHeight: z.int().optional(),
-  aspectRatioExtraWidth: z.int().optional(),
-  isMinimized: z.boolean().optional(),
-  positionAndSizeLocked: z.boolean().optional(),
-  isPreset: z.boolean().optional(),
-  selectedDateIso: z.string().optional(),
-  weekStartsOn: z.enum(CalendarWeekStartEnum).optional(),
-});
-
-export type CalendarSectionImplArgs = z.infer<
-  typeof CalendarSectionImplArgsSchema
->;
-
-export type CalendarSectionImplArgsInput = z.input<
-  typeof CalendarSectionImplArgsSchema
->;
-
-export function createCalendarSectionImplArgs(
-  options: Partial<CalendarSectionImplArgs> = {},
-): CalendarSectionImplArgs {
-  return CalendarSectionImplArgsSchema.parse(options);
-}
-
 export const TaskBoardSectionImplArgsSchema = z.object({
   type: z.literal("TaskBoard").optional(),
   id: IDSchema.optional(),
@@ -6706,8 +6530,6 @@ export const BaseSectionImplArgsUnionSchema = z.union([
   IFrameSectionImplArgsSchema,
   ChatSectionImplArgsSchema,
   BrowserSectionImplArgsSchema,
-  ClockSectionImplArgsSchema,
-  CalendarSectionImplArgsSchema,
   TaskBoardSectionImplArgsSchema,
   SpreadsheetSectionImplArgsSchema,
 ]);
@@ -6741,8 +6563,6 @@ export const BaseSectionImplArgsUnionWithDiscriminatorSchema =
     IFrameSectionImplArgsSchema,
     ChatSectionImplArgsSchema,
     BrowserSectionImplArgsSchema,
-    ClockSectionImplArgsSchema,
-    CalendarSectionImplArgsSchema,
     TaskBoardSectionImplArgsSchema,
     SpreadsheetSectionImplArgsSchema,
   ]);
@@ -6783,8 +6603,6 @@ export const BaseSectionImplUnionWithDiscriminatorSchema = z.discriminatedUnion(
     IFrameSectionImplSchema,
     ChatSectionImplSchema,
     BrowserSectionImplSchema,
-    ClockSectionImplSchema,
-    CalendarSectionImplSchema,
     TaskBoardSectionImplSchema,
     SpreadsheetSectionImplSchema,
   ],
@@ -7579,6 +7397,8 @@ export const SectionCodegenPolicySchema = z.object({
       SectionTypeEnum.TextBlock,
       SectionTypeEnum.Draw,
       SectionTypeEnum.MetaControl,
+      SectionTypeEnum.TaskBoard,
+      SectionTypeEnum.Spreadsheet,
     ]),
   metaControlAllowlist: z
     .union([z.array(z.enum(CodeObjTypeEnum)), z.null()])
@@ -7624,8 +7444,6 @@ export const SectionCodegenPolicySchema = z.object({
         representation: SectionRepresentationModeEnum.file_read,
       }),
       Browser: createSectionTypeCodegenPolicy(),
-      Clock: createSectionTypeCodegenPolicy(),
-      Calendar: createSectionTypeCodegenPolicy(),
       TaskBoard: createSectionTypeCodegenPolicy(),
       Spreadsheet: createSectionTypeCodegenPolicy(),
     })),
@@ -7965,8 +7783,6 @@ export const ProjectStateSingleConfigSchema = z.object({
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
         BrowserSectionImplSchema,
-        ClockSectionImplSchema,
-        CalendarSectionImplSchema,
         TaskBoardSectionImplSchema,
         SpreadsheetSectionImplSchema,
       ]),
@@ -8463,22 +8279,6 @@ export const SectionSizingPolicyByTypeSchema = z.object({
       maxWidth: 100000.0,
     }),
   ),
-  Clock: SectionSizingPolicyTypeEntrySchema.default(() =>
-    createSectionSizingPolicyTypeEntry({
-      minHeight: 120.0,
-      maxHeight: 100000.0,
-      minWidth: 220.0,
-      maxWidth: 100000.0,
-    }),
-  ),
-  Calendar: SectionSizingPolicyTypeEntrySchema.default(() =>
-    createSectionSizingPolicyTypeEntry({
-      minHeight: 260.0,
-      maxHeight: 100000.0,
-      minWidth: 280.0,
-      maxWidth: 100000.0,
-    }),
-  ),
   TaskBoard: SectionSizingPolicyTypeEntrySchema.default(() =>
     createSectionSizingPolicyTypeEntry({
       minHeight: 240.0,
@@ -8715,36 +8515,6 @@ export function createUserDefaultBrowserSectionImpl(
   return UserDefaultBrowserSectionImplSchema.parse(options);
 }
 
-export const UserDefaultCalendarSectionImplSchema = z.object({
-  isFrozen: z.boolean().default(false),
-  tagColor: z.union([z.string(), z.null()]).default(null),
-  styleColor: z.union([z.string(), z.null()]).default(null),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 420.0, height: 360.0 }),
-  ),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  selectedDateIso: z.string().default("" as const),
-  weekStartsOn: z
-    .enum(CalendarWeekStartEnum)
-    .default(CalendarWeekStartEnum.sunday),
-});
-
-export type UserDefaultCalendarSectionImpl = z.infer<
-  typeof UserDefaultCalendarSectionImplSchema
->;
-
-export type UserDefaultCalendarSectionImplInput = z.input<
-  typeof UserDefaultCalendarSectionImplSchema
->;
-
-export function createUserDefaultCalendarSectionImpl(
-  options: Partial<UserDefaultCalendarSectionImpl> = {},
-): UserDefaultCalendarSectionImpl {
-  return UserDefaultCalendarSectionImplSchema.parse(options);
-}
-
 export const UserDefaultCallableSectionImplSchema = z.object({
   isFrozen: z.boolean().default(false),
   tagColor: z.union([z.string(), z.null()]).default(null),
@@ -8848,41 +8618,6 @@ export function createUserDefaultChatSectionImpl(
   options: Partial<UserDefaultChatSectionImpl> = {},
 ): UserDefaultChatSectionImpl {
   return UserDefaultChatSectionImplSchema.parse(options);
-}
-
-export const UserDefaultClockSectionImplSchema = z.object({
-  isFrozen: z.boolean().default(false),
-  tagColor: z.union([z.string(), z.null()]).default(null),
-  styleColor: z.union([z.string(), z.null()]).default(null),
-  size: SectionSizeSchema.default(() =>
-    createSectionSize({ width: 320.0, height: 170.0 }),
-  ),
-  aspectRatio: z.union([z.boolean(), z.number()]).default(false),
-  isMinimized: z.boolean().default(false),
-  positionAndSizeLocked: z.boolean().default(false),
-  timeDisplayFormat: z
-    .enum(TimeDisplayFormatEnum)
-    .default(TimeDisplayFormatEnum.twenty_four_hour),
-  dateDisplayFormat: z
-    .enum(DateDisplayFormatEnum)
-    .default(DateDisplayFormatEnum.long),
-  showSeconds: z.boolean().default(true),
-  showDate: z.boolean().default(true),
-  timezone: z.string().default("local" as const),
-});
-
-export type UserDefaultClockSectionImpl = z.infer<
-  typeof UserDefaultClockSectionImplSchema
->;
-
-export type UserDefaultClockSectionImplInput = z.input<
-  typeof UserDefaultClockSectionImplSchema
->;
-
-export function createUserDefaultClockSectionImpl(
-  options: Partial<UserDefaultClockSectionImpl> = {},
-): UserDefaultClockSectionImpl {
-  return UserDefaultClockSectionImplSchema.parse(options);
 }
 
 export const UserDefaultCodeSectionImplSchema = z.object({
@@ -9312,17 +9047,17 @@ export const UserDefaultTaskBoardSectionImplSchema = z.object({
     .array(TaskBoardColumnSchema)
     .default(() => [
       createTaskBoardColumn({
-        id: "69f22dfd-da8e-4a02-ab28-30de1415de74" as const,
+        id: "faa153c9-0b29-4ede-a86c-0935d86adffc" as const,
         name: "Todo" as const,
       }),
       createTaskBoardColumn({
-        id: "84c3b1bc-4b66-4923-ad84-6542f01ca5a2" as const,
+        id: "31ceb3f5-021e-44ed-87e2-3f5672c8d32e" as const,
         name: "Doing" as const,
         color: "#a855f7" as const,
         sortIndex: 1,
       }),
       createTaskBoardColumn({
-        id: "b92adeb0-90d9-4aa9-9cf7-c02490136f37" as const,
+        id: "e747993c-07c7-4325-9a6a-feaa96e622e3" as const,
         name: "Done" as const,
         color: "#10b981" as const,
         sortIndex: 2,
@@ -9735,9 +9470,6 @@ export const SettingsStateSchema = z.object({
   browserSectionDefault: UserDefaultBrowserSectionImplSchema.default(
     createUserDefaultBrowserSectionImpl,
   ),
-  calendarSectionDefault: UserDefaultCalendarSectionImplSchema.default(
-    createUserDefaultCalendarSectionImpl,
-  ),
   callableSectionDefault: UserDefaultCallableSectionImplSchema.default(
     createUserDefaultCallableSectionImpl,
   ),
@@ -9746,9 +9478,6 @@ export const SettingsStateSchema = z.object({
   ),
   chatSectionDefault: UserDefaultChatSectionImplSchema.default(
     createUserDefaultChatSectionImpl,
-  ),
-  clockSectionDefault: UserDefaultClockSectionImplSchema.default(
-    createUserDefaultClockSectionImpl,
   ),
   codeSectionDefault: UserDefaultCodeSectionImplSchema.default(
     createUserDefaultCodeSectionImpl,
@@ -12024,39 +11753,6 @@ export function createButtonParamCodeObjImplArgsWithCallable(
   return ButtonParamCodeObjImplArgsWithCallableSchema.parse(options);
 }
 
-export const CalendarSectionImplArgsWithCallableSchema = z.object({
-  type: z.union([z.literal("Calendar"), z.any()]).optional(),
-  id: z.union([IDSchema, z.any()]).optional(),
-  name: z.union([z.string(), z.any()]).optional(),
-  isFrozen: z.union([z.boolean(), z.any()]).optional(),
-  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
-  tagColor: z.union([z.string(), z.null(), z.any()]).optional(),
-  styleColor: z.union([z.string(), z.null(), z.any()]).optional(),
-  size: z.union([SectionSizeSchema, z.any()]).optional(),
-  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
-  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
-  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
-  isMinimized: z.union([z.boolean(), z.any()]).optional(),
-  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
-  isPreset: z.union([z.boolean(), z.any()]).optional(),
-  selectedDateIso: z.union([z.string(), z.any()]).optional(),
-  weekStartsOn: z.union([z.enum(CalendarWeekStartEnum), z.any()]).optional(),
-});
-
-export type CalendarSectionImplArgsWithCallable = z.infer<
-  typeof CalendarSectionImplArgsWithCallableSchema
->;
-
-export type CalendarSectionImplArgsWithCallableInput = z.input<
-  typeof CalendarSectionImplArgsWithCallableSchema
->;
-
-export function createCalendarSectionImplArgsWithCallable(
-  options: Partial<CalendarSectionImplArgsWithCallable> = {},
-): CalendarSectionImplArgsWithCallable {
-  return CalendarSectionImplArgsWithCallableSchema.parse(options);
-}
-
 export const CallableSectionImplArgsWithCallableSchema = z.object({
   type: z.union([z.literal("Callable"), z.any()]).optional(),
   id: z.union([IDSchema, z.any()]).optional(),
@@ -12194,46 +11890,6 @@ export function createChatSectionImplArgsWithCallable(
   options: Partial<ChatSectionImplArgsWithCallable> = {},
 ): ChatSectionImplArgsWithCallable {
   return ChatSectionImplArgsWithCallableSchema.parse(options);
-}
-
-export const ClockSectionImplArgsWithCallableSchema = z.object({
-  type: z.union([z.literal("Clock"), z.any()]).optional(),
-  id: z.union([IDSchema, z.any()]).optional(),
-  name: z.union([z.string(), z.any()]).optional(),
-  isFrozen: z.union([z.boolean(), z.any()]).optional(),
-  isInOtherProjectConfigs: z.union([z.boolean(), z.any()]).optional(),
-  tagColor: z.union([z.string(), z.null(), z.any()]).optional(),
-  styleColor: z.union([z.string(), z.null(), z.any()]).optional(),
-  size: z.union([SectionSizeSchema, z.any()]).optional(),
-  aspectRatio: z.union([z.boolean(), z.number(), z.any()]).optional(),
-  aspectRatioExtraHeight: z.union([z.int(), z.any()]).optional(),
-  aspectRatioExtraWidth: z.union([z.int(), z.any()]).optional(),
-  isMinimized: z.union([z.boolean(), z.any()]).optional(),
-  positionAndSizeLocked: z.union([z.boolean(), z.any()]).optional(),
-  isPreset: z.union([z.boolean(), z.any()]).optional(),
-  timeDisplayFormat: z
-    .union([z.enum(TimeDisplayFormatEnum), z.any()])
-    .optional(),
-  dateDisplayFormat: z
-    .union([z.enum(DateDisplayFormatEnum), z.any()])
-    .optional(),
-  showSeconds: z.union([z.boolean(), z.any()]).optional(),
-  showDate: z.union([z.boolean(), z.any()]).optional(),
-  timezone: z.union([z.string(), z.any()]).optional(),
-});
-
-export type ClockSectionImplArgsWithCallable = z.infer<
-  typeof ClockSectionImplArgsWithCallableSchema
->;
-
-export type ClockSectionImplArgsWithCallableInput = z.input<
-  typeof ClockSectionImplArgsWithCallableSchema
->;
-
-export function createClockSectionImplArgsWithCallable(
-  options: Partial<ClockSectionImplArgsWithCallable> = {},
-): ClockSectionImplArgsWithCallable {
-  return ClockSectionImplArgsWithCallableSchema.parse(options);
 }
 
 export const CodeCallableCodeObjImplArgsWithCallableSchema = z.object({
@@ -13346,11 +13002,8 @@ export const CoreArgsSchema = z.object({
         "requestMethod",
         "requestUrl",
         "savedSearches",
-        "selectedDateIso",
         "selectedParams",
-        "showDate",
         "showRowNumbers",
-        "showSeconds",
         "showSectionTitle",
         "size",
         "step",
@@ -13362,7 +13015,6 @@ export const CoreArgsSchema = z.object({
         "textDisplayMode",
         "thinking",
         "timeDisplayFormat",
-        "timezone",
         "toolCallArguments",
         "topLevelParamId",
         "type",
@@ -13373,7 +13025,6 @@ export const CoreArgsSchema = z.object({
         "value",
         "viewMode",
         "waitingForResponse",
-        "weekStartsOn",
       ]),
     )
     .optional(),
@@ -15056,8 +14707,6 @@ export const ProjectStateBackendSchema = z.object({
         IFrameSectionImplSchema,
         ChatSectionImplSchema,
         BrowserSectionImplSchema,
-        ClockSectionImplSchema,
-        CalendarSectionImplSchema,
         TaskBoardSectionImplSchema,
         SpreadsheetSectionImplSchema,
       ]),
@@ -17168,8 +16817,6 @@ export const CreateTopLevelSectionRequestSchema = z.object({
         IFrameSectionImplArgsSchema,
         ChatSectionImplArgsSchema,
         BrowserSectionImplArgsSchema,
-        ClockSectionImplArgsSchema,
-        CalendarSectionImplArgsSchema,
         TaskBoardSectionImplArgsSchema,
         SpreadsheetSectionImplArgsSchema,
       ]),
@@ -18074,28 +17721,6 @@ export function createSetBrowserSavedSearchesRequest(
   return SetBrowserSavedSearchesRequestSchema.parse(options);
 }
 
-export const SetCalendarSectionSettingsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  selectedDateIso: z.string(),
-  weekStartsOn: z.enum(CalendarWeekStartEnum),
-});
-
-export type SetCalendarSectionSettingsRequest = z.infer<
-  typeof SetCalendarSectionSettingsRequestSchema
->;
-
-export type SetCalendarSectionSettingsRequestInput = z.input<
-  typeof SetCalendarSectionSettingsRequestSchema
->;
-
-export function createSetCalendarSectionSettingsRequest(
-  options: Partial<SetCalendarSectionSettingsRequest> = {},
-): SetCalendarSectionSettingsRequest {
-  return SetCalendarSectionSettingsRequestSchema.parse(options);
-}
-
 export const SetCallableHideParamsRequestSchema = z.object({
   frontendOpId: z.union([z.string(), z.null()]).default(null),
   projectConfigId: IDSchema,
@@ -18306,31 +17931,6 @@ export function createSetChatSectionStateRequest(
   options: Partial<SetChatSectionStateRequest> = {},
 ): SetChatSectionStateRequest {
   return SetChatSectionStateRequestSchema.parse(options);
-}
-
-export const SetClockSectionSettingsRequestSchema = z.object({
-  frontendOpId: z.union([z.string(), z.null()]).default(null),
-  projectConfigId: IDSchema,
-  sectionId: IDSchema,
-  timeDisplayFormat: z.enum(TimeDisplayFormatEnum),
-  dateDisplayFormat: z.enum(DateDisplayFormatEnum),
-  showSeconds: z.boolean(),
-  showDate: z.boolean(),
-  timezone: z.string(),
-});
-
-export type SetClockSectionSettingsRequest = z.infer<
-  typeof SetClockSectionSettingsRequestSchema
->;
-
-export type SetClockSectionSettingsRequestInput = z.input<
-  typeof SetClockSectionSettingsRequestSchema
->;
-
-export function createSetClockSectionSettingsRequest(
-  options: Partial<SetClockSectionSettingsRequest> = {},
-): SetClockSectionSettingsRequest {
-  return SetClockSectionSettingsRequestSchema.parse(options);
 }
 
 export const CodeFileBindingUpdateSchema = z.object({
@@ -20927,19 +20527,6 @@ export type ImplArgsBundleMap = {
     args: ImplArgsBundleWithUpdaters<
       BrowserSectionImplArgs,
       BrowserSectionImpl
-    >;
-  };
-
-  ClockSection: {
-    impl: ClockSectionImpl;
-    args: ImplArgsBundleWithUpdaters<ClockSectionImplArgs, ClockSectionImpl>;
-  };
-
-  CalendarSection: {
-    impl: CalendarSectionImpl;
-    args: ImplArgsBundleWithUpdaters<
-      CalendarSectionImplArgs,
-      CalendarSectionImpl
     >;
   };
 

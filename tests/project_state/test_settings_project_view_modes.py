@@ -142,7 +142,7 @@ def test_settings_code_objs_migration_adds_missing_section_defaults():
     section_name_to_id = {
         section.name: section_id for section_id, section in project_state.sections.items()
     }
-    missing_name = "calendarSectionDefault"
+    missing_name = "spreadsheetSectionDefault"
     missing_section_id = section_name_to_id[missing_name]
     missing_variant_id = project_state.projectConfig.sectionVariantMap[missing_section_id]
     missing_impl_id = project_state.sectionVariants[missing_variant_id].impl

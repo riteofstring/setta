@@ -526,7 +526,7 @@ test.describe.serial("section types data authoring", () => {
     }
   });
 
-  test("clock, calendar, task board, and spreadsheet sections are visible and interactive", async ({
+  test("task board and spreadsheet sections are visible and interactive", async ({
     page,
   }) => {
     await seedLocalStorage(page, {
@@ -552,16 +552,6 @@ test.describe.serial("section types data authoring", () => {
       const csvPath = `${rootPath}/pw-spreadsheet-section.csv`;
       await fs.writeFile(csvPath, "task,status\nalpha,todo\n", "utf-8");
 
-      const clockSectionId = await createTopLevelSection(
-        page,
-        projectContext.projectConfigId,
-        "Clock",
-      );
-      const calendarSectionId = await createTopLevelSection(
-        page,
-        projectContext.projectConfigId,
-        "Calendar",
-      );
       const taskBoardSectionId = await createTopLevelSection(
         page,
         projectContext.projectConfigId,
@@ -578,12 +568,6 @@ test.describe.serial("section types data authoring", () => {
         "Browser",
       );
 
-      const clockNode = page.locator(
-        `.react-flow__node[data-id="${clockSectionId}"]`,
-      );
-      const calendarNode = page.locator(
-        `.react-flow__node[data-id="${calendarSectionId}"]`,
-      );
       const taskBoardNode = page.locator(
         `.react-flow__node[data-id="${taskBoardSectionId}"]`,
       );
@@ -594,26 +578,9 @@ test.describe.serial("section types data authoring", () => {
         `.react-flow__node[data-id="${browserSectionId}"]`,
       );
 
-      await expect(clockNode).toBeVisible();
-      await expect(calendarNode).toBeVisible();
       await expect(taskBoardNode).toBeVisible();
       await expect(spreadsheetNode).toBeVisible();
       await expect(browserNode).toBeVisible();
-
-      await expect(clockNode.locator("text=/\\d{1,2}:\\d{2}/")).toBeVisible();
-
-      const calendarDateButton = calendarNode
-        .locator("[data-calendar-date]")
-        .nth(12);
-      const calendarIso =
-        await calendarDateButton.getAttribute("data-calendar-date");
-      if (!calendarIso) {
-        throw new Error("Missing calendar date identifier.");
-      }
-      await calendarDateButton.click();
-      await expect(
-        calendarNode.getByText(`Selected: ${calendarIso}`),
-      ).toBeVisible();
 
       await taskBoardNode
         .getByPlaceholder("Add task title")

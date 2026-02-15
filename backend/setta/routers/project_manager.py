@@ -60,7 +60,6 @@ from setta.project_state.project_manager_types import (
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
     SetBrowserSavedSearchesRequest,
-    SetCalendarSectionSettingsRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
     SetCallableResponse,
@@ -70,7 +69,6 @@ from setta.project_state.project_manager_types import (
     SetChatSectionChatIdRequest,
     SetChatSectionSettingsRequest,
     SetChatSectionStateRequest,
-    SetClockSectionSettingsRequest,
     SetCodeFileBindingRequest,
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
@@ -1247,24 +1245,6 @@ async def route_set_list_root_view_mode(
     await _deny_deployment_mode_structural(ctx)
     manager = ctx.get_project_manager(x.projectConfigId)
     await manager.set_list_root_view_mode(x)
-
-
-@router.post(Route.SET_CLOCK_SECTION_SETTINGS)
-async def route_set_clock_section_settings(
-    x: SetClockSectionSettingsRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_clock_section_settings(x)
-
-
-@router.post(Route.SET_CALENDAR_SECTION_SETTINGS)
-async def route_set_calendar_section_settings(
-    x: SetCalendarSectionSettingsRequest, ctx: RuntimeContextFromRequest
-):
-    manager = ctx.get_project_manager(x.projectConfigId)
-    await enforce_share_policy_guard(ctx, SharePolicyGuard.layout)
-    await manager.set_calendar_section_settings(x)
 
 
 @router.post(Route.SET_TASK_BOARD_SECTION_STATE)

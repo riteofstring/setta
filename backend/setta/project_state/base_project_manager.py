@@ -155,7 +155,6 @@ from setta.project_state.project_manager_types import (
     SetBrowserColumnWidthsRequest,
     SetBrowserHideColumnRequest,
     SetBrowserSavedSearchesRequest,
-    SetCalendarSectionSettingsRequest,
     SetCallableHideParamsRequest,
     SetCallableRequest,
     SetCallableResponse,
@@ -165,7 +164,6 @@ from setta.project_state.project_manager_types import (
     SetChatSectionChatIdRequest,
     SetChatSectionSettingsRequest,
     SetChatSectionStateRequest,
-    SetClockSectionSettingsRequest,
     SetCodeFileBindingRequest,
     SetCodeObjDisplayNameRequest,
     SetCodeObjNameRequest,
@@ -309,7 +307,6 @@ from setta.types.helpers_lvl2 import (
     set_browser_column_widths,
     set_browser_hide_column,
     set_browser_saved_searches,
-    set_calendar_section_settings,
     set_callable_hide_params,
     set_chart_area_data_path,
     set_chart_settings,
@@ -317,7 +314,6 @@ from setta.types.helpers_lvl2 import (
     set_chat_section_chat_id,
     set_chat_section_settings,
     set_chat_section_state,
-    set_clock_section_settings,
     set_code,
     set_code_file_binding,
     set_code_section_diagnostic_code_suppression,
@@ -3625,31 +3621,6 @@ class BaseProjectManager(ABC):
             project_state,
             x.sectionId,
             x.viewMode,
-        )
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def set_clock_section_settings(self, x: SetClockSectionSettingsRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_clock_section_settings(
-            project_state,
-            x.sectionId,
-            x.timeDisplayFormat,
-            x.dateDisplayFormat,
-            x.showSeconds,
-            x.showDate,
-            x.timezone,
-        )
-        await self._update_and_broadcast_project_state_no_name_validation(project_state)
-
-    @enqueue_method
-    async def set_calendar_section_settings(self, x: SetCalendarSectionSettingsRequest):
-        project_state = self.get_single_config_state(x.projectConfigId)
-        set_calendar_section_settings(
-            project_state,
-            x.sectionId,
-            x.selectedDateIso,
-            x.weekStartsOn,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 

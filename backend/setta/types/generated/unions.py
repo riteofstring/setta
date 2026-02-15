@@ -4,11 +4,9 @@ from pydantic import Field, TypeAdapter
 
 from setta.types.section_impls import (
     BrowserSectionImpl,
-    CalendarSectionImpl,
     CallableSectionImpl,
     ChartSectionImpl,
     ChatSectionImpl,
-    ClockSectionImpl,
     CodeSectionImpl,
     DictSectionImpl,
     DrawSectionImpl,
@@ -48,8 +46,6 @@ BaseSectionImplUnion = (
     | IFrameSectionImpl
     | ChatSectionImpl
     | BrowserSectionImpl
-    | ClockSectionImpl
-    | CalendarSectionImpl
     | TaskBoardSectionImpl
     | SpreadsheetSectionImpl
 )
@@ -81,8 +77,6 @@ BaseSectionImplTypeSet = set(
         "IFrame",
         "Chat",
         "Browser",
-        "Clock",
-        "Calendar",
         "TaskBoard",
         "Spreadsheet",
     ]
@@ -312,11 +306,9 @@ from pydantic import Field, TypeAdapter
 
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
-    CalendarSectionImplArgs,
     CallableSectionImplArgs,
     ChartSectionImplArgs,
     ChatSectionImplArgs,
-    ClockSectionImplArgs,
     CodeSectionImplArgs,
     DictSectionImplArgs,
     DrawSectionImplArgs,
@@ -356,8 +348,6 @@ BaseSectionImplArgsUnion = (
     | IFrameSectionImplArgs
     | ChatSectionImplArgs
     | BrowserSectionImplArgs
-    | ClockSectionImplArgs
-    | CalendarSectionImplArgs
     | TaskBoardSectionImplArgs
     | SpreadsheetSectionImplArgs
 )
@@ -389,8 +379,6 @@ BaseSectionImplArgsTypeSet = set(
         "IFrame",
         "Chat",
         "Browser",
-        "Clock",
-        "Calendar",
         "TaskBoard",
         "Spreadsheet",
     ]

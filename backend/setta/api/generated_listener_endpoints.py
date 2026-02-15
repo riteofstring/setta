@@ -42,15 +42,13 @@ from setta.types.clipboard import (
     ProjectStateCoreWithSectionVariantMap,
     SectionsClipboardData,
 )
-from setta.types.code_obj_impls import CodeObjType, DateDisplayFormat, TimeDisplayFormat
+from setta.types.code_obj_impls import CodeObjType
 from setta.types.edges import Edge, EdgePort
 from setta.types.generated.impl_args_as_typed_dicts import (
     BrowserSectionImplArgs,
-    CalendarSectionImplArgs,
     CallableSectionImplArgs,
     ChartSectionImplArgs,
     ChatSectionImplArgs,
-    ClockSectionImplArgs,
     CodeSectionImplArgs,
     DictSectionImplArgs,
     DrawSectionImplArgs,
@@ -84,7 +82,6 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
-    CalendarWeekStart,
     ChatSectionState,
     ListRootViewMode,
     SectionSize,
@@ -240,8 +237,6 @@ class ListenerCreateTopLevelSectionRequestPayload(TypedDict):
         | IFrameSectionImplArgs
         | ChatSectionImplArgs
         | BrowserSectionImplArgs
-        | ClockSectionImplArgs
-        | CalendarSectionImplArgs
         | TaskBoardSectionImplArgs
         | SpreadsheetSectionImplArgs
         | None
@@ -545,14 +540,6 @@ class ListenerSetBrowserSavedSearchesRequestPayload(TypedDict):
     savedSearches: list[BrowserSavedSearch]
 
 
-class ListenerSetCalendarSectionSettingsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    selectedDateIso: str
-    weekStartsOn: CalendarWeekStart
-
-
 class ListenerSetCallableHideParamsRequestPayload(TypedDict):
     frontendOpId: NotRequired[str | None]
     projectConfigId: NotRequired[ID]
@@ -617,17 +604,6 @@ class ListenerSetChatSectionStateRequestPayload(TypedDict):
 class ListenerSetChatSystemPromptRequestPayload(TypedDict):
     chatId: ID
     systemPrompt: str
-
-
-class ListenerSetClockSectionSettingsRequestPayload(TypedDict):
-    frontendOpId: NotRequired[str | None]
-    projectConfigId: NotRequired[ID]
-    sectionId: ID
-    timeDisplayFormat: TimeDisplayFormat
-    dateDisplayFormat: DateDisplayFormat
-    showSeconds: bool
-    showDate: bool
-    timezone: str
 
 
 class ListenerSetCodeFileBindingRequestPayload(TypedDict):
@@ -1388,11 +1364,6 @@ class RouterEndpointAPI:
     ) -> None:
         return await self._caller("route_set_browser_saved_searches", payload)
 
-    async def set_calendar_section_settings(
-        self, payload: ListenerSetCalendarSectionSettingsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_calendar_section_settings", payload)
-
     async def set_callable(
         self, payload: ListenerSetCallableRequestPayload
     ) -> SetCallableResponse:
@@ -1435,11 +1406,6 @@ class RouterEndpointAPI:
         self, payload: ListenerSetChatSystemPromptRequestPayload
     ) -> Chat:
         return await self._caller("route_set_chat_system_prompt", payload)
-
-    async def set_clock_section_settings(
-        self, payload: ListenerSetClockSectionSettingsRequestPayload
-    ) -> None:
-        return await self._caller("route_set_clock_section_settings", payload)
 
     async def set_code(self, payload: ListenerSetCodeRequestPayload) -> None:
         return await self._caller("route_set_code", payload)

@@ -40,7 +40,6 @@ from setta.types.project_config import (
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
-    CalendarWeekStart,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
@@ -164,11 +163,8 @@ class CoreArgs(TypedDict):
                 "requestMethod",
                 "requestUrl",
                 "savedSearches",
-                "selectedDateIso",
                 "selectedParams",
-                "showDate",
                 "showRowNumbers",
-                "showSeconds",
                 "showSectionTitle",
                 "size",
                 "step",
@@ -180,7 +176,6 @@ class CoreArgs(TypedDict):
                 "textDisplayMode",
                 "thinking",
                 "timeDisplayFormat",
-                "timezone",
                 "toolCallArguments",
                 "topLevelParamId",
                 "type",
@@ -191,7 +186,6 @@ class CoreArgs(TypedDict):
                 "value",
                 "viewMode",
                 "waitingForResponse",
-                "weekStartsOn",
             ]
         ]
     ]
@@ -734,48 +728,6 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     savedSearches: NotRequired[
         list[BrowserSavedSearch]
         | Callable[[list[BrowserSavedSearch]], list[BrowserSavedSearch]]
-    ]
-
-
-class ClockSectionImplArgs(BaseSectionImplArgs):
-    type: NotRequired[Literal[SectionType.Clock]]
-    timeDisplayFormat: NotRequired[TimeDisplayFormat]
-    dateDisplayFormat: NotRequired[DateDisplayFormat]
-    showSeconds: NotRequired[bool]
-    showDate: NotRequired[bool]
-    timezone: NotRequired[str]
-
-
-class ClockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
-    type: NotRequired[
-        Literal[SectionType.Clock]
-        | Callable[[Literal[SectionType.Clock]], Literal[SectionType.Clock]]
-    ]
-    timeDisplayFormat: NotRequired[
-        TimeDisplayFormat | Callable[[TimeDisplayFormat], TimeDisplayFormat]
-    ]
-    dateDisplayFormat: NotRequired[
-        DateDisplayFormat | Callable[[DateDisplayFormat], DateDisplayFormat]
-    ]
-    showSeconds: NotRequired[bool | Callable[[bool], bool]]
-    showDate: NotRequired[bool | Callable[[bool], bool]]
-    timezone: NotRequired[str | Callable[[str], str]]
-
-
-class CalendarSectionImplArgs(BaseSectionImplArgs):
-    type: NotRequired[Literal[SectionType.Calendar]]
-    selectedDateIso: NotRequired[str]
-    weekStartsOn: NotRequired[CalendarWeekStart]
-
-
-class CalendarSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
-    type: NotRequired[
-        Literal[SectionType.Calendar]
-        | Callable[[Literal[SectionType.Calendar]], Literal[SectionType.Calendar]]
-    ]
-    selectedDateIso: NotRequired[str | Callable[[str], str]]
-    weekStartsOn: NotRequired[
-        CalendarWeekStart | Callable[[CalendarWeekStart], CalendarWeekStart]
     ]
 
 

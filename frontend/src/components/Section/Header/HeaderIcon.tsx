@@ -4,7 +4,7 @@ import _ from "lodash";
 import { BiPaint } from "react-icons/bi";
 import { FaMarkdown, FaTerminal, FaYoutube } from "react-icons/fa";
 import { FaChartPie, FaLayerGroup, FaSquareXTwitter } from "react-icons/fa6";
-import { FiCalendar, FiClock, FiColumns } from "react-icons/fi";
+import { FiColumns } from "react-icons/fi";
 import { GoDotFill } from "react-icons/go";
 import { IoChatbox } from "react-icons/io5";
 import { MdViewKanban } from "react-icons/md";
@@ -199,24 +199,6 @@ export function HeaderIcon({
     case SectionTypeEnum.Browser:
       return (
         <TbFolderFilled
-          className={
-            themedIconClassName ??
-            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
-          }
-        />
-      );
-    case SectionTypeEnum.Clock:
-      return (
-        <FiClock
-          className={
-            themedIconClassName ??
-            "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"
-          }
-        />
-      );
-    case SectionTypeEnum.Calendar:
-      return (
-        <FiCalendar
           className={
             themedIconClassName ??
             "text-setta-300 transition-colors group-hover/card-section:text-blue-500 dark:text-setta-500 dark:group-hover/card-section:text-[#0084ff]"

@@ -118,17 +118,13 @@ from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
     BrowserSectionImpl,
-    CalendarSectionImpl,
-    CalendarWeekStart,
     CallableSectionImpl,
     ChatSectionImpl,
     ChatSectionState,
-    ClockSectionImpl,
     CodeFileBinding,
     CodeSectionDiagnosticsIgnoreState,
     CodeSectionImpl,
     ConfigLanguage,
-    DateDisplayFormat,
     DrawSectionImpl,
     GroupSectionImpl,
     ListRootSectionImpl,
@@ -149,7 +145,6 @@ from setta.types.section_impls import (
     TextBlockDisplayMode,
     TextBlockFormat,
     TextBlockSectionImpl,
-    TimeDisplayFormat,
     TypeErrorIgnoreState,
 )
 from setta.utils.errors import InvalidSectionName
@@ -2433,47 +2428,6 @@ def set_list_root_view_mode(
         p,
         sectionId,
         ListRootSectionImplArgsWithCallable(viewMode=viewMode),
-    )
-
-
-def set_clock_section_settings(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    timeDisplayFormat: TimeDisplayFormat,
-    dateDisplayFormat: DateDisplayFormat,
-    showSeconds: bool,
-    showDate: bool,
-    timezone: str,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, ClockSectionImpl)
-    resolved_timezone = timezone.strip() or "local"
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        {
-            "timeDisplayFormat": timeDisplayFormat,
-            "dateDisplayFormat": dateDisplayFormat,
-            "showSeconds": showSeconds,
-            "showDate": showDate,
-            "timezone": resolved_timezone,
-        },
-    )
-
-
-def set_calendar_section_settings(
-    p: "ProjectStateSingleConfig",
-    sectionId: ID,
-    selectedDateIso: str,
-    weekStartsOn: CalendarWeekStart,
-):
-    get_curr_effective_section_impl_with_type_guard(p, sectionId, CalendarSectionImpl)
-    set_curr_effective_section_impl_value(
-        p,
-        sectionId,
-        {
-            "selectedDateIso": selectedDateIso.strip(),
-            "weekStartsOn": weekStartsOn,
-        },
     )
 
 

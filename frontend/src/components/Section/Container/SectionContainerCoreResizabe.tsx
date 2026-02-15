@@ -9,11 +9,9 @@ import { useProjectState } from "state/definitions";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { SectionHeader } from "../Header/SectionHeader";
 import { BrowserArea } from "../Layouts/BrowserArea";
-import { CalendarArea } from "../Layouts/CalendarArea";
 import { CallableArea } from "../Layouts/CallableArea";
 import { ChartArea } from "../Layouts/ChartArea/ChartArea";
 import { ChatArea } from "../Layouts/ChatArea";
-import { ClockArea } from "../Layouts/ClockArea";
 import {
   CodeArea,
   GenPythonCodeArea,
@@ -218,10 +216,6 @@ function AreaSwitch({
       return <ChatArea sectionId={sectionId} />;
     case SectionTypeEnum.Browser:
       return <BrowserArea sectionId={sectionId} />;
-    case SectionTypeEnum.Clock:
-      return <ClockArea sectionId={sectionId} />;
-    case SectionTypeEnum.Calendar:
-      return <CalendarArea sectionId={sectionId} />;
     case SectionTypeEnum.TaskBoard:
       return <TaskBoardArea sectionId={sectionId} />;
     case SectionTypeEnum.Spreadsheet:

@@ -7,11 +7,9 @@ from pydantic import BaseModel, Field
 from setta.types.generated.user_defaults import (
     UserDefaultBrowserSectionImpl,
     UserDefaultButtonParamCodeObjImpl,
-    UserDefaultCalendarSectionImpl,
     UserDefaultCallableSectionImpl,
     UserDefaultChartSectionImpl,
     UserDefaultChatSectionImpl,
-    UserDefaultClockSectionImpl,
     UserDefaultCodeCallableCodeObjImpl,
     UserDefaultCodeParamCodeObjImpl,
     UserDefaultCodeSectionImpl,
@@ -66,9 +64,6 @@ class SettingsState(BaseModel, extra="forbid"):
     browserSectionDefault: UserDefaultBrowserSectionImpl = Field(
         default_factory=UserDefaultBrowserSectionImpl
     )
-    calendarSectionDefault: UserDefaultCalendarSectionImpl = Field(
-        default_factory=UserDefaultCalendarSectionImpl
-    )
     callableSectionDefault: UserDefaultCallableSectionImpl = Field(
         default_factory=UserDefaultCallableSectionImpl
     )
@@ -77,9 +72,6 @@ class SettingsState(BaseModel, extra="forbid"):
     )
     chatSectionDefault: UserDefaultChatSectionImpl = Field(
         default_factory=UserDefaultChatSectionImpl
-    )
-    clockSectionDefault: UserDefaultClockSectionImpl = Field(
-        default_factory=UserDefaultClockSectionImpl
     )
     codeSectionDefault: UserDefaultCodeSectionImpl = Field(
         default_factory=UserDefaultCodeSectionImpl
@@ -235,12 +227,6 @@ def get_user_default_section_from_settings(settings: SettingsState, type: Sectio
 
         case SectionType.Browser:
             return settings.browserSectionDefault
-
-        case SectionType.Clock:
-            return settings.clockSectionDefault
-
-        case SectionType.Calendar:
-            return settings.calendarSectionDefault
 
         case SectionType.TaskBoard:
             return settings.taskBoardSectionDefault

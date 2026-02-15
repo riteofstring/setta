@@ -2,9 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  createCalendarSectionImpl,
   createCallableSectionImpl,
-  createClockSectionImpl,
   SectionTypeEnum,
   createCore,
   createListRootSectionImpl,
@@ -13,9 +11,7 @@ import {
   createSpreadsheetSectionImpl,
   createTaskBoardSectionImpl,
   createTextBlockSectionImpl,
-  createUserDefaultCalendarSectionImpl,
   createUserDefaultCallableSectionImpl,
-  createUserDefaultClockSectionImpl,
   createUserDefaultListRootSectionImpl,
   createUserDefaultSpreadsheetSectionImpl,
   createUserDefaultTaskBoardSectionImpl,
@@ -24,9 +20,7 @@ import {
   TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { CalendarSectionSettings } from "./CalendarSectionSettings";
 import { ChildDefaultsSettings } from "./ChildDefaultsSettings";
-import { ClockSectionSettings } from "./ClockSectionSettings";
 import { EdgePortsSettings } from "./EdgePortsSettings";
 import { SpreadsheetSectionSettings } from "./SpreadsheetSectionSettings";
 import { TaskBoardSettings } from "./TaskBoardSettings";
@@ -182,51 +176,6 @@ describe("Section data-authoring settings", () => {
     expect(markup).toContain(
       "When enabled, string-typed code params accept unquoted values.",
     );
-  });
-
-  it("renders clock section settings controls", () => {
-    const sectionId = "clock-section";
-    const implId = "clock-impl";
-    seedSectionState({
-      sectionId,
-      sectionName: "Clock",
-      variantId: "clock-variant",
-      implId,
-      impl: createClockSectionImpl(createUserDefaultClockSectionImpl(), {
-        id: implId,
-        timezone: "America/New_York",
-      }),
-    });
-
-    const markup = renderToStaticMarkup(
-      <ClockSectionSettings sectionId={sectionId} />,
-    );
-    expect(markup).toContain("Clock");
-    expect(markup).toContain("Time format");
-    expect(markup).toContain("Timezone");
-    expect(markup).toContain("America/New_York");
-  });
-
-  it("renders calendar section settings controls", () => {
-    const sectionId = "calendar-section";
-    const implId = "calendar-impl";
-    seedSectionState({
-      sectionId,
-      sectionName: "Calendar",
-      variantId: "calendar-variant",
-      implId,
-      impl: createCalendarSectionImpl(createUserDefaultCalendarSectionImpl(), {
-        id: implId,
-        selectedDateIso: "2026-02-14",
-      }),
-    });
-
-    const markup = renderToStaticMarkup(
-      <CalendarSectionSettings sectionId={sectionId} />,
-    );
-    expect(markup).toContain("Calendar");
-    expect(markup).toContain("Selected date");
-    expect(markup).toContain("option value=\"sunday\" selected");
   });
 
   it("renders task board section settings", () => {

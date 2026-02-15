@@ -3,11 +3,9 @@ import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { BrowserAreaSettings } from "./BrowserAreaSettings";
-import { CalendarSectionSettings } from "./CalendarSectionSettings";
 import { ChildDefaultsSettings } from "./ChildDefaultsSettings";
 import { ChartAreaSettings } from "./ChartAreaSettings";
 import { ChatAreaSettings } from "./ChatAreaSettings";
-import { ClockSectionSettings } from "./ClockSectionSettings";
 import { CodeAreaSettings } from "./CodeAreaSettings";
 import { DrawAreaSettings } from "./DrawAreaSettings";
 import { EdgePortsSettings } from "./EdgePortsSettings";
@@ -72,10 +70,6 @@ function SpecializedConfiguration({ sectionId }: { sectionId: string }) {
       return <ChatAreaSettings sectionId={sectionId} />;
     case SectionTypeEnum.Browser:
       return <BrowserAreaSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Clock:
-      return <ClockSectionSettings sectionId={sectionId} />;
-    case SectionTypeEnum.Calendar:
-      return <CalendarSectionSettings sectionId={sectionId} />;
     case SectionTypeEnum.TaskBoard:
       return <TaskBoardSettings sectionId={sectionId} />;
     case SectionTypeEnum.Spreadsheet:

@@ -33,7 +33,6 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
-    CalendarWeekStart,
     ChatSectionBranch,
     CodeFileBinding,
     CodeLanguage,
@@ -156,11 +155,8 @@ class SharedModifier(TypedDict):
     requestMethod: NotRequired[HttpRequestMethod]
     requestUrl: NotRequired[str]
     savedSearches: NotRequired[list[BrowserSavedSearch]]
-    selectedDateIso: NotRequired[str]
     selectedParams: NotRequired[list[ID]]
-    showDate: NotRequired[bool]
     showRowNumbers: NotRequired[bool]
-    showSeconds: NotRequired[bool]
     showSectionTitle: NotRequired[bool]
     size: NotRequired[SectionSize]
     step: NotRequired[float | int]
@@ -172,7 +168,6 @@ class SharedModifier(TypedDict):
     textDisplayMode: NotRequired[TextBlockDisplayMode]
     thinking: NotRequired[bool]
     timeDisplayFormat: NotRequired[TimeDisplayFormat]
-    timezone: NotRequired[str]
     toolCallArguments: NotRequired[dict[str, str]]
     topLevelParamId: NotRequired[ID | None]
     typeAnnotation: NotRequired[str]
@@ -182,4 +177,3 @@ class SharedModifier(TypedDict):
     value: NotRequired[str]
     viewMode: NotRequired[BrowserAreaViewMode | ListRootViewMode | TaskBoardViewMode]
     waitingForResponse: NotRequired[bool]
-    weekStartsOn: NotRequired[CalendarWeekStart]

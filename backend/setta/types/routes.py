@@ -215,8 +215,6 @@ class Route(str, Enum):
     SET_SECTION_COLUMN_WIDTH = "/setSectionColumnWidth"
     SET_PARENT_DEFAULT_CHILD_SECTION_TYPE = "/setParentDefaultChildSectionType"
     SET_LIST_ROOT_VIEW_MODE = "/setListRootViewMode"
-    SET_CLOCK_SECTION_SETTINGS = "/setClockSectionSettings"
-    SET_CALENDAR_SECTION_SETTINGS = "/setCalendarSectionSettings"
     SET_TASK_BOARD_SECTION_STATE = "/setTaskBoardSectionState"
     SET_SPREADSHEET_FILE_PATH = "/setSpreadsheetFilePath"
     SET_SPREADSHEET_SECTION_SETTINGS = "/setSpreadsheetSectionSettings"

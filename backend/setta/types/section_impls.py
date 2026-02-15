@@ -14,8 +14,6 @@ from setta.types.artifact import (
 )
 from setta.types.code_obj_impls import (
     ColorPickerChoice,
-    DateDisplayFormat,
-    TimeDisplayFormat,
 )
 from setta.types.edges import EdgePort
 from setta.types.generated.chart_settings_unions import (
@@ -47,8 +45,6 @@ class SectionType(str, Enum):
     IFrame = "IFrame"
     Chat = "Chat"
     Browser = "Browser"
-    Clock = "Clock"
-    Calendar = "Calendar"
     TaskBoard = "TaskBoard"
     Spreadsheet = "Spreadsheet"
 
@@ -418,32 +414,6 @@ class BrowserSectionImpl(BaseSectionImpl):
     typesColumnWidth: float | None = None
     viewMode: BrowserAreaViewMode = BrowserAreaViewMode.list
     savedSearches: list[BrowserSavedSearch] = Field(default_factory=list)
-
-
-class ClockSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.Clock] = SectionType.Clock
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=320.0, height=170.0)
-    )
-    timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
-    dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.long
-    showSeconds: bool = True
-    showDate: bool = True
-    timezone: str = "local"
-
-
-class CalendarWeekStart(str, Enum):
-    sunday = "sunday"
-    monday = "monday"
-
-
-class CalendarSectionImpl(BaseSectionImpl):
-    type: Literal[SectionType.Calendar] = SectionType.Calendar
-    size: SectionSize = Field(
-        default_factory=lambda: SectionSize(width=420.0, height=360.0)
-    )
-    selectedDateIso: str = ""
-    weekStartsOn: CalendarWeekStart = CalendarWeekStart.sunday
 
 
 class TaskBoardSectionImpl(BaseSectionImpl):
