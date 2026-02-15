@@ -8,6 +8,16 @@
 - `isTab` view modes render as tabs. `isUserFacing` gates whether a mode is
   intended for share/user-facing surfaces.
 
+## ListRoot Section View Modes
+
+- `ListRootSectionImpl` also has a section-local `viewMode`
+  (`default`, `task_list`, `kanban`) that controls how that section arranges its
+  direct child sections.
+- This is separate from `ProjectConfig.viewModes`; changing one does not change the other.
+- Section-local updates are sent through `route_set_list_root_view_mode`.
+- `ListRoot` and `Group` sections additionally store `defaultChildSectionType`
+  (updated via `route_set_parent_default_child_section_type`) for incrementer-created children.
+
 ## IDE tab bar + pane rails
 - In IDE mode, `isTab` view modes render in `ViewModeTabs` as a dedicated bottom
   row in the main grid (`frontend/src/components/Pages/MainContainerCore.tsx`),
