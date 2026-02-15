@@ -64,4 +64,27 @@ describe("useCreateSectionsList", () => {
       timeControlMode: TimeControlModeEnum.display,
     });
   });
+
+  it("places task board in the Other group instead of Section", () => {
+    let items: ReturnType<typeof useCreateSectionsList> = [];
+    renderToStaticMarkup(
+      <Probe
+        onResolve={(resolvedItems) => {
+          items = resolvedItems;
+        }}
+      />,
+    );
+
+    const sectionGroup = items.find((group) => group.group === "Section");
+    const otherGroup = items.find((group) => group.group === "Other");
+
+    expect(sectionGroup).toBeDefined();
+    expect(otherGroup).toBeDefined();
+    expect(sectionGroup?.items.some((item) => item.name === "Task Board")).toBe(
+      false,
+    );
+    expect(otherGroup?.items.some((item) => item.name === "Task Board")).toBe(
+      true,
+    );
+  });
 });

@@ -55,7 +55,6 @@ export function useCreateSectionsList() {
     { name: "Dict", implSpecs: { type: SectionTypeEnum.Group } },
     { name: "Text", implSpecs: { type: SectionTypeEnum.TextBlock } },
     { name: "Prompt", implSpecs: { type: SectionTypeEnum.Prompt } },
-    { name: "Task Board", implSpecs: { type: SectionTypeEnum.TaskBoard } },
   ];
 
   if (!singletonSections.GlobalVariables) {
@@ -130,6 +129,10 @@ export function useCreateSectionsList() {
       name: "Spreadsheet",
       implSpecs: { type: SectionTypeEnum.Spreadsheet },
     },
+  ];
+
+  const otherGroupItems: Array<CreateSectionsContextMenuInfo> = [
+    { name: "Task Board", implSpecs: { type: SectionTypeEnum.TaskBoard } },
   ];
 
   const metaControlGroupItems: Array<CreateSectionsContextMenuInfo> = [
@@ -246,6 +249,10 @@ export function useCreateSectionsList() {
     {
       group: "Artifacts",
       items: artifactGroupItems,
+    },
+    {
+      group: "Other",
+      items: otherGroupItems,
     },
     {
       group: "MetaControls",
