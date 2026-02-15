@@ -867,6 +867,26 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
       }
       return await embeddedTerminalContainer.boundingBox();
     };
+    const getEmbeddedTerminalDragBox = async (): Promise<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null> => {
+      if ((await embeddedTerminalContainer.count()) === 0) {
+        return null;
+      }
+      const headerHandle = embeddedTerminalContainer
+        .locator("header.section-title")
+        .first();
+      if ((await headerHandle.count()) > 0) {
+        const headerBox = await headerHandle.boundingBox();
+        if (headerBox) {
+          return headerBox;
+        }
+      }
+      return await getEmbeddedTerminalBox();
+    };
 
     const pane = page.locator(".react-flow__pane");
     const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
@@ -884,13 +904,14 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
       if (!paneBox || !codeBox) {
         throw new Error("Missing bounding boxes for drag.");
       }
-      const terminalBox = await getEmbeddedTerminalBox();
+      const terminalBox = await getEmbeddedTerminalDragBox();
       if (!terminalBox) {
         await page.waitForTimeout(250);
         continue;
       }
 
-      const { x: startX, y: startY } = getDragStartPoint(terminalBox);
+      const startX = terminalBox.x + Math.min(4, terminalBox.width / 2);
+      const startY = terminalBox.y + Math.min(4, terminalBox.height / 2);
       const { x: targetX, y: targetY } = getDetachTargetPoint({
         paneBox,
         codeBox,

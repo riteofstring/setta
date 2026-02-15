@@ -15,7 +15,6 @@ type FileBrowserRootResponse = {
 
 type FileBrowserFileContentResponse = {
   contentId: string;
-  mtimeNs: number;
 };
 
 test("file browser content endpoint uses binary content ids for read/write", async ({
@@ -34,6 +33,10 @@ test("file browser content endpoint uses binary content ids for read/write", asy
   }
 
   const csvPath = path.join(rootPath, `pw-binary-flow-${Date.now()}.csv`);
+  const updatedCsvPath = path.join(
+    rootPath,
+    `pw-binary-flow-updated-${Date.now()}.csv`,
+  );
   await fs.writeFile(csvPath, "task,status\nalpha,todo\n", "utf-8");
 
   // Validate read flow: route returns a content id and bytes are downloaded
@@ -78,11 +81,13 @@ test("file browser content endpoint uses binary content ids for read/write", asy
     page,
     "/writeFileBrowserFileContent",
     {
-      path: csvPath,
+      path: updatedCsvPath,
       contentId: uploadedPayload.contentId,
       expectedMtimeNs: null,
     },
   );
   expect(writeResult?.mtimeNs).toBeTruthy();
-  await expect(fs.readFile(csvPath, "utf-8")).resolves.toContain("alpha,done");
+  await expect(fs.readFile(updatedCsvPath, "utf-8")).resolves.toContain(
+    "alpha,done",
+  );
 });

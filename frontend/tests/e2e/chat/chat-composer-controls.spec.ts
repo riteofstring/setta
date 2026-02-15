@@ -418,6 +418,7 @@ test.describe.serial("chat composer controls", () => {
             events: [],
             inputs: {
               runType: "llm_chat",
+              projectConfigId: projectContext.projectConfigId,
               chatId: matchingChatId,
               engineConfigId: activeEngineId,
               messages: [
@@ -440,6 +441,7 @@ test.describe.serial("chat composer controls", () => {
             events: [],
             inputs: {
               runType: "llm_chat",
+              projectConfigId: projectContext.projectConfigId,
               chatId: mismatchedChatId,
               engineConfigId: "engine-incompatible",
               messages: [

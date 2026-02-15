@@ -583,6 +583,15 @@ should_build_plugin_fixtures_for_targets() {
     if _plugin_fixture_directory_has_plugin_tests "${root_dir}" "${target_path}" "${mode}"; then
       return 0
     fi
+    if [[ "${mode}" == "playwright" ]] && [[ "${target_path}" != frontend/* ]]; then
+      if _plugin_fixture_directory_has_plugin_tests "${root_dir}" "frontend/${target_path}" "${mode}"; then
+        return 0
+      fi
+    fi
+
+    if _plugin_fixture_path_has_plugin_hint "frontend/${target_path}" && [[ "${mode}" == "playwright" ]]; then
+      return 0
+    fi
 
     if [[ "${mode}" == "pytest" ]] && [[ ! -d "${resolved_target}" ]] && [[ "${target_path}" != *.py ]]; then
       # Non-file pytest targets can reference test selectors/modules; stay conservative.

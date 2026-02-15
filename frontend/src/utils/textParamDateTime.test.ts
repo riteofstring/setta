@@ -78,7 +78,8 @@ describe("textParamDateTime", () => {
   });
 
   it("formats local today as ISO using local date parts", () => {
-    expect(getLocalTodayIsoDate(new Date("2026-02-17T23:30:00-08:00"))).toBe(
+    // Use a local-time Date constructor so the assertion is timezone-stable.
+    expect(getLocalTodayIsoDate(new Date(2026, 1, 17, 23, 30, 0))).toBe(
       "2026-02-17",
     );
   });

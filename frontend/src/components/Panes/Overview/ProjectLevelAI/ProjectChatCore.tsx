@@ -44,6 +44,7 @@ import {
   type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
+import { getRunInputString } from "state/actions/agentRunUtils";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
@@ -599,8 +600,16 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
     await loadAgentRuns();
     const currentChatId = typeof chatId === "string" ? chatId : null;
+    const allRuns = useAIStore.getState().agentRuns;
+    const scopedRuns = allRuns.filter(
+      (run) => getRunInputString(run, "projectConfigId") === projectConfigId,
+    );
+    const fallbackRuns = allRuns.filter(
+      (run) => getRunInputString(run, "projectConfigId") === null,
+    );
+    const candidateRuns = scopedRuns.length > 0 ? scopedRuns : fallbackRuns;
     const latestEntry = toSortedProjectHistoryEntries(
-      useAIStore.getState().agentRuns,
+      candidateRuns,
       historyCompatibility,
     ).find((entry) => entry.chatId !== currentChatId);
     if (!latestEntry) {
@@ -608,7 +617,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
     setChatId(latestEntry.chatId);
     return true;
-  }, [chatId, historyCompatibility, setChatId]);
+  }, [chatId, historyCompatibility, projectConfigId, setChatId]);
 
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {

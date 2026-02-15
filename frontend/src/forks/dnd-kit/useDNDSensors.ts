@@ -65,16 +65,16 @@ export function useSectionDndSensors() {
       preventActivation: (event, source: DndSource) => {
         const { isSorting, isMovingFree } = useDndState.getState();
         const isTopLevel = getIsTopLevel(source);
-        if (eventTargetsNoDragElement(event)) {
-          return true;
-        }
-
         if (isMovingFree) {
           return false;
         }
 
         if (isSorting && !isTopLevel) {
           return false;
+        }
+
+        if (eventTargetsNoDragElement(event)) {
+          return true;
         }
 
         return true;
@@ -85,16 +85,16 @@ export function useSectionDndSensors() {
       preventActivation: (event, source: DndSource) => {
         const { isSorting, isMovingFree } = useDndState.getState();
         const isTopLevel = getIsTopLevel(source);
-        if (eventTargetsNoDragElement(event)) {
-          return true;
-        }
-
         if (isMovingFree) {
           return false;
         }
 
         if (isSorting && !isTopLevel) {
           return false;
+        }
+
+        if (eventTargetsNoDragElement(event)) {
+          return true;
         }
 
         return true;
