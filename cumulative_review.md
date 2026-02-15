@@ -124,3 +124,15 @@
 - Hardened fixture-reset script reliability: fail fast when `setta` is unavailable, surface unlink failures, and stop masking rescan failures.
 - Refactored Playwright artifact seeding script to share index-env wiring and source fixture wheel name/version from fixture `pyproject.toml`, removing duplicated hard-coded metadata paths.
 - Added/updated backend unit/integration tests, frontend Vitest coverage, and Playwright E2E coverage for all changed behavior (including reactive fallback-reason transitions); completed CDP visual verification for fallback-card behavior and Plugins-pane opening flow.
+
+## 2026-02-15T20:38:30-08:00
+
+- Implemented the follow-up `review*.md` fix batch end-to-end, excluding backward-compatibility shim additions.
+- Hardened backend plugin lifecycle and runtime correctness: backend-shutdown now clears stale registration/runtime maps, package-manager source digest caching is bounded with LRU eviction, and install-time backend-presence checks no longer rely on discovered-state artifacts.
+- Fixed external-agent adapter execution flow by resolving plugin adapters once per run, removing duplicate lookup races, and scoping adapter env-whitelist injection to plugin-backed tool runs only.
+- Updated CLI plugin workflows for determinism and automation: `plugins install`/`plugins rescan` now construct `PluginManager` without auto-rescan, and `plugins unlink` now supports `--ignore-missing` with structured JSON output.
+- Improved frontend plugin UX concurrency: top-nav and Plugins pane actions now use per-action busy keys so unrelated actions remain interactive while a specific operation is in flight.
+- Tightened frontend runtime/search correctness: realtime section emits now reject non-object payloads, command palette creation now throws on duplicate command IDs with source attribution, and generated endpoints now exclude unsupported `route_plugin_asset` exports.
+- Refactored duplicated project LSP/Python section behavior into a shared mixin/helper path in `project_code.py` while preserving behavior.
+- Hardened plugin fixture reset automation by switching unlink handling to structured JSON parsing instead of brittle stderr pattern matching.
+- Added/updated backend pytest, frontend Vitest, and Playwright E2E coverage for all above paths; executed targeted test runs and completed CDP UI verification for updated plugin panes/top-nav behavior.

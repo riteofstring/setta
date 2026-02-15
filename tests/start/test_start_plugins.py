@@ -110,7 +110,7 @@ def test_plugins_restart_required_text_includes_restart_capability(
         force=False,
     )
 
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda **_kwargs: manager)
     runner = CliRunner()
     result = runner.invoke(plugins, ["restart-required"])
 
@@ -168,7 +168,7 @@ def test_plugins_restart_required_reports_pending_ids_without_status(
         setta_files_root=manager.setta_files_root,
         setta_home=manager.setta_home,
     )
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: reloaded)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda **_kwargs: reloaded)
 
     runner = CliRunner()
     result = runner.invoke(plugins, ["restart-required"])
@@ -184,7 +184,7 @@ def test_plugins_install_cli_rejects_scope_and_shortcut_conflicts(
 ) -> None:
     # Install CLI should reject combining --scope with shortcut scope flags.
     manager = _build_manager(tmp_path)
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda **_kwargs: manager)
     runner = CliRunner()
 
     result = runner.invoke(
@@ -208,7 +208,7 @@ def test_plugins_uninstall_cli_rejects_multiple_scope_shortcuts(
 ) -> None:
     # Uninstall CLI should reject conflicting shortcut scope flags.
     manager = _build_manager(tmp_path)
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda **_kwargs: manager)
     runner = CliRunner()
 
     result = runner.invoke(
@@ -231,7 +231,7 @@ def test_plugins_install_cli_rejects_removed_environment_flag(
 ) -> None:
     # Install CLI should reject removed legacy scope flags.
     manager = _build_manager(tmp_path)
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda **_kwargs: manager)
     runner = CliRunner()
 
     result = runner.invoke(
@@ -253,7 +253,7 @@ def test_plugins_install_cli_rejects_removed_environment_scope_value(
 ) -> None:
     # Install CLI should reject legacy scope values and point to canonical choices.
     manager = _build_manager(tmp_path)
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda **_kwargs: manager)
     runner = CliRunner()
 
     result = runner.invoke(
@@ -274,7 +274,7 @@ def test_plugins_install_cli_rejects_removed_environment_scope_value(
 def test_plugins_list_cli_text_reports_no_plugins(tmp_path: Path, monkeypatch) -> None:
     # Text-mode plugin list should emit an explicit empty-state message.
     manager = _build_manager(tmp_path)
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda **_kwargs: manager)
     runner = CliRunner()
 
     result = runner.invoke(plugins, ["list"])
@@ -311,7 +311,7 @@ def test_plugins_list_cli_text_includes_restart_shadowed_and_errors(
     (broken_root / "setta.plugin.json").write_text("{not-json", encoding="utf-8")
     manager.rescan()
 
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda **_kwargs: manager)
     runner = CliRunner()
     result = runner.invoke(plugins, ["list"])
 
@@ -351,7 +351,7 @@ def test_plugins_lock_write_and_apply_cli_json_roundtrip(
         monkeypatch.setattr(
             start_module,
             "_build_plugin_manager_for_cli",
-            lambda: manager,
+            lambda **_kwargs: manager,
         )
         runner = CliRunner()
 
@@ -493,7 +493,7 @@ def test_plugins_restart_cli_surfaces_plugin_manager_errors(
 def test_plugins_init_and_validate_cli_flow(tmp_path: Path, monkeypatch) -> None:
     # CLI init/validate should scaffold and validate a plugin template end-to-end.
     manager = _build_manager(tmp_path)
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda **_kwargs: manager)
     runner = CliRunner()
 
     init_result = runner.invoke(
@@ -526,7 +526,7 @@ def test_plugins_validate_cli_reports_plugin_manager_errors(
 ) -> None:
     # Validate should surface PluginManagerError payloads through Click exceptions.
     manager = _build_manager(tmp_path)
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda **_kwargs: manager)
     runner = CliRunner()
     invalid_plugin_root = tmp_path / "invalid-plugin-root"
     invalid_plugin_root.mkdir(parents=True, exist_ok=True)
@@ -553,7 +553,7 @@ def test_plugins_install_update_pin_rollback_and_uninstall_cli_json(
         package_name=package_name,
         version=version,
     )
-    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda **_kwargs: manager)
     runner = CliRunner()
 
     old_no_index = os.environ.get("PIP_NO_INDEX")
@@ -622,3 +622,102 @@ def test_plugins_install_update_pin_rollback_and_uninstall_cli_json(
             os.environ.pop("PIP_FIND_LINKS", None)
         else:
             os.environ["PIP_FIND_LINKS"] = old_find_links
+
+
+def test_plugins_rescan_cli_builds_manager_without_auto_rescan(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Rescan command should avoid constructor auto-rescan and do one explicit rescan call.
+    manager = _build_manager(tmp_path)
+    captured_auto_rescan_values: list[bool] = []
+
+    def _build_with_capture(*, auto_rescan: bool = True):
+        captured_auto_rescan_values.append(auto_rescan)
+        return manager
+
+    monkeypatch.setattr(
+        start_module,
+        "_build_plugin_manager_for_cli",
+        _build_with_capture,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(plugins, ["rescan", "--json"])
+
+    assert result.exit_code == 0, result.output
+    assert captured_auto_rescan_values == [False]
+
+
+def test_plugins_install_cli_builds_manager_without_auto_rescan(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Install command should avoid constructor auto-rescan and rely on install flow scan.
+    manager = _build_manager(tmp_path)
+    captured_auto_rescan_values: list[bool] = []
+
+    def _build_with_capture(*, auto_rescan: bool = True):
+        captured_auto_rescan_values.append(auto_rescan)
+        return manager
+
+    monkeypatch.setattr(
+        start_module,
+        "_build_plugin_manager_for_cli",
+        _build_with_capture,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(plugins, ["install", "file:/tmp/invalid-plugin"])
+
+    assert result.exit_code != 0
+    assert captured_auto_rescan_values == [False]
+
+
+def test_plugins_unlink_cli_ignore_missing_returns_success(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Ignore-missing unlink mode should return success for absent plugins.
+    manager = _build_manager(tmp_path)
+    monkeypatch.setattr(
+        start_module,
+        "_build_plugin_manager_for_cli",
+        lambda **_kwargs: manager,
+    )
+    runner = CliRunner()
+
+    text_result = runner.invoke(
+        plugins,
+        [
+            "unlink",
+            "setta-fixture-missing",
+            "--scope",
+            "workspace",
+            "--ignore-missing",
+        ],
+    )
+    assert text_result.exit_code == 0, text_result.output
+    assert (
+        "Plugin setta-fixture-missing not found in workspace scope; skipping."
+        in text_result.output
+    )
+
+    json_result = runner.invoke(
+        plugins,
+        [
+            "unlink",
+            "setta-fixture-missing",
+            "--scope",
+            "workspace",
+            "--ignore-missing",
+            "--json",
+        ],
+    )
+    assert json_result.exit_code == 0, json_result.output
+    assert json.loads(json_result.output) == {
+        "pluginId": "setta-fixture-missing",
+        "removedFromScope": "workspace",
+        "restartRequired": False,
+        "ignoredMissing": True,
+    }

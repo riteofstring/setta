@@ -1074,6 +1074,47 @@ class TestExternalAgentRunner:
 
             assert env.get("FIXTURE_EXTERNAL_AGENT_TOKEN") == "secret"
 
+    def test_non_plugin_tool_ignores_plugin_adapter_env_whitelist(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            dbe.dot_env = Path(tmpdir) / ".env"
+            dbe.write_dot_env(
+                {
+                    "OPENAI_API_KEY": "openai-secret",
+                    "FIXTURE_EXTERNAL_AGENT_TOKEN": "plugin-secret",
+                }
+            )
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            registration = PluginRegisteredExternalAgentAdapter(
+                adapterId="setta-fixture-backend-external-agent:fixture-agent",
+                pluginId="setta-fixture-backend-external-agent",
+                name="Fixture External Agent",
+                runModes=["sdk"],
+                command=sys.executable,
+                args=["-c", "print('fixture')"],
+                envVarWhitelist=["FIXTURE_EXTERNAL_AGENT_TOKEN"],
+                defaultModel="fixture-model",
+            )
+            runner = ExternalAgentRunner(
+                dbe,
+                frontend_sender,
+                plugin_external_agent_adapters=[registration],
+            )
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                pluginAdapterId=registration.adapterId,
+                runMode=ExternalAgentRunMode.app_server,
+                envVarWhitelist=["OPENAI_API_KEY"],
+            )
+
+            env = runner._build_env(config)
+
+            assert env.get("OPENAI_API_KEY") == "openai-secret"
+            assert "FIXTURE_EXTERNAL_AGENT_TOKEN" not in env
+
     def test_claude_mcp_config_is_written(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1400,7 +1441,10 @@ class TestExternalAgentRunner:
 class TestExternalAgentRunnerPluginAdapter:
     pytestmark = pytest.mark.asyncio
 
-    async def test_plugin_process_adapter_runs_and_streams_text(self) -> None:
+    async def test_plugin_process_adapter_runs_and_streams_text(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         fixture_script = (
             Path(__file__).resolve().parents[1]
             / "fixtures"
@@ -1431,6 +1475,15 @@ class TestExternalAgentRunnerPluginAdapter:
                 frontend_sender,
                 plugin_external_agent_adapters=[registration],
             )
+            lookup_call_count = 0
+            original_lookup = runner._adapter_registry.lookup
+
+            def _record_lookup(*args, **kwargs):
+                nonlocal lookup_call_count
+                lookup_call_count += 1
+                return original_lookup(*args, **kwargs)
+
+            monkeypatch.setattr(runner._adapter_registry, "lookup", _record_lookup)
             config = ExternalAgentConfig(
                 name="Fixture Plugin Adapter",
                 toolType=ExternalAgentToolType.plugin,
@@ -1462,6 +1515,7 @@ class TestExternalAgentRunnerPluginAdapter:
                 assert metadata.get("toolType") == "plugin"
                 assert metadata.get("runMode") == "sdk"
                 assert metadata.get("externalAgentConfigId") == str(config.id)
+            assert lookup_call_count == 1
 
 
 class TestExternalAgentRunnerApproval:

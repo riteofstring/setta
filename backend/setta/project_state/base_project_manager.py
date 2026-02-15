@@ -1239,7 +1239,9 @@ class BaseProjectManager(ABC):
             self._plugin_codegen_target_state_by_project_config.pop(
                 project_config_id, None
             )
-            self._plugin_codegen_output_root_by_project_config.pop(project_config_id, None)
+            self._plugin_codegen_output_root_by_project_config.pop(
+                project_config_id, None
+            )
             if output_root.exists():
                 shutil.rmtree(output_root)
             return
@@ -3344,10 +3346,14 @@ class BaseProjectManager(ABC):
     @enqueue_method
     async def delete_project_configs(self, project_config_ids: list[ID]):
         for project_config_id in project_config_ids:
-            project_config = self.project_state_backend.projectConfigs[project_config_id]
-            previous_output_root = self._plugin_codegen_output_root_by_project_config.pop(
-                project_config_id,
-                self._plugin_codegen_output_root(project_config.name),
+            project_config = self.project_state_backend.projectConfigs[
+                project_config_id
+            ]
+            previous_output_root = (
+                self._plugin_codegen_output_root_by_project_config.pop(
+                    project_config_id,
+                    self._plugin_codegen_output_root(project_config.name),
+                )
             )
             if previous_output_root.exists():
                 shutil.rmtree(previous_output_root)

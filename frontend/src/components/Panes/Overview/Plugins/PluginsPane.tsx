@@ -144,7 +144,9 @@ export function PluginsPane() {
   const [scope, setScope] = useState<InstallScope>("workspace");
   const [installer, setInstaller] = useState<InstallBackend>("auto");
   const [enableAfterInstall, setEnableAfterInstall] = useState(true);
-  const [busyActionKey, setBusyActionKey] = useState<string | null>(null);
+  const [busyActionKeys, setBusyActionKeys] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [actionStatus, setActionStatus] = useState<PluginActionStatus | null>(
     null,
   );
@@ -198,7 +200,14 @@ export function PluginsPane() {
     actionLabel: string,
     operation: () => Promise<ResponseDataAndStatus<T>>,
   ): Promise<ResponseDataAndStatus<T> | null> {
-    setBusyActionKey(actionKey);
+    setBusyActionKeys((previous) => {
+      if (previous.has(actionKey)) {
+        return previous;
+      }
+      const next = new Set(previous);
+      next.add(actionKey);
+      return next;
+    });
     setActionStatus(null);
     try {
       const response = await operation();
@@ -215,8 +224,28 @@ export function PluginsPane() {
       await refreshPluginRuntime();
       return response;
     } finally {
-      setBusyActionKey(null);
+      setBusyActionKeys((previous) => {
+        if (!previous.has(actionKey)) {
+          return previous;
+        }
+        const next = new Set(previous);
+        next.delete(actionKey);
+        return next;
+      });
     }
+  }
+
+  function isActionBusy(actionKey: string): boolean {
+    return busyActionKeys.has(actionKey);
+  }
+
+  function isAnyPluginActionBusy(pluginId: string): boolean {
+    for (const actionKey of busyActionKeys) {
+      if (actionKey.endsWith(`:${pluginId}`)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   async function onInstallPlugin() {
@@ -308,7 +337,7 @@ export function PluginsPane() {
               type="button"
               className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
               onClick={onRescan}
-              disabled={busyActionKey !== null}
+              disabled={isActionBusy("rescan")}
             >
               Rescan
             </button>
@@ -317,7 +346,7 @@ export function PluginsPane() {
               className="rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
               onClick={onRestart}
               disabled={
-                busyActionKey !== null ||
+                isActionBusy("restart") ||
                 restartActionPlan.mode === "unavailable"
               }
             >
@@ -373,7 +402,7 @@ export function PluginsPane() {
             onChange={(event) => setSourceSpec(event.target.value)}
             placeholder="github:owner/repo[#ref] or pypi:package[==version]"
             className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
-            disabled={writeActionsLocked || busyActionKey !== null}
+            disabled={writeActionsLocked || isActionBusy("install")}
           />
           <div className="flex items-center gap-2">
             <select
@@ -381,7 +410,7 @@ export function PluginsPane() {
               onChange={(event) => setScope(event.target.value as InstallScope)}
               data-testid="plugin-install-scope"
               className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
-              disabled={writeActionsLocked || busyActionKey !== null}
+              disabled={writeActionsLocked || isActionBusy("install")}
             >
               <option value="workspace">workspace</option>
               <option value="setta_files">setta_files</option>
@@ -394,7 +423,7 @@ export function PluginsPane() {
               }
               data-testid="plugin-install-installer"
               className="rounded border border-setta-300 bg-white px-2 py-1 text-xs text-setta-800 outline-none focus:border-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-100"
-              disabled={writeActionsLocked || busyActionKey !== null}
+              disabled={writeActionsLocked || isActionBusy("install")}
             >
               <option value="auto">auto</option>
               <option value="pip">pip</option>
@@ -407,7 +436,7 @@ export function PluginsPane() {
                 onChange={(event) =>
                   setEnableAfterInstall(event.target.checked)
                 }
-                disabled={writeActionsLocked || busyActionKey !== null}
+                disabled={writeActionsLocked || isActionBusy("install")}
               />
               enable after install
             </label>
@@ -415,7 +444,7 @@ export function PluginsPane() {
               type="button"
               className="ml-auto rounded border border-setta-300 px-2 py-1 text-[11px] font-medium text-setta-700 hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-200 dark:hover:bg-setta-800"
               onClick={onInstallPlugin}
-              disabled={writeActionsLocked || busyActionKey !== null}
+              disabled={writeActionsLocked || isActionBusy("install")}
             >
               Install
             </button>
@@ -462,7 +491,8 @@ export function PluginsPane() {
                 plugin={plugin}
                 isSettingsProject={isSettingsProject}
                 writeActionsLocked={writeActionsLocked}
-                busyActionKey={busyActionKey}
+                isActionBusy={isActionBusy}
+                isAnyPluginActionBusy={isAnyPluginActionBusy}
                 runAction={runAction}
               />
             ))}
@@ -552,7 +582,8 @@ type PluginListEntryCardProps = {
   plugin: PluginListEntry;
   isSettingsProject: boolean;
   writeActionsLocked: boolean;
-  busyActionKey: string | null;
+  isActionBusy: (actionKey: string) => boolean;
+  isAnyPluginActionBusy: (pluginId: string) => boolean;
   runAction: <T>(
     actionKey: string,
     actionLabel: string,
@@ -564,7 +595,8 @@ function PluginListEntryCard({
   plugin,
   isSettingsProject,
   writeActionsLocked,
-  busyActionKey,
+  isActionBusy,
+  isAnyPluginActionBusy,
   runAction,
 }: PluginListEntryCardProps) {
   const runtimeState = usePluginRuntimeStore(
@@ -629,10 +661,9 @@ function PluginListEntryCard({
 
   const packageManagerManaged = plugin.sourceManager === "package_manager";
   const packageManagerGuidance = buildSourceManagerGuidanceMessage(plugin);
-  const pluginActionDisabled = writeActionsLocked || busyActionKey !== null;
-  const packageManagerWriteDisabled =
-    pluginActionDisabled || packageManagerManaged;
-  const paneButtonsDisabled = pluginActionDisabled;
+  const pluginActionBusy = isAnyPluginActionBusy(plugin.pluginId);
+  const pluginActionDisabled = writeActionsLocked || pluginActionBusy;
+  const paneButtonsDisabled = writeActionsLocked;
   const requestedCapabilities = pluginStatus?.requestedCapabilities ?? [];
   const effectiveCapabilities =
     pluginStatus?.effectiveCapabilities ?? plugin.effectiveCapabilities;
@@ -713,27 +744,39 @@ function PluginListEntryCard({
         <ActionButton
           label="Enable"
           onClick={onEnable}
-          disabled={pluginActionDisabled}
+          disabled={writeActionsLocked || isActionBusy(`enable:${plugin.pluginId}`)}
         />
         <ActionButton
           label="Disable"
           onClick={onDisable}
-          disabled={pluginActionDisabled}
+          disabled={writeActionsLocked || isActionBusy(`disable:${plugin.pluginId}`)}
         />
         <ActionButton
           label="Update"
           onClick={onUpdate}
-          disabled={packageManagerWriteDisabled}
+          disabled={
+            writeActionsLocked ||
+            packageManagerManaged ||
+            isActionBusy(`update:${plugin.pluginId}`)
+          }
         />
         <ActionButton
           label="Rollback"
           onClick={onRollback}
-          disabled={packageManagerWriteDisabled}
+          disabled={
+            writeActionsLocked ||
+            packageManagerManaged ||
+            isActionBusy(`rollback:${plugin.pluginId}`)
+          }
         />
         <ActionButton
           label="Uninstall"
           onClick={onUninstall}
-          disabled={packageManagerWriteDisabled}
+          disabled={
+            writeActionsLocked ||
+            packageManagerManaged ||
+            isActionBusy(`uninstall:${plugin.pluginId}`)
+          }
         />
       </div>
 
@@ -829,7 +872,7 @@ function PluginListEntryCard({
                 {registration.settingsKey ? (
                   <LanguageServerSettingsEditor
                     settingsKey={registration.settingsKey}
-                    disabled={writeActionsLocked || busyActionKey !== null}
+                    disabled={writeActionsLocked}
                   />
                 ) : null}
               </article>

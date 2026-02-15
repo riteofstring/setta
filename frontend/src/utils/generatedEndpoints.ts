@@ -19,16 +19,6 @@ export async function route_call_mcp_tool(
   return await post("/__setta__/tools/call", payload);
 }
 
-export async function route_plugin_asset(
-  pluginId: string,
-  assetPath: string,
-): Promise<ResponseDataAndStatus<null>> {
-  return await get("/plugins/{pluginId}/{assetPath:path}", {
-    pluginId,
-    assetPath,
-  });
-}
-
 export async function route_load_all_project_metadata(): Promise<
   ResponseDataAndStatus<gt.AllProjectMetadata>
 > {

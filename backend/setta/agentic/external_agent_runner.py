@@ -275,7 +275,7 @@ class ExternalAgentRunner:
                 },
             )
         task = spawn_background_task(
-            lambda: self._run_external_agent(context),
+            lambda: self._run_external_agent(context, adapter),
             label="external-agent-run",
             project_config_id=str(context.project_config_id),
             extra_values={"run_id": str(run.id)},
@@ -338,27 +338,24 @@ class ExternalAgentRunner:
             raise KeyError(f"External agent run {run_id} not found")
         return run
 
-    async def _run_external_agent(self, context: ExternalAgentRunContext) -> None:
+    async def _run_external_agent(
+        self, context: ExternalAgentRunContext, adapter: ExternalAgentAdapter
+    ) -> None:
         run = context.run
         handle: ExternalAgentRunHandle | None = None
-        adapter: ExternalAgentAdapter | None = None
+        current_adapter: ExternalAgentAdapter | None = adapter
         try:
-            adapter = self._adapter_registry.lookup(
-                context.config.toolType,
-                context.config.runMode,
-                context.config.pluginAdapterId,
-            ).adapter
             if context.agentic_context_section_ids:
                 await self._broadcast_ai_follow_update(
                     context.project_config_id,
                     context.chat_id,
                     {"section": list(context.agentic_context_section_ids)},
                 )
-            handle = await adapter.start_run(context)
+            handle = await current_adapter.start_run(context)
             self._run_state[run.id] = ExternalAgentRunState(
-                handle=handle, adapter=adapter
+                handle=handle, adapter=current_adapter
             )
-            async for event in adapter.stream_events(handle, context):
+            async for event in current_adapter.stream_events(handle, context):
                 if self._is_approval_request(event.raw):
                     await self._handle_approval_request(context, run, event.raw)
                     continue
@@ -381,7 +378,7 @@ class ExternalAgentRunner:
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_completed", {})
         except asyncio.CancelledError:
-            await self._cancel_external_run(adapter, handle)
+            await self._cancel_external_run(current_adapter, handle)
             self._persist_external_session_metadata(run, handle)
             self._persist_outputs_from_state(run, context.config)
             was_cancelled = run.status == AgentRunStatus.cancelled
@@ -393,7 +390,7 @@ class ExternalAgentRunner:
                 self._record_event(run, "run_cancelled", {})
             raise
         except Exception as exc:
-            await self._cancel_external_run(adapter, handle)
+            await self._cancel_external_run(current_adapter, handle)
             error_payload: dict[str, Any] = {"error": str(exc)}
             stderr_lines = None
             if handle is not None:
@@ -1243,11 +1240,12 @@ class ExternalAgentRunner:
                 env[key] = value
         allowed = {name.strip() for name in config.envVarWhitelist if name.strip()}
         plugin_adapter = self.get_plugin_external_agent_adapter(config.pluginAdapterId)
-        if plugin_adapter is not None:
+        if (
+            config.toolType == ExternalAgentToolType.plugin
+            and plugin_adapter is not None
+        ):
             allowed.update(
-                name.strip()
-                for name in plugin_adapter.envVarWhitelist
-                if name.strip()
+                name.strip() for name in plugin_adapter.envVarWhitelist if name.strip()
             )
         if not allowed:
             return env

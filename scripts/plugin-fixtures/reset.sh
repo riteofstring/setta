@@ -50,18 +50,31 @@ while IFS= read -r plugin_id; do
   [[ -z "${plugin_id}" ]] && continue
   echo "reset: unlink attempts for ${plugin_id}..."
   for scope in workspace setta_files global; do
-    if unlink_output="$(setta plugins unlink "${plugin_id}" --scope "${scope}" 2>&1)"; then
-      echo "removed ${plugin_id} from ${scope}"
-      removed_count=$((removed_count + 1))
-      continue
+    if ! unlink_output="$(
+      setta plugins unlink "${plugin_id}" --scope "${scope}" --ignore-missing --json 2>&1
+    )"; then
+      echo "reset: failed to unlink ${plugin_id} from ${scope}" >&2
+      echo "${unlink_output}" >&2
+      exit 1
     fi
-    if grep -Eqi "not found|not installed|no plugin" <<<"${unlink_output}"; then
+    unlink_state="$(
+      python - "${unlink_output}" <<'PY'
+import json
+import sys
+
+payload = json.loads(sys.argv[1])
+if payload.get("ignoredMissing"):
+    print("missing")
+else:
+    print("removed")
+PY
+    )"
+    if [[ "${unlink_state}" == "missing" ]]; then
       echo "no ${plugin_id} entry in ${scope}"
       continue
     fi
-    echo "reset: failed to unlink ${plugin_id} from ${scope}" >&2
-    echo "${unlink_output}" >&2
-    exit 1
+    echo "removed ${plugin_id} from ${scope}"
+    removed_count=$((removed_count + 1))
   done
 done <<< "${plugin_ids}"
 

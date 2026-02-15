@@ -682,6 +682,231 @@ test("plugins pane lifecycle actions call update rollback and uninstall endpoint
   await expect(page.getByText("Uninstall plugin completed.")).toBeVisible();
 });
 
+test("plugins pane keeps unrelated plugin actions enabled while one action is in flight", async ({
+  page,
+}) => {
+  const updateRequests: Array<Record<string, unknown>> = [];
+  const disableRequests: Array<Record<string, unknown>> = [];
+  let releaseUpdateRequest: (() => void) | null = null;
+  const waitForUpdateRelease = new Promise<void>((resolve) => {
+    releaseUpdateRequest = resolve;
+  });
+
+  await setOverviewTab(page, "Plugins");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await page.route("**/api/plugins/list", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          schemaVersion: 1,
+          serverMode: "ide",
+          restartCapability: {
+            mode: "manual",
+            command: "setta",
+            reason: "Programmatic restart is not available in this runtime.",
+          },
+          plugins: [
+            {
+              pluginId: "setta-lifecycle-plugin",
+              name: "Setta Lifecycle Plugin",
+              version: "0.1.0",
+              sourceScope: "workspace",
+              sourceScopeLabel: "workspace",
+              sourceManager: "setta",
+              sourceManagerHint: null,
+              canonicalSourceKey: "pypi:setta-lifecycle-plugin",
+              sourceDigestSha256: "digest-v1",
+              frontend: {
+                entrypointUrl: null,
+                styleUrl: null,
+              },
+              content: {
+                hasBlueprints: false,
+                hasProjectTemplates: false,
+                hasPrompts: false,
+              },
+              config: {
+                hasSchema: false,
+                schemaJson: null,
+                currentConfig: {},
+              },
+              effectiveCapabilities: [],
+              restartRequired: false,
+            },
+            {
+              pluginId: "setta-other-plugin",
+              name: "Setta Other Plugin",
+              version: "0.2.0",
+              sourceScope: "workspace",
+              sourceScopeLabel: "workspace",
+              sourceManager: "setta",
+              sourceManagerHint: null,
+              canonicalSourceKey: "pypi:setta-other-plugin",
+              sourceDigestSha256: "digest-v2",
+              frontend: {
+                entrypointUrl: null,
+                styleUrl: null,
+              },
+              content: {
+                hasBlueprints: false,
+                hasProjectTemplates: false,
+                hasPrompts: false,
+              },
+              config: {
+                hasSchema: false,
+                schemaJson: null,
+                currentConfig: {},
+              },
+              effectiveCapabilities: [],
+              restartRequired: false,
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route("**/api/plugins/status", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          schemaVersion: 1,
+          serverMode: "ide",
+          plugins: [
+            {
+              pluginId: "setta-lifecycle-plugin",
+              name: "Setta Lifecycle Plugin",
+              version: "0.1.0",
+              state: "active",
+              sourceScope: "workspace",
+              sourceScopeLabel: "workspace",
+              sourceManager: "setta",
+              sourceManagerHint: null,
+              sourcePath: "/tmp/setta-lifecycle-plugin",
+              canonicalSourceKey: "pypi:setta-lifecycle-plugin",
+              sourceDigestSha256: "digest-v1",
+              shadowedBySourcePath: null,
+              requestedCapabilities: [],
+              effectiveCapabilities: [],
+              blockedCapabilities: [],
+              registeredLanguageServers: [],
+              registeredExternalAgentAdapters: [],
+              registeredCodegenTargets: [],
+              restartRequired: false,
+              errors: [],
+            },
+            {
+              pluginId: "setta-other-plugin",
+              name: "Setta Other Plugin",
+              version: "0.2.0",
+              state: "active",
+              sourceScope: "workspace",
+              sourceScopeLabel: "workspace",
+              sourceManager: "setta",
+              sourceManagerHint: null,
+              sourcePath: "/tmp/setta-other-plugin",
+              canonicalSourceKey: "pypi:setta-other-plugin",
+              sourceDigestSha256: "digest-v2",
+              shadowedBySourcePath: null,
+              requestedCapabilities: [],
+              effectiveCapabilities: [],
+              blockedCapabilities: [],
+              registeredLanguageServers: [],
+              registeredExternalAgentAdapters: [],
+              registeredCodegenTargets: [],
+              restartRequired: false,
+              errors: [],
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route("**/api/plugins/update", async (route) => {
+      updateRequests.push(
+        route.request().postDataJSON() as Record<string, unknown>,
+      );
+      await waitForUpdateRelease;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          pluginId: "setta-lifecycle-plugin",
+          fromVersion: "0.1.0",
+          toVersion: "0.1.1",
+          sourceDigestSha256: "digest-v2",
+          restartRequired: false,
+        }),
+      });
+    });
+
+    await page.route("**/api/plugins/disable", async (route) => {
+      disableRequests.push(
+        route.request().postDataJSON() as Record<string, unknown>,
+      );
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          pluginId: "setta-other-plugin",
+          state: "disabled",
+          restartRequired: false,
+        }),
+      });
+    });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const pluginACard = page
+      .locator("article")
+      .filter({
+        has: page.getByRole("heading", {
+          name: "setta-lifecycle-plugin@0.1.0",
+          exact: true,
+        }),
+      })
+      .first();
+    const pluginBCard = page
+      .locator("article")
+      .filter({
+        has: page.getByRole("heading", {
+          name: "setta-other-plugin@0.2.0",
+          exact: true,
+        }),
+      })
+      .first();
+
+    const updateButton = pluginACard.getByRole("button", {
+      name: "Update",
+      exact: true,
+    });
+    const disableButton = pluginBCard.getByRole("button", {
+      name: "Disable",
+      exact: true,
+    });
+
+    await updateButton.click();
+    await expect.poll(() => updateRequests.length).toBe(1);
+    await expect(updateButton).toBeDisabled();
+    await expect(disableButton).toBeEnabled();
+
+    await disableButton.click();
+    await expect.poll(() => disableRequests.length).toBe(1);
+    expect(disableRequests[0]).toMatchObject({
+      pluginId: "setta-other-plugin",
+    });
+
+    releaseUpdateRequest?.();
+    await expect(page.getByText("Update plugin completed.")).toBeVisible();
+  } finally {
+    releaseUpdateRequest?.();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("plugins pane update and rollback actions work against real backend endpoints", async ({
   page,
 }) => {

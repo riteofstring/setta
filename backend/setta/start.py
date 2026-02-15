@@ -2491,7 +2491,7 @@ def plugins_install(
     force: bool,
     json_output: bool,
 ) -> None:
-    manager = _build_plugin_manager_for_cli()
+    manager = _build_plugin_manager_for_cli(auto_rescan=False)
     resolved_scope = _plugin_scope_choice_to_value(
         scope=scope,
         global_scope=global_scope,
@@ -2593,7 +2593,7 @@ def plugins_disable(plugin_id: str, json_output: bool) -> None:
 @plugins.command(name="rescan")
 @click.option("--json", "json_output", is_flag=True)
 def plugins_rescan(json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
+    manager = _build_plugin_manager_for_cli(auto_rescan=False)
     result = manager.rescan()
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))
@@ -2894,12 +2894,18 @@ def plugins_link(
 )
 @click.option("--global", "global_scope", is_flag=True)
 @click.option("--setta-files", "setta_files_scope", is_flag=True)
+@click.option(
+    "--ignore-missing",
+    is_flag=True,
+    help="Return success when the plugin is not present in the selected scope.",
+)
 @click.option("--json", "json_output", is_flag=True)
 def plugins_unlink(
     plugin_id: str,
     scope: str | None,
     global_scope: bool,
     setta_files_scope: bool,
+    ignore_missing: bool,
     json_output: bool,
 ) -> None:
     manager = _build_plugin_manager_for_cli()
@@ -2911,6 +2917,22 @@ def plugins_unlink(
     try:
         result = manager.unlink_plugin(plugin_id=plugin_id, scope=resolved_scope)
     except PluginManagerError as exc:
+        if ignore_missing and exc.code == "PLUGIN_NOT_FOUND":
+            if json_output:
+                _emit_json_output(
+                    {
+                        "pluginId": plugin_id,
+                        "removedFromScope": resolved_scope,
+                        "restartRequired": False,
+                        "ignoredMissing": True,
+                    }
+                )
+                return
+            scope_label = resolved_scope if resolved_scope is not None else "any"
+            click.echo(
+                f"Plugin {plugin_id} not found in {scope_label} scope; skipping."
+            )
+            return
         _raise_click_plugin_error(exc)
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))

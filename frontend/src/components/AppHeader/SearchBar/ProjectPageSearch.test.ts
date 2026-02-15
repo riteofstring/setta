@@ -91,4 +91,39 @@ describe("project page command palette model", () => {
     expect(model.actionById["plugin-section:alpha.plugin:form"]).toBeDefined();
     expect(model.actionById["plugin-section:beta.plugin:form"]).toBeDefined();
   });
+
+  it("throws a clear error when command ids collide", () => {
+    expect(() =>
+      projectPageSearchTestApi.buildProjectCommandPaletteEntries({
+        createSectionGroups: [
+          {
+            group: "Plugins",
+            items: [
+              {
+                name: "Form",
+                commandId: "plugin-section:shared",
+                implSpecs: {
+                  type: SectionTypeEnum.Plugin,
+                  pluginId: "alpha.plugin",
+                  kind: "form",
+                  data: {},
+                },
+              },
+              {
+                name: "Other Form",
+                commandId: "plugin-section:shared",
+                implSpecs: {
+                  type: SectionTypeEnum.Plugin,
+                  pluginId: "beta.plugin",
+                  kind: "form",
+                  data: {},
+                },
+              },
+            ],
+          },
+        ],
+        pluginCommands: [],
+      }),
+    ).toThrow("Duplicate command palette id");
+  });
 });

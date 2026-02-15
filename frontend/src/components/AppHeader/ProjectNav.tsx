@@ -66,9 +66,25 @@ function ProjectNavSwitch() {
 
 function PluginTopNavBarItems() {
   const items = usePluginTopNavBarItems();
-  const [busyItemKey, setBusyItemKey] = useState<string | null>(null);
+  const [busyItemKeys, setBusyItemKeys] = useState<Set<string>>(() => new Set());
   if (items.length === 0) {
     return null;
+  }
+
+  function setItemBusyState(itemKey: string, isBusy: boolean) {
+    setBusyItemKeys((previous) => {
+      const currentlyBusy = previous.has(itemKey);
+      if (currentlyBusy === isBusy) {
+        return previous;
+      }
+      const next = new Set(previous);
+      if (isBusy) {
+        next.add(itemKey);
+      } else {
+        next.delete(itemKey);
+      }
+      return next;
+    });
   }
 
   async function onItemClick(
@@ -77,7 +93,7 @@ function PluginTopNavBarItems() {
     onClick: () => void | Promise<void>,
   ) {
     const itemKey = `${pluginId}:${itemId}`;
-    setBusyItemKey(itemKey);
+    setItemBusyState(itemKey, true);
     try {
       await Promise.resolve(onClick());
     } catch (error: unknown) {
@@ -87,7 +103,7 @@ function PluginTopNavBarItems() {
           : `Top nav action failed for ${pluginId}:${itemId}.`;
       addTemporaryNotification(message, "error");
     } finally {
-      setBusyItemKey(null);
+      setItemBusyState(itemKey, false);
     }
   }
 
@@ -104,7 +120,7 @@ function PluginTopNavBarItems() {
               void onItemClick(item.pluginId, item.id, item.onClick);
             }}
             title={item.description}
-            disabled={busyItemKey === itemKey}
+            disabled={busyItemKeys.has(itemKey)}
           >
             {item.label}
           </button>

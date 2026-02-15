@@ -1,6 +1,6 @@
 import asyncio
-from contextlib import suppress
 import json
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, AsyncIterator
 

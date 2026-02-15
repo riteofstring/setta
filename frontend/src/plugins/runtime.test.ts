@@ -1707,6 +1707,44 @@ describe("plugin runtime helpers", () => {
     );
   });
 
+  it("rejects non-object payloads for emitSectionRealtimeValue", async () => {
+    const realtimeSpy = vi
+      .spyOn(websocketReceive, "sendRealtimeDependencyEvent")
+      .mockImplementation(() => undefined);
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  globalThis.__settaCapturedPluginHost = host;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["emitListenerEvents"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      plugin,
+      "ide",
+    );
+    expect(result?.error).toBeNull();
+
+    const host = getCapturedPluginHost();
+    expectPluginFrontendErrorCode(
+      () => host.emitSectionRealtimeValue("section-primitive", "hello"),
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
+    expectPluginFrontendErrorCode(
+      () => host.emitSectionRealtimeValue("section-array", ["hello"]),
+      PluginFrontendErrorCodeEnum.RegistrationInvalid,
+    );
+    expect(realtimeSpy).not.toHaveBeenCalled();
+  });
+
   it("cleans active plugin subscriptions when runtime reloads", async () => {
     const globalScope = globalThis as {
       __settaCleanupProbe?: {

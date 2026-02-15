@@ -151,6 +151,7 @@ test("plugin top-nav busy state only disables the active item", async ({
       );
     });
     expect(fastClickCount).toBe(1);
+    await expect(slowButton).toBeDisabled();
 
     await page.evaluate(() => {
       const resolver = (

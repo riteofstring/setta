@@ -7,6 +7,7 @@ import sys
 import threading
 import time
 import zipfile
+import importlib.metadata
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -917,6 +918,36 @@ def test_package_manager_discovery_uses_distribution_fingerprint_not_tree_walk(
         and entry.shadowedBySourcePath is None
     ]
     assert len(entries) == 1
+
+
+def test_package_manager_source_digest_cache_is_bounded(tmp_path: Path) -> None:
+    # Package-manager digest cache should stay bounded in long-lived sessions.
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    site_packages = _install_fixture_distribution_in_site_packages(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    manager = _make_manager(
+        tmp_path,
+        package_manager_search_paths=[site_packages],
+    )
+
+    distribution = next(
+        item
+        for item in importlib.metadata.distributions(path=[str(site_packages)])
+        if item.metadata.get("Name") == package_name
+    )
+    max_entries = 256
+    for index in range(max_entries + 20):
+        manager._compute_package_manager_source_digest(
+            distribution=distribution,
+            plugin_root=tmp_path / f"digest-cache-root-{index}",
+        )
+
+    assert len(manager._package_manager_source_digest_cache) <= max_entries
 
 
 def test_package_manager_discovery_marks_multiple_manifest_roots_invalid(
@@ -2225,6 +2256,46 @@ def test_load_backend_plugins_registers_fixture_codegen_target(
             "}\n",
         )
     ]
+
+
+def test_shutdown_backend_plugins_clears_backend_registration_state(
+    tmp_path: Path,
+) -> None:
+    # Shutdown should clear all backend runtime registrations and loaded-plugin markers.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-language-server",
+        scope=PluginScope.workspace,
+    )
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-external-agent",
+        scope=PluginScope.workspace,
+    )
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-codegen",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    manager.load_backend_plugins(app=FastAPI())
+
+    assert manager.get_backend_language_servers() != []
+    assert manager.get_backend_external_agent_adapters() != []
+    assert manager.get_backend_codegen_targets() != []
+    assert manager._backend_loaded_plugin_ids != set()
+
+    manager.shutdown_backend_plugins()
+
+    assert manager.get_backend_language_servers() == []
+    assert manager.get_backend_external_agent_adapters() == []
+    assert manager.get_backend_codegen_targets() == []
+    assert manager._backend_loaded_plugin_ids == set()
+    assert manager._backend_runtime_errors == {}
+    assert manager._backend_worker_request_locks == {}
+    assert manager._backend_worker_next_request_ids == {}
+    assert manager._backend_worker_pipe_readers == {}
 
 
 def test_generate_backend_codegen_target_uses_operation_timeout(

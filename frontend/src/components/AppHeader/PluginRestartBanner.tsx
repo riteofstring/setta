@@ -1,5 +1,4 @@
 import { onOverviewTabClick } from "components/Panes/paneFns";
-import _ from "lodash";
 import {
   buildPluginRestartActionPlan,
   getRestartRequiredPluginIds,
@@ -22,7 +21,6 @@ export function PluginRestartBanner() {
   const pluginStatusEntries = usePluginStatusEntries();
   const restartCapability = usePluginRuntimeStore(
     (state) => state.restartCapability,
-    _.isEqual,
   );
 
   const restartRequiredPluginIds = useMemo(

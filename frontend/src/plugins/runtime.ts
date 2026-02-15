@@ -1079,6 +1079,12 @@ function registerPluginModule({
             "a finite number.",
         );
       }
+      if (!isPlainRecord(value)) {
+        throw new PluginRuntimeError(
+          PluginFrontendErrorCodeEnum.RegistrationInvalid,
+          `Plugin ${plugin.pluginId} emitSectionRealtimeValue requires an object payload.`,
+        );
+      }
       const dependencyKey: SectionDependencyKey = {
         type: DependencyKeyTypeEnum.Section,
         sectionId: normalizedSectionId,

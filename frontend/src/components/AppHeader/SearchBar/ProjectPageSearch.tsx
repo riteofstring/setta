@@ -173,6 +173,22 @@ function buildProjectCommandPaletteEntries({
 }): ProjectCommandPaletteModel {
   const allItems: AllItemsType<string> = [];
   const actionById: Record<string, () => void | Promise<void>> = {};
+  const actionSourceById: Record<string, string> = {};
+
+  function registerAction(
+    id: string,
+    sourceLabel: string,
+    action: () => void | Promise<void>,
+  ) {
+    if (id in actionById) {
+      const previousSource = actionSourceById[id] ?? "unknown source";
+      throw new Error(
+        `Duplicate command palette id '${id}' from ${sourceLabel}; already registered by ${previousSource}.`,
+      );
+    }
+    actionById[id] = action;
+    actionSourceById[id] = sourceLabel;
+  }
 
   for (const createSectionGroup of createSectionGroups) {
     const itemsWithIds: Array<{ id: string; name: string }> = [];
@@ -180,9 +196,13 @@ function buildProjectCommandPaletteEntries({
       const id =
         item.commandId ?? `create:${createSectionGroup.group}:${item.name}`;
       itemsWithIds.push({ id, name: item.name });
-      actionById[id] = () => {
-        createTopLevelSectionFromImplSpecs(item);
-      };
+      registerAction(
+        id,
+        `create-section ${createSectionGroup.group}/${item.name}`,
+        () => {
+          createTopLevelSectionFromImplSpecs(item);
+        },
+      );
     }
     allItems.push({
       group: createSectionGroup.group,
@@ -193,7 +213,11 @@ function buildProjectCommandPaletteEntries({
   if (pluginCommands.length > 0) {
     const pluginCommandItems = pluginCommands.map((command) => {
       const id = `plugin-command:${command.pluginId}:${command.id}`;
-      actionById[id] = command.run;
+      registerAction(
+        id,
+        `plugin-command ${command.pluginId}/${command.id}`,
+        command.run,
+      );
       return {
         id,
         name: `${command.title} (${command.pluginId})`,

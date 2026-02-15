@@ -161,6 +161,7 @@ _REQUIRED_BACKEND_RPC_METHODS = frozenset(
     }
 )
 _DIRECTORY_DIGEST_CACHE_MAX_ENTRIES = 256
+_PACKAGE_MANAGER_SOURCE_DIGEST_CACHE_MAX_ENTRIES = 256
 
 
 @dataclass(slots=True, frozen=True)
@@ -391,7 +392,7 @@ class PluginManager:
         )
         self._runtime_root = self.setta_files_root / "plugins_runtime"
         self._directory_digest_cache: OrderedDict[str, tuple[str, str]] = OrderedDict()
-        self._package_manager_source_digest_cache: dict[str, str] = {}
+        self._package_manager_source_digest_cache: OrderedDict[str, str] = OrderedDict()
         self._content_descriptor_cache: dict[
             tuple[str, PluginScope, str | None], PluginContentDescriptor
         ] = {}
@@ -497,10 +498,21 @@ class PluginManager:
         for plugin_id, process in list(self._backend_worker_processes.items()):
             self._shutdown_backend_worker(plugin_id=plugin_id, process=process)
         self._backend_worker_processes = {}
+        self._backend_worker_request_locks = {}
+        self._backend_worker_next_request_ids = {}
+        self._backend_worker_pipe_readers = {}
         self._backend_app = None
+        self._backend_runtime_errors = {}
+        self._backend_loaded_plugin_ids = set()
         self._backend_route_ids_by_plugin_id = {}
         self._backend_listener_endpoint_route_by_name = {}
         self._remove_backend_registered_mcp_tools()
+        self._backend_external_agent_adapters = {}
+        self._backend_external_agent_adapter_by_id = {}
+        self._backend_language_servers = {}
+        self._backend_language_server_by_language = {}
+        self._backend_codegen_targets = {}
+        self._backend_codegen_target_by_id = {}
 
     @_mutation_locked
     def rescan(self) -> PluginsRescanResponse:
@@ -3518,13 +3530,9 @@ class PluginManager:
             target_path = self._target_plugin_path(
                 resolved_scope, candidate.manifest.id
             )
-            old_entry = self._find_entry(
-                candidate.manifest.id,
-                resolved_scope,
-                include_shadowed=True,
-            )
-            had_backend_before = (
-                old_entry.has_backend if old_entry is not None else False
+            had_backend_before = self._existing_scope_plugin_has_backend(
+                plugin_id=candidate.manifest.id,
+                scope=resolved_scope,
             )
             if candidate.manifest.backend is not None:
                 self._prepare_backend_runtime(
@@ -4710,6 +4718,7 @@ class PluginManager:
         )
         cached_digest = self._package_manager_source_digest_cache.get(cache_key)
         if cached_digest is not None:
+            self._package_manager_source_digest_cache.move_to_end(cache_key)
             return cached_digest
 
         hasher = hashlib.sha256()
@@ -4726,7 +4735,26 @@ class PluginManager:
                     hasher.update(chunk)
         digest = hasher.hexdigest()
         self._package_manager_source_digest_cache[cache_key] = digest
+        self._package_manager_source_digest_cache.move_to_end(cache_key)
+        while (
+            len(self._package_manager_source_digest_cache)
+            > _PACKAGE_MANAGER_SOURCE_DIGEST_CACHE_MAX_ENTRIES
+        ):
+            self._package_manager_source_digest_cache.popitem(last=False)
         return digest
+
+    def _existing_scope_plugin_has_backend(
+        self, *, plugin_id: str, scope: PluginScope
+    ) -> bool:
+        plugin_root = self._target_plugin_path(scope, plugin_id)
+        manifest_path = plugin_root / "setta.plugin.json"
+        if not manifest_path.exists() or not manifest_path.is_file():
+            return False
+        try:
+            manifest = self._load_and_validate_manifest(manifest_path)
+        except PluginManagerError:
+            return False
+        return manifest.backend is not None
 
     def _distribution_record_path(
         self,
@@ -6092,7 +6120,9 @@ class PluginManager:
             stamp.append((relative_path, file_stat.st_mtime_ns, file_stat.st_size))
         return tuple(stamp)
 
-    def _digest_change_stamp(self, change_stamp: tuple[tuple[str, int, int], ...]) -> str:
+    def _digest_change_stamp(
+        self, change_stamp: tuple[tuple[str, int, int], ...]
+    ) -> str:
         hasher = hashlib.sha256()
         for relative_path, modified_ns, size_bytes in change_stamp:
             hasher.update(relative_path.encode("utf-8"))
