@@ -27,9 +27,9 @@ export function filterSkills(
   });
 }
 
-export type SkillActivityState = "active" | "inactive";
+type SkillActivityState = "active" | "inactive";
 
-export type SkillStatus = {
+type SkillStatus = {
   isApplicable: boolean;
   applicabilityReason: string;
   activityState: SkillActivityState;
@@ -409,7 +409,7 @@ export function groupSkillsByRootPath(
     .sort((a, b) => a.rootPath.localeCompare(b.rootPath));
 }
 
-export type McpServerListEntry = {
+type McpServerListEntry = {
   serverId: string;
   source: string;
   transport: string;
@@ -424,7 +424,7 @@ export type McpServerListEntry = {
   toolCount: number;
 };
 
-export type McpServersByConfigPath = {
+type McpServersByConfigPath = {
   configPath: string | null;
   configLabel: string;
   sourceLabel: string;
@@ -489,7 +489,8 @@ export function groupMcpServersByConfigPath({
   const sortedSettaServers = [...mcpRuntimeStatuses]
     .map(toMcpListEntry)
     .sort((a, b) => {
-      const priorityDiff = mcpStatusPriority(a.state) - mcpStatusPriority(b.state);
+      const priorityDiff =
+        mcpStatusPriority(a.state) - mcpStatusPriority(b.state);
       if (priorityDiff !== 0) {
         return priorityDiff;
       }
@@ -506,7 +507,8 @@ export function groupMcpServersByConfigPath({
   const sortedExternalServers = [...externalMcpRuntimeStatuses]
     .map(toMcpListEntry)
     .sort((a, b) => {
-      const priorityDiff = mcpStatusPriority(a.state) - mcpStatusPriority(b.state);
+      const priorityDiff =
+        mcpStatusPriority(a.state) - mcpStatusPriority(b.state);
       if (priorityDiff !== 0) {
         return priorityDiff;
       }
@@ -523,7 +525,7 @@ export function groupMcpServersByConfigPath({
   return groups;
 }
 
-export type McpStatusSummary = {
+type McpStatusSummary = {
   total: number;
   connected: number;
   connecting: number;
