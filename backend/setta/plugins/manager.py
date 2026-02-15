@@ -12,6 +12,7 @@ import threading
 import time
 import tomllib
 import zipfile
+from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -159,6 +160,7 @@ _REQUIRED_BACKEND_RPC_METHODS = frozenset(
         "host.emit_listener_dependency_event",
     }
 )
+_DIRECTORY_DIGEST_CACHE_MAX_ENTRIES = 256
 
 
 @dataclass(slots=True, frozen=True)
@@ -388,9 +390,7 @@ class PluginManager:
             self.workspace_root / ".setta_plugins" / "plugins.lock.json"
         )
         self._runtime_root = self.setta_files_root / "plugins_runtime"
-        self._directory_digest_cache: dict[
-            str, tuple[tuple[tuple[str, int, int], ...], str]
-        ] = {}
+        self._directory_digest_cache: OrderedDict[str, tuple[str, str]] = OrderedDict()
         self._package_manager_source_digest_cache: dict[str, str] = {}
         self._content_descriptor_cache: dict[
             tuple[str, PluginScope, str | None], PluginContentDescriptor
@@ -5239,6 +5239,7 @@ class PluginManager:
                     f"{source_spec.raw}\n{result.stderr.strip() or result.stdout.strip()}"
                 ),
             )
+        self._strip_git_metadata(clone_root)
 
         manifest_path = clone_root / "setta.plugin.json"
         if not manifest_path.exists():
@@ -5267,6 +5268,15 @@ class PluginManager:
             source_spec=source_spec.raw,
             source_digest_sha256=self._compute_directory_digest(clone_root),
         )
+
+    def _strip_git_metadata(self, root: Path) -> None:
+        git_path = root / ".git"
+        if not git_path.exists() and not git_path.is_symlink():
+            return
+        if git_path.is_dir() and not git_path.is_symlink():
+            shutil.rmtree(git_path)
+            return
+        git_path.unlink(missing_ok=True)
 
     def _candidate_from_pypi(
         self,
@@ -6046,8 +6056,11 @@ class PluginManager:
         root_resolved = root.resolve(strict=False)
         root_key = str(root_resolved)
         change_stamp = self._directory_change_stamp(root_resolved)
+        change_stamp_digest = self._digest_change_stamp(change_stamp)
+        self._prune_directory_digest_cache()
         cached = self._directory_digest_cache.get(root_key)
-        if cached is not None and cached[0] == change_stamp:
+        if cached is not None and cached[0] == change_stamp_digest:
+            self._directory_digest_cache.move_to_end(root_key)
             return cached[1]
 
         hasher = hashlib.sha256()
@@ -6061,18 +6074,42 @@ class PluginManager:
                         break
                     hasher.update(chunk)
         digest = hasher.hexdigest()
-        self._directory_digest_cache[root_key] = (change_stamp, digest)
+        self._directory_digest_cache[root_key] = (change_stamp_digest, digest)
+        self._directory_digest_cache.move_to_end(root_key)
+        while len(self._directory_digest_cache) > _DIRECTORY_DIGEST_CACHE_MAX_ENTRIES:
+            self._directory_digest_cache.popitem(last=False)
         return digest
 
     def _directory_change_stamp(self, root: Path) -> tuple[tuple[str, int, int], ...]:
+        if not root.exists() or not root.is_dir():
+            return ()
         stamp: list[tuple[str, int, int]] = []
         for path in sorted(root.rglob("*"), key=lambda item: str(item)):
-            if path.is_dir() or path.is_symlink():
+            if path.is_dir():
                 continue
             file_stat = path.stat()
             relative_path = path.relative_to(root).as_posix()
             stamp.append((relative_path, file_stat.st_mtime_ns, file_stat.st_size))
         return tuple(stamp)
+
+    def _digest_change_stamp(self, change_stamp: tuple[tuple[str, int, int], ...]) -> str:
+        hasher = hashlib.sha256()
+        for relative_path, modified_ns, size_bytes in change_stamp:
+            hasher.update(relative_path.encode("utf-8"))
+            hasher.update(b"\0")
+            hasher.update(str(modified_ns).encode("utf-8"))
+            hasher.update(b"\0")
+            hasher.update(str(size_bytes).encode("utf-8"))
+            hasher.update(b"\0")
+        return hasher.hexdigest()
+
+    def _prune_directory_digest_cache(self) -> None:
+        stale_keys: list[str] = []
+        for root_key in self._directory_digest_cache:
+            if not Path(root_key).exists():
+                stale_keys.append(root_key)
+        for root_key in stale_keys:
+            self._directory_digest_cache.pop(root_key, None)
 
     def _resolve_relative_path(
         self,

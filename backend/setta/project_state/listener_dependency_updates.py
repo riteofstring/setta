@@ -1,6 +1,5 @@
 import json
 from ast import literal_eval
-from copy import deepcopy
 
 from pydantic import ValidationError
 
@@ -195,13 +194,13 @@ def _apply_plugin_section_update(
             raise ListenerDependencyUpdateError(
                 "listener emit plugin section data field must be an object"
             )
-        next_data = deepcopy(raw_data)
+        next_data = dict(raw_data)
         if merge_value:
             current_data = plugin_impl.data
             if not isinstance(current_data, dict):
                 current_data = {}
             next_data = {
-                **deepcopy(current_data),
+                **dict(current_data),
                 **next_data,
             }
         next_args["data"] = next_data
@@ -224,12 +223,12 @@ def _apply_plugin_section_update(
         set_curr_effective_section_impl_value(project_state, section_id, next_args)
         return None
 
-    next_data = deepcopy(parsed_payload)
+    next_data = dict(parsed_payload)
     current_data = plugin_impl.data
     if not isinstance(current_data, dict):
         current_data = {}
     next_args["data"] = {
-        **deepcopy(current_data),
+        **dict(current_data),
         **next_data,
     }
     set_curr_effective_section_impl_value(project_state, section_id, next_args)

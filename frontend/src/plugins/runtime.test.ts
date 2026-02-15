@@ -1,5 +1,6 @@
 import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import {
+  computePluginSectionFallbackReason,
   getPluginSectionFallbackReason,
   getPluginSectionKindsForCreateMenu,
   PluginFrontendErrorCodeEnum,
@@ -338,6 +339,13 @@ describe("plugin runtime helpers", () => {
     expect(getPluginSectionFallbackReason("missing.plugin", "kind")).toBe(
       PluginSectionFallbackReasonEnum.plugin_not_installed,
     );
+  });
+
+  it("computes fallback reason from explicit runtime state snapshots", () => {
+    const snapshot = usePluginRuntimeStore.getState();
+    expect(
+      computePluginSectionFallbackReason(snapshot, "missing.plugin", "kind"),
+    ).toBe(PluginSectionFallbackReasonEnum.plugin_not_installed);
   });
 
   it("returns plugin_disabled when plugin status is disabled", () => {

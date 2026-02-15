@@ -100,6 +100,11 @@ class _DisabledExternalAgentRunner:
     ) -> list[PluginRegisteredExternalAgentAdapter]:
         return []
 
+    def get_plugin_external_agent_adapter(
+        self, _adapter_id: str | None
+    ) -> PluginRegisteredExternalAgentAdapter | None:
+        return None
+
 
 class TestAgenticRoutes:
     pytestmark = pytest.mark.asyncio
@@ -353,6 +358,17 @@ class TestAgenticRoutes:
                         )
                     ]
 
+                def get_plugin_external_agent_adapter(
+                    self, adapter_id: str | None
+                ) -> PluginRegisteredExternalAgentAdapter | None:
+                    if adapter_id is None:
+                        return None
+                    normalized_adapter_id = adapter_id.strip()
+                    for adapter in self.get_plugin_external_agent_adapters():
+                        if adapter.adapterId == normalized_adapter_id:
+                            return adapter
+                    return None
+
             state = _AgenticTestState(
                 dbe=dbe,
                 wmh_frontend_sender=frontend_sender,
@@ -391,6 +407,64 @@ class TestAgenticRoutes:
                 assert updated.defaultModel is None
                 assert updated.envVarWhitelist == []
 
+    async def test_external_agent_config_uses_runner_lookup_for_plugin_adapter(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            setta_root = Path(tmpdir) / "setta_files"
+            setta_root.mkdir(parents=True, exist_ok=True)
+            dbe = DBE(setta_root)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+            adapter_registration = PluginRegisteredExternalAgentAdapter(
+                adapterId="acme-plugin:lookup-only",
+                pluginId="acme-plugin",
+                name="LookupOnly",
+                runModes=["sdk"],
+                command="lookup-only",
+                args=[],
+                envVarWhitelist=[],
+                defaultModel=None,
+            )
+
+            class _Runner:
+                disabled = False
+
+                def get_plugin_external_agent_adapters(
+                    self,
+                ) -> list[PluginRegisteredExternalAgentAdapter]:
+                    # Route validation should not depend on this bulk list path.
+                    return []
+
+                def get_plugin_external_agent_adapter(
+                    self, adapter_id: str | None
+                ) -> PluginRegisteredExternalAgentAdapter | None:
+                    if adapter_id is None:
+                        return None
+                    if adapter_id.strip() == adapter_registration.adapterId:
+                        return adapter_registration
+                    return None
+
+            state = _AgenticTestState(
+                dbe=dbe,
+                wmh_frontend_sender=frontend_sender,
+                external_agent_runner=_Runner(),
+            )
+
+            with runtime_context(state) as ctx:
+                created = await route_create_external_agent_config(
+                    CreateExternalAgentConfigRequest(
+                        name="Lookup only adapter",
+                        toolType=ExternalAgentToolType.plugin,
+                        pluginAdapterId=adapter_registration.adapterId,
+                        runMode=ExternalAgentRunMode.sdk,
+                    ),
+                    ctx,
+                )
+
+                assert created.toolType == ExternalAgentToolType.plugin
+                assert created.pluginAdapterId == adapter_registration.adapterId
+
     async def test_external_agent_config_rejects_unknown_plugin_adapter(self) -> None:
         with TemporaryDirectory() as tmpdir:
             setta_root = Path(tmpdir) / "setta_files"
@@ -406,6 +480,11 @@ class TestAgenticRoutes:
                     self,
                 ) -> list[PluginRegisteredExternalAgentAdapter]:
                     return []
+
+                def get_plugin_external_agent_adapter(
+                    self, _adapter_id: str | None
+                ) -> PluginRegisteredExternalAgentAdapter | None:
+                    return None
 
             state = _AgenticTestState(
                 dbe=dbe,
@@ -553,6 +632,11 @@ class TestAgenticRoutes:
                 self,
             ) -> list[PluginRegisteredExternalAgentAdapter]:
                 return []
+
+            def get_plugin_external_agent_adapter(
+                self, _adapter_id: str | None
+            ) -> PluginRegisteredExternalAgentAdapter | None:
+                return None
 
             def start_run(self, *_args, **_kwargs):
                 raise AssertionError("start_run should not be called on preflight fail")

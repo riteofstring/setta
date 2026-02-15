@@ -762,6 +762,43 @@ def test_install_plugin_from_local_github_artifact(tmp_path: Path) -> None:
     assert status_entries[0].state == PluginRuntimeState.active
 
 
+def test_install_plugin_from_github_strips_git_metadata_and_is_digest_stable(
+    tmp_path: Path,
+) -> None:
+    # GitHub installs should exclude VCS metadata so identical refs produce stable digests.
+    github_base_url, ref = _build_local_github_bare_repo_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        owner="acme",
+        repo="setta-fixture-frontend",
+    )
+    manager = _make_manager(tmp_path, github_base_url=github_base_url)
+
+    first_install = manager.install_plugin(
+        source_spec=f"github:acme/setta-fixture-frontend#{ref}",
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    installed_root = (
+        manager.workspace_root / ".setta_plugins" / "setta-fixture-frontend"
+    )
+    assert not (installed_root / ".git").exists()
+    assert first_install.sourceDigestSha256 is not None
+
+    manager.uninstall_plugin(
+        plugin_id="setta-fixture-frontend",
+        scope=PluginScope.workspace,
+    )
+    second_install = manager.install_plugin(
+        source_spec=f"github:acme/setta-fixture-frontend#{ref}",
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    assert second_install.sourceDigestSha256 == first_install.sourceDigestSha256
+
+
 def test_discovery_respects_scope_precedence_and_shadowing(tmp_path: Path) -> None:
     # Workspace plugins should shadow setta_files and global plugins for the same id.
     manager = _make_manager(tmp_path)
@@ -3490,6 +3527,53 @@ def test_directory_digest_cache_skips_rehash_when_tree_is_unchanged(
     assert updated_digest != first_digest
 
 
+def test_directory_digest_cache_is_bounded_and_prunes_deleted_roots(
+    tmp_path: Path,
+) -> None:
+    # Digest cache should cap entry count and remove roots that no longer exist.
+    manager = _make_manager(tmp_path)
+    max_entries = 256
+
+    for index in range(max_entries + 10):
+        root = tmp_path / f"digest-cache-{index}"
+        root.mkdir(parents=True, exist_ok=True)
+        (root / "value.txt").write_text(str(index), encoding="utf-8")
+        manager._compute_directory_digest(root)
+
+    assert len(manager._directory_digest_cache) <= max_entries
+
+    stale_root = tmp_path / "digest-stale"
+    stale_root.mkdir(parents=True, exist_ok=True)
+    (stale_root / "value.txt").write_text("stale", encoding="utf-8")
+    manager._compute_directory_digest(stale_root)
+    stale_key = str(stale_root.resolve(strict=False))
+    assert stale_key in manager._directory_digest_cache
+
+    shutil.rmtree(stale_root)
+    fresh_root = tmp_path / "digest-fresh"
+    fresh_root.mkdir(parents=True, exist_ok=True)
+    (fresh_root / "value.txt").write_text("fresh", encoding="utf-8")
+    manager._compute_directory_digest(fresh_root)
+
+    assert stale_key not in manager._directory_digest_cache
+
+
+def test_directory_digest_tracks_symlinked_file_target_changes(tmp_path: Path) -> None:
+    # Symlinked files inside the plugin root should contribute to digest invalidation.
+    manager = _make_manager(tmp_path)
+    digest_root = tmp_path / "digest-symlink-root"
+    digest_root.mkdir(parents=True, exist_ok=True)
+    target_file = tmp_path / "digest-symlink-target.txt"
+    target_file.write_text("v1", encoding="utf-8")
+    (digest_root / "linked.txt").symlink_to(target_file)
+
+    initial_digest = manager._compute_directory_digest(digest_root)
+    target_file.write_text("v2", encoding="utf-8")
+    updated_digest = manager._compute_directory_digest(digest_root)
+
+    assert updated_digest != initial_digest
+
+
 def test_init_build_install_golden_path_plugin_is_usable(tmp_path: Path) -> None:
     # Golden path: init -> build artifact -> install via pypi source -> load/use plugin.
     manager = _make_manager(tmp_path)
@@ -6199,7 +6283,7 @@ def test_worker_route_proxy_handles_plain_text_body_and_head_options_requests(
     with TestClient(app) as client:
         plain_text_response = client.post(
             route_path,
-            data="plain-text-body",
+            content="plain-text-body",
             headers={"Content-Type": "text/plain"},
         )
         assert plain_text_response.status_code == 200

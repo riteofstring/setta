@@ -11,6 +11,10 @@ if [[ ! -d "${FIXTURE_ROOT}" ]]; then
 fi
 
 source "${ROOT_DIR}/activate.sh"
+if ! command -v setta >/dev/null 2>&1; then
+  echo "setta command not found after activate.sh. Ensure the environment is initialized." >&2
+  exit 1
+fi
 
 echo "reset: collecting fixture plugin ids from ${FIXTURE_ROOT}..."
 plugin_ids="$(
@@ -46,15 +50,27 @@ while IFS= read -r plugin_id; do
   [[ -z "${plugin_id}" ]] && continue
   echo "reset: unlink attempts for ${plugin_id}..."
   for scope in workspace setta_files global; do
-    if setta plugins unlink "${plugin_id}" --scope "${scope}" >/dev/null 2>&1; then
+    if unlink_output="$(setta plugins unlink "${plugin_id}" --scope "${scope}" 2>&1)"; then
       echo "removed ${plugin_id} from ${scope}"
       removed_count=$((removed_count + 1))
+      continue
     fi
+    if grep -Eqi "not found|not installed|no plugin" <<<"${unlink_output}"; then
+      echo "no ${plugin_id} entry in ${scope}"
+      continue
+    fi
+    echo "reset: failed to unlink ${plugin_id} from ${scope}" >&2
+    echo "${unlink_output}" >&2
+    exit 1
   done
 done <<< "${plugin_ids}"
 
 echo "reset: rescanning plugins..."
-setta plugins rescan >/dev/null || true
+if ! rescan_output="$(setta plugins rescan 2>&1)"; then
+  echo "reset: plugin rescan failed." >&2
+  echo "${rescan_output}" >&2
+  exit 1
+fi
 echo "reset: rescan complete."
 
 echo "plugin fixture reset complete (removed entries: ${removed_count})"

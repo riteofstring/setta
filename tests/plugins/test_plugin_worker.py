@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import pytest
+from setta.plugins.worker import _WorkerState
 
 FIXTURE_PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "plugins"
 
@@ -137,6 +138,30 @@ def _read_worker_response(worker: subprocess.Popen[str]) -> dict[str, Any]:
     payload = json.loads(line)
     assert isinstance(payload, dict)
     return payload
+
+
+def test_worker_state_initializes_async_loop_lazily(tmp_path: Path) -> None:
+    # Worker state should create an async loop only when an async handler actually runs.
+    state = _WorkerState(
+        plugin_id="setta-fixture-backend",
+        plugin_version="0.1.0",
+        plugin_root=tmp_path,
+        entrypoint_path=tmp_path / "entrypoint.py",
+    )
+    assert state._async_loop is None
+
+    async def _fixture() -> int:
+        return 7
+
+    result = state._run_awaitable(
+        _fixture(),
+        code="PLUGIN_BACKEND_IMPORT_FAILED",
+        message_prefix="fixture",
+    )
+    assert result == 7
+    assert state._async_loop is not None
+    state._close_async_loop()
+    assert state._async_loop is None
 
 
 def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:

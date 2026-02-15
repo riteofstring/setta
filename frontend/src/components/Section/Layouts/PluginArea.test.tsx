@@ -32,9 +32,9 @@ let pluginImpl: PluginImplShape = {
 
 const addTemporaryNotificationMock = vi.fn();
 const routeDeleteSectionsMock = vi.fn();
-const useLocalStorageSetStateMock = vi.fn();
+const onOverviewTabClickMock = vi.fn();
 const usePluginSectionKindMock = vi.fn(() => pluginSectionKind);
-const getPluginSectionFallbackReasonMock = vi.fn(() => fallbackReason);
+const usePluginSectionFallbackReasonMock = vi.fn(() => fallbackReason);
 const getCurrEffectiveSectionImplOfTypeMock = vi.fn(() => pluginImpl);
 const getCurrProjectConfigIdMock = vi.fn(() => currentProjectConfigId);
 const useProjectStateMock = vi.fn(
@@ -65,11 +65,15 @@ vi.mock("react", async () => {
 });
 
 vi.mock("plugins/runtime", () => ({
-  getPluginSectionFallbackReason: (...args: unknown[]) =>
-    getPluginSectionFallbackReasonMock(...args),
+  usePluginSectionFallbackReason: (...args: unknown[]) =>
+    usePluginSectionFallbackReasonMock(...args),
   usePluginRuntimeStore: vi.fn(),
   usePluginSectionKind: (...args: unknown[]) =>
     usePluginSectionKindMock(...args),
+}));
+
+vi.mock("components/Panes/paneFns", () => ({
+  onOverviewTabClick: (...args: unknown[]) => onOverviewTabClickMock(...args),
 }));
 
 vi.mock("state/actions/notifications", () => ({
@@ -85,9 +89,6 @@ vi.mock("state/actions/sectionInfos", () => ({
 }));
 
 vi.mock("state/definitions", () => ({
-  useLocalStorage: {
-    setState: (...args: unknown[]) => useLocalStorageSetStateMock(...args),
-  },
   useProjectState: (...args: unknown[]) => useProjectStateMock(...args),
 }));
 
@@ -224,10 +225,9 @@ describe("PluginArea fallback actions", () => {
 
     expect(event.preventDefault).toHaveBeenCalledTimes(1);
     expect(event.stopPropagation).toHaveBeenCalledTimes(1);
-    expect(useLocalStorageSetStateMock).toHaveBeenCalledWith({
-      overviewVis: true,
-      overviewTab: OverviewTabNameEnum.Plugins,
-    });
+    expect(onOverviewTabClickMock).toHaveBeenCalledWith(
+      OverviewTabNameEnum.Plugins,
+    );
   });
 
   it("shows section-kind-missing fallback wording", () => {

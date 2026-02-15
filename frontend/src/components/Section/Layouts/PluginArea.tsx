@@ -1,7 +1,7 @@
 import {
-  getPluginSectionFallbackReason,
   type RegisteredPluginSectionKind,
   usePluginRuntimeStore,
+  usePluginSectionFallbackReason,
   usePluginSectionKind,
 } from "plugins/runtime";
 import {
@@ -12,11 +12,12 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { onOverviewTabClick } from "components/Panes/paneFns";
 import {
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import { useLocalStorage, useProjectState } from "state/definitions";
+import { useProjectState } from "state/definitions";
 import { OverviewTabNameEnum } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_delete_sections } from "utils/generatedEndpoints";
@@ -173,7 +174,7 @@ function PluginSectionFallbackCard({
   schemaVersion,
 }: PluginSectionFallbackCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
-  const reason = getPluginSectionFallbackReason(pluginId, kind);
+  const reason = usePluginSectionFallbackReason(pluginId, kind);
   const reasonLabel = fallbackReasonLabel(reason);
   const dataPreview = useMemo(() => buildPluginDataPreview(data), [data]);
 
@@ -221,10 +222,7 @@ function PluginSectionFallbackCard({
   async function onOpenPlugins(event: ReactMouseEvent<HTMLButtonElement>) {
     event.preventDefault();
     event.stopPropagation();
-    useLocalStorage.setState({
-      overviewVis: true,
-      overviewTab: OverviewTabNameEnum.Plugins,
-    });
+    onOverviewTabClick(OverviewTabNameEnum.Plugins);
   }
 
   return (

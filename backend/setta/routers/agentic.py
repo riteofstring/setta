@@ -233,11 +233,9 @@ def _validate_plugin_external_agent_selection(
             status_code=400,
             detail="pluginAdapterId is required when toolType is plugin.",
         )
-    plugin_adapter_by_id = {
-        adapter.adapterId: adapter
-        for adapter in _get_plugin_external_agent_adapters(ctx)
-    }
-    plugin_adapter = plugin_adapter_by_id.get(normalized_adapter_id)
+    plugin_adapter = ctx.state.external_agent_runner.get_plugin_external_agent_adapter(
+        normalized_adapter_id
+    )
     if plugin_adapter is None:
         raise HTTPException(
             status_code=400,

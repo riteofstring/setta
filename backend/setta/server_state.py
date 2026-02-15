@@ -242,6 +242,7 @@ class SettaFastAPIState:
             setta_home=resolve_setta_home(),
             server_mode=self._resolve_server_mode(),
             setta_version=__version__,
+            auto_rescan=False,
         )
         if not self.deployment_mode:
             seed_llm_config_example_file(self.dbe)

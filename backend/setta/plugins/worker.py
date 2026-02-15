@@ -148,9 +148,6 @@ class _WorkerState:
         init=False, repr=False, default=None
     )
 
-    def __post_init__(self) -> None:
-        self._async_loop = asyncio.new_event_loop()
-
     def _load_module(self) -> Any:
         if self.module is not None:
             return self.module

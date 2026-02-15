@@ -108,3 +108,19 @@
 - Removed frontend plugin runtime `readProjectState({ kind: "full" })` support and added explicit regression coverage, plus reduced Plugins pane render cost by caching sorted registration arrays per status object identity.
 - Centralized fixture-cache runner logic, added robust Python interpreter resolution (`PYTHON_BIN`/`python`/`python3`), included frontend toolchain files in fixture signatures, and added Playwright local-plugin-artifact signature caching for unchanged runs.
 - Added/updated backend unit/integration tests, project-state tests, frontend Vitest tests, and Playwright E2E coverage; executed targeted `pytest`, `vitest`, and `run-playwright-e2e` runs to validate all changed paths.
+
+## 2026-02-15T20:03:36-08:00
+
+- Implemented the next top-level `review*.md` fix batch end-to-end, explicitly excluding backward-compatibility shim additions.
+- Fixed GitHub source install determinism by stripping cloned `.git` metadata before digest/install, eliminating VCS-noise digest churn and reducing install footprint.
+- Hardened plugin directory digesting with a bounded/pruned cache, compact change-stamp hashing, and symlinked-file inclusion in stamp traversal.
+- Removed redundant startup scan work by constructing `PluginManager` with `auto_rescan=False` in server state initialization (while retaining explicit load-path rescans).
+- Made plugin codegen strict for plugin section payloads: invalid JSON now raises a clear `ValueError` instead of silently falling back to string literals.
+- Reduced listener plugin update overhead by replacing unconditional deep-copy merge paths with shallow top-level dict merges for plugin section update payloads.
+- Deduplicated external-agent adapter selection logic by routing plugin adapter validation through runner-owned `get_plugin_external_agent_adapter(...)` lookup.
+- Removed eager worker async-loop allocation so backend plugin workers create event loops lazily only when async plugin handlers execute.
+- Fixed plugin fallback UX consistency by making fallback reason computation reactive (`usePluginSectionFallbackReason`) and using canonical pane-open flow (`onOverviewTabClick(...)`) for fallback “Open Plugins”.
+- Reduced frontend runtime overhead by narrowing plugin-runtime lodash usage to `lodash/throttle` instead of importing full `lodash`.
+- Hardened fixture-reset script reliability: fail fast when `setta` is unavailable, surface unlink failures, and stop masking rescan failures.
+- Refactored Playwright artifact seeding script to share index-env wiring and source fixture wheel name/version from fixture `pyproject.toml`, removing duplicated hard-coded metadata paths.
+- Added/updated backend unit/integration tests, frontend Vitest coverage, and Playwright E2E coverage for all changed behavior (including reactive fallback-reason transitions); completed CDP visual verification for fallback-card behavior and Plugins-pane opening flow.

@@ -263,6 +263,8 @@ PY
 
 compute_local_plugin_artifact_signature() {
   local root_dir="$1"
+  local package_name="$2"
+  local package_version="$3"
   local fixture_file
   local signature_files=(
     "${root_dir}/scripts/run-playwright-e2e.sh"
@@ -270,7 +272,7 @@ compute_local_plugin_artifact_signature() {
   while IFS= read -r fixture_file; do
     signature_files+=("${fixture_file}")
   done < <(find "${root_dir}/tests/fixtures/plugins/frontend" -type f | sort)
-  printf '%s\n' "wheel:setta-fixture-frontend:0.1.0"
+  printf '%s\n' "wheel:${package_name}:${package_version}"
   for fixture_file in "${signature_files[@]}"; do
     if [[ ! -f "${fixture_file}" ]]; then
       continue
@@ -280,18 +282,74 @@ compute_local_plugin_artifact_signature() {
   done
 }
 
+read_frontend_fixture_metadata() {
+  local root_dir="$1"
+  "${PYTHON_BIN}" - "${root_dir}" <<'PY'
+import sys
+import tomllib
+from pathlib import Path
+
+root_dir = Path(sys.argv[1])
+pyproject_path = root_dir / "tests" / "fixtures" / "plugins" / "frontend" / "pyproject.toml"
+payload = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+project = payload.get("project")
+if not isinstance(project, dict):
+    raise SystemExit(f"Invalid fixture pyproject format: {pyproject_path}")
+name = project.get("name")
+version = project.get("version")
+if not isinstance(name, str) or not name.strip():
+    raise SystemExit(f"Missing fixture package name in {pyproject_path}")
+if not isinstance(version, str) or not version.strip():
+    raise SystemExit(f"Missing fixture package version in {pyproject_path}")
+print(name.strip())
+print(version.strip())
+PY
+}
+
+configure_plugin_artifact_indexes() {
+  local artifact_dir="$1"
+
+  export PIP_NO_INDEX="${PIP_NO_INDEX:-1}"
+  if [[ -z "${PIP_FIND_LINKS:-}" ]]; then
+    export PIP_FIND_LINKS="${artifact_dir}"
+  else
+    export PIP_FIND_LINKS="${artifact_dir} ${PIP_FIND_LINKS}"
+  fi
+
+  export UV_NO_INDEX="${UV_NO_INDEX:-${PIP_NO_INDEX}}"
+  if [[ -z "${UV_FIND_LINKS:-}" ]]; then
+    export UV_FIND_LINKS="${PIP_FIND_LINKS}"
+  else
+    export UV_FIND_LINKS="${artifact_dir} ${UV_FIND_LINKS}"
+  fi
+}
+
 seed_local_plugin_artifacts() {
   if [[ "${SETTA_E2E_SEED_PLUGIN_ARTIFACTS:-1}" == "0" ]]; then
     log "Skipping local plugin artifact seed (SETTA_E2E_SEED_PLUGIN_ARTIFACTS=0)."
     return
   fi
   local artifact_dir="${SETTA_E2E_PLUGIN_ARTIFACT_DIR:-${ROOT_DIR}/setta_files/.cache/playwright-plugin-artifacts}"
-  local package_name="setta-fixture-frontend"
-  local package_version="0.1.0"
+  local fixture_metadata package_name package_version
+  fixture_metadata=()
+  while IFS= read -r fixture_line; do
+    fixture_metadata+=("${fixture_line}")
+  done < <(read_frontend_fixture_metadata "${ROOT_DIR}")
+  if [[ "${#fixture_metadata[@]}" -lt 2 ]]; then
+    echo "Failed to read frontend fixture package metadata." >&2
+    exit 1
+  fi
+  package_name="${fixture_metadata[0]}"
+  package_version="${fixture_metadata[1]}"
   local wheel_name="${package_name//-/_}-${package_version}-py3-none-any.whl"
   local wheel_path="${artifact_dir}/${wheel_name}"
   local current_signature cached_signature
-  current_signature="$(compute_local_plugin_artifact_signature "${ROOT_DIR}" | cksum | awk '{print $1 ":" $2}')"
+  current_signature="$(
+    compute_local_plugin_artifact_signature \
+      "${ROOT_DIR}" \
+      "${package_name}" \
+      "${package_version}" | cksum | awk '{print $1 ":" $2}'
+  )"
   mkdir -p "${artifact_dir}"
   mkdir -p "${PLUGIN_FIXTURE_CACHE_DIR}"
   if [[ "${SETTA_FORCE_PLUGIN_ARTIFACT_BUILD:-0}" != "1" ]] && [[ -f "${PLUGIN_ARTIFACT_CACHE_FILE}" ]]; then
@@ -301,34 +359,25 @@ seed_local_plugin_artifacts() {
   fi
   if [[ "${SETTA_FORCE_PLUGIN_ARTIFACT_BUILD:-0}" != "1" ]] && [[ "${cached_signature}" == "${current_signature}" ]] && [[ -f "${wheel_path}" ]]; then
     log "Skipping local plugin artifact seed; artifacts unchanged."
-    export PIP_NO_INDEX="${PIP_NO_INDEX:-1}"
-    if [[ -z "${PIP_FIND_LINKS:-}" ]]; then
-      export PIP_FIND_LINKS="${artifact_dir}"
-    else
-      export PIP_FIND_LINKS="${artifact_dir} ${PIP_FIND_LINKS}"
-    fi
-    export UV_NO_INDEX="${UV_NO_INDEX:-${PIP_NO_INDEX}}"
-    if [[ -z "${UV_FIND_LINKS:-}" ]]; then
-      export UV_FIND_LINKS="${PIP_FIND_LINKS}"
-    else
-      export UV_FIND_LINKS="${artifact_dir} ${UV_FIND_LINKS}"
-    fi
+    configure_plugin_artifact_indexes "${artifact_dir}"
     return
   fi
   (
     cd "${ROOT_DIR}"
     source "./activate.sh"
-    "${PYTHON_BIN}" - "${ROOT_DIR}" "${artifact_dir}" <<'PY'
+    "${PYTHON_BIN}" - "${ROOT_DIR}" "${artifact_dir}" "${package_name}" "${package_version}" <<'PY'
 import sys
 import zipfile
 from pathlib import Path
 
 root_dir = Path(sys.argv[1])
 artifact_dir = Path(sys.argv[2])
+package_name = sys.argv[3]
+package_version = sys.argv[4]
 artifact_dir.mkdir(parents=True, exist_ok=True)
 
 fixtures = [
-    ("frontend", "setta-fixture-frontend", "0.1.0"),
+    ("frontend", package_name, package_version),
 ]
 
 for fixture_name, package_name, version in fixtures:
@@ -373,19 +422,7 @@ PY
   ) >"${LOG_DIR}/seed-plugin-artifacts.log" 2>&1
   printf '%s' "${current_signature}" > "${PLUGIN_ARTIFACT_CACHE_FILE}"
 
-  export PIP_NO_INDEX="${PIP_NO_INDEX:-1}"
-  if [[ -z "${PIP_FIND_LINKS:-}" ]]; then
-    export PIP_FIND_LINKS="${artifact_dir}"
-  else
-    export PIP_FIND_LINKS="${artifact_dir} ${PIP_FIND_LINKS}"
-  fi
-
-  export UV_NO_INDEX="${UV_NO_INDEX:-${PIP_NO_INDEX}}"
-  if [[ -z "${UV_FIND_LINKS:-}" ]]; then
-    export UV_FIND_LINKS="${PIP_FIND_LINKS}"
-  else
-    export UV_FIND_LINKS="${artifact_dir} ${UV_FIND_LINKS}"
-  fi
+  configure_plugin_artifact_indexes "${artifact_dir}"
 
   log "Seeded local plugin artifacts at ${artifact_dir}."
   log "Plugin source lookup configured via PIP_FIND_LINKS and UV_FIND_LINKS."

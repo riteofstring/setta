@@ -153,8 +153,13 @@ class PythonValueCodec:
                     )
                 try:
                     parsed = json.loads(node.value.payload)
-                except json.JSONDecodeError:
-                    return repr(node.value.payload)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        (
+                            f"Plugin section {node.full_path_name} payload must be valid "
+                            f"JSON: {exc.msg}"
+                        )
+                    ) from exc
                 return repr(parsed)
             case SectionType.Chat:
                 if not node.value:

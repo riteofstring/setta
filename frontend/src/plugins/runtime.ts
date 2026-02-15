@@ -1,4 +1,4 @@
-import _ from "lodash";
+import throttle from "lodash/throttle";
 import { useEffect } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
@@ -962,7 +962,7 @@ function registerPluginModule({
       };
       let cancelThrottle: (() => void) | null = null;
       if (throttleMs > 0) {
-        const throttledNotify = _.throttle(notify, throttleMs, {
+        const throttledNotify = throttle(notify, throttleMs, {
           leading: true,
           trailing: true,
         });
@@ -1802,7 +1802,27 @@ export function getPluginSectionFallbackReason(
   pluginId: string,
   kind: string,
 ): PluginSectionFallbackReason {
-  const state = usePluginRuntimeStore.getState();
+  return computePluginSectionFallbackReason(
+    usePluginRuntimeStore.getState(),
+    pluginId,
+    kind,
+  );
+}
+
+export function usePluginSectionFallbackReason(
+  pluginId: string,
+  kind: string,
+): PluginSectionFallbackReason {
+  return usePluginRuntimeStore((state) =>
+    computePluginSectionFallbackReason(state, pluginId, kind),
+  );
+}
+
+export function computePluginSectionFallbackReason(
+  state: PluginRuntimeStore,
+  pluginId: string,
+  kind: string,
+): PluginSectionFallbackReason {
   const statusEntry = state.pluginStatusById[pluginId];
   if (!statusEntry) {
     return PluginSectionFallbackReasonEnum.plugin_not_installed;

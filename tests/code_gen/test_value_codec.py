@@ -273,7 +273,7 @@ class TestPythonValueCodec:
         )
         assert codec.format_section(section_node) == "{'alpha': 1, 'beta': 'ok'}"
 
-    def test_plugin_section_invalid_json_falls_back_to_string_literal(self) -> None:
+    def test_plugin_section_invalid_json_raises_error(self) -> None:
         codec = self._build_codec(PythonValueMode.LIVE_RUNTIME)
         section_node = SectionNode(
             id=ID("section"),
@@ -284,7 +284,10 @@ class TestPythonValueCodec:
             deps={},
             value=LiteralDependencyValue("{invalid"),
         )
-        assert codec.format_section(section_node) == "'{invalid'"
+        with pytest.raises(ValueError) as exc_info:
+            codec.format_section(section_node)
+        assert "payload must be valid JSON" in str(exc_info.value)
+        assert "plugin" in str(exc_info.value)
 
     def test_draw_section_uses_dependency_value_helpers(self) -> None:
         codec = self._build_codec(PythonValueMode.PACKAGED_RUNTIME)
