@@ -35,8 +35,6 @@ __pycache__/
 .nfs*
 build/
 dist/
-# Local workspace plugin fixture links from scripts/plugin-fixtures/*.sh
-plugins/setta-fixture-*
 *.egg-info/
 site/
 venv/

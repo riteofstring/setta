@@ -28,12 +28,13 @@ from setta.types.generated.user_defaults import (
     UserDefaultMetaControlSectionImpl,
     UserDefaultNestedParamCodeObjImpl,
     UserDefaultPasswordParamCodeObjImpl,
-    UserDefaultPluginSectionImpl,
     UserDefaultPromptSectionImpl,
     UserDefaultRotaryParamCodeObjImpl,
     UserDefaultSliderParamCodeObjImpl,
     UserDefaultSocialSectionImpl,
+    UserDefaultSpreadsheetSectionImpl,
     UserDefaultSwitchParamCodeObjImpl,
+    UserDefaultTaskBoardSectionImpl,
     UserDefaultTerminalSectionImpl,
     UserDefaultTextAreaParamCodeObjImpl,
     UserDefaultTextBlockSectionImpl,
@@ -105,14 +106,17 @@ class SettingsState(BaseModel, extra="forbid"):
     metaControlSectionDefault: UserDefaultMetaControlSectionImpl = Field(
         default_factory=UserDefaultMetaControlSectionImpl
     )
-    pluginSectionDefault: UserDefaultPluginSectionImpl = Field(
-        default_factory=UserDefaultPluginSectionImpl
-    )
     promptSectionDefault: UserDefaultPromptSectionImpl = Field(
         default_factory=UserDefaultPromptSectionImpl
     )
     socialSectionDefault: UserDefaultSocialSectionImpl = Field(
         default_factory=UserDefaultSocialSectionImpl
+    )
+    spreadsheetSectionDefault: UserDefaultSpreadsheetSectionImpl = Field(
+        default_factory=UserDefaultSpreadsheetSectionImpl
+    )
+    taskBoardSectionDefault: UserDefaultTaskBoardSectionImpl = Field(
+        default_factory=UserDefaultTaskBoardSectionImpl
     )
     terminalSectionDefault: UserDefaultTerminalSectionImpl = Field(
         default_factory=UserDefaultTerminalSectionImpl
@@ -224,8 +228,11 @@ def get_user_default_section_from_settings(settings: SettingsState, type: Sectio
         case SectionType.Browser:
             return settings.browserSectionDefault
 
-        case SectionType.Plugin:
-            return settings.pluginSectionDefault
+        case SectionType.TaskBoard:
+            return settings.taskBoardSectionDefault
+
+        case SectionType.Spreadsheet:
+            return settings.spreadsheetSectionDefault
 
 
 def get_user_default_code_obj_from_settings(settings: SettingsState, type: CodeObjType):
