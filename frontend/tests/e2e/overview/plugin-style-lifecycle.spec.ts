@@ -54,7 +54,7 @@ test("plugin stylesheet links follow plugin lifecycle state", async ({
     await page.waitForSelector(".react-flow__pane");
     await expect(styleLink).toHaveCount(1);
 
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend",
       scope: "workspace",
     });
@@ -63,7 +63,7 @@ test("plugin stylesheet links follow plugin lifecycle state", async ({
     await page.waitForSelector(".react-flow__pane");
     await expect(styleLink).toHaveCount(0);
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend",
       scope: "workspace",
     }).catch(() => null);
@@ -104,7 +104,7 @@ test("failed plugin frontend loads do not keep stylesheet links mounted", async 
       page.getByText("Frontend load failed", { exact: true }),
     ).toBeVisible();
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend-errors",
       scope: "workspace",
     }).catch(() => null);
@@ -171,14 +171,12 @@ test("runtime refresh errors clear plugin styles and the next success restores t
     ).toBeVisible();
     await expect(styleLink).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Rescan", exact: true }).click();
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
     await expect.poll(() => runtimeCalls).toBe(2);
-    await expect(
-      page.getByText("Rescan plugins completed.", { exact: true }),
-    ).toBeVisible();
     await expect(styleLink).toHaveCount(1);
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend",
       scope: "workspace",
     }).catch(() => null);

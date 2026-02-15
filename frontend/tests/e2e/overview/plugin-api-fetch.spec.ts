@@ -77,7 +77,7 @@ test("plugin host apiFetch normalizes paths and forwards custom headers", async 
     expect(statusRequest?.url.startsWith(BACKEND_ORIGIN)).toBeTruthy();
     expect(statusRequest?.headers["x-custom"]).toBe("yes");
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend-api-fetch",
       scope: "workspace",
     }).catch(() => null);
@@ -146,7 +146,7 @@ test("plugin host apiFetch hits real backend routes without interception", async
     ).toBeTruthy();
     expect(capturedUrls.every((url) => url.startsWith(BACKEND_ORIGIN))).toBeTruthy();
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend-api-fetch",
       scope: "workspace",
     }).catch(() => null);
@@ -210,7 +210,7 @@ test("plugin host apiFetch rejects traversal paths and avoids escaped requests",
       )
       .toEqual({ failed: 2, succeeded: 0 });
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend-api-fetch",
       scope: "workspace",
     }).catch(() => null);
@@ -268,26 +268,36 @@ test("plugin host apiFetch forwards deployment share-session headers", async ({
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
+    const initialRequestCount = capturedRequests.length;
+
     await page.evaluate(async () => {
       const { useShareSession } = await import("/src/state/definitions.ts");
-      const runtime = await import("/src/plugins/runtime.ts");
       useShareSession.setState({
         isDeploymentMode: true,
         shareSessionId: "share-session-e2e",
       });
-      await runtime.refreshPluginRuntime();
+
+      const globalScope = window as unknown as {
+        __settaFixtureApiFetchRunStandardFetches?: unknown;
+      };
+      if (typeof globalScope.__settaFixtureApiFetchRunStandardFetches !== "function") {
+        throw new Error("Expected fixture fetch trigger to be registered.");
+      }
+      globalScope.__settaFixtureApiFetchRunStandardFetches();
     });
 
     await expect
       .poll(() => capturedRequests.length, { timeout: 15000 })
-      .toBeGreaterThanOrEqual(4);
+      .toBeGreaterThanOrEqual(initialRequestCount + 2);
 
-    const requestsWithShareHeader = capturedRequests.filter(
-      (request) => request.headers["x-share-session-id"] === "share-session-e2e",
-    );
+    const requestsWithShareHeader = capturedRequests
+      .slice(initialRequestCount)
+      .filter(
+        (request) => request.headers["x-share-session-id"] === "share-session-e2e",
+      );
     expect(requestsWithShareHeader.length).toBeGreaterThan(0);
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend-api-fetch",
       scope: "workspace",
     }).catch(() => null);

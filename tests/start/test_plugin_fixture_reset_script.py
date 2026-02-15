@@ -6,7 +6,7 @@ from pathlib import Path
 def test_plugin_fixture_reset_parses_json_from_stdout_without_stderr_noise(
     tmp_path: Path,
 ) -> None:
-    # Fixture reset should parse unlink JSON from stdout even when stderr prints warnings.
+    # Fixture reset should parse uninstall JSON from stdout even when stderr prints warnings.
     root = tmp_path / "plugin-reset-sandbox"
     scripts_dir = root / "scripts" / "plugin-fixtures"
     fixtures_dir = root / "tests" / "fixtures" / "plugins" / "fixture-a"
@@ -43,23 +43,24 @@ import json
 import sys
 
 args = sys.argv[1:]
-if len(args) >= 4 and args[0] == "plugins" and args[1] == "unlink":
+if len(args) >= 4 and args[0] == "plugins" and args[1] == "uninstall":
     plugin_id = args[2]
     scope = args[args.index("--scope") + 1]
-    ignored_missing = scope != "workspace"
     print(f"warning: simulated noisy stderr for {scope}", file=sys.stderr)
-    print(f"note: unlink {plugin_id} in {scope}")
-    print(
-        json.dumps(
-            {
-                "pluginId": plugin_id,
-                "removedFromScope": scope,
-                "restartRequired": False,
-                "ignoredMissing": ignored_missing,
-            }
+    if scope == "workspace":
+        print(f"note: uninstall {plugin_id} in {scope}")
+        print(
+            json.dumps(
+                {
+                    "pluginId": plugin_id,
+                    "removedFromScope": scope,
+                    "restartRequired": False,
+                }
+            )
         )
-    )
-    raise SystemExit(0)
+        raise SystemExit(0)
+    print(f"PLUGIN_NOT_FOUND: plugin {plugin_id} missing in {scope}", file=sys.stderr)
+    raise SystemExit(1)
 if len(args) >= 2 and args[0] == "plugins" and args[1] == "rescan":
     print("rescanned")
     raise SystemExit(0)

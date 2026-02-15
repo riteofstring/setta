@@ -615,10 +615,6 @@ def test_plugin_mutation_routes_blocked_in_deployment_mode() -> None:
             },
         ),
         (
-            Route.PLUGINS_UNLINK.value,
-            {"pluginId": "setta-fixture-frontend", "scope": "workspace"},
-        ),
-        (
             Route.PLUGINS_ENABLE.value,
             {"pluginId": "setta-fixture-frontend"},
         ),
@@ -854,14 +850,6 @@ def test_plugin_routes_linked_plugin_update_and_rollback_are_unavailable() -> No
             "link_plugin",
         ),
         (
-            Route.PLUGINS_UNLINK.value,
-            {
-                "pluginId": "setta-fixture-frontend",
-                "scope": "workspace",
-            },
-            "unlink_plugin",
-        ),
-        (
             Route.PLUGINS_ENABLE.value,
             {"pluginId": "setta-fixture-frontend"},
             "enable_plugin",
@@ -1076,8 +1064,8 @@ def test_plugin_routes_install_enable_rescan_and_uninstall_roundtrip() -> None:
                 os.environ["PIP_FIND_LINKS"] = old_find_links
 
 
-def test_plugin_routes_unlink_and_install_error_mappings() -> None:
-    # Unlink should remove linked plugins and install errors should preserve manager codes.
+def test_plugin_routes_uninstall_and_install_error_mappings() -> None:
+    # Uninstall should remove linked plugins and install errors should preserve manager codes.
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         workspace_root = root / "workspace"
@@ -1107,13 +1095,13 @@ def test_plugin_routes_unlink_and_install_error_mappings() -> None:
             )
             assert link_response.status_code == 200
 
-            unlink_response = client.post(
-                f"{Route.PREFIX.value}{Route.PLUGINS_UNLINK.value}",
+            uninstall_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_UNINSTALL.value}",
                 json={"pluginId": "setta-fixture-frontend", "scope": "workspace"},
             )
-            assert unlink_response.status_code == 200
-            assert unlink_response.json()["pluginId"] == "setta-fixture-frontend"
-            assert unlink_response.json()["removedFromScope"] == "workspace"
+            assert uninstall_response.status_code == 200
+            assert uninstall_response.json()["pluginId"] == "setta-fixture-frontend"
+            assert uninstall_response.json()["removedFromScope"] == "workspace"
 
             missing_uninstall_response = client.post(
                 f"{Route.PREFIX.value}{Route.PLUGINS_UNINSTALL.value}",

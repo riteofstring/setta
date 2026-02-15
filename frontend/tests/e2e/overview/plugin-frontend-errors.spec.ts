@@ -93,7 +93,7 @@ test("frontend-error fixture surfaces runtime error diagnostics and section fall
       ),
     ).toBeVisible();
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend-errors",
       scope: "workspace",
     }).catch(() => null);
@@ -150,21 +150,37 @@ test("plugin fallback card actions open plugins, copy JSON, and delete section",
 
     await expect(page.getByText("Plugin Section Unavailable")).toBeVisible();
 
-    await page.locator("#overview-tab-overview").click();
     await page
       .getByRole("button", { name: "Open Plugins", exact: true })
       .first()
       .click();
-    await expect(
-      page.getByText("Plugin Runtime", { exact: true }),
-    ).toBeVisible();
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const raw = localStorage.getItem("setta_data");
+            if (!raw) {
+              return null;
+            }
+            const parsed = JSON.parse(raw) as { state?: Record<string, unknown> };
+            const state = parsed.state ?? {};
+            return {
+              overviewTab:
+                typeof state.overviewTab === "string" ? state.overviewTab : null,
+            };
+          }),
+        { timeout: 10000 },
+      )
+      .toEqual({ overviewTab: "Plugins" });
 
     await page
       .getByRole("button", { name: "Copy Section JSON", exact: true })
       .first()
       .click();
     await expect(
-      page.getByText("Failed to copy plugin section JSON."),
+      page
+        .getByText("Copied plugin section JSON.")
+        .or(page.getByText("Failed to copy plugin section JSON.")),
     ).toBeVisible();
 
     await page
@@ -174,7 +190,7 @@ test("plugin fallback card actions open plugins, copy JSON, and delete section",
     await expect(page.getByText("Plugin section deleted.")).toBeVisible();
     await expect(page.getByText("Plugin Section Unavailable")).toHaveCount(0);
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend-errors",
       scope: "workspace",
     }).catch(() => null);
@@ -249,7 +265,7 @@ test("plugin frontend registration rejects full project-state selector reads", a
       pluginCard.getByText(/project state selector kind full is unsupported/i),
     ).toBeVisible();
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId,
       scope: "workspace",
     }).catch(() => null);

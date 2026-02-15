@@ -68,7 +68,7 @@ test("plugin config editor saves valid JSON and rejects invalid JSON drafts", as
       pluginCard.getByText("Plugin config saved.", { exact: true }).first(),
     ).toBeVisible();
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-full",
       scope: "workspace",
     }).catch(() => null);
@@ -175,7 +175,7 @@ test("plugin config persists across reload and disable/enable lifecycle", async 
     };
     expect(lifecycleConfig).toEqual(persistedConfig);
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-full",
       scope: "workspace",
     }).catch(() => null);
@@ -293,7 +293,7 @@ test("plugin config enum fields persist selected values", async ({ page }) => {
     expect(configPayload.enabled).toBe(true);
     expect(configPayload.mode).toBe("auto");
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-full",
       scope: "workspace",
     }).catch(() => null);

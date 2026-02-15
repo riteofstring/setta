@@ -3,6 +3,7 @@ import base64
 import hashlib
 import importlib.metadata
 import json
+import math
 import os
 import re
 import shutil
@@ -170,7 +171,31 @@ _REQUIRED_BACKEND_RPC_METHODS = frozenset(
 )
 _DIRECTORY_DIGEST_CACHE_MAX_ENTRIES = 256
 _PACKAGE_MANAGER_SOURCE_DIGEST_CACHE_MAX_ENTRIES = 256
-_GITHUB_CLONE_TIMEOUT_SECONDS = 30.0
+_GITHUB_CLONE_TIMEOUT_SECONDS_ENV = "SETTA_PLUGIN_GITHUB_CLONE_TIMEOUT_SECONDS"
+_GITHUB_CLONE_TIMEOUT_SECONDS_DEFAULT = 30.0
+_GITHUB_CLONE_TIMEOUT_SECONDS_MIN = 1.0
+_GITHUB_CLONE_TIMEOUT_SECONDS_MAX = 600.0
+_BACKEND_RUNTIME_WORKER_DISTRIBUTIONS = ("pydantic", "starlette", "fastapi")
+
+
+def _resolve_github_clone_timeout_seconds_from_env() -> float:
+    raw_timeout = os.environ.get(_GITHUB_CLONE_TIMEOUT_SECONDS_ENV)
+    if raw_timeout is None:
+        return _GITHUB_CLONE_TIMEOUT_SECONDS_DEFAULT
+    normalized_timeout = raw_timeout.strip()
+    if normalized_timeout == "":
+        return _GITHUB_CLONE_TIMEOUT_SECONDS_DEFAULT
+    try:
+        timeout_seconds = float(normalized_timeout)
+    except ValueError:
+        return _GITHUB_CLONE_TIMEOUT_SECONDS_DEFAULT
+    if not math.isfinite(timeout_seconds):
+        return _GITHUB_CLONE_TIMEOUT_SECONDS_DEFAULT
+    if timeout_seconds < _GITHUB_CLONE_TIMEOUT_SECONDS_MIN:
+        return _GITHUB_CLONE_TIMEOUT_SECONDS_MIN
+    if timeout_seconds > _GITHUB_CLONE_TIMEOUT_SECONDS_MAX:
+        return _GITHUB_CLONE_TIMEOUT_SECONDS_MAX
+    return timeout_seconds
 
 
 @dataclass(slots=True, frozen=True)
@@ -377,6 +402,9 @@ class PluginManager:
                 "SETTA_PLUGIN_GITHUB_BASE_URL", "https://github.com"
             )
         self._github_base_url = github_base_url.rstrip("/")
+        self._github_clone_timeout_seconds = (
+            _resolve_github_clone_timeout_seconds_from_env()
+        )
         self._restart_command = restart_command or "setta"
         self._restart_callback = restart_callback
         self._backend_startup_timeout_seconds = backend_startup_timeout_seconds
@@ -1885,7 +1913,10 @@ class PluginManager:
                 process.wait(timeout=1.0)
             except subprocess.TimeoutExpired:
                 process.kill()
-                process.wait(timeout=1.0)
+                try:
+                    process.wait(timeout=1.0)
+                except subprocess.TimeoutExpired:
+                    pass
         for stream in (process.stdout, process.stderr):
             if stream is not None:
                 stream.close()
@@ -2076,28 +2107,21 @@ class PluginManager:
                 "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
                 (f"Backend runtime identity is missing for plugin {entry.plugin_id}."),
             )
-        runtime_marker = self._runtime_marker_path(
+        dependencies = self._read_backend_dependencies(entry.source_path)
+        worker_dependencies = self._build_backend_worker_runtime_dependencies()
+        if self._runtime_marker_matches_expected(
             plugin_id=entry.plugin_id,
             version=entry.version,
             source_digest_sha256=entry.source_digest_sha256,
-        )
-        if runtime_marker.exists():
+            dependencies=dependencies,
+            worker_dependencies=worker_dependencies,
+        ):
             return
-        dependencies = self._read_backend_dependencies(entry.source_path)
-        if len(dependencies) == 0:
-            self._prepare_backend_runtime(
-                plugin_id=entry.plugin_id,
-                version=entry.version,
-                source_digest_sha256=entry.source_digest_sha256,
-                plugin_root=entry.source_path,
-            )
-            return
-        raise PluginManagerError(
-            "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
-            (
-                f"Backend runtime dependencies were not installed for plugin "
-                f"{entry.plugin_id}. Reinstall or update the plugin."
-            ),
+        self._prepare_backend_runtime(
+            plugin_id=entry.plugin_id,
+            version=entry.version,
+            source_digest_sha256=entry.source_digest_sha256,
+            plugin_root=entry.source_path,
         )
 
     def _prepare_backend_runtime(
@@ -2114,6 +2138,10 @@ class PluginManager:
                 f"Missing source digest for backend plugin runtime: {plugin_id}",
             )
         dependencies = self._read_backend_dependencies(plugin_root)
+        worker_dependencies = self._build_backend_worker_runtime_dependencies()
+        install_requirements = self._dedupe_backend_runtime_requirements(
+            [*worker_dependencies, *dependencies]
+        )
         runtime_path = self._runtime_path(
             plugin_id=plugin_id,
             version=version,
@@ -2143,7 +2171,7 @@ class PluginManager:
                 else venv_path / "bin" / "python"
             )
             install_result = subprocess.run(
-                [str(python_binary), "-m", "pip", "install", *dependencies],
+                [str(python_binary), "-m", "pip", "install", *install_requirements],
                 capture_output=True,
                 text=True,
                 check=False,
@@ -2161,7 +2189,71 @@ class PluginManager:
             version=version,
             source_digest_sha256=source_digest_sha256,
             dependencies=dependencies,
+            worker_dependencies=worker_dependencies,
         )
+
+    def _build_backend_worker_runtime_dependencies(self) -> list[str]:
+        dependencies: list[str] = []
+        for distribution_name in _BACKEND_RUNTIME_WORKER_DISTRIBUTIONS:
+            dependencies.append(
+                self._resolve_host_distribution_requirement(distribution_name)
+            )
+        return dependencies
+
+    def _resolve_host_distribution_requirement(self, distribution_name: str) -> str:
+        try:
+            installed_version = importlib.metadata.version(distribution_name)
+        except importlib.metadata.PackageNotFoundError as exc:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
+                (
+                    "Missing host dependency required for backend plugin worker "
+                    f"runtime: {distribution_name}"
+                ),
+            ) from exc
+        return f"{distribution_name}=={installed_version}"
+
+    def _dedupe_backend_runtime_requirements(
+        self, requirements: list[str]
+    ) -> list[str]:
+        deduped_requirements: list[str] = []
+        seen_requirements: set[str] = set()
+        for requirement in requirements:
+            if requirement in seen_requirements:
+                continue
+            deduped_requirements.append(requirement)
+            seen_requirements.add(requirement)
+        return deduped_requirements
+
+    def _runtime_marker_matches_expected(
+        self,
+        *,
+        plugin_id: str,
+        version: str,
+        source_digest_sha256: str,
+        dependencies: list[str],
+        worker_dependencies: list[str],
+    ) -> bool:
+        marker_path = self._runtime_marker_path(
+            plugin_id=plugin_id,
+            version=version,
+            source_digest_sha256=source_digest_sha256,
+        )
+        if not marker_path.exists():
+            return False
+        try:
+            marker_payload = json.loads(marker_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not isinstance(marker_payload, dict):
+            return False
+        marker_dependencies = marker_payload.get("dependencies")
+        if marker_dependencies != dependencies:
+            return False
+        marker_worker_dependencies = marker_payload.get("workerDependencies")
+        if marker_worker_dependencies != worker_dependencies:
+            return False
+        return True
 
     def _runtime_path(
         self,
@@ -2197,6 +2289,7 @@ class PluginManager:
         version: str,
         source_digest_sha256: str,
         dependencies: list[str],
+        worker_dependencies: list[str],
     ) -> None:
         marker_path = self._runtime_marker_path(
             plugin_id=plugin_id,
@@ -2209,6 +2302,7 @@ class PluginManager:
             "version": version,
             "sourceDigestSha256": source_digest_sha256,
             "dependencies": dependencies,
+            "workerDependencies": worker_dependencies,
             "createdAtIso": datetime.now(UTC).isoformat(),
         }
         marker_path.write_text(
@@ -2452,15 +2546,6 @@ class PluginManager:
             route_response=route_response,
             route_label=route_label,
         )
-        body_encoding = route_response.get("bodyEncoding")
-        if body_encoding is not None and body_encoding != "base64":
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                (
-                    f"Plugin worker response for {route_label} returned an "
-                    "unsupported bodyEncoding value."
-                ),
-            )
         raw_media_type = route_response.get("mediaType")
         if raw_media_type is not None and not isinstance(raw_media_type, str):
             raise PluginManagerError(
@@ -2475,6 +2560,23 @@ class PluginManager:
             if isinstance(raw_media_type, str) and raw_media_type.strip() != ""
             else None
         )
+        if not self._worker_route_status_allows_body(status_code):
+            response = Response(
+                status_code=status_code,
+                content=b"",
+                media_type=media_type,
+            )
+            self._apply_worker_route_headers(response=response, headers=headers)
+            return response
+        body_encoding = route_response.get("bodyEncoding")
+        if body_encoding is not None and body_encoding != "base64":
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Plugin worker response for {route_label} returned an "
+                    "unsupported bodyEncoding value."
+                ),
+            )
         body_present = "body" in route_response
         raw_body = route_response.get("body") if body_present else None
         if body_encoding == "base64":
@@ -2518,14 +2620,6 @@ class PluginManager:
             response = Response(
                 status_code=status_code,
                 content=content,
-                media_type=media_type,
-            )
-            self._apply_worker_route_headers(response=response, headers=headers)
-            return response
-        if not self._worker_route_status_allows_body(status_code):
-            response = Response(
-                status_code=status_code,
-                content=b"",
                 media_type=media_type,
             )
             self._apply_worker_route_headers(response=response, headers=headers)
@@ -4327,14 +4421,6 @@ class PluginManager:
             restartRequired=restart_required,
         )
 
-    def unlink_plugin(
-        self,
-        *,
-        plugin_id: str,
-        scope: str | PluginScope | None = None,
-    ) -> PluginUninstallResponse:
-        return self.uninstall_plugin(plugin_id=plugin_id, scope=scope)
-
     @_mutation_locked
     def enable_plugin(
         self, *, plugin_id: str, rescan: bool = True
@@ -5935,7 +6021,7 @@ class PluginManager:
                 capture_output=True,
                 text=True,
                 check=False,
-                timeout=_GITHUB_CLONE_TIMEOUT_SECONDS,
+                timeout=self._github_clone_timeout_seconds,
                 env=clone_env,
             )
         except subprocess.TimeoutExpired as exc:

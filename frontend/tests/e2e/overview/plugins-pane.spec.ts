@@ -128,7 +128,7 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   await expect(
     page.getByText("Fixture pane mounted.", { exact: true }),
   ).toBeVisible();
-  await page.locator("#overview-tab-overview").click();
+  await page.getByTestId("overview-tab-overview").click();
   await expect(
     page.getByText("Fixture pane mounted.", { exact: true }),
   ).not.toBeVisible();
@@ -268,7 +268,7 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
     }),
   ).toBeVisible();
 
-  await page.locator("#overview-tab-overview").click();
+  await page.getByTestId("overview-tab-overview").click();
   await expect(page.getByText("Fixture Plugin Card")).toBeVisible();
 });
 
@@ -1340,7 +1340,7 @@ test("plugins pane updates frontend asset digest query after relink", async ({
     expect(secondDigest).toBeTruthy();
     expect(secondDigest).not.toBe(firstDigest);
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend",
       scope: "workspace",
     }).catch(() => null);

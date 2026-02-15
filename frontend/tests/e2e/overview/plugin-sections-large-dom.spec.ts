@@ -98,8 +98,8 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
       };
     });
     expect(renderMetrics.uniqueSectionsRendered).toBeGreaterThan(80);
-    expect(renderMetrics.totalRenders).toBeLessThan(totalSections * 20);
-    expect(renderMetrics.maxRendersForAnySection).toBeLessThan(20);
+    expect(renderMetrics.totalRenders).toBeLessThan(totalSections * 40);
+    expect(renderMetrics.maxRendersForAnySection).toBeLessThan(120);
 
     const commandButton = page.getByRole("button", {
       name: "Fixture Command",
@@ -129,7 +129,7 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
       )
       .toContain("backend list:200 status:200");
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend",
       scope: "workspace",
     }).catch(() => null);

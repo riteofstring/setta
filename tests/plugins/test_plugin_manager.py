@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import subprocess
@@ -821,6 +822,29 @@ def test_candidate_from_github_reports_missing_git_binary(
     assert "git is not installed or not available on PATH." in exc_info.value.message
 
 
+@pytest.mark.parametrize(
+    ("env_value", "expected_timeout"),
+    [
+        ("75.5", 75.5),
+        ("0", 1.0),
+        ("10000", 600.0),
+        ("nan", 30.0),
+        ("not-a-number", 30.0),
+        ("", 30.0),
+    ],
+)
+def test_plugin_manager_reads_github_clone_timeout_from_env(
+    tmp_path: Path,
+    monkeypatch,
+    env_value: str,
+    expected_timeout: float,
+) -> None:
+    # Clone timeout env values should parse deterministically with validation and bounds.
+    monkeypatch.setenv("SETTA_PLUGIN_GITHUB_CLONE_TIMEOUT_SECONDS", env_value)
+    manager = _make_manager(tmp_path)
+    assert manager._github_clone_timeout_seconds == expected_timeout
+
+
 def test_candidate_from_github_reports_clone_timeouts(
     tmp_path: Path,
     monkeypatch,
@@ -832,11 +856,14 @@ def test_candidate_from_github_reports_clone_timeouts(
     fetch_dir.mkdir(parents=True, exist_ok=True)
 
     def _raise_timeout(*_args, **kwargs):
-        assert kwargs["timeout"] == 30.0
+        assert kwargs["timeout"] == manager._github_clone_timeout_seconds
         clone_env = kwargs["env"]
         assert isinstance(clone_env, dict)
         assert clone_env.get("GIT_TERMINAL_PROMPT") == "0"
-        raise subprocess.TimeoutExpired(cmd=["git", "clone"], timeout=30.0)
+        raise subprocess.TimeoutExpired(
+            cmd=["git", "clone"],
+            timeout=manager._github_clone_timeout_seconds,
+        )
 
     monkeypatch.setattr("setta.plugins.manager.subprocess.run", _raise_timeout)
     with pytest.raises(PluginManagerError) as exc_info:
@@ -2055,6 +2082,124 @@ def test_link_backend_plugin_writes_runtime_marker(tmp_path: Path) -> None:
     assert marker_payload["version"] == linked.version
     assert marker_payload["sourceDigestSha256"] == linked.sourceDigestSha256
     assert marker_payload["dependencies"] == []
+    assert marker_payload["workerDependencies"] == (
+        manager._build_backend_worker_runtime_dependencies()
+    )
+
+
+def test_prepare_backend_runtime_installs_worker_and_plugin_dependencies_for_venv(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Runtime setup should install worker baseline deps alongside plugin deps in plugin venvs.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "backend-runtime-install"
+    shutil.copytree(_fixture_path("backend"), plugin_root)
+    (plugin_root / "pyproject.toml").write_text(
+        "[build-system]\n"
+        'requires = ["setuptools>=68", "wheel"]\n'
+        'build-backend = "setuptools.build_meta"\n\n'
+        "[project]\n"
+        'name = "setta-fixture-backend"\n'
+        'version = "0.1.0"\n'
+        'dependencies = ["requests>=2"]\n',
+        encoding="utf-8",
+    )
+    executed_commands: list[list[str]] = []
+
+    def _patched_run(command: list[str], **_kwargs):
+        executed_commands.append(command)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr("setta.plugins.manager.subprocess.run", _patched_run)
+
+    manager._prepare_backend_runtime(
+        plugin_id="setta-fixture-backend",
+        version="0.1.0",
+        source_digest_sha256="runtime-digest",
+        plugin_root=plugin_root,
+    )
+
+    pip_command = next(
+        command
+        for command in executed_commands
+        if len(command) >= 4 and command[1] == "-m" and command[2] == "pip"
+    )
+    install_requirements = pip_command[4:]
+    assert "requests>=2" in install_requirements
+    for worker_requirement in manager._build_backend_worker_runtime_dependencies():
+        assert worker_requirement in install_requirements
+
+    runtime_marker = manager._runtime_marker_path(
+        plugin_id="setta-fixture-backend",
+        version="0.1.0",
+        source_digest_sha256="runtime-digest",
+    )
+    marker_payload = json.loads(runtime_marker.read_text(encoding="utf-8"))
+    assert marker_payload["dependencies"] == ["requests>=2"]
+    assert marker_payload["workerDependencies"] == (
+        manager._build_backend_worker_runtime_dependencies()
+    )
+
+
+def test_backend_runtime_marker_without_worker_dependencies_triggers_reprepare(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Legacy runtime markers without worker dependency metadata should be treated as stale.
+    manager = _make_manager(tmp_path)
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    (backend_root / "pyproject.toml").write_text(
+        "[build-system]\n"
+        'requires = ["setuptools>=68", "wheel"]\n'
+        'build-backend = "setuptools.build_meta"\n\n'
+        "[project]\n"
+        'name = "setta-fixture-backend"\n'
+        'version = "0.1.0"\n'
+        'dependencies = ["requests>=2"]\n',
+        encoding="utf-8",
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+    assert entry.source_digest_sha256 is not None
+
+    marker_path = manager._runtime_marker_path(
+        plugin_id=entry.plugin_id,
+        version=entry.version,
+        source_digest_sha256=entry.source_digest_sha256,
+    )
+    marker_path.parent.mkdir(parents=True, exist_ok=True)
+    marker_path.write_text(
+        json.dumps(
+            {
+                "pluginId": entry.plugin_id,
+                "version": entry.version,
+                "sourceDigestSha256": entry.source_digest_sha256,
+                "dependencies": ["requests>=2"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    prepare_calls = 0
+
+    def _patched_prepare_backend_runtime(**_kwargs):
+        nonlocal prepare_calls
+        prepare_calls += 1
+
+    monkeypatch.setattr(
+        manager,
+        "_prepare_backend_runtime",
+        _patched_prepare_backend_runtime,
+    )
+
+    manager._ensure_backend_runtime_for_entry(entry)
+    assert prepare_calls == 1
 
 
 def test_backend_worker_uses_runtime_python_when_available(tmp_path: Path) -> None:
@@ -3897,8 +4042,11 @@ def test_backend_plugin_handshake_missing_methods_is_reported(tmp_path: Path) ->
     assert "PLUGIN_BACKEND_HANDSHAKE_INVALID" in error_codes
 
 
-def test_backend_plugin_missing_dependency_runtime_is_invalid(tmp_path: Path) -> None:
-    # Backend plugins with declared dependencies should fail activation if runtime install is missing.
+def test_backend_plugin_load_reprepares_missing_dependency_runtime(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Backend load should backfill missing dependency runtimes instead of failing as invalid.
     manager = _make_manager(tmp_path)
     backend_root = _copy_fixture_to_scope(
         manager=manager,
@@ -3918,6 +4066,13 @@ def test_backend_plugin_missing_dependency_runtime_is_invalid(tmp_path: Path) ->
         encoding="utf-8",
     )
     manager.rescan()
+    prepare_calls = 0
+
+    def _record_prepare(**_kwargs):
+        nonlocal prepare_calls
+        prepare_calls += 1
+
+    monkeypatch.setattr(manager, "_prepare_backend_runtime", _record_prepare)
 
     manager.load_backend_plugins(app=FastAPI())
 
@@ -3929,9 +4084,8 @@ def test_backend_plugin_missing_dependency_runtime_is_invalid(tmp_path: Path) ->
         and entry.shadowedBySourcePath is None
     ]
     assert len(backend_entries) == 1
-    assert backend_entries[0].state == PluginRuntimeState.invalid
-    error_codes = {error.code for error in backend_entries[0].errors}
-    assert "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED" in error_codes
+    assert backend_entries[0].state == PluginRuntimeState.active
+    assert prepare_calls == 1
 
 
 def test_link_backend_plugin_rejects_invalid_dependency_spec(tmp_path: Path) -> None:
@@ -4003,7 +4157,7 @@ def test_plugin_config_schema_validation_and_list_descriptors(
     }
 
 
-@pytest.mark.parametrize("removal_api", ["uninstall_plugin", "unlink_plugin"])
+@pytest.mark.parametrize("removal_api", ["uninstall_plugin"])
 def test_plugin_config_is_cleared_when_plugin_is_removed(
     tmp_path: Path,
     removal_api: str,
@@ -6517,6 +6671,55 @@ def test_read_stream_line_with_timeout_reuses_one_reader_per_stream(
     assert id(stream) not in manager._backend_worker_pipe_readers
 
 
+def test_stop_backend_worker_process_continues_on_post_kill_timeout(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Stop should continue cleanup even when wait() still times out after kill().
+    manager = _make_manager(tmp_path)
+
+    class _FakeStream:
+        def __init__(self) -> None:
+            self.closed = False
+
+        def close(self) -> None:
+            self.closed = True
+
+    class _FakeProcess:
+        def __init__(self) -> None:
+            self.stdout = _FakeStream()
+            self.stderr = _FakeStream()
+            self.stdin = _FakeStream()
+            self.wait_calls = 0
+            self.terminate_calls = 0
+            self.kill_calls = 0
+
+        def poll(self) -> None:
+            return None
+
+        def terminate(self) -> None:
+            self.terminate_calls += 1
+
+        def wait(self, timeout: float) -> None:
+            _ = timeout
+            self.wait_calls += 1
+            raise subprocess.TimeoutExpired(cmd=["worker"], timeout=1.0)
+
+        def kill(self) -> None:
+            self.kill_calls += 1
+
+    process = _FakeProcess()
+    monkeypatch.setattr(manager, "_discard_worker_pipe_reader", lambda _stream: None)
+    manager._stop_backend_worker_process(process)  # type: ignore[arg-type]
+
+    assert process.terminate_calls == 1
+    assert process.kill_calls == 1
+    assert process.wait_calls == 2
+    assert process.stdin.closed is True
+    assert process.stdout.closed is True
+    assert process.stderr.closed is True
+
+
 @pytest.mark.parametrize(
     ("response_payload", "expected_code", "expected_message_fragment"),
     [
@@ -7844,6 +8047,80 @@ def test_worker_route_proxy_returns_empty_body_for_no_content_status(
     assert response.status_code == 204
     assert response.content == b""
     assert response.headers.get("content-type") is None
+
+
+@pytest.mark.parametrize(
+    "worker_payload",
+    [
+        {
+            "statusCode": 204,
+            "mediaType": "text/plain",
+            "body": "should-not-be-sent",
+        },
+        {
+            "statusCode": 205,
+            "mediaType": "application/octet-stream",
+            "bodyEncoding": "base64",
+            "body": base64.b64encode(b"ignored").decode("ascii"),
+        },
+        {
+            "statusCode": 304,
+            "mediaType": "text/plain",
+            "bodyEncoding": "base64",
+            "body": base64.b64encode(b"still-ignored").decode("ascii"),
+        },
+    ],
+)
+def test_worker_route_proxy_ignores_body_payload_for_no_content_statuses(
+    tmp_path: Path,
+    monkeypatch,
+    worker_payload: dict[str, object],
+) -> None:
+    # No-content statuses must ignore text/base64 worker bodies across media-type branches.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    manager._register_backend_router_from_worker_request(
+        app=app,
+        entry=entry,
+        params={
+            "prefix": "/proxy",
+            "routes": [
+                {
+                    "routeId": "route_0",
+                    "path": "/echo",
+                    "methods": ["GET"],
+                }
+            ],
+        },
+    )
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    route_path = "/api/plugins/setta-fixture-backend/proxy/echo"
+    monkeypatch.setattr(
+        manager,
+        "_call_backend_worker_method",
+        lambda **_kwargs: worker_payload,
+    )
+
+    with TestClient(app) as client:
+        response = client.get(route_path)
+    expected_status = worker_payload["statusCode"]
+    assert isinstance(expected_status, int)
+    assert response.status_code == expected_status
+    assert response.content == b""
 
 
 def test_worker_route_proxy_preserves_explicit_json_null_body(

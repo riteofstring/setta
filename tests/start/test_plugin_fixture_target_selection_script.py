@@ -46,6 +46,10 @@ def _build_fixture_target_sandbox(tmp_path: Path) -> Path:
         "def test_start_plugins() -> None:\n    assert True\n",
         encoding="utf-8",
     )
+    (root / "tests" / "test_nonplugin_runner.py").write_text(
+        "def test_nonplugin_runner() -> None:\n    assert True\n",
+        encoding="utf-8",
+    )
     (root / "tests" / "plugins" / "test_plugin_runtime.py").write_text(
         "def test_plugin_runtime() -> None:\n    assert True\n",
         encoding="utf-8",
@@ -260,6 +264,19 @@ def test_pytest_fixture_selection_skips_nonplugin_substring_selector(
         sandbox_root,
         "pytest",
         ["-k", "nonplugin"],
+    )
+
+
+def test_pytest_fixture_selection_skips_nonplugin_target_path_name(
+    tmp_path: Path,
+) -> None:
+    # Target paths containing "nonplugin" should not trigger plugin fixture prep.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+
+    assert not _should_build_for_targets(
+        sandbox_root,
+        "pytest",
+        ["tests/test_nonplugin_runner.py"],
     )
 
 

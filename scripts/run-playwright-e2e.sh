@@ -299,6 +299,35 @@ compute_workspace_seed_fixture_signature() {
   done
 }
 
+compute_workspace_seed_fixture_change_stamp() {
+  local root_dir="$1"
+  local python_bin
+  python_bin="$(resolve_plugin_fixture_python_bin)" || return 1
+  "${python_bin}" - "${root_dir}" <<'PY'
+import os
+import sys
+from pathlib import Path
+
+root_dir = Path(sys.argv[1]).resolve(strict=False)
+fixtures = (
+    "backend-language-server-e2e",
+    "backend-external-agent",
+    "backend-codegen",
+)
+
+for fixture_name in fixtures:
+    fixture_root = root_dir / "tests" / "fixtures" / "plugins" / fixture_name
+    if not fixture_root.is_dir():
+        print(f"{fixture_name}|missing")
+        continue
+    print(f"{fixture_name}|")
+    for file_path in sorted(path for path in fixture_root.rglob("*") if path.is_file()):
+        stat_result = file_path.stat()
+        relative_path = file_path.relative_to(root_dir).as_posix()
+        print(f"{relative_path}|{stat_result.st_mtime_ns}:{stat_result.st_size}")
+PY
+}
+
 seeded_plugin_fixture_is_complete() {
   local fixture_root="$1"
   local seeded_fixture_root="$2"
@@ -321,17 +350,30 @@ seed_workspace_plugin_fixtures() {
   local plugins_root="${SETTA_WORKSPACE_ROOT}/.setta_plugins"
   local seed_cache_dir="${SETTA_WORKSPACE_ROOT}/setta_files/.cache"
   local seed_cache_file="${seed_cache_dir}/playwright-e2e-seeded-plugin-fixtures.signature"
-  local current_signature cached_signature
+  local seed_stamp_cache_file="${seed_cache_file}.stamp"
+  local current_signature current_stamp cached_signature cached_stamp
   mkdir -p "${plugins_root}"
   mkdir -p "${seed_cache_dir}"
 
-  current_signature="$(
-    compute_workspace_seed_fixture_signature "${ROOT_DIR}" | cksum | awk '{print $1 ":" $2}'
+  current_stamp="$(
+    compute_workspace_seed_fixture_change_stamp "${ROOT_DIR}" | cksum | awk '{print $1 ":" $2}'
   )"
   if [[ "${SETTA_FORCE_SEED_PLUGIN_FIXTURES:-0}" != "1" ]] && [[ -f "${seed_cache_file}" ]]; then
     cached_signature="$(<"${seed_cache_file}")"
   else
     cached_signature=""
+  fi
+  if [[ "${SETTA_FORCE_SEED_PLUGIN_FIXTURES:-0}" != "1" ]] && [[ -f "${seed_stamp_cache_file}" ]]; then
+    cached_stamp="$(<"${seed_stamp_cache_file}")"
+  else
+    cached_stamp=""
+  fi
+  if [[ -n "${cached_signature}" && "${cached_stamp}" == "${current_stamp}" ]]; then
+    current_signature="${cached_signature}"
+  else
+    current_signature="$(
+      compute_workspace_seed_fixture_signature "${ROOT_DIR}" | cksum | awk '{print $1 ":" $2}'
+    )"
   fi
 
   if [[ "${SETTA_FORCE_SEED_PLUGIN_FIXTURES:-0}" != "1" ]] && [[ "${cached_signature}" == "${current_signature}" ]]; then
@@ -353,6 +395,8 @@ seed_workspace_plugin_fixtures() {
       fi
     done
     if [[ "${missing_seeded_fixture}" == "0" ]]; then
+      printf '%s' "${current_signature}" > "${seed_cache_file}"
+      printf '%s' "${current_stamp}" > "${seed_stamp_cache_file}"
       log "Skipping seeded plugin fixture copy; fixtures unchanged."
       return
     fi
@@ -371,6 +415,7 @@ seed_workspace_plugin_fixtures() {
     log "Seeded plugin fixture: ${seeded_fixture_root}"
   done
   printf '%s' "${current_signature}" > "${seed_cache_file}"
+  printf '%s' "${current_stamp}" > "${seed_stamp_cache_file}"
 }
 
 compute_local_plugin_artifact_signature() {

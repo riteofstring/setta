@@ -48,29 +48,40 @@ echo "reset: found ${plugin_count} fixture plugin id(s)."
 removed_count=0
 while IFS= read -r plugin_id; do
   [[ -z "${plugin_id}" ]] && continue
-  echo "reset: unlink attempts for ${plugin_id}..."
+  echo "reset: uninstall attempts for ${plugin_id}..."
   for scope in workspace setta_files global; do
-    unlink_stderr_file="$(mktemp)"
-    if ! unlink_output="$(
-      setta plugins unlink "${plugin_id}" --scope "${scope}" --ignore-missing --json \
-        2>"${unlink_stderr_file}"
-    )"; then
-      echo "reset: failed to unlink ${plugin_id} from ${scope}" >&2
-      cat "${unlink_stderr_file}" >&2
-      echo "${unlink_output}" >&2
-      rm -f "${unlink_stderr_file}"
+    uninstall_stderr_file="$(mktemp)"
+    uninstall_stdout_file="$(mktemp)"
+    if ! setta plugins uninstall "${plugin_id}" --scope "${scope}" --json >"${uninstall_stdout_file}" 2>"${uninstall_stderr_file}"; then
+      uninstall_stdout="$(<"${uninstall_stdout_file}")"
+      uninstall_stderr="$(<"${uninstall_stderr_file}")"
+      if [[ "${uninstall_stdout}${uninstall_stderr}" == *"PLUGIN_NOT_FOUND"* ]]; then
+        echo "no ${plugin_id} entry in ${scope}"
+        rm -f "${uninstall_stderr_file}" "${uninstall_stdout_file}"
+        continue
+      fi
+      echo "reset: failed to uninstall ${plugin_id} from ${scope}" >&2
+      if [[ -n "${uninstall_stderr}" ]]; then
+        echo "${uninstall_stderr}" >&2
+      fi
+      if [[ -n "${uninstall_stdout}" ]]; then
+        echo "${uninstall_stdout}" >&2
+      fi
+      rm -f "${uninstall_stderr_file}" "${uninstall_stdout_file}"
       exit 1
     fi
-    if [[ -s "${unlink_stderr_file}" ]]; then
-      cat "${unlink_stderr_file}" >&2
+    uninstall_output="$(<"${uninstall_stdout_file}")"
+    if [[ -s "${uninstall_stderr_file}" ]]; then
+      cat "${uninstall_stderr_file}" >&2
     fi
-    rm -f "${unlink_stderr_file}"
-    unlink_state="$(
-      python - "${unlink_output}" <<'PY'
+    rm -f "${uninstall_stderr_file}" "${uninstall_stdout_file}"
+    uninstall_state="$(
+      python - "${uninstall_output}" "${scope}" <<'PY'
 import json
 import sys
 
 output = sys.argv[1]
+scope = sys.argv[2]
 last_non_empty_line = None
 for raw_line in output.splitlines():
     line = raw_line.strip()
@@ -78,18 +89,20 @@ for raw_line in output.splitlines():
         last_non_empty_line = line
 
 if last_non_empty_line is None:
-    raise SystemExit("Missing JSON output from setta plugins unlink.")
+    raise SystemExit("Missing JSON output from setta plugins uninstall.")
 
 payload = json.loads(last_non_empty_line)
-if payload.get("ignoredMissing"):
-    print("missing")
-else:
-    print("removed")
+removed_scope = payload.get("removedFromScope")
+if removed_scope != scope:
+    raise SystemExit(
+        f"Unexpected removedFromScope: {removed_scope!r} (expected {scope!r})"
+    )
+print("removed")
 PY
     )"
-    if [[ "${unlink_state}" == "missing" ]]; then
-      echo "no ${plugin_id} entry in ${scope}"
-      continue
+    if [[ "${uninstall_state}" != "removed" ]]; then
+      echo "reset: unexpected uninstall state for ${plugin_id} in ${scope}" >&2
+      exit 1
     fi
     echo "removed ${plugin_id} from ${scope}"
     removed_count=$((removed_count + 1))

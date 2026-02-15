@@ -1421,12 +1421,6 @@ export async function route_plugins_link(
   return await post("/plugins/link", x);
 }
 
-export async function route_plugins_unlink(
-  x: gt.PluginUninstallRequestInput,
-): Promise<ResponseDataAndStatus<gt.PluginUninstallResponse>> {
-  return await post("/plugins/unlink", x);
-}
-
 export async function route_plugins_enable(
   x: gt.PluginEnableDisableRequestInput,
 ): Promise<ResponseDataAndStatus<gt.PluginEnableDisableResponse>> {

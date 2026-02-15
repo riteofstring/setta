@@ -103,7 +103,7 @@ test("plugin-kind-missing fallback uses explicit section kind wording", async ({
       ),
     ).toBeVisible();
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend",
       scope: "workspace",
     }).catch(() => null);
@@ -180,7 +180,7 @@ test("plugin fallback reason updates reactively when plugin state changes", asyn
       page.getByText("Plugin is installed but currently disabled."),
     ).toBeVisible();
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend",
       scope: "workspace",
     }).catch(() => null);

@@ -69,12 +69,12 @@ fi
 source "${ROOT_DIR}/activate.sh"
 
 if [[ -n "${scope}" ]]; then
-  setta plugins unlink "${plugin_id}" --scope "${scope}"
+  setta plugins uninstall "${plugin_id}" --scope "${scope}"
 else
-  setta plugins unlink "${plugin_id}"
+  setta plugins uninstall "${plugin_id}"
 fi
 if [[ ${rescan_after_unlink} -eq 1 ]]; then
   setta plugins rescan >/dev/null
 fi
 
-echo "unlinked plugin: ${plugin_id}"
+echo "uninstalled plugin: ${plugin_id}"

@@ -50,7 +50,7 @@ test("plugin top-nav fixture button click updates frontend side effect", async (
     });
     expect(clickCount).toBe(2);
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend-topnav",
       scope: "workspace",
     }).catch(() => null);
@@ -178,7 +178,7 @@ test("plugin top-nav busy state only disables the active item", async ({
     });
     await expect(slowButton).toBeEnabled();
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId,
       scope: "workspace",
     }).catch(() => null);
@@ -188,7 +188,7 @@ test("plugin top-nav busy state only disables the active item", async ({
   }
 });
 
-test("plugin disable and unlink clear top-nav and pane actions after rescan", async ({
+test("plugin disable and uninstall clear top-nav and pane actions after rescan", async ({
   page,
 }) => {
   const topNavFixturePluginRoot = path.resolve(
@@ -255,11 +255,11 @@ test("plugin disable and unlink clear top-nav and pane actions after rescan", as
       }),
     ).not.toBeVisible();
 
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend-topnav",
       scope: "workspace",
     });
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend",
       scope: "workspace",
     });
@@ -280,11 +280,11 @@ test("plugin disable and unlink clear top-nav and pane actions after rescan", as
       }),
     ).not.toBeVisible();
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend-topnav",
       scope: "workspace",
     }).catch(() => null);
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend",
       scope: "workspace",
     }).catch(() => null);

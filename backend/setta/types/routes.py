@@ -26,7 +26,6 @@ class Route(str, Enum):
     PLUGINS_INSTALL = "/plugins/install"
     PLUGINS_UNINSTALL = "/plugins/uninstall"
     PLUGINS_LINK = "/plugins/link"
-    PLUGINS_UNLINK = "/plugins/unlink"
     PLUGINS_ENABLE = "/plugins/enable"
     PLUGINS_DISABLE = "/plugins/disable"
     PLUGINS_CONFIG = "/plugins/config"

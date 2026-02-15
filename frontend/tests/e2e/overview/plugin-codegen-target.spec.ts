@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import path from "path";
 import {
   cleanupIsolatedProject,
@@ -6,6 +7,16 @@ import {
   postBackend,
   setOverviewTab,
 } from "../helpers";
+
+async function expandCodegenTargets(page: Page): Promise<void> {
+  const toggle = page.getByRole("button", { name: "Codegen Targets" });
+  await expect(toggle).toBeVisible();
+  const expanded = await toggle.getAttribute("aria-expanded");
+  if (expanded !== "true") {
+    await toggle.click();
+  }
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+}
 
 test("plugin codegen targets are visible in run instructions and can be enabled", async ({
   page,
@@ -43,8 +54,8 @@ test("plugin codegen targets are visible in run instructions and can be enabled"
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
+    await expandCodegenTargets(page);
 
-    await expect(page.getByText("TypeScript (typescript)")).toBeVisible();
     const pluginTargetIdLabel = page.getByText(targetId).first();
     await expect(pluginTargetIdLabel).toBeVisible();
     const pluginTargetRow = pluginTargetIdLabel.locator(
@@ -64,7 +75,7 @@ test("plugin codegen targets are visible in run instructions and can be enabled"
       codegenTargets.some((target) => target.language === targetId),
     ).toBeTruthy();
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-backend-codegen",
       scope: "workspace",
     }).catch(() => null);
@@ -95,6 +106,7 @@ test("plugin codegen target selection persists across reload using real backend 
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
+    await expandCodegenTargets(page);
 
     const targetIdLabel = page.getByText(targetId).first();
     await expect(targetIdLabel).toBeVisible();
@@ -115,6 +127,7 @@ test("plugin codegen target selection persists across reload using real backend 
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
+    await expandCodegenTargets(page);
 
     const reloadedTargetSwitch = page
       .getByText(targetId)
@@ -127,7 +140,7 @@ test("plugin codegen target selection persists across reload using real backend 
       toggledValue ? "true" : "false",
     );
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-backend-codegen",
       scope: "workspace",
     }).catch(() => null);
@@ -158,6 +171,7 @@ test("run instructions shows and removes orphaned plugin codegen targets after p
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
+    await expandCodegenTargets(page);
 
     const targetIdLabel = page.getByText(targetId).first();
     await expect(targetIdLabel).toBeVisible();
@@ -171,7 +185,7 @@ test("run instructions shows and removes orphaned plugin codegen targets after p
       await expect(targetSwitch).toHaveAttribute("aria-checked", "true");
     }
 
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-backend-codegen",
       scope: "workspace",
     });
@@ -193,6 +207,7 @@ test("run instructions shows and removes orphaned plugin codegen targets after p
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
+    await expandCodegenTargets(page);
 
     await expect(page.getByText("Orphaned configured targets")).toBeVisible();
     const orphanedTargetRow = page.getByTestId(
@@ -204,7 +219,7 @@ test("run instructions shows and removes orphaned plugin codegen targets after p
       .click();
     await expect(orphanedTargetRow).toHaveCount(0);
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-backend-codegen",
       scope: "workspace",
     }).catch(() => null);

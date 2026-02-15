@@ -99,7 +99,7 @@ test("frontend react fixture registers a React-rendered section kind", async ({
     await reactCard.getByTestId("fixture-react-toggle-pin").click();
     await expect(pinnedState).toHaveText("Pinned");
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend-react",
       scope: "workspace",
     }).catch(() => null);
@@ -185,16 +185,15 @@ test("plugin runtime failures replace stale section renderer output with runtime
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    await page.locator("#overview-tab-overview").click();
     await expect(page.getByText("Plugin Runtime Error", { exact: true })).toBeVisible();
     await expect(
-      page.getByText("Failed to fetch plugins runtime: status 500."),
+      page.getByText("Failed to fetch plugins runtime: status 500.").first(),
     ).toBeVisible();
     await expect(page.getByTestId("fixture-react-card")).toHaveCount(0);
     await page.unroute("**/api/plugins/runtime");
   } finally {
     await page.unroute("**/api/plugins/runtime").catch(() => null);
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-frontend-react",
       scope: "workspace",
     }).catch(() => null);

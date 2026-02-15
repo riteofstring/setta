@@ -391,11 +391,11 @@ def test_plugins_lock_write_and_apply_cli_json_roundtrip(
             os.environ["PIP_FIND_LINKS"] = old_find_links
 
 
-def test_plugins_link_enable_disable_rescan_unlink_and_restart_cli_json(
+def test_plugins_link_enable_disable_rescan_uninstall_and_restart_cli_json(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    # CLI should support link/unlink, state toggles, rescan, list, and restart JSON flows.
+    # CLI should support link/uninstall, state toggles, rescan, list, and restart JSON flows.
     manager = _build_manager(tmp_path, restart_callback=lambda: True)
     monkeypatch.setattr(
         start_module,
@@ -456,13 +456,13 @@ def test_plugins_link_enable_disable_rescan_unlink_and_restart_cli_json(
         "reason": None,
     }
 
-    unlink_result = runner.invoke(
+    uninstall_result = runner.invoke(
         plugins,
-        ["unlink", "setta-fixture-frontend", "--scope", "workspace", "--json"],
+        ["uninstall", "setta-fixture-frontend", "--scope", "workspace", "--json"],
     )
-    assert unlink_result.exit_code == 0, unlink_result.output
-    unlink_payload = json.loads(unlink_result.output)
-    assert unlink_payload["pluginId"] == "setta-fixture-frontend"
+    assert uninstall_result.exit_code == 0, uninstall_result.output
+    uninstall_payload = json.loads(uninstall_result.output)
+    assert uninstall_payload["pluginId"] == "setta-fixture-frontend"
 
 
 def test_plugins_restart_cli_surfaces_plugin_manager_errors(
@@ -498,7 +498,7 @@ def test_plugins_restart_cli_surfaces_plugin_manager_errors(
         (["rescan"],),
         (["restart-required"],),
         (["install", "file:/tmp/missing-plugin"],),
-        (["unlink", "setta-fixture-missing"],),
+        (["uninstall", "setta-fixture-missing"],),
     ],
 )
 def test_plugins_commands_wrap_manager_initialization_errors(
@@ -735,7 +735,7 @@ def test_plugins_mutation_commands_build_manager_without_auto_rescan(
         ["pin", "missing-plugin", "0.1.0"],
         ["rollback", "missing-plugin"],
         ["link", str(tmp_path / "missing-plugin-root")],
-        ["unlink", "missing-plugin"],
+        ["uninstall", "missing-plugin"],
     ]
     for command in commands:
         runner.invoke(plugins, command)
@@ -895,11 +895,10 @@ def test_plugins_disable_cli_does_single_lookup_rescan(
         (["uninstall", "missing-plugin", "--scope", "workspace"],),
         (
             [
-                "unlink",
+                "uninstall",
                 "missing-plugin",
                 "--scope",
                 "workspace",
-                "--ignore-missing",
             ],
         ),
     ],
@@ -909,7 +908,7 @@ def test_plugins_lookup_rescan_errors_are_wrapped_as_click_errors(
     monkeypatch,
     argv: list[str],
 ) -> None:
-    # Lookup-rescan failures should surface as structured Click errors, even for ignore-missing unlink.
+    # Lookup-rescan failures should surface as structured Click errors for lookup-based mutations.
     manager = _build_manager(tmp_path)
     monkeypatch.setattr(
         start_module,
@@ -934,84 +933,3 @@ def test_plugins_lookup_rescan_errors_are_wrapped_as_click_errors(
 
     assert result.exit_code != 0
     assert "PLUGIN_STATE_INVALID: lookup rescan failed" in result.output
-
-
-def test_plugins_unlink_cli_ignore_missing_returns_success(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    # Ignore-missing unlink mode should return success for absent plugins.
-    manager = _build_manager(tmp_path)
-    monkeypatch.setattr(
-        start_module,
-        "_build_plugin_manager_for_cli",
-        lambda **_kwargs: manager,
-    )
-    runner = CliRunner()
-
-    text_result = runner.invoke(
-        plugins,
-        [
-            "unlink",
-            "setta-fixture-missing",
-            "--scope",
-            "workspace",
-            "--ignore-missing",
-        ],
-    )
-    assert text_result.exit_code == 0, text_result.output
-    assert (
-        "Plugin setta-fixture-missing not found in workspace scope; skipping."
-        in text_result.output
-    )
-
-    json_result = runner.invoke(
-        plugins,
-        [
-            "unlink",
-            "setta-fixture-missing",
-            "--scope",
-            "workspace",
-            "--ignore-missing",
-            "--json",
-        ],
-    )
-    assert json_result.exit_code == 0, json_result.output
-    assert json.loads(json_result.output) == {
-        "pluginId": "setta-fixture-missing",
-        "removedFromScope": "workspace",
-        "restartRequired": False,
-        "ignoredMissing": True,
-    }
-
-
-def test_plugins_unlink_cli_ignore_missing_without_scope_uses_any_scope_in_json(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    # Omitted scope should still emit a concrete removedFromScope value in json mode.
-    manager = _build_manager(tmp_path)
-    monkeypatch.setattr(
-        start_module,
-        "_build_plugin_manager_for_cli",
-        lambda **_kwargs: manager,
-    )
-    runner = CliRunner()
-
-    result = runner.invoke(
-        plugins,
-        [
-            "unlink",
-            "setta-fixture-missing",
-            "--ignore-missing",
-            "--json",
-        ],
-    )
-
-    assert result.exit_code == 0, result.output
-    assert json.loads(result.output) == {
-        "pluginId": "setta-fixture-missing",
-        "removedFromScope": "any",
-        "restartRequired": False,
-        "ignoredMissing": True,
-    }

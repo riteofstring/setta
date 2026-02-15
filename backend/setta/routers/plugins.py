@@ -157,16 +157,6 @@ def route_plugins_link(
     )
 
 
-@router.post(Route.PLUGINS_UNLINK, dependencies=[Depends(require_ide_mode)])
-def route_plugins_unlink(
-    x: PluginUninstallRequest,
-    state: AppStateFromRequest,
-) -> PluginUninstallResponse:
-    return _run_manager_call(
-        lambda: _manager(state).unlink_plugin(plugin_id=x.pluginId, scope=x.scope)
-    )
-
-
 @router.post(Route.PLUGINS_ENABLE, dependencies=[Depends(require_ide_mode)])
 def route_plugins_enable(
     x: PluginEnableDisableRequest,

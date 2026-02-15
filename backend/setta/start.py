@@ -2938,68 +2938,6 @@ def plugins_link(
         click.echo("Backend restart required.")
 
 
-@plugins.command(name="unlink")
-@click.argument("plugin_id")
-@click.option(
-    "--scope",
-    type=click.Choice(["workspace", "setta_files", "global"]),
-    default=None,
-)
-@click.option("--global", "global_scope", is_flag=True)
-@click.option("--setta-files", "setta_files_scope", is_flag=True)
-@click.option(
-    "--ignore-missing",
-    is_flag=True,
-    help="Return success when the plugin is not present in the selected scope.",
-)
-@click.option("--json", "json_output", is_flag=True)
-def plugins_unlink(
-    plugin_id: str,
-    scope: str | None,
-    global_scope: bool,
-    setta_files_scope: bool,
-    ignore_missing: bool,
-    json_output: bool,
-) -> None:
-    manager = _build_plugin_manager_for_cli_or_click_error(auto_rescan=False)
-    resolved_scope = _plugin_scope_choice_to_value(
-        scope=scope,
-        global_scope=global_scope,
-        setta_files_scope=setta_files_scope,
-    )
-    try:
-        _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
-        result = manager.uninstall_plugin(
-            plugin_id=plugin_id,
-            scope=resolved_scope,
-            rescan=False,
-        )
-    except PluginManagerError as exc:
-        if ignore_missing and exc.code == "PLUGIN_NOT_FOUND":
-            resolved_scope_label = resolved_scope if resolved_scope is not None else "any"
-            if json_output:
-                _emit_json_output(
-                    {
-                        "pluginId": plugin_id,
-                        "removedFromScope": resolved_scope_label,
-                        "restartRequired": False,
-                        "ignoredMissing": True,
-                    }
-                )
-                return
-            click.echo(
-                f"Plugin {plugin_id} not found in {resolved_scope_label} scope; skipping."
-            )
-            return
-        _raise_click_plugin_error(exc)
-    if json_output:
-        _emit_json_output(result.model_dump(mode="json"))
-        return
-    click.echo(f"Unlinked {result.pluginId} from {result.removedFromScope.value} scope")
-    if result.restartRequired:
-        click.echo("Backend restart required.")
-
-
 @click.group(invoke_without_command=True)
 @click.option("--reload", is_flag=True)
 @click.option("--host", default=C.DEFAULT_HOST, help="backend host")

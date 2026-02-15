@@ -2257,10 +2257,16 @@ function deriveSortedRuntimeViews({
   pluginListById: Record<string, PluginListEntry>;
   registryAccumulator: PluginRegistryAccumulator;
 }): SortedRuntimeViews {
-  const sortedPluginListEntries = toOrderedPluginListEntries(
+  const nextSortedPluginListEntries = toOrderedPluginListEntries(
     orderedPlugins,
     pluginListById,
   );
+  const sortedPluginListEntries = hasSameOrderedReferences(
+    nextSortedPluginListEntries,
+    previousState.sortedPluginListEntries,
+  )
+    ? previousState.sortedPluginListEntries
+    : nextSortedPluginListEntries;
   const sectionKindsUnchanged = hasSameRecordValueReferences(
     registryAccumulator.sectionKinds,
     previousState.sectionKindsByKey,
@@ -2308,6 +2314,18 @@ function hasSameRecordValueReferences<TValue>(
       return false;
     }
     if (left[key] !== right[key]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function hasSameOrderedReferences<T>(left: T[], right: T[]): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
       return false;
     }
   }

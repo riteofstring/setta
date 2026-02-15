@@ -369,3 +369,16 @@
 - Improved fixture script DX by moving force-build checks ahead of expensive signature hashing and adding change-stamp short-circuiting for unchanged fixture trees.
 - Fixed CLI output contract consistency for `plugins unlink --ignore-missing --json` without explicit scope: `removedFromScope` now emits concrete `"any"` instead of `null`.
 - Added/updated backend pytest coverage, frontend Vitest coverage, and Playwright E2E coverage for all above paths; targeted verification passed (`pytest`: 413 passed, `vitest`: 96 passed, targeted Playwright spec: 3 passed) and CDP visual verification completed on the Settings/Plugins surface.
+
+## 2026-02-17T10:28:01-08:00
+
+- Implemented the current review findings end-to-end, explicitly excluding backward-compatibility additions.
+- Fixed backend plugin runtime environment parity by installing required worker baseline dependencies into plugin backend venvs and added coverage to prevent backend worker boot regressions when plugins declare dependencies.
+- Added configurable GitHub clone timeout support for plugin source fetches and hardened timeout/error handling paths.
+- Enforced HTTP no-body semantics for `204`/`205`/`304` worker route responses regardless of media type/body payload content.
+- Hardened backend plugin shutdown/lifespan resilience by handling stubborn worker termination timeouts without aborting overall server cleanup.
+- Removed redundant `unlink` compatibility surface from backend routes/CLI/script paths and standardized on canonical uninstall behavior.
+- Hardened plugin fixture cache correctness/performance with nanosecond change stamps, unchanged-run stamp backfill, and stricter plugin-hint path matching to avoid false positive fixture rebuilds.
+- Added Playwright fixture-seed stamp short-circuiting and updated fixture plugin behaviors to keep API-fetch/header tests deterministic under runtime refresh dedupe.
+- Reduced frontend runtime no-op churn by preserving sorted plugin-list array identity when effective order/entries are unchanged.
+- Updated unit/integration/Playwright coverage across backend manager/routes/startup/lifespan, runtime store, and plugin overview suites; fixed stale overview-tab selectors and brittle assertions in plugin E2E specs; final targeted Playwright batch passed (`47 passed`).

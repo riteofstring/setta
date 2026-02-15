@@ -6,22 +6,7 @@ function incrementMetric(metricName) {
   globalScope[metricName] = current + 1;
 }
 
-export function register(host) {
-  if ((host.effectiveCapabilities || []).includes("registerPane")) {
-    host.registerPane({
-      id: "fixture-api-fetch-pane",
-      title: "Fixture API Fetch Pane",
-      renderer: {
-        mount(el) {
-          el.textContent = "Fixture API fetch pane mounted.";
-        },
-        unmount(el) {
-          el.textContent = "";
-        },
-      },
-    });
-  }
-
+function runStandardApiFetches(host) {
   void host
     .apiFetch("health")
     .then(() => {
@@ -43,6 +28,28 @@ export function register(host) {
     .catch(() => {
       incrementMetric("__settaFixtureApiFetchStatusFailures");
     });
+}
+
+export function register(host) {
+  if ((host.effectiveCapabilities || []).includes("registerPane")) {
+    host.registerPane({
+      id: "fixture-api-fetch-pane",
+      title: "Fixture API Fetch Pane",
+      renderer: {
+        mount(el) {
+          el.textContent = "Fixture API fetch pane mounted.";
+        },
+        unmount(el) {
+          el.textContent = "";
+        },
+      },
+    });
+  }
+
+  runStandardApiFetches(host);
+  window.__settaFixtureApiFetchRunStandardFetches = () => {
+    runStandardApiFetches(host);
+  };
 
   void host
     .apiFetch("/../../api/projects")

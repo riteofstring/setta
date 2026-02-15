@@ -94,7 +94,7 @@ test("header plugin restart banner supports restart action and plugins shortcut"
       page.getByText("Plugin Runtime", { exact: true }),
     ).toBeVisible();
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-backend",
       scope: "workspace",
     }).catch(() => null);
@@ -261,7 +261,7 @@ test("header plugin restart banner shows manual command when capability is manua
       restartBanner.getByRole("button", { name: "Restart", exact: true }),
     ).toHaveCount(0);
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-backend",
       scope: "workspace",
     }).catch(() => null);
@@ -364,7 +364,7 @@ test("header plugin restart banner handles rejected and failed restart requests"
     await expect.poll(() => restartRequestCount).toBe(2);
     await expect(page.getByText("Restart request failed.")).toBeVisible();
   } finally {
-    await postBackend(page, "/plugins/unlink", {
+    await postBackend(page, "/plugins/uninstall", {
       pluginId: "setta-fixture-backend",
       scope: "workspace",
     }).catch(() => null);

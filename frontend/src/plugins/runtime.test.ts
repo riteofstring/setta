@@ -1212,6 +1212,7 @@ describe("plugin runtime helpers", () => {
 
     await refreshPluginRuntime();
     const firstState = usePluginRuntimeStore.getState();
+    const firstSortedPluginListEntries = firstState.sortedPluginListEntries;
     const firstSortedSectionKinds = firstState.sortedSectionKinds;
     const firstSortedPaneTabs = firstState.sortedPaneTabs;
     const firstSortedCommands = firstState.sortedCommands;
@@ -1219,6 +1220,7 @@ describe("plugin runtime helpers", () => {
 
     await refreshPluginRuntime();
     const secondState = usePluginRuntimeStore.getState();
+    expect(secondState.sortedPluginListEntries).toBe(firstSortedPluginListEntries);
     expect(secondState.sortedSectionKinds).toBe(firstSortedSectionKinds);
     expect(secondState.sortedPaneTabs).toBe(firstSortedPaneTabs);
     expect(secondState.sortedCommands).toBe(firstSortedCommands);
@@ -2319,15 +2321,18 @@ describe("plugin runtime helpers", () => {
     await refreshPluginRuntime();
     const firstEntry =
       usePluginRuntimeStore.getState().pluginListById[plugin.pluginId];
+    const firstSortedPluginListEntries =
+      usePluginRuntimeStore.getState().sortedPluginListEntries;
     const firstCapabilities = firstEntry?.effectiveCapabilities;
     expect(firstCapabilities).toBeDefined();
 
     await refreshPluginRuntime();
-    const secondEntry =
-      usePluginRuntimeStore.getState().pluginListById[plugin.pluginId];
+    const secondState = usePluginRuntimeStore.getState();
+    const secondEntry = secondState.pluginListById[plugin.pluginId];
     const secondCapabilities = secondEntry?.effectiveCapabilities;
     expect(secondEntry).toBe(firstEntry);
     expect(secondCapabilities).toBe(firstCapabilities);
+    expect(secondState.sortedPluginListEntries).toBe(firstSortedPluginListEntries);
   });
 
   it("reuses plugin list entries when nested payload values are unchanged", async () => {

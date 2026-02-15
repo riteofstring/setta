@@ -161,6 +161,22 @@ def _compute_plugin_fixture_signature(sandbox_root: Path) -> str:
     return result.stdout.strip()
 
 
+def _compute_plugin_fixture_change_stamp(sandbox_root: Path) -> str:
+    command = (
+        f". '{sandbox_root / 'scripts' / 'plugin-fixtures' / 'cache.sh'}' && "
+        f"compute_plugin_fixture_change_stamp '{sandbox_root}'"
+    )
+    result = subprocess.run(
+        ["bash", "-lc", command],
+        cwd=sandbox_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    return result.stdout.strip()
+
+
 def _run_cache_helper_command(
     sandbox_root: Path,
     command: str,
@@ -202,6 +218,34 @@ def test_plugin_fixture_signature_includes_frontend_toolchain_inputs(
     second_signature = _compute_plugin_fixture_signature(sandbox_root)
 
     assert first_signature != second_signature
+
+
+def test_plugin_fixture_change_stamp_uses_subsecond_mtime_precision(
+    tmp_path: Path,
+) -> None:
+    # Same-size edits with only nanosecond mtime changes should invalidate the change stamp.
+    sandbox_root, _ = _build_backend_test_runner_sandbox(tmp_path)
+    fixture_manifest = (
+        sandbox_root
+        / "tests"
+        / "fixtures"
+        / "plugins"
+        / "fixture-a"
+        / "setta.plugin.json"
+    )
+    first_stamp = _compute_plugin_fixture_change_stamp(sandbox_root)
+    original_payload = fixture_manifest.read_text(encoding="utf-8")
+    updated_payload = original_payload.replace('"name":"Fixture A"', '"name":"Fixture B"')
+    assert len(updated_payload) == len(original_payload)
+    fixture_manifest.write_text(updated_payload, encoding="utf-8")
+    stat_result = fixture_manifest.stat()
+    os.utime(
+        fixture_manifest,
+        ns=(stat_result.st_atime_ns, stat_result.st_mtime_ns + 1),
+    )
+    second_stamp = _compute_plugin_fixture_change_stamp(sandbox_root)
+
+    assert first_stamp != second_stamp
 
 
 def test_run_backend_tests_rebuilds_fixtures_only_when_signature_changes(
@@ -334,6 +378,46 @@ build_plugin_fixtures_if_needed "{sandbox_root}" "{cache_file}" "test"
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
     assert build_count_file.read_text(encoding="utf-8").strip() == "1"
     assert signature_calls_file.read_text(encoding="utf-8").strip() == "1"
+    assert "plugin fixtures unchanged; skipping rebuild" in result.stdout
+
+
+def test_fixture_stamp_backfills_when_signature_cache_exists_without_stamp(
+    tmp_path: Path,
+) -> None:
+    # Unchanged runs should backfill missing stamp caches to restore fast-path behavior.
+    sandbox_root, _build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+    cache_file = (
+        sandbox_root
+        / "setta_files"
+        / ".cache"
+        / "backend-test-plugin-fixtures-stamp-backfill.signature"
+    )
+    stamp_cache_file = cache_file.with_suffix(cache_file.suffix + ".stamp")
+    signature_calls_file = sandbox_root / "signature_calls_backfill.txt"
+    command = f"""
+set -euo pipefail
+. '{sandbox_root / "scripts" / "plugin-fixtures" / "cache.sh"}'
+mkdir -p "$(dirname '{cache_file}')"
+printf '%s' 'cached-signature' > '{cache_file}'
+rm -f '{stamp_cache_file}'
+compute_plugin_fixture_signature() {{
+  local count=0
+  if [[ -f "{signature_calls_file}" ]]; then
+    count="$(<"{signature_calls_file}")"
+  fi
+  echo "$((count + 1))" > "{signature_calls_file}"
+  printf '%s\\n' 'cached-signature'
+}}
+compute_plugin_fixture_change_stamp() {{
+  printf '%s\\n' 'stable-stamp'
+}}
+build_plugin_fixtures_if_needed "{sandbox_root}" "{cache_file}" "test"
+build_plugin_fixtures_if_needed "{sandbox_root}" "{cache_file}" "test"
+"""
+    result = _run_cache_helper_command(sandbox_root, command)
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert signature_calls_file.read_text(encoding="utf-8").strip() == "1"
+    assert stamp_cache_file.read_text(encoding="utf-8").strip() == "stable-stamp"
     assert "plugin fixtures unchanged; skipping rebuild" in result.stdout
 
 

@@ -64,6 +64,17 @@ def test_playwright_runner_validates_seeded_fixture_completeness_before_skip() -
     )
 
 
+def test_playwright_runner_uses_seed_fixture_stamp_short_circuit() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "compute_workspace_seed_fixture_change_stamp()" in script
+    assert 'seed_stamp_cache_file="${seed_cache_file}.stamp"' in script
+    assert 'cached_stamp="$(<"${seed_stamp_cache_file}")"' in script
+    assert 'if [[ -n "${cached_signature}" && "${cached_stamp}" == "${current_stamp}" ]]; then' in script
+
+
 def test_playwright_runner_reseeds_plugin_fixtures_for_reused_workspaces() -> None:
     root = repo_root()
     script = (root / "scripts" / "run-playwright-e2e.sh").read_text(

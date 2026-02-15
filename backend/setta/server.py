@@ -118,7 +118,10 @@ async def lifespan(app: FastAPI):
     finally:
         if browser_task is not None:
             await browser_task
-        app.state.setta.plugin_manager.shutdown_backend_plugins()
+        try:
+            app.state.setta.plugin_manager.shutdown_backend_plugins()
+        except Exception:
+            logger.exception("Plugin manager shutdown failed during lifespan teardown.")
         if app.state.setta.specific_file_watcher:
             app.state.setta.specific_file_watcher.stop()
         if not app.state.setta.mcp_client.disabled:

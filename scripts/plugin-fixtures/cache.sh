@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ -z "${_PLUGIN_FIXTURE_OS_NAME:-}" ]]; then
-  _PLUGIN_FIXTURE_OS_NAME="$(uname -s)"
-fi
-
 compute_plugin_fixture_signature() {
   local root_dir="$1"
   local fixture_file
@@ -31,18 +27,11 @@ compute_plugin_fixture_signature() {
   done | cksum | awk '{print $1 ":" $2}'
 }
 
-_plugin_fixture_file_change_stamp() {
-  local fixture_file="$1"
-  if [[ "${_PLUGIN_FIXTURE_OS_NAME}" == "Darwin" ]]; then
-    stat -f '%m:%z' "${fixture_file}"
-    return
-  fi
-  stat -c '%Y:%s' "${fixture_file}"
-}
-
 compute_plugin_fixture_change_stamp() {
   local root_dir="$1"
   local fixture_file
+  local python_bin
+  local existing_fixture_files=()
   local fixture_files=(
     "${root_dir}/scripts/plugin-fixtures/build.sh"
     "${root_dir}/frontend/package.json"
@@ -61,9 +50,33 @@ compute_plugin_fixture_change_stamp() {
     if [[ ! -f "${fixture_file}" ]]; then
       continue
     fi
-    printf '%s|' "${fixture_file#${root_dir}/}"
-    _plugin_fixture_file_change_stamp "${fixture_file}"
-  done | cksum | awk '{print $1 ":" $2}'
+    existing_fixture_files+=("${fixture_file}")
+  done
+
+  if [[ ${#existing_fixture_files[@]} -eq 0 ]]; then
+    printf '%s\n' '0:0'
+    return
+  fi
+
+  python_bin="$(resolve_plugin_fixture_python_bin)" || return 1
+  "${python_bin}" - "${root_dir}" "${existing_fixture_files[@]}" <<'PY' | cksum | awk '{print $1 ":" $2}'
+import sys
+from pathlib import Path
+
+root_dir = Path(sys.argv[1]).resolve(strict=False)
+
+for file_arg in sys.argv[2:]:
+    file_path = Path(file_arg).resolve(strict=False)
+    try:
+        stat_result = file_path.stat()
+    except FileNotFoundError:
+        continue
+    try:
+        relative_path = file_path.relative_to(root_dir).as_posix()
+    except ValueError:
+        relative_path = file_path.as_posix()
+    print(f"{relative_path}|{stat_result.st_mtime_ns}:{stat_result.st_size}")
+PY
 }
 
 resolve_plugin_fixture_python_bin() {
@@ -173,6 +186,8 @@ build_plugin_fixtures_if_needed() {
     if ! plugin_fixture_frontend_outputs_complete "${root_dir}"; then
       echo "${log_prefix}: plugin fixture outputs missing; rebuilding"
     else
+      printf '%s' "${current_signature}" > "${cache_file}"
+      printf '%s' "${current_stamp}" > "${stamp_cache_file}"
       echo "${log_prefix}: plugin fixtures unchanged; skipping rebuild"
       return
     fi
@@ -201,14 +216,19 @@ _plugin_fixture_path_has_plugin_hint() {
   if [[ "${normalized_path_lower}" == *"/plugin_"* ]]; then
     return 0
   fi
-  if [[ "${basename_only}" == *plugin*.py ]]; then
-    return 0
-  fi
-  if [[ "${basename_only}" == *plugin*.spec.ts ]]; then
-    return 0
-  fi
-  if [[ "${basename_only}" == *plugin*.spec.tsx ]]; then
-    return 0
+  if [[ "${basename_only}" == *.py ]] || [[ "${basename_only}" == *.spec.ts ]] || [[ "${basename_only}" == *.spec.tsx ]]; then
+    if [[ "${basename_only}" =~ (^|[^[:alnum:]])plugins?([^[:alnum:]]|$) ]]; then
+      return 0
+    fi
+    if [[ "${basename_only}" =~ (^|[^[:alnum:]])test_plugin[[:alnum:]_-]*([^[:alnum:]]|$) ]]; then
+      return 0
+    fi
+    if [[ "${basename_only}" =~ (^|[^[:alnum:]])plugin[-_][[:alnum:]_-]*([^[:alnum:]]|$) ]]; then
+      return 0
+    fi
+    if [[ "${basename_only}" =~ (^|[^[:alnum:]])[[:alnum:]_-]+[-_]plugin([^[:alnum:]]|$) ]]; then
+      return 0
+    fi
   fi
   return 1
 }
