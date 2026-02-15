@@ -42,7 +42,10 @@ test.describe.serial("section config accordion hierarchy", () => {
         "section-config-accordion-appearance",
       );
 
-      await expect(mainAccordionTrigger).toHaveAttribute("aria-expanded", "true");
+      await expect(mainAccordionTrigger).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
       await expect(appearanceAccordionTrigger).toHaveAttribute(
         "aria-expanded",
         "false",
@@ -60,7 +63,9 @@ test.describe.serial("section config accordion hierarchy", () => {
         };
       });
       expect(triggerBounds).not.toBeNull();
-      expect(triggerBounds?.triggerRight ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(
+      expect(
+        triggerBounds?.triggerRight ?? Number.POSITIVE_INFINITY,
+      ).toBeLessThanOrEqual(
         (triggerBounds?.itemRight ?? Number.NEGATIVE_INFINITY) + 0.5,
       );
 
@@ -99,7 +104,9 @@ test.describe.serial("section config accordion hierarchy", () => {
         throw new Error("Missing sectionId when creating terminal section.");
       }
 
-      const node = page.locator(`.react-flow__node[data-id="${created.sectionId}"]`);
+      const node = page.locator(
+        `.react-flow__node[data-id="${created.sectionId}"]`,
+      );
       await expect(node).toBeVisible();
       await node.click();
 
@@ -116,7 +123,9 @@ test.describe.serial("section config accordion hierarchy", () => {
         "true",
       );
 
-      await expect(uiEditorPane.getByText("Style", { exact: true })).toBeVisible();
+      await expect(
+        uiEditorPane.getByText("Style", { exact: true }),
+      ).toBeVisible();
       await expect(
         uiEditorPane.getByText("Color Tag", { exact: true }),
       ).toBeVisible();
@@ -174,7 +183,10 @@ test.describe.serial("section config accordion hierarchy", () => {
       const appearanceAccordionTrigger = uiEditorPane.getByTestId(
         "section-config-accordion-appearance",
       );
-      await expect(mainAccordionTrigger).toHaveAttribute("aria-expanded", "true");
+      await expect(mainAccordionTrigger).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
       await appearanceAccordionTrigger.click();
       await expect(appearanceAccordionTrigger).toHaveAttribute(
         "aria-expanded",
@@ -183,12 +195,19 @@ test.describe.serial("section config accordion hierarchy", () => {
 
       await terminalNode.click();
       await expect(mainAccordionTrigger).toBeDisabled();
-      await expect(mainAccordionTrigger).toHaveAttribute("aria-expanded", "false");
+      await expect(mainAccordionTrigger).toHaveAttribute(
+        "aria-expanded",
+        "false",
+      );
       await expect(mainAccordionTrigger).toHaveAttribute(
         "title",
         "No section settings available",
       );
       await expect(appearanceAccordionTrigger).toBeEnabled();
+      await expect(appearanceAccordionTrigger).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

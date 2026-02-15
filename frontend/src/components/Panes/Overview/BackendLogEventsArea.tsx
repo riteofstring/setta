@@ -75,13 +75,23 @@ export function applyBackendLogColumnResize(
   column: BackendLogColumnWidthName,
   deltaX: number,
 ): BackendLogColumnWidths {
+  const nextWidth = getBackendLogResizedColumnWidth(
+    initialWidths,
+    column,
+    deltaX,
+  );
   return {
     ...initialWidths,
-    [column]: clampBackendLogColumnWidth(
-      column,
-      initialWidths[column] + deltaX,
-    ),
+    [column]: nextWidth,
   };
+}
+
+export function getBackendLogResizedColumnWidth(
+  initialWidths: BackendLogColumnWidths,
+  column: BackendLogColumnWidthName,
+  deltaX: number,
+): number {
+  return clampBackendLogColumnWidth(column, initialWidths[column] + deltaX);
 }
 
 export function buildBackendLogGridTemplateColumns(
@@ -242,11 +252,11 @@ export function BackendLogEventsArea() {
 
       const applyResizeForClientX = (clientX: number) => {
         const deltaX = clientX - startX;
-        const nextWidth = applyBackendLogColumnResize(
+        const nextWidth = getBackendLogResizedColumnWidth(
           initialWidths,
           column,
           deltaX,
-        )[column];
+        );
         setColumnWidths((current) =>
           current[column] === nextWidth
             ? current

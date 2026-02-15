@@ -19,3 +19,14 @@
 - Fixed backend log copy affordance on touch-first devices by removing hidden-state `pointer-events-none` gating and relying on opacity visibility behavior.
 - Added/updated focused Vitest and Playwright coverage for the above changes, including Section Config cross-type collapse behavior and backend-log selected-message visibility.
 - Pinned `@codemirror/legacy-modes` to an exact version (`6.5.2`) to align dependency determinism with the rest of the frontend package manifest.
+
+## 2026-02-17 17:36
+
+- Fixed Run Instructions runnable-code listing mismatch by gating `SectionTypeEnum.Code` entries through runnable language checks (`python`/`bash`) before showing them in "Add From Code Blocks".
+- Added `runInstructionsRunnableCodeBlocks` helper coverage to lock runnable/non-runnable language behavior (including non-runnable fallback when language is missing).
+- Hardened `SectionConfig` accordion defaults so the first enabled panel opens (`main` else `appearance`) and open-state auto-heals away from disabled entries.
+- Extended Section Config tests and Playwright assertions to verify cross-type transitions keep appearance panel available and expanded when main settings are unavailable.
+- Removed backend-log resize hot-path churn by calculating the next width directly instead of rebuilding a full widths object on each drag update.
+- Reduced CI flake risk in perf tests by making strict wall-clock thresholds opt-in via `SETTA_STRICT_PERF=1` while keeping large-input structural guardrails in default runs.
+- Centralized CodeMirror language extension/parser registration into a shared utility and reused it from editor extensions, SSR dummy renderer, and git diff syntax parser resolution.
+- Added shared language utility tests and appended a perf report entry at `perf/reports/frontend/2026-02-17_pane-followups-runnable-gating.md`.

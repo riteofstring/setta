@@ -59,6 +59,7 @@ import {
   RUN_INSTRUCTIONS_ACCORDION_DEFAULT_OPEN_VALUES,
   type RunInstructionsAccordionItemValue,
 } from "./runInstructionsAccordionState";
+import { isRunnableSectionForCustomRun } from "./runInstructionsRunnableCodeBlocks";
 
 type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
@@ -1509,10 +1510,15 @@ function getRunnableCodeBlockListingHelper(
   pythonCodegenEnabled: boolean,
   outputList: Array<RunnableCodeBlock>,
 ) {
-  const isRunnable =
-    sectionImpl.type === SectionTypeEnum.Code ||
-    (pythonCodegenEnabled &&
-      sectionImpl.type === SectionTypeEnum.GenPythonCode);
+  const codeLanguage =
+    sectionImpl.type === SectionTypeEnum.Code
+      ? sectionImpl.codeLanguage
+      : undefined;
+  const isRunnable = isRunnableSectionForCustomRun(
+    sectionImpl.type,
+    pythonCodegenEnabled,
+    codeLanguage,
+  );
 
   const visibility = viewMode.visibilityBySectionId[section.id];
   if (visibility === undefined) {

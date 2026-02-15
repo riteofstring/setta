@@ -9,13 +9,6 @@ import {
   startCompletion,
 } from "@codemirror/autocomplete";
 import { indentLess, indentMore } from "@codemirror/commands";
-import { javascript } from "@codemirror/lang-javascript";
-import { json } from "@codemirror/lang-json";
-import { markdown } from "@codemirror/lang-markdown";
-import { python } from "@codemirror/lang-python";
-import { yaml } from "@codemirror/lang-yaml";
-import { StreamLanguage } from "@codemirror/language";
-import { toml as tomlMode } from "@codemirror/legacy-modes/mode/toml";
 import { EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
@@ -23,6 +16,7 @@ import { useSettings } from "state/definitions";
 import type { CodeLanguage } from "utils/codeLanguage";
 import { moveFocus } from "utils/focusManager";
 import { shortcutCodemirrorFormat } from "utils/utils";
+import { getCodeMirrorLanguageExtensions } from "./codeMirrorLanguages";
 
 const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
   ".cm-gutters": {
@@ -35,8 +29,6 @@ const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
     borderRight: "0",
   },
 });
-const TOML_LANGUAGE = StreamLanguage.define(tomlMode);
-
 type GetExtensionsOptions = {
   parent?: HTMLElement | null;
   language?: CodeLanguage | null;
@@ -209,28 +201,7 @@ export function getLanguageExtensions(
   language: CodeLanguage | null | undefined,
   useJsx: boolean,
 ) {
-  if (language === "python") {
-    return [python()];
-  }
-  if (language === "typescript") {
-    return [javascript({ typescript: true, jsx: useJsx })];
-  }
-  if (language === "javascript") {
-    return [javascript({ jsx: useJsx })];
-  }
-  if (language === "json") {
-    return [json()];
-  }
-  if (language === "yaml") {
-    return [yaml()];
-  }
-  if (language === "toml") {
-    return [TOML_LANGUAGE];
-  }
-  if (language === "markdown") {
-    return [markdown()];
-  }
-  return [];
+  return getCodeMirrorLanguageExtensions(language, useJsx);
 }
 
 function getKeyMapArray({

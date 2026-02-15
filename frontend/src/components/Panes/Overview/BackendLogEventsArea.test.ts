@@ -10,6 +10,7 @@ import {
   filterEvents,
   getBackendLogEventById,
   getBackendLogGridMinWidth,
+  getBackendLogResizedColumnWidth,
   removeBackendLogResizeListeners,
 } from "./BackendLogEventsArea";
 
@@ -26,6 +27,16 @@ describe("BackendLogEventsArea column sizing helpers", () => {
     );
     expect(resized.timestamp).toBe(BACKEND_LOG_DEFAULT_COLUMN_WIDTHS.timestamp);
     expect(resized.severity).toBe(BACKEND_LOG_DEFAULT_COLUMN_WIDTHS.severity);
+  });
+
+  it("computes a resized column width without allocating all column widths", () => {
+    expect(
+      getBackendLogResizedColumnWidth(
+        BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
+        "project",
+        42,
+      ),
+    ).toBe(BACKEND_LOG_DEFAULT_COLUMN_WIDTHS.project + 42);
   });
 
   it("clamps column widths within configured bounds", () => {

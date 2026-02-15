@@ -20,7 +20,59 @@ import { TextBlockSettings } from "./TextBlockSettings";
 
 const SECTION_CONFIG_MAIN_VALUE = "section-config-main";
 const SECTION_CONFIG_APPEARANCE_VALUE = "section-config-appearance";
-const SECTION_CONFIG_DEFAULT_OPEN_VALUES = [SECTION_CONFIG_MAIN_VALUE];
+
+type SectionConfigPanelValue =
+  | typeof SECTION_CONFIG_MAIN_VALUE
+  | typeof SECTION_CONFIG_APPEARANCE_VALUE;
+
+export function getDefaultSectionConfigOpenValues(
+  mainSectionDisabled: boolean,
+  appearanceSectionDisabled: boolean,
+): Array<SectionConfigPanelValue> {
+  if (!mainSectionDisabled) {
+    return [SECTION_CONFIG_MAIN_VALUE];
+  }
+  if (!appearanceSectionDisabled) {
+    return [SECTION_CONFIG_APPEARANCE_VALUE];
+  }
+  return [];
+}
+
+export function normalizeSectionConfigOpenValues(
+  openValues: Array<string>,
+  mainSectionDisabled: boolean,
+  appearanceSectionDisabled: boolean,
+): Array<string> {
+  const disabledOpenValueSet = new Set<string>();
+  if (mainSectionDisabled) {
+    disabledOpenValueSet.add(SECTION_CONFIG_MAIN_VALUE);
+  }
+  if (appearanceSectionDisabled) {
+    disabledOpenValueSet.add(SECTION_CONFIG_APPEARANCE_VALUE);
+  }
+  const filteredOpenValues = openValues.filter(
+    (value) => !disabledOpenValueSet.has(value),
+  );
+  if (filteredOpenValues.length > 0) {
+    return filteredOpenValues;
+  }
+  return getDefaultSectionConfigOpenValues(
+    mainSectionDisabled,
+    appearanceSectionDisabled,
+  );
+}
+
+function areOpenValuesEqual(a: Array<string>, b: Array<string>): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) {
+      return false;
+    }
+  }
+  return true;
+}
 
 function _SectionConfig({ sectionId }: { sectionId: string }) {
   const sectionType = useProjectState((x) => {
@@ -38,38 +90,42 @@ function _SectionConfig({ sectionId }: { sectionId: string }) {
   );
   const mainSectionDisabled = mainContent == null;
   const appearanceSectionDisabled = appearanceContent == null;
-  const [openValues, setOpenValues] = React.useState<Array<string>>(
-    SECTION_CONFIG_DEFAULT_OPEN_VALUES,
+  const defaultOpenValues = React.useMemo(
+    () =>
+      getDefaultSectionConfigOpenValues(
+        mainSectionDisabled,
+        appearanceSectionDisabled,
+      ),
+    [appearanceSectionDisabled, mainSectionDisabled],
   );
-  const disabledOpenValueSet = React.useMemo(() => {
-    const valueSet = new Set<string>();
-    if (mainSectionDisabled) {
-      valueSet.add(SECTION_CONFIG_MAIN_VALUE);
-    }
-    if (appearanceSectionDisabled) {
-      valueSet.add(SECTION_CONFIG_APPEARANCE_VALUE);
-    }
-    return valueSet;
-  }, [appearanceSectionDisabled, mainSectionDisabled]);
+  const [openValues, setOpenValues] =
+    React.useState<Array<string>>(defaultOpenValues);
   const resolvedOpenValues = React.useMemo(
-    () => openValues.filter((value) => !disabledOpenValueSet.has(value)),
-    [disabledOpenValueSet, openValues],
+    () =>
+      normalizeSectionConfigOpenValues(
+        openValues,
+        mainSectionDisabled,
+        appearanceSectionDisabled,
+      ),
+    [appearanceSectionDisabled, mainSectionDisabled, openValues],
   );
 
   React.useEffect(() => {
-    setOpenValues(SECTION_CONFIG_DEFAULT_OPEN_VALUES);
-  }, [sectionId]);
+    setOpenValues(defaultOpenValues);
+  }, [defaultOpenValues, sectionId]);
 
   React.useEffect(() => {
     setOpenValues((currentOpenValues) => {
-      const nextOpenValues = currentOpenValues.filter(
-        (value) => !disabledOpenValueSet.has(value),
+      const nextOpenValues = normalizeSectionConfigOpenValues(
+        currentOpenValues,
+        mainSectionDisabled,
+        appearanceSectionDisabled,
       );
-      return nextOpenValues.length === currentOpenValues.length
+      return areOpenValuesEqual(nextOpenValues, currentOpenValues)
         ? currentOpenValues
         : nextOpenValues;
     });
-  }, [disabledOpenValueSet]);
+  }, [appearanceSectionDisabled, mainSectionDisabled]);
 
   return (
     <section
@@ -77,7 +133,7 @@ function _SectionConfig({ sectionId }: { sectionId: string }) {
       className="setta-pane-scroll flex min-h-0 flex-1 flex-col"
     >
       <SectionConfigAccordion
-        defaultOpenValues={SECTION_CONFIG_DEFAULT_OPEN_VALUES}
+        defaultOpenValues={defaultOpenValues}
         openValues={resolvedOpenValues}
         onOpenValuesChange={setOpenValues}
         items={[

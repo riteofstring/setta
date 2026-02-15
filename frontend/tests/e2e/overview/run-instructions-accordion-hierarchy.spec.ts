@@ -25,11 +25,15 @@ test.describe.serial("run instructions accordion hierarchy", () => {
       if (!viewportBounds) {
         throw new Error("Unable to resolve viewport bounds for code section.");
       }
-      await postBackend<{ sectionId?: string }>(page, "/createTopLevelSection", {
-        projectConfigId: projectContext.projectConfigId,
-        implType: "Code",
-        viewportBounds,
-      });
+      await postBackend<{ sectionId?: string }>(
+        page,
+        "/createTopLevelSection",
+        {
+          projectConfigId: projectContext.projectConfigId,
+          implType: "Code",
+          viewportBounds,
+        },
+      );
 
       await setOverviewTab(page, "RunInstructions");
       await page.reload({ waitUntil: "domcontentloaded" });
@@ -91,7 +95,8 @@ test.describe.serial("run instructions accordion hierarchy", () => {
         return {
           leftSpread: Math.max(...lefts) - Math.min(...lefts),
           rightSpread: Math.max(...rights) - Math.min(...rights),
-          policyToCustomGap: customRunsItemRect.top - codegenPolicyItemRect.bottom,
+          policyToCustomGap:
+            customRunsItemRect.top - codegenPolicyItemRect.bottom,
         };
       });
       if (!railAndGapMetrics) {
