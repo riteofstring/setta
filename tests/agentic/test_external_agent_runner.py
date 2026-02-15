@@ -29,6 +29,7 @@ from setta.agentic.external_agent_runner import (
     ExternalAgentRunState,
     ExternalAgentRunner,
 )
+from setta.agentic.completion_guard import MISSING_CHECKS_MESSAGE
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
 from setta.database.db_objs import DBE
@@ -44,6 +45,7 @@ from setta.types.chat_messages import (
     MessageTextContent,
     ToolCall,
     ToolCallFunction,
+    UserChatMessage,
 )
 from setta.types.chat_stream_events import (
     MessageDeltaEvent,
@@ -636,6 +638,30 @@ class TestExternalAgentRunner:
             assert isinstance(config_path, str)
             payload = json.loads(Path(str(config_path)).read_text(encoding="utf-8"))
             assert "permission" not in payload
+
+    def test_context_applies_runtime_approval_policy_override(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+                approvalPolicy="default",
+            )
+
+            context = _build_context_for_test(
+                runner,
+                config,
+                inputs={
+                    "allowUnscoped": True,
+                    "approvalPolicy": "bypassPermissions",
+                },
+            )
+
+            assert context.config.approvalPolicy == "bypassPermissions"
+            assert config.approvalPolicy == "default"
 
     def test_ai_follow_snapshot_normalizes(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1601,6 +1627,70 @@ class TestExternalAgentRunnerQuestion:
             assert state.chat_id == ID("chat-1")
             assert state.section_id == ID("section-1")
             assert state.approval_id is None
+
+    async def test_message_finalized_applies_completion_guard(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                inputs={
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "projectConfigId": str(project_config.id),
+                    "messages": [
+                        UserChatMessage(
+                            id="user-1",
+                            content=[
+                                MessageTextContent(
+                                    text=(
+                                        "Create a new project and scaffold "
+                                        "everything."
+                                    )
+                                )
+                            ],
+                        ).model_dump(mode="json")
+                    ],
+                },
+            )
+            run = context.run
+
+            await runner._handle_stream_chunk(
+                context,
+                run,
+                MessageFinalizedEvent(
+                    message=AssistantChatMessage(
+                        id="assistant-1",
+                        content=[
+                            MessageTextContent(text="Done. Everything is ready.")
+                        ],
+                    )
+                ),
+            )
+
+            updated = load_agent_run(dbe, run.id)
+            assert updated is not None
+            outputs = updated.outputs or {}
+            messages = outputs.get("messages")
+            assert isinstance(messages, list)
+            assistant_messages = [
+                message
+                for message in messages
+                if isinstance(message, dict) and message.get("role") == "assistant"
+            ]
+            assert assistant_messages
+            assistant_content = assistant_messages[-1].get("content")
+            assert isinstance(assistant_content, list)
+            last_text_block = assistant_content[0]
+            assert isinstance(last_text_block, dict)
+            assert last_text_block.get("text") == MISSING_CHECKS_MESSAGE
 
     async def test_question_approval_attaches_after_tool_call(self) -> None:
         with TemporaryDirectory() as tmpdir:

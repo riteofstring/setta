@@ -1,43 +1,25 @@
 import _ from "lodash";
-import { addTemporaryNotification } from "state/actions/notifications";
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
   getPythonCodegenTarget,
   projectConfigHasPythonCodegen,
 } from "utils/codegenTargets";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { route_update_param_impl_config } from "utils/generatedEndpoints";
 import {
   BaseSectionImplUnion,
   CodeLanguageEnum,
   CodeObjTypeEnum,
   createSectionSize,
-  DateCalendarWeekStart,
-  DateCalendarWeekStartEnum,
-  DateControlMode,
-  DateControlModeEnum,
-  DateSelectionMode,
-  DateSelectionModeEnum,
   Position,
-  SettaNotificationTypeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
-import { createTopLevelSectionWithResult } from "./createSections";
-
-type ControlParamConfig = {
-  dateControlMode?: DateControlMode;
-  dateSelectionMode?: DateSelectionMode;
-  dateCalendarWeekStart?: DateCalendarWeekStart;
-};
+import { createTopLevelSection } from "./createSections";
 
 export type CreateSectionsContextMenuInfo = {
   name: string;
   implSpecs: Partial<BaseSectionImplUnion> &
     Required<Pick<BaseSectionImplUnion, "type">>;
   controlCodeObjType?: CodeObjTypeEnum;
-  controlParamConfig?: ControlParamConfig;
 };
 
 export function getBaseCodeSectionCreateItems(): Array<CreateSectionsContextMenuInfo> {
@@ -156,14 +138,6 @@ export function useCreateSectionsList() {
       name: "Browser",
       implSpecs: { type: SectionTypeEnum.Browser },
     },
-    {
-      name: "Spreadsheet",
-      implSpecs: { type: SectionTypeEnum.Spreadsheet },
-    },
-  ];
-
-  const otherGroupItems: Array<CreateSectionsContextMenuInfo> = [
-    { name: "Task Board", implSpecs: { type: SectionTypeEnum.TaskBoard } },
   ];
 
   const metaControlGroupItems: Array<CreateSectionsContextMenuInfo> = [
@@ -203,23 +177,18 @@ export function useCreateSectionsList() {
       controlCodeObjType: CodeObjTypeEnum.TextParam,
     },
     {
-      name: "Calendar",
-      implSpecs: {
-        type: SectionTypeEnum.MetaControl,
-      },
-      controlCodeObjType: CodeObjTypeEnum.DateParam,
-      controlParamConfig: {
-        dateControlMode: DateControlModeEnum.calendar,
-        dateSelectionMode: DateSelectionModeEnum.multiple,
-        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
-      },
-    },
-    {
       name: "Text Area",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
       },
       controlCodeObjType: CodeObjTypeEnum.TextAreaParam,
+    },
+    {
+      name: "Code Input",
+      implSpecs: {
+        type: SectionTypeEnum.MetaControl,
+      },
+      controlCodeObjType: CodeObjTypeEnum.CodeParam,
     },
     {
       name: "Password Field",
@@ -266,10 +235,6 @@ export function useCreateSectionsList() {
       items: artifactGroupItems,
     },
     {
-      group: "Other",
-      items: otherGroupItems,
-    },
-    {
       group: "MetaControls",
       items: metaControlGroupItems,
     },
@@ -284,48 +249,17 @@ export function createTopLevelSectionFromImplSpecs(
   menuItem: CreateSectionsContextMenuInfo,
   position: Position | null = null,
 ) {
-  void createTopLevelSectionWithResult({
+  void createTopLevelSection({
     implType: menuItem.implSpecs.type,
     controlCodeObjType: menuItem.controlCodeObjType,
     implOverrides: menuItem.implSpecs,
     position,
-  }).then((createdSection) => {
-    if (!createdSection) {
+  }).then((sectionId) => {
+    if (!sectionId) {
       return;
-    }
-    const { sectionId, metaControlParamId } = createdSection;
-    if (menuItem.controlParamConfig) {
-      void applyMetaControlParamConfigAfterCreate(
-        sectionId,
-        metaControlParamId,
-        menuItem.controlParamConfig,
-      );
     }
     if (menuItem.implSpecs.type === SectionTypeEnum.Callable) {
       focusOnSectionSearch(sectionId);
     }
   });
-}
-
-async function applyMetaControlParamConfigAfterCreate(
-  sectionId: string,
-  controlParamId: string | null,
-  config: ControlParamConfig,
-) {
-  if (!controlParamId) {
-    return;
-  }
-  const response = await route_update_param_impl_config({
-    projectConfigId: getCurrProjectConfigId(),
-    sectionId,
-    paramInfoId: controlParamId,
-    newConfig: config,
-  });
-  if (!res200(response)) {
-    addTemporaryNotification(
-      getErrorDetail(response.data) ??
-        "Failed to apply meta control configuration after section creation.",
-      SettaNotificationTypeEnum.error,
-    );
-  }
 }
