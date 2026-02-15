@@ -1,9 +1,0 @@
-[build-system]
-requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "setta-fixture-backend-mcp-tools"
-version = "0.1.0"
-description = "Backend MCP tools fixture plugin for Setta tests"
-requires-python = ">=3.12"

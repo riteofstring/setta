@@ -59,35 +59,9 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { applyActiveSectionChange } from "./activeSectionController";
 
-const effectiveImplCacheByImpl = new WeakMap<
-  object,
-  WeakMap<object, WeakMap<object, unknown>>
->();
-
-function getEffectiveImpl<T extends object>(
-  impl: T,
-  core: Core,
-  variant: Variant,
-): T {
-  const sharedModifier = core.sharedModifier;
-  const variantModifier = variant.modifier;
-  let cacheBySharedModifier = effectiveImplCacheByImpl.get(impl);
-  if (!cacheBySharedModifier) {
-    cacheBySharedModifier = new WeakMap<object, WeakMap<object, unknown>>();
-    effectiveImplCacheByImpl.set(impl, cacheBySharedModifier);
-  }
-  let cacheByVariantModifier = cacheBySharedModifier.get(sharedModifier);
-  if (!cacheByVariantModifier) {
-    cacheByVariantModifier = new WeakMap<object, unknown>();
-    cacheBySharedModifier.set(sharedModifier, cacheByVariantModifier);
-  }
-  const cached = cacheByVariantModifier.get(variantModifier);
-  if (cached) {
-    return cached as T;
-  }
+function getEffectiveImpl<T>(impl: T, core: Core, variant: Variant): T {
   const effective = _.cloneDeep(impl);
-  Object.assign(effective, { ...sharedModifier, ...variantModifier });
-  cacheByVariantModifier.set(variantModifier, effective);
+  Object.assign(effective, { ...core.sharedModifier, ...variant.modifier });
   return effective;
 }
 
@@ -664,7 +638,6 @@ function setEffectiveImplValue<K extends keyof ImplArgsBundleMap>(
       variant.modifier[k] = typeof v === "function" ? v(currV) : v;
     }
   }
-  effectiveImplCacheByImpl.delete(impl);
   return getEffectiveImpl(impl, core, variant);
 }
 
@@ -1163,11 +1136,19 @@ export function createNodesMapFromProjectConfigChildren(
       continue;
     }
     if (canFilterByView) {
-      const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
+      const visibilityInfo = getSectionViewModeVisibilityIfPresent(
         sectionId,
         p,
       );
-      if (!getSectionShouldRender(visibility, isEditingViewMode)) {
+      if (!visibilityInfo) {
+        continue;
+      }
+      if (
+        !getSectionShouldRender(
+          visibilityInfo.visibility,
+          visibilityInfo.isEditingViewMode,
+        )
+      ) {
         continue;
       }
     }
@@ -1196,17 +1177,24 @@ export function setSectionChildren(
 
 function getDisplayedSectionIdToChildrenHelper(
   sectionId: string,
-  sectionImpl: BaseSectionImplUnion,
+  sectionImpl: BaseSectionImplUnion | null,
   state: ZustandProjectState,
   output: Record<string, Array<string>>,
 ) {
+  if (!sectionImpl) {
+    return;
+  }
   if (isBaseParentSectionImpl(sectionImpl)) {
-    const { children } = sectionImpl;
-    output[sectionId] = children;
-    for (const childId of children) {
-      const childImpl = getCurrEffectiveSectionImpl(state, childId);
+    const displayedChildren: string[] = [];
+    for (const childId of sectionImpl.children) {
+      const childImpl = getEffectiveSectionImplIfPresent(state, childId);
+      if (!childImpl) {
+        continue;
+      }
+      displayedChildren.push(childId);
       getDisplayedSectionIdToChildrenHelper(childId, childImpl, state, output);
     }
+    output[sectionId] = displayedChildren;
   } else {
     output[sectionId] = [];
   }
@@ -1216,7 +1204,7 @@ export function getDisplayedSectionIdToChildren(state: ZustandProjectState) {
   const output: Record<string, Array<string>> = {};
   const topLevelSectionIds = getTopLevelSectionIdsForDisplay(state);
   for (const sectionId of topLevelSectionIds) {
-    const impl = getCurrEffectiveSectionImpl(state, sectionId);
+    const impl = getEffectiveSectionImplIfPresent(state, sectionId);
     getDisplayedSectionIdToChildrenHelper(sectionId, impl, state, output);
   }
   return output;
@@ -1307,6 +1295,22 @@ function getSectionVisibilityForActiveViewMode(
   return {
     visibility,
     viewMode,
+  };
+}
+
+function getSectionViewModeVisibilityIfPresent(
+  sectionId: string,
+  state: ZustandProjectState,
+): { visibility: boolean; isEditingViewMode: boolean } | null {
+  const { isEditingViewMode } = state.projectConfig;
+  const viewMode = getActiveViewModeConfig(state);
+  const visibility = viewMode.visibilityBySectionId[sectionId];
+  if (visibility === undefined) {
+    return null;
+  }
+  return {
+    visibility,
+    isEditingViewMode,
   };
 }
 
