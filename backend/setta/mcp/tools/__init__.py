@@ -6,5 +6,4 @@ from . import (
     listener_docs,  # noqa: F401
     plugins,  # noqa: F401
     tool_search,  # noqa: F401
-    ui_settings,  # noqa: F401
 )
