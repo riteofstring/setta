@@ -957,7 +957,7 @@ export function FileBrowserSpreadsheetEditor({
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-lg border border-setta-200 bg-white/70 dark:border-setta-800 dark:bg-setta-950/50">
-      <div className="@container/spreadsheet-toolbar flex items-center gap-2 border-b border-setta-200 px-3 py-2 dark:border-setta-800">
+      <div className="flex items-center gap-2 border-b border-setta-200 px-3 py-2 @container/spreadsheet-toolbar dark:border-setta-800">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <p className="min-w-0 flex-1 truncate text-xs font-semibold text-setta-700 dark:text-setta-200">
             {selectedName}
@@ -997,11 +997,14 @@ export function FileBrowserSpreadsheetEditor({
                   className="ml-1 rounded border border-setta-300 bg-white px-1.5 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
                 >
                   <option value="">None</option>
-                  {Array.from({ length: sheet.columnCount }, (_value, index) => (
-                    <option key={`sort-${index}`} value={index}>
-                      {getSpreadsheetColumnLabel(index)}
-                    </option>
-                  ))}
+                  {Array.from(
+                    { length: sheet.columnCount },
+                    (_value, index) => (
+                      <option key={`sort-${index}`} value={index}>
+                        {getSpreadsheetColumnLabel(index)}
+                      </option>
+                    ),
+                  )}
                 </select>
               </label>
               <button
@@ -1060,7 +1063,9 @@ export function FileBrowserSpreadsheetEditor({
             disabled={!sheet || isLoading || isSaving || readOnly}
           >
             <FiPlus size={12} />
-            <span className="hidden @[560px]/spreadsheet-toolbar:inline">Row</span>
+            <span className="hidden @[560px]/spreadsheet-toolbar:inline">
+              Row
+            </span>
           </button>
           <button
             type="button"
@@ -1090,7 +1095,7 @@ export function FileBrowserSpreadsheetEditor({
         <DropdownMenu.Root modal={false}>
           <DropdownMenu.Trigger
             type="button"
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-setta-300 text-setta-600 transition-colors hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 @[480px]/spreadsheet-toolbar:hidden"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-setta-300 text-setta-600 transition-colors hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 @[480px]/spreadsheet-toolbar:hidden dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
             aria-label="Spreadsheet settings"
           >
             <FiSettings size={12} />
@@ -1103,7 +1108,9 @@ export function FileBrowserSpreadsheetEditor({
             >
               {sheet ? (
                 <div className="flex flex-col gap-2">
-                  <search className={`${NO_PAN_CLASS_NAME} nodrag relative flex min-w-0 items-center`}>
+                  <search
+                    className={`${NO_PAN_CLASS_NAME} nodrag relative flex min-w-0 items-center`}
+                  >
                     <i className="gg-sort-az absolute left-1.5 text-setta-300 dark:text-setta-600" />
                     <input
                       value={filterQuery}
@@ -1134,11 +1141,14 @@ export function FileBrowserSpreadsheetEditor({
                       className="min-w-0 flex-1 rounded border border-setta-300 bg-white px-1.5 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
                     >
                       <option value="">None</option>
-                      {Array.from({ length: sheet.columnCount }, (_value, index) => (
-                        <option key={`menu-sort-${index}`} value={index}>
-                          {getSpreadsheetColumnLabel(index)}
-                        </option>
-                      ))}
+                      {Array.from(
+                        { length: sheet.columnCount },
+                        (_value, index) => (
+                          <option key={`menu-sort-${index}`} value={index}>
+                            {getSpreadsheetColumnLabel(index)}
+                          </option>
+                        ),
+                      )}
                     </select>
                     <button
                       type="button"

@@ -123,7 +123,7 @@ export type DropzoneConfigForFrontend = Pick<
   "mode" | "maxAttachments" | "placeholder"
 >;
 
-export type TextParamConfigForFrontend = Pick<
+type TextParamConfigForFrontend = Pick<
   TextParamCodeObjImpl,
   | "uiType"
   | "timeControlMode"

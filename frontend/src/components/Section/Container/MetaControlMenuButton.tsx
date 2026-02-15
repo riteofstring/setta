@@ -30,15 +30,15 @@ export function MetaControlMenuButton({
 }: MetaControlMenuButtonProps) {
   const isListElement = useIsListElement(sectionId);
   const { showSectionTitle } = useProjectState((x) => {
-      const impl = getCurrEffectiveSectionImplOfType(
-        x,
-        sectionId,
-        SectionTypeEnum.MetaControl,
-      );
-      return {
-        showSectionTitle: impl.showSectionTitle ?? false,
-      };
-    });
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.MetaControl,
+    );
+    return {
+      showSectionTitle: impl.showSectionTitle ?? false,
+    };
+  });
 
   const triggerClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag flex h-[14px] w-[14px] cursor-pointer select-none items-center justify-center rounded-full ${!isListElement ? "p-1" : "ml-1 p-0.5"} mr-1 -ml-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-setta-300 dark:[&_*]:data-[state=open]:!text-setta-500 opacity-0 pointer-events-none group-hover/card-section:opacity-100 group-hover/card-section:pointer-events-auto`;
   const titleBaseClasses =

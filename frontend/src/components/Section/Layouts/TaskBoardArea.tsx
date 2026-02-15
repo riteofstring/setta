@@ -5,6 +5,7 @@ import {
   PointerSensor,
 } from "@dnd-kit/dom";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { ResizeHandle } from "components/Params/ResizeHandle";
 import {
   DragDropProvider,
   SortableContext,
@@ -15,11 +16,11 @@ import {
   type DragOverEvent,
   type DragStartEvent,
 } from "forks/dnd-kit/adapter";
-import { DragOperationShapeSync } from "forks/dnd-kit/DragOperationShapeSync";
 import {
   applyZoomToTransform,
   transformToString,
 } from "forks/dnd-kit/adapter/zoom";
+import { DragOperationShapeSync } from "forks/dnd-kit/DragOperationShapeSync";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
@@ -31,10 +32,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { FiCalendar, FiColumns, FiList, FiPlus, FiTrash2 } from "react-icons/fi";
+import {
+  FiCalendar,
+  FiColumns,
+  FiList,
+  FiPlus,
+  FiTrash2,
+} from "react-icons/fi";
 import { MdOutlinePlaylistAdd, MdPlaylistRemove } from "react-icons/md";
 import { RxDragHandleDots2 } from "react-icons/rx";
-import { ResizeHandle } from "components/Params/ResizeHandle";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -441,7 +447,9 @@ function resolveTaskDropTargetFromDelta({
     return null;
   }
 
-  const sourceIndex = candidateTasks.findIndex((task) => task.id === sourceTaskId);
+  const sourceIndex = candidateTasks.findIndex(
+    (task) => task.id === sourceTaskId,
+  );
   if (sourceIndex < 0) {
     return null;
   }
@@ -749,7 +757,9 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
 
   useEffect(() => {
     setKanbanColumnWidthsById((current) => {
-      const columnIds = new Set(normalizedState.columns.map((column) => column.id));
+      const columnIds = new Set(
+        normalizedState.columns.map((column) => column.id),
+      );
       let didChange = false;
       const next: Record<string, number> = {};
       Object.entries(current).forEach(([columnId, width]) => {
@@ -791,7 +801,8 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       event.preventDefault();
       event.stopPropagation();
 
-      const containerWidth = kanbanColumnsContainerRef.current?.clientWidth ?? 0;
+      const containerWidth =
+        kanbanColumnsContainerRef.current?.clientWidth ?? 0;
       const maxWidth =
         containerWidth > 0
           ? Math.max(
@@ -1096,19 +1107,17 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
     [isDisabled, updateState],
   );
 
-  const handleTaskBoardDragStart = useCallback(
-    (event: DragStartEvent) => {
-      const taskId = resolveSourceTaskIdFromDragEvent(event);
-      setDraggingTaskId(taskId);
-      dragTaskHeightRef.current = event.activeRect.height;
-      latestDropTargetRef.current = null;
-    },
-    [],
-  );
+  const handleTaskBoardDragStart = useCallback((event: DragStartEvent) => {
+    const taskId = resolveSourceTaskIdFromDragEvent(event);
+    setDraggingTaskId(taskId);
+    dragTaskHeightRef.current = event.activeRect.height;
+    latestDropTargetRef.current = null;
+  }, []);
 
   const handleTaskBoardDragOver = useCallback(
     (event: DragOverEvent) => {
-      const sourceTaskId = resolveSourceTaskIdFromDragEvent(event) ?? draggingTaskId;
+      const sourceTaskId =
+        resolveSourceTaskIdFromDragEvent(event) ?? draggingTaskId;
       if (!sourceTaskId) {
         latestDropTargetRef.current = null;
         return;
@@ -1133,7 +1142,8 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
 
   const handleTaskBoardDragEnd = useCallback(
     (event: DragEndEvent) => {
-      const sourceTaskId = resolveSourceTaskIdFromDragEvent(event) ?? draggingTaskId;
+      const sourceTaskId =
+        resolveSourceTaskIdFromDragEvent(event) ?? draggingTaskId;
       setDraggingTaskId(null);
       if (!sourceTaskId) {
         dragTaskHeightRef.current = null;
@@ -1141,15 +1151,14 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
         return;
       }
 
-      const dropTargetFromCollision =
-        resolveTaskBoardDropTarget({
-          sourceTaskId,
-          overId: event.over?.id ?? null,
-          overData: event.over?.data?.current,
-          collisions: event.collisions,
-          tasks: normalizedState.tasks,
-          fallbackColumnId,
-        });
+      const dropTargetFromCollision = resolveTaskBoardDropTarget({
+        sourceTaskId,
+        overId: event.over?.id ?? null,
+        overData: event.over?.data?.current,
+        collisions: event.collisions,
+        tasks: normalizedState.tasks,
+        fallbackColumnId,
+      });
       const dropTargetFromDelta =
         dropTargetFromCollision === null
           ? resolveTaskDropTargetFromDelta({
@@ -1349,7 +1358,10 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
                         if (!leftLane) {
                           return;
                         }
-                        handleKanbanColumnResizeStart(leftLane.column.id, event);
+                        handleKanbanColumnResizeStart(
+                          leftLane.column.id,
+                          event,
+                        );
                       }}
                     />
                   ) : null}
@@ -1457,10 +1469,12 @@ function TaskBoardTaskListRow({
     <div
       ref={setNodeRef}
       style={dndStyle}
-      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} mx-0.5 my-0.5 grid grid-cols-[24px_minmax(0,1fr)_132px] items-center gap-2 rounded-md border border-setta-100 bg-white/95 pl-0.5 pr-1.5 py-0.5 dark:border-setta-800 dark:bg-setta-900/60 ${
+      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} mx-0.5 my-0.5 grid grid-cols-[24px_minmax(0,1fr)_132px] items-center gap-2 rounded-md border border-setta-100 bg-white/95 py-0.5 pl-0.5 pr-1.5 dark:border-setta-800 dark:bg-setta-900/60 ${
         isDragging || isDraggingByDnd ? "opacity-60" : ""
       } ${
-        isOver && !isDraggingByDnd ? "ring-1 ring-blue-400 dark:ring-blue-500" : ""
+        isOver && !isDraggingByDnd
+          ? "ring-1 ring-blue-400 dark:ring-blue-500"
+          : ""
       }`}
       data-task-board-task-id={task.id}
       data-testid="task-board-task-drag-surface"
@@ -1470,7 +1484,9 @@ function TaskBoardTaskListRow({
           type="button"
           ref={setActivatorNodeRef}
           className={`${NO_DRAG_CLASS_NAME} inline-flex h-6 w-6 items-center justify-center rounded border border-transparent text-setta-400 transition focus-visible:border-blue-400 focus-visible:outline-none dark:text-setta-500 ${
-            isDisabled ? "cursor-default opacity-50" : "cursor-grab active:cursor-grabbing"
+            isDisabled
+              ? "cursor-default opacity-50"
+              : "cursor-grab active:cursor-grabbing"
           }`}
           aria-label="Drag task"
           data-testid="task-board-task-drag-handle"
@@ -1527,7 +1543,9 @@ function TaskBoardTaskListRow({
             type="button"
             data-testid={`task-board-task-description-toggle-${task.id}`}
             aria-label={
-              isDescriptionVisible ? "Remove task description" : "Add task description"
+              isDescriptionVisible
+                ? "Remove task description"
+                : "Add task description"
             }
             className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 text-setta-600 transition-colors hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800`}
             disabled={isDisabled}
@@ -1798,20 +1816,26 @@ function TaskBoardKanbanTaskCard({
     <div
       ref={setNodeRef}
       style={dndStyle}
-      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} rounded-md border border-setta-200 bg-white pl-0.5 pr-2 py-2 dark:border-setta-700 dark:bg-setta-900 ${
+      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} rounded-md border border-setta-200 bg-white py-2 pl-0.5 pr-2 dark:border-setta-700 dark:bg-setta-900 ${
         isDragging || isDraggingByDnd ? "opacity-60" : ""
       } ${
-        isOver && !isDraggingByDnd ? "ring-1 ring-blue-400 dark:ring-blue-500" : ""
+        isOver && !isDraggingByDnd
+          ? "ring-1 ring-blue-400 dark:ring-blue-500"
+          : ""
       }`}
       data-task-board-task-id={task.id}
       data-testid="task-board-task-drag-surface"
     >
-      <div className={`flex items-center gap-1.5 ${hasSecondaryContent ? "mb-1.5" : ""}`}>
+      <div
+        className={`flex items-center gap-1.5 ${hasSecondaryContent ? "mb-1.5" : ""}`}
+      >
         <button
           type="button"
           ref={setActivatorNodeRef}
           className={`${NO_DRAG_CLASS_NAME} -ml-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded border border-transparent text-setta-400 transition focus-visible:border-blue-400 focus-visible:outline-none dark:text-setta-500 ${
-            isDisabled ? "cursor-default opacity-50" : "cursor-grab active:cursor-grabbing"
+            isDisabled
+              ? "cursor-default opacity-50"
+              : "cursor-grab active:cursor-grabbing"
           }`}
           aria-label="Drag task"
           data-testid="task-board-task-drag-handle"
@@ -1845,7 +1869,9 @@ function TaskBoardKanbanTaskCard({
           type="button"
           data-testid={`task-board-task-description-toggle-${task.id}`}
           aria-label={
-            isDescriptionVisible ? "Remove task description" : "Add task description"
+            isDescriptionVisible
+              ? "Remove task description"
+              : "Add task description"
           }
           className={`${NO_DRAG_CLASS_NAME} ${TASK_BOARD_NO_DRAG_CLASS_NAME} inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-setta-300 text-setta-600 transition-colors hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800`}
           disabled={isDisabled}
