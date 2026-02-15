@@ -166,8 +166,11 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
     "No scratchpad note saved yet.",
   );
 
-  await page.keyboard.press("Meta+Shift+P");
-  await page.locator("#ProjectPageSearchBar").fill("Fixture Command");
+  const isMac = process.platform === "darwin";
+  await page.keyboard.press(isMac ? "Meta+Shift+P" : "Control+Shift+P");
+  const searchInput = page.locator("#ProjectPageSearchBar");
+  await expect(searchInput).toBeVisible();
+  await searchInput.fill("Fixture Command");
   await expect(
     page.getByText("Fixture Command (setta-fixture-frontend)"),
   ).toBeVisible();

@@ -43,6 +43,7 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
     const totalSections = 110;
     const columns = 11;
     const rows = 10;
+    const createdSectionIds: string[] = [];
     for (let index = 0; index < totalSections; index += 1) {
       const column = index % columns;
       const row = Math.floor(index / columns) % rows;
@@ -69,7 +70,12 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
           viewportBounds,
         },
       );
-      expect(created?.sectionId).toBeTruthy();
+      const sectionId = created?.sectionId;
+      expect(sectionId).toBeTruthy();
+      if (!sectionId) {
+        throw new Error("Missing created fixture section id.");
+      }
+      createdSectionIds.push(sectionId);
     }
 
     await expect
@@ -81,24 +87,33 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
       )
       .toBeGreaterThan(80);
 
-    const renderMetrics = await page.evaluate(() => {
+    const renderMetrics = await page.evaluate((sectionIds: string[]) => {
       const scope = window as {
         __settaFixtureRenderCount?: number;
         __settaFixtureRenderBySectionId?: Record<string, number>;
       };
       const bySection = scope.__settaFixtureRenderBySectionId ?? {};
-      const perSectionCounts = Object.values(bySection).map((count) =>
-        Number(count || 0),
+      const perCreatedSectionCounts = sectionIds.map((sectionId) =>
+        Number(bySection[sectionId] || 0),
       );
       return {
-        totalRenders: Number(scope.__settaFixtureRenderCount || 0),
-        uniqueSectionsRendered: Object.keys(bySection).length,
+        totalRendersForCreatedSections: perCreatedSectionCounts.reduce(
+          (sum, count) => sum + count,
+          0,
+        ),
+        uniqueCreatedSectionsRendered: perCreatedSectionCounts.filter(
+          (count) => count > 0,
+        ).length,
         maxRendersForAnySection:
-          perSectionCounts.length > 0 ? Math.max(...perSectionCounts) : 0,
+          perCreatedSectionCounts.length > 0
+            ? Math.max(...perCreatedSectionCounts)
+            : 0,
       };
-    });
-    expect(renderMetrics.uniqueSectionsRendered).toBeGreaterThan(80);
-    expect(renderMetrics.totalRenders).toBeLessThan(totalSections * 40);
+    }, createdSectionIds);
+    expect(renderMetrics.uniqueCreatedSectionsRendered).toBeGreaterThan(80);
+    expect(renderMetrics.totalRendersForCreatedSections).toBeLessThan(
+      totalSections * 40,
+    );
     expect(renderMetrics.maxRendersForAnySection).toBeLessThan(120);
 
     const commandButton = page.getByRole("button", {
