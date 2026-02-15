@@ -212,7 +212,7 @@ export function ProjectChatSkillsMcpViewer() {
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4 text-sm text-setta-600 dark:text-setta-300">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
-          Skills / MCP Viewer
+          Skills
         </div>
         <button
           className="cursor-pointer rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
@@ -222,7 +222,7 @@ export function ProjectChatSkillsMcpViewer() {
         </button>
       </div>
       <div className="grid gap-4">
-        <section className="grid gap-2">
+        <section className="grid gap-1">
           <search className="relative flex min-w-0 items-center">
             <div className="absolute left-0 grid select-none place-items-center pl-1">
               <i className="gg-sort-az !scale-75 text-setta-600 dark:text-setta-400" />
@@ -298,14 +298,14 @@ export function ProjectChatSkillsMcpViewer() {
             >
               <Accordion.Item
                 value="skill-markdown-viewer"
-                className="overflow-hidden rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950"
+                className="rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950"
               >
                 <Accordion.Header>
-                  <Accordion.Trigger className="group flex w-full cursor-pointer items-center justify-between px-2 py-1 text-left">
+                  <Accordion.Trigger className="group flex w-full cursor-pointer items-center gap-2 px-2 py-1 text-left">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
                       Skill Markdown Viewer
                     </span>
-                    <i className="gg-chevron-down !scale-75 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400" />
+                    <i className="gg-chevron-down ml-auto mr-1 shrink-0 !scale-75 text-setta-500 transition-transform duration-150 group-data-[state=open]:rotate-180 dark:text-setta-400" />
                   </Accordion.Trigger>
                 </Accordion.Header>
                 <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
@@ -336,7 +336,7 @@ export function ProjectChatSkillsMcpViewer() {
           </div>
         </section>
         <section className="grid gap-2">
-          <div className="text-xs text-setta-500 dark:text-setta-400">
+          <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
             MCP Servers
           </div>
           <div className="max-h-[220px] min-h-[110px] overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">

@@ -80,7 +80,7 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await expect(toggleButton).toBeVisible();
   await toggleButton.click();
 
-  await expect(page.getByText("Skills / MCP Viewer")).toBeVisible();
+  await expect(page.getByText(/^Skills$/)).toBeVisible();
   await expect(page.getByText("/workspace/skills")).toBeVisible();
   await expect(page.getByText("/home/.codex/skills")).toBeVisible();
   await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
@@ -109,7 +109,7 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await expect(page.getByText("MCP servers configured:")).toHaveCount(0);
 
   await page.getByLabel("View Skills and MCP").click();
-  await expect(page.getByText("Skills / MCP Viewer")).toHaveCount(0);
+  await expect(page.getByText(/^Skills$/)).toHaveCount(0);
 });
 
 test("project ai chat shows inline skills endpoint error when routes are missing", async ({
