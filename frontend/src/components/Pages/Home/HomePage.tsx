@@ -1,10 +1,12 @@
 import { FileBrowserPane } from "components/Panes/Overview/FileBrowser/FileBrowserPane";
 import { ProjectConfigThumbnailSurface } from "components/ProjectConfigs/ProjectConfigThumbnailSurface";
+import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
+import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BiPlus } from "react-icons/bi";
 import { FiGrid, FiList } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
@@ -38,6 +40,7 @@ import {
 import {
   buildSharePath,
   CLOSED_PANE_WIDTH,
+  CODEMIRROR_TOOLTIP_PARENT_ID,
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
   SETTINGS_ROUTER_PATH,
@@ -51,14 +54,14 @@ const HOME_SELECTED_PROJECT_PANE_NAME = "homeSelectedProjectPane";
 const HOME_MIN_PANE_WIDTH = 260;
 const HOME_PROJECT_CARD_GRID_TEMPLATE_COLUMNS =
   "repeat(auto-fill, minmax(10.5rem, 14rem))";
-const HOME_FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
+const HOME_FILE_BROWSER_META_INSET_CLASS = "px-2";
 const HOME_FILE_BROWSER_LIST_INSET_LEFT = 10;
 const HOME_PANE_TITLE_CLASS =
   "mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500";
 const HOME_FILE_BROWSER_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden";
 const HOME_INSET_PANE_CONTENT_CLASS =
-  "mx-auto flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden px-1.5";
+  "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2";
 
 export function partitionProjectsByFavoriteStatus({
   projects,
@@ -91,9 +94,9 @@ export function getHomeProjectConfigsSectionTitle(
   hasFavorites: boolean,
 ): string {
   if (hasFavorites) {
-    return "Other Project Configs";
+    return "Other Projects";
   }
-  return "All Configs";
+  return "All Projects";
 }
 
 export function shouldOpenProjectOnListRowSpace(
@@ -397,12 +400,12 @@ function HomeWorkspaceLayout({
       </PaneContainer>
       <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-dark">
         <main
-          className="relative z-0 flex h-full min-h-0 min-w-0 flex-col bg-[linear-gradient(180deg,rgba(15,23,42,0.06)_0%,rgba(15,23,42,0)_32%)] dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.45)_0%,rgba(15,23,42,0)_34%)]"
+          className="relative z-0 flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-x border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950"
           style={{ paddingLeft: middleInsetLeft, paddingRight: middleInsetRight }}
           onKeyDown={onEscapeClearSelectedProjects}
           data-testid="home-file-manager-layout"
         >
-          <header className="mx-4 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-setta-200/80 bg-white/75 px-3 py-2 shadow-sm dark:border-setta-800 dark:bg-setta-950/60">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-setta-200/80 bg-white/80 px-3 py-2 backdrop-blur dark:border-setta-800/80 dark:bg-setta-950/70">
             {isDeploymentMode ? (
               <div className="inline-flex items-center gap-2 text-xs font-semibold text-setta-500 dark:text-setta-300">
                 Sharing mode is read-only.
@@ -411,7 +414,7 @@ function HomeWorkspaceLayout({
               <>
                 <div className="min-w-0">
                   <h2 className="truncate text-xs font-semibold uppercase tracking-[0.18em] text-setta-500 dark:text-setta-300">
-                    Workspace Configs
+                    Workspace Projects
                   </h2>
                   <p className="truncate text-[11px] text-setta-500 dark:text-setta-400">
                     {selectedProjects.length > 0
@@ -420,30 +423,30 @@ function HomeWorkspaceLayout({
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                <button
-                  className="nodrag inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-setta-300 bg-white px-3 text-xs font-semibold text-setta-700 transition-colors hover:border-setta-400 hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-700 dark:bg-setta-930 dark:text-setta-100 dark:hover:border-setta-600 dark:hover:bg-setta-900"
-                  onClick={handleCreateConfig}
-                >
-                  <BiPlus />
-                  New Config
-                </button>
-                <button
-                  className="nodrag inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-setta-300 bg-white px-3 text-xs font-semibold text-setta-700 transition-colors hover:border-green-500 hover:bg-green-50 hover:text-green-700 focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-55 dark:border-setta-700 dark:bg-setta-930 dark:text-setta-100 dark:hover:border-green-600 dark:hover:bg-green-950/30 dark:hover:text-green-200"
-                  onClick={onClickMakeDefault}
-                  disabled={selectedProjects.length !== 1}
-                >
-                  <HiHome />
-                  Make Default
-                </button>
-                <button
-                  className="nodrag inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-setta-300 bg-white px-3 text-xs font-semibold text-setta-700 transition-colors hover:border-red-500 hover:bg-red-50 hover:text-red-700 focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-55 dark:border-setta-700 dark:bg-setta-930 dark:text-setta-100 dark:hover:border-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-200"
-                  onClick={onClickDelete}
-                  disabled={selectedProjects.length === 0}
-                >
-                  <IoClose />
-                  Delete
-                </button>
-              </div>
+                  <button
+                    className="nodrag inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-setta-300 bg-white px-3 text-xs font-semibold text-setta-700 transition-colors hover:border-setta-400 hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-700 dark:bg-setta-930 dark:text-setta-100 dark:hover:border-setta-600 dark:hover:bg-setta-900"
+                    onClick={handleCreateConfig}
+                  >
+                    <BiPlus />
+                    New Project
+                  </button>
+                  <button
+                    className="nodrag inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-setta-300 bg-white px-3 text-xs font-semibold text-setta-700 transition-colors hover:border-green-500 hover:bg-green-50 hover:text-green-700 focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-55 dark:border-setta-700 dark:bg-setta-930 dark:text-setta-100 dark:hover:border-green-600 dark:hover:bg-green-950/30 dark:hover:text-green-200"
+                    onClick={onClickMakeDefault}
+                    disabled={selectedProjects.length !== 1}
+                  >
+                    <HiHome />
+                    Make Default
+                  </button>
+                  <button
+                    className="nodrag inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-setta-300 bg-white px-3 text-xs font-semibold text-setta-700 transition-colors hover:border-red-500 hover:bg-red-50 hover:text-red-700 focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-55 dark:border-setta-700 dark:bg-setta-930 dark:text-setta-100 dark:hover:border-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-200"
+                    onClick={onClickDelete}
+                    disabled={selectedProjects.length === 0}
+                  >
+                    <IoClose />
+                    Delete
+                  </button>
+                </div>
               </>
             )}
           </header>
@@ -555,9 +558,48 @@ function HomeRightIconRail({
 }
 
 function HomeFileBrowserColumn() {
-  const rootPath = useHomeFileBrowserState((state) => state.rootPath);
+  const { rootPath, pathSeparator, ignorePatterns } = useHomeFileBrowserState(
+    (state) => ({
+      rootPath: state.rootPath,
+      pathSeparator: state.pathSeparator,
+      ignorePatterns: state.ignorePatterns,
+    }),
+    _.isEqual,
+  );
   const [pathInput, setPathInput] = useState("");
   const [showSettaBadges, setShowSettaBadges] = useState(false);
+  const completionSource = useMemo(
+    () =>
+      createFolderPathCompletionSource({
+        rootPath,
+        pathSeparator,
+        ignorePatterns,
+      }),
+    [ignorePatterns, pathSeparator, rootPath],
+  );
+  const blurActiveElement = useCallback(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) {
+      active.blur();
+    }
+  }, []);
+  const pathKeyComboActions = useMemo(
+    () => ({
+      Escape: () => {
+        setPathInput(rootPath ?? "");
+        blurActiveElement();
+        return true;
+      },
+    }),
+    [blurActiveElement, rootPath],
+  );
+  const browserPathDummyInputClassName =
+    "flex-1 min-w-0 cursor-text truncate bg-transparent pl-4 py-1 text-xs leading-4 outline-0 placeholder-setta-300 dark:placeholder-setta-700 font-sans";
+  const browserPathInputClassName =
+    "setta-cm-browser-path-input flex-1 min-w-0 h-full cursor-text truncate bg-transparent outline-0 [&_.cm-content]:!py-1 [&_.cm-content]:!pl-4 [&_.cm-content]:!pr-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs [&_.cm-content]:!leading-4 [&_.cm-content]:text-setta-700 dark:[&_.cm-content]:text-setta-200 [&_.cm-placeholder]:text-setta-300 dark:[&_.cm-placeholder]:text-setta-700 [&_.cm-content]:font-sans";
 
   useEffect(() => {
     if (!rootPath) {
@@ -566,8 +608,8 @@ function HomeFileBrowserColumn() {
     setPathInput(rootPath);
   }, [rootPath]);
 
-  function applyPath() {
-    const nextPath = pathInput.trim();
+  function applyPath(nextPathValue?: string) {
+    const nextPath = (nextPathValue ?? pathInput).trim();
     if (!nextPath) {
       return;
     }
@@ -584,18 +626,39 @@ function HomeFileBrowserColumn() {
         className={`flex flex-col gap-2 ${HOME_FILE_BROWSER_META_INSET_CLASS}`}
       >
         <div className="flex items-center gap-2">
-          <input
+          <search
             data-testid="home-file-browser-path-input"
-            value={pathInput}
-            onChange={(event) => setPathInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                applyPath();
-              }
-            }}
-            placeholder="/path/to/workspace"
-            className="h-8 min-w-0 flex-1 rounded-md border border-setta-200 bg-white px-2 text-xs text-setta-700 outline-none ring-0 placeholder:text-setta-300 focus:border-blue-500 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:placeholder:text-setta-600"
-          />
+            className="nodrag group/folderpath relative mx-[2px] flex h-7 min-w-0 flex-1 overflow-hidden border-solid border-transparent bg-transparent [border-width:0_0_1px_0] focus-within:border-blue-300 dark:text-setta-200"
+          >
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 overflow-hidden opacity-100 transition-opacity duration-0 group-focus-within/folderpath:opacity-0 group-focus-within/folderpath:duration-150"
+            >
+              <span className="block min-w-0 truncate py-1 pl-4 font-sans text-xs leading-4 text-setta-700 dark:text-setta-200">
+                {pathInput}
+              </span>
+            </div>
+            <InlineCodeMirrorInput
+              id="CodeMirror-home-browser-path"
+              value={pathInput}
+              onChange={setPathInput}
+              onBlur={applyPath}
+              onEnter={(_, completionResult) => {
+                if (completionResult) {
+                  return;
+                }
+                blurActiveElement();
+              }}
+              className={browserPathInputClassName}
+              dummyClassName={browserPathDummyInputClassName}
+              singleLine
+              completionsFn={completionSource ?? undefined}
+              completionInteractionDelayMs={0}
+              completionTriggerChars={["/", "\\"]}
+              keyComboActions={pathKeyComboActions}
+              tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+            />
+          </search>
           <button
             type="button"
             className="h-8 rounded-md border border-setta-200 bg-white px-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-100 focus-visible:ring-2 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800"
@@ -659,8 +722,14 @@ function HomeProjectGallery({
   fullScreenSurface?: boolean;
 }) {
   const gallerySurfaceClassName = fullScreenSurface
-    ? "mx-4 mb-3 mt-3 flex h-full min-h-0 min-w-0 flex-1 flex-col rounded-lg border border-setta-200/80 bg-white/75 p-3 shadow-sm dark:border-setta-800 dark:bg-setta-950/60"
+    ? "flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
     : "flex h-full min-h-0 min-w-0 flex-1 flex-col rounded-2xl border border-setta-200/75 bg-white/75 p-3 shadow-sm dark:border-setta-800/80 dark:bg-setta-900/40";
+  const galleryHeaderClassName = fullScreenSurface
+    ? "flex items-center justify-between gap-2 border-b border-setta-200/80 bg-setta-50/80 px-3 py-2 dark:border-setta-800/80 dark:bg-setta-900/40"
+    : "mb-2 flex items-center justify-between gap-2";
+  const galleryBodyClassName = fullScreenSurface
+    ? "setta-pane-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2"
+    : "min-h-0 flex-1 overflow-x-hidden overflow-y-auto pr-1";
 
   if (totalProjectsCount === 0) {
     return (
@@ -669,7 +738,7 @@ function HomeProjectGallery({
           <div className="text-center">
             <LuPenLine className="mx-auto h-16 w-16 text-setta-300 dark:text-setta-600/70" />
             <p className="text-sm font-semibold text-setta-500 dark:text-setta-300">
-              Create a New Config!
+              Create a New Project!
             </p>
           </div>
         </div>
@@ -681,9 +750,9 @@ function HomeProjectGallery({
 
   return (
     <section className={gallerySurfaceClassName} data-testid="home-project-gallery">
-      <div className="mb-2 flex items-center justify-between gap-2">
+      <div className={galleryHeaderClassName}>
         <h2 className="text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
-          Configs
+          Projects
         </h2>
         <div className="flex items-center gap-1">
           <button
@@ -718,7 +787,7 @@ function HomeProjectGallery({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+      <div className={galleryBodyClassName}>
         {favoriteProjects.length > 0 && (
           <ProjectGallerySection
             title="Favourites"
@@ -808,8 +877,8 @@ function ProjectGallerySection({
   dataTestId?: string;
 }) {
   return (
-    <section className="mb-3 last:mb-0" data-testid={dataTestId}>
-      <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-setta-400">
+    <section className="mb-2 last:mb-0" data-testid={dataTestId}>
+      <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-setta-400">
         {title}
       </h3>
       {children}
@@ -849,7 +918,7 @@ function ProjectGridItems({
   if (projects.length === 0) {
     return (
       <p className="rounded border border-dashed border-setta-200 px-2 py-3 text-xs text-setta-400 dark:border-setta-800 dark:text-setta-500">
-        No project configs in this section.
+        No projects in this section.
       </p>
     );
   }
@@ -1119,7 +1188,7 @@ function ProjectListItems({
   if (projects.length === 0) {
     return (
       <p className="rounded border border-dashed border-setta-200 px-2 py-3 text-xs text-setta-400 dark:border-setta-800 dark:text-setta-500">
-        No project configs in this section.
+        No projects in this section.
       </p>
     );
   }
@@ -1254,7 +1323,7 @@ function ProjectListItem({
             onToggleProjectSelection(project.id);
           }}
           onKeyDown={(event) => event.stopPropagation()}
-          aria-label={isSelected ? "Unselect config" : "Select config"}
+          aria-label={isSelected ? "Unselect project" : "Select project"}
         >
           <IoMdCheckmark size={10} />
         </button>
