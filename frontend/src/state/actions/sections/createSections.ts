@@ -24,7 +24,6 @@ import {
   TopLevelSectionLayout,
   ViewportBounds,
 } from "utils/generatedTypes";
-import { validateSectionNameInput } from "utils/nameValidation";
 import {
   focusOnSectionSearch,
   focusOnSectionTextInput,
@@ -196,39 +195,6 @@ type OpenFileInCodeSectionArgs = {
   codeLanguage: CodeLanguage;
 };
 
-function normalizeSectionNameCandidate(value: string): string {
-  return value
-    .replace(/[\\/]/g, " ")
-    .replace(/\.\./g, " ")
-    .replace(/[^A-Za-z0-9 _-]/g, "_")
-    .replace(/\s+/g, " ")
-    .replace(/_+/g, "_")
-    .trim();
-}
-
-export function getValidSectionNameForOpenedFile(fileName: string): string {
-  const trimmedName = fileName.trim();
-  const extensionIndex = trimmedName.lastIndexOf(".");
-  const baseName =
-    extensionIndex > 0
-      ? trimmedName.slice(0, extensionIndex).trim()
-      : trimmedName;
-  const fallbackName = "Opened File";
-  const candidates = [trimmedName, baseName, fallbackName];
-
-  for (const candidate of candidates) {
-    const normalized = normalizeSectionNameCandidate(candidate);
-    if (!normalized) {
-      continue;
-    }
-    if (validateSectionNameInput(normalized) === null) {
-      return normalized;
-    }
-  }
-
-  return fallbackName;
-}
-
 export async function openFileInCodeSection({
   filePath,
   fileName,
@@ -270,7 +236,7 @@ export async function openFileInCodeSection({
   await route_set_section_name({
     projectConfigId: getCurrProjectConfigId(),
     sectionId: newSectionId,
-    name: getValidSectionNameForOpenedFile(fileName),
+    name: fileName,
   });
   goToSection(newSectionId);
   return newSectionId;
@@ -308,7 +274,7 @@ export async function openFileInTextSection({
   await route_set_section_name({
     projectConfigId: getCurrProjectConfigId(),
     sectionId: newSectionId,
-    name: getValidSectionNameForOpenedFile(fileName),
+    name: fileName,
   });
   goToSection(newSectionId);
   return newSectionId;
@@ -352,7 +318,7 @@ export async function openFileInImageSection({
   await route_set_section_name({
     projectConfigId: getCurrProjectConfigId(),
     sectionId: newSectionId,
-    name: getValidSectionNameForOpenedFile(fileName),
+    name: fileName,
   });
   goToSection(newSectionId);
   return newSectionId;
