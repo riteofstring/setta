@@ -72,7 +72,6 @@ export function buildHiddenChatAppGenerationPrompt({
   prompt,
   catalogSummary,
   sectionsSummary,
-  appSpecStreamingEnabled,
   referenceImageUrl,
   referenceImageNotes,
 }: {
@@ -80,7 +79,6 @@ export function buildHiddenChatAppGenerationPrompt({
   prompt: string;
   catalogSummary: string;
   sectionsSummary: string;
-  appSpecStreamingEnabled: boolean;
   referenceImageUrl: string | null;
   referenceImageNotes: string | null;
 }): string {
@@ -88,44 +86,18 @@ export function buildHiddenChatAppGenerationPrompt({
   const fallbackPrompt = buildDefaultAppGenerationPrompt(mode);
   const effectivePrompt = normalizedPrompt || fallbackPrompt;
 
-  const deliveryInstructions = appSpecStreamingEnabled
-    ? [
-        "Streaming mode: ENABLED",
-        "- DO NOT paste JSON into the chat.",
-        "- Use MCP tool `setta__stream_app_definition` with newline-delimited JSON patch lines in `patches`.",
-        "- For updates, omit baseAppSpec unless you need to patch an explicit snapshot.",
-      ].join("\n")
-    : [
-        "Streaming mode: DISABLED",
-        "- DO NOT paste JSON into the chat.",
-        "- Use MCP tool `setta__set_app_definition` with full UITree JSON.",
-        "- Optionally validate first with `setta__validate_app_definition`.",
-      ].join("\n");
-
   const referenceImageLines =
     mode === "json_render_with_image" ||
     referenceImageUrl ||
     referenceImageNotes
       ? [
-          "Reference-image guidance:",
+          "Reference-image context:",
           referenceImageUrl
             ? `- URL: ${referenceImageUrl}`
             : "- URL: (none provided; ask for one if needed).",
           referenceImageNotes
             ? `- Notes: ${referenceImageNotes}`
             : "- Notes: (none provided).",
-          "- Match layout first, then spacing, typography, and color intent.",
-          "- If exact parity is impossible, keep structural fidelity and explain compromises.",
-        ].join("\n")
-      : "";
-
-  const mcpLines =
-    mode === "mcp_server"
-      ? [
-          "MCP/Figma flow guidance:",
-          "- Use MCP tools as the source of truth for design artifacts.",
-          "- Support both paths: pull existing Figma design, or generate in Figma then pull back.",
-          "- Convert retrieved design output into Setta app spec and persist.",
         ].join("\n")
       : "";
 
@@ -135,13 +107,8 @@ export function buildHiddenChatAppGenerationPrompt({
     "Goal:",
     effectivePrompt,
     "",
-    "Delivery:",
-    deliveryInstructions,
-    "",
     referenceImageLines,
     referenceImageLines ? "" : "",
-    mcpLines,
-    mcpLines ? "" : "",
     catalogSummary,
     "",
     "Available sections (use section ids and param ids exactly):",

@@ -2,7 +2,6 @@ import pytest
 
 from setta.routers.ai import (
     _build_app_generation_mode_prompt,
-    _infer_app_generation_mode_from_user_message,
     _normalize_app_generation_mode,
 )
 
@@ -26,33 +25,6 @@ class TestAIAppGenerationModeHelpers:
     )
     def test_normalize_mode(self, raw_mode: str | None, expected: str | None) -> None:
         assert _normalize_app_generation_mode(raw_mode) == expected
-
-    @pytest.mark.parametrize(
-        ("message_text", "expected_mode"),
-        [
-            # Chat users can request direct JSON-render generation.
-            ("Please use json render to build a standalone app", "json_render"),
-            # Image terms plus app-generation terms should choose image-guided mode.
-            (
-                "Use json render with a reference image and match this screenshot",
-                "json_render_with_image",
-            ),
-            # Prompt-builder requests should route to prompt-builder mode.
-            ("Could you build a prompt builder flow for appgen?", "prompt_builder"),
-            # Figma/MCP requests should route to mcp_server mode.
-            ("Use MCP to pull a Figma design into Setta", "mcp_server"),
-            # Irrelevant text should not force app-generation mode.
-            ("How do I rename a section?", None),
-        ],
-    )
-    def test_infer_mode_from_chat_message(
-        self,
-        message_text: str,
-        expected_mode: str | None,
-    ) -> None:
-        assert (
-            _infer_app_generation_mode_from_user_message(message_text) == expected_mode
-        )
 
     def test_build_prompt_includes_streaming_and_reference_image_context(self) -> None:
         prompt = _build_app_generation_mode_prompt(

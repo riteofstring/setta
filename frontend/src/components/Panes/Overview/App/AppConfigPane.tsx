@@ -434,7 +434,11 @@ function cloneSpec(spec: Spec): Spec {
   };
 }
 
-function buildSpecSeed({
+function cloneSpecSeed(spec: unknown): Spec {
+  return structuredClone(spec) as Spec;
+}
+
+export function buildSpecSeed({
   draftSpec,
   persistedSpec,
 }: {
@@ -445,14 +449,14 @@ function buildSpecSeed({
     try {
       const parsed = JSON.parse(draftSpec) as unknown;
       if (isRecord(parsed)) {
-        return parsed as unknown as Spec;
+        return cloneSpecSeed(parsed);
       }
     } catch {
       // Keep stream generation resilient even if the draft text is currently invalid.
     }
   }
   if (isRecord(persistedSpec)) {
-    return persistedSpec as unknown as Spec;
+    return cloneSpecSeed(persistedSpec);
   }
   return createEmptySpec();
 }
@@ -904,7 +908,6 @@ export function AppConfigPane() {
           prompt: promptOverride ?? appGenerationPrompt,
           catalogSummary,
           sectionsSummary,
-          appSpecStreamingEnabled,
           referenceImageUrl: appGenerationReferenceImageUrl.trim() || null,
           referenceImageNotes: appGenerationReferenceImageNotes.trim() || null,
         });
@@ -947,7 +950,6 @@ export function AppConfigPane() {
       appGenerationPrompt,
       appGenerationReferenceImageNotes,
       appGenerationReferenceImageUrl,
-      appSpecStreamingEnabled,
       engineConfigs,
       preparePromptContext,
     ],

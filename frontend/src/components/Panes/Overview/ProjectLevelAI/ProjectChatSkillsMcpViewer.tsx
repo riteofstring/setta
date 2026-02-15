@@ -2,7 +2,7 @@ import * as Accordion from "@radix-ui/react-accordion";
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiChevronDown } from "react-icons/fi";
 import { useAIStore } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
@@ -110,6 +110,7 @@ export function ProjectChatSkillsMcpViewer() {
     null,
   );
   const [mcpConfigInfoLoading, setMcpConfigInfoLoading] = useState(true);
+  const skillContentRequestSequence = useRef(0);
 
   const refreshSkillsBrowser = useCallback(async () => {
     setSkillsLoading(true);
@@ -125,17 +126,15 @@ export function ProjectChatSkillsMcpViewer() {
     }
     const nextSkills = res.data;
     setSkills(nextSkills);
-    if (nextSkills.length === 0) {
-      setSelectedSkillId(null);
-      return;
-    }
-    const hasSelectedSkill = nextSkills.some(
-      (skill) => skill.skillId === selectedSkillId,
-    );
-    if (!hasSelectedSkill) {
-      setSelectedSkillId(nextSkills[0].skillId);
-    }
-  }, [selectedSkillId]);
+    setSelectedSkillId((current) => {
+      if (nextSkills.length === 0) {
+        return null;
+      }
+      return nextSkills.some((skill) => skill.skillId === current)
+        ? current
+        : nextSkills[0].skillId;
+    });
+  }, []);
 
   useEffect(() => {
     void refreshSkillsBrowser();
@@ -144,13 +143,20 @@ export function ProjectChatSkillsMcpViewer() {
   useEffect(() => {
     async function loadSkillContent() {
       if (!selectedSkillId) {
+        skillContentRequestSequence.current += 1;
+        setSkillContentLoading(false);
         setSelectedSkillContent("");
         return;
       }
+      const requestSequence = skillContentRequestSequence.current + 1;
+      skillContentRequestSequence.current = requestSequence;
       setSkillContentLoading(true);
       const res = await route_get_app_gen_skill_content({
         skillId: selectedSkillId,
       });
+      if (requestSequence !== skillContentRequestSequence.current) {
+        return;
+      }
       setSkillContentLoading(false);
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
@@ -284,8 +290,7 @@ export function ProjectChatSkillsMcpViewer() {
                   </div>
                 ) : skillsError ? (
                   <div className="text-setta-500 dark:text-setta-400">
-                    Skills unavailable ({skillsError}). Restart the backend if
-                    this route was just added.
+                    Skills unavailable ({skillsError}).
                   </div>
                 ) : groupedSkills.length === 0 ? (
                   <div className="text-setta-500 dark:text-setta-400">
@@ -306,7 +311,7 @@ export function ProjectChatSkillsMcpViewer() {
                         }
                       />
                       <div className="mt-1 grid gap-1 px-1">
-                        {group.skills.slice(0, 200).map((skill) => {
+                        {group.skills.map((skill) => {
                           const selected = skill.skillId === selectedSkillId;
                           return (
                             <button

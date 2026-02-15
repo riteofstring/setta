@@ -40,16 +40,16 @@ describe("appGenerationModes", () => {
       catalogSummary: "Catalog: setta.app.default (version v1)",
       sectionsSummary:
         "- Sales (section-sales) params: Revenue (revenue, type=CodeParam)",
-      appSpecStreamingEnabled: true,
       referenceImageUrl: "https://example.com/reference.png",
       referenceImageNotes: "Prefer compact cards and wider gutters.",
     });
 
     expect(prompt).toContain("App generation mode: mcp_server");
-    expect(prompt).toContain("setta__stream_app_definition");
+    expect(prompt).not.toContain("setta__stream_app_definition");
+    expect(prompt).not.toContain("setta__set_app_definition");
     expect(prompt).toContain("URL: https://example.com/reference.png");
     expect(prompt).toContain("Prefer compact cards and wider gutters.");
-    expect(prompt).toContain("MCP/Figma flow guidance:");
+    expect(prompt).toContain("Catalog: setta.app.default (version v1)");
   });
 
   it("recognizes json-render modes", () => {

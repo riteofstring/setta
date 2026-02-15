@@ -251,56 +251,6 @@ def _normalize_app_generation_mode(raw_mode: str | None) -> AppGenerationMode | 
     return normalized  # type: ignore[return-value]
 
 
-def _extract_user_message_text(
-    message: BaseChatMessageUnionWithDiscriminator,
-) -> str:
-    if getattr(message, "role", None) != "user":
-        return ""
-    raw_content = getattr(message, "content", None)
-    if not isinstance(raw_content, list):
-        return ""
-    text_parts: list[str] = []
-    for item in raw_content:
-        item_type = getattr(item, "type", None)
-        if item_type != "text":
-            continue
-        text = getattr(item, "text", None)
-        if isinstance(text, str) and text.strip():
-            text_parts.append(text.strip())
-    return "\n".join(text_parts).strip()
-
-
-def _infer_app_generation_mode_from_user_message(
-    message_text: str,
-) -> AppGenerationMode | None:
-    normalized = message_text.strip().lower()
-    if normalized == "":
-        return None
-
-    if "figma" in normalized or "mcp" in normalized:
-        return "mcp_server"
-
-    if "prompt builder" in normalized or "build a prompt" in normalized:
-        return "prompt_builder"
-
-    mentions_image = (
-        "reference image" in normalized
-        or "source image" in normalized
-        or "screenshot" in normalized
-    )
-    mentions_appgen = (
-        "json render" in normalized
-        or "app spec" in normalized
-        or "appgen" in normalized
-        or "standalone app" in normalized
-    )
-    if mentions_image and mentions_appgen:
-        return "json_render_with_image"
-    if mentions_appgen:
-        return "json_render"
-    return None
-
-
 def _build_app_generation_mode_prompt(
     *,
     mode: AppGenerationMode | None,
@@ -519,11 +469,7 @@ async def route_get_llm_response(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    requested_mode = _normalize_app_generation_mode(x.appGenerationMode)
-    inferred_mode = _infer_app_generation_mode_from_user_message(
-        _extract_user_message_text(x.message)
-    )
-    resolved_mode = requested_mode or inferred_mode
+    resolved_mode = _normalize_app_generation_mode(x.appGenerationMode)
     reference_image_url = (
         x.appGenerationReferenceImageUrl.strip()
         if isinstance(x.appGenerationReferenceImageUrl, str)

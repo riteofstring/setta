@@ -164,11 +164,7 @@ test("project ai chat shows inline skills endpoint error when routes are missing
   await ensureAppReady(page);
 
   await page.getByRole("button", { name: "View Skills and MCP" }).click();
-  await expect(
-    page.getByText(
-      "Skills unavailable (Not Found). Restart the backend if this route was just added.",
-    ),
-  ).toBeVisible();
+  await expect(page.getByText("Skills unavailable (Not Found).")).toBeVisible();
 });
 
 test("project ai chat shows loading states before skills and mcp data arrive", async ({
@@ -255,4 +251,111 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
   await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
   await expect(page.getByText("Loading skills...")).toHaveCount(0);
   await expect(page.getByText("Loading MCP servers...")).toHaveCount(0);
+});
+
+test("project ai chat keeps skills list stable during selection and ignores stale markdown responses", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  let skillsFetchCount = 0;
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    skillsFetchCount += 1;
+    const skills = [
+      {
+        skillId: "workspace_skills::alpha-skill",
+        name: "alpha-skill",
+        rootLabel: "Workspace skills",
+        rootPath: "/workspace/skills",
+        relativePath: "alpha-skill",
+        skillPath: "/workspace/skills/alpha-skill/SKILL.md",
+        description: "Alpha skill",
+      },
+      {
+        skillId: "workspace_skills::beta-skill",
+        name: "beta-skill",
+        rootLabel: "Workspace skills",
+        rootPath: "/workspace/skills",
+        relativePath: "beta-skill",
+        skillPath: "/workspace/skills/beta-skill/SKILL.md",
+        description: "Beta skill",
+      },
+      ...Array.from({ length: 203 }, (_, index) => {
+        return {
+          skillId: `workspace_skills::skill-${index}`,
+          name: `skill-${index}`,
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
+          relativePath: `skill-${index}`,
+          skillPath: `/workspace/skills/skill-${index}/SKILL.md`,
+          description: `Skill ${index}`,
+        };
+      }),
+    ];
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(skills),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {
+          setta: {
+            transport: "sse",
+            url: "http://127.0.0.1:8000/mcp",
+          },
+        },
+        defaultMcpServerIds: ["setta"],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    const skillId = payload.skillId ?? "";
+    if (skillId.endsWith("alpha-skill")) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId,
+        content: `# ${skillId}`,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+
+  await expect(page.getByRole("button", { name: /beta-skill/i })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /skill-202/i }),
+  ).toHaveCount(1);
+  await page.waitForTimeout(200);
+  const fetchCountAfterInitialLoad = skillsFetchCount;
+  expect(fetchCountAfterInitialLoad).toBeGreaterThan(0);
+
+  await page.getByRole("button", { name: /beta-skill/i }).click();
+  await expect
+    .poll(() => skillsFetchCount)
+    .toBe(fetchCountAfterInitialLoad);
+
+  await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
+  const markdown = page.getByLabel("Skill Markdown Content");
+  await expect(markdown).toContainText("workspace_skills::beta-skill");
+  await page.waitForTimeout(700);
+  await expect(markdown).toContainText("workspace_skills::beta-skill");
+  await expect(markdown).not.toContainText("workspace_skills::alpha-skill");
 });

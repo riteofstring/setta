@@ -88,14 +88,20 @@ def _extract_skill_description(skill_doc: Path) -> str:
     return ""
 
 
+def _iter_skill_docs(root_path: Path):
+    for current_dir, dirnames, filenames in os.walk(root_path, topdown=True):
+        dirnames[:] = [name for name in dirnames if name not in _SKIP_SEGMENTS]
+        if "SKILL.md" not in filenames:
+            continue
+        yield Path(current_dir) / "SKILL.md"
+
+
 def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
     rows: list[AppGenSkillEntry] = []
     for root_id, label, root_path in _iter_skill_roots(workspace_root):
         if not root_path.exists() or not root_path.is_dir():
             continue
-        for skill_doc in root_path.rglob("SKILL.md"):
-            if any(segment in _SKIP_SEGMENTS for segment in skill_doc.parts):
-                continue
+        for skill_doc in _iter_skill_docs(root_path):
             skill_dir = skill_doc.parent
             try:
                 relative = skill_dir.relative_to(root_path).as_posix()

@@ -1,8 +1,10 @@
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
 
+import setta.routers.app_gen_extensions as app_gen_extensions
 from setta.routers.app_gen_extensions import (
     list_app_gen_skills,
     read_app_gen_skill_content,
@@ -118,3 +120,49 @@ class TestAppGenExtensionsRoutes:
             assert codex_row.rootPath == str(
                 (codex_home / "skills").resolve(strict=False)
             )
+
+    def test_skips_ignored_directories_during_walk(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            root_skills = workspace_root / "skills"
+            kept_skill_dir = root_skills / "kept"
+            ignored_skill_dir = root_skills / "node_modules" / "ignored"
+            kept_skill_dir.mkdir(parents=True, exist_ok=True)
+            ignored_skill_dir.mkdir(parents=True, exist_ok=True)
+            (kept_skill_dir / "SKILL.md").write_text(
+                "# Kept\n\nVisible skill.\n",
+                encoding="utf-8",
+            )
+            (ignored_skill_dir / "SKILL.md").write_text(
+                "# Ignored\n\nShould not be listed.\n",
+                encoding="utf-8",
+            )
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+            walked_after_prune: list[str] = []
+            original_os_walk = os.walk
+            resolved_root_skills = root_skills.resolve(strict=False)
+
+            def fake_walk(path: Path, topdown: bool = True):
+                if Path(path).resolve(strict=False) != resolved_root_skills:
+                    yield from original_os_walk(path, topdown=topdown)
+                    return
+                dirnames = ["node_modules", "kept"]
+                yield (str(resolved_root_skills), dirnames, [])
+                walked_after_prune.extend(dirnames)
+                for dirname in dirnames:
+                    skill_dir = resolved_root_skills / dirname
+                    yield (str(skill_dir), [], ["SKILL.md"])
+
+            monkeypatch.setattr(app_gen_extensions.os, "walk", fake_walk)
+
+            rows = list_app_gen_skills(workspace_root)
+
+            assert walked_after_prune == ["kept"]
+            assert [row.skillId for row in rows] == ["workspace_skills::kept"]
