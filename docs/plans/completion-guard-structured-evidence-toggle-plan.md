@@ -32,6 +32,12 @@ This plan replaces keyword matching with structured evidence and adds a global o
 
 Add a global persisted setting `settings.backend.completionGuardEnabled` (default `true`) with a first-class UI control.
 
+Storage decision for this branch:
+
+1. Persist in `setta-settings.json` via `SettingsState.backend`.
+2. Do not place this toggle in `llm_config.json` in this branch.
+3. A future move into LLM config is intentionally deferred to ongoing LLM-config work on another branch.
+
 1. Extend `SettingsBackend` with `completionGuardEnabled: bool = True`.
 2. Surface it in the UI under Project AI settings in a dedicated guardrails section.
 3. Persist updates through existing `route_save_settings` and load through `route_load_settings`.
@@ -57,9 +63,10 @@ Introduce explicit models for guard evaluation:
 2. `CheckStatus = passed | failed | not_run`
 3. `CheckResult`:
    1. `check_name: str`
-   2. `status: CheckStatus`
-   3. `details: str | None`
-   4. `source: str` (tool/evidence source)
+   2. `required: bool`
+   3. `status: CheckStatus`
+   4. `details: str | None`
+   5. `source: str` (tool/evidence source)
 4. `CompletionGuardEvidence`:
    1. `task_id: str`
    2. `completion_intent: bool`
@@ -71,6 +78,16 @@ Guard decisions are derived only from this evidence:
 1. `failed` if any required check is failed.
 2. `passed` if required checks exist and all are passed.
 3. `missing` otherwise.
+
+### Required Checks Policy (Initial)
+
+1. If `requires_verification` is `false`, completion can pass without check results.
+2. If `requires_verification` is `true`, at least one required check must be present.
+3. For required checks:
+   1. any `failed` => `failed`,
+   2. any `not_run` => `missing`,
+   3. all `passed` => `passed`.
+4. Optional checks (`required=false`) are recorded for visibility but do not block completion.
 
 ### 3) Explicit Completion Contract
 
@@ -85,6 +102,11 @@ Add a structured completion-report tool that agents must call before final compl
 3. Tool returns normalized structured status and stores it in chat/run state.
 
 No natural-language inspection is used to infer pass/fail.
+
+Hard contract:
+
+1. Completion gating relies only on structured completion reports.
+2. Missing report/evidence for a verification-required task resolves to `missing` and blocks completion.
 
 ### 4) Task Scope Without Keyword Matching
 
@@ -151,7 +173,7 @@ Because we are not keeping legacy behavior, we will treat missing report/evidenc
 2. Ensure load/save settings includes the new field end-to-end.
 3. Add guard gate in completion guard entrypoint and runner call sites based on loaded settings.
 4. Add UI toggle in Project AI settings guardrails section.
-5. Regenerate frontend/backend generated types after settings schema change.
+5. After schema updates, run `./gcf.sh` once.
 6. Add tests for enabled/disabled behavior and persistence.
 
 Target files:
@@ -163,7 +185,6 @@ Target files:
 5. `backend/setta/agentic/external_agent_runner.py`
 6. `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` (or split-out guardrails component)
 7. `frontend/src/state/actions/settings.ts` (if helper methods are added for save flow)
-8. Generated settings types (`pnpm generate`)
 
 ### Phase 2: Structured Models + Report Tool
 
