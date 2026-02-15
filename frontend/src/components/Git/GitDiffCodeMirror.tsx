@@ -95,7 +95,9 @@ type ParserLike = {
 const MAX_SYNTAX_HIGHLIGHT_DOC_LINES = 12000;
 const tomlLanguage = StreamLanguage.define(tomlMode);
 
-export function parserForPath(path: string | null | undefined): ParserLike | null {
+export function parserForPath(
+  path: string | null | undefined,
+): ParserLike | null {
   if (!path) {
     return null;
   }

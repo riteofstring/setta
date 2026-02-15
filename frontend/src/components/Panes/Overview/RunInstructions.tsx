@@ -481,11 +481,12 @@ export function RunInstructions() {
     ) => {
       useLocalStorage.setState((state) => ({
         runInstructionsAccordionOpenValuesByProjectConfigId: (() => {
-          const previousOpenValues = normalizeRunInstructionsAccordionOpenValues(
-            state.runInstructionsAccordionOpenValuesByProjectConfigId[
-              projectConfigId
-            ] ?? RUN_INSTRUCTIONS_ACCORDION_DEFAULT_OPEN_VALUES,
-          );
+          const previousOpenValues =
+            normalizeRunInstructionsAccordionOpenValues(
+              state.runInstructionsAccordionOpenValuesByProjectConfigId[
+                projectConfigId
+              ] ?? RUN_INSTRUCTIONS_ACCORDION_DEFAULT_OPEN_VALUES,
+            );
           const openValueSet = new Set(previousOpenValues);
           for (const value of subsetValues) {
             openValueSet.delete(value);
@@ -773,7 +774,9 @@ export function RunInstructions() {
         <div className="mt-2 flex min-w-0 flex-col gap-1.5">
           <select
             className={`${PANEL_SELECT_CLASSES} w-full`}
-            disabled={isDeploymentMode || availableOverrideSections.length === 0}
+            disabled={
+              isDeploymentMode || availableOverrideSections.length === 0
+            }
             value={pendingOverrideId}
             onChange={(event) => {
               setPendingOverrideId(event.target.value);
@@ -791,7 +794,8 @@ export function RunInstructions() {
               className={PANEL_ICON_BUTTON_CLASSES}
               disabled={isDeploymentMode || !pendingOverrideId}
               onClick={() => {
-                const selected = sectionOptionsById.get(pendingOverrideId) ?? null;
+                const selected =
+                  sectionOptionsById.get(pendingOverrideId) ?? null;
                 if (!selected) {
                   return;
                 }
@@ -827,11 +831,10 @@ export function RunInstructions() {
               const representationOptions = isMetaControl
                 ? []
                 : getRepresentationOptions(entry.type);
-              const overrideRepresentationOptions = representationOptions.includes(
-                entry.override.representation,
-              )
-                ? representationOptions
-                : [entry.override.representation];
+              const overrideRepresentationOptions =
+                representationOptions.includes(entry.override.representation)
+                  ? representationOptions
+                  : [entry.override.representation];
               const representationDisabled =
                 overrideRepresentationOptions.length === 1;
               return (
@@ -996,7 +999,9 @@ export function RunInstructions() {
         <div className="mt-2 flex min-w-0 flex-col gap-1.5">
           <select
             className={`${PANEL_SELECT_CLASSES} w-full`}
-            disabled={isDeploymentMode || availableCodeObjOverrides.length === 0}
+            disabled={
+              isDeploymentMode || availableCodeObjOverrides.length === 0
+            }
             value={pendingCodeObjOverrideId}
             onChange={(event) => {
               setPendingCodeObjOverrideId(event.target.value);
@@ -1050,13 +1055,13 @@ export function RunInstructions() {
         ) : (
           <div className="mt-2 space-y-1">
             {codeObjOverrideEntries.map((entry) => {
-              const representationOptions =
-                getCodeObjRepresentationOptions(entry.type);
-              const overrideRepresentationOptions = representationOptions.includes(
-                entry.override.representation,
-              )
-                ? representationOptions
-                : [entry.override.representation];
+              const representationOptions = getCodeObjRepresentationOptions(
+                entry.type,
+              );
+              const overrideRepresentationOptions =
+                representationOptions.includes(entry.override.representation)
+                  ? representationOptions
+                  : [entry.override.representation];
               const representationDisabled =
                 overrideRepresentationOptions.length === 1;
               return (
@@ -1158,10 +1163,11 @@ export function RunInstructions() {
               {
                 value: "run-instructions-run-snapshot-mode",
                 title: "Run Snapshot Mode",
-                triggerTestId:
-                  "run-instructions-accordion-run-snapshot-mode",
+                triggerTestId: "run-instructions-accordion-run-snapshot-mode",
                 content: (
-                  <div className={`${PANEL_ROW_CLASSES} flex min-w-0 flex-col gap-2`}>
+                  <div
+                    className={`${PANEL_ROW_CLASSES} flex min-w-0 flex-col gap-2`}
+                  >
                     <div className="min-w-0 flex-1">
                       <div className="text-[11px] text-setta-600 dark:text-setta-300">
                         {runSnapshotModeMeta.description}
@@ -1174,7 +1180,9 @@ export function RunInstructions() {
                       className={`${PANEL_SELECT_CLASSES} w-full`}
                       value={selectedRunSnapshotMode}
                       onChange={handleRunSnapshotModeChange}
-                      {...getFloatingBoxHandlers({ content: "Run snapshot mode" })}
+                      {...getFloatingBoxHandlers({
+                        content: "Run snapshot mode",
+                      })}
                     >
                       {RUN_SNAPSHOT_MODE_CHOICES.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -1313,7 +1321,8 @@ export function RunInstructions() {
               {
                 value: "run-instructions-add-from-code-blocks",
                 title: "Add From Code Blocks",
-                triggerTestId: "run-instructions-accordion-add-from-code-blocks",
+                triggerTestId:
+                  "run-instructions-accordion-add-from-code-blocks",
                 disabled: runnableCodeBlocks.length === 0,
                 disabledReason: "No runnable code blocks are available",
                 content: (

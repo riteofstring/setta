@@ -144,7 +144,9 @@ describe("Overview rail offsets", () => {
       </MemoryRouter>,
     );
 
-    const chatIndex = markup.indexOf('data-testid="overview-tab-project-ai-chat"');
+    const chatIndex = markup.indexOf(
+      'data-testid="overview-tab-project-ai-chat"',
+    );
     const overviewIndex = markup.indexOf('data-testid="overview-tab-overview"');
 
     expect(chatIndex).toBeGreaterThanOrEqual(0);

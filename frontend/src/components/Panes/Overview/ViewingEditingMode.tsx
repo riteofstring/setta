@@ -101,7 +101,10 @@ export function ViewingEditingMode() {
   };
 
   return (
-    <div data-testid="view-modes-pane" className="flex h-full min-h-0 w-full flex-col">
+    <div
+      data-testid="view-modes-pane"
+      className="flex h-full min-h-0 w-full flex-col"
+    >
       <div className="setta-pane-scroll flex min-h-0 flex-1 flex-col gap-3">
         <div className="flex items-center gap-2">
           <button
@@ -115,7 +118,9 @@ export function ViewingEditingMode() {
             title={editTitle}
             disabled={!canEditStructure}
           >
-            <span className="text-setta-500 dark:text-setta-400">{editIcon}</span>
+            <span className="text-setta-500 dark:text-setta-400">
+              {editIcon}
+            </span>
             {editLabel}
           </button>
           <button

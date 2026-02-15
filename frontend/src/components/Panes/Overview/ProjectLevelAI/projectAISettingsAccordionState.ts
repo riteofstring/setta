@@ -8,10 +8,8 @@ export const PROJECT_AI_SETTINGS_ACCORDION_ITEM_ORDER = [
 export type ProjectAISettingsAccordionItemValue =
   (typeof PROJECT_AI_SETTINGS_ACCORDION_ITEM_ORDER)[number];
 
-export const PROJECT_AI_SETTINGS_ACCORDION_DEFAULT_OPEN_VALUES: Array<ProjectAISettingsAccordionItemValue> = [
-  "project-ai-settings-llm-api-keys",
-  "project-ai-settings-agent-profiles",
-];
+export const PROJECT_AI_SETTINGS_ACCORDION_DEFAULT_OPEN_VALUES: Array<ProjectAISettingsAccordionItemValue> =
+  ["project-ai-settings-llm-api-keys", "project-ai-settings-agent-profiles"];
 
 const PROJECT_AI_SETTINGS_ACCORDION_ITEM_VALUE_SET = new Set<string>(
   PROJECT_AI_SETTINGS_ACCORDION_ITEM_ORDER,

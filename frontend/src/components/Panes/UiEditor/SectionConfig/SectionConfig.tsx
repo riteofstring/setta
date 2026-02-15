@@ -24,7 +24,10 @@ function _SectionConfig({ sectionId }: { sectionId: string }) {
     return impl.type;
   });
 
-  const mainContent = getSpecializedConfigurationContent(sectionType, sectionId);
+  const mainContent = getSpecializedConfigurationContent(
+    sectionType,
+    sectionId,
+  );
   const appearanceContent = getAppearanceConfigurationContent(
     sectionType,
     sectionId,

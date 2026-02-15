@@ -278,7 +278,7 @@ function ProjectAISettingsAccordion({
               </span>
             </Accordion.Trigger>
           </Accordion.Header>
-          <Accordion.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+          <Accordion.Content className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
             <div
               data-testid={`${item.triggerTestId}-content`}
               className="border-t border-setta-200/70 px-3 py-2 dark:border-setta-800/70"

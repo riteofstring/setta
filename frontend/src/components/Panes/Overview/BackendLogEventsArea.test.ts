@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
 import { SettaBackendLogEvent } from "utils/generatedTypes";
+import { describe, expect, it, vi } from "vitest";
 import {
   applyBackendLogColumnResize,
   BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
@@ -18,7 +18,9 @@ describe("BackendLogEventsArea column sizing helpers", () => {
       42,
     );
 
-    expect(resized.project).toBe(BACKEND_LOG_DEFAULT_COLUMN_WIDTHS.project + 42);
+    expect(resized.project).toBe(
+      BACKEND_LOG_DEFAULT_COLUMN_WIDTHS.project + 42,
+    );
     expect(resized.timestamp).toBe(BACKEND_LOG_DEFAULT_COLUMN_WIDTHS.timestamp);
     expect(resized.severity).toBe(BACKEND_LOG_DEFAULT_COLUMN_WIDTHS.severity);
   });

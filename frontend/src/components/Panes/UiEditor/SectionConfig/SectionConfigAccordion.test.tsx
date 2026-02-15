@@ -57,8 +57,9 @@ describe("SectionConfigAccordion", () => {
     );
 
     const mainTriggerTag =
-      markup.match(/<button[^>]*data-testid="section-config-main-trigger"[^>]*>/)?.[0] ??
-      "";
+      markup.match(
+        /<button[^>]*data-testid="section-config-main-trigger"[^>]*>/,
+      )?.[0] ?? "";
     const appearanceTriggerTag =
       markup.match(
         /<button[^>]*data-testid="section-config-appearance-trigger"[^>]*>/,

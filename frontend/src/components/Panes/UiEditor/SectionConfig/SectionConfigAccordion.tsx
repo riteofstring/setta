@@ -2,7 +2,7 @@ import * as Accordion from "@radix-ui/react-accordion";
 import React from "react";
 import { HiChevronDown } from "react-icons/hi2";
 
-export type SectionConfigAccordionItem = {
+type SectionConfigAccordionItem = {
   value: string;
   title: string;
   triggerTestId: string;
@@ -58,7 +58,7 @@ export function SectionConfigAccordion({
                 </span>
               </Accordion.Trigger>
             </Accordion.Header>
-            <Accordion.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+            <Accordion.Content className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
               <div className="border-t border-setta-200/70 px-2 py-2 dark:border-setta-800/70">
                 {item.content}
               </div>

@@ -1,9 +1,9 @@
 import { javascriptLanguage } from "@codemirror/lang-javascript";
 import { jsonLanguage } from "@codemirror/lang-json";
-import { StreamLanguage } from "@codemirror/language";
-import { toml as tomlMode } from "@codemirror/legacy-modes/mode/toml";
 import { pythonLanguage } from "@codemirror/lang-python";
 import { yamlLanguage } from "@codemirror/lang-yaml";
+import { StreamLanguage } from "@codemirror/language";
+import { toml as tomlMode } from "@codemirror/legacy-modes/mode/toml";
 import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";

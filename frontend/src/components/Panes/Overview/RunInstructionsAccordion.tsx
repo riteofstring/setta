@@ -2,7 +2,7 @@ import * as Accordion from "@radix-ui/react-accordion";
 import React from "react";
 import { HiChevronDown } from "react-icons/hi2";
 
-export type RunInstructionsAccordionItem = {
+type RunInstructionsAccordionItem = {
   value: string;
   title: string;
   triggerTestId: string;
@@ -44,7 +44,9 @@ export function RunInstructionsAccordion({
     <Accordion.Root
       type="multiple"
       value={hasControlledOpenValues ? resolvedOpenValues : undefined}
-      defaultValue={hasControlledOpenValues ? undefined : resolvedDefaultOpenValues}
+      defaultValue={
+        hasControlledOpenValues ? undefined : resolvedDefaultOpenValues
+      }
       onValueChange={handleOpenValuesChange}
       className="flex min-h-0 flex-col gap-2"
     >
@@ -76,7 +78,7 @@ export function RunInstructionsAccordion({
                 </span>
               </Accordion.Trigger>
             </Accordion.Header>
-            <Accordion.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+            <Accordion.Content className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
               <div
                 data-testid={`${item.triggerTestId}-content`}
                 className="border-t border-setta-200/70 px-2 py-2 dark:border-setta-800/70"

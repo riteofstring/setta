@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { SettaBackendLogEvent } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
 import {
   applyBackendLogColumnResize,
   BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,

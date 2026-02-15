@@ -22,13 +22,13 @@ import { SettaBackendLogEvent } from "utils/generatedTypes";
 
 type BackendLogSeverity = SettaBackendLogEvent["severity"];
 
-export type BackendLogColumnWidths = {
+type BackendLogColumnWidths = {
   timestamp: number;
   severity: number;
   project: number;
 };
 
-export type BackendLogColumnWidthName = keyof BackendLogColumnWidths;
+type BackendLogColumnWidthName = keyof BackendLogColumnWidths;
 
 const SEVERITY_ORDER: Record<BackendLogSeverity, number> = {
   info: 0,
@@ -454,7 +454,10 @@ function LogLines({
       data-testid="backend-log-grid-scroll-shell"
       className="flex min-h-0 flex-1 overflow-x-auto overflow-y-hidden"
     >
-      <div className="flex min-h-0 flex-1 flex-col" style={{ minWidth: listWidth }}>
+      <div
+        className="flex min-h-0 flex-1 flex-col"
+        style={{ minWidth: listWidth }}
+      >
         <LogColumnHeader
           gridTemplateColumns={gridTemplateColumns}
           onResizeColumn={onResizeColumn}
@@ -474,7 +477,11 @@ function LogLines({
               copyFeedback,
               onCopyMessage,
             }}
-            style={{ height: listHeight, width: listWidth, overflowX: "hidden" }}
+            style={{
+              height: listHeight,
+              width: listWidth,
+              overflowX: "hidden",
+            }}
           />
         </div>
       </div>
@@ -498,7 +505,10 @@ function LogColumnHeader({
       className="sticky top-0 z-10 grid items-center gap-2 border-b border-setta-200 bg-setta-50 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-setta-500 dark:border-setta-800 dark:bg-setta-950 dark:text-setta-400"
       style={{ gridTemplateColumns }}
     >
-      <LogColumnHeaderCell dataTestId="backend-log-col-header-time" label="Time">
+      <LogColumnHeaderCell
+        dataTestId="backend-log-col-header-time"
+        label="Time"
+      >
         <LogColumnResizeHandle
           dataTestId="backend-log-resize-timestamp"
           label="Resize backend log time column"
@@ -628,7 +638,9 @@ function BackendLogRow({
       style={{ ...style, gridTemplateColumns }}
       title={event.message}
     >
-      <span className="truncate text-setta-400 dark:text-setta-500">{time}</span>
+      <span className="truncate text-setta-400 dark:text-setta-500">
+        {time}
+      </span>
       <span className={`truncate ${severityClassName}`}>{event.severity}</span>
       <span
         className="truncate text-setta-500 dark:text-setta-400"
@@ -641,8 +653,8 @@ function BackendLogRow({
         type="button"
         data-testid="backend-log-copy-message"
         data-copy-status={copyStatus ?? "idle"}
-        className={`inline-flex items-center justify-end rounded p-1 opacity-0 pointer-events-none transition-opacity duration-100 group-hover/backend-log-row:opacity-100 group-hover/backend-log-row:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto hover:bg-setta-100 hover:text-setta-950 dark:hover:bg-setta-700 dark:hover:text-setta-50 ${copyButtonClassName} ${
-          copyStatus ? "opacity-100 pointer-events-auto" : ""
+        className={`pointer-events-none inline-flex items-center justify-end rounded p-1 opacity-0 transition-opacity duration-100 hover:bg-setta-100 hover:text-setta-950 focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/backend-log-row:pointer-events-auto group-hover/backend-log-row:opacity-100 dark:hover:bg-setta-700 dark:hover:text-setta-50 ${copyButtonClassName} ${
+          copyStatus ? "pointer-events-auto opacity-100" : ""
         }`}
         onClick={() => onCopyMessage(event.id, event.message)}
         title={copyStatusTitle}
