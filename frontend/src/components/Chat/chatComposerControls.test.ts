@@ -1,11 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildChatSlashCommands,
   CREATE_PROJECT_STARTER_PROMPT,
+  executeManagedChatSlashCommand,
   formatSlashCommandHelp,
   getSlashCommandSuggestions,
   parseSlashCommand,
   resolvePermissionModeArg,
+  resolveToggleArg,
 } from "./chatComposerControls";
 
 describe("chatComposerControls", () => {
@@ -103,5 +105,149 @@ describe("chatComposerControls", () => {
   it("rejects unknown permission mode args", () => {
     expect(resolvePermissionModeArg(undefined)).toBeNull();
     expect(resolvePermissionModeArg("safe")).toBeNull();
+  });
+
+  it("parses search toggle args", () => {
+    expect(resolveToggleArg(undefined, true)).toBe(false);
+    expect(resolveToggleArg("on", false)).toBe(true);
+    expect(resolveToggleArg("OFF", true)).toBe(false);
+    expect(resolveToggleArg("maybe", true)).toBeNull();
+  });
+
+  it("executes shared managed-chat slash command handlers", async () => {
+    const onStartNewChat = vi.fn();
+    const onResumeLatestChat = vi.fn(async () => true);
+    const onSetPermissionMode = vi.fn();
+    const onSetSearchEnabled = vi.fn();
+    const slashCommands = buildChatSlashCommands({
+      model: true,
+      permissions: true,
+      search: true,
+    });
+
+    const newResult = await executeManagedChatSlashCommand({
+      command: { action: "new", args: [] },
+      slashCommands,
+      onSetPermissionMode,
+      onStartNewChat,
+      onResumeLatestChat,
+      resumeFeedback: {
+        success: "Resumed.",
+        notFound: "No chat.",
+      },
+      modelFeedback: "Model picker",
+      searchEnabled: true,
+      onSetSearchEnabled,
+    });
+    expect(newResult).toEqual({ feedback: "Started a new chat thread." });
+    expect(onStartNewChat).toHaveBeenCalledTimes(1);
+
+    const resumeResult = await executeManagedChatSlashCommand({
+      command: { action: "resume", args: [] },
+      slashCommands,
+      onSetPermissionMode,
+      onStartNewChat,
+      onResumeLatestChat,
+      resumeFeedback: {
+        success: "Resumed.",
+        notFound: "No chat.",
+      },
+      modelFeedback: "Model picker",
+      searchEnabled: true,
+      onSetSearchEnabled,
+    });
+    expect(resumeResult).toEqual({ feedback: "Resumed." });
+
+    const permissionsResult = await executeManagedChatSlashCommand({
+      command: { action: "permissions", args: ["yolo"] },
+      slashCommands,
+      onSetPermissionMode,
+      onStartNewChat,
+      onResumeLatestChat,
+      resumeFeedback: {
+        success: "Resumed.",
+        notFound: "No chat.",
+      },
+      modelFeedback: "Model picker",
+      searchEnabled: true,
+      onSetSearchEnabled,
+    });
+    expect(permissionsResult).toEqual({ feedback: "Permissions set to yolo." });
+    expect(onSetPermissionMode).toHaveBeenCalledWith("yolo");
+
+    const searchResult = await executeManagedChatSlashCommand({
+      command: { action: "search", args: ["off"] },
+      slashCommands,
+      onSetPermissionMode,
+      onStartNewChat,
+      onResumeLatestChat,
+      resumeFeedback: {
+        success: "Resumed.",
+        notFound: "No chat.",
+      },
+      modelFeedback: "Model picker",
+      searchEnabled: true,
+      onSetSearchEnabled,
+    });
+    expect(searchResult).toEqual({ feedback: "Search disabled." });
+    expect(onSetSearchEnabled).toHaveBeenCalledWith(false);
+
+    const modelResult = await executeManagedChatSlashCommand({
+      command: { action: "model", args: [] },
+      slashCommands,
+      onSetPermissionMode,
+      onStartNewChat,
+      onResumeLatestChat,
+      resumeFeedback: {
+        success: "Resumed.",
+        notFound: "No chat.",
+      },
+      modelFeedback: "Model picker",
+      searchEnabled: true,
+      onSetSearchEnabled,
+    });
+    expect(modelResult).toEqual({
+      feedback: "Model picker",
+      keepInput: true,
+    });
+  });
+
+  it("returns false for unavailable shared managed-chat commands", async () => {
+    const onSetPermissionMode = vi.fn();
+    const onStartNewChat = vi.fn();
+    const onResumeLatestChat = vi.fn(async () => false);
+    const slashCommands = buildChatSlashCommands({
+      model: false,
+      permissions: true,
+      search: false,
+    });
+
+    const searchResult = await executeManagedChatSlashCommand({
+      command: { action: "search", args: [] },
+      slashCommands,
+      onSetPermissionMode,
+      onStartNewChat,
+      onResumeLatestChat,
+      resumeFeedback: {
+        success: "Resumed.",
+        notFound: "No chat.",
+      },
+      modelFeedback: null,
+    });
+    expect(searchResult).toBe(false);
+
+    const modelResult = await executeManagedChatSlashCommand({
+      command: { action: "model", args: [] },
+      slashCommands,
+      onSetPermissionMode,
+      onStartNewChat,
+      onResumeLatestChat,
+      resumeFeedback: {
+        success: "Resumed.",
+        notFound: "No chat.",
+      },
+      modelFeedback: null,
+    });
+    expect(modelResult).toBe(false);
   });
 });

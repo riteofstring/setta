@@ -25,6 +25,23 @@ export function resolvePermissionModeArg(
   return null;
 }
 
+export function resolveToggleArg(
+  rawArg: string | undefined,
+  currentValue: boolean,
+): boolean | null {
+  if (!rawArg) {
+    return !currentValue;
+  }
+  const normalized = rawArg.trim().toLowerCase();
+  if (["on", "true", "enable", "enabled", "1"].includes(normalized)) {
+    return true;
+  }
+  if (["off", "false", "disable", "disabled", "0"].includes(normalized)) {
+    return false;
+  }
+  return null;
+}
+
 export type ChatSlashCommandAction =
   | "new"
   | "resume"
@@ -39,6 +56,19 @@ export type ChatSlashCommandDefinition = {
   summary: string;
 };
 
+export type ChatSlashCommandInput = {
+  action: ChatSlashCommandAction;
+  args: string[];
+};
+
+export type ChatSlashCommandExecutionResult =
+  | boolean
+  | {
+      handled?: boolean;
+      feedback?: string;
+      keepInput?: boolean;
+    };
+
 type ParsedSlashCommand = {
   command: string;
   action: ChatSlashCommandAction;
@@ -49,6 +79,22 @@ type ChatSlashCommandCapabilities = {
   model?: boolean;
   permissions?: boolean;
   search?: boolean;
+};
+
+type ManagedChatSlashCommandArgs = {
+  command: ChatSlashCommandInput;
+  slashCommands: ChatSlashCommandDefinition[];
+  onSetPermissionMode: (nextMode: ChatPermissionModeValue) => void;
+  onStartNewChat: () => void;
+  onResumeLatestChat: () => Promise<boolean>;
+  resumeFeedback: {
+    success: string;
+    notFound: string;
+  };
+  newFeedback?: string;
+  modelFeedback?: string | null;
+  searchEnabled?: boolean;
+  onSetSearchEnabled?: (nextValue: boolean) => void;
 };
 
 const CHAT_SLASH_COMMAND_DEFINITIONS: Record<
@@ -110,6 +156,76 @@ export function formatSlashCommandHelp(
   return `Commands: ${commandList}.`;
 }
 
+export async function executeManagedChatSlashCommand({
+  command,
+  slashCommands,
+  onSetPermissionMode,
+  onStartNewChat,
+  onResumeLatestChat,
+  resumeFeedback,
+  newFeedback,
+  modelFeedback,
+  searchEnabled,
+  onSetSearchEnabled,
+}: ManagedChatSlashCommandArgs): Promise<ChatSlashCommandExecutionResult> {
+  if (command.action === "new") {
+    onStartNewChat();
+    return { feedback: newFeedback ?? "Started a new chat thread." };
+  }
+  if (command.action === "resume") {
+    const resumed = await onResumeLatestChat();
+    return resumed
+      ? { feedback: resumeFeedback.success }
+      : {
+          feedback: resumeFeedback.notFound,
+          keepInput: true,
+        };
+  }
+  if (command.action === "permissions") {
+    const nextMode = resolvePermissionModeArg(command.args[0]);
+    if (!nextMode) {
+      return {
+        feedback: "Usage: /permissions minimal|yolo|config_toml_custom",
+        keepInput: true,
+      };
+    }
+    onSetPermissionMode(nextMode);
+    return { feedback: `Permissions set to ${nextMode}.` };
+  }
+  if (command.action === "search") {
+    if (
+      typeof searchEnabled !== "boolean" ||
+      typeof onSetSearchEnabled !== "function"
+    ) {
+      return false;
+    }
+    const nextValue = resolveToggleArg(command.args[0], searchEnabled);
+    if (nextValue === null) {
+      return {
+        feedback: "Usage: /search on|off",
+        keepInput: true,
+      };
+    }
+    onSetSearchEnabled(nextValue);
+    return { feedback: `Search ${nextValue ? "enabled" : "disabled"}.` };
+  }
+  if (command.action === "model") {
+    if (!modelFeedback) {
+      return false;
+    }
+    return {
+      feedback: modelFeedback,
+      keepInput: true,
+    };
+  }
+  if (command.action === "help") {
+    return {
+      feedback: formatSlashCommandHelp(slashCommands),
+    };
+  }
+  return false;
+}
+
 export const CHAT_SLASH_COMMANDS: ChatSlashCommandDefinition[] =
   buildChatSlashCommands();
 
@@ -123,7 +239,12 @@ export function parseSlashCommand(
   if (!trimmed.startsWith("/")) {
     return null;
   }
-  const [rawCommand, ...args] = trimmed.split(/\s+/u);
+  const parts = trimmed.split(/\s+/u);
+  const rawCommand = parts[0];
+  if (!rawCommand) {
+    return null;
+  }
+  const args = parts.slice(1);
   const command = rawCommand.toLowerCase();
   const definition = commands.find((entry) => entry.command === command);
   if (!definition) {

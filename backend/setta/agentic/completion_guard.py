@@ -13,16 +13,26 @@ _COMPLETION_CLAIM_RE = re.compile(
     r"\b(done|completed?|finished|all set|ready to ship)\b", re.IGNORECASE
 )
 _CHECK_RE = re.compile(
-    r"\b(check|checks|test|tests|lint|type ?check|verify|verification|error check)\b",
+    (
+        r"\b("
+        r"check|checks|test|tests|testing|lint|type ?check|verify|verification|error check|"
+        r"pytest|ruff|pyright|mypy|vitest|playwright|jest|tsc"
+        r")\b"
+    ),
     re.IGNORECASE,
 )
 _NON_CREATION_TASK_SWITCH_RE = re.compile(
     (
         r"^\s*(?:can you|could you|would you|please)?\s*"
-        r"(?:explain|summari[sz]e|describe|review|debug|investigate|analy[sz]e)\b"
+        r"(?:"
+        r"explain|summari[sz]e|describe|review|debug|investigate|analy[sz]e|"
+        r"fix|refactor|rename|optimi[sz]e|rewrite|improve|clean(?:\s+up)?|"
+        r"document|test|profile|migrate|update|modify|implement|remove|delete|move"
+        r")\b"
     ),
     re.IGNORECASE,
 )
+_CREATION_CLARIFICATION_RE = re.compile(r"^\s*(?:how|what|why)\b", re.IGNORECASE)
 _PASS_RE = re.compile(
     r"\b(pass(?:ed)?|success(?:ful(?:ly)?)?|no errors?)\b",
     re.IGNORECASE,
@@ -77,18 +87,23 @@ def _assistant_claims_completion(text: str) -> bool:
 
 
 def _resolve_creation_flow_start_index(messages: list[Any]) -> int | None:
-    for index in range(len(messages) - 1, -1, -1):
-        message = messages[index]
+    creation_start_index: int | None = None
+    for index, message in enumerate(messages):
         if _normalize_role(message) != "user":
             continue
         text = _extract_text_from_message(message)
         if not text:
             continue
         if _is_creation_intent(text):
-            return index
+            creation_start_index = index
+            continue
+        if creation_start_index is None:
+            continue
+        if _is_creation_clarification(text):
+            continue
         if _is_explicit_non_creation_task_switch(text):
-            return None
-    return None
+            creation_start_index = None
+    return creation_start_index
 
 
 def _is_creation_intent(text: str) -> bool:
@@ -97,6 +112,10 @@ def _is_creation_intent(text: str) -> bool:
 
 def _is_explicit_non_creation_task_switch(text: str) -> bool:
     return bool(_NON_CREATION_TASK_SWITCH_RE.search(text))
+
+
+def _is_creation_clarification(text: str) -> bool:
+    return bool(_CREATION_CLARIFICATION_RE.search(text))
 
 
 def _resolve_verification_status(

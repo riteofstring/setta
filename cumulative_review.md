@@ -113,3 +113,29 @@ Implemented the latest consolidated review fixes across completion-guard scoping
 - Ruff check on changed backend/test files passed.
 - ESLint targeted run remains blocked in this environment due missing `@eslint/js` resolution from `frontend/eslint.config.js`.
 - CDP visual verification completed in live app session: unknown slash command shows local feedback and does not trigger `getLLMResponse`.
+
+## 2026-02-17 11:59:35 PST
+
+### Summary
+Implemented the consolidated review fixes from `review1.md`/`review2.md`/`review3.md` across completion-guard correctness, chat history engine compatibility, workspace Python starter reliability, slash-command deduplication, and section-history polling behavior, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Expanded completion-guard verification detection to recognize common check tool names (`pytest`, `ruff`, `pyright`, `mypy`, `vitest`, `playwright`, `jest`, `tsc`) and other common check wording.
+- Reworked completion-guard create/scaffold scope detection to follow active user intent and correctly exit scope on non-creation pivots (`refactor`, `fix`, `optimize`, etc.).
+- Added completion-guard regressions for common check-tool phrasing and non-creation task-switch pivots.
+- Added `runType` and `engineConfigId` metadata to chat history entries and introduced compatibility filtering in history builders.
+- Wired project and section chat history/resume flows to the active compatibility context (run type + engine config), preventing cross-engine history resume mismatches.
+- Added history regression coverage for compatibility filtering and run metadata propagation.
+- Added workspace-root identity tracking for project chat starter prompt scanning and made Python visibility conservative by resetting false at scan start/failure.
+- Added Playwright coverage for workspace-root change behavior where a failed/non-Python scan clears Python-only starter visibility.
+- Gated managed section-history interval polling behind active running-history entries, while preserving immediate refresh when History opens.
+- Added Playwright coverage validating that idle history views do not continue polling.
+- Extracted shared managed-chat slash command execution logic and reused it in both Project Chat and managed Section Chat to reduce duplication/drift risk.
+- Made `ChatInput` search control wiring optional, so hidden/disabled search surfaces no longer require dead `onSearchEnabledChange` handlers.
+
+### Test and verification status
+- Backend pytest: targeted completion-guard suite passed (`tests/agentic/test_completion_guard.py`).
+- Frontend Vitest: targeted suites passed (`chatComposerControls`, `chatHistory`, `ChatInput`, `chatAreaPlanModeBadge`).
+- Playwright: targeted e2e suites passed (`chat-composer-controls`, `project-ai-chat-root-scan`).
+- `tsc --noEmit` still reports existing repo-wide TypeScript errors outside this change set.
+- CDP visual verification completed in a live session (Project AI Chat main state/history toggle/control visibility checks).

@@ -7,6 +7,7 @@ import { ChatMessageList } from "components/Chat/ChatMessages";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import {
   buildChatSlashCommands,
+  executeManagedChatSlashCommand,
   formatSlashCommandHelp,
   resolvePermissionModeArg,
   type ChatPermissionModeValue,
@@ -43,7 +44,11 @@ import {
   buildBranchIndexFromBranches,
   ensureChatBranchState,
 } from "state/actions/chatBranches";
-import { buildChatHistoryEntries } from "state/actions/chatHistory";
+import {
+  buildChatHistoryEntries,
+  type ChatHistoryCompatibility,
+  type ChatRunType,
+} from "state/actions/chatHistory";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -226,10 +231,24 @@ function getHistoryPlaceholderText(
 function toSortedHistoryEntries(
   runs: Array<AgentRun>,
   sectionId: string,
+  compatibility: ChatHistoryCompatibility | null,
 ): Array<ChatSectionHistoryEntry> {
-  return buildChatHistoryEntries(runs, { sectionId }).sort(
-    (left, right) => right.lastUpdatedMs - left.lastUpdatedMs,
-  );
+  return buildChatHistoryEntries(runs, {
+    sectionId,
+    compatibility,
+  }).sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs);
+}
+
+function resolveManagedChatRunType(
+  engineType: EngineTypeEnum | null,
+): ChatRunType | null {
+  if (engineType === EngineTypeEnum.external_agent) {
+    return "external_agent";
+  }
+  if (engineType === EngineTypeEnum.setta_llm) {
+    return "llm_chat";
+  }
+  return null;
 }
 
 export function ChatArea({ sectionId }: { sectionId: string }) {
@@ -1038,10 +1057,6 @@ function ManagedChatArea({
     },
     shallow,
   );
-  const sectionHistoryEntries = useMemo(
-    () => toSortedHistoryEntries(agentRuns, sectionId),
-    [agentRuns, sectionId],
-  );
   const branchIndex = useChatBranchIndex(typeof chatId === "string");
   const branchInfoByMessage = useMemo(() => {
     if (typeof chatId !== "string") {
@@ -1102,6 +1117,24 @@ function ManagedChatArea({
   }, [effectiveEngineConfigId, engineConfigs]);
   const engineType = selectedEngineConfig?.engineType ?? null;
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
+    const runType = resolveManagedChatRunType(engineType);
+    if (!runType) {
+      return null;
+    }
+    return {
+      runType,
+      engineConfigId: effectiveEngineConfigId ?? null,
+    };
+  }, [effectiveEngineConfigId, engineType]);
+  const sectionHistoryEntries = useMemo(
+    () => toSortedHistoryEntries(agentRuns, sectionId, historyCompatibility),
+    [agentRuns, historyCompatibility, sectionId],
+  );
+  const hasRunningHistoryEntry = useMemo(
+    () => sectionHistoryEntries.some((entry) => entry.waitingForResponse),
+    [sectionHistoryEntries],
+  );
   const selectedLLMConfigId = useMemo(() => {
     if (!selectedEngineConfig) {
       return null;
@@ -1205,13 +1238,16 @@ function ManagedChatArea({
       return;
     }
     void loadAgentRuns();
+    if (!hasRunningHistoryEntry) {
+      return;
+    }
     const intervalId = window.setInterval(() => {
       void loadAgentRuns();
     }, 5000);
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [showHistory]);
+  }, [hasRunningHistoryEntry, showHistory]);
 
   const setChatId = useCallback(
     (next: ChatSectionChatIdUpdate) => {
@@ -1490,6 +1526,7 @@ function ManagedChatArea({
     const latestEntry = toSortedHistoryEntries(
       useAIStore.getState().agentRuns,
       sectionId,
+      historyCompatibility,
     ).find((entry) => entry.chatId !== chatId);
     if (!latestEntry) {
       return false;
@@ -1497,57 +1534,35 @@ function ManagedChatArea({
     setChatId(latestEntry.chatId);
     setShowHistory(false);
     return true;
-  }, [chatId, sectionId, setChatId]);
+  }, [chatId, historyCompatibility, sectionId, setChatId]);
 
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
-      if (command.action === "new") {
-        handleNewChatStart();
-        return { feedback: "Started a new chat thread." };
-      }
-      if (command.action === "resume") {
-        const resumed = await handleResumeLatestChat();
-        return resumed
-          ? { feedback: "Resumed the latest section chat." }
-          : {
-              feedback: "No previous section chat found to resume.",
-              keepInput: true,
-            };
-      }
-      if (command.action === "permissions") {
-        const nextMode = resolvePermissionModeArg(command.args[0]);
-        if (!nextMode) {
-          return {
-            feedback: "Usage: /permissions minimal|yolo|config_toml_custom",
-            keepInput: true,
-          };
-        }
-        return updateExecutionSettings(
-          {
-            permissionMode: nextMode,
-            searchEnabled,
-          },
-          `Permissions set to ${nextMode}.`,
-        );
-      }
-      if (command.action === "model") {
-        return {
-          feedback:
-            "Model selection is configured in chat settings for this section.",
-          keepInput: true,
-        };
-      }
-      if (command.action === "help") {
-        return {
-          feedback: formatSlashCommandHelp(slashCommands),
-        };
-      }
-      return false;
+      return executeManagedChatSlashCommand({
+        command,
+        slashCommands,
+        onStartNewChat: handleNewChatStart,
+        onResumeLatestChat: handleResumeLatestChat,
+        resumeFeedback: {
+          success: "Resumed the latest section chat.",
+          notFound: "No previous section chat found to resume.",
+        },
+        onSetPermissionMode: (nextMode) => {
+          updateExecutionSettings(
+            {
+              permissionMode: nextMode,
+              searchEnabled,
+            },
+            `Permissions set to ${nextMode}.`,
+          );
+        },
+        modelFeedback:
+          "Model selection is configured in chat settings for this section.",
+      });
     },
     [
       handleNewChatStart,
       handleResumeLatestChat,
-      permissionMode,
       searchEnabled,
       slashCommands,
       updateExecutionSettings,
@@ -1580,8 +1595,8 @@ function ManagedChatArea({
     () => !waitingForResponse && hasPendingToolInteraction(messages),
     [messages, waitingForResponse],
   );
-  const executionControls = useMemo(
-    () => ({
+  const executionControls = useMemo(() => {
+    const baseControls = {
       permissionMode,
       searchEnabled,
       onPermissionModeChange: (nextMode: ChatPermissionModeValue) => {
@@ -1593,6 +1608,12 @@ function ManagedChatArea({
           `Permissions set to ${nextMode}.`,
         );
       },
+    };
+    if (!showSearchExecutionControl) {
+      return baseControls;
+    }
+    return {
+      ...baseControls,
       onSearchEnabledChange: (nextValue: boolean) => {
         updateExecutionSettings(
           {
@@ -1602,9 +1623,13 @@ function ManagedChatArea({
           `Search ${nextValue ? "enabled" : "disabled"}.`,
         );
       },
-    }),
-    [permissionMode, searchEnabled, updateExecutionSettings],
-  );
+    };
+  }, [
+    permissionMode,
+    searchEnabled,
+    showSearchExecutionControl,
+    updateExecutionSettings,
+  ]);
   const handleProviderDictationTranscribe = useCallback(
     async (audioBlob: Blob) => {
       if (!effectiveEngineConfigId || isExternalEngine) {

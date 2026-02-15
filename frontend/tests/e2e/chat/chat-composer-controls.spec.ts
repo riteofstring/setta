@@ -10,6 +10,11 @@ import {
   setOverviewTab,
 } from "../helpers";
 
+type EngineConfigSummary = {
+  id: string;
+  engineType: string;
+};
+
 test.describe.serial("chat composer controls", () => {
   test("chat sections keep a compact composer with permission-only footer controls", async ({
     page,
@@ -162,10 +167,10 @@ test.describe.serial("chat composer controls", () => {
       quickActionButtons.push(planNextStepsButton);
       await expectButtonsStackedVertically(quickActionButtons);
 
-      const firstButtonClass = await quickActionButtons[0]?.getAttribute("class");
-      const secondButtonClass = await quickActionButtons[1]?.getAttribute(
-        "class",
-      );
+      const firstButtonClass =
+        await quickActionButtons[0]?.getAttribute("class");
+      const secondButtonClass =
+        await quickActionButtons[1]?.getAttribute("class");
       expect(firstButtonClass).toBeTruthy();
       expect(firstButtonClass).toBe(secondButtonClass);
 
@@ -211,6 +216,143 @@ test.describe.serial("chat composer controls", () => {
       await expect(searchButton).toBeVisible();
       await searchButton.click();
       await expect(searchButton).toHaveAttribute("aria-pressed", "false");
+    } finally {
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("project chat resume ignores incompatible engine history entries", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+
+    const backendOrigin =
+      process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+    const engineConfigsResponse = await page.request.get(
+      `${backendOrigin}/api/getEngineConfigs`,
+    );
+    expect(engineConfigsResponse.ok()).toBe(true);
+    const engineConfigs =
+      (await engineConfigsResponse.json()) as EngineConfigSummary[];
+    const activeEngineId =
+      engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
+      null;
+    if (!activeEngineId) {
+      throw new Error("Missing managed LLM engine config for history test.");
+    }
+
+    const matchingChatId = "chat-resume-match";
+    const mismatchedChatId = "chat-resume-mismatch";
+    await page.route("**/api/getAgentRuns", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "run-match",
+            profileId: null,
+            status: "completed",
+            startedAt: "2026-01-01T00:00:00Z",
+            finishedAt: "2026-01-01T00:00:01Z",
+            events: [],
+            inputs: {
+              runType: "llm_chat",
+              chatId: matchingChatId,
+              engineConfigId: activeEngineId,
+              messages: [
+                {
+                  id: "msg-match",
+                  role: "user",
+                  content: [{ type: "text", text: "matching history entry" }],
+                  attachments: [],
+                },
+              ],
+            },
+            outputs: {},
+          },
+          {
+            id: "run-mismatch",
+            profileId: null,
+            status: "completed",
+            startedAt: "2026-01-02T00:00:00Z",
+            finishedAt: "2026-01-02T00:00:01Z",
+            events: [],
+            inputs: {
+              runType: "llm_chat",
+              chatId: mismatchedChatId,
+              engineConfigId: "engine-incompatible",
+              messages: [
+                {
+                  id: "msg-mismatch",
+                  role: "user",
+                  content: [{ type: "text", text: "mismatch history entry" }],
+                  attachments: [],
+                },
+              ],
+            },
+            outputs: {},
+          },
+        ]),
+      });
+    });
+    await page.route("**/api/getLLMChat", async (route) => {
+      const request = route.request().postDataJSON() as
+        | { chatId?: string }
+        | undefined;
+      const requestedChatId = request?.chatId;
+      const replyText =
+        requestedChatId === matchingChatId
+          ? "Resumed matching chat"
+          : "Resumed mismatched chat";
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [
+            {
+              id: "msg-resume",
+              role: "assistant",
+              content: [{ type: "text", text: replyText }],
+            },
+          ],
+          waitingForResponse: false,
+          llmConfig: null,
+        }),
+      });
+    });
+
+    try {
+      await page.reload();
+      await page.waitForSelector(".react-flow__pane");
+
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+
+      await overviewPane.getByRole("button", { name: "View History" }).click();
+      await expect(
+        overviewPane.getByText("matching history entry"),
+      ).toBeVisible();
+      await expect(
+        overviewPane.getByText("mismatch history entry"),
+      ).toHaveCount(0);
+
+      await overviewPane.getByRole("button", { name: "View History" }).click();
+      const input = overviewPane.getByPlaceholder("Type a message...");
+      await input.fill("/resume");
+      await input.press("Enter");
+
+      await expect(
+        overviewPane.getByText("Resumed matching chat"),
+      ).toBeVisible();
+      await expect(
+        overviewPane.getByText("Resumed mismatched chat"),
+      ).toHaveCount(0);
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
@@ -282,7 +424,9 @@ test.describe.serial("chat composer controls", () => {
       });
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
-      await expect(section.getByRole("button", { name: "History" })).toBeVisible();
+      await expect(
+        section.getByRole("button", { name: "History" }),
+      ).toBeVisible();
       const initialRequestCount = getAgentRunsRequestCount;
       historyRefreshArmed = true;
       await section.getByRole("button", { name: "History" }).click();
@@ -290,6 +434,82 @@ test.describe.serial("chat composer controls", () => {
         .poll(() => getAgentRunsRequestCount, { timeout: 15000 })
         .toBeGreaterThan(initialRequestCount);
       await expect(section.getByText("History refreshed entry")).toBeVisible();
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("chat section history avoids polling while all runs are idle", async ({
+    page,
+  }) => {
+    let idleSectionId: string | null = null;
+    let getAgentRunsRequestCount = 0;
+    await page.route("**/api/getAgentRuns", async (route) => {
+      getAgentRunsRequestCount += 1;
+      const runs =
+        idleSectionId === null
+          ? []
+          : [
+              {
+                id: "run-history-idle",
+                profileId: null,
+                status: "completed",
+                startedAt: "2026-02-01T00:00:00Z",
+                finishedAt: "2026-02-01T00:00:01Z",
+                events: [],
+                inputs: {
+                  runType: "llm_chat",
+                  chatId: "chat-history-idle",
+                  sectionId: idleSectionId,
+                  messages: [
+                    {
+                      id: "history-idle-message",
+                      role: "user",
+                      content: [{ type: "text", text: "Idle history entry" }],
+                      attachments: [],
+                    },
+                  ],
+                },
+                outputs: {},
+              },
+            ];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(runs),
+      });
+    });
+
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_chat_history_idle__",
+      );
+      idleSectionId = sectionId;
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        managed: true,
+        engineConfigId: null,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+      });
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      await section.getByRole("button", { name: "History" }).click();
+      await expect(section.getByText("Idle history entry")).toBeVisible();
+      const requestCountAfterOpen = getAgentRunsRequestCount;
+
+      await page.waitForTimeout(6200);
+      expect(getAgentRunsRequestCount).toBe(requestCountAfterOpen);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -303,7 +523,9 @@ function findSectionByName(page: Page, name: string): Locator {
     .first();
 }
 
-async function expectButtonsStackedVertically(buttons: Locator[]): Promise<void> {
+async function expectButtonsStackedVertically(
+  buttons: Locator[],
+): Promise<void> {
   if (buttons.length < 2) {
     throw new Error("Need at least two buttons to verify vertical stacking.");
   }

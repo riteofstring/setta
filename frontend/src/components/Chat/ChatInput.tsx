@@ -55,7 +55,7 @@ type ChatExecutionControls = {
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
   onPermissionModeChange: (next: ChatPermissionModeValue) => void;
-  onSearchEnabledChange: (next: boolean) => void;
+  onSearchEnabledChange?: (next: boolean) => void;
 };
 
 type ChatExecutionControlVisibility = {
@@ -567,7 +567,9 @@ export const ChatInput = memo(function ChatInput({
     executionControls && executionControlVisibility.permissionMode !== false,
   );
   const showSearchControl = Boolean(
-    executionControls && executionControlVisibility.search !== false,
+    executionControls &&
+      executionControlVisibility.search !== false &&
+      typeof executionControls.onSearchEnabledChange === "function",
   );
   const showExecutionControls = showPermissionControl || showSearchControl;
   const slashSuggestionsPositionClass =
@@ -1108,7 +1110,8 @@ export const ChatInput = memo(function ChatInput({
                 </DropdownMenu.Root>
               ) : null}
               {executionControls &&
-              executionControlVisibility.search !== false ? (
+              executionControlVisibility.search !== false &&
+              typeof executionControls.onSearchEnabledChange === "function" ? (
                 <button
                   type="button"
                   aria-pressed={executionControls.searchEnabled}
@@ -1119,7 +1122,7 @@ export const ChatInput = memo(function ChatInput({
                       : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
                   } disabled:cursor-not-allowed disabled:opacity-60`}
                   onClick={() =>
-                    executionControls.onSearchEnabledChange(
+                    executionControls.onSearchEnabledChange?.(
                       !executionControls.searchEnabled,
                     )
                   }

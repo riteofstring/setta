@@ -66,6 +66,20 @@ def test_completion_guard_allows_done_claim_after_passing_checks() -> None:
     assert _assistant_text(assistant_message) == "Done. Everything is complete."
 
 
+def test_completion_guard_allows_common_tool_name_verification_wording() -> None:
+    # Common check-tool phrasing should satisfy verification status detection.
+    prior_messages = [
+        _user_message("Create a project setup for this repo."),
+        _assistant_message("Ran pytest and ruff successfully."),
+    ]
+    assistant_message = _assistant_message("Done. Ready to ship.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Done. Ready to ship."
+
+
 def test_completion_guard_does_not_treat_generic_clean_language_as_passed_checks() -> (
     None
 ):
@@ -191,6 +205,51 @@ def test_completion_guard_ignores_older_creation_task_when_latest_user_is_non_cr
         _user_message("Create a new project setup."),
         _assistant_message("I ran tests and verification passed cleanly."),
         _user_message("Can you explain what this helper does?"),
+    ]
+    assistant_message = _assistant_message("Done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Done."
+
+
+def test_completion_guard_closes_creation_scope_for_refactor_task_switch() -> None:
+    # Refactor pivots should close prior creation gating scope.
+    prior_messages = [
+        _user_message("Create a new project scaffold."),
+        _assistant_message("I ran tests and verification passed cleanly."),
+        _user_message("Can you refactor the parser for readability?"),
+    ]
+    assistant_message = _assistant_message("Done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Done."
+
+
+def test_completion_guard_closes_creation_scope_for_imperative_fix_switch() -> None:
+    # Imperative non-creation tasks should close prior creation gating scope.
+    prior_messages = [
+        _user_message("Create a new project scaffold."),
+        _assistant_message("I ran tests and verification passed cleanly."),
+        _user_message("Fix this helper function only."),
+    ]
+    assistant_message = _assistant_message("Done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Done."
+
+
+def test_completion_guard_closes_creation_scope_for_optimize_task_switch() -> None:
+    # Optimize pivots should close prior creation gating scope.
+    prior_messages = [
+        _user_message("Create a new project scaffold."),
+        _assistant_message("I ran tests and verification passed cleanly."),
+        _user_message("Please optimize the tokenizer hot path."),
     ]
     assistant_message = _assistant_message("Done.")
 

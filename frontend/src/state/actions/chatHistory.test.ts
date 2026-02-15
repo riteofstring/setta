@@ -16,6 +16,9 @@ function buildRun({
   outputName,
   nameSource,
   sectionId,
+  runType,
+  engineConfigId,
+  status,
 }: {
   chatId: string;
   messageText: string;
@@ -25,20 +28,24 @@ function buildRun({
   outputName?: string;
   nameSource?: string;
   sectionId?: string;
+  runType?: "llm_chat" | "external_agent" | "scriptable_chat";
+  engineConfigId?: string | null;
+  status?: AgentRunStatusEnum;
 }): AgentRun {
   const timestamp = startedAt ?? "2024-01-01T00:00:00Z";
   return {
     id: `run-${chatId}-${messageText}`,
     profileId: null,
-    status: AgentRunStatusEnum.completed,
+    status: status ?? AgentRunStatusEnum.completed,
     startedAt: timestamp,
     finishedAt: timestamp,
     inputs: {
-      runType: "llm_chat",
+      runType: runType ?? "llm_chat",
       chatId,
       branchParentChatId,
       branchFromMessageId,
       sectionId,
+      engineConfigId,
       messages: [
         {
           id: `msg-${chatId}`,
@@ -149,5 +156,56 @@ describe("chatHistory", () => {
 
     expect(unscopedEntries).toHaveLength(1);
     expect(unscopedEntries[0]?.chatId).toBe("project-chat");
+  });
+
+  it("exposes run metadata for each history entry", () => {
+    const runs = [
+      buildRun({
+        chatId: "chat-a",
+        messageText: "A",
+        runType: "external_agent",
+        engineConfigId: "engine-external",
+      }),
+    ];
+
+    const entries = buildChatHistoryEntries(runs);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.runType).toBe("external_agent");
+    expect(entries[0]?.engineConfigId).toBe("engine-external");
+  });
+
+  it("filters history entries to the selected run type and engine config", () => {
+    const runs = [
+      buildRun({
+        chatId: "chat-match",
+        messageText: "Match",
+        runType: "llm_chat",
+        engineConfigId: "engine-a",
+      }),
+      buildRun({
+        chatId: "chat-wrong-engine",
+        messageText: "Wrong engine",
+        runType: "llm_chat",
+        engineConfigId: "engine-b",
+        startedAt: "2024-01-02T00:00:00Z",
+      }),
+      buildRun({
+        chatId: "chat-wrong-type",
+        messageText: "Wrong type",
+        runType: "external_agent",
+        engineConfigId: "engine-a",
+        startedAt: "2024-01-03T00:00:00Z",
+      }),
+    ];
+
+    const entries = buildChatHistoryEntries(runs, {
+      compatibility: {
+        runType: "llm_chat",
+        engineConfigId: "engine-a",
+      },
+    });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.chatId).toBe("chat-match");
   });
 });

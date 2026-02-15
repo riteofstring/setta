@@ -7,8 +7,7 @@ import { ChatMessageList } from "components/Chat/ChatMessages";
 import {
   CHAT_STARTER_PROMPTS,
   buildChatSlashCommands,
-  formatSlashCommandHelp,
-  resolvePermissionModeArg,
+  executeManagedChatSlashCommand,
   type ChatPermissionModeValue,
   type ChatStarterPrompt,
 } from "components/Chat/chatComposerControls";
@@ -39,7 +38,11 @@ import {
   transcribeChatAudio,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
-import { buildChatHistoryEntries } from "state/actions/chatHistory";
+import {
+  buildChatHistoryEntries,
+  type ChatHistoryCompatibility,
+  type ChatRunType,
+} from "state/actions/chatHistory";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
@@ -82,50 +85,92 @@ export function getDefaultProjectChatPermissionMode(
   return "minimal";
 }
 
-function resolveToggleArg(
-  rawArg: string | undefined,
-  currentValue: boolean,
-): boolean | null {
-  if (!rawArg) {
-    return !currentValue;
+function resolveProjectChatRunType(
+  engineType: EngineTypeEnum | null,
+): ChatRunType | null {
+  if (engineType === EngineTypeEnum.external_agent) {
+    return "external_agent";
   }
-  const normalized = rawArg.trim().toLowerCase();
-  if (["on", "true", "enable", "enabled", "1"].includes(normalized)) {
-    return true;
-  }
-  if (["off", "false", "disable", "disabled", "0"].includes(normalized)) {
-    return false;
+  if (engineType === EngineTypeEnum.setta_llm) {
+    return "llm_chat";
   }
   return null;
 }
 
+function useWorkspaceRootIdentity(
+  enabled: boolean,
+  projectConfigId: string,
+): string | null {
+  const [workspaceRootIdentity, setWorkspaceRootIdentity] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      setWorkspaceRootIdentity(null);
+      return;
+    }
+    let cancelled = false;
+
+    const refreshRootIdentity = async () => {
+      const rootResponse = await route_get_file_browser_root();
+      if (cancelled) {
+        return;
+      }
+      if (!rootResponse || rootResponse.status !== 200 || !rootResponse.data) {
+        setWorkspaceRootIdentity(null);
+        return;
+      }
+      const rootPath = rootResponse.data.rootPath.trim();
+      if (!rootPath) {
+        setWorkspaceRootIdentity(null);
+        return;
+      }
+      setWorkspaceRootIdentity((current) => {
+        if (current === rootPath) {
+          return current;
+        }
+        return rootPath;
+      });
+    };
+
+    void refreshRootIdentity();
+    const intervalId = window.setInterval(() => {
+      void refreshRootIdentity();
+    }, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [enabled, projectConfigId]);
+
+  return workspaceRootIdentity;
+}
+
 function useHasPythonInWorkspaceRoot(
   enabled: boolean,
-  workspaceIdentity: string,
+  workspaceRootIdentity: string | null,
 ): boolean {
   const [hasPython, setHasPython] = useState(false);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !workspaceRootIdentity) {
       setHasPython(false);
       return;
     }
     let cancelled = false;
 
     const load = async () => {
-      const rootResponse = await route_get_file_browser_root();
-      if (!rootResponse || rootResponse.status !== 200 || !rootResponse.data) {
-        return;
-      }
-      if (cancelled) {
-        return;
-      }
-      const rootPath = rootResponse.data.rootPath;
+      const rootPath = workspaceRootIdentity;
+      setHasPython(false);
       const cached = getCachedWorkspacePythonSignal(
         hasPythonInWorkspaceRootCache,
         rootPath,
       );
       if (cached !== null) {
+        if (cancelled) {
+          return;
+        }
         setHasPython(cached);
         return;
       }
@@ -141,6 +186,9 @@ function useHasPythonInWorkspaceRoot(
         contentsResponse.status !== 200 ||
         !Array.isArray(contentsResponse.data)
       ) {
+        if (!cancelled) {
+          setHasPython(false);
+        }
         return;
       }
       if (cancelled) {
@@ -159,17 +207,19 @@ function useHasPythonInWorkspaceRoot(
     return () => {
       cancelled = true;
     };
-  }, [enabled, workspaceIdentity]);
+  }, [enabled, workspaceRootIdentity]);
 
   return hasPython;
 }
 
 function toSortedProjectHistoryEntries(
   runs: Array<AgentRun>,
+  compatibility: ChatHistoryCompatibility | null,
 ): Array<ProjectChatHistoryEntry> {
-  return buildChatHistoryEntries(runs, { unscopedOnly: true }).sort(
-    (left, right) => right.lastUpdatedMs - left.lastUpdatedMs,
-  );
+  return buildChatHistoryEntries(runs, {
+    unscopedOnly: true,
+    compatibility,
+  }).sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs);
 }
 
 function EmptyChatState({
@@ -264,11 +314,25 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }));
   const showEmptyState = typeof chatId === "undefined";
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const hasPythonInWorkspaceRoot = useHasPythonInWorkspaceRoot(
+  const workspaceRootIdentity = useWorkspaceRootIdentity(
     showEmptyState,
     projectConfigId,
   );
+  const hasPythonInWorkspaceRoot = useHasPythonInWorkspaceRoot(
+    showEmptyState,
+    workspaceRootIdentity,
+  );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
+    const runType = resolveProjectChatRunType(engineType);
+    if (!runType) {
+      return null;
+    }
+    return {
+      runType,
+      engineConfigId: engineConfigId ?? null,
+    };
+  }, [engineConfigId, engineType]);
   useEffect(() => {
     if (!isExternalEngine) {
       setExecutionSettings((current) => {
@@ -390,76 +454,47 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     const currentChatId = typeof chatId === "string" ? chatId : null;
     const latestEntry = toSortedProjectHistoryEntries(
       useAIStore.getState().agentRuns,
+      historyCompatibility,
     ).find((entry) => entry.chatId !== currentChatId);
     if (!latestEntry) {
       return false;
     }
     setChatId(latestEntry.chatId);
     return true;
-  }, [chatId, setChatId]);
+  }, [chatId, historyCompatibility, setChatId]);
 
   const handleSlashCommand = useCallback(
     async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
-      if (command.action === "new") {
-        handleNewChatStart();
-        return { feedback: "Started a new chat thread." };
-      }
-      if (command.action === "resume") {
-        const resumed = await handleResumeLatestChat();
-        return resumed
-          ? { feedback: "Resumed the latest project chat." }
-          : {
-              feedback: "No previous project chat found to resume.",
-              keepInput: true,
-            };
-      }
-      if (command.action === "permissions") {
-        const nextMode = resolvePermissionModeArg(command.args[0]);
-        if (!nextMode) {
-          return {
-            feedback: "Usage: /permissions minimal|yolo|config_toml_custom",
-            keepInput: true,
-          };
-        }
-        return updateExecutionSettings(
-          {
-            permissionMode: nextMode,
-            searchEnabled: executionSettings.searchEnabled,
-          },
-          `Permissions set to ${nextMode}.`,
-        );
-      }
-      if (command.action === "search") {
-        const nextValue = resolveToggleArg(
-          command.args[0],
-          executionSettings.searchEnabled,
-        );
-        if (nextValue === null) {
-          return {
-            feedback: "Usage: /search on|off",
-            keepInput: true,
-          };
-        }
-        return updateExecutionSettings(
-          {
-            permissionMode: executionSettings.permissionMode,
-            searchEnabled: nextValue,
-          },
-          `Search ${nextValue ? "enabled" : "disabled"}.`,
-        );
-      }
-      if (command.action === "model") {
-        return {
-          feedback: "Use the model selector in the Project AI Chat toolbar.",
-          keepInput: true,
-        };
-      }
-      if (command.action === "help") {
-        return {
-          feedback: formatSlashCommandHelp(slashCommands),
-        };
-      }
-      return false;
+      return executeManagedChatSlashCommand({
+        command,
+        slashCommands,
+        onStartNewChat: handleNewChatStart,
+        onResumeLatestChat: handleResumeLatestChat,
+        resumeFeedback: {
+          success: "Resumed the latest project chat.",
+          notFound: "No previous project chat found to resume.",
+        },
+        onSetPermissionMode: (nextMode) => {
+          updateExecutionSettings(
+            {
+              permissionMode: nextMode,
+              searchEnabled: executionSettings.searchEnabled,
+            },
+            `Permissions set to ${nextMode}.`,
+          );
+        },
+        modelFeedback: "Use the model selector in the Project AI Chat toolbar.",
+        searchEnabled: executionSettings.searchEnabled,
+        onSetSearchEnabled: (nextValue) => {
+          updateExecutionSettings(
+            {
+              permissionMode: executionSettings.permissionMode,
+              searchEnabled: nextValue,
+            },
+            `Search ${nextValue ? "enabled" : "disabled"}.`,
+          );
+        },
+      });
     },
     [
       executionSettings.permissionMode,
