@@ -135,3 +135,80 @@ test("plugin codegen target selection persists across reload using real backend 
     await cleanupIsolatedProject(page, projectContext);
   }
 });
+
+test("run instructions shows and removes orphaned plugin codegen targets after plugin removal", async ({
+  page,
+}) => {
+  const targetId = "setta-fixture-backend-codegen:typescript";
+  const fixturePluginRoot = path.resolve(
+    process.cwd(),
+    "../tests/fixtures/plugins/backend-codegen",
+  );
+
+  await setOverviewTab(page, "RunInstructions");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: fixturePluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/rescan", {});
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const targetIdLabel = page.getByText(targetId).first();
+    await expect(targetIdLabel).toBeVisible();
+    const targetRow = targetIdLabel.locator(
+      "xpath=ancestor::div[contains(@class,'rounded')][1]",
+    );
+    const targetSwitch = targetRow.getByRole("switch").first();
+    const isChecked = (await targetSwitch.getAttribute("aria-checked")) === "true";
+    if (!isChecked) {
+      await targetSwitch.click();
+      await expect(targetSwitch).toHaveAttribute("aria-checked", "true");
+    }
+
+    await postBackend(page, "/plugins/unlink", {
+      pluginId: "setta-fixture-backend-codegen",
+      scope: "workspace",
+    });
+    await postBackend(page, "/plugins/rescan", {});
+
+    await page.route("**/api/plugins/runtime", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      if (Array.isArray(payload?.status?.plugins)) {
+        payload.status.plugins = payload.status.plugins.map(
+          (plugin: Record<string, unknown>) => ({
+            ...plugin,
+            registeredCodegenTargets: [],
+          }),
+        );
+      }
+      await route.fulfill({ response, json: payload });
+    });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await expect(page.getByText("Orphaned configured targets")).toBeVisible();
+    const orphanedTargetRow = page.getByTestId(
+      `orphaned-codegen-target-${targetId}`,
+    );
+    await expect(orphanedTargetRow).toBeVisible();
+    await page
+      .getByTestId(`remove-orphaned-codegen-target-${targetId}`)
+      .click();
+    await expect(orphanedTargetRow).toHaveCount(0);
+  } finally {
+    await postBackend(page, "/plugins/unlink", {
+      pluginId: "setta-fixture-backend-codegen",
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/rescan", {}).catch(() => null);
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});

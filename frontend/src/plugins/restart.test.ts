@@ -1,6 +1,7 @@
 import {
   buildPluginRestartActionPlan,
   getRestartRequiredPluginIds,
+  mapPluginRestartResponse,
 } from "plugins/restart";
 import {
   createPluginListEntry,
@@ -102,5 +103,53 @@ describe("plugin restart helpers", () => {
 
     const unavailable = buildPluginRestartActionPlan(null);
     expect(unavailable.mode).toBe("unavailable");
+  });
+
+  it("maps restart endpoint responses to accepted and manual-required outcomes", () => {
+    expect(
+      mapPluginRestartResponse({
+        status: 200,
+        hasResponse: true,
+        data: {
+          accepted: true,
+          mode: "programmatic",
+          command: null,
+          reason: null,
+        },
+      }),
+    ).toEqual({
+      kind: "accepted",
+    });
+
+    expect(
+      mapPluginRestartResponse({
+        status: 200,
+        hasResponse: true,
+        data: {
+          accepted: false,
+          mode: "programmatic",
+          command: "setta restart",
+          reason: "Programmatic restart request was rejected.",
+        },
+      }),
+    ).toEqual({
+      kind: "manual_required",
+      command: "setta restart",
+      reason: "Programmatic restart request was rejected.",
+      message:
+        "Manual restart required: setta restart. Programmatic restart request was rejected.",
+    });
+  });
+
+  it("maps non-success restart endpoint responses to request_failed", () => {
+    expect(
+      mapPluginRestartResponse({
+        status: 500,
+        hasResponse: true,
+        data: undefined,
+      }),
+    ).toEqual({
+      kind: "request_failed",
+    });
   });
 });

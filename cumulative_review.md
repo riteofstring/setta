@@ -269,3 +269,17 @@
 - Tightened fixture-runner DX for targeted loops: selector-only `pytest -k`/Playwright `--grep` runs without plugin hints now skip plugin fixture builds by default.
 - Expanded backend fixture route coverage and added/updated backend unit tests, frontend Vitest coverage, and targeted Playwright E2E coverage for all changed runtime/route/fixture-gating paths.
 - Verified changes with targeted runs (`pytest` subset: 352 passed, `vitest` subset: 90 passed, targeted Playwright spec: passing) and completed CDP visual verification of Plugins pane/discovery rendering.
+
+## 2026-02-16T15:42:52-08:00
+
+- Implemented the latest top-level `review*.md` fixes end-to-end while explicitly excluding backward-compatibility additions.
+- Normalized backend worker route proxy behavior by preserving duplicate response headers (including repeated `Set-Cookie`) and returning true empty bodies for no-content responses instead of JSON `null` payloads.
+- Added missing backend mutation-lock coverage for backend codegen target generation and reduced lock contention by moving plugin install/update candidate resolution work outside the mutation lock (state mutations remain serialized).
+- Fixed plugin codegen refresh resilience by skipping stale/missing plugin target registrations during refresh (log + continue) instead of failing the whole refresh cycle.
+- Added Run Instructions orphan-target UX for plugin codegen targets: orphaned configured targets are now surfaced and removable from the UI.
+- Consolidated restart-flow response handling into shared frontend mapping, removed legacy mode coercion behavior, and aligned banner + Plugins pane restart messaging.
+- Refactored Plugins pane helper logic into a dedicated helper module and tightened runtime summary typing to avoid nullable/string drift in status messaging.
+- Improved plugin runtime frontend determinism/performance by preserving backend plugin ordering, adding deterministic section-kind tie-break sorting, and reusing previous section snapshots when raw section payloads are unchanged.
+- Added/updated backend pytest coverage, frontend Vitest coverage, and Playwright E2E coverage for all changed paths (including orphaned codegen target lifecycle and restart messaging cases).
+- UX before/after: configured plugin codegen targets that lost runtime registration were previously invisible and hard to clean up; now they are explicitly listed as orphaned and removable inline.
+- DX before/after: restart result messaging and Plugins pane helper logic were split across duplicated implementations; now both use shared mapping/helpers, reducing drift and making regression tests more direct.

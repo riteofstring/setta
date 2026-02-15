@@ -1720,6 +1720,47 @@ class TestCodegenTargetsRunCommand:
             manager.shutdown()
             plugin_manager.shutdown_backend_plugins()
 
+    async def test_refresh_codegen_state_skips_stale_plugin_targets_after_plugin_shutdown(
+        self,
+    ) -> None:
+        plugin_manager = self._create_loaded_codegen_plugin_manager()
+        target_id = "setta-fixture-backend-codegen:typescript"
+        project_config = ProjectConfig(
+            name="PluginCodegenStaleRefresh",
+            codegenTargets=[ProjectCodegenPluginTarget(language=target_id)],
+        )
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=plugin_manager,
+        )
+        output_root = manager._plugin_codegen_output_root(project_config.name)
+        try:
+            await manager._refresh_codegen_state(project_state)
+            assert output_root.exists()
+
+            plugin_manager.shutdown_backend_plugins()
+
+            await manager._refresh_codegen_state(project_state)
+            target_state = manager._plugin_codegen_target_state_by_project_config.get(
+                project_config.id
+            )
+            assert target_state is None
+            assert not output_root.exists()
+        finally:
+            manager.shutdown()
+            plugin_manager.shutdown_backend_plugins()
+
     async def test_format_code_updates_watch_code_registry(self) -> None:
         code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.python)
         code_impl.code = "def greet( ):\n    return 1\n"

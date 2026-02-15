@@ -1269,13 +1269,51 @@ class BaseProjectManager(ABC):
                 )
         return plugin_targets
 
+    def _resolve_plugin_codegen_targets_for_refresh(
+        self,
+        codegen_targets: list[ProjectCodegenTarget],
+    ) -> tuple[list[ProjectCodegenPluginTarget], list[str]]:
+        plugin_targets: list[ProjectCodegenPluginTarget] = []
+        missing_targets: list[str] = []
+        for target in codegen_targets:
+            if target.language == ProjectCodegenLanguage.python:
+                continue
+            if not isinstance(target, ProjectCodegenPluginTarget):
+                raise TypeError("Expected plugin codegen target.")
+            plugin_targets.append(target)
+        if len(plugin_targets) == 0:
+            return ([], [])
+        if self.plugin_manager is None:
+            return ([], [target.language for target in plugin_targets])
+        resolved_targets: list[ProjectCodegenPluginTarget] = []
+        for target in plugin_targets:
+            if self.plugin_manager.has_backend_codegen_target(target.language):
+                resolved_targets.append(target)
+                continue
+            missing_targets.append(target.language)
+        return (resolved_targets, missing_targets)
+
     def _refresh_plugin_codegen_outputs(
         self,
         project_state: ProjectStateSingleConfig,
     ) -> None:
-        plugin_targets = self._resolve_plugin_codegen_targets(
-            project_state.projectConfig.codegenTargets
+        plugin_targets, missing_target_ids = (
+            self._resolve_plugin_codegen_targets_for_refresh(
+                project_state.projectConfig.codegenTargets
+            )
         )
+        if len(missing_target_ids) > 0:
+            missing_target_label = ", ".join(sorted(set(missing_target_ids)))
+            logger.warning(
+                "Skipping stale plugin codegen targets for project %s: %s",
+                project_state.projectConfig.name,
+                missing_target_label,
+            )
+        if len(plugin_targets) == 0 and len(missing_target_ids) > 0:
+            logger.warning(
+                "Project %s has configured plugin codegen targets with no active registrations.",
+                project_state.projectConfig.name,
+            )
         project_config_id = project_state.projectConfig.id
         output_root = self._plugin_codegen_output_root(project_state.projectConfig.name)
         previous_output_root = self._plugin_codegen_output_root_by_project_config.get(

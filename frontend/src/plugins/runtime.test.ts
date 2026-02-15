@@ -491,6 +491,40 @@ describe("plugin runtime helpers", () => {
     expect(clonedObjectSnapshot.nested).not.toBe(objectSnapshot.nested);
   });
 
+  it("reuses section snapshot entries when section identities are unchanged", () => {
+    const sectionIds = ["section-a", "section-b", "section-c"];
+    const rawA = {
+      value: "a",
+    };
+    const rawB = {
+      value: "b",
+    };
+    const rawC = {
+      value: "c",
+    };
+    const firstSnapshot = pluginRuntimeTestApi.toProjectStateSectionSnapshot(
+      sectionIds,
+      [rawA, rawB, rawC],
+    );
+
+    const updatedRawB = {
+      value: "b-updated",
+    };
+    const secondSnapshot = pluginRuntimeTestApi.toProjectStateSectionSnapshot(
+      sectionIds,
+      [rawA, updatedRawB, rawC],
+      [rawA, rawB, rawC],
+      firstSnapshot,
+    );
+
+    expect(secondSnapshot["section-a"]).toBe(firstSnapshot["section-a"]);
+    expect(secondSnapshot["section-c"]).toBe(firstSnapshot["section-c"]);
+    expect(secondSnapshot["section-b"]).not.toBe(firstSnapshot["section-b"]);
+    expect(secondSnapshot["section-b"]).toEqual({
+      value: "b-updated",
+    });
+  });
+
   it("returns plugin section-kind lookup and sorted section-kind lists", () => {
     const alpha = {
       pluginId: "acme.plugin",
@@ -1971,6 +2005,103 @@ describe("plugin runtime helpers", () => {
       usePluginRuntimeStore.getState().pluginListById[plugin.pluginId]
         ?.effectiveCapabilities;
     expect(secondCapabilities).toBe(firstCapabilities);
+  });
+
+  it("uses runtime payload plugin ordering without frontend resorting", async () => {
+    const beta = buildPluginListEntry({
+      pluginId: "beta.plugin",
+    });
+    const alpha = buildPluginListEntry({
+      pluginId: "alpha.plugin",
+    });
+    const betaStatus = buildPluginStatusEntry({
+      pluginId: "beta.plugin",
+    });
+    const alphaStatus = buildPluginStatusEntry({
+      pluginId: "alpha.plugin",
+    });
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue(
+      buildRuntimeEndpointResponse(
+        buildPluginListResponse([beta, alpha]),
+        buildPluginStatusResponse([betaStatus, alphaStatus]),
+      ),
+    );
+
+    await refreshPluginRuntime();
+
+    expect(
+      usePluginRuntimeStore
+        .getState()
+        .sortedPluginListEntries.map((entry) => entry.pluginId),
+    ).toEqual(["beta.plugin", "alpha.plugin"]);
+  });
+
+  it("sorts same-title section kinds by plugin id then kind", async () => {
+    const alphaModuleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  host.registerSectionKind({ kind: 'kind-z', title: 'Shared', renderer: { mount() {} } });\n" +
+          "  host.registerSectionKind({ kind: 'kind-b', title: 'Shared', renderer: { mount() {} } });\n" +
+          "}\n",
+      );
+    const betaModuleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(host) {\n" +
+          "  host.registerSectionKind({ kind: 'kind-a', title: 'Shared', renderer: { mount() {} } });\n" +
+          "}\n",
+      );
+    const alpha = buildPluginListEntry({
+      pluginId: "alpha.plugin",
+      frontend: {
+        entrypointUrl: alphaModuleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerSectionKinds"],
+    });
+    const beta = buildPluginListEntry({
+      pluginId: "beta.plugin",
+      frontend: {
+        entrypointUrl: betaModuleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerSectionKinds"],
+    });
+    const alphaStatus = buildPluginStatusEntry({
+      pluginId: "alpha.plugin",
+      requestedCapabilities: ["registerSectionKinds"],
+      effectiveCapabilities: ["registerSectionKinds"],
+      blockedCapabilities: [],
+    });
+    const betaStatus = buildPluginStatusEntry({
+      pluginId: "beta.plugin",
+      requestedCapabilities: ["registerSectionKinds"],
+      effectiveCapabilities: ["registerSectionKinds"],
+      blockedCapabilities: [],
+    });
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue(
+      buildRuntimeEndpointResponse(
+        buildPluginListResponse([alpha, beta]),
+        buildPluginStatusResponse([alphaStatus, betaStatus]),
+      ),
+    );
+
+    await refreshPluginRuntime();
+
+    expect(
+      usePluginRuntimeStore
+        .getState()
+        .sortedSectionKinds.map(
+          (entry) => `${entry.title}:${entry.pluginId}:${entry.kind}`,
+        ),
+    ).toEqual([
+      "Shared:alpha.plugin:kind-b",
+      "Shared:alpha.plugin:kind-z",
+      "Shared:beta.plugin:kind-a",
+    ]);
   });
 
   it("rejects updateSection calls for non-plugin sections", async () => {

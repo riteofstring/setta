@@ -1,6 +1,8 @@
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import type {
   PluginListEntry,
   PluginRestartCapability,
+  PluginRestartResponse,
   PluginStatusEntry,
 } from "utils/generatedTypes";
 
@@ -22,6 +24,20 @@ type PluginRestartActionPlan =
       command: null;
       reason: null;
       message: string;
+    };
+
+export type PluginRestartRequestResult =
+  | {
+      kind: "accepted";
+    }
+  | {
+      kind: "manual_required";
+      command: string;
+      reason: string | null;
+      message: string;
+    }
+  | {
+      kind: "request_failed";
     };
 
 export function getRestartRequiredPluginIds(
@@ -56,26 +72,75 @@ export function buildPluginRestartActionPlan(
     };
   }
 
-  const mode = String(restartCapability.mode);
-  if (mode === "programmatic") {
+  switch (restartCapability.mode) {
+    case "programmatic":
+      return {
+        mode: "programmatic",
+        command: null,
+        reason: null,
+        message: null,
+      };
+    case "manual": {
+      const manualPlan = buildManualRestartPlan(
+        restartCapability.command,
+        restartCapability.reason,
+      );
+
+      return {
+        mode: "manual",
+        command: manualPlan.command,
+        reason: manualPlan.reason,
+        message: manualPlan.message,
+      };
+    }
+    default:
+      return assertUnexpectedRestartCapabilityMode(restartCapability.mode);
+  }
+}
+
+export function mapPluginRestartResponse(
+  response: ResponseDataAndStatus<PluginRestartResponse>,
+): PluginRestartRequestResult {
+  if (!res200(response) || !response.data) {
     return {
-      mode: "programmatic",
-      command: null,
-      reason: null,
-      message: null,
+      kind: "request_failed",
     };
   }
+  if (response.data.accepted) {
+    return {
+      kind: "accepted",
+    };
+  }
+  const manualPlan = buildManualRestartPlan(
+    response.data.command,
+    response.data.reason,
+  );
+  return {
+    kind: "manual_required",
+    command: manualPlan.command,
+    reason: manualPlan.reason,
+    message: manualPlan.message,
+  };
+}
 
-  const commandRaw = restartCapability.command?.trim();
-  const command = commandRaw && commandRaw !== "" ? commandRaw : "setta";
-  const reasonRaw = restartCapability.reason?.trim();
-  const reason = reasonRaw && reasonRaw !== "" ? reasonRaw : null;
+function assertUnexpectedRestartCapabilityMode(mode: never): never {
+  throw new Error(`Unexpected plugin restart capability mode: ${mode}`);
+}
+
+function buildManualRestartPlan(
+  commandRaw: string | null | undefined,
+  reasonRaw: string | null | undefined,
+): {
+  command: string;
+  reason: string | null;
+  message: string;
+} {
+  const command = commandRaw?.trim() ? commandRaw : "setta";
+  const reason = reasonRaw?.trim() ? reasonRaw : null;
   const message = reason
     ? `Manual restart required: ${command}. ${reason}`
     : `Manual restart required: ${command}`;
-
   return {
-    mode: "manual",
     command,
     reason,
     message,

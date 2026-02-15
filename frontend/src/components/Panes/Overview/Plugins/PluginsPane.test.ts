@@ -1,4 +1,25 @@
-import { pluginsPaneTestApi } from "components/Panes/Overview/Plugins/PluginsPane";
+import {
+  buildBusyPluginIdSet,
+  buildCapabilityUnavailableMessage,
+  buildInstallTrustSummaryMessage,
+  buildSourceManagerGuidanceMessage,
+  formatLanguageServerSettingsDraft,
+  getBlockedCapabilityReason,
+  getLanguageServerSettingsValue,
+  getPluginCapabilityStatus,
+  getRegisteredCodegenTargets,
+  getRegisteredExternalAgentAdapters,
+  getRegisteredLanguageServers,
+  isLinkedLocalPluginSource,
+  parseLanguageServerSettingsDraft,
+  parsePluginConfigDraft,
+  setLanguageServerSettingsValue,
+  validateInstallSourceSpec,
+} from "components/Panes/Overview/Plugins/PluginsPane.helpers";
+import {
+  buildPluginRestartActionPlan,
+  getRestartRequiredPluginIds,
+} from "plugins/restart";
 import {
   createPluginListEntry,
   createPluginStatusEntry,
@@ -9,6 +30,27 @@ import {
   type PluginStatusEntry,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
+
+const pluginsPaneTestApi = {
+  buildBusyPluginIdSet,
+  buildInstallTrustSummaryMessage,
+  buildSourceManagerGuidanceMessage,
+  buildRestartActionPlan: buildPluginRestartActionPlan,
+  buildCapabilityUnavailableMessage,
+  formatLanguageServerSettingsDraft,
+  getBlockedCapabilityReason,
+  getRegisteredCodegenTargets,
+  getRegisteredExternalAgentAdapters,
+  getLanguageServerSettingsValue,
+  getPluginCapabilityStatus,
+  getRegisteredLanguageServers,
+  getRestartRequiredPluginIds,
+  parsePluginConfigDraft,
+  parseLanguageServerSettingsDraft,
+  setLanguageServerSettingsValue,
+  isLinkedLocalPluginSource,
+  validateInstallSourceSpec,
+};
 
 function buildPluginListEntry(
   overrides: Partial<PluginListEntry>,

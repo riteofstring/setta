@@ -2,6 +2,7 @@ import { onOverviewTabClick } from "components/Panes/paneFns";
 import {
   buildPluginRestartActionPlan,
   getRestartRequiredPluginIds,
+  mapPluginRestartResponse,
 } from "plugins/restart";
 import {
   refreshPluginRuntime,
@@ -13,7 +14,6 @@ import { useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useShareSession } from "state/definitions";
 import { OverviewTabNameEnum } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
 import { route_plugins_restart } from "utils/generatedEndpoints";
 
 export function PluginRestartBanner() {
@@ -50,19 +50,18 @@ export function PluginRestartBanner() {
     setIsRestarting(true);
     let shouldRefreshRuntime = true;
     try {
-      const response = await route_plugins_restart();
-      if (!res200(response)) {
+      const restartResult = mapPluginRestartResponse(await route_plugins_restart());
+      if (restartResult.kind === "request_failed") {
         addTemporaryNotification("Restart request failed.", "error");
         return;
       }
-      if (response.data.accepted) {
+      if (restartResult.kind === "accepted") {
         shouldRefreshRuntime = false;
         addTemporaryNotification("Restart request accepted.", "info");
         return;
       }
-      const command = response.data.command ?? "setta";
       addTemporaryNotification(
-        `Manual restart required: ${command}`,
+        restartResult.message,
         "warning",
       );
     } finally {

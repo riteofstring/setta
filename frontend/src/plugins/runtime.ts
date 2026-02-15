@@ -423,7 +423,10 @@ async function loadPluginRuntime(): Promise<void> {
 
   removeInactivePluginStyles(frontendLoadCandidateIds);
 
-  const sortedPluginListEntries = toSortedPluginListEntries(pluginListById);
+  const sortedPluginListEntries = toOrderedPluginListEntries(
+    listData.plugins,
+    pluginListById,
+  );
   const sortedSectionKinds = toSortedSectionKinds(
     registryAccumulator.sectionKinds,
   );
@@ -857,6 +860,8 @@ function toProjectStateReadValue(
 function toProjectStateSubscriptionValue(
   selector: PluginProjectStateSelector,
   rawValue: unknown,
+  previousRawValue?: unknown,
+  previousSnapshot?: unknown,
 ): unknown {
   if (selector.kind !== "sections") {
     if (rawValue === undefined) {
@@ -864,20 +869,41 @@ function toProjectStateSubscriptionValue(
     }
     return cloneProjectStateSnapshot(rawValue);
   }
-  return toProjectStateSectionSnapshot(selector.sectionIds, rawValue);
+  return toProjectStateSectionSnapshot(
+    selector.sectionIds,
+    rawValue,
+    previousRawValue,
+    previousSnapshot,
+  );
 }
 
 function toProjectStateSectionSnapshot(
   sectionIds: string[],
   rawValue: unknown,
+  previousRawValue?: unknown,
+  previousSnapshot?: unknown,
 ): Record<string, unknown> {
   if (!Array.isArray(rawValue)) {
     return {};
   }
+  const previousValues = Array.isArray(previousRawValue) ? previousRawValue : null;
+  const previousBySection =
+    isRecordProjectStateValue(previousSnapshot) && !Array.isArray(previousSnapshot)
+      ? previousSnapshot
+      : null;
   const snapshot: Record<string, unknown> = {};
   for (let index = 0; index < sectionIds.length; index += 1) {
     const sectionId = sectionIds[index];
     const value = rawValue[index] ?? null;
+    if (
+      previousValues &&
+      previousBySection &&
+      previousValues[index] === value &&
+      sectionId in previousBySection
+    ) {
+      snapshot[sectionId] = previousBySection[sectionId];
+      continue;
+    }
     snapshot[sectionId] = cloneProjectStateSnapshot(value);
   }
   return snapshot;
@@ -911,6 +937,12 @@ function isScalarProjectStateValue(value: unknown): boolean {
   }
   const valueType = typeof value;
   return valueType !== "object" && valueType !== "function";
+}
+
+function isRecordProjectStateValue(
+  value: unknown,
+): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function toLiteralRealtimePayload(value: unknown): string {
@@ -1137,19 +1169,34 @@ function registerPluginModule({
         );
       }
 
+      let previousNotifiedRawValue: unknown = undefined;
+      let previousNotifiedValue: unknown | null = null;
+      let hasPreviousNotifiedValue = false;
       let notify = (nextRawValue: unknown, prevRawValue: unknown): void => {
         const nextValue = toProjectStateSubscriptionValue(
           normalizedSelector,
           nextRawValue,
+          hasPreviousNotifiedValue ? previousNotifiedRawValue : undefined,
+          hasPreviousNotifiedValue ? previousNotifiedValue : undefined,
         );
         let prevValue: unknown | null = null;
         if (prevRawValue !== undefined) {
-          prevValue = toProjectStateSubscriptionValue(
-            normalizedSelector,
-            prevRawValue,
-          );
+          if (
+            hasPreviousNotifiedValue &&
+            previousNotifiedRawValue === prevRawValue
+          ) {
+            prevValue = previousNotifiedValue;
+          } else {
+            prevValue = toProjectStateSubscriptionValue(
+              normalizedSelector,
+              prevRawValue,
+            );
+          }
         }
         listener(nextValue, prevValue);
+        previousNotifiedRawValue = nextRawValue;
+        previousNotifiedValue = nextValue;
+        hasPreviousNotifiedValue = true;
       };
       let cancelThrottle: (() => void) | null = null;
       if (throttleMs > 0) {
@@ -1875,20 +1922,34 @@ function mapPrimaryStatusByPluginId(
   return pluginStatusById;
 }
 
-function toSortedPluginListEntries(
+function toOrderedPluginListEntries(
+  orderedPlugins: PluginListEntry[],
   pluginListById: Record<string, PluginListEntry>,
 ): PluginListEntry[] {
-  return Object.values(pluginListById).sort((a, b) =>
-    a.pluginId.localeCompare(b.pluginId),
-  );
+  const entries: PluginListEntry[] = [];
+  for (const plugin of orderedPlugins) {
+    const mapped = pluginListById[plugin.pluginId];
+    if (mapped) {
+      entries.push(mapped);
+    }
+  }
+  return entries;
 }
 
 function toSortedSectionKinds(
   sectionKindsByKey: Record<string, RegisteredPluginSectionKind>,
 ): RegisteredPluginSectionKind[] {
-  return Object.values(sectionKindsByKey).sort((a, b) =>
-    a.title.localeCompare(b.title),
-  );
+  return Object.values(sectionKindsByKey).sort((a, b) => {
+    const byTitle = a.title.localeCompare(b.title);
+    if (byTitle !== 0) {
+      return byTitle;
+    }
+    const byPluginId = a.pluginId.localeCompare(b.pluginId);
+    if (byPluginId !== 0) {
+      return byPluginId;
+    }
+    return a.kind.localeCompare(b.kind);
+  });
 }
 
 function toSortedPluginPaneTabs(
@@ -2112,4 +2173,5 @@ export const pluginRuntimeTestApi = {
   normalizePluginPath,
   runWithConcurrencyLimit,
   shouldLoadPluginFrontend,
+  toProjectStateSectionSnapshot,
 };

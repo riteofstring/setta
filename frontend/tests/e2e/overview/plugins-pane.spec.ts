@@ -1847,7 +1847,7 @@ test("plugins pane shows restart rejection and request-failure messaging", async
     page.getByText(
       "Manual restart required: setta restart. Programmatic restart request was rejected.",
       { exact: true },
-    ),
+    ).first(),
   ).toBeVisible();
 
   allowExpectedApiError(page, {

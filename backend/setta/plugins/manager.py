@@ -191,17 +191,6 @@ class CandidatePlugin:
     source_spec: str
     source_digest_sha256: str
 
-    @property
-    def components(self) -> list[str]:
-        components: list[str] = []
-        if self.manifest.backend is not None:
-            components.append("backend")
-        if self.manifest.frontend is not None:
-            components.append("frontend")
-        if self.manifest.content is not None:
-            components.append("content")
-        return components
-
 
 @dataclass(slots=True)
 class DiscoveredPlugin:
@@ -997,6 +986,7 @@ class PluginManager:
             f"{entry.version}:{source_digest}:{registration.handler_id}"
         )
 
+    @_mutation_locked
     def generate_backend_codegen_target(
         self,
         *,
@@ -2395,12 +2385,13 @@ class PluginManager:
                         "an invalid base64 body."
                     ),
                 ) from exc
-            return Response(
+            response = Response(
                 status_code=status_code,
                 content=decoded_body,
                 media_type=media_type,
-                headers=headers,
             )
+            self._apply_worker_route_headers(response=response, headers=headers)
+            return response
         if media_type is not None and not self._worker_route_content_type_is_json(
             media_type
         ):
@@ -2413,18 +2404,28 @@ class PluginManager:
                 content = str(content)
             if isinstance(content, (bytearray, memoryview)):
                 content = bytes(content)
-            return Response(
+            response = Response(
                 status_code=status_code,
                 content=content,
                 media_type=media_type,
-                headers=headers,
             )
-        return JSONResponse(
+            self._apply_worker_route_headers(response=response, headers=headers)
+            return response
+        if raw_body is None or not self._worker_route_status_allows_body(status_code):
+            response = Response(
+                status_code=status_code,
+                content=b"",
+                media_type=media_type,
+            )
+            self._apply_worker_route_headers(response=response, headers=headers)
+            return response
+        response = JSONResponse(
             status_code=status_code,
             content=jsonable_encoder(raw_body),
             media_type=media_type,
-            headers=headers,
         )
+        self._apply_worker_route_headers(response=response, headers=headers)
+        return response
 
     def _normalize_worker_route_status_code(
         self,
@@ -2455,10 +2456,10 @@ class PluginManager:
         *,
         route_response: dict[str, Any],
         route_label: str,
-    ) -> dict[str, str]:
+    ) -> list[tuple[str, str]]:
         raw_headers = route_response.get("headers")
         if raw_headers is None:
-            return {}
+            return []
         if not isinstance(raw_headers, list):
             raise PluginManagerError(
                 "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
@@ -2467,7 +2468,7 @@ class PluginManager:
                     "a non-array headers payload."
                 ),
             )
-        headers: dict[str, str] = {}
+        headers: list[tuple[str, str]] = []
         for item in raw_headers:
             if (
                 not isinstance(item, (list, tuple))
@@ -2487,8 +2488,28 @@ class PluginManager:
                 continue
             if header_name.lower() in {"content-length", "transfer-encoding"}:
                 continue
-            headers[header_name] = item[1]
+            headers.append((header_name, item[1]))
         return headers
+
+    def _apply_worker_route_headers(
+        self,
+        *,
+        response: Any,
+        headers: list[tuple[str, str]],
+    ) -> None:
+        for header_name, header_value in headers:
+            if header_name.lower() == "set-cookie":
+                response.raw_headers.append(
+                    (
+                        header_name.encode("latin-1"),
+                        header_value.encode("latin-1"),
+                    )
+                )
+                continue
+            response.headers[header_name] = header_value
+
+    def _worker_route_status_allows_body(self, status_code: int) -> bool:
+        return status_code not in {204, 205, 304}
 
     def _worker_route_content_type_is_json(self, raw_content_type: str | None) -> bool:
         if not isinstance(raw_content_type, str):
@@ -3867,7 +3888,16 @@ class PluginManager:
             roots.add(resolved_style.parent)
         return tuple(sorted(roots, key=lambda path: str(path)))
 
-    @_mutation_locked
+    def _manifest_components(self, manifest: PluginManifest) -> list[str]:
+        components: list[str] = []
+        if manifest.backend is not None:
+            components.append("backend")
+        if manifest.frontend is not None:
+            components.append("frontend")
+        if manifest.content is not None:
+            components.append("content")
+        return components
+
     def install_plugin(
         self,
         *,
@@ -3881,6 +3911,7 @@ class PluginManager:
         resolved_scope = normalize_scope(scope)
         resolved_installer = normalize_installer_backend(installer)
         parsed_spec = self._parse_source_spec(source_spec)
+        had_backend_before = False
         with tempfile.TemporaryDirectory(
             prefix="setta-plugin-install-"
         ) as tmp_dir_name:
@@ -3899,14 +3930,6 @@ class PluginManager:
                     f"Unsupported plugin source: {source_spec}",
                 )
 
-            target_path = self._target_plugin_path(
-                resolved_scope, candidate.manifest.id
-            )
-            had_backend_before = self._existing_scope_plugin_has_backend(
-                plugin_id=candidate.manifest.id,
-                scope=resolved_scope,
-            )
-            self._ensure_target_path_available(target_path=target_path, force=force)
             if candidate.manifest.backend is not None:
                 self._prepare_backend_runtime(
                     plugin_id=candidate.manifest.id,
@@ -3914,25 +3937,34 @@ class PluginManager:
                     source_digest_sha256=candidate.source_digest_sha256,
                     plugin_root=candidate.root,
                 )
+            target_path = self._target_plugin_path(
+                resolved_scope, candidate.manifest.id
+            )
+            with self._mutation_lock:
+                had_backend_before = self._existing_scope_plugin_has_backend(
+                    plugin_id=candidate.manifest.id,
+                    scope=resolved_scope,
+                )
+                self._ensure_target_path_available(target_path=target_path, force=force)
 
-            self._install_candidate(
-                candidate,
-                target_path,
-                scope=resolved_scope,
-                force=force,
-                source_spec=source_spec,
-                installer_backend=resolved_installer,
-            )
-            self._apply_enablement_after_install(
-                plugin_id=candidate.manifest.id,
-                scope=resolved_scope,
-                enable=enable,
-            )
-            self._pending_restart_removed_backend_plugins.pop(
-                candidate.manifest.id, None
-            )
-            if candidate.manifest.backend is not None or had_backend_before:
-                self._add_pending_restart_backend_id(candidate.manifest.id)
+                self._install_candidate(
+                    candidate,
+                    target_path,
+                    scope=resolved_scope,
+                    force=force,
+                    source_spec=source_spec,
+                    installer_backend=resolved_installer,
+                )
+                self._apply_enablement_after_install(
+                    plugin_id=candidate.manifest.id,
+                    scope=resolved_scope,
+                    enable=enable,
+                )
+                self._pending_restart_removed_backend_plugins.pop(
+                    candidate.manifest.id, None
+                )
+                if candidate.manifest.backend is not None or had_backend_before:
+                    self._add_pending_restart_backend_id(candidate.manifest.id)
 
         if rescan:
             self.rescan()
@@ -3978,7 +4010,7 @@ class PluginManager:
             requestedCapabilities=list(active_entry.requested_capabilities),
             trustStatus=PluginSourceTrustStatus.unverified,
             trustWarning=_UNVERIFIED_SOURCE_WARNING,
-            components=candidate.components,
+            components=self._manifest_components(candidate.manifest),
             state=active_entry.state,
             restartRequired=restart_required,
         )
@@ -4070,15 +4102,7 @@ class PluginManager:
             requestedCapabilities=list(entry.requested_capabilities),
             trustStatus=PluginSourceTrustStatus.unverified,
             trustWarning=_UNVERIFIED_SOURCE_WARNING,
-            components=[
-                component
-                for component in (
-                    "backend" if manifest.backend is not None else None,
-                    "frontend" if manifest.frontend is not None else None,
-                    "content" if manifest.content is not None else None,
-                )
-                if component is not None
-            ],
+            components=self._manifest_components(manifest),
             state=entry.state,
             restartRequired=restart_required,
         )
@@ -4248,7 +4272,6 @@ class PluginManager:
             validation={"ok": True},
         )
 
-    @_mutation_locked
     def update_plugin(
         self,
         *,
@@ -4256,65 +4279,72 @@ class PluginManager:
         scope: str | PluginScope | None = None,
         to: str | None = None,
     ) -> PluginUpdateResponse:
-        resolved_scope = self._resolve_uninstall_scope(plugin_id, scope)
-        existing_entry = self._find_entry(
-            plugin_id,
-            resolved_scope,
-            include_shadowed=True,
-        )
-        if existing_entry is None:
-            raise PluginManagerError(
-                "PLUGIN_NOT_FOUND",
-                f"Plugin not found: {plugin_id}",
-                status_code=404,
+        with self._mutation_lock:
+            resolved_scope = self._resolve_uninstall_scope(plugin_id, scope)
+            existing_entry = self._find_entry(
+                plugin_id,
+                resolved_scope,
+                include_shadowed=True,
             )
-        self._ensure_setta_managed_for_write(
-            entry=existing_entry,
-            operation="update",
-        )
-        metadata_entry = self._get_install_metadata(plugin_id, resolved_scope)
-        if metadata_entry is None:
-            raise PluginManagerError(
-                "PLUGIN_UPDATE_UNAVAILABLE",
-                f"No source metadata stored for plugin: {plugin_id}",
+            if existing_entry is None:
+                raise PluginManagerError(
+                    "PLUGIN_NOT_FOUND",
+                    f"Plugin not found: {plugin_id}",
+                    status_code=404,
+                )
+            self._ensure_setta_managed_for_write(
+                entry=existing_entry,
+                operation="update",
             )
-        if self._source_spec_is_local(metadata_entry.sourceSpec):
-            raise PluginManagerError(
-                "PLUGIN_UPDATE_UNAVAILABLE",
-                (
-                    "Update is unavailable for linked local plugins. "
-                    f"Unlink and relink the desired local source for {plugin_id}."
-                ),
-            )
-        source_spec = metadata_entry.sourceSpec
-        if to is not None:
-            source_spec = self._retarget_source_spec(source_spec, to)
-        plugins_state = self._load_plugins_state()
-        plugins_global_state = self._load_plugins_global_state()
-        if existing_entry.manifest is None:
-            enable_after_update = existing_entry.state != PluginRuntimeState.disabled
-        else:
-            enable_after_update, _ = self._resolve_enabled(
-                plugin_id=existing_entry.plugin_id,
-                scope=existing_entry.scope,
-                manifest_enabled_by_default=existing_entry.manifest.enabledByDefault,
-                plugins_state=plugins_state,
-                plugins_global_state=plugins_global_state,
-            )
+            metadata_entry = self._get_install_metadata(plugin_id, resolved_scope)
+            if metadata_entry is None:
+                raise PluginManagerError(
+                    "PLUGIN_UPDATE_UNAVAILABLE",
+                    f"No source metadata stored for plugin: {plugin_id}",
+                )
+            if self._source_spec_is_local(metadata_entry.sourceSpec):
+                raise PluginManagerError(
+                    "PLUGIN_UPDATE_UNAVAILABLE",
+                    (
+                        "Update is unavailable for linked local plugins. "
+                        f"Unlink and relink the desired local source for {plugin_id}."
+                    ),
+                )
+            source_spec = metadata_entry.sourceSpec
+            if to is not None:
+                source_spec = self._retarget_source_spec(source_spec, to)
+            plugins_state = self._load_plugins_state()
+            plugins_global_state = self._load_plugins_global_state()
+            if existing_entry.manifest is None:
+                enable_after_update = (
+                    existing_entry.state != PluginRuntimeState.disabled
+                )
+            else:
+                enable_after_update, _ = self._resolve_enabled(
+                    plugin_id=existing_entry.plugin_id,
+                    scope=existing_entry.scope,
+                    manifest_enabled_by_default=existing_entry.manifest.enabledByDefault,
+                    plugins_state=plugins_state,
+                    plugins_global_state=plugins_global_state,
+                )
+            existing_version = existing_entry.version
+            existing_has_backend = existing_entry.has_backend
+            installer_backend = metadata_entry.installerBackend
         install_result = self.install_plugin(
             source_spec=source_spec,
             scope=resolved_scope,
-            installer=metadata_entry.installerBackend,
+            installer=installer_backend,
             enable=enable_after_update,
             force=True,
         )
-        restart_required = existing_entry.has_backend or install_result.restartRequired
+        restart_required = existing_has_backend or install_result.restartRequired
         if restart_required:
-            self._add_pending_restart_backend_id(plugin_id)
-            self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
+            with self._mutation_lock:
+                self._add_pending_restart_backend_id(plugin_id)
+                self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
         return PluginUpdateResponse(
             pluginId=plugin_id,
-            fromVersion=existing_entry.version,
+            fromVersion=existing_version,
             toVersion=install_result.version,
             sourceDigestSha256=install_result.sourceDigestSha256,
             restartRequired=restart_required,

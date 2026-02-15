@@ -225,6 +225,22 @@ export function RunInstructions() {
     () => collectPluginCodegenRegistrations(pluginStatusEntries),
     [pluginStatusEntries],
   );
+  const pluginCodegenRegistrationByTargetId = React.useMemo(() => {
+    const entries = new Map<string, PluginCodegenRegistration>();
+    for (const registration of pluginCodegenRegistrations) {
+      entries.set(registration.targetId, registration);
+    }
+    return entries;
+  }, [pluginCodegenRegistrations]);
+  const orphanedPluginCodegenTargets = React.useMemo(
+    () =>
+      pluginCodegenTargets
+        .filter(
+          (target) => !pluginCodegenRegistrationByTargetId.has(target.language),
+        )
+        .sort((a, b) => a.language.localeCompare(b.language)),
+    [pluginCodegenRegistrationByTargetId, pluginCodegenTargets],
+  );
   const defaultSectionPolicy = React.useMemo(
     () => createSectionCodegenPolicy(),
     [],
@@ -360,6 +376,19 @@ export function RunInstructions() {
       : pluginCodegenTargets.filter(
           (target) => target.language !== registration.targetId,
         );
+    const nextTargets = pythonCodegenEnabled
+      ? [...nextPluginTargets, pythonTarget]
+      : nextPluginTargets;
+    applyCodegenTargets(nextTargets);
+  };
+
+  const removeOrphanedPluginCodegenTarget = (targetLanguage: string): void => {
+    if (isDeploymentMode) {
+      return;
+    }
+    const nextPluginTargets = pluginCodegenTargets.filter(
+      (target) => target.language !== targetLanguage,
+    );
     const nextTargets = pythonCodegenEnabled
       ? [...nextPluginTargets, pythonTarget]
       : nextPluginTargets;
@@ -531,40 +560,73 @@ export function RunInstructions() {
             </div>
           </div>
           <div className="flex min-w-0 flex-col gap-1">
-            {pluginCodegenRegistrations.length === 0 ? (
+            {pluginCodegenRegistrations.length === 0 &&
+            orphanedPluginCodegenTargets.length === 0 ? (
               <div className="text-[11px] text-setta-500 dark:text-setta-400">
                 No plugin codegen targets registered.
               </div>
-            ) : (
-              pluginCodegenRegistrations.map((registration) => (
-                <div
-                  key={registration.targetId}
-                  className="flex min-w-0 flex-wrap items-center gap-2 rounded bg-white/45 px-2 py-1 dark:bg-setta-950/35"
-                >
-                  <div className="min-w-0 flex-1 text-[11px] text-setta-700 dark:text-setta-200">
-                    {registration.name} ({registration.language})
-                    <span className="ml-1 text-[10px] text-setta-500 dark:text-setta-400">
-                      {registration.targetId}
-                    </span>
+            ) : null}
+            {pluginCodegenRegistrations.length > 0
+              ? pluginCodegenRegistrations.map((registration) => (
+                  <div
+                    key={registration.targetId}
+                    className="flex min-w-0 flex-wrap items-center gap-2 rounded bg-white/45 px-2 py-1 dark:bg-setta-950/35"
+                  >
+                    <div className="min-w-0 flex-1 text-[11px] text-setta-700 dark:text-setta-200">
+                      {registration.name} ({registration.language})
+                      <span className="ml-1 text-[10px] text-setta-500 dark:text-setta-400">
+                        {registration.targetId}
+                      </span>
+                    </div>
+                    <div className="ml-auto flex items-center gap-1">
+                      <span className={TOGGLE_LABEL_CLASSES}>Enabled</span>
+                      <Switch.Root
+                        className={TOGGLE_ROOT_CLASSES}
+                        checked={enabledPluginTargetIds.has(
+                          registration.targetId,
+                        )}
+                        disabled={isDeploymentMode}
+                        onCheckedChange={(checked) =>
+                          togglePluginCodegenTarget(registration, checked)
+                        }
+                      >
+                        <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
+                      </Switch.Root>
+                    </div>
                   </div>
-                  <div className="ml-auto flex items-center gap-1">
-                    <span className={TOGGLE_LABEL_CLASSES}>Enabled</span>
-                    <Switch.Root
-                      className={TOGGLE_ROOT_CLASSES}
-                      checked={enabledPluginTargetIds.has(
-                        registration.targetId,
-                      )}
-                      disabled={isDeploymentMode}
-                      onCheckedChange={(checked) =>
-                        togglePluginCodegenTarget(registration, checked)
-                      }
-                    >
-                      <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
-                    </Switch.Root>
-                  </div>
+                ))
+              : null}
+            {orphanedPluginCodegenTargets.length > 0 ? (
+              <div className="mt-1 space-y-1">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                  Orphaned configured targets
                 </div>
-              ))
-            )}
+                {orphanedPluginCodegenTargets.map((target) => (
+                  <div
+                    key={`orphaned-${target.language}`}
+                    data-testid={`orphaned-codegen-target-${target.language}`}
+                    className="flex min-w-0 flex-wrap items-center gap-2 rounded border border-amber-300/70 bg-amber-50/80 px-2 py-1 dark:border-amber-700/60 dark:bg-amber-950/30"
+                  >
+                    <div className="min-w-0 flex-1 text-[11px] text-amber-800 dark:text-amber-200">
+                      {target.language}
+                    </div>
+                    <button
+                      data-testid={`remove-orphaned-codegen-target-${target.language}`}
+                      className={PANEL_ICON_BUTTON_DESTRUCTIVE_CLASSES}
+                      onClick={() =>
+                        removeOrphanedPluginCodegenTarget(target.language)
+                      }
+                      type="button"
+                      {...getFloatingBoxHandlers({
+                        content: "Remove stale codegen target",
+                      })}
+                    >
+                      <i className="gg-trash" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
       )}

@@ -75,12 +75,18 @@ vi.mock("components/Panes/paneFns", () => ({
   onOverviewTabClick: (...args: unknown[]) => onOverviewTabClickMock(...args),
 }));
 
-vi.mock("plugins/restart", () => ({
-  getRestartRequiredPluginIds: (...args: unknown[]) =>
-    getRestartRequiredPluginIdsMock(...args),
-  buildPluginRestartActionPlan: (...args: unknown[]) =>
-    buildPluginRestartActionPlanMock(...args),
-}));
+vi.mock("plugins/restart", async () => {
+  const actual = await vi.importActual<typeof import("plugins/restart")>(
+    "plugins/restart",
+  );
+  return {
+    ...actual,
+    getRestartRequiredPluginIds: (...args: unknown[]) =>
+      getRestartRequiredPluginIdsMock(...args),
+    buildPluginRestartActionPlan: (...args: unknown[]) =>
+      buildPluginRestartActionPlanMock(...args),
+  };
+});
 
 vi.mock("plugins/runtime", () => ({
   refreshPluginRuntime: (...args: unknown[]) =>

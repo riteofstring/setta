@@ -1504,6 +1504,131 @@ def test_plugin_read_responses_wait_for_mutation_lock(
     assert read_finished.is_set()
 
 
+def test_generate_backend_codegen_target_waits_for_mutation_lock(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Codegen generation should observe lifecycle mutation locking.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-codegen",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    manager.load_backend_plugins(app=FastAPI())
+
+    started = threading.Event()
+    finished = threading.Event()
+    raised: list[Exception] = []
+
+    monkeypatch.setattr(
+        manager,
+        "_call_backend_worker_method",
+        lambda **_kwargs: {
+            "files": [
+                {
+                    "relativePath": "generated.ts",
+                    "content": "export const locked = true;\n",
+                }
+            ]
+        },
+    )
+
+    def _run_codegen() -> None:
+        try:
+            started.set()
+            manager.generate_backend_codegen_target(
+                target_id="setta-fixture-backend-codegen:typescript",
+                project_state={"projectConfig": {"name": "FixtureProject"}},
+                target_options={},
+            )
+            finished.set()
+        except Exception as exc:  # pragma: no cover - assertion path
+            raised.append(exc)
+
+    with manager._mutation_lock:
+        thread = threading.Thread(target=_run_codegen)
+        thread.start()
+        assert started.wait(timeout=2.0)
+        assert not finished.wait(timeout=0.2)
+
+    thread.join(timeout=2.0)
+    assert raised == []
+    assert finished.is_set()
+
+
+def test_install_plugin_does_not_hold_lock_during_candidate_resolution(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Install candidate fetch should run outside mutation lock so runtime/status reads stay responsive.
+    manager = _make_manager(tmp_path)
+    source_root = _fixture_path("frontend")
+    manifest = manager._load_and_validate_manifest(source_root / "setta.plugin.json")
+    candidate = CandidatePlugin(
+        root=source_root,
+        manifest=manifest,
+        canonical_source_key="pypi:setta-fixture-frontend",
+        source_spec="pypi:setta-fixture-frontend==0.1.0",
+        source_digest_sha256="sha256:test",
+    )
+
+    candidate_started = threading.Event()
+    release_candidate = threading.Event()
+    read_completed = threading.Event()
+    install_finished = threading.Event()
+    raised: list[Exception] = []
+
+    def _patched_candidate_from_pypi(*_args, **_kwargs):
+        candidate_started.set()
+        if not read_completed.wait(timeout=2.0):
+            raise AssertionError(
+                "Expected status read to finish while install candidate resolved."
+            )
+        if not release_candidate.wait(timeout=2.0):
+            raise AssertionError("Expected install flow release signal.")
+        return candidate
+
+    monkeypatch.setattr(
+        manager,
+        "_candidate_from_pypi",
+        _patched_candidate_from_pypi,
+    )
+    monkeypatch.setattr(manager, "_install_candidate", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        manager,
+        "_apply_enablement_after_install",
+        lambda **_kwargs: None,
+    )
+
+    def _run_install() -> None:
+        try:
+            manager.install_plugin(
+                source_spec="pypi:setta-fixture-frontend==0.1.0",
+                scope=PluginScope.workspace,
+                installer=PluginInstallerBackend.pip,
+                enable=True,
+                force=True,
+                rescan=False,
+            )
+            install_finished.set()
+        except Exception as exc:  # pragma: no cover - assertion path
+            raised.append(exc)
+
+    install_thread = threading.Thread(target=_run_install)
+    install_thread.start()
+    assert candidate_started.wait(timeout=2.0)
+
+    manager.get_status_response()
+    read_completed.set()
+    release_candidate.set()
+
+    install_thread.join(timeout=2.0)
+    assert raised == []
+    assert install_finished.is_set()
+
+
 def test_global_install_uses_global_auto_enable_source(tmp_path: Path) -> None:
     # Global install enablement should flow through global defaults, not workspace overrides.
     manager = _make_manager(tmp_path)
@@ -7061,6 +7186,123 @@ def test_worker_route_proxy_forwards_worker_response_status_headers_and_errors(
         missing_response = client.get(route_path)
         assert missing_response.status_code == 404
         assert missing_response.json() == {"detail": "missing"}
+
+
+def test_worker_route_proxy_preserves_multiple_set_cookie_headers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Proxy should preserve repeated Set-Cookie headers instead of collapsing them.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    manager._register_backend_router_from_worker_request(
+        app=app,
+        entry=entry,
+        params={
+            "prefix": "/proxy",
+            "routes": [
+                {
+                    "routeId": "route_0",
+                    "path": "/echo",
+                    "methods": ["GET"],
+                }
+            ],
+        },
+    )
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    route_path = "/api/plugins/setta-fixture-backend/proxy/echo"
+
+    monkeypatch.setattr(
+        manager,
+        "_call_backend_worker_method",
+        lambda **_kwargs: {
+            "statusCode": 200,
+            "body": {"ok": True},
+            "headers": [
+                ["set-cookie", "a=1; Path=/; HttpOnly"],
+                ["set-cookie", "b=2; Path=/; Secure"],
+                ["x-fixture", "cookies"],
+            ],
+        },
+    )
+
+    with TestClient(app) as client:
+        response = client.get(route_path)
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert response.headers["x-fixture"] == "cookies"
+    assert response.headers.get_list("set-cookie") == [
+        "a=1; Path=/; HttpOnly",
+        "b=2; Path=/; Secure",
+    ]
+
+
+def test_worker_route_proxy_returns_empty_body_for_no_content_status(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Proxy should emit a true empty response for no-content worker statuses.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    manager._register_backend_router_from_worker_request(
+        app=app,
+        entry=entry,
+        params={
+            "prefix": "/proxy",
+            "routes": [
+                {
+                    "routeId": "route_0",
+                    "path": "/echo",
+                    "methods": ["GET"],
+                }
+            ],
+        },
+    )
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    route_path = "/api/plugins/setta-fixture-backend/proxy/echo"
+
+    monkeypatch.setattr(
+        manager,
+        "_call_backend_worker_method",
+        lambda **_kwargs: {
+            "statusCode": 204,
+            "body": None,
+        },
+    )
+
+    with TestClient(app) as client:
+        response = client.get(route_path)
+    assert response.status_code == 204
+    assert response.content == b""
+    assert response.headers.get("content-type") is None
 
 
 def test_scoped_link_and_uninstall_work_for_shadowed_entries(tmp_path: Path) -> None:
