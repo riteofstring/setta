@@ -40,7 +40,6 @@ export function ViewingEditingMode() {
       };
     }, _.isEqual);
   const { canEditVariants, canEditStructure } = useShareCapabilities();
-
   const editLabel = isEditingViewMode ? "Done editing" : "Edit";
   const editTitle = isEditingViewMode
     ? "Done editing view modes"
@@ -101,75 +100,71 @@ export function ViewingEditingMode() {
   };
 
   return (
-    <div data-testid="view-modes-pane" className="flex h-full min-h-0 w-full flex-col">
-      <div className="setta-pane-scroll flex min-h-0 flex-1 flex-col gap-3">
-        <div className="flex items-center gap-2">
-          <button
-            data-testid="view-modes-toggle-edit"
-            className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-all ${
-              canEditStructure
-                ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
-                : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
-            }`}
-            onClick={handleToggleEdit}
-            title={editTitle}
-            disabled={!canEditStructure}
-          >
-            <span className="text-setta-500 dark:text-setta-400">{editIcon}</span>
-            {editLabel}
-          </button>
-          <button
-            data-testid="view-modes-create-mode"
-            className={`ml-auto rounded border px-2 py-1 text-xs transition-all ${
-              canEditStructure
-                ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
-                : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
-            }`}
-            onClick={handleCreateMode}
-            title="Create a new view mode"
-            disabled={!canEditStructure}
-          >
-            New View Mode
-          </button>
+    <div className="flex w-full flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <button
+          className={`flex items-center gap-2 rounded border px-2 py-1 text-xs transition-all ${
+            canEditStructure
+              ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
+              : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
+          }`}
+          onClick={handleToggleEdit}
+          title={editTitle}
+          disabled={!canEditStructure}
+        >
+          <span className="text-setta-500 dark:text-setta-400">{editIcon}</span>
+          {editLabel}
+        </button>
+        <button
+          className={`ml-auto rounded border px-2 py-1 text-xs transition-all ${
+            canEditStructure
+              ? "cursor-pointer border-setta-200 text-setta-700 hover:bg-setta-100 dark:border-setta-800 dark:text-setta-300 dark:hover:bg-setta-800/50"
+              : "cursor-not-allowed border-setta-200 text-setta-300 opacity-60 dark:border-setta-800 dark:text-setta-600"
+          }`}
+          onClick={handleCreateMode}
+          title="Create a new view mode"
+          disabled={!canEditStructure}
+        >
+          New View Mode
+        </button>
+      </div>
+
+      {!hasViewModes && (
+        <div className="rounded border border-dashed border-setta-200 px-2 py-2 text-xs text-setta-500 dark:border-setta-800 dark:text-setta-400">
+          No view modes yet. Create one to start customizing visibility.
         </div>
+      )}
 
-        {!hasViewModes && (
-          <div className="rounded border border-dashed border-setta-200 px-2 py-2 text-xs text-setta-500 dark:border-setta-800 dark:text-setta-400">
-            No view modes yet. Create one to start customizing visibility.
-          </div>
-        )}
-
-        <div className="flex flex-col gap-2">
-          {viewModeList.map((mode) => {
-            const isActive = activeViewModeId === mode.id;
-            if (isEditingViewMode) {
-              return (
-                <ViewModeEditingRow
-                  key={mode.id}
-                  mode={mode}
-                  isActive={isActive}
-                  isDeletable={canDeleteViewModes}
-                  projectConfigId={projectConfigId}
-                  onSelect={handleModeChange}
-                  onToggleTab={handleToggleTab}
-                  onToggleUserFacing={handleToggleUserFacing}
-                  canEditVariants={canEditVariants}
-                  canEditStructure={canEditStructure}
-                />
-              );
-            }
-
+      <div className="flex flex-col gap-2">
+        {viewModeList.map((mode) => {
+          const isActive = activeViewModeId === mode.id;
+          if (isEditingViewMode) {
             return (
-              <ViewModeRow
+              <ViewModeEditingRow
                 key={mode.id}
                 mode={mode}
                 isActive={isActive}
+                isDeletable={canDeleteViewModes}
+                projectConfigId={projectConfigId}
                 onSelect={handleModeChange}
-                disabled={!canEditVariants}
+                onToggleTab={handleToggleTab}
+                onToggleUserFacing={handleToggleUserFacing}
+                canEditVariants={canEditVariants}
+                canEditStructure={canEditStructure}
               />
             );
-          })}
-        </div>
+          }
+
+          return (
+            <ViewModeRow
+              key={mode.id}
+              mode={mode}
+              isActive={isActive}
+              onSelect={handleModeChange}
+              disabled={!canEditVariants}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -205,7 +200,6 @@ function ViewModeRow({ mode, isActive, onSelect, disabled }: ViewModeRowProps) {
 
   return (
     <button
-      data-testid={`view-mode-row-${mode.id}`}
       className={rowClasses}
       onClick={disabled ? undefined : () => onSelect(mode.id)}
       title={modeLabel}
@@ -381,7 +375,6 @@ function ViewModeEditingRow({
   const rowClick = canEditVariants ? () => onSelect(mode.id) : undefined;
   return (
     <div
-      data-testid={`view-mode-edit-row-${mode.id}`}
       className={`${rowClasses} ${
         canEditVariants ? "" : "cursor-not-allowed opacity-60"
       }`}
@@ -398,7 +391,6 @@ function ViewModeEditingRow({
         disabled={!canEditStructure}
       />
       <button
-        data-testid="view-mode-toggle-tab"
         className={`cursor-pointer bg-transparent ${tabClasses}`}
         onClick={handleToggleTab}
         title={tabTitle}
