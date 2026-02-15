@@ -14,11 +14,7 @@ import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 import { ModalTypeEnum } from "../types";
 import { useProjectMetadataForFileMenu } from "./utils";
 
-export function FileMenuSaveProjectConfigAsModal({
-  open,
-}: {
-  open: boolean;
-}) {
+export function FileMenuSaveProjectConfigAsModal({ open }: { open: boolean }) {
   const projectMetadata = useProjectMetadataForFileMenu(open);
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
   const { saveWithRefs } = useModalData(

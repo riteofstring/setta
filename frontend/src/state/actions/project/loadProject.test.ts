@@ -15,7 +15,8 @@ vi.mock("utils/generatedEndpoints", () => ({
 }));
 
 vi.mock("../serverMode", () => ({
-  initializeServerMode: (...args: unknown[]) => initializeServerModeMock(...args),
+  initializeServerMode: (...args: unknown[]) =>
+    initializeServerModeMock(...args),
 }));
 
 import { loadAllProjectMetadata } from "./loadProject";
@@ -41,7 +42,10 @@ describe("loadAllProjectMetadata", () => {
   });
 
   it("returns true and updates metadata store after a successful response", async () => {
-    const project = createProjectConfig({ id: "project-1", name: "Project One" });
+    const project = createProjectConfig({
+      id: "project-1",
+      name: "Project One",
+    });
     initializeServerModeMock.mockResolvedValue("ide");
     routeLoadAllProjectMetadataMock.mockResolvedValue({
       data: {

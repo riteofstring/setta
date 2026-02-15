@@ -46,7 +46,10 @@ export function SortableListProvider({
   );
 }
 
-type SortableListProviderClientProps = Omit<SortableListProviderProps, "enabled">;
+type SortableListProviderClientProps = Omit<
+  SortableListProviderProps,
+  "enabled"
+>;
 
 function SortableListProviderClient({
   id,
