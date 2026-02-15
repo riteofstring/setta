@@ -110,7 +110,6 @@ class TestMultipartRouteLimits:
                     name="Primary Engine",
                     engineType=EngineType.setta_llm,
                     settaLlmConfigId="primary",
-                    transcriptionLlmConfigId="primary",
                 )
             ],
         )

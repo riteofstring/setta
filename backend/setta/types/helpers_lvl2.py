@@ -119,7 +119,6 @@ from setta.types.section_impls import (
     BrowserSavedSearch,
     BrowserSectionImpl,
     CallableSectionImpl,
-    ChatDictationMode,
     ChatPermissionMode,
     ChatSectionImpl,
     ChatSectionState,
@@ -3166,7 +3165,6 @@ def set_chat_section_settings(
     thinking: bool,
     permissionMode: ChatPermissionMode,
     searchEnabled: bool,
-    dictationMode: ChatDictationMode,
 ):
     get_curr_effective_section_impl_with_type_guard(p, sectionId, ChatSectionImpl)
     set_curr_effective_section_impl_value(
@@ -3179,7 +3177,6 @@ def set_chat_section_settings(
             thinking=thinking,
             permissionMode=permissionMode,
             searchEnabled=searchEnabled,
-            dictationMode=dictationMode,
         ),
     )
 

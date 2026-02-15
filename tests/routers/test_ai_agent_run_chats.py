@@ -101,7 +101,6 @@ def _seed_engine_config(dbe: DBE, engine_config_id: ID, llm_config_id: str) -> N
         name="Default Engine",
         engineType=EngineType.setta_llm,
         settaLlmConfigId=llm_config_id,
-        transcriptionLlmConfigId=llm_config_id,
     )
     save_engine_configs(dbe, [engine_config])
 
@@ -975,41 +974,26 @@ class TestAgentRunChatRoutes:
                 wmh_frontend_sender=runner.websocket_msg_handler,
             )
             engine_config_id = ID("engine-primary")
-            save_engine_configs(
-                dbe,
-                [
-                    EngineConfig(
-                        id=engine_config_id,
-                        name="Default Engine",
-                        engineType=EngineType.setta_llm,
-                        settaLlmConfigId="claude-chat",
-                        transcriptionLlmConfigId="openai-transcribe",
-                    )
-                ],
-            )
+            _seed_engine_config(dbe, engine_config_id, "primary")
             runner.update_config(
                 AllLLMConfigs(
                     configs={
-                        "claude-chat": LLMConfig(
-                            id="claude-chat",
-                            model="claude-3-7-sonnet-latest",
-                            provider="anthropic",
-                            api_key_env="ANTHROPIC_API_KEY",
-                            mcpServerIds=[],
-                        ),
-                        "openai-transcribe": LLMConfig(
-                            id="openai-transcribe",
-                            model="whisper-1",
+                        "primary": LLMConfig(
+                            id="primary",
+                            model="gpt-4o-mini",
                             provider="openai",
                             api_key_env="OPENAI_API_KEY",
                             other_params={
+                                "transcriptionModel": "whisper-1",
                                 "api_version": "2025-01-01-preview",
                                 "extra_headers": {"x-trace-id": "abc-123"},
-                                "prompt": "Prefer punctuation.",
-                                "temperature": 0.2,
+                                "transcription": {
+                                    "prompt": "Prefer punctuation.",
+                                    "temperature": 0.2,
+                                },
                             },
                             mcpServerIds=[],
-                        ),
+                        )
                     },
                     mcpServers={},
                 )
@@ -1052,6 +1036,8 @@ class TestAgentRunChatRoutes:
             assert kwargs.get("extra_headers") == {"x-trace-id": "abc-123"}
             assert kwargs.get("prompt") == "Prefer punctuation."
             assert kwargs.get("temperature") == 0.2
+            assert "transcriptionModel" not in kwargs
+            assert "transcription" not in kwargs
             file_payload = kwargs.get("file")
             assert file_payload == ("voice.webm", b"hello", "audio/webm")
 
@@ -1087,53 +1073,6 @@ class TestAgentRunChatRoutes:
             detail = str(exc.value.detail)
             assert "Missing API key for" in detail
             assert "OPENAI_API_KEY" in detail
-
-    async def test_transcribe_chat_audio_returns_400_for_missing_transcription_config(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            engine_config_id = ID("engine-primary")
-            save_engine_configs(
-                dbe,
-                [
-                    EngineConfig(
-                        id=engine_config_id,
-                        name="Default Engine",
-                        engineType=EngineType.setta_llm,
-                        settaLlmConfigId="primary",
-                        transcriptionLlmConfigId=None,
-                    )
-                ],
-            )
-
-            with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request_with_form(
-                            engine_config_id=engine_config_id,
-                            file=upload,
-                        ),
-                    )
-
-            assert exc.value.status_code == 400
-            assert (
-                exc.value.detail
-                == "Transcription config is missing or invalid for this engine. "
-                "Set transcriptionLlmConfigId."
-            )
 
     async def test_transcribe_chat_audio_keeps_502_for_provider_failures(
         self,

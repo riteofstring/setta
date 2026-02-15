@@ -44,7 +44,6 @@ AllImplFields = Literal[
     "density",
     "description",
     "diagnosticsIgnoreState",
-    "dictationMode",
     "drawThrottleDelay",
     "edgeInputParams",
     "edgeOutputPorts",

@@ -38,7 +38,6 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
-    ChatDictationMode,
     ChatPermissionMode,
     ChatSectionState,
     CodeFileAccessMode,
@@ -1128,7 +1127,6 @@ class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     thinking: bool
     permissionMode: ChatPermissionMode
     searchEnabled: bool
-    dictationMode: ChatDictationMode
 
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):
