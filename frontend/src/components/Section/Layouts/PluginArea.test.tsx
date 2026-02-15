@@ -151,8 +151,11 @@ function findButtonByLabel(root: unknown, label: string): ElementNode {
   return match;
 }
 
-function renderFallbackCard(sectionId = "section-1"): ElementNode {
-  const root = PluginArea({ sectionId, isUserView: false });
+function renderFallbackCard(
+  sectionId = "section-1",
+  isUserView = false,
+): ElementNode {
+  const root = PluginArea({ sectionId, isUserView });
   if (!isElementNode(root)) {
     throw new Error("Expected PluginArea to return a React element.");
   }
@@ -340,5 +343,14 @@ describe("PluginArea fallback actions", () => {
     expect(collectText(fallbackCard)).toContain(
       "Plugin is not installed in this workspace or setta_files scope.",
     );
+  });
+
+  it("hides delete action in user view fallback mode", () => {
+    // Read-only user view should not expose destructive fallback actions.
+    const fallbackCard = renderFallbackCard("section-read-only", true);
+
+    expect(() =>
+      findButtonByLabel(fallbackCard, "Delete Section"),
+    ).toThrowError();
   });
 });

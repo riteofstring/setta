@@ -678,7 +678,7 @@ def test_plugins_mutation_commands_build_manager_without_auto_rescan(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
-    # Mutation commands with internal manager rescans should skip constructor auto-rescan.
+    # Mutation commands should still skip constructor auto-rescan.
     manager = _build_manager(tmp_path)
     captured_auto_rescan_values: list[bool] = []
 
@@ -697,6 +697,7 @@ def test_plugins_mutation_commands_build_manager_without_auto_rescan(
         ["enable", "missing-plugin"],
         ["disable", "missing-plugin"],
         ["update", "missing-plugin"],
+        ["pin", "missing-plugin", "0.1.0"],
         ["rollback", "missing-plugin"],
         ["link", str(tmp_path / "missing-plugin-root")],
         ["unlink", "missing-plugin"],
@@ -705,6 +706,75 @@ def test_plugins_mutation_commands_build_manager_without_auto_rescan(
         runner.invoke(plugins, command)
 
     assert captured_auto_rescan_values == [False] * len(commands)
+
+
+def test_plugins_mutation_commands_use_fresh_lookup_state_before_mutation(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Fresh CLI manager instances should discover installed plugins before lookup-based mutations.
+    workspace_root = tmp_path / "workspace"
+    setta_files_root = tmp_path / "setta_files"
+    setta_home = tmp_path / "setta_home"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    setta_files_root.mkdir(parents=True, exist_ok=True)
+    setta_home.mkdir(parents=True, exist_ok=True)
+
+    seed_manager = _build_manager_from_paths(
+        workspace_root=workspace_root,
+        setta_files_root=setta_files_root,
+        setta_home=setta_home,
+    )
+    seed_manager.link_plugin(
+        local_plugin_root=str(FIXTURE_PLUGIN_ROOT / "frontend"),
+        scope="workspace",
+        enable=True,
+        force=False,
+    )
+
+    def _build_fresh_manager(*, auto_rescan: bool = True):
+        return PluginManager(
+            workspace_root=workspace_root,
+            setta_files_root=setta_files_root,
+            setta_home=setta_home,
+            server_mode="ide",
+            setta_version="0.1.0",
+            auto_rescan=auto_rescan,
+        )
+
+    monkeypatch.setattr(
+        start_module,
+        "_build_plugin_manager_for_cli",
+        _build_fresh_manager,
+    )
+    runner = CliRunner()
+
+    disable_result = runner.invoke(
+        plugins,
+        ["disable", "setta-fixture-frontend", "--json"],
+    )
+    assert disable_result.exit_code == 0, disable_result.output
+    assert json.loads(disable_result.output)["state"] == "disabled"
+
+    enable_result = runner.invoke(
+        plugins,
+        ["enable", "setta-fixture-frontend", "--json"],
+    )
+    assert enable_result.exit_code == 0, enable_result.output
+    assert json.loads(enable_result.output)["state"] == "active"
+
+    uninstall_result = runner.invoke(
+        plugins,
+        [
+            "uninstall",
+            "setta-fixture-frontend",
+            "--scope",
+            "workspace",
+            "--json",
+        ],
+    )
+    assert uninstall_result.exit_code == 0, uninstall_result.output
+    assert json.loads(uninstall_result.output)["pluginId"] == "setta-fixture-frontend"
 
 
 def test_plugins_unlink_cli_ignore_missing_returns_success(

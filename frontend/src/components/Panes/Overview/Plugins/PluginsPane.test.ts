@@ -226,6 +226,14 @@ describe("plugins pane helpers", () => {
         serverMode: "app",
       }),
     ).toBe("registerPane was requested but is not effective in this runtime.");
+    expect(
+      pluginsPaneTestApi.buildCapabilityUnavailableMessage({
+        capability: "registerContextMenu",
+        status: "blocked",
+        reason: "host_policy",
+        serverMode: "ide",
+      }),
+    ).toBe("registerContextMenu is blocked (host_policy).");
   });
 
   it("extracts and sorts registered language servers from plugin status", () => {

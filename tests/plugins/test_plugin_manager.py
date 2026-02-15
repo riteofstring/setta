@@ -3047,6 +3047,20 @@ def test_mode_policy_blocked_capabilities_are_exposed_in_status_and_list(
     }
 
 
+def test_host_policy_blocks_register_context_menu_capability(tmp_path: Path) -> None:
+    # Context-menu capability should be blocked until host support is implemented.
+    manager = _make_manager(tmp_path, server_mode="ide")
+
+    effective, blocked = manager._resolve_effective_capabilities(
+        ["registerContextMenu", "registerPane"]
+    )
+
+    assert effective == ["registerPane"]
+    assert len(blocked) == 1
+    assert blocked[0].capability == "registerContextMenu"
+    assert blocked[0].reason == BlockedCapabilityReason.host_policy
+
+
 @pytest.mark.parametrize("server_mode", ["share", "app"])
 def test_list_response_redacts_config_payload_outside_ide(
     tmp_path: Path, server_mode: Literal["share", "app"]
@@ -4674,6 +4688,39 @@ def test_generate_backend_codegen_target_rejects_invalid_worker_result_payload(
             {
                 "files": [
                     {
+                        "relativePath": "C:/tmp/absolute.ts",
+                        "content": "export const x = 1;\n",
+                    }
+                ]
+            },
+            "relativePath cannot be absolute",
+        ),
+        (
+            {
+                "files": [
+                    {
+                        "relativePath": r"C:\tmp\absolute.ts",
+                        "content": "export const x = 1;\n",
+                    }
+                ]
+            },
+            "relativePath cannot be absolute",
+        ),
+        (
+            {
+                "files": [
+                    {
+                        "relativePath": r"\\server\share\absolute.ts",
+                        "content": "export const x = 1;\n",
+                    }
+                ]
+            },
+            "relativePath cannot be absolute",
+        ),
+        (
+            {
+                "files": [
+                    {
                         "relativePath": "../escape.ts",
                         "content": "export const x = 1;\n",
                     }
@@ -4689,7 +4736,7 @@ def test_generate_backend_codegen_target_rejects_invalid_worker_result_payload(
                         "content": "first",
                     },
                     {
-                        "relativePath": "setta_gen.ts",
+                        "relativePath": "./setta_gen.ts",
                         "content": "second",
                     },
                 ]
@@ -4726,6 +4773,29 @@ def test_normalize_codegen_generation_payload_rejects_invalid_file_entries(
         )
     assert exc_info.value.code == "PLUGIN_BACKEND_CODEGEN_FAILED"
     assert expected_message_fragment in str(exc_info.value)
+
+
+def test_normalize_codegen_generation_payload_canonicalizes_relative_paths(
+    tmp_path: Path,
+) -> None:
+    # Normalization should collapse equivalent relative path spellings to one canonical form.
+    manager = _make_manager(tmp_path)
+
+    generated_files = manager._normalize_codegen_generation_payload(
+        plugin_id="setta-fixture-backend-codegen",
+        target_id="setta-fixture-backend-codegen:typescript",
+        payload={
+            "files": [
+                {
+                    "relativePath": "./nested//setta_gen.ts",
+                    "content": "export const x = 1;\n",
+                }
+            ]
+        },
+        default_file_name="setta_gen.ts",
+    )
+
+    assert generated_files == [("nested/setta_gen.ts", "export const x = 1;\n")]
 
 
 def test_rollback_plugin_requires_history(tmp_path: Path) -> None:

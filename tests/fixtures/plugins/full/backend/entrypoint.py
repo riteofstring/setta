@@ -1,2 +1,2 @@
-def register(plugin):
+def register(_plugin):
     return None

@@ -286,6 +286,7 @@ const sectionKindCapability = "registerSectionKinds";
 const paneCapability = "registerPane";
 const commandCapability = "registerCommand";
 const topNavBarCapability = "registerTopNavBarItem";
+const contextMenuCapability = "registerContextMenu";
 const readProjectStateCapability = "readProjectState";
 const subscribeProjectStateCapability = "subscribeProjectState";
 const emitListenerEventsCapability = "emitListenerEvents";
@@ -294,6 +295,7 @@ const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
 const cleanupByPluginId = new Map<string, Set<() => void>>();
 let pluginRuntimeLoadPromise: Promise<void> | null = null;
+let pluginRuntimeRefreshQueued = false;
 const PLUGIN_FRONTEND_LOAD_CONCURRENCY = 4;
 
 export const usePluginRuntimeStore = createWithEqualityFn<PluginRuntimeStore>(
@@ -313,12 +315,20 @@ export function usePluginRuntimeBootstrap(enabled: boolean): void {
 
 export async function refreshPluginRuntime(): Promise<void> {
   if (pluginRuntimeLoadPromise) {
+    pluginRuntimeRefreshQueued = true;
     return pluginRuntimeLoadPromise;
   }
-  pluginRuntimeLoadPromise = loadPluginRuntime().finally(() => {
+  pluginRuntimeLoadPromise = runQueuedPluginRuntimeRefreshes().finally(() => {
     pluginRuntimeLoadPromise = null;
   });
   return pluginRuntimeLoadPromise;
+}
+
+async function runQueuedPluginRuntimeRefreshes(): Promise<void> {
+  do {
+    pluginRuntimeRefreshQueued = false;
+    await loadPluginRuntime();
+  } while (pluginRuntimeRefreshQueued);
 }
 
 async function loadPluginRuntime(): Promise<void> {
@@ -555,6 +565,7 @@ async function loadPluginFrontendModule(
       registryDelta,
     };
   } catch (error) {
+    ensurePluginStyleLoaded(plugin.pluginId, null);
     runPluginCleanup(plugin.pluginId);
     return {
       error: toPluginFrontendLoadError(plugin.pluginId, error),
@@ -920,6 +931,12 @@ function registerPluginModule({
       registryDelta.topNavBarItems[plugin.pluginId] = pluginTopNavBarItems;
     },
     registerContextMenu: (_definition) => {
+      ensureCapability(
+        plugin.pluginId,
+        effectiveCapabilitySet,
+        contextMenuCapability,
+        "registerContextMenu",
+      );
       throw new PluginRuntimeError(
         PluginFrontendErrorCodeEnum.CapabilityDenied,
         "registerContextMenu is not implemented in this host yet.",
@@ -1924,6 +1941,7 @@ export function resetPluginRuntimeStoreForTests(): void {
   styleElementByPluginId.clear();
   styleHrefByPluginId.clear();
   pluginRuntimeLoadPromise = null;
+  pluginRuntimeRefreshQueued = false;
   usePluginRuntimeStore.setState({
     ...INITIAL_PLUGIN_RUNTIME_STORE,
     pluginListById: {},

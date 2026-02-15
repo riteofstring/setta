@@ -17,7 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import wraps
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from queue import Empty, Full, Queue
 from typing import TYPE_CHECKING, Any, Literal, Optional
 from uuid import uuid4
@@ -132,6 +132,7 @@ _MODE_ALLOWED_CAPABILITIES = {
         }
     ),
 }
+_HOST_BLOCKED_CAPABILITIES = frozenset({"registerContextMenu"})
 
 _BACKEND_WORKER_STDERR_MAX_LINES = 200
 
@@ -3419,7 +3420,13 @@ class PluginManager:
                 normalized_relative_path = raw_relative_path.strip().replace("\\", "/")
                 if normalized_relative_path != "":
                     relative_path = normalized_relative_path
-            if relative_path.startswith("/"):
+            pure_posix_path = PurePosixPath(relative_path)
+            pure_windows_path = PureWindowsPath(relative_path)
+            if (
+                pure_posix_path.is_absolute()
+                or pure_windows_path.is_absolute()
+                or pure_windows_path.drive != ""
+            ):
                 raise PluginManagerError(
                     "PLUGIN_BACKEND_CODEGEN_FAILED",
                     (
@@ -3427,8 +3434,20 @@ class PluginManager:
                         f"{target_id} (path={relative_path})."
                     ),
                 )
-            path_parts = Path(relative_path).parts
-            if len(path_parts) == 0:
+            canonical_parts: list[str] = []
+            for part in relative_path.split("/"):
+                if part in {"", "."}:
+                    continue
+                if part == "..":
+                    raise PluginManagerError(
+                        "PLUGIN_BACKEND_CODEGEN_FAILED",
+                        (
+                            "Plugin codegen file relativePath cannot escape target "
+                            f"root for {target_id} (path={relative_path})."
+                        ),
+                    )
+                canonical_parts.append(part)
+            if len(canonical_parts) == 0:
                 raise PluginManagerError(
                     "PLUGIN_BACKEND_CODEGEN_FAILED",
                     (
@@ -3436,23 +3455,16 @@ class PluginManager:
                         f"{target_id}."
                     ),
                 )
-            if any(part in {"..", ""} for part in path_parts):
-                raise PluginManagerError(
-                    "PLUGIN_BACKEND_CODEGEN_FAILED",
-                    (
-                        "Plugin codegen file relativePath cannot escape target root "
-                        f"for {target_id} (path={relative_path})."
-                    ),
-                )
-            if relative_path in seen_relative_paths:
+            canonical_relative_path = "/".join(canonical_parts)
+            if canonical_relative_path in seen_relative_paths:
                 raise PluginManagerError(
                     "PLUGIN_BACKEND_CODEGEN_FAILED",
                     (
                         "Plugin codegen file relativePath is duplicated for "
-                        f"{target_id} (path={relative_path})."
+                        f"{target_id} (path={canonical_relative_path})."
                     ),
                 )
-            seen_relative_paths.add(relative_path)
+            seen_relative_paths.add(canonical_relative_path)
             raw_content = raw_file.get("content")
             if not isinstance(raw_content, str):
                 raise PluginManagerError(
@@ -3462,7 +3474,7 @@ class PluginManager:
                         f"{target_id} (index={index})."
                     ),
                 )
-            normalized_files.append((relative_path, raw_content))
+            normalized_files.append((canonical_relative_path, raw_content))
         if len(normalized_files) == 0:
             raise PluginManagerError(
                 "PLUGIN_BACKEND_CODEGEN_FAILED",
@@ -4929,6 +4941,14 @@ class PluginManager:
         effective: list[str] = []
         blocked: list[PluginBlockedCapability] = []
         for capability in requested:
+            if capability in _HOST_BLOCKED_CAPABILITIES:
+                blocked.append(
+                    PluginBlockedCapability(
+                        capability=capability,
+                        reason=BlockedCapabilityReason.host_policy,
+                    )
+                )
+                continue
             if capability in allowed:
                 effective.append(capability)
             else:

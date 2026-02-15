@@ -8,7 +8,7 @@ import shutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from functools import wraps
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -1193,6 +1193,50 @@ class BaseProjectManager(ABC):
         short_hash = hashlib.sha256(target_id.encode("utf-8")).hexdigest()[:12]
         return f"{normalized}__{short_hash}"
 
+    def _normalize_plugin_codegen_relative_path(self, relative_path: str) -> str:
+        normalized_relative_path = relative_path.strip().replace("\\", "/")
+        if normalized_relative_path == "":
+            raise ValueError("Plugin codegen output path cannot be empty.")
+        pure_posix_path = PurePosixPath(normalized_relative_path)
+        pure_windows_path = PureWindowsPath(normalized_relative_path)
+        if (
+            pure_posix_path.is_absolute()
+            or pure_windows_path.is_absolute()
+            or pure_windows_path.drive != ""
+        ):
+            raise ValueError(
+                "Plugin codegen output path cannot be absolute: "
+                f"{normalized_relative_path}"
+            )
+        parts: list[str] = []
+        for part in normalized_relative_path.split("/"):
+            if part in {"", "."}:
+                continue
+            if part == "..":
+                raise ValueError(
+                    "Plugin codegen output path cannot escape target root: "
+                    f"{normalized_relative_path}"
+                )
+            parts.append(part)
+        if len(parts) == 0:
+            raise ValueError("Plugin codegen output path cannot be empty.")
+        return "/".join(parts)
+
+    def _resolve_plugin_codegen_output_path(
+        self, *, target_root: Path, relative_path: str
+    ) -> Path:
+        normalized_relative_path = self._normalize_plugin_codegen_relative_path(
+            relative_path
+        )
+        target_root_resolved = target_root.resolve(strict=False)
+        output_path = (target_root / normalized_relative_path).resolve(strict=False)
+        if not output_path.is_relative_to(target_root_resolved):
+            raise ValueError(
+                "Plugin codegen output path escapes target root: "
+                f"{normalized_relative_path}"
+            )
+        return output_path
+
     def _resolve_plugin_codegen_targets(
         self,
         codegen_targets: list[ProjectCodegenTarget],
@@ -1300,9 +1344,20 @@ class BaseProjectManager(ABC):
             )
             generated_relative_paths: set[str] = set()
             for relative_path, content in generated_files:
-                output_path = target_root / relative_path
+                normalized_relative_path = self._normalize_plugin_codegen_relative_path(
+                    relative_path
+                )
+                if normalized_relative_path in generated_relative_paths:
+                    raise ValueError(
+                        "Plugin codegen output path is duplicated: "
+                        f"{normalized_relative_path}"
+                    )
+                output_path = self._resolve_plugin_codegen_output_path(
+                    target_root=target_root,
+                    relative_path=normalized_relative_path,
+                )
                 output_path.parent.mkdir(parents=True, exist_ok=True)
-                generated_relative_paths.add(relative_path)
+                generated_relative_paths.add(normalized_relative_path)
                 if output_path.exists():
                     existing_content = output_path.read_text(encoding="utf-8")
                     if existing_content == content:
@@ -1310,9 +1365,16 @@ class BaseProjectManager(ABC):
                 self.dbe.write(output_path, content)
 
             previous_paths = previous_state[1] if previous_state is not None else set()
-            stale_relative_paths = previous_paths - generated_relative_paths
+            normalized_previous_paths = {
+                self._normalize_plugin_codegen_relative_path(relative_path)
+                for relative_path in previous_paths
+            }
+            stale_relative_paths = normalized_previous_paths - generated_relative_paths
             for relative_path in stale_relative_paths:
-                stale_path = target_root / relative_path
+                stale_path = self._resolve_plugin_codegen_output_path(
+                    target_root=target_root,
+                    relative_path=relative_path,
+                )
                 if not stale_path.exists() or not stale_path.is_file():
                     continue
                 stale_path.unlink()

@@ -718,6 +718,144 @@ class TestCodegenTargetsRunCommand:
             manager.shutdown()
             plugin_manager.shutdown_backend_plugins()
 
+    async def test_refresh_codegen_state_canonicalizes_plugin_codegen_paths(
+        self,
+    ) -> None:
+        class _StubPluginManager:
+            def __init__(self) -> None:
+                self.implementation_token = "impl-a"
+
+            def has_backend_codegen_target(self, _target_id: str) -> bool:
+                return True
+
+            def get_backend_codegen_target_implementation_key(
+                self, target_id: str
+            ) -> str:
+                return f"{target_id}:{self.implementation_token}"
+
+            def generate_backend_codegen_target(
+                self,
+                *,
+                target_id: str,
+                project_state: dict[str, Any],
+                target_options: dict[str, Any],
+            ) -> list[tuple[str, str]]:
+                if self.implementation_token == "impl-a":
+                    return [
+                        (
+                            "./nested//setta_gen.txt",
+                            (
+                                f"{target_id}:first:"
+                                f"{project_state['projectConfig']['name']}:"
+                                f"{len(target_options)}"
+                            ),
+                        )
+                    ]
+                return [
+                    (
+                        "nested/setta_gen.txt",
+                        (
+                            f"{target_id}:second:"
+                            f"{project_state['projectConfig']['name']}:"
+                            f"{len(target_options)}"
+                        ),
+                    )
+                ]
+
+        plugin_manager = _StubPluginManager()
+        project_config = ProjectConfig(
+            name="PluginCodegenCanonicalPath",
+            codegenTargets=[
+                ProjectCodegenPluginTarget(language="stub-plugin:target-a")
+            ],
+        )
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=plugin_manager,  # type: ignore[arg-type]
+        )
+        try:
+            await manager._refresh_codegen_state(project_state)
+            target_dir = manager._plugin_codegen_target_dir_name("stub-plugin:target-a")
+            output_path = (
+                build_project_sections_dir(C.CODE_FOLDER, project_config.name)
+                / "plugin_codegen"
+                / target_dir
+                / "nested"
+                / "setta_gen.txt"
+            )
+            assert output_path.exists()
+            assert output_path.read_text(encoding="utf-8").startswith(
+                "stub-plugin:target-a:first:"
+            )
+
+            plugin_manager.implementation_token = "impl-b"
+            await manager._refresh_codegen_state(project_state)
+            assert output_path.exists()
+            assert output_path.read_text(encoding="utf-8").startswith(
+                "stub-plugin:target-a:second:"
+            )
+        finally:
+            manager.shutdown()
+
+    async def test_refresh_codegen_state_rejects_absolute_plugin_codegen_paths(
+        self,
+    ) -> None:
+        class _StubPluginManager:
+            def has_backend_codegen_target(self, _target_id: str) -> bool:
+                return True
+
+            def get_backend_codegen_target_implementation_key(
+                self, target_id: str
+            ) -> str:
+                return target_id
+
+            def generate_backend_codegen_target(
+                self,
+                *,
+                target_id: str,
+                project_state: dict[str, Any],
+                _target_options: dict[str, Any],
+            ) -> list[tuple[str, str]]:
+                return [("C:/outside.ts", f"{target_id}:{len(project_state)}")]
+
+        project_config = ProjectConfig(
+            name="PluginCodegenAbsolutePath",
+            codegenTargets=[
+                ProjectCodegenPluginTarget(language="stub-plugin:target-a")
+            ],
+        )
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=_StubPluginManager(),  # type: ignore[arg-type]
+        )
+        try:
+            with pytest.raises(ValueError, match="cannot be absolute"):
+                await manager._refresh_codegen_state(project_state)
+        finally:
+            manager.shutdown()
+
     async def test_set_project_config_name_removes_stale_plugin_codegen_output_root(
         self,
     ) -> None:

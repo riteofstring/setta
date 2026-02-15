@@ -1678,7 +1678,11 @@ function getRegisteredCodegenTargets(
   return registrations;
 }
 
-function parsePluginConfigDraft(rawValue: string): {
+function parseJsonObjectDraft(
+  rawValue: string,
+  invalidTypeMessage: string,
+  invalidJsonMessage: string,
+): {
   value: Record<string, unknown>;
   error: string | null;
 } {
@@ -1691,23 +1695,38 @@ function parsePluginConfigDraft(rawValue: string): {
     if (!isPlainObject(parsed)) {
       return {
         value: {},
-        error: "Plugin config must be a JSON object.",
+        error: invalidTypeMessage,
       };
     }
     return { value: parsed, error: null };
   } catch {
     return {
       value: {},
-      error: "Plugin config JSON is invalid.",
+      error: invalidJsonMessage,
     };
   }
 }
 
-function formatPluginConfigDraft(value: unknown): string {
+function formatJsonObjectDraft(value: unknown): string {
   if (!isPlainObject(value)) {
     return "{}";
   }
   return JSON.stringify(value, null, 2);
+}
+
+function parsePluginConfigDraft(rawValue: string): {
+  value: Record<string, unknown>;
+  error: string | null;
+} {
+  return parseJsonObjectDraft(
+    rawValue,
+    "Plugin config must be a JSON object.",
+    "Plugin config JSON is invalid.",
+  );
+}
+
+function formatPluginConfigDraft(value: unknown): string {
+  return formatJsonObjectDraft(value);
 }
 
 function resolveSchemaType(schema: Record<string, unknown>): string | null {
@@ -1839,32 +1858,15 @@ function parseLanguageServerSettingsDraft(rawValue: string): {
   value: Record<string, unknown>;
   error: string | null;
 } {
-  const trimmed = rawValue.trim();
-  if (trimmed === "") {
-    return { value: {}, error: null };
-  }
-  try {
-    const parsed = JSON.parse(trimmed) as unknown;
-    if (!isPlainObject(parsed)) {
-      return {
-        value: {},
-        error: "Language server settings must be a JSON object.",
-      };
-    }
-    return { value: parsed, error: null };
-  } catch {
-    return {
-      value: {},
-      error: "Language server settings JSON is invalid.",
-    };
-  }
+  return parseJsonObjectDraft(
+    rawValue,
+    "Language server settings must be a JSON object.",
+    "Language server settings JSON is invalid.",
+  );
 }
 
 function formatLanguageServerSettingsDraft(value: unknown): string {
-  if (!isPlainObject(value)) {
-    return "{}";
-  }
-  return JSON.stringify(value, null, 2);
+  return formatJsonObjectDraft(value);
 }
 
 function getLanguageServerSettingsValue(

@@ -950,7 +950,7 @@ describe("plugin runtime helpers", () => {
     );
   });
 
-  it("deduplicates concurrent refreshPluginRuntime calls", async () => {
+  it("queues one follow-up refresh when calls overlap", async () => {
     let releaseRequests: (() => void) | null = null;
     const gate = new Promise<void>((resolve) => {
       releaseRequests = resolve;
@@ -992,6 +992,8 @@ describe("plugin runtime helpers", () => {
       releaseRequests();
     }
     await Promise.all([first, second, third]);
+    expect(listCalls).toBe(2);
+    expect(statusCalls).toBe(2);
     expect(usePluginRuntimeStore.getState().status).toBe("loaded");
   });
 
@@ -1131,6 +1133,59 @@ describe("plugin runtime helpers", () => {
       "ide",
     );
     expect(noStyleLoad?.error).toBeNull();
+    expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(0);
+  });
+
+  it("removes plugin styles when frontend load fails", async () => {
+    type FakeLinkElement = {
+      rel: string;
+      href: string;
+      dataset: Record<string, string>;
+      removed: boolean;
+      remove: () => void;
+    };
+    const fakeLinks: FakeLinkElement[] = [];
+    vi.stubGlobal("document", {
+      head: {
+        append: (node: FakeLinkElement) => {
+          fakeLinks.push(node);
+        },
+      },
+      createElement: (_tag: string): FakeLinkElement => {
+        const link: FakeLinkElement = {
+          rel: "",
+          href: "",
+          dataset: {},
+          removed: false,
+          remove: () => {
+            link.removed = true;
+          },
+        };
+        return link;
+      },
+    });
+
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\nexport function register(_host) { throw new Error('boom'); }\n",
+      );
+    const pluginWithStyle = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: "/plugins/acme.plugin/frontend/dist/index.css?v=1",
+      },
+      effectiveCapabilities: ["registerPane"],
+    });
+
+    const result = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      pluginWithStyle,
+      "ide",
+    );
+
+    expect(result?.error?.code).toBe(
+      PluginFrontendErrorCodeEnum.FrontendLoadFailed,
+    );
     expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(0);
   });
 

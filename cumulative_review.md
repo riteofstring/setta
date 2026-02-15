@@ -150,3 +150,16 @@
 - Repaired fixture command backend roundtrip flow to avoid traversal assumptions and to resolve backend API origin correctly in dev/CDP contexts, with robust command-summary reporting.
 - Added/updated backend pytest, frontend Vitest, and Playwright coverage for all changed paths; executed targeted validation runs (`pytest` subset: 291 passed, `vitest` subset: 88 passed, Playwright targeted specs: all passing).
 - Completed CDP verification and captured perf artifacts/report for the large-DOM plugin scenario (`perf/reports/frontend/2026-02-15_plugin-runtime-large-dom.md`).
+
+## 2026-02-15T22:28:01-08:00
+
+- Implemented the requested top-level review fix batch end-to-end, explicitly excluding backward-compatibility shim additions.
+- Fixed CLI plugin mutation correctness by forcing a discovery rescan before lookup-dependent mutations (`enable`, `disable`, `update`/`pin`, `rollback`, `uninstall`, `unlink`) while keeping `auto_rescan=False` construction for deterministic command startup behavior.
+- Hardened plugin backend codegen path validation by rejecting Windows absolute/drive/UNC `relativePath` values and canonicalizing equivalent path spellings before duplicate detection.
+- Added write-time plugin codegen containment guards in project-state output refresh so generated/stale-prune paths are canonicalized and guaranteed to stay under each target output root.
+- Resolved capability contract mismatch for `registerContextMenu` by enforcing host-policy blocking in effective capability resolution instead of advertising it as usable.
+- Fixed frontend plugin runtime refresh dedupe semantics by queuing a guaranteed follow-up refresh when calls overlap.
+- Fixed frontend style lifecycle so failed plugin frontend loads always unload plugin styles, preventing stale CSS leakage from failed modules.
+- Updated plugin section fallback behavior to hide destructive "Delete Section" actions in read-only/user view contexts and removed deep recursive plugin-data equality from `PluginArea` render selection.
+- Removed duplicated JSON object draft parse/format logic in Plugins pane by introducing shared object-draft helpers used by both plugin config and language-server settings editors.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for all changed paths (including new style-failure lifecycle E2E coverage), and completed CDP verification for updated plugin runtime/fallback UI behavior.

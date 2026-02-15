@@ -4,5 +4,5 @@ import time
 time.sleep(2.0)
 
 
-def register(plugin):
+def register(_plugin):
     return None

@@ -66,6 +66,7 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
       kind={kind}
       data={data}
       schemaVersion={schemaVersion}
+      isUserView={isUserView}
     />
   );
 }
@@ -97,55 +98,7 @@ function pluginSectionImplEqual(
   if (left.schemaVersion !== right.schemaVersion) {
     return false;
   }
-  return arePluginDataValuesEqual(left.data, right.data);
-}
-
-function arePluginDataValuesEqual(left: unknown, right: unknown): boolean {
-  if (left === right) {
-    return true;
-  }
-  if (typeof left !== typeof right) {
-    return false;
-  }
-  if (left === null || right === null) {
-    return false;
-  }
-  if (Array.isArray(left)) {
-    if (!Array.isArray(right)) {
-      return false;
-    }
-    if (left.length !== right.length) {
-      return false;
-    }
-    for (let index = 0; index < left.length; index += 1) {
-      if (!arePluginDataValuesEqual(left[index], right[index])) {
-        return false;
-      }
-    }
-    return true;
-  }
-  if (typeof left === "object") {
-    if (Array.isArray(right)) {
-      return false;
-    }
-    const leftRecord = left as Record<string, unknown>;
-    const rightRecord = right as Record<string, unknown>;
-    const leftKeys = Object.keys(leftRecord);
-    const rightKeys = Object.keys(rightRecord);
-    if (leftKeys.length !== rightKeys.length) {
-      return false;
-    }
-    for (const key of leftKeys) {
-      if (!(key in rightRecord)) {
-        return false;
-      }
-      if (!arePluginDataValuesEqual(leftRecord[key], rightRecord[key])) {
-        return false;
-      }
-    }
-    return true;
-  }
-  return false;
+  return left.data === right.data;
 }
 
 function PluginSectionRendererHost({
@@ -241,6 +194,7 @@ type PluginSectionFallbackCardProps = {
   kind: string;
   data: Record<string, unknown>;
   schemaVersion: number | null;
+  isUserView: boolean;
 };
 
 function PluginSectionFallbackCard({
@@ -249,6 +203,7 @@ function PluginSectionFallbackCard({
   kind,
   data,
   schemaVersion,
+  isUserView,
 }: PluginSectionFallbackCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const reason = usePluginSectionFallbackReason(pluginId, kind);
@@ -346,14 +301,16 @@ function PluginSectionFallbackCard({
           >
             Copy Section JSON
           </button>
-          <button
-            type="button"
-            className="rounded border border-red-300 px-2 py-1 text-[11px] font-medium text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/40"
-            onClick={onDeleteSection}
-            disabled={isDeleting}
-          >
-            {isDeleting ? "Deleting..." : "Delete Section"}
-          </button>
+          {!isUserView ? (
+            <button
+              type="button"
+              className="rounded border border-red-300 px-2 py-1 text-[11px] font-medium text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/40"
+              onClick={onDeleteSection}
+              disabled={isDeleting}
+            >
+              {isDeleting ? "Deleting..." : "Delete Section"}
+            </button>
+          ) : null}
         </div>
       </div>
     </section>
