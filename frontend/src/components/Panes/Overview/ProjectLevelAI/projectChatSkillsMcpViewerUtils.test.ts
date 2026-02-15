@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  EngineTypeEnum,
-  ExternalAgentToolTypeEnum,
-  type BaseChatMessageUnion,
-} from "utils/generatedTypes";
-import {
-  buildMcpStatusSummary,
-  buildSkillStatusBySkillId,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
@@ -17,10 +10,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("filters skills by name/path/root/description", () => {
     const rows = [
       {
-        skillId: "workspace_agents_skills::ui-layout",
+        skillId: "workspace_skills::ui-layout",
         name: "ui-layout",
-        rootLabel: "Workspace .agents/skills",
-        rootPath: "/workspace/.agents/skills",
+        rootLabel: "Workspace skills",
+        rootPath: "/workspace/skills",
         relativePath: "ui-layout",
         description: "Create dense dashboard layouts.",
       },
@@ -44,26 +37,26 @@ describe("projectChatSkillsMcpViewerUtils", () => {
   it("groups filtered skills by root path", () => {
     const rows = [
       {
-        skillId: "user_claude_skills::frontend-design",
+        skillId: "user_codex_skills::frontend-design",
         name: "frontend-design",
-        rootLabel: "User ~/.claude/skills",
-        rootPath: "/home/.claude/skills",
+        rootLabel: "User ~/.codex/skills",
+        rootPath: "/home/.codex/skills",
         relativePath: "frontend-design",
         description: "Create polished frontend interfaces.",
       },
       {
-        skillId: "workspace_agents_skills::setta-cli",
+        skillId: "workspace_skills::setta-cli",
         name: "setta-cli",
-        rootLabel: "Workspace .agents/skills",
-        rootPath: "/workspace/.agents/skills",
+        rootLabel: "Workspace skills",
+        rootPath: "/workspace/skills",
         relativePath: "setta-cli",
         description: "Project-local CLI helpers.",
       },
       {
-        skillId: "user_claude_skills::.system/skill-installer",
+        skillId: "user_codex_skills::.system/skill-installer",
         name: "skill-installer",
-        rootLabel: "User ~/.claude/skills",
-        rootPath: "/home/.claude/skills",
+        rootLabel: "User ~/.codex/skills",
+        rootPath: "/home/.codex/skills",
         relativePath: ".system/skill-installer",
         description: "Install curated skills.",
       },
@@ -71,252 +64,28 @@ describe("projectChatSkillsMcpViewerUtils", () => {
 
     const groups = groupSkillsByRootPath(rows);
     expect(groups).toHaveLength(2);
-    expect(groups[0]?.rootPath).toBe("/home/.claude/skills");
+    expect(groups[0]?.rootPath).toBe("/home/.codex/skills");
     expect(groups[0]?.skills.map((skill) => skill.skillId)).toEqual([
-      "user_claude_skills::.system/skill-installer",
-      "user_claude_skills::frontend-design",
+      "user_codex_skills::.system/skill-installer",
+      "user_codex_skills::frontend-design",
     ]);
-    expect(groups[1]?.rootPath).toBe("/workspace/.agents/skills");
+    expect(groups[1]?.rootPath).toBe("/workspace/skills");
   });
 
-  it("groups MCP runtime statuses and keeps missing config path nullable", () => {
+  it("keeps missing MCP config path nullable instead of using a sentinel string", () => {
     const groups = groupMcpServersByConfigPath({
-      mcpRuntimeStatuses: [
-        {
-          serverId: "setta",
-          source: "setta_mcp",
+      mcpServers: {
+        setta: {
           transport: "sse",
-          endpoint: "http://127.0.0.1:8000/mcp",
-          state: "connected",
-          lastAttemptAt: null,
-          lastConnectedAt: null,
-          lastFailureAt: null,
-          consecutiveFailures: 0,
-          lastError: null,
-          missingEnvVar: null,
-          toolCount: 12,
+          url: "http://127.0.0.1:8000/mcp",
         },
-      ],
-      externalMcpRuntimeStatuses: [
-        {
-          serverId: "filesystem",
-          source: "external_runtime",
-          transport: "stdio",
-          endpoint: "npx @modelcontextprotocol/server-filesystem",
-          state: "unknown",
-          lastAttemptAt: null,
-          lastConnectedAt: null,
-          lastFailureAt: null,
-          consecutiveFailures: 0,
-          lastError: null,
-          missingEnvVar: null,
-          toolCount: 0,
-        },
-      ],
+      },
       mcpConfigPath: null,
       settaFilesLocation: "local",
     });
 
-    expect(groups).toHaveLength(2);
+    expect(groups).toHaveLength(1);
     expect(groups[0]?.configPath).toBeNull();
-    expect(groups[0]?.sourceLabel).toBe("Setta MCP");
     expect(groups[0]?.servers[0]?.endpoint).toBe("http://127.0.0.1:8000/mcp");
-    expect(groups[1]?.sourceLabel).toBe("External Runtime");
-    expect(groups[1]?.servers[0]?.state).toBe("unknown");
-  });
-
-  it("builds MCP status summary counts", () => {
-    const summary = buildMcpStatusSummary([
-      {
-        configPath: "/tmp/llm_config.json",
-        configLabel: "Active local setta_files",
-        sourceLabel: "Setta MCP",
-        servers: [
-          {
-            serverId: "setta",
-            source: "setta_mcp",
-            transport: "sse",
-            endpoint: "http://127.0.0.1:8000/mcp",
-            state: "connected",
-            lastAttemptAt: null,
-            lastConnectedAt: null,
-            lastFailureAt: null,
-            consecutiveFailures: 0,
-            lastError: null,
-            missingEnvVar: null,
-            toolCount: 8,
-          },
-          {
-            serverId: "github",
-            source: "setta_mcp",
-            transport: "streamable_http",
-            endpoint: "http://localhost:8100/mcp",
-            state: "retrying",
-            lastAttemptAt: null,
-            lastConnectedAt: null,
-            lastFailureAt: null,
-            consecutiveFailures: 2,
-            lastError: "connection failed",
-            missingEnvVar: null,
-            toolCount: 0,
-          },
-        ],
-      },
-    ]);
-
-    expect(summary.total).toBe(2);
-    expect(summary.connected).toBe(1);
-    expect(summary.retrying).toBe(1);
-    expect(summary.error).toBe(0);
-    expect(summary.unknown).toBe(0);
-  });
-
-  it("marks applicability from root ids based on selected engine tool type", () => {
-    const skills = [
-      {
-        skillId: "workspace_agents_skills::ui-layout",
-        name: "ui-layout",
-        rootLabel: "Workspace .agents/skills",
-        rootPath: "/workspace/.agents/skills",
-        relativePath: "ui-layout",
-        description: "Codex root skill",
-      },
-      {
-        skillId: "workspace_claude_skills::handoff",
-        name: "handoff",
-        rootLabel: "Workspace .claude/skills",
-        rootPath: "/workspace/.claude/skills",
-        relativePath: "handoff",
-        description: "Claude root skill",
-      },
-      {
-        skillId: "workspace_opencode_skills::frontend-design",
-        name: "frontend-design",
-        rootLabel: "Workspace .opencode/skills",
-        rootPath: "/workspace/.opencode/skills",
-        relativePath: "frontend-design",
-        description: "OpenCode root skill",
-      },
-    ];
-
-    const codexStatus = buildSkillStatusBySkillId({
-      skills,
-      engineType: EngineTypeEnum.external_agent,
-      externalAgentToolType: ExternalAgentToolTypeEnum.codex,
-      messages: [],
-    });
-    expect(
-      codexStatus["workspace_agents_skills::ui-layout"]?.isApplicable,
-    ).toBe(true);
-    expect(codexStatus["workspace_claude_skills::handoff"]?.isApplicable).toBe(
-      false,
-    );
-    expect(
-      codexStatus["workspace_opencode_skills::frontend-design"]?.isApplicable,
-    ).toBe(false);
-
-    const settaStatus = buildSkillStatusBySkillId({
-      skills,
-      engineType: EngineTypeEnum.setta_llm,
-      externalAgentToolType: null,
-      messages: [],
-    });
-    expect(
-      settaStatus["workspace_agents_skills::ui-layout"]?.isApplicable,
-    ).toBe(false);
-    expect(settaStatus["workspace_claude_skills::handoff"]?.isApplicable).toBe(
-      false,
-    );
-  });
-
-  it("marks active skills from skill tool invocations", () => {
-    const skills = [
-      {
-        skillId: "workspace_opencode_skills::ui-layout",
-        name: "ui-layout",
-        rootLabel: "Workspace .opencode/skills",
-        rootPath: "/workspace/.opencode/skills",
-        relativePath: "ui-layout",
-        description: "OpenCode skill",
-      },
-      {
-        skillId: "workspace_opencode_skills::documentation",
-        name: "documentation",
-        rootLabel: "Workspace .opencode/skills",
-        rootPath: "/workspace/.opencode/skills",
-        relativePath: "documentation",
-        description: "OpenCode skill",
-      },
-    ];
-    const messages: BaseChatMessageUnion[] = [
-      {
-        id: "assistant-1",
-        role: "assistant",
-        content: [],
-        attachments: [],
-        tool_calls: [
-          {
-            id: "tc-1",
-            type: "function",
-            function: {
-              name: "skill",
-              arguments: { name: "ui-layout" },
-            },
-          },
-        ],
-      },
-    ];
-
-    const status = buildSkillStatusBySkillId({
-      skills,
-      engineType: EngineTypeEnum.external_agent,
-      externalAgentToolType: ExternalAgentToolTypeEnum.opencode,
-      messages,
-    });
-
-    expect(status["workspace_opencode_skills::ui-layout"]?.activityState).toBe(
-      "active",
-    );
-    expect(status["workspace_opencode_skills::ui-layout"]?.activitySource).toBe(
-      "opencode_skill_tool",
-    );
-    expect(
-      status["workspace_opencode_skills::documentation"]?.activityState,
-    ).toBe("inactive");
-  });
-
-  it("keeps activity inactive when no signal is present", () => {
-    const skills = [
-      {
-        skillId: "workspace_claude_skills::handoff",
-        name: "handoff",
-        rootLabel: "Workspace .claude/skills",
-        rootPath: "/workspace/.claude/skills",
-        relativePath: "handoff",
-        description: "Claude skill",
-      },
-      {
-        skillId: "workspace_agents_skills::ui-layout",
-        name: "ui-layout",
-        rootLabel: "Workspace .agents/skills",
-        rootPath: "/workspace/.agents/skills",
-        relativePath: "ui-layout",
-        description: "Codex skill",
-      },
-    ];
-
-    const status = buildSkillStatusBySkillId({
-      skills,
-      engineType: EngineTypeEnum.external_agent,
-      externalAgentToolType: ExternalAgentToolTypeEnum.claude_code,
-      messages: [],
-    });
-
-    expect(status["workspace_claude_skills::handoff"]?.activityState).toBe(
-      "inactive",
-    );
-    expect(status["workspace_agents_skills::ui-layout"]?.activityState).toBe(
-      "inactive",
-    );
   });
 });

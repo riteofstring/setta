@@ -29,11 +29,13 @@ from setta.agentic.store import (
     load_engine_configs,
     load_external_agent_configs,
     load_prompt_template,
+    load_transcription_profiles,
     require_agent_profile,
     save_agent_profiles,
     save_engine_configs,
     save_external_agent_configs,
     save_prompt_template,
+    save_transcription_profiles,
 )
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
@@ -46,6 +48,7 @@ from setta.types.agentic import (
     EngineConfigDefaults,
     EngineType,
     RunChainSpec,
+    TranscriptionProfile,
 )
 from setta.types.agentic_observability import AgenticSummaryCacheStatus
 from setta.types.external_agents import (
@@ -205,6 +208,23 @@ class GetEngineConfigRequest(BaseModel):
 
 class DeleteEngineConfigRequest(BaseModel):
     configId: ID
+
+
+class CreateTranscriptionProfileRequest(BaseModel):
+    name: str
+    transcriptionLlmConfigId: str
+
+
+class UpdateTranscriptionProfileRequest(BaseModel):
+    profile: TranscriptionProfile
+
+
+class GetTranscriptionProfileRequest(BaseModel):
+    profileId: ID
+
+
+class DeleteTranscriptionProfileRequest(BaseModel):
+    profileId: ID
 
 
 def _get_plugin_external_agent_adapters(
@@ -848,3 +868,82 @@ async def route_delete_engine_config(
             await ctx.state.wmh_frontend_sender.broadcast_engine_configs_update(configs)
             return None
     raise HTTPException(status_code=404, detail="Engine config not found")
+
+
+@router.get(Route.GET_TRANSCRIPTION_PROFILES)
+async def route_get_transcription_profiles(
+    ctx: RuntimeContextFromRequest,
+) -> list[TranscriptionProfile]:
+    await ctx.enforce_llm_allowed()
+    return load_transcription_profiles(ctx.state.dbe)
+
+
+@router.post(Route.GET_TRANSCRIPTION_PROFILE)
+async def route_get_transcription_profile(
+    x: GetTranscriptionProfileRequest,
+    ctx: RuntimeContextFromRequest,
+) -> TranscriptionProfile:
+    await ctx.enforce_llm_allowed()
+    profiles = load_transcription_profiles(ctx.state.dbe)
+    for profile in profiles:
+        if profile.id == x.profileId:
+            return profile
+    raise HTTPException(status_code=404, detail="Transcription profile not found")
+
+
+@router.post(Route.CREATE_TRANSCRIPTION_PROFILE)
+async def route_create_transcription_profile(
+    x: CreateTranscriptionProfileRequest,
+    ctx: RuntimeContextFromRequest,
+) -> TranscriptionProfile:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow creating transcription profiles.")
+    profiles = load_transcription_profiles(ctx.state.dbe)
+    profile = TranscriptionProfile(
+        name=x.name,
+        transcriptionLlmConfigId=x.transcriptionLlmConfigId,
+    )
+    profiles.append(profile)
+    save_transcription_profiles(ctx.state.dbe, profiles)
+    await ctx.state.wmh_frontend_sender.broadcast_transcription_profiles_update(
+        profiles
+    )
+    return profile
+
+
+@router.post(Route.UPDATE_TRANSCRIPTION_PROFILE)
+async def route_update_transcription_profile(
+    x: UpdateTranscriptionProfileRequest,
+    ctx: RuntimeContextFromRequest,
+) -> TranscriptionProfile:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow updating transcription profiles.")
+    profiles = load_transcription_profiles(ctx.state.dbe)
+    for idx, profile in enumerate(profiles):
+        if profile.id == x.profile.id:
+            profiles[idx] = x.profile
+            save_transcription_profiles(ctx.state.dbe, profiles)
+            await ctx.state.wmh_frontend_sender.broadcast_transcription_profiles_update(
+                profiles
+            )
+            return x.profile
+    raise HTTPException(status_code=404, detail="Transcription profile not found")
+
+
+@router.post(Route.DELETE_TRANSCRIPTION_PROFILE)
+async def route_delete_transcription_profile(
+    x: DeleteTranscriptionProfileRequest,
+    ctx: RuntimeContextFromRequest,
+) -> None:
+    await ctx.enforce_llm_allowed()
+    ctx.require_ide_mode("Share mode does not allow deleting transcription profiles.")
+    profiles = load_transcription_profiles(ctx.state.dbe)
+    for idx, profile in enumerate(profiles):
+        if profile.id == x.profileId:
+            profiles.pop(idx)
+            save_transcription_profiles(ctx.state.dbe, profiles)
+            await ctx.state.wmh_frontend_sender.broadcast_transcription_profiles_update(
+                profiles
+            )
+            return None
+    raise HTTPException(status_code=404, detail="Transcription profile not found")

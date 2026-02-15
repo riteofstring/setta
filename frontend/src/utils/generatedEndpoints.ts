@@ -649,6 +649,36 @@ export async function route_delete_engine_config(
   return await post("/deleteEngineConfig", x);
 }
 
+export async function route_get_transcription_profiles(): Promise<
+  ResponseDataAndStatus<Array<gt.TranscriptionProfile>>
+> {
+  return await get("/getTranscriptionProfiles");
+}
+
+export async function route_get_transcription_profile(
+  x: gt.GetTranscriptionProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
+  return await post("/getTranscriptionProfile", x);
+}
+
+export async function route_create_transcription_profile(
+  x: gt.CreateTranscriptionProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
+  return await post("/createTranscriptionProfile", x);
+}
+
+export async function route_update_transcription_profile(
+  x: gt.UpdateTranscriptionProfileRequestInput,
+): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
+  return await post("/updateTranscriptionProfile", x);
+}
+
+export async function route_delete_transcription_profile(
+  x: gt.DeleteTranscriptionProfileRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/deleteTranscriptionProfile", x);
+}
+
 export async function route_stream_app_spec(
   x: gt.StreamAppSpecRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
@@ -1563,12 +1593,6 @@ export async function route_get_setta_home_info(): Promise<
   ResponseDataAndStatus<gt.SettaHomeInfoResponse>
 > {
   return await get("/settaHomeInfo");
-}
-
-export async function route_get_mcp_server_runtime_status(
-  x: gt.GetMCPServerRuntimeStatusRequestInput,
-): Promise<ResponseDataAndStatus<gt.MCPServerRuntimeStatusResponse>> {
-  return await post("/mcpServerRuntimeStatus", x);
 }
 
 export async function route_reveal_path_in_os_file_explorer(

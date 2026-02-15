@@ -4,7 +4,12 @@ import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { areSlashSuggestionsPortalStylesEqual, ChatInput } from "./ChatInput";
+import {
+  areSlashSuggestionsPortalStylesEqual,
+  ChatInput,
+  resolveDictationStartPath,
+  resolveDictationUnavailableFeedback,
+} from "./ChatInput";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
   return {
@@ -280,5 +285,39 @@ describe("areSlashSuggestionsPortalStylesEqual", () => {
     };
 
     expect(areSlashSuggestionsPortalStylesEqual(first, second)).toBe(false);
+  });
+});
+
+describe("dictation mode resolution", () => {
+  it("falls back to browser in auto mode when provider is unavailable", () => {
+    const path = resolveDictationStartPath({
+      dictationMode: "auto",
+      canProviderDictate: false,
+      canBrowserDictate: true,
+    });
+
+    expect(path).toBe("browser");
+  });
+
+  it("never routes browser mode through provider capture", () => {
+    const path = resolveDictationStartPath({
+      dictationMode: "browser",
+      canProviderDictate: true,
+      canBrowserDictate: true,
+    });
+
+    expect(path).toBe("browser");
+  });
+
+  it("uses explicit provider-unavailable messaging in provider mode", () => {
+    const feedback = resolveDictationUnavailableFeedback({
+      dictationMode: "provider",
+      providerUnavailableMessage:
+        "Provider dictation requires a valid transcription config.",
+    });
+
+    expect(feedback).toBe(
+      "Provider dictation requires a valid transcription config.",
+    );
   });
 });

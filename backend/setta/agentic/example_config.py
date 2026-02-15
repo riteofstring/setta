@@ -10,6 +10,7 @@ from setta.types.agentic import (
     EngineConfig,
     EngineConfigDefaults,
     EngineType,
+    TranscriptionProfile,
 )
 from setta.types.external_agents import (
     ClaudeSettingsSource,
@@ -153,12 +154,26 @@ _DEFAULT_AGENT_PROFILES: list[AgentProfile] = [
     ),
 ]
 
+_DEFAULT_TRANSCRIPTION_PROFILES: list[TranscriptionProfile] = [
+    TranscriptionProfile(
+        id="transcription-openai-whisper-1",
+        name="OpenAI Whisper 1",
+        transcriptionLlmConfigId="openai-whisper-1",
+    ),
+]
+
 
 def seed_agentic_config_files(dbe: DBE) -> None:
     """Create baseline agentic config files for dev resets if missing."""
     if not dbe.engine_configs.exists():
         payload = [config.model_dump(mode="json") for config in _DEFAULT_ENGINE_CONFIGS]
         dbe.write_engine_configs(payload)
+    if not dbe.transcription_profiles.exists():
+        payload = [
+            profile.model_dump(mode="json")
+            for profile in _DEFAULT_TRANSCRIPTION_PROFILES
+        ]
+        dbe.write_transcription_profiles(payload)
     if not dbe.external_agents.exists():
         payload = [
             config.model_dump(mode="json") for config in _DEFAULT_EXTERNAL_AGENT_CONFIGS
