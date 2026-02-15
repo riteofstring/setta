@@ -5119,7 +5119,6 @@ const SettingsBackendSchema = z.object({
   runSnapshotMode: z
     .enum(RunSnapshotModeEnum)
     .default(RunSnapshotModeEnum.ephemeral),
-  completionGuardEnabled: z.boolean().default(true),
 });
 
 type SettingsBackend = z.infer<typeof SettingsBackendSchema>;
