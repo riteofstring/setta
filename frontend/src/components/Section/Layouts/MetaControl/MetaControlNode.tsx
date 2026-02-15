@@ -9,6 +9,7 @@ import {
 import { DropzoneInput } from "components/Params/ParamUIs/DropzoneInput";
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
+import { TextParamDateTimeInput } from "components/Params/ParamUIs/TextParamInput";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import type { ReactNode } from "react";
 import {
@@ -19,7 +20,19 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { CodeObjTypeEnum, DropzoneModeEnum } from "utils/generatedTypes";
+import {
+  CodeObjTypeEnum,
+  DateDisplayFormat,
+  DateDisplayFormatEnum,
+  DropzoneModeEnum,
+  TimeControlMode,
+  TimeControlModeEnum,
+  TextParamInputUIType,
+  TextParamInputUITypeEnum,
+  TimeDisplayFormat,
+  TimeDisplayFormatEnum,
+} from "utils/generatedTypes";
+import { formatTimeForDisplay } from "utils/textParamDateTime";
 
 type MetaControlCodeObjType =
   | CodeObjTypeEnum.ButtonParam
@@ -58,6 +71,10 @@ type MetaControlContentValueProps = {
   dropzoneMaxAttachments?: number | null;
   dropzonePlaceholder?: string;
   onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
+  textParamUiType?: TextParamInputUIType;
+  timeControlMode?: TimeControlMode;
+  timeDisplayFormat?: TimeDisplayFormat;
+  dateDisplayFormat?: DateDisplayFormat;
 };
 
 type MetaControlContentProps =
@@ -105,6 +122,27 @@ export function MetaControlContent(props: MetaControlContentProps) {
         />
       );
     case CodeObjTypeEnum.TextParam:
+      if (
+        props.textParamUiType &&
+        props.textParamUiType !== TextParamInputUITypeEnum.plain
+      ) {
+        return (
+          <DateTimeControl
+            sectionName={sectionName}
+            value={value}
+            showSectionTitle={showSectionTitle}
+            onValueChange={onValueChange}
+            uiType={props.textParamUiType}
+            timeControlMode={props.timeControlMode ?? TimeControlModeEnum.input}
+            timeDisplayFormat={
+              props.timeDisplayFormat ?? TimeDisplayFormatEnum.twenty_four_hour
+            }
+            dateDisplayFormat={
+              props.dateDisplayFormat ?? DateDisplayFormatEnum.iso
+            }
+          />
+        );
+      }
       return (
         <TextInputControl
           sectionId={sectionId}
@@ -552,6 +590,67 @@ function DropzoneControl({
         maxAttachments={maxAttachments}
         placeholder={placeholder}
       />
+    </MetaControlTitleStack>
+  );
+}
+
+function DateTimeControl({
+  sectionName,
+  value,
+  showSectionTitle,
+  onValueChange,
+  uiType,
+  timeControlMode,
+  timeDisplayFormat,
+  dateDisplayFormat,
+}: {
+  sectionName: string;
+  value: string;
+  showSectionTitle: boolean;
+  onValueChange: ParamValueChange;
+  uiType: TextParamInputUIType;
+  timeControlMode: TimeControlMode;
+  timeDisplayFormat: TimeDisplayFormat;
+  dateDisplayFormat: DateDisplayFormat;
+}) {
+  const isTimeDisplayMode =
+    uiType === TextParamInputUITypeEnum.time &&
+    timeControlMode === TimeControlModeEnum.display;
+  const formattedTimeValue = formatTimeForDisplay(value, timeDisplayFormat);
+  const displayedTimeValue =
+    formattedTimeValue.trim().length > 0 ? formattedTimeValue : "--:--";
+
+  return (
+    <MetaControlTitleStack
+      showSectionTitle={showSectionTitle}
+      sectionName={sectionName}
+      contentClassName="items-stretch"
+    >
+      <div className="single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto] rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-2 dark:border-setta-700 dark:bg-setta-850">
+        {isTimeDisplayMode ? (
+          <>
+            <span
+              className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value single-cell-child flex min-w-0 flex-1 items-center self-center font-mono text-sm text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]`}
+            >
+              {displayedTimeValue}
+            </span>
+            <span className="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30" />
+          </>
+        ) : (
+          <TextParamDateTimeInput
+            value={value}
+            onChange={onValueChange}
+            isDisabled={false}
+            uiType={uiType}
+            timeDisplayFormat={timeDisplayFormat}
+            dateDisplayFormat={dateDisplayFormat}
+            wrapperClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value single-cell-child flex min-w-0 items-center gap-2`}
+            inputClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 cursor-text self-center font-mono text-xs text-[rgb(3,_47,_98);] selection:bg-blue-500/30 dark:text-[rgb(165,_214,_255)]`}
+            formattedValueClassName="text-[10px] font-mono text-setta-500 dark:text-setta-400"
+            borderClassName="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30 peer-focus-within/textinput:border-blue-400"
+          />
+        )}
+      </div>
     </MetaControlTitleStack>
   );
 }

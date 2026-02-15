@@ -2,13 +2,11 @@ import asyncio
 import contextvars
 import copy
 import logging
-import shutil
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from functools import wraps
 from pathlib import Path
 from typing import (
-    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -97,7 +95,6 @@ from setta.project_state.project_code import (
     ProjectBashCode,
     ProjectBasicCode,
     ProjectGenPythonCode,
-    ProjectLSPCode,
     ProjectPythonCode,
     build_python_code_generator,
 )
@@ -180,13 +177,16 @@ from setta.project_state.project_manager_types import (
     SetGenCodeSuffixRequest,
     SetGroupOverflowModeRequest,
     SetImageAreaImagePathRequest,
+    SetListRootViewModeRequest,
     SetMetaControlShowSectionTitleRequest,
     SetParamEnteredValueRequest,
     SetParamNameAndValueRequest,
+    SetParentDefaultChildSectionTypeRequest,
     SetProjectConfigCodegenTargetsRequest,
     SetPromptFormatRequest,
     SetPromptInputsRequest,
     SetPromptTemplateRequest,
+    SetSectionAllowUnquotedStringArgsRequest,
     SetSectionColumnWidthRequest,
     SetSectionEdgeInputsRequest,
     SetSectionEdgeOutputsRequest,
@@ -201,9 +201,13 @@ from setta.project_state.project_manager_types import (
     SetSectionVariantRequest,
     SetShowParamDisplayNamesRequest,
     SetSocialUrlRequest,
+    SetSpreadsheetFilePathRequest,
+    SetSpreadsheetSectionSettingsRequest,
+    SetTaskBoardSectionStateRequest,
     SetTextBlockDisplayModeRequest,
     SetTextBlockFormatRequest,
     SetTextBlockHeadingAsSectionNameRequest,
+    SetTextBlockMasterFontSizeRequest,
     SetTextBlockMetaControlStyleRequest,
     SetTextBlockTextRequest,
     SetTopLevelSectionLayoutRequest,
@@ -318,12 +322,15 @@ from setta.types.helpers_lvl2 import (
     set_edges,
     set_group_overflow_mode,
     set_image_area_image_path,
+    set_list_root_view_mode,
     set_meta_control_show_section_title,
     set_param_entered_value,
+    set_parent_default_child_section_type,
     set_project_config_name,
     set_prompt_section_format,
     set_prompt_section_inputs,
     set_prompt_section_template,
+    set_section_allow_unquoted_string_args,
     set_section_column_width,
     set_section_edge_inputs,
     set_section_edge_outputs,
@@ -337,9 +344,13 @@ from setta.types.helpers_lvl2 import (
     set_section_variant,
     set_section_variant_name,
     set_social_url,
+    set_spreadsheet_file_path,
+    set_spreadsheet_section_settings,
+    set_task_board_section_state,
     set_text_block_display_mode,
     set_text_block_format,
     set_text_block_heading_as_section_name,
+    set_text_block_master_font_size,
     set_text_block_meta_control_style,
     set_text_block_text,
     set_type_error_ignore,
@@ -376,8 +387,6 @@ from setta.types.notifications import (
 from setta.types.project_config import (
     Position,
     ProjectCodegenLanguage,
-    ProjectCodegenPluginTarget,
-    ProjectCodegenTarget,
     ProjectConfig,
     TopLevelSectionLayout,
     ViewModeConfig,
@@ -399,7 +408,6 @@ from setta.types.section_impls import (
     CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
-    CodeLanguageKey,
     CodeSectionImpl,
     GenPythonCodeSectionImpl,
     GenPythonMetadataSectionImpl,
@@ -424,12 +432,8 @@ from setta.utils.name_validation import (
     validate_view_mode_name,
 )
 from setta.utils.paths import get_setta_paths, normalize_workspace_path
-from setta.utils.utils import build_project_sections_dir
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
-
-if TYPE_CHECKING:
-    from setta.plugins.manager import PluginManager
 
 logger = logging.getLogger(__name__)
 
@@ -450,14 +454,14 @@ def _parse_param_override_key(key: str) -> SectionParamDependencyKey:
 
 
 def _resolve_run_command_builder(
-    code_language: CodeLanguageKey,
+    code_language: CodeLanguage,
 ) -> Callable[[Path], str]:
     if code_language == CodeLanguage.python:
         return build_python_module_run_command
     if code_language == CodeLanguage.bash:
         return build_bash_run_command
 
-    def _unsupported(_path: Path, *, _language: CodeLanguageKey = code_language) -> str:
+    def _unsupported(_path: Path, *, _language: CodeLanguage = code_language) -> str:
         raise ValueError(f"Run is not supported for language {_language}")
 
     return _unsupported
@@ -531,12 +535,6 @@ def _apply_json_merge_patch(
     return base_obj
 
 
-def _is_lsp_code_entry(
-    code_entry: object,
-) -> bool:
-    return isinstance(code_entry, (ProjectPythonCode, ProjectLSPCode))
-
-
 class BaseProjectManager(ABC):
     def __init__(
         self,
@@ -549,7 +547,6 @@ class BaseProjectManager(ABC):
         artifacts: Artifacts,
         json_source: JSONSource,
         code_files: CodeFiles,
-        plugin_manager: "PluginManager | None" = None,
     ):
         self.lsp_writers = lsp_writers
         self.websocket_msg_handler = websocket_msg_handler
@@ -560,7 +557,6 @@ class BaseProjectManager(ABC):
         self.artifacts = artifacts
         self.json_source = json_source
         self.code_files = code_files
-        self.plugin_manager = plugin_manager
         self._file_watcher_category_prefix = f"{type(self).__name__}:{id(self)}"
         self.history = History(self.load_initial_state())
         watch_loop = None
@@ -571,11 +567,7 @@ class BaseProjectManager(ABC):
         self.watch_code_manager = WatchCodeManager(self, loop=watch_loop)
         self.gen_code: dict[str, ProjectGenPythonCode] = {}
         self.code_dict: dict[
-            str,
-            dict[
-                str,
-                ProjectPythonCode | ProjectLSPCode | ProjectBashCode | ProjectBasicCode,
-            ],
+            str, dict[str, ProjectPythonCode | ProjectBashCode | ProjectBasicCode]
         ] = {}
         self.lsp_diagnostics_state_by_project_config: dict[
             ID, ProjectLspDiagnosticsState
@@ -848,9 +840,7 @@ class BaseProjectManager(ABC):
         self, projectConfigId: ID
     ) -> tuple[
         ProjectGenPythonCode | None,
-        dict[
-            ID, ProjectPythonCode | ProjectLSPCode | ProjectBashCode | ProjectBasicCode
-        ],
+        dict[ID, ProjectPythonCode | ProjectBashCode | ProjectBasicCode],
     ]:
         gen_code = self.gen_code.get(projectConfigId)
         code_entries = self.code_dict.get(projectConfigId, {})
@@ -1168,76 +1158,6 @@ class BaseProjectManager(ABC):
             return C.CODE_FOLDER
         raise ValueError(f"Unsupported run snapshot mode: {run_snapshot_mode}")
 
-    def _plugin_codegen_output_root(self, project_config_name: str) -> Path:
-        return (
-            build_project_sections_dir(C.CODE_FOLDER, project_config_name)
-            / "plugin_codegen"
-        )
-
-    def _plugin_codegen_target_dir_name(self, target_language: str) -> str:
-        normalized_chars: list[str] = []
-        for char in target_language:
-            if char.isalnum() or char in {"-", "_", "."}:
-                normalized_chars.append(char)
-            else:
-                normalized_chars.append("_")
-        normalized = "".join(normalized_chars).strip("_")
-        if normalized == "":
-            return "_"
-        return normalized
-
-    def _resolve_plugin_codegen_targets(
-        self,
-        codegen_targets: list[ProjectCodegenTarget],
-    ) -> list[ProjectCodegenPluginTarget]:
-        plugin_targets: list[ProjectCodegenPluginTarget] = []
-        for target in codegen_targets:
-            if target.language == ProjectCodegenLanguage.python:
-                continue
-            if not isinstance(target, ProjectCodegenPluginTarget):
-                raise TypeError("Expected plugin codegen target.")
-            plugin_targets.append(target)
-        if len(plugin_targets) == 0:
-            return []
-        if self.plugin_manager is None:
-            raise KeyError(
-                "Plugin codegen targets are enabled, but plugin manager is unavailable."
-            )
-        for target in plugin_targets:
-            if not self.plugin_manager.has_backend_codegen_target(target.language):
-                raise KeyError(
-                    f"Plugin codegen target is not registered: {target.language}"
-                )
-        return plugin_targets
-
-    def _refresh_plugin_codegen_outputs(
-        self,
-        project_state: ProjectStateSingleConfig,
-    ) -> None:
-        plugin_targets = self._resolve_plugin_codegen_targets(
-            project_state.projectConfig.codegenTargets
-        )
-        output_root = self._plugin_codegen_output_root(project_state.projectConfig.name)
-        if output_root.exists():
-            shutil.rmtree(output_root)
-        if len(plugin_targets) == 0:
-            return
-        assert self.plugin_manager is not None
-        project_state_payload = project_state.model_dump(mode="json")
-        for target in plugin_targets:
-            generated_files = self.plugin_manager.generate_backend_codegen_target(
-                target_id=target.language,
-                project_state=project_state_payload,
-                target_options=target.options,
-            )
-            target_root = output_root / self._plugin_codegen_target_dir_name(
-                target.language
-            )
-            for relative_path, content in generated_files:
-                output_path = target_root / relative_path
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                self.dbe.write(output_path, content)
-
     def _require_python_codegen(self, project_config_id: ID) -> ProjectGenPythonCode:
         project_config = self.project_state_backend.projectConfigs[project_config_id]
         if not project_config_has_codegen_language(
@@ -1307,16 +1227,7 @@ class BaseProjectManager(ABC):
         if view_mode is None:
             raise KeyError(f"View mode {active_view_mode_id} not found")
         existing_layouts = view_mode.topLevelSections
-        section_variant_ids = set(project_config.sectionVariantMap.keys())
-        merged_layouts = {
-            section_id: layout
-            for section_id, layout in existing_layouts.items()
-            if section_id in section_variant_ids
-        }
-        for section_id, layout in x.topLevelSections.items():
-            if section_id not in merged_layouts:
-                continue
-            merged_layouts[section_id] = layout
+        merged_layouts = {**existing_layouts, **x.topLevelSections}
         project_config.topLevelSections = merged_layouts
         view_mode.topLevelSections = merged_layouts
 
@@ -1462,11 +1373,10 @@ class BaseProjectManager(ABC):
                 clear_gen_code=True,
                 clear_unmapped=True,
             )
-        self._refresh_plugin_codegen_outputs(projectState)
 
         if self.code_dict.get(projectConfigId):
             for c in self.code_dict[projectConfigId].values():
-                if _is_lsp_code_entry(c):
+                if isinstance(c, ProjectPythonCode):
                     c.callback_cleanup()
         self.code_dict[projectConfigId] = {}
 
@@ -1482,10 +1392,7 @@ class BaseProjectManager(ABC):
 
                 if not section_code.binding.canonical_path.exists():
                     section_code.write_to_disk(section_code.code)
-                if (
-                    _is_lsp_code_entry(section_code)
-                    and section_code.lsp_writer is not None
-                ):
+                if self.lsp_writers.full is not None:
                     await section_code.sync_lsp(section_code.code)
                 self.code_dict[projectConfigId][sectionId] = section_code
 
@@ -1564,7 +1471,7 @@ class BaseProjectManager(ABC):
         if gen_code is not None:
             await gen_code.type_check()
         for code_entry in code_entries:
-            if _is_lsp_code_entry(code_entry):
+            if isinstance(code_entry, ProjectPythonCode):
                 await code_entry.type_check()
 
     async def _refetch_callable_params(
@@ -1732,7 +1639,7 @@ class BaseProjectManager(ABC):
     async def code_area_completion(self, x: CodeAreaCompletionRequest):
         async with self._project_state_lock.read_lock():
             code = self.code_dict[x.projectConfigId][x.sectionId]
-        if _is_lsp_code_entry(code):
+        if isinstance(code, ProjectPythonCode):
             return await code.code_area_completion(x.fullText, x.position)
         return []
 
@@ -1784,14 +1691,13 @@ class BaseProjectManager(ABC):
         """Update the codegen targets for a project configuration."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
-        seen_languages: set[str] = set()
+        seen_languages: set[ProjectCodegenLanguage] = set()
         for target in x.codegenTargets:
             if target.language in seen_languages:
                 raise ValueError(
                     f"Duplicate codegen target language: {target.language}"
                 )
             seen_languages.add(target.language)
-        self._resolve_plugin_codegen_targets(x.codegenTargets)
         prev_python_target = get_python_codegen_target(project_state.projectConfig)
         prev_python_enabled = project_config_has_codegen_language(
             project_state.projectConfig,
@@ -2132,7 +2038,7 @@ class BaseProjectManager(ABC):
         if section_id not in code_entries:
             return
         code_entry = code_entries[section_id]
-        if not _is_lsp_code_entry(code_entry):
+        if not isinstance(code_entry, ProjectPythonCode):
             return
         project_state = self.get_single_config_state(project_config_id)
         section_impl = get_curr_effective_section_impl_with_type_guard(
@@ -2484,7 +2390,7 @@ class BaseProjectManager(ABC):
         project_state = self.get_single_config_state(x.projectConfigId)
         section_impl = get_curr_effective_section_impl(project_state, x.sectionId)
         if isinstance(section_impl, CodeSectionImpl):
-            if section_impl.codeLanguage != CodeLanguage.python:
+            if section_impl.codeLanguage is not CodeLanguage.python:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail="Format code only supports Python code sections.",
@@ -2570,20 +2476,22 @@ class BaseProjectManager(ABC):
             project_config, ProjectCodegenLanguage.python
         ):
             return
+        if self.lsp_writers.full is None:
+            return
         section_impl = get_curr_effective_section_impl(project_state, section_id)
         if not isinstance(section_impl, CodeSectionImpl):
             return
-        if self.lsp_writers.get_for_language(section_impl.codeLanguage) is None:
+        if section_impl.codeLanguage is not CodeLanguage.python:
             return
         if section_impl.codeFileBinding is None:
             return
         code_entries = self.code_dict.setdefault(project_config.id, {})
         section_code = code_entries.get(section_id)
-        if not _is_lsp_code_entry(section_code):
+        if not isinstance(section_code, ProjectPythonCode):
             section_code = self.create_project_code(
                 project_state, section_id, section_impl
             )
-            if not _is_lsp_code_entry(section_code):
+            if not isinstance(section_code, ProjectPythonCode):
                 return
             code_entries[section_id] = section_code
         section_code.code = code
@@ -3032,18 +2940,6 @@ class BaseProjectManager(ABC):
                 project_state,
                 sectionId,
             )
-        lsp_writer = self.lsp_writers.get_for_language(codeLanguage)
-        if lsp_writer is not None:
-            return ProjectLSPCode(
-                self.dbe,
-                self.code_files,
-                self.lsp_writers,
-                self.websocket_msg_handler,
-                self._get_lsp_diagnostics_state(project_state.projectConfig.id),
-                project_state,
-                sectionId,
-                code_language=codeLanguage,
-            )
         return ProjectBasicCode(
             self.dbe,
             self.code_files,
@@ -3206,7 +3102,7 @@ class BaseProjectManager(ABC):
             code_entries = self.code_dict.pop(project_config_id, None)
             if code_entries:
                 for code_entry in code_entries.values():
-                    if _is_lsp_code_entry(code_entry):
+                    if isinstance(code_entry, ProjectPythonCode):
                         code_entry.callback_cleanup()
             self.lsp_diagnostics_state_by_project_config.pop(project_config_id, None)
         self.project_state_backend.validate_default_project_id()
@@ -3644,6 +3540,14 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
+    async def set_text_block_master_font_size(
+        self, x: SetTextBlockMasterFontSizeRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_text_block_master_font_size(project_state, x.sectionId, x.masterFontSizePx)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
     async def set_text_block_meta_control_style(
         self, x: SetTextBlockMetaControlStyleRequest
     ):
@@ -3671,6 +3575,18 @@ class BaseProjectManager(ABC):
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method
+    async def set_section_allow_unquoted_string_args(
+        self, x: SetSectionAllowUnquotedStringArgsRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_section_allow_unquoted_string_args(
+            project_state,
+            x.sectionId,
+            x.allowUnquotedStringArgs,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
     async def set_section_pinned_params(self, x: SetSectionPinnedParamsRequest):
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_pinned_params(project_state, x.sectionId, x.pinnedParams)
@@ -3684,6 +3600,66 @@ class BaseProjectManager(ABC):
         )
         project_state = self.get_single_config_state(x.projectConfigId)
         set_section_column_width(project_state, x.sectionId, x.columnWidth)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_parent_default_child_section_type(
+        self, x: SetParentDefaultChildSectionTypeRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_parent_default_child_section_type(
+            project_state,
+            x.sectionId,
+            x.defaultChildSectionType,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_list_root_view_mode(self, x: SetListRootViewModeRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_list_root_view_mode(
+            project_state,
+            x.sectionId,
+            x.viewMode,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_task_board_section_state(self, x: SetTaskBoardSectionStateRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_task_board_section_state(
+            project_state,
+            x.sectionId,
+            x.viewMode,
+            x.columns,
+            x.tasks,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_spreadsheet_file_path(self, x: SetSpreadsheetFilePathRequest):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_spreadsheet_file_path(
+            project_state,
+            x.sectionId,
+            x.filePath,
+            x.activeSheet,
+        )
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def set_spreadsheet_section_settings(
+        self, x: SetSpreadsheetSectionSettingsRequest
+    ):
+        project_state = self.get_single_config_state(x.projectConfigId)
+        set_spreadsheet_section_settings(
+            project_state,
+            x.sectionId,
+            x.readOnly,
+            x.showRowNumbers,
+            x.density,
+            x.autoReloadOnExternalChange,
+        )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
     @enqueue_method

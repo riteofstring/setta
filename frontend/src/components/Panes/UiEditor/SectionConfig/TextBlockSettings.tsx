@@ -11,6 +11,7 @@ import { res200 } from "utils/endpointUtils";
 import {
   route_docstring_to_markdown,
   route_set_text_block_heading_as_section_name,
+  route_set_text_block_master_font_size,
   route_set_text_block_meta_control_style,
 } from "utils/generatedEndpoints";
 import { TextBlockFormatEnum } from "utils/generatedTypes";
@@ -20,8 +21,14 @@ type TextBlockSettingsProps = {
 };
 
 export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
-  const { format, text, isFrozen, headingAsSectionName, metaControlStyle } =
-    useTextBlockTextAndEditability(sectionId);
+  const {
+    format,
+    text,
+    isFrozen,
+    headingAsSectionName,
+    metaControlStyle,
+    masterFontSizePx,
+  } = useTextBlockTextAndEditability(sectionId);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditParams } = useShareCapabilities();
   const canToggleFormat = !isDeploymentMode || canEditParams;
@@ -89,6 +96,27 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
     });
   }
 
+  function updateMasterFontSize(v: number) {
+    if (!canToggleMetaControlStyle) {
+      return;
+    }
+    const clamped = Math.max(8, Math.min(48, Number.isFinite(v) ? v : 14));
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
+          masterFontSizePx: clamped,
+        });
+      },
+      send: (frontendOpId) =>
+        route_set_text_block_master_font_size({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          masterFontSizePx: clamped,
+          frontendOpId,
+        }),
+    });
+  }
+
   return (
     <div className="flex w-full flex-col gap-2">
       <div className="flex w-full items-center justify-between gap-4">
@@ -122,6 +150,28 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
           value={metaControlStyle}
           onChange={onChangeMetaControlStyle}
           outerDivClassName="flex items-center"
+        />
+      </div>
+      <div className="flex w-full flex-col gap-2 rounded-md border border-setta-200/60 p-2 dark:border-setta-700/60">
+        <div className="flex w-full items-center justify-between gap-4">
+          <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
+            Master Font Size
+          </p>
+          <span className="font-mono text-[11px] text-setta-500 dark:text-setta-400">
+            {masterFontSizePx.toFixed(0)}px
+          </span>
+        </div>
+        <input
+          type="range"
+          min={8}
+          max={48}
+          step={1}
+          value={masterFontSizePx}
+          onChange={(event) =>
+            updateMasterFontSize(Number(event.currentTarget.value))
+          }
+          disabled={isFrozen || !canToggleMetaControlStyle}
+          className="w-full accent-blue-500"
         />
       </div>
     </div>

@@ -2,9 +2,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import shutil
-
-from fastapi import FastAPI, HTTPException
+from fastapi import HTTPException
 
 import pytest
 from setta.binary import BinaryStore
@@ -24,14 +22,12 @@ from setta.project_state.project_manager_types import (
 )
 from setta.project_state.settings_project import create_settings_project_state
 from setta.project_state.share_runtime_state import ShareRuntimeState
-from setta.plugins.manager import PluginManager
 from setta.types.core import Core, Variant, compute_initial_nonPresetImpls
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl_with_type_guard
 from setta.types.helpers_lvl3 import merge_single_config_into_backend
 from setta.types.helpers_lvl2 import create_top_level_section
 from setta.types.project_config import (
     Position,
-    ProjectCodegenPluginTarget,
     ProjectConfig,
     TopLevelSectionLayout,
 )
@@ -53,17 +49,12 @@ from setta.types.section_impls import (
 from setta.types.settings_state import RunSnapshotMode
 from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
 from setta.utils.constants import C
-from setta.utils.utils import build_project_sections_dir
 from setta.utils.paths import normalize_state_path
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 from setta.websockets.websocket_manager import WebsocketManager
 from tests.utils.setta_paths import temporary_setta_paths
-
-
-FIXTURE_PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "plugins"
-
 
 class CodegenTargetsProjectManager(BaseProjectManager):
     def __init__(
@@ -78,7 +69,6 @@ class CodegenTargetsProjectManager(BaseProjectManager):
         json_source,
         code_files,
         initial_backend: ProjectStateBackend,
-        plugin_manager: PluginManager | None = None,
     ):
         self._initial_backend = initial_backend
         super().__init__(
@@ -91,7 +81,6 @@ class CodegenTargetsProjectManager(BaseProjectManager):
             artifacts,
             json_source,
             code_files,
-            plugin_manager=plugin_manager,
         )
 
     def load_initial_state(self) -> ProjectStateBackend:
@@ -115,9 +104,6 @@ class TestCodegenTargetsBindings:
     def _setup(self) -> None:
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
-        self._workspace_root = root
-        self._setta_home = root / "setta_home"
-        self._setta_home.mkdir(parents=True, exist_ok=True)
         self._stack = ExitStack()
         self._stack.enter_context(
             temporary_setta_paths(
@@ -189,9 +175,6 @@ class TestCodegenTargetsRunCommand:
     def _setup(self) -> None:
         self._tmpdir = TemporaryDirectory()
         root = Path(self._tmpdir.name)
-        self._workspace_root = root
-        self._setta_home = root / "setta_home"
-        self._setta_home.mkdir(parents=True, exist_ok=True)
         self._stack = ExitStack()
         self._stack.enter_context(
             temporary_setta_paths(
@@ -245,22 +228,6 @@ class TestCodegenTargetsRunCommand:
 
         self._stack.close()
         self._tmpdir.cleanup()
-
-    def _create_loaded_codegen_plugin_manager(self) -> PluginManager:
-        plugin_manager = PluginManager(
-            workspace_root=self._workspace_root,
-            setta_files_root=C.SETTA_FILES_FOLDER,
-            setta_home=self._setta_home,
-            server_mode="ide",
-            setta_version="0.1.0",
-        )
-        plugin_id = "setta-fixture-backend-codegen"
-        plugin_destination = self._workspace_root / ".setta_plugins" / plugin_id
-        plugin_destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(FIXTURE_PLUGIN_ROOT / "backend-codegen", plugin_destination)
-        plugin_manager.rescan()
-        plugin_manager.load_backend_plugins(app=FastAPI())
-        return plugin_manager
 
     async def test_create_run_command_runs_manual_code_when_python_disabled(self) -> None:
         code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.bash)
@@ -539,88 +506,6 @@ class TestCodegenTargetsRunCommand:
                 )
             )
         manager.shutdown()
-
-    async def test_refresh_codegen_state_generates_plugin_codegen_outputs(self) -> None:
-        plugin_manager = self._create_loaded_codegen_plugin_manager()
-        project_config = ProjectConfig(
-            name="PluginCodegen",
-            codegenTargets=[
-                ProjectCodegenPluginTarget(
-                    language="setta-fixture-backend-codegen:typescript",
-                    options={"className": "PluginState"},
-                )
-            ],
-        )
-        project_state = ProjectStateSingleConfig(projectConfig=project_config)
-        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
-        manager = CodegenTargetsProjectManager(
-            self.lsp_writers,
-            self.frontend_sender,
-            self.python_script_sender,
-            self.settings_file,
-            self.specific_file_watcher,
-            self.dbe,
-            self.artifacts,
-            self.json_source,
-            self.code_files,
-            backend,
-            plugin_manager=plugin_manager,
-        )
-        try:
-            await manager._refresh_codegen_state(project_state)
-            output_root = (
-                build_project_sections_dir(C.CODE_FOLDER, project_config.name)
-                / "plugin_codegen"
-                / "setta-fixture-backend-codegen_typescript"
-            )
-            output_path = output_root / "setta_gen.ts"
-            assert output_path.exists()
-            assert output_path.read_text(encoding="utf-8") == (
-                "export class PluginState {\n"
-                "  readonly projectName = 'PluginCodegen';\n"
-                "}\n"
-            )
-        finally:
-            manager.shutdown()
-            plugin_manager.shutdown_backend_plugins()
-
-    async def test_set_codegen_targets_rejects_unknown_plugin_target(self) -> None:
-        plugin_manager = self._create_loaded_codegen_plugin_manager()
-        project_config = ProjectConfig(name="PluginCodegenValidation")
-        project_state = ProjectStateSingleConfig(projectConfig=project_config)
-        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
-        manager = CodegenTargetsProjectManager(
-            self.lsp_writers,
-            self.frontend_sender,
-            self.python_script_sender,
-            self.settings_file,
-            self.specific_file_watcher,
-            self.dbe,
-            self.artifacts,
-            self.json_source,
-            self.code_files,
-            backend,
-            plugin_manager=plugin_manager,
-        )
-        try:
-            with pytest.raises(KeyError) as exc_info:
-                await manager.set_project_config_codegen_targets(
-                    SetProjectConfigCodegenTargetsRequest(
-                        projectConfigId=project_config.id,
-                        codegenTargets=[
-                            ProjectCodegenPluginTarget(
-                                language="setta-fixture-backend-codegen:missing"
-                            )
-                        ],
-                    )
-                )
-            assert (
-                "Plugin codegen target is not registered"
-                in str(exc_info.value)
-            )
-        finally:
-            manager.shutdown()
-            plugin_manager.shutdown_backend_plugins()
 
     async def test_format_code_updates_watch_code_registry(self) -> None:
         code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.python)

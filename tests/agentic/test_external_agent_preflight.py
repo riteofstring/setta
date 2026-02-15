@@ -13,7 +13,6 @@ from setta.agentic.external_agent_preflight import (
     build_external_agent_preflight_status,
 )
 from setta.database.db_objs import DBE
-from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.types.external_agents import (
     ExternalAgentConfig,
     ExternalAgentRunMode,
@@ -180,88 +179,3 @@ class TestExternalAgentPreflight:
             assert issue is not None
             if issue is not None:
                 assert "Timed out" in issue
-
-    def test_plugin_tool_supported_with_registered_adapter(self) -> None:
-        with _temp_cwd() as tmp:
-            dbe = DBE(tmp / "setta_files")
-            plugin_adapter = PluginRegisteredExternalAgentAdapter(
-                adapterId="acme-plugin:openhands",
-                pluginId="acme-plugin",
-                name="OpenHands",
-                runModes=["sdk"],
-                command="python",
-                args=[],
-                envVarWhitelist=[],
-                defaultModel="openhands-default",
-            )
-            config = ExternalAgentConfig(
-                name="OpenHands Adapter",
-                toolType=ExternalAgentToolType.plugin,
-                pluginAdapterId=plugin_adapter.adapterId,
-                runMode=ExternalAgentRunMode.sdk,
-                commandPath="python",
-            )
-
-            status = build_external_agent_preflight_status(
-                dbe,
-                config,
-                plugin_external_agent_adapters=[plugin_adapter],
-            )
-
-            assert status.supported
-            assert status.available
-            assert status.issues == []
-
-    def test_plugin_tool_reports_missing_adapter(self) -> None:
-        with _temp_cwd() as tmp:
-            dbe = DBE(tmp / "setta_files")
-            config = ExternalAgentConfig(
-                name="Missing plugin adapter",
-                toolType=ExternalAgentToolType.plugin,
-                pluginAdapterId="acme-plugin:missing",
-                runMode=ExternalAgentRunMode.sdk,
-            )
-
-            status = build_external_agent_preflight_status(dbe, config)
-
-            assert not status.supported
-            assert not status.available
-            assert any(
-                "Plugin external agent adapter is not registered" in issue
-                for issue in status.issues
-            )
-
-    def test_plugin_tool_merges_adapter_env_var_whitelist(self) -> None:
-        with _temp_cwd() as tmp:
-            dbe = DBE(tmp / "setta_files")
-            plugin_env_var = "PLUGIN_EXTERNAL_AGENT_TOKEN"
-            previous = os.environ.pop(plugin_env_var, None)
-            try:
-                plugin_adapter = PluginRegisteredExternalAgentAdapter(
-                    adapterId="acme-plugin:env",
-                    pluginId="acme-plugin",
-                    name="Env Adapter",
-                    runModes=["sdk"],
-                    command="python",
-                    args=[],
-                    envVarWhitelist=[plugin_env_var],
-                    defaultModel=None,
-                )
-                config = ExternalAgentConfig(
-                    name="Env Adapter Config",
-                    toolType=ExternalAgentToolType.plugin,
-                    pluginAdapterId=plugin_adapter.adapterId,
-                    runMode=ExternalAgentRunMode.sdk,
-                    commandPath="python",
-                )
-
-                status = build_external_agent_preflight_status(
-                    dbe,
-                    config,
-                    plugin_external_agent_adapters=[plugin_adapter],
-                )
-
-                assert status.envVars.present == []
-                assert status.envVars.missing == [plugin_env_var]
-            finally:
-                _restore_env_var(plugin_env_var, previous)
