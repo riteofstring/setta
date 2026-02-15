@@ -26,7 +26,11 @@ from setta.agentic.chat_view import (
     get_run_project_config_id,
     is_external_agent_run,
 )
-from setta.agentic.completion_guard import apply_completion_guard
+from setta.agentic.completion_guard import (
+    apply_completion_guard,
+    load_completion_guard_enabled,
+)
+from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
 from setta.agentic.external_adapters.base import (
     ExternalAgentAdapter,
     ExternalAgentRunContext,
@@ -362,7 +366,7 @@ class ExternalAgentRunner:
                     continue
                 if event.stream_chunk is not None:
                     chunk = self._prepare_stream_chunk_for_delivery(
-                        run, event.stream_chunk
+                        context, run, event.stream_chunk
                     )
                     await self.websocket_msg_handler.send_streaming_response(
                         context.chat_id,
@@ -641,6 +645,7 @@ class ExternalAgentRunner:
             env=env,
             agentic_context_section_ids=agentic_context_section_ids,
             cleanup_paths=tuple(cleanup_paths),
+            completion_guard_enabled=load_completion_guard_enabled(self.dbe),
         ), is_new
 
     def _build_attachment_payload(
@@ -1220,9 +1225,13 @@ class ExternalAgentRunner:
                     tools.append(f"mcp__{server_id}__{tool_name}")
                     continue
             tools.append(normalized)
-        required_tool = f"mcp__{SETTA_MCP_SERVER_ID}__set_agentic_context"
-        if required_tool not in tools:
-            tools.append(required_tool)
+        required_tools = (
+            f"mcp__{SETTA_MCP_SERVER_ID}__set_agentic_context",
+            f"mcp__{SETTA_MCP_SERVER_ID}__{REPORT_COMPLETION_STATUS_TOOL_NAME}",
+        )
+        for required_tool in required_tools:
+            if required_tool not in tools:
+                tools.append(required_tool)
         return tools or None
 
     def _resolve_working_dir(self, config: ExternalAgentConfig) -> Path:
@@ -1319,7 +1328,7 @@ class ExternalAgentRunner:
         prepared: bool = False,
     ) -> None:
         if not prepared:
-            chunk = self._prepare_stream_chunk_for_delivery(run, chunk)
+            chunk = self._prepare_stream_chunk_for_delivery(context, run, chunk)
         state = self._apply_stream_chunk_to_state(run, chunk)
         if isinstance(chunk, ToolCallDeltaEvent):
             self._store_tool_call_delta(run.id, chunk)
@@ -1377,13 +1386,19 @@ class ExternalAgentRunner:
             )
             self._persist_outputs_from_state(run, context.config, state)
 
-    def _prepare_stream_chunk_for_delivery(self, run: AgentRun, chunk: Any) -> Any:
+    def _prepare_stream_chunk_for_delivery(
+        self, context: ExternalAgentRunContext, run: AgentRun, chunk: Any
+    ) -> Any:
         if not isinstance(chunk, MessageFinalizedEvent):
             return chunk
         if not isinstance(chunk.message, AssistantChatMessage):
             return chunk
         prior_messages = list(self._ensure_chat_state(run).messages)
-        apply_completion_guard(prior_messages, chunk.message)
+        apply_completion_guard(
+            prior_messages,
+            chunk.message,
+            completion_guard_enabled=context.completion_guard_enabled,
+        )
         return chunk
 
     def _store_tool_call_delta(self, run_id: ID, chunk: ToolCallDeltaEvent) -> None:

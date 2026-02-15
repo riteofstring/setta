@@ -48,7 +48,6 @@ import {
   SettaProjectNameValidationErrors,
   SettingsState,
   SharePolicy,
-  TranscriptionProfile,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import {
@@ -717,13 +716,7 @@ type ZustandAIStore = {
   engineConfigsInitialLoadComplete: boolean;
   engineConfigsLoadError: string | null;
   engineConfigsLoading: boolean;
-  transcriptionProfiles: Array<TranscriptionProfile>;
-  transcriptionProfilesInitialLoadComplete: boolean;
-  transcriptionProfilesLoadError: string | null;
-  transcriptionProfilesLoading: boolean;
   pendingProjectChatPrompt: string | null;
-  projectChatDictationMode: "auto" | "browser" | "provider";
-  projectChatTranscriptionProfileId: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -765,21 +758,12 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         engineConfigsInitialLoadComplete: false,
         engineConfigsLoadError: null,
         engineConfigsLoading: false,
-        transcriptionProfiles: [],
-        transcriptionProfilesInitialLoadComplete: false,
-        transcriptionProfilesLoadError: null,
-        transcriptionProfilesLoading: false,
         pendingProjectChatPrompt: null,
-        projectChatDictationMode: "auto",
-        projectChatTranscriptionProfileId: null,
       }),
       {
         name: "setta_ai_data",
         partialize: (state) => ({
           viewHistory: state.viewHistory,
-          projectChatDictationMode: state.projectChatDictationMode,
-          projectChatTranscriptionProfileId:
-            state.projectChatTranscriptionProfileId,
         }),
         storage: getPersistStorage(),
       },

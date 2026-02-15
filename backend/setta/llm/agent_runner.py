@@ -39,7 +39,11 @@ from setta.agentic.chat_view import (
     build_chat_state_from_run,
     get_run_last_updated,
 )
-from setta.agentic.completion_guard import apply_completion_guard
+from setta.agentic.completion_guard import (
+    apply_completion_guard,
+    load_completion_guard_enabled,
+)
+from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.run_outputs import build_run_outputs
 from setta.agentic.store import (
@@ -151,6 +155,9 @@ ANTHROPIC_TOOL_SEARCH_BETA_HEADER = "advanced-tool-use-2025-11-20"
 DEFAULT_ANTHROPIC_THINKING_BUDGET = 1024
 MAX_AGENTIC_SECTION_SUMMARY_OUTPUT_CHARS = 1200
 MAX_CHAT_TITLE_INPUT_CHARS = 2000
+_REQUIRED_INTERNAL_TOOL_BASENAMES: tuple[str, ...] = (
+    REPORT_COMPLETION_STATUS_TOOL_NAME,
+)
 
 
 @dataclass(frozen=True)
@@ -178,6 +185,7 @@ class AgentRunContext:
     context_payload: AgenticContextPayload | None
     emit_stream: bool
     emit_ai_follow: bool
+    completion_guard_enabled: bool = True
 
 
 @dataclass
@@ -486,7 +494,11 @@ class AgentRunner:
                         context,
                         parsed_tool_calls,
                     )
-                    self._apply_completion_guard(messages, assistant_message)
+                    self._apply_completion_guard(
+                        messages,
+                        assistant_message,
+                        completion_guard_enabled=context.completion_guard_enabled,
+                    )
                     if assistant_message.tool_calls:
                         await self._apply_actions(
                             [
@@ -534,7 +546,6 @@ class AgentRunner:
                             context,
                             parsed_tool_calls,
                         )
-                        self._apply_completion_guard(messages, assistant_message)
                         messages.append(assistant_message)
                         await self._apply_actions(
                             [
@@ -615,7 +626,6 @@ class AgentRunner:
                             context,
                             parsed_tool_calls,
                         )
-                        self._apply_completion_guard(messages, assistant_message)
                         messages.append(assistant_message)
                         await self._apply_actions(
                             [
@@ -896,6 +906,7 @@ class AgentRunner:
             context_payload=None,
             emit_stream=emit_stream,
             emit_ai_follow=emit_ai_follow,
+            completion_guard_enabled=load_completion_guard_enabled(self.dbe),
         )
 
     def _normalize_tool_allowlist(self, profile: AgentProfile) -> ToolAllowlist | None:
@@ -920,6 +931,8 @@ class AgentRunner:
                 server_ids.add(normalized)
             else:
                 tool_basenames.add(normalized)
+        for required_basename in _REQUIRED_INTERNAL_TOOL_BASENAMES:
+            tool_basenames.add(required_basename)
         return ToolAllowlist(
             tool_names=tool_names,
             tool_basenames=tool_basenames,
@@ -1641,6 +1654,10 @@ class AgentRunner:
         filtered: list[str] = []
         for name in tool_names:
             if not is_setta_tool_name(name):
+                filtered.append(name)
+                continue
+            _, tool_basename = split_namespaced_tool_name(name)
+            if tool_basename in _REQUIRED_INTERNAL_TOOL_BASENAMES:
                 filtered.append(name)
                 continue
             annotations = self.mcp_client.tool_annotations_by_name.get(name)
@@ -2480,8 +2497,14 @@ class AgentRunner:
     def _apply_completion_guard(
         prior_messages: list[BaseChatMessageUnion],
         assistant_message: AssistantChatMessage,
+        *,
+        completion_guard_enabled: bool,
     ) -> None:
-        apply_completion_guard(prior_messages, assistant_message)
+        apply_completion_guard(
+            prior_messages,
+            assistant_message,
+            completion_guard_enabled=completion_guard_enabled,
+        )
 
     def _record_event(
         self, run: AgentRun, event_type: str, payload: dict[str, Any]

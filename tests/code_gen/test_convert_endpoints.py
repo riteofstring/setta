@@ -4,19 +4,24 @@ from frontend.generation.convert_endpoints import (
 )
 
 
-def test_create_ts_fn_def_keeps_transcription_session_posts_as_json() -> None:
+def test_create_ts_fn_def_uses_form_wrapper_for_multipart_endpoints() -> None:
+    # Multipart endpoints should always accept a FormData payload on the frontend.
     output = create_ts_fn_def(
-        endpoint_path="/api/startTranscriptionSession",
+        endpoint_path="/api/transcribeChatAudio",
         method="POST",
-        fn_name="route_start_transcription_session",
-        args=["x"],
-        args_with_annotations=["x:gt.StartTranscriptionSessionRequestInput"],
-        output_annotation="gt.StartTranscriptionSessionResponse",
-        uses_form_data=False,
+        fn_name="route_transcribe_chat_audio",
+        args=["engineConfigId", "file", "language"],
+        args_with_annotations=[
+            "engineConfigId:gt.IDInput",
+            "file:FormData",
+            "language:string | null",
+        ],
+        output_annotation="gt.TranscribeChatAudioResponse",
+        uses_form_data=True,
     )
 
-    assert "route_start_transcription_session(form: FormData)" not in output
-    assert 'post("/startTranscriptionSession", x)' in output
+    assert "route_transcribe_chat_audio(form: FormData)" in output
+    assert 'post("/transcribeChatAudio", form)' in output
 
 
 def test_create_ts_fn_def_generates_form_wrapper_when_contract_marks_multipart() -> (
@@ -60,10 +65,8 @@ def test_get_path_input_output_types_marks_binary_upload_as_multipart() -> None:
     assert route_specs["route_binary_upload"]["uses_form_data"] is True
 
 
-def test_get_path_input_output_types_marks_transcription_session_routes_as_json() -> (
-    None
-):
+def test_get_path_input_output_types_keeps_transcribe_chat_audio_multipart() -> None:
+    # Transcribe stays FormData-based even though backend parsing is manual/auth-first.
     route_specs = get_path_input_output_types()
 
-    assert route_specs["route_start_transcription_session"]["uses_form_data"] is False
-    assert route_specs["route_append_transcription_audio"]["uses_form_data"] is False
+    assert route_specs["route_transcribe_chat_audio"]["uses_form_data"] is True
