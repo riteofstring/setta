@@ -34,6 +34,7 @@ import {
   useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
+import type { AppGenerationMode } from "state/types/appGenerationMode";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_create_agent_profile,
@@ -120,16 +121,35 @@ const scopeViolationToastTimeouts = new Map<
   string,
   ReturnType<typeof setTimeout>
 >();
+let llmConfigLoadPromise: Promise<void> | null = null;
+let llmApiKeysLoadPromise: Promise<void> | null = null;
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
   searchEnabled: boolean;
 };
 
+type ChatAppGenerationContext = {
+  mode: AppGenerationMode | null;
+  referenceImageUrl?: string | null;
+  referenceImageNotes?: string | null;
+};
+
 const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
   permissionMode: ChatPermissionModeEnum.minimal,
   searchEnabled: true,
 };
+
+function isChatExecutionSettings(
+  value: ChatExecutionSettings | ChatAppGenerationContext | null | undefined,
+): value is ChatExecutionSettings {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      "permissionMode" in value &&
+      "searchEnabled" in value,
+  );
+}
 
 function encodeArrayBufferAsBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -169,26 +189,48 @@ export async function transcribeChatAudio(
 }
 
 export async function loadLLMConfig() {
-  const res = await route_get_llm_config();
-  if (res200(res)) {
-    receiveLLMConfigUpdate(res.data);
-  } else {
+  if (llmConfigLoadPromise) {
+    await llmConfigLoadPromise;
+    return;
+  }
+  llmConfigLoadPromise = (async () => {
+    const res = await route_get_llm_config();
+    if (res200(res)) {
+      receiveLLMConfigUpdate(res.data);
+      return;
+    }
     useAIStore.setState({
       allLLMConfigsInitialLoadComplete: true,
       allLLMConfigsLoadError: "Failed to load LLM config",
     });
+  })();
+  try {
+    await llmConfigLoadPromise;
+  } finally {
+    llmConfigLoadPromise = null;
   }
 }
 
 export async function loadLLMApiKeys() {
-  const res = await route_get_llm_api_keys();
-  if (res200(res)) {
-    receiveLLMApiKeysUpdate(res.data);
-  } else {
+  if (llmApiKeysLoadPromise) {
+    await llmApiKeysLoadPromise;
+    return;
+  }
+  llmApiKeysLoadPromise = (async () => {
+    const res = await route_get_llm_api_keys();
+    if (res200(res)) {
+      receiveLLMApiKeysUpdate(res.data);
+      return;
+    }
     useAIStore.setState({
       apiKeysInitialLoadComplete: true,
       apiKeysLoadError: "Failed to load LLM API keys",
     });
+  })();
+  try {
+    await llmApiKeysLoadPromise;
+  } finally {
+    llmApiKeysLoadPromise = null;
   }
 }
 
@@ -819,14 +861,24 @@ export async function submitMessage(
   messageId?: string,
   agentProfileId?: string | null,
   sectionId?: string | null,
-  executionSettings?: ChatExecutionSettings | null,
+  executionSettingsOrAppGeneration?:
+    | ChatExecutionSettings
+    | ChatAppGenerationContext
+    | null,
+  appGenerationArg?: ChatAppGenerationContext | null,
 ): Promise<string | null> {
   const trimmed = message.trim();
   if ((!trimmed && attachments.length === 0) || !engineConfigId) {
     return null;
   }
-  const resolvedExecutionSettings =
-    executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
+  const resolvedExecutionSettings = isChatExecutionSettings(
+    executionSettingsOrAppGeneration,
+  )
+    ? executionSettingsOrAppGeneration
+    : DEFAULT_CHAT_EXECUTION_SETTINGS;
+  const appGeneration = isChatExecutionSettings(executionSettingsOrAppGeneration)
+    ? (appGenerationArg ?? null)
+    : (executionSettingsOrAppGeneration ?? appGenerationArg ?? null);
 
   // Add user message immediately for responsive UI
   const content = [];
@@ -845,14 +897,22 @@ export async function submitMessage(
 
   try {
     const projectConfigId = getCurrProjectConfigId();
+    const appGenerationMode = appGeneration?.mode ?? null;
+    const appSpecStreamingEnabledForSubmit =
+      appGenerationMode === null
+        ? false
+        : useLocalStorage.getState().appSpecStreamingEnabled;
     const res = await route_get_llm_response({
       message: userMessage,
       thinking,
       chatId,
       engineConfigId,
       agentProfileId: agentProfileId ?? null,
-      appSpecStreamingEnabled:
-        useLocalStorage.getState().appSpecStreamingEnabled,
+      appSpecStreamingEnabled: appSpecStreamingEnabledForSubmit,
+      appGenerationMode: appGenerationMode,
+      appGenerationReferenceImageUrl: appGeneration?.referenceImageUrl ?? null,
+      appGenerationReferenceImageNotes:
+        appGeneration?.referenceImageNotes ?? null,
       projectConfigId,
       sectionId: sectionId ?? null,
       allowUnscoped: sectionId == null,
@@ -874,14 +934,12 @@ export async function submitMessage(
       }
       return returnedChatId;
     }
-    const detail =
+    const failureDetail =
       getErrorDetail(res.data) ??
-      (res.status
-        ? `AI request failed (status ${res.status}).`
-        : "AI request failed.");
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-    rollbackOptimisticUserMessage(chatId, userMessageId);
-    return null;
+      (typeof res.status === "number"
+        ? `Chat request failed (status ${res.status}).`
+        : "Chat request failed.");
+    throw new Error(failureDetail);
   } catch (err) {
     const detail =
       err instanceof Error && err.message.trim()
@@ -1313,7 +1371,7 @@ function extractRunMessages(
   return raw as Array<BaseChatMessageUnion>;
 }
 
-async function resolveEngineConfigIdForChat(
+export async function resolveEngineConfigIdForChat(
   chatId: string,
   engineConfigId: string | null,
 ): Promise<string | null> {

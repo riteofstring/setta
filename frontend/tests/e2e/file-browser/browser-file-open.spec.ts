@@ -523,6 +523,7 @@ test("browser path commits latest value on blur after fast typing", async ({
 
   const folderName = `browser_blur_commit_${Date.now()}`;
   const folderPath = path.join(workspaceRoot, folderName);
+  const normalizedFolderPath = normalizePathForComparison(folderPath);
   await fs.mkdir(folderPath, { recursive: true });
 
   try {
@@ -541,7 +542,7 @@ test("browser path commits latest value on blur after fast typing", async ({
     // Establish a known starting value.
     await pathInput.click();
     await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.type(workspaceRoot);
+    await page.keyboard.insertText(workspaceRoot);
     await page.click(".react-flow__pane", {
       position: { x: 8, y: 8 },
       force: true,
@@ -556,15 +557,17 @@ test("browser path commits latest value on blur after fast typing", async ({
     // not a stale pre-change inputValue.
     await pathInput.click();
     await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.type(folderPath);
+    await page.keyboard.insertText(folderPath);
     await page.click(".react-flow__pane", {
       position: { x: 8, y: 8 },
       force: true,
     });
 
     await expect
-      .poll(async () => await readCodeMirrorValue(page, pathInputId))
-      .toContain(folderName);
+      .poll(async () =>
+        normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+      )
+      .toContain(normalizedFolderPath);
   } finally {
     await postBackend(page, "/deleteSections", {
       projectConfigId,

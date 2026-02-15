@@ -22,6 +22,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { TbLayoutDashboard } from "react-icons/tb";
 import {
   clearPendingChatDetails,
   finalizePendingChatDetails,
@@ -53,6 +54,7 @@ import {
   EngineTypeEnum,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
+import { buildDesignFirstFigmaStarterPrompt } from "./projectChatStarterPrompts";
 
 const PYTHON_ROOT_MARKER_FILES = new Set<string>([
   "pyproject.toml",
@@ -181,16 +183,26 @@ function EmptyChatState({
   starterPrompts,
   disabled,
   onStarterPrompt,
+  onDesignFirstPrompt,
 }: {
   starterPrompts: ChatStarterPrompt[];
   disabled: boolean;
   onStarterPrompt: (prompt: string) => void;
+  onDesignFirstPrompt: () => void;
 }) {
   const starterButtonClassName =
     "rounded-md border border-setta-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto p-3">
+      <button
+        type="button"
+        className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50 disabled:cursor-not-allowed disabled:opacity-50"
+        onClick={onDesignFirstPrompt}
+        disabled={disabled}
+      >
+        <TbLayoutDashboard /> Create Project UI (Design First)
+      </button>
       {starterPrompts.map((starterPrompt) => (
         <button
           key={starterPrompt.id}
@@ -625,6 +637,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       updateExecutionSettings,
     ],
   );
+  const handleDesignFirstPrompt = useCallback(() => {
+    const starterPrompt = buildDesignFirstFigmaStarterPrompt();
+    setDraftMessage((current) => (current.trim() ? current : starterPrompt));
+  }, []);
   const handleProviderDictationTranscribe = useCallback(
     async (audioBlob: Blob) => {
       if (!engineConfigId || isExternalEngine) {
@@ -644,6 +660,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           onStarterPrompt={(prompt) => {
             void handleSubmit(prompt, []);
           }}
+          onDesignFirstPrompt={handleDesignFirstPrompt}
         />
       ) : (
         <ChatMessageList

@@ -69,6 +69,7 @@ class CodeLanguage(str, Enum):
     typescript = "typescript"
     json = "json"
     yaml = "yaml"
+    toml = "toml"
     markdown = "markdown"
     plaintext = "plaintext"
 

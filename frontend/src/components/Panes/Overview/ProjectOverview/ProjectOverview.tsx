@@ -5,8 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { loadAgentRuns } from "state/actions/ai";
 import {
   getActiveViewModeConfig,
-  getCurrEffectiveSectionImpl,
-  getSectionCore,
+  getCurrEffectiveSectionImplIfPresent,
   getSectionShouldRender,
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
@@ -110,7 +109,7 @@ function ProjectOverviewCore({
           />
         </div>
       </search>
-      <div className="min-h-0 flex-grow overflow-y-scroll">
+      <div className="setta-pane-scroll min-h-0 flex-grow">
         <ul
           className="min-h-0 flex-grow"
           {...getFloatingBoxHandlers({
@@ -228,8 +227,11 @@ export function useOverviewListing() {
     const { isEditingViewMode } = x.projectConfig;
     const topLevelSectionIds = getTopLevelSectionIdsForDisplay(x);
     for (const sectionId of topLevelSectionIds) {
-      const sectionImpl = getCurrEffectiveSectionImpl(x, sectionId);
-      const sectionCore = getSectionCore(x, sectionId);
+      const sectionImpl = getCurrEffectiveSectionImplIfPresent(x, sectionId);
+      const sectionCore = x.sections[sectionId];
+      if (!sectionImpl || !sectionCore) {
+        continue;
+      }
       getDepthListingHelper(
         sectionCore,
         sectionImpl,
@@ -288,9 +290,7 @@ function getDepthListingHelper(
 ) {
   const visibility = viewMode.visibilityBySectionId[section.id];
   if (visibility === undefined) {
-    throw new Error(
-      `Missing visibility for section ${section.id} in view mode ${viewMode.id}`,
-    );
+    return;
   }
   const shouldRender = getSectionShouldRender(visibility, isEditingViewMode);
   if (!shouldRender) {
@@ -307,18 +307,22 @@ function getDepthListingHelper(
   if (isBaseParentSectionImpl(sectionImpl)) {
     for (const childId of sectionImpl.children) {
       const childSection = x.sections[childId];
-      const childSectionImpl = getCurrEffectiveSectionImpl(x, childId);
-      if (childSection) {
-        getDepthListingHelper(
-          childSection,
-          childSectionImpl,
-          depth + 1,
-          x,
-          viewMode,
-          isEditingViewMode,
-          outputList,
-        );
+      if (!childSection) {
+        continue;
       }
+      const childSectionImpl = getCurrEffectiveSectionImplIfPresent(x, childId);
+      if (!childSectionImpl) {
+        continue;
+      }
+      getDepthListingHelper(
+        childSection,
+        childSectionImpl,
+        depth + 1,
+        x,
+        viewMode,
+        isEditingViewMode,
+        outputList,
+      );
     }
   }
 }
