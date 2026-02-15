@@ -2602,6 +2602,30 @@ def plugins_rescan(json_output: bool) -> None:
     )
 
 
+def _run_plugin_update_like_command(
+    *,
+    plugin_id: str,
+    scope: str | None,
+    global_scope: bool,
+    setta_files_scope: bool,
+    to_target: str | None,
+):
+    manager = _build_plugin_manager_for_cli()
+    resolved_scope = _plugin_scope_choice_to_value(
+        scope=scope,
+        global_scope=global_scope,
+        setta_files_scope=setta_files_scope,
+    )
+    try:
+        return manager.update_plugin(
+            plugin_id=plugin_id,
+            scope=resolved_scope,
+            to=to_target,
+        )
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
+
+
 @plugins.command(name="update")
 @click.argument("plugin_id")
 @click.option(
@@ -2621,20 +2645,13 @@ def plugins_update(
     to_target: str | None,
     json_output: bool,
 ) -> None:
-    manager = _build_plugin_manager_for_cli()
-    resolved_scope = _plugin_scope_choice_to_value(
+    result = _run_plugin_update_like_command(
+        plugin_id=plugin_id,
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
+        to_target=to_target,
     )
-    try:
-        result = manager.update_plugin(
-            plugin_id=plugin_id,
-            scope=resolved_scope,
-            to=to_target,
-        )
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))
         return
@@ -2662,20 +2679,13 @@ def plugins_pin(
     setta_files_scope: bool,
     json_output: bool,
 ) -> None:
-    manager = _build_plugin_manager_for_cli()
-    resolved_scope = _plugin_scope_choice_to_value(
+    result = _run_plugin_update_like_command(
+        plugin_id=plugin_id,
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
+        to_target=source_spec_or_version,
     )
-    try:
-        result = manager.update_plugin(
-            plugin_id=plugin_id,
-            scope=resolved_scope,
-            to=source_spec_or_version,
-        )
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))
         return

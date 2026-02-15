@@ -2842,6 +2842,53 @@ def test_status_redaction_keeps_source_identity_unique_across_scopes(
     assert len({entry.canonicalSourceKey for entry in status_entries}) == 2
 
 
+@pytest.mark.parametrize("server_mode", ["share", "app"])
+def test_status_redaction_keeps_same_scope_source_manager_entries_distinct(
+    tmp_path: Path, server_mode: Literal["share", "app"]
+) -> None:
+    # Same-scope setta/package-manager duplicates should remain distinct and preserve shadow source identity.
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    site_packages = _install_fixture_distribution_in_site_packages(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    manager = _make_manager(
+        tmp_path,
+        server_mode=server_mode,
+        package_manager_search_paths=[site_packages],
+    )
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("frontend")),
+        scope=PluginScope.setta_files,
+        enable=True,
+        force=True,
+    )
+    manager.rescan()
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == package_name
+        and entry.sourceScope == PluginScope.setta_files
+    ]
+    assert len(status_entries) == 2
+    assert len({entry.sourcePath for entry in status_entries}) == 2
+    assert len({entry.canonicalSourceKey for entry in status_entries}) == 2
+
+    shadowed_entry = next(
+        entry for entry in status_entries if entry.state == PluginRuntimeState.shadowed
+    )
+    active_entry = next(
+        entry for entry in status_entries if entry.state == PluginRuntimeState.active
+    )
+    assert shadowed_entry.sourcePath != active_entry.sourcePath
+    assert shadowed_entry.shadowedBySourcePath == active_entry.sourcePath
+    assert shadowed_entry.shadowedBySourcePath != shadowed_entry.sourcePath
+
+
 def test_list_response_caches_content_and_config_schema_descriptors(
     tmp_path: Path,
     monkeypatch,

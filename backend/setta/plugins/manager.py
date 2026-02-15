@@ -548,7 +548,10 @@ class PluginManager:
                     sourceManagerHint=entry.source_manager_hint,
                     canonicalSourceKey=(
                         self._redacted_canonical_source_key(
-                            entry.plugin_id, entry.scope
+                            entry.plugin_id,
+                            entry.scope,
+                            entry.source_manager,
+                            entry.source_path,
                         )
                         if redact_source_details
                         else entry.canonical_source_key
@@ -579,6 +582,9 @@ class PluginManager:
             ),
         )
         redact_source_details = self._should_redact_source_details()
+        redacted_source_path_by_path: dict[Path, str] = {}
+        if redact_source_details:
+            redacted_source_path_by_path = self._build_redacted_source_path_map(ordered)
         return PluginStatusResponse(
             serverMode=self.server_mode,
             restartCapability=self.get_restart_capability(),
@@ -593,13 +599,16 @@ class PluginManager:
                     sourceManager=entry.source_manager,
                     sourceManagerHint=entry.source_manager_hint,
                     sourcePath=(
-                        self._redact_source_path(entry.plugin_id, entry.scope)
+                        redacted_source_path_by_path[entry.source_path]
                         if redact_source_details
                         else str(entry.source_path)
                     ),
                     canonicalSourceKey=(
                         self._redacted_canonical_source_key(
-                            entry.plugin_id, entry.scope
+                            entry.plugin_id,
+                            entry.scope,
+                            entry.source_manager,
+                            entry.source_path,
                         )
                         if redact_source_details
                         else entry.canonical_source_key
@@ -607,7 +616,7 @@ class PluginManager:
                     sourceDigestSha256=entry.source_digest_sha256,
                     shadowedBySourcePath=(
                         (
-                            self._redact_source_path(entry.plugin_id, entry.scope)
+                            redacted_source_path_by_path[entry.shadowed_by_source_path]
                             if redact_source_details
                             else str(entry.shadowed_by_source_path)
                         )
@@ -645,11 +654,62 @@ class PluginManager:
     ) -> PluginConfigDescriptor:
         return PluginConfigDescriptor(hasSchema=descriptor.hasSchema)
 
-    def _redacted_canonical_source_key(self, plugin_id: str, scope: PluginScope) -> str:
-        return f"{_REDACTED_CANONICAL_SOURCE_KEY_PREFIX}{scope}:{plugin_id}"
+    def _build_redacted_source_path_map(
+        self,
+        entries: list[DiscoveredPlugin],
+    ) -> dict[Path, str]:
+        source_entry_by_path = {entry.source_path: entry for entry in entries}
+        paths_to_redact = {
+            entry.source_path for entry in entries
+        } | {
+            entry.shadowed_by_source_path
+            for entry in entries
+            if entry.shadowed_by_source_path is not None
+        }
+        redacted: dict[Path, str] = {}
+        for source_path in paths_to_redact:
+            entry = source_entry_by_path.get(source_path)
+            if entry is None:
+                redacted[source_path] = self._redact_unknown_source_path(source_path)
+                continue
+            redacted[source_path] = self._redact_source_path(
+                entry.plugin_id,
+                entry.scope,
+                entry.source_manager,
+                entry.source_path,
+            )
+        return redacted
 
-    def _redact_source_path(self, plugin_id: str, scope: PluginScope) -> str:
-        return f"{_REDACTED_SOURCE_PATH}:{scope}:{plugin_id}"
+    def _redacted_source_token(self, source_path: Path) -> str:
+        digest = hashlib.sha256(str(source_path).encode("utf-8")).hexdigest()
+        return digest[:12]
+
+    def _redacted_canonical_source_key(
+        self,
+        plugin_id: str,
+        scope: PluginScope,
+        source_manager: PluginSourceManager,
+        source_path: Path,
+    ) -> str:
+        token = self._redacted_source_token(source_path)
+        return (
+            f"{_REDACTED_CANONICAL_SOURCE_KEY_PREFIX}"
+            f"{scope}:{source_manager}:{plugin_id}:{token}"
+        )
+
+    def _redact_source_path(
+        self,
+        plugin_id: str,
+        scope: PluginScope,
+        source_manager: PluginSourceManager,
+        source_path: Path,
+    ) -> str:
+        token = self._redacted_source_token(source_path)
+        return f"{_REDACTED_SOURCE_PATH}:{scope}:{source_manager}:{plugin_id}:{token}"
+
+    def _redact_unknown_source_path(self, source_path: Path) -> str:
+        token = self._redacted_source_token(source_path)
+        return f"{_REDACTED_SOURCE_PATH}:unknown:{token}"
 
     def get_pending_restart_backend_plugin_ids(self) -> list[str]:
         return sorted(self._pending_restart_backend_ids)
@@ -900,7 +960,14 @@ class PluginManager:
         capability = self.get_restart_capability()
         if capability.mode == "programmatic":
             assert self._restart_callback is not None
-            accepted = bool(self._restart_callback())
+            try:
+                accepted = bool(self._restart_callback())
+            except Exception as exc:
+                raise PluginManagerError(
+                    "PLUGIN_RESTART_FAILED",
+                    f"Programmatic restart callback failed: {exc}",
+                    status_code=503,
+                ) from exc
             if accepted:
                 return {
                     "accepted": True,

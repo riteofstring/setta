@@ -65,6 +65,47 @@ type PluginRegisteredExternalAgentAdapter =
 type PluginRegisteredCodegenTarget =
   PluginStatusEntry["registeredCodegenTargets"][number];
 
+type PluginPaneSummary = {
+  id: string;
+  title: string;
+  description?: string;
+  icon?: string;
+};
+
+type PluginCommandSummary = {
+  id: string;
+  title: string;
+  description?: string;
+  run: () => void | Promise<void>;
+};
+
+type PluginListEntryCardRuntimeState = {
+  serverMode: "ide" | "share" | "app";
+  pluginStatus: PluginStatusEntry | null;
+  panes: readonly PluginPaneSummary[];
+  commands: readonly PluginCommandSummary[];
+  frontendError: {
+    code: string;
+    message: string;
+  } | null;
+};
+
+const EMPTY_PLUGIN_PANES: readonly PluginPaneSummary[] = [];
+const EMPTY_PLUGIN_COMMANDS: readonly PluginCommandSummary[] = [];
+
+function pluginListEntryCardRuntimeStateEqual(
+  a: PluginListEntryCardRuntimeState,
+  b: PluginListEntryCardRuntimeState,
+): boolean {
+  return (
+    a.serverMode === b.serverMode &&
+    a.pluginStatus === b.pluginStatus &&
+    a.panes === b.panes &&
+    a.commands === b.commands &&
+    a.frontendError === b.frontendError
+  );
+}
+
 export function PluginsPane() {
   const [sourceSpec, setSourceSpec] = useState("");
   const [scope, setScope] = useState<InstallScope>("workspace");
@@ -98,10 +139,6 @@ export function PluginsPane() {
   const isSettingsProject =
     currentProjectConfigName.trim().toLowerCase() ===
     C.SETTINGS_PROJECT_NAME.toLowerCase();
-
-  useEffect(() => {
-    void refreshPluginRuntime();
-  }, []);
 
   const sortedStatusEntries = useMemo(
     () =>
@@ -497,26 +534,19 @@ function PluginListEntryCard({
   busyActionKey,
   runAction,
 }: PluginListEntryCardProps) {
-  const serverMode = usePluginRuntimeStore(
-    (state) => state.serverMode ?? "ide",
-    _.isEqual,
+  const runtimeState = usePluginRuntimeStore(
+    (state) => ({
+      serverMode: state.serverMode ?? "ide",
+      pluginStatus: state.pluginStatusById[plugin.pluginId] ?? null,
+      panes: state.panesByPluginId[plugin.pluginId] ?? EMPTY_PLUGIN_PANES,
+      commands:
+        state.commandsByPluginId[plugin.pluginId] ?? EMPTY_PLUGIN_COMMANDS,
+      frontendError: state.frontendErrorsByPluginId[plugin.pluginId] ?? null,
+    }),
+    pluginListEntryCardRuntimeStateEqual,
   );
-  const pluginStatus = usePluginRuntimeStore(
-    (state) => state.pluginStatusById[plugin.pluginId] ?? null,
-    _.isEqual,
-  );
-  const panes = usePluginRuntimeStore(
-    (state) => state.panesByPluginId[plugin.pluginId] ?? [],
-    _.isEqual,
-  );
-  const commands = usePluginRuntimeStore(
-    (state) => state.commandsByPluginId[plugin.pluginId] ?? [],
-    _.isEqual,
-  );
-  const frontendError = usePluginRuntimeStore(
-    (state) => state.frontendErrorsByPluginId[plugin.pluginId] ?? null,
-    _.isEqual,
-  );
+  const { serverMode, pluginStatus, panes, commands, frontendError } =
+    runtimeState;
 
   async function onEnable() {
     await runAction(`enable:${plugin.pluginId}`, "Enable plugin", async () =>

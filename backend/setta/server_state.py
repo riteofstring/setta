@@ -366,6 +366,10 @@ class SettaFastAPIState:
                 self.dbe,
             )
 
+            self.init_status.record("Loading backend plugins")
+            await self._maybe_delay()
+            self.plugin_manager.load_backend_plugins(app=app)
+
             self.init_status.record("Loading project state")
             await self._maybe_delay()
             lsp_writers = None
@@ -412,10 +416,6 @@ class SettaFastAPIState:
                 main_manager=project_manager,
                 settings_manager=settings_project_manager,
             )
-
-            self.init_status.record("Loading backend plugins")
-            await self._maybe_delay()
-            self.plugin_manager.load_backend_plugins(app=app)
 
             self.init_status.record("Preparing websocket handlers")
             await self._maybe_delay()

@@ -844,6 +844,69 @@ describe("plugin runtime helpers", () => {
     );
   });
 
+  it("removes stale plugin styles when refresh enters error state", async () => {
+    type FakeLinkElement = {
+      rel: string;
+      href: string;
+      dataset: Record<string, string>;
+      removed: boolean;
+      remove: () => void;
+    };
+    const fakeLinks: FakeLinkElement[] = [];
+    vi.stubGlobal("document", {
+      head: {
+        append: (node: FakeLinkElement) => {
+          fakeLinks.push(node);
+        },
+      },
+      createElement: (_tag: string): FakeLinkElement => {
+        const link: FakeLinkElement = {
+          rel: "",
+          href: "",
+          dataset: {},
+          removed: false,
+          remove: () => {
+            link.removed = true;
+          },
+        };
+        return link;
+      },
+    });
+
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\nexport function register(_host) {}\n",
+      );
+    const pluginWithStyle = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: "/plugins/acme.plugin/frontend/dist/index.css?v=1",
+      },
+    });
+    const loadResult = await pluginRuntimeTestApi.loadPluginFrontendModule(
+      pluginWithStyle,
+      "ide",
+    );
+    expect(loadResult?.error).toBeNull();
+    expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(1);
+
+    vi.spyOn(generatedEndpoints, "route_plugins_list").mockResolvedValue({
+      data: undefined,
+      status: 500,
+      hasResponse: true,
+    });
+    vi.spyOn(generatedEndpoints, "route_plugins_status").mockResolvedValue({
+      data: buildPluginStatusResponse([]),
+      status: 200,
+      hasResponse: true,
+    });
+
+    await refreshPluginRuntime();
+
+    expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(0);
+  });
+
   it("prefers non-shadowed status entries as the primary plugin status", async () => {
     const plugin = buildPluginListEntry({});
     vi.spyOn(generatedEndpoints, "route_plugins_list").mockResolvedValue({

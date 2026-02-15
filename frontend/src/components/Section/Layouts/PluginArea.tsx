@@ -1,4 +1,3 @@
-import _ from "lodash";
 import {
   getPluginSectionFallbackReason,
   usePluginRuntimeStore,
@@ -35,20 +34,17 @@ type PluginSectionRendererHostProps = {
   isUserView: boolean;
 };
 
+const EMPTY_PLUGIN_CAPABILITIES: readonly string[] = [];
+
 export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
-  const { pluginId, kind, data, schemaVersion } = useProjectState((state) => {
-    const pluginImpl = getCurrEffectiveSectionImplOfType(
+  const pluginImpl = useProjectState((state) =>
+    getCurrEffectiveSectionImplOfType(
       state,
       sectionId,
       SectionTypeEnum.Plugin,
-    );
-    return {
-      pluginId: pluginImpl.pluginId,
-      kind: pluginImpl.kind,
-      data: pluginImpl.data,
-      schemaVersion: pluginImpl.schemaVersion,
-    };
-  }, _.isEqual);
+    ),
+  );
+  const { pluginId, kind, data, schemaVersion } = pluginImpl;
   const pluginSectionKind = usePluginSectionKind(pluginId, kind);
   if (pluginSectionKind) {
     return (
@@ -84,13 +80,12 @@ function PluginSectionRendererHost({
   const mountedRef = useRef(false);
   const previousSectionPropsRef = useRef<object | null>(null);
   const pluginSectionKind = usePluginSectionKind(pluginId, kind);
-  const runtimeContext = usePluginRuntimeStore((state) => {
-    const pluginEntry = state.pluginListById[pluginId];
-    return {
-      serverMode: state.serverMode ?? "ide",
-      effectiveCapabilities: pluginEntry?.effectiveCapabilities ?? [],
-    };
-  }, _.isEqual);
+  const serverMode = usePluginRuntimeStore((state) => state.serverMode ?? "ide");
+  const effectiveCapabilities = usePluginRuntimeStore(
+    (state) =>
+      state.pluginListById[pluginId]?.effectiveCapabilities ??
+      EMPTY_PLUGIN_CAPABILITIES,
+  );
   const sectionProps = useMemo(
     () => ({
       sectionId,
@@ -98,16 +93,16 @@ function PluginSectionRendererHost({
       kind,
       data,
       readOnly: isUserView,
-      serverMode: runtimeContext.serverMode,
-      effectiveCapabilities: runtimeContext.effectiveCapabilities,
+      serverMode,
+      effectiveCapabilities,
     }),
     [
       data,
+      effectiveCapabilities,
       isUserView,
       kind,
       pluginId,
-      runtimeContext.effectiveCapabilities,
-      runtimeContext.serverMode,
+      serverMode,
       sectionId,
     ],
   );

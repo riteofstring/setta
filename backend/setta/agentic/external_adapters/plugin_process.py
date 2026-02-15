@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import suppress
 import json
 from pathlib import Path
 from typing import Any, AsyncIterator
@@ -26,6 +27,8 @@ from setta.types.chat_stream_events import (
 from setta.types.external_agents import ExternalAgentRunMode, ExternalAgentToolType
 
 _PLUGIN_ADAPTER_STDERR_MAX_LINES = 200
+_PLUGIN_DONE_EXIT_GRACE_SECONDS = 0.25
+_PLUGIN_DONE_TERMINATE_TIMEOUT_SECONDS = 0.5
 
 
 class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
@@ -106,6 +109,7 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
 
         message_id: str | None = None
         message_text_parts: list[str] = []
+        done_event_received = False
         async for line in iter_stream_lines(process.stdout):
             if not line:
                 continue
@@ -125,6 +129,7 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
                     raw_return_code = payload.get("returnCode")
                     if isinstance(raw_return_code, int):
                         handle.return_code = raw_return_code
+                    done_event_received = True
                     break
                 text = payload.get("text")
                 if isinstance(text, str) and text:
@@ -184,6 +189,11 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
                 stream_chunk=MessageFinalizedEvent(message=finalized_message),
             )
 
+        if done_event_received:
+            await self._stop_stderr_stream(stderr_task)
+            await self._finalize_after_done(handle)
+            return
+
         if stderr_task is not None:
             await stderr_task
         if handle.return_code is None:
@@ -200,6 +210,39 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
             stderr_lines.append(line)
             if len(stderr_lines) > _PLUGIN_ADAPTER_STDERR_MAX_LINES:
                 del stderr_lines[: len(stderr_lines) - _PLUGIN_ADAPTER_STDERR_MAX_LINES]
+
+    @staticmethod
+    async def _stop_stderr_stream(stderr_task: asyncio.Task[None] | None) -> None:
+        if stderr_task is None:
+            return
+        if not stderr_task.done():
+            stderr_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await stderr_task
+
+    @staticmethod
+    async def _finalize_after_done(handle: ExternalAgentRunHandle) -> None:
+        process = handle.process
+        if process is None:
+            return
+        if process.returncode is None:
+            try:
+                await asyncio.wait_for(
+                    process.wait(),
+                    timeout=_PLUGIN_DONE_EXIT_GRACE_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                process.terminate()
+                try:
+                    await asyncio.wait_for(
+                        process.wait(),
+                        timeout=_PLUGIN_DONE_TERMINATE_TIMEOUT_SECONDS,
+                    )
+                except asyncio.TimeoutError:
+                    process.kill()
+                    await process.wait()
+        if handle.return_code is None:
+            handle.return_code = process.returncode
 
     async def cancel_run(self, handle: ExternalAgentRunHandle) -> None:
         process = handle.process

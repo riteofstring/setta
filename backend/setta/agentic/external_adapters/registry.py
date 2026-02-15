@@ -53,7 +53,10 @@ class ExternalAgentAdapterRegistry:
         self._plugin_adapters_by_id[normalized_adapter_id] = adapter
 
     def get_plugin_adapter(self, adapter_id: str) -> ExternalAgentAdapter | None:
-        return self._plugin_adapters_by_id.get(adapter_id)
+        normalized_adapter_id = adapter_id.strip()
+        if normalized_adapter_id == "":
+            return None
+        return self._plugin_adapters_by_id.get(normalized_adapter_id)
 
     def lookup(
         self,
@@ -63,12 +66,14 @@ class ExternalAgentAdapterRegistry:
     ) -> AdapterLookupResult:
         adapter: ExternalAgentAdapter | None
         if tool_type == ExternalAgentToolType.plugin:
-            if not plugin_adapter_id:
+            normalized_plugin_adapter_id = (plugin_adapter_id or "").strip()
+            if normalized_plugin_adapter_id == "":
                 raise KeyError("Missing plugin adapter id for plugin external tool")
-            adapter = self._plugin_adapters_by_id.get(plugin_adapter_id)
+            adapter = self._plugin_adapters_by_id.get(normalized_plugin_adapter_id)
             if adapter is None:
                 raise KeyError(
-                    f"No adapter registered for plugin external tool {plugin_adapter_id}"
+                    "No adapter registered for plugin external tool "
+                    f"{normalized_plugin_adapter_id}"
                 )
         else:
             adapter = self._adapters_by_tool.get(tool_type)

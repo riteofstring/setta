@@ -350,6 +350,7 @@ async function loadPluginRuntime(): Promise<void> {
     route_plugins_status(),
   ]);
   if (!res200(listResponse)) {
+    removeAllPluginStyles();
     const message = buildPluginRequestErrorMessage(
       "plugins list",
       listResponse,
@@ -362,6 +363,7 @@ async function loadPluginRuntime(): Promise<void> {
     return;
   }
   if (!res200(statusResponse)) {
+    removeAllPluginStyles();
     const message = buildPluginRequestErrorMessage(
       "plugins status",
       statusResponse,
@@ -1630,6 +1632,10 @@ function removeInactivePluginStyles(activePluginIds: Set<string>): void {
     styleElementByPluginId.delete(pluginId);
     styleHrefByPluginId.delete(pluginId);
   }
+}
+
+function removeAllPluginStyles(): void {
+  removeInactivePluginStyles(new Set<string>());
 }
 
 function mapPluginListById(

@@ -113,9 +113,12 @@ def route_plugins_restart_capability(
     return _manager(state).get_restart_capability()
 
 
-@router.post(Route.PLUGINS_RESTART)
+@router.post(Route.PLUGINS_RESTART, dependencies=[Depends(require_ide_mode)])
 def route_plugins_restart(state: AppStateFromRequest) -> PluginRestartResponse:
-    payload = _manager(state).restart_backend()
+    try:
+        payload = _manager(state).restart_backend()
+    except PluginManagerError as exc:
+        _raise_http(exc)
     return PluginRestartResponse.model_validate(payload)
 
 

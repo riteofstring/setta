@@ -1278,6 +1278,63 @@ test("plugins pane lifecycle action failures surface structured endpoint errors"
   ).toBeVisible();
 });
 
+test("opening plugins tab does not trigger redundant plugin runtime refresh", async ({
+  page,
+}) => {
+  let pluginListRequestCount = 0;
+  let pluginStatusRequestCount = 0;
+
+  await page.route("**/api/plugins/list", async (route) => {
+    pluginListRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        schemaVersion: 1,
+        serverMode: "ide",
+        restartCapability: {
+          mode: "manual",
+          command: "setta",
+          reason: "Programmatic restart is not available in this runtime.",
+        },
+        plugins: [],
+      }),
+    });
+  });
+  await page.route("**/api/plugins/status", async (route) => {
+    pluginStatusRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        schemaVersion: 1,
+        serverMode: "ide",
+        plugins: [],
+      }),
+    });
+  });
+
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await page.waitForSelector(".react-flow__pane");
+    await expect.poll(() => pluginListRequestCount).toBeGreaterThan(0);
+    await expect.poll(() => pluginStatusRequestCount).toBeGreaterThan(0);
+
+    const listCountBeforePluginsTab = pluginListRequestCount;
+    const statusCountBeforePluginsTab = pluginStatusRequestCount;
+
+    await page.locator("#overview-tab-plugins").click();
+    await expect(page.getByText("Plugin Runtime", { exact: true })).toBeVisible();
+    await page.waitForTimeout(250);
+
+    expect(pluginListRequestCount).toBe(listCountBeforePluginsTab);
+    expect(pluginStatusRequestCount).toBe(statusCountBeforePluginsTab);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("plugins pane remains interactive with a large plugin catalog", async ({
   page,
 }) => {

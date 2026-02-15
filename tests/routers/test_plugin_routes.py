@@ -428,8 +428,8 @@ def test_plugin_restart_route_handles_programmatic_rejection() -> None:
             }
 
 
-def test_plugin_restart_route_surfaces_callback_exceptions_as_server_errors() -> None:
-    # Unhandled restart callback exceptions should currently surface as HTTP 500 responses.
+def test_plugin_restart_route_maps_callback_exceptions_to_structured_errors() -> None:
+    # Restart callback failures should return a structured service-unavailable payload.
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         workspace_root = root / "workspace"
@@ -456,12 +456,17 @@ def test_plugin_restart_route_surfaces_callback_exceptions_as_server_errors() ->
             restart_response = client.post(
                 f"{Route.PREFIX.value}{Route.PLUGINS_RESTART.value}"
             )
-            assert restart_response.status_code == 500
-            assert "Internal Server Error" in restart_response.text
+            assert restart_response.status_code == 503
+            assert restart_response.json()["detail"] == {
+                "code": "PLUGIN_RESTART_FAILED",
+                "message": (
+                    "Programmatic restart callback failed: restart callback failure"
+                ),
+            }
 
 
 def test_plugin_mutation_routes_blocked_in_deployment_mode() -> None:
-    # Deployment mode should block plugin mutation routes but still allow read routes.
+    # Deployment mode should block plugin mutation routes (including restart) but allow read routes.
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         workspace_root = root / "workspace"
@@ -501,6 +506,15 @@ def test_plugin_mutation_routes_blocked_in_deployment_mode() -> None:
             assert rescan_response.status_code == 403
             assert (
                 rescan_response.json()["detail"]
+                == "Deployment mode does not allow this endpoint."
+            )
+
+            restart_response = client.post(
+                f"{Route.PREFIX.value}{Route.PLUGINS_RESTART.value}"
+            )
+            assert restart_response.status_code == 403
+            assert (
+                restart_response.json()["detail"]
                 == "Deployment mode does not allow this endpoint."
             )
 

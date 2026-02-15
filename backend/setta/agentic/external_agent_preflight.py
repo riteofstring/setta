@@ -123,7 +123,8 @@ def build_external_agent_preflight_status(
         cli_version, cli_issue = _check_codex_cli(config.commandPath)
         if cli_issue:
             issues.append(cli_issue)
-    elif config.toolType == ExternalAgentToolType.plugin:
+
+    if config.toolType == ExternalAgentToolType.plugin:
         command_issue = _check_plugin_command(
             config.commandPath,
             plugin_adapter=plugin_adapter,
@@ -331,7 +332,10 @@ def _check_plugin_command(
 ) -> str | None:
     if plugin_adapter is None:
         return "Plugin external agent adapter is not registered"
-    command = command_path or plugin_adapter.command
+    command_override = (command_path or "").strip()
+    command = command_override or plugin_adapter.command.strip()
+    if command == "":
+        return "Plugin external agent command is empty"
     if Path(command).is_file():
         return None
     if shutil.which(command):

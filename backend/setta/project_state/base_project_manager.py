@@ -1268,8 +1268,12 @@ class BaseProjectManager(ABC):
             )
             previous_state = previous_target_state.get(target_language)
             if previous_state is not None and previous_state[0] == target_fingerprint:
-                next_target_state[target_language] = previous_state
-                continue
+                if self._cached_plugin_codegen_outputs_exist(
+                    target_root=target_root,
+                    relative_paths=previous_state[1],
+                ):
+                    next_target_state[target_language] = previous_state
+                    continue
 
             if previous_state is None and target_root.exists():
                 shutil.rmtree(target_root)
@@ -1307,6 +1311,17 @@ class BaseProjectManager(ABC):
         self._plugin_codegen_target_state_by_project_config[project_config_id] = (
             next_target_state
         )
+
+    def _cached_plugin_codegen_outputs_exist(
+        self, *, target_root: Path, relative_paths: set[str]
+    ) -> bool:
+        if not target_root.exists() or not target_root.is_dir():
+            return False
+        for relative_path in relative_paths:
+            output_path = target_root / relative_path
+            if not output_path.exists() or not output_path.is_file():
+                return False
+        return True
 
     def _hash_plugin_codegen_project_state(self, project_state: dict[str, Any]) -> str:
         encoded = json.dumps(

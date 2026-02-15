@@ -80,6 +80,22 @@ def test_registry_plugin_lookup_requires_id_and_known_adapter() -> None:
     )
 
 
+def test_registry_plugin_lookup_normalizes_whitespace_adapter_ids() -> None:
+    # Lookup/get should trim adapter ids to avoid whitespace-only configuration failures.
+    registry = ExternalAgentAdapterRegistry()
+    adapter = _build_plugin_adapter()
+    registry.register_plugin_adapter("fixture-plugin:adapter", adapter)
+
+    assert registry.get_plugin_adapter(" fixture-plugin:adapter ") is adapter
+
+    lookup_result = registry.lookup(
+        ExternalAgentToolType.plugin,
+        ExternalAgentRunMode.sdk,
+        plugin_adapter_id=" fixture-plugin:adapter ",
+    )
+    assert lookup_result.adapter is adapter
+
+
 def test_registry_lookup_enforces_run_mode_support() -> None:
     # Lookups should fail when requested run mode is unsupported by the adapter.
     registry = ExternalAgentAdapterRegistry()

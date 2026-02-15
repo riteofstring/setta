@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import sys
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -265,3 +266,71 @@ class TestExternalAgentPreflight:
                 assert status.envVars.missing == [plugin_env_var]
             finally:
                 _restore_env_var(plugin_env_var, previous)
+
+    def test_plugin_tool_sdk_preflight_rejects_invalid_command_override(self) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            plugin_adapter = PluginRegisteredExternalAgentAdapter(
+                adapterId="acme-plugin:bad-command",
+                pluginId="acme-plugin",
+                name="Bad Command Adapter",
+                runModes=["sdk"],
+                command=sys.executable,
+                args=[],
+                envVarWhitelist=[],
+                defaultModel=None,
+            )
+            missing_command = "definitely-not-a-command-xyz"
+            config = ExternalAgentConfig(
+                name="Bad Command Config",
+                toolType=ExternalAgentToolType.plugin,
+                pluginAdapterId=plugin_adapter.adapterId,
+                runMode=ExternalAgentRunMode.sdk,
+                commandPath=missing_command,
+            )
+
+            status = build_external_agent_preflight_status(
+                dbe,
+                config,
+                plugin_external_agent_adapters=[plugin_adapter],
+            )
+
+            assert status.supported
+            assert not status.available
+            assert any(
+                f"Plugin external agent command not found ({missing_command})" in issue
+                for issue in status.issues
+            )
+
+    def test_plugin_tool_whitespace_command_override_falls_back_to_adapter_command(
+        self,
+    ) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            plugin_adapter = PluginRegisteredExternalAgentAdapter(
+                adapterId="acme-plugin:trimmed-command",
+                pluginId="acme-plugin",
+                name="Trimmed Command Adapter",
+                runModes=["sdk"],
+                command=sys.executable,
+                args=[],
+                envVarWhitelist=[],
+                defaultModel=None,
+            )
+            config = ExternalAgentConfig(
+                name="Whitespace Command Config",
+                toolType=ExternalAgentToolType.plugin,
+                pluginAdapterId=plugin_adapter.adapterId,
+                runMode=ExternalAgentRunMode.sdk,
+                commandPath="   ",
+            )
+
+            status = build_external_agent_preflight_status(
+                dbe,
+                config,
+                plugin_external_agent_adapters=[plugin_adapter],
+            )
+
+            assert status.supported
+            assert status.available
+            assert status.issues == []

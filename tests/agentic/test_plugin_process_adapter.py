@@ -104,6 +104,47 @@ async def test_plugin_process_stream_events_supports_plain_text_fallback(
 
 
 @pytest.mark.asyncio
+async def test_plugin_process_plain_text_fallback_preserves_boundary_whitespace(
+    tmp_path: Path,
+) -> None:
+    # Plain-text fallback should preserve leading/trailing spaces from adapter output.
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-u",
+        "-c",
+        (
+            "import json,sys\n"
+            "sys.stdout.write('  indented text  \\n')\n"
+            "sys.stdout.flush()\n"
+            "sys.stdout.write(json.dumps({'type':'done','returnCode':0}) + '\\n')\n"
+            "sys.stdout.flush()\n"
+        ),
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    adapter = _build_adapter()
+    context = _build_context(tmp_path)
+    handle = ExternalAgentRunHandle(
+        run_id=ID("plugin-process-run-plain-whitespace"),
+        process=process,
+        metadata={"stderr_lines": []},
+    )
+
+    events = [event async for event in adapter.stream_events(handle, context)]
+    stream_chunks = [event.stream_chunk for event in events if event.stream_chunk]
+
+    assert isinstance(stream_chunks[0], MessageStartEvent)
+    assert isinstance(stream_chunks[1], MessageDeltaEvent)
+    if isinstance(stream_chunks[1], MessageDeltaEvent):
+        assert stream_chunks[1].content[0].text == "  indented text  "
+    assert isinstance(stream_chunks[3], MessageFinalizedEvent)
+    if isinstance(stream_chunks[3], MessageFinalizedEvent):
+        assert stream_chunks[3].message.content[0].text == "  indented text  "
+    assert handle.return_code == 0
+
+
+@pytest.mark.asyncio
 async def test_plugin_process_stream_events_finalize_json_chunks_without_newlines(
     tmp_path: Path,
 ) -> None:
@@ -183,6 +224,42 @@ async def test_plugin_process_stream_events_preserve_boundary_whitespace(
     assert isinstance(finalized_event, MessageFinalizedEvent)
     assert finalized_event.message.content[0].text == "  leading and trailing  "
     assert handle.return_code == 0
+
+
+@pytest.mark.asyncio
+async def test_plugin_process_done_event_finishes_without_waiting_for_process_exit(
+    tmp_path: Path,
+) -> None:
+    # done should complete streaming even when the child process keeps running.
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-u",
+        "-c",
+        (
+            "import json,sys,time\n"
+            "sys.stdout.write(json.dumps({'type':'done','returnCode':0}) + '\\n')\n"
+            "sys.stdout.flush()\n"
+            "time.sleep(30)\n"
+        ),
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    adapter = _build_adapter()
+    context = _build_context(tmp_path)
+    handle = ExternalAgentRunHandle(
+        run_id=ID("plugin-process-run-done-fast"),
+        process=process,
+        metadata={"stderr_lines": []},
+    )
+
+    events = await asyncio.wait_for(
+        _collect_stream_events(adapter, handle, context),
+        timeout=2.0,
+    )
+    assert events == []
+    assert handle.return_code == 0
+    assert process.returncode is not None
 
 
 @pytest.mark.asyncio
@@ -318,6 +395,14 @@ async def test_plugin_process_send_response_requires_process_stdin() -> None:
     with pytest.raises(RuntimeError) as tool_exc:
         await adapter.send_tool_response(handle, "tool-call-1", {"ok": True})
     assert "stdin not available" in str(tool_exc.value)
+
+
+async def _collect_stream_events(
+    adapter: PluginProcessExternalAgentAdapter,
+    handle: ExternalAgentRunHandle,
+    context: ExternalAgentRunContext,
+) -> list:
+    return [event async for event in adapter.stream_events(handle, context)]
 
 
 @pytest.mark.asyncio

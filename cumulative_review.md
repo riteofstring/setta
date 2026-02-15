@@ -64,3 +64,15 @@
 - Eliminated command-palette create-action ID collisions for plugin sections by adding stable unique plugin command IDs; improved plugin runtime selector efficiency with precomputed sorted arrays and deduped section snapshot transforms.
 - Extracted shared plugin-fixture cache helpers and updated backend/Playwright scripts to rebuild when expected built fixture outputs are missing, even when signatures are unchanged.
 - Added/updated backend unit/integration tests, frontend Vitest tests, and Playwright E2E coverage for all above changes; completed CDP visual verification of restart-banner and plugin-pane behavior under status-only restart tombstones.
+
+## 2026-02-15T17:21:54-08:00
+
+- Implemented the next review-fix batch from `review1.md` through `review6.md`, explicitly excluding backward-compatibility shim work.
+- Fixed plugin external-agent correctness by normalizing/validating command overrides in preflight, normalizing whitespace-sensitive plugin adapter IDs in lookup paths, preserving streamed plain-text boundary whitespace, and treating plugin `done` events as terminal with immediate process shutdown fallback.
+- Hardened plugin runtime policy and error handling by deployment-gating the restart endpoint and mapping restart callback failures to structured `PLUGIN_RESTART_FAILED` 503 responses.
+- Corrected non-IDE plugin status redaction so same-scope entries from different source managers remain distinct, with stable per-source redacted identities and accurate `shadowedBySourcePath` mapping.
+- Added missing plugin section Python formatting in codegen (`SectionType.Plugin`) and fixed plugin codegen fingerprint cache hits to regenerate when cached output files/directories are missing.
+- Reordered IDE startup so backend plugins load before LSP writer construction, ensuring plugin language-server registrations are active on first startup.
+- Removed unnecessary frontend plugin runtime churn by clearing stale plugin styles on runtime fetch failures, removing forced refresh on Plugins-tab open, and replacing expensive deep-equality subscriptions/selectors in Plugins pane + PluginArea with leaner selector patterns.
+- Refactored duplicated `plugins update` / `plugins pin` CLI command flows in `start.py` into shared execution logic.
+- Added/updated backend unit/integration tests, frontend Vitest coverage, and Playwright E2E checks for all changed paths; executed targeted pytest/vitest/playwright runs and completed CDP visual verification of Plugins pane + plugin pane flow.
