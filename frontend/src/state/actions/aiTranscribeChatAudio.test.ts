@@ -1,7 +1,17 @@
-import { route_transcribe_chat_audio } from "utils/generatedEndpoints";
+import {
+  route_append_transcription_audio,
+  route_cancel_transcription_session,
+  route_start_transcription_session,
+  route_stop_transcription_session,
+} from "utils/generatedEndpoints";
 import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { transcribeChatAudio } from "./ai";
+import {
+  appendTranscriptionAudio,
+  cancelTranscriptionSession,
+  startTranscriptionSession,
+  stopTranscriptionSession,
+} from "./ai";
 import { addTemporaryNotification } from "./notifications";
 
 vi.mock("utils/generatedEndpoints", async () => {
@@ -10,7 +20,10 @@ vi.mock("utils/generatedEndpoints", async () => {
   >("utils/generatedEndpoints");
   return {
     ...actual,
-    route_transcribe_chat_audio: vi.fn(),
+    route_start_transcription_session: vi.fn(),
+    route_append_transcription_audio: vi.fn(),
+    route_stop_transcription_session: vi.fn(),
+    route_cancel_transcription_session: vi.fn(),
   };
 });
 
@@ -18,87 +31,136 @@ vi.mock("./notifications", () => ({
   addTemporaryNotification: vi.fn(),
 }));
 
-const mockedRouteTranscribeChatAudio = vi.mocked(route_transcribe_chat_audio);
+const mockedRouteStartTranscriptionSession = vi.mocked(
+  route_start_transcription_session,
+);
+const mockedRouteAppendTranscriptionAudio = vi.mocked(
+  route_append_transcription_audio,
+);
+const mockedRouteStopTranscriptionSession = vi.mocked(
+  route_stop_transcription_session,
+);
+const mockedRouteCancelTranscriptionSession = vi.mocked(
+  route_cancel_transcription_session,
+);
 const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 
-describe("transcribeChatAudio", () => {
+describe("transcription session actions", () => {
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  it("uploads dictation as multipart form-data", async () => {
-    mockedRouteTranscribeChatAudio.mockResolvedValue({
+  it("starts a transcription session", async () => {
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: { text: "  transcribed text  " },
+      data: {
+        sessionId: "session-1",
+        resolvedTransportMode: "file",
+        chunkMs: 1200,
+      },
     });
 
-    const audioBlob = new Blob(["hello"], { type: "audio/webm" });
-    const text = await transcribeChatAudio("transcription-1", audioBlob);
+    const response = await startTranscriptionSession("transcription-1", "en");
 
-    expect(text).toBe("transcribed text");
-    expect(mockedRouteTranscribeChatAudio).toHaveBeenCalledTimes(1);
-    const [form] = mockedRouteTranscribeChatAudio.mock.calls[0] ?? [];
-    expect(form).toBeInstanceOf(FormData);
-    expect((form as FormData).get("transcriptionProfileId")).toBe(
-      "transcription-1",
-    );
-    const uploadedFile = (form as FormData).get("file");
-    expect(uploadedFile).toBeInstanceOf(File);
-    expect((uploadedFile as File).name).toBe("dictation.webm");
-    expect((uploadedFile as File).type).toBe("audio/webm");
+    expect(response).toEqual({
+      sessionId: "session-1",
+      resolvedTransportMode: "file",
+      chunkMs: 1200,
+    });
+    expect(mockedRouteStartTranscriptionSession).toHaveBeenCalledWith({
+      transcriptionProfileId: "transcription-1",
+      language: "en",
+    });
   });
 
-  it("derives upload filename extension from the recorded mime type", async () => {
-    mockedRouteTranscribeChatAudio.mockResolvedValue({
+  it("encodes PCM16 chunks as base64 for append calls", async () => {
+    mockedRouteAppendTranscriptionAudio.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: { text: "transcribed text" },
+      data: {
+        appendText: "hello",
+        fullText: "hello",
+        isFinal: false,
+      },
     });
 
-    const audioBlob = new Blob(["hello"], { type: "audio/mp4" });
-    await transcribeChatAudio("transcription-1", audioBlob);
-
-    expect(mockedRouteTranscribeChatAudio).toHaveBeenCalledTimes(1);
-    const [form] = mockedRouteTranscribeChatAudio.mock.calls[0] ?? [];
-    const uploadedFile = (form as FormData).get("file");
-    expect(uploadedFile).toBeInstanceOf(File);
-    expect((uploadedFile as File).name).toBe("dictation.m4a");
-    expect((uploadedFile as File).type).toBe("audio/mp4");
-  });
-
-  it("does not enforce a stale client-side audio size cap", async () => {
-    mockedRouteTranscribeChatAudio.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: { text: "oversized accepted by server policy" },
-    });
-    const oversizedBlob = new Blob([new Uint8Array(10 * 1024 * 1024 + 1)], {
-      type: "audio/webm",
-    });
-
-    const text = await transcribeChatAudio("transcription-1", oversizedBlob);
-
-    expect(text).toBe("oversized accepted by server policy");
-    expect(mockedRouteTranscribeChatAudio).toHaveBeenCalledTimes(1);
-    expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
-  });
-
-  it("shows backend transcription errors", async () => {
-    mockedRouteTranscribeChatAudio.mockResolvedValue({
-      status: 413,
-      hasResponse: true,
-      data: { detail: "Audio payload is too large." },
-    });
-
-    const text = await transcribeChatAudio(
-      "transcription-1",
-      new Blob(["hello"], { type: "audio/webm" }),
+    const sampleBytes = new Uint8Array([1, 2, 3, 4]).buffer;
+    const response = await appendTranscriptionAudio(
+      "session-1",
+      sampleBytes,
+      24_000,
+      1,
     );
 
-    expect(text).toBeNull();
+    expect(response).toEqual({
+      appendText: "hello",
+      fullText: "hello",
+      isFinal: false,
+    });
+    expect(mockedRouteAppendTranscriptionAudio).toHaveBeenCalledTimes(1);
+    const [payload] = mockedRouteAppendTranscriptionAudio.mock.calls[0] ?? [];
+    expect(payload.sessionId).toBe("session-1");
+    expect(payload.sampleRateHz).toBe(24_000);
+    expect(payload.channels).toBe(1);
+    expect(payload.audioPcm16Base64).toBe("AQIDBA==");
+  });
+
+  it("returns a final delta when stopping session", async () => {
+    mockedRouteStopTranscriptionSession.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        appendText: " world",
+        fullText: "hello world",
+        isFinal: true,
+      },
+    });
+
+    const response = await stopTranscriptionSession("session-1");
+
+    expect(response).toEqual({
+      appendText: " world",
+      fullText: "hello world",
+      isFinal: true,
+    });
+    expect(mockedRouteStopTranscriptionSession).toHaveBeenCalledWith({
+      sessionId: "session-1",
+    });
+  });
+
+  it("returns true for successful cancellation", async () => {
+    mockedRouteCancelTranscriptionSession.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: { ok: true },
+    });
+
+    const success = await cancelTranscriptionSession("session-1");
+
+    expect(success).toBe(true);
+    expect(mockedRouteCancelTranscriptionSession).toHaveBeenCalledWith({
+      sessionId: "session-1",
+    });
+  });
+
+  it("surfaces append errors", async () => {
+    mockedRouteAppendTranscriptionAudio.mockResolvedValue({
+      status: 502,
+      hasResponse: true,
+      data: { detail: "Provider transcription failed." },
+    });
+
+    const response = await appendTranscriptionAudio(
+      "session-1",
+      new Uint8Array([1, 2]).buffer,
+      24_000,
+      1,
+    );
+
+    expect(response).toBeNull();
     expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
-      "Audio payload is too large.",
+      "Provider transcription failed.",
       SettaNotificationTypeEnum.warning,
     );
   });

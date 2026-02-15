@@ -419,10 +419,28 @@ export async function route_get_llm_response(
   return await post("/getLLMResponse", x);
 }
 
-export async function route_transcribe_chat_audio(
-  form: FormData,
-): Promise<ResponseDataAndStatus<gt.TranscribeChatAudioResponse>> {
-  return await post("/transcribeChatAudio", form);
+export async function route_start_transcription_session(
+  x: gt.StartTranscriptionSessionRequestInput,
+): Promise<ResponseDataAndStatus<gt.StartTranscriptionSessionResponse>> {
+  return await post("/startTranscriptionSession", x);
+}
+
+export async function route_append_transcription_audio(
+  x: gt.AppendTranscriptionAudioRequestInput,
+): Promise<ResponseDataAndStatus<gt.TranscriptionSessionDeltaResponse>> {
+  return await post("/appendTranscriptionAudio", x);
+}
+
+export async function route_stop_transcription_session(
+  x: gt.StopTranscriptionSessionRequestInput,
+): Promise<ResponseDataAndStatus<gt.TranscriptionSessionDeltaResponse>> {
+  return await post("/stopTranscriptionSession", x);
+}
+
+export async function route_cancel_transcription_session(
+  x: gt.CancelTranscriptionSessionRequestInput,
+): Promise<ResponseDataAndStatus<gt.CancelTranscriptionSessionResponse>> {
+  return await post("/cancelTranscriptionSession", x);
 }
 
 export async function route_stop_llm_chat(

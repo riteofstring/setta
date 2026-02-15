@@ -40,6 +40,7 @@ import {
   PromptFormatEnum,
   PromptTemplate,
   TranscriptionProfile,
+  TranscriptionTransportModeEnum,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import {
@@ -92,6 +93,9 @@ type PromptTemplateDraft = {
 type TranscriptionProfileDraft = {
   name: string;
   transcriptionLlmConfigId: string;
+  transportMode: TranscriptionTransportModeValue;
+  chunkMs: string;
+  language: string;
 };
 
 type ExternalAgentConfigDraft = {
@@ -130,6 +134,8 @@ type ExternalAgentWorkingDirStrategyValue =
   (typeof ExternalAgentWorkingDirStrategyEnum)[keyof typeof ExternalAgentWorkingDirStrategyEnum];
 type ClaudeSettingsSourceValue =
   (typeof ClaudeSettingsSourceEnum)[keyof typeof ClaudeSettingsSourceEnum];
+type TranscriptionTransportModeValue =
+  (typeof TranscriptionTransportModeEnum)[keyof typeof TranscriptionTransportModeEnum];
 
 const INPUT_CLASS_NAME =
   "box-border h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
@@ -160,6 +166,7 @@ const DEFAULT_CLAUDE_ASK_RULES = [
   "Bash(shutdown:*)",
   "Bash(reboot:*)",
 ];
+const TRANSCRIPTION_CHUNK_MS_DEFAULT = 1200;
 
 export function ProjectAISettings() {
   useHydrateAgenticState();
@@ -684,6 +691,10 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [draft, setDraft] = useState<TranscriptionProfileDraft | null>(null);
+  const transportModeOptions = useMemo(
+    () => Object.values(TranscriptionTransportModeEnum),
+    [],
+  );
   const configGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
     [allLLMConfigs, apiKeys],
@@ -731,6 +742,9 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
       setDraft({
         name: "",
         transcriptionLlmConfigId: firstConfigId,
+        transportMode: TranscriptionTransportModeEnum.auto,
+        chunkMs: String(TRANSCRIPTION_CHUNK_MS_DEFAULT),
+        language: "",
       });
       return;
     }
@@ -753,11 +767,23 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     if (!draft || !draft.transcriptionLlmConfigId) {
       return;
     }
+    const parsedChunkMs = Number.parseInt(draft.chunkMs, 10);
+    if (
+      !Number.isInteger(parsedChunkMs) ||
+      parsedChunkMs < 200 ||
+      parsedChunkMs > 10_000
+    ) {
+      return;
+    }
     const trimmedName = draft.name.trim() || "Untitled";
+    const normalizedLanguage = draft.language.trim() || null;
     if (isCreating) {
       const created = await createTranscriptionProfile({
         name: trimmedName,
         transcriptionLlmConfigId: draft.transcriptionLlmConfigId,
+        transportMode: draft.transportMode,
+        chunkMs: parsedChunkMs,
+        language: normalizedLanguage,
       });
       if (created) {
         setIsCreating(false);
@@ -773,6 +799,9 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
         ...activeProfile,
         name: trimmedName,
         transcriptionLlmConfigId: draft.transcriptionLlmConfigId,
+        transportMode: draft.transportMode,
+        chunkMs: parsedChunkMs,
+        language: normalizedLanguage,
       },
     });
     if (updated) {
@@ -802,7 +831,13 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     }
   };
 
-  const isSaveDisabled = !canEdit || !draft || !draft.transcriptionLlmConfigId;
+  const parsedChunkMs = draft ? Number.parseInt(draft.chunkMs, 10) : Number.NaN;
+  const isChunkMsValid =
+    Number.isInteger(parsedChunkMs) &&
+    parsedChunkMs >= 200 &&
+    parsedChunkMs <= 10_000;
+  const isSaveDisabled =
+    !canEdit || !draft || !draft.transcriptionLlmConfigId || !isChunkMsValid;
   const isDeleteDisabled = !canEdit || !activeProfile || isCreating;
   const isCancelDisabled = !draft;
 
@@ -857,6 +892,8 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
                   </p>
                   <p className="truncate text-[11px] opacity-80">
                     {profile.transcriptionLlmConfigId}
+                    {" · "}
+                    {profile.transportMode}
                   </p>
                 </button>
               );
@@ -909,6 +946,67 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
                   isDisabled={!canEdit}
                 />
               </Field>
+              <div className="grid gap-3 @[40rem]:grid-cols-3">
+                <Field
+                  label="Transport Mode"
+                  hint="Auto uses realtime when available, otherwise file windows."
+                >
+                  <select
+                    value={draft.transportMode}
+                    onChange={(event) =>
+                      setDraft((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              transportMode:
+                                event.target
+                                  .value as TranscriptionTransportModeValue,
+                            }
+                          : prev,
+                      )
+                    }
+                    className={SELECT_CLASS_NAME}
+                    disabled={!canEdit}
+                  >
+                    {transportModeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field
+                  label="Chunk (ms)"
+                  hint="Used by file transport and capture batching."
+                >
+                  <input
+                    value={draft.chunkMs}
+                    onChange={(event) =>
+                      setDraft((prev) =>
+                        prev ? { ...prev, chunkMs: event.target.value } : prev,
+                      )
+                    }
+                    className={INPUT_CLASS_NAME}
+                    disabled={!canEdit}
+                  />
+                </Field>
+                <Field
+                  label="Language"
+                  hint="Optional ISO-639-1 hint, e.g. en."
+                >
+                  <input
+                    value={draft.language}
+                    onChange={(event) =>
+                      setDraft((prev) =>
+                        prev ? { ...prev, language: event.target.value } : prev,
+                      )
+                    }
+                    className={INPUT_CLASS_NAME}
+                    disabled={!canEdit}
+                    placeholder="auto"
+                  />
+                </Field>
+              </div>
               <div className="flex flex-wrap gap-2 pt-2">
                 <button
                   type="button"
@@ -2014,6 +2112,9 @@ function buildTranscriptionProfileDraft(
   return {
     name: profile.name ?? "",
     transcriptionLlmConfigId: profile.transcriptionLlmConfigId ?? "",
+    transportMode: profile.transportMode,
+    chunkMs: String(profile.chunkMs),
+    language: profile.language ?? "",
   };
 }
 

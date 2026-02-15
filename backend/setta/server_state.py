@@ -25,6 +25,7 @@ from setta.llm.config import load_llm_config
 from setta.llm.config_watcher import LLMConfigWatcher
 from setta.llm.dotenv_watcher import DotEnvWatcher
 from setta.llm.example_config import seed_llm_config_example_file
+from setta.llm.transcription_sessions import TranscriptionSessionManager
 from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import (
     LSPReaders,
@@ -278,6 +279,7 @@ class SettaFastAPIState:
             self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
+        self.transcription_session_manager = TranscriptionSessionManager()
 
         self.lsps: LSPServers | None = self._defer_attr("lsps")
         self.lsp_writers: LSPWriters | None = self._defer_attr("lsp_writers")

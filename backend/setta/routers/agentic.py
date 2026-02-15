@@ -49,6 +49,7 @@ from setta.types.agentic import (
     EngineType,
     RunChainSpec,
     TranscriptionProfile,
+    TranscriptionTransportMode,
 )
 from setta.types.agentic_observability import AgenticSummaryCacheStatus
 from setta.types.external_agents import (
@@ -213,6 +214,9 @@ class DeleteEngineConfigRequest(BaseModel):
 class CreateTranscriptionProfileRequest(BaseModel):
     name: str
     transcriptionLlmConfigId: str
+    transportMode: TranscriptionTransportMode
+    chunkMs: int
+    language: str | None = None
 
 
 class UpdateTranscriptionProfileRequest(BaseModel):
@@ -902,6 +906,9 @@ async def route_create_transcription_profile(
     profile = TranscriptionProfile(
         name=x.name,
         transcriptionLlmConfigId=x.transcriptionLlmConfigId,
+        transportMode=x.transportMode,
+        chunkMs=x.chunkMs,
+        language=x.language,
     )
     profiles.append(profile)
     save_transcription_profiles(ctx.state.dbe, profiles)

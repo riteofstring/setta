@@ -30,16 +30,19 @@ import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/use
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  appendTranscriptionAudio,
+  cancelTranscriptionSession,
   clearPendingChatDetails,
   getDefaultChatDetails,
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
   loadAgentRuns,
+  startTranscriptionSession,
+  stopTranscriptionSession,
   stopManagedSectionChatResponse,
   submitEditedMessage,
   submitMessage,
-  transcribeChatAudio,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
@@ -1699,14 +1702,50 @@ function ManagedChatArea({
     }),
     [executionControlHandlers.onPermissionModeChange, permissionMode],
   );
-  const handleProviderDictationTranscribe = useCallback(
-    async (audioBlob: Blob) => {
-      if (!transcriptionProfileId) {
+  const handleProviderTranscriptionSessionStart = useCallback(async () => {
+    if (!transcriptionProfileId) {
+      return null;
+    }
+    return startTranscriptionSession(transcriptionProfileId);
+  }, [transcriptionProfileId]);
+
+  const handleProviderTranscriptionSessionAppend = useCallback(
+    async (
+      sessionId: string,
+      audioPcm16: ArrayBuffer,
+      sampleRateHz: number,
+      channels: number,
+    ) => {
+      const response = await appendTranscriptionAudio(
+        sessionId,
+        audioPcm16,
+        sampleRateHz,
+        channels,
+      );
+      if (!response) {
         return null;
       }
-      return transcribeChatAudio(transcriptionProfileId, audioBlob);
+      return response.appendText || null;
     },
-    [transcriptionProfileId],
+    [],
+  );
+
+  const handleProviderTranscriptionSessionStop = useCallback(
+    async (sessionId: string) => {
+      const response = await stopTranscriptionSession(sessionId);
+      if (!response) {
+        return null;
+      }
+      return response.appendText || null;
+    },
+    [],
+  );
+
+  const handleProviderTranscriptionSessionCancel = useCallback(
+    async (sessionId: string) => {
+      await cancelTranscriptionSession(sessionId);
+    },
+    [],
   );
 
   return (
@@ -1795,7 +1834,18 @@ function ManagedChatArea({
           providerDictationUnavailableMessage={
             providerDictationUnavailableReason
           }
-          onProviderDictationTranscribe={handleProviderDictationTranscribe}
+          onProviderTranscriptionSessionStart={
+            handleProviderTranscriptionSessionStart
+          }
+          onProviderTranscriptionSessionAppend={
+            handleProviderTranscriptionSessionAppend
+          }
+          onProviderTranscriptionSessionStop={
+            handleProviderTranscriptionSessionStop
+          }
+          onProviderTranscriptionSessionCancel={
+            handleProviderTranscriptionSessionCancel
+          }
         />
       </div>
     </div>

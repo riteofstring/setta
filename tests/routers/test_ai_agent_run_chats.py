@@ -1,6 +1,6 @@
+import base64
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-import io
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -8,8 +8,6 @@ from types import SimpleNamespace
 from fastapi import FastAPI, HTTPException
 from pydantic import ValidationError
 import pytest
-from starlette.datastructures import FormData, Headers, UploadFile
-from starlette.requests import Request
 
 import setta.routers.ai as ai_module
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
@@ -25,19 +23,27 @@ from setta.agentic.store import (
 )
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
+from setta.llm.transcription_sessions import TranscriptionSessionManager
 from setta.mcp.client import MultiMCPClient
 from setta.routers.ai import (
+    AppendTranscriptionAudioRequest,
+    CancelTranscriptionSessionRequest,
     GetExternalAgentChatRequest,
     GetLLMResponseRequest,
     GetLLMChatRequest,
+    StartTranscriptionSessionRequest,
     StopLLMChatRequest,
+    StopTranscriptionSessionRequest,
     _build_branch_messages,
     _ensure_external_chat_id_compatible,
     _get_prior_messages_for_engine,
+    route_append_transcription_audio,
+    route_cancel_transcription_session,
     route_get_external_agent_chat,
     route_get_llm_chat,
     route_get_llm_response,
-    route_transcribe_chat_audio,
+    route_start_transcription_session,
+    route_stop_transcription_session,
     route_stop_llm_chat,
 )
 from setta.server_state import SettaFastAPIState
@@ -48,6 +54,7 @@ from setta.types.agentic import (
     EngineType,
     RunEvent,
     TranscriptionProfile,
+    TranscriptionTransportMode,
 )
 from setta.types.external_agents import (
     ExternalAgentConfig,
@@ -116,60 +123,11 @@ def _seed_transcription_profile(
         id=transcription_profile_id,
         name="Default Transcription Profile",
         transcriptionLlmConfigId=llm_config_id,
+        transportMode=TranscriptionTransportMode.file,
+        chunkMs=1200,
+        language=None,
     )
     save_transcription_profiles(dbe, [profile])
-
-
-def _build_test_request(*, content_type: str | None = None) -> Request:
-    header_items: list[tuple[bytes, bytes]] = []
-    if content_type is not None:
-        header_items.append((b"content-type", content_type.encode("utf-8")))
-    scope = {
-        "type": "http",
-        "asgi": {"version": "3.0"},
-        "http_version": "1.1",
-        "method": "POST",
-        "scheme": "http",
-        "path": "/api/transcribeChatAudio",
-        "raw_path": b"/api/transcribeChatAudio",
-        "query_string": b"",
-        "headers": header_items,
-        "client": ("127.0.0.1", 12345),
-        "server": ("127.0.0.1", 8000),
-    }
-
-    async def _receive() -> dict[str, object]:
-        return {
-            "type": "http.request",
-            "body": b"",
-            "more_body": False,
-        }
-
-    return Request(scope, _receive)
-
-
-def _build_test_request_with_form(
-    *,
-    transcription_profile_id: ID,
-    file: UploadFile,
-    language: str | None = None,
-) -> Request:
-    request = _build_test_request(content_type="multipart/form-data")
-    form_values: dict[str, object] = {
-        "transcriptionProfileId": str(transcription_profile_id),
-        "file": file,
-    }
-    if language is not None:
-        form_values["language"] = language
-
-    async def _form(
-        *_args: object,
-        **_kwargs: object,
-    ) -> FormData:
-        return FormData(form_values)
-
-    request.form = _form  # type: ignore[method-assign]
-    return request
 
 
 def _build_share_deployment_root(
@@ -307,6 +265,9 @@ class _TestState:
     dbe: DBE
     agent_runner: AgentRunner
     wmh_frontend_sender: WMHFrontendSender
+    transcription_session_manager: TranscriptionSessionManager = field(
+        default_factory=TranscriptionSessionManager
+    )
     external_agent_runner: object = field(
         default_factory=lambda: _DisabledExternalAgentRunner()
     )
@@ -979,7 +940,9 @@ class TestAgentRunChatRoutes:
             assert "App generation mode" not in system_prompt
             assert "streamingPreview: enabled" not in system_prompt
 
-    async def test_transcribe_chat_audio_uses_litellm_transcription(self) -> None:
+    async def test_transcription_session_file_flow_uses_litellm_transcription(
+        self,
+    ) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
@@ -997,24 +960,11 @@ class TestAgentRunChatRoutes:
             runner.update_config(
                 AllLLMConfigs(
                     configs={
-                        "claude-chat": LLMConfig(
-                            id="claude-chat",
-                            model="claude-3-7-sonnet-latest",
-                            provider="anthropic",
-                            api_key_env="ANTHROPIC_API_KEY",
-                            mcpServerIds=[],
-                        ),
                         "openai-transcribe": LLMConfig(
                             id="openai-transcribe",
                             model="whisper-1",
                             provider="openai",
                             api_key_env="OPENAI_API_KEY",
-                            other_params={
-                                "api_version": "2025-01-01-preview",
-                                "extra_headers": {"x-trace-id": "abc-123"},
-                                "prompt": "Prefer punctuation.",
-                                "temperature": 0.2,
-                            },
                             mcpServerIds=[],
                         ),
                     },
@@ -1035,34 +985,52 @@ class TestAgentRunChatRoutes:
                         "setta.llm.transcription.litellm.atranscription",
                         _capture_transcription,
                     )
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    response = await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request_with_form(
-                            transcription_profile_id=transcription_profile_id,
-                            file=upload,
+                    start_response = await route_start_transcription_session(
+                        StartTranscriptionSessionRequest(
+                            transcriptionProfileId=transcription_profile_id,
+                            language=None,
                         ),
+                        ctx,
+                    )
+                    append_response = await route_append_transcription_audio(
+                        AppendTranscriptionAudioRequest(
+                            sessionId=start_response.sessionId,
+                            audioPcm16Base64=base64.b64encode(
+                                b"\xe8\x03" * 28_800
+                            ).decode("ascii"),
+                            sampleRateHz=24_000,
+                            channels=1,
+                        ),
+                        ctx,
+                    )
+                    stop_response = await route_stop_transcription_session(
+                        StopTranscriptionSessionRequest(
+                            sessionId=start_response.sessionId
+                        ),
+                        ctx,
                     )
 
-            assert response.text == "hello from provider"
+            assert start_response.resolvedTransportMode == "file"
+            assert append_response.appendText == ""
+            assert append_response.fullText == ""
+            assert append_response.isFinal is False
+            assert stop_response.appendText == "hello from provider"
+            assert stop_response.fullText == "hello from provider"
+            assert stop_response.isFinal is True
             kwargs = captured.get("kwargs")
             assert isinstance(kwargs, dict)
             assert kwargs.get("model") == "whisper-1"
             assert kwargs.get("custom_llm_provider") == "openai"
             assert kwargs.get("api_key") == "test-key"
-            assert kwargs.get("api_base") is None
-            assert kwargs.get("api_version") == "2025-01-01-preview"
-            assert kwargs.get("extra_headers") == {"x-trace-id": "abc-123"}
-            assert kwargs.get("prompt") == "Prefer punctuation."
-            assert kwargs.get("temperature") == 0.2
             file_payload = kwargs.get("file")
-            assert file_payload == ("voice.webm", b"hello", "audio/webm")
+            assert isinstance(file_payload, tuple)
+            assert file_payload[0] == "dictation-window.wav"
+            assert file_payload[2] == "audio/wav"
 
-    async def test_transcribe_chat_audio_returns_400_for_missing_api_key(self) -> None:
+    async def test_start_transcription_session_auto_falls_back_to_file(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
@@ -1072,30 +1040,53 @@ class TestAgentRunChatRoutes:
                 wmh_frontend_sender=runner.websocket_msg_handler,
             )
             transcription_profile_id = ID("transcription-primary")
-            _seed_transcription_profile(dbe, transcription_profile_id, "primary")
-            runner.update_api_keys({})
+            save_transcription_profiles(
+                dbe,
+                [
+                    TranscriptionProfile(
+                        id=transcription_profile_id,
+                        name="Auto Profile",
+                        transcriptionLlmConfigId="openai-transcribe",
+                        transportMode=TranscriptionTransportMode.auto,
+                        chunkMs=1200,
+                        language=None,
+                    )
+                ],
+            )
+            runner.update_config(
+                AllLLMConfigs(
+                    configs={
+                        "openai-transcribe": LLMConfig(
+                            id="openai-transcribe",
+                            model="gpt-4o-mini-transcribe",
+                            provider="openai",
+                            api_key_env="OPENAI_API_KEY",
+                            mcpServerIds=[],
+                        ),
+                    },
+                    mcpServers={},
+                )
+            )
+            runner.update_api_keys({"OPENAI_API_KEY": "test-key"})
+            async def _raise_realtime_unavailable(*_args, **_kwargs):
+                raise RuntimeError("realtime unavailable")
+
+            monkeypatch.setattr(
+                "setta.llm.transcription_sessions.OpenAIRealtimeTranscriptionEngine.create",
+                _raise_realtime_unavailable,
+            )
 
             with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request_with_form(
-                            transcription_profile_id=transcription_profile_id,
-                            file=upload,
-                        ),
-                    )
+                response = await route_start_transcription_session(
+                    StartTranscriptionSessionRequest(
+                        transcriptionProfileId=transcription_profile_id,
+                    ),
+                    ctx,
+                )
 
-            assert exc.value.status_code == 400
-            detail = str(exc.value.detail)
-            assert "Missing API key for" in detail
-            assert "OPENAI_API_KEY" in detail
+            assert response.resolvedTransportMode == "file"
 
-    async def test_transcribe_chat_audio_returns_400_for_invalid_transcription_config(
+    async def test_start_transcription_session_rejects_realtime_on_unsupported_provider(
         self,
     ) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1107,37 +1098,51 @@ class TestAgentRunChatRoutes:
                 wmh_frontend_sender=runner.websocket_msg_handler,
             )
             transcription_profile_id = ID("transcription-primary")
-            _seed_transcription_profile(
+            save_transcription_profiles(
                 dbe,
-                transcription_profile_id,
-                "missing-transcription-config",
+                [
+                    TranscriptionProfile(
+                        id=transcription_profile_id,
+                        name="Realtime Anthropic",
+                        transcriptionLlmConfigId="anthropic-transcribe",
+                        transportMode=TranscriptionTransportMode.realtime,
+                        chunkMs=1200,
+                        language=None,
+                    )
+                ],
             )
+            runner.update_config(
+                AllLLMConfigs(
+                    configs={
+                        "anthropic-transcribe": LLMConfig(
+                            id="anthropic-transcribe",
+                            model="claude-3-7-sonnet-latest",
+                            provider="anthropic",
+                            api_key_env="ANTHROPIC_API_KEY",
+                            mcpServerIds=[],
+                        ),
+                    },
+                    mcpServers={},
+                )
+            )
+            runner.update_api_keys({"ANTHROPIC_API_KEY": "test-key"})
 
             with runtime_context(state) as ctx:
                 with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request_with_form(
-                            transcription_profile_id=transcription_profile_id,
-                            file=upload,
+                    await route_start_transcription_session(
+                        StartTranscriptionSessionRequest(
+                            transcriptionProfileId=transcription_profile_id,
                         ),
+                        ctx,
                     )
 
             assert exc.value.status_code == 400
             assert (
                 exc.value.detail
-                == "Transcription config is missing or invalid for this transcription profile."
+                == "Realtime transcription is unavailable for this provider/model."
             )
 
-    async def test_transcribe_chat_audio_keeps_502_for_provider_failures(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
+    async def test_transcription_session_cancel_is_idempotent(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             runner = _build_runner(dbe)
@@ -1146,131 +1151,12 @@ class TestAgentRunChatRoutes:
                 agent_runner=runner,
                 wmh_frontend_sender=runner.websocket_msg_handler,
             )
-            transcription_profile_id = ID("transcription-primary")
-            _seed_transcription_profile(dbe, transcription_profile_id, "primary")
-            runner.update_api_keys({"OPENAI_API_KEY": "test-key"})
-
-            async def _raise_provider_failure(*_args, **_kwargs):
-                raise RuntimeError("provider exploded")
-
-            monkeypatch.setattr(
-                "setta.routers.ai.transcribe_audio_with_llm",
-                _raise_provider_failure,
-            )
-
             with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request_with_form(
-                            transcription_profile_id=transcription_profile_id,
-                            file=upload,
-                        ),
-                    )
-
-            assert exc.value.status_code == 502
-            assert exc.value.detail == "Provider transcription failed."
-
-    async def test_transcribe_chat_audio_rejects_unknown_transcription_profile(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-
-            with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request_with_form(
-                            transcription_profile_id=ID("missing-profile"),
-                            file=upload,
-                        ),
-                    )
-
-            assert exc.value.status_code == 400
-            detail = str(exc.value.detail)
-            assert "Transcription profile" in detail
-            assert "not found" in detail
-
-    async def test_transcribe_chat_audio_rejects_empty_payload(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            transcription_profile_id = ID("transcription-primary")
-            _seed_transcription_profile(dbe, transcription_profile_id, "primary")
-
-            with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b""),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request_with_form(
-                            transcription_profile_id=transcription_profile_id,
-                            file=upload,
-                        ),
-                    )
-
-            assert exc.value.status_code == 400
-            assert exc.value.detail == "Audio payload is empty."
-
-    async def test_transcribe_chat_audio_rejects_oversized_payload(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            transcription_profile_id = ID("transcription-primary")
-            _seed_transcription_profile(dbe, transcription_profile_id, "primary")
-            monkeypatch.setattr("setta.routers.ai._TRANSCRIBE_AUDIO_MAX_BYTES", 4)
-
-            with runtime_context(state) as ctx:
-                with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request_with_form(
-                            transcription_profile_id=transcription_profile_id,
-                            file=upload,
-                        ),
-                    )
-
-            assert exc.value.status_code == 413
-            assert exc.value.detail == "Audio payload is too large. Maximum size is 4 bytes."
+                response = await route_cancel_transcription_session(
+                    CancelTranscriptionSessionRequest(sessionId=ID("missing-session")),
+                    ctx,
+                )
+            assert response.ok is True
 
     async def test_external_runner_maps_permission_mode_per_framework(
         self,

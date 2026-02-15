@@ -404,6 +404,16 @@ export const EngineTypeEnum = {
 
 export type EngineType = ObjectValues<typeof EngineTypeEnum>;
 
+export const TranscriptionTransportModeEnum = {
+  auto: "auto",
+  file: "file",
+  realtime: "realtime",
+} as const;
+
+export type TranscriptionTransportMode = ObjectValues<
+  typeof TranscriptionTransportModeEnum
+>;
+
 export const AgenticEdgeContextModeEnum = {
   reference_only: "reference_only",
   inline_text: "inline_text",
@@ -958,7 +968,10 @@ export const RouteEnum = {
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
-  TRANSCRIBE_CHAT_AUDIO: "/transcribeChatAudio",
+  START_TRANSCRIPTION_SESSION: "/startTranscriptionSession",
+  APPEND_TRANSCRIPTION_AUDIO: "/appendTranscriptionAudio",
+  STOP_TRANSCRIPTION_SESSION: "/stopTranscriptionSession",
+  CANCEL_TRANSCRIPTION_SESSION: "/cancelTranscriptionSession",
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
   LLM_CONFIG: "/llm/config",
   LLM_API_KEYS: "/llm/apiKeys",
@@ -4111,17 +4124,17 @@ export const TaskBoardSectionImplSchema = z.object({
     .array(TaskBoardColumnSchema)
     .default(() => [
       createTaskBoardColumn({
-        id: "4c09fcdc-d1eb-470b-933e-6cedf59c6e2c" as const,
+        id: "fa952677-7a7b-4b9e-91ac-9ed6eb65f4f5" as const,
         name: "Todo" as const,
       }),
       createTaskBoardColumn({
-        id: "ac5d1560-4fcb-4a0d-868f-73a211150a13" as const,
+        id: "29607ead-53ec-405a-a1b0-8e5716f5b2e9" as const,
         name: "Doing" as const,
         color: "#a855f7" as const,
         sortIndex: 1,
       }),
       createTaskBoardColumn({
-        id: "274a8dde-5da0-422c-a3a9-6601c8792625" as const,
+        id: "52c36c1f-a908-4906-a324-3cf7024faae9" as const,
         name: "Done" as const,
         color: "#10b981" as const,
         sortIndex: 2,
@@ -9592,17 +9605,17 @@ export const UserDefaultTaskBoardSectionImplSchema = z.object({
     .array(TaskBoardColumnSchema)
     .default(() => [
       createTaskBoardColumn({
-        id: "19c84f67-ce52-453b-91ab-5797750a2387" as const,
+        id: "3268d23e-78db-461c-b73c-0eed2c50589c" as const,
         name: "Todo" as const,
       }),
       createTaskBoardColumn({
-        id: "0415dc26-d722-4c96-b1a5-9f1c63002ffb" as const,
+        id: "576b70d8-2211-4c59-b8de-56480f81d709" as const,
         name: "Doing" as const,
         color: "#a855f7" as const,
         sortIndex: 1,
       }),
       createTaskBoardColumn({
-        id: "4fa3035a-b44c-45ee-be4b-2862cf96c5b7" as const,
+        id: "232f8f92-2592-4d5d-bf29-f57bc0a89c03" as const,
         name: "Done" as const,
         color: "#10b981" as const,
         sortIndex: 2,
@@ -10844,6 +10857,9 @@ export const TranscriptionProfileSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string(),
   transcriptionLlmConfigId: z.string(),
+  transportMode: z.enum(TranscriptionTransportModeEnum),
+  chunkMs: z.int(),
+  language: z.union([z.string(), z.null()]).default(null),
 });
 
 export type TranscriptionProfile = z.infer<typeof TranscriptionProfileSchema>;
@@ -15976,6 +15992,9 @@ export function createCreatePromptTemplateRequest(
 export const CreateTranscriptionProfileRequestSchema = z.object({
   name: z.string(),
   transcriptionLlmConfigId: z.string(),
+  transportMode: z.enum(TranscriptionTransportModeEnum),
+  chunkMs: z.int(),
+  language: z.union([z.string(), z.null()]).default(null),
 });
 
 export type CreateTranscriptionProfileRequest = z.infer<
@@ -16442,6 +16461,63 @@ export function createUpdateTranscriptionProfileRequest(
   return UpdateTranscriptionProfileRequestSchema.parse(options);
 }
 
+export const AppendTranscriptionAudioRequestSchema = z.object({
+  sessionId: IDSchema,
+  audioPcm16Base64: z.string(),
+  sampleRateHz: z.int(),
+  channels: z.int().default(1),
+});
+
+export type AppendTranscriptionAudioRequest = z.infer<
+  typeof AppendTranscriptionAudioRequestSchema
+>;
+
+export type AppendTranscriptionAudioRequestInput = z.input<
+  typeof AppendTranscriptionAudioRequestSchema
+>;
+
+export function createAppendTranscriptionAudioRequest(
+  options: Partial<AppendTranscriptionAudioRequest> = {},
+): AppendTranscriptionAudioRequest {
+  return AppendTranscriptionAudioRequestSchema.parse(options);
+}
+
+export const CancelTranscriptionSessionRequestSchema = z.object({
+  sessionId: IDSchema,
+});
+
+export type CancelTranscriptionSessionRequest = z.infer<
+  typeof CancelTranscriptionSessionRequestSchema
+>;
+
+export type CancelTranscriptionSessionRequestInput = z.input<
+  typeof CancelTranscriptionSessionRequestSchema
+>;
+
+export function createCancelTranscriptionSessionRequest(
+  options: Partial<CancelTranscriptionSessionRequest> = {},
+): CancelTranscriptionSessionRequest {
+  return CancelTranscriptionSessionRequestSchema.parse(options);
+}
+
+export const CancelTranscriptionSessionResponseSchema = z.object({
+  ok: z.boolean().default(true),
+});
+
+export type CancelTranscriptionSessionResponse = z.infer<
+  typeof CancelTranscriptionSessionResponseSchema
+>;
+
+export type CancelTranscriptionSessionResponseInput = z.input<
+  typeof CancelTranscriptionSessionResponseSchema
+>;
+
+export function createCancelTranscriptionSessionResponse(
+  options: Partial<CancelTranscriptionSessionResponse> = {},
+): CancelTranscriptionSessionResponse {
+  return CancelTranscriptionSessionResponseSchema.parse(options);
+}
+
 export const GetAIFollowSnapshotRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
@@ -16596,6 +16672,45 @@ export function createGetLLMResponseRequest(
   return GetLLMResponseRequestSchema.parse(options);
 }
 
+export const StartTranscriptionSessionRequestSchema = z.object({
+  transcriptionProfileId: IDSchema,
+  language: z.union([z.string(), z.null()]).default(null),
+});
+
+export type StartTranscriptionSessionRequest = z.infer<
+  typeof StartTranscriptionSessionRequestSchema
+>;
+
+export type StartTranscriptionSessionRequestInput = z.input<
+  typeof StartTranscriptionSessionRequestSchema
+>;
+
+export function createStartTranscriptionSessionRequest(
+  options: Partial<StartTranscriptionSessionRequest> = {},
+): StartTranscriptionSessionRequest {
+  return StartTranscriptionSessionRequestSchema.parse(options);
+}
+
+export const StartTranscriptionSessionResponseSchema = z.object({
+  sessionId: IDSchema,
+  resolvedTransportMode: z.literal(["file", "realtime"]),
+  chunkMs: z.int(),
+});
+
+export type StartTranscriptionSessionResponse = z.infer<
+  typeof StartTranscriptionSessionResponseSchema
+>;
+
+export type StartTranscriptionSessionResponseInput = z.input<
+  typeof StartTranscriptionSessionResponseSchema
+>;
+
+export function createStartTranscriptionSessionResponse(
+  options: Partial<StartTranscriptionSessionResponse> = {},
+): StartTranscriptionSessionResponse {
+  return StartTranscriptionSessionResponseSchema.parse(options);
+}
+
 export const StopLLMChatRequestSchema = z.object({
   chatId: IDSchema,
 });
@@ -16610,22 +16725,42 @@ export function createStopLLMChatRequest(
   return StopLLMChatRequestSchema.parse(options);
 }
 
-export const TranscribeChatAudioResponseSchema = z.object({
-  text: z.string(),
+export const StopTranscriptionSessionRequestSchema = z.object({
+  sessionId: IDSchema,
 });
 
-export type TranscribeChatAudioResponse = z.infer<
-  typeof TranscribeChatAudioResponseSchema
+export type StopTranscriptionSessionRequest = z.infer<
+  typeof StopTranscriptionSessionRequestSchema
 >;
 
-export type TranscribeChatAudioResponseInput = z.input<
-  typeof TranscribeChatAudioResponseSchema
+export type StopTranscriptionSessionRequestInput = z.input<
+  typeof StopTranscriptionSessionRequestSchema
 >;
 
-export function createTranscribeChatAudioResponse(
-  options: Partial<TranscribeChatAudioResponse> = {},
-): TranscribeChatAudioResponse {
-  return TranscribeChatAudioResponseSchema.parse(options);
+export function createStopTranscriptionSessionRequest(
+  options: Partial<StopTranscriptionSessionRequest> = {},
+): StopTranscriptionSessionRequest {
+  return StopTranscriptionSessionRequestSchema.parse(options);
+}
+
+export const TranscriptionSessionDeltaResponseSchema = z.object({
+  appendText: z.string(),
+  fullText: z.string(),
+  isFinal: z.boolean(),
+});
+
+export type TranscriptionSessionDeltaResponse = z.infer<
+  typeof TranscriptionSessionDeltaResponseSchema
+>;
+
+export type TranscriptionSessionDeltaResponseInput = z.input<
+  typeof TranscriptionSessionDeltaResponseSchema
+>;
+
+export function createTranscriptionSessionDeltaResponse(
+  options: Partial<TranscriptionSessionDeltaResponse> = {},
+): TranscriptionSessionDeltaResponse {
+  return TranscriptionSessionDeltaResponseSchema.parse(options);
 }
 
 export const AppPolicyOverridesSchema = z.object({

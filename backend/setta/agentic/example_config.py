@@ -11,6 +11,7 @@ from setta.types.agentic import (
     EngineConfigDefaults,
     EngineType,
     TranscriptionProfile,
+    TranscriptionTransportMode,
 )
 from setta.types.external_agents import (
     ClaudeSettingsSource,
@@ -159,6 +160,9 @@ _DEFAULT_TRANSCRIPTION_PROFILES: list[TranscriptionProfile] = [
         id="transcription-openai-whisper-1",
         name="OpenAI Whisper 1",
         transcriptionLlmConfigId="openai-whisper-1",
+        transportMode=TranscriptionTransportMode.auto,
+        chunkMs=1200,
+        language=None,
     ),
 ]
 

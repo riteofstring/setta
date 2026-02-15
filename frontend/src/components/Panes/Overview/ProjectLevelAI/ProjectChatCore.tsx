@@ -28,6 +28,8 @@ import { TbLayoutDashboard } from "react-icons/tb";
 import { getRunInputString } from "state/actions/agentRunUtils";
 import {
   clearPendingChatDetails,
+  cancelTranscriptionSession,
+  appendTranscriptionAudio,
   finalizePendingChatDetails,
   getDefaultChatDetails,
   getExternalAgentChat,
@@ -37,7 +39,8 @@ import {
   stopProjectChatResponse,
   submitEditedMessage,
   submitMessage,
-  transcribeChatAudio,
+  startTranscriptionSession,
+  stopTranscriptionSession,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
@@ -816,14 +819,50 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     const starterPrompt = buildDesignFirstFigmaStarterPrompt();
     setDraftMessage((current) => (current.trim() ? current : starterPrompt));
   }, []);
-  const handleProviderDictationTranscribe = useCallback(
-    async (audioBlob: Blob) => {
-      if (!transcriptionProfileId) {
+  const handleProviderTranscriptionSessionStart = useCallback(async () => {
+    if (!transcriptionProfileId) {
+      return null;
+    }
+    return startTranscriptionSession(transcriptionProfileId);
+  }, [transcriptionProfileId]);
+
+  const handleProviderTranscriptionSessionAppend = useCallback(
+    async (
+      sessionId: string,
+      audioPcm16: ArrayBuffer,
+      sampleRateHz: number,
+      channels: number,
+    ) => {
+      const response = await appendTranscriptionAudio(
+        sessionId,
+        audioPcm16,
+        sampleRateHz,
+        channels,
+      );
+      if (!response) {
         return null;
       }
-      return transcribeChatAudio(transcriptionProfileId, audioBlob);
+      return response.appendText || null;
     },
-    [transcriptionProfileId],
+    [],
+  );
+
+  const handleProviderTranscriptionSessionStop = useCallback(
+    async (sessionId: string) => {
+      const response = await stopTranscriptionSession(sessionId);
+      if (!response) {
+        return null;
+      }
+      return response.appendText || null;
+    },
+    [],
+  );
+
+  const handleProviderTranscriptionSessionCancel = useCallback(
+    async (sessionId: string) => {
+      await cancelTranscriptionSession(sessionId);
+    },
+    [],
   );
 
   return (
@@ -867,7 +906,18 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         dictationMode={dictationMode}
         dictationEnabledByProvider={providerDictationAvailable}
         providerDictationUnavailableMessage={providerDictationUnavailableReason}
-        onProviderDictationTranscribe={handleProviderDictationTranscribe}
+        onProviderTranscriptionSessionStart={
+          handleProviderTranscriptionSessionStart
+        }
+        onProviderTranscriptionSessionAppend={
+          handleProviderTranscriptionSessionAppend
+        }
+        onProviderTranscriptionSessionStop={
+          handleProviderTranscriptionSessionStop
+        }
+        onProviderTranscriptionSessionCancel={
+          handleProviderTranscriptionSessionCancel
+        }
       />
     </>
   );

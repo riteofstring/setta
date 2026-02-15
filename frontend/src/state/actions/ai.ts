@@ -61,9 +61,12 @@ import {
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
+  route_start_transcription_session,
   route_stop_external_agent_run,
   route_stop_llm_chat,
-  route_transcribe_chat_audio,
+  route_stop_transcription_session,
+  route_append_transcription_audio,
+  route_cancel_transcription_session,
   route_update_agent_profile,
   route_update_engine_config,
   route_update_external_agent_config,
@@ -109,12 +112,14 @@ import {
   SectionTypeEnum,
   SettaNotificationTypeEnum,
   StreamingEventTypeEnum,
+  StartTranscriptionSessionResponse,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
   ToolCallDeltaEvent,
   ToolChatMessage,
   ToolResultEvent,
   TranscriptionProfile,
+  TranscriptionSessionDeltaResponse,
   UpdateAgentProfileRequestInput,
   UpdateEngineConfigRequestInput,
   UpdateExternalAgentConfigRequestInput,
@@ -151,52 +156,85 @@ const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
   searchEnabled: true,
 };
 
-function resolveTranscriptionFileExtension(mimeType: string): string {
-  const normalized = mimeType.trim().toLowerCase();
-  if (normalized.includes("webm")) {
-    return "webm";
+function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length === 0) {
+    return "";
   }
-  if (normalized.includes("mpeg") || normalized.includes("mp3")) {
-    return "mp3";
+  const CHUNK_SIZE = 0x8000;
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += CHUNK_SIZE) {
+    const chunk = bytes.subarray(index, index + CHUNK_SIZE);
+    binary += String.fromCharCode(...chunk);
   }
-  if (normalized.includes("ogg")) {
-    return "ogg";
-  }
-  if (normalized.includes("wav")) {
-    return "wav";
-  }
-  if (
-    normalized.includes("mp4") ||
-    normalized.includes("m4a") ||
-    normalized.includes("aac")
-  ) {
-    return "m4a";
-  }
-  return "webm";
+  return btoa(binary);
 }
 
-export async function transcribeChatAudio(
+export async function startTranscriptionSession(
   transcriptionProfileId: string,
-  audioBlob: Blob,
-): Promise<string | null> {
-  if (!transcriptionProfileId || audioBlob.size === 0) {
+  language: string | null = null,
+): Promise<StartTranscriptionSessionResponse | null> {
+  if (!transcriptionProfileId) {
     return null;
   }
-  const form = new FormData();
-  form.set("transcriptionProfileId", transcriptionProfileId);
-  const extension = resolveTranscriptionFileExtension(audioBlob.type);
-  form.set("file", audioBlob, `dictation.${extension}`);
-  const res = await route_transcribe_chat_audio(form);
+  const res = await route_start_transcription_session({
+    transcriptionProfileId,
+    language,
+  });
   if (!res200(res)) {
     const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
     addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
     return null;
   }
-  const text = res.data.text.trim();
-  if (!text) {
+  return res.data;
+}
+
+export async function appendTranscriptionAudio(
+  sessionId: string,
+  audioPcm16: ArrayBuffer,
+  sampleRateHz: number,
+  channels: number,
+): Promise<TranscriptionSessionDeltaResponse | null> {
+  if (!sessionId || audioPcm16.byteLength === 0) {
     return null;
   }
-  return text;
+  const res = await route_append_transcription_audio({
+    sessionId,
+    audioPcm16Base64: encodeArrayBufferBase64(audioPcm16),
+    sampleRateHz,
+    channels,
+  });
+  if (!res200(res)) {
+    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
+    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    return null;
+  }
+  return res.data;
+}
+
+export async function stopTranscriptionSession(
+  sessionId: string,
+): Promise<TranscriptionSessionDeltaResponse | null> {
+  if (!sessionId) {
+    return null;
+  }
+  const res = await route_stop_transcription_session({ sessionId });
+  if (!res200(res)) {
+    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
+    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    return null;
+  }
+  return res.data;
+}
+
+export async function cancelTranscriptionSession(
+  sessionId: string,
+): Promise<boolean> {
+  if (!sessionId) {
+    return true;
+  }
+  const res = await route_cancel_transcription_session({ sessionId });
+  return res200(res);
 }
 
 export async function loadLLMConfig() {

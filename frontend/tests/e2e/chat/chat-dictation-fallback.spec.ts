@@ -47,6 +47,9 @@ async function configureProjectChatTranscriptionProfile({
     {
       name: `E2E Transcription ${Date.now()}`,
       transcriptionLlmConfigId: defaultConfigId,
+      transportMode: "auto",
+      chunkMs: 1200,
+      language: null,
     },
   );
   if (!createdProfile?.id) {
@@ -328,7 +331,7 @@ test("project chat keeps browser fallback dictation active until the user stops"
   }
 });
 
-test("project chat streams provider transcription before mic stop", async ({
+test("project chat uploads provider file transcription once on mic stop", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -341,52 +344,86 @@ test("project chat streams provider transcription before mic stop", async ({
       configurable: true,
     });
 
-    class MockMediaRecorder {
-      static isTypeSupported(_mimeType: string) {
-        return true;
+    type MockAudioProcessEvent = {
+      inputBuffer: { getChannelData: (channel: number) => Float32Array };
+    };
+    type MockScriptProcessorNode = {
+      onaudioprocess: ((event: MockAudioProcessEvent) => void) | null;
+      connect: () => void;
+      disconnect: () => void;
+      __intervalId: ReturnType<typeof setInterval> | null;
+    };
+
+    class MockAudioContext {
+      sampleRate = 24_000;
+      destination = {};
+      private _processors: MockScriptProcessorNode[] = [];
+
+      async resume() {}
+
+      async close() {
+        for (const processor of this._processors) {
+          if (processor.__intervalId !== null) {
+            clearInterval(processor.__intervalId);
+            processor.__intervalId = null;
+          }
+        }
       }
 
-      mimeType = "audio/webm";
-      state: "inactive" | "recording" = "inactive";
-      ondataavailable: ((event: { data?: Blob }) => void) | null = null;
-      onerror: (() => void) | null = null;
-      onstop: (() => void) | null = null;
-      private _intervalId: ReturnType<typeof setInterval> | null = null;
-      private _chunkIndex = 0;
-
-      start(timeslice?: number) {
-        this.state = "recording";
-        const intervalMs =
-          typeof timeslice === "number" && timeslice > 0 ? timeslice : 120;
-        this._intervalId = setInterval(() => {
-          if (this.state !== "recording") {
-            return;
-          }
-          this._chunkIndex += 1;
-          if (this.ondataavailable) {
-            this.ondataavailable({
-              data: new Blob([`chunk-${this._chunkIndex}`], {
-                type: "audio/webm",
-              }),
-            });
-          }
-        }, intervalMs);
+      createMediaStreamSource(_stream: unknown) {
+        return {
+          connect: () => undefined,
+          disconnect: () => undefined,
+        };
       }
 
-      stop() {
-        this.state = "inactive";
-        if (this._intervalId) {
-          clearInterval(this._intervalId);
-          this._intervalId = null;
-        }
-        if (this.onstop) {
-          this.onstop();
-        }
+      createGain() {
+        return {
+          gain: { value: 1 },
+          connect: () => undefined,
+          disconnect: () => undefined,
+        };
+      }
+
+      createScriptProcessor() {
+        const processor: MockScriptProcessorNode = {
+          onaudioprocess: null,
+          __intervalId: null,
+          connect: () => {
+            if (processor.__intervalId !== null) {
+              return;
+            }
+            processor.__intervalId = setInterval(() => {
+              if (typeof processor.onaudioprocess !== "function") {
+                return;
+              }
+              const channelData = new Float32Array(4096);
+              channelData.fill(0.2);
+              processor.onaudioprocess({
+                inputBuffer: {
+                  getChannelData: () => channelData,
+                },
+              });
+            }, 40);
+          },
+          disconnect: () => {
+            if (processor.__intervalId !== null) {
+              clearInterval(processor.__intervalId);
+              processor.__intervalId = null;
+            }
+          },
+        };
+        this._processors.push(processor);
+        return processor;
       }
     }
 
-    Object.defineProperty(window, "MediaRecorder", {
-      value: MockMediaRecorder,
+    Object.defineProperty(window, "AudioContext", {
+      value: MockAudioContext,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitAudioContext", {
+      value: MockAudioContext,
       configurable: true,
     });
     Object.defineProperty(navigator, "mediaDevices", {
@@ -410,12 +447,41 @@ test("project chat streams provider transcription before mic stop", async ({
   });
 
   let transcriptionCallCount = 0;
-  await page.route(`${BACKEND_ORIGIN}/api/transcribeChatAudio`, async (route) => {
+  await page.route(
+    `${BACKEND_ORIGIN}/api/startTranscriptionSession`,
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          sessionId: "session-e2e",
+          resolvedTransportMode: "file",
+          chunkMs: 300,
+        }),
+      });
+    },
+  );
+  await page.route(`${BACKEND_ORIGIN}/api/appendTranscriptionAudio`, async (route) => {
     transcriptionCallCount += 1;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ text: `streamed-${transcriptionCallCount}` }),
+      body: JSON.stringify({
+        appendText: `streamed-${transcriptionCallCount}`,
+        fullText: `streamed-${transcriptionCallCount}`,
+        isFinal: false,
+      }),
+    });
+  });
+  await page.route(`${BACKEND_ORIGIN}/api/stopTranscriptionSession`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        appendText: "",
+        fullText: `streamed-${transcriptionCallCount}`,
+        isFinal: true,
+      }),
     });
   });
 
@@ -435,12 +501,12 @@ test("project chat streams provider transcription before mic stop", async ({
     await expect(
       overviewPane.getByRole("button", { name: "Stop Mic" }),
     ).toBeVisible();
-    await expect
-      .poll(() => transcriptionCallCount, { timeout: 10_000 })
-      .toBeGreaterThanOrEqual(1);
-    await expect(overviewPane.locator("textarea")).toHaveValue(/streamed-1/);
+    await expect.poll(() => transcriptionCallCount).toBe(0);
 
     await overviewPane.getByRole("button", { name: "Stop Mic" }).click();
+    await expect
+      .poll(() => transcriptionCallCount, { timeout: 10_000 })
+      .toBe(1);
     await expect(overviewPane.locator("textarea")).toHaveValue(/streamed-1/);
   } finally {
     await transcriptionCleanup();
@@ -449,7 +515,7 @@ test("project chat streams provider transcription before mic stop", async ({
   }
 });
 
-test("project chat releases provider mic stream when recorder start fails", async ({
+test("project chat releases provider mic stream when audio context init fails", async ({
   page,
 }) => {
   await page.addInitScript(() => {
@@ -462,26 +528,6 @@ test("project chat releases provider mic stream when recorder start fails", asyn
       configurable: true,
     });
 
-    class MockMediaRecorder {
-      static isTypeSupported(_mimeType: string) {
-        return true;
-      }
-
-      mimeType = "audio/webm";
-      state = "inactive";
-      ondataavailable: ((event: { data?: Blob }) => void) | null = null;
-      onerror: (() => void) | null = null;
-      onstop: (() => void) | null = null;
-
-      start() {
-        throw new Error("start failed");
-      }
-
-      stop() {
-        this.state = "inactive";
-      }
-    }
-
     let stopCount = 0;
     const audioTrack = {
       stop: () => {
@@ -489,8 +535,23 @@ test("project chat releases provider mic stream when recorder start fails", asyn
       },
     };
 
-    Object.defineProperty(window, "MediaRecorder", {
-      value: MockMediaRecorder,
+    class ThrowingAudioContext {
+      sampleRate = 24_000;
+      destination = {};
+
+      async resume() {
+        throw new Error("resume failed");
+      }
+
+      async close() {}
+    }
+
+    Object.defineProperty(window, "AudioContext", {
+      value: ThrowingAudioContext,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitAudioContext", {
+      value: ThrowingAudioContext,
       configurable: true,
     });
     Object.defineProperty(navigator, "mediaDevices", {
@@ -529,9 +590,7 @@ test("project chat releases provider mic stream when recorder start fails", asyn
     await expect(micButton).toBeVisible();
     await micButton.click();
 
-    await expect(
-      overviewPane.getByText("Provider dictation is not available."),
-    ).toBeVisible();
+    await expect(overviewPane.getByText("Microphone access was denied.")).toBeVisible();
     await expect
       .poll(async () => {
         return await page.evaluate(() => {
