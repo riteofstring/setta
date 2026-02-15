@@ -39,9 +39,77 @@ from setta.types.generated.chat_messages import (
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.routes import Route
+from setta.types.external_agents import ExternalAgentToolType
+from setta.types.section_impls import ChatPermissionMode
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 
 router = SettaProjectContextAPIRouter()
+
+_REQUIRED_ERROR_CHECK_PROMPT = (
+    "## Required completion gate for create/scaffold work\n"
+    "- For project creation, section creation, or scaffolding tasks: do not claim completion until you run error checks.\n"
+    "- Report check outcomes explicitly as pass/fail before any completion claim.\n"
+    "- If checks were not run or checks failed, state that explicitly instead of saying the work is done.\n"
+)
+
+
+def _combine_prompt_sections(*sections: str | None) -> str:
+    parts: list[str] = []
+    for section in sections:
+        if section is None:
+            continue
+        stripped = section.strip()
+        if not stripped:
+            continue
+        parts.append(stripped)
+    return "\n\n".join(parts).strip()
+
+
+def _build_execution_policy_prompt(
+    permission_mode: ChatPermissionMode,
+    search_enabled: bool,
+    skills_enabled: bool,
+) -> str:
+    lines = [
+        "## Runtime execution settings",
+        f"- permissionMode: {permission_mode.value}",
+        f"- searchEnabled: {'true' if search_enabled else 'false'}",
+        f"- skillsEnabled: {'true' if skills_enabled else 'false'}",
+    ]
+    if not search_enabled:
+        lines.append(
+            "- Search is disabled for this run. Do not rely on search tools; use existing context and local tools only."
+        )
+    if not skills_enabled:
+        lines.append(
+            "- Skills are disabled for this run. Do not use skill-specific workflows or assumptions."
+        )
+    return "\n".join(lines)
+
+
+def _resolve_external_approval_policy_override(
+    permission_mode: ChatPermissionMode,
+    tool_type: ExternalAgentToolType,
+) -> str | None:
+    if permission_mode == ChatPermissionMode.config_toml_custom:
+        return None
+    if tool_type == ExternalAgentToolType.claude_code:
+        if permission_mode == ChatPermissionMode.minimal:
+            return "default"
+        if permission_mode == ChatPermissionMode.yolo:
+            return "bypassPermissions"
+        return None
+    if tool_type == ExternalAgentToolType.opencode:
+        if permission_mode == ChatPermissionMode.minimal:
+            return "ask"
+        if permission_mode == ChatPermissionMode.yolo:
+            return "allow"
+        return None
+    if permission_mode == ChatPermissionMode.minimal:
+        return "on-request"
+    if permission_mode == ChatPermissionMode.yolo:
+        return "never"
+    return None
 
 
 def _get_llm_chat_runs(
@@ -244,6 +312,9 @@ class GetLLMResponseRequest(BaseModel):
             "Whether the UI is configured to stream app spec patches for live preview."
         ),
     )
+    permissionMode: ChatPermissionMode = ChatPermissionMode.minimal
+    searchEnabled: bool = True
+    skillsEnabled: bool = True
 
 
 class GetLLMChatRequest(BaseModel):
@@ -360,6 +431,11 @@ async def route_get_llm_response(
             "  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.\n"
             "  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).\n"
         )
+    execution_policy_prompt = _build_execution_policy_prompt(
+        x.permissionMode,
+        x.searchEnabled,
+        x.skillsEnabled,
+    )
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")
@@ -370,14 +446,12 @@ async def route_get_llm_response(
                 systemPrompt="",
                 engineConfigId=x.engineConfigId,
             )
-        existing_system_prompt = profile.systemPrompt or ""
-        combined_system_prompt = existing_system_prompt
-        if app_generation_mode_prompt is not None:
-            combined_system_prompt = (
-                f"{existing_system_prompt.strip()}\n\n{app_generation_mode_prompt}".strip()
-                if existing_system_prompt.strip()
-                else app_generation_mode_prompt.strip()
-            )
+        combined_system_prompt = _combine_prompt_sections(
+            profile.systemPrompt or "",
+            app_generation_mode_prompt,
+            execution_policy_prompt,
+            _REQUIRED_ERROR_CHECK_PROMPT,
+        )
         profile = profile.model_copy(
             update={
                 "engineConfigId": x.engineConfigId,
@@ -390,6 +464,9 @@ async def route_get_llm_response(
             "thinking": x.thinking,
             "engineConfigId": str(x.engineConfigId),
             "runType": LLM_CHAT_RUN_TYPE,
+            "permissionMode": x.permissionMode.value,
+            "searchEnabled": x.searchEnabled,
+            "skillsEnabled": x.skillsEnabled,
             "messages": [
                 message.model_dump(mode="json") for message in combined_messages
             ],
@@ -447,10 +524,23 @@ async def route_get_llm_response(
             "projectConfigId": str(x.projectConfigId),
             "thinking": x.thinking,
             "engineConfigId": str(x.engineConfigId),
+            "permissionMode": x.permissionMode.value,
+            "searchEnabled": x.searchEnabled,
+            "skillsEnabled": x.skillsEnabled,
             "messages": [
                 message.model_dump(mode="json") for message in combined_messages
             ],
         }
+        approval_policy_override = _resolve_external_approval_policy_override(
+            x.permissionMode,
+            external_config.toolType,
+        )
+        if approval_policy_override is not None:
+            inputs["approvalPolicy"] = approval_policy_override
+        inputs["systemPrompt"] = _combine_prompt_sections(
+            execution_policy_prompt,
+            _REQUIRED_ERROR_CHECK_PROMPT,
+        )
         if is_branch_request:
             branch_root_chat_id = _resolve_branch_root_chat_id(
                 parent_run=parent_run,
