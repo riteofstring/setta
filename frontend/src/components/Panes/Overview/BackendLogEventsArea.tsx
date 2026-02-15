@@ -136,6 +136,16 @@ export async function copyBackendLogMessage(
   }
 }
 
+export function getBackendLogEventById(
+  events: Array<SettaBackendLogEvent>,
+  eventId: string | null,
+): SettaBackendLogEvent | null {
+  if (!eventId) {
+    return null;
+  }
+  return events.find((event) => event.id === eventId) ?? null;
+}
+
 type CopyFeedback = {
   eventId: string;
   status: "copied" | "failed";
@@ -150,6 +160,7 @@ export function BackendLogEventsArea() {
     BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
   );
   const [copyFeedback, setCopyFeedback] = useState<CopyFeedback | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const columnWidthRef = useRef(columnWidths);
   const resizeAnimationFrameRef = useRef<number | null>(null);
   const activeResizeHandlersRef = useRef<BackendLogResizeHandlers | null>(null);
@@ -205,6 +216,10 @@ export function BackendLogEventsArea() {
   const filteredEvents = useMemo(
     () => filterEvents(events, filter),
     [events, filter],
+  );
+  const selectedEvent = useMemo(
+    () => getBackendLogEventById(filteredEvents, selectedEventId),
+    [filteredEvents, selectedEventId],
   );
 
   const gridTemplateColumns = useMemo(
@@ -285,6 +300,16 @@ export function BackendLogEventsArea() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!selectedEventId) {
+      return;
+    }
+    if (getBackendLogEventById(filteredEvents, selectedEventId)) {
+      return;
+    }
+    setSelectedEventId(null);
+  }, [filteredEvents, selectedEventId]);
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-1">
       <div className="flex items-center gap-2">
@@ -322,17 +347,101 @@ export function BackendLogEventsArea() {
             No matching backend log events
           </div>
         ) : (
-          <LogLines
-            events={filteredEvents}
-            projectNameById={projectNameById}
-            gridTemplateColumns={gridTemplateColumns}
-            gridMinWidth={gridMinWidth}
-            copyFeedback={copyFeedback}
-            onResizeColumn={beginColumnResizeDrag}
-            onCopyMessage={handleCopyMessage}
-          />
+          <div className="flex h-full min-h-0 flex-col">
+            {selectedEvent ? (
+              <SelectedLogMessagePanel
+                event={selectedEvent}
+                projectName={formatProjectConfigName(
+                  selectedEvent.projectConfigId,
+                  projectNameById,
+                )}
+                copyFeedback={copyFeedback}
+                onCopyMessage={handleCopyMessage}
+                onClose={() => setSelectedEventId(null)}
+              />
+            ) : null}
+            <LogLines
+              events={filteredEvents}
+              projectNameById={projectNameById}
+              gridTemplateColumns={gridTemplateColumns}
+              gridMinWidth={gridMinWidth}
+              copyFeedback={copyFeedback}
+              selectedEventId={selectedEventId}
+              onResizeColumn={beginColumnResizeDrag}
+              onCopyMessage={handleCopyMessage}
+              onSelectEvent={setSelectedEventId}
+            />
+          </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function SelectedLogMessagePanel({
+  event,
+  projectName,
+  copyFeedback,
+  onCopyMessage,
+  onClose,
+}: {
+  event: SettaBackendLogEvent;
+  projectName: string;
+  copyFeedback: CopyFeedback | null;
+  onCopyMessage: (eventId: string, message: string) => void;
+  onClose: () => void;
+}) {
+  const copyStatus =
+    copyFeedback?.eventId === event.id ? copyFeedback.status : null;
+  let copyStatusTitle = "Copy full message";
+  let copyButtonClassName = "text-setta-700 dark:text-setta-200";
+  if (copyStatus === "failed") {
+    copyStatusTitle = "Copy failed";
+    copyButtonClassName = "text-red-600 dark:text-red-400";
+  } else if (copyStatus === "copied") {
+    copyStatusTitle = "Copied";
+    copyButtonClassName = "text-blue-600 dark:text-blue-400";
+  }
+
+  return (
+    <div
+      data-testid="backend-log-selected-message-panel"
+      className="border-b border-setta-200 px-2 py-1.5 text-[11px] dark:border-setta-800"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-0 flex-1 truncate text-[10px] uppercase tracking-[0.12em] text-setta-500 dark:text-setta-400">
+          {formatLogTimestamp(event.timestamp)} | {event.severity} | {projectName}
+        </div>
+        <button
+          type="button"
+          data-testid="backend-log-selected-copy-message"
+          data-copy-status={copyStatus ?? "idle"}
+          className={`inline-flex items-center rounded p-1 hover:bg-setta-100 hover:text-setta-950 dark:hover:bg-setta-700 dark:hover:text-setta-50 ${copyButtonClassName}`}
+          onClick={() => onCopyMessage(event.id, event.message)}
+          title={copyStatusTitle}
+          aria-label={copyStatusTitle}
+        >
+          {copyStatus === "copied" ? (
+            <IoCheckmark size={14} />
+          ) : (
+            <IoCopyOutline size={14} />
+          )}
+        </button>
+        <button
+          type="button"
+          data-testid="backend-log-selected-message-close"
+          className="rounded border border-setta-200 px-1.5 py-0.5 text-[10px] text-setta-600 hover:bg-setta-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+          onClick={onClose}
+        >
+          Close
+        </button>
+      </div>
+      <pre
+        data-testid="backend-log-selected-message"
+        className="mt-1 max-h-28 overflow-auto whitespace-pre-wrap rounded bg-setta-50 p-1 text-[11px] leading-4 dark:bg-setta-950"
+      >
+        {event.message}
+      </pre>
     </div>
   );
 }
@@ -440,19 +549,23 @@ function LogLines({
   gridTemplateColumns,
   gridMinWidth,
   copyFeedback,
+  selectedEventId,
   onResizeColumn,
   onCopyMessage,
+  onSelectEvent,
 }: {
   events: Array<SettaBackendLogEvent>;
   projectNameById: Record<string, string>;
   gridTemplateColumns: string;
   gridMinWidth: number;
   copyFeedback: CopyFeedback | null;
+  selectedEventId: string | null;
   onResizeColumn: (
     column: BackendLogColumnWidthName,
     event: MouseEvent<HTMLDivElement>,
   ) => void;
   onCopyMessage: (eventId: string, message: string) => void;
+  onSelectEvent: (eventId: string) => void;
 }) {
   const listWrapperRef = useRef<HTMLDivElement | null>(null);
   const [listSize, setListSize] = useState({
@@ -516,6 +629,8 @@ function LogLines({
               gridTemplateColumns,
               copyFeedback,
               onCopyMessage,
+              selectedEventId,
+              onSelectEvent,
             }}
             style={{
               height: listHeight,
@@ -637,7 +752,9 @@ function BackendLogRow({
   projectNameById,
   gridTemplateColumns,
   copyFeedback,
+  selectedEventId,
   onCopyMessage,
+  onSelectEvent,
 }: {
   index: number;
   style: CSSProperties;
@@ -645,12 +762,15 @@ function BackendLogRow({
   projectNameById: Record<string, string>;
   gridTemplateColumns: string;
   copyFeedback: CopyFeedback | null;
+  selectedEventId: string | null;
   onCopyMessage: (eventId: string, message: string) => void;
+  onSelectEvent: (eventId: string) => void;
 }) {
   const event = events[index];
   if (!event) {
     return null;
   }
+  const isSelected = selectedEventId === event.id;
   const copyStatus =
     copyFeedback?.eventId === event.id ? copyFeedback.status : null;
   const time = formatLogTimestamp(event.timestamp);
@@ -674,9 +794,12 @@ function BackendLogRow({
   return (
     <div
       data-testid="backend-log-row"
-      className={`group/backend-log-row grid items-center gap-2 border-l-2 px-2 py-0.5 hover:bg-setta-50 dark:hover:bg-setta-800 ${severityBorderClassName}`}
+      className={`group/backend-log-row grid cursor-pointer items-center gap-2 border-l-2 px-2 py-0.5 hover:bg-setta-50 dark:hover:bg-setta-800 ${severityBorderClassName} ${
+        isSelected ? "bg-setta-50 dark:bg-setta-850" : ""
+      }`}
       style={{ ...style, gridTemplateColumns }}
       title={event.message}
+      onClick={() => onSelectEvent(event.id)}
     >
       <span className="truncate text-setta-400 dark:text-setta-500">
         {time}
@@ -693,10 +816,13 @@ function BackendLogRow({
         type="button"
         data-testid="backend-log-copy-message"
         data-copy-status={copyStatus ?? "idle"}
-        className={`pointer-events-none inline-flex items-center justify-end rounded p-1 opacity-0 transition-opacity duration-100 hover:bg-setta-100 hover:text-setta-950 focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/backend-log-row:pointer-events-auto group-hover/backend-log-row:opacity-100 dark:hover:bg-setta-700 dark:hover:text-setta-50 ${copyButtonClassName} ${
-          copyStatus ? "pointer-events-auto opacity-100" : ""
+        className={`inline-flex items-center justify-end rounded p-1 opacity-0 transition-opacity duration-100 hover:bg-setta-100 hover:text-setta-950 focus-visible:opacity-100 group-hover/backend-log-row:opacity-100 dark:hover:bg-setta-700 dark:hover:text-setta-50 ${copyButtonClassName} ${
+          copyStatus || isSelected ? "opacity-100" : ""
         }`}
-        onClick={() => onCopyMessage(event.id, event.message)}
+        onClick={(buttonEvent) => {
+          buttonEvent.stopPropagation();
+          onCopyMessage(event.id, event.message);
+        }}
         title={copyStatusTitle}
         aria-label={copyStatusTitle}
       >

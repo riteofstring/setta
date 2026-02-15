@@ -33,7 +33,7 @@ importers:
         specifier: 6.12.1
         version: 6.12.1
       '@codemirror/legacy-modes':
-        specifier: ^6.5.2
+        specifier: 6.5.2
         version: 6.5.2
       '@codemirror/lint':
         specifier: 6.9.2

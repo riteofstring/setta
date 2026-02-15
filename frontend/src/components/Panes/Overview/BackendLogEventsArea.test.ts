@@ -8,6 +8,7 @@ import {
   clampBackendLogColumnWidth,
   copyBackendLogMessage,
   filterEvents,
+  getBackendLogEventById,
   getBackendLogGridMinWidth,
   removeBackendLogResizeListeners,
 } from "./BackendLogEventsArea";
@@ -166,5 +167,44 @@ describe("filterEvents", () => {
       "error",
       "critical",
     ]);
+  });
+});
+
+describe("getBackendLogEventById", () => {
+  it("returns the matching event when selected id exists", () => {
+    const events: Array<SettaBackendLogEvent> = [
+      {
+        id: "event-1",
+        projectConfigId: null,
+        severity: "info",
+        message: "first",
+        timestamp: "2025-02-14T10:00:00.000Z",
+      },
+      {
+        id: "event-2",
+        projectConfigId: null,
+        severity: "error",
+        message: "second",
+        timestamp: "2025-02-14T10:00:01.000Z",
+      },
+    ];
+
+    const selected = getBackendLogEventById(events, "event-2");
+    expect(selected?.message).toBe("second");
+  });
+
+  it("returns null for missing ids and null selections", () => {
+    const events: Array<SettaBackendLogEvent> = [
+      {
+        id: "event-1",
+        projectConfigId: null,
+        severity: "info",
+        message: "first",
+        timestamp: "2025-02-14T10:00:00.000Z",
+      },
+    ];
+
+    expect(getBackendLogEventById(events, "missing")).toBeNull();
+    expect(getBackendLogEventById(events, null)).toBeNull();
   });
 });

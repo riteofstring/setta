@@ -69,6 +69,7 @@ test("backend logs pane supports column resize handles and copy feedback", async
   const copyButton = firstRow.getByTestId("backend-log-copy-message");
   const copyButtonClassName = await copyButton.getAttribute("class");
   expect(copyButtonClassName).toContain("opacity-0");
+  expect(copyButtonClassName).not.toContain("pointer-events-none");
   expect(copyButtonClassName).toContain(
     "group-hover/backend-log-row:opacity-100",
   );
@@ -85,6 +86,15 @@ test("backend logs pane supports column resize handles and copy feedback", async
   expect(copyIconBox).not.toBeNull();
   expect(copyIconBox?.width ?? 0).toBeGreaterThan(8);
   expect(copyIconBox?.height ?? 0).toBeGreaterThan(8);
+
+  await firstRow.click();
+  const selectedRowTitle = (await firstRow.getAttribute("title")) ?? "";
+  expect(selectedRowTitle.length).toBeGreaterThan(0);
+  const selectedPanel = page.getByTestId("backend-log-selected-message-panel");
+  await expect(selectedPanel).toBeVisible();
+  await expect(
+    selectedPanel.getByTestId("backend-log-selected-message"),
+  ).toContainText(selectedRowTitle);
 
   await copyButton.evaluate((button) => {
     if (!(button instanceof HTMLButtonElement)) {

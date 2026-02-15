@@ -124,4 +124,73 @@ test.describe.serial("section config accordion hierarchy", () => {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
+
+  test("auto-collapses section settings when switching to a section type without main settings", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: true,
+      uiEditorTab: { TextBlock: "SectionConfig", Terminal: "SectionConfig" },
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const textBlock = await createTextBlockSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_section_config_switch_text_block__",
+      );
+      const terminal = await postBackend<{ sectionId?: string }>(
+        page,
+        "/createTopLevelSection",
+        {
+          projectConfigId: projectContext.projectConfigId,
+          implType: "Terminal",
+        },
+      );
+      if (!terminal?.sectionId) {
+        throw new Error("Missing sectionId when creating terminal section.");
+      }
+
+      const textBlockNode = page.locator(
+        `.react-flow__node[data-id="${textBlock.sectionId}"]`,
+      );
+      const terminalNode = page.locator(
+        `.react-flow__node[data-id="${terminal.sectionId}"]`,
+      );
+      await expect(textBlockNode).toBeVisible();
+      await expect(terminalNode).toBeVisible();
+
+      await textBlockNode.click();
+      const uiEditorPane = page.locator("#UiEditorPane");
+      await expect(uiEditorPane).toBeVisible();
+
+      const mainAccordionTrigger = uiEditorPane.getByTestId(
+        "section-config-accordion-main",
+      );
+      const appearanceAccordionTrigger = uiEditorPane.getByTestId(
+        "section-config-accordion-appearance",
+      );
+      await expect(mainAccordionTrigger).toHaveAttribute("aria-expanded", "true");
+      await appearanceAccordionTrigger.click();
+      await expect(appearanceAccordionTrigger).toHaveAttribute(
+        "aria-expanded",
+        "true",
+      );
+
+      await terminalNode.click();
+      await expect(mainAccordionTrigger).toBeDisabled();
+      await expect(mainAccordionTrigger).toHaveAttribute("aria-expanded", "false");
+      await expect(mainAccordionTrigger).toHaveAttribute(
+        "title",
+        "No section settings available",
+      );
+      await expect(appearanceAccordionTrigger).toBeEnabled();
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
 });

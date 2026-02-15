@@ -18,6 +18,10 @@ import { SectionTagColorSettings } from "./SectionTagColorSettings";
 import { SocialAreaSettings } from "./SocialAreaSettings";
 import { TextBlockSettings } from "./TextBlockSettings";
 
+const SECTION_CONFIG_MAIN_VALUE = "section-config-main";
+const SECTION_CONFIG_APPEARANCE_VALUE = "section-config-appearance";
+const SECTION_CONFIG_DEFAULT_OPEN_VALUES = [SECTION_CONFIG_MAIN_VALUE];
+
 function _SectionConfig({ sectionId }: { sectionId: string }) {
   const sectionType = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImpl(x, sectionId);
@@ -34,6 +38,38 @@ function _SectionConfig({ sectionId }: { sectionId: string }) {
   );
   const mainSectionDisabled = mainContent == null;
   const appearanceSectionDisabled = appearanceContent == null;
+  const [openValues, setOpenValues] = React.useState<Array<string>>(
+    SECTION_CONFIG_DEFAULT_OPEN_VALUES,
+  );
+  const disabledOpenValueSet = React.useMemo(() => {
+    const valueSet = new Set<string>();
+    if (mainSectionDisabled) {
+      valueSet.add(SECTION_CONFIG_MAIN_VALUE);
+    }
+    if (appearanceSectionDisabled) {
+      valueSet.add(SECTION_CONFIG_APPEARANCE_VALUE);
+    }
+    return valueSet;
+  }, [appearanceSectionDisabled, mainSectionDisabled]);
+  const resolvedOpenValues = React.useMemo(
+    () => openValues.filter((value) => !disabledOpenValueSet.has(value)),
+    [disabledOpenValueSet, openValues],
+  );
+
+  React.useEffect(() => {
+    setOpenValues(SECTION_CONFIG_DEFAULT_OPEN_VALUES);
+  }, [sectionId]);
+
+  React.useEffect(() => {
+    setOpenValues((currentOpenValues) => {
+      const nextOpenValues = currentOpenValues.filter(
+        (value) => !disabledOpenValueSet.has(value),
+      );
+      return nextOpenValues.length === currentOpenValues.length
+        ? currentOpenValues
+        : nextOpenValues;
+    });
+  }, [disabledOpenValueSet]);
 
   return (
     <section
@@ -41,10 +77,12 @@ function _SectionConfig({ sectionId }: { sectionId: string }) {
       className="setta-pane-scroll flex min-h-0 flex-1 flex-col"
     >
       <SectionConfigAccordion
-        defaultOpenValues={["section-config-main"]}
+        defaultOpenValues={SECTION_CONFIG_DEFAULT_OPEN_VALUES}
+        openValues={resolvedOpenValues}
+        onOpenValuesChange={setOpenValues}
         items={[
           {
-            value: "section-config-main",
+            value: SECTION_CONFIG_MAIN_VALUE,
             title: "Section Settings",
             triggerTestId: "section-config-accordion-main",
             disabled: mainSectionDisabled,
@@ -56,7 +94,7 @@ function _SectionConfig({ sectionId }: { sectionId: string }) {
             ),
           },
           {
-            value: "section-config-appearance",
+            value: SECTION_CONFIG_APPEARANCE_VALUE,
             title: "Appearance",
             triggerTestId: "section-config-accordion-appearance",
             disabled: appearanceSectionDisabled,

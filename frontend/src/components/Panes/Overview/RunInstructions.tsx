@@ -54,6 +54,11 @@ import {
   type ViewModeConfig,
 } from "utils/generatedTypes";
 import { RunInstructionsAccordion } from "./RunInstructionsAccordion";
+import {
+  RUN_INSTRUCTIONS_ACCORDION_DEFAULT_OPEN_VALUES,
+  type RunInstructionsAccordionItemValue,
+  normalizeRunInstructionsAccordionOpenValues,
+} from "./runInstructionsAccordionState";
 
 type RunnableCodeBlock = { sectionId: string; name: string; depth: number };
 type RunSnapshotMode = SettingsState["backend"]["runSnapshotMode"];
@@ -182,45 +187,6 @@ const RUN_SNAPSHOT_MODE_CHOICES: Array<{
   },
   ...RUN_SNAPSHOT_MODE_OPTIONS,
 ];
-const RUN_INSTRUCTIONS_ACCORDION_DEFAULT_OPEN_VALUES = [
-  "run-instructions-custom-runs",
-  "run-instructions-add-from-code-blocks",
-];
-const RUN_INSTRUCTIONS_ACCORDION_ITEM_ORDER = [
-  "run-instructions-run-snapshot-mode",
-  "run-instructions-codegen-targets",
-  "run-instructions-codegen-policy",
-  "run-instructions-custom-runs",
-  "run-instructions-add-from-code-blocks",
-] as const;
-type RunInstructionsAccordionItemValue =
-  (typeof RUN_INSTRUCTIONS_ACCORDION_ITEM_ORDER)[number];
-const RUN_INSTRUCTIONS_ACCORDION_ITEM_VALUE_SET = new Set<string>(
-  RUN_INSTRUCTIONS_ACCORDION_ITEM_ORDER,
-);
-const RUN_SNAPSHOT_MODE_ACCORDION_VALUES: Array<RunInstructionsAccordionItemValue> =
-  ["run-instructions-run-snapshot-mode"];
-const CODEGEN_TARGETS_ACCORDION_VALUES: Array<RunInstructionsAccordionItemValue> =
-  ["run-instructions-codegen-targets"];
-const CODEGEN_POLICY_ACCORDION_VALUES: Array<RunInstructionsAccordionItemValue> =
-  ["run-instructions-codegen-policy"];
-const CUSTOM_RUNS_ACCORDION_VALUES: Array<RunInstructionsAccordionItemValue> = [
-  "run-instructions-custom-runs",
-  "run-instructions-add-from-code-blocks",
-];
-
-function normalizeRunInstructionsAccordionOpenValues(
-  openValues: Array<string>,
-): Array<string> {
-  const valueSet = new Set(
-    openValues.filter((value) =>
-      RUN_INSTRUCTIONS_ACCORDION_ITEM_VALUE_SET.has(value),
-    ),
-  );
-  return RUN_INSTRUCTIONS_ACCORDION_ITEM_ORDER.filter((value) =>
-    valueSet.has(value),
-  );
-}
 
 export function RunInstructions() {
   const { canRun } = useShareCapabilities();
@@ -474,41 +440,29 @@ export function RunInstructions() {
       ),
     [storedAccordionOpenValues],
   );
-  const setAccordionOpenValuesSubset = React.useCallback(
-    (
-      subsetValues: Array<RunInstructionsAccordionItemValue>,
-      nextSubsetOpenValues: Array<string>,
-    ) => {
+  const setAccordionOpenValues = React.useCallback(
+    (nextOpenValues: Array<string>) => {
       useLocalStorage.setState((state) => ({
-        runInstructionsAccordionOpenValuesByProjectConfigId: (() => {
-          const previousOpenValues =
-            normalizeRunInstructionsAccordionOpenValues(
-              state.runInstructionsAccordionOpenValuesByProjectConfigId[
-                projectConfigId
-              ] ?? RUN_INSTRUCTIONS_ACCORDION_DEFAULT_OPEN_VALUES,
-            );
-          const openValueSet = new Set(previousOpenValues);
-          for (const value of subsetValues) {
-            openValueSet.delete(value);
-          }
-          for (const value of nextSubsetOpenValues) {
-            if (!RUN_INSTRUCTIONS_ACCORDION_ITEM_VALUE_SET.has(value)) {
-              continue;
-            }
-            openValueSet.add(value);
-          }
-          const nextOpenValues = RUN_INSTRUCTIONS_ACCORDION_ITEM_ORDER.filter(
-            (value) => openValueSet.has(value),
-          );
-          return {
-            ...state.runInstructionsAccordionOpenValuesByProjectConfigId,
-            [projectConfigId]: nextOpenValues,
-          };
-        })(),
+        runInstructionsAccordionOpenValuesByProjectConfigId: {
+          ...state.runInstructionsAccordionOpenValuesByProjectConfigId,
+          [projectConfigId]:
+            normalizeRunInstructionsAccordionOpenValues(nextOpenValues),
+        },
       }));
     },
     [projectConfigId],
   );
+
+  if (!canRun) {
+    return (
+      <div className={RUN_INSTRUCTIONS_INLINE_INSET_CLASS}>
+        <div className="rounded border border-dashed border-setta-200 bg-white/40 p-3 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300">
+          Run controls are disabled in sharing mode.
+        </div>
+      </div>
+    );
+  }
+
   const codegenPolicyContent = !pythonCodegenEnabled ? (
     <div className="mx-[2px] rounded border border-dashed border-setta-200 bg-white/40 p-2 text-[11px] text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300">
       Enable Python codegen to edit section policy settings.
@@ -1126,15 +1080,139 @@ export function RunInstructions() {
     </div>
   );
 
-  if (!canRun) {
-    return (
-      <div className={RUN_INSTRUCTIONS_INLINE_INSET_CLASS}>
-        <div className="rounded border border-dashed border-setta-200 bg-white/40 p-3 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/40 dark:text-setta-300">
-          Run controls are disabled in sharing mode.
-        </div>
-      </div>
+  const accordionItems: Array<{
+    value: RunInstructionsAccordionItemValue;
+    title: string;
+    triggerTestId: string;
+    content: React.ReactNode;
+    disabled?: boolean;
+    disabledReason?: string;
+  }> = [];
+  if (!isDeploymentMode) {
+    accordionItems.push(
+      {
+        value: "run-instructions-run-snapshot-mode",
+        title: "Run Snapshot Mode",
+        triggerTestId: "run-instructions-accordion-run-snapshot-mode",
+        content: (
+          <div className={`${PANEL_ROW_CLASSES} flex min-w-0 flex-col gap-2`}>
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] text-setta-600 dark:text-setta-300">
+                {runSnapshotModeMeta.description}
+              </div>
+              <div className="text-[11px] text-setta-400 dark:text-setta-500">
+                {runSnapshotModePrefix}
+              </div>
+            </div>
+            <select
+              className={`${PANEL_SELECT_CLASSES} w-full`}
+              value={selectedRunSnapshotMode}
+              onChange={handleRunSnapshotModeChange}
+              {...getFloatingBoxHandlers({
+                content: "Run snapshot mode",
+              })}
+            >
+              {RUN_SNAPSHOT_MODE_CHOICES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ),
+      },
+      {
+        value: "run-instructions-codegen-targets",
+        title: "Codegen Targets",
+        triggerTestId: "run-instructions-accordion-codegen-targets",
+        content: (
+          <div
+            className={`${PANEL_ROW_CLASSES} flex min-w-0 flex-wrap items-center gap-2`}
+          >
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] text-setta-600 dark:text-setta-300">
+                Enable generated code sections for this project.
+              </div>
+            </div>
+            <div className="ml-auto flex items-center gap-1">
+              <span className={TOGGLE_LABEL_CLASSES}>Python</span>
+              <Switch.Root
+                className={TOGGLE_ROOT_CLASSES}
+                checked={pythonCodegenEnabled}
+                disabled={isDeploymentMode}
+                onCheckedChange={handleCodegenTargetToggle}
+              >
+                <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
+              </Switch.Root>
+            </div>
+          </div>
+        ),
+      },
     );
   }
+  accordionItems.push(
+    {
+      value: "run-instructions-codegen-policy",
+      title: "Codegen Policy",
+      triggerTestId: "run-instructions-accordion-codegen-policy",
+      content: codegenPolicyContent,
+    },
+    {
+      value: "run-instructions-custom-runs",
+      title: "Run Button Dropdown Items",
+      triggerTestId: "run-instructions-accordion-custom-runs",
+      content:
+        customRuns.length === 0 ? (
+          <div
+            className={`${PANEL_CARD_CLASSES} text-setta-600 dark:text-setta-300`}
+          >
+            No custom runs yet.
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {customRuns.map((run) => {
+              const isActiveContinuousRun =
+                runMode === "continuous" &&
+                continuousRunStarted &&
+                continuousRunCustomRunId === run.id;
+
+              return (
+                <CustomRunRow
+                  key={run.id}
+                  run={run}
+                  projectConfigId={projectConfigId}
+                  isActiveContinuousRun={isActiveContinuousRun}
+                />
+              );
+            })}
+          </div>
+        ),
+    },
+    {
+      value: "run-instructions-add-from-code-blocks",
+      title: "Add From Code Blocks",
+      triggerTestId: "run-instructions-accordion-add-from-code-blocks",
+      disabled: runnableCodeBlocks.length === 0,
+      disabledReason: "No runnable code blocks are available",
+      content: (
+        <div className="space-y-1">
+          {runnableCodeBlocks.map((item) => (
+            <AddCodeBlockRow
+              key={item.sectionId}
+              projectConfigId={projectConfigId}
+              item={item}
+            />
+          ))}
+        </div>
+      ),
+    },
+  );
+  const accordionItemValueSet = new Set<string>(
+    accordionItems.map((item) => item.value),
+  );
+  const visibleAccordionOpenValues = resolvedAccordionOpenValues.filter((value) =>
+    accordionItemValueSet.has(value),
+  );
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-3">
@@ -1144,200 +1222,16 @@ export function RunInstructions() {
           appear in the main Run dropdown.
         </p>
       </div>
-      {!isDeploymentMode && (
-        <div className={RUN_INSTRUCTIONS_INLINE_INSET_CLASS}>
-          <RunInstructionsAccordion
-            defaultOpenValues={RUN_INSTRUCTIONS_ACCORDION_DEFAULT_OPEN_VALUES}
-            openValues={resolvedAccordionOpenValues.filter((value) =>
-              RUN_SNAPSHOT_MODE_ACCORDION_VALUES.includes(
-                value as RunInstructionsAccordionItemValue,
-              ),
-            )}
-            onOpenValuesChange={(nextOpenValues) =>
-              setAccordionOpenValuesSubset(
-                RUN_SNAPSHOT_MODE_ACCORDION_VALUES,
-                nextOpenValues,
-              )
-            }
-            items={[
-              {
-                value: "run-instructions-run-snapshot-mode",
-                title: "Run Snapshot Mode",
-                triggerTestId: "run-instructions-accordion-run-snapshot-mode",
-                content: (
-                  <div
-                    className={`${PANEL_ROW_CLASSES} flex min-w-0 flex-col gap-2`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[11px] text-setta-600 dark:text-setta-300">
-                        {runSnapshotModeMeta.description}
-                      </div>
-                      <div className="text-[11px] text-setta-400 dark:text-setta-500">
-                        {runSnapshotModePrefix}
-                      </div>
-                    </div>
-                    <select
-                      className={`${PANEL_SELECT_CLASSES} w-full`}
-                      value={selectedRunSnapshotMode}
-                      onChange={handleRunSnapshotModeChange}
-                      {...getFloatingBoxHandlers({
-                        content: "Run snapshot mode",
-                      })}
-                    >
-                      {RUN_SNAPSHOT_MODE_CHOICES.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ),
-              },
-            ]}
-          />
-        </div>
-      )}
-      {!isDeploymentMode && (
-        <div className={RUN_INSTRUCTIONS_INLINE_INSET_CLASS}>
-          <RunInstructionsAccordion
-            defaultOpenValues={RUN_INSTRUCTIONS_ACCORDION_DEFAULT_OPEN_VALUES}
-            openValues={resolvedAccordionOpenValues.filter((value) =>
-              CODEGEN_TARGETS_ACCORDION_VALUES.includes(
-                value as RunInstructionsAccordionItemValue,
-              ),
-            )}
-            onOpenValuesChange={(nextOpenValues) =>
-              setAccordionOpenValuesSubset(
-                CODEGEN_TARGETS_ACCORDION_VALUES,
-                nextOpenValues,
-              )
-            }
-            items={[
-              {
-                value: "run-instructions-codegen-targets",
-                title: "Codegen Targets",
-                triggerTestId: "run-instructions-accordion-codegen-targets",
-                content: (
-                  <div
-                    className={`${PANEL_ROW_CLASSES} flex min-w-0 flex-wrap items-center gap-2`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[11px] text-setta-600 dark:text-setta-300">
-                        Enable generated code sections for this project.
-                      </div>
-                    </div>
-                    <div className="ml-auto flex items-center gap-1">
-                      <span className={TOGGLE_LABEL_CLASSES}>Python</span>
-                      <Switch.Root
-                        className={TOGGLE_ROOT_CLASSES}
-                        checked={pythonCodegenEnabled}
-                        disabled={isDeploymentMode}
-                        onCheckedChange={handleCodegenTargetToggle}
-                      >
-                        <Switch.Thumb className={TOGGLE_THUMB_CLASSES} />
-                      </Switch.Root>
-                    </div>
-                  </div>
-                ),
-              },
-            ]}
-          />
-        </div>
-      )}
-
       <div
         className="setta-pane-scroll min-h-0 flex-1"
         data-testid="run-instructions-scroll-region"
       >
-        <div className="space-y-2">
+        <div className={RUN_INSTRUCTIONS_INLINE_INSET_CLASS}>
           <RunInstructionsAccordion
             defaultOpenValues={RUN_INSTRUCTIONS_ACCORDION_DEFAULT_OPEN_VALUES}
-            openValues={resolvedAccordionOpenValues.filter((value) =>
-              CODEGEN_POLICY_ACCORDION_VALUES.includes(
-                value as RunInstructionsAccordionItemValue,
-              ),
-            )}
-            onOpenValuesChange={(nextOpenValues) =>
-              setAccordionOpenValuesSubset(
-                CODEGEN_POLICY_ACCORDION_VALUES,
-                nextOpenValues,
-              )
-            }
-            items={[
-              {
-                value: "run-instructions-codegen-policy",
-                title: "Codegen Policy",
-                triggerTestId: "run-instructions-accordion-codegen-policy",
-                content: codegenPolicyContent,
-              },
-            ]}
-          />
-
-          <RunInstructionsAccordion
-            defaultOpenValues={RUN_INSTRUCTIONS_ACCORDION_DEFAULT_OPEN_VALUES}
-            openValues={resolvedAccordionOpenValues.filter((value) =>
-              CUSTOM_RUNS_ACCORDION_VALUES.includes(
-                value as RunInstructionsAccordionItemValue,
-              ),
-            )}
-            onOpenValuesChange={(nextOpenValues) =>
-              setAccordionOpenValuesSubset(
-                CUSTOM_RUNS_ACCORDION_VALUES,
-                nextOpenValues,
-              )
-            }
-            items={[
-              {
-                value: "run-instructions-custom-runs",
-                title: "Run Button Dropdown Items",
-                triggerTestId: "run-instructions-accordion-custom-runs",
-                content:
-                  customRuns.length === 0 ? (
-                    <div
-                      className={`${PANEL_CARD_CLASSES} text-setta-600 dark:text-setta-300`}
-                    >
-                      No custom runs yet.
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {customRuns.map((run) => {
-                        const isActiveContinuousRun =
-                          runMode === "continuous" &&
-                          continuousRunStarted &&
-                          continuousRunCustomRunId === run.id;
-
-                        return (
-                          <CustomRunRow
-                            key={run.id}
-                            run={run}
-                            projectConfigId={projectConfigId}
-                            isActiveContinuousRun={isActiveContinuousRun}
-                          />
-                        );
-                      })}
-                    </div>
-                  ),
-              },
-              {
-                value: "run-instructions-add-from-code-blocks",
-                title: "Add From Code Blocks",
-                triggerTestId:
-                  "run-instructions-accordion-add-from-code-blocks",
-                disabled: runnableCodeBlocks.length === 0,
-                disabledReason: "No runnable code blocks are available",
-                content: (
-                  <div className="space-y-1">
-                    {runnableCodeBlocks.map((item) => (
-                      <AddCodeBlockRow
-                        key={item.sectionId}
-                        projectConfigId={projectConfigId}
-                        item={item}
-                      />
-                    ))}
-                  </div>
-                ),
-              },
-            ]}
+            openValues={visibleAccordionOpenValues}
+            onOpenValuesChange={setAccordionOpenValues}
+            items={accordionItems}
           />
         </div>
       </div>

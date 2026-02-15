@@ -1,4 +1,4 @@
-import * as Accordion from "@radix-ui/react-accordion";
+import { PaneAccordion } from "components/Panes/Common/PaneAccordion";
 import { ProjectLLMSettings } from "components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings";
 import {
   type ChangeEvent,
@@ -8,7 +8,6 @@ import {
   useMemo,
   useState,
 } from "react";
-import { HiChevronDown } from "react-icons/hi2";
 import {
   createAgentProfile,
   createExternalAgentConfig,
@@ -132,6 +131,10 @@ const MANAGER_LIST_CLASS_NAME =
   "flex max-h-[360px] flex-col gap-1 overflow-x-hidden overflow-y-scroll rounded-md bg-setta-50/45 pl-2 pr-3 py-2 [scrollbar-gutter:stable] dark:bg-setta-900/40";
 const MANAGER_FORM_CLASS_NAME =
   "flex min-h-0 flex-1 flex-col gap-4 rounded-md bg-white/45 p-4 dark:bg-setta-900/30";
+const PROJECT_AI_SETTINGS_TRIGGER_ENABLED_CLASSES =
+  "group box-border flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-setta-100/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/70 [&[data-state=open]_.project-ai-settings-accordion-chevron]:rotate-180";
+const PROJECT_AI_SETTINGS_TRIGGER_DISABLED_CLASSES =
+  "group box-border flex w-full cursor-not-allowed items-start justify-between gap-3 px-3 py-2 text-left text-setta-400 opacity-60 focus-visible:outline-none dark:text-setta-500";
 
 const DEFAULT_CLAUDE_ASK_RULES = [
   "Bash(rm:*)",
@@ -244,51 +247,23 @@ function ProjectAISettingsAccordion({
   onOpenValuesChange: (nextOpenValues: Array<string>) => void;
 }) {
   return (
-    <Accordion.Root
-      type="multiple"
-      value={openValues}
-      onValueChange={onOpenValuesChange}
-      className="space-y-2"
-    >
-      {items.map((item) => (
-        <Accordion.Item
-          key={item.value}
-          value={item.value}
-          data-testid={`${item.triggerTestId}-item`}
-          className="overflow-hidden rounded-lg border border-setta-200/70 bg-white/70 dark:border-setta-800/70 dark:bg-setta-950/40"
-        >
-          <Accordion.Header>
-            <Accordion.Trigger
-              data-testid={item.triggerTestId}
-              className="group box-border flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-setta-100/55 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/70 [&[data-state=open]_.project-ai-settings-accordion-chevron]:rotate-180"
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[11px] font-bold uppercase tracking-wide text-setta-600 dark:text-setta-200">
-                  {item.title}
-                </span>
-                <span className="mt-0.5 block text-[11px] text-setta-500 dark:text-setta-400">
-                  {item.description}
-                </span>
-              </span>
-              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
-                <HiChevronDown
-                  size={16}
-                  className="project-ai-settings-accordion-chevron text-setta-400 transition-transform duration-150 dark:text-setta-500"
-                />
-              </span>
-            </Accordion.Trigger>
-          </Accordion.Header>
-          <Accordion.Content className="data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden">
-            <div
-              data-testid={`${item.triggerTestId}-content`}
-              className="border-t border-setta-200/70 px-3 py-2 dark:border-setta-800/70"
-            >
-              {item.content}
-            </div>
-          </Accordion.Content>
-        </Accordion.Item>
-      ))}
-    </Accordion.Root>
+    <PaneAccordion
+      items={items}
+      defaultOpenValues={PROJECT_AI_SETTINGS_ACCORDION_DEFAULT_OPEN_VALUES}
+      openValues={openValues}
+      onOpenValuesChange={onOpenValuesChange}
+      enabledTriggerClassName={PROJECT_AI_SETTINGS_TRIGGER_ENABLED_CLASSES}
+      disabledTriggerClassName={PROJECT_AI_SETTINGS_TRIGGER_DISABLED_CLASSES}
+      chevronClassName="project-ai-settings-accordion-chevron"
+      includeItemTestId={true}
+      includeContentTestId={true}
+      rootClassName="space-y-2"
+      itemClassName="overflow-hidden rounded-lg border border-setta-200/70 bg-white/70 dark:border-setta-800/70 dark:bg-setta-950/40"
+      contentClassName="border-t border-setta-200/70 px-3 py-2 dark:border-setta-800/70"
+      titleWrapperClassName="min-w-0 flex-1"
+      titleClassName="block truncate text-[11px] font-bold uppercase tracking-wide text-setta-600 dark:text-setta-200"
+      descriptionClassName="mt-0.5 block text-[11px] text-setta-500 dark:text-setta-400"
+    />
   );
 }
 

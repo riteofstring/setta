@@ -11,14 +11,20 @@ const SECTION_CONFIG_TRIGGER_DISABLED_CLASSES =
 export function SectionConfigAccordion({
   items,
   defaultOpenValues,
+  openValues,
+  onOpenValuesChange,
 }: {
   items: Array<PaneAccordionItem>;
   defaultOpenValues: Array<string>;
+  openValues?: Array<string>;
+  onOpenValuesChange?: (openValues: Array<string>) => void;
 }) {
   return (
     <PaneAccordion
       items={items}
       defaultOpenValues={defaultOpenValues}
+      openValues={openValues}
+      onOpenValuesChange={onOpenValuesChange}
       enabledTriggerClassName={SECTION_CONFIG_TRIGGER_ENABLED_CLASSES}
       disabledTriggerClassName={SECTION_CONFIG_TRIGGER_DISABLED_CLASSES}
       chevronClassName="section-config-accordion-chevron"
