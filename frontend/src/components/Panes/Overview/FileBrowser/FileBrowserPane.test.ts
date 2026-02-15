@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildFileBrowserLoadingPathOwner,
   flattenFileBrowserTree,
-  isEditableFileBrowserTarget,
-  shouldRefreshRootAfterFileBrowserTransfer,
-  shouldSkipFileBrowserTransfer,
+  forEachWithConcurrencyLimit,
+  getSettaBadgeRefreshFolderPaths,
+  isOwnedFileBrowserLoadingPath,
   sortChildPaths,
   type FileNode,
 } from "./FileBrowserPane";
@@ -267,89 +268,111 @@ describe("flattenFileBrowserTree", () => {
   });
 });
 
-describe("isEditableFileBrowserTarget", () => {
-  it("detects native form fields and contenteditable targets", () => {
-    const input = {
-      closest: (selector: string) =>
-        selector === "input, textarea, select" ? {} : null,
+describe("getSettaBadgeRefreshFolderPaths", () => {
+  it("includes the root path and expanded folder paths only", () => {
+    const nodesByPath: Record<string, FileNode> = {
+      "/root": {
+        name: "root",
+        fullPath: "/root",
+        type: "folder",
+        parentPath: null,
+      },
+      "/root/folder-a": {
+        name: "folder-a",
+        fullPath: "/root/folder-a",
+        type: "folder",
+        parentPath: "/root",
+      },
+      "/root/file-a.txt": {
+        name: "file-a.txt",
+        fullPath: "/root/file-a.txt",
+        type: "file",
+        parentPath: "/root",
+      },
+      "/root/folder-b": {
+        name: "folder-b",
+        fullPath: "/root/folder-b",
+        type: "folder",
+        parentPath: "/root",
+      },
     };
-    const textarea = {
-      closest: (selector: string) =>
-        selector === "input, textarea, select" ? {} : null,
-    };
-    const editable = {
-      closest: (selector: string) =>
-        selector === '[contenteditable]:not([contenteditable="false"])'
-          ? {}
-          : null,
-    };
-    const editableByProperty = {
-      isContentEditable: true,
-      closest: () => null,
+    const expandedPaths = {
+      "/root/folder-a": true,
+      "/root/file-a.txt": true,
+      "/root/folder-b": false,
     };
 
-    expect(isEditableFileBrowserTarget(input)).toBe(true);
-    expect(isEditableFileBrowserTarget(textarea)).toBe(true);
-    expect(isEditableFileBrowserTarget(editable)).toBe(true);
-    expect(isEditableFileBrowserTarget(editableByProperty)).toBe(true);
-  });
-
-  it("detects CodeMirror editor descendants", () => {
-    const content = {
-      closest: (selector: string) => (selector === ".cm-editor" ? {} : null),
-    };
-
-    expect(isEditableFileBrowserTarget(content)).toBe(true);
-  });
-
-  it("returns false for non-editable targets", () => {
-    const node = {
-      closest: () => null,
-    };
-    expect(isEditableFileBrowserTarget(node)).toBe(false);
-    expect(isEditableFileBrowserTarget(null)).toBe(false);
+    expect(
+      getSettaBadgeRefreshFolderPaths({
+        rootPath: "/root",
+        expandedPaths,
+        nodesByPath,
+      }),
+    ).toEqual(["/root", "/root/folder-a"]);
   });
 });
 
-describe("file browser transfer guards", () => {
-  it("skips move requests when source and destination folders are the same", () => {
+describe("file browser loading path ownership", () => {
+  it("builds an owner token from root and folder request ids", () => {
     expect(
-      shouldSkipFileBrowserTransfer({
-        operation: "move",
-        sourceParentPath: "/root/folder",
-        destinationFolderPath: "/root/folder",
+      buildFileBrowserLoadingPathOwner({
+        rootRequestId: 7,
+        folderRequestId: 3,
+      }),
+    ).toBe("7:3");
+  });
+
+  it("matches ownership only when the latest request owner is unchanged", () => {
+    const loadingPathOwnerByPath = { "/root/folder": "2:1" };
+    expect(
+      isOwnedFileBrowserLoadingPath({
+        loadingPathOwnerByPath,
+        folderPath: "/root/folder",
+        requestOwner: "2:1",
       }),
     ).toBe(true);
     expect(
-      shouldSkipFileBrowserTransfer({
-        operation: "copy",
-        sourceParentPath: "/root/folder",
-        destinationFolderPath: "/root/folder",
+      isOwnedFileBrowserLoadingPath({
+        loadingPathOwnerByPath,
+        folderPath: "/root/folder",
+        requestOwner: "3:1",
       }),
     ).toBe(false);
   });
+});
 
-  it("refreshes root only when a transfer touches root contents", () => {
-    expect(
-      shouldRefreshRootAfterFileBrowserTransfer({
-        rootPath: "/root",
-        sourceParentPath: "/root/folder",
-        destinationFolderPath: "/root/other",
+describe("forEachWithConcurrencyLimit", () => {
+  it("runs all tasks while capping max in-flight concurrency", async () => {
+    const items = [1, 2, 3, 4, 5, 6];
+    let activeCount = 0;
+    let maxActiveCount = 0;
+    const completed: number[] = [];
+
+    await forEachWithConcurrencyLimit({
+      items,
+      limit: 2,
+      run: async (item) => {
+        activeCount += 1;
+        if (activeCount > maxActiveCount) {
+          maxActiveCount = activeCount;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        completed.push(item);
+        activeCount -= 1;
+      },
+    });
+
+    expect(maxActiveCount).toBeLessThanOrEqual(2);
+    expect([...completed].sort((a, b) => a - b)).toEqual(items);
+  });
+
+  it("throws when the concurrency limit is less than one", async () => {
+    await expect(
+      forEachWithConcurrencyLimit({
+        items: [1],
+        limit: 0,
+        run: async () => {},
       }),
-    ).toBe(false);
-    expect(
-      shouldRefreshRootAfterFileBrowserTransfer({
-        rootPath: "/root",
-        sourceParentPath: "/root",
-        destinationFolderPath: "/root/other",
-      }),
-    ).toBe(true);
-    expect(
-      shouldRefreshRootAfterFileBrowserTransfer({
-        rootPath: "/root",
-        sourceParentPath: "/root/folder",
-        destinationFolderPath: "/root",
-      }),
-    ).toBe(true);
+    ).rejects.toThrow("Concurrency limit must be at least 1.");
   });
 });

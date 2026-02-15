@@ -120,8 +120,6 @@ def default_section_allowlist() -> list[SectionType]:
         SectionType.TextBlock,
         SectionType.Draw,
         SectionType.MetaControl,
-        SectionType.TaskBoard,
-        SectionType.Spreadsheet,
     ]
 
 
@@ -129,8 +127,6 @@ def default_meta_control_allowlist() -> list[CodeObjType]:
     return [
         CodeObjType.CodeParam,
         CodeObjType.TextParam,
-        CodeObjType.DateParam,
-        CodeObjType.TimeParam,
         CodeObjType.TextAreaParam,
         CodeObjType.SliderParam,
         CodeObjType.RotaryParam,
@@ -214,8 +210,6 @@ def default_code_obj_representation(
 ) -> CodeObjValueRepresentationMode:
     if code_obj_type in (
         CodeObjType.TextParam,
-        CodeObjType.DateParam,
-        CodeObjType.TimeParam,
         CodeObjType.TextAreaParam,
         CodeObjType.PasswordParam,
         CodeObjType.ColorPickerParam,
@@ -314,8 +308,6 @@ def _is_code_obj_value_representation_supported(
         )
     if code_obj_type in (
         CodeObjType.TextParam,
-        CodeObjType.DateParam,
-        CodeObjType.TimeParam,
         CodeObjType.TextAreaParam,
         CodeObjType.PasswordParam,
         CodeObjType.ColorPickerParam,

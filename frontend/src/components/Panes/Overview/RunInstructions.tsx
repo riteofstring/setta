@@ -111,8 +111,6 @@ const META_CONTROL_CODE_OBJ_TYPES: CodeObjType[] = [
   CodeObjTypeEnum.RotaryParam,
   CodeObjTypeEnum.SwitchParam,
   CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
   CodeObjTypeEnum.TextAreaParam,
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.PasswordParam,
@@ -127,8 +125,6 @@ const META_CONTROL_CODE_OBJ_LABELS: Record<MetaControlCodeObjType, string> = {
   [CodeObjTypeEnum.RotaryParam]: "Rotary",
   [CodeObjTypeEnum.SwitchParam]: "Switch",
   [CodeObjTypeEnum.TextParam]: "Text Input",
-  [CodeObjTypeEnum.DateParam]: "Date Input",
-  [CodeObjTypeEnum.TimeParam]: "Time Input",
   [CodeObjTypeEnum.TextAreaParam]: "Text Area",
   [CodeObjTypeEnum.CodeParam]: "Code Input",
   [CodeObjTypeEnum.PasswordParam]: "Password Field",
@@ -139,8 +135,6 @@ const META_CONTROL_CODE_OBJ_LABELS: Record<MetaControlCodeObjType, string> = {
 const CODEGEN_CODE_OBJ_TYPES: CodeObjType[] = [
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.TextParam,
-  CodeObjTypeEnum.DateParam,
-  CodeObjTypeEnum.TimeParam,
   CodeObjTypeEnum.ButtonParam,
   CodeObjTypeEnum.SliderParam,
   CodeObjTypeEnum.RotaryParam,
@@ -1478,8 +1472,6 @@ function getCodeObjRepresentationOptions(
   }
   if (
     codeObjType === CodeObjTypeEnum.TextParam ||
-    codeObjType === CodeObjTypeEnum.DateParam ||
-    codeObjType === CodeObjTypeEnum.TimeParam ||
     codeObjType === CodeObjTypeEnum.TextAreaParam ||
     codeObjType === CodeObjTypeEnum.PasswordParam ||
     codeObjType === CodeObjTypeEnum.ColorPickerParam

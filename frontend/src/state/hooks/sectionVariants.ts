@@ -48,7 +48,6 @@ export function getTextBlockText(
     );
   return {
     format: impl.format,
-    masterFontSizePx: impl.masterFontSizePx,
     headingAsSectionName: impl.headingAsSectionName,
     metaControlStyle: impl.metaControlStyle,
     text: impl.text,
