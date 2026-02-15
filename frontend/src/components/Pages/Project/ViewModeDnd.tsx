@@ -1,3 +1,7 @@
+import {
+  RestrictToHorizontalAxis,
+  RestrictToVerticalAxis,
+} from "@dnd-kit/abstract/modifiers";
 import { PointerSensor } from "@dnd-kit/dom";
 import { arrayMove } from "@dnd-kit/helpers";
 import {
@@ -79,6 +83,14 @@ function SortableListProviderClient({
     direction === "horizontal"
       ? horizontalListSortingStrategy
       : verticalListSortingStrategy;
+  const modifiers = useMemo(
+    () => [
+      direction === "horizontal"
+        ? RestrictToHorizontalAxis
+        : RestrictToVerticalAxis,
+    ],
+    [direction],
+  );
 
   function handleDragEnd(event: DragEndEvent) {
     if (!enabled) {
@@ -98,6 +110,7 @@ function SortableListProviderClient({
   return (
     <DragDropProvider
       sensors={sensors}
+      modifiers={modifiers}
       dndContext={dndContext}
       onDragEnd={handleDragEnd}
     >
