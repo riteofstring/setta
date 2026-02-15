@@ -6,7 +6,6 @@ from pathlib import Path
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
-from setta.routers.app_gen_extensions import _iter_skill_roots
 from setta.routers.dependencies import AppStateFromRequest, require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
@@ -17,6 +16,7 @@ from setta.utils.init_status import (
     get_auth_refresh_status,
 )
 from setta.utils.paths import get_setta_paths
+from setta.utils.skill_roots import iter_skill_roots
 from setta.utils.setta_home import resolve_setta_home
 from setta.utils.user_config import load_setta_user_config
 
@@ -53,7 +53,7 @@ def _build_allowed_reveal_roots() -> list[Path]:
         paths.workspace_root.resolve(strict=False),
         paths.setta_files_root.resolve(strict=False),
     ]
-    for _, _, skill_root in _iter_skill_roots(paths.workspace_root):
+    for _, _, skill_root in iter_skill_roots(paths.workspace_root):
         roots.append(skill_root.resolve(strict=False))
     unique_roots: list[Path] = []
     seen: set[Path] = set()

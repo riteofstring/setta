@@ -60,6 +60,8 @@ class TestAppGenExtensionsRoutes:
 
             assert content.skillId == "workspace_agents_skills::prompting"
             assert "Use concise constraints." in content.content
+            assert content.truncated is False
+            assert content.originalSizeBytes > 0
 
     def test_rejects_path_traversal(self, monkeypatch: pytest.MonkeyPatch) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -196,3 +198,28 @@ class TestAppGenExtensionsRoutes:
 
             assert len(rows) == 1
             assert rows[0].description == "Read only first useful line."
+
+    def test_truncates_large_skill_content_with_metadata(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            skill_dir = workspace_root / "skills" / "large-doc"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            oversized_content = "A" * (app_gen_extensions._MAX_SKILL_CONTENT_PREVIEW_BYTES + 5000)
+            (skill_dir / "SKILL.md").write_text(oversized_content, encoding="utf-8")
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+            content = read_app_gen_skill_content(
+                workspace_root=workspace_root,
+                skill_id="workspace_skills::large-doc",
+            )
+
+            assert content.skillId == "workspace_skills::large-doc"
+            assert content.truncated is True
+            assert content.originalSizeBytes == len(oversized_content)
+            assert len(content.content) == app_gen_extensions._MAX_SKILL_CONTENT_PREVIEW_BYTES

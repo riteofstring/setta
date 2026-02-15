@@ -990,6 +990,13 @@ export function AppConfigPane() {
         const userPrompt = appGenerationPrompt.trim();
         const effectivePrompt =
           userPrompt || buildDefaultAppGenerationPrompt(mode);
+        const includeReferenceImage = mode === "json_render_with_image";
+        const referenceImageUrl = includeReferenceImage
+          ? appGenerationReferenceImageUrl.trim() || null
+          : null;
+        const referenceImageNotes = includeReferenceImage
+          ? appGenerationReferenceImageNotes.trim() || null
+          : null;
         const requestSpecSeed = buildSpecSeed({
           draftSpec,
           persistedSpec: appSpec,
@@ -1005,9 +1012,8 @@ export function AppConfigPane() {
             body: JSON.stringify({
               prompt: effectivePrompt,
               mode,
-              referenceImageUrl: appGenerationReferenceImageUrl.trim() || null,
-              referenceImageNotes:
-                appGenerationReferenceImageNotes.trim() || null,
+              referenceImageUrl,
+              referenceImageNotes,
               context: {
                 catalogSummary,
                 sectionsSummary,
@@ -1153,13 +1159,20 @@ export function AppConfigPane() {
           );
           return;
         }
+        const includeReferenceImage = mode === "json_render_with_image";
+        const referenceImageUrl = includeReferenceImage
+          ? appGenerationReferenceImageUrl.trim() || null
+          : null;
+        const referenceImageNotes = includeReferenceImage
+          ? appGenerationReferenceImageNotes.trim() || null
+          : null;
         const prompt = buildHiddenChatAppGenerationPrompt({
           mode,
           prompt: appGenerationPrompt,
           catalogSummary,
           sectionsSummary,
-          referenceImageUrl: appGenerationReferenceImageUrl.trim() || null,
-          referenceImageNotes: appGenerationReferenceImageNotes.trim() || null,
+          referenceImageUrl,
+          referenceImageNotes,
         });
         const targetChatId = engineSelection.forceNewChat
           ? null
@@ -1176,9 +1189,8 @@ export function AppConfigPane() {
           null,
           {
             mode,
-            referenceImageUrl: appGenerationReferenceImageUrl.trim() || null,
-            referenceImageNotes:
-              appGenerationReferenceImageNotes.trim() || null,
+            referenceImageUrl,
+            referenceImageNotes,
           },
         );
         if (!chatId) {
@@ -1299,6 +1311,7 @@ export function AppConfigPane() {
     APP_GENERATION_MODE_OPTIONS.find(
       (entry) => entry.mode === activeGenerationMode,
     ) ?? APP_GENERATION_MODE_OPTIONS[0];
+  const showStreamingToggle = !isJsonRenderMode(activeGenerationMode);
   const generateButtonLabel = isJsonRenderMode(activeGenerationMode)
     ? "Generate In Pane"
     : "Send To Chat";
@@ -1332,21 +1345,23 @@ export function AppConfigPane() {
           >
             {generating ? "Generating..." : generateButtonLabel}
           </button>
-          <div className="flex select-none items-center gap-2 rounded-full border border-setta-200 bg-white/60 px-3 py-1 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-300 dark:hover:bg-setta-800">
-            <span>Streaming mode</span>
-            <Switch.Root
-              aria-label="Streaming mode"
-              className={STREAMING_TOGGLE_ROOT_CLASSES}
-              checked={appSpecStreamingEnabled}
-              onCheckedChange={(checked) =>
-                useLocalStorage.setState({
-                  appSpecStreamingEnabled: checked,
-                })
-              }
-            >
-              <Switch.Thumb className={STREAMING_TOGGLE_THUMB_CLASSES} />
-            </Switch.Root>
-          </div>
+          {showStreamingToggle ? (
+            <div className="flex select-none items-center gap-2 rounded-full border border-setta-200 bg-white/60 px-3 py-1 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-100 dark:border-setta-700 dark:bg-setta-950/40 dark:text-setta-300 dark:hover:bg-setta-800">
+              <span>Streaming mode</span>
+              <Switch.Root
+                aria-label="Streaming mode"
+                className={STREAMING_TOGGLE_ROOT_CLASSES}
+                checked={appSpecStreamingEnabled}
+                onCheckedChange={(checked) =>
+                  useLocalStorage.setState({
+                    appSpecStreamingEnabled: checked,
+                  })
+                }
+              >
+                <Switch.Thumb className={STREAMING_TOGGLE_THUMB_CLASSES} />
+              </Switch.Root>
+            </div>
+          ) : null}
         </div>
       </header>
 
@@ -1390,9 +1405,7 @@ export function AppConfigPane() {
             Empty prompt uses a mode-specific default baseline.
           </span>
         </label>
-        {(activeGenerationMode === "json_render_with_image" ||
-          appGenerationReferenceImageUrl.trim() ||
-          appGenerationReferenceImageNotes.trim()) && (
+        {activeGenerationMode === "json_render_with_image" && (
           <div className="grid gap-2">
             <label className="flex flex-col gap-1 text-xs">
               Reference image URL

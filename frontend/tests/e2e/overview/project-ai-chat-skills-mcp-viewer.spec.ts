@@ -494,7 +494,9 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
   await expect(refreshButton).toBeDisabled();
   await page.waitForTimeout(100);
   expect(skillsRequestCount).toBe(2);
-  await expect(page.getByRole("button", { name: /fresh-skill/i })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /fresh-skill/i }),
+  ).toBeVisible();
   await expect(refreshButton).toBeEnabled();
   expect(skillsRequestCount).toBe(2);
 });
@@ -564,5 +566,94 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
     .click();
   await expect(
     page.getByText("Failed to reveal path: Reveal is disabled for this path."),
+  ).toBeVisible();
+});
+
+test("project ai chat mounts markdown viewer lazily and shows truncation metadata", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_skills::ui-layout",
+          name: "ui-layout",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
+          relativePath: "ui-layout",
+          description: "Create dense dashboard layouts.",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {
+          setta: {
+            transport: "sse",
+            url: "http://127.0.0.1:8000/mcp",
+          },
+        },
+        defaultMcpServerIds: ["setta"],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await page.route("**/api/settaHomeInfo", async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Unavailable" }),
+    });
+  });
+
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: payload.skillId ?? "workspace_skills::ui-layout",
+        content: "# UI Layout\n\nPreview body",
+        truncated: true,
+        originalSizeBytes: 900000,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+
+  await expect(page.getByText("Unavailable")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Reveal path for Active setta_files/i }),
+  ).toBeDisabled();
+
+  const skillMarkdownToggle = page.getByRole("button", {
+    name: "Skill Markdown Viewer",
+  });
+  await expect(skillMarkdownToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByLabel("Skill Markdown Content")).toHaveCount(0);
+
+  await skillMarkdownToggle.click();
+
+  await expect(page.getByLabel("Skill Markdown Content")).toContainText(
+    "Preview body",
+  );
+  await expect(
+    page.getByText("Preview truncated from 900,000 bytes."),
   ).toBeVisible();
 });

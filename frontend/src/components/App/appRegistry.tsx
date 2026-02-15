@@ -350,43 +350,55 @@ function ConfigScope({ element, children }: AppComponentProps) {
   );
 }
 
+function hasNonEmptyChildrenMetadata(element: RawElementProps | null): boolean {
+  if (!element) {
+    return false;
+  }
+  const childKeys = element.children;
+  if (Array.isArray(childKeys)) {
+    return childKeys.length > 0;
+  }
+  if (
+    childKeys === null ||
+    childKeys === undefined ||
+    typeof childKeys === "boolean"
+  ) {
+    return false;
+  }
+  if (typeof childKeys === "string") {
+    return childKeys.trim().length > 0;
+  }
+  return true;
+}
+
 function Tabs({ element, children }: AppComponentProps) {
   const props = element.props ?? {};
   const defaultKey =
     typeof props.defaultKey === "string" ? props.defaultKey : null;
   const className = typeof props.className === "string" ? props.className : "";
-
-  const hasRenderableNode = (node: React.ReactNode): boolean => {
-    if (node === null || node === undefined || typeof node === "boolean") {
-      return false;
-    }
-    if (typeof node === "string") {
-      return node.trim().length > 0;
-    }
-    if (typeof node === "number") {
-      return true;
-    }
-    if (Array.isArray(node)) {
-      return node.some((entry) => hasRenderableNode(entry));
-    }
-    return React.isValidElement(node);
-  };
-
-  const tabs = React.Children.toArray(children).filter(React.isValidElement);
-  const resolvedTabs = tabs
-    .map((child, index) => {
-      const tabElement = child.props?.element ?? null;
-      const tabKey =
-        (tabElement && typeof tabElement.key === "string" && tabElement.key) ||
-        (typeof child.key === "string" ? child.key : `tab-${index}`);
-      const title =
-        tabElement?.props && typeof tabElement.props.title === "string"
-          ? tabElement.props.title
-          : `Tab ${index + 1}`;
-      const hasContent = hasRenderableNode(child.props?.children);
-      return { key: tabKey, title, child, hasContent };
-    })
-    .filter((tab) => tab.hasContent);
+  const tabs = React.useMemo(() => {
+    return React.Children.toArray(children).filter(React.isValidElement);
+  }, [children]);
+  const resolvedTabs = React.useMemo(() => {
+    return tabs
+      .map((child, index) => {
+        const tabElement = child.props?.element ?? null;
+        const tabKey =
+          (tabElement &&
+            typeof tabElement.key === "string" &&
+            tabElement.key) ||
+          (typeof child.key === "string" ? child.key : `tab-${index}`);
+        const title =
+          tabElement?.props && typeof tabElement.props.title === "string"
+            ? tabElement.props.title
+            : `Tab ${index + 1}`;
+        const hasContent =
+          hasNonEmptyChildrenMetadata(tabElement) ||
+          React.Children.count(child.props?.children) > 0;
+        return { key: tabKey, title, child, hasContent };
+      })
+      .filter((tab) => tab.hasContent);
+  }, [tabs]);
 
   if (resolvedTabs.length === 0) {
     return null;

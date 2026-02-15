@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   filterSkills,
+  groupMcpServersByConfigPath,
   groupSkillsByRootPath,
 } from "./projectChatSkillsMcpViewerUtils";
 
@@ -69,5 +70,22 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       "user_codex_skills::frontend-design",
     ]);
     expect(groups[1]?.rootPath).toBe("/workspace/skills");
+  });
+
+  it("keeps missing MCP config path nullable instead of using a sentinel string", () => {
+    const groups = groupMcpServersByConfigPath({
+      mcpServers: {
+        setta: {
+          transport: "sse",
+          url: "http://127.0.0.1:8000/mcp",
+        },
+      },
+      mcpConfigPath: null,
+      settaFilesLocation: "local",
+    });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.configPath).toBeNull();
+    expect(groups[0]?.servers[0]?.endpoint).toBe("http://127.0.0.1:8000/mcp");
   });
 });

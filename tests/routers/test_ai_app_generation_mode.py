@@ -33,6 +33,19 @@ class TestAIAppGenerationModeHelpers:
         )
         assert prompt is None
 
+    def test_build_prompt_ignores_reference_image_for_non_image_modes(self) -> None:
+        prompt = _build_app_generation_mode_prompt(
+            mode="prompt_builder",
+            app_spec_streaming_enabled=True,
+            reference_image_url="https://example.com/reference.png",
+            reference_image_notes="Ignore this outside image mode.",
+        )
+        if prompt is None:
+            raise AssertionError("Expected an app-generation mode prompt")
+        assert "mode: prompt_builder" in prompt
+        assert "Reference image URL" not in prompt
+        assert "Ignore this outside image mode." not in prompt
+
     def test_reference_image_inputs_are_trimmed_and_empty_values_are_normalized(
         self,
     ) -> None:

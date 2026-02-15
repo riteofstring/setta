@@ -100,9 +100,7 @@ export function buildHiddenChatAppGenerationPrompt({
   const effectivePrompt = normalizedPrompt || fallbackPrompt;
 
   const referenceImageLines =
-    mode === "json_render_with_image" ||
-    referenceImageUrl ||
-    referenceImageNotes
+    mode === "json_render_with_image"
       ? [
           "Reference-image context:",
           referenceImageUrl

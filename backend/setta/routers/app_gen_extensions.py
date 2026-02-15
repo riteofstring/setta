@@ -1,3 +1,4 @@
+import codecs
 import os
 from pathlib import Path
 
@@ -8,10 +9,12 @@ from setta.routers.dependencies import require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 from setta.utils.paths import get_setta_paths
+from setta.utils.skill_roots import iter_skill_roots
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
 
 _SKIP_SEGMENTS = {"node_modules", ".git", "setta_files", "dist", "build"}
+_MAX_SKILL_CONTENT_PREVIEW_BYTES = 262_144
 
 
 class AppGenSkillEntry(BaseModel):
@@ -30,48 +33,8 @@ class GetAppGenSkillContentRequest(BaseModel):
 class AppGenSkillContent(BaseModel):
     skillId: str
     content: str
-
-
-def _iter_skill_roots(workspace_root: Path) -> list[tuple[str, str, Path]]:
-    home = Path.home()
-    candidates = [
-        ("workspace_skills", "Workspace skills", workspace_root / "skills"),
-        (
-            "workspace_agents_skills",
-            "Workspace .agents/skills",
-            workspace_root / ".agents" / "skills",
-        ),
-        ("user_agents_skills", "User ~/.agents/skills", home / ".agents" / "skills"),
-        ("user_codex_skills", "User ~/.codex/skills", home / ".codex" / "skills"),
-    ]
-    env_candidates = [
-        (
-            "agents_home_skills",
-            "AGENTS_HOME skills",
-            os.environ.get("AGENTS_HOME"),
-        ),
-        (
-            "codex_home_skills",
-            "CODEX_HOME skills",
-            os.environ.get("CODEX_HOME"),
-        ),
-    ]
-    for root_id, label, raw_path in env_candidates:
-        if not raw_path:
-            continue
-        base_path = Path(raw_path).expanduser().resolve(strict=False)
-        root_path = base_path if base_path.name == "skills" else base_path / "skills"
-        candidates.append((root_id, label, root_path))
-
-    roots: list[tuple[str, str, Path]] = []
-    seen_paths: set[Path] = set()
-    for root_id, label, root_path in candidates:
-        resolved = root_path.expanduser().resolve(strict=False)
-        if resolved in seen_paths:
-            continue
-        seen_paths.add(resolved)
-        roots.append((root_id, label, resolved))
-    return roots
+    truncated: bool = False
+    originalSizeBytes: int
 
 
 def _extract_skill_description(skill_doc: Path) -> str:
@@ -97,7 +60,7 @@ def _iter_skill_docs(root_path: Path):
 
 def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
     rows: list[AppGenSkillEntry] = []
-    for root_id, label, root_path in _iter_skill_roots(workspace_root):
+    for root_id, label, root_path in iter_skill_roots(workspace_root):
         if not root_path.exists() or not root_path.is_dir():
             continue
         for skill_doc in _iter_skill_docs(root_path):
@@ -136,7 +99,7 @@ def read_app_gen_skill_content(
     if "::" not in raw_id:
         raise ValueError("Invalid skill id.")
     root_id, relative_path = raw_id.split("::", 1)
-    roots = {entry[0]: entry[2] for entry in _iter_skill_roots(workspace_root)}
+    roots = {entry[0]: entry[2] for entry in iter_skill_roots(workspace_root)}
     if root_id not in roots:
         raise KeyError(f"Unknown skill root: {root_id}")
     root_path = roots[root_id].resolve(strict=False)
@@ -151,10 +114,25 @@ def read_app_gen_skill_content(
     if not skill_doc.exists():
         raise KeyError(f"Missing SKILL.md for {raw_id}")
     try:
-        content = skill_doc.read_text(encoding="utf-8")
+        original_size_bytes = skill_doc.stat().st_size
+        with skill_doc.open("rb") as handle:
+            preview_bytes = handle.read(_MAX_SKILL_CONTENT_PREVIEW_BYTES + 1)
     except OSError as exc:
         raise ValueError(str(exc)) from exc
-    return AppGenSkillContent(skillId=raw_id, content=content)
+    truncated = original_size_bytes > _MAX_SKILL_CONTENT_PREVIEW_BYTES
+    if truncated:
+        preview_bytes = preview_bytes[:_MAX_SKILL_CONTENT_PREVIEW_BYTES]
+    decoder = codecs.getincrementaldecoder("utf-8")()
+    try:
+        content = decoder.decode(preview_bytes, final=not truncated)
+    except UnicodeDecodeError as exc:
+        raise ValueError(str(exc)) from exc
+    return AppGenSkillContent(
+        skillId=raw_id,
+        content=content,
+        truncated=truncated,
+        originalSizeBytes=original_size_bytes,
+    )
 
 
 @router.get(Route.GET_APP_GEN_SKILLS)

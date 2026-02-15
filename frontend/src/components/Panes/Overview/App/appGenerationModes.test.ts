@@ -35,7 +35,7 @@ describe("appGenerationModes", () => {
     );
   });
 
-  it("includes image + MCP guidance when building hidden chat prompts", () => {
+  it("does not leak image guidance in non-image hidden chat modes", () => {
     const prompt = buildHiddenChatAppGenerationPrompt({
       mode: "mcp_server",
       prompt: "Build a dashboard from Figma.",
@@ -49,9 +49,27 @@ describe("appGenerationModes", () => {
     expect(prompt).toContain("App generation mode: mcp_server");
     expect(prompt).not.toContain("setta__stream_app_definition");
     expect(prompt).not.toContain("setta__set_app_definition");
-    expect(prompt).toContain("URL: https://example.com/reference.png");
-    expect(prompt).toContain("Prefer compact cards and wider gutters.");
+    expect(prompt).not.toContain("Reference-image context:");
+    expect(prompt).not.toContain("URL: https://example.com/reference.png");
+    expect(prompt).not.toContain("Prefer compact cards and wider gutters.");
     expect(prompt).toContain("Catalog: setta.app.default (version v1)");
+  });
+
+  it("includes image guidance for json+image hidden chat prompts", () => {
+    const prompt = buildHiddenChatAppGenerationPrompt({
+      mode: "json_render_with_image",
+      prompt: "Match the reference design.",
+      catalogSummary: "Catalog: setta.app.default (version v1)",
+      sectionsSummary:
+        "- Hero (section-hero) params: Title (title, type=TextParam)",
+      referenceImageUrl: "https://example.com/reference.png",
+      referenceImageNotes: "Prioritize spacing and typography scale.",
+    });
+
+    expect(prompt).toContain("App generation mode: json_render_with_image");
+    expect(prompt).toContain("Reference-image context:");
+    expect(prompt).toContain("URL: https://example.com/reference.png");
+    expect(prompt).toContain("Prioritize spacing and typography scale.");
   });
 
   it("recognizes json-render modes", () => {

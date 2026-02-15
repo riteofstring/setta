@@ -80,7 +80,9 @@ test("invalid persisted app-generation mode falls back to json-render at runtime
 
   const streamRequests: Array<Record<string, unknown>> = [];
   await page.route("**/api/streamAppSpec", async (route) => {
-    streamRequests.push(route.request().postDataJSON() as Record<string, unknown>);
+    streamRequests.push(
+      route.request().postDataJSON() as Record<string, unknown>,
+    );
     await route.fulfill({
       status: 200,
       contentType: "application/x-ndjson",
@@ -239,4 +241,24 @@ test("json-render mode does not eager-load AI chat config until chat-backed mode
         externalAgentHealthCalls,
     )
     .toBeGreaterThan(0);
+});
+
+test("streaming toggle is hidden for in-pane JSON modes and shown for chat-backed modes", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "App",
+    overviewVis: true,
+    appGenerationMode: "json_render",
+  });
+  await ensureAppReady(page);
+
+  await expect(page.getByText("App Config")).toBeVisible();
+  await expect(page.getByLabel("Streaming mode")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Prompt Builder" }).click();
+  await expect(page.getByLabel("Streaming mode")).toBeVisible();
+
+  await page.getByRole("button", { name: "JSON + Image" }).click();
+  await expect(page.getByLabel("Streaming mode")).toHaveCount(0);
 });

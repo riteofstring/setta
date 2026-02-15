@@ -104,6 +104,110 @@ test("prompt-builder mode sends hidden app generation request to chat", async ({
   );
 });
 
+test("prompt-builder mode ignores stale reference-image context from image mode", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "App",
+    overviewVis: true,
+    appGenerationMode: "json_render_with_image",
+    appGenerationPrompt: "Build a compact analytics dashboard with two cards.",
+    appGenerationReferenceImageUrl: "https://example.com/stale-reference.png",
+    appGenerationReferenceImageNotes: "This should not leak to prompt builder.",
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          "llm-primary": {
+            id: "llm-primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: "OPENAI_API_KEY",
+            mcpServerIds: [],
+          },
+        },
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: "llm-primary",
+      }),
+    });
+  });
+  await page.route("**/api/llm/apiKeys", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        OPENAI_API_KEY: "pw-key",
+      }),
+    });
+  });
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-primary",
+          name: "Primary",
+          engineType: "setta_llm",
+          settaLlmConfigId: "llm-primary",
+          externalAgentConfigId: null,
+          defaults: { thinking: null },
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getExternalAgentHealth", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+
+  const capturedRequests: Array<Record<string, unknown>> = [];
+  await page.route("**/api/getLLMResponse", async (route) => {
+    const payload = route.request().postDataJSON() as Record<string, unknown>;
+    capturedRequests.push(payload);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(`pw-chat-${Date.now()}`),
+    });
+  });
+
+  await ensureAppReady(page);
+  await expect(page.getByText("App Config")).toBeVisible();
+
+  await page.getByRole("button", { name: "Prompt Builder" }).click();
+  await expect(page.getByLabel("Reference image URL")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Send To Chat" }).click();
+  await expect(
+    page.getByText("App generation request sent to chat."),
+  ).toBeVisible();
+
+  expect(capturedRequests.length).toBe(1);
+  const request = capturedRequests[0];
+  expect(request.appGenerationMode).toBe("prompt_builder");
+  expect(request.appGenerationReferenceImageUrl).toBeNull();
+  expect(request.appGenerationReferenceImageNotes).toBeNull();
+
+  const message = request.message as {
+    content?: Array<{ type?: string; text?: string }>;
+  };
+  const textContent = (message.content ?? [])
+    .filter((part) => part.type === "text")
+    .map((part) => part.text ?? "")
+    .join("\n");
+  expect(textContent).not.toContain("Reference-image context:");
+  expect(textContent).not.toContain("stale-reference.png");
+});
+
 test("prompt-builder mode surfaces backend hidden-generation error detail", async ({
   page,
 }) => {

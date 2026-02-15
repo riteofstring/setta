@@ -83,3 +83,24 @@ Test and verification coverage added/updated:
 - Updated skills viewer unit/perf tests and Playwright mocks for the leaner skill entry payload (without `skillPath`).
 - Added Playwright coverage for hidden-generation error-detail UX, invalid persisted mode fallback/self-heal, and refresh-button loading lockout behavior.
 - CDP visual verification completed for App Config mode fallback behavior and Project AI Skills refresh disablement during in-flight loads.
+
+## 2026-02-17T02:54:34Z
+
+Status: Implemented
+
+Accepted findings fixed in this batch:
+- Enforced strict reference-image mode isolation so image URL/notes are only included for `json_render_with_image` across App Config prompt building, hidden-chat generation payloads, and backend AI mode prompting.
+- Removed misleading in-pane JSON streaming toggle exposure by showing `Streaming mode` only for chat-backed modes where it has behavioral effect.
+- Added explicit vision-capability gating for `/streamAppSpec` image mode and now return a clear 400 guidance message when the selected model cannot accept image inputs.
+- Routed `/revealPathInOsFileExplorer` through launcher origin to align with setta-home/status launcher-routed behavior in multi-origin/dev override setups.
+- Refactored skill-root discovery into a shared utility module and removed cross-router imports of private helpers.
+- Added server-side bounded `SKILL.md` preview loading with truncation metadata (`truncated`, `originalSizeBytes`) to prevent unbounded memory/UI load from oversized skill docs.
+- Updated Skills/MCP viewer to mount CodeMirror only when accordion is open, display truncation notices, and replace `"Unavailable"` magic-path sentinel logic with nullable config-path state.
+- Reduced App Tabs hot-path render work by replacing recursive renderability scans with memoized tab resolution and cheaper children-availability heuristics.
+
+Test and verification coverage added/updated:
+- Added backend route/unit coverage for non-vision image-mode rejection, non-image-mode reference-image ignoring, non-image-mode AI prompt behavior, and large skill-content truncation metadata.
+- Added frontend unit coverage for non-image hidden prompt isolation, launcher reveal-route URL routing, and nullable MCP config-path grouping behavior.
+- Added Playwright coverage for JSON-mode streaming-toggle visibility rules, stale reference-image non-leakage into Prompt Builder, and lazy markdown mount + truncation notice behavior in Skills/MCP viewer.
+- Re-ran targeted backend pytest suites, frontend Vitest suites, and Playwright overview suites; all passing.
+- CDP visual verification completed for App Config mode control visibility and Skills/MCP markdown viewer lazy-mount behavior.

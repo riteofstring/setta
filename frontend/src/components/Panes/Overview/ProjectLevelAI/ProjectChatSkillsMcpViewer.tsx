@@ -22,18 +22,21 @@ import {
 
 type PathGroupHeaderProps = {
   title: string;
-  path: string;
-  onCopyPath: (path: string) => void;
-  onRevealPath: (path: string) => void;
+  path: string | null;
+  onCopyPath: (path: string | null) => void;
+  onRevealPath: (path: string | null) => void;
 };
 
 const SKILL_MARKDOWN_VIEWER_STORAGE_KEY =
   "setta.projectChatSkillsMcpViewer.skillMarkdownViewerOpen";
 const SKILL_MARKDOWN_VIEWER_VALUE = "skill-markdown-viewer";
 
-function isActionablePath(path: string): boolean {
+function isActionablePath(path: string | null): path is string {
+  if (typeof path !== "string") {
+    return false;
+  }
   const normalizedPath = path.trim().toLowerCase();
-  return normalizedPath !== "" && normalizedPath !== "unavailable";
+  return normalizedPath !== "";
 }
 
 function PathGroupHeader({
@@ -43,6 +46,7 @@ function PathGroupHeader({
   onRevealPath,
 }: PathGroupHeaderProps) {
   const actionablePath = isActionablePath(path);
+  const displayPath = path && path.trim() ? path : "Unavailable";
   const iconButtonClassName =
     "grid h-5 w-5 place-items-center rounded border border-setta-200 text-setta-500 opacity-0 transition-all duration-150 group-hover/header:opacity-100 group-focus-within/header:opacity-100 hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200";
   return (
@@ -53,9 +57,9 @@ function PathGroupHeader({
         </div>
         <div
           className="truncate font-mono text-[10px] text-setta-400 dark:text-setta-500"
-          title={path}
+          title={displayPath}
         >
-          {path}
+          {displayPath}
         </div>
       </div>
       <div className="flex flex-none items-center gap-1">
@@ -94,6 +98,10 @@ export function ProjectChatSkillsMcpViewer() {
   const [skillFilter, setSkillFilter] = useState("");
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);
   const [selectedSkillContent, setSelectedSkillContent] = useState("");
+  const [selectedSkillContentTruncated, setSelectedSkillContentTruncated] =
+    useState(false);
+  const [selectedSkillOriginalSizeBytes, setSelectedSkillOriginalSizeBytes] =
+    useState<number | null>(null);
   const [skillContentLoading, setSkillContentLoading] = useState(false);
   const [isSkillMarkdownViewerOpen, setIsSkillMarkdownViewerOpen] = useState(
     () => {
@@ -136,6 +144,8 @@ export function ProjectChatSkillsMcpViewer() {
         setSkills([]);
         setSelectedSkillId(null);
         setSelectedSkillContent("");
+        setSelectedSkillContentTruncated(false);
+        setSelectedSkillOriginalSizeBytes(null);
         return;
       }
       const nextSkills = res.data;
@@ -167,6 +177,8 @@ export function ProjectChatSkillsMcpViewer() {
         skillContentRequestSequence.current += 1;
         setSkillContentLoading(false);
         setSelectedSkillContent("");
+        setSelectedSkillContentTruncated(false);
+        setSelectedSkillOriginalSizeBytes(null);
         return;
       }
       const requestSequence = skillContentRequestSequence.current + 1;
@@ -184,9 +196,17 @@ export function ProjectChatSkillsMcpViewer() {
         setSelectedSkillContent(
           detail ?? "Failed to load selected skill content.",
         );
+        setSelectedSkillContentTruncated(false);
+        setSelectedSkillOriginalSizeBytes(null);
         return;
       }
       setSelectedSkillContent(res.data.content);
+      const payloadRecord = res.data as Record<string, unknown>;
+      setSelectedSkillContentTruncated(payloadRecord.truncated === true);
+      const originalSize = payloadRecord.originalSizeBytes;
+      setSelectedSkillOriginalSizeBytes(
+        typeof originalSize === "number" ? originalSize : null,
+      );
     }
     void loadSkillContent();
   }, [selectedSkillId, skillsRevision]);
@@ -249,8 +269,12 @@ export function ProjectChatSkillsMcpViewer() {
     skillContentLoading || (skillsLoading && !selectedSkillId)
       ? "Loading skill content..."
       : selectedSkillContent || "Select a skill to preview SKILL.md.";
+  const skillPreviewTruncationNotice =
+    selectedSkillContentTruncated && selectedSkillOriginalSizeBytes !== null
+      ? `Preview truncated from ${selectedSkillOriginalSizeBytes.toLocaleString()} bytes.`
+      : null;
 
-  const copyPathToClipboard = useCallback((path: string) => {
+  const copyPathToClipboard = useCallback((path: string | null) => {
     if (!isActionablePath(path)) {
       return;
     }
@@ -271,7 +295,7 @@ export function ProjectChatSkillsMcpViewer() {
     })();
   }, []);
 
-  const revealPathInFileExplorer = useCallback(async (path: string) => {
+  const revealPathInFileExplorer = useCallback(async (path: string | null) => {
     if (!isActionablePath(path)) {
       return;
     }
@@ -401,22 +425,31 @@ export function ProjectChatSkillsMcpViewer() {
                     </Accordion.Trigger>
                   </Accordion.Header>
                   <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-                    <div className="h-36 min-h-[120px] resize-y overflow-hidden border-t border-setta-200 dark:border-setta-700">
-                      <CodeMirror
-                        aria-label="Skill Markdown Content"
-                        className="h-full"
-                        height="100%"
-                        value={skillPreviewContent}
-                        theme={codeMirrorTheme}
-                        extensions={markdownViewerExtensions}
-                        basicSetup={{
-                          lineNumbers: false,
-                          foldGutter: false,
-                          highlightActiveLine: false,
-                          tabSize: 4,
-                        }}
-                      />
-                    </div>
+                    {isSkillMarkdownViewerOpen ? (
+                      <div className="grid">
+                        {skillPreviewTruncationNotice ? (
+                          <div className="border-t border-setta-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-700 dark:border-setta-700 dark:bg-amber-900/20 dark:text-amber-300">
+                            {skillPreviewTruncationNotice}
+                          </div>
+                        ) : null}
+                        <div className="h-36 min-h-[120px] resize-y overflow-hidden border-t border-setta-200 dark:border-setta-700">
+                          <CodeMirror
+                            aria-label="Skill Markdown Content"
+                            className="h-full"
+                            height="100%"
+                            value={skillPreviewContent}
+                            theme={codeMirrorTheme}
+                            extensions={markdownViewerExtensions}
+                            basicSetup={{
+                              lineNumbers: false,
+                              foldGutter: false,
+                              highlightActiveLine: false,
+                              tabSize: 4,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
                   </Accordion.Content>
                 </Accordion.Item>
               </Accordion.Root>
@@ -439,7 +472,7 @@ export function ProjectChatSkillsMcpViewer() {
             ) : (
               mcpServerGroups.map((group, groupIndex) => (
                 <div
-                  key={group.configPath}
+                  key={group.configPath ?? "unavailable"}
                   className={groupIndex === 0 ? "" : "mt-3"}
                 >
                   <PathGroupHeader

@@ -65,7 +65,7 @@ type McpServerListEntry = {
 };
 
 type McpServersByConfigPath = {
-  configPath: string;
+  configPath: string | null;
   configLabel: string;
   servers: McpServerListEntry[];
 };
@@ -115,7 +115,7 @@ export function groupMcpServersByConfigPath({
   }
   return [
     {
-      configPath: mcpConfigPath ?? "Unavailable",
+      configPath: mcpConfigPath,
       configLabel: resolveMcpConfigLabel(settaFilesLocation),
       servers: serverEntries,
     },

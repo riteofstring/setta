@@ -69,6 +69,20 @@ def _json_error(status_code: int, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"message": message})
 
 
+def _supports_vision(
+    *,
+    model: str,
+    custom_llm_provider: str | None,
+) -> bool:
+    try:
+        return litellm.supports_vision(
+            model=model,
+            custom_llm_provider=custom_llm_provider,
+        )
+    except Exception:
+        return False
+
+
 def _build_system_prompt(
     *,
     catalog_summary: str,
@@ -285,13 +299,42 @@ async def route_stream_app_spec(
             status_code=status.HTTP_400_BAD_REQUEST,
             message="referenceImageNotes is too large. Reduce it or omit it.",
         )
+    image_mode_enabled = x.mode == "json_render_with_image"
+    effective_reference_image_url = (
+        reference_image_url if image_mode_enabled and reference_image_url else ""
+    )
+    effective_reference_image_notes = (
+        reference_image_notes if image_mode_enabled and reference_image_notes else ""
+    )
+    if effective_reference_image_url:
+        raw_model = request.get("model")
+        model = raw_model if isinstance(raw_model, str) else ""
+        raw_provider = request.get("custom_llm_provider")
+        custom_llm_provider = (
+            raw_provider if isinstance(raw_provider, str) else None
+        )
+        if not _supports_vision(
+            model=model,
+            custom_llm_provider=custom_llm_provider,
+        ):
+            return _json_error(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message=(
+                    "The selected model does not support image inputs. "
+                    "Use a vision-capable model or switch to JSON Render mode."
+                ),
+            )
     system_prompt = _build_system_prompt(
         catalog_summary=catalog_summary,
         sections_summary=sections_summary,
         current_spec_json=current_spec_json,
         mode=x.mode,
-        reference_image_url=reference_image_url if reference_image_url else None,
-        reference_image_notes=reference_image_notes if reference_image_notes else None,
+        reference_image_url=(
+            effective_reference_image_url if effective_reference_image_url else None
+        ),
+        reference_image_notes=(
+            effective_reference_image_notes if effective_reference_image_notes else None
+        ),
     )
 
     user_prompt = x.prompt.strip()
@@ -303,12 +346,12 @@ async def route_stream_app_spec(
 
     # Keep the payload intentionally simple (no tools) so the model produces raw patch lines.
     user_content: Any = user_prompt
-    if reference_image_url:
+    if effective_reference_image_url:
         user_content = [
             {"type": "text", "text": user_prompt},
             {
                 "type": "image_url",
-                "image_url": {"url": reference_image_url, "detail": "high"},
+                "image_url": {"url": effective_reference_image_url, "detail": "high"},
             },
         ]
     request["messages"] = [
