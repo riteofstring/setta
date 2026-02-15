@@ -129,13 +129,13 @@ def test_playwright_fixture_selection_detects_case_insensitive_plugin_path_hints
     )
 
 
-def test_playwright_fixture_selection_builds_selector_only_runs_without_plugin_hints(
+def test_playwright_fixture_selection_skips_selector_only_runs_without_plugin_hints(
     tmp_path: Path,
 ) -> None:
-    # Selector-only Playwright runs should conservatively build fixtures.
+    # Selector-only Playwright runs without plugin hints should skip fixture prep.
     sandbox_root = _build_fixture_target_sandbox(tmp_path)
 
-    assert _should_build_for_targets(
+    assert not _should_build_for_targets(
         sandbox_root,
         "playwright",
         ["--grep", "workspace"],
@@ -172,17 +172,35 @@ def test_pytest_fixture_selection_skips_non_plugin_selector_with_target(
     )
 
 
-def test_pytest_fixture_selection_builds_for_selector_only_runs_without_plugin_hints(
+def test_pytest_fixture_selection_skips_selector_only_runs_without_plugin_hints(
     tmp_path: Path,
 ) -> None:
-    # Selector-only pytest runs should conservatively build fixtures.
+    # Selector-only pytest runs without plugin hints should skip fixture prep.
     sandbox_root = _build_fixture_target_sandbox(tmp_path)
 
-    assert _should_build_for_targets(
+    assert not _should_build_for_targets(
         sandbox_root,
         "pytest",
         ["-k", "project_config"],
     )
+
+
+def test_pytest_fixture_selection_builds_for_full_run_without_selectors(
+    tmp_path: Path,
+) -> None:
+    # Full pytest runs should still build fixtures because plugin tests may be included.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+
+    assert _should_build_for_targets(sandbox_root, "pytest", [])
+
+
+def test_playwright_fixture_selection_builds_for_full_run_without_selectors(
+    tmp_path: Path,
+) -> None:
+    # Full Playwright runs should still build fixtures because plugin specs may be included.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+
+    assert _should_build_for_targets(sandbox_root, "playwright", [])
 
 
 def test_pytest_fixture_selection_builds_when_selector_mentions_plugins(

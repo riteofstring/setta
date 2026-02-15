@@ -535,3 +535,51 @@ async def test_plugin_process_start_run_prefers_command_override_and_model_overr
     await handle.process.wait()
 
     assert payload["model"] == "context-model"
+
+
+@pytest.mark.asyncio
+async def test_plugin_process_start_run_preserves_relative_command_path(
+    tmp_path: Path,
+) -> None:
+    # Relative command overrides should execute from working_dir exactly as provided.
+    adapter_script = tmp_path / "fixture-adapter"
+    adapter_script.write_text(
+        (
+            f"#!{sys.executable}\n"
+            "import json,sys\n"
+            "line = sys.stdin.readline()\n"
+            "sys.stdout.write(line)\n"
+            "sys.stdout.flush()\n"
+            "sys.stdout.write(json.dumps({'type':'done','returnCode':0}) + '\\n')\n"
+            "sys.stdout.flush()\n"
+        ),
+        encoding="utf-8",
+    )
+    adapter_script.chmod(0o755)
+    adapter = PluginProcessExternalAgentAdapter(
+        adapter_id="fixture-plugin:adapter",
+        name="Fixture Plugin Adapter",
+        supported_run_modes={ExternalAgentRunMode.sdk},
+        command="/path/that/does/not/exist",
+        args=(),
+        default_model="adapter-default-model",
+    )
+    context = _build_context(tmp_path)
+    context_with_override = replace(
+        context,
+        config=context.config.model_copy(
+            update={
+                "commandPath": "./fixture-adapter",
+            }
+        ),
+    )
+
+    handle = await adapter.start_run(context_with_override)
+    assert handle.process is not None
+    assert handle.process.stdout is not None
+    first_line = await handle.process.stdout.readline()
+    payload = json.loads(first_line.decode("utf-8"))
+    await handle.process.wait()
+
+    assert payload["type"] == "setta_external_agent_start"
+    assert payload["adapterId"] == "fixture-plugin:adapter"

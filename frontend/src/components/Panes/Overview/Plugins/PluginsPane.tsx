@@ -49,6 +49,8 @@ import type {
 } from "utils/generatedTypes";
 import { onOverviewTabClick } from "../../paneFns";
 import {
+  buildPluginListEntryCardKey,
+  buildPluginSourceIdentityToken,
   buildBusyPluginIdSet,
   buildCapabilityUnavailableMessage,
   buildInstallTrustSummaryMessage,
@@ -559,7 +561,7 @@ export function PluginsPane() {
           <div className="flex flex-col gap-2">
             {pluginListEntries.map((plugin) => (
               <PluginListEntryCard
-                key={`${plugin.pluginId}:${plugin.sourceScope}:${plugin.version}`}
+                key={buildPluginListEntryCardKey(plugin)}
                 plugin={plugin}
                 isSettingsProject={isSettingsProject}
                 writeActionsLocked={writeActionsLocked}
@@ -1280,6 +1282,10 @@ function PluginConfigEditor({
 }) {
   const [draftRaw, setDraftRaw] = useState("{}");
   const [status, setStatus] = useState<SettingsEditorStatus | null>(null);
+  const sourceIdentityToken = useMemo(
+    () => buildPluginSourceIdentityToken(plugin),
+    [plugin.canonicalSourceKey, plugin.sourceDigestSha256, plugin.sourceScope],
+  );
   const schemaFields = useMemo(
     () => getTopLevelPluginConfigFields(plugin.config.schemaJson),
     [plugin.config.schemaJson],
@@ -1307,7 +1313,7 @@ function PluginConfigEditor({
   useEffect(() => {
     setDraftRaw(formatPluginConfigDraft(plugin.config.currentConfig));
     setStatus(null);
-  }, [plugin.config.currentConfig, plugin.pluginId]);
+  }, [plugin.config.currentConfig, plugin.pluginId, sourceIdentityToken]);
 
   function onFieldValueChange(fieldKey: string, nextValue: unknown) {
     if (parsedDraft.error) {

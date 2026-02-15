@@ -288,6 +288,27 @@ describe("PluginArea fallback actions", () => {
     expect(collectText(fallbackCard)).toContain("Open Plugins");
   });
 
+  it("prefers runtime error card over stale plugin section renderer state", () => {
+    // Runtime errors should suppress stale renderer mounts from previous successful loads.
+    runtimeStatus = "error";
+    runtimeStatusMessage = "Failed to fetch plugins runtime: status 500.";
+    pluginSectionKind = {
+      pluginId: "setta-fixture-plugin",
+      kind: "fixture-kind",
+      title: "Fixture Kind",
+      renderer: {
+        mount: () => undefined,
+      },
+    };
+
+    const fallbackCard = renderFallbackCard("section-runtime-error-stale");
+
+    expect(collectText(fallbackCard)).toContain("Plugin Runtime Error");
+    expect(collectText(fallbackCard)).toContain(
+      "Failed to fetch plugins runtime: status 500.",
+    );
+  });
+
   it("copies plugin section JSON payload and notifies success", async () => {
     // Copy action should serialize the current plugin section snapshot to clipboard.
     const fallbackCard = renderFallbackCard("section-copy");

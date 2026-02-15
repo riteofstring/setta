@@ -1,4 +1,6 @@
 import {
+  buildPluginListEntryCardKey,
+  buildPluginSourceIdentityToken,
   buildBusyPluginIdSet,
   buildCapabilityUnavailableMessage,
   buildInstallTrustSummaryMessage,
@@ -33,6 +35,8 @@ import {
 import { describe, expect, it } from "vitest";
 
 const pluginsPaneTestApi = {
+  buildPluginListEntryCardKey,
+  buildPluginSourceIdentityToken,
   buildBusyPluginIdSet,
   buildInstallTrustSummaryMessage,
   buildSourceManagerGuidanceMessage,
@@ -165,6 +169,61 @@ describe("plugins pane helpers", () => {
         }),
       ),
     ).toBe(false);
+  });
+
+  it("builds plugin source identity tokens from canonical source and digest", () => {
+    expect(
+      pluginsPaneTestApi.buildPluginSourceIdentityToken(
+        buildPluginListEntry({
+          sourceScope: "workspace",
+          canonicalSourceKey: "github:acme/plugin",
+          sourceDigestSha256: "sha256:first",
+        }),
+      ),
+    ).toBe("workspace:github:acme/plugin:sha256:first");
+
+    expect(
+      pluginsPaneTestApi.buildPluginSourceIdentityToken(
+        buildPluginListEntry({
+          sourceScope: "workspace",
+          canonicalSourceKey: "github:acme/plugin",
+          sourceDigestSha256: null,
+        }),
+      ),
+    ).toBe("workspace:github:acme/plugin:none");
+  });
+
+  it("includes source identity in plugin list card keys", () => {
+    const firstKey = pluginsPaneTestApi.buildPluginListEntryCardKey(
+      buildPluginListEntry({
+        pluginId: "acme.plugin",
+        version: "1.0.0",
+        sourceScope: "workspace",
+        canonicalSourceKey: "github:acme/plugin",
+        sourceDigestSha256: "sha256:first",
+      }),
+    );
+    const secondKey = pluginsPaneTestApi.buildPluginListEntryCardKey(
+      buildPluginListEntry({
+        pluginId: "acme.plugin",
+        version: "1.0.0",
+        sourceScope: "workspace",
+        canonicalSourceKey: "github:acme/plugin-fork",
+        sourceDigestSha256: "sha256:first",
+      }),
+    );
+    const thirdKey = pluginsPaneTestApi.buildPluginListEntryCardKey(
+      buildPluginListEntry({
+        pluginId: "acme.plugin",
+        version: "1.0.0",
+        sourceScope: "workspace",
+        canonicalSourceKey: "github:acme/plugin",
+        sourceDigestSha256: "sha256:second",
+      }),
+    );
+
+    expect(firstKey).not.toBe(secondKey);
+    expect(firstKey).not.toBe(thirdKey);
   });
 
   it("derives busy plugin ids from action keys", () => {

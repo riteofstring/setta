@@ -34,12 +34,12 @@ _PROTOCOL_STDOUT = sys.stdout
 
 try:
     from fastapi.params import Param as _FastAPIParam
-except Exception:  # pragma: no cover - import fallback for non-FastAPI workers
+except ImportError:  # pragma: no cover - import fallback for non-FastAPI workers
     _FastAPIParam = None
 
 try:
     from pydantic_core import PydanticUndefined as _PydanticUndefined
-except Exception:  # pragma: no cover - import fallback for runtime variants
+except ImportError:  # pragma: no cover - import fallback for runtime variants
     _PydanticUndefined = None
 
 

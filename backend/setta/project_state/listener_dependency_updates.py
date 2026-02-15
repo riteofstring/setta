@@ -178,14 +178,6 @@ def _apply_plugin_section_update(
         parsed_payload.keys()
     ).issubset(control_keys)
     if has_control_payload:
-        unknown_keys = sorted(set(parsed_payload.keys()) - control_keys)
-        if len(unknown_keys) > 0:
-            raise ListenerDependencyUpdateError(
-                (
-                    "listener emit plugin section payload contains unsupported keys: "
-                    f"{', '.join(unknown_keys)}"
-                )
-            )
         merge_value = parsed_payload.get("merge", True)
         if not isinstance(merge_value, bool):
             raise ListenerDependencyUpdateError(

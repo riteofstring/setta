@@ -298,7 +298,6 @@ const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
 const cleanupByPluginId = new Map<string, Set<() => void>>();
 const frontendSignatureByPluginId = new Map<string, string>();
-const pluginListEntrySignatureCache = new WeakMap<PluginListEntry, string>();
 let pluginRuntimeLoadPromise: Promise<void> | null = null;
 let pluginRuntimeRefreshQueued = false;
 const PLUGIN_FRONTEND_LOAD_CONCURRENCY = 4;
@@ -467,11 +466,13 @@ async function loadPluginRuntime(): Promise<void> {
 }
 
 function setPluginRuntimeLoadError(message: string): void {
-  usePluginRuntimeStore.setState((state) => ({
-    ...state,
-    status: "error",
-    statusMessage: message,
-  }));
+  usePluginRuntimeStore.setState((state) =>
+    buildClearedRuntimeState(state, {
+      status: "error",
+      statusMessage: message,
+      loadGeneration: state.loadGeneration + 1,
+    }),
+  );
 }
 
 function buildClearedRuntimeState(
@@ -1883,13 +1884,13 @@ function mapPluginListById(
       plugin.effectiveCapabilities,
       previousEntry?.effectiveCapabilities,
     );
-    const nextSignature = buildPluginListEntrySignature(
-      plugin,
-      nextEffectiveCapabilities,
-    );
     if (
       previousEntry &&
-      getCachedPluginListEntrySignature(previousEntry) === nextSignature
+      canReusePluginListEntry(
+        plugin,
+        previousEntry,
+        nextEffectiveCapabilities,
+      )
     ) {
       pluginListById[plugin.pluginId] = previousEntry;
       continue;
@@ -1899,44 +1900,63 @@ function mapPluginListById(
       effectiveCapabilities: nextEffectiveCapabilities,
     };
     pluginListById[plugin.pluginId] = nextEntry;
-    pluginListEntrySignatureCache.set(nextEntry, nextSignature);
   }
   return pluginListById;
 }
 
-function getCachedPluginListEntrySignature(entry: PluginListEntry): string {
-  const cachedSignature = pluginListEntrySignatureCache.get(entry);
-  if (cachedSignature) {
-    return cachedSignature;
-  }
-  const signature = buildPluginListEntrySignature(
-    entry,
-    entry.effectiveCapabilities,
-  );
-  pluginListEntrySignatureCache.set(entry, signature);
-  return signature;
-}
-
-function buildPluginListEntrySignature(
+function canReusePluginListEntry(
   plugin: PluginListEntry,
+  previousEntry: PluginListEntry,
   effectiveCapabilities: string[],
-): string {
-  return JSON.stringify({
-    pluginId: plugin.pluginId,
-    name: plugin.name,
-    version: plugin.version,
-    sourceScope: plugin.sourceScope,
-    sourceScopeLabel: plugin.sourceScopeLabel,
-    sourceManager: plugin.sourceManager,
-    sourceManagerHint: plugin.sourceManagerHint,
-    canonicalSourceKey: plugin.canonicalSourceKey,
-    sourceDigestSha256: plugin.sourceDigestSha256,
-    frontend: plugin.frontend,
-    content: plugin.content,
-    config: plugin.config,
-    restartRequired: plugin.restartRequired,
-    effectiveCapabilities,
-  });
+): boolean {
+  if (effectiveCapabilities !== previousEntry.effectiveCapabilities) {
+    return false;
+  }
+  if (
+    plugin.pluginId !== previousEntry.pluginId ||
+    plugin.name !== previousEntry.name ||
+    plugin.version !== previousEntry.version ||
+    plugin.sourceScope !== previousEntry.sourceScope ||
+    plugin.sourceScopeLabel !== previousEntry.sourceScopeLabel ||
+    plugin.sourceManager !== previousEntry.sourceManager ||
+    plugin.sourceManagerHint !== previousEntry.sourceManagerHint ||
+    plugin.canonicalSourceKey !== previousEntry.canonicalSourceKey ||
+    plugin.sourceDigestSha256 !== previousEntry.sourceDigestSha256 ||
+    plugin.enablementSource !== previousEntry.enablementSource ||
+    plugin.restartRequired !== previousEntry.restartRequired
+  ) {
+    return false;
+  }
+  if (
+    plugin.frontend.entrypointUrl !== previousEntry.frontend.entrypointUrl ||
+    plugin.frontend.styleUrl !== previousEntry.frontend.styleUrl
+  ) {
+    return false;
+  }
+  if (
+    plugin.content.hasBlueprints !== previousEntry.content.hasBlueprints ||
+    plugin.content.hasProjectTemplates !==
+      previousEntry.content.hasProjectTemplates ||
+    plugin.content.hasPrompts !== previousEntry.content.hasPrompts
+  ) {
+    return false;
+  }
+  if (plugin.config.hasSchema !== previousEntry.config.hasSchema) {
+    return false;
+  }
+  if (
+    !hasSameJsonValue(
+      plugin.config.schemaJson,
+      previousEntry.config.schemaJson,
+    ) ||
+    !hasSameJsonValue(
+      plugin.config.currentConfig,
+      previousEntry.config.currentConfig,
+    )
+  ) {
+    return false;
+  }
+  return true;
 }
 
 function stableCapabilitiesReference(
@@ -1955,6 +1975,53 @@ function stableCapabilitiesReference(
     }
   }
   return previousCapabilities;
+}
+
+function hasSameJsonValue(left: unknown, right: unknown): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (left === null || right === null) {
+    return false;
+  }
+  const leftType = typeof left;
+  const rightType = typeof right;
+  if (leftType !== rightType) {
+    return false;
+  }
+  if (leftType !== "object") {
+    return false;
+  }
+  if (Array.isArray(left)) {
+    if (!Array.isArray(right) || left.length !== right.length) {
+      return false;
+    }
+    for (let index = 0; index < left.length; index += 1) {
+      if (!hasSameJsonValue(left[index], right[index])) {
+        return false;
+      }
+    }
+    return true;
+  }
+  if (Array.isArray(right)) {
+    return false;
+  }
+  const leftObject = left as Record<string, unknown>;
+  const rightObject = right as Record<string, unknown>;
+  const leftKeys = Object.keys(leftObject);
+  const rightKeys = Object.keys(rightObject);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (!(key in rightObject)) {
+      return false;
+    }
+    if (!hasSameJsonValue(leftObject[key], rightObject[key])) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function mapPrimaryStatusByPluginId(

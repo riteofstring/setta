@@ -313,3 +313,19 @@
 - Added/updated backend pytest coverage, frontend Vitest coverage, and Playwright coverage for all changed paths; verification runs passed (`pytest` targeted subsets: 95 passed total across runs, `vitest` targeted subset: 86 passed, Playwright targeted specs: 2 passed, Ruff checks clean).
 - DX before/after: install conflict failures previously could still trigger duplicate backend prep side effects under contention; now conflicts fail immediately with no second prepare path.
 - UX before/after: transient `/plugins/runtime` failures previously blanked plugin runtime state; now users keep last-known plugin UI state with an explicit error status and smoother recovery on next refresh.
+
+## 2026-02-16T18:00:28-08:00
+
+- Implemented the current top-level `review*.md` fix batch end-to-end, explicitly excluding backward-compatibility additions.
+- Fixed plugin external-adapter command override execution so relative commands (for example `./fixture-adapter`) are preserved and executed exactly as provided.
+- Narrowed backend plugin-worker optional import fallbacks to `ImportError` only, so non-import bootstrap failures are no longer silently masked.
+- Removed unreachable listener plugin-section control-payload validation logic and kept only the effective payload checks on active code paths.
+- Fixed backend plugin enable/disable idempotency so backend restart-pending state is only introduced when effective enablement actually changes.
+- Updated frontend runtime error handling to clear runtime-derived plugin registries/status maps and advance `loadGeneration`, preventing stale runtime state carryover.
+- Replaced plugin-list JSON-signature churn with structural reuse comparisons for runtime refreshes, reducing stringify/allocation overhead while preserving reuse correctness.
+- Prioritized `PluginArea` runtime-error rendering above stale plugin-section renderer availability so runtime failure state consistently surfaces to users.
+- Added plugin source-identity tokens to plugin-card keys and plugin-config editor reset dependencies so source swaps under the same plugin/version reset local UI state correctly.
+- Updated shared fixture-target gating so selector-only runs without plugin hints skip plugin fixture builds, while full runs still build fixtures.
+- Added/updated backend pytest coverage, frontend Vitest coverage, and Playwright E2E coverage for all changed paths; targeted validation runs passed.
+- UX before/after: plugin runtime failures could still show stale section renderer output; now runtime error cards reliably replace stale plugin-renderer UI and show actionable error context.
+- DX before/after: selector-only non-plugin loops still triggered plugin-fixture build overhead; now they skip fixture prep unless explicit plugin hints are present, reducing local iteration cost.

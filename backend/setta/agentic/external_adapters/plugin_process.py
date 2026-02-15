@@ -1,7 +1,6 @@
 import asyncio
 import json
 from contextlib import suppress
-from pathlib import Path
 from typing import Any, AsyncIterator
 
 from setta.agentic.external_adapters.base import (
@@ -300,4 +299,4 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
     def _build_command(self, context: ExternalAgentRunContext) -> list[str]:
         command_override = (context.config.commandPath or "").strip()
         command = command_override or self.command
-        return [str(Path(command)), *self.args]
+        return [command, *self.args]

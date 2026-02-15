@@ -50,6 +50,15 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
     (state) => state.statusMessage,
   );
   const pluginSectionKind = usePluginSectionKind(pluginId, kind);
+  if (runtimeStatus === "error") {
+    return (
+      <PluginSectionRuntimeErrorCard
+        pluginId={pluginId}
+        kind={kind}
+        runtimeStatusMessage={runtimeStatusMessage}
+      />
+    );
+  }
   if (pluginSectionKind) {
     return (
       <PluginSectionRendererHost
@@ -64,15 +73,6 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
   }
   if (runtimeStatus === "idle" || runtimeStatus === "loading") {
     return <PluginSectionLoadingCard pluginId={pluginId} kind={kind} />;
-  }
-  if (runtimeStatus === "error") {
-    return (
-      <PluginSectionRuntimeErrorCard
-        pluginId={pluginId}
-        kind={kind}
-        runtimeStatusMessage={runtimeStatusMessage}
-      />
-    );
   }
 
   return (

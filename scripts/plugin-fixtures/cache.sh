@@ -312,6 +312,9 @@ should_build_plugin_fixtures_for_targets() {
     return 0
   fi
   if [[ "${has_positional_target}" == "0" ]]; then
+    if [[ "${has_selector_filter}" == "1" ]]; then
+      return 1
+    fi
     return 0
   fi
   return 1

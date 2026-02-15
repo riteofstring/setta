@@ -348,6 +348,29 @@ export function isLinkedLocalPluginSource(
   return plugin.canonicalSourceKey.startsWith("local:");
 }
 
+export function buildPluginSourceIdentityToken(
+  plugin: Pick<
+    PluginListEntry,
+    "sourceScope" | "canonicalSourceKey" | "sourceDigestSha256"
+  >,
+): string {
+  const digest = plugin.sourceDigestSha256 ?? "none";
+  return `${plugin.sourceScope}:${plugin.canonicalSourceKey}:${digest}`;
+}
+
+export function buildPluginListEntryCardKey(
+  plugin: Pick<
+    PluginListEntry,
+    | "pluginId"
+    | "version"
+    | "sourceScope"
+    | "canonicalSourceKey"
+    | "sourceDigestSha256"
+  >,
+): string {
+  return `${plugin.pluginId}:${plugin.version}:${buildPluginSourceIdentityToken(plugin)}`;
+}
+
 export function buildBusyPluginIdSet(actionKeys: Set<string>): Set<string> {
   const ids = new Set<string>();
   for (const actionKey of actionKeys) {

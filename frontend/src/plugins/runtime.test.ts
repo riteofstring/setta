@@ -824,7 +824,7 @@ describe("plugin runtime helpers", () => {
     );
   });
 
-  it("reports runtime error when plugins runtime request fails and preserves last-known-good state", async () => {
+  it("reports runtime error and clears stale runtime-derived plugin state", async () => {
     usePluginRuntimeStore.setState({
       pluginListById: {
         "stale.plugin": buildPluginListEntry({
@@ -872,14 +872,10 @@ describe("plugin runtime helpers", () => {
     expect(state.statusMessage).toBe(
       "Failed to fetch plugins runtime: status 500.",
     );
-    expect(Object.keys(state.pluginListById)).toEqual(["stale.plugin"]);
-    expect(Object.keys(state.pluginStatusById)).toEqual(["stale.plugin"]);
-    expect(
-      Object.keys(state.sectionKindsByKey).includes(
-        toPluginSectionKindKey("stale.plugin", "stale-kind"),
-      ),
-    ).toBe(true);
-    expect(state.panesByPluginId["stale.plugin"]?.length).toBe(1);
+    expect(Object.keys(state.pluginListById)).toHaveLength(0);
+    expect(Object.keys(state.pluginStatusById)).toHaveLength(0);
+    expect(Object.keys(state.sectionKindsByKey)).toHaveLength(0);
+    expect(Object.keys(state.panesByPluginId)).toHaveLength(0);
   });
 
   it("reports runtime error when plugins runtime request fails without response", async () => {
@@ -2068,6 +2064,145 @@ describe("plugin runtime helpers", () => {
     const secondCapabilities = secondEntry?.effectiveCapabilities;
     expect(secondEntry).toBe(firstEntry);
     expect(secondCapabilities).toBe(firstCapabilities);
+  });
+
+  it("reuses plugin list entries when nested payload values are unchanged", async () => {
+    const schemaJson = {
+      type: "object",
+      properties: {
+        label: {
+          type: "string",
+        },
+      },
+    };
+    const firstPlugin = buildPluginListEntry({
+      frontend: {
+        entrypointUrl: "/plugins/acme.plugin/index.js",
+        styleUrl: "/plugins/acme.plugin/index.css",
+      },
+      content: {
+        hasBlueprints: true,
+        hasProjectTemplates: true,
+        hasPrompts: true,
+      },
+      config: {
+        hasSchema: true,
+        schemaJson,
+        currentConfig: {
+          label: "stable",
+        },
+      },
+      effectiveCapabilities: ["registerSectionKinds", "registerPane"],
+    });
+    const secondPlugin = buildPluginListEntry({
+      ...firstPlugin,
+      frontend: { ...firstPlugin.frontend },
+      content: { ...firstPlugin.content },
+      config: {
+        hasSchema: firstPlugin.config.hasSchema,
+        schemaJson: { ...schemaJson },
+        currentConfig: { ...firstPlugin.config.currentConfig },
+      },
+      effectiveCapabilities: [...firstPlugin.effectiveCapabilities],
+    });
+    const pluginStatus = buildPluginStatusEntry({
+      pluginId: firstPlugin.pluginId,
+      requestedCapabilities: ["registerSectionKinds", "registerPane"],
+      effectiveCapabilities: ["registerSectionKinds", "registerPane"],
+      blockedCapabilities: [],
+    });
+    let runtimeCallCount = 0;
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
+      async () => {
+        runtimeCallCount += 1;
+        if (runtimeCallCount === 1) {
+          return buildRuntimeEndpointResponse(
+            buildPluginListResponse([firstPlugin]),
+            buildPluginStatusResponse([pluginStatus]),
+          );
+        }
+        return buildRuntimeEndpointResponse(
+          buildPluginListResponse([secondPlugin]),
+          buildPluginStatusResponse([pluginStatus]),
+        );
+      },
+    );
+
+    await refreshPluginRuntime();
+    const firstEntry =
+      usePluginRuntimeStore.getState().pluginListById[firstPlugin.pluginId];
+
+    await refreshPluginRuntime();
+    const secondEntry =
+      usePluginRuntimeStore.getState().pluginListById[firstPlugin.pluginId];
+
+    expect(secondEntry).toBe(firstEntry);
+  });
+
+  it("replaces plugin list entry references when current config payload changes", async () => {
+    const firstPlugin = buildPluginListEntry({
+      config: {
+        hasSchema: true,
+        schemaJson: {
+          type: "object",
+          properties: {
+            theme: {
+              type: "string",
+            },
+          },
+        },
+        currentConfig: {
+          theme: "light",
+        },
+      },
+      effectiveCapabilities: ["registerSectionKinds"],
+    });
+    const secondPlugin = buildPluginListEntry({
+      ...firstPlugin,
+      config: {
+        hasSchema: true,
+        schemaJson: firstPlugin.config.schemaJson,
+        currentConfig: {
+          theme: "dark",
+        },
+      },
+      effectiveCapabilities: [...firstPlugin.effectiveCapabilities],
+    });
+    const pluginStatus = buildPluginStatusEntry({
+      pluginId: firstPlugin.pluginId,
+      requestedCapabilities: ["registerSectionKinds"],
+      effectiveCapabilities: ["registerSectionKinds"],
+      blockedCapabilities: [],
+    });
+    let runtimeCallCount = 0;
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
+      async () => {
+        runtimeCallCount += 1;
+        if (runtimeCallCount === 1) {
+          return buildRuntimeEndpointResponse(
+            buildPluginListResponse([firstPlugin]),
+            buildPluginStatusResponse([pluginStatus]),
+          );
+        }
+        return buildRuntimeEndpointResponse(
+          buildPluginListResponse([secondPlugin]),
+          buildPluginStatusResponse([pluginStatus]),
+        );
+      },
+    );
+
+    await refreshPluginRuntime();
+    const firstEntry =
+      usePluginRuntimeStore.getState().pluginListById[firstPlugin.pluginId];
+
+    await refreshPluginRuntime();
+    const secondEntry =
+      usePluginRuntimeStore.getState().pluginListById[firstPlugin.pluginId];
+
+    expect(secondEntry).not.toBe(firstEntry);
+    expect(secondEntry?.config.currentConfig).toEqual({
+      theme: "dark",
+    });
   });
 
   it("replaces plugin list entry references when runtime list payload changes", async () => {

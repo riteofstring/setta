@@ -4203,16 +4203,41 @@ class PluginManager:
                 status_code=404,
             )
         state_file = self._load_plugins_state()
+        plugins_global_state = self._load_plugins_global_state()
+        if entry.manifest is None:
+            was_enabled = (
+                plugin_id in state_file.enabledPluginIds
+                and plugin_id not in state_file.disabledPluginIds
+            )
+        else:
+            was_enabled, _ = self._resolve_enabled(
+                plugin_id=entry.plugin_id,
+                scope=entry.scope,
+                manifest_enabled_by_default=entry.manifest.enabledByDefault,
+                plugins_state=state_file,
+                plugins_global_state=plugins_global_state,
+            )
+
+        state_file_changed = False
         if plugin_id not in state_file.enabledPluginIds:
             state_file.enabledPluginIds.append(plugin_id)
+            state_file_changed = True
         if plugin_id in state_file.disabledPluginIds:
             state_file.disabledPluginIds = [
                 value for value in state_file.disabledPluginIds if value != plugin_id
             ]
-        self._save_plugins_state(state_file)
-        if entry.has_backend:
+            state_file_changed = True
+        if state_file_changed:
+            self._save_plugins_state(state_file)
+
+        enablement_changed = not was_enabled
+        if entry.has_backend and enablement_changed:
             self._add_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
+
+        restart_required = (
+            entry.has_backend and plugin_id in self._pending_restart_backend_ids
+        )
         if rescan:
             self.rescan()
             latest = self._find_highest_precedence_entry(plugin_id)
@@ -4223,14 +4248,14 @@ class PluginManager:
                     status_code=404,
                 )
             state = latest.state
-        elif entry.has_backend:
+        elif restart_required:
             state = PluginRuntimeState.pending_restart
         else:
             state = PluginRuntimeState.active
         return PluginEnableDisableResponse(
             pluginId=plugin_id,
             state=state,
-            restartRequired=entry.has_backend,
+            restartRequired=restart_required,
         )
 
     @_mutation_locked
@@ -4245,16 +4270,41 @@ class PluginManager:
                 status_code=404,
             )
         state_file = self._load_plugins_state()
+        plugins_global_state = self._load_plugins_global_state()
+        if entry.manifest is None:
+            was_enabled = (
+                plugin_id in state_file.enabledPluginIds
+                and plugin_id not in state_file.disabledPluginIds
+            )
+        else:
+            was_enabled, _ = self._resolve_enabled(
+                plugin_id=entry.plugin_id,
+                scope=entry.scope,
+                manifest_enabled_by_default=entry.manifest.enabledByDefault,
+                plugins_state=state_file,
+                plugins_global_state=plugins_global_state,
+            )
+
+        state_file_changed = False
         if plugin_id not in state_file.disabledPluginIds:
             state_file.disabledPluginIds.append(plugin_id)
+            state_file_changed = True
         if plugin_id in state_file.enabledPluginIds:
             state_file.enabledPluginIds = [
                 value for value in state_file.enabledPluginIds if value != plugin_id
             ]
-        self._save_plugins_state(state_file)
-        if entry.has_backend:
+            state_file_changed = True
+        if state_file_changed:
+            self._save_plugins_state(state_file)
+
+        enablement_changed = was_enabled
+        if entry.has_backend and enablement_changed:
             self._add_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
+
+        restart_required = (
+            entry.has_backend and plugin_id in self._pending_restart_backend_ids
+        )
         if rescan:
             self.rescan()
             latest = self._find_highest_precedence_entry(plugin_id)
@@ -4265,14 +4315,14 @@ class PluginManager:
                     status_code=404,
                 )
             state = latest.state
-        elif entry.has_backend:
+        elif restart_required:
             state = PluginRuntimeState.pending_restart
         else:
             state = PluginRuntimeState.disabled
         return PluginEnableDisableResponse(
             pluginId=plugin_id,
             state=state,
-            restartRequired=entry.has_backend,
+            restartRequired=restart_required,
         )
 
     @_mutation_locked

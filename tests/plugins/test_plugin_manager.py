@@ -1741,6 +1741,57 @@ def test_backend_plugin_disable_stays_pending_restart(tmp_path: Path) -> None:
     assert status_entries[0].restartRequired is True
 
 
+def test_backend_enable_is_noop_when_already_enabled(tmp_path: Path) -> None:
+    # Re-enabling an already-enabled backend plugin should not introduce restart churn.
+    manager = _make_manager(tmp_path)
+    linked = manager.link_plugin(
+        local_plugin_root=str(_fixture_path("backend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    assert linked.state == PluginRuntimeState.pending_restart
+
+    manager.load_backend_plugins(app=FastAPI())
+    assert manager.get_pending_restart_backend_plugin_ids() == []
+
+    enabled = manager.enable_plugin(plugin_id=linked.pluginId)
+    assert enabled.state == PluginRuntimeState.active
+    assert enabled.restartRequired is False
+    assert manager.get_pending_restart_backend_plugin_ids() == []
+
+
+def test_backend_disable_is_noop_when_already_disabled(tmp_path: Path) -> None:
+    # Re-disabling an already-disabled backend plugin should remain a no-op.
+    manager = _make_manager(tmp_path)
+    linked = manager.link_plugin(
+        local_plugin_root=str(_fixture_path("backend")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    assert linked.state == PluginRuntimeState.pending_restart
+
+    initial_disable = manager.disable_plugin(plugin_id=linked.pluginId)
+    assert initial_disable.state == PluginRuntimeState.pending_restart
+    assert initial_disable.restartRequired is True
+
+    manager.load_backend_plugins(app=FastAPI())
+    assert manager.get_pending_restart_backend_plugin_ids() == []
+    status_entry = next(
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == linked.pluginId and entry.shadowedBySourcePath is None
+    )
+    assert status_entry.state == PluginRuntimeState.disabled
+    assert status_entry.restartRequired is False
+
+    disabled = manager.disable_plugin(plugin_id=linked.pluginId)
+    assert disabled.state == PluginRuntimeState.disabled
+    assert disabled.restartRequired is False
+    assert manager.get_pending_restart_backend_plugin_ids() == []
+
+
 def test_backend_pending_restart_clears_after_load(tmp_path: Path) -> None:
     # Backend pending-restart entries should clear after backend load/restart.
     manager = _make_manager(tmp_path)
