@@ -9,96 +9,6 @@ import {
   setOverviewTab,
 } from "../helpers";
 
-const BACKEND_ORIGIN =
-  process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-
-async function configureProjectChatTranscriptionProfile({
-  page,
-  dictationMode,
-}: {
-  page: Page;
-  dictationMode: "auto" | "provider";
-}): Promise<() => Promise<void>> {
-  const llmConfigResponse = await page.request.get(
-    `${BACKEND_ORIGIN}/api/llm/config`,
-  );
-  if (!llmConfigResponse.ok()) {
-    throw new Error(
-      "Failed to load LLM config for transcription profile setup.",
-    );
-  }
-  const llmConfigPayload = (await llmConfigResponse.json()) as {
-    default_config_id?: string | null;
-    configs?: Record<string, unknown>;
-  };
-  const defaultConfigId =
-    typeof llmConfigPayload.default_config_id === "string" &&
-    llmConfigPayload.default_config_id.length > 0
-      ? llmConfigPayload.default_config_id
-      : Object.keys(llmConfigPayload.configs ?? {})[0] ?? null;
-  if (!defaultConfigId) {
-    throw new Error(
-      "No LLM config id available for transcription profile setup.",
-    );
-  }
-  const createdProfile = await postBackend<{ id: string }>(
-    page,
-    "/createTranscriptionProfile",
-    {
-      name: `E2E Transcription ${Date.now()}`,
-      transcriptionLlmConfigId: defaultConfigId,
-    },
-  );
-  if (!createdProfile?.id) {
-    throw new Error(
-      "Failed to create transcription profile for dictation tests.",
-    );
-  }
-  await page.addInitScript(
-    ({ profileId, mode }) => {
-      const key = "setta_ai_data";
-      let payload: { state: Record<string, unknown>; version: number } = {
-        state: {},
-        version: 0,
-      };
-      const raw = localStorage.getItem(key);
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw) as {
-            state?: unknown;
-            version?: unknown;
-          };
-          payload = {
-            state:
-              parsed && typeof parsed.state === "object" && parsed.state
-                ? (parsed.state as Record<string, unknown>)
-                : {},
-            version: typeof parsed?.version === "number" ? parsed.version : 0,
-          };
-        } catch {
-          payload = { state: {}, version: 0 };
-        }
-      }
-      payload.state = {
-        ...payload.state,
-        projectChatDictationMode: mode,
-        projectChatTranscriptionProfileId: profileId,
-      };
-      localStorage.setItem(key, JSON.stringify(payload));
-    },
-    { profileId: createdProfile.id, mode: dictationMode },
-  );
-  return async () => {
-    try {
-      await postBackend(page, "/deleteTranscriptionProfile", {
-        profileId: createdProfile.id,
-      });
-    } catch {
-      // Best effort cleanup for per-test transcription profiles.
-    }
-  };
-}
-
 test("project chat falls back to browser dictation when provider capture fails in auto mode", async ({
   page,
 }) => {
@@ -164,10 +74,6 @@ test("project chat falls back to browser dictation when provider capture fails i
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
   const engineCleanup = await ensureManagedChatEngine(page);
-  const transcriptionCleanup = await configureProjectChatTranscriptionProfile({
-    page,
-    dictationMode: "auto",
-  });
 
   try {
     await page.reload();
@@ -191,7 +97,6 @@ test("project chat falls back to browser dictation when provider capture fails i
       overviewPane.getByText("Microphone access was denied."),
     ).toHaveCount(0);
   } finally {
-    await transcriptionCleanup();
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -286,10 +191,6 @@ test("project chat keeps browser fallback dictation active until the user stops"
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
   const engineCleanup = await ensureManagedChatEngine(page);
-  const transcriptionCleanup = await configureProjectChatTranscriptionProfile({
-    page,
-    dictationMode: "auto",
-  });
 
   try {
     await page.reload();
@@ -309,9 +210,7 @@ test("project chat keeps browser fallback dictation active until the user stops"
       .poll(async () => {
         return await page.evaluate(() => {
           const reader = (
-            window as Window & {
-              __readBrowserDictationStartCount?: () => number;
-            }
+            window as Window & { __readBrowserDictationStartCount?: () => number }
           ).__readBrowserDictationStartCount;
           return typeof reader === "function" ? reader() : 0;
         });
@@ -322,128 +221,6 @@ test("project chat keeps browser fallback dictation active until the user stops"
     ).toBeVisible();
     await expect(overviewPane.getByText("Listening...")).toBeVisible();
   } finally {
-    await transcriptionCleanup();
-    await engineCleanup();
-    await cleanupIsolatedProject(page, projectContext);
-  }
-});
-
-test("project chat streams provider transcription before mic stop", async ({
-  page,
-}) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(window, "SpeechRecognition", {
-      value: undefined,
-      configurable: true,
-    });
-    Object.defineProperty(window, "webkitSpeechRecognition", {
-      value: undefined,
-      configurable: true,
-    });
-
-    class MockMediaRecorder {
-      static isTypeSupported(_mimeType: string) {
-        return true;
-      }
-
-      mimeType = "audio/webm";
-      state: "inactive" | "recording" = "inactive";
-      ondataavailable: ((event: { data?: Blob }) => void) | null = null;
-      onerror: (() => void) | null = null;
-      onstop: (() => void) | null = null;
-      private _intervalId: ReturnType<typeof setInterval> | null = null;
-      private _chunkIndex = 0;
-
-      start(timeslice?: number) {
-        this.state = "recording";
-        const intervalMs =
-          typeof timeslice === "number" && timeslice > 0 ? timeslice : 120;
-        this._intervalId = setInterval(() => {
-          if (this.state !== "recording") {
-            return;
-          }
-          this._chunkIndex += 1;
-          if (this.ondataavailable) {
-            this.ondataavailable({
-              data: new Blob([`chunk-${this._chunkIndex}`], {
-                type: "audio/webm",
-              }),
-            });
-          }
-        }, intervalMs);
-      }
-
-      stop() {
-        this.state = "inactive";
-        if (this._intervalId) {
-          clearInterval(this._intervalId);
-          this._intervalId = null;
-        }
-        if (this.onstop) {
-          this.onstop();
-        }
-      }
-    }
-
-    Object.defineProperty(window, "MediaRecorder", {
-      value: MockMediaRecorder,
-      configurable: true,
-    });
-    Object.defineProperty(navigator, "mediaDevices", {
-      value: {
-        getUserMedia: () =>
-          Promise.resolve({
-            getTracks: () => [{ stop: () => undefined }],
-          }),
-      },
-      configurable: true,
-    });
-  });
-
-  await setOverviewTab(page, "ProjectAIChat");
-  await ensureAppReady(page);
-  const projectContext = await openIsolatedProject(page);
-  const engineCleanup = await ensureManagedChatEngine(page);
-  const transcriptionCleanup = await configureProjectChatTranscriptionProfile({
-    page,
-    dictationMode: "provider",
-  });
-
-  let transcriptionCallCount = 0;
-  await page.route(`${BACKEND_ORIGIN}/api/transcribeChatAudio`, async (route) => {
-    transcriptionCallCount += 1;
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ text: `streamed-${transcriptionCallCount}` }),
-    });
-  });
-
-  try {
-    await page.reload();
-    await page.waitForSelector(".react-flow__pane");
-
-    const overviewPane = page.locator("#OverviewPane");
-    await expect(
-      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
-    ).toBeVisible();
-
-    const micButton = overviewPane.getByRole("button", { name: "Mic" });
-    await expect(micButton).toBeVisible();
-    await micButton.click();
-
-    await expect(
-      overviewPane.getByRole("button", { name: "Stop Mic" }),
-    ).toBeVisible();
-    await expect
-      .poll(() => transcriptionCallCount, { timeout: 10_000 })
-      .toBeGreaterThanOrEqual(1);
-    await expect(overviewPane.locator("textarea")).toHaveValue(/streamed-1/);
-
-    await overviewPane.getByRole("button", { name: "Stop Mic" }).click();
-    await expect(overviewPane.locator("textarea")).toHaveValue(/streamed-1/);
-  } finally {
-    await transcriptionCleanup();
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -511,10 +288,6 @@ test("project chat releases provider mic stream when recorder start fails", asyn
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
   const engineCleanup = await ensureManagedChatEngine(page);
-  const transcriptionCleanup = await configureProjectChatTranscriptionProfile({
-    page,
-    dictationMode: "provider",
-  });
 
   try {
     await page.reload();
@@ -530,7 +303,7 @@ test("project chat releases provider mic stream when recorder start fails", asyn
     await micButton.click();
 
     await expect(
-      overviewPane.getByText("Provider dictation is not available."),
+      overviewPane.getByText("Microphone access was denied."),
     ).toBeVisible();
     await expect
       .poll(async () => {
@@ -543,7 +316,6 @@ test("project chat releases provider mic stream when recorder start fails", asyn
       })
       .toBe(1);
   } finally {
-    await transcriptionCleanup();
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -702,12 +474,10 @@ test("chat section stops browser dictation when composer becomes disabled", asyn
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       managed: true,
-      transcriptionProfileId: null,
       agentProfileId: null,
       thinking: false,
       permissionMode: "minimal",
       searchEnabled: true,
-      dictationMode: "auto",
     };
     await postBackend(page, "/setChatSectionSettings", {
       ...baseSettings,

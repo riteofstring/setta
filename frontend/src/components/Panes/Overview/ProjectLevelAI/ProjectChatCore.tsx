@@ -414,10 +414,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hasLLMConfig,
   externalEngineAvailable,
   noLLMConfigsAvailable,
-  transcriptionProfileId,
-  dictationMode,
-  providerDictationAvailable,
-  providerDictationUnavailableReason,
   setChatId,
   onPermissionModeChange,
 }: {
@@ -429,10 +425,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hasLLMConfig: boolean;
   externalEngineAvailable: boolean;
   noLLMConfigsAvailable: boolean;
-  transcriptionProfileId: string | null;
-  dictationMode: "auto" | "browser" | "provider";
-  providerDictationAvailable: boolean;
-  providerDictationUnavailableReason: string;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
   onPermissionModeChange?: (
     nextPermissionMode: ChatPermissionModeValue,
@@ -818,12 +810,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   }, []);
   const handleProviderDictationTranscribe = useCallback(
     async (audioBlob: Blob) => {
-      if (!transcriptionProfileId) {
+      if (!engineConfigId || isExternalEngine) {
         return null;
       }
-      return transcribeChatAudio(transcriptionProfileId, audioBlob);
+      return transcribeChatAudio(engineConfigId, audioBlob);
     },
-    [transcriptionProfileId],
+    [engineConfigId, isExternalEngine],
   );
 
   return (
@@ -864,10 +856,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           permissionMode: showPermissionExecutionControl,
           search: showSearchExecutionControl,
         }}
-        dictationMode={dictationMode}
-        dictationEnabledByProvider={providerDictationAvailable}
-        providerDictationUnavailableMessage={providerDictationUnavailableReason}
-        onProviderDictationTranscribe={handleProviderDictationTranscribe}
+        dictationEnabledByProvider={Boolean(engineConfigId)}
+        onProviderDictationTranscribe={
+          isExternalEngine ? undefined : handleProviderDictationTranscribe
+        }
       />
     </>
   );
