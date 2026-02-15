@@ -541,11 +541,14 @@ function getFrontendEffectiveCapabilityDigest(
   statusEntry: PluginStatusEntry | undefined,
 ): string {
   if (statusEntry) {
-    const cachedDigest = effectiveCapabilityDigestByStatusEntry.get(statusEntry);
+    const cachedDigest =
+      effectiveCapabilityDigestByStatusEntry.get(statusEntry);
     if (cachedDigest !== undefined) {
       return cachedDigest;
     }
-    const digest = buildEffectiveCapabilityDigest(statusEntry.effectiveCapabilities);
+    const digest = buildEffectiveCapabilityDigest(
+      statusEntry.effectiveCapabilities,
+    );
     effectiveCapabilityDigestByStatusEntry.set(statusEntry, digest);
     return digest;
   }
@@ -558,7 +561,9 @@ function getFrontendEffectiveCapabilityDigest(
   return digest;
 }
 
-function buildEffectiveCapabilityDigest(effectiveCapabilities: string[]): string {
+function buildEffectiveCapabilityDigest(
+  effectiveCapabilities: string[],
+): string {
   if (effectiveCapabilities.length === 0) {
     return "";
   }

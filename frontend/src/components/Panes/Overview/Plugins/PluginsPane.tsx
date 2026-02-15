@@ -845,9 +845,7 @@ function PluginListEntryCard({
         <ActionButton
           label="Uninstall"
           onClick={onUninstall}
-          disabled={
-            pluginActionDisabled || packageManagerManaged
-          }
+          disabled={pluginActionDisabled || packageManagerManaged}
         />
       </div>
 
@@ -1466,10 +1464,7 @@ function PluginConfigTopLevelField({
       >
         <option value="__unset__">unset</option>
         {enumOptions.map((enumOption) => (
-          <option
-            key={enumOption.serialized}
-            value={enumOption.serialized}
-          >
+          <option key={enumOption.serialized} value={enumOption.serialized}>
             {String(enumOption.raw)}
           </option>
         ))}
