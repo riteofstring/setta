@@ -71,6 +71,10 @@ import {
   TimeDisplayFontEnum,
   TimeDisplayFormatEnum,
 } from "utils/generatedTypes";
+import type {
+  DateParamCodeObjImpl,
+  TimeParamCodeObjImpl,
+} from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
 import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
 import {
@@ -967,6 +971,24 @@ function AppParamUI({
 
   const onEscape = () => {};
 
+  const getDateParamImpl = (): DateParamCodeObjImpl => {
+    if (codeObjImpl.type !== CodeObjTypeEnum.DateParam) {
+      throw new TypeError(
+        `Expected DateParam impl, got ${codeObjImpl.type ?? "unknown"}.`,
+      );
+    }
+    return codeObjImpl;
+  };
+
+  const getTimeParamImpl = (): TimeParamCodeObjImpl => {
+    if (codeObjImpl.type !== CodeObjTypeEnum.TimeParam) {
+      throw new TypeError(
+        `Expected TimeParam impl, got ${codeObjImpl.type ?? "unknown"}.`,
+      );
+    }
+    return codeObjImpl;
+  };
+
   switch (codeObjType) {
     case CodeObjTypeEnum.CodeParam:
     case CodeObjTypeEnum.TextAreaParam: {
@@ -1025,67 +1047,50 @@ function AppParamUI({
         </>
       );
     }
-    case CodeObjTypeEnum.TimeParam:
-    case CodeObjTypeEnum.DateParam: {
-      const timeDisplayFormat =
-        "timeDisplayFormat" in codeObjImpl
-          ? codeObjImpl.timeDisplayFormat
-          : TimeDisplayFormatEnum.twenty_four_hour;
-      const timeDisplayTransparent =
-        "timeDisplayTransparent" in codeObjImpl
-          ? codeObjImpl.timeDisplayTransparent
-          : false;
-      const timeDisplayScale =
-        "timeDisplayScale" in codeObjImpl ? codeObjImpl.timeDisplayScale : 1;
-      const timeDisplayFont =
-        "timeDisplayFont" in codeObjImpl
-          ? codeObjImpl.timeDisplayFont
-          : TimeDisplayFontEnum.monospace;
-      const timeControlMode =
-        "timeControlMode" in codeObjImpl
-          ? codeObjImpl.timeControlMode
-          : TimeControlModeEnum.display;
-      const dateDisplayFormat =
-        "dateDisplayFormat" in codeObjImpl
-          ? codeObjImpl.dateDisplayFormat
-          : DateDisplayFormatEnum.iso;
-      const dateControlMode =
-        "dateControlMode" in codeObjImpl
-          ? codeObjImpl.dateControlMode
-          : DateControlModeEnum.input;
-      const dateSelectionMode =
-        "dateSelectionMode" in codeObjImpl
-          ? codeObjImpl.dateSelectionMode
-          : DateSelectionModeEnum.single;
-      const dateCalendarWeekStart =
-        "dateCalendarWeekStart" in codeObjImpl
-          ? codeObjImpl.dateCalendarWeekStart
-          : DateCalendarWeekStartEnum.sunday;
-      const dateIncludesTime =
-        "dateIncludesTime" in codeObjImpl
-          ? codeObjImpl.dateIncludesTime
-          : false;
-      const uiType =
-        codeObjType === CodeObjTypeEnum.TimeParam
-          ? TextParamInputUITypeEnum.time
-          : TextParamInputUITypeEnum.date;
+    case CodeObjTypeEnum.TimeParam: {
+      const timeParamImpl = getTimeParamImpl();
       return (
         <TextParamDateTimeInput
           value={stringValue}
           onChange={onChange}
           onEscape={onEscape}
           isDisabled={isDisabled}
-          uiType={uiType}
-          timeControlMode={timeControlMode}
-          timeDisplayFormat={timeDisplayFormat}
-          timeDisplayTransparent={timeDisplayTransparent}
-          timeDisplayScale={timeDisplayScale}
-          timeDisplayFont={timeDisplayFont}
-          dateDisplayFormat={dateDisplayFormat}
-          dateControlMode={dateControlMode}
-          dateSelectionMode={dateSelectionMode}
-          dateCalendarWeekStart={dateCalendarWeekStart}
-          dateIncludesTime={dateIncludesTime}
+          uiType={TextParamInputUITypeEnum.time}
+          timeControlMode={timeParamImpl.timeControlMode}
+          timeDisplayFormat={timeParamImpl.timeDisplayFormat}
+          timeDisplayTransparent={timeParamImpl.timeDisplayTransparent}
+          timeDisplayScale={timeParamImpl.timeDisplayScale}
+          timeDisplayFont={timeParamImpl.timeDisplayFont}
+          dateDisplayFormat={DateDisplayFormatEnum.iso}
+          dateControlMode={DateControlModeEnum.input}
+          dateSelectionMode={DateSelectionModeEnum.single}
+          dateCalendarWeekStart={DateCalendarWeekStartEnum.sunday}
+          dateIncludesTime={false}
+          inputClassName={`${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]`}
+          formattedValueClassName="text-[10px] font-mono text-[color:var(--app-muted)]"
+          borderClassName="section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]"
+        />
+      );
+    }
+    case CodeObjTypeEnum.DateParam: {
+      const dateParamImpl = getDateParamImpl();
+      return (
+        <TextParamDateTimeInput
+          value={stringValue}
+          onChange={onChange}
+          onEscape={onEscape}
+          isDisabled={isDisabled}
+          uiType={TextParamInputUITypeEnum.date}
+          timeControlMode={TimeControlModeEnum.display}
+          timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
+          timeDisplayTransparent={false}
+          timeDisplayScale={1}
+          timeDisplayFont={TimeDisplayFontEnum.monospace}
+          dateDisplayFormat={dateParamImpl.dateDisplayFormat}
+          dateControlMode={dateParamImpl.dateControlMode}
+          dateSelectionMode={dateParamImpl.dateSelectionMode}
+          dateCalendarWeekStart={dateParamImpl.dateCalendarWeekStart}
+          dateIncludesTime={dateParamImpl.dateIncludesTime}
           inputClassName={`${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]`}
           formattedValueClassName="text-[10px] font-mono text-[color:var(--app-muted)]"
           borderClassName="section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]"

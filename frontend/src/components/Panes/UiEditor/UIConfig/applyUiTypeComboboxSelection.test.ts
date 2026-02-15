@@ -119,4 +119,18 @@ describe("applyUiTypeComboboxSelection", () => {
     );
     expect(route_update_param_impl_config).not.toHaveBeenCalled();
   });
+
+  it("throws when calendar preset is selected outside the control filter", async () => {
+    await expect(
+      applyUiTypeComboboxSelection({
+        ...baseArgs,
+        filterKey: "sectionParam",
+        selectedId: CALENDAR_PRESET_ID,
+      }),
+    ).rejects.toThrow(
+      "Calendar preset selection is only valid for control params.",
+    );
+    expect(route_change_param_impl).not.toHaveBeenCalled();
+    expect(route_update_param_impl_config).not.toHaveBeenCalled();
+  });
 });

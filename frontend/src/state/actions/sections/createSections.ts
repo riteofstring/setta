@@ -450,16 +450,13 @@ export async function openFileInSpreadsheetSection({
   if (!newSectionId) {
     return null;
   }
-  const renameResponse = await route_set_section_name({
+  await route_set_section_name({
     projectConfigId: getCurrProjectConfigId(),
     sectionId: newSectionId,
     name: getValidSectionNameForOpenedFile(fileName),
   });
   if (focusOnSection) {
     goToSection(newSectionId);
-  }
-  if (!res200(renameResponse)) {
-    return newSectionId;
   }
   return newSectionId;
 }

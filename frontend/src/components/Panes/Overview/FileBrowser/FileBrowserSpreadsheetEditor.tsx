@@ -60,7 +60,8 @@ type SpreadsheetDraft = {
 };
 
 type SpreadsheetRowData = {
-  rows: string[][];
+  sourceRows: string[][];
+  displayedRowIndexes: number[];
   columnCount: number;
   showRowNumbers: boolean;
   readOnly: boolean;
@@ -261,6 +262,7 @@ export function applySpreadsheetCellUpdates({
     return rows;
   }
   let nextRows = rows;
+  let didMutate = false;
   const touchedRows = new Map<number, string[]>();
   for (const edit of edits) {
     if (
@@ -270,13 +272,16 @@ export function applySpreadsheetCellUpdates({
     ) {
       continue;
     }
+    const existingTouchedRow = touchedRows.get(edit.rowIndex);
+    const sourceRow =
+      existingTouchedRow ??
+      withColumnCount(rows[edit.rowIndex] ?? [], columnCount);
+    if ((sourceRow[edit.columnIndex] ?? "") === edit.value) {
+      continue;
+    }
     let editableRow = touchedRows.get(edit.rowIndex);
     if (!editableRow) {
-      const normalizedRow = withColumnCount(
-        rows[edit.rowIndex] ?? [],
-        columnCount,
-      );
-      editableRow = [...normalizedRow];
+      editableRow = [...sourceRow];
       if (nextRows === rows) {
         nextRows = [...rows];
       }
@@ -284,8 +289,9 @@ export function applySpreadsheetCellUpdates({
       touchedRows.set(edit.rowIndex, editableRow);
     }
     editableRow[edit.columnIndex] = edit.value;
+    didMutate = true;
   }
-  return nextRows;
+  return didMutate ? nextRows : rows;
 }
 
 function compareSpreadsheetCellValues(a: string, b: string): number {
@@ -359,14 +365,16 @@ export function getSpreadsheetGlideDensityMultiplier(flowZoom: number): number {
 export function SpreadsheetRow({
   index,
   style,
-  rows,
+  sourceRows,
+  displayedRowIndexes,
   columnCount,
   showRowNumbers,
   readOnly,
   gridTemplateColumns,
   onChangeCell,
 }: SpreadsheetRowProps) {
-  const row = rows[index] ?? [];
+  const sourceRowIndex = displayedRowIndexes[index];
+  const row = sourceRowIndex === undefined ? [] : sourceRows[sourceRowIndex] ?? [];
   return (
     <div
       className="grid overflow-hidden border-b border-setta-200 bg-white text-[10px] dark:border-setta-800 dark:bg-setta-950/70"
@@ -659,13 +667,6 @@ export function FileBrowserSpreadsheetEditor({
     return sorted;
   }, [filterQuery, sheet, sortState]);
 
-  const displayedRows = useMemo(() => {
-    if (!sheet) {
-      return [];
-    }
-    return displayedRowIndexes.map((rowIndex) => sheet.rows[rowIndex] ?? []);
-  }, [displayedRowIndexes, sheet]);
-
   const displayedRowCount = displayedRowIndexes.length;
 
   const onChangeCell = useCallback(
@@ -677,6 +678,7 @@ export function FileBrowserSpreadsheetEditor({
       if (sourceRowIndex === undefined) {
         return;
       }
+      let didMutate = false;
       setSheet((prev) => {
         if (!prev) {
           return prev;
@@ -689,13 +691,16 @@ export function FileBrowserSpreadsheetEditor({
         if (nextRows === prev.rows) {
           return prev;
         }
+        didMutate = true;
         return {
           ...prev,
           rows: nextRows,
         };
       });
-      setIsDirty(true);
-      setStatusText(null);
+      if (didMutate) {
+        setIsDirty(true);
+        setStatusText(null);
+      }
     },
     [displayedRowIndexes, readOnly],
   );
@@ -712,6 +717,7 @@ export function FileBrowserSpreadsheetEditor({
         value: EditableGridCell;
       }[],
     ) => {
+      let didMutate = false;
       setSheet((prev) => {
         if (!prev) {
           return prev;
@@ -746,13 +752,16 @@ export function FileBrowserSpreadsheetEditor({
         if (nextRows === prev.rows) {
           return prev;
         }
+        didMutate = true;
         return {
           ...prev,
           rows: nextRows,
         };
       });
-      setIsDirty(true);
-      setStatusText(null);
+      if (didMutate) {
+        setIsDirty(true);
+        setStatusText(null);
+      }
       return true;
     },
     [displayedRowIndexes],
@@ -767,6 +776,7 @@ export function FileBrowserSpreadsheetEditor({
       if (!range) {
         return false;
       }
+      let didMutate = false;
       setSheet((prev) => {
         if (!prev) {
           return prev;
@@ -800,13 +810,16 @@ export function FileBrowserSpreadsheetEditor({
         if (nextRows === prev.rows) {
           return prev;
         }
+        didMutate = true;
         return {
           ...prev,
           rows: nextRows,
         };
       });
-      setIsDirty(true);
-      setStatusText(null);
+      if (didMutate) {
+        setIsDirty(true);
+        setStatusText(null);
+      }
       return false;
     },
     [displayedRowIndexes, readOnly],
@@ -1447,7 +1460,8 @@ export function FileBrowserSpreadsheetEditor({
                     rowCount={displayedRowCount}
                     rowHeight={densityMetrics.rowHeight}
                     rowProps={{
-                      rows: displayedRows,
+                      sourceRows: sheet.rows,
+                      displayedRowIndexes,
                       columnCount: sheet.columnCount,
                       showRowNumbers,
                       readOnly,

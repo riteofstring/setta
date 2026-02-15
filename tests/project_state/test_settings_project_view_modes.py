@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from setta.project_state.settings_project import (
     SETTINGS_VIEW_GRID_COLUMNS,
     SETTINGS_VIEW_GRID_SPACING,
@@ -8,7 +10,6 @@ from setta.project_state.settings_project import (
     ensure_settings_code_objs,
     ensure_settings_view_modes,
 )
-from setta.types.section_impls import DictSectionImpl
 
 
 def test_settings_view_modes_layout_and_viewport():
@@ -137,7 +138,7 @@ def test_settings_view_modes_skip_when_valid():
     assert did_reset is False
 
 
-def test_settings_code_objs_migration_adds_missing_section_defaults():
+def test_settings_code_objs_fails_when_required_section_is_missing():
     project_state = create_settings_project_state(Path("/tmp/settings.json"))
     section_name_to_id = {
         section.name: section_id for section_id, section in project_state.sections.items()
@@ -159,21 +160,8 @@ def test_settings_code_objs_migration_adds_missing_section_defaults():
         if missing_section_id in view_mode.topLevelSections:
             del view_mode.topLevelSections[missing_section_id]
 
-    did_migrate = ensure_settings_code_objs(project_state)
-    assert did_migrate is True
-
-    refreshed_section_name_to_id = {
-        section.name: section_id for section_id, section in project_state.sections.items()
-    }
-    assert missing_name in refreshed_section_name_to_id
-    restored_section_id = refreshed_section_name_to_id[missing_name]
-    restored_variant_id = project_state.projectConfig.sectionVariantMap[restored_section_id]
-    restored_variant = project_state.sectionVariants[restored_variant_id]
-    restored_impl = project_state.sectionImpls[restored_variant.impl]
-    assert isinstance(restored_impl, DictSectionImpl)
-    assert restored_impl.jsonSourceKeys == [missing_name]
-    assert restored_impl.topLevelParamId is not None
-
-    did_reset = ensure_settings_view_modes(project_state)
-    assert did_reset is True
-    assert restored_section_id in project_state.projectConfig.topLevelSections
+    with pytest.raises(
+        KeyError,
+        match="Missing settings section spreadsheetSectionDefault",
+    ):
+        ensure_settings_code_objs(project_state)

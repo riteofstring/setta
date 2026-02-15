@@ -17,6 +17,10 @@ function pad2(value: number): string {
   return value.toString().padStart(2, "0");
 }
 
+export function getLocalTodayIsoDate(now: Date = new Date()): string {
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+}
+
 function isValidDateParts(year: number, month: number, day: number): boolean {
   const date = new Date(Date.UTC(year, month - 1, day));
   return (

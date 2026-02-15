@@ -41,6 +41,7 @@ import {
   formatDateForDisplay,
   formatDateTimeForDisplay,
   formatTimeForDisplay,
+  getLocalTodayIsoDate,
   normalizeDateTimeToLocalIso,
   normalizeDateToIso,
   normalizeTimeTo24Hour,
@@ -592,14 +593,7 @@ function DateCalendarInput({
     [selectedDates],
   );
   const weekdayLabels = useMemo(() => getWeekdayLabels(weekStart), [weekStart]);
-  const todayIso = useMemo(
-    () =>
-      normalizeDateToIso(
-        new Date().toISOString().slice(0, 10),
-        DateDisplayFormatEnum.iso,
-      ),
-    [],
-  );
+  const todayIso = useMemo(() => getLocalTodayIsoDate(), []);
 
   let summaryText = "No date selected";
   if (selectionMode === DateSelectionModeEnum.multiple) {
@@ -791,6 +785,8 @@ export function TextParamDateTimeInput({
   const showDisplayOnlyTime =
     uiType === TextParamInputUITypeEnum.time &&
     timeControlMode === TimeControlModeEnum.display;
+  const showFormattedDateInput =
+    uiType === TextParamInputUITypeEnum.date && !dateIncludesTime;
   const effectiveTimeDisplayScale = clampTimeDisplayScale(
     timeDisplayScale ?? 1,
   );
@@ -798,6 +794,33 @@ export function TextParamDateTimeInput({
   const timeDisplayFontClassName = getTimeDisplayFontClassName(
     timeDisplayFont ?? TimeDisplayFontEnum.monospace,
   );
+
+  let normalizedValue = "";
+  if (uiType === TextParamInputUITypeEnum.time) {
+    normalizedValue = normalizeTimeTo24Hour(value);
+  } else if (dateIncludesTime) {
+    const split = splitIsoDateAndTimeParts(value);
+    if (split) {
+      normalizedValue = `${split.dateIso}T${split.time24}`;
+    } else {
+      const normalizedDate = normalizeDateToIso(value, dateDisplayFormat);
+      normalizedValue = normalizedDate === "" ? "" : `${normalizedDate}T00:00`;
+    }
+  } else {
+    normalizedValue = normalizeDateToIso(value, dateDisplayFormat);
+  }
+
+  const [localDateInputValue, setLocalDateInputValue] = useState(() =>
+    formatDateForDisplay(normalizedValue, dateDisplayFormat),
+  );
+  useEffect(() => {
+    if (!showFormattedDateInput) {
+      return;
+    }
+    setLocalDateInputValue(
+      formatDateForDisplay(normalizedValue, dateDisplayFormat),
+    );
+  }, [dateDisplayFormat, normalizedValue, showFormattedDateInput]);
 
   if (showDisplayOnlyTime) {
     const formattedTimeValue = formatTimeForDisplay(value, timeDisplayFormat);
@@ -846,36 +869,6 @@ export function TextParamDateTimeInput({
       </>
     );
   }
-
-  const showFormattedDateInput =
-    uiType === TextParamInputUITypeEnum.date && !dateIncludesTime;
-
-  let normalizedValue = "";
-  if (uiType === TextParamInputUITypeEnum.time) {
-    normalizedValue = normalizeTimeTo24Hour(value);
-  } else if (dateIncludesTime) {
-    const split = splitIsoDateAndTimeParts(value);
-    if (split) {
-      normalizedValue = `${split.dateIso}T${split.time24}`;
-    } else {
-      const normalizedDate = normalizeDateToIso(value, dateDisplayFormat);
-      normalizedValue = normalizedDate === "" ? "" : `${normalizedDate}T00:00`;
-    }
-  } else {
-    normalizedValue = normalizeDateToIso(value, dateDisplayFormat);
-  }
-
-  const [localDateInputValue, setLocalDateInputValue] = useState(() =>
-    formatDateForDisplay(normalizedValue, dateDisplayFormat),
-  );
-  useEffect(() => {
-    if (!showFormattedDateInput) {
-      return;
-    }
-    setLocalDateInputValue(
-      formatDateForDisplay(normalizedValue, dateDisplayFormat),
-    );
-  }, [dateDisplayFormat, normalizedValue, showFormattedDateInput]);
 
   let formattedValue = "";
   let inputType: "time" | "date" | "datetime-local" | "text" = "date";

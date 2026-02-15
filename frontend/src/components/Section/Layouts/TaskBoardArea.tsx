@@ -79,10 +79,12 @@ import {
 } from "utils/taskBoard";
 import {
   combineIsoDateAndTimeParts,
+  getLocalTodayIsoDate,
   normalizeDateTimeToLocalIso,
   normalizeDateToIso,
   splitIsoDateAndTimeParts,
 } from "utils/textParamDateTime";
+import { shallow } from "zustand/shallow";
 
 const TASK_DND_PREFIX = "task-board-task:";
 const COLUMN_DND_PREFIX = "task-board-column:";
@@ -712,7 +714,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       tasks: impl.tasks,
       isFrozen: impl.isFrozen,
     };
-  }, _.isEqual);
+  }, shallow);
 
   const isDisabled = isFrozen || !canEditLayout;
   const normalizedState = useMemo(
@@ -2031,10 +2033,7 @@ function TaskDueInput({
             const normalizedDate =
               dateValue !== ""
                 ? dateValue
-                : normalizeDateToIso(
-                    new Date().toISOString().slice(0, 10),
-                    "iso",
-                  );
+                : getLocalTodayIsoDate();
             const combined = combineIsoDateAndTimeParts(
               normalizedDate,
               "09:00",

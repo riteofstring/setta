@@ -162,6 +162,30 @@ test("meta control time defaults to display and can switch to input mode", async
     const timeInput = sectionNode.locator('input[type="time"]');
     await expect(timeInput).toBeVisible();
     await expect(timeInput).toHaveValue("13:45");
+
+    await postBackend(page, "/updateParamImplConfig", {
+      projectConfigId: context.projectConfigId,
+      sectionId,
+      paramInfoId,
+      newConfig: {
+        timeControlMode: "display",
+        timeDisplayFormat: "twelve_hour",
+      },
+    });
+    await expect(sectionNode.getByText("1:45 PM")).toBeVisible();
+    await expect(sectionNode.locator('input[type="time"]')).toHaveCount(0);
+
+    await postBackend(page, "/updateParamImplConfig", {
+      projectConfigId: context.projectConfigId,
+      sectionId,
+      paramInfoId,
+      newConfig: {
+        timeControlMode: "input",
+        timeDisplayFormat: "twelve_hour",
+      },
+    });
+    await expect(timeInput).toBeVisible();
+    await expect(timeInput).toHaveValue("13:45");
   } finally {
     if (sectionIds.length > 0) {
       await postBackend(page, "/deleteSections", {
@@ -226,6 +250,35 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
     ).toBeVisible();
     await expect(sectionNode.getByText("2 selected")).toBeVisible();
     await expect(sectionNode.locator('input[type="date"]')).toHaveCount(0);
+
+    await postBackend(page, "/updateParamImplConfig", {
+      projectConfigId: context.projectConfigId,
+      sectionId,
+      paramInfoId,
+      newConfig: {
+        dateControlMode: "input",
+        dateSelectionMode: "single",
+        dateCalendarWeekStart: "monday",
+      },
+    });
+    await expect(sectionNode.locator('input[type="text"]')).toBeVisible();
+    await expect(
+      sectionNode.getByRole("button", { name: "Prev", exact: true }),
+    ).toHaveCount(0);
+
+    await postBackend(page, "/updateParamImplConfig", {
+      projectConfigId: context.projectConfigId,
+      sectionId,
+      paramInfoId,
+      newConfig: {
+        dateControlMode: "calendar",
+        dateSelectionMode: "multiple",
+        dateCalendarWeekStart: "monday",
+      },
+    });
+    await expect(
+      sectionNode.getByRole("button", { name: "Prev", exact: true }),
+    ).toBeVisible();
   } finally {
     if (sectionIds.length > 0) {
       await postBackend(page, "/deleteSections", {

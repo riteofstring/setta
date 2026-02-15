@@ -203,4 +203,47 @@ describe("TextParamDateTimeInput", () => {
     expect(markup).toContain("Time");
     expect(markup).toContain('type="time"');
   });
+
+  it("renders across repeated time/date mode toggles without throwing", () => {
+    const renderTime = (mode: (typeof TimeControlModeEnum)[keyof typeof TimeControlModeEnum]) =>
+      renderToStaticMarkup(
+        <TextParamDateTimeInput
+          value="13:05"
+          onChange={vi.fn()}
+          isDisabled={false}
+          uiType={TextParamInputUITypeEnum.time}
+          timeControlMode={mode}
+          timeDisplayFormat={TimeDisplayFormatEnum.twelve_hour}
+          dateDisplayFormat={DateDisplayFormatEnum.iso}
+          dateControlMode={DateControlModeEnum.input}
+          dateSelectionMode={DateSelectionModeEnum.single}
+          dateCalendarWeekStart={DateCalendarWeekStartEnum.sunday}
+          dateIncludesTime={false}
+        />,
+      );
+    const renderDate = (mode: (typeof DateControlModeEnum)[keyof typeof DateControlModeEnum]) =>
+      renderToStaticMarkup(
+        <TextParamDateTimeInput
+          value="2026-12-31"
+          onChange={vi.fn()}
+          isDisabled={false}
+          uiType={TextParamInputUITypeEnum.date}
+          timeControlMode={TimeControlModeEnum.input}
+          timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
+          dateDisplayFormat={DateDisplayFormatEnum.iso}
+          dateControlMode={mode}
+          dateSelectionMode={DateSelectionModeEnum.single}
+          dateCalendarWeekStart={DateCalendarWeekStartEnum.sunday}
+          dateIncludesTime={false}
+        />,
+      );
+
+    expect(renderTime(TimeControlModeEnum.display)).toContain("1:05 PM");
+    expect(renderTime(TimeControlModeEnum.input)).toContain('type="time"');
+    expect(renderTime(TimeControlModeEnum.display)).toContain("1:05 PM");
+
+    expect(renderDate(DateControlModeEnum.calendar)).toContain("Prev");
+    expect(renderDate(DateControlModeEnum.input)).toContain('type="text"');
+    expect(renderDate(DateControlModeEnum.calendar)).toContain("Prev");
+  });
 });

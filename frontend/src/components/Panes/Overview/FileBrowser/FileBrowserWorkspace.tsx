@@ -1,5 +1,5 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiChevronDown, FiChevronUp } from "react-icons/fi";
 import { clamp } from "utils/utils";
 import { FileBrowserPane, type FileNode } from "./FileBrowserPane";
@@ -8,6 +8,11 @@ import { FileBrowserUniversalPreview } from "./FileBrowserUniversalPreview";
 const DEFAULT_PREVIEW_HEIGHT_PCT = 42;
 const MIN_PREVIEW_HEIGHT_PCT = 24;
 const MIN_LIST_HEIGHT_PCT = 32;
+
+type ResizeListenerTarget = Pick<
+  Window,
+  "addEventListener" | "removeEventListener"
+>;
 
 export function getListHeightPct({
   previewHeightPct,
@@ -41,6 +46,22 @@ export function getPreviewHeightPctFromPointer({
   return 100 - boundedListPct;
 }
 
+export function attachPreviewResizeListeners(args: {
+  target: ResizeListenerTarget;
+  onMove: (event: PointerEvent) => void;
+  onUp: (event: PointerEvent) => void;
+}): () => void {
+  const { target, onMove, onUp } = args;
+  target.addEventListener("pointermove", onMove);
+  target.addEventListener("pointerup", onUp);
+  target.addEventListener("pointercancel", onUp);
+  return () => {
+    target.removeEventListener("pointermove", onMove);
+    target.removeEventListener("pointerup", onUp);
+    target.removeEventListener("pointercancel", onUp);
+  };
+}
+
 export function FileBrowserWorkspace({
   metaPaddingClassName,
   listInsetLeft,
@@ -54,6 +75,14 @@ export function FileBrowserWorkspace({
   );
   const [isPreviewMinimized, setIsPreviewMinimized] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      resizeCleanupRef.current?.();
+      resizeCleanupRef.current = null;
+    };
+  }, []);
 
   const listHeightPct = useMemo(() => {
     return getListHeightPct({
@@ -93,14 +122,17 @@ export function FileBrowserWorkspace({
         if (upEvent.pointerId !== pointerId) {
           return;
         }
-        window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", onUp);
-        window.removeEventListener("pointercancel", onUp);
+        cleanup();
+        resizeCleanupRef.current = null;
       };
 
-      window.addEventListener("pointermove", onMove);
-      window.addEventListener("pointerup", onUp);
-      window.addEventListener("pointercancel", onUp);
+      resizeCleanupRef.current?.();
+      const cleanup = attachPreviewResizeListeners({
+        target: window,
+        onMove,
+        onUp,
+      });
+      resizeCleanupRef.current = cleanup;
     },
     [isPreviewMinimized],
   );

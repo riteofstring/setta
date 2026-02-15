@@ -20,8 +20,14 @@ export async function applyUiTypeComboboxSelection(args: {
   selectedId: string;
   filterKey: CodeObjTypeFilterKey;
 }) {
-  const { projectConfigId, sectionId, paramInfoId, selectedId } = args;
+  const { projectConfigId, sectionId, paramInfoId, selectedId, filterKey } =
+    args;
   if (selectedId === CALENDAR_PRESET_ID) {
+    if (filterKey !== "control") {
+      throw new Error(
+        "Calendar preset selection is only valid for control params.",
+      );
+    }
     const changeRes = await route_change_param_impl({
       projectConfigId,
       sectionId,

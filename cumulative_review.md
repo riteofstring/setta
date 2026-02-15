@@ -31,3 +31,16 @@
 - Simplified task board normalization contract by removing redundant recurrence fallback coercions and double-normalization lane building; lane builder now requires normalized state.
 - Made spreadsheet section open behavior consistent by preserving focus navigation even when rename responses fail.
 - Added/updated backend, Vitest, and Playwright coverage for all affected flows and verified targeted suites pass.
+
+## 2026-02-17 12:09:42 PST
+
+- Implemented consolidated branch-review fixes while explicitly avoiding backward-compatibility shims and read-time auto-healing.
+- Fixed `TextParamDateTimeInput` hook-order safety by making hooks unconditional and keeping mode branching render-only.
+- Replaced UTC-derived "today" defaults with local-date ISO generation and reused it in both date/time param UI and task board due-date defaults.
+- Hardened app param rendering by splitting DateParam and TimeParam into explicit typed paths with fail-fast type guards (no fallback field coercion).
+- Removed settings-project section auto-creation during `ensure_settings_code_objs`; missing required settings sections now raise deterministic errors.
+- Added unmount-safe global pointer listener teardown for file-browser preview resize interactions.
+- Optimized spreadsheet editing paths by skipping no-op writes, setting dirty state only on real mutations, and removing eager visible-row rematerialization.
+- Replaced deep-equality task board selector comparison with shallow comparison for lower hot-path store-update overhead.
+- Cleaned up UI-type combobox calendar preset handling by enforcing `filterKey === "control"` invariant and removed redundant spreadsheet rename branching.
+- Added/updated Vitest, pytest, and Playwright coverage for the above behaviors and verified targeted suites pass; completed CDP visual verification for updated date/calendar UI flows.

@@ -24,7 +24,8 @@ describe("FileBrowserSpreadsheetEditor (perf)", () => {
           width: getSpreadsheetGridWidth(columnCount),
           height: SPREADSHEET_ROW_HEIGHT,
         }}
-        rows={rows}
+        sourceRows={rows}
+        displayedRowIndexes={[0]}
         columnCount={columnCount}
         showRowNumbers={true}
         readOnly={false}

@@ -147,6 +147,13 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
       const csvCell = sectionNode.locator('[data-spreadsheet-cell="1:1"]');
       await expect(csvLeftCell).toBeVisible();
       await expect(csvCell).toBeVisible();
+      const saveButton = sectionNode.getByTestId("spreadsheet-save");
+      await expect(saveButton).toBeDisabled();
+
+      await csvCell.fill("todo");
+      await expect(sectionNode.getByText("Unsaved edits.")).toHaveCount(0);
+      await expect(saveButton).toBeDisabled();
+
       const leftCellClasses = await csvLeftCell.getAttribute("class");
       expect(leftCellClasses ?? "").toContain("box-border");
       expect(leftCellClasses ?? "").toContain("dark:focus:bg-blue-900/30");
@@ -186,11 +193,8 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
       expect(rowLayoutMetrics.fontSizePx).toBeLessThanOrEqual(11);
       expect(rowLayoutMetrics.boxSizing).toBe("border-box");
       await csvCell.fill("done");
-      await sectionNode.getByTestId("spreadsheet-save").click();
-      await expect(sectionNode.getByText("Saved.")).toBeVisible();
-      await expect
-        .poll(() => fs.readFile(csvPath, "utf-8"))
-        .toContain("alpha,done");
+      await expect(saveButton).toBeEnabled();
+      await expect(sectionNode.getByText("Unsaved edits.")).toBeVisible();
 
       await thumbnailRow.locator("button", { hasText: "sheet.xlsx" }).click();
       const xlsxCell = sectionNode.locator('[data-spreadsheet-cell="1:0"]');

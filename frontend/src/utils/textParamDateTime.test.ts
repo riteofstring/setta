@@ -8,6 +8,7 @@ import {
   formatDateForDisplay,
   formatDateTimeForDisplay,
   formatTimeForDisplay,
+  getLocalTodayIsoDate,
   normalizeDateTimeToLocalIso,
   normalizeDateToIso,
   normalizeTimeTo24Hour,
@@ -74,5 +75,11 @@ describe("textParamDateTime", () => {
         timeDisplayFormat: TimeDisplayFormatEnum.twelve_hour,
       }),
     ).toBe("12/31/2026 9:15 PM");
+  });
+
+  it("formats local today as ISO using local date parts", () => {
+    expect(
+      getLocalTodayIsoDate(new Date("2026-02-17T23:30:00-08:00")),
+    ).toBe("2026-02-17");
   });
 });

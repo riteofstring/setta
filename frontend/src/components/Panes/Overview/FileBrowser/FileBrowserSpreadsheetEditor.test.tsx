@@ -87,7 +87,8 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
           width: getSpreadsheetGridWidth(2),
           height: SPREADSHEET_ROW_HEIGHT,
         }}
-        rows={[["task", "status"]]}
+        sourceRows={[["task", "status"]]}
+        displayedRowIndexes={[0]}
         columnCount={2}
         showRowNumbers={true}
         readOnly={false}
@@ -126,6 +127,17 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
       rows,
       columnCount: 2,
       edits: [{ rowIndex: 0, columnIndex: 5, value: "ignored" }],
+    });
+
+    expect(next).toBe(rows);
+  });
+
+  it("returns the same rows reference when edits do not change cell values", () => {
+    const rows = [["a0", "a1"]];
+    const next = applySpreadsheetCellUpdates({
+      rows,
+      columnCount: 2,
+      edits: [{ rowIndex: 0, columnIndex: 1, value: "a1" }],
     });
 
     expect(next).toBe(rows);

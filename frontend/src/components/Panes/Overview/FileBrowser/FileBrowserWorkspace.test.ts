@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  attachPreviewResizeListeners,
   getListHeightPct,
   getPreviewHeightPctFromPointer,
 } from "./FileBrowserWorkspace";
@@ -41,5 +42,28 @@ describe("FileBrowserWorkspace sizing helpers", () => {
       containerHeight: 400,
     });
     expect(clampedHigh).toBe(68);
+  });
+
+  it("returns a cleanup that removes all active pointer listeners", () => {
+    const target = {
+      addEventListener: (_name: string, _handler: (event: PointerEvent) => void) =>
+        undefined,
+      removeEventListener: (
+        _name: string,
+        _handler: (event: PointerEvent) => void,
+      ) => undefined,
+    };
+    const addSpy = vi.spyOn(target, "addEventListener");
+    const removeSpy = vi.spyOn(target, "removeEventListener");
+
+    const cleanup = attachPreviewResizeListeners({
+      target,
+      onMove: () => undefined,
+      onUp: () => undefined,
+    });
+
+    expect(addSpy).toHaveBeenCalledTimes(3);
+    cleanup();
+    expect(removeSpy).toHaveBeenCalledTimes(3);
   });
 });
