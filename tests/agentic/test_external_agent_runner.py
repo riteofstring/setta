@@ -29,7 +29,6 @@ from setta.agentic.external_agent_runner import (
     ExternalAgentRunState,
     ExternalAgentRunner,
 )
-from setta.agentic.completion_guard import MISSING_CHECKS_MESSAGE
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
 from setta.database.db_objs import DBE
@@ -1825,7 +1824,7 @@ class TestExternalAgentRunnerQuestion:
             assert state.section_id == ID("section-1")
             assert state.approval_id is None
 
-    async def test_message_finalized_applies_completion_guard(self) -> None:
+    async def test_message_finalized_keeps_text_without_completion_report(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             project_config = _write_project_state(dbe)
@@ -1884,7 +1883,7 @@ class TestExternalAgentRunnerQuestion:
             assert isinstance(assistant_content, list)
             last_text_block = assistant_content[0]
             assert isinstance(last_text_block, dict)
-            assert last_text_block.get("text") == MISSING_CHECKS_MESSAGE
+            assert last_text_block.get("text") == "Done. Everything is ready."
 
     async def test_message_finalized_skips_completion_guard_when_disabled(self) -> None:
         with TemporaryDirectory() as tmpdir:

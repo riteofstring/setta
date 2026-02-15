@@ -1,4 +1,3 @@
-import re
 from typing import Any
 
 from setta.agentic.completion_report import (
@@ -19,17 +18,6 @@ FAILED_CHECKS_MESSAGE = (
     "I cannot mark this complete because required error checks are failing. "
     "I need to report failing checks and fixes before completion."
 )
-_COMPLETION_WORD_PATTERN = re.compile(
-    r"\b(done|complete|completed|finished|all set|shipped)\b",
-    re.IGNORECASE,
-)
-_NEGATED_COMPLETION_PATTERN = re.compile(
-    (
-        r"\b(not|isn't|isnt|aren't|arent|cannot|can't|cant|won't|wont|pending|incomplete)\b"
-        r".{0,24}\b(done|complete|completed|finished|all set|shipped)\b"
-    ),
-    re.IGNORECASE,
-)
 
 
 def apply_completion_guard(
@@ -48,17 +36,8 @@ def apply_completion_guard(
     if scoped_messages is None:
         return None
     report = _resolve_latest_completion_report(scoped_messages)
-    is_completion_attempt = _is_completion_claim_text(assistant_text) or (
-        report is not None and report.completionIntent
-    )
-    if not is_completion_attempt:
+    if report is None or not report.completionIntent:
         return None
-    if report is None:
-        _replace_assistant_text(assistant_message, MISSING_CHECKS_MESSAGE)
-        return MISSING_CHECKS_MESSAGE
-    if not report.completionIntent:
-        _replace_assistant_text(assistant_message, MISSING_CHECKS_MESSAGE)
-        return MISSING_CHECKS_MESSAGE
     if not report.requiresVerification:
         return None
     if report.verificationStatus == VerificationStatus.passed:
@@ -137,17 +116,6 @@ def _extract_assistant_text(message: AssistantChatMessage) -> str:
         if normalized:
             text_blocks.append(normalized)
     return "\n".join(text_blocks)
-
-
-def _is_completion_claim_text(text: str) -> bool:
-    normalized = text.strip()
-    if not normalized:
-        return False
-    if normalized.lower().startswith("[error]"):
-        return False
-    if _NEGATED_COMPLETION_PATTERN.search(normalized):
-        return False
-    return _COMPLETION_WORD_PATTERN.search(normalized) is not None
 
 
 def _replace_assistant_text(

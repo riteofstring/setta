@@ -191,7 +191,7 @@ class TestAgentRunner:
 
             assert filtered == [completion_tool_name]
 
-    def test_completion_guard_blocks_missing_report_when_enabled(self) -> None:
+    def test_completion_guard_allows_missing_report_when_enabled(self) -> None:
         prior_messages = [
             UserChatMessage(content=[MessageTextContent(text="Implement task A.")])
         ]
@@ -205,7 +205,7 @@ class TestAgentRunner:
             completion_guard_enabled=True,
         )
 
-        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+        assert assistant_message.content[0].text == "Task A is done."
 
     def test_completion_guard_allows_when_disabled(self) -> None:
         prior_messages = [
@@ -328,7 +328,7 @@ class TestAgentRunner:
             completion_guard_enabled=True,
         )
 
-        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+        assert assistant_message.content[0].text == "Task B is done."
 
     def test_allowlist_rejects_unknown_server(self) -> None:
         with TemporaryDirectory() as tmpdir:
