@@ -28,7 +28,6 @@ from setta.types.generated.user_defaults import (
     UserDefaultMetaControlSectionImpl,
     UserDefaultNestedParamCodeObjImpl,
     UserDefaultPasswordParamCodeObjImpl,
-    UserDefaultPluginSectionImpl,
     UserDefaultPromptSectionImpl,
     UserDefaultRotaryParamCodeObjImpl,
     UserDefaultSliderParamCodeObjImpl,
@@ -104,9 +103,6 @@ class SettingsState(BaseModel, extra="forbid"):
     )
     metaControlSectionDefault: UserDefaultMetaControlSectionImpl = Field(
         default_factory=UserDefaultMetaControlSectionImpl
-    )
-    pluginSectionDefault: UserDefaultPluginSectionImpl = Field(
-        default_factory=UserDefaultPluginSectionImpl
     )
     promptSectionDefault: UserDefaultPromptSectionImpl = Field(
         default_factory=UserDefaultPromptSectionImpl
@@ -223,9 +219,6 @@ def get_user_default_section_from_settings(settings: SettingsState, type: Sectio
 
         case SectionType.Browser:
             return settings.browserSectionDefault
-
-        case SectionType.Plugin:
-            return settings.pluginSectionDefault
 
 
 def get_user_default_code_obj_from_settings(settings: SettingsState, type: CodeObjType):

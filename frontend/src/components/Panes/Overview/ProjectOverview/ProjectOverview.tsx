@@ -94,7 +94,7 @@ function ProjectOverviewCore({
           />
         </div>
       </search>
-      <div className="min-h-0 flex-grow overflow-y-scroll">
+      <div className="setta-pane-scroll min-h-0 flex-grow">
         <ul
           className="min-h-0 flex-grow"
           {...getFloatingBoxHandlers({

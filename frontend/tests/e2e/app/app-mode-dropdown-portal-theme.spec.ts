@@ -209,9 +209,12 @@ test("app mode dropdown portal inherits dark mode + theme vars", async ({
     .toBeGreaterThan(0);
 
   const toggle = page
+    .locator(".section-value")
+    .filter({ has: page.locator("input") })
+    .first()
     .locator("button")
-    .filter({ has: page.locator("i.gg-chevron-down") })
     .first();
+  await expect(toggle).toBeVisible();
   await toggle.click();
 
   const list = page
