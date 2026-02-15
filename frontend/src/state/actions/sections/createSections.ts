@@ -45,7 +45,7 @@ type CreateTopLevelSectionArgs = {
   position?: Position | null;
 };
 
-export type CreateTopLevelSectionResult = {
+type CreateTopLevelSectionResult = {
   sectionId: string;
   metaControlParamId: string | null;
 };

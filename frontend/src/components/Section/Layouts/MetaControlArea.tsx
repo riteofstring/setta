@@ -180,37 +180,32 @@ function MetaControlValueArea({
         ? childlessImpl.maxAttachments ?? null
         : null,
       dropzonePlaceholder: isDropzone ? childlessImpl.placeholder : null,
-      timeControlMode:
-        isTimeParam ? childlessImpl.timeControlMode : TimeControlModeEnum.display,
-      timeDisplayFormat:
-        isTimeParam
-          ? childlessImpl.timeDisplayFormat
-          : TimeDisplayFormatEnum.twenty_four_hour,
-      timeDisplayTransparent:
-        isTimeParam ? childlessImpl.timeDisplayTransparent : false,
+      timeControlMode: isTimeParam
+        ? childlessImpl.timeControlMode
+        : TimeControlModeEnum.display,
+      timeDisplayFormat: isTimeParam
+        ? childlessImpl.timeDisplayFormat
+        : TimeDisplayFormatEnum.twenty_four_hour,
+      timeDisplayTransparent: isTimeParam
+        ? childlessImpl.timeDisplayTransparent
+        : false,
       timeDisplayScale: isTimeParam ? childlessImpl.timeDisplayScale : 1,
-      timeDisplayFont:
-        isTimeParam
-          ? childlessImpl.timeDisplayFont
-          : TimeDisplayFontEnum.monospace,
-      dateDisplayFormat:
-        isDateParam
-          ? childlessImpl.dateDisplayFormat
-          : DateDisplayFormatEnum.iso,
-      dateControlMode:
-        isDateParam
-          ? childlessImpl.dateControlMode
-          : DateControlModeEnum.input,
-      dateSelectionMode:
-        isDateParam
-          ? childlessImpl.dateSelectionMode
-          : DateSelectionModeEnum.single,
-      dateCalendarWeekStart:
-        isDateParam
-          ? childlessImpl.dateCalendarWeekStart
-          : DateCalendarWeekStartEnum.sunday,
-      dateIncludesTime:
-        isDateParam ? childlessImpl.dateIncludesTime : false,
+      timeDisplayFont: isTimeParam
+        ? childlessImpl.timeDisplayFont
+        : TimeDisplayFontEnum.monospace,
+      dateDisplayFormat: isDateParam
+        ? childlessImpl.dateDisplayFormat
+        : DateDisplayFormatEnum.iso,
+      dateControlMode: isDateParam
+        ? childlessImpl.dateControlMode
+        : DateControlModeEnum.input,
+      dateSelectionMode: isDateParam
+        ? childlessImpl.dateSelectionMode
+        : DateSelectionModeEnum.single,
+      dateCalendarWeekStart: isDateParam
+        ? childlessImpl.dateCalendarWeekStart
+        : DateCalendarWeekStartEnum.sunday,
+      dateIncludesTime: isDateParam ? childlessImpl.dateIncludesTime : false,
     };
   }, _.isEqual);
 

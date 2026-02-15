@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,

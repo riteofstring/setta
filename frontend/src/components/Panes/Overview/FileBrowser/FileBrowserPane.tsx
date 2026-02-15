@@ -99,7 +99,9 @@ type FlattenedNode = FileNode & {
 
 type FlattenedFileNode = FlattenedNode;
 
-export function isEditableFileBrowserTarget(target: EventTarget | null): boolean {
+export function isEditableFileBrowserTarget(
+  target: EventTarget | null,
+): boolean {
   if (
     !target ||
     typeof target !== "object" ||
@@ -108,7 +110,8 @@ export function isEditableFileBrowserTarget(target: EventTarget | null): boolean
   ) {
     return false;
   }
-  const closest = (target as { closest: (selector: string) => unknown }).closest;
+  const closest = (target as { closest: (selector: string) => unknown })
+    .closest;
   return (
     closest("input, textarea, select") !== null ||
     closest('[contenteditable="true"]') !== null ||
@@ -987,7 +990,10 @@ export function FileBrowserPane({
       }
       const hasModifier = event.metaKey || event.ctrlKey;
       const lowerKey = event.key.toLowerCase();
-      if (hasModifier && (lowerKey === "c" || lowerKey === "x" || lowerKey === "v")) {
+      if (
+        hasModifier &&
+        (lowerKey === "c" || lowerKey === "x" || lowerKey === "v")
+      ) {
         if (isEditableFileBrowserTarget(event.target)) {
           return;
         }

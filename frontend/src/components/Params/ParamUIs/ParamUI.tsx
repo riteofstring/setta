@@ -212,37 +212,32 @@ export function ParamUI({
         ? codeObjImpl.maxAttachments ?? null
         : null,
       dropzonePlaceholder: isDropzone ? codeObjImpl.placeholder : null,
-      timeControlMode:
-        isTimeParam ? codeObjImpl.timeControlMode : TimeControlModeEnum.display,
-      timeDisplayFormat:
-        isTimeParam
-          ? codeObjImpl.timeDisplayFormat
-          : TimeDisplayFormatEnum.twenty_four_hour,
-      timeDisplayTransparent:
-        isTimeParam ? codeObjImpl.timeDisplayTransparent : false,
+      timeControlMode: isTimeParam
+        ? codeObjImpl.timeControlMode
+        : TimeControlModeEnum.display,
+      timeDisplayFormat: isTimeParam
+        ? codeObjImpl.timeDisplayFormat
+        : TimeDisplayFormatEnum.twenty_four_hour,
+      timeDisplayTransparent: isTimeParam
+        ? codeObjImpl.timeDisplayTransparent
+        : false,
       timeDisplayScale: isTimeParam ? codeObjImpl.timeDisplayScale : 1,
-      timeDisplayFont:
-        isTimeParam
-          ? codeObjImpl.timeDisplayFont
-          : TimeDisplayFontEnum.monospace,
-      dateDisplayFormat:
-        isDateParam
-          ? codeObjImpl.dateDisplayFormat
-          : DateDisplayFormatEnum.iso,
-      dateControlMode:
-        isDateParam
-          ? codeObjImpl.dateControlMode
-          : DateControlModeEnum.input,
-      dateSelectionMode:
-        isDateParam
-          ? codeObjImpl.dateSelectionMode
-          : DateSelectionModeEnum.single,
-      dateCalendarWeekStart:
-        isDateParam
-          ? codeObjImpl.dateCalendarWeekStart
-          : DateCalendarWeekStartEnum.sunday,
-      dateIncludesTime:
-        isDateParam ? codeObjImpl.dateIncludesTime : false,
+      timeDisplayFont: isTimeParam
+        ? codeObjImpl.timeDisplayFont
+        : TimeDisplayFontEnum.monospace,
+      dateDisplayFormat: isDateParam
+        ? codeObjImpl.dateDisplayFormat
+        : DateDisplayFormatEnum.iso,
+      dateControlMode: isDateParam
+        ? codeObjImpl.dateControlMode
+        : DateControlModeEnum.input,
+      dateSelectionMode: isDateParam
+        ? codeObjImpl.dateSelectionMode
+        : DateSelectionModeEnum.single,
+      dateCalendarWeekStart: isDateParam
+        ? codeObjImpl.dateCalendarWeekStart
+        : DateCalendarWeekStartEnum.sunday,
+      dateIncludesTime: isDateParam ? codeObjImpl.dateIncludesTime : false,
       allowUnquotedStringArgs: impl.allowUnquotedStringArgs,
       typeAnnotation: isCodeParam ? codeObjImpl.typeAnnotation : "",
     };
