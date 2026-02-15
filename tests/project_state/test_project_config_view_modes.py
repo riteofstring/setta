@@ -10,7 +10,7 @@ from setta.project_state.project_manager_types import (
     SetViewportRequest,
     ToggleViewModeTabRequest,
 )
-from setta.types.project_config import Viewport
+from setta.types.project_config import TopLevelSectionLayout, Viewport
 from setta.types.section_impls import SectionType
 from tests.utils.manager_fixture import real_project_manager
 
@@ -126,6 +126,41 @@ class TestProjectConfigViewModes:
             assert view_mode.viewport.x == pytest.approx(12.5)
             assert view_mode.viewport.y == pytest.approx(-3.25)
             assert view_mode.viewport.zoom == pytest.approx(1.4)
+
+    async def test_create_top_level_section_prunes_stale_layout_ids(self) -> None:
+        async with real_project_manager() as fixture:
+            manager = fixture.manager
+            project_config_id = next(
+                iter(manager.project_state_backend.projectConfigs.keys())
+            )
+
+            stale_section_id = "stale-section-id"
+            project_config = manager.project_state_backend.projectConfigs[project_config_id]
+            project_config.topLevelSections[stale_section_id] = TopLevelSectionLayout()
+            active_view_mode_id = project_config.activeViewModeId
+            assert active_view_mode_id is not None
+            active_view_mode = project_config.viewModes[active_view_mode_id]
+            active_view_mode.topLevelSections[stale_section_id] = TopLevelSectionLayout()
+            active_view_mode.visibilityBySectionId[stale_section_id] = True
+
+            create_response = await manager.create_top_level_section(
+                CreateTopLevelSectionRequest(
+                    projectConfigId=project_config_id,
+                    implType=SectionType.Dict,
+                    controlCodeObjType=None,
+                    implOverrides=None,
+                    position=None,
+                    topLevelSections=None,
+                    viewportBounds=None,
+                )
+            )
+            assert create_response.sectionId
+
+            updated_state = manager.get_single_config_state(project_config_id)
+            assert stale_section_id not in updated_state.projectConfig.topLevelSections
+            for view_mode in updated_state.projectConfig.viewModes.values():
+                assert stale_section_id not in view_mode.topLevelSections
+                assert stale_section_id not in view_mode.visibilityBySectionId
 
     async def test_switching_view_modes_swaps_layout_and_viewport(self) -> None:
         async with real_project_manager() as fixture:
