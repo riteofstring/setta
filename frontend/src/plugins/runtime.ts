@@ -294,6 +294,7 @@ const emitListenerEventsCapability = "emitListenerEvents";
 const styleHrefByPluginId = new Map<string, string>();
 const styleElementByPluginId = new Map<string, HTMLLinkElement>();
 const cleanupByPluginId = new Map<string, Set<() => void>>();
+const frontendSignatureByPluginId = new Map<string, string>();
 let pluginRuntimeLoadPromise: Promise<void> | null = null;
 let pluginRuntimeRefreshQueued = false;
 const PLUGIN_FRONTEND_LOAD_CONCURRENCY = 4;
@@ -332,27 +333,11 @@ async function runQueuedPluginRuntimeRefreshes(): Promise<void> {
 }
 
 async function loadPluginRuntime(): Promise<void> {
-  runAllPluginCleanup();
+  const previousState = usePluginRuntimeStore.getState();
   usePluginRuntimeStore.setState((state) => ({
     ...state,
     status: "loading",
     statusMessage: null,
-    schemaVersion: null,
-    serverMode: null,
-    restartCapability: null,
-    pluginListById: {},
-    sortedPluginListEntries: [],
-    pluginStatusById: {},
-    statusEntries: [],
-    sectionKindsByKey: {},
-    sortedSectionKinds: [],
-    panesByPluginId: {},
-    sortedPaneTabs: [],
-    commandsByPluginId: {},
-    sortedCommands: [],
-    topNavBarItemsByPluginId: {},
-    sortedTopNavBarItems: [],
-    frontendErrorsByPluginId: {},
   }));
 
   const [listResponse, statusResponse] = await Promise.all([
@@ -360,6 +345,8 @@ async function loadPluginRuntime(): Promise<void> {
     route_plugins_status(),
   ]);
   if (!res200(listResponse)) {
+    runAllPluginCleanup();
+    frontendSignatureByPluginId.clear();
     removeAllPluginStyles();
     const message = buildPluginRequestErrorMessage(
       "plugins list",
@@ -369,10 +356,28 @@ async function loadPluginRuntime(): Promise<void> {
       ...state,
       status: "error",
       statusMessage: message,
+      schemaVersion: null,
+      serverMode: null,
+      restartCapability: null,
+      pluginListById: {},
+      sortedPluginListEntries: [],
+      pluginStatusById: {},
+      statusEntries: [],
+      sectionKindsByKey: {},
+      sortedSectionKinds: [],
+      panesByPluginId: {},
+      sortedPaneTabs: [],
+      commandsByPluginId: {},
+      sortedCommands: [],
+      topNavBarItemsByPluginId: {},
+      sortedTopNavBarItems: [],
+      frontendErrorsByPluginId: {},
     }));
     return;
   }
   if (!res200(statusResponse)) {
+    runAllPluginCleanup();
+    frontendSignatureByPluginId.clear();
     removeAllPluginStyles();
     const message = buildPluginRequestErrorMessage(
       "plugins status",
@@ -382,6 +387,22 @@ async function loadPluginRuntime(): Promise<void> {
       ...state,
       status: "error",
       statusMessage: message,
+      schemaVersion: null,
+      serverMode: null,
+      restartCapability: null,
+      pluginListById: {},
+      sortedPluginListEntries: [],
+      pluginStatusById: {},
+      statusEntries: [],
+      sectionKindsByKey: {},
+      sortedSectionKinds: [],
+      panesByPluginId: {},
+      sortedPaneTabs: [],
+      commandsByPluginId: {},
+      sortedCommands: [],
+      topNavBarItemsByPluginId: {},
+      sortedTopNavBarItems: [],
+      frontendErrorsByPluginId: {},
     }));
     return;
   }
@@ -405,52 +426,59 @@ async function loadPluginRuntime(): Promise<void> {
     frontendLoadCandidates.map((plugin) => plugin.pluginId),
   );
 
+  for (const pluginId of Array.from(cleanupByPluginId.keys())) {
+    if (frontendLoadCandidateIds.has(pluginId)) {
+      continue;
+    }
+    runPluginCleanup(pluginId);
+  }
+
   await runWithConcurrencyLimit(
     frontendLoadCandidates,
     PLUGIN_FRONTEND_LOAD_CONCURRENCY,
     async (plugin) => {
+      const pluginId = plugin.pluginId;
+      const signature = buildPluginFrontendRefreshSignature(
+        plugin,
+        pluginStatusById[pluginId],
+      );
+      const previousSignature = frontendSignatureByPluginId.get(pluginId);
+      const previousFrontendError = previousState.frontendErrorsByPluginId[pluginId];
+      if (previousSignature === signature && !previousFrontendError) {
+        mergePluginRegistryFromState(
+          previousState,
+          pluginId,
+          registryAccumulator,
+        );
+        return;
+      }
+      if (previousSignature !== undefined) {
+        runPluginCleanup(pluginId);
+      }
       const result = await loadPluginFrontendModule(
         plugin,
         listData.serverMode,
       );
+      frontendSignatureByPluginId.set(pluginId, signature);
       if (!result) {
         return;
       }
       if (result.error) {
-        frontendErrorsByPluginId[plugin.pluginId] = result.error;
+        frontendErrorsByPluginId[pluginId] = result.error;
         return;
       }
       if (result.registryDelta) {
-        for (const [key, value] of Object.entries(
-          result.registryDelta.sectionKinds,
-        )) {
-          registryAccumulator.sectionKinds[key] = value;
-        }
-        for (const [pluginId, panes] of Object.entries(
-          result.registryDelta.panes,
-        )) {
-          const existingPanes = registryAccumulator.panes[pluginId] ?? [];
-          existingPanes.push(...panes);
-          registryAccumulator.panes[pluginId] = existingPanes;
-        }
-        for (const [pluginId, commands] of Object.entries(
-          result.registryDelta.commands,
-        )) {
-          const existingCommands = registryAccumulator.commands[pluginId] ?? [];
-          existingCommands.push(...commands);
-          registryAccumulator.commands[pluginId] = existingCommands;
-        }
-        for (const [pluginId, topNavBarItems] of Object.entries(
-          result.registryDelta.topNavBarItems,
-        )) {
-          const existingTopNavBarItems =
-            registryAccumulator.topNavBarItems[pluginId] ?? [];
-          existingTopNavBarItems.push(...topNavBarItems);
-          registryAccumulator.topNavBarItems[pluginId] = existingTopNavBarItems;
-        }
+        mergeRegistryDelta(registryAccumulator, result.registryDelta);
       }
     },
   );
+
+  for (const pluginId of Array.from(frontendSignatureByPluginId.keys())) {
+    if (frontendLoadCandidateIds.has(pluginId)) {
+      continue;
+    }
+    frontendSignatureByPluginId.delete(pluginId);
+  }
 
   removeInactivePluginStyles(frontendLoadCandidateIds);
 
@@ -486,6 +514,77 @@ async function loadPluginRuntime(): Promise<void> {
     frontendErrorsByPluginId,
     loadGeneration: state.loadGeneration + 1,
   }));
+}
+
+function buildPluginFrontendRefreshSignature(
+  plugin: PluginListEntry,
+  statusEntry: PluginStatusEntry | undefined,
+): string {
+  const effectiveCapabilities = (
+    statusEntry?.effectiveCapabilities ?? plugin.effectiveCapabilities
+  )
+    .slice()
+    .sort();
+  return JSON.stringify({
+    pluginId: plugin.pluginId,
+    sourceDigestSha256: plugin.sourceDigestSha256,
+    entrypointUrl: plugin.frontend.entrypointUrl,
+    styleUrl: plugin.frontend.styleUrl,
+    effectiveCapabilities,
+  });
+}
+
+function mergeRegistryDelta(
+  target: PluginRegistryAccumulator,
+  delta: PluginRegistryAccumulator,
+): void {
+  for (const [key, value] of Object.entries(delta.sectionKinds)) {
+    target.sectionKinds[key] = value;
+  }
+  for (const [pluginId, panes] of Object.entries(delta.panes)) {
+    const existingPanes = target.panes[pluginId] ?? [];
+    existingPanes.push(...panes);
+    target.panes[pluginId] = existingPanes;
+  }
+  for (const [pluginId, commands] of Object.entries(delta.commands)) {
+    const existingCommands = target.commands[pluginId] ?? [];
+    existingCommands.push(...commands);
+    target.commands[pluginId] = existingCommands;
+  }
+  for (const [pluginId, topNavBarItems] of Object.entries(
+    delta.topNavBarItems,
+  )) {
+    const existingTopNavBarItems = target.topNavBarItems[pluginId] ?? [];
+    existingTopNavBarItems.push(...topNavBarItems);
+    target.topNavBarItems[pluginId] = existingTopNavBarItems;
+  }
+}
+
+function mergePluginRegistryFromState(
+  state: PluginRuntimeStore,
+  pluginId: string,
+  target: PluginRegistryAccumulator,
+): void {
+  for (const [sectionKindKey, sectionKind] of Object.entries(
+    state.sectionKindsByKey,
+  )) {
+    if (sectionKind.pluginId !== pluginId) {
+      continue;
+    }
+    target.sectionKinds[sectionKindKey] = sectionKind;
+  }
+  const panes = state.panesByPluginId[pluginId];
+  if (panes) {
+    target.panes[pluginId] = panes;
+  }
+  const commands = state.commandsByPluginId[pluginId];
+  if (commands) {
+    target.commands[pluginId] = commands;
+  }
+  const topNavBarItems = state.topNavBarItemsByPluginId[pluginId];
+  if (topNavBarItems) {
+    target.topNavBarItems[pluginId] = topNavBarItems;
+  }
 }
 
 type LoadPluginFrontendResult = {
@@ -534,8 +633,10 @@ async function loadPluginFrontendModule(
   plugin: PluginListEntry,
   serverMode: PluginServerMode,
 ): Promise<LoadPluginFrontendResult | null> {
+  const styleUrl = resolvePluginAssetUrl(plugin.frontend.styleUrl);
   const entrypointUrl = resolvePluginAssetUrl(plugin.frontend.entrypointUrl);
   if (!entrypointUrl) {
+    ensurePluginStyleLoaded(plugin.pluginId, styleUrl);
     return {
       error: null,
       registryDelta: {
@@ -548,10 +649,7 @@ async function loadPluginFrontendModule(
   }
 
   try {
-    ensurePluginStyleLoaded(
-      plugin.pluginId,
-      resolvePluginAssetUrl(plugin.frontend.styleUrl),
-    );
+    ensurePluginStyleLoaded(plugin.pluginId, styleUrl);
     const importedModule = (await import(
       /* @vite-ignore */ entrypointUrl
     )) as PluginFrontendModule;
@@ -1935,6 +2033,7 @@ export function resetPluginRuntimeStoreForTests(): void {
   for (const link of styleElementByPluginId.values()) {
     link.remove();
   }
+  frontendSignatureByPluginId.clear();
   styleElementByPluginId.clear();
   styleHrefByPluginId.clear();
   pluginRuntimeLoadPromise = null;

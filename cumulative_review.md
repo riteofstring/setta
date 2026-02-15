@@ -177,3 +177,17 @@
 - Updated docs to remove dead plugin-plan links and point to current plugin authoring/smoke-test guides.
 - UX before/after: status-table-only plugin entries were not directly recoverable in-pane; now operators can re-enable directly from Discovery Status rows without context switching.
 - DX before/after: backend/Playwright fixture setup reran expensive seed/build work on unchanged inputs; now unchanged runs skip rebuild/reseed while preserving correctness checks.
+
+## 2026-02-16T10:01:53-08:00
+
+- Implemented the latest top-level `review*.md` fix batch end-to-end, explicitly excluding backward-compatibility additions.
+- Fixed plugin asset URL robustness by URL-encoding manifest asset path segments before serving frontend entry/style URLs.
+- Added selective plugin-manager rescans for lookup-heavy CLI mutation flows so workspace/global-scope lookups can skip package-manager discovery, while full rescans remain for full-status accuracy paths.
+- Consolidated backend runtime reset behavior into a single plugin-manager reset path and added startup-failure cleanup to always shut down backend plugin runtime state.
+- Preserved external plugin adapter plain-text fidelity by keeping newline boundaries between fallback stdout lines.
+- Hardened external-agent preflight cache behavior with expired-entry pruning plus a bounded cache size cap.
+- Simplified external-agent chat continuation semantics by removing dead LLM fallback paths and reusing prefetched external runs to avoid duplicate lookups.
+- Hardened frontend action handling by making top-nav actions single-flight per key and normalizing command-palette sync throws into caught promise rejections.
+- Reduced plugin runtime/UI churn by making frontend runtime refresh incremental (changed/removed plugins only) and deduplicating Plugins pane enable/disable action plumbing.
+- Improved fixture/test runner reliability: reset script now parses structured JSON from stdout with separate stderr handling; backend/Playwright runners now use safer target-aware fixture-build/prepare gating.
+- Added/updated backend unit/integration coverage, frontend unit/integration coverage, and Playwright coverage for all changed paths; executed targeted pytest/vitest/playwright runs, plus CDP verification of the Settings/Plugins UI after changes.

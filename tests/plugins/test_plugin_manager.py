@@ -1625,6 +1625,31 @@ def test_load_backend_plugins_performs_one_discovery_rescan(
     assert rescan_calls == 1
 
 
+def test_rescan_can_skip_package_manager_discovery_for_lookup_flows(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Lookup-only rescans should be able to skip package-manager discovery work.
+    manager = _make_manager(tmp_path)
+    package_manager_discovery_calls = 0
+
+    def _record_package_manager_discovery() -> list:
+        nonlocal package_manager_discovery_calls
+        package_manager_discovery_calls += 1
+        return []
+
+    monkeypatch.setattr(
+        manager,
+        "_discover_package_manager_plugins",
+        _record_package_manager_discovery,
+    )
+
+    manager.rescan(include_package_manager_plugins=False)
+    assert package_manager_discovery_calls == 0
+    manager.rescan(include_package_manager_plugins=True)
+    assert package_manager_discovery_calls == 1
+
+
 def test_backend_uninstall_surfaces_pending_restart_tombstone(tmp_path: Path) -> None:
     # Backend uninstall should remain visible as pending_restart until backend reload.
     manager = _make_manager(tmp_path)
@@ -3663,6 +3688,35 @@ def test_plugin_asset_resolution_rejects_backend_files_outside_frontend_roots(
         )
 
     assert exc_info.value.code == "PLUGIN_ASSET_NOT_FOUND"
+
+
+def test_list_response_encodes_plugin_frontend_asset_urls(tmp_path: Path) -> None:
+    # Frontend asset URLs should encode reserved path characters for browser-safe requests.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "encoded-asset-plugin"
+    shutil.copytree(_fixture_path("frontend"), plugin_root)
+    manifest_path = plugin_root / "setta.plugin.json"
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_payload["id"] = "setta-fixture-frontend-encoded"
+    manifest_payload["name"] = "Setta Fixture Frontend Encoded"
+    manifest_payload["frontend"]["entrypoint"] = "frontend/dist/entry #main.js"
+    manifest_path.write_text(json.dumps(manifest_payload, indent=2), encoding="utf-8")
+    dist_root = plugin_root / "frontend" / "dist"
+    (dist_root / "index.js").rename(dist_root / "entry #main.js")
+
+    manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    listed = manager.get_list_response().plugins
+    assert len(listed) == 1
+    entrypoint_url = listed[0].frontend.entrypointUrl
+    assert entrypoint_url is not None
+    assert "/plugins/setta-fixture-frontend-encoded/frontend/dist/entry%20%23main.js" in entrypoint_url
+    assert "#" not in entrypoint_url
+    assert "v=" in entrypoint_url
 
 
 def test_directory_digest_cache_skips_rehash_when_tree_is_unchanged(

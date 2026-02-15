@@ -31,6 +31,7 @@ _SDK_PACKAGE_BY_TOOL = {
 
 _NODE_MIN_MAJOR: dict[ExternalAgentToolType, int] = {}
 _PREFLIGHT_CACHE_TTL_SECONDS = 30.0
+_PREFLIGHT_CACHE_MAX_ENTRIES = 256
 _DEFAULT_CLI_TIMEOUT_SECONDS = 5.0
 
 
@@ -44,6 +45,29 @@ class _PreflightCacheEntry:
 
 
 _PREFLIGHT_CACHE: dict[str, _PreflightCacheEntry] = {}
+
+
+def _prune_preflight_cache(*, now: float) -> None:
+    expired_keys = [
+        cache_key
+        for cache_key, entry in _PREFLIGHT_CACHE.items()
+        if now - entry.created_at > _PREFLIGHT_CACHE_TTL_SECONDS
+    ]
+    for cache_key in expired_keys:
+        _PREFLIGHT_CACHE.pop(cache_key, None)
+
+    overflow = len(_PREFLIGHT_CACHE) - _PREFLIGHT_CACHE_MAX_ENTRIES
+    if overflow <= 0:
+        return
+    oldest_keys = [
+        cache_key
+        for cache_key, _entry in sorted(
+            _PREFLIGHT_CACHE.items(),
+            key=lambda item: item[1].created_at,
+        )[:overflow]
+    ]
+    for cache_key in oldest_keys:
+        _PREFLIGHT_CACHE.pop(cache_key, None)
 
 
 def build_external_agent_preflight_status(
@@ -435,11 +459,13 @@ def _load_cached_preflight(
     *,
     plugin_adapter_fingerprint: str | None,
 ) -> ExternalAgentPreflightStatus | None:
+    now = time.monotonic()
+    _prune_preflight_cache(now=now)
     cache_key = str(config.id)
     entry = _PREFLIGHT_CACHE.get(cache_key)
     if entry is None:
         return None
-    if time.monotonic() - entry.created_at > _PREFLIGHT_CACHE_TTL_SECONDS:
+    if now - entry.created_at > _PREFLIGHT_CACHE_TTL_SECONDS:
         return None
     if entry.config_fingerprint != _build_config_fingerprint(config):
         return None
@@ -457,14 +483,17 @@ def _store_preflight_cache(
     *,
     plugin_adapter_fingerprint: str | None,
 ) -> None:
+    now = time.monotonic()
+    _prune_preflight_cache(now=now)
     cache_key = str(config.id)
     _PREFLIGHT_CACHE[cache_key] = _PreflightCacheEntry(
         status=status,
         config_fingerprint=_build_config_fingerprint(config),
         env_fingerprint=_build_env_fingerprint(env_status),
         plugin_adapter_fingerprint=plugin_adapter_fingerprint,
-        created_at=time.monotonic(),
+        created_at=now,
     )
+    _prune_preflight_cache(now=now)
 
 
 def _check_claude_python_sdk() -> tuple[str | None, str | None]:

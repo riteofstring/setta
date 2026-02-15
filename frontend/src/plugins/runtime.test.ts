@@ -950,6 +950,108 @@ describe("plugin runtime helpers", () => {
     );
   });
 
+  it("reuses unchanged plugin frontend registrations across refreshes", async () => {
+    const globalScope = globalThis as {
+      __settaIncrementalRegisterCalls?: number;
+    };
+    delete globalScope.__settaIncrementalRegisterCalls;
+
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(_host) {\n" +
+          "  globalThis.__settaIncrementalRegisterCalls = Number(globalThis.__settaIncrementalRegisterCalls || 0) + 1;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      sourceDigestSha256: "digest-1",
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+    });
+    const status = buildPluginStatusEntry({
+      pluginId: plugin.pluginId,
+    });
+
+    let listPayload = buildPluginListResponse([plugin]);
+    let statusPayload = buildPluginStatusResponse([status]);
+    vi.spyOn(generatedEndpoints, "route_plugins_list").mockImplementation(
+      async () => ({
+        data: listPayload,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+    vi.spyOn(generatedEndpoints, "route_plugins_status").mockImplementation(
+      async () => ({
+        data: statusPayload,
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+
+    await refreshPluginRuntime();
+    await refreshPluginRuntime();
+
+    expect(globalScope.__settaIncrementalRegisterCalls).toBe(1);
+    expect(usePluginRuntimeStore.getState().status).toBe("loaded");
+  });
+
+  it("reloads plugin frontend when refresh signature changes", async () => {
+    const globalScope = globalThis as {
+      __settaIncrementalRegisterCalls?: number;
+    };
+    delete globalScope.__settaIncrementalRegisterCalls;
+
+    const moduleUrl =
+      "data:text/javascript," +
+      encodeURIComponent(
+        "export const apiVersion = 1;\n" +
+          "export function register(_host) {\n" +
+          "  globalThis.__settaIncrementalRegisterCalls = Number(globalThis.__settaIncrementalRegisterCalls || 0) + 1;\n" +
+          "}\n",
+      );
+    const plugin = buildPluginListEntry({
+      sourceDigestSha256: "digest-a",
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+    });
+    const status = buildPluginStatusEntry({
+      pluginId: plugin.pluginId,
+    });
+    let digest = "digest-a";
+
+    vi.spyOn(generatedEndpoints, "route_plugins_list").mockImplementation(
+      async () => ({
+        data: buildPluginListResponse([
+          buildPluginListEntry({
+            ...plugin,
+            sourceDigestSha256: digest,
+          }),
+        ]),
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+    vi.spyOn(generatedEndpoints, "route_plugins_status").mockImplementation(
+      async () => ({
+        data: buildPluginStatusResponse([status]),
+        status: 200,
+        hasResponse: true,
+      }),
+    );
+
+    await refreshPluginRuntime();
+    digest = "digest-b";
+    await refreshPluginRuntime();
+
+    expect(globalScope.__settaIncrementalRegisterCalls).toBe(2);
+  });
+
   it("queues one follow-up refresh when calls overlap", async () => {
     let releaseRequests: (() => void) | null = null;
     const gate = new Promise<void>((resolve) => {

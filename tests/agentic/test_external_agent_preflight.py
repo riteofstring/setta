@@ -434,3 +434,70 @@ class TestExternalAgentPreflight:
             assert status.issues == [
                 f"Plugin external agent command is not executable ({command_path})"
             ]
+
+    def test_preflight_cache_prunes_expired_entries(self) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            preflight._PREFLIGHT_CACHE.clear()
+            try:
+                stale_config = self._build_config(
+                    run_mode=ExternalAgentRunMode.app_server,
+                    command_path="definitely_not_a_codex_executable",
+                )
+                fresh_config = self._build_config(
+                    run_mode=ExternalAgentRunMode.app_server,
+                    command_path="definitely_not_a_codex_executable",
+                )
+
+                stale_status = build_external_agent_preflight_status(dbe, stale_config)
+                build_external_agent_preflight_status(dbe, fresh_config)
+                stale_key = str(stale_config.id)
+                fresh_key = str(fresh_config.id)
+                stale_entry = preflight._PREFLIGHT_CACHE[stale_key]
+                preflight._PREFLIGHT_CACHE[stale_key] = preflight._PreflightCacheEntry(
+                    status=stale_status,
+                    config_fingerprint=stale_entry.config_fingerprint,
+                    env_fingerprint=stale_entry.env_fingerprint,
+                    plugin_adapter_fingerprint=stale_entry.plugin_adapter_fingerprint,
+                    created_at=stale_entry.created_at
+                    - (preflight._PREFLIGHT_CACHE_TTL_SECONDS + 1.0),
+                )
+                assert stale_key in preflight._PREFLIGHT_CACHE
+                assert fresh_key in preflight._PREFLIGHT_CACHE
+
+                build_external_agent_preflight_status(dbe, fresh_config)
+
+                assert stale_key not in preflight._PREFLIGHT_CACHE
+                assert fresh_key in preflight._PREFLIGHT_CACHE
+            finally:
+                preflight._PREFLIGHT_CACHE.clear()
+
+    def test_preflight_cache_respects_max_entries(self, monkeypatch) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            preflight._PREFLIGHT_CACHE.clear()
+            monkeypatch.setattr(preflight, "_PREFLIGHT_CACHE_MAX_ENTRIES", 2)
+            try:
+                first = self._build_config(
+                    run_mode=ExternalAgentRunMode.app_server,
+                    command_path="definitely_not_a_codex_executable",
+                )
+                second = self._build_config(
+                    run_mode=ExternalAgentRunMode.app_server,
+                    command_path="definitely_not_a_codex_executable",
+                )
+                third = self._build_config(
+                    run_mode=ExternalAgentRunMode.app_server,
+                    command_path="definitely_not_a_codex_executable",
+                )
+
+                build_external_agent_preflight_status(dbe, first)
+                build_external_agent_preflight_status(dbe, second)
+                build_external_agent_preflight_status(dbe, third)
+
+                assert len(preflight._PREFLIGHT_CACHE) <= 2
+                assert str(first.id) not in preflight._PREFLIGHT_CACHE
+                assert str(second.id) in preflight._PREFLIGHT_CACHE
+                assert str(third.id) in preflight._PREFLIGHT_CACHE
+            finally:
+                preflight._PREFLIGHT_CACHE.clear()

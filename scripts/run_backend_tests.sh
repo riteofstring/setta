@@ -15,20 +15,35 @@ should_build_plugin_fixtures() {
   fi
 
   local has_positional_target=0
+  local has_selector_filter=0
   local arg
+  local target_path
   for arg in "$@"; do
+    case "${arg}" in
+      -k|--keyword|-m|--markers|-k=*|--keyword=*|-m=*|--markers=*)
+        has_selector_filter=1
+        continue
+        ;;
+    esac
     if [[ "${arg}" == -* ]]; then
-      if [[ "${arg}" == *plugin* ]]; then
-        return 0
-      fi
       continue
     fi
     has_positional_target=1
-    if [[ "${arg}" == *plugin* ]]; then
+    target_path="${arg%%::*}"
+    if [[ "${target_path}" == *plugin* ]]; then
+      return 0
+    fi
+    if [[ -d "${target_path}" ]]; then
+      return 0
+    fi
+    if [[ "${target_path}" != *.py ]]; then
       return 0
     fi
   done
 
+  if [[ "${has_selector_filter}" == "1" ]]; then
+    return 0
+  fi
   if [[ "${has_positional_target}" == "0" ]]; then
     return 0
   fi

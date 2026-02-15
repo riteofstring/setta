@@ -145,6 +145,47 @@ async def test_plugin_process_plain_text_fallback_preserves_boundary_whitespace(
 
 
 @pytest.mark.asyncio
+async def test_plugin_process_plain_text_fallback_preserves_multiline_boundaries(
+    tmp_path: Path,
+) -> None:
+    # Plain-text fallback should preserve newline boundaries between stdout lines.
+    process = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-u",
+        "-c",
+        (
+            "import json,sys\n"
+            "sys.stdout.write('line one\\n')\n"
+            "sys.stdout.write('line two\\n')\n"
+            "sys.stdout.write(json.dumps({'type':'done','returnCode':0}) + '\\n')\n"
+            "sys.stdout.flush()\n"
+        ),
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    adapter = _build_adapter()
+    context = _build_context(tmp_path)
+    handle = ExternalAgentRunHandle(
+        run_id=ID("plugin-process-run-plain-multiline"),
+        process=process,
+        metadata={"stderr_lines": []},
+    )
+
+    events = [event async for event in adapter.stream_events(handle, context)]
+    finalized_events = [
+        event.stream_chunk
+        for event in events
+        if isinstance(event.stream_chunk, MessageFinalizedEvent)
+    ]
+    assert len(finalized_events) == 1
+    finalized_event = finalized_events[0]
+    assert isinstance(finalized_event, MessageFinalizedEvent)
+    assert finalized_event.message.content[0].text == "line one\nline two"
+    assert handle.return_code == 0
+
+
+@pytest.mark.asyncio
 async def test_plugin_process_stream_events_finalize_json_chunks_without_newlines(
     tmp_path: Path,
 ) -> None:

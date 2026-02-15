@@ -128,4 +128,13 @@ describe("project page command palette model", () => {
       }),
     ).toThrow("Duplicate command palette id");
   });
+
+  it("normalizes sync command throws into promise rejections", async () => {
+    const syncError = new Error("sync command failed");
+    await expect(
+      projectPageSearchTestApi.runCommandPaletteAction(() => {
+        throw syncError;
+      }),
+    ).rejects.toThrow("sync command failed");
+  });
 });

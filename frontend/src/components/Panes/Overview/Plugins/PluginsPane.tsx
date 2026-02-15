@@ -253,13 +253,13 @@ export function PluginsPane() {
     return busyPluginIds.has(pluginId);
   }
 
-  async function onEnablePlugin(pluginId: string) {
+  async function runEnablePlugin(pluginId: string) {
     await runAction(`enable:${pluginId}`, "Enable plugin", async () =>
       route_plugins_enable({ pluginId }),
     );
   }
 
-  async function onDisablePlugin(pluginId: string) {
+  async function runDisablePlugin(pluginId: string) {
     await runAction(`disable:${pluginId}`, "Disable plugin", async () =>
       route_plugins_disable({ pluginId }),
     );
@@ -274,7 +274,7 @@ export function PluginsPane() {
       return (
         <ActionButton
           label="Enable"
-          onClick={() => onEnablePlugin(entry.pluginId)}
+          onClick={() => runEnablePlugin(entry.pluginId)}
           disabled={
             writeActionsLocked ||
             isActionBusy(`enable:${entry.pluginId}`) ||
@@ -287,7 +287,7 @@ export function PluginsPane() {
     return (
       <ActionButton
         label="Disable"
-        onClick={() => onDisablePlugin(entry.pluginId)}
+        onClick={() => runDisablePlugin(entry.pluginId)}
         disabled={
           writeActionsLocked ||
           isActionBusy(`disable:${entry.pluginId}`) ||
@@ -543,6 +543,8 @@ export function PluginsPane() {
                 writeActionsLocked={writeActionsLocked}
                 isActionBusy={isActionBusy}
                 isAnyPluginActionBusy={isAnyPluginActionBusy}
+                runEnablePlugin={runEnablePlugin}
+                runDisablePlugin={runDisablePlugin}
                 runAction={runAction}
               />
             ))}
@@ -636,6 +638,8 @@ type PluginListEntryCardProps = {
   writeActionsLocked: boolean;
   isActionBusy: (actionKey: string) => boolean;
   isAnyPluginActionBusy: (pluginId: string) => boolean;
+  runEnablePlugin: (pluginId: string) => Promise<void>;
+  runDisablePlugin: (pluginId: string) => Promise<void>;
   runAction: <T>(
     actionKey: string,
     actionLabel: string,
@@ -649,6 +653,8 @@ function PluginListEntryCard({
   writeActionsLocked,
   isActionBusy,
   isAnyPluginActionBusy,
+  runEnablePlugin,
+  runDisablePlugin,
   runAction,
 }: PluginListEntryCardProps) {
   const runtimeState = usePluginRuntimeStore(
@@ -664,18 +670,6 @@ function PluginListEntryCard({
   );
   const { serverMode, pluginStatus, panes, commands, frontendError } =
     runtimeState;
-
-  async function onEnable() {
-    await runAction(`enable:${plugin.pluginId}`, "Enable plugin", async () =>
-      route_plugins_enable({ pluginId: plugin.pluginId }),
-    );
-  }
-
-  async function onDisable() {
-    await runAction(`disable:${plugin.pluginId}`, "Disable plugin", async () =>
-      route_plugins_disable({ pluginId: plugin.pluginId }),
-    );
-  }
 
   async function onUpdate() {
     await runAction(`update:${plugin.pluginId}`, "Update plugin", async () =>
@@ -796,14 +790,14 @@ function PluginListEntryCard({
       <div className="flex flex-wrap gap-1">
         <ActionButton
           label="Enable"
-          onClick={onEnable}
+          onClick={() => runEnablePlugin(plugin.pluginId)}
           disabled={
             writeActionsLocked || isActionBusy(`enable:${plugin.pluginId}`)
           }
         />
         <ActionButton
           label="Disable"
-          onClick={onDisable}
+          onClick={() => runDisablePlugin(plugin.pluginId)}
           disabled={
             writeActionsLocked || isActionBusy(`disable:${plugin.pluginId}`)
           }

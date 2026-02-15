@@ -109,6 +109,7 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
 
         message_id: str | None = None
         message_text_parts: list[str] = []
+        message_text_part_is_plain_fallback: list[bool] = []
         done_event_received = False
         async for line in iter_stream_lines(process.stdout):
             if not line:
@@ -142,8 +143,9 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
                         yield ExternalAgentStreamEvent(
                             raw={"type": "message_start", "messageId": message_id},
                             stream_chunk=MessageStartEvent(message=start_message),
-                        )
+                    )
                     message_text_parts.append(text)
+                    message_text_part_is_plain_fallback.append(False)
                     yield ExternalAgentStreamEvent(
                         raw={"type": "delta", "messageId": message_id, "text": text},
                         stream_chunk=MessageDeltaEvent(
@@ -166,6 +168,7 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
                     stream_chunk=MessageStartEvent(message=start_message),
                 )
             message_text_parts.append(line)
+            message_text_part_is_plain_fallback.append(True)
             yield ExternalAgentStreamEvent(
                 raw={"type": "delta", "messageId": message_id, "text": line},
                 stream_chunk=MessageDeltaEvent(
@@ -175,7 +178,16 @@ class PluginProcessExternalAgentAdapter(ExternalAgentAdapter):
             )
 
         if message_id is not None:
-            message_text = "".join(message_text_parts)
+            assembled_parts: list[str] = []
+            for index, message_text_part in enumerate(message_text_parts):
+                if (
+                    index > 0
+                    and message_text_part_is_plain_fallback[index]
+                    and message_text_part_is_plain_fallback[index - 1]
+                ):
+                    assembled_parts.append("\n")
+                assembled_parts.append(message_text_part)
+            message_text = "".join(assembled_parts)
             yield ExternalAgentStreamEvent(
                 raw={"type": "message_stop", "messageId": message_id},
                 stream_chunk=MessageStopEvent(message_id=message_id),

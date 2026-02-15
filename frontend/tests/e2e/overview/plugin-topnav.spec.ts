@@ -94,6 +94,8 @@ test("plugin top-nav busy state only disables the active item", async ({
       "    id: 'slow-action',",
       "    label: 'Fixture Slow Nav',",
       "    onClick() {",
+      "      const current = Number(window.__settaFixtureSlowNavCalls || 0);",
+      "      window.__settaFixtureSlowNavCalls = current + 1;",
       "      return new Promise((resolve) => {",
       "        window.__settaFixtureSlowNavResolve = resolve;",
       "      });",
@@ -139,7 +141,20 @@ test("plugin top-nav busy state only disables the active item", async ({
     await expect(slowButton).toBeVisible();
     await expect(fastButton).toBeVisible();
 
-    await slowButton.click();
+    await slowButton.evaluate((button) => {
+      button.click();
+      button.click();
+    });
+    await expect
+      .poll(async () => {
+        return await page.evaluate(() => {
+          return Number(
+            (window as { __settaFixtureSlowNavCalls?: number })
+              .__settaFixtureSlowNavCalls || 0,
+          );
+        });
+      })
+      .toBe(1);
     await expect(slowButton).toBeDisabled();
     await expect(fastButton).toBeEnabled();
 

@@ -50,19 +50,37 @@ while IFS= read -r plugin_id; do
   [[ -z "${plugin_id}" ]] && continue
   echo "reset: unlink attempts for ${plugin_id}..."
   for scope in workspace setta_files global; do
+    unlink_stderr_file="$(mktemp)"
     if ! unlink_output="$(
-      setta plugins unlink "${plugin_id}" --scope "${scope}" --ignore-missing --json 2>&1
+      setta plugins unlink "${plugin_id}" --scope "${scope}" --ignore-missing --json \
+        2>"${unlink_stderr_file}"
     )"; then
       echo "reset: failed to unlink ${plugin_id} from ${scope}" >&2
+      cat "${unlink_stderr_file}" >&2
       echo "${unlink_output}" >&2
+      rm -f "${unlink_stderr_file}"
       exit 1
     fi
+    if [[ -s "${unlink_stderr_file}" ]]; then
+      cat "${unlink_stderr_file}" >&2
+    fi
+    rm -f "${unlink_stderr_file}"
     unlink_state="$(
       python - "${unlink_output}" <<'PY'
 import json
 import sys
 
-payload = json.loads(sys.argv[1])
+output = sys.argv[1]
+last_non_empty_line = None
+for raw_line in output.splitlines():
+    line = raw_line.strip()
+    if line:
+        last_non_empty_line = line
+
+if last_non_empty_line is None:
+    raise SystemExit("Missing JSON output from setta plugins unlink.")
+
+payload = json.loads(last_non_empty_line)
 if payload.get("ignoredMissing"):
     print("missing")
 else:

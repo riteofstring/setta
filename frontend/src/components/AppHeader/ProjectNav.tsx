@@ -1,6 +1,6 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { usePluginTopNavBarItems } from "plugins/runtime";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useShareSession } from "state/definitions";
@@ -69,6 +69,7 @@ function PluginTopNavBarItems() {
   const [busyItemKeys, setBusyItemKeys] = useState<Set<string>>(
     () => new Set(),
   );
+  const inFlightItemKeysRef = useRef<Set<string>>(new Set());
   if (items.length === 0) {
     return null;
   }
@@ -95,9 +96,13 @@ function PluginTopNavBarItems() {
     onClick: () => void | Promise<void>,
   ) {
     const itemKey = `${pluginId}:${itemId}`;
+    if (inFlightItemKeysRef.current.has(itemKey)) {
+      return;
+    }
+    inFlightItemKeysRef.current.add(itemKey);
     setItemBusyState(itemKey, true);
     try {
-      await Promise.resolve(onClick());
+      await Promise.resolve().then(() => onClick());
     } catch (error: unknown) {
       const message =
         error instanceof Error
@@ -105,6 +110,7 @@ function PluginTopNavBarItems() {
           : `Top nav action failed for ${pluginId}:${itemId}.`;
       addTemporaryNotification(message, "error");
     } finally {
+      inFlightItemKeysRef.current.delete(itemKey);
       setItemBusyState(itemKey, false);
     }
   }

@@ -554,6 +554,12 @@ class SettaFastAPIState:
             self.init_status.record("Backend ready")
             self.init_status.mark_ready()
         except Exception as exc:
+            try:
+                self.plugin_manager.shutdown_backend_plugins()
+            except Exception:
+                logger.exception(
+                    "Failed to clean up backend plugins after initialization error."
+                )
             if self.lsps is not None:
                 try:
                     if self.lsp_writers is not None:

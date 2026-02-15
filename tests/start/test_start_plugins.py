@@ -777,6 +777,44 @@ def test_plugins_mutation_commands_use_fresh_lookup_state_before_mutation(
     assert json.loads(uninstall_result.output)["pluginId"] == "setta-fixture-frontend"
 
 
+def test_plugins_lookup_rescan_selectively_skips_package_manager_discovery(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Scope-aware lookup rescans should skip package-manager discovery outside setta_files scope.
+    manager = _build_manager(tmp_path)
+    captured_include_package_manager_flags: list[bool] = []
+    original_rescan = manager.rescan
+
+    def _record_rescan(*, include_package_manager_plugins: bool = True):
+        captured_include_package_manager_flags.append(include_package_manager_plugins)
+        return original_rescan(
+            include_package_manager_plugins=include_package_manager_plugins
+        )
+
+    monkeypatch.setattr(manager, "rescan", _record_rescan)
+    monkeypatch.setattr(
+        start_module,
+        "_build_plugin_manager_for_cli",
+        lambda **_kwargs: manager,
+    )
+    runner = CliRunner()
+
+    uninstall_workspace = runner.invoke(
+        plugins,
+        ["uninstall", "missing-plugin", "--scope", "workspace"],
+    )
+    assert uninstall_workspace.exit_code != 0
+
+    enable_no_scope = runner.invoke(
+        plugins,
+        ["enable", "missing-plugin"],
+    )
+    assert enable_no_scope.exit_code != 0
+
+    assert captured_include_package_manager_flags == [False, True]
+
+
 def test_plugins_unlink_cli_ignore_missing_returns_success(
     tmp_path: Path,
     monkeypatch,

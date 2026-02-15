@@ -1088,8 +1088,13 @@ def _raise_click_plugin_error(exc: PluginManagerError) -> None:
     raise click.ClickException(f"{exc.code}: {exc.message}") from exc
 
 
-def _rescan_plugin_manager_for_lookup(manager: PluginManager) -> None:
-    manager.rescan()
+def _rescan_plugin_manager_for_lookup(
+    manager: PluginManager, *, scope: str | None
+) -> None:
+    include_package_manager_plugins = scope in (None, "setta_files")
+    manager.rescan(
+        include_package_manager_plugins=include_package_manager_plugins
+    )
 
 
 @click.command()
@@ -2541,12 +2546,12 @@ def plugins_uninstall(
     json_output: bool,
 ) -> None:
     manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    _rescan_plugin_manager_for_lookup(manager)
     resolved_scope = _plugin_scope_choice_to_value(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
     )
+    _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
     try:
         result = manager.uninstall_plugin(plugin_id=plugin_id, scope=resolved_scope)
     except PluginManagerError as exc:
@@ -2566,7 +2571,7 @@ def plugins_uninstall(
 @click.option("--json", "json_output", is_flag=True)
 def plugins_enable(plugin_id: str, json_output: bool) -> None:
     manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    _rescan_plugin_manager_for_lookup(manager)
+    _rescan_plugin_manager_for_lookup(manager, scope=None)
     try:
         result = manager.enable_plugin(plugin_id=plugin_id)
     except PluginManagerError as exc:
@@ -2584,7 +2589,7 @@ def plugins_enable(plugin_id: str, json_output: bool) -> None:
 @click.option("--json", "json_output", is_flag=True)
 def plugins_disable(plugin_id: str, json_output: bool) -> None:
     manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    _rescan_plugin_manager_for_lookup(manager)
+    _rescan_plugin_manager_for_lookup(manager, scope=None)
     try:
         result = manager.disable_plugin(plugin_id=plugin_id)
     except PluginManagerError as exc:
@@ -2619,12 +2624,12 @@ def _run_plugin_update_like_command(
     to_target: str | None,
 ):
     manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    _rescan_plugin_manager_for_lookup(manager)
     resolved_scope = _plugin_scope_choice_to_value(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
     )
+    _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
     try:
         return manager.update_plugin(
             plugin_id=plugin_id,
@@ -2721,12 +2726,12 @@ def plugins_rollback(
     json_output: bool,
 ) -> None:
     manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    _rescan_plugin_manager_for_lookup(manager)
     resolved_scope = _plugin_scope_choice_to_value(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
     )
+    _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
     try:
         result = manager.rollback_plugin(plugin_id=plugin_id, scope=resolved_scope)
     except PluginManagerError as exc:
@@ -2918,12 +2923,12 @@ def plugins_unlink(
     json_output: bool,
 ) -> None:
     manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    _rescan_plugin_manager_for_lookup(manager)
     resolved_scope = _plugin_scope_choice_to_value(
         scope=scope,
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
     )
+    _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
     try:
         result = manager.unlink_plugin(plugin_id=plugin_id, scope=resolved_scope)
     except PluginManagerError as exc:

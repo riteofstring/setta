@@ -175,3 +175,51 @@ async def test_ide_state_cleans_up_lsps_when_startup_fails(
             await state.wait_until_ready()
 
     assert stop_calls == [True]
+
+
+@pytest.mark.asyncio
+async def test_ide_state_shuts_down_plugins_when_startup_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Startup failure after plugin load should shut down backend plugin runtime state.
+    workspace_root = tmp_path / "workspace"
+    setta_home = tmp_path / ".setta"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    setta_home.mkdir(parents=True, exist_ok=True)
+
+    async def _failing_start_lsps(_lsps, _lsp_readers, _lsp_writers) -> None:
+        raise RuntimeError("lsp startup failed")
+
+    async def _record_stop_lsps(_lsps, _lsp_readers) -> None:
+        return None
+
+    shutdown_calls: list[bool] = []
+    original_shutdown = server_state_module.PluginManager.shutdown_backend_plugins
+
+    def _record_shutdown(self) -> None:
+        shutdown_calls.append(True)
+        original_shutdown(self)
+
+    monkeypatch.setattr(server_state_module, "start_lsps", _failing_start_lsps)
+    monkeypatch.setattr(server_state_module, "stop_lsps", _record_stop_lsps)
+    monkeypatch.setattr(
+        server_state_module.PluginManager,
+        "shutdown_backend_plugins",
+        _record_shutdown,
+    )
+
+    with temporary_setta_paths(
+        workspace_root=workspace_root,
+        setta_files_location="local",
+        setta_home=setta_home,
+    ):
+        app = FastAPI()
+        state = SettaFastAPIState(
+            app,
+            enable_mcp_connections=False,
+        )
+        with pytest.raises(RuntimeError, match="lsp startup failed"):
+            await state.wait_until_ready()
+
+    assert len(shutdown_calls) >= 1

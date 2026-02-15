@@ -141,7 +141,7 @@ function ProjectPageCommandPalette() {
     if (!action) {
       return;
     }
-    void Promise.resolve(action()).catch((error: unknown) => {
+    void runCommandPaletteAction(action).catch((error: unknown) => {
       const message =
         error instanceof Error ? error.message : `Command failed: ${id}`;
       addTemporaryNotification(message, "error");
@@ -160,6 +160,12 @@ type ProjectCommandPaletteModel = {
   allItems: AllItemsType<string>;
   actionById: Record<string, () => void | Promise<void>>;
 };
+
+function runCommandPaletteAction(
+  action: () => void | Promise<void>,
+): Promise<void> {
+  return Promise.resolve().then(() => action());
+}
 
 function buildProjectCommandPaletteEntries({
   createSectionGroups,
@@ -285,4 +291,5 @@ function ProjectPageAdvancedCore<T>({
 
 export const projectPageSearchTestApi = {
   buildProjectCommandPaletteEntries,
+  runCommandPaletteAction,
 };

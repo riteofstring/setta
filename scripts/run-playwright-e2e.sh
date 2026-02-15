@@ -140,14 +140,49 @@ log() {
   echo "[$(date +"%Y-%m-%d %H:%M:%S")] $*"
 }
 
-while IFS= read -r log_line; do
-  log "${log_line}"
-done < <(
-  build_plugin_fixtures_if_needed \
-    "${ROOT_DIR}" \
-    "${PLUGIN_FIXTURE_CACHE_FILE}" \
-    "build"
-)
+should_prepare_plugin_fixtures() {
+  if [[ -n "${SETTA_E2E_BUILD_PLUGIN_FIXTURES:-}" ]]; then
+    [[ "${SETTA_E2E_BUILD_PLUGIN_FIXTURES}" == "1" ]]
+    return
+  fi
+  if [[ -n "${SETTA_BUILD_PLUGIN_FIXTURES:-}" ]]; then
+    [[ "${SETTA_BUILD_PLUGIN_FIXTURES}" == "1" ]]
+    return
+  fi
+
+  local has_positional_target=0
+  local arg
+  for arg in "$@"; do
+    if [[ "${arg}" == -* ]]; then
+      if [[ "${arg}" == *plugin* ]]; then
+        return 0
+      fi
+      continue
+    fi
+    has_positional_target=1
+    if [[ "${arg}" == *plugin* ]]; then
+      return 0
+    fi
+  done
+
+  if [[ "${has_positional_target}" == "0" ]]; then
+    return 0
+  fi
+  return 1
+}
+
+if should_prepare_plugin_fixtures "$@"; then
+  while IFS= read -r log_line; do
+    log "${log_line}"
+  done < <(
+    build_plugin_fixtures_if_needed \
+      "${ROOT_DIR}" \
+      "${PLUGIN_FIXTURE_CACHE_FILE}" \
+      "build"
+  )
+else
+  log "Skipping plugin fixture build for selected Playwright targets."
+fi
 
 BACKEND_PID=""
 FRONTEND_PID=""

@@ -324,6 +324,36 @@ def test_run_backend_tests_skips_fixture_build_for_non_plugin_targets(
     ).exists()
 
 
+def test_run_backend_tests_builds_fixtures_for_directory_targets(
+    tmp_path: Path,
+) -> None:
+    # Directory targets are treated as unknown scope and should build fixtures.
+    sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+
+    result = _run_backend_test_runner(
+        sandbox_root,
+        pytest_args=["tests/start"],
+    )
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert build_count_file.read_text(encoding="utf-8").strip() == "1"
+    assert "Skipping plugin fixture build for selected pytest targets." not in result.stdout
+
+
+def test_run_backend_tests_builds_fixtures_for_selector_only_runs(
+    tmp_path: Path,
+) -> None:
+    # Selector-only runs (-k/-m) should build fixtures because coverage scope is ambiguous.
+    sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+
+    result = _run_backend_test_runner(
+        sandbox_root,
+        pytest_args=["-k", "start"],
+    )
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    assert build_count_file.read_text(encoding="utf-8").strip() == "1"
+    assert "Skipping plugin fixture build for selected pytest targets." not in result.stdout
+
+
 def test_run_backend_tests_can_force_fixture_build_for_non_plugin_targets(
     tmp_path: Path,
 ) -> None:

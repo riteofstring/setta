@@ -20,6 +20,7 @@ from functools import wraps
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from queue import Empty, Full, Queue
 from typing import TYPE_CHECKING, Any, Literal, Optional
+from urllib.parse import quote
 from uuid import uuid4
 
 from fastapi.encoders import jsonable_encoder
@@ -456,21 +457,6 @@ class PluginManager:
         self._pending_restart_removed_backend_plugins = {}
         self.shutdown_backend_plugins()
         self._backend_app = app
-        self._backend_runtime_errors = {}
-        self._backend_loaded_plugin_ids = set()
-        self._backend_worker_processes = {}
-        self._backend_worker_request_locks = {}
-        self._backend_worker_next_request_ids = {}
-        self._backend_worker_pipe_readers = {}
-        self._backend_route_ids_by_plugin_id = {}
-        self._backend_listener_endpoint_route_by_name = {}
-        self._backend_registered_mcp_tools = {}
-        self._backend_external_agent_adapters = {}
-        self._backend_external_agent_adapter_by_id = {}
-        self._backend_language_servers = {}
-        self._backend_language_server_by_language = {}
-        self._backend_codegen_targets = {}
-        self._backend_codegen_target_by_id = {}
 
         # Refresh discovery after clearing pending-restart ids so eligible backend
         # plugins transition from pending_restart to active before load selection.
@@ -527,26 +513,15 @@ class PluginManager:
     def shutdown_backend_plugins(self) -> None:
         for plugin_id, process in list(self._backend_worker_processes.items()):
             self._shutdown_backend_worker(plugin_id=plugin_id, process=process)
-        self._backend_worker_processes = {}
-        self._backend_worker_request_locks = {}
-        self._backend_worker_next_request_ids = {}
-        self._backend_worker_pipe_readers = {}
-        self._backend_app = None
-        self._backend_runtime_errors = {}
-        self._backend_loaded_plugin_ids = set()
-        self._backend_route_ids_by_plugin_id = {}
-        self._backend_listener_endpoint_route_by_name = {}
-        self._remove_backend_registered_mcp_tools()
-        self._backend_external_agent_adapters = {}
-        self._backend_external_agent_adapter_by_id = {}
-        self._backend_language_servers = {}
-        self._backend_language_server_by_language = {}
-        self._backend_codegen_targets = {}
-        self._backend_codegen_target_by_id = {}
+        self._reset_backend_runtime_state(remove_registered_mcp_tools=True)
 
     @_mutation_locked
-    def rescan(self) -> PluginsRescanResponse:
-        discovered = self._discover_plugins()
+    def rescan(
+        self, *, include_package_manager_plugins: bool = True
+    ) -> PluginsRescanResponse:
+        discovered = self._discover_plugins(
+            include_package_manager_plugins=include_package_manager_plugins
+        )
         self._content_descriptor_cache = {}
         self._config_schema_descriptor_cache = {}
         self._discovered_plugins = discovered
@@ -583,6 +558,27 @@ class PluginManager:
             installedPlugins=installed_count,
             activePlugins=active_count,
         )
+
+    def _reset_backend_runtime_state(self, *, remove_registered_mcp_tools: bool) -> None:
+        self._backend_worker_processes = {}
+        self._backend_worker_request_locks = {}
+        self._backend_worker_next_request_ids = {}
+        self._backend_worker_pipe_readers = {}
+        self._backend_app = None
+        self._backend_runtime_errors = {}
+        self._backend_loaded_plugin_ids = set()
+        self._backend_route_ids_by_plugin_id = {}
+        self._backend_listener_endpoint_route_by_name = {}
+        if remove_registered_mcp_tools:
+            self._remove_backend_registered_mcp_tools()
+        else:
+            self._backend_registered_mcp_tools = {}
+        self._backend_external_agent_adapters = {}
+        self._backend_external_agent_adapter_by_id = {}
+        self._backend_language_servers = {}
+        self._backend_language_server_by_language = {}
+        self._backend_codegen_targets = {}
+        self._backend_codegen_target_by_id = {}
 
     def get_list_response(self) -> PluginListResponse:
         plugins: list[PluginListEntry] = []
@@ -4461,12 +4457,15 @@ class PluginManager:
                 f"Invalid plugin id: {exc}",
             ) from exc
 
-    def _discover_plugins(self) -> list[DiscoveredPlugin]:
+    def _discover_plugins(
+        self, *, include_package_manager_plugins: bool
+    ) -> list[DiscoveredPlugin]:
         install_metadata = self._load_install_metadata()
         entries: list[DiscoveredPlugin] = self._discover_filesystem_plugins(
             install_metadata
         )
-        entries.extend(self._discover_package_manager_plugins())
+        if include_package_manager_plugins:
+            entries.extend(self._discover_package_manager_plugins())
 
         grouped: dict[str, list[DiscoveredPlugin]] = {}
         for entry in entries:
@@ -6279,7 +6278,15 @@ class PluginManager:
         )
         if not resolved.exists() or not resolved.is_file():
             return None
-        base_url = f"/plugins/{entry.plugin_id}/{relative_path}"
+        source_root_resolved = entry.source_path.resolve(strict=False)
+        normalized_relative_path = resolved.relative_to(source_root_resolved).as_posix()
+        encoded_relative_path = "/".join(
+            quote(segment, safe="")
+            for segment in normalized_relative_path.split("/")
+            if segment != ""
+        )
+        encoded_plugin_id = quote(entry.plugin_id, safe="")
+        base_url = f"/plugins/{encoded_plugin_id}/{encoded_relative_path}"
         if entry.source_digest_sha256:
             return f"{base_url}?v={entry.source_digest_sha256}"
         return base_url
