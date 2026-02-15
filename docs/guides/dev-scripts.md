@@ -80,7 +80,7 @@ These are used by the top-level wrappers or for advanced workflows.
   - Backend pytest runner (invoked by `t.sh`).
 - `./scripts/run-playwright-e2e.sh`
   - Playwright E2E runner (invoked by `t.sh`).
-- `./scripts/plugin-fixtures/link.sh`, `./scripts/plugin-fixtures/unlink.sh`, `./scripts/plugin-fixtures/reset.sh`, `./scripts/plugin-fixtures/smoke.sh`
+- `./scripts/plugin-fixtures/link.sh`, `./scripts/plugin-fixtures/reset.sh`, `./scripts/plugin-fixtures/smoke.sh`
   - Fixture plugin helpers for manual plugin verification.
   - See `docs/guides/plugin-fixture-manual-smoke.md`.
 - `./scripts/cdp-port.sh`

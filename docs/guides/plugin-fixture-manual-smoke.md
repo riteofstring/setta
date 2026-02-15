@@ -28,10 +28,10 @@ Link one fixture:
 scripts/plugin-fixtures/link.sh frontend --scope workspace
 ```
 
-Unlink one plugin:
+Uninstall one plugin:
 
 ```bash
-scripts/plugin-fixtures/unlink.sh setta-fixture-frontend --scope workspace
+setta plugins uninstall setta-fixture-frontend --scope workspace
 ```
 
 Reset all linked fixture plugins:

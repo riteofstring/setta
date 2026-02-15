@@ -14,7 +14,10 @@ from typing import Any, Callable, Literal, Union, get_args, get_origin
 from urllib.parse import urlencode
 from uuid import UUID
 
+from fastapi.params import Body as _FastAPIBody
+from fastapi.params import Param as _FastAPIParam
 from pydantic import BaseModel, TypeAdapter
+from pydantic_core import PydanticUndefined as _PydanticUndefined
 
 BACKEND_PLUGIN_API_VERSION = 1
 SUPPORTED_RPC_METHODS: tuple[str, ...] = (
@@ -50,21 +53,6 @@ _ROUTE_SCALAR_ANNOTATION_TYPES: tuple[type[Any], ...] = (
     datetime.timedelta,
     Path,
 )
-
-try:
-    from fastapi.params import Body as _FastAPIBody
-except ImportError:  # pragma: no cover - import fallback for non-FastAPI workers
-    _FastAPIBody = None
-
-try:
-    from fastapi.params import Param as _FastAPIParam
-except ImportError:  # pragma: no cover - import fallback for non-FastAPI workers
-    _FastAPIParam = None
-
-try:
-    from pydantic_core import PydanticUndefined as _PydanticUndefined
-except ImportError:  # pragma: no cover - import fallback for runtime variants
-    _PydanticUndefined = None
 
 
 class WorkerError(Exception):
@@ -663,9 +651,9 @@ class _WorkerState:
 
     def _route_parameter_is_body_bound(self, parameter: inspect.Parameter) -> bool:
         default_value = parameter.default
-        if _FastAPIBody is not None and isinstance(default_value, _FastAPIBody):
+        if isinstance(default_value, _FastAPIBody):
             return True
-        if _FastAPIParam is not None and isinstance(default_value, _FastAPIParam):
+        if isinstance(default_value, _FastAPIParam):
             return False
         return self._route_annotation_is_body_like(parameter.annotation)
 
@@ -679,7 +667,7 @@ class _WorkerState:
         multiple_body_bound_parameters: bool,
     ) -> bool:
         default_value = parameter.default
-        if _FastAPIBody is not None and isinstance(default_value, _FastAPIBody):
+        if isinstance(default_value, _FastAPIBody):
             embed_value = getattr(default_value, "embed", None)
             return bool(embed_value)
         return multiple_body_bound_parameters
@@ -762,7 +750,7 @@ class _WorkerState:
         default_value = parameter.default
         if default_value is inspect.Signature.empty:
             return True, None
-        if _FastAPIParam is not None and isinstance(default_value, _FastAPIParam):
+        if isinstance(default_value, _FastAPIParam):
             param_default = default_value.default
             if self._is_fastapi_required_default(param_default):
                 return True, None
@@ -772,8 +760,6 @@ class _WorkerState:
     def _is_fastapi_required_default(self, value: Any) -> bool:
         if value is Ellipsis:
             return True
-        if _PydanticUndefined is None:
-            return False
         return value is _PydanticUndefined
 
     def _route_param_expects_request(self, parameter: inspect.Parameter) -> bool:
@@ -1057,7 +1043,6 @@ class _WorkerState:
         raw_body = getattr(response, "body", b"")
         body = bytes(raw_body) if raw_body is not None else b""
         if len(body) == 0:
-            response_payload["body"] = None
             return response_payload
         charset = response.charset or "utf-8"
         if self._content_type_is_json(content_type):

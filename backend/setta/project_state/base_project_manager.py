@@ -1700,13 +1700,26 @@ class BaseProjectManager(ABC):
             raise KeyError(f"View mode {active_view_mode_id} not found")
         existing_layouts = view_mode.topLevelSections
         section_variant_ids = set(project_config.sectionVariantMap.keys())
+        existing_section_ids = {
+            section_id
+            for section_id in section_variant_ids
+            if section_id in self.project_state_backend.sections
+        }
+        parent_section_map = convert_backend_to_single_config(
+            self.project_state_backend, x.projectConfigId
+        ).parentSectionMap
+        valid_top_level_section_ids = {
+            section_id
+            for section_id in existing_section_ids
+            if section_id in parent_section_map and parent_section_map[section_id] is None
+        }
         merged_layouts = {
             section_id: layout
             for section_id, layout in existing_layouts.items()
-            if section_id in section_variant_ids
+            if section_id in valid_top_level_section_ids
         }
         for section_id, layout in x.topLevelSections.items():
-            if section_id not in merged_layouts:
+            if section_id not in valid_top_level_section_ids:
                 continue
             merged_layouts[section_id] = layout
         project_config.topLevelSections = merged_layouts

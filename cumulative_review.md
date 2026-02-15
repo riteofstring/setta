@@ -382,3 +382,18 @@
 - Added Playwright fixture-seed stamp short-circuiting and updated fixture plugin behaviors to keep API-fetch/header tests deterministic under runtime refresh dedupe.
 - Reduced frontend runtime no-op churn by preserving sorted plugin-list array identity when effective order/entries are unchanged.
 - Updated unit/integration/Playwright coverage across backend manager/routes/startup/lifespan, runtime store, and plugin overview suites; fixed stale overview-tab selectors and brittle assertions in plugin E2E specs; final targeted Playwright batch passed (`47 passed`).
+
+## 2026-02-17 11:24:41 PST
+
+- Implemented the current top-level review findings end-to-end, explicitly excluding backward-compatibility additions.
+- Fixed worker/route transport semantics so empty JSON response bodies remain empty while explicit JSON `null` remains explicit `null`.
+- Added per-runtime-path backend runtime preparation locking plus under-lock marker recheck to prevent concurrent venv/pip races.
+- Updated top-level section layout persistence to accept valid current top-level section IDs even when missing from stale layout snapshots, while still rejecting invalid/reparented/deleted IDs.
+- Removed dead external-agent prior-message fallback branching by requiring prefetched external runs on external-engine paths.
+- Simplified external-agent preflight cache writes by removing redundant duplicate prune calls.
+- Removed worker optional import fallbacks for required FastAPI/Pydantic symbols so dependency issues fail fast.
+- Reduced Plugins pane render churn by removing `loadGeneration` from runtime summary subscription/UI and memoizing capability badge sorting.
+- Hardened fixture script behavior: `pytest --markers` is metadata-only (no fixture build side effects) and malformed fixture manifests now emit actionable parse diagnostics.
+- Improved runner DX/perf by deduplicating Playwright seeded fixture constants, adding stamp-based short-circuiting for local plugin artifact signatures, and reusing the shared Python resolver in backend test runner setup.
+- Removed the redundant top-level `scripts/plugin-fixtures/unlink.sh` wrapper and updated docs/tests to use canonical `setta plugins uninstall`.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for all changed paths; completed CDP visual verification and appended perf notes/artifacts under `perf/`.

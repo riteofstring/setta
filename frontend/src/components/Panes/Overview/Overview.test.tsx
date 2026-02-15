@@ -1,6 +1,7 @@
 import {
   resetPluginRuntimeStoreForTests,
   usePluginRuntimeStore,
+  type PluginPaneTabEntry,
   type RegisteredPluginPane,
 } from "plugins/runtime";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -168,6 +169,16 @@ describe("Overview rail offsets", () => {
           } satisfies RegisteredPluginPane,
         ],
       },
+      sortedPaneTabs: [
+        {
+          tabKey,
+          pluginId,
+          paneId,
+          title: "Fixture Pane",
+          description: "Fixture plugin pane",
+          icon: "dashboard",
+        } satisfies PluginPaneTabEntry,
+      ],
     });
     useLocalStorage.setState({
       overviewTab: tabKey,

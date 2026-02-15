@@ -124,7 +124,14 @@ for manifest_arg in sys.argv[1:]:
     manifest_path = Path(manifest_arg)
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except Exception:
+    except Exception as exc:
+        print(
+            (
+                "Failed to parse plugin fixture manifest "
+                f"{manifest_path}: {exc}"
+            ),
+            file=sys.stderr,
+        )
         raise SystemExit(1)
 
     frontend = manifest.get("frontend")
@@ -303,6 +310,7 @@ should_build_plugin_fixtures_for_targets() {
 
   local has_positional_target=0
   local has_selector_filter=0
+  local has_metadata_only_filter=0
   local selector_filter_has_plugin_hint=0
   local expect_selector_value=0
   local expect_grep_value=0
@@ -342,7 +350,7 @@ should_build_plugin_fixtures_for_targets() {
           continue
           ;;
         --markers|--markers=*)
-          has_selector_filter=1
+          has_metadata_only_filter=1
           continue
           ;;
       esac
@@ -399,6 +407,9 @@ should_build_plugin_fixtures_for_targets() {
       if ! plugin_fixture_frontend_outputs_complete "${root_dir}"; then
         return 0
       fi
+      return 1
+    fi
+    if [[ "${has_metadata_only_filter}" == "1" ]]; then
       return 1
     fi
     return 0

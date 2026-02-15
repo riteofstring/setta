@@ -1832,7 +1832,7 @@ def test_worker_invoke_route_normalizes_responses_and_http_exceptions(
     plugin_root = _copy_backend_fixture(tmp_path)
     (plugin_root / "backend" / "entrypoint.py").write_text(
         "from fastapi import APIRouter, HTTPException\n"
-        "from fastapi.responses import JSONResponse\n\n"
+        "from fastapi.responses import JSONResponse, Response\n\n"
         "def register(plugin):\n"
         "    router = APIRouter()\n\n"
         "    @router.post('/created')\n"
@@ -1842,6 +1842,9 @@ def test_worker_invoke_route_normalizes_responses_and_http_exceptions(
         "            content={'ok': True},\n"
         "            headers={'x-fixture': 'created'},\n"
         "        )\n\n"
+        "    @router.get('/empty')\n"
+        "    def empty() -> Response:\n"
+        "        return Response(status_code=200, content=b'', media_type='application/json')\n\n"
         "    @router.get('/missing')\n"
         "    def missing() -> None:\n"
         "        raise HTTPException(status_code=404, detail='not found')\n\n"
@@ -1881,9 +1884,23 @@ def test_worker_invoke_route_normalizes_responses_and_http_exceptions(
         assert created_response["result"]["mediaType"] == "application/json"
         assert created_response["result"]["headers"] == [["x-fixture", "created"]]
 
-        missing_response = _rpc_call(
+        empty_response = _rpc_call(
             worker,
             request_id=4,
+            method="plugin.invoke_route",
+            params={
+                "routeId": route_id_by_path["/empty"],
+                "pathParams": {},
+                "queryParams": {},
+            },
+        )
+        assert empty_response["result"]["statusCode"] == 200
+        assert empty_response["result"]["mediaType"] == "application/json"
+        assert "body" not in empty_response["result"]
+
+        missing_response = _rpc_call(
+            worker,
+            request_id=5,
             method="plugin.invoke_route",
             params={
                 "routeId": route_id_by_path["/missing"],

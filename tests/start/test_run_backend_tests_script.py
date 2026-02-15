@@ -449,6 +449,29 @@ def test_run_backend_tests_rebuilds_when_fixture_outputs_are_missing(
     assert build_count_file.read_text(encoding="utf-8").strip() == "2"
 
 
+def test_plugin_fixture_output_check_reports_manifest_parse_errors(tmp_path: Path) -> None:
+    # Malformed fixture manifests should surface path + parse details for quick diagnosis.
+    sandbox_root, _build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+    manifest_path = (
+        sandbox_root
+        / "tests"
+        / "fixtures"
+        / "plugins"
+        / "fixture-a"
+        / "setta.plugin.json"
+    )
+    manifest_path.write_text("{not-json", encoding="utf-8")
+    command = f"""
+set -euo pipefail
+. '{sandbox_root / "scripts" / "plugin-fixtures" / "cache.sh"}'
+plugin_fixture_frontend_outputs_complete "{sandbox_root}"
+"""
+    result = _run_cache_helper_command(sandbox_root, command)
+    assert result.returncode == 1
+    assert "Failed to parse plugin fixture manifest" in result.stderr
+    assert str(manifest_path) in result.stderr
+
+
 def test_run_backend_tests_rebuilds_when_fixture_style_output_is_missing(
     tmp_path: Path,
 ) -> None:

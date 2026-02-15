@@ -31,6 +31,16 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   await setOverviewTab(page, "Plugins");
   const projectContext = await openIsolatedProject(page);
   await expect(page.getByText("Plugin Runtime")).toBeVisible();
+  const runtimeSection = page
+    .locator("section")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "Plugin Runtime",
+        exact: true,
+      }),
+    })
+    .first();
+  await expect(runtimeSection).not.toContainText("generation=");
   await expect(page.getByText("Install Plugin")).toBeVisible();
   await expect(page.getByText("restart capability: manual")).toBeVisible();
   await page

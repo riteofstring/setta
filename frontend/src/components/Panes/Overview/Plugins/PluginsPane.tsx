@@ -110,7 +110,6 @@ type PluginsPaneRuntimeSummary = {
   statusMessage: string | null;
   restartCapability: PluginRestartCapability | null;
   serverMode: "ide" | "share" | "app";
-  loadGeneration: number;
 };
 
 const EMPTY_PLUGIN_PANES: readonly PluginPaneSummary[] = [];
@@ -147,8 +146,7 @@ function pluginsPaneRuntimeSummaryEqual(
     a.status === b.status &&
     a.statusMessage === b.statusMessage &&
     a.restartCapability === b.restartCapability &&
-    a.serverMode === b.serverMode &&
-    a.loadGeneration === b.loadGeneration
+    a.serverMode === b.serverMode
   );
 }
 
@@ -175,7 +173,6 @@ export function PluginsPane() {
       statusMessage: state.statusMessage,
       restartCapability: state.restartCapability,
       serverMode: state.serverMode,
-      loadGeneration: state.loadGeneration,
     }),
     pluginsPaneRuntimeSummaryEqual,
   );
@@ -428,9 +425,7 @@ export function PluginsPane() {
           </div>
         </header>
         <p className="text-[11px] text-setta-600 dark:text-setta-300">
-          mode={runtimeSummary.serverMode ?? "unknown"} status=
-          {runtimeSummary.status} generation=
-          {runtimeSummary.loadGeneration}
+          mode={runtimeSummary.serverMode ?? "unknown"} status={runtimeSummary.status}
         </p>
         {runtimeSummary.restartCapability ? (
           <p className="mt-1 text-[11px] text-setta-500 dark:text-setta-400">
@@ -1212,7 +1207,10 @@ function CapabilityRow({
   className?: string;
   tone?: "default" | "blocked";
 }) {
-  const sortedEntries = [...entries].sort((a, b) => a.localeCompare(b));
+  const sortedEntries = useMemo(
+    () => [...entries].sort((a, b) => a.localeCompare(b)),
+    [entries],
+  );
   const badgeClassName =
     tone === "blocked"
       ? "rounded border border-red-300 bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300"

@@ -412,6 +412,8 @@ class PluginManager:
         self._backend_operation_timeout_seconds = backend_operation_timeout_seconds
         self._package_manager_search_paths = package_manager_search_paths
         self._mutation_lock = threading.RLock()
+        self._runtime_path_locks: dict[Path, threading.Lock] = {}
+        self._runtime_path_locks_guard = threading.Lock()
 
         self._manifest_schema_path = (
             Path(__file__).resolve().parent / "schemas" / "setta.plugin.schema.json"
@@ -2147,50 +2149,60 @@ class PluginManager:
             version=version,
             source_digest_sha256=source_digest_sha256,
         )
-        runtime_path.mkdir(parents=True, exist_ok=True)
-        if len(dependencies) > 0:
-            venv_path = runtime_path / ".venv"
-            if not venv_path.exists():
-                create_venv = subprocess.run(
-                    [sys.executable, "-m", "venv", str(venv_path)],
+        runtime_lock = self._runtime_lock_for_path(runtime_path)
+        with runtime_lock:
+            if self._runtime_marker_matches_expected(
+                plugin_id=plugin_id,
+                version=version,
+                source_digest_sha256=source_digest_sha256,
+                dependencies=dependencies,
+                worker_dependencies=worker_dependencies,
+            ):
+                return
+            runtime_path.mkdir(parents=True, exist_ok=True)
+            if len(dependencies) > 0:
+                venv_path = runtime_path / ".venv"
+                if not venv_path.exists():
+                    create_venv = subprocess.run(
+                        [sys.executable, "-m", "venv", str(venv_path)],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    if create_venv.returncode != 0:
+                        raise PluginManagerError(
+                            "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
+                            (
+                                f"Failed to create backend runtime for plugin {plugin_id}: "
+                                f"{create_venv.stderr.strip() or create_venv.stdout.strip()}"
+                            ),
+                        )
+                python_binary = (
+                    venv_path / "Scripts" / "python.exe"
+                    if os.name == "nt"
+                    else venv_path / "bin" / "python"
+                )
+                install_result = subprocess.run(
+                    [str(python_binary), "-m", "pip", "install", *install_requirements],
                     capture_output=True,
                     text=True,
                     check=False,
                 )
-                if create_venv.returncode != 0:
+                if install_result.returncode != 0:
                     raise PluginManagerError(
                         "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
                         (
-                            f"Failed to create backend runtime for plugin {plugin_id}: "
-                            f"{create_venv.stderr.strip() or create_venv.stdout.strip()}"
+                            f"Failed to install backend dependencies for plugin {plugin_id}: "
+                            f"{install_result.stderr.strip() or install_result.stdout.strip()}"
                         ),
                     )
-            python_binary = (
-                venv_path / "Scripts" / "python.exe"
-                if os.name == "nt"
-                else venv_path / "bin" / "python"
+            self._write_runtime_marker(
+                plugin_id=plugin_id,
+                version=version,
+                source_digest_sha256=source_digest_sha256,
+                dependencies=dependencies,
+                worker_dependencies=worker_dependencies,
             )
-            install_result = subprocess.run(
-                [str(python_binary), "-m", "pip", "install", *install_requirements],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if install_result.returncode != 0:
-                raise PluginManagerError(
-                    "PLUGIN_BACKEND_DEPENDENCY_INSTALL_FAILED",
-                    (
-                        f"Failed to install backend dependencies for plugin {plugin_id}: "
-                        f"{install_result.stderr.strip() or install_result.stdout.strip()}"
-                    ),
-                )
-        self._write_runtime_marker(
-            plugin_id=plugin_id,
-            version=version,
-            source_digest_sha256=source_digest_sha256,
-            dependencies=dependencies,
-            worker_dependencies=worker_dependencies,
-        )
 
     def _build_backend_worker_runtime_dependencies(self) -> list[str]:
         dependencies: list[str] = []
@@ -2265,6 +2277,15 @@ class PluginManager:
         version_token = self._sanitize_runtime_token(version)
         digest_token = self._sanitize_runtime_token(source_digest_sha256)
         return self._runtime_root / plugin_id / version_token / digest_token
+
+    def _runtime_lock_for_path(self, runtime_path: Path) -> threading.Lock:
+        with self._runtime_path_locks_guard:
+            existing_lock = self._runtime_path_locks.get(runtime_path)
+            if existing_lock is not None:
+                return existing_lock
+            runtime_lock = threading.Lock()
+            self._runtime_path_locks[runtime_path] = runtime_lock
+            return runtime_lock
 
     def _runtime_marker_path(
         self,

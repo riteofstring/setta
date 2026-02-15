@@ -293,6 +293,29 @@ def test_pytest_fixture_selection_treats_markers_flag_as_valueless_selector(
     )
 
 
+def test_pytest_fixture_selection_treats_markers_flag_as_non_selector_when_outputs_missing(
+    tmp_path: Path,
+) -> None:
+    # "--markers" should remain side-effect free even when plugin fixture outputs are missing.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+    (
+        sandbox_root
+        / "tests"
+        / "fixtures"
+        / "plugins"
+        / "fixture-a"
+        / "frontend"
+        / "dist"
+        / "index.js"
+    ).unlink()
+
+    assert not _should_build_for_targets(
+        sandbox_root,
+        "pytest",
+        ["--markers"],
+    )
+
+
 def test_pytest_fixture_selection_builds_for_plugin_marker_expressions(
     tmp_path: Path,
 ) -> None:

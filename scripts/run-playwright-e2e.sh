@@ -240,6 +240,12 @@ cleanup() {
 trap cleanup EXIT
 trap 'log "Error on line ${LINENO}: ${BASH_COMMAND}"' ERR
 
+readonly WORKSPACE_SEED_FIXTURES=(
+  "backend-language-server-e2e"
+  "backend-external-agent"
+  "backend-codegen"
+)
+
 seed_workspace() {
   if [[ "${SETTA_E2E_SEED_WORKSPACE:-1}" == "0" ]]; then
     log "Skipping workspace seed (SETTA_E2E_SEED_WORKSPACE=0)."
@@ -280,12 +286,7 @@ PY
 compute_workspace_seed_fixture_signature() {
   local root_dir="$1"
   local fixture_name fixture_file
-  local fixtures=(
-    "backend-language-server-e2e"
-    "backend-external-agent"
-    "backend-codegen"
-  )
-  for fixture_name in "${fixtures[@]}"; do
+  for fixture_name in "${WORKSPACE_SEED_FIXTURES[@]}"; do
     local fixture_root="${root_dir}/tests/fixtures/plugins/${fixture_name}"
     if [[ ! -d "${fixture_root}" ]]; then
       printf '%s|missing\n' "${fixture_name}"
@@ -303,17 +304,12 @@ compute_workspace_seed_fixture_change_stamp() {
   local root_dir="$1"
   local python_bin
   python_bin="$(resolve_plugin_fixture_python_bin)" || return 1
-  "${python_bin}" - "${root_dir}" <<'PY'
-import os
+  "${python_bin}" - "${root_dir}" "${WORKSPACE_SEED_FIXTURES[@]}" <<'PY'
 import sys
 from pathlib import Path
 
 root_dir = Path(sys.argv[1]).resolve(strict=False)
-fixtures = (
-    "backend-language-server-e2e",
-    "backend-external-agent",
-    "backend-codegen",
-)
+fixtures = tuple(sys.argv[2:])
 
 for fixture_name in fixtures:
     fixture_root = root_dir / "tests" / "fixtures" / "plugins" / fixture_name
@@ -342,11 +338,7 @@ seeded_plugin_fixture_is_complete() {
 }
 
 seed_workspace_plugin_fixtures() {
-  local fixtures=(
-    "backend-language-server-e2e"
-    "backend-external-agent"
-    "backend-codegen"
-  )
+  local fixtures=("${WORKSPACE_SEED_FIXTURES[@]}")
   local plugins_root="${SETTA_WORKSPACE_ROOT}/.setta_plugins"
   local seed_cache_dir="${SETTA_WORKSPACE_ROOT}/setta_files/.cache"
   local seed_cache_file="${seed_cache_dir}/playwright-e2e-seeded-plugin-fixtures.signature"
@@ -439,6 +431,47 @@ compute_local_plugin_artifact_signature() {
   done
 }
 
+compute_local_plugin_artifact_change_stamp() {
+  local root_dir="$1"
+  local package_name="$2"
+  local package_version="$3"
+  local fixture_file
+  local python_bin
+  local existing_signature_files=()
+  local signature_files=(
+    "${root_dir}/scripts/run-playwright-e2e.sh"
+  )
+  while IFS= read -r fixture_file; do
+    signature_files+=("${fixture_file}")
+  done < <(find "${root_dir}/tests/fixtures/plugins/frontend" -type f | sort)
+  for fixture_file in "${signature_files[@]}"; do
+    if [[ ! -f "${fixture_file}" ]]; then
+      continue
+    fi
+    existing_signature_files+=("${fixture_file}")
+  done
+  if [[ ${#existing_signature_files[@]} -eq 0 ]]; then
+    printf '%s\n' '0:0'
+    return
+  fi
+  python_bin="$(resolve_plugin_fixture_python_bin)" || return 1
+  "${python_bin}" - "${root_dir}" "${package_name}" "${package_version}" "${existing_signature_files[@]}" <<'PY' | cksum | awk '{print $1 ":" $2}'
+import sys
+from pathlib import Path
+
+root_dir = Path(sys.argv[1]).resolve(strict=False)
+package_name = sys.argv[2]
+package_version = sys.argv[3]
+
+print(f"wheel:{package_name}:{package_version}")
+for file_arg in sys.argv[4:]:
+    file_path = Path(file_arg).resolve(strict=False)
+    stat_result = file_path.stat()
+    relative_path = file_path.relative_to(root_dir).as_posix()
+    print(f"{relative_path}|{stat_result.st_mtime_ns}:{stat_result.st_size}")
+PY
+}
+
 read_frontend_fixture_metadata() {
   local root_dir="$1"
   "${PYTHON_BIN}" - "${root_dir}" <<'PY'
@@ -483,6 +516,7 @@ configure_plugin_artifact_indexes() {
 
 seed_local_plugin_artifacts() {
   local artifact_dir="${SETTA_E2E_PLUGIN_ARTIFACT_DIR:-${ROOT_DIR}/setta_files/.cache/playwright-plugin-artifacts}"
+  local artifact_stamp_cache_file="${PLUGIN_ARTIFACT_CACHE_FILE}.stamp"
   local fixture_metadata package_name package_version
   fixture_metadata=()
   while IFS= read -r fixture_line; do
@@ -496,22 +530,33 @@ seed_local_plugin_artifacts() {
   package_version="${fixture_metadata[1]}"
   local wheel_name="${package_name//-/_}-${package_version}-py3-none-any.whl"
   local wheel_path="${artifact_dir}/${wheel_name}"
-  local current_signature cached_signature
-  current_signature="$(
-    compute_local_plugin_artifact_signature \
-      "${ROOT_DIR}" \
-      "${package_name}" \
-      "${package_version}" | cksum | awk '{print $1 ":" $2}'
-  )"
+  local current_signature current_stamp cached_signature cached_stamp
   mkdir -p "${artifact_dir}"
   mkdir -p "${PLUGIN_FIXTURE_CACHE_DIR}"
+  current_stamp="$(compute_local_plugin_artifact_change_stamp "${ROOT_DIR}" "${package_name}" "${package_version}")"
   if [[ "${SETTA_FORCE_PLUGIN_ARTIFACT_BUILD:-0}" != "1" ]] && [[ -f "${PLUGIN_ARTIFACT_CACHE_FILE}" ]]; then
     cached_signature="$(<"${PLUGIN_ARTIFACT_CACHE_FILE}")"
   else
     cached_signature=""
   fi
+  if [[ "${SETTA_FORCE_PLUGIN_ARTIFACT_BUILD:-0}" != "1" ]] && [[ -f "${artifact_stamp_cache_file}" ]]; then
+    cached_stamp="$(<"${artifact_stamp_cache_file}")"
+  else
+    cached_stamp=""
+  fi
+  if [[ -n "${cached_signature}" && "${cached_stamp}" == "${current_stamp}" ]]; then
+    current_signature="${cached_signature}"
+  else
+    current_signature="$(
+      compute_local_plugin_artifact_signature \
+        "${ROOT_DIR}" \
+        "${package_name}" \
+        "${package_version}" | cksum | awk '{print $1 ":" $2}'
+    )"
+  fi
   if [[ "${SETTA_FORCE_PLUGIN_ARTIFACT_BUILD:-0}" != "1" ]] && [[ "${cached_signature}" == "${current_signature}" ]] && [[ -f "${wheel_path}" ]]; then
     log "Skipping local plugin artifact seed; artifacts unchanged."
+    printf '%s' "${current_stamp}" > "${artifact_stamp_cache_file}"
     configure_plugin_artifact_indexes "${artifact_dir}"
     return
   fi
@@ -581,6 +626,7 @@ for fixture_name, package_name, version in fixtures:
 PY
   ) >"${LOG_DIR}/seed-plugin-artifacts.log" 2>&1
   printf '%s' "${current_signature}" > "${PLUGIN_ARTIFACT_CACHE_FILE}"
+  printf '%s' "${current_stamp}" > "${artifact_stamp_cache_file}"
 
   configure_plugin_artifact_indexes "${artifact_dir}"
 

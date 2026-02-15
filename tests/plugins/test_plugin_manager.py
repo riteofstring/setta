@@ -6195,6 +6195,93 @@ def test_install_plugin_conflict_while_in_progress_fails_before_second_prepare(
     assert prepare_calls == 1
 
 
+def test_prepare_backend_runtime_is_serialized_per_runtime_path(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Concurrent runtime preparation for the same plugin runtime path should be single-flight.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "runtime-lock-fixture"
+    shutil.copytree(_fixture_path("backend"), plugin_root)
+    (plugin_root / "pyproject.toml").write_text(
+        "[build-system]\n"
+        'requires = ["setuptools>=68", "wheel"]\n'
+        'build-backend = "setuptools.build_meta"\n\n'
+        "[project]\n"
+        'name = "setta-fixture-backend"\n'
+        'version = "0.1.0"\n'
+        'dependencies = ["requests>=2"]\n',
+        encoding="utf-8",
+    )
+
+    active_subprocess_calls = 0
+    overlap_detected = False
+    venv_call_count = 0
+    pip_call_count = 0
+    first_subprocess_started = threading.Event()
+    release_first_subprocess = threading.Event()
+
+    def _patched_run(command: list[str], **_kwargs):
+        nonlocal active_subprocess_calls
+        nonlocal overlap_detected
+        nonlocal venv_call_count
+        nonlocal pip_call_count
+        active_subprocess_calls += 1
+        if active_subprocess_calls > 1:
+            overlap_detected = True
+        try:
+            if command[1:3] == ["-m", "venv"] and len(command) >= 4:
+                venv_call_count += 1
+                venv_path = Path(command[3])
+                runtime_python = (
+                    venv_path / "Scripts" / "python.exe"
+                    if os.name == "nt"
+                    else venv_path / "bin" / "python"
+                )
+                runtime_python.parent.mkdir(parents=True, exist_ok=True)
+                runtime_python.write_text("", encoding="utf-8")
+                runtime_python.chmod(0o755)
+            if len(command) >= 4 and command[1:3] == ["-m", "pip"]:
+                pip_call_count += 1
+            if not first_subprocess_started.is_set():
+                first_subprocess_started.set()
+                assert release_first_subprocess.wait(timeout=2.0)
+            time.sleep(0.02)
+            return subprocess.CompletedProcess(command, 0, "", "")
+        finally:
+            active_subprocess_calls -= 1
+
+    monkeypatch.setattr("setta.plugins.manager.subprocess.run", _patched_run)
+
+    raised_errors: list[Exception] = []
+
+    def _run_prepare() -> None:
+        try:
+            manager._prepare_backend_runtime(
+                plugin_id="setta-fixture-backend",
+                version="0.1.0",
+                source_digest_sha256="runtime-lock-digest",
+                plugin_root=plugin_root,
+            )
+        except Exception as exc:  # pragma: no cover - assertion path
+            raised_errors.append(exc)
+
+    first_thread = threading.Thread(target=_run_prepare)
+    second_thread = threading.Thread(target=_run_prepare)
+    first_thread.start()
+    assert first_subprocess_started.wait(timeout=2.0)
+    second_thread.start()
+    time.sleep(0.05)
+    release_first_subprocess.set()
+    first_thread.join(timeout=2.0)
+    second_thread.join(timeout=2.0)
+
+    assert raised_errors == []
+    assert overlap_detected is False
+    assert venv_call_count == 1
+    assert pip_call_count == 1
+
+
 def test_validate_plugin_folder_rejects_missing_manifest(tmp_path: Path) -> None:
     # Plugin folder validation must reject roots without setta.plugin.json.
     manager = _make_manager(tmp_path)
@@ -8177,6 +8264,60 @@ def test_worker_route_proxy_preserves_explicit_json_null_body(
     assert response.content == b"null"
     assert response.headers.get("content-type") == "application/json"
     assert response.json() is None
+
+
+def test_worker_route_proxy_keeps_empty_json_body_empty(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Worker payloads without a body key should stay empty, not JSON null.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    app = FastAPI()
+    manager._register_backend_router_from_worker_request(
+        app=app,
+        entry=entry,
+        params={
+            "prefix": "/proxy",
+            "routes": [
+                {
+                    "routeId": "route_0",
+                    "path": "/echo",
+                    "methods": ["GET"],
+                }
+            ],
+        },
+    )
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    route_path = "/api/plugins/setta-fixture-backend/proxy/echo"
+
+    monkeypatch.setattr(
+        manager,
+        "_call_backend_worker_method",
+        lambda **_kwargs: {
+            "statusCode": 200,
+            "mediaType": "application/json",
+        },
+    )
+
+    with TestClient(app) as client:
+        response = client.get(route_path)
+    assert response.status_code == 200
+    assert response.content == b""
+    assert response.headers.get("content-type") == "application/json"
 
 
 def test_scoped_link_and_uninstall_work_for_shadowed_entries(tmp_path: Path) -> None:

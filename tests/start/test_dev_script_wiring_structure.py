@@ -75,6 +75,27 @@ def test_playwright_runner_uses_seed_fixture_stamp_short_circuit() -> None:
     assert 'if [[ -n "${cached_signature}" && "${cached_stamp}" == "${current_stamp}" ]]; then' in script
 
 
+def test_playwright_runner_uses_single_workspace_seed_fixture_list() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "readonly WORKSPACE_SEED_FIXTURES=(" in script
+    assert '"${python_bin}" - "${root_dir}" "${WORKSPACE_SEED_FIXTURES[@]}"' in script
+    assert 'local fixtures=("${WORKSPACE_SEED_FIXTURES[@]}")' in script
+
+
+def test_playwright_runner_uses_local_artifact_stamp_short_circuit() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "compute_local_plugin_artifact_change_stamp()" in script
+    assert 'artifact_stamp_cache_file="${PLUGIN_ARTIFACT_CACHE_FILE}.stamp"' in script
+    assert 'cached_stamp="$(<"${artifact_stamp_cache_file}")"' in script
+    assert 'if [[ -n "${cached_signature}" && "${cached_stamp}" == "${current_stamp}" ]]; then' in script
+
+
 def test_playwright_runner_reseeds_plugin_fixtures_for_reused_workspaces() -> None:
     root = repo_root()
     script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
@@ -89,13 +110,10 @@ def test_playwright_runner_reseeds_plugin_fixtures_for_reused_workspaces() -> No
     assert existing_workspace_line < fixture_seed_guard_line
 
 
-def test_plugin_fixture_link_and_unlink_scripts_do_not_rescan_by_default() -> None:
+def test_plugin_fixture_link_script_defaults_to_no_rescan_and_unlink_wrapper_removed() -> None:
     root = repo_root()
     link_script = (root / "scripts" / "plugin-fixtures" / "link.sh").read_text(
         encoding="utf-8"
     )
-    unlink_script = (root / "scripts" / "plugin-fixtures" / "unlink.sh").read_text(
-        encoding="utf-8"
-    )
     assert "rescan_after_link=0" in link_script
-    assert "rescan_after_unlink=0" in unlink_script
+    assert not (root / "scripts" / "plugin-fixtures" / "unlink.sh").exists()

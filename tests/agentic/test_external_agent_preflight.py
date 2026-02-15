@@ -597,3 +597,36 @@ class TestExternalAgentPreflight:
                 assert str(third.id) in preflight._PREFLIGHT_CACHE
             finally:
                 preflight._PREFLIGHT_CACHE.clear()
+
+    def test_store_preflight_cache_prunes_once_per_write(self, monkeypatch) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            preflight._PREFLIGHT_CACHE.clear()
+            try:
+                config = self._build_config(
+                    run_mode=ExternalAgentRunMode.app_server,
+                    command_path="definitely_not_a_codex_executable",
+                )
+                status = build_external_agent_preflight_status(dbe, config)
+                prune_calls = 0
+                original_prune = preflight._prune_preflight_cache
+
+                def _counting_prune(*, now: float) -> None:
+                    nonlocal prune_calls
+                    prune_calls += 1
+                    original_prune(now=now)
+
+                monkeypatch.setattr(
+                    preflight,
+                    "_prune_preflight_cache",
+                    _counting_prune,
+                )
+                preflight._store_preflight_cache(
+                    config,
+                    status.envVars,
+                    status,
+                    plugin_adapter_fingerprint=None,
+                )
+                assert prune_calls == 1
+            finally:
+                preflight._PREFLIGHT_CACHE.clear()

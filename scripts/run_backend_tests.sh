@@ -11,12 +11,10 @@ PLUGIN_FIXTURE_CACHE_FILE="${PLUGIN_FIXTURE_CACHE_DIR}/backend-test-plugin-fixtu
 cd "${ROOT_DIR}"
 . ./activate.sh
 if [[ -z "${PYTHON_BIN:-}" ]]; then
-  if command -v python >/dev/null 2>&1; then
+  resolved_python_bin="$(resolve_plugin_fixture_python_bin || true)"
+  if [[ -n "${resolved_python_bin}" ]]; then
     export PYTHON_BIN
-    PYTHON_BIN="$(command -v python)"
-  elif command -v python3 >/dev/null 2>&1; then
-    export PYTHON_BIN
-    PYTHON_BIN="$(command -v python3)"
+    PYTHON_BIN="${resolved_python_bin}"
   fi
 fi
 if [[ -n "${SETTA_BUILD_PLUGIN_FIXTURES:-}" ]]; then

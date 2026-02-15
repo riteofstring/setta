@@ -134,10 +134,8 @@ def _get_prior_messages_for_engine(
 ) -> list[BaseChatMessageUnion]:
     if engine_type == EngineType.external_agent:
         if external_runs is None:
-            external_runs = _get_external_agent_chat_runs(
-                dbe=dbe,
-                chat_id=chat_id,
-                project_config_id=project_config_id,
+            raise ValueError(
+                "external_runs is required when loading prior messages for external-agent chats."
             )
         latest_run = _select_latest_run(external_runs)
     else:
@@ -521,6 +519,13 @@ async def route_get_llm_response(
             ) from exc
     else:
         if x.chatId is not None:
+            if (
+                resolved.engine_config.engineType == EngineType.external_agent
+                and external_runs_for_chat_id is None
+            ):
+                raise RuntimeError(
+                    "Expected prefetched external runs before loading external-agent chat history."
+                )
             prior_messages = _get_prior_messages_for_engine(
                 dbe=ctx.state.dbe,
                 engine_type=resolved.engine_config.engineType,

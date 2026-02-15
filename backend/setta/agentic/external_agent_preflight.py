@@ -484,7 +484,6 @@ def _store_preflight_cache(
     plugin_adapter_fingerprint: str | None,
 ) -> None:
     now = time.monotonic()
-    _prune_preflight_cache(now=now)
     cache_key = str(config.id)
     _PREFLIGHT_CACHE[cache_key] = _PreflightCacheEntry(
         status=status,
