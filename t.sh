@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-LOG_FILE="tests.log"
-: > "${LOG_FILE}"
-exec > >(tee -a "${LOG_FILE}") 2>&1
-
 run_backend=1
 run_frontend=1
 run_playwright=1
@@ -50,6 +46,21 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if [[ "${run_backend}" -eq 1 ]] && [[ "${run_frontend}" -eq 0 ]]; then
+  LOG_FILE="tests-backend.log"
+elif [[ "${run_backend}" -eq 0 ]] && [[ "${run_frontend}" -eq 1 ]]; then
+  LOG_FILE="tests-frontend.log"
+else
+  LOG_FILE="tests.log"
+fi
+
+log_dir="$(dirname "${LOG_FILE}")"
+if [[ -n "${log_dir}" ]] && [[ "${log_dir}" != "." ]]; then
+  mkdir -p "${log_dir}"
+fi
+: > "${LOG_FILE}"
+exec > >(tee -a "${LOG_FILE}") 2>&1
 
 status=0
 

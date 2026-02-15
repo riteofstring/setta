@@ -46,6 +46,8 @@ backend/setta/frontend
 setta_files/
 setta_files_dev/
 tests.log
+tests-backend.log
+tests-frontend.log
 backend.log
 chrome_mcp_backend.log
 frontend.log
