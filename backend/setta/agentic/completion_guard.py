@@ -52,7 +52,9 @@ _QUESTION_PIVOT_RE = re.compile(r"^\s*(?:how|what|why|where|when|who)\b", re.IGN
 _PASS_RE = re.compile(
     (
         r"\b("
-        r"pass(?:ed)?|success(?:ful(?:ly)?)?|no errors?|"
+        r"(?:tests?|checks?|verification)\s+pass(?:ed)?|"
+        r"pass(?:ed)?\s+(?:tests?|checks?|verification)|"
+        r"no\s+errors?\s+found|"
         r"no\s+failed\s+tests?|"
         r"no\s+failing\s+checks?|"
         r"no\s+failures?|"

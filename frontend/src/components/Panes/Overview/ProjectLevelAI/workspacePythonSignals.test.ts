@@ -82,4 +82,16 @@ describe("workspacePythonSignals", () => {
 
     expect(Array.from(cache.keys())).toEqual(["/workspace/b", "/workspace/c"]);
   });
+
+  it("keeps default cache hits across short revalidation windows", () => {
+    const cache: WorkspacePythonSignalCache = new Map();
+    setCachedWorkspacePythonSignal(cache, "/workspace/a", true, 1000);
+
+    expect(getCachedWorkspacePythonSignal(cache, "/workspace/a", 9000)).toBe(
+      true,
+    );
+    expect(getCachedWorkspacePythonSignal(cache, "/workspace/a", 17001)).toBe(
+      null,
+    );
+  });
 });

@@ -230,6 +230,16 @@ export const CHAT_SLASH_COMMANDS: ChatSlashCommandDefinition[] =
   buildChatSlashCommands();
 
 const SLASH_SUGGESTION_LIMIT = 8;
+const SLASH_COMMAND_TOKEN_RE = /^\/[a-z][a-z0-9_-]*$/u;
+
+export function shouldTreatInputAsSlashCommand(text: string): boolean {
+  const trimmedStart = text.trimStart();
+  if (!trimmedStart.startsWith("/")) {
+    return false;
+  }
+  const firstToken = trimmedStart.split(/\s+/u)[0] ?? "";
+  return SLASH_COMMAND_TOKEN_RE.test(firstToken);
+}
 
 export function parseSlashCommand(
   text: string,

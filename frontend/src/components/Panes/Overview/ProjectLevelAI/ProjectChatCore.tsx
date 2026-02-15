@@ -231,11 +231,40 @@ function useHasPythonInWorkspaceRoot(
     if (!enabled || !workspaceRootIdentity) {
       return;
     }
-    const intervalId = window.setInterval(() => {
-      setRevalidationTick((current) => current + 1);
-    }, WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS);
-    return () => {
+    let intervalId: number | null = null;
+
+    const clearRevalidationInterval = () => {
+      if (intervalId === null) {
+        return;
+      }
       window.clearInterval(intervalId);
+      intervalId = null;
+    };
+
+    const startRevalidationInterval = () => {
+      clearRevalidationInterval();
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+      intervalId = window.setInterval(() => {
+        setRevalidationTick((current) => current + 1);
+      }, WORKSPACE_PYTHON_SIGNAL_REVALIDATE_MS);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        clearRevalidationInterval();
+        return;
+      }
+      setRevalidationTick((current) => current + 1);
+      startRevalidationInterval();
+    };
+
+    startRevalidationInterval();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      clearRevalidationInterval();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [enabled, workspaceRootIdentity]);
 

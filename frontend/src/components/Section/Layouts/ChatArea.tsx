@@ -107,6 +107,7 @@ type ChatSectionChatId = string | null;
 type ChatSectionChatIdUpdate =
   | ChatSectionChatId
   | ((current: ChatSectionChatId) => ChatSectionChatId);
+const MANAGED_CHAT_HISTORY_POLL_INTERVAL_MS = 5000;
 
 type EmitChatSendActionArgs = {
   sectionId: string;
@@ -984,19 +985,42 @@ function ManagedChatHistoryPanel({
   );
 
   useEffect(() => {
-    void loadAgentRuns();
-  }, []);
+    let intervalId: number | null = null;
 
-  useEffect(() => {
-    void loadAgentRuns();
-    if (!hasRunningHistoryEntry) {
-      return;
-    }
-    const intervalId = window.setInterval(() => {
-      void loadAgentRuns();
-    }, 5000);
-    return () => {
+    const clearPollingInterval = () => {
+      if (intervalId === null) {
+        return;
+      }
       window.clearInterval(intervalId);
+      intervalId = null;
+    };
+
+    const startPollingIfNeeded = () => {
+      clearPollingInterval();
+      if (!hasRunningHistoryEntry || document.visibilityState !== "visible") {
+        return;
+      }
+      intervalId = window.setInterval(() => {
+        void loadAgentRuns();
+      }, MANAGED_CHAT_HISTORY_POLL_INTERVAL_MS);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        clearPollingInterval();
+        return;
+      }
+      void loadAgentRuns();
+      startPollingIfNeeded();
+    };
+
+    void loadAgentRuns();
+    startPollingIfNeeded();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearPollingInterval();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [hasRunningHistoryEntry]);
 
@@ -1303,7 +1327,6 @@ function ManagedChatArea({
       ? externalEngineAvailable
       : hasLLMConfig && !noConfigsAvailable);
   const showPermissionExecutionControl = canConfigureExecutionSettings;
-  const showSearchExecutionControl = false;
 
   const updateExecutionSettings = useCallback(
     (
@@ -1339,9 +1362,9 @@ function ManagedChatArea({
       buildChatSlashCommands({
         model: true,
         permissions: showPermissionExecutionControl,
-        search: showSearchExecutionControl,
+        search: false,
       }),
-    [showPermissionExecutionControl, showSearchExecutionControl],
+    [showPermissionExecutionControl],
   );
 
   const handleSubmit = useCallback(
@@ -1581,8 +1604,8 @@ function ManagedChatArea({
     () => !waitingForResponse && hasPendingToolInteraction(messages),
     [messages, waitingForResponse],
   );
-  const executionControls = useMemo(() => {
-    const baseControls = {
+  const executionControls = useMemo(
+    () => ({
       permissionMode,
       searchEnabled,
       onPermissionModeChange: (nextMode: ChatPermissionModeValue) => {
@@ -1594,28 +1617,9 @@ function ManagedChatArea({
           `Permissions set to ${nextMode}.`,
         );
       },
-    };
-    if (!showSearchExecutionControl) {
-      return baseControls;
-    }
-    return {
-      ...baseControls,
-      onSearchEnabledChange: (nextValue: boolean) => {
-        updateExecutionSettings(
-          {
-            permissionMode,
-            searchEnabled: nextValue,
-          },
-          `Search ${nextValue ? "enabled" : "disabled"}.`,
-        );
-      },
-    };
-  }, [
-    permissionMode,
-    searchEnabled,
-    showSearchExecutionControl,
-    updateExecutionSettings,
-  ]);
+    }),
+    [permissionMode, searchEnabled, updateExecutionSettings],
+  );
   const handleProviderDictationTranscribe = useCallback(
     async (audioBlob: Blob) => {
       if (!effectiveEngineConfigId || isExternalEngine) {
@@ -1705,7 +1709,7 @@ function ManagedChatArea({
           executionControls={executionControls}
           executionControlVisibility={{
             permissionMode: showPermissionExecutionControl,
-            search: showSearchExecutionControl,
+            search: false,
           }}
           dictationEnabledByProvider={hasEngineConfig}
           onProviderDictationTranscribe={

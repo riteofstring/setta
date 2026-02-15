@@ -31,6 +31,7 @@ import {
   type ChatSlashCommandDefinition,
   getSlashCommandSuggestions,
   parseSlashCommand,
+  shouldTreatInputAsSlashCommand,
 } from "./chatComposerControls";
 import {
   type DictationState,
@@ -199,12 +200,11 @@ export const ChatInput = memo(function ChatInput({
 
   const runSlashCommand = useCallback(
     async (message: string): Promise<boolean> => {
-      const startsWithSlash = message.trimStart().startsWith("/");
+      if (!shouldTreatInputAsSlashCommand(message)) {
+        return false;
+      }
       const parsed = parseSlashCommand(message, slashCommands);
       if (!parsed) {
-        if (!startsWithSlash) {
-          return false;
-        }
         setSlashFeedback(UNKNOWN_SLASH_COMMAND_FEEDBACK);
         return true;
       }

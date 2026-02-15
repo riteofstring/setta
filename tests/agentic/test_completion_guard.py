@@ -67,10 +67,10 @@ def test_completion_guard_allows_done_claim_after_passing_checks() -> None:
 
 
 def test_completion_guard_allows_common_tool_name_verification_wording() -> None:
-    # Common check-tool phrasing should satisfy verification status detection.
+    # Explicit pass wording with common check tools should satisfy verification status detection.
     prior_messages = [
         _user_message("Create a project setup for this repo."),
-        _assistant_message("Ran pytest and ruff successfully."),
+        _assistant_message("Ran pytest and ruff; tests passed."),
     ]
     assistant_message = _assistant_message("Done. Ready to ship.")
 
@@ -281,6 +281,34 @@ def test_completion_guard_treats_zero_failed_and_zero_errors_as_passed_checks() 
 
     assert replacement is None
     assert _assistant_text(assistant_message) == "Done."
+
+
+def test_completion_guard_treats_no_error_checks_yet_as_missing() -> None:
+    # Negated/incomplete check wording must not be treated as a passing signal.
+    prior_messages = [
+        _user_message("Create a new project setup."),
+        _assistant_message("I did no error checks yet."),
+    ]
+    assistant_message = _assistant_message("Done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+
+
+def test_completion_guard_treats_not_successfully_run_checks_as_missing() -> None:
+    # "did not successfully run tests" must not be classified as a pass.
+    prior_messages = [
+        _user_message("Create a new project setup."),
+        _assistant_message("I did not successfully run tests."),
+    ]
+    assistant_message = _assistant_message("Done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
 
 
 def test_completion_guard_keeps_creation_flow_open_for_verification_question_followups() -> (

@@ -234,3 +234,29 @@ Implemented the latest consolidated review fixes across completion-guard false f
 - Playwright: targeted e2e suites passed (`chat-composer-controls`, `project-ai-chat-root-scan`, including new lazy-history and same-root revalidation coverage).
 - `tsc --noEmit` still reports existing repo-wide TypeScript errors outside this change set.
 - CDP visual + perf verification completed in a live session (managed section history no longer issues `getAgentRuns` while closed; request starts on History open).
+
+## 2026-02-17 15:09:42 PST
+
+### Summary
+Implemented the next consolidated review fixes across completion-guard false-pass prevention, multipart upload limit alignment, slash-command interception precision, project/section polling efficiency, and dead managed-search branch cleanup, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Tightened completion-guard pass detection to require explicit pass outcomes (`tests/checks passed`, `no errors found`, `0 failed`) and removed broad pass tokens that caused negated phrasing false positives.
+- Added completion-guard regressions for negated/incomplete verification phrases (`no error checks yet`, `did not successfully run tests`) so completion claims stay blocked when checks were not actually run.
+- Added shared multipart pre-parse enforcement (`request.form(max_part_size=...)`) with `Content-Length` precheck and mapped parser oversize failures to deterministic `413` responses.
+- Wired `/binary/upload` and `/transcribeChatAudio` to route-level multipart size guards while keeping existing stream/read max-byte checks as defense in depth.
+- Added backend integration coverage proving multipart uploads above Starlette’s default parser limit (~1MB) succeed when within Setta limits for both binary upload and dictation transcription.
+- Added explicit slash-command token gating so only command-shaped first tokens are intercepted; absolute-path prompts beginning with `/` are now sent as normal chat input.
+- Added unit + Playwright coverage for path-like slash input to ensure no local unknown-command swallowing regression.
+- Increased workspace Python-signal cache TTL and paused empty-state revalidation polling while the tab is hidden, resuming with immediate refresh on visibility return.
+- Removed duplicate managed section history initial `loadAgentRuns()` calls and made history polling visibility-aware.
+- Removed dead managed section search-control branches by hard-disabling search command/control construction where feature visibility is intentionally off.
+
+### Test and verification status
+- Backend pytest: targeted suites passed (`tests/agentic/test_completion_guard.py`, `tests/routers/test_multipart_route_limits.py`).
+- Backend lint: Ruff check on changed backend/test files passed.
+- Frontend Vitest: targeted suites passed (`chatComposerControls`, `workspacePythonSignals`, `projectChatExecutionSettings`).
+- Frontend formatting: Prettier check passed after formatting touched files.
+- Playwright: targeted e2e suites passed (`chat-composer-controls`, `project-ai-chat-root-scan`).
+- ESLint targeted run remains blocked in this environment due missing `@eslint/js` resolution from `frontend/eslint.config.js`.
+- CDP visual verification completed in a live session (Project AI Chat accepted `/Users/...` prompt as a normal message and did not show unknown-command feedback).

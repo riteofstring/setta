@@ -222,6 +222,63 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
+  test("project chat allows prompts that begin with absolute paths", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    let llmSubmitCount = 0;
+    const fakeChatId = "pw-path-chat";
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      llmSubmitCount += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(fakeChatId),
+      });
+    });
+    await page.route("**/api/getLLMChat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          llmConfig: {
+            id: "e2e-llm",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: null,
+            base_url: null,
+            other_params: {},
+            mcpServerIds: [],
+          },
+        }),
+      });
+    });
+
+    try {
+      await page.reload();
+      await page.waitForSelector(".react-flow__pane");
+
+      const overviewPane = page.locator("#OverviewPane");
+      const input = overviewPane.getByPlaceholder("Type a message...");
+      await input.fill("/Users/kevin/project/main.py has failing tests");
+      await input.press("Enter");
+
+      await expect.poll(() => llmSubmitCount).toBe(1);
+      await expect(
+        overviewPane.getByText("Unknown or unavailable command. Use /help."),
+      ).toHaveCount(0);
+    } finally {
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("project chat resume ignores incompatible engine history entries", async ({
     page,
   }) => {

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import File, Form, HTTPException, UploadFile, status
+from fastapi import Depends, File, Form, HTTPException, Request, UploadFile, status
 from pydantic import BaseModel, Field
 
 from setta.agentic.chat_view import (
@@ -31,6 +31,7 @@ from setta.routers.app_generation_limits import (
     MAX_REFERENCE_IMAGE_URL_CHARS,
 )
 from setta.routers.dependencies import RuntimeContextFromRequest
+from setta.routers.multipart_limits import enforce_multipart_max_part_size
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.agentic import (
     AgentProfile,
@@ -69,6 +70,25 @@ _REQUIRED_ERROR_CHECK_PROMPT = (
 _TRANSCRIBE_AUDIO_MAX_BYTES = (
     C.REALTIME_BINARY_MAX_BYTES if C.REALTIME_BINARY_MAX_BYTES > 0 else 10 * 1024 * 1024
 )
+
+
+def _format_payload_size_label(max_bytes: int) -> str:
+    if max_bytes >= 1024 * 1024:
+        return f"{max_bytes // (1024 * 1024)} MB"
+    return f"{max_bytes} bytes"
+
+
+def _build_audio_payload_too_large_detail(max_bytes: int) -> str:
+    return f"Audio payload is too large. Maximum size is {_format_payload_size_label(max_bytes)}."
+
+
+async def _enforce_transcribe_audio_multipart_limit(request: Request) -> None:
+    max_bytes = _TRANSCRIBE_AUDIO_MAX_BYTES
+    await enforce_multipart_max_part_size(
+        request,
+        max_part_size=max_bytes,
+        too_large_detail=_build_audio_payload_too_large_detail(max_bytes),
+    )
 
 
 def _combine_prompt_sections(*sections: str | None) -> str:
@@ -769,6 +789,7 @@ async def route_get_llm_response(
 @router.post(Route.TRANSCRIBE_CHAT_AUDIO)
 async def route_transcribe_chat_audio(
     ctx: RuntimeContextFromRequest,
+    _multipart_limit_guard: None = Depends(_enforce_transcribe_audio_multipart_limit),
     engineConfigId: ID = Form(...),
     file: UploadFile = File(...),
     language: str | None = Form(default=None),
@@ -801,13 +822,9 @@ async def route_transcribe_chat_audio(
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="Audio payload is empty.")
     if len(audio_bytes) > _TRANSCRIBE_AUDIO_MAX_BYTES:
-        if _TRANSCRIBE_AUDIO_MAX_BYTES >= 1024 * 1024:
-            limit_label = f"{_TRANSCRIBE_AUDIO_MAX_BYTES // (1024 * 1024)} MB"
-        else:
-            limit_label = f"{_TRANSCRIBE_AUDIO_MAX_BYTES} bytes"
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Audio payload is too large. Maximum size is {limit_label}.",
+            detail=_build_audio_payload_too_large_detail(_TRANSCRIBE_AUDIO_MAX_BYTES),
         )
 
     mime_type = (file.content_type or "").strip() or "audio/webm"

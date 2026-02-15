@@ -13,7 +13,7 @@ export type WorkspacePythonSignalCache = Map<
   WorkspacePythonSignalCacheEntry
 >;
 
-const WORKSPACE_PYTHON_SIGNAL_CACHE_TTL_MS = 5000;
+const WORKSPACE_PYTHON_SIGNAL_CACHE_TTL_MS = 15000;
 const WORKSPACE_PYTHON_SIGNAL_CACHE_MAX_ENTRIES = 128;
 
 const PYTHON_ROOT_MARKER_FILES = new Set<string>([

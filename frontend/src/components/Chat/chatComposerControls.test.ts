@@ -8,6 +8,7 @@ import {
   parseSlashCommand,
   resolvePermissionModeArg,
   resolveToggleArg,
+  shouldTreatInputAsSlashCommand,
 } from "./chatComposerControls";
 
 describe("chatComposerControls", () => {
@@ -32,6 +33,22 @@ describe("chatComposerControls", () => {
     const parsed = parseSlashCommand("/unknown");
 
     expect(parsed).toBeNull();
+  });
+
+  it("treats command-shaped slash input as command candidates", () => {
+    expect(shouldTreatInputAsSlashCommand("/resume")).toBe(true);
+    expect(shouldTreatInputAsSlashCommand("  /permissions yolo")).toBe(true);
+  });
+
+  it("ignores absolute-path style slash input", () => {
+    expect(
+      shouldTreatInputAsSlashCommand(
+        "/Users/kevin/project/main.py has failing tests",
+      ),
+    ).toBe(false);
+    expect(shouldTreatInputAsSlashCommand("/tmp/workspace/notes.txt")).toBe(
+      false,
+    );
   });
 
   it("does not parse deprecated advisory slash commands", () => {
