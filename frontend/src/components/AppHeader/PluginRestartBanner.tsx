@@ -7,6 +7,7 @@ import {
 import {
   refreshPluginRuntime,
   usePluginListEntries,
+  usePluginStatusEntries,
   usePluginRuntimeStore,
 } from "plugins/runtime";
 import { useMemo, useState } from "react";
@@ -18,14 +19,15 @@ import { route_plugins_restart } from "utils/generatedEndpoints";
 export function PluginRestartBanner() {
   const [isRestarting, setIsRestarting] = useState(false);
   const pluginListEntries = usePluginListEntries();
+  const pluginStatusEntries = usePluginStatusEntries();
   const restartCapability = usePluginRuntimeStore(
     (state) => state.restartCapability,
     _.isEqual,
   );
 
   const restartRequiredPluginIds = useMemo(
-    () => getRestartRequiredPluginIds(pluginListEntries),
-    [pluginListEntries],
+    () => getRestartRequiredPluginIds(pluginListEntries, pluginStatusEntries),
+    [pluginListEntries, pluginStatusEntries],
   );
   const restartActionPlan = useMemo(
     () => buildPluginRestartActionPlan(restartCapability),

@@ -32,7 +32,6 @@ let pluginImpl: PluginImplShape = {
 
 const addTemporaryNotificationMock = vi.fn();
 const routeDeleteSectionsMock = vi.fn();
-const routePluginsStatusMock = vi.fn();
 const useLocalStorageSetStateMock = vi.fn();
 const usePluginSectionKindMock = vi.fn(() => pluginSectionKind);
 const getPluginSectionFallbackReasonMock = vi.fn(() => fallbackReason);
@@ -95,7 +94,6 @@ vi.mock("state/definitions", () => ({
 vi.mock("utils/generatedEndpoints", () => ({
   route_delete_sections: (...args: unknown[]) =>
     routeDeleteSectionsMock(...args),
-  route_plugins_status: (...args: unknown[]) => routePluginsStatusMock(...args),
 }));
 
 function isElementNode(value: unknown): value is ElementNode {
@@ -214,13 +212,8 @@ describe("PluginArea fallback actions", () => {
     vi.clearAllMocks();
   });
 
-  it("opens Plugins tab and refreshes plugin status from fallback action", async () => {
-    // Open action should set overview state and trigger immediate plugin status refresh.
-    routePluginsStatusMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: { plugins: [] },
-    });
+  it("opens Plugins tab from fallback action", async () => {
+    // Open action should set overview state to the Plugins tab.
     const fallbackCard = renderFallbackCard("section-open");
     const openPluginsButton = findButtonByLabel(fallbackCard, "Open Plugins");
     const event = buildClickEvent();
@@ -235,7 +228,6 @@ describe("PluginArea fallback actions", () => {
       overviewVis: true,
       overviewTab: OverviewTabNameEnum.Plugins,
     });
-    expect(routePluginsStatusMock).toHaveBeenCalledTimes(1);
   });
 
   it("shows section-kind-missing fallback wording", () => {

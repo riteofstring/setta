@@ -323,6 +323,7 @@ class PluginManager:
         restart_callback: Callable[[], bool] | None = None,
         backend_startup_timeout_seconds: float = 10.0,
         backend_register_timeout_seconds: float = 10.0,
+        backend_operation_timeout_seconds: float = 120.0,
         package_manager_search_paths: list[Path] | None = None,
     ) -> None:
         self.workspace_root = workspace_root
@@ -339,6 +340,7 @@ class PluginManager:
         self._restart_callback = restart_callback
         self._backend_startup_timeout_seconds = backend_startup_timeout_seconds
         self._backend_register_timeout_seconds = backend_register_timeout_seconds
+        self._backend_operation_timeout_seconds = backend_operation_timeout_seconds
         self._package_manager_search_paths = package_manager_search_paths
 
         self._manifest_schema_path = (
@@ -358,6 +360,12 @@ class PluginManager:
         self._runtime_root = self.setta_files_root / "plugins_runtime"
         self._directory_digest_cache: dict[
             str, tuple[tuple[tuple[str, int, int], ...], str]
+        ] = {}
+        self._content_descriptor_cache: dict[
+            tuple[str, PluginScope, str | None], PluginContentDescriptor
+        ] = {}
+        self._config_schema_descriptor_cache: dict[
+            tuple[str, PluginScope, str | None], tuple[bool, dict[str, Any] | None]
         ] = {}
 
         initial_plugins_state = self._load_plugins_state()
@@ -462,6 +470,8 @@ class PluginManager:
 
     def rescan(self) -> PluginsRescanResponse:
         discovered = self._discover_plugins()
+        self._content_descriptor_cache = {}
+        self._config_schema_descriptor_cache = {}
         self._discovered_plugins = discovered
         self._active_plugin_by_id = {
             entry.plugin_id: entry
@@ -537,7 +547,9 @@ class PluginManager:
                     sourceManager=entry.source_manager,
                     sourceManagerHint=entry.source_manager_hint,
                     canonicalSourceKey=(
-                        self._redacted_canonical_source_key(entry.plugin_id)
+                        self._redacted_canonical_source_key(
+                            entry.plugin_id, entry.scope
+                        )
                         if redact_source_details
                         else entry.canonical_source_key
                     ),
@@ -581,19 +593,21 @@ class PluginManager:
                     sourceManager=entry.source_manager,
                     sourceManagerHint=entry.source_manager_hint,
                     sourcePath=(
-                        self._redact_source_path(entry.plugin_id)
+                        self._redact_source_path(entry.plugin_id, entry.scope)
                         if redact_source_details
                         else str(entry.source_path)
                     ),
                     canonicalSourceKey=(
-                        self._redacted_canonical_source_key(entry.plugin_id)
+                        self._redacted_canonical_source_key(
+                            entry.plugin_id, entry.scope
+                        )
                         if redact_source_details
                         else entry.canonical_source_key
                     ),
                     sourceDigestSha256=entry.source_digest_sha256,
                     shadowedBySourcePath=(
                         (
-                            self._redact_source_path(entry.plugin_id)
+                            self._redact_source_path(entry.plugin_id, entry.scope)
                             if redact_source_details
                             else str(entry.shadowed_by_source_path)
                         )
@@ -631,11 +645,11 @@ class PluginManager:
     ) -> PluginConfigDescriptor:
         return PluginConfigDescriptor(hasSchema=descriptor.hasSchema)
 
-    def _redacted_canonical_source_key(self, plugin_id: str) -> str:
-        return f"{_REDACTED_CANONICAL_SOURCE_KEY_PREFIX}{plugin_id}"
+    def _redacted_canonical_source_key(self, plugin_id: str, scope: PluginScope) -> str:
+        return f"{_REDACTED_CANONICAL_SOURCE_KEY_PREFIX}{scope}:{plugin_id}"
 
-    def _redact_source_path(self, plugin_id: str) -> str:
-        return f"{_REDACTED_SOURCE_PATH}:{plugin_id}"
+    def _redact_source_path(self, plugin_id: str, scope: PluginScope) -> str:
+        return f"{_REDACTED_SOURCE_PATH}:{scope}:{plugin_id}"
 
     def get_pending_restart_backend_plugin_ids(self) -> list[str]:
         return sorted(self._pending_restart_backend_ids)
@@ -720,6 +734,29 @@ class PluginManager:
             return False
         return normalized_target_id in self._backend_codegen_target_by_id
 
+    def get_backend_codegen_target_implementation_key(self, target_id: str) -> str:
+        normalized_target_id = target_id.strip()
+        if normalized_target_id == "":
+            raise KeyError("Plugin codegen target id is required.")
+        registration = self._backend_codegen_target_by_id.get(normalized_target_id)
+        if registration is None:
+            raise KeyError(
+                f"Plugin codegen target is not registered: {normalized_target_id}"
+            )
+        entry = self._find_highest_precedence_entry(registration.plugin_id)
+        if entry is None:
+            raise KeyError(
+                (
+                    "Plugin codegen target plugin is not currently discovered: "
+                    f"{registration.plugin_id}"
+                )
+            )
+        source_digest = entry.source_digest_sha256 or "none"
+        return (
+            f"{registration.target_id}:{registration.plugin_id}:"
+            f"{entry.version}:{source_digest}:{registration.handler_id}"
+        )
+
     def generate_backend_codegen_target(
         self,
         *,
@@ -772,7 +809,7 @@ class PluginManager:
             plugin_id=registration.plugin_id,
             request_id=self._next_backend_worker_request_id(registration.plugin_id),
             method="plugin.invoke_codegen_target",
-            timeout_seconds=self._backend_register_timeout_seconds,
+            timeout_seconds=self._backend_operation_timeout_seconds,
             timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
             entry=entry,
             app=self._backend_app,
@@ -819,7 +856,7 @@ class PluginManager:
             plugin_id=plugin_id,
             request_id=self._next_backend_worker_request_id(plugin_id),
             method="plugin.invoke_route",
-            timeout_seconds=self._backend_register_timeout_seconds,
+            timeout_seconds=self._backend_operation_timeout_seconds,
             timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
             entry=entry,
             app=self._backend_app,
@@ -1026,7 +1063,9 @@ class PluginManager:
             self._backend_worker_pipe_readers[stream_id] = created_reader
         return created_reader
 
-    def _discard_worker_pipe_reader(self, stream: Any) -> _BackendWorkerPipeReader | None:
+    def _discard_worker_pipe_reader(
+        self, stream: Any
+    ) -> _BackendWorkerPipeReader | None:
         stream_id = id(stream)
         with self._backend_worker_pipe_readers_lock:
             return self._backend_worker_pipe_readers.pop(stream_id, None)
@@ -1869,7 +1908,7 @@ class PluginManager:
                         plugin_id=_plugin_id,
                         request_id=self._next_backend_worker_request_id(_plugin_id),
                         method="plugin.invoke_route",
-                        timeout_seconds=self._backend_register_timeout_seconds,
+                        timeout_seconds=self._backend_operation_timeout_seconds,
                         timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
                         entry=entry,
                         app=app,
@@ -2306,7 +2345,7 @@ class PluginManager:
                 plugin_id=entry.plugin_id,
                 request_id=self._next_backend_worker_request_id(entry.plugin_id),
                 method="plugin.invoke_mcp_tool",
-                timeout_seconds=self._backend_register_timeout_seconds,
+                timeout_seconds=self._backend_operation_timeout_seconds,
                 timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
                 entry=entry,
                 app=self._backend_app,
@@ -2860,8 +2899,10 @@ class PluginManager:
             resolved_path = command_path
             if not resolved_path.is_absolute():
                 resolved_path = (
-                    entry.source_path / command_path
-                ).expanduser().resolve(strict=False)
+                    (entry.source_path / command_path)
+                    .expanduser()
+                    .resolve(strict=False)
+                )
             if not resolved_path.exists():
                 raise PluginManagerError(
                     "PLUGIN_BACKEND_REGISTER_FAILED",
@@ -3469,6 +3510,13 @@ class PluginManager:
         return self.uninstall_plugin(plugin_id=plugin_id, scope=scope)
 
     def enable_plugin(self, *, plugin_id: str) -> PluginEnableDisableResponse:
+        entry = self._find_highest_precedence_entry(plugin_id)
+        if entry is None:
+            raise PluginManagerError(
+                "PLUGIN_NOT_FOUND",
+                f"Plugin not found: {plugin_id}",
+                status_code=404,
+            )
         state_file = self._load_plugins_state()
         if plugin_id not in state_file.enabledPluginIds:
             state_file.enabledPluginIds.append(plugin_id)
@@ -3477,8 +3525,7 @@ class PluginManager:
                 value for value in state_file.disabledPluginIds if value != plugin_id
             ]
         self._save_plugins_state(state_file)
-        entry = self._find_highest_precedence_entry(plugin_id)
-        if entry is not None and entry.has_backend:
+        if entry.has_backend:
             self._add_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
         self.rescan()
@@ -3496,6 +3543,13 @@ class PluginManager:
         )
 
     def disable_plugin(self, *, plugin_id: str) -> PluginEnableDisableResponse:
+        entry = self._find_highest_precedence_entry(plugin_id)
+        if entry is None:
+            raise PluginManagerError(
+                "PLUGIN_NOT_FOUND",
+                f"Plugin not found: {plugin_id}",
+                status_code=404,
+            )
         state_file = self._load_plugins_state()
         if plugin_id not in state_file.disabledPluginIds:
             state_file.disabledPluginIds.append(plugin_id)
@@ -3504,8 +3558,7 @@ class PluginManager:
                 value for value in state_file.enabledPluginIds if value != plugin_id
             ]
         self._save_plugins_state(state_file)
-        entry = self._find_highest_precedence_entry(plugin_id)
-        if entry is not None and entry.has_backend:
+        if entry.has_backend:
             self._add_pending_restart_backend_id(plugin_id)
             self._pending_restart_removed_backend_plugins.pop(plugin_id, None)
         self.rescan()
@@ -4469,15 +4522,21 @@ class PluginManager:
     def _build_content_descriptor(
         self, entry: DiscoveredPlugin
     ) -> PluginContentDescriptor:
+        cache_key = (entry.plugin_id, entry.scope, entry.source_digest_sha256)
+        cached = self._content_descriptor_cache.get(cache_key)
+        if cached is not None:
+            return cached
         manifest = entry.manifest
         if manifest is None or manifest.content is None:
-            return PluginContentDescriptor(
+            descriptor = PluginContentDescriptor(
                 hasBlueprints=False,
                 hasProjectTemplates=False,
                 hasPrompts=False,
             )
+            self._content_descriptor_cache[cache_key] = descriptor
+            return descriptor
 
-        return PluginContentDescriptor(
+        descriptor = PluginContentDescriptor(
             hasBlueprints=self._directory_has_files(
                 self._resolve_optional_relative_directory(
                     entry.source_path,
@@ -4497,6 +4556,40 @@ class PluginManager:
                 )
             ),
         )
+        self._content_descriptor_cache[cache_key] = descriptor
+        return descriptor
+
+    def _build_config_schema_descriptor(
+        self,
+        entry: DiscoveredPlugin,
+    ) -> tuple[bool, dict[str, Any] | None]:
+        cache_key = (entry.plugin_id, entry.scope, entry.source_digest_sha256)
+        cached = self._config_schema_descriptor_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        manifest = entry.manifest
+        if manifest is None or manifest.configSchemaPath is None:
+            self._config_schema_descriptor_cache[cache_key] = (False, None)
+            return (False, None)
+        schema_path = self._resolve_relative_path(
+            entry.source_path,
+            manifest.configSchemaPath,
+            code="PLUGIN_MANIFEST_PATH_NOT_FOUND",
+            message_prefix="Invalid configSchemaPath",
+        )
+        if not schema_path.exists() or not schema_path.is_file():
+            self._config_schema_descriptor_cache[cache_key] = (False, None)
+            return (False, None)
+        try:
+            schema_json = json.loads(schema_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            schema_json = None
+        if isinstance(schema_json, dict):
+            descriptor = (True, schema_json)
+            self._config_schema_descriptor_cache[cache_key] = descriptor
+            return descriptor
+        self._config_schema_descriptor_cache[cache_key] = (True, None)
+        return (True, None)
 
     def _build_config_descriptor(
         self,
@@ -4507,27 +4600,12 @@ class PluginManager:
         current_config = plugins_state.pluginConfigById.get(entry.plugin_id, {})
         if not isinstance(current_config, dict):
             current_config = {}
-        manifest = entry.manifest
-        if manifest is None or manifest.configSchemaPath is None:
+        has_schema, schema_json = self._build_config_schema_descriptor(entry)
+        if not has_schema:
             return PluginConfigDescriptor(
                 hasSchema=False,
                 currentConfig=current_config,
             )
-        schema_path = self._resolve_relative_path(
-            entry.source_path,
-            manifest.configSchemaPath,
-            code="PLUGIN_MANIFEST_PATH_NOT_FOUND",
-            message_prefix="Invalid configSchemaPath",
-        )
-        if not schema_path.exists() or not schema_path.is_file():
-            return PluginConfigDescriptor(
-                hasSchema=False,
-                currentConfig=current_config,
-            )
-        try:
-            schema_json = json.loads(schema_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            schema_json = None
         if isinstance(schema_json, dict):
             return PluginConfigDescriptor(
                 hasSchema=True,
@@ -4858,7 +4936,8 @@ class PluginManager:
 
         resolved_backend = self._resolve_installer_backend(installer_backend)
         extract_root = tmp_dir / "extract"
-        if resolved_backend == PluginInstallerBackend.pip:
+
+        def _download_with_pip_and_extract() -> None:
             self._download_pypi_with_pip(
                 package_spec=package_spec,
                 tmp_dir=tmp_dir,
@@ -4873,12 +4952,22 @@ class PluginManager:
             artifact_path = artifacts[0]
             extract_root.mkdir(parents=True, exist_ok=True)
             self._extract_artifact(artifact_path, extract_root)
+
+        if resolved_backend == PluginInstallerBackend.pip:
+            _download_with_pip_and_extract()
         else:
-            self._install_pypi_with_uv(
-                package_spec=package_spec,
-                extract_root=extract_root,
-                source_spec=source_spec.raw,
-            )
+            try:
+                self._install_pypi_with_uv(
+                    package_spec=package_spec,
+                    extract_root=extract_root,
+                    source_spec=source_spec.raw,
+                )
+            except PluginManagerError:
+                if installer_backend != PluginInstallerBackend.auto:
+                    raise
+                if extract_root.exists():
+                    shutil.rmtree(extract_root)
+                _download_with_pip_and_extract()
 
         manifest_candidates = sorted(
             extract_root.rglob("setta.plugin.json"), key=lambda path: str(path)

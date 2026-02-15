@@ -19,6 +19,7 @@ import { createTopLevelSection } from "./createSections";
 
 export type CreateSectionsContextMenuInfo = {
   name: string;
+  commandId?: string;
   implSpecs: Partial<BaseSectionImplUnion> &
     Required<Pick<BaseSectionImplUnion, "type">>;
   controlCodeObjType?: CodeObjType;
@@ -202,6 +203,7 @@ export function useCreateSectionsList() {
   const pluginSectionItems: Array<CreateSectionsContextMenuInfo> =
     pluginSectionKinds.map((sectionKind) => ({
       name: sectionKind.title,
+      commandId: `plugin-section:${sectionKind.pluginId}:${sectionKind.kind}`,
       implSpecs: {
         type: SectionTypeEnum.Plugin,
         pluginId: sectionKind.pluginId,

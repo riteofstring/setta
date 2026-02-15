@@ -4,6 +4,7 @@ import {
 } from "plugins/restart";
 import {
   createPluginListEntry,
+  createPluginStatusEntry,
   type PluginListEntry,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
@@ -56,6 +57,33 @@ describe("plugin restart helpers", () => {
     ]);
 
     expect(ids).toEqual(["alpha.plugin", "zeta.plugin"]);
+  });
+
+  it("includes restart-required ids from status entries when list omits tombstones", () => {
+    const ids = getRestartRequiredPluginIds(
+      [],
+      [
+        createPluginStatusEntry({
+          pluginId: "setta-fixture-backend",
+          name: "Setta Fixture Backend",
+          version: "0.1.0",
+          state: "pending_restart",
+          sourceScope: "workspace",
+          sourceScopeLabel: "workspace",
+          sourcePath: "[redacted]:workspace:setta-fixture-backend",
+          canonicalSourceKey: "redacted:workspace:setta-fixture-backend",
+          sourceDigestSha256: null,
+          shadowedBySourcePath: null,
+          requestedCapabilities: [],
+          effectiveCapabilities: [],
+          blockedCapabilities: [],
+          restartRequired: true,
+          errors: [],
+        }),
+      ],
+    );
+
+    expect(ids).toEqual(["setta-fixture-backend"]);
   });
 
   it("normalizes manual and unavailable restart plans", () => {

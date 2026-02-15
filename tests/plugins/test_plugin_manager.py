@@ -42,6 +42,7 @@ def _make_manager(
     restart_callback: Callable[[], bool] | None = None,
     backend_startup_timeout_seconds: float = 10.0,
     backend_register_timeout_seconds: float = 10.0,
+    backend_operation_timeout_seconds: float = 120.0,
     package_manager_search_paths: list[Path] | None = None,
 ) -> PluginManager:
     workspace_root = tmp_path / "workspace"
@@ -60,6 +61,7 @@ def _make_manager(
         restart_callback=restart_callback,
         backend_startup_timeout_seconds=backend_startup_timeout_seconds,
         backend_register_timeout_seconds=backend_register_timeout_seconds,
+        backend_operation_timeout_seconds=backend_operation_timeout_seconds,
         package_manager_search_paths=package_manager_search_paths,
     )
 
@@ -231,7 +233,9 @@ def _build_python_package_artifacts(plugin_root: Path) -> Path:
     if dist_dir.exists():
         shutil.rmtree(dist_dir)
     dist_dir.mkdir(parents=True, exist_ok=True)
-    manifest = json.loads((plugin_root / "setta.plugin.json").read_text(encoding="utf-8"))
+    manifest = json.loads(
+        (plugin_root / "setta.plugin.json").read_text(encoding="utf-8")
+    )
     package_name = str(manifest["id"])
     version = str(manifest["version"])
     normalized_name = package_name.replace("-", "_")
@@ -547,6 +551,64 @@ def test_install_plugin_auto_installer_falls_back_to_pip_when_uv_unavailable(
     assert installed.state == PluginRuntimeState.active
 
 
+def test_install_plugin_auto_installer_falls_back_to_pip_when_uv_install_fails(
+    tmp_path: Path,
+) -> None:
+    # Auto installer should recover through pip when uv exists but install command fails.
+    manager = _make_manager(tmp_path)
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    artifact = _build_local_pypi_wheel_from_fixture(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir(parents=True, exist_ok=True)
+    uv_calls_path = tmp_path / "uv_calls.log"
+    fake_uv = fake_bin / "uv"
+    fake_uv.write_text(
+        f'#!/usr/bin/env bash\necho "called" >> "{uv_calls_path}"\nexit 2\n',
+        encoding="utf-8",
+    )
+    fake_uv.chmod(0o755)
+
+    old_no_index = os.environ.get("PIP_NO_INDEX")
+    old_find_links = os.environ.get("PIP_FIND_LINKS")
+    old_path = os.environ.get("PATH")
+    os.environ["PIP_NO_INDEX"] = "1"
+    os.environ["PIP_FIND_LINKS"] = str(artifact.parent)
+    os.environ["PATH"] = (
+        f"{fake_bin}:{old_path}" if old_path is not None else str(fake_bin)
+    )
+    try:
+        installed = manager.install_plugin(
+            source_spec=f"pypi:{package_name}=={version}",
+            installer=PluginInstallerBackend.auto,
+            scope=PluginScope.workspace,
+            enable=True,
+            force=False,
+        )
+    finally:
+        if old_no_index is None:
+            os.environ.pop("PIP_NO_INDEX", None)
+        else:
+            os.environ["PIP_NO_INDEX"] = old_no_index
+        if old_find_links is None:
+            os.environ.pop("PIP_FIND_LINKS", None)
+        else:
+            os.environ["PIP_FIND_LINKS"] = old_find_links
+        if old_path is None:
+            os.environ.pop("PATH", None)
+        else:
+            os.environ["PATH"] = old_path
+
+    assert installed.pluginId == "setta-fixture-frontend"
+    assert installed.state == PluginRuntimeState.active
+    assert uv_calls_path.read_text(encoding="utf-8").strip() == "called"
+
+
 def test_install_plugin_explicit_uv_backend_requires_uv_binary(tmp_path: Path) -> None:
     # Explicit uv backend should fail with a deterministic error when uv is unavailable.
     manager = _make_manager(tmp_path)
@@ -629,9 +691,7 @@ def test_lockfile_apply_reinstalls_from_pypi_source(tmp_path: Path) -> None:
         )
         lock_write = manager.write_lockfile()
         assert lock_write.pluginCount == 1
-        lock_payload = json.loads(
-            manager._lockfile_path.read_text(encoding="utf-8")
-        )
+        lock_payload = json.loads(manager._lockfile_path.read_text(encoding="utf-8"))
         lock_entries = lock_payload.get("plugins", [])
         assert len(lock_entries) == 1
         assert lock_entries[0]["installerBackend"] == "pip"
@@ -877,10 +937,13 @@ def test_same_scope_setta_plugins_shadow_package_manager_plugins(
     status_entries = [
         entry
         for entry in manager.get_status_response().plugins
-        if entry.pluginId == package_name and entry.sourceScope == PluginScope.setta_files
+        if entry.pluginId == package_name
+        and entry.sourceScope == PluginScope.setta_files
     ]
     assert len(status_entries) == 2
-    setta_entry = next(entry for entry in status_entries if entry.sourceManager == "setta")
+    setta_entry = next(
+        entry for entry in status_entries if entry.sourceManager == "setta"
+    )
     package_manager_entry = next(
         entry for entry in status_entries if entry.sourceManager == "package_manager"
     )
@@ -890,7 +953,9 @@ def test_same_scope_setta_plugins_shadow_package_manager_plugins(
     assert package_manager_entry.shadowedBySourcePath == str(setta_source_path)
 
     list_entries = [
-        entry for entry in manager.get_list_response().plugins if entry.pluginId == package_name
+        entry
+        for entry in manager.get_list_response().plugins
+        if entry.pluginId == package_name
     ]
     assert len(list_entries) == 1
     assert list_entries[0].sourceManager == "setta"
@@ -1182,6 +1247,25 @@ def test_enablement_source_tracks_workspace_overrides(tmp_path: Path) -> None:
     ][0]
     assert enabled_entry.state == PluginRuntimeState.active
     assert enabled_entry.enablementSource == "workspace_enabled"
+
+
+@pytest.mark.parametrize("mutation", ["enable", "disable"])
+def test_missing_enable_disable_is_noop_for_plugins_state(
+    tmp_path: Path,
+    mutation: Literal["enable", "disable"],
+) -> None:
+    # Missing plugin enable/disable must fail before touching plugins_state persistence.
+    manager = _make_manager(tmp_path)
+    plugins_state_path = manager.setta_files_root / "plugins_state.json"
+    assert not plugins_state_path.exists()
+
+    with pytest.raises(PluginManagerError) as exc_info:
+        if mutation == "enable":
+            manager.enable_plugin(plugin_id="missing-plugin")
+        else:
+            manager.disable_plugin(plugin_id="missing-plugin")
+    assert exc_info.value.code == "PLUGIN_NOT_FOUND"
+    assert not plugins_state_path.exists()
 
 
 def test_global_install_uses_global_auto_enable_source(tmp_path: Path) -> None:
@@ -1701,7 +1785,9 @@ def test_load_backend_plugins_registers_fixture_static_dir_and_router(
     assert status_entries[0].state == PluginRuntimeState.active
 
     with TestClient(app) as client:
-        api_response = client.get("/api/plugins/setta-fixture-backend-static-router/info")
+        api_response = client.get(
+            "/api/plugins/setta-fixture-backend-static-router/info"
+        )
         assert api_response.status_code == 200
         assert api_response.json() == {
             "pluginId": "setta-fixture-backend-static-router",
@@ -1717,9 +1803,10 @@ def test_load_backend_plugins_registers_fixture_static_dir_and_router(
 
 def test_load_backend_plugins_registers_multiple_fixture_mcp_tools(
     tmp_path: Path,
+    monkeypatch,
 ) -> None:
     # Backend MCP fixture should register multiple named tools with callable behavior.
-    manager = _make_manager(tmp_path)
+    manager = _make_manager(tmp_path, backend_operation_timeout_seconds=19.0)
     _copy_fixture_to_scope(
         manager=manager,
         fixture_name="backend-mcp-tools",
@@ -1744,6 +1831,31 @@ def test_load_backend_plugins_registers_multiple_fixture_mcp_tools(
         tools_by_name = {tool.__name__: tool for tool in SETTA_MCP_TOOLS}
         assert "setta_fixture_mcp_read" in tools_by_name
         assert "setta_fixture_mcp_write" in tools_by_name
+        captured_timeouts: list[float] = []
+
+        def _patched_call_backend_worker_method(**kwargs):
+            captured_timeouts.append(kwargs["timeout_seconds"])
+            params = kwargs["params"]
+            tool_name = params["toolName"]
+            kwargs_payload = params["kwargs"]
+            if tool_name == "setta_fixture_mcp_read":
+                return {
+                    "result": (
+                        "read:setta-fixture-backend-mcp-tools:"
+                        f"{kwargs_payload['value']}"
+                    )
+                }
+            return {
+                "result": (
+                    f"write:setta-fixture-backend-mcp-tools:{kwargs_payload['value']}"
+                )
+            }
+
+        monkeypatch.setattr(
+            manager,
+            "_call_backend_worker_method",
+            _patched_call_backend_worker_method,
+        )
         assert (
             tools_by_name["setta_fixture_mcp_read"](value="ok")
             == "read:setta-fixture-backend-mcp-tools:ok"
@@ -1752,6 +1864,7 @@ def test_load_backend_plugins_registers_multiple_fixture_mcp_tools(
             tools_by_name["setta_fixture_mcp_write"](value="ok")
             == "write:setta-fixture-backend-mcp-tools:ok"
         )
+        assert captured_timeouts == [19.0, 19.0]
     finally:
         SETTA_MCP_TOOLS[:] = baseline_tools
 
@@ -1968,6 +2081,72 @@ def test_load_backend_plugins_registers_fixture_codegen_target(
             "}\n",
         )
     ]
+
+
+def test_generate_backend_codegen_target_uses_operation_timeout(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Runtime codegen RPC should use operation timeout, not backend register timeout.
+    manager = _make_manager(tmp_path, backend_operation_timeout_seconds=42.0)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-codegen",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    manager.load_backend_plugins(app=FastAPI())
+
+    captured_timeout: float | None = None
+
+    def _patched_call_backend_worker_method(**kwargs):
+        nonlocal captured_timeout
+        captured_timeout = kwargs["timeout_seconds"]
+        return {
+            "files": [
+                {
+                    "relativePath": "generated.ts",
+                    "content": "export const ok = true;\n",
+                }
+            ]
+        }
+
+    monkeypatch.setattr(
+        manager,
+        "_call_backend_worker_method",
+        _patched_call_backend_worker_method,
+    )
+    generated_files = manager.generate_backend_codegen_target(
+        target_id="setta-fixture-backend-codegen:typescript",
+        project_state={"projectConfig": {"name": "FixtureProject"}},
+        target_options={"className": "FixtureState"},
+    )
+    assert captured_timeout == 42.0
+    assert generated_files == [("generated.ts", "export const ok = true;\n")]
+
+
+def test_codegen_target_implementation_key_includes_plugin_identity(
+    tmp_path: Path,
+) -> None:
+    # Codegen implementation key should encode plugin version/source identity for cache invalidation.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-codegen",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    manager.load_backend_plugins(app=FastAPI())
+    entry = manager._find_entry("setta-fixture-backend-codegen", PluginScope.workspace)
+    assert entry is not None
+    assert entry.source_digest_sha256 is not None
+
+    implementation_key = manager.get_backend_codegen_target_implementation_key(
+        "setta-fixture-backend-codegen:typescript"
+    )
+    assert "setta-fixture-backend-codegen:typescript" in implementation_key
+    assert f":{entry.version}:" in implementation_key
+    assert entry.source_digest_sha256 in implementation_key
 
 
 @pytest.mark.parametrize("server_mode", ["share", "app"])
@@ -2633,6 +2812,92 @@ def test_list_response_redacts_config_payload_outside_ide(
     assert list_entry.config.hasSchema is True
     assert list_entry.config.schemaJson is None
     assert list_entry.config.currentConfig == {}
+
+
+@pytest.mark.parametrize("server_mode", ["share", "app"])
+def test_status_redaction_keeps_source_identity_unique_across_scopes(
+    tmp_path: Path, server_mode: Literal["share", "app"]
+) -> None:
+    # Redacted source fields should remain unique when duplicate plugin ids exist in multiple scopes.
+    manager = _make_manager(tmp_path, server_mode=server_mode)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="frontend",
+        scope=PluginScope.workspace,
+    )
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="frontend",
+        scope=PluginScope.setta_files,
+    )
+    manager.rescan()
+
+    status_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-frontend"
+    ]
+    assert len(status_entries) == 2
+    assert len({entry.sourcePath for entry in status_entries}) == 2
+    assert len({entry.canonicalSourceKey for entry in status_entries}) == 2
+
+
+def test_list_response_caches_content_and_config_schema_descriptors(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # List response should reuse content/schema descriptor work between calls until next rescan.
+    manager = _make_manager(tmp_path)
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("full")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    entry = manager._find_entry("setta-fixture-full", PluginScope.workspace)
+    assert entry is not None
+    assert entry.manifest is not None
+    assert entry.manifest.configSchemaPath is not None
+    schema_path = manager._resolve_relative_path(
+        entry.source_path,
+        entry.manifest.configSchemaPath,
+        code="PLUGIN_MANIFEST_PATH_NOT_FOUND",
+        message_prefix="Invalid config schema path",
+    )
+
+    directory_check_count = 0
+    original_directory_has_files = manager._directory_has_files
+
+    def _counting_directory_has_files(path: Path | None) -> bool:
+        nonlocal directory_check_count
+        directory_check_count += 1
+        return original_directory_has_files(path)
+
+    schema_read_count = 0
+    original_read_text = Path.read_text
+
+    def _counting_read_text(self: Path, *args: Any, **kwargs: Any) -> str:
+        nonlocal schema_read_count
+        if self == schema_path:
+            schema_read_count += 1
+        return original_read_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(manager, "_directory_has_files", _counting_directory_has_files)
+    monkeypatch.setattr(Path, "read_text", _counting_read_text)
+
+    manager.get_list_response()
+    manager.get_list_response()
+
+    assert directory_check_count == 3
+    assert schema_read_count == 1
+
+    before_rescan_directory_checks = directory_check_count
+    before_rescan_schema_reads = schema_read_count
+    manager.rescan()
+    manager.get_list_response()
+
+    assert directory_check_count > before_rescan_directory_checks
+    assert schema_read_count > before_rescan_schema_reads
 
 
 def test_backend_plugin_startup_timeout_is_reported(tmp_path: Path) -> None:
@@ -3358,9 +3623,7 @@ def test_apply_lockfile_executes_uninstall_for_plugins_missing_from_lockfile(
     uninstall_calls: list[tuple[str, PluginScope | None]] = []
     original_uninstall = manager.uninstall_plugin
 
-    def _record_uninstall(
-        *, plugin_id: str, scope: str | PluginScope | None = None
-    ):
+    def _record_uninstall(*, plugin_id: str, scope: str | PluginScope | None = None):
         resolved_scope = None if scope is None else normalize_scope(scope)
         uninstall_calls.append((plugin_id, resolved_scope))
         return original_uninstall(plugin_id=plugin_id, scope=scope)
@@ -3967,7 +4230,9 @@ def test_rollback_plugin_requires_existing_snapshot_path(tmp_path: Path) -> None
         force=False,
     )
     metadata = manager._load_install_metadata()
-    metadata_key = manager._metadata_key("setta-fixture-frontend", PluginScope.workspace)
+    metadata_key = manager._metadata_key(
+        "setta-fixture-frontend", PluginScope.workspace
+    )
     entry = metadata.entries[metadata_key]
     entry.history.append(
         PluginInstallHistoryEntry(
@@ -4044,11 +4309,17 @@ def test_rollback_plugin_flags_restart_when_restoring_backend_plugin(
 def test_plugins_state_file_invalid_payload_raises(tmp_path: Path) -> None:
     # Invalid plugins_state payloads should raise deterministic state-file errors.
     manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="frontend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
     plugins_state_path = manager.setta_files_root / "plugins_state.json"
     plugins_state_path.write_text("{invalid-json", encoding="utf-8")
 
     with pytest.raises(PluginManagerError) as exc_info:
-        manager.enable_plugin(plugin_id="missing-plugin")
+        manager.disable_plugin(plugin_id="setta-fixture-frontend")
     assert exc_info.value.code == "PLUGIN_STATE_INVALID"
 
 
@@ -4109,7 +4380,9 @@ def test_parse_source_spec_accepts_github_hash_and_at_refs(tmp_path: Path) -> No
     assert with_at_ref.ref == "release-2"
 
 
-def test_normalize_worker_route_query_params_handles_repeated_keys(tmp_path: Path) -> None:
+def test_normalize_worker_route_query_params_handles_repeated_keys(
+    tmp_path: Path,
+) -> None:
     # Query-param normalization should collapse repeated keys into ordered lists.
     manager = _make_manager(tmp_path)
 
@@ -4671,7 +4944,9 @@ def test_read_backend_worker_message_handles_transport_edge_cases(
     )
     try:
         with monkeypatch.context() as scope:
-            scope.setattr(manager, "_read_stream_line_with_timeout", lambda *_a, **_k: None)
+            scope.setattr(
+                manager, "_read_stream_line_with_timeout", lambda *_a, **_k: None
+            )
             with pytest.raises(PluginManagerError) as timeout_error:
                 manager._read_backend_worker_message(
                     process=timeout_process,
@@ -4707,7 +4982,9 @@ def test_read_backend_worker_message_handles_transport_edge_cases(
     )
     try:
         with monkeypatch.context() as scope:
-            scope.setattr(manager, "_read_available_pipe_text", lambda _stream: "worker-boom")
+            scope.setattr(
+                manager, "_read_available_pipe_text", lambda _stream: "worker-boom"
+            )
             with pytest.raises(PluginManagerError) as eof_error:
                 manager._read_backend_worker_message(
                     process=eof_process,
@@ -4745,16 +5022,13 @@ def test_read_stream_line_with_timeout_reuses_one_reader_per_stream(
     stream = _BlockingStream()
     try:
         assert (
-            manager._read_stream_line_with_timeout(stream, timeout_seconds=0.01)
-            is None
+            manager._read_stream_line_with_timeout(stream, timeout_seconds=0.01) is None
         )
         assert (
-            manager._read_stream_line_with_timeout(stream, timeout_seconds=0.01)
-            is None
+            manager._read_stream_line_with_timeout(stream, timeout_seconds=0.01) is None
         )
         assert (
-            manager._read_stream_line_with_timeout(stream, timeout_seconds=0.01)
-            is None
+            manager._read_stream_line_with_timeout(stream, timeout_seconds=0.01) is None
         )
         assert stream.read_calls == 1
     finally:
@@ -5239,7 +5513,7 @@ def test_invoke_listener_endpoint_dispatches_worker_route(
     monkeypatch,
 ) -> None:
     # Listener endpoint invocation should route through plugin worker invoke_route and return body.
-    manager = _make_manager(tmp_path)
+    manager = _make_manager(tmp_path, backend_operation_timeout_seconds=33.0)
     _copy_fixture_to_scope(
         manager=manager,
         fixture_name="backend",
@@ -5261,6 +5535,7 @@ def test_invoke_listener_endpoint_dispatches_worker_route(
 
     def _patched_call_backend_worker_method(**kwargs):
         assert kwargs["method"] == "plugin.invoke_route"
+        assert kwargs["timeout_seconds"] == 33.0
         assert kwargs["entry"] == entry
         assert kwargs["params"]["routeId"] == "route_0"
         assert kwargs["params"]["jsonBody"] == {"projectConfigId": "fixture-project"}
@@ -5324,7 +5599,7 @@ def test_worker_route_proxy_maps_worker_errors_and_status_fallback(
     monkeypatch,
 ) -> None:
     # Proxy routes should map worker errors and normalize malformed status codes.
-    manager = _make_manager(tmp_path)
+    manager = _make_manager(tmp_path, backend_operation_timeout_seconds=27.0)
     _copy_fixture_to_scope(
         manager=manager,
         fixture_name="backend",
@@ -5359,6 +5634,7 @@ def test_worker_route_proxy_maps_worker_errors_and_status_fallback(
 
     with TestClient(app) as client:
         with monkeypatch.context() as scope:
+
             def _raise_worker_error(**_kwargs):
                 raise PluginManagerError(
                     "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
@@ -5383,17 +5659,25 @@ def test_worker_route_proxy_maps_worker_errors_and_status_fallback(
         }
 
         with monkeypatch.context() as scope:
+            captured_timeout: float | None = None
+
+            def _status_fallback_payload(**kwargs):
+                nonlocal captured_timeout
+                captured_timeout = kwargs["timeout_seconds"]
+                return {
+                    "statusCode": "not-an-int",
+                    "body": {"ok": True, "source": "worker"},
+                }
+
             scope.setattr(
                 manager,
                 "_call_backend_worker_method",
-                lambda **_kwargs: {
-                    "statusCode": "not-an-int",
-                    "body": {"ok": True, "source": "worker"},
-                },
+                _status_fallback_payload,
             )
             status_fallback_response = client.get(route_path)
         assert status_fallback_response.status_code == 200
         assert status_fallback_response.json() == {"ok": True, "source": "worker"}
+        assert captured_timeout == 27.0
 
 
 def test_worker_route_proxy_handles_plain_text_body_and_head_options_requests(

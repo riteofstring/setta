@@ -1237,6 +1237,17 @@ class BaseProjectManager(ABC):
         project_state_hash = self._hash_plugin_codegen_project_state(
             project_state_payload
         )
+        current_target_dir_names = {
+            self._plugin_codegen_target_dir_name(target.language)
+            for target in plugin_targets
+        }
+        if output_root.exists():
+            for child in output_root.iterdir():
+                if not child.is_dir():
+                    continue
+                if child.name in current_target_dir_names:
+                    continue
+                shutil.rmtree(child)
         previous_target_state = self._plugin_codegen_target_state_by_project_config.get(
             project_config_id, {}
         )
@@ -1251,6 +1262,9 @@ class BaseProjectManager(ABC):
                 project_state_hash=project_state_hash,
                 target_id=target_language,
                 target_options=target.options,
+                target_implementation_key=self.plugin_manager.get_backend_codegen_target_implementation_key(
+                    target_language
+                ),
             )
             previous_state = previous_target_state.get(target_language)
             if previous_state is not None and previous_state[0] == target_fingerprint:
@@ -1290,16 +1304,6 @@ class BaseProjectManager(ABC):
                 target_fingerprint,
                 generated_relative_paths,
             )
-
-        previous_target_languages = set(previous_target_state.keys())
-        current_target_languages = {target.language for target in plugin_targets}
-        removed_target_languages = previous_target_languages - current_target_languages
-        for removed_target in removed_target_languages:
-            removed_root = output_root / self._plugin_codegen_target_dir_name(
-                removed_target
-            )
-            if removed_root.exists():
-                shutil.rmtree(removed_root)
         self._plugin_codegen_target_state_by_project_config[project_config_id] = (
             next_target_state
         )
@@ -1328,12 +1332,18 @@ class BaseProjectManager(ABC):
         project_state_hash: str,
         target_id: str,
         target_options: dict[str, Any],
+        target_implementation_key: str,
     ) -> str:
         target_options_hash = self._hash_plugin_codegen_target_options(target_options)
-        encoded = f"{project_state_hash}:{target_id}:{target_options_hash}"
+        encoded = (
+            f"{project_state_hash}:{target_id}:{target_options_hash}:"
+            f"{target_implementation_key}"
+        )
         return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
-    def _prune_empty_codegen_directories(self, *, directory: Path, stop_root: Path) -> None:
+    def _prune_empty_codegen_directories(
+        self, *, directory: Path, stop_root: Path
+    ) -> None:
         current = directory
         while current != stop_root and current.is_relative_to(stop_root):
             if not current.exists() or not current.is_dir():

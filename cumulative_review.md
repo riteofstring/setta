@@ -50,3 +50,17 @@
 - Prevented frontend plugin `apiFetch` path traversal by rejecting relative traversal segments during path normalization and added new unit + Playwright regression coverage for escaped/traversal inputs.
 - Resolved Python 3.13 LSP initialization issues by requiring explicit event loops in file watchers and lazily constructing the watcher under a running loop.
 - Added/updated backend unit/integration tests, frontend Vitest tests, and Playwright E2E tests for all above fixes, including deployment-policy MCP gating and plugin codegen target-directory collision coverage.
+
+## 2026-02-15T16:35:34-08:00
+
+- Implemented all remaining review fixes from `review1.md` through `review6.md` (excluding backward-compatibility additions), including plugin manager correctness, plugin runtime/frontend UX consistency, and fixture-cache script hardening.
+- Fixed plugin enable/disable missing-plugin behavior to fail before state mutation, preventing orphaned IDs in persisted plugin state.
+- Split backend plugin timeouts so registration/startup budgets no longer cap long-running runtime operations (route/listener/MCP/codegen), and fixed server initialization order so backend plugin registration runs after project-manager switcher setup.
+- Improved installer reliability and parity: `auto` installer now falls back from `uv` to `pip` on PyPI install failures, and MCP plugin install now accepts explicit `installer` selection (`auto`/`pip`/`uv`).
+- Preserved plugin-process output fidelity by removing finalized-text trimming so leading/trailing whitespace is retained exactly.
+- Hardened plugin discovery/status identity by making non-IDE redaction scope-unique, eliminating row-key collisions for same plugin IDs across scopes.
+- Fixed plugin codegen cache correctness by pruning stale on-disk target dirs across restarts and including plugin implementation identity in target fingerprints so plugin updates regenerate outputs deterministically.
+- Fixed frontend restart-required UX to use the union of plugin list + status entries so uninstall tombstones remain visible; removed redundant status fetch in plugin fallback open flow.
+- Eliminated command-palette create-action ID collisions for plugin sections by adding stable unique plugin command IDs; improved plugin runtime selector efficiency with precomputed sorted arrays and deduped section snapshot transforms.
+- Extracted shared plugin-fixture cache helpers and updated backend/Playwright scripts to rebuild when expected built fixture outputs are missing, even when signatures are unchanged.
+- Added/updated backend unit/integration tests, frontend Vitest tests, and Playwright E2E coverage for all above changes; completed CDP visual verification of restart-banner and plugin-pane behavior under status-only restart tombstones.

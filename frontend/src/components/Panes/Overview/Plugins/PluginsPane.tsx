@@ -115,8 +115,8 @@ export function PluginsPane() {
     [pluginStatusEntries],
   );
   const restartRequiredPluginIds = useMemo(
-    () => getRestartRequiredPluginIds(pluginListEntries),
-    [pluginListEntries],
+    () => getRestartRequiredPluginIds(pluginListEntries, pluginStatusEntries),
+    [pluginListEntries, pluginStatusEntries],
   );
   const restartActionPlan = useMemo(
     () => buildPluginRestartActionPlan(runtimeSummary.restartCapability),
@@ -425,7 +425,7 @@ export function PluginsPane() {
               <tbody>
                 {sortedStatusEntries.map((entry) => (
                   <tr
-                    key={`${entry.pluginId}:${entry.sourcePath}`}
+                    key={`${entry.pluginId}:${entry.sourceScope}:${entry.sourcePath}`}
                     className="border-t border-setta-200 dark:border-setta-850"
                   >
                     <td className="px-2 py-1 text-setta-800 dark:text-setta-100">

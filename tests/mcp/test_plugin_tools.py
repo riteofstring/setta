@@ -9,7 +9,10 @@ from fastapi import FastAPI
 from mcp.server.fastmcp.server import Context
 
 from setta.mcp.tool_setup import SETTA_MCP_TOOLS
-from setta.mcp.tool_registry import build_setta_tool_manager, ensure_setta_mcp_tools_loaded
+from setta.mcp.tool_registry import (
+    build_setta_tool_manager,
+    ensure_setta_mcp_tools_loaded,
+)
 from setta.mcp.tools.plugins import (
     install_plugin,
     rescan_plugins,
@@ -136,7 +139,9 @@ def test_plugin_tools_load_backend_fixture_registers_multiple_mcp_tools(
         deployment_mode=False,
         server_mode="ide",
     )
-    plugin_root = manager.workspace_root / ".setta_plugins" / "setta-fixture-backend-mcp-tools"
+    plugin_root = (
+        manager.workspace_root / ".setta_plugins" / "setta-fixture-backend-mcp-tools"
+    )
     plugin_root.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(
         FIXTURE_PLUGIN_ROOT / "backend-mcp-tools",
@@ -187,7 +192,9 @@ def test_plugin_mutation_tools_blocked_in_deployment_mode(tmp_path: Path) -> Non
 
     with pytest.raises(PermissionError) as uninstall_exc:
         uninstall_plugin(pluginId="setta-fixture-frontend", ctx=ctx)
-    assert str(uninstall_exc.value) == "Deployment mode does not allow plugin mutations."
+    assert (
+        str(uninstall_exc.value) == "Deployment mode does not allow plugin mutations."
+    )
 
     with pytest.raises(PermissionError) as rescan_exc:
         rescan_plugins(ctx=ctx)
@@ -219,7 +226,10 @@ def test_plugin_update_and_rollback_tools_expose_manager_errors(tmp_path: Path) 
 
     with pytest.raises(PluginManagerError) as rollback_exc:
         rollback_plugin(pluginId="missing-plugin", scope="workspace", ctx=ctx)
-    assert rollback_exc.value.code in {"PLUGIN_NOT_FOUND", "PLUGIN_ROLLBACK_UNAVAILABLE"}
+    assert rollback_exc.value.code in {
+        "PLUGIN_NOT_FOUND",
+        "PLUGIN_ROLLBACK_UNAVAILABLE",
+    }
 
 
 def test_plugin_tools_install_update_rollback_and_uninstall_lifecycle(
@@ -248,6 +258,7 @@ def test_plugin_tools_install_update_rollback_and_uninstall_lifecycle(
         installed = install_plugin(
             sourceSpec=f"pypi:{package_name}=={version}",
             scope="workspace",
+            installer="pip",
             ctx=ctx,
         )
         assert installed.pluginId == package_name
@@ -313,6 +324,7 @@ def test_plugin_tools_setta_files_scope_lifecycle(
         installed = install_plugin(
             sourceSpec=f"pypi:{package_name}=={version}",
             scope="setta_files",
+            installer="pip",
             ctx=ctx,
         )
         assert installed.pluginId == package_name

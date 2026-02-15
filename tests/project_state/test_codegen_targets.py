@@ -263,7 +263,9 @@ class TestCodegenTargetsRunCommand:
         plugin_manager.load_backend_plugins(app=FastAPI())
         return plugin_manager
 
-    async def test_create_run_command_runs_manual_code_when_python_disabled(self) -> None:
+    async def test_create_run_command_runs_manual_code_when_python_disabled(
+        self,
+    ) -> None:
         code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.bash)
         code_impl.code = "echo test"
         variant = Variant(
@@ -644,12 +646,17 @@ class TestCodegenTargetsRunCommand:
             manager.shutdown()
             plugin_manager.shutdown_backend_plugins()
 
-    async def test_plugin_codegen_target_dir_name_avoids_cross_target_collisions(
+    async def test_refresh_codegen_state_prunes_removed_target_dirs_after_manager_restart(
         self,
     ) -> None:
-        class _StubManager:
+        class _StubPluginManager:
             def has_backend_codegen_target(self, _target_id: str) -> bool:
                 return True
+
+            def get_backend_codegen_target_implementation_key(
+                self, target_id: str
+            ) -> str:
+                return f"{target_id}:impl"
 
             def generate_backend_codegen_target(
                 self,
@@ -658,7 +665,202 @@ class TestCodegenTargetsRunCommand:
                 project_state: dict[str, Any],
                 target_options: dict[str, Any],
             ) -> list[tuple[str, str]]:
-                return [("setta_gen.txt", f"{target_id}:{project_state['projectConfig']['name']}")]
+                option_count = len(target_options)
+                return [
+                    (
+                        "setta_gen.txt",
+                        (
+                            f"{target_id}:{project_state['projectConfig']['name']}:"
+                            f"{option_count}"
+                        ),
+                    )
+                ]
+
+        plugin_manager = _StubPluginManager()
+        project_config_name = "PluginCodegenRestartPrune"
+
+        first_project_config = ProjectConfig(
+            name=project_config_name,
+            codegenTargets=[
+                ProjectCodegenPluginTarget(language="stub-plugin:target-a")
+            ],
+        )
+        first_state = ProjectStateSingleConfig(projectConfig=first_project_config)
+        first_backend = merge_single_config_into_backend(
+            ProjectStateBackend(), first_state
+        )
+        first_manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            first_backend,
+            plugin_manager=plugin_manager,  # type: ignore[arg-type]
+        )
+        try:
+            await first_manager._refresh_codegen_state(first_state)
+            stale_target_dir = first_manager._plugin_codegen_output_root(
+                project_config_name
+            ) / first_manager._plugin_codegen_target_dir_name("stub-plugin:target-a")
+            assert stale_target_dir.exists()
+        finally:
+            first_manager.shutdown()
+
+        second_project_config = ProjectConfig(
+            name=project_config_name,
+            codegenTargets=[
+                ProjectCodegenPluginTarget(language="stub-plugin:target-b")
+            ],
+        )
+        second_state = ProjectStateSingleConfig(projectConfig=second_project_config)
+        second_backend = merge_single_config_into_backend(
+            ProjectStateBackend(), second_state
+        )
+        second_manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            second_backend,
+            plugin_manager=plugin_manager,  # type: ignore[arg-type]
+        )
+        try:
+            await second_manager._refresh_codegen_state(second_state)
+            output_root = second_manager._plugin_codegen_output_root(
+                project_config_name
+            )
+            stale_target_dir = (
+                output_root
+                / second_manager._plugin_codegen_target_dir_name("stub-plugin:target-a")
+            )
+            active_target_dir = (
+                output_root
+                / second_manager._plugin_codegen_target_dir_name("stub-plugin:target-b")
+            )
+            assert not stale_target_dir.exists()
+            assert active_target_dir.exists()
+        finally:
+            second_manager.shutdown()
+
+    async def test_refresh_codegen_state_regenerates_when_plugin_implementation_changes(
+        self,
+    ) -> None:
+        class _StubPluginManager:
+            def __init__(self) -> None:
+                self.implementation_token = "impl-a"
+                self.generate_call_count = 0
+
+            def has_backend_codegen_target(self, _target_id: str) -> bool:
+                return True
+
+            def get_backend_codegen_target_implementation_key(
+                self, target_id: str
+            ) -> str:
+                return f"{target_id}:{self.implementation_token}"
+
+            def generate_backend_codegen_target(
+                self,
+                *,
+                target_id: str,
+                project_state: dict[str, Any],
+                target_options: dict[str, Any],
+            ) -> list[tuple[str, str]]:
+                self.generate_call_count += 1
+                return [
+                    (
+                        "setta_gen.txt",
+                        (
+                            f"{target_id}:{self.implementation_token}:"
+                            f"{len(project_state)}:{len(target_options)}"
+                        ),
+                    )
+                ]
+
+        plugin_manager = _StubPluginManager()
+        project_config = ProjectConfig(
+            name="PluginCodegenImplKey",
+            codegenTargets=[
+                ProjectCodegenPluginTarget(language="stub-plugin:target-a")
+            ],
+        )
+        project_state = ProjectStateSingleConfig(projectConfig=project_config)
+        backend = merge_single_config_into_backend(ProjectStateBackend(), project_state)
+        manager = CodegenTargetsProjectManager(
+            self.lsp_writers,
+            self.frontend_sender,
+            self.python_script_sender,
+            self.settings_file,
+            self.specific_file_watcher,
+            self.dbe,
+            self.artifacts,
+            self.json_source,
+            self.code_files,
+            backend,
+            plugin_manager=plugin_manager,  # type: ignore[arg-type]
+        )
+        try:
+            await manager._refresh_codegen_state(project_state)
+            assert plugin_manager.generate_call_count == 1
+
+            await manager._refresh_codegen_state(project_state)
+            assert plugin_manager.generate_call_count == 1
+
+            plugin_manager.implementation_token = "impl-b"
+            await manager._refresh_codegen_state(project_state)
+            assert plugin_manager.generate_call_count == 2
+
+            target_dir = manager._plugin_codegen_target_dir_name("stub-plugin:target-a")
+            output_path = (
+                build_project_sections_dir(C.CODE_FOLDER, project_config.name)
+                / "plugin_codegen"
+                / target_dir
+                / "setta_gen.txt"
+            )
+            output_text = output_path.read_text(encoding="utf-8")
+            assert output_text.startswith("stub-plugin:target-a:impl-b:")
+            assert output_text.endswith(":0")
+        finally:
+            manager.shutdown()
+
+    async def test_plugin_codegen_target_dir_name_avoids_cross_target_collisions(
+        self,
+    ) -> None:
+        class _StubManager:
+            def has_backend_codegen_target(self, _target_id: str) -> bool:
+                return True
+
+            def get_backend_codegen_target_implementation_key(
+                self, target_id: str
+            ) -> str:
+                return target_id
+
+            def generate_backend_codegen_target(
+                self,
+                *,
+                target_id: str,
+                project_state: dict[str, Any],
+                target_options: dict[str, Any],
+            ) -> list[tuple[str, str]]:
+                option_count = len(target_options)
+                return [
+                    (
+                        "setta_gen.txt",
+                        (
+                            f"{target_id}:{project_state['projectConfig']['name']}:"
+                            f"{option_count}"
+                        ),
+                    )
+                ]
 
         project_config = ProjectConfig(
             name="PluginCodegenCollision",
@@ -698,6 +900,11 @@ class TestCodegenTargetsRunCommand:
                     "stub-plugin:target-a",
                     "stub-plugin:target-b",
                 }
+
+            def get_backend_codegen_target_implementation_key(
+                self, target_id: str
+            ) -> str:
+                return target_id
 
             def generate_backend_codegen_target(
                 self,
@@ -787,10 +994,7 @@ class TestCodegenTargetsRunCommand:
                         ],
                     )
                 )
-            assert (
-                "Plugin codegen target is not registered"
-                in str(exc_info.value)
-            )
+            assert "Plugin codegen target is not registered" in str(exc_info.value)
         finally:
             manager.shutdown()
             plugin_manager.shutdown_backend_plugins()
@@ -960,12 +1164,7 @@ class TestCodegenTargetsRunCommand:
 class TestShareRuntimeStateCodegenTargets:
     def test_share_runtime_state_skips_gen_code_binding_without_python(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = (
-                Path(tmpdir)
-                / "deployments"
-                / "no_python"
-                / "v1"
-            )
+            root = Path(tmpdir) / "deployments" / "no_python" / "v1"
             root.mkdir(parents=True, exist_ok=True)
             project_config = ProjectConfig(name="no_python", codegenTargets=[])
             project_state = ProjectStateSingleConfig(projectConfig=project_config)
@@ -998,12 +1197,7 @@ class TestShareRuntimeStateCodegenTargets:
 class TestShareRuntimeStateRunCommand:
     async def test_share_runtime_state_rejects_non_runnable_language(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = (
-                Path(tmpdir)
-                / "deployments"
-                / "no_run"
-                / "v1"
-            )
+            root = Path(tmpdir) / "deployments" / "no_run" / "v1"
             root.mkdir(parents=True, exist_ok=True)
             code_impl = CodeSectionImpl(codeLanguage=CodeLanguage.json)
             code_impl.code = '{"ok": true}'
@@ -1068,12 +1262,7 @@ class TestShareRuntimeStateRunCommand:
 
     async def test_share_runtime_state_snapshots_non_runnable_sections(self) -> None:
         with TemporaryDirectory() as tmpdir:
-            root = (
-                Path(tmpdir)
-                / "deployments"
-                / "with_assets"
-                / "v1"
-            )
+            root = Path(tmpdir) / "deployments" / "with_assets" / "v1"
             root.mkdir(parents=True, exist_ok=True)
             entry_impl = CodeSectionImpl(codeLanguage=CodeLanguage.python)
             entry_impl.code = "print('hi')"

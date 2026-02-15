@@ -177,7 +177,8 @@ function buildProjectCommandPaletteEntries({
   for (const createSectionGroup of createSectionGroups) {
     const itemsWithIds: Array<{ id: string; name: string }> = [];
     for (const item of createSectionGroup.items) {
-      const id = `create:${createSectionGroup.group}:${item.name}`;
+      const id =
+        item.commandId ?? `create:${createSectionGroup.group}:${item.name}`;
       itemsWithIds.push({ id, name: item.name });
       actionById[id] = () => {
         createTopLevelSectionFromImplSpecs(item);

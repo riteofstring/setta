@@ -244,12 +244,17 @@ type PluginRuntimeStore = {
   serverMode: PluginServerMode | null;
   restartCapability: PluginRestartCapability | null;
   pluginListById: Record<string, PluginListEntry>;
+  sortedPluginListEntries: PluginListEntry[];
   pluginStatusById: Record<string, PluginStatusEntry>;
   statusEntries: PluginStatusEntry[];
   sectionKindsByKey: Record<string, RegisteredPluginSectionKind>;
+  sortedSectionKinds: RegisteredPluginSectionKind[];
   panesByPluginId: Record<string, RegisteredPluginPane[]>;
+  sortedPaneTabs: PluginPaneTabEntry[];
   commandsByPluginId: Record<string, RegisteredPluginCommand[]>;
+  sortedCommands: RegisteredPluginCommand[];
   topNavBarItemsByPluginId: Record<string, RegisteredPluginTopNavBarItem[]>;
+  sortedTopNavBarItems: RegisteredPluginTopNavBarItem[];
   frontendErrorsByPluginId: Record<string, PluginFrontendError>;
   loadGeneration: number;
 };
@@ -263,12 +268,17 @@ const INITIAL_PLUGIN_RUNTIME_STORE: PluginRuntimeStore = {
   serverMode: null,
   restartCapability: null,
   pluginListById: {},
+  sortedPluginListEntries: [],
   pluginStatusById: {},
   statusEntries: [],
   sectionKindsByKey: {},
+  sortedSectionKinds: [],
   panesByPluginId: {},
+  sortedPaneTabs: [],
   commandsByPluginId: {},
+  sortedCommands: [],
   topNavBarItemsByPluginId: {},
+  sortedTopNavBarItems: [],
   frontendErrorsByPluginId: {},
   loadGeneration: 0,
 };
@@ -321,12 +331,17 @@ async function loadPluginRuntime(): Promise<void> {
     serverMode: null,
     restartCapability: null,
     pluginListById: {},
+    sortedPluginListEntries: [],
     pluginStatusById: {},
     statusEntries: [],
     sectionKindsByKey: {},
+    sortedSectionKinds: [],
     panesByPluginId: {},
+    sortedPaneTabs: [],
     commandsByPluginId: {},
+    sortedCommands: [],
     topNavBarItemsByPluginId: {},
+    sortedTopNavBarItems: [],
     frontendErrorsByPluginId: {},
   }));
 
@@ -419,6 +434,14 @@ async function loadPluginRuntime(): Promise<void> {
 
   removeInactivePluginStyles(new Set(Object.keys(pluginListById)));
 
+  const sortedPluginListEntries = toSortedPluginListEntries(pluginListById);
+  const sortedSectionKinds = toSortedSectionKinds(registryAccumulator.sectionKinds);
+  const sortedPaneTabs = toSortedPluginPaneTabs(registryAccumulator.panes);
+  const sortedCommands = toSortedPluginCommands(registryAccumulator.commands);
+  const sortedTopNavBarItems = toSortedPluginTopNavBarItems(
+    registryAccumulator.topNavBarItems,
+  );
+
   usePluginRuntimeStore.setState((state) => ({
     ...state,
     status: "loaded",
@@ -427,12 +450,17 @@ async function loadPluginRuntime(): Promise<void> {
     serverMode: listData.serverMode,
     restartCapability: listData.restartCapability,
     pluginListById,
+    sortedPluginListEntries,
     pluginStatusById,
     statusEntries: statusData.plugins,
     sectionKindsByKey: registryAccumulator.sectionKinds,
+    sortedSectionKinds,
     panesByPluginId: registryAccumulator.panes,
+    sortedPaneTabs,
     commandsByPluginId: registryAccumulator.commands,
+    sortedCommands,
     topNavBarItemsByPluginId: registryAccumulator.topNavBarItems,
+    sortedTopNavBarItems,
     frontendErrorsByPluginId,
     loadGeneration: state.loadGeneration + 1,
   }));
@@ -668,16 +696,7 @@ function toProjectStateReadValue(
   if (selector.kind !== "sections") {
     return structuredClone(rawValue);
   }
-  if (!Array.isArray(rawValue)) {
-    return {};
-  }
-  const snapshot: Record<string, unknown> = {};
-  for (let index = 0; index < selector.sectionIds.length; index += 1) {
-    const sectionId = selector.sectionIds[index];
-    const value = rawValue[index] ?? null;
-    snapshot[sectionId] = value === null ? null : structuredClone(value);
-  }
-  return snapshot;
+  return toProjectStateSectionSnapshot(selector.sectionIds, rawValue);
 }
 
 function toProjectStateSubscriptionValue(
@@ -690,12 +709,19 @@ function toProjectStateSubscriptionValue(
     }
     return structuredClone(rawValue);
   }
+  return toProjectStateSectionSnapshot(selector.sectionIds, rawValue);
+}
+
+function toProjectStateSectionSnapshot(
+  sectionIds: string[],
+  rawValue: unknown,
+): Record<string, unknown> {
   if (!Array.isArray(rawValue)) {
     return {};
   }
   const snapshot: Record<string, unknown> = {};
-  for (let index = 0; index < selector.sectionIds.length; index += 1) {
-    const sectionId = selector.sectionIds[index];
+  for (let index = 0; index < sectionIds.length; index += 1) {
+    const sectionId = sectionIds[index];
     const value = rawValue[index] ?? null;
     snapshot[sectionId] = value === null ? null : structuredClone(value);
   }
@@ -1634,6 +1660,98 @@ function mapPrimaryStatusByPluginId(
   return pluginStatusById;
 }
 
+function toSortedPluginListEntries(
+  pluginListById: Record<string, PluginListEntry>,
+): PluginListEntry[] {
+  return Object.values(pluginListById).sort((a, b) =>
+    a.pluginId.localeCompare(b.pluginId),
+  );
+}
+
+function toSortedSectionKinds(
+  sectionKindsByKey: Record<string, RegisteredPluginSectionKind>,
+): RegisteredPluginSectionKind[] {
+  return Object.values(sectionKindsByKey).sort((a, b) =>
+    a.title.localeCompare(b.title),
+  );
+}
+
+function toSortedPluginPaneTabs(
+  panesByPluginId: Record<string, RegisteredPluginPane[]>,
+): PluginPaneTabEntry[] {
+  const values: PluginPaneTabEntry[] = [];
+  for (const [pluginId, paneEntries] of Object.entries(panesByPluginId)) {
+    for (const pane of paneEntries) {
+      values.push({
+        tabKey: buildPluginPaneOverviewTabName(pluginId, pane.id),
+        pluginId,
+        paneId: pane.id,
+        title: pane.title,
+        description: pane.description,
+        icon: pane.icon,
+      });
+    }
+  }
+  values.sort((a, b) => {
+    const byTitle = a.title.localeCompare(b.title);
+    if (byTitle !== 0) {
+      return byTitle;
+    }
+    const byPlugin = a.pluginId.localeCompare(b.pluginId);
+    if (byPlugin !== 0) {
+      return byPlugin;
+    }
+    return a.paneId.localeCompare(b.paneId);
+  });
+  return values;
+}
+
+function toSortedPluginCommands(
+  commandsByPluginId: Record<string, RegisteredPluginCommand[]>,
+): RegisteredPluginCommand[] {
+  const values: RegisteredPluginCommand[] = [];
+  for (const commandEntries of Object.values(commandsByPluginId)) {
+    values.push(...commandEntries);
+  }
+  values.sort((a, b) => {
+    const byTitle = a.title.localeCompare(b.title);
+    if (byTitle !== 0) {
+      return byTitle;
+    }
+    const byPlugin = a.pluginId.localeCompare(b.pluginId);
+    if (byPlugin !== 0) {
+      return byPlugin;
+    }
+    return a.id.localeCompare(b.id);
+  });
+  return values;
+}
+
+function toSortedPluginTopNavBarItems(
+  topNavBarItemsByPluginId: Record<string, RegisteredPluginTopNavBarItem[]>,
+): RegisteredPluginTopNavBarItem[] {
+  const values: RegisteredPluginTopNavBarItem[] = [];
+  for (const topNavBarItemEntries of Object.values(topNavBarItemsByPluginId)) {
+    values.push(...topNavBarItemEntries);
+  }
+  values.sort((a, b) => {
+    const orderDelta = (a.order ?? 0) - (b.order ?? 0);
+    if (orderDelta !== 0) {
+      return orderDelta;
+    }
+    const byLabel = a.label.localeCompare(b.label);
+    if (byLabel !== 0) {
+      return byLabel;
+    }
+    const byPlugin = a.pluginId.localeCompare(b.pluginId);
+    if (byPlugin !== 0) {
+      return byPlugin;
+    }
+    return a.id.localeCompare(b.id);
+  });
+  return values;
+}
+
 function buildPluginRequestErrorMessage(
   label: string,
   response: { status: number | undefined; hasResponse: boolean },
@@ -1661,100 +1779,66 @@ export function usePluginSectionKind(
 
 export function usePluginSectionKinds(): RegisteredPluginSectionKind[] {
   return usePluginRuntimeStore(
-    (state) =>
-      Object.values(state.sectionKindsByKey).sort((a, b) =>
-        a.title.localeCompare(b.title),
-      ),
+    (state) => {
+      if (
+        state.sortedSectionKinds.length > 0 ||
+        Object.keys(state.sectionKindsByKey).length === 0
+      ) {
+        return state.sortedSectionKinds;
+      }
+      return toSortedSectionKinds(state.sectionKindsByKey);
+    },
     _.isEqual,
   );
 }
 
 export function usePluginPaneTabs(): PluginPaneTabEntry[] {
   return usePluginRuntimeStore((state) => {
-    const values: PluginPaneTabEntry[] = [];
-    for (const [pluginId, paneEntries] of Object.entries(
-      state.panesByPluginId,
-    )) {
-      for (const pane of paneEntries) {
-        values.push({
-          tabKey: buildPluginPaneOverviewTabName(pluginId, pane.id),
-          pluginId,
-          paneId: pane.id,
-          title: pane.title,
-          description: pane.description,
-          icon: pane.icon,
-        });
-      }
+    if (
+      state.sortedPaneTabs.length > 0 ||
+      Object.keys(state.panesByPluginId).length === 0
+    ) {
+      return state.sortedPaneTabs;
     }
-    values.sort((a, b) => {
-      const byTitle = a.title.localeCompare(b.title);
-      if (byTitle !== 0) {
-        return byTitle;
-      }
-      const byPlugin = a.pluginId.localeCompare(b.pluginId);
-      if (byPlugin !== 0) {
-        return byPlugin;
-      }
-      return a.paneId.localeCompare(b.paneId);
-    });
-    return values;
+    return toSortedPluginPaneTabs(state.panesByPluginId);
   }, _.isEqual);
 }
 
 export function usePluginCommands(): RegisteredPluginCommand[] {
   return usePluginRuntimeStore((state) => {
-    const values: RegisteredPluginCommand[] = [];
-    for (const commandEntries of Object.values(state.commandsByPluginId)) {
-      values.push(...commandEntries);
+    if (
+      state.sortedCommands.length > 0 ||
+      Object.keys(state.commandsByPluginId).length === 0
+    ) {
+      return state.sortedCommands;
     }
-    values.sort((a, b) => {
-      const byTitle = a.title.localeCompare(b.title);
-      if (byTitle !== 0) {
-        return byTitle;
-      }
-      const byPlugin = a.pluginId.localeCompare(b.pluginId);
-      if (byPlugin !== 0) {
-        return byPlugin;
-      }
-      return a.id.localeCompare(b.id);
-    });
-    return values;
+    return toSortedPluginCommands(state.commandsByPluginId);
   }, _.isEqual);
 }
 
 export function usePluginTopNavBarItems(): RegisteredPluginTopNavBarItem[] {
   return usePluginRuntimeStore((state) => {
-    const values: RegisteredPluginTopNavBarItem[] = [];
-    for (const topNavBarItemEntries of Object.values(
-      state.topNavBarItemsByPluginId,
-    )) {
-      values.push(...topNavBarItemEntries);
+    if (
+      state.sortedTopNavBarItems.length > 0 ||
+      Object.keys(state.topNavBarItemsByPluginId).length === 0
+    ) {
+      return state.sortedTopNavBarItems;
     }
-    values.sort((a, b) => {
-      const orderDelta = (a.order ?? 0) - (b.order ?? 0);
-      if (orderDelta !== 0) {
-        return orderDelta;
-      }
-      const byLabel = a.label.localeCompare(b.label);
-      if (byLabel !== 0) {
-        return byLabel;
-      }
-      const byPlugin = a.pluginId.localeCompare(b.pluginId);
-      if (byPlugin !== 0) {
-        return byPlugin;
-      }
-      return a.id.localeCompare(b.id);
-    });
-    return values;
+    return toSortedPluginTopNavBarItems(state.topNavBarItemsByPluginId);
   }, _.isEqual);
 }
 
 export function usePluginListEntries(): PluginListEntry[] {
   return usePluginRuntimeStore(
-    (state) =>
-      Object.values(state.pluginListById).sort((a, b) =>
-        a.pluginId.localeCompare(b.pluginId),
-      ),
+    (state) => {
+      if (
+        state.sortedPluginListEntries.length > 0 ||
+        Object.keys(state.pluginListById).length === 0
+      ) {
+        return state.sortedPluginListEntries;
+      }
+      return toSortedPluginListEntries(state.pluginListById);
+    },
     _.isEqual,
   );
 }

@@ -19,10 +19,7 @@ import {
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { OverviewTabNameEnum } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
-import {
-  route_delete_sections,
-  route_plugins_status,
-} from "utils/generatedEndpoints";
+import { route_delete_sections } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 type PluginAreaProps = {
@@ -230,8 +227,6 @@ function PluginSectionFallbackCard({
       overviewVis: true,
       overviewTab: OverviewTabNameEnum.Plugins,
     });
-    // Fetch status immediately so the tab opens with fresh diagnostics.
-    await route_plugins_status();
   }
 
   return (

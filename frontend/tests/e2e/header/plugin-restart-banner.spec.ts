@@ -113,6 +113,57 @@ test("header plugin restart banner supports restart action and plugins shortcut"
   }
 });
 
+test("header plugin restart banner remains visible for status-only restart tombstones", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  try {
+    await page.route("**/api/plugins/list", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.plugins = [];
+      await route.fulfill({ response, json: payload });
+    });
+
+    await page.route("**/api/plugins/status", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json();
+      payload.plugins = [
+        {
+          pluginId: "setta-fixture-backend",
+          name: "Setta Fixture Backend",
+          version: "0.1.0",
+          state: "pending_restart",
+          sourceScope: "workspace",
+          sourceScopeLabel: "workspace",
+          sourcePath: "[redacted]:workspace:setta-fixture-backend",
+          canonicalSourceKey: "redacted:workspace:setta-fixture-backend",
+          sourceDigestSha256: null,
+          shadowedBySourcePath: null,
+          requestedCapabilities: [],
+          effectiveCapabilities: [],
+          blockedCapabilities: [],
+          registeredLanguageServers: [],
+          registeredExternalAgentAdapters: [],
+          registeredCodegenTargets: [],
+          enablementSource: "workspace_enabled",
+          restartRequired: true,
+          errors: [],
+        },
+      ];
+      await route.fulfill({ response, json: payload });
+    });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    await expect(page.getByText("Restart required for 1 plugin")).toBeVisible();
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("header plugin restart banner shows manual command when capability is manual", async ({
   page,
 }) => {

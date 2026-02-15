@@ -132,31 +132,16 @@ LOG_DIR="${SETTA_E2E_LOG_DIR:-${TMPDIR:-/tmp}/setta-e2e-logs-${INSTANCE_NAME}-$(
 mkdir -p "${LOG_DIR}"
 PLUGIN_FIXTURE_CACHE_DIR="${ROOT_DIR}/setta_files/.cache"
 PLUGIN_FIXTURE_CACHE_FILE="${PLUGIN_FIXTURE_CACHE_DIR}/playwright-e2e-plugin-fixtures-all.signature"
+# shellcheck source=scripts/plugin-fixtures/cache.sh
+. "${ROOT_DIR}/scripts/plugin-fixtures/cache.sh"
 
 log() {
   echo "[$(date +"%Y-%m-%d %H:%M:%S")] $*"
 }
 
-compute_plugin_fixture_signature() {
-  local fixture_file
-  local fixture_files=("${ROOT_DIR}/scripts/plugin-fixtures/build.sh")
-  while IFS= read -r fixture_file; do
-    fixture_files+=("${fixture_file}")
-  done < <(
-    find "${ROOT_DIR}/tests/fixtures/plugins" -type f \
-      ! -path "*/frontend/dist/*" \
-      | sort
-  )
-
-  for fixture_file in "${fixture_files[@]}"; do
-    printf '%s|' "${fixture_file#${ROOT_DIR}/}"
-    cksum "${fixture_file}"
-  done | cksum | awk '{print $1 ":" $2}'
-}
-
 build_plugin_fixtures_if_needed() {
   local current_signature cached_signature
-  current_signature="$(compute_plugin_fixture_signature)"
+  current_signature="$(compute_plugin_fixture_signature "${ROOT_DIR}")"
   mkdir -p "${PLUGIN_FIXTURE_CACHE_DIR}"
 
   if [[ "${SETTA_FORCE_PLUGIN_FIXTURE_BUILD:-0}" == "1" ]]; then
@@ -173,11 +158,16 @@ build_plugin_fixtures_if_needed() {
   fi
 
   if [[ "${cached_signature}" == "${current_signature}" ]]; then
-    log "Skipping fixture plugin build; fixtures unchanged."
-    return
+    if ! plugin_fixture_frontend_outputs_complete "${ROOT_DIR}"; then
+      log "Fixture plugin outputs missing; rebuilding."
+    else
+      log "Skipping fixture plugin build; fixtures unchanged."
+      return
+    fi
+  else
+    log "Building fixture plugin frontend assets."
   fi
 
-  log "Building fixture plugin frontend assets."
   "${ROOT_DIR}/scripts/plugin-fixtures/build.sh" all
   printf '%s' "${current_signature}" > "${PLUGIN_FIXTURE_CACHE_FILE}"
 }

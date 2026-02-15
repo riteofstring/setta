@@ -13,6 +13,7 @@ from setta.plugins.models import (
 )
 
 PluginScopeValue = Literal["workspace", "setta_files", "global"]
+InstallerValue = Literal["auto", "pip", "uv"]
 
 
 def _require_ide_mode(ctx: Context) -> None:
@@ -25,6 +26,7 @@ def install_plugin(
     *,
     sourceSpec: str,
     scope: PluginScopeValue | None = None,
+    installer: InstallerValue = "auto",
     enable: bool = True,
     force: bool = False,
     ctx: Context,
@@ -35,6 +37,7 @@ def install_plugin(
     Args:
         sourceSpec: Plugin source spec (for example github:owner/repo#ref or pypi:pkg==x.y.z).
         scope: Installation scope (workspace, setta_files, global).
+        installer: Installer backend (auto, pip, uv).
         enable: Whether to enable after install.
         force: Whether to overwrite existing install target.
     """
@@ -42,6 +45,7 @@ def install_plugin(
     return ctx.fastmcp.state.plugin_manager.install_plugin(
         source_spec=sourceSpec,
         scope=scope,
+        installer=installer,
         enable=enable,
         force=force,
     )

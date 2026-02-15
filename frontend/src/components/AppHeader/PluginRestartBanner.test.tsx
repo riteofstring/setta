@@ -34,6 +34,7 @@ const routePluginsRestartMock = vi.fn();
 const onOverviewTabClickMock = vi.fn();
 const refreshPluginRuntimeMock = vi.fn(async () => undefined);
 const usePluginListEntriesMock = vi.fn(() => []);
+const usePluginStatusEntriesMock = vi.fn(() => []);
 const usePluginRuntimeStoreMock = vi.fn(
   (selector?: (state: { restartCapability: unknown }) => unknown) => {
     const state = { restartCapability };
@@ -79,6 +80,8 @@ vi.mock("plugins/runtime", () => ({
     refreshPluginRuntimeMock(...args),
   usePluginListEntries: (...args: unknown[]) =>
     usePluginListEntriesMock(...args),
+  usePluginStatusEntries: (...args: unknown[]) =>
+    usePluginStatusEntriesMock(...args),
   usePluginRuntimeStore: (...args: unknown[]) =>
     usePluginRuntimeStoreMock(...args),
 }));

@@ -50,4 +50,45 @@ describe("project page command palette model", () => {
     await Promise.resolve(pluginAction());
     expect(pluginCommandRun).toHaveBeenCalledTimes(1);
   });
+
+  it("uses explicit create-section command ids when provided", () => {
+    const model = projectPageSearchTestApi.buildProjectCommandPaletteEntries({
+      createSectionGroups: [
+        {
+          group: "Plugins",
+          items: [
+            {
+              name: "Form",
+              commandId: "plugin-section:alpha.plugin:form",
+              implSpecs: {
+                type: SectionTypeEnum.Plugin,
+                pluginId: "alpha.plugin",
+                kind: "form",
+                data: {},
+              },
+            },
+            {
+              name: "Form",
+              commandId: "plugin-section:beta.plugin:form",
+              implSpecs: {
+                type: SectionTypeEnum.Plugin,
+                pluginId: "beta.plugin",
+                kind: "form",
+                data: {},
+              },
+            },
+          ],
+        },
+      ],
+      pluginCommands: [],
+    });
+
+    const pluginGroup = model.allItems.find((entry) => entry.group === "Plugins");
+    expect(pluginGroup?.items.map((item) => item.id)).toEqual([
+      "plugin-section:alpha.plugin:form",
+      "plugin-section:beta.plugin:form",
+    ]);
+    expect(model.actionById["plugin-section:alpha.plugin:form"]).toBeDefined();
+    expect(model.actionById["plugin-section:beta.plugin:form"]).toBeDefined();
+  });
 });

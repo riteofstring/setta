@@ -1,6 +1,7 @@
 import type {
   PluginListEntry,
   PluginRestartCapability,
+  PluginStatusEntry,
 } from "utils/generatedTypes";
 
 type PluginRestartActionPlan =
@@ -25,10 +26,20 @@ type PluginRestartActionPlan =
 
 export function getRestartRequiredPluginIds(
   pluginListEntries: PluginListEntry[],
+  pluginStatusEntries: PluginStatusEntry[] = [],
 ): string[] {
-  const ids = pluginListEntries
-    .filter((plugin) => plugin.restartRequired)
-    .map((plugin) => plugin.pluginId);
+  const idSet = new Set<string>();
+  for (const plugin of pluginListEntries) {
+    if (plugin.restartRequired) {
+      idSet.add(plugin.pluginId);
+    }
+  }
+  for (const plugin of pluginStatusEntries) {
+    if (plugin.restartRequired) {
+      idSet.add(plugin.pluginId);
+    }
+  }
+  const ids = [...idSet];
   ids.sort((a, b) => a.localeCompare(b));
   return ids;
 }

@@ -25,9 +25,18 @@ def _build_backend_test_runner_sandbox(tmp_path: Path) -> tuple[Path, Path]:
         encoding="utf-8",
     )
     run_backend_tests_dst.chmod(0o755)
+    cache_helper_src = root / "scripts" / "plugin-fixtures" / "cache.sh"
+    cache_helper_dst = plugin_fixture_scripts / "cache.sh"
+    cache_helper_dst.write_text(
+        cache_helper_src.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    cache_helper_dst.chmod(0o755)
 
     fixture_manifest = fixture_root / "setta.plugin.json"
-    fixture_manifest.write_text('{"id":"fixture-a","name":"Fixture A"}', encoding="utf-8")
+    fixture_manifest.write_text(
+        '{"id":"fixture-a","name":"Fixture A"}', encoding="utf-8"
+    )
     (fixture_frontend_src / "index.js").write_text(
         "export const fixture = true;\n",
         encoding="utf-8",
@@ -39,11 +48,14 @@ def _build_backend_test_runner_sandbox(tmp_path: Path) -> tuple[Path, Path]:
         f"""#!/usr/bin/env bash
 set -euo pipefail
 count_file="{build_count_file}"
+fixture_dist="{fixture_root / "frontend" / "dist"}"
 count=0
 if [[ -f "${{count_file}}" ]]; then
   count="$(<"${{count_file}}")"
 fi
 echo "$((count + 1))" > "${{count_file}}"
+mkdir -p "${{fixture_dist}}"
+printf '%s\n' 'export const built = true;' > "${{fixture_dist}}/index.js"
 """,
         encoding="utf-8",
     )
@@ -80,7 +92,12 @@ def _run_backend_test_runner(
     if extra_env:
         env.update(extra_env)
     return subprocess.run(
-        ["bash", str(sandbox_root / "scripts" / "run_backend_tests.sh"), "-k", "plugins"],
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "run_backend_tests.sh"),
+            "-k",
+            "plugins",
+        ],
         cwd=sandbox_root,
         env=env,
         check=False,
@@ -105,8 +122,11 @@ def test_run_backend_tests_rebuilds_fixtures_only_when_signature_changes(
         / "backend-test-plugin-fixtures-all.signature"
     )
     assert cache_file.exists()
-    assert (sandbox_root / "pytest_args.txt").read_text(encoding="utf-8").strip().endswith(
-        "-k plugins"
+    assert (
+        (sandbox_root / "pytest_args.txt")
+        .read_text(encoding="utf-8")
+        .strip()
+        .endswith("-k plugins")
     )
 
     second_run = _run_backend_test_runner(sandbox_root)
@@ -115,7 +135,12 @@ def test_run_backend_tests_rebuilds_fixtures_only_when_signature_changes(
     assert build_count_file.read_text(encoding="utf-8").strip() == "1"
 
     fixture_manifest = (
-        sandbox_root / "tests" / "fixtures" / "plugins" / "fixture-a" / "setta.plugin.json"
+        sandbox_root
+        / "tests"
+        / "fixtures"
+        / "plugins"
+        / "fixture-a"
+        / "setta.plugin.json"
     )
     fixture_manifest.write_text(
         '{"id":"fixture-a","name":"Fixture A","version":"0.2.0"}',
@@ -140,4 +165,32 @@ def test_run_backend_tests_force_flag_rebuilds_fixtures(tmp_path: Path) -> None:
         extra_env={"SETTA_FORCE_PLUGIN_FIXTURE_BUILD": "1"},
     )
     assert forced_run.returncode == 0, f"{forced_run.stdout}\n{forced_run.stderr}"
+    assert build_count_file.read_text(encoding="utf-8").strip() == "2"
+
+
+def test_run_backend_tests_rebuilds_when_fixture_outputs_are_missing(
+    tmp_path: Path,
+) -> None:
+    # Missing built fixture outputs should trigger a rebuild even when signatures are unchanged.
+    sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+
+    first_run = _run_backend_test_runner(sandbox_root)
+    assert first_run.returncode == 0, f"{first_run.stdout}\n{first_run.stderr}"
+    assert build_count_file.read_text(encoding="utf-8").strip() == "1"
+
+    built_output = (
+        sandbox_root
+        / "tests"
+        / "fixtures"
+        / "plugins"
+        / "fixture-a"
+        / "frontend"
+        / "dist"
+        / "index.js"
+    )
+    built_output.unlink()
+
+    second_run = _run_backend_test_runner(sandbox_root)
+    assert second_run.returncode == 0, f"{second_run.stdout}\n{second_run.stderr}"
+    assert "plugin fixture outputs missing; rebuilding" in second_run.stdout
     assert build_count_file.read_text(encoding="utf-8").strip() == "2"
