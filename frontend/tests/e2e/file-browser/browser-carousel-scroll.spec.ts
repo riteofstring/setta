@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
@@ -10,6 +10,72 @@ import {
 
 const SELECT_ALL_SHORTCUT =
   process.platform === "darwin" ? "Meta+A" : "Control+A";
+
+function normalizePathForComparison(value: string): string {
+  const withoutPrivate = value.startsWith("/private")
+    ? value.slice("/private".length)
+    : value;
+  return withoutPrivate.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+}
+
+async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
+  const value = await page.evaluate((targetId) => {
+    const root = document.getElementById(targetId);
+    if (!root) {
+      return null;
+    }
+    const content =
+      root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
+    return content?.textContent ?? root.textContent ?? "";
+  }, id);
+  return value ?? "";
+}
+
+async function setBrowserPath({
+  page,
+  sectionNode,
+  sectionId,
+  targetPath,
+}: {
+  page: Page;
+  sectionNode: Locator;
+  sectionId: string;
+  targetPath: string;
+}): Promise<void> {
+  const pathInputId = `CodeMirror-${sectionId}-browser-path`;
+  const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
+  await expect(pathInput).toBeVisible();
+  const cmContent = pathInput.locator(".cm-content");
+  await expect(cmContent).toBeVisible();
+  const normalizedTarget = normalizePathForComparison(targetPath);
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await cmContent.click();
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.press("Backspace");
+    await page.keyboard.insertText(targetPath);
+    await page.keyboard.press("Enter");
+
+    const startedAt = Date.now();
+    const timeoutMs = 2500;
+    while (Date.now() - startedAt < timeoutMs) {
+      const committedPath = normalizePathForComparison(
+        await readCodeMirrorValue(page, pathInputId),
+      );
+      if (committedPath === normalizedTarget) {
+        return;
+      }
+      await page.waitForTimeout(50);
+    }
+  }
+
+  const finalPath = normalizePathForComparison(
+    await readCodeMirrorValue(page, pathInputId),
+  );
+  throw new Error(
+    `Browser path did not commit cleanly. Expected "${normalizedTarget}", received "${finalPath}".`,
+  );
+}
 
 test("carousel thumbnail strip scrolls with trackpad wheel", async ({
   page,
@@ -23,7 +89,9 @@ test("carousel thumbnail strip scrolls with trackpad wheel", async ({
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error("Unable to resolve viewport bounds for section placement.");
+      throw new Error(
+        "Unable to resolve viewport bounds for section placement.",
+      );
     }
 
     const browserSection = await postBackend<{ sectionId?: string }>(
@@ -62,15 +130,12 @@ test("carousel thumbnail strip scrolls with trackpad wheel", async ({
       await expect(sectionNode).toBeVisible();
 
       await sectionNode.locator('button[aria-label="Carousel view"]').click();
-
-      const pathInputId = `CodeMirror-${sectionId}-browser-path`;
-      const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
-      const cmContent = pathInput.locator(".cm-content");
-      await expect(cmContent).toBeVisible();
-      await cmContent.click();
-      await page.keyboard.press(SELECT_ALL_SHORTCUT);
-      await page.keyboard.type(parentDir);
-      await page.keyboard.press("Enter");
+      await setBrowserPath({
+        page,
+        sectionNode,
+        sectionId,
+        targetPath: parentDir,
+      });
 
       const resizeHandle = sectionNode.getByRole("separator", {
         name: "Resize thumbnail strip",

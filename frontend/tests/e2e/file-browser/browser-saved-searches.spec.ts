@@ -50,15 +50,33 @@ async function setBrowserPath({
   await expect(pathInput).toBeVisible();
   const cmContent = pathInput.locator(".cm-content");
   await expect(cmContent).toBeVisible();
-  await cmContent.click();
-  await cmContent.fill(targetPath);
-  await page.keyboard.press("Enter");
   const normalizedTarget = normalizePathForComparison(targetPath);
-  await expect
-    .poll(async () =>
-      normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
-    )
-    .toContain(normalizedTarget);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await cmContent.click();
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.press("Backspace");
+    await page.keyboard.insertText(targetPath);
+    await page.keyboard.press("Enter");
+
+    const startedAt = Date.now();
+    const timeoutMs = 2500;
+    while (Date.now() - startedAt < timeoutMs) {
+      const committedPath = normalizePathForComparison(
+        await readCodeMirrorValue(page, pathInputId),
+      );
+      if (committedPath === normalizedTarget) {
+        return;
+      }
+      await page.waitForTimeout(50);
+    }
+  }
+
+  const finalPath = normalizePathForComparison(
+    await readCodeMirrorValue(page, pathInputId),
+  );
+  throw new Error(
+    `Browser path did not commit cleanly. Expected "${normalizedTarget}", received "${finalPath}".`,
+  );
 }
 
 async function setBrowserFilter({
@@ -74,11 +92,33 @@ async function setBrowserFilter({
     .locator('[id^="CodeMirror-FileBrowserFilter-"]')
     .first();
   await expect(filterRoot).toBeVisible();
+  const filterInputId = await filterRoot.getAttribute("id");
+  if (!filterInputId) {
+    throw new Error("Missing browser filter CodeMirror id.");
+  }
   const cmContent = filterRoot.locator(".cm-content");
   await expect(cmContent).toBeVisible();
-  await cmContent.click();
-  await page.keyboard.press(SELECT_ALL_SHORTCUT);
-  await page.keyboard.type(value);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await cmContent.click();
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.press("Backspace");
+    await page.keyboard.insertText(value);
+
+    const startedAt = Date.now();
+    const timeoutMs = 2500;
+    while (Date.now() - startedAt < timeoutMs) {
+      const committedValue = await readCodeMirrorValue(page, filterInputId);
+      if (committedValue === value) {
+        return;
+      }
+      await page.waitForTimeout(50);
+    }
+  }
+
+  const finalValue = await readCodeMirrorValue(page, filterInputId);
+  throw new Error(
+    `Browser filter did not commit cleanly. Expected "${value}", received "${finalValue}".`,
+  );
 }
 
 test("browser can save a search and re-apply it from the Filters column", async ({
@@ -93,7 +133,9 @@ test("browser can save a search and re-apply it from the Filters column", async 
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error("Unable to resolve viewport bounds for section placement.");
+      throw new Error(
+        "Unable to resolve viewport bounds for section placement.",
+      );
     }
 
     const browserSection = await postBackend<{ sectionId?: string }>(
@@ -160,7 +202,9 @@ test("browser can save a search and re-apply it from the Filters column", async 
       await expect(imageTile).toBeVisible({ timeout: 15000 });
       await expect(textTile).toHaveCount(0, { timeout: 15000 });
 
-      const saveButton = sectionNode.getByRole("button", { name: "Save search" });
+      const saveButton = sectionNode.getByRole("button", {
+        name: "Save search",
+      });
       await expect(saveButton).toBeVisible();
       await saveButton.click();
 
