@@ -1397,12 +1397,6 @@ export async function route_plugins_rescan(): Promise<
   return await post("/plugins/rescan", null);
 }
 
-export async function route_plugins_restart_capability(): Promise<
-  ResponseDataAndStatus<gt.PluginRestartCapability>
-> {
-  return await get("/plugins/restart-capability");
-}
-
 export async function route_plugins_restart(): Promise<
   ResponseDataAndStatus<gt.PluginRestartResponse>
 > {

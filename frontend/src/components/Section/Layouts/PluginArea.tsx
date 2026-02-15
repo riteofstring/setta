@@ -369,7 +369,10 @@ function buildPluginDataPreview(data: Record<string, unknown>): string {
   }
 }
 
-function fallbackReasonLabel(reason: string): string {
+function fallbackReasonLabel(reason: string | null): string {
+  if (reason === null) {
+    return "Plugin runtime state is inconsistent for this section.";
+  }
   if (reason === "plugin_disabled") {
     return "Plugin is installed but currently disabled.";
   }

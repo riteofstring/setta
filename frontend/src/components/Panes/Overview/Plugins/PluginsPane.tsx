@@ -175,18 +175,6 @@ export function PluginsPane() {
   const isSettingsProject =
     currentProjectConfigName.trim().toLowerCase() ===
     C.SETTINGS_PROJECT_NAME.toLowerCase();
-
-  const sortedStatusEntries = useMemo(
-    () =>
-      [...pluginStatusEntries].sort((a, b) => {
-        const byPluginId = a.pluginId.localeCompare(b.pluginId);
-        if (byPluginId !== 0) {
-          return byPluginId;
-        }
-        return a.sourcePath.localeCompare(b.sourcePath);
-      }),
-    [pluginStatusEntries],
-  );
   const busyPluginIds = useMemo(
     () => buildBusyPluginIdSet(busyActionKeys),
     [busyActionKeys],
@@ -554,10 +542,10 @@ export function PluginsPane() {
 
       <section className="rounded-md border border-setta-200 bg-white p-2 dark:border-setta-850 dark:bg-setta-900">
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-tight text-setta-500 dark:text-setta-400">
-          Discovery Status ({sortedStatusEntries.length})
+          Discovery Status ({pluginStatusEntries.length})
         </h3>
         <div className="max-h-64 overflow-auto rounded border border-setta-200 dark:border-setta-800">
-          {sortedStatusEntries.length === 0 ? (
+          {pluginStatusEntries.length === 0 ? (
             <div className="p-2 text-xs text-setta-500 dark:text-setta-400">
               No discovered plugins.
             </div>
@@ -576,7 +564,7 @@ export function PluginsPane() {
                 </tr>
               </thead>
               <tbody>
-                {sortedStatusEntries.map((entry) => (
+                {pluginStatusEntries.map((entry) => (
                   <tr
                     key={`${entry.pluginId}:${entry.sourceScope}:${entry.sourcePath}`}
                     className="border-t border-setta-200 dark:border-setta-850"

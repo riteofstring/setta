@@ -26,6 +26,7 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "host.read_project_state",
     "host.emit_listener_dependency_event",
 )
+_PROTOCOL_STDOUT = sys.stdout
 
 
 class WorkerError(Exception):
@@ -985,8 +986,13 @@ def _emit_response(payload: dict[str, Any]) -> None:
                 },
             }
         )
-    sys.stdout.write(serialized + "\n")
-    sys.stdout.flush()
+    _PROTOCOL_STDOUT.write(serialized + "\n")
+    _PROTOCOL_STDOUT.flush()
+
+
+def _redirect_plugin_stdout_to_stderr() -> None:
+    # Plugin stdout must never share the JSON-RPC protocol stream.
+    sys.stdout = sys.stderr
 
 
 def main() -> int:
@@ -1053,6 +1059,8 @@ def main() -> int:
             }
         )
         return 1
+
+    _redirect_plugin_stdout_to_stderr()
 
     state = _WorkerState(
         plugin_id=plugin_id,

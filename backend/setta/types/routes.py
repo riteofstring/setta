@@ -37,7 +37,6 @@ class Route(str, Enum):
     PLUGINS_LOCK_WRITE = "/plugins/lock/write"
     PLUGINS_LOCK_APPLY = "/plugins/lock/apply"
     PLUGINS_RESCAN = "/plugins/rescan"
-    PLUGINS_RESTART_CAPABILITY = "/plugins/restart-capability"
     PLUGINS_RESTART = "/plugins/restart"
     LAUNCH = "/launch"
     SAVE_SETTINGS_PROJECT = "/saveSettingsProject"

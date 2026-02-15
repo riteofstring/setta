@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Callable
 import zipfile
 
+import pytest
 from click.testing import CliRunner
 from fastapi import FastAPI
 
@@ -813,6 +814,55 @@ def test_plugins_lookup_rescan_selectively_skips_package_manager_discovery(
     assert enable_no_scope.exit_code != 0
 
     assert captured_include_package_manager_flags == [False, True]
+
+
+@pytest.mark.parametrize(
+    ("argv",),
+    [
+        (["enable", "missing-plugin"],),
+        (["disable", "missing-plugin"],),
+        (["uninstall", "missing-plugin", "--scope", "workspace"],),
+        (
+            [
+                "unlink",
+                "missing-plugin",
+                "--scope",
+                "workspace",
+                "--ignore-missing",
+            ],
+        ),
+    ],
+)
+def test_plugins_lookup_rescan_errors_are_wrapped_as_click_errors(
+    tmp_path: Path,
+    monkeypatch,
+    argv: list[str],
+) -> None:
+    # Lookup-rescan failures should surface as structured Click errors, even for ignore-missing unlink.
+    manager = _build_manager(tmp_path)
+    monkeypatch.setattr(
+        start_module,
+        "_build_plugin_manager_for_cli",
+        lambda **_kwargs: manager,
+    )
+
+    def _raise_rescan_error(_manager: PluginManager, *, scope: str | None) -> None:
+        raise PluginManagerError(
+            "PLUGIN_STATE_INVALID",
+            f"lookup rescan failed for scope={scope}",
+        )
+
+    monkeypatch.setattr(
+        start_module,
+        "_rescan_plugin_manager_for_lookup",
+        _raise_rescan_error,
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(plugins, argv)
+
+    assert result.exit_code != 0
+    assert "PLUGIN_STATE_INVALID: lookup rescan failed" in result.output
 
 
 def test_plugins_unlink_cli_ignore_missing_returns_success(

@@ -670,9 +670,99 @@ class PluginManager:
         )
 
     def get_runtime_response(self) -> PluginRuntimeResponse:
+        plugins_state = self._load_plugins_state()
+        active_entries = sorted(
+            self._active_plugin_by_id.values(), key=lambda item: item.plugin_id
+        )
+        ordered_entries = sorted(
+            self._discovered_plugins,
+            key=lambda entry: (
+                entry.plugin_id,
+                _SCOPE_ORDER[entry.scope],
+                _SOURCE_MANAGER_ORDER[entry.source_manager],
+                str(entry.source_path),
+            ),
+        )
+        restart_capability = self.get_restart_capability()
+        redact_source_details = self._should_redact_source_details()
+        redact_config_details = self._should_redact_config_details()
+        redacted_source_path_by_path: dict[Path, str] = {}
+        if redact_source_details:
+            redacted_source_path_by_path = self._build_redacted_source_path_map(
+                ordered_entries
+            )
+
+        list_plugins: list[PluginListEntry] = []
+        for entry in active_entries:
+            if entry.manifest is None:
+                continue
+            frontend = PluginFrontendDescriptor(
+                entrypointUrl=self._build_plugin_asset_url(
+                    entry,
+                    entry.manifest.frontend.entrypoint,
+                )
+                if entry.manifest.frontend is not None
+                else None,
+                styleUrl=self._build_plugin_asset_url(
+                    entry,
+                    entry.manifest.frontend.style,
+                )
+                if entry.manifest.frontend is not None and entry.manifest.frontend.style
+                else None,
+            )
+            content = self._build_content_descriptor(entry)
+            config = self._build_config_descriptor(entry, plugins_state=plugins_state)
+            if redact_config_details:
+                config = self._redact_config_descriptor(config)
+            list_plugins.append(
+                PluginListEntry(
+                    pluginId=entry.plugin_id,
+                    name=entry.name,
+                    version=entry.version,
+                    sourceScope=entry.scope,
+                    sourceScopeLabel=scope_label(entry.scope),
+                    sourceManager=entry.source_manager,
+                    sourceManagerHint=entry.source_manager_hint,
+                    canonicalSourceKey=(
+                        self._redacted_canonical_source_key(
+                            entry.plugin_id,
+                            entry.scope,
+                            entry.source_manager,
+                            entry.source_path,
+                        )
+                        if redact_source_details
+                        else entry.canonical_source_key
+                    ),
+                    sourceDigestSha256=entry.source_digest_sha256,
+                    frontend=frontend,
+                    content=content,
+                    config=config,
+                    effectiveCapabilities=entry.effective_capabilities,
+                    enablementSource=entry.enablement_source,
+                    restartRequired=entry.restart_required,
+                )
+            )
+
+        status_plugins = [
+            self._build_status_entry(
+                entry=entry,
+                redact_source_details=redact_source_details,
+                redacted_source_path_by_path=redacted_source_path_by_path,
+            )
+            for entry in ordered_entries
+        ]
+
         return PluginRuntimeResponse(
-            list=self.get_list_response(),
-            status=self.get_status_response(),
+            list=PluginListResponse(
+                serverMode=self.server_mode,
+                restartCapability=restart_capability,
+                plugins=list_plugins,
+            ),
+            status=PluginStatusResponse(
+                serverMode=self.server_mode,
+                restartCapability=restart_capability,
+                plugins=status_plugins,
+            ),
         )
 
     def _build_status_entry(

@@ -160,6 +160,16 @@ _plugin_fixture_path_has_plugin_hint() {
   return 1
 }
 
+_plugin_fixture_selector_has_plugin_hint() {
+  local selector_value="$1"
+  local normalized_selector
+  normalized_selector="$(printf '%s' "${selector_value}" | tr '[:upper:]' '[:lower:]')"
+  if [[ "${normalized_selector}" == *plugin* ]]; then
+    return 0
+  fi
+  return 1
+}
+
 _plugin_fixture_resolve_target_path() {
   local root_dir="$1"
   local target_path="$2"
@@ -211,6 +221,7 @@ should_build_plugin_fixtures_for_targets() {
 
   local has_positional_target=0
   local has_selector_filter=0
+  local selector_filter_has_plugin_hint=0
   local expect_selector_value=0
   local expect_grep_value=0
   local arg
@@ -220,6 +231,9 @@ should_build_plugin_fixtures_for_targets() {
   for arg in "$@"; do
     if [[ "${expect_selector_value}" == "1" ]]; then
       expect_selector_value=0
+      if _plugin_fixture_selector_has_plugin_hint "${arg}"; then
+        selector_filter_has_plugin_hint=1
+      fi
       continue
     fi
     if [[ "${expect_grep_value}" == "1" ]]; then
@@ -239,6 +253,9 @@ should_build_plugin_fixtures_for_targets() {
           ;;
         -k=*|--keyword=*|-m=*|--markers=*)
           has_selector_filter=1
+          if _plugin_fixture_selector_has_plugin_hint "${arg#*=}"; then
+            selector_filter_has_plugin_hint=1
+          fi
           continue
           ;;
       esac
@@ -285,7 +302,12 @@ should_build_plugin_fixtures_for_targets() {
   done
 
   if [[ "${mode}" == "pytest" ]] && [[ "${has_selector_filter}" == "1" ]]; then
-    return 0
+    if [[ "${selector_filter_has_plugin_hint}" == "1" ]]; then
+      return 0
+    fi
+    if [[ "${has_positional_target}" == "0" ]]; then
+      return 0
+    fi
   fi
   if [[ "${has_positional_target}" == "0" ]]; then
     return 0

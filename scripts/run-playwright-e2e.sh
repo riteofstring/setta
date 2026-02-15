@@ -163,6 +163,18 @@ else
   log "Skipping plugin fixture build for selected Playwright targets."
 fi
 
+if [[ -n "${SETTA_E2E_SEED_PLUGIN_FIXTURES:-}" ]]; then
+  SHOULD_SEED_PLUGIN_FIXTURES="${SETTA_E2E_SEED_PLUGIN_FIXTURES}"
+else
+  SHOULD_SEED_PLUGIN_FIXTURES="${SHOULD_PREPARE_PLUGIN_FIXTURES}"
+fi
+
+if [[ -n "${SETTA_E2E_SEED_PLUGIN_ARTIFACTS:-}" ]]; then
+  SHOULD_SEED_PLUGIN_ARTIFACTS="${SETTA_E2E_SEED_PLUGIN_ARTIFACTS}"
+else
+  SHOULD_SEED_PLUGIN_ARTIFACTS="${SHOULD_PREPARE_PLUGIN_FIXTURES}"
+fi
+
 BACKEND_PID=""
 FRONTEND_PID=""
 
@@ -253,8 +265,10 @@ setta_root = workspace / "setta_files"
 _seed_minimal_setta_files(setta_root)
 PY
   ) >"${LOG_DIR}/seed.log" 2>&1
-  if [[ "${SETTA_E2E_SEED_PLUGIN_FIXTURES:-1}" != "0" ]]; then
+  if [[ "${SHOULD_SEED_PLUGIN_FIXTURES}" == "1" ]]; then
     seed_workspace_plugin_fixtures
+  else
+    log "Skipping seeded plugin fixture copy for selected Playwright targets."
   fi
   log "Seeded workspace. Logs: ${LOG_DIR}/seed.log"
 }
@@ -402,10 +416,6 @@ configure_plugin_artifact_indexes() {
 }
 
 seed_local_plugin_artifacts() {
-  if [[ "${SETTA_E2E_SEED_PLUGIN_ARTIFACTS:-1}" == "0" ]]; then
-    log "Skipping local plugin artifact seed (SETTA_E2E_SEED_PLUGIN_ARTIFACTS=0)."
-    return
-  fi
   local artifact_dir="${SETTA_E2E_PLUGIN_ARTIFACT_DIR:-${ROOT_DIR}/setta_files/.cache/playwright-plugin-artifacts}"
   local fixture_metadata package_name package_version
   fixture_metadata=()
@@ -598,7 +608,11 @@ PY
 }
 
 seed_workspace
-seed_local_plugin_artifacts
+if [[ "${SHOULD_SEED_PLUGIN_ARTIFACTS}" == "1" ]]; then
+  seed_local_plugin_artifacts
+else
+  log "Skipping local plugin artifact seed for selected Playwright targets."
+fi
 start_backend
 start_frontend
 

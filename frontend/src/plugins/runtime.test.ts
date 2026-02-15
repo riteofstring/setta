@@ -39,6 +39,7 @@ import {
   type PluginListEntry,
   type PluginListResponse,
   type PluginRestartCapability,
+  type PluginRuntimeResponse,
   type PluginStatusEntry,
   type PluginStatusResponse,
 } from "utils/generatedTypes";
@@ -124,6 +125,30 @@ function buildPluginStatusResponse(
     serverMode: "ide",
     plugins,
     ...overrides,
+  };
+}
+
+function buildPluginRuntimeResponse(
+  list: PluginListResponse,
+  status: PluginStatusResponse,
+  overrides: Partial<PluginRuntimeResponse> = {},
+): PluginRuntimeResponse {
+  return {
+    schemaVersion: 1,
+    list,
+    status,
+    ...overrides,
+  };
+}
+
+function buildRuntimeEndpointResponse(
+  list: PluginListResponse,
+  status: PluginStatusResponse,
+): Awaited<ReturnType<typeof generatedEndpoints.route_plugins_runtime>> {
+  return {
+    data: buildPluginRuntimeResponse(list, status),
+    status: 200,
+    hasResponse: true,
   };
 }
 
@@ -780,7 +805,7 @@ describe("plugin runtime helpers", () => {
     );
   });
 
-  it("reports runtime error when plugins list request fails", async () => {
+  it("reports runtime error when plugins runtime request fails", async () => {
     usePluginRuntimeStore.setState({
       pluginListById: {
         "stale.plugin": buildPluginListEntry({
@@ -815,14 +840,9 @@ describe("plugin runtime helpers", () => {
         ],
       },
     });
-    vi.spyOn(generatedEndpoints, "route_plugins_list").mockResolvedValue({
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue({
       data: undefined,
       status: 500,
-      hasResponse: true,
-    });
-    vi.spyOn(generatedEndpoints, "route_plugins_status").mockResolvedValue({
-      data: buildPluginStatusResponse([]),
-      status: 200,
       hasResponse: true,
     });
 
@@ -831,7 +851,7 @@ describe("plugin runtime helpers", () => {
     const state = usePluginRuntimeStore.getState();
     expect(state.status).toBe("error");
     expect(state.statusMessage).toBe(
-      "Failed to fetch plugins list: status 500.",
+      "Failed to fetch plugins runtime: status 500.",
     );
     expect(state.pluginListById).toEqual({});
     expect(state.pluginStatusById).toEqual({});
@@ -839,13 +859,8 @@ describe("plugin runtime helpers", () => {
     expect(state.panesByPluginId).toEqual({});
   });
 
-  it("reports runtime error when plugins status request fails without response", async () => {
-    vi.spyOn(generatedEndpoints, "route_plugins_list").mockResolvedValue({
-      data: buildPluginListResponse([]),
-      status: 200,
-      hasResponse: true,
-    });
-    vi.spyOn(generatedEndpoints, "route_plugins_status").mockResolvedValue({
+  it("reports runtime error when plugins runtime request fails without response", async () => {
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue({
       data: undefined,
       status: undefined,
       hasResponse: false,
@@ -856,7 +871,7 @@ describe("plugin runtime helpers", () => {
     const state = usePluginRuntimeStore.getState();
     expect(state.status).toBe("error");
     expect(state.statusMessage).toBe(
-      "Failed to fetch plugins status: network error.",
+      "Failed to fetch plugins runtime: network error.",
     );
   });
 
@@ -907,14 +922,9 @@ describe("plugin runtime helpers", () => {
     expect(loadResult?.error).toBeNull();
     expect(fakeLinks.filter((link) => !link.removed)).toHaveLength(1);
 
-    vi.spyOn(generatedEndpoints, "route_plugins_list").mockResolvedValue({
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue({
       data: undefined,
       status: 500,
-      hasResponse: true,
-    });
-    vi.spyOn(generatedEndpoints, "route_plugins_status").mockResolvedValue({
-      data: buildPluginStatusResponse([]),
-      status: 200,
       hasResponse: true,
     });
 
@@ -925,27 +935,23 @@ describe("plugin runtime helpers", () => {
 
   it("prefers non-shadowed status entries as the primary plugin status", async () => {
     const plugin = buildPluginListEntry({});
-    vi.spyOn(generatedEndpoints, "route_plugins_list").mockResolvedValue({
-      data: buildPluginListResponse([plugin]),
-      status: 200,
-      hasResponse: true,
-    });
-    vi.spyOn(generatedEndpoints, "route_plugins_status").mockResolvedValue({
-      data: buildPluginStatusResponse([
-        buildPluginStatusEntry({
-          pluginId: "acme.plugin",
-          sourcePath: "/tmp/shadowed",
-          shadowedBySourcePath: "/tmp/primary",
-        }),
-        buildPluginStatusEntry({
-          pluginId: "acme.plugin",
-          sourcePath: "/tmp/primary",
-          shadowedBySourcePath: null,
-        }),
-      ]),
-      status: 200,
-      hasResponse: true,
-    });
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue(
+      buildRuntimeEndpointResponse(
+        buildPluginListResponse([plugin]),
+        buildPluginStatusResponse([
+          buildPluginStatusEntry({
+            pluginId: "acme.plugin",
+            sourcePath: "/tmp/shadowed",
+            shadowedBySourcePath: "/tmp/primary",
+          }),
+          buildPluginStatusEntry({
+            pluginId: "acme.plugin",
+            sourcePath: "/tmp/primary",
+            shadowedBySourcePath: null,
+          }),
+        ]),
+      ),
+    );
 
     await refreshPluginRuntime();
 
@@ -982,16 +988,9 @@ describe("plugin runtime helpers", () => {
 
     let listPayload = buildPluginListResponse([plugin]);
     let statusPayload = buildPluginStatusResponse([status]);
-    vi.spyOn(generatedEndpoints, "route_plugins_list").mockImplementation(
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
       async () => ({
-        data: listPayload,
-        status: 200,
-        hasResponse: true,
-      }),
-    );
-    vi.spyOn(generatedEndpoints, "route_plugins_status").mockImplementation(
-      async () => ({
-        data: statusPayload,
+        data: buildPluginRuntimeResponse(listPayload, statusPayload),
         status: 200,
         hasResponse: true,
       }),
@@ -1030,21 +1029,17 @@ describe("plugin runtime helpers", () => {
     });
     let digest = "digest-a";
 
-    vi.spyOn(generatedEndpoints, "route_plugins_list").mockImplementation(
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
       async () => ({
-        data: buildPluginListResponse([
-          buildPluginListEntry({
-            ...plugin,
-            sourceDigestSha256: digest,
-          }),
-        ]),
-        status: 200,
-        hasResponse: true,
-      }),
-    );
-    vi.spyOn(generatedEndpoints, "route_plugins_status").mockImplementation(
-      async () => ({
-        data: buildPluginStatusResponse([status]),
+        data: buildPluginRuntimeResponse(
+          buildPluginListResponse([
+            buildPluginListEntry({
+              ...plugin,
+              sourceDigestSha256: digest,
+            }),
+          ]),
+          buildPluginStatusResponse([status]),
+        ),
         status: 200,
         hasResponse: true,
       }),
@@ -1063,36 +1058,16 @@ describe("plugin runtime helpers", () => {
       releaseRequests = resolve;
     });
     let runtimeCalls = 0;
-    let listCalls = 0;
-    let statusCalls = 0;
 
     vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
       async () => {
         runtimeCalls += 1;
-        return {
-          data: undefined,
-          status: undefined,
-          hasResponse: false,
-        };
-      },
-    );
-    vi.spyOn(generatedEndpoints, "route_plugins_list").mockImplementation(
-      async () => {
-        listCalls += 1;
         await gate;
         return {
-          data: buildPluginListResponse([]),
-          status: 200,
-          hasResponse: true,
-        };
-      },
-    );
-    vi.spyOn(generatedEndpoints, "route_plugins_status").mockImplementation(
-      async () => {
-        statusCalls += 1;
-        await gate;
-        return {
-          data: buildPluginStatusResponse([]),
+          data: buildPluginRuntimeResponse(
+            buildPluginListResponse([]),
+            buildPluginStatusResponse([]),
+          ),
           status: 200,
           hasResponse: true,
         };
@@ -1104,16 +1079,12 @@ describe("plugin runtime helpers", () => {
     const third = refreshPluginRuntime();
     await Promise.resolve();
     expect(runtimeCalls).toBe(1);
-    expect(listCalls).toBe(1);
-    expect(statusCalls).toBe(1);
 
     if (releaseRequests) {
       releaseRequests();
     }
     await Promise.all([first, second, third]);
     expect(runtimeCalls).toBe(2);
-    expect(listCalls).toBe(2);
-    expect(statusCalls).toBe(2);
     expect(usePluginRuntimeStore.getState().status).toBe("loaded");
   });
 
@@ -1963,16 +1934,9 @@ describe("plugin runtime helpers", () => {
     });
     let listPayload = buildPluginListResponse([plugin]);
     let statusPayload = buildPluginStatusResponse([pluginStatus]);
-    vi.spyOn(generatedEndpoints, "route_plugins_list").mockImplementation(
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
       async () => ({
-        data: listPayload,
-        status: 200,
-        hasResponse: true,
-      }),
-    );
-    vi.spyOn(generatedEndpoints, "route_plugins_status").mockImplementation(
-      async () => ({
-        data: statusPayload,
+        data: buildPluginRuntimeResponse(listPayload, statusPayload),
         status: 200,
         hasResponse: true,
       }),
@@ -2471,16 +2435,9 @@ describe("plugin runtime helpers", () => {
 
     let listPayload = buildPluginListResponse([pluginWithStyle]);
     let statusPayload = buildPluginStatusResponse([pluginStatus]);
-    vi.spyOn(generatedEndpoints, "route_plugins_list").mockImplementation(
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockImplementation(
       async () => ({
-        data: listPayload,
-        status: 200,
-        hasResponse: true,
-      }),
-    );
-    vi.spyOn(generatedEndpoints, "route_plugins_status").mockImplementation(
-      async () => ({
-        data: statusPayload,
+        data: buildPluginRuntimeResponse(listPayload, statusPayload),
         status: 200,
         hasResponse: true,
       }),
@@ -2524,16 +2481,12 @@ describe("plugin runtime helpers", () => {
       pluginId: "disabled.plugin",
       state: PluginRuntimeStateEnum.disabled,
     });
-    vi.spyOn(generatedEndpoints, "route_plugins_list").mockResolvedValue({
-      data: buildPluginListResponse([plugin]),
-      status: 200,
-      hasResponse: true,
-    });
-    vi.spyOn(generatedEndpoints, "route_plugins_status").mockResolvedValue({
-      data: buildPluginStatusResponse([status]),
-      status: 200,
-      hasResponse: true,
-    });
+    vi.spyOn(generatedEndpoints, "route_plugins_runtime").mockResolvedValue(
+      buildRuntimeEndpointResponse(
+        buildPluginListResponse([plugin]),
+        buildPluginStatusResponse([status]),
+      ),
+    );
 
     await refreshPluginRuntime();
 
@@ -2566,8 +2519,8 @@ describe("plugin runtime helpers", () => {
     expect(completed.sort((a, b) => a - b)).toEqual(tasks);
   });
 
-  it("only loads plugin frontends for active and pending-restart statuses", () => {
-    expect(pluginRuntimeTestApi.shouldLoadPluginFrontend(undefined)).toBe(true);
+  it("only loads plugin frontends when runtime status is active or pending restart", () => {
+    expect(pluginRuntimeTestApi.shouldLoadPluginFrontend(undefined)).toBe(false);
     expect(
       pluginRuntimeTestApi.shouldLoadPluginFrontend(
         buildPluginStatusEntry({ state: PluginRuntimeStateEnum.active }),
@@ -2610,7 +2563,7 @@ describe("plugin runtime helpers", () => {
     );
   });
 
-  it("returns section_kind_missing fallback when section-kind lookup falls through", () => {
+  it("returns null when section kind is already registered", () => {
     usePluginRuntimeStore.setState({
       pluginStatusById: {
         "acme.plugin": buildPluginStatusEntry({
@@ -2633,8 +2586,6 @@ describe("plugin runtime helpers", () => {
       },
     });
 
-    expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBe(
-      PluginSectionFallbackReasonEnum.section_kind_missing,
-    );
+    expect(getPluginSectionFallbackReason("acme.plugin", "kind")).toBeNull();
   });
 });

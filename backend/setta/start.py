@@ -1109,9 +1109,9 @@ def _run_scoped_plugin_mutation_for_cli(
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
     )
-    if rescan_for_lookup:
-        _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
     try:
+        if rescan_for_lookup:
+            _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
         result = operation(manager, resolved_scope)
     except PluginManagerError as exc:
         _raise_click_plugin_error(exc)
@@ -2587,12 +2587,15 @@ def plugins_uninstall(
 @click.argument("plugin_id")
 @click.option("--json", "json_output", is_flag=True)
 def plugins_enable(plugin_id: str, json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    _rescan_plugin_manager_for_lookup(manager, scope=None)
-    try:
-        result = manager.enable_plugin(plugin_id=plugin_id)
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
+    result = _run_scoped_plugin_mutation_for_cli(
+        scope=None,
+        global_scope=False,
+        setta_files_scope=False,
+        rescan_for_lookup=True,
+        operation=lambda manager, _resolved_scope: manager.enable_plugin(
+            plugin_id=plugin_id
+        ),
+    )
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))
         return
@@ -2605,12 +2608,15 @@ def plugins_enable(plugin_id: str, json_output: bool) -> None:
 @click.argument("plugin_id")
 @click.option("--json", "json_output", is_flag=True)
 def plugins_disable(plugin_id: str, json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli(auto_rescan=False)
-    _rescan_plugin_manager_for_lookup(manager, scope=None)
-    try:
-        result = manager.disable_plugin(plugin_id=plugin_id)
-    except PluginManagerError as exc:
-        _raise_click_plugin_error(exc)
+    result = _run_scoped_plugin_mutation_for_cli(
+        scope=None,
+        global_scope=False,
+        setta_files_scope=False,
+        rescan_for_lookup=True,
+        operation=lambda manager, _resolved_scope: manager.disable_plugin(
+            plugin_id=plugin_id
+        ),
+    )
     if json_output:
         _emit_json_output(result.model_dump(mode="json"))
         return
@@ -2938,8 +2944,8 @@ def plugins_unlink(
         global_scope=global_scope,
         setta_files_scope=setta_files_scope,
     )
-    _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
     try:
+        _rescan_plugin_manager_for_lookup(manager, scope=resolved_scope)
         result = manager.unlink_plugin(plugin_id=plugin_id, scope=resolved_scope)
     except PluginManagerError as exc:
         if ignore_missing and exc.code == "PLUGIN_NOT_FOUND":

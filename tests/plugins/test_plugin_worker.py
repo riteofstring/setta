@@ -209,6 +209,37 @@ def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:
         _stop_worker(worker)
 
 
+def test_worker_redirects_plugin_stdout_logs_to_stderr(tmp_path: Path) -> None:
+    # Import-time plugin prints should not pollute the worker stdout JSON-RPC stream.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    entrypoint = plugin_root / "backend" / "entrypoint.py"
+    entrypoint.write_text(
+        "print('plugin-import-log', flush=True)\n"
+        + entrypoint.read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        initialize_response = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        assert initialize_response["id"] == 1
+        assert initialize_response["result"]["pluginId"] == "setta-fixture-backend"
+        register_response = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+        )
+        assert register_response["id"] == 2
+        assert register_response["result"] == {"ok": True}
+        assert worker.stderr is not None
+        assert worker.stderr.readline().strip() == "plugin-import-log"
+    finally:
+        _stop_worker(worker)
+
+
 def test_worker_register_supports_read_state_emit_and_listener_endpoint(
     tmp_path: Path,
 ) -> None:

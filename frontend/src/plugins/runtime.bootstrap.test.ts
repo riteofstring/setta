@@ -13,25 +13,24 @@ describe("plugin runtime bootstrap", () => {
   });
 
   it("triggers runtime refresh only when bootstrap is enabled", async () => {
-    const routePluginsList = vi.fn(async () => ({
+    const routePluginsRuntime = vi.fn(async () => ({
       data: {
         schemaVersion: 1,
-        serverMode: "ide",
-        restartCapability: {
-          mode: "manual",
-          command: "setta",
-          reason: "Programmatic restart is not available in this runtime.",
+        list: {
+          schemaVersion: 1,
+          serverMode: "ide",
+          restartCapability: {
+            mode: "manual",
+            command: "setta",
+            reason: "Programmatic restart is not available in this runtime.",
+          },
+          plugins: [],
         },
-        plugins: [],
-      },
-      status: 200,
-      hasResponse: true,
-    }));
-    const routePluginsStatus = vi.fn(async () => ({
-      data: {
-        schemaVersion: 1,
-        serverMode: "ide",
-        plugins: [],
+        status: {
+          schemaVersion: 1,
+          serverMode: "ide",
+          plugins: [],
+        },
       },
       status: 200,
       hasResponse: true,
@@ -43,8 +42,7 @@ describe("plugin runtime bootstrap", () => {
       >("utils/generatedEndpoints");
       return {
         ...actual,
-        route_plugins_list: routePluginsList,
-        route_plugins_status: routePluginsStatus,
+        route_plugins_runtime: routePluginsRuntime,
       };
     });
 
@@ -64,13 +62,11 @@ describe("plugin runtime bootstrap", () => {
     runtime.usePluginRuntimeBootstrap(true);
     await Promise.resolve();
     await Promise.resolve();
-    expect(routePluginsList).toHaveBeenCalledTimes(1);
-    expect(routePluginsStatus).toHaveBeenCalledTimes(1);
+    expect(routePluginsRuntime).toHaveBeenCalledTimes(1);
 
     runtime.usePluginRuntimeBootstrap(false);
     await Promise.resolve();
     await Promise.resolve();
-    expect(routePluginsList).toHaveBeenCalledTimes(1);
-    expect(routePluginsStatus).toHaveBeenCalledTimes(1);
+    expect(routePluginsRuntime).toHaveBeenCalledTimes(1);
   });
 });

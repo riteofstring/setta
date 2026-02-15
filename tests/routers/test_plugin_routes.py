@@ -142,16 +142,6 @@ def test_plugin_routes_link_and_asset_roundtrip() -> None:
                 "setta-fixture-frontend"
             )
 
-            restart_capability_response = client.get(
-                f"{Route.PREFIX.value}{Route.PLUGINS_RESTART_CAPABILITY.value}"
-            )
-            assert restart_capability_response.status_code == 200
-            assert restart_capability_response.json() == {
-                "mode": "manual",
-                "command": "setta",
-                "reason": "Programmatic restart is not available in this runtime.",
-            }
-
             restart_response = client.post(
                 f"{Route.PREFIX.value}{Route.PLUGINS_RESTART.value}",
             )
@@ -357,8 +347,8 @@ def test_plugin_install_route_rejects_removed_environment_scope() -> None:
             assert "setta_files" in response.text
 
 
-def test_plugin_restart_routes_support_programmatic_mode() -> None:
-    # Restart contract routes should expose programmatic mode when callback support exists.
+def test_plugin_restart_route_supports_programmatic_mode() -> None:
+    # Restart route should expose programmatic mode when callback support exists.
     with TemporaryDirectory() as tmpdir:
         root = Path(tmpdir)
         workspace_root = root / "workspace"
@@ -384,16 +374,6 @@ def test_plugin_restart_routes_support_programmatic_mode() -> None:
         app = _build_test_app(manager=manager, deployment_mode=False)
 
         with TestClient(app) as client:
-            capability_response = client.get(
-                f"{Route.PREFIX.value}{Route.PLUGINS_RESTART_CAPABILITY.value}"
-            )
-            assert capability_response.status_code == 200
-            assert capability_response.json() == {
-                "mode": "programmatic",
-                "command": None,
-                "reason": None,
-            }
-
             restart_response = client.post(
                 f"{Route.PREFIX.value}{Route.PLUGINS_RESTART.value}"
             )

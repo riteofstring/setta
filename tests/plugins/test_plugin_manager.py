@@ -3362,6 +3362,39 @@ def test_backend_plugin_worker_transport_error_is_reported(tmp_path: Path) -> No
     assert "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR" in error_codes
 
 
+def test_backend_plugin_stdout_logs_do_not_corrupt_worker_transport(
+    tmp_path: Path,
+) -> None:
+    # Import-time plugin stdout logs should be redirected away from JSON-RPC transport.
+    manager = _make_manager(tmp_path)
+    backend_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    entrypoint_path = backend_root / "backend" / "entrypoint.py"
+    original_entrypoint = entrypoint_path.read_text(encoding="utf-8")
+    entrypoint_path.write_text(
+        "print('plugin-import-log')\n" + original_entrypoint,
+        encoding="utf-8",
+    )
+    manager.rescan()
+
+    manager.load_backend_plugins(app=FastAPI())
+
+    backend_entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(backend_entries) == 1
+    assert backend_entries[0].state == PluginRuntimeState.active
+    error_codes = {error.code for error in backend_entries[0].errors}
+    assert "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR" not in error_codes
+
+
 def test_backend_plugin_handshake_api_mismatch_is_reported(tmp_path: Path) -> None:
     # Worker handshake API mismatches should invalidate the backend plugin deterministically.
     manager = _make_manager(tmp_path)

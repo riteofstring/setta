@@ -19,6 +19,8 @@ def _build_fixture_target_sandbox(tmp_path: Path) -> Path:
     (root / "frontend" / "tests" / "e2e" / "editor").mkdir(
         parents=True, exist_ok=True
     )
+    (root / "tests" / "project_state").mkdir(parents=True, exist_ok=True)
+    (root / "tests" / "plugins").mkdir(parents=True, exist_ok=True)
     (root / "frontend" / "tests" / "e2e" / "overview" / "plugin-pane.spec.ts").write_text(
         "import { test } from '@playwright/test';\n",
         encoding="utf-8",
@@ -29,6 +31,14 @@ def _build_fixture_target_sandbox(tmp_path: Path) -> Path:
     )
     (root / "frontend" / "tests" / "e2e" / "editor" / "section-style-colors.spec.ts").write_text(
         "import { test } from '@playwright/test';\n",
+        encoding="utf-8",
+    )
+    (root / "tests" / "project_state" / "test_project_config_view_modes.py").write_text(
+        "def test_project_config_view_modes() -> None:\n    assert True\n",
+        encoding="utf-8",
+    )
+    (root / "tests" / "plugins" / "test_plugin_runtime.py").write_text(
+        "def test_plugin_runtime() -> None:\n    assert True\n",
         encoding="utf-8",
     )
 
@@ -90,4 +100,51 @@ def test_playwright_fixture_selection_honors_plugin_grep_selector(
         sandbox_root,
         "playwright",
         ["--grep", "plugin pane flow"],
+    )
+
+
+def test_pytest_fixture_selection_skips_non_plugin_selector_with_target(
+    tmp_path: Path,
+) -> None:
+    # Selector + explicit non-plugin target should skip fixture prep unless selector hints plugins.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+
+    assert not _should_build_for_targets(
+        sandbox_root,
+        "pytest",
+        [
+            "-k",
+            "project_config",
+            "tests/project_state/test_project_config_view_modes.py",
+        ],
+    )
+
+
+def test_pytest_fixture_selection_builds_for_selector_only_runs(
+    tmp_path: Path,
+) -> None:
+    # Selector-only pytest runs should remain conservative and build fixtures.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+
+    assert _should_build_for_targets(
+        sandbox_root,
+        "pytest",
+        ["-k", "project_config"],
+    )
+
+
+def test_pytest_fixture_selection_builds_when_selector_mentions_plugins(
+    tmp_path: Path,
+) -> None:
+    # Selector hints should trigger fixture prep even with explicit non-plugin targets.
+    sandbox_root = _build_fixture_target_sandbox(tmp_path)
+
+    assert _should_build_for_targets(
+        sandbox_root,
+        "pytest",
+        [
+            "-k",
+            "plugin runtime",
+            "tests/project_state/test_project_config_view_modes.py",
+        ],
     )

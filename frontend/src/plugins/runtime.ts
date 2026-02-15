@@ -6,11 +6,7 @@ import { useProjectState, useShareSession } from "state/definitions";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
-import {
-  route_plugins_list,
-  route_plugins_runtime,
-  route_plugins_status,
-} from "utils/generatedEndpoints";
+import { route_plugins_runtime } from "utils/generatedEndpoints";
 import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
@@ -341,42 +337,16 @@ async function loadPluginRuntime(): Promise<void> {
     statusMessage: null,
   }));
 
-  let listResponse: Awaited<ReturnType<typeof route_plugins_list>>;
-  let statusResponse: Awaited<ReturnType<typeof route_plugins_status>>;
-
   const runtimeResponse = await route_plugins_runtime();
-  if (res200(runtimeResponse)) {
-    listResponse = {
-      data: runtimeResponse.data.list,
-      status: 200,
-      hasResponse: true,
-    };
-    statusResponse = {
-      data: runtimeResponse.data.status,
-      status: 200,
-      hasResponse: true,
-    };
-  } else {
-    [listResponse, statusResponse] = await Promise.all([
-      route_plugins_list(),
-      route_plugins_status(),
-    ]);
-  }
-  if (!res200(listResponse)) {
+  if (!res200(runtimeResponse)) {
     setPluginRuntimeLoadError(
-      buildPluginRequestErrorMessage("plugins list", listResponse),
-    );
-    return;
-  }
-  if (!res200(statusResponse)) {
-    setPluginRuntimeLoadError(
-      buildPluginRequestErrorMessage("plugins status", statusResponse),
+      buildPluginRequestErrorMessage("plugins runtime", runtimeResponse),
     );
     return;
   }
 
-  const listData = listResponse.data;
-  const statusData = statusResponse.data;
+  const listData = runtimeResponse.data.list;
+  const statusData = runtimeResponse.data.status;
 
   const pluginListById = mapPluginListById(listData);
   const pluginStatusById = mapPrimaryStatusByPluginId(statusData);
@@ -591,8 +561,8 @@ type LoadPluginFrontendResult = {
 function shouldLoadPluginFrontend(
   statusEntry: PluginStatusEntry | undefined,
 ): boolean {
-  if (!statusEntry) {
-    return true;
+  if (statusEntry === undefined) {
+    return false;
   }
   return (
     statusEntry.state === PluginRuntimeStateEnum.active ||
@@ -1961,7 +1931,7 @@ export function usePluginStatusEntries(): PluginStatusEntry[] {
 export function getPluginSectionFallbackReason(
   pluginId: string,
   kind: string,
-): PluginSectionFallbackReason {
+): PluginSectionFallbackReason | null {
   return computePluginSectionFallbackReason(
     usePluginRuntimeStore.getState(),
     pluginId,
@@ -1972,7 +1942,7 @@ export function getPluginSectionFallbackReason(
 export function usePluginSectionFallbackReason(
   pluginId: string,
   kind: string,
-): PluginSectionFallbackReason {
+): PluginSectionFallbackReason | null {
   return usePluginRuntimeStore((state) =>
     computePluginSectionFallbackReason(state, pluginId, kind),
   );
@@ -1982,7 +1952,7 @@ export function computePluginSectionFallbackReason(
   state: PluginRuntimeStore,
   pluginId: string,
   kind: string,
-): PluginSectionFallbackReason {
+): PluginSectionFallbackReason | null {
   const statusEntry = state.pluginStatusById[pluginId];
   if (!statusEntry) {
     return PluginSectionFallbackReasonEnum.plugin_not_installed;
@@ -2009,7 +1979,7 @@ export function computePluginSectionFallbackReason(
     return PluginSectionFallbackReasonEnum.section_kind_missing;
   }
 
-  return PluginSectionFallbackReasonEnum.section_kind_missing;
+  return null;
 }
 
 function isCapabilityBlocked(

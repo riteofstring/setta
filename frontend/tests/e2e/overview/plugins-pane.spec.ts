@@ -341,6 +341,68 @@ test("plugins pane shows install confirmation trust and provenance summary", asy
   ).toBeVisible();
 });
 
+test("plugins pane fails fast on runtime endpoint errors without list/status fallback", async ({
+  page,
+}) => {
+  let listCalls = 0;
+  let statusCalls = 0;
+  allowExpectedApiError(page, {
+    path: "/api/plugins/runtime",
+    method: "GET",
+    statuses: [503],
+    count: 5,
+  });
+
+  await page.route("**/api/plugins/runtime", async (route) => {
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({
+        code: "PLUGIN_RUNTIME_UNAVAILABLE",
+        message: "Runtime endpoint unavailable.",
+      }),
+    });
+  });
+  await page.route("**/api/plugins/list", async (route) => {
+    listCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        schemaVersion: 1,
+        serverMode: "ide",
+        restartCapability: {
+          mode: "manual",
+          command: "setta",
+          reason: "Programmatic restart is not available in this runtime.",
+        },
+        plugins: [],
+      }),
+    });
+  });
+  await page.route("**/api/plugins/status", async (route) => {
+    statusCalls += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        schemaVersion: 1,
+        serverMode: "ide",
+        plugins: [],
+      }),
+    });
+  });
+
+  await setOverviewTab(page, "Plugins");
+  await openIsolatedProject(page);
+  await expect(page.getByText("Plugin Runtime")).toBeVisible();
+  await expect(
+    page.getByText("Failed to fetch plugins runtime: status 503."),
+  ).toBeVisible();
+  expect(listCalls).toBe(0);
+  expect(statusCalls).toBe(0);
+});
+
 test("plugins pane shows package-manager guidance and disables managed write actions", async ({
   page,
 }) => {

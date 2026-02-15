@@ -14,7 +14,6 @@ from setta.plugins.models import (
     PluginListResponse,
     PluginLockApplyResponse,
     PluginLockWriteResponse,
-    PluginRestartCapability,
     PluginRollbackResponse,
     PluginRuntimeResponse,
     PluginsRescanResponse,
@@ -110,13 +109,6 @@ def route_plugins_runtime(state: AppStateFromRequest) -> PluginRuntimeResponse:
 @router.post(Route.PLUGINS_RESCAN, dependencies=[Depends(require_ide_mode)])
 def route_plugins_rescan(state: AppStateFromRequest) -> PluginsRescanResponse:
     return _manager(state).rescan()
-
-
-@router.get(Route.PLUGINS_RESTART_CAPABILITY)
-def route_plugins_restart_capability(
-    state: AppStateFromRequest,
-) -> PluginRestartCapability:
-    return _manager(state).get_restart_capability()
 
 
 @router.post(Route.PLUGINS_RESTART, dependencies=[Depends(require_ide_mode)])

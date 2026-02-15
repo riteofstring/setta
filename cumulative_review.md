@@ -204,3 +204,16 @@
 - Removed dead backend runtime reset branching by making shutdown state reset unconditionally clear registered backend MCP tools.
 - Unified plugin fixture-target selection heuristics in shared script helpers and updated both backend and Playwright test runners to consume the shared logic for path/selector-aware fixture preparation.
 - Added/updated backend pytest, frontend Vitest, and Playwright E2E coverage for all changed paths (including runtime endpoint assertions and new fixture-target selection tests), and completed CDP verification of plugin loading/fallback behavior.
+
+## 2026-02-16T12:01:59-08:00
+
+- Implemented the remaining review findings end-to-end, excluding backward-compatibility shims.
+- Hardened plugin backend worker transport by reserving protocol stdout for JSON-RPC and redirecting plugin stdout logs to stderr, preventing import/register `print(...)` noise from corrupting host-worker framing.
+- Fixed CLI plugin command error handling so lookup-rescan failures are consistently wrapped as structured `ClickException` output across shared scoped mutation flows and direct `enable`/`disable`/`unlink` commands.
+- Removed the redundant `/plugins/restart-capability` API route and generated frontend endpoint surface; restart capability now stays sourced from runtime/list/status payloads.
+- Simplified frontend runtime loading to a single authoritative `/plugins/runtime` contract (removed list/status fallback), and made runtime errors fail fast with one clear status surface.
+- Corrected runtime semantics by requiring an explicit plugin status row before frontend module load, and by making `computePluginSectionFallbackReason(...)` return `null` when no fallback condition applies.
+- Reduced Plugins pane refresh overhead by removing redundant client-side status sorting and consuming backend-provided ordering directly.
+- Optimized backend runtime response assembly with a single runtime snapshot build path instead of constructing list/status independently via duplicated top-level calls.
+- Improved fixture/test-runner target gating: pytest selector handling now avoids forced plugin-fixture builds for explicit non-plugin targets, and Playwright fixture/artifact seeding now follows one shared target-aware gating decision.
+- Added/updated backend unit/integration tests, frontend Vitest tests, and Playwright E2E coverage for all changed paths (including no-fallback runtime error behavior); verified with targeted runs (`pytest` subset: 357 passed, `vitest` subset: 89 passed, targeted Playwright spec: passing) and completed CDP visual verification of the Plugins pane runtime error/loaded states.
