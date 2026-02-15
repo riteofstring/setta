@@ -282,8 +282,10 @@ class TestLLMConfigPersistence:
             loaded = load_llm_config(dbe)
 
             assert "claude-sonnet" in loaded.configs
+            assert "openai-whisper-1" in loaded.configs
             persisted = dbe.read_llm_config()
             assert "claude-sonnet" in persisted.get("configs", {})
+            assert "openai-whisper-1" in persisted.get("configs", {})
 
 
 class TestLLMConfigExampleSeeding:
@@ -296,7 +298,9 @@ class TestLLMConfigExampleSeeding:
             payload = dbe.read_llm_config_example()
             configs = payload.get("configs", {})
             assert "claude-sonnet" in configs
+            assert "openai-whisper-1" in configs
             assert "id" not in configs["claude-sonnet"]
+            assert "id" not in configs["openai-whisper-1"]
             assert "context7" not in payload.get("mcpServers", {})
 
     def test_seed_llm_config_example_file_preserves_existing_file(self) -> None:
