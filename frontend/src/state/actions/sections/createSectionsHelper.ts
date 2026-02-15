@@ -11,12 +11,18 @@ import {
   CodeLanguageEnum,
   CodeObjTypeEnum,
   createSectionSize,
+  DateCalendarWeekStart,
+  DateCalendarWeekStartEnum,
+  DateControlMode,
+  DateControlModeEnum,
+  DateSelectionMode,
+  DateSelectionModeEnum,
   Position,
   SectionTypeEnum,
-  TimeControlMode,
-  TimeControlModeEnum,
   TextParamInputUIType,
   TextParamInputUITypeEnum,
+  TimeControlMode,
+  TimeControlModeEnum,
 } from "utils/generatedTypes";
 import { focusOnSectionSearch } from "utils/tabbingLogic";
 import { createTopLevelSection } from "./createSections";
@@ -24,6 +30,9 @@ import { createTopLevelSection } from "./createSections";
 type ControlParamConfig = {
   uiType?: TextParamInputUIType;
   timeControlMode?: TimeControlMode;
+  dateControlMode?: DateControlMode;
+  dateSelectionMode?: DateSelectionMode;
+  dateCalendarWeekStart?: DateCalendarWeekStart;
 };
 
 export type CreateSectionsContextMenuInfo = {
@@ -172,17 +181,20 @@ export function useCreateSectionsList() {
       controlCodeObjType: CodeObjTypeEnum.TextParam,
     },
     {
-      name: "Date Picker",
+      name: "Calendar",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
       },
       controlCodeObjType: CodeObjTypeEnum.TextParam,
       controlParamConfig: {
         uiType: TextParamInputUITypeEnum.date,
+        dateControlMode: DateControlModeEnum.calendar,
+        dateSelectionMode: DateSelectionModeEnum.multiple,
+        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
       },
     },
     {
-      name: "Time Input",
+      name: "Time Display",
       implSpecs: {
         type: SectionTypeEnum.MetaControl,
       },
@@ -307,7 +319,9 @@ function getMetaControlParamId(sectionId: string): string | null {
   return impl.metaControlParamId;
 }
 
-async function waitForMetaControlParamId(sectionId: string): Promise<string | null> {
+async function waitForMetaControlParamId(
+  sectionId: string,
+): Promise<string | null> {
   const attempts = 45;
   for (let idx = 0; idx < attempts; idx += 1) {
     const paramId = getMetaControlParamId(sectionId);

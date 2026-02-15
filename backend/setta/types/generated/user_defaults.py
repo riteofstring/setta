@@ -11,7 +11,10 @@ from setta.types.artifact import DrawAreaBrushShape, DrawAreaLayer, DrawAreaMode
 from setta.types.code_obj_impls import (
     ButtonActionMode,
     ColorPickerChoice,
+    DateCalendarWeekStart,
+    DateControlMode,
     DateDisplayFormat,
+    DateSelectionMode,
     DropzoneMode,
     HttpRequestMethod,
     ParamNameType,
@@ -295,6 +298,9 @@ class UserDefaultTextParamCodeObjImpl(
     timeControlMode: TimeControlMode = TimeControlMode.display
     timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
     dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.iso
+    dateControlMode: DateControlMode = DateControlMode.input
+    dateSelectionMode: DateSelectionMode = DateSelectionMode.single
+    dateCalendarWeekStart: DateCalendarWeekStart = DateCalendarWeekStart.sunday
 
 
 class UserDefaultButtonParamCodeObjImpl(

@@ -19,7 +19,10 @@ from setta.types.chat_messages import (
 from setta.types.code_obj_impls import (
     ButtonActionMode,
     ColorPickerChoice,
+    DateCalendarWeekStart,
+    DateControlMode,
     DateDisplayFormat,
+    DateSelectionMode,
     DropzoneMode,
     HttpRequestMethod,
     ParameterPassingStyle,
@@ -91,7 +94,10 @@ class SharedModifier(TypedDict):
     coreNameEditable: NotRequired[bool]
     coreNameType: NotRequired[ParamNameType]
     dataPath: NotRequired[str]
+    dateCalendarWeekStart: NotRequired[DateCalendarWeekStart]
+    dateControlMode: NotRequired[DateControlMode]
     dateDisplayFormat: NotRequired[DateDisplayFormat]
+    dateSelectionMode: NotRequired[DateSelectionMode]
     defaultChildSectionType: NotRequired[SectionType]
     defaultVal: NotRequired[str]
     density: NotRequired[SpreadsheetGridDensity]

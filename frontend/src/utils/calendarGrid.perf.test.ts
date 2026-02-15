@@ -1,4 +1,4 @@
-import { CalendarWeekStartEnum } from "utils/generatedTypes";
+import { DateCalendarWeekStartEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import { buildCalendarMonthGrid, shiftCalendarMonth } from "./calendarGrid";
 
@@ -12,8 +12,8 @@ describe("calendar grid performance", () => {
     for (let i = 0; i < iterations; i += 1) {
       const weekStart =
         i % 2 === 0
-          ? CalendarWeekStartEnum.sunday
-          : CalendarWeekStartEnum.monday;
+          ? DateCalendarWeekStartEnum.sunday
+          : DateCalendarWeekStartEnum.monday;
       const grid = buildCalendarMonthGrid({
         year: anchor.year,
         monthIndex: anchor.monthIndex,

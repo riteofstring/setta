@@ -32,19 +32,18 @@ import {
   BinaryDependencyValue,
   ButtonActionModeEnum,
   CodeObjTypeEnum,
-  DateDisplayFormat,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
   DateDisplayFormatEnum,
+  DateSelectionModeEnum,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   DropzoneModeEnum,
   HttpRequestMethodEnum,
   LiteralDependencyValue,
   SectionTypeEnum,
-  TextParamInputUIType,
   TextParamInputUITypeEnum,
-  TimeControlMode,
   TimeControlModeEnum,
-  TimeDisplayFormat,
   TimeDisplayFormatEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
@@ -110,6 +109,9 @@ function MetaControlValueArea({
     timeControlMode,
     timeDisplayFormat,
     dateDisplayFormat,
+    dateControlMode,
+    dateSelectionMode,
+    dateCalendarWeekStart,
   } = useProjectState((x) => {
     const sectionName = getSectionCore(x, sectionId).name;
     const paramDisplayName = getParamDisplayName(x, sectionId, controlParamId);
@@ -143,9 +145,12 @@ function MetaControlValueArea({
         dropzoneMaxAttachments: null,
         dropzonePlaceholder: null,
         textParamUiType: TextParamInputUITypeEnum.plain,
-        timeControlMode: TimeControlModeEnum.input,
+        timeControlMode: TimeControlModeEnum.display,
         timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
         dateDisplayFormat: DateDisplayFormatEnum.iso,
+        dateControlMode: DateControlModeEnum.input,
+        dateSelectionMode: DateSelectionModeEnum.single,
+        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
       };
     }
     const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
@@ -173,13 +178,22 @@ function MetaControlValueArea({
         : TextParamInputUITypeEnum.plain,
       timeControlMode: isTextParam
         ? childlessImpl.timeControlMode
-        : TimeControlModeEnum.input,
+        : TimeControlModeEnum.display,
       timeDisplayFormat: isTextParam
         ? childlessImpl.timeDisplayFormat
         : TimeDisplayFormatEnum.twenty_four_hour,
       dateDisplayFormat: isTextParam
         ? childlessImpl.dateDisplayFormat
         : DateDisplayFormatEnum.iso,
+      dateControlMode: isTextParam
+        ? childlessImpl.dateControlMode
+        : DateControlModeEnum.input,
+      dateSelectionMode: isTextParam
+        ? childlessImpl.dateSelectionMode
+        : DateSelectionModeEnum.single,
+      dateCalendarWeekStart: isTextParam
+        ? childlessImpl.dateCalendarWeekStart
+        : DateCalendarWeekStartEnum.sunday,
     };
   }, _.isEqual);
 
@@ -346,6 +360,9 @@ function MetaControlValueArea({
           timeControlMode={timeControlMode}
           timeDisplayFormat={timeDisplayFormat}
           dateDisplayFormat={dateDisplayFormat}
+          dateControlMode={dateControlMode}
+          dateSelectionMode={dateSelectionMode}
+          dateCalendarWeekStart={dateCalendarWeekStart}
           showSectionTitle={showSectionTitle}
         />
       )}

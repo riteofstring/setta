@@ -23,12 +23,12 @@ const CODE_OBJ_TYPE_FILTERS = {
   sectionParam: SectionParamCodeObjTypeSet,
 } as const;
 
-export const DATE_PICKER_PRESET_ID = "__setta_text_param_date_picker__";
-export const TIME_INPUT_PRESET_ID = "__setta_text_param_time_input__";
+export const CALENDAR_PRESET_ID = "__setta_text_param_calendar__";
+export const TIME_DISPLAY_PRESET_ID = "__setta_text_param_time_display__";
 
 const TEXT_PARAM_VIRTUAL_PRESET_ITEMS: ComboboxItemArrayType<string> = [
-  { id: DATE_PICKER_PRESET_ID, name: "Date Picker - (TextParam)" },
-  { id: TIME_INPUT_PRESET_ID, name: "Time Input - (TextParam)" },
+  { id: CALENDAR_PRESET_ID, name: "Calendar - (TextParam)" },
+  { id: TIME_DISPLAY_PRESET_ID, name: "Time Display - (TextParam)" },
 ];
 
 export function getVirtualTextParamPresetItemsForFilter(

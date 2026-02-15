@@ -17,11 +17,19 @@ import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import { focusOnSection } from "utils/focusManager";
 import {
   CodeObjTypeEnum,
+  DateCalendarWeekStart,
+  DateCalendarWeekStartEnum,
+  DateControlMode,
+  DateControlModeEnum,
   DateDisplayFormat,
   DateDisplayFormatEnum,
+  DateSelectionMode,
+  DateSelectionModeEnum,
   DropzoneModeEnum,
   TextParamInputUIType,
   TextParamInputUITypeEnum,
+  TimeControlMode,
+  TimeControlModeEnum,
   TimeDisplayFormat,
   TimeDisplayFormatEnum,
   isBaseChildlessCodeObjImpl,
@@ -141,8 +149,12 @@ export function ParamUI({
     dropzoneMaxAttachments,
     dropzonePlaceholder,
     textParamUiType,
+    timeControlMode,
     timeDisplayFormat,
     dateDisplayFormat,
+    dateControlMode,
+    dateSelectionMode,
+    dateCalendarWeekStart,
     allowUnquotedStringArgs,
     typeAnnotation,
   } = useProjectState((x) => {
@@ -178,12 +190,24 @@ export function ParamUI({
       textParamUiType: isTextParam
         ? codeObjImpl.uiType
         : TextParamInputUITypeEnum.plain,
+      timeControlMode: isTextParam
+        ? codeObjImpl.timeControlMode
+        : TimeControlModeEnum.display,
       timeDisplayFormat: isTextParam
         ? codeObjImpl.timeDisplayFormat
         : TimeDisplayFormatEnum.twenty_four_hour,
       dateDisplayFormat: isTextParam
         ? codeObjImpl.dateDisplayFormat
         : DateDisplayFormatEnum.iso,
+      dateControlMode: isTextParam
+        ? codeObjImpl.dateControlMode
+        : DateControlModeEnum.input,
+      dateSelectionMode: isTextParam
+        ? codeObjImpl.dateSelectionMode
+        : DateSelectionModeEnum.single,
+      dateCalendarWeekStart: isTextParam
+        ? codeObjImpl.dateCalendarWeekStart
+        : DateCalendarWeekStartEnum.sunday,
       allowUnquotedStringArgs: impl.allowUnquotedStringArgs,
       typeAnnotation: isCodeParam ? codeObjImpl.typeAnnotation : "",
     };
@@ -262,8 +286,12 @@ export function ParamUI({
           onEscape={onEscape}
           isDisabled={isDisabled}
           uiType={textParamUiType}
+          timeControlMode={timeControlMode}
           timeDisplayFormat={timeDisplayFormat}
           dateDisplayFormat={dateDisplayFormat}
+          dateControlMode={dateControlMode}
+          dateSelectionMode={dateSelectionMode}
+          dateCalendarWeekStart={dateCalendarWeekStart}
         />
       );
     case CodeObjTypeEnum.SliderParam:
@@ -423,16 +451,24 @@ function TextParamDateTimeConfigured({
   onEscape,
   isDisabled,
   uiType,
+  timeControlMode,
   timeDisplayFormat,
   dateDisplayFormat,
+  dateControlMode,
+  dateSelectionMode,
+  dateCalendarWeekStart,
 }: {
   value: string;
   onChange: ParamValueChange;
   onEscape: () => void;
   isDisabled: boolean;
   uiType: TextParamInputUIType;
+  timeControlMode: TimeControlMode;
   timeDisplayFormat: TimeDisplayFormat;
   dateDisplayFormat: DateDisplayFormat;
+  dateControlMode: DateControlMode;
+  dateSelectionMode: DateSelectionMode;
+  dateCalendarWeekStart: DateCalendarWeekStart;
 }) {
   return (
     <TextParamDateTimeInput
@@ -441,8 +477,12 @@ function TextParamDateTimeConfigured({
       onEscape={onEscape}
       isDisabled={isDisabled}
       uiType={uiType}
+      timeControlMode={timeControlMode}
       timeDisplayFormat={timeDisplayFormat}
       dateDisplayFormat={dateDisplayFormat}
+      dateControlMode={dateControlMode}
+      dateSelectionMode={dateSelectionMode}
+      dateCalendarWeekStart={dateCalendarWeekStart}
     />
   );
 }

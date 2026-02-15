@@ -494,6 +494,22 @@ export const CodeObjTypeEnum = {
 
 export type CodeObjType = ObjectValues<typeof CodeObjTypeEnum>;
 
+export const DateCalendarWeekStartEnum = {
+  sunday: "sunday",
+  monday: "monday",
+} as const;
+
+export type DateCalendarWeekStart = ObjectValues<
+  typeof DateCalendarWeekStartEnum
+>;
+
+export const DateControlModeEnum = {
+  input: "input",
+  calendar: "calendar",
+} as const;
+
+export type DateControlMode = ObjectValues<typeof DateControlModeEnum>;
+
 export const DateDisplayFormatEnum = {
   iso: "iso",
   us: "us",
@@ -502,6 +518,13 @@ export const DateDisplayFormatEnum = {
 } as const;
 
 export type DateDisplayFormat = ObjectValues<typeof DateDisplayFormatEnum>;
+
+export const DateSelectionModeEnum = {
+  single: "single",
+  multiple: "multiple",
+} as const;
+
+export type DateSelectionMode = ObjectValues<typeof DateSelectionModeEnum>;
 
 export const DropzoneModeEnum = {
   STATEFUL: "STATEFUL",
@@ -2349,7 +2372,10 @@ export const AllImplFieldsSchema = z.literal([
   "coreNameEditable",
   "coreNameType",
   "dataPath",
+  "dateCalendarWeekStart",
+  "dateControlMode",
   "dateDisplayFormat",
+  "dateSelectionMode",
   "defaultChildSectionType",
   "defaultVal",
   "density",
@@ -2884,7 +2910,10 @@ export const SharedModifierSchema = z.object({
   coreNameEditable: z.boolean().optional(),
   coreNameType: z.enum(ParamNameTypeEnum).optional(),
   dataPath: z.string().optional(),
+  dateCalendarWeekStart: z.enum(DateCalendarWeekStartEnum).optional(),
+  dateControlMode: z.enum(DateControlModeEnum).optional(),
   dateDisplayFormat: z.enum(DateDisplayFormatEnum).optional(),
+  dateSelectionMode: z.enum(DateSelectionModeEnum).optional(),
   defaultChildSectionType: z.enum(SectionTypeEnum).optional(),
   defaultVal: z.string().optional(),
   density: z.enum(SpreadsheetGridDensityEnum).optional(),
@@ -3040,7 +3069,10 @@ export const CoreSchema = z.object({
         "coreNameEditable",
         "coreNameType",
         "dataPath",
+        "dateCalendarWeekStart",
+        "dateControlMode",
         "dateDisplayFormat",
+        "dateSelectionMode",
         "defaultChildSectionType",
         "defaultVal",
         "density",
@@ -3881,17 +3913,17 @@ export const TaskBoardSectionImplSchema = z.object({
     .array(TaskBoardColumnSchema)
     .default(() => [
       createTaskBoardColumn({
-        id: "78e73846-800b-457b-bf62-5a30dbc62851" as const,
+        id: "32428030-407d-4923-8107-8d9c9cad1ce7" as const,
         name: "Todo" as const,
       }),
       createTaskBoardColumn({
-        id: "5623bc0b-39c5-44fd-a30d-f1205cee838b" as const,
+        id: "2fea2882-e6fc-4bca-b4e7-d2d6bec36642" as const,
         name: "Doing" as const,
         color: "#a855f7" as const,
         sortIndex: 1,
       }),
       createTaskBoardColumn({
-        id: "3b025df3-2a68-43f0-946a-014d1205fd77" as const,
+        id: "6251a3c6-7ed7-434f-8e1b-41c5baff364a" as const,
         name: "Done" as const,
         color: "#10b981" as const,
         sortIndex: 2,
@@ -4051,6 +4083,15 @@ export const TextParamCodeObjImplSchema = z.object({
   dateDisplayFormat: z
     .enum(DateDisplayFormatEnum)
     .default(DateDisplayFormatEnum.iso),
+  dateControlMode: z
+    .enum(DateControlModeEnum)
+    .default(DateControlModeEnum.input),
+  dateSelectionMode: z
+    .enum(DateSelectionModeEnum)
+    .default(DateSelectionModeEnum.single),
+  dateCalendarWeekStart: z
+    .enum(DateCalendarWeekStartEnum)
+    .default(DateCalendarWeekStartEnum.sunday),
 });
 
 export type TextParamCodeObjImpl = z.infer<typeof TextParamCodeObjImplSchema>;
@@ -5026,6 +5067,9 @@ export const TextParamCodeObjImplArgsSchema = z.object({
   timeControlMode: z.enum(TimeControlModeEnum).optional(),
   timeDisplayFormat: z.enum(TimeDisplayFormatEnum).optional(),
   dateDisplayFormat: z.enum(DateDisplayFormatEnum).optional(),
+  dateControlMode: z.enum(DateControlModeEnum).optional(),
+  dateSelectionMode: z.enum(DateSelectionModeEnum).optional(),
+  dateCalendarWeekStart: z.enum(DateCalendarWeekStartEnum).optional(),
 });
 
 export type TextParamCodeObjImplArgs = z.infer<
@@ -9061,17 +9105,17 @@ export const UserDefaultTaskBoardSectionImplSchema = z.object({
     .array(TaskBoardColumnSchema)
     .default(() => [
       createTaskBoardColumn({
-        id: "dc693b45-2fc8-4a33-ba74-2862b0d3bfd3" as const,
+        id: "252e7bf8-1826-48ca-b826-6a460a4888cd" as const,
         name: "Todo" as const,
       }),
       createTaskBoardColumn({
-        id: "5e0ae062-7c20-4b9e-85bb-cf344a5593db" as const,
+        id: "319447d9-818c-4953-b34b-c20d0701f0cb" as const,
         name: "Doing" as const,
         color: "#a855f7" as const,
         sortIndex: 1,
       }),
       createTaskBoardColumn({
-        id: "67069841-e051-4711-9166-a0efb73b3b10" as const,
+        id: "fcc9d472-8f24-4457-a273-24e993f7acbb" as const,
         name: "Done" as const,
         color: "#10b981" as const,
         sortIndex: 2,
@@ -9447,6 +9491,15 @@ export const UserDefaultTextParamCodeObjImplSchema = z.object({
   dateDisplayFormat: z
     .enum(DateDisplayFormatEnum)
     .default(DateDisplayFormatEnum.iso),
+  dateControlMode: z
+    .enum(DateControlModeEnum)
+    .default(DateControlModeEnum.input),
+  dateSelectionMode: z
+    .enum(DateSelectionModeEnum)
+    .default(DateSelectionModeEnum.single),
+  dateCalendarWeekStart: z
+    .enum(DateCalendarWeekStartEnum)
+    .default(DateCalendarWeekStartEnum.sunday),
 });
 
 export type UserDefaultTextParamCodeObjImpl = z.infer<
@@ -12900,6 +12953,13 @@ export const TextParamCodeObjImplArgsWithCallableSchema = z.object({
   dateDisplayFormat: z
     .union([z.enum(DateDisplayFormatEnum), z.any()])
     .optional(),
+  dateControlMode: z.union([z.enum(DateControlModeEnum), z.any()]).optional(),
+  dateSelectionMode: z
+    .union([z.enum(DateSelectionModeEnum), z.any()])
+    .optional(),
+  dateCalendarWeekStart: z
+    .union([z.enum(DateCalendarWeekStartEnum), z.any()])
+    .optional(),
 });
 
 export type TextParamCodeObjImplArgsWithCallable = z.infer<
@@ -12959,7 +13019,10 @@ export const CoreArgsSchema = z.object({
         "coreNameEditable",
         "coreNameType",
         "dataPath",
+        "dateCalendarWeekStart",
+        "dateControlMode",
         "dateDisplayFormat",
+        "dateSelectionMode",
         "defaultChildSectionType",
         "defaultVal",
         "density",

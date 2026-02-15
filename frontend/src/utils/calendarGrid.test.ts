@@ -1,4 +1,4 @@
-import { CalendarWeekStartEnum } from "utils/generatedTypes";
+import { DateCalendarWeekStartEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   buildCalendarMonthGrid,
@@ -35,7 +35,7 @@ describe("calendarGrid utils", () => {
     const sundayGrid = buildCalendarMonthGrid({
       year: 2026,
       monthIndex: 2,
-      weekStartsOn: CalendarWeekStartEnum.sunday,
+      weekStartsOn: DateCalendarWeekStartEnum.sunday,
     });
     expect(sundayGrid).toHaveLength(42);
     expect(sundayGrid[0]?.isoDate).toBe("2026-03-01");
@@ -43,7 +43,7 @@ describe("calendarGrid utils", () => {
     const mondayGrid = buildCalendarMonthGrid({
       year: 2026,
       monthIndex: 2,
-      weekStartsOn: CalendarWeekStartEnum.monday,
+      weekStartsOn: DateCalendarWeekStartEnum.monday,
     });
     expect(mondayGrid).toHaveLength(42);
     expect(mondayGrid[0]?.isoDate).toBe("2026-02-23");

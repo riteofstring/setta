@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   CodeObjTypeEnum,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
   DateDisplayFormatEnum,
+  DateSelectionModeEnum,
   TimeControlModeEnum,
   TextParamInputUITypeEnum,
   TimeDisplayFormatEnum,
@@ -45,6 +48,7 @@ describe("MetaControlContent text param rendering", () => {
         showSectionTitle={false}
         onValueChange={vi.fn()}
         textParamUiType={TextParamInputUITypeEnum.time}
+        timeControlMode={TimeControlModeEnum.input}
         timeDisplayFormat={TimeDisplayFormatEnum.twelve_hour}
         dateDisplayFormat={DateDisplayFormatEnum.iso}
       />,
@@ -75,5 +79,30 @@ describe("MetaControlContent text param rendering", () => {
 
     expect(markup).not.toContain('type="time"');
     expect(markup).toContain("1:45 PM");
+  });
+
+  it("renders calendar controls when date control mode is calendar", () => {
+    const markup = renderToStaticMarkup(
+      <MetaControlContent
+        sectionId="section-1"
+        controlParamId="param-1"
+        sectionName="Calendar"
+        paramDisplayName="Calendar"
+        codeObjType={CodeObjTypeEnum.TextParam}
+        value=""
+        defaultVal=""
+        showSectionTitle={false}
+        onValueChange={vi.fn()}
+        textParamUiType={TextParamInputUITypeEnum.date}
+        timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
+        dateDisplayFormat={DateDisplayFormatEnum.iso}
+        dateControlMode={DateControlModeEnum.calendar}
+        dateSelectionMode={DateSelectionModeEnum.multiple}
+        dateCalendarWeekStart={DateCalendarWeekStartEnum.monday}
+      />,
+    );
+
+    expect(markup).toContain("Prev");
+    expect(markup).toContain("Next");
   });
 });

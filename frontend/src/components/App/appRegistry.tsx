@@ -54,7 +54,10 @@ import {
   BaseSectionImplUnion,
   CodeObjTypeEnum,
   ConfigLanguageEnum,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
   DateDisplayFormatEnum,
+  DateSelectionModeEnum,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   DropzoneModeEnum,
@@ -68,8 +71,8 @@ import {
   TimeDisplayFormatEnum,
 } from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
-import { formatTimeForDisplay } from "utils/textParamDateTime";
 import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
+import { formatTimeForDisplay } from "utils/textParamDateTime";
 import {
   resolveActionBinding,
   resolveActionType,
@@ -998,6 +1001,18 @@ function AppParamUI({
         "dateDisplayFormat" in codeObjImpl
           ? codeObjImpl.dateDisplayFormat
           : DateDisplayFormatEnum.iso;
+      const dateControlMode =
+        "dateControlMode" in codeObjImpl
+          ? codeObjImpl.dateControlMode
+          : DateControlModeEnum.input;
+      const dateSelectionMode =
+        "dateSelectionMode" in codeObjImpl
+          ? codeObjImpl.dateSelectionMode
+          : DateSelectionModeEnum.single;
+      const dateCalendarWeekStart =
+        "dateCalendarWeekStart" in codeObjImpl
+          ? codeObjImpl.dateCalendarWeekStart
+          : DateCalendarWeekStartEnum.sunday;
       const showDisplayOnlyTime =
         uiType === TextParamInputUITypeEnum.time &&
         timeControlMode === TimeControlModeEnum.display;
@@ -1010,7 +1025,7 @@ function AppParamUI({
           formattedTimeValue.trim().length > 0 ? formattedTimeValue : "--:--";
         return (
           <>
-            <span className="section-value self-end break-words font-mono [font-size:var(--app-text-sm)] text-[color:var(--app-text)]">
+            <span className="section-value self-end break-words font-mono text-[color:var(--app-text)] [font-size:var(--app-text-sm)]">
               {displayedTimeValue}
             </span>
             <span
@@ -1026,8 +1041,12 @@ function AppParamUI({
           onEscape={onEscape}
           isDisabled={isDisabled}
           uiType={uiType}
+          timeControlMode={timeControlMode}
           timeDisplayFormat={timeDisplayFormat}
           dateDisplayFormat={dateDisplayFormat}
+          dateControlMode={dateControlMode}
+          dateSelectionMode={dateSelectionMode}
+          dateCalendarWeekStart={dateCalendarWeekStart}
           inputClassName={`${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]`}
           formattedValueClassName="text-[10px] font-mono text-[color:var(--app-muted)]"
           borderClassName="section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]"

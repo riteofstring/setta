@@ -22,13 +22,19 @@ import {
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
 import {
   CodeObjTypeEnum,
+  DateCalendarWeekStart,
+  DateCalendarWeekStartEnum,
+  DateControlMode,
+  DateControlModeEnum,
   DateDisplayFormat,
   DateDisplayFormatEnum,
+  DateSelectionMode,
+  DateSelectionModeEnum,
   DropzoneModeEnum,
-  TimeControlMode,
-  TimeControlModeEnum,
   TextParamInputUIType,
   TextParamInputUITypeEnum,
+  TimeControlMode,
+  TimeControlModeEnum,
   TimeDisplayFormat,
   TimeDisplayFormatEnum,
 } from "utils/generatedTypes";
@@ -75,6 +81,9 @@ type MetaControlContentValueProps = {
   timeControlMode?: TimeControlMode;
   timeDisplayFormat?: TimeDisplayFormat;
   dateDisplayFormat?: DateDisplayFormat;
+  dateControlMode?: DateControlMode;
+  dateSelectionMode?: DateSelectionMode;
+  dateCalendarWeekStart?: DateCalendarWeekStart;
 };
 
 type MetaControlContentProps =
@@ -133,12 +142,21 @@ export function MetaControlContent(props: MetaControlContentProps) {
             showSectionTitle={showSectionTitle}
             onValueChange={onValueChange}
             uiType={props.textParamUiType}
-            timeControlMode={props.timeControlMode ?? TimeControlModeEnum.input}
+            timeControlMode={
+              props.timeControlMode ?? TimeControlModeEnum.display
+            }
             timeDisplayFormat={
               props.timeDisplayFormat ?? TimeDisplayFormatEnum.twenty_four_hour
             }
             dateDisplayFormat={
               props.dateDisplayFormat ?? DateDisplayFormatEnum.iso
+            }
+            dateControlMode={props.dateControlMode ?? DateControlModeEnum.input}
+            dateSelectionMode={
+              props.dateSelectionMode ?? DateSelectionModeEnum.single
+            }
+            dateCalendarWeekStart={
+              props.dateCalendarWeekStart ?? DateCalendarWeekStartEnum.sunday
             }
           />
         );
@@ -603,6 +621,9 @@ function DateTimeControl({
   timeControlMode,
   timeDisplayFormat,
   dateDisplayFormat,
+  dateControlMode,
+  dateSelectionMode,
+  dateCalendarWeekStart,
 }: {
   sectionName: string;
   value: string;
@@ -612,6 +633,9 @@ function DateTimeControl({
   timeControlMode: TimeControlMode;
   timeDisplayFormat: TimeDisplayFormat;
   dateDisplayFormat: DateDisplayFormat;
+  dateControlMode: DateControlMode;
+  dateSelectionMode: DateSelectionMode;
+  dateCalendarWeekStart: DateCalendarWeekStart;
 }) {
   const isTimeDisplayMode =
     uiType === TextParamInputUITypeEnum.time &&
@@ -642,8 +666,12 @@ function DateTimeControl({
             onChange={onValueChange}
             isDisabled={false}
             uiType={uiType}
+            timeControlMode={timeControlMode}
             timeDisplayFormat={timeDisplayFormat}
             dateDisplayFormat={dateDisplayFormat}
+            dateControlMode={dateControlMode}
+            dateSelectionMode={dateSelectionMode}
+            dateCalendarWeekStart={dateCalendarWeekStart}
             wrapperClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value single-cell-child flex min-w-0 items-center gap-2`}
             inputClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 cursor-text self-center font-mono text-xs text-[rgb(3,_47,_98);] selection:bg-blue-500/30 dark:text-[rgb(165,_214,_255)]`}
             formattedValueClassName="text-[10px] font-mono text-setta-500 dark:text-setta-400"

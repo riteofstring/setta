@@ -123,7 +123,13 @@ export type DropzoneConfigForFrontend = Pick<
 
 export type TextParamConfigForFrontend = Pick<
   TextParamCodeObjImpl,
-  "uiType" | "timeDisplayFormat" | "dateDisplayFormat"
+  | "uiType"
+  | "timeControlMode"
+  | "timeDisplayFormat"
+  | "dateDisplayFormat"
+  | "dateControlMode"
+  | "dateSelectionMode"
+  | "dateCalendarWeekStart"
 >;
 
 type ButtonConfigForFrontend = Pick<
@@ -184,8 +190,12 @@ const UI_CONFIG_EXTRACTORS = {
     obj: TextParamCodeObjImpl,
   ): TextParamConfigForFrontend => ({
     uiType: obj.uiType,
+    timeControlMode: obj.timeControlMode,
     timeDisplayFormat: obj.timeDisplayFormat,
     dateDisplayFormat: obj.dateDisplayFormat,
+    dateControlMode: obj.dateControlMode,
+    dateSelectionMode: obj.dateSelectionMode,
+    dateCalendarWeekStart: obj.dateCalendarWeekStart,
   }),
 } as const;
 

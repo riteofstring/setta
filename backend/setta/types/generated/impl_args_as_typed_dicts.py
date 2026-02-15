@@ -18,7 +18,10 @@ from setta.types.code_obj_impls import (
     ButtonActionMode,
     CodeObjType,
     ColorPickerChoice,
+    DateCalendarWeekStart,
+    DateControlMode,
     DateDisplayFormat,
+    DateSelectionMode,
     DropzoneMode,
     HttpRequestMethod,
     ParameterPassingStyle,
@@ -103,7 +106,10 @@ class CoreArgs(TypedDict):
                 "coreNameEditable",
                 "coreNameType",
                 "dataPath",
+                "dateCalendarWeekStart",
+                "dateControlMode",
                 "dateDisplayFormat",
+                "dateSelectionMode",
                 "defaultChildSectionType",
                 "defaultVal",
                 "density",
@@ -868,6 +874,9 @@ class TextParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     timeControlMode: NotRequired[TimeControlMode]
     timeDisplayFormat: NotRequired[TimeDisplayFormat]
     dateDisplayFormat: NotRequired[DateDisplayFormat]
+    dateControlMode: NotRequired[DateControlMode]
+    dateSelectionMode: NotRequired[DateSelectionMode]
+    dateCalendarWeekStart: NotRequired[DateCalendarWeekStart]
 
 
 class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
@@ -886,6 +895,15 @@ class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
     ]
     dateDisplayFormat: NotRequired[
         DateDisplayFormat | Callable[[DateDisplayFormat], DateDisplayFormat]
+    ]
+    dateControlMode: NotRequired[
+        DateControlMode | Callable[[DateControlMode], DateControlMode]
+    ]
+    dateSelectionMode: NotRequired[
+        DateSelectionMode | Callable[[DateSelectionMode], DateSelectionMode]
+    ]
+    dateCalendarWeekStart: NotRequired[
+        DateCalendarWeekStart | Callable[[DateCalendarWeekStart], DateCalendarWeekStart]
     ]
 
 

@@ -4,10 +4,13 @@ import {
 } from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
+  DateSelectionModeEnum,
   TextParamInputUITypeEnum,
   TimeControlModeEnum,
 } from "utils/generatedTypes";
-import { DATE_PICKER_PRESET_ID, TIME_INPUT_PRESET_ID } from "./UITypeCombobox";
+import { CALENDAR_PRESET_ID, TIME_DISPLAY_PRESET_ID } from "./UITypeCombobox";
 
 export async function applyUiTypeComboboxSelection(args: {
   projectConfigId: string;
@@ -16,7 +19,7 @@ export async function applyUiTypeComboboxSelection(args: {
   selectedId: string;
 }) {
   const { projectConfigId, sectionId, paramInfoId, selectedId } = args;
-  if (selectedId === DATE_PICKER_PRESET_ID) {
+  if (selectedId === CALENDAR_PRESET_ID) {
     await route_change_param_impl({
       projectConfigId,
       sectionId,
@@ -27,11 +30,16 @@ export async function applyUiTypeComboboxSelection(args: {
       projectConfigId,
       sectionId,
       paramInfoId,
-      newConfig: { uiType: TextParamInputUITypeEnum.date },
+      newConfig: {
+        uiType: TextParamInputUITypeEnum.date,
+        dateControlMode: DateControlModeEnum.calendar,
+        dateSelectionMode: DateSelectionModeEnum.multiple,
+        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
+      },
     });
     return;
   }
-  if (selectedId === TIME_INPUT_PRESET_ID) {
+  if (selectedId === TIME_DISPLAY_PRESET_ID) {
     await route_change_param_impl({
       projectConfigId,
       sectionId,

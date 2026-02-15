@@ -237,6 +237,9 @@ from setta.types.code_obj_impls import (
     TimeControlMode,
     TimeDisplayFormat,
     DateDisplayFormat,
+    DateControlMode,
+    DateSelectionMode,
+    DateCalendarWeekStart,
 )
 
 from setta.types.generated.chart_settings_unions import BaseChartSettingsUnion

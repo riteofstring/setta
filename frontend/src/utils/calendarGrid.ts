@@ -1,4 +1,7 @@
-import { CalendarWeekStart, CalendarWeekStartEnum } from "utils/generatedTypes";
+import {
+  DateCalendarWeekStart,
+  DateCalendarWeekStartEnum,
+} from "utils/generatedTypes";
 
 type CalendarMonthCell = {
   isoDate: string;
@@ -86,9 +89,9 @@ export function shiftCalendarMonth(
 
 function getWeekOffset(
   firstWeekday: number,
-  weekStartsOn: CalendarWeekStart,
+  weekStartsOn: DateCalendarWeekStart,
 ): number {
-  if (weekStartsOn === CalendarWeekStartEnum.monday) {
+  if (weekStartsOn === DateCalendarWeekStartEnum.monday) {
     return (firstWeekday + 6) % 7;
   }
   return firstWeekday;
@@ -101,7 +104,7 @@ export function buildCalendarMonthGrid({
 }: {
   year: number;
   monthIndex: number;
-  weekStartsOn: CalendarWeekStart;
+  weekStartsOn: DateCalendarWeekStart;
 }): CalendarMonthCell[] {
   const firstOfMonth = new Date(Date.UTC(year, monthIndex, 1));
   const offset = getWeekOffset(firstOfMonth.getUTCDay(), weekStartsOn);

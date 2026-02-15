@@ -4,11 +4,14 @@ import {
 } from "utils/generatedEndpoints";
 import {
   CodeObjTypeEnum,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
+  DateSelectionModeEnum,
   TextParamInputUITypeEnum,
   TimeControlModeEnum,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DATE_PICKER_PRESET_ID, TIME_INPUT_PRESET_ID } from "./UITypeCombobox";
+import { CALENDAR_PRESET_ID, TIME_DISPLAY_PRESET_ID } from "./UITypeCombobox";
 import { applyUiTypeComboboxSelection } from "./applyUiTypeComboboxSelection";
 
 vi.mock("utils/generatedEndpoints", () => ({
@@ -27,10 +30,10 @@ describe("applyUiTypeComboboxSelection", () => {
     vi.clearAllMocks();
   });
 
-  it("switches to TextParam date config for date picker preset selection", async () => {
+  it("switches to TextParam calendar config for calendar preset selection", async () => {
     await applyUiTypeComboboxSelection({
       ...baseArgs,
-      selectedId: DATE_PICKER_PRESET_ID,
+      selectedId: CALENDAR_PRESET_ID,
     });
 
     expect(route_change_param_impl).toHaveBeenCalledWith({
@@ -39,14 +42,19 @@ describe("applyUiTypeComboboxSelection", () => {
     });
     expect(route_update_param_impl_config).toHaveBeenCalledWith({
       ...baseArgs,
-      newConfig: { uiType: TextParamInputUITypeEnum.date },
+      newConfig: {
+        uiType: TextParamInputUITypeEnum.date,
+        dateControlMode: DateControlModeEnum.calendar,
+        dateSelectionMode: DateSelectionModeEnum.multiple,
+        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
+      },
     });
   });
 
   it("switches to TextParam time display config for time preset selection", async () => {
     await applyUiTypeComboboxSelection({
       ...baseArgs,
-      selectedId: TIME_INPUT_PRESET_ID,
+      selectedId: TIME_DISPLAY_PRESET_ID,
     });
 
     expect(route_change_param_impl).toHaveBeenCalledWith({

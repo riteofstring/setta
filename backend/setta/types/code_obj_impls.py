@@ -81,6 +81,21 @@ class DateDisplayFormat(str, Enum):
     long = "long"
 
 
+class DateControlMode(str, Enum):
+    input = "input"
+    calendar = "calendar"
+
+
+class DateSelectionMode(str, Enum):
+    single = "single"
+    multiple = "multiple"
+
+
+class DateCalendarWeekStart(str, Enum):
+    sunday = "sunday"
+    monday = "monday"
+
+
 class ColorPickerChoice(BaseModel):
     color: str
     description: str
@@ -124,6 +139,9 @@ class TextParamCodeObjImpl(BaseChildlessCodeObjImpl):
     timeControlMode: TimeControlMode = TimeControlMode.display
     timeDisplayFormat: TimeDisplayFormat = TimeDisplayFormat.twenty_four_hour
     dateDisplayFormat: DateDisplayFormat = DateDisplayFormat.iso
+    dateControlMode: DateControlMode = DateControlMode.input
+    dateSelectionMode: DateSelectionMode = DateSelectionMode.single
+    dateCalendarWeekStart: DateCalendarWeekStart = DateCalendarWeekStart.sunday
 
 
 class ButtonParamCodeObjImpl(BaseParamCodeObjImpl):
