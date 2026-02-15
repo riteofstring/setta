@@ -358,9 +358,7 @@ class ExternalAgentRunner:
                         project_config_id=context.project_config_id,
                         share_session_id=self.share_session_id,
                     )
-                    await self._handle_stream_chunk(
-                        context, run, chunk, prepared=True
-                    )
+                    await self._handle_stream_chunk(context, run, chunk, prepared=True)
             self._persist_external_session_metadata(run, handle)
             return_code = handle.return_code
             if return_code not in (None, 0):
