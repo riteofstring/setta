@@ -363,6 +363,66 @@ describe("createNodesMapFromProjectConfigChildren", () => {
     expect(nodesMap.has(sectionVisible)).toBe(true);
     expect(nodesMap.has(sectionHidden)).toBe(false);
   });
+
+  it("skips sections that are missing visibility in the active view mode", () => {
+    const sectionVisible = "section-visible";
+    const sectionMissingVisibility = "section-missing-visibility";
+    const viewModeId = "view-1";
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      topLevelSections: {
+        [sectionVisible]: { ...layout },
+        [sectionMissingVisibility]: { ...layout },
+      },
+      viewModes: {
+        [viewModeId]: {
+          id: viewModeId,
+          name: "Visible Only",
+          sortIndex: 0,
+          isUserFacing: false,
+          isTab: true,
+          visibilityBySectionId: {
+            [sectionVisible]: true,
+          },
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportInitialized: false,
+          topLevelSections: {
+            [sectionVisible]: { ...layout },
+            [sectionMissingVisibility]: { ...layout },
+          },
+        },
+      },
+      activeViewModeId: viewModeId,
+      isEditingViewMode: false,
+    });
+    const projectState = {
+      projectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState;
+
+    expect(() =>
+      createNodesMapFromProjectConfigChildren(projectState, new Map()),
+    ).not.toThrow();
+
+    const nodesMap = createNodesMapFromProjectConfigChildren(
+      projectState,
+      new Map(),
+    );
+    expect(nodesMap.has(sectionVisible)).toBe(true);
+    expect(nodesMap.has(sectionMissingVisibility)).toBe(false);
+  });
 });
 
 describe("getDisplayedSectionIdToChildren", () => {

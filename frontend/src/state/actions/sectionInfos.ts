@@ -1136,11 +1136,19 @@ export function createNodesMapFromProjectConfigChildren(
       continue;
     }
     if (canFilterByView) {
-      const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
+      const visibilityInfo = getSectionViewModeVisibilityIfPresent(
         sectionId,
         p,
       );
-      if (!getSectionShouldRender(visibility, isEditingViewMode)) {
+      if (!visibilityInfo) {
+        continue;
+      }
+      if (
+        !getSectionShouldRender(
+          visibilityInfo.visibility,
+          visibilityInfo.isEditingViewMode,
+        )
+      ) {
         continue;
       }
     }
@@ -1287,6 +1295,22 @@ function getSectionVisibilityForActiveViewMode(
   return {
     visibility,
     viewMode,
+  };
+}
+
+function getSectionViewModeVisibilityIfPresent(
+  sectionId: string,
+  state: ZustandProjectState,
+): { visibility: boolean; isEditingViewMode: boolean } | null {
+  const { isEditingViewMode } = state.projectConfig;
+  const viewMode = getActiveViewModeConfig(state);
+  const visibility = viewMode.visibilityBySectionId[sectionId];
+  if (visibility === undefined) {
+    return null;
+  }
+  return {
+    visibility,
+    isEditingViewMode,
   };
 }
 
