@@ -691,12 +691,26 @@ async function stopExternalChatResponse({
   sectionId?: string;
   failureMessage: string;
 }): Promise<boolean> {
+  const refreshChatAndResolveWaiting = async (): Promise<{
+    hydrated: boolean;
+    waitingForResponse: boolean;
+  }> => {
+    const hydrated = await getExternalAgentChat(chatId, projectConfigId, sectionId);
+    const waitingForResponse = Boolean(
+      useAIStore.getState().chatDetails[chatId]?.waitingForResponse,
+    );
+    return { hydrated, waitingForResponse };
+  };
+
   const runId = await resolveLatestRunningExternalRunIdWithRefresh(
     chatId,
     projectConfigId,
   );
   if (!runId) {
-    await getExternalAgentChat(chatId, projectConfigId, sectionId);
+    const refreshState = await refreshChatAndResolveWaiting();
+    if (refreshState.hydrated && !refreshState.waitingForResponse) {
+      return true;
+    }
     addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
     return false;
   }
@@ -705,7 +719,10 @@ async function stopExternalChatResponse({
     void loadAgentRuns();
     return true;
   }
-  await getExternalAgentChat(chatId, projectConfigId, sectionId);
+  const refreshState = await refreshChatAndResolveWaiting();
+  if (refreshState.hydrated && !refreshState.waitingForResponse) {
+    return true;
+  }
   addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
   return false;
 }
@@ -916,7 +933,7 @@ export async function getExternalAgentChat(
   chatId: string,
   projectConfigId: string | null,
   sectionId?: string,
-): Promise<void> {
+): Promise<boolean> {
   const res = await route_get_external_agent_chat({
     chatId,
     projectConfigId,
@@ -964,7 +981,9 @@ export async function getExternalAgentChat(
         reason: "hydrate-external-chat",
       });
     }
+    return true;
   }
+  return false;
 }
 
 export async function submitMessage(

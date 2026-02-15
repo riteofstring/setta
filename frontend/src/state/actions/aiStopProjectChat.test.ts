@@ -323,6 +323,48 @@ describe("stopProjectChatResponse", () => {
     expect(details?.waitingForResponse).toBe(true);
   });
 
+  it("treats stale external stop as success when hydrated chat is already complete", async () => {
+    // If no running run is found but hydration shows no pending response, stop should succeed silently.
+    const chatId = "chat-stop-external-stale-complete";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+        },
+      },
+      agentRunsInitialLoadComplete: true,
+      agentRuns: [],
+    });
+    mockedRouteGetAgentRuns.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [],
+    });
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+      },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, true);
+
+    expect(stopped).toBe(true);
+    expect(mockedRouteGetAgentRuns).toHaveBeenCalledTimes(1);
+    expect(mockedRouteStopExternalAgentRun).not.toHaveBeenCalled();
+    expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
+      chatId,
+      projectConfigId: null,
+    });
+    expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+    const details = useAIStore.getState().chatDetails[chatId];
+    expect(details?.waitingForResponse).toBe(false);
+  });
+
   it("uses section-specific warning copy for managed section stop failures", async () => {
     const chatId = "chat-stop-section-stale-miss";
     useAIStore.setState({

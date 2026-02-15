@@ -54,7 +54,7 @@ const UNKNOWN_SLASH_COMMAND_FEEDBACK =
 
 type ChatExecutionControls = {
   permissionMode: ChatPermissionModeValue;
-  searchEnabled: boolean;
+  searchEnabled?: boolean;
   onPermissionModeChange: (next: ChatPermissionModeValue) => void;
   onSearchEnabledChange?: (next: boolean) => void;
 };
@@ -1114,7 +1114,7 @@ export const ChatInput = memo(function ChatInput({
               typeof executionControls.onSearchEnabledChange === "function" ? (
                 <button
                   type="button"
-                  aria-pressed={executionControls.searchEnabled}
+                  aria-pressed={Boolean(executionControls.searchEnabled)}
                   disabled={isDisabled}
                   className={`rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
                     executionControls.searchEnabled
@@ -1123,7 +1123,7 @@ export const ChatInput = memo(function ChatInput({
                   } disabled:cursor-not-allowed disabled:opacity-60`}
                   onClick={() =>
                     executionControls.onSearchEnabledChange?.(
-                      !executionControls.searchEnabled,
+                      !Boolean(executionControls.searchEnabled),
                     )
                   }
                 >

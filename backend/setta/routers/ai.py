@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import File, Form, HTTPException, Request, UploadFile, status
+from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field
+from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
@@ -784,16 +785,49 @@ async def route_get_llm_response(
 async def route_transcribe_chat_audio(
     ctx: RuntimeContextFromRequest,
     request: Request,
-    engineConfigId: ID = Form(...),
-    file: UploadFile = File(...),
-    language: str | None = Form(default=None),
+    engineConfigId: ID | None = None,
+    file: object | None = None,
+    language: str | None = None,
 ) -> TranscribeChatAudioResponse:
     await ctx.enforce_llm_allowed()
     await _enforce_transcribe_audio_multipart_limit(request)
+
+    resolved_engine_config_id = engineConfigId
+    resolved_file: StarletteUploadFile | None = (
+        file if isinstance(file, StarletteUploadFile) else None
+    )
+    resolved_language = language
+
+    if resolved_engine_config_id is None or resolved_file is None:
+        form = await request.form()
+        if resolved_engine_config_id is None:
+            engine_config_id_value = form.get("engineConfigId")
+            if not isinstance(engine_config_id_value, str):
+                raise HTTPException(status_code=400, detail="engineConfigId is required.")
+            stripped_engine_config_id = engine_config_id_value.strip()
+            if not stripped_engine_config_id:
+                raise HTTPException(status_code=400, detail="engineConfigId is required.")
+            resolved_engine_config_id = ID(stripped_engine_config_id)
+        if resolved_file is None:
+            file_value = form.get("file")
+            if not isinstance(file_value, StarletteUploadFile):
+                raise HTTPException(status_code=400, detail="Audio payload is required.")
+            resolved_file = file_value
+        if resolved_language is None:
+            language_value = form.get("language")
+            if isinstance(language_value, str):
+                stripped_language = language_value.strip()
+                resolved_language = stripped_language or None
+
+    if resolved_engine_config_id is None:
+        raise HTTPException(status_code=400, detail="engineConfigId is required.")
+    if resolved_file is None:
+        raise HTTPException(status_code=400, detail="Audio payload is required.")
+
     if ctx.state.agent_runner.disabled:
         raise HTTPException(status_code=503, detail="Agent runner is not available")
     resolved = resolve_engine_config(
-        ctx.state.dbe, ctx.state.agent_runner.config, engineConfigId
+        ctx.state.dbe, ctx.state.agent_runner.config, resolved_engine_config_id
     )
     if resolved.engine_config.engineType != EngineType.setta_llm:
         raise HTTPException(
@@ -810,9 +844,9 @@ async def route_transcribe_chat_audio(
         )
 
     try:
-        audio_bytes = await file.read(_TRANSCRIBE_AUDIO_MAX_BYTES + 1)
+        audio_bytes = await resolved_file.read(_TRANSCRIBE_AUDIO_MAX_BYTES + 1)
     finally:
-        await file.close()
+        await resolved_file.close()
 
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="Audio payload is empty.")
@@ -822,8 +856,8 @@ async def route_transcribe_chat_audio(
             detail=_build_audio_payload_too_large_detail(_TRANSCRIBE_AUDIO_MAX_BYTES),
         )
 
-    mime_type = (file.content_type or "").strip() or "audio/webm"
-    file_name = (file.filename or "").strip() or "dictation.webm"
+    mime_type = (resolved_file.content_type or "").strip() or "audio/webm"
+    file_name = (resolved_file.filename or "").strip() or "dictation.webm"
 
     try:
         text = await transcribe_audio_with_llm(
@@ -833,7 +867,7 @@ async def route_transcribe_chat_audio(
             audio_bytes=audio_bytes,
             mime_type=mime_type,
             file_name=file_name,
-            language=language,
+            language=resolved_language,
         )
     except KeyError as exc:
         detail = (

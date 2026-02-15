@@ -245,6 +245,22 @@ def test_completion_guard_requires_explicit_status_when_latest_done_message_ment
     assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
 
 
+def test_completion_guard_ignores_non_verification_check_wording_in_done_message() -> (
+    None
+):
+    # Generic "check the docs" prose should not override a prior explicit pass result.
+    prior_messages = [
+        _user_message("Create a new project setup."),
+        _assistant_message("Ran tests and checks passed."),
+    ]
+    assistant_message = _assistant_message("Done. Check the docs for details.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Done. Check the docs for details."
+
+
 def test_completion_guard_treats_no_errors_found_as_passed_checks() -> None:
     # "no errors found" must not be misclassified as a failure.
     prior_messages = [
@@ -301,6 +317,20 @@ def test_completion_guard_treats_no_error_checks_yet_as_missing() -> None:
     prior_messages = [
         _user_message("Create a new project setup."),
         _assistant_message("I did no error checks yet."),
+    ]
+    assistant_message = _assistant_message("Done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+
+
+def test_completion_guard_treats_checks_not_run_with_no_failures_as_missing() -> None:
+    # "no failures" must not pass verification when the same sentence says checks were not run.
+    prior_messages = [
+        _user_message("Create a new project setup."),
+        _assistant_message("Checks were not run yet, no failures."),
     ]
     assistant_message = _assistant_message("Done.")
 

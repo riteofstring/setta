@@ -283,3 +283,27 @@ Implemented the requested consolidated review fixes across slash-command/path ha
 - Playwright: targeted e2e suites passed (`chat-composer-controls`, `project-ai-chat-root-scan`, `chat-streaming-resize`).
 - CDP visual verification completed in a live app session (`/tmp ...` path prompt accepted as chat; reasoning-card/bubble width alignment verified with `delta=0`).
 - CDP perf profiling completed with before/after trace artifacts for reasoning width scenario and observer instrumentation (`ResizeObserver` constructions reduced from 60 to 0 in seeded 30-message scenario).
+
+## 2026-02-17 16:21:37 PST
+
+### Summary
+Implemented the latest review-driven fixes across completion-guard verification parsing, `/transcribeChatAudio` auth/parse ordering and multipart semantics, project-chat workspace-root refresh race handling, external stop warning correctness, and chat execution-settings contract cleanup, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Completion guard now ignores generic non-verification "check" prose and no longer treats standalone "no failures/without failures" as pass signals outside explicit check-run context.
+- Added completion-guard regressions for false-pass (`checks not run yet, no failures`) and false-block (`Done. Check the docs...`) phrasing in both guard-level and runner-level tests.
+- Reworked `/transcribeChatAudio` to enforce auth before multipart parsing and perform manual multipart extraction after auth; retained deterministic multipart size enforcement and upload-size checks.
+- Removed the misleading direct invocation auth-order test and replaced it with ASGI integration coverage that validates auth rejection before multipart parsing in real request flow.
+- Preserved frontend FormData contract for transcription route codegen by explicitly marking the endpoint as multipart in route-spec generation metadata.
+- Fixed workspace-root Python-signal refresh race by tracking pending root identity and forcing immediate post-flight rescan when root changes mid-flight.
+- Added Playwright regression for in-flight root-scan root-switch behavior and validated with the full root-scan suite.
+- Updated external stop flow to treat stale-stop scenarios as success when hydrated chat state is already not waiting; warning toasts are now reserved for real unresolved stop states.
+- Simplified `updateExecutionSettings` helper contracts to `void`, removed ignored feedback plumbing, and trimmed search-control wiring where search is intentionally hidden.
+- Updated `ChatInput` execution-control typing to allow optional `searchEnabled` where search controls are not rendered.
+
+### Test and verification status
+- Backend pytest targeted run passed: `tests/agentic/test_completion_guard.py`, `tests/llm/test_agent_runner.py`, `tests/routers/test_multipart_route_limits.py`, `tests/routers/test_ai_agent_run_chats.py`, `tests/code_gen/test_convert_endpoints.py` (`54 passed`).
+- Frontend Vitest targeted run passed: `aiStopProjectChat`, `ChatInput`, `projectChatExecutionSettings`, `chatAreaPlanModeBadge` (`26 passed`).
+- Playwright passed: full `frontend/tests/e2e/overview/project-ai-chat-root-scan.spec.ts` (`7 passed`) plus focused new-race regression run.
+- Ruff check on touched backend/test Python files passed.
+- CDP visual verification completed on Project AI Chat surface (chat controls + composer + execution controls visible and stable in live session).

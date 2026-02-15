@@ -2,10 +2,11 @@ from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
 import pytest
 import pytest_asyncio
+from starlette.requests import Request
 
 from setta.agentic.store import save_engine_configs
 from setta.lsp.managers import stop_file_watcher, stop_lsps
@@ -154,3 +155,49 @@ class TestMultipartRouteLimits:
         assert response.status_code == 200
         assert response.json() == {"text": "hello from provider"}
         assert len(captured_audio["bytes"]) == len(payload)
+
+    async def test_transcribe_chat_audio_rejects_unauthorized_requests_before_parsing_multipart(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Authorization must run before any multipart parser work for this endpoint.
+        self.app.include_router(ai_router, prefix=Route.PREFIX.value)
+        form_called = False
+
+        async def _reject_llm(_ctx) -> None:
+            raise HTTPException(status_code=403, detail="LLM disabled")
+
+        async def _fail_if_form_is_parsed(
+            _request: Request,
+            *,
+            max_files: int | float = 1000,
+            max_fields: int | float = 1000,
+            max_part_size: int = 1024 * 1024,
+        ):
+            nonlocal form_called
+            form_called = True
+            raise AssertionError(
+                "multipart parser should not run before auth "
+                f"(max_files={max_files}, max_fields={max_fields}, max_part_size={max_part_size})"
+            )
+
+        monkeypatch.setattr(
+            "setta.runtime.context.RuntimeContext.enforce_llm_allowed",
+            _reject_llm,
+        )
+        monkeypatch.setattr("starlette.requests.Request.form", _fail_if_form_is_parsed)
+
+        transport = ASGITransport(app=self.app)
+        async with AsyncClient(
+            transport=transport,
+            base_url="http://test",
+        ) as client:
+            response = await client.post(
+                f"{Route.PREFIX.value}{Route.TRANSCRIBE_CHAT_AUDIO.value}",
+                data={"engineConfigId": "engine-primary"},
+                files={"file": ("voice.webm", b"hello", "audio/webm")},
+            )
+
+        assert response.status_code == 403
+        assert response.json() == {"detail": "LLM disabled"}
+        assert form_called is False

@@ -1076,56 +1076,6 @@ class TestAgentRunChatRoutes:
                 exc.value.detail
             )
 
-    async def test_transcribe_chat_audio_checks_authorization_before_multipart_parse(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            multipart_enforced = False
-
-            async def _capture_multipart_enforcement(*_args, **_kwargs) -> None:
-                nonlocal multipart_enforced
-                multipart_enforced = True
-
-            monkeypatch.setattr(
-                "setta.routers.ai.enforce_multipart_max_part_size",
-                _capture_multipart_enforcement,
-            )
-
-            with runtime_context(state) as ctx:
-
-                async def _raise_not_allowed() -> None:
-                    raise HTTPException(status_code=403, detail="LLM disabled")
-
-                monkeypatch.setattr(ctx, "enforce_llm_allowed", _raise_not_allowed)
-
-                with pytest.raises(HTTPException) as exc:
-                    upload = UploadFile(
-                        io.BytesIO(b"hello"),
-                        filename="voice.webm",
-                        headers=Headers({"content-type": "audio/webm"}),
-                    )
-                    await route_transcribe_chat_audio(
-                        ctx=ctx,
-                        request=_build_test_request(
-                            content_type="multipart/form-data; boundary=test"
-                        ),
-                        engineConfigId=engine_config_id,
-                        file=upload,
-                    )
-
-            assert exc.value.status_code == 403
-            assert multipart_enforced is False
-
     async def test_transcribe_chat_audio_rejects_empty_payload(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

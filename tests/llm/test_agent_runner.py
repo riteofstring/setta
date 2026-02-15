@@ -361,6 +361,50 @@ class TestAgentRunner:
 
         assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
 
+    def test_completion_guard_ignores_non_verification_check_wording_in_done_message(
+        self,
+    ) -> None:
+        # Generic "check the docs" prose should not override a prior explicit pass result.
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            AssistantChatMessage(
+                content=[MessageTextContent(text="I ran checks and tests passed.")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Check the docs for details.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert (
+            assistant_message.content[0].text == "Done. Check the docs for details."
+        )
+
+    def test_completion_guard_treats_checks_not_run_with_no_failures_as_missing(
+        self,
+    ) -> None:
+        # "no failures" must not pass verification when checks are explicitly not run.
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(text="Checks were not run yet, no failures.")
+                ]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="All done.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
     def test_allowlist_rejects_unknown_server(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

@@ -320,6 +320,107 @@ test("project chat avoids overlapping root scans while a folder request is in fl
   }
 });
 
+test("project chat immediately rescans after in-flight scan when root identity changes", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+
+  let rootPath = "/tmp/workspace-race-a";
+  let getRootCalls = 0;
+  const resolvedRoots: string[] = [];
+  const scannedRoots: string[] = [];
+  let releaseFirstScan: (() => void) | null = null;
+  let shouldBlockFirstScan = true;
+
+  await page.route("**/api/getFileBrowserRoot", async (route) => {
+    getRootCalls += 1;
+    resolvedRoots.push(rootPath);
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        rootPath,
+        pathSeparator: "/",
+        ignorePatterns: [],
+      }),
+    });
+  });
+  await page.route("**/api/getFolderContents", async (route) => {
+    const request = route.request().postDataJSON() as { folderPath?: string };
+    const folder = request.folderPath ?? "";
+    scannedRoots.push(folder);
+    if (folder === "/tmp/workspace-race-a" && shouldBlockFirstScan) {
+      await new Promise<void>((resolve) => {
+        releaseFirstScan = () => {
+          shouldBlockFirstScan = false;
+          releaseFirstScan = null;
+          resolve();
+        };
+      });
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        folder === "/tmp/workspace-race-a"
+          ? [
+              {
+                name: "pyproject.toml",
+                path: "/tmp/workspace-race-a/pyproject.toml",
+                type: "file",
+                extension: "toml",
+              },
+            ]
+          : [],
+      ),
+    });
+  });
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+    await expect.poll(() => scannedRoots.length, { timeout: 5000 }).toBe(1);
+
+    // Change the root while the first scan is still pending.
+    rootPath = "/tmp/workspace-race-b";
+    await expect
+      .poll(() => getRootCalls, { timeout: 12000 })
+      .toBeGreaterThanOrEqual(2);
+    await expect
+      .poll(() => resolvedRoots.includes("/tmp/workspace-race-b"), {
+        timeout: 12000,
+      })
+      .toBe(true);
+
+    if (!releaseFirstScan) {
+      throw new Error("First root scan did not block as expected.");
+    }
+    const releaseStartedAt = Date.now();
+    releaseFirstScan();
+    await expect.poll(() => scannedRoots.length, { timeout: 3000 }).toBe(2);
+    expect(scannedRoots[0]).toBe("/tmp/workspace-race-a");
+    expect(scannedRoots[1]).toBe("/tmp/workspace-race-b");
+    expect(Date.now() - releaseStartedAt).toBeLessThan(3000);
+    await expect(
+      overviewPane.getByRole("button", { name: /^Create Project$/ }),
+    ).toHaveCount(0);
+  } finally {
+    if (releaseFirstScan) {
+      releaseFirstScan();
+    }
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project chat backs off root polling after repeated stable root scans", async ({
   page,
 }) => {

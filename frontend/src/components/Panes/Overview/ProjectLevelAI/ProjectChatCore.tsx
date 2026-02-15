@@ -219,6 +219,7 @@ function useHasPythonInWorkspaceRoot(
   const [revalidationTick, setRevalidationTick] = useState(0);
   const previousRootRef = useRef<string | null>(null);
   const inFlightRootScanRef = useRef<Promise<void> | null>(null);
+  const pendingRootIdentityRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (workspaceRootIdentity === previousRootRef.current) {
@@ -271,16 +272,20 @@ function useHasPythonInWorkspaceRoot(
 
   useEffect(() => {
     if (!enabled || !workspaceRootIdentity) {
+      pendingRootIdentityRef.current = null;
       setHasPython(false);
       return;
     }
     if (inFlightRootScanRef.current !== null) {
+      pendingRootIdentityRef.current = workspaceRootIdentity;
       return;
     }
     let cancelled = false;
+    const scannedRootIdentity = workspaceRootIdentity;
 
     const load = async () => {
-      const rootPath = workspaceRootIdentity;
+      const rootPath = scannedRootIdentity;
+      pendingRootIdentityRef.current = null;
       const cached = getCachedWorkspacePythonSignal(
         hasPythonInWorkspaceRootCache,
         rootPath,
@@ -331,11 +336,16 @@ function useHasPythonInWorkspaceRoot(
       if (inFlightRootScanRef.current === loadPromise) {
         inFlightRootScanRef.current = null;
       }
+      const pendingRootIdentity = pendingRootIdentityRef.current;
+      if (pendingRootIdentity && pendingRootIdentity !== scannedRootIdentity) {
+        setRevalidationTick((current) => current + 1);
+      }
     });
     inFlightRootScanRef.current = loadPromise;
     void loadPromise;
     return () => {
       cancelled = true;
+      pendingRootIdentityRef.current = null;
     };
   }, [enabled, revalidationTick, workspaceRootIdentity]);
 
@@ -579,12 +589,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
 
   const updateExecutionSettings = useCallback(
-    (
-      nextSettings: ChatExecutionSettings,
-      feedback: string,
-    ): ChatSlashCommandResult => {
+    (nextSettings: ChatExecutionSettings): void => {
       setExecutionSettings(nextSettings);
-      return { feedback };
     },
     [],
   );
@@ -620,7 +626,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
               permissionMode: nextMode,
               searchEnabled: executionSettings.searchEnabled,
             },
-            `Permissions set to ${nextMode}.`,
           );
         },
         modelFeedback: "Use the model selector in the Project AI Chat toolbar.",
@@ -631,7 +636,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
               permissionMode: executionSettings.permissionMode,
               searchEnabled: nextValue,
             },
-            `Search ${nextValue ? "enabled" : "disabled"}.`,
           );
         },
       });
@@ -800,7 +804,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
             permissionMode: nextMode,
             searchEnabled: executionSettings.searchEnabled,
           },
-          `Permissions set to ${nextMode}.`,
         );
       },
       onSearchEnabledChange: (nextValue: boolean) => {
@@ -809,7 +812,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
             permissionMode: executionSettings.permissionMode,
             searchEnabled: nextValue,
           },
-          `Search ${nextValue ? "enabled" : "disabled"}.`,
         );
       },
     }),

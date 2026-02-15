@@ -16,7 +16,11 @@ _COMPLETION_CLAIM_RE = re.compile(
 _CHECK_RE = re.compile(
     (
         r"\b("
-        r"check|checks|test|tests|testing|lint|type ?check|verify|verification|error check|"
+        r"test|tests|testing|lint|type ?check|verify|verification|error check|"
+        r"(?:run|ran|reran)\s+checks?|"
+        r"(?:failed|failing)\s+checks?|"
+        r"checks?\s+(?:pass(?:ed)?|fail(?:ed|ing|ures?)|did\s+not\s+pass|"
+        r"not\s+run|not\s+rerun|completed?|results?)|"
         r"pytest|ruff|pyright|mypy|vitest|playwright|jest|tsc"
         r")\b"
     ),
@@ -53,11 +57,13 @@ _PASS_RE = re.compile(
         r"\b("
         r"(?:tests?|checks?|verification)\s+pass(?:ed)?|"
         r"pass(?:ed)?\s+(?:tests?|checks?|verification)|"
+        r"(?:run|ran|reran|completed|finished)\s+(?:tests?|checks?|verification)\s+"
+        r"(?:with(?:out)?|with\s+no)\s+failures?|"
+        r"(?:tests?|checks?|verification)\s+(?:were\s+)?(?:run|ran|rerun|completed|finished)\s+"
+        r"(?:with(?:out)?|with\s+no)\s+failures?|"
         r"no\s+errors?\s+found|"
         r"no\s+failed\s+tests?|"
         r"no\s+failing\s+checks?|"
-        r"no\s+failures?|"
-        r"without\s+failures?|"
         r"(?:0|zero)\s+(?:fail(?:ed|ing)?|errors?\s+found)"
         r")\b"
     ),

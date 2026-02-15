@@ -40,6 +40,9 @@ basic_type_map = {
 }
 
 GENERATED_TYPE_ALIAS = "gt"
+_FORCE_FORM_DATA_ENDPOINTS = {
+    "route_transcribe_chat_audio",
+}
 
 
 def get_path_input_output_types():
@@ -92,6 +95,9 @@ def get_path_input_output_types():
             return_type = type(None)
 
         route_info["output"] = return_type
+
+        if route.endpoint.__name__ in _FORCE_FORM_DATA_ENDPOINTS:
+            route_info["uses_form_data"] = True
 
         output[route.endpoint.__name__] = route_info
 

@@ -578,10 +578,7 @@ function ScriptableChatArea({
   ]);
 
   const updateExecutionSettings = useCallback(
-    (
-      nextSettings: ChatExecutionSettings,
-      feedback: string,
-    ): ChatSlashCommandResult => {
+    (nextSettings: ChatExecutionSettings): void => {
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
@@ -602,7 +599,6 @@ function ScriptableChatArea({
             frontendOpId,
           }),
       });
-      return { feedback };
     },
     [agentProfileId, engineConfigId, projectConfigId, sectionId, thinking],
   );
@@ -683,13 +679,11 @@ function ScriptableChatArea({
             keepInput: true,
           };
         }
-        return updateExecutionSettings(
-          {
-            permissionMode: nextMode,
-            searchEnabled,
-          },
-          `Permissions set to ${nextMode}.`,
-        );
+        updateExecutionSettings({
+          permissionMode: nextMode,
+          searchEnabled,
+        });
+        return { feedback: `Permissions set to ${nextMode}.` };
       }
       if (command.action === "help") {
         return {
@@ -699,7 +693,6 @@ function ScriptableChatArea({
       return false;
     },
     [
-      permissionMode,
       resetScriptableConversation,
       resumeLatestScriptableBranch,
       searchEnabled,
@@ -836,23 +829,12 @@ function ScriptableChatArea({
   const executionControls = useMemo(
     () => ({
       permissionMode,
-      searchEnabled,
       onPermissionModeChange: (nextMode: ChatPermissionModeValue) => {
         updateExecutionSettings(
           {
             permissionMode: nextMode,
             searchEnabled,
           },
-          `Permissions set to ${nextMode}.`,
-        );
-      },
-      onSearchEnabledChange: (nextValue: boolean) => {
-        updateExecutionSettings(
-          {
-            permissionMode,
-            searchEnabled: nextValue,
-          },
-          `Search ${nextValue ? "enabled" : "disabled"}.`,
         );
       },
     }),
@@ -1350,10 +1332,7 @@ function ManagedChatArea({
   const showPermissionExecutionControl = canConfigureExecutionSettings;
 
   const updateExecutionSettings = useCallback(
-    (
-      nextSettings: ChatExecutionSettings,
-      feedback: string,
-    ): ChatSlashCommandResult => {
+    (nextSettings: ChatExecutionSettings): void => {
       dispatchOptimisticProjectStateUpdate({
         apply: (state) => {
           setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
@@ -1374,7 +1353,6 @@ function ManagedChatArea({
             frontendOpId,
           }),
       });
-      return { feedback };
     },
     [agentProfileId, engineConfigId, projectConfigId, sectionId, thinking],
   );
@@ -1583,7 +1561,6 @@ function ManagedChatArea({
               permissionMode: nextMode,
               searchEnabled,
             },
-            `Permissions set to ${nextMode}.`,
           );
         },
         modelFeedback:
@@ -1628,14 +1605,12 @@ function ManagedChatArea({
   const executionControls = useMemo(
     () => ({
       permissionMode,
-      searchEnabled,
       onPermissionModeChange: (nextMode: ChatPermissionModeValue) => {
         updateExecutionSettings(
           {
             permissionMode: nextMode,
             searchEnabled,
           },
-          `Permissions set to ${nextMode}.`,
         );
       },
     }),

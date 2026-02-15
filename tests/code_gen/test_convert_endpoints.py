@@ -63,3 +63,10 @@ def test_get_path_input_output_types_marks_binary_upload_as_multipart() -> None:
     route_specs = get_path_input_output_types()
 
     assert route_specs["route_binary_upload"]["uses_form_data"] is True
+
+
+def test_get_path_input_output_types_keeps_transcribe_chat_audio_multipart() -> None:
+    # Transcribe stays FormData-based even though backend parsing is manual/auth-first.
+    route_specs = get_path_input_output_types()
+
+    assert route_specs["route_transcribe_chat_audio"]["uses_form_data"] is True
