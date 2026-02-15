@@ -421,6 +421,18 @@ export async function route_get_ai_follow_snapshot(
   return await post("/getAIFollowSnapshot", x);
 }
 
+export async function route_get_app_gen_skills(): Promise<
+  ResponseDataAndStatus<Array<gt.AppGenSkillEntry>>
+> {
+  return await get("/getAppGenSkills");
+}
+
+export async function route_get_app_gen_skill_content(
+  x: gt.GetAppGenSkillContentRequestInput,
+): Promise<ResponseDataAndStatus<gt.AppGenSkillContent>> {
+  return await post("/getAppGenSkillContent", x);
+}
+
 export async function route_get_agent_profiles(): Promise<
   ResponseDataAndStatus<Array<gt.AgentProfile>>
 > {
@@ -1395,6 +1407,12 @@ export async function route_get_setta_home_info(): Promise<
   ResponseDataAndStatus<gt.SettaHomeInfoResponse>
 > {
   return await get("/settaHomeInfo");
+}
+
+export async function route_reveal_path_in_os_file_explorer(
+  x: gt.RevealPathInOsFileExplorerRequestInput,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post("/revealPathInOsFileExplorer", x);
 }
 
 export async function route_list_share_deployments(): Promise<

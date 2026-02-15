@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, Literal
 
 import litellm
 from fastapi import Depends, status
@@ -24,6 +24,26 @@ _MAX_CONTEXT_SUMMARY_CHARS = 100_000
 
 class StreamAppSpecRequest(BaseModel):
     prompt: str = Field(description="Natural language app request prompt.")
+    mode: (
+        Literal[
+            "json_render",
+            "json_render_with_image",
+            "prompt_builder",
+            "mcp_server",
+        ]
+        | None
+    ) = Field(
+        default=None,
+        description="Optional app generation mode context from the UI.",
+    )
+    referenceImageUrl: str | None = Field(
+        default=None,
+        description="Optional image URL to use as visual style/layout guidance.",
+    )
+    referenceImageNotes: str | None = Field(
+        default=None,
+        description="Optional notes describing what to copy from the reference image.",
+    )
     context: dict[str, Any] | None = Field(
         default=None,
         description="Optional context (catalog summary, section summary, etc).",
@@ -49,11 +69,34 @@ def _json_error(status_code: int, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"message": message})
 
 
+def _supports_vision(
+    *,
+    model: str,
+    custom_llm_provider: str | None,
+) -> bool:
+    try:
+        return litellm.supports_vision(
+            model=model,
+            custom_llm_provider=custom_llm_provider,
+        )
+    except Exception:
+        return False
+
+
 def _build_system_prompt(
     *,
     catalog_summary: str,
     sections_summary: str,
     current_spec_json: str | None,
+    mode: Literal[
+        "json_render",
+        "json_render_with_image",
+        "prompt_builder",
+        "mcp_server",
+    ]
+    | None,
+    reference_image_url: str | None,
+    reference_image_notes: str | None,
 ) -> str:
     current_spec_lines: list[str] = []
     if current_spec_json is not None:
@@ -64,10 +107,38 @@ def _build_system_prompt(
             current_spec_json,
             "",
         ]
+    mode_lines: list[str] = []
+    if mode is not None:
+        mode_lines = [
+            "App generation mode context:",
+            f"- mode: {mode}",
+            "- Prioritize the requested mode behavior while still returning only JSONL patches.",
+            "",
+        ]
+    image_guidance_lines: list[str] = []
+    if reference_image_url:
+        image_guidance_lines = [
+            "Reference-image fidelity constraints:",
+            "- A reference image is provided in the user message content.",
+            "- Prioritize overall layout structure first (sections/grid/stack order).",
+            "- Then align spacing rhythm, typography scale, and color intent.",
+            "- If an exact visual match is impossible with the catalog, choose the closest available approximation and preserve hierarchy.",
+            "- Keep components within the allowed catalog while maximizing visual parity.",
+            "",
+        ]
+        if reference_image_notes:
+            image_guidance_lines.extend(
+                [
+                    "Reference-image notes from user:",
+                    reference_image_notes,
+                    "",
+                ]
+            )
     return "\n".join(
         [
             "You generate a JSON Render UI spec via JSONL patch operations.",
             "",
+            *mode_lines,
             "Output requirements (STRICT):",
             "- Output ONLY JSON Lines (one JSON object per line).",
             "- No prose, no markdown, no code fences.",
@@ -91,6 +162,7 @@ def _build_system_prompt(
             "- dataPath values must be JSON Pointer strings (example: /params/name).",
             '- Include one ActionButton with action "run" and set its sectionId.',
             "",
+            *image_guidance_lines,
             *current_spec_lines,
             catalog_summary.strip()
             if catalog_summary.strip()
@@ -211,10 +283,56 @@ async def route_stream_app_spec(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 message="currentSpec is too large. Reduce it or omit it.",
             )
+    reference_image_url = (
+        x.referenceImageUrl.strip() if isinstance(x.referenceImageUrl, str) else ""
+    )
+    reference_image_notes = (
+        x.referenceImageNotes.strip() if isinstance(x.referenceImageNotes, str) else ""
+    )
+    if len(reference_image_url) > 4096:
+        return _json_error(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message="referenceImageUrl is too large. Reduce it or omit it.",
+        )
+    if len(reference_image_notes) > _MAX_CONTEXT_SUMMARY_CHARS:
+        return _json_error(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            message="referenceImageNotes is too large. Reduce it or omit it.",
+        )
+    image_mode_enabled = x.mode == "json_render_with_image"
+    effective_reference_image_url = (
+        reference_image_url if image_mode_enabled and reference_image_url else ""
+    )
+    effective_reference_image_notes = (
+        reference_image_notes if image_mode_enabled and reference_image_notes else ""
+    )
+    if effective_reference_image_url:
+        raw_model = request.get("model")
+        model = raw_model if isinstance(raw_model, str) else ""
+        raw_provider = request.get("custom_llm_provider")
+        custom_llm_provider = raw_provider if isinstance(raw_provider, str) else None
+        if not _supports_vision(
+            model=model,
+            custom_llm_provider=custom_llm_provider,
+        ):
+            return _json_error(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                message=(
+                    "The selected model does not support image inputs. "
+                    "Use a vision-capable model or switch to JSON Render mode."
+                ),
+            )
     system_prompt = _build_system_prompt(
         catalog_summary=catalog_summary,
         sections_summary=sections_summary,
         current_spec_json=current_spec_json,
+        mode=x.mode,
+        reference_image_url=(
+            effective_reference_image_url if effective_reference_image_url else None
+        ),
+        reference_image_notes=(
+            effective_reference_image_notes if effective_reference_image_notes else None
+        ),
     )
 
     user_prompt = x.prompt.strip()
@@ -225,9 +343,18 @@ async def route_stream_app_spec(
         )
 
     # Keep the payload intentionally simple (no tools) so the model produces raw patch lines.
+    user_content: Any = user_prompt
+    if effective_reference_image_url:
+        user_content = [
+            {"type": "text", "text": user_prompt},
+            {
+                "type": "image_url",
+                "image_url": {"url": effective_reference_image_url, "detail": "high"},
+            },
+        ]
     request["messages"] = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
+        {"role": "user", "content": user_content},
     ]
 
     try:
