@@ -873,6 +873,10 @@ type ZustandLocalStorage = {
     string,
     Array<string>
   >;
+  projectAiSettingsAccordionOpenValuesByProjectConfigId: Record<
+    string,
+    Array<string>
+  >;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -904,6 +908,7 @@ export const useLocalStorage = createWithEqualityFn(
       customRunsByProjectConfigId: {},
       runSnapshotModeByProjectConfigId: {},
       runInstructionsAccordionOpenValuesByProjectConfigId: {},
+      projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
