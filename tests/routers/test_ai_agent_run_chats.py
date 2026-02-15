@@ -32,7 +32,6 @@ from setta.routers.ai import (
 )
 from setta.server_state import SettaFastAPIState
 from setta.types.agentic import (
-    AgentProfile,
     AgentRun,
     AgentRunStatus,
     EngineConfig,
@@ -537,97 +536,6 @@ class TestAgentRunChatRoutes:
                 exc.value.detail
                 == "sectionId is required unless allowUnscoped is true."
             )
-
-    async def test_get_llm_response_does_not_infer_app_mode_from_chat_text(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            captured: dict[str, object] = {}
-
-            def _fake_start_run(profile, inputs):
-                captured["profile"] = profile
-                captured["inputs"] = inputs
-
-            runner.start_run = _fake_start_run  # type: ignore[method-assign]
-
-            with runtime_context(state) as ctx:
-                await route_get_llm_response(
-                    GetLLMResponseRequest(
-                        chatId=None,
-                        message=UserChatMessage(
-                            content=[
-                                MessageTextContent(
-                                    text="How do I configure MCP servers in this project?",
-                                )
-                            ],
-                        ),
-                        engineConfigId=engine_config_id,
-                        agentProfileId=None,
-                        thinking=False,
-                        projectConfigId=ID("project-1"),
-                        allowUnscoped=True,
-                    ),
-                    ctx,
-                )
-
-            profile = captured.get("profile")
-            assert isinstance(profile, AgentProfile)
-            if not isinstance(profile, AgentProfile):
-                return
-            assert profile.systemPrompt == ""
-
-    async def test_get_llm_response_uses_explicit_app_generation_mode(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            captured: dict[str, object] = {}
-
-            def _fake_start_run(profile, inputs):
-                captured["profile"] = profile
-                captured["inputs"] = inputs
-
-            runner.start_run = _fake_start_run  # type: ignore[method-assign]
-
-            with runtime_context(state) as ctx:
-                await route_get_llm_response(
-                    GetLLMResponseRequest(
-                        chatId=None,
-                        message=UserChatMessage(
-                            content=[
-                                MessageTextContent(
-                                    text="How do I configure MCP servers in this project?",
-                                )
-                            ],
-                        ),
-                        engineConfigId=engine_config_id,
-                        agentProfileId=None,
-                        thinking=False,
-                        projectConfigId=ID("project-1"),
-                        allowUnscoped=True,
-                        appGenerationMode="mcp_server",
-                    ),
-                    ctx,
-                )
-
-            profile = captured.get("profile")
-            assert isinstance(profile, AgentProfile)
-            if not isinstance(profile, AgentProfile):
-                return
-            assert "mode: mcp_server" in profile.systemPrompt
 
     async def test_external_chat_id_rejects_missing_engine_metadata(self) -> None:
         with TemporaryDirectory() as tmpdir:

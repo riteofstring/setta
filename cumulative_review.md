@@ -1,85 +1,43 @@
-## 2026-02-17T00:02:09Z
+# Cumulative Review Notes
 
-Status: Implemented
+## 2026-02-17 16:17
 
-Accepted findings fixed in this batch:
-- Removed app-generation mode inference from arbitrary chat text; only explicit `appGenerationMode` is honored.
-- Stabilized Skills/MCP list refresh so skill selection no longer refetches the full skills list.
-- Added stale-response protection for skill markdown fetches to prevent out-of-order overwrite.
-- Removed silent 200-item cap in the skills list.
-- Ensured app spec generation seeds are detached clones to avoid mutating persisted state by reference.
-- Removed duplicate hidden-chat delivery/tool instructions and kept those rules in backend system prompt guidance.
-- Switched app-gen skill discovery to top-down directory walking with skip-directory pruning.
-- Updated generated type export filtering to exclude private set constants.
-- Removed backward-compat route-missing guidance shim in the Skills/MCP panel.
+- Restored Appearance settings availability in `SectionConfig` for section types that still expose base style/tag fields (`ListRoot`, `Group`, `GenPythonCode`, `GenPythonMetadata`, `Terminal`).
+- Hardened backend log copy flow so unsupported clipboard environments resolve to explicit failure feedback instead of uncaught sync-throw paths.
+- Added backend log resize listener teardown on unmount-mid-drag to prevent lingering global mouse listeners.
+- Realigned non-small pill combobox spacing by increasing right input padding to match larger chevron button footprint.
+- Consolidated duplicated pane accordion scaffolding behind a shared `PaneAccordion` primitive used by both Run Instructions and Section Config wrappers.
+- Added targeted automated coverage for the review fixes in Vitest and Playwright, including Terminal Appearance availability in Section Config.
+- Per branch direction, retained unrelated `docs/plans/worktrees/**` deletions and excluded top-level `review*.md` working notes from final tracked changes.
 
-Test and verification coverage added/updated:
-- Backend router unit/integration tests for explicit app-generation mode behavior and traversal pruning.
-- Frontend unit/perf tests for hidden prompt construction and detached `buildSpecSeed` behavior.
-- Playwright regression coverage for skills-list stability and stale markdown response handling.
-- CDP visual verification completed for the updated Skills/MCP panel behavior.
+## 2026-02-17 17:09
 
-## 2026-02-17T00:27:12Z
+- Made `SectionConfig` accordion state controlled so disabled sections are always filtered from active open values; this removes stale-expanded disabled states when switching section/type.
+- Refactored `RunInstructions` to a single accordion root with one persisted normalized open-values array, replacing subset merge/plumbing and avoiding unnecessary codegen JSX construction when `canRun` is false.
+- Extended shared `PaneAccordion` to support richer trigger content (`description`) and style overrides, then migrated `ProjectAISettings` to reuse it instead of maintaining a parallel accordion implementation.
+- Restored in-pane backend log full-message inspection with a selected-row details panel while keeping virtualization for the main list.
+- Fixed backend log copy affordance on touch-first devices by removing hidden-state `pointer-events-none` gating and relying on opacity visibility behavior.
+- Added/updated focused Vitest and Playwright coverage for the above changes, including Section Config cross-type collapse behavior and backend-log selected-message visibility.
+- Pinned `@codemirror/legacy-modes` to an exact version (`6.5.2`) to align dependency determinism with the rest of the frontend package manifest.
 
-Status: Implemented
+## 2026-02-17 17:36
 
-Accepted findings fixed in this batch:
-- Fixed in-pane streaming preview immutability by using deep-cloned preview snapshots and eliminating shared nested references.
-- Fixed hidden app-generation engine routing to prefer the active chat engine and force a fresh chat when engine fallback changes context.
-- Added backend-error detail surfacing for failed stream-generation responses (message/detail fallback) instead of status-only text.
-- Removed eager AI bootstrap fetches from App Config mount for json-render mode and deferred them to chat-backed modes / hidden generation execution.
-- Hardened revealPathInOsFileExplorer with an allowlist rooted to workspace, active setta_files, and discovered skill roots.
-- Removed dead prompt-builder no-op line and removed redundant backend app-generation mode normalization shim.
-- Removed unnecessary string/null fallback branches in Skills/MCP viewer where route types are already strict strings.
+- Fixed Run Instructions runnable-code listing mismatch by gating `SectionTypeEnum.Code` entries through runnable language checks (`python`/`bash`) before showing them in "Add From Code Blocks".
+- Added `runInstructionsRunnableCodeBlocks` helper coverage to lock runnable/non-runnable language behavior (including non-runnable fallback when language is missing).
+- Hardened `SectionConfig` accordion defaults so the first enabled panel opens (`main` else `appearance`) and open-state auto-heals away from disabled entries.
+- Extended Section Config tests and Playwright assertions to verify cross-type transitions keep appearance panel available and expanded when main settings are unavailable.
+- Removed backend-log resize hot-path churn by calculating the next width directly instead of rebuilding a full widths object on each drag update.
+- Reduced CI flake risk in perf tests by making strict wall-clock thresholds opt-in via `SETTA_STRICT_PERF=1` while keeping large-input structural guardrails in default runs.
+- Centralized CodeMirror language extension/parser registration into a shared utility and reused it from editor extensions, SSR dummy renderer, and git diff syntax parser resolution.
+- Added shared language utility tests and appended a perf report entry at `perf/reports/frontend/2026-02-17_pane-followups-runnable-gating.md`.
 
-Test and verification coverage added/updated:
-- Added frontend unit tests for hidden-generation engine selection, preview-clone isolation, and stream error-message extraction.
-- Added backend integration tests for reveal-path allowlist acceptance/rejection behavior.
-- Updated backend AI mode-helper tests to reflect strict typed mode handling without normalization shim.
-- Added Playwright coverage for stream error detail UX and lazy AI bootstrap behavior in App Config.
-- Updated MCP-mode Playwright assertion to the canonical hidden prompt contract.
-- CDP visual verification completed for App Config mode transitions and visible UI state.
+## 2026-02-17 18:15
 
-## 2026-02-17T00:58:47Z
-
-Status: Implemented
-
-Accepted findings fixed in this batch:
-- Fixed hidden app-generation first-run correctness by reading fresh AI store state after async resource preloads.
-- Hardened hidden engine selection to require external-agent preflight health (`available` + `supported`) before selecting external engines.
-- Reset hidden-generation patch counters at request start so non-json hidden status messaging never reuses stale in-pane patch counts.
-- Refactored App Config save flow to a single shared save+hydrate path used by both manual save and generated-spec persistence.
-- Reduced App Config rerender churn by applying `shallow` equality to object selectors from local storage and AI store.
-- Fixed skills browser refresh determinism by guarding list fetches with request sequencing and forcing selected markdown reloads on refresh.
-- Added explicit user feedback for copy/reveal path actions (success notice for copy, actionable error notices on failure).
-- Added `/getLLMResponse` reference-image URL/notes length guards to match `streamAppSpec` contract limits.
-- Optimized skills description extraction to stream `SKILL.md` lines and stop at first usable description line.
-- Removed unused `/settaHomeInfo.activeSettaFilesRoot` response field and aligned frontend/tests to the leaner contract.
-
-Test and verification coverage added/updated:
-- Frontend unit coverage for hidden-generation external-engine health gating and selection outcomes.
-- Backend unit coverage for reference-image normalization and explicit length guard failures.
-- Backend route coverage for streamed skill-description extraction behavior and updated setta-home response contract.
-- Playwright coverage for skills refresh content reload, stale-list race handling, reveal-path error feedback, and hidden-mode stale patch-count regression.
-- CDP visual verification completed for Project AI Skills/MCP viewer refresh/copy feedback and App Config hidden generation flow.
-
-## 2026-02-17T02:11:08Z
-
-Status: Implemented
-
-Accepted findings fixed in this batch:
-- Hidden app-generation now preserves and surfaces actionable backend error detail from `/getLLMResponse` instead of collapsing to a generic failure.
-- `revealPathInOsFileExplorer` now enforces allowlisted roots before existence checks and returns a consistent disallowed-root error message.
-- App Config now runtime-validates persisted `appGenerationMode`, falls back to `json_render` for invalid values, and self-heals local storage.
-- Hidden generation now clears pending chat details after successful force-new-chat submit, preventing stale pending-state leakage.
-- Removed redundant `skillPath` from app-gen skill list payloads and regenerated frontend/backend contracts accordingly.
-- Skills/MCP refresh now blocks redundant concurrent rescans by guarding in-flight refresh and disabling the refresh button while loading.
-- Removed redundant deep clone on json-render generation startup by reusing the already-detached spec seed.
-- Removed unused hidden-generation `promptOverride` path to reduce API surface and maintenance overhead.
-
-Test and verification coverage added/updated:
-- Added backend route tests for consistent disallowed reveal-path error behavior and updated app-gen-skill contract expectations.
-- Added frontend unit tests for app-generation mode coercion/validation and submit-message backend-detail propagation behavior.
-- Updated skills viewer unit/perf tests and Playwright mocks for the leaner skill entry payload (without `skillPath`).
-- Added Playwright coverage for hidden-generation error-detail UX, invalid persisted mode fallback/self-heal, and refresh-button loading lockout behavior.
-- CDP visual verification completed for App Config mode fallback behavior and Project AI Skills refresh disablement during in-flight loads.
+- Tightened `PaneAccordion` into a discriminated controlled/uncontrolled API so controlled callers must provide `openValues` + `onOpenValuesChange` and cannot also pass `defaultOpenValues`.
+- Updated all controlled pane call sites (`RunInstructions`, `SectionConfig`, `ProjectAISettings`) and related tests/perf tests to match the stricter accordion contract.
+- Moved backend-log pure helpers out of `BackendLogEventsArea.tsx` into `BackendLogEventsArea.utils.ts`, reducing production component export surface while keeping test coverage on the helper module.
+- Fixed backend-log selected-row lookup overhead by memoizing an `eventsById` map and using O(1) lookups for selected-event resolution and stale-selection cleanup.
+- Fixed backend-log width ratchet behavior by measuring viewport width from the outer scroll shell, keeping container `minWidth` tied to `gridMinWidth`, and computing list render width as `max(gridMinWidth, viewportWidth)`.
+- Cleaned `GitDiffCodeMirror` parser typing (`CodeMirrorParserLike | null`) and removed redundant parser/highlighter null checks inside the syntax-highlighting hot loop.
+- Added/updated focused automated verification: Vitest unit/perf/integration coverage for backend-log sizing + lookup behavior and Playwright assertions that backend-log scroll width shrinks after dragging a column narrower.
+- Completed CDP visual verification on the backend-log pane, including near-min/near-max resize extremes and selected-message panel behavior.
