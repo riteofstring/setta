@@ -21,3 +21,11 @@ Improve default app quality when users run JSON render without extra prompt inpu
 - Add snapshot/regression tests on representative JSON schemas.
 - Add Playwright output quality checks for default generation flows.
 - CDP visual check comparing baseline before/after outputs.
+
+## Implementation Notes (February 14, 2026)
+- Updated App Config default starter spec to improve hierarchy, naming, and baseline content structure.
+- Added mode-specific default generation prompts so zero-input generation is still guided and non-empty.
+
+## Verification Notes
+- Playwright updates in `frontend/tests/e2e/overview/app-config-fields.spec.ts` and `frontend/tests/e2e/overview/app-config-live-preview.spec.ts` validate the improved starter baseline.
+- CDP check was run on the App Config pane to validate updated default generation surface.

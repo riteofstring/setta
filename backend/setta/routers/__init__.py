@@ -1,6 +1,7 @@
 from .agentic import router as agentic_router
 from .ai import router as ai_router
 from .app_deployments import router as app_deployments_router
+from .app_gen_extensions import router as app_gen_extensions_router
 from .app_spec_streaming import router as app_spec_streaming_router
 from .artifact import router as artifact_router
 from .attachments import router as attachments_router
@@ -13,8 +14,6 @@ from .listener import router as listener_router
 from .llm import router as llm_router
 from .lsp import router as lsp_router
 from .mcp_tools import router as mcp_tools_router
-from .plugins import assets_router as plugins_assets_router
-from .plugins import router as plugins_router
 from .project_manager import router as project_manager_router
 from .projects import router as projects_router
 from .runs import router as runs_router

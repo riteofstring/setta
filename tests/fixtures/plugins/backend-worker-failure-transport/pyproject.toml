@@ -1,9 +1,0 @@
-[build-system]
-requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "setta-fixture-backend-worker-failure-transport"
-version = "0.1.0"
-description = "Backend worker transport failure fixture plugin for Setta tests"
-requires-python = ">=3.12"
