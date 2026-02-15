@@ -3625,8 +3625,6 @@ class BaseProjectManager(ABC):
             x.engineConfigId,
             x.agentProfileId,
             x.thinking,
-            x.permissionMode,
-            x.searchEnabled,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 

@@ -34,7 +34,7 @@ import {
   useToolArgumentPreview,
   type ZustandProjectState,
 } from "state/definitions";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_create_agent_profile,
   route_create_external_agent_config,
@@ -57,7 +57,6 @@ import {
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
-  route_transcribe_chat_audio,
   route_update_agent_profile,
   route_update_engine_config,
   route_update_external_agent_config,
@@ -73,8 +72,6 @@ import {
   AssistantChatMessage,
   BaseChatMessageUnion,
   ChatFileAttachment,
-  ChatPermissionMode,
-  ChatPermissionModeEnum,
   ChatRoleEnum,
   ChatSectionBranch,
   ChatSectionState,
@@ -120,53 +117,6 @@ const scopeViolationToastTimeouts = new Map<
   string,
   ReturnType<typeof setTimeout>
 >();
-
-type ChatExecutionSettings = {
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-};
-
-const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
-  permissionMode: ChatPermissionModeEnum.minimal,
-  searchEnabled: true,
-};
-
-function encodeArrayBufferAsBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  let binary = "";
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    const chunk = bytes.subarray(index, index + chunkSize);
-    binary += String.fromCharCode(...chunk);
-  }
-  return btoa(binary);
-}
-
-export async function transcribeChatAudio(
-  engineConfigId: string,
-  audioBlob: Blob,
-): Promise<string | null> {
-  if (!engineConfigId || audioBlob.size === 0) {
-    return null;
-  }
-  const audioBase64 = encodeArrayBufferAsBase64(await audioBlob.arrayBuffer());
-  const res = await route_transcribe_chat_audio({
-    engineConfigId,
-    audioBase64,
-    mimeType: audioBlob.type || "audio/webm",
-    fileName: "dictation.webm",
-  });
-  if (!res200(res)) {
-    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-    return null;
-  }
-  const text = res.data.text.trim();
-  if (!text) {
-    return null;
-  }
-  return text;
-}
 
 export async function loadLLMConfig() {
   const res = await route_get_llm_config();
@@ -598,19 +548,6 @@ export function getDefaultChatDetails(): ChatDetails {
   };
 }
 
-export function stopChatResponseLocally(chatId: string | null | undefined) {
-  const stopDetails = (details: ChatDetails): ChatDetails => ({
-    ...details,
-    waitingForResponse: false,
-  });
-  if (typeof chatId === "string") {
-    updateChatDetails(chatId, stopDetails);
-  } else {
-    updatePendingChatDetails(stopDetails);
-  }
-  clearAllAppSpecPatchStreams();
-}
-
 function mergeChatSectionState(
   currentState: ChatSectionState,
   incoming: {
@@ -819,14 +756,11 @@ export async function submitMessage(
   messageId?: string,
   agentProfileId?: string | null,
   sectionId?: string | null,
-  executionSettings?: ChatExecutionSettings | null,
 ): Promise<string | null> {
   const trimmed = message.trim();
   if ((!trimmed && attachments.length === 0) || !engineConfigId) {
     return null;
   }
-  const resolvedExecutionSettings =
-    executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
 
   // Add user message immediately for responsive UI
   const content = [];
@@ -856,8 +790,6 @@ export async function submitMessage(
       projectConfigId,
       sectionId: sectionId ?? null,
       allowUnscoped: sectionId == null,
-      permissionMode: resolvedExecutionSettings.permissionMode,
-      searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
     if (res200(res)) {
       const returnedChatId = res.data ?? chatId ?? null;
@@ -874,20 +806,9 @@ export async function submitMessage(
       }
       return returnedChatId;
     }
-    const detail =
-      getErrorDetail(res.data) ??
-      (res.status
-        ? `AI request failed (status ${res.status}).`
-        : "AI request failed.");
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
     rollbackOptimisticUserMessage(chatId, userMessageId);
     return null;
   } catch (err) {
-    const detail =
-      err instanceof Error && err.message.trim()
-        ? err.message
-        : "AI request failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
     rollbackOptimisticUserMessage(chatId, userMessageId);
     throw err;
   }
@@ -904,7 +825,6 @@ export async function submitEditedMessage({
   isExternalEngine,
   agentProfileId,
   sectionId,
-  executionSettings,
 }: {
   parentChatId: string;
   messages: Array<BaseChatMessageUnion>;
@@ -916,14 +836,11 @@ export async function submitEditedMessage({
   isExternalEngine: boolean;
   agentProfileId?: string | null;
   sectionId?: string | null;
-  executionSettings?: ChatExecutionSettings | null;
 }): Promise<string | null> {
   const trimmed = message.trim();
   if (!trimmed && attachments.length === 0) {
     return null;
   }
-  const resolvedExecutionSettings =
-    executionSettings ?? DEFAULT_CHAT_EXECUTION_SETTINGS;
 
   const content = [];
   if (trimmed) {
@@ -986,16 +903,8 @@ export async function submitEditedMessage({
       allowUnscoped: sectionId == null,
       branchParentChatId: parentChatId,
       branchFromMessageId: messageId,
-      permissionMode: resolvedExecutionSettings.permissionMode,
-      searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
     if (!res200(res)) {
-      const detail =
-        getErrorDetail(res.data) ??
-        (res.status
-          ? `AI request failed (status ${res.status}).`
-          : "AI request failed.");
-      addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
       clearPendingChatDetails();
       if (sectionId) {
         await setSectionChatId(parentChatId);
@@ -1027,11 +936,6 @@ export async function submitEditedMessage({
     }
     return returnedChatId;
   } catch (err) {
-    const detail =
-      err instanceof Error && err.message.trim()
-        ? err.message
-        : "AI request failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
     clearPendingChatDetails();
     if (sectionId) {
       await setSectionChatId(parentChatId);

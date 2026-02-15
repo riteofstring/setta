@@ -38,7 +38,6 @@ from setta.types.section_impls import (
     BaseCodeSectionImpl,
     BaseParentSectionImpl,
     BaseSectionWithParamsImpl,
-    ChatSectionImpl,
     CodeFileAccessMode,
     CodeFileBinding,
     CodeLanguage,
@@ -171,18 +170,6 @@ class ProjectStateSingleConfig(ProjectStateCore, extra="forbid"):
     @model_validator(mode="after")
     def _validate_view_modes(self):
         return self.validate_view_modes()
-
-    @model_validator(mode="after")
-    def _normalize_deprecated_chat_settings(self):
-        return self.normalize_deprecated_chat_settings()
-
-    def normalize_deprecated_chat_settings(self):
-        for section in self.sections.values():
-            section_impl = get_curr_effective_section_impl(self, section.id)
-            if not isinstance(section_impl, ChatSectionImpl):
-                continue
-            section_impl.skillsEnabled = True
-        return self
 
     def validate_for_update(
         self,

@@ -135,7 +135,7 @@ export function WatchCodePane() {
     "w-full box-border truncate rounded-full bg-white px-4 py-1 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700";
 
   return (
-    <div className="flex h-full min-w-0 flex-col gap-4 overflow-y-auto pr-4">
+    <div className="setta-pane-scroll flex h-full min-w-0 flex-col gap-4">
       <header className="flex flex-col gap-2">
         <WatchCodeToggleButton />
         <p className="text-[11px] leading-snug text-setta-500 dark:text-setta-400">

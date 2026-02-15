@@ -1,16 +1,5 @@
-import {
-  ChatInput,
-  type ChatSlashCommand,
-  type ChatSlashCommandResult,
-} from "components/Chat/ChatInput";
+import { ChatInput } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
-import {
-  CHAT_STARTER_PROMPTS,
-  buildChatSlashCommands,
-  formatSlashCommandHelp,
-  type ChatPermissionModeValue,
-  type ChatStarterPrompt,
-} from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
   Dispatch,
@@ -22,6 +11,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { TbLayoutDashboard } from "react-icons/tb";
 import {
   clearPendingChatDetails,
   finalizePendingChatDetails,
@@ -30,178 +20,26 @@ import {
   getExternalAgentChat,
   getLLMChat,
   initializePendingChatDetails,
-  loadAgentRuns,
-  stopChatResponseLocally,
   submitEditedMessage,
   submitMessage,
-  transcribeChatAudio,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
-import { buildChatHistoryEntries } from "state/actions/chatHistory";
 import { useAIStore } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import {
-  route_get_file_browser_root,
-  route_get_folder_contents,
   route_stop_external_agent_run,
   route_stop_llm_chat,
 } from "utils/generatedEndpoints";
-import {
-  AgentRun,
-  ChatFileAttachment,
-  EngineTypeEnum,
-} from "utils/generatedTypes";
+import { ChatFileAttachment, EngineTypeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 
-const PYTHON_ROOT_MARKER_FILES = new Set<string>([
-  "pyproject.toml",
-  "requirements.txt",
-  "requirements-dev.txt",
-  "setup.py",
-  "setup.cfg",
-  "Pipfile",
-  "tox.ini",
-  "poetry.lock",
-  "uv.lock",
-]);
-
-type ChatExecutionSettings = {
-  permissionMode: ChatPermissionModeValue;
-  searchEnabled: boolean;
-};
-
-type ProjectChatHistoryEntry = ReturnType<
-  typeof buildChatHistoryEntries
->[number];
-
-function resolvePermissionModeArg(
-  rawArg: string | undefined,
-): ChatPermissionModeValue | null {
-  if (!rawArg) {
-    return null;
-  }
-  const normalized = rawArg.trim().toLowerCase().replaceAll(".", "_");
-  if (normalized === "config_toml_custom") {
-    return "config_toml_custom";
-  }
-  if (normalized === "minimal") {
-    return "minimal";
-  }
-  if (normalized === "yolo") {
-    return "yolo";
-  }
-  return null;
-}
-
-function resolveToggleArg(
-  rawArg: string | undefined,
-  currentValue: boolean,
-): boolean | null {
-  if (!rawArg) {
-    return !currentValue;
-  }
-  const normalized = rawArg.trim().toLowerCase();
-  if (["on", "true", "enable", "enabled", "1"].includes(normalized)) {
-    return true;
-  }
-  if (["off", "false", "disable", "disabled", "0"].includes(normalized)) {
-    return false;
-  }
-  return null;
-}
-
-function hasPythonSignalsInRoot(
-  entries: Array<{ name: string; type: string }>,
-): boolean {
-  for (const entry of entries) {
-    if (entry.type !== "file") {
-      continue;
-    }
-    const lowerName = entry.name.toLowerCase();
-    if (lowerName.endsWith(".py")) {
-      return true;
-    }
-    if (PYTHON_ROOT_MARKER_FILES.has(lowerName)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function useHasPythonInWorkspaceRoot(): boolean {
-  const [hasPython, setHasPython] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      const rootResponse = await route_get_file_browser_root();
-      if (!rootResponse || rootResponse.status !== 200 || !rootResponse.data) {
-        return;
-      }
-      const contentsResponse = await route_get_folder_contents({
-        folderPath: rootResponse.data.rootPath,
-        includeHidden: false,
-        includeMtime: false,
-        includeSize: false,
-        maxEntries: 5000,
-      });
-      if (
-        !contentsResponse ||
-        contentsResponse.status !== 200 ||
-        !Array.isArray(contentsResponse.data)
-      ) {
-        return;
-      }
-      if (cancelled) {
-        return;
-      }
-      setHasPython(hasPythonSignalsInRoot(contentsResponse.data));
-    };
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return hasPython;
-}
-
-function toSortedProjectHistoryEntries(
-  runs: Array<AgentRun>,
-): Array<ProjectChatHistoryEntry> {
-  return buildChatHistoryEntries(runs, { unscopedOnly: true }).sort(
-    (left, right) => right.lastUpdatedMs - left.lastUpdatedMs,
-  );
-}
-
-function EmptyChatState({
-  starterPrompts,
-  disabled,
-  onStarterPrompt,
-}: {
-  starterPrompts: ChatStarterPrompt[];
-  disabled: boolean;
-  onStarterPrompt: (prompt: string) => void;
-}) {
-  const starterButtonClassName =
-    "rounded-md border border-setta-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100";
-
+function EmptyChatState() {
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto p-3">
-      {starterPrompts.map((starterPrompt) => (
-        <button
-          key={starterPrompt.id}
-          type="button"
-          className={starterButtonClassName}
-          onClick={() => onStarterPrompt(starterPrompt.prompt)}
-          disabled={disabled}
-        >
-          {starterPrompt.label}
-        </button>
-      ))}
+    <div className="flex min-h-0 flex-1 flex-wrap content-center items-center justify-center gap-4 overflow-y-auto">
+      <button className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50">
+        <TbLayoutDashboard /> Create Project UI
+      </button>
     </div>
   );
 }
@@ -252,37 +90,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   }, [branchIndex, chatId, messages]);
   const pendingPrompt = useAIStore((state) => state.pendingProjectChatPrompt);
   const [draftMessage, setDraftMessage] = useState("");
-  const [executionSettings, setExecutionSettings] =
-    useState<ChatExecutionSettings>({
-      permissionMode: "minimal",
-      searchEnabled: true,
-    });
-  const hasPythonInWorkspaceRoot = useHasPythonInWorkspaceRoot();
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
-  const canConfigureExecutionSettings = Boolean(engineConfigId) &&
-    (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
-  const showPermissionExecutionControl = canConfigureExecutionSettings;
-  const showSearchExecutionControl =
-    canConfigureExecutionSettings && !isExternalEngine;
-  const slashCommands = useMemo(
-    () =>
-      buildChatSlashCommands({
-        model: true,
-        permissions: showPermissionExecutionControl,
-        search: showSearchExecutionControl,
-      }),
-    [showPermissionExecutionControl, showSearchExecutionControl],
-  );
   const lastFetchedChatIdRef = useRef<string | null>(null);
   const lastChatIdRef = useRef<string | null>(null);
-  const visibleStarterPrompts = useMemo(
-    () =>
-      CHAT_STARTER_PROMPTS.filter(
-        (starterPrompt) =>
-          !starterPrompt.requiresPython || hasPythonInWorkspaceRoot,
-      ),
-    [hasPythonInWorkspaceRoot],
-  );
 
   useEffect(() => {
     if (typeof chatId === "string") {
@@ -338,103 +148,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [setChatId],
   );
 
-  const updateExecutionSettings = useCallback(
-    (
-      nextSettings: ChatExecutionSettings,
-      feedback: string,
-    ): ChatSlashCommandResult => {
-      setExecutionSettings(nextSettings);
-      return { feedback };
-    },
-    [],
-  );
-
-  const handleResumeLatestChat = useCallback(async (): Promise<boolean> => {
-    await loadAgentRuns();
-    const currentChatId = typeof chatId === "string" ? chatId : null;
-    const latestEntry = toSortedProjectHistoryEntries(
-      useAIStore.getState().agentRuns,
-    ).find((entry) => entry.chatId !== currentChatId);
-    if (!latestEntry) {
-      return false;
-    }
-    setChatId(latestEntry.chatId);
-    return true;
-  }, [chatId, setChatId]);
-
-  const handleSlashCommand = useCallback(
-    async (command: ChatSlashCommand): Promise<ChatSlashCommandResult> => {
-      if (command.action === "new") {
-        handleNewChatStart();
-        return { feedback: "Started a new chat thread." };
-      }
-      if (command.action === "resume") {
-        const resumed = await handleResumeLatestChat();
-        return resumed
-          ? { feedback: "Resumed the latest project chat." }
-          : {
-              feedback: "No previous project chat found to resume.",
-              keepInput: true,
-            };
-      }
-      if (command.action === "permissions") {
-        const nextMode = resolvePermissionModeArg(command.args[0]);
-        if (!nextMode) {
-          return {
-            feedback: "Usage: /permissions minimal|yolo|config_toml_custom",
-            keepInput: true,
-          };
-        }
-        return updateExecutionSettings(
-          {
-            permissionMode: nextMode,
-            searchEnabled: executionSettings.searchEnabled,
-          },
-          `Permissions set to ${nextMode}.`,
-        );
-      }
-      if (command.action === "search") {
-        const nextValue = resolveToggleArg(
-          command.args[0],
-          executionSettings.searchEnabled,
-        );
-        if (nextValue === null) {
-          return {
-            feedback: "Usage: /search on|off",
-            keepInput: true,
-          };
-        }
-        return updateExecutionSettings(
-          {
-            permissionMode: executionSettings.permissionMode,
-            searchEnabled: nextValue,
-          },
-          `Search ${nextValue ? "enabled" : "disabled"}.`,
-        );
-      }
-      if (command.action === "model") {
-        return {
-          feedback: "Use the model selector in the Project AI Chat toolbar.",
-          keepInput: true,
-        };
-      }
-      if (command.action === "help") {
-        return {
-          feedback: formatSlashCommandHelp(slashCommands),
-        };
-      }
-      return false;
-    },
-    [
-      executionSettings.permissionMode,
-      executionSettings.searchEnabled,
-      handleNewChatStart,
-      handleResumeLatestChat,
-      slashCommands,
-      updateExecutionSettings,
-    ],
-  );
-
   const handleSubmit = useCallback(
     async (message: string, attachments: ChatFileAttachment[]) => {
       const trimmed = message.trim();
@@ -468,10 +181,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           undefined,
           null,
           null,
-          {
-            permissionMode: executionSettings.permissionMode,
-            searchEnabled: executionSettings.searchEnabled,
-          },
         );
         succeeded = Boolean(submittedChatId);
       } catch (err) {
@@ -492,13 +201,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       isExternalEngine,
       externalEngineAvailable,
       hasLLMConfig,
-      executionSettings.permissionMode,
-      executionSettings.searchEnabled,
     ],
   );
 
   const handleStop = useCallback(async () => {
-    stopChatResponseLocally(chatId);
     if (isExternalEngine) {
       if (typeof chatId !== "string") {
         return;
@@ -541,10 +247,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         isExternalEngine,
         agentProfileId: null,
         sectionId: null,
-        executionSettings: {
-          permissionMode: executionSettings.permissionMode,
-          searchEnabled: executionSettings.searchEnabled,
-        },
       });
       return Boolean(nextChatId);
     },
@@ -555,8 +257,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       isExternalEngine,
       messages,
       thinking,
-      executionSettings.permissionMode,
-      executionSettings.searchEnabled,
     ],
   );
 
@@ -596,55 +296,11 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     () => !waitingForResponse && hasPendingToolInteraction(messages),
     [messages, waitingForResponse],
   );
-  const executionControls = useMemo(
-    () => ({
-      permissionMode: executionSettings.permissionMode,
-      searchEnabled: executionSettings.searchEnabled,
-      onPermissionModeChange: (nextMode: ChatPermissionModeValue) => {
-        updateExecutionSettings(
-          {
-            permissionMode: nextMode,
-            searchEnabled: executionSettings.searchEnabled,
-          },
-          `Permissions set to ${nextMode}.`,
-        );
-      },
-      onSearchEnabledChange: (nextValue: boolean) => {
-        updateExecutionSettings(
-          {
-            permissionMode: executionSettings.permissionMode,
-            searchEnabled: nextValue,
-          },
-          `Search ${nextValue ? "enabled" : "disabled"}.`,
-        );
-      },
-    }),
-    [
-      executionSettings.permissionMode,
-      executionSettings.searchEnabled,
-      updateExecutionSettings,
-    ],
-  );
-  const handleProviderDictationTranscribe = useCallback(
-    async (audioBlob: Blob) => {
-      if (!engineConfigId || isExternalEngine) {
-        return null;
-      }
-      return transcribeChatAudio(engineConfigId, audioBlob);
-    },
-    [engineConfigId, isExternalEngine],
-  );
 
   return (
     <>
       {showEmptyState ? (
-        <EmptyChatState
-          starterPrompts={visibleStarterPrompts}
-          disabled={isDisabled}
-          onStarterPrompt={(prompt) => {
-            void handleSubmit(prompt, []);
-          }}
-        />
+        <EmptyChatState />
       ) : (
         <ChatMessageList
           messages={messages}
@@ -665,17 +321,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         onChange={setDraftMessage}
         onSubmit={handleSubmit}
         onStop={handleStop}
-        slashCommands={slashCommands}
-        onSlashCommand={handleSlashCommand}
-        executionControls={executionControls}
-        executionControlVisibility={{
-          permissionMode: showPermissionExecutionControl,
-          search: showSearchExecutionControl,
-        }}
-        dictationEnabledByProvider={Boolean(engineConfigId)}
-        onProviderDictationTranscribe={
-          isExternalEngine ? undefined : handleProviderDictationTranscribe
-        }
       />
     </>
   );

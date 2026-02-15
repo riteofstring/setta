@@ -1,8 +1,7 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import _ from "lodash";
-import { useEffect, useMemo, useState } from "react";
-import { loadAgentRuns } from "state/actions/ai";
+import { useMemo, useState } from "react";
 import {
   getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
@@ -11,7 +10,6 @@ import {
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
 import {
-  useAIStore,
   useProjectState,
   useSettings,
   ZustandProjectState,
@@ -25,13 +23,7 @@ import {
   type Core,
   type ViewModeConfig,
 } from "utils/generatedTypes";
-import { shallow } from "zustand/shallow";
 import { ProjectName } from "./ProjectName";
-import {
-  getActiveSectionIdsFromRuns,
-  hasRunningAgentRuns,
-  isChatSectionWaitingForResponse,
-} from "./aiActivity";
 import { OverviewListingType, SectionListItems } from "./SectionListItems";
 
 const DEFAULT_SECTION_TAG_COLOR_CHOICES: ColorPickerChoice[] =
@@ -47,21 +39,13 @@ type TagFilterValue =
 
 export function ProjectOverview() {
   const sectionList = useOverviewListing();
-  const activeSectionIds = useActiveAgentSectionIds();
-  return (
-    <ProjectOverviewCore
-      sectionList={sectionList}
-      activeSectionIds={activeSectionIds}
-    />
-  );
+  return <ProjectOverviewCore sectionList={sectionList} />;
 }
 
 function ProjectOverviewCore({
   sectionList,
-  activeSectionIds,
 }: {
   sectionList: Array<OverviewListingType>;
-  activeSectionIds: ReadonlySet<string>;
 }) {
   const [filteredList, setFilter] = useMatchSorterFilter(sectionList, ["name"]);
   const sectionTagColorChoices =
@@ -110,17 +94,14 @@ function ProjectOverviewCore({
           />
         </div>
       </search>
-      <div className="min-h-0 flex-grow overflow-y-scroll">
+      <div className="setta-pane-scroll min-h-0 flex-grow">
         <ul
           className="min-h-0 flex-grow"
           {...getFloatingBoxHandlers({
             content: "Click on a section name to pan to it.",
           })}
         >
-          <SectionListItems
-            listOfSectionIdsAndNames={tagFilteredList}
-            activeSectionIds={activeSectionIds}
-          />
+          <SectionListItems listOfSectionIdsAndNames={tagFilteredList} />
         </ul>
       </div>
     </>
@@ -244,39 +225,6 @@ export function useOverviewListing() {
   }, _.isEqual);
 }
 
-function useActiveAgentSectionIds(): ReadonlySet<string> {
-  const { agentRuns, agentRunsInitialLoadComplete } = useAIStore(
-    (state) => ({
-      agentRuns: state.agentRuns,
-      agentRunsInitialLoadComplete: state.agentRunsInitialLoadComplete,
-    }),
-    shallow,
-  );
-
-  useEffect(() => {
-    if (!agentRunsInitialLoadComplete) {
-      void loadAgentRuns();
-    }
-  }, [agentRunsInitialLoadComplete]);
-
-  const hasRunningRuns = useMemo(
-    () => hasRunningAgentRuns(agentRuns),
-    [agentRuns],
-  );
-
-  useEffect(() => {
-    if (!hasRunningRuns) {
-      return;
-    }
-    const intervalId = setInterval(() => {
-      void loadAgentRuns();
-    }, 2500);
-    return () => clearInterval(intervalId);
-  }, [hasRunningRuns]);
-
-  return useMemo(() => getActiveSectionIdsFromRuns(agentRuns), [agentRuns]);
-}
-
 function getDepthListingHelper(
   section: Core,
   sectionImpl: BaseSectionImplUnion,
@@ -301,7 +249,6 @@ function getDepthListingHelper(
     name: section.name,
     depth: depth,
     tagColor: sectionImpl.tagColor ?? null,
-    aiWorking: isChatSectionWaitingForResponse(sectionImpl),
   });
 
   if (isBaseParentSectionImpl(sectionImpl)) {
