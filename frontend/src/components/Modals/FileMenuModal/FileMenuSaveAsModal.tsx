@@ -14,38 +14,26 @@ import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 import { ModalTypeEnum } from "../types";
 import { useProjectMetadataForFileMenu } from "./utils";
 
-export function FileMenuSaveProjectConfigAsModal({
-  open,
-}: {
-  open: boolean;
-}) {
+export function FileMenuSaveProjectConfigAsModal({ open }) {
   const projectMetadata = useProjectMetadataForFileMenu(open);
   const navigateToAnotherConfig = useNavigateToAnotherConfig();
   const { saveWithRefs } = useModalData(
     ModalTypeEnum.FILE_MENU_SAVE_PROJECT_CONFIG_AS,
   );
-  const currentProjectConfigName = useProjectState((x) => x.projectConfig.name);
 
   async function onClickSaveAsProject({
+    selected,
     filename,
   }: {
-    selectedName: string | null;
+    selected: string | null;
     filename: string;
   }) {
-    const normalizedFilename = filename.trim();
-    if (!normalizedFilename) {
-      return;
-    }
-
-    if (normalizedFilename === currentProjectConfigName) {
+    if (selected === useProjectState.getState().projectConfig.id) {
       saveProject();
       return;
     }
 
-    const existingTarget = projectMetadata.find(
-      (x) => x.name === normalizedFilename,
-    );
-    if (existingTarget) {
+    if (selected) {
       addTemporaryNotification(
         "Overwriting an existing project config directly is disabled. Use Save As New, then rename or delete configs as needed.",
         SettaNotificationTypeEnum.error,
@@ -53,13 +41,12 @@ export function FileMenuSaveProjectConfigAsModal({
       return;
     }
 
-    await saveAsNewProjectConfig(normalizedFilename, saveWithRefs);
-    navigateToAnotherConfig(normalizedFilename);
+    await saveAsNewProjectConfig(filename, saveWithRefs);
+    navigateToAnotherConfig(filename);
   }
 
   return (
     <SaveLoadModal
-      open={open}
       modalMode={SaveLoadModalModeEnum.save}
       files={projectMetadata}
       onClickActionButton={onClickSaveAsProject}

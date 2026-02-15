@@ -91,10 +91,7 @@ async function assertPaneContentHasHorizontalInset(
       const shellElement = document.querySelector(
         `[data-testid="${targetShellTestId}"]`,
       );
-      if (
-        !(pane instanceof HTMLElement) ||
-        !(shellElement instanceof HTMLElement)
-      ) {
+      if (!(pane instanceof HTMLElement) || !(shellElement instanceof HTMLElement)) {
         return null;
       }
       const paneRect = pane.getBoundingClientRect();
@@ -140,7 +137,7 @@ test("overview and ui-editor pane content stays clipped at narrow widths", async
 
   const overviewTabs = [
     "overview-tab-run-instructions",
-    "overview-tab-view-modes",
+    "overview-tab-project-configs",
     "overview-tab-notifications",
   ];
   for (const tabTestId of overviewTabs) {
