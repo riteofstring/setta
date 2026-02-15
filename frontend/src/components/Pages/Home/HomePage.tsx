@@ -55,7 +55,9 @@ const HOME_FILE_BROWSER_META_INSET_CLASS = "mx-auto w-[calc(100%_-_1.5rem)] px-1
 const HOME_FILE_BROWSER_LIST_INSET_LEFT = 10;
 const HOME_PANE_TITLE_CLASS =
   "mb-1 cursor-pointer select-none text-xs font-bold uppercase tracking-tight text-setta-300 dark:text-setta-500";
-const HOME_PANE_CONTENT_CLASS =
+const HOME_FILE_BROWSER_PANE_CONTENT_CLASS =
+  "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden";
+const HOME_INSET_PANE_CONTENT_CLASS =
   "mx-auto flex h-full min-h-0 w-[calc(100%_-_1.5rem)] min-w-0 flex-1 flex-col overflow-hidden px-1.5";
 
 export function partitionProjectsByFavoriteStatus({
@@ -364,10 +366,12 @@ function HomeWorkspaceLayout({
       >
         {homeWorkspacePaneVis && (
           <section
-            className={HOME_PANE_CONTENT_CLASS}
+            className={HOME_FILE_BROWSER_PANE_CONTENT_CLASS}
             data-testid="home-file-browser-column"
           >
-            <h2 className={HOME_PANE_TITLE_CLASS}>Workspace Browser</h2>
+            <div className={HOME_FILE_BROWSER_META_INSET_CLASS}>
+              <h2 className={HOME_PANE_TITLE_CLASS}>Workspace Browser</h2>
+            </div>
             <HomeFileBrowserColumn />
           </section>
         )}
@@ -380,7 +384,7 @@ function HomeWorkspaceLayout({
         width={homeSelectedProjectPaneWidth}
       >
         {homeSelectedProjectPaneVis && (
-          <section className={HOME_PANE_CONTENT_CLASS}>
+          <section className={HOME_INSET_PANE_CONTENT_CLASS}>
             <h2 className={HOME_PANE_TITLE_CLASS}>Selected Project</h2>
             <SelectedProjectDetails
               project={selectedDetailProject}
@@ -563,7 +567,7 @@ function HomeFileBrowserColumn() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-2 pb-2">
+    <section className="flex h-full min-h-0 w-full min-w-0 flex-col pb-2">
       <div
         className={`flex flex-col gap-2 ${HOME_FILE_BROWSER_META_INSET_CLASS}`}
       >
@@ -599,7 +603,7 @@ function HomeFileBrowserColumn() {
           Show Setta badges
         </label>
       </div>
-      <div className="min-h-0 flex-1">
+      <div className="min-h-[220px] min-w-0 flex-1">
         <FileBrowserPane
           useFileBrowserStateHook={useHomeFileBrowserState}
           includeSettaInitializedFolders={showSettaBadges}
