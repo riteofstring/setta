@@ -12,6 +12,7 @@ from setta.types.llm_config import AllLLMConfigs, LLMConfig
 class ResolvedEngineConfig:
     engine_config: EngineConfig
     llm_config: LLMConfig | None
+    transcription_llm_config: LLMConfig | None
     external_agent_config: ExternalAgentConfig | None
 
 
@@ -31,9 +32,19 @@ def resolve_engine_config(
             else:
                 raise ValueError("No LLM config available for engine")
         llm_config = llm_configs.resolve_config(llm_config_id)
+        transcription_llm_config: LLMConfig | None = None
+        transcription_llm_config_id = engine_config.transcriptionLlmConfigId
+        if transcription_llm_config_id:
+            try:
+                transcription_llm_config = llm_configs.resolve_config(
+                    transcription_llm_config_id
+                )
+            except ValueError:
+                transcription_llm_config = None
         return ResolvedEngineConfig(
             engine_config=engine_config,
             llm_config=llm_config,
+            transcription_llm_config=transcription_llm_config,
             external_agent_config=None,
         )
     if engine_config.engineType == EngineType.external_agent:
@@ -44,6 +55,7 @@ def resolve_engine_config(
         return ResolvedEngineConfig(
             engine_config=engine_config,
             llm_config=None,
+            transcription_llm_config=None,
             external_agent_config=external_config,
         )
     raise ValueError(f"Unsupported engine type: {engine_config.engineType}")

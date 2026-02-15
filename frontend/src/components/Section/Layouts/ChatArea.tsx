@@ -254,6 +254,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     thinking,
     permissionMode,
     searchEnabled,
+    dictationMode,
     messages,
     inputText,
     waitingForResponse,
@@ -274,6 +275,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       thinking: impl.thinking,
       permissionMode: impl.permissionMode,
       searchEnabled: impl.searchEnabled,
+      dictationMode: impl.dictationMode,
       messages: impl.messages,
       inputText: impl.inputText,
       waitingForResponse: impl.waitingForResponse,
@@ -293,6 +295,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
         thinking={thinking}
         permissionMode={permissionMode}
         searchEnabled={searchEnabled}
+        dictationMode={dictationMode}
       />
     );
   }
@@ -312,6 +315,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       isFrozen={isFrozen}
       permissionMode={permissionMode}
       searchEnabled={searchEnabled}
+      dictationMode={dictationMode}
     />
   );
 }
@@ -330,6 +334,7 @@ type ScriptableChatAreaProps = {
   isFrozen: boolean;
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
+  dictationMode: "auto" | "browser" | "provider";
 };
 
 function ScriptableChatArea({
@@ -346,6 +351,7 @@ function ScriptableChatArea({
   isFrozen,
   permissionMode,
   searchEnabled,
+  dictationMode,
 }: ScriptableChatAreaProps) {
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = getCurrProjectConfigId();
@@ -612,12 +618,14 @@ function ScriptableChatArea({
             thinking,
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
+            dictationMode,
             frontendOpId,
           }),
       });
     },
     [
       agentProfileId,
+      dictationMode,
       engineConfigId,
       permissionMode,
       projectConfigId,
@@ -888,6 +896,7 @@ function ScriptableChatArea({
             permissionMode: true,
             search: false,
           }}
+          dictationMode={dictationMode}
         />
       </div>
     </div>
@@ -1062,6 +1071,7 @@ type ManagedChatAreaProps = {
   thinking: boolean;
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
+  dictationMode: "auto" | "browser" | "provider";
 };
 
 function ManagedChatArea({
@@ -1071,6 +1081,7 @@ function ManagedChatArea({
   thinking,
   permissionMode,
   searchEnabled,
+  dictationMode,
 }: ManagedChatAreaProps) {
   useHydrateLLMState();
   useHydrateAgenticState();
@@ -1209,6 +1220,33 @@ function ManagedChatArea({
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
+  const selectedTranscriptionLLMConfigId = useMemo(() => {
+    if (!selectedEngineConfig) {
+      return null;
+    }
+    if (selectedEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
+      return null;
+    }
+    return selectedEngineConfig.transcriptionLlmConfigId ?? null;
+  }, [selectedEngineConfig]);
+  const providerDictationAvailable =
+    engineType === EngineTypeEnum.setta_llm &&
+    Boolean(
+      selectedTranscriptionLLMConfigId &&
+        allLLMConfigs?.configs?.[selectedTranscriptionLLMConfigId],
+    );
+  const providerDictationUnavailableReason = useMemo(() => {
+    if (engineType === EngineTypeEnum.external_agent) {
+      return "Provider dictation is available only for managed LLM engines.";
+    }
+    if (
+      engineType === EngineTypeEnum.setta_llm &&
+      !providerDictationAvailable
+    ) {
+      return "Provider dictation requires a valid transcription config.";
+    }
+    return "Provider dictation is not available.";
+  }, [engineType, providerDictationAvailable]);
   const hasEngineConfig = Boolean(selectedEngineConfig);
   const hasLLMConfig = Boolean(selectedLLMConfigId);
   const externalEngineStatus = useMemo(
@@ -1384,12 +1422,14 @@ function ManagedChatArea({
             thinking,
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
+            dictationMode,
             frontendOpId,
           }),
       });
     },
     [
       agentProfileId,
+      dictationMode,
       engineConfigId,
       permissionMode,
       projectConfigId,
@@ -1738,7 +1778,11 @@ function ManagedChatArea({
             permissionMode: showPermissionExecutionControl,
             search: false,
           }}
-          dictationEnabledByProvider={hasEngineConfig}
+          dictationMode={dictationMode}
+          dictationEnabledByProvider={providerDictationAvailable}
+          providerDictationUnavailableMessage={
+            providerDictationUnavailableReason
+          }
           onProviderDictationTranscribe={
             isExternalEngine ? undefined : handleProviderDictationTranscribe
           }

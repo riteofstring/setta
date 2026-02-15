@@ -23,6 +23,7 @@ class EngineConfig(BaseModel, extra="forbid"):
     name: str
     engineType: EngineType
     settaLlmConfigId: str | None = None
+    transcriptionLlmConfigId: str | None = None
     externalAgentConfigId: ID | None = None
     defaults: EngineConfigDefaults = Field(default_factory=EngineConfigDefaults)
 

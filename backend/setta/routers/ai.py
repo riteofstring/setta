@@ -866,10 +866,14 @@ async def route_transcribe_chat_audio(
                 "Use browser dictation for external agents."
             ),
         )
-    llm_config = resolved.llm_config
+    llm_config = resolved.transcription_llm_config
     if llm_config is None:
         raise HTTPException(
-            status_code=400, detail="No LLM config available for engine"
+            status_code=400,
+            detail=(
+                "Transcription config is missing or invalid for this engine. "
+                "Set transcriptionLlmConfigId."
+            ),
         )
 
     try:
