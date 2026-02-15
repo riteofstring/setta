@@ -412,18 +412,10 @@ function HomeWorkspaceLayout({
                   Sharing mode is read-only.
                 </div>
               ) : (
-                <div className="min-w-0">
-                  <h2 className="truncate text-xs font-semibold uppercase tracking-[0.18em] text-setta-500 dark:text-setta-300">
-                    Workspace Projects
-                  </h2>
-                  <p className="truncate text-[11px] text-setta-500 dark:text-setta-400">
-                    {selectedProjects.length > 0
-                      ? `${selectedProjects.length} selected`
-                      : `${totalProjectsCount} total`}
-                  </p>
-                </div>
+                <h2 className="truncate text-xs font-semibold uppercase tracking-[0.18em] text-setta-500 dark:text-setta-300">
+                  Workspace Projects
+                </h2>
               )}
-              <HomePageSearchBar className="ml-0 w-[clamp(11rem,_24vw,_18rem)] self-auto" />
             </div>
             {!isDeploymentMode && (
               <div className="flex flex-wrap gap-2">
@@ -740,6 +732,9 @@ function HomeProjectGallery({
         <h2 className="text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
           Projects
         </h2>
+        <div className="flex min-w-0 flex-1 justify-center px-2">
+          <HomePageSearchBar className="w-full max-w-sm" />
+        </div>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -767,9 +762,6 @@ function HomeProjectGallery({
           >
             <FiList size={12} />
           </button>
-          <span className="ml-1 text-[10px] uppercase tracking-[0.14em] text-setta-400">
-            {totalProjectsCount}
-          </span>
         </div>
       </div>
 
