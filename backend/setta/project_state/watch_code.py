@@ -109,7 +109,6 @@ def _ensure_watch_code_observer_started() -> Observer:
 DEFAULT_WATCH_CODE_IGNORE_DIRS = {
     "node_modules",
     ".venv",
-    "setta_files",
     "__pycache__",
 }
 
@@ -206,6 +205,7 @@ def _build_ignore_predicate() -> Callable[[Path], bool]:
     runtime_root = paths.runtime_root.resolve(strict=False)
     state_is_in_workspace = state_root.is_relative_to(workspace_root)
     runtime_is_in_workspace = runtime_root.is_relative_to(workspace_root)
+    ignored_names = set(DEFAULT_WATCH_CODE_IGNORE_DIRS)
 
     def should_ignore(path: Path) -> bool:
         resolved = (
@@ -220,7 +220,7 @@ def _build_ignore_predicate() -> Callable[[Path], bool]:
         if runtime_is_in_workspace and resolved.is_relative_to(runtime_root):
             return True
         for part in resolved.parts:
-            if part in DEFAULT_WATCH_CODE_IGNORE_DIRS:
+            if part in ignored_names:
                 return True
         return False
 
