@@ -37,10 +37,20 @@ describe("workspacePythonSignals", () => {
   it("reads and writes cache entries per workspace root path", () => {
     const cache: WorkspacePythonSignalCache = new Map();
     setCachedWorkspacePythonSignal(cache, "/workspace/python-app", true, 1000);
-    setCachedWorkspacePythonSignal(cache, "/workspace/frontend-app", false, 1001);
+    setCachedWorkspacePythonSignal(
+      cache,
+      "/workspace/frontend-app",
+      false,
+      1001,
+    );
 
     expect(
-      getCachedWorkspacePythonSignal(cache, "/workspace/python-app", 2000, 5000),
+      getCachedWorkspacePythonSignal(
+        cache,
+        "/workspace/python-app",
+        2000,
+        5000,
+      ),
     ).toBe(true);
     expect(
       getCachedWorkspacePythonSignal(

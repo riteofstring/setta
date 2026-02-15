@@ -12,7 +12,7 @@ export type ChatHistoryCompatibility = {
   engineConfigId: string | null;
 };
 
-export type ChatHistoryEntry = {
+type ChatHistoryEntry = {
   chatId: string;
   label: string;
   nameSource: ChatTitleSource | null;

@@ -14,7 +14,8 @@ describe("aiActivity (perf)", () => {
           index % 5 === 0
             ? {
                 sectionId: `section-${index % 400}`,
-                projectConfigId: index % 2 === 0 ? "project-main" : "project-alt",
+                projectConfigId:
+                  index % 2 === 0 ? "project-main" : "project-alt",
               }
             : { sectionId: null, projectConfigId: "project-main" },
       }),

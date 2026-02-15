@@ -48,9 +48,7 @@ _CREATION_CLARIFICATION_CONTEXT_RE = re.compile(
     ),
     re.IGNORECASE,
 )
-_QUESTION_PIVOT_RE = re.compile(
-    r"^\s*(?:how|what|why|where|when|who)\b", re.IGNORECASE
-)
+_QUESTION_PIVOT_RE = re.compile(r"^\s*(?:how|what|why|where|when|who)\b", re.IGNORECASE)
 _PASS_RE = re.compile(
     (
         r"\b("

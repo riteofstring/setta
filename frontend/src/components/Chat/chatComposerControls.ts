@@ -56,12 +56,12 @@ export type ChatSlashCommandDefinition = {
   summary: string;
 };
 
-export type ChatSlashCommandInput = {
+type ChatSlashCommandInput = {
   action: ChatSlashCommandAction;
   args: string[];
 };
 
-export type ChatSlashCommandExecutionResult =
+type ChatSlashCommandExecutionResult =
   | boolean
   | {
       handled?: boolean;

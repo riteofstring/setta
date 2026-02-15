@@ -133,8 +133,6 @@ type ChatSectionHistoryEntry = ReturnType<
   typeof buildChatHistoryEntries
 >[number];
 
-export { shouldShowPlanModeBadge };
-
 function emitChatAction(payload: ChatActionPayload) {
   const literalPayload: LiteralDependencyValue = {
     payload: JSON.stringify(payload),

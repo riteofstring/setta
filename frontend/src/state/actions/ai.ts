@@ -654,7 +654,7 @@ export function getDefaultChatDetails(): ChatDetails {
   };
 }
 
-export function stopChatResponseLocally(chatId: string | null | undefined) {
+function stopChatResponseLocally(chatId: string | null | undefined) {
   const stopDetails = (details: ChatDetails): ChatDetails => ({
     ...details,
     waitingForResponse: false,
@@ -697,10 +697,7 @@ async function stopExternalChatResponse({
   );
   if (!runId) {
     await getExternalAgentChat(chatId, projectConfigId, sectionId);
-    addTemporaryNotification(
-      failureMessage,
-      SettaNotificationTypeEnum.warning,
-    );
+    addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
     return false;
   }
   const response = await route_stop_external_agent_run({ runId });
@@ -1235,7 +1232,7 @@ export async function respondExternalAgentQuestion(
   return res200(res);
 }
 
-export async function findLatestRunningExternalRunId(
+async function findLatestRunningExternalRunId(
   chatId: string,
   projectConfigId: string | null,
 ): Promise<string | null> {
