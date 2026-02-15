@@ -649,19 +649,13 @@ class TestClaudeSdkAdapterIntegration:
                 ):
                     tool_errors.append(self._extract_tool_text(message))
             if tool_errors:
-                unexpected_tool_errors = [
-                    error
-                    for error in tool_errors
-                    if "InputValidationError: AskUserQuestion failed" not in error
-                ]
-                if unexpected_tool_errors:
-                    pytest.fail(
-                        self._debug_dump(
-                            handle,
-                            outputs,
-                            f"Tool errors encountered: {unexpected_tool_errors}",
-                        )
+                pytest.fail(
+                    self._debug_dump(
+                        handle,
+                        outputs,
+                        f"Tool errors encountered: {tool_errors}",
                     )
+                )
 
             assistant_messages = [
                 message
@@ -1043,19 +1037,13 @@ class TestClaudeSdkAdapterIntegration:
                 ):
                     tool_errors.append(self._extract_tool_text(message))
             if tool_errors:
-                unexpected_tool_errors = [
-                    error
-                    for error in tool_errors
-                    if "InputValidationError: AskUserQuestion failed" not in error
-                ]
-                if unexpected_tool_errors:
-                    pytest.fail(
-                        self._debug_dump(
-                            handle,
-                            outputs,
-                            f"Tool errors encountered: {unexpected_tool_errors}",
-                        )
+                pytest.fail(
+                    self._debug_dump(
+                        handle,
+                        outputs,
+                        f"Tool errors encountered: {tool_errors}",
                     )
+                )
             all_text = self._collect_message_texts(messages)
             if "Stream closed" in all_text:
                 pytest.fail(
@@ -1067,7 +1055,6 @@ class TestClaudeSdkAdapterIntegration:
                 )
 
             tool_call = None
-            valid_tool_call = None
             for message in messages:
                 if not isinstance(message, dict) or message.get("role") != "assistant":
                     continue
@@ -1082,23 +1069,14 @@ class TestClaudeSdkAdapterIntegration:
                         isinstance(function, dict)
                         and function.get("name") == "AskUserQuestion"
                     ):
-                        if tool_call is None:
-                            tool_call = call
-                        arguments = function.get("arguments")
-                        if (
-                            isinstance(arguments, dict)
-                            and isinstance(arguments.get("questions"), list)
-                        ):
-                            valid_tool_call = call
-                            break
                         tool_call = call
-                if valid_tool_call:
+                        break
+                if tool_call:
                     break
-            selected_tool_call = valid_tool_call or tool_call
-            assert selected_tool_call is not None
-            if selected_tool_call is None:
+            assert tool_call is not None
+            if tool_call is None:
                 return
-            arguments = selected_tool_call.get("function", {}).get("arguments")
+            arguments = tool_call.get("function", {}).get("arguments")
             assert isinstance(arguments, dict)
             questions = None
             if isinstance(arguments, dict):
@@ -1195,19 +1173,13 @@ class TestClaudeSdkAdapterIntegration:
                 ):
                     tool_errors.append(self._extract_tool_text(message))
             if tool_errors:
-                unexpected_tool_errors = [
-                    error
-                    for error in tool_errors
-                    if "InputValidationError: AskUserQuestion failed" not in error
-                ]
-                if unexpected_tool_errors:
-                    pytest.fail(
-                        self._debug_dump(
-                            handle,
-                            outputs,
-                            f"Tool errors encountered: {unexpected_tool_errors}",
-                        )
+                pytest.fail(
+                    self._debug_dump(
+                        handle,
+                        outputs,
+                        f"Tool errors encountered: {tool_errors}",
                     )
+                )
             all_text = self._collect_message_texts(messages)
             if "Stream closed" in all_text:
                 pytest.fail(
@@ -1219,7 +1191,6 @@ class TestClaudeSdkAdapterIntegration:
                 )
 
             tool_call = None
-            valid_tool_call = None
             for message in messages:
                 if not isinstance(message, dict) or message.get("role") != "assistant":
                     continue
@@ -1234,23 +1205,14 @@ class TestClaudeSdkAdapterIntegration:
                         isinstance(function, dict)
                         and function.get("name") == "AskUserQuestion"
                     ):
-                        if tool_call is None:
-                            tool_call = call
-                        arguments = function.get("arguments")
-                        if (
-                            isinstance(arguments, dict)
-                            and isinstance(arguments.get("questions"), list)
-                        ):
-                            valid_tool_call = call
-                            break
                         tool_call = call
-                if valid_tool_call:
+                        break
+                if tool_call:
                     break
-            selected_tool_call = valid_tool_call or tool_call
-            assert selected_tool_call is not None
-            if selected_tool_call is None:
+            assert tool_call is not None
+            if tool_call is None:
                 return
-            arguments = selected_tool_call.get("function", {}).get("arguments")
+            arguments = tool_call.get("function", {}).get("arguments")
             assert isinstance(arguments, dict)
             questions = None
             if isinstance(arguments, dict):

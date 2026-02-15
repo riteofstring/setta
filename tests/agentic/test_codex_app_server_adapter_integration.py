@@ -1207,7 +1207,7 @@ class TestCodexAppServerAdapterIntegration:
                 command = "python hash.py"
 
                 config = self._build_config(codex_path)
-                config.approvalPolicy = "on-request"
+                config.approvalPolicy = "untrusted"
                 config.sandboxPolicy = "workspace-write"
                 config.workingDirStrategy = ExternalAgentWorkingDirStrategy.custom
                 config.workingDir = str(work_dir)

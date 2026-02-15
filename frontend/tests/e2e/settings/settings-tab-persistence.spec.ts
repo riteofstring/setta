@@ -28,10 +28,9 @@ type SwitchRestoreEntry = {
   value: string;
 };
 
-let restoreSnapshot: {
-  projectConfigId: string;
-  entries: SwitchRestoreEntry[];
-} | null = null;
+let restoreSnapshot:
+  | { projectConfigId: string; entries: SwitchRestoreEntry[] }
+  | null = null;
 
 test.afterEach(async ({ page }) => {
   if (!restoreSnapshot || restoreSnapshot.entries.length === 0) {
@@ -50,25 +49,6 @@ test.afterEach(async ({ page }) => {
     projectConfigId: restoreSnapshot.projectConfigId,
   });
   restoreSnapshot = null;
-});
-
-test("settings tabs are selectable via UI tab buttons", async ({ page }) => {
-  await ensureAppReady(page);
-  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
-  await ensureParamsEditable(page);
-
-  const projectConfigId = await getProjectConfigId(page);
-  const latestState = await getLatestProjectState(page, projectConfigId);
-  const targets = getSwitchTargets(latestState);
-  expect(targets.length).toBeGreaterThan(0);
-
-  for (const target of targets) {
-    await openViewModeTabViaUi(page, {
-      viewModeId: target.viewModeId,
-      viewModeName: target.viewModeName,
-    });
-  }
 });
 
 test("settings tabs persist changes across reloads", async ({ page }) => {
@@ -99,14 +79,10 @@ test("settings tabs persist changes across reloads", async ({ page }) => {
   };
 
   for (const target of targets) {
-    await openViewModeTab(
-      page,
-      {
-        viewModeId: target.viewModeId,
-        viewModeName: target.viewModeName,
-      },
-      projectConfigId,
-    );
+    await openViewModeTab(page, {
+      viewModeId: target.viewModeId,
+      viewModeName: target.viewModeName,
+    });
     await ensureParamsEditable(page);
 
     const nextValue = target.currentValue === "true" ? "false" : "true";
@@ -120,14 +96,10 @@ test("settings tabs persist changes across reloads", async ({ page }) => {
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(READY_SELECTOR);
-    await openViewModeTab(
-      page,
-      {
-        viewModeId: target.viewModeId,
-        viewModeName: target.viewModeName,
-      },
-      projectConfigId,
-    );
+    await openViewModeTab(page, {
+      viewModeId: target.viewModeId,
+      viewModeName: target.viewModeName,
+    });
 
     await expect
       .poll(async () => {
@@ -151,18 +123,9 @@ type ProjectStatePayload = {
       sectionVariantMap: Record<string, string>;
       viewModes: Record<string, ViewModeConfig>;
     };
-    sections: Record<
-      string,
-      { name: string; sharedModifier?: Record<string, unknown> }
-    >;
-    sectionVariants: Record<
-      string,
-      { impl: string; modifier?: Record<string, unknown> }
-    >;
-    sectionImpls: Record<
-      string,
-      { type: string; codeObjVariantMap?: Record<string, string> }
-    >;
+    sections: Record<string, { name: string; sharedModifier?: Record<string, unknown> }>;
+    sectionVariants: Record<string, { impl: string; modifier?: Record<string, unknown> }>;
+    sectionImpls: Record<string, { type: string; codeObjVariantMap?: Record<string, string> }>;
     codeObjs: Record<
       string,
       { name: string; sharedModifier?: Record<string, unknown> }
@@ -175,9 +138,7 @@ type ProjectStatePayload = {
   };
 };
 
-function getSwitchTargets(
-  payload: ProjectStatePayload,
-): ViewModeSwitchTarget[] {
+function getSwitchTargets(payload: ProjectStatePayload): ViewModeSwitchTarget[] {
   const { projectState } = payload;
   const viewModes = sortViewModes(
     Object.values(projectState.projectConfig.viewModes).filter(
@@ -336,61 +297,19 @@ async function getLatestProjectState(
 async function openViewModeTab(
   page: Page,
   target: ViewModeRef,
-  projectConfigId: string,
 ): Promise<void> {
-  const tabById = page
-    .locator(
-      `[data-testid="view-mode-tab-button"][data-view-mode-id="${target.viewModeId}"]`,
-    )
-    .first();
-  const tabByName = page.getByRole("button", {
+  const tab = page.getByRole("button", {
     name: target.viewModeName,
     exact: true,
   });
-  const tab = ((await tabById.count()) > 0 ? tabById : tabByName).first();
-  const tabVisible = await tab.isVisible().catch(() => false);
-  if (tabVisible) {
-    await tab.scrollIntoViewIfNeeded();
-    await tab.click();
-  } else {
-    await postBackend(page, "/setActiveViewMode", {
-      projectConfigId,
-      activeViewModeId: target.viewModeId,
-    });
-  }
-  await waitForActiveViewMode(page, target.viewModeId);
-  await clickFitViewIfVisible(page);
-}
-
-async function openViewModeTabViaUi(
-  page: Page,
-  target: ViewModeRef,
-): Promise<void> {
-  const tab = page
-    .locator(
-      `[data-testid="view-mode-tab-button"][data-view-mode-id="${target.viewModeId}"]`,
-    )
-    .first();
   await expect(tab).toBeVisible();
-  await tab.scrollIntoViewIfNeeded();
   await tab.click();
-  await waitForActiveViewMode(page, target.viewModeId);
-  await clickFitViewIfVisible(page);
-}
-
-async function waitForActiveViewMode(
-  page: Page,
-  viewModeId: string,
-): Promise<void> {
-  await page.waitForFunction(async (activeId) => {
+  await page.waitForFunction(async (viewModeId) => {
     const { useProjectState } = await import("/src/state/definitions");
     return (
-      useProjectState.getState().projectConfig.activeViewModeId === activeId
+      useProjectState.getState().projectConfig.activeViewModeId === viewModeId
     );
-  }, viewModeId);
-}
-
-async function clickFitViewIfVisible(page: Page): Promise<void> {
+  }, target.viewModeId);
   const fitView = page.getByRole("button", { name: "fit view" });
   if (await fitView.isVisible()) {
     await fitView.click();
