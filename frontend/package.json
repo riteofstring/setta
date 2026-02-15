@@ -146,7 +146,6 @@
     "prettier": "3.2.4",
     "prettier-plugin-organize-imports": "3.2.4",
     "prettier-plugin-tailwindcss": "0.5.11",
-    "react-scan": "0.4.3",
     "remove-unused-vars": "0.0.11",
     "typescript": "5.8.3",
     "vitest": "2.1.8"
