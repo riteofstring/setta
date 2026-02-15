@@ -196,7 +196,17 @@ test("terminal text selection stays aligned at react flow zoom", async ({
     const marker =
       "SELECTION_ZOOM_TEST_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     await focusTerminalAndType(page, terminalId, `printf '${marker}\\n'`);
-    await waitForTerminalRowsMarker(page, terminalId, marker);
+    await waitForTerminalOutputMarker(page, terminalId, marker, 20000);
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 10000,
+      stableMs: 500,
+    });
+    await waitForTerminalRowsMarker(
+      page,
+      terminalId,
+      marker,
+      process.env.CI ? 30000 : 20000,
+    );
 
     const startOffset = 14;
     const endOffset = 42;

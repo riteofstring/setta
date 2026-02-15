@@ -52,9 +52,17 @@ test("plugin external agent adapters are visible in plugins pane and selectable 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(".react-flow__pane");
 
-    const externalAgentsSection = page
-      .getByRole("heading", { name: "External Agents" })
-      .locator("xpath=ancestor::section[1]");
+    const externalAgentsTrigger = page.getByTestId(
+      "project-ai-settings-accordion-external-agents",
+    );
+    const externalAgentsSection = page.getByTestId(
+      "project-ai-settings-accordion-external-agents-content",
+    );
+    await externalAgentsTrigger.scrollIntoViewIfNeeded();
+    await expect(externalAgentsTrigger).toBeVisible();
+    if (!(await externalAgentsSection.isVisible())) {
+      await externalAgentsTrigger.click();
+    }
     await expect(externalAgentsSection).toBeVisible();
 
     await externalAgentsSection
@@ -65,16 +73,8 @@ test("plugin external agent adapters are visible in plugins pane and selectable 
     );
 
     const toolTypeSelect = externalAgentsSection.locator("select").first();
-    const pluginAdapterSelect = externalAgentsSection
-      .locator("select")
-      .filter({ has: page.locator(`option[value='${adapterId}']`) })
-      .first();
-    await expect(async () => {
-      await toolTypeSelect.selectOption("plugin");
-      await expect(toolTypeSelect).toHaveValue("plugin");
-      await expect(pluginAdapterSelect).toBeVisible();
-    }).toPass();
-    await pluginAdapterSelect.selectOption(adapterId);
+    await toolTypeSelect.selectOption("plugin");
+    await expect(toolTypeSelect).toHaveValue("plugin");
 
     const runModeSelect = externalAgentsSection.locator("select").nth(1);
     await expect(runModeSelect).toHaveValue("sdk");

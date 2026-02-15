@@ -49,14 +49,16 @@ test("plugin language server fixture supports settings, diagnostics, and complet
     "emitDiagnostics": true
   }
 }`);
+  const saveSettingsResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/saveSettings") &&
+      response.request().method() === "POST",
+  );
   await pluginCard
     .getByRole("button", { name: "Save Settings", exact: true })
     .click();
-  await expect(
-    pluginCard.getByText("Language server settings saved.", {
-      exact: true,
-    }),
-  ).toBeVisible();
+  const saveSettingsResponse = await saveSettingsResponsePromise;
+  expect(saveSettingsResponse.ok()).toBe(true);
 
   const sectionName = "Fixture TS LSP";
   const createdSection = await postBackend<CreateTopLevelSectionResponse>(

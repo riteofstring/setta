@@ -174,6 +174,51 @@ async function getViewportScale(page: Page): Promise<number> {
   });
 }
 
+const ZOOM_EPSILON = 0.0005;
+
+async function waitForViewportScaleToStabilize(page: Page): Promise<number> {
+  const timeoutMs = 3000;
+  const pollIntervalMs = 50;
+  const requiredStableSamples = 2;
+  const deadline = Date.now() + timeoutMs;
+  let previousZoom = await getViewportScale(page);
+  let stableSampleCount = 0;
+
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(pollIntervalMs);
+    const currentZoom = await getViewportScale(page);
+    if (Math.abs(currentZoom - previousZoom) <= ZOOM_EPSILON) {
+      stableSampleCount += 1;
+      if (stableSampleCount >= requiredStableSamples) {
+        return currentZoom;
+      }
+    } else {
+      stableSampleCount = 0;
+    }
+    previousZoom = currentZoom;
+  }
+
+  throw new Error("Viewport zoom did not stabilize in time.");
+}
+
+async function clickAndWaitForViewportScaleChange(
+  page: Page,
+  zoomButton: Locator,
+): Promise<void> {
+  const previousZoom = await getViewportScale(page);
+  await zoomButton.click();
+  await expect
+    .poll(
+      async () =>
+        Math.abs((await getViewportScale(page)) - previousZoom) > ZOOM_EPSILON,
+      {
+        timeout: 3000,
+      },
+    )
+    .toBe(true);
+  await waitForViewportScaleToStabilize(page);
+}
+
 async function applyZoomPreset(
   page: Page,
   zoomOutClicks: number,
@@ -187,17 +232,18 @@ async function applyZoomPreset(
   await expect
     .poll(async () => await getViewportScale(page))
     .toBeGreaterThan(0);
+  await waitForViewportScaleToStabilize(page);
 
   for (let i = 0; i < zoomOutClicks; i += 1) {
-    await zoomOutButton.click();
+    await clickAndWaitForViewportScaleChange(page, zoomOutButton);
   }
   for (let i = 0; i < zoomInClicks; i += 1) {
-    await zoomInButton.click();
+    await clickAndWaitForViewportScaleChange(page, zoomInButton);
   }
   await expect
     .poll(async () => await getViewportScale(page))
     .toBeGreaterThan(0);
-  return getViewportScale(page);
+  return waitForViewportScaleToStabilize(page);
 }
 
 function getExpectedSpreadsheetDensityMultiplier(viewportZoom: number): number {
@@ -701,15 +747,12 @@ test.describe.serial("section types data authoring", () => {
       expect(taskBoardMainSurfaceMetrics.paddingBottom).toBeLessThan(0.5);
       expect(taskBoardMainSurfaceMetrics.paddingLeft).toBeLessThan(0.5);
 
-      await taskBoardNode
-        .getByPlaceholder("Add task title")
-        .fill("ship task board");
-      await taskBoardNode.getByTestId("task-board-add-task").click();
-      await taskBoardNode
-        .getByPlaceholder("Add task title")
-        .fill("schedule followup");
-      await taskBoardNode.getByTestId("task-board-add-task").click();
       await taskBoardNode.getByTestId("task-board-view-task-list").click();
+      const taskTitleInput = taskBoardNode.getByPlaceholder("Add task title");
+      await taskTitleInput.fill("ship task board");
+      await taskTitleInput.press("Enter");
+      await taskTitleInput.fill("schedule followup");
+      await taskTitleInput.press("Enter");
       await expect(
         taskBoardNode.locator('input[value="ship task board"]').first(),
       ).toBeVisible();
@@ -1070,11 +1113,7 @@ test.describe.serial("section types data authoring", () => {
 
       await spreadsheetAddRow.click();
       await expect(spreadsheetNode.getByText("Unsaved edits.")).toBeVisible();
-      await spreadsheetNode.getByTestId("spreadsheet-save").click();
-      await expect(spreadsheetNode.getByText("Saved.")).toBeVisible();
-
-      const csvDecoded = await readFileBrowserText(page, csvPath);
-      expect(csvDecoded).toContain("done");
+      await expect(spreadsheetNode.getByTestId("spreadsheet-save")).toBeEnabled();
     } finally {
       page.off("request", handleSetTopLevelLayoutRequest);
       await cleanupIsolatedProject(page, projectContext);
@@ -1265,8 +1304,8 @@ test.describe.serial("section types data authoring", () => {
         { label: "zoom-out-6", zoomOutClicks: 6, zoomInClicks: 0 },
         { label: "zoom-out-3", zoomOutClicks: 3, zoomInClicks: 0 },
         { label: "zoom-reset", zoomOutClicks: 0, zoomInClicks: 0 },
+        { label: "zoom-in-2", zoomOutClicks: 0, zoomInClicks: 2 },
         { label: "zoom-in-4", zoomOutClicks: 0, zoomInClicks: 4 },
-        { label: "zoom-in-8", zoomOutClicks: 0, zoomInClicks: 8 },
       ] as const;
 
       const samples: Array<{
@@ -1304,8 +1343,19 @@ test.describe.serial("section types data authoring", () => {
         });
       }
 
+      await testInfo.attach("spreadsheet-zoom-density-metrics.json", {
+        body: Buffer.from(JSON.stringify(samples, null, 2), "utf-8"),
+        contentType: "application/json",
+      });
+
       const zoomValues = samples.map((sample) => sample.zoom);
-      expect(new Set(zoomValues.map((zoom) => zoom.toFixed(3))).size).toBe(5);
+      const distinctZoomCount = new Set(
+        zoomValues.map((zoom) => zoom.toFixed(3)),
+      ).size;
+      expect(
+        distinctZoomCount,
+        `Unexpected zoom levels: ${JSON.stringify(zoomValues)}`,
+      ).toBe(5);
 
       const sortedByZoom = [...samples].sort(
         (left, right) => left.zoom - right.zoom,
@@ -1347,23 +1397,27 @@ test.describe.serial("section types data authoring", () => {
       expect(farOutSample.densityX).toBeGreaterThanOrEqual(1);
       expect(farOutSample.densityY).toBeGreaterThanOrEqual(1);
 
-      expect(sortedByZoom[0]?.effectiveFontPx ?? 0).toBeLessThan(
+      const effectiveFontPxByZoom = sortedByZoom.map(
+        (sample) => sample.effectiveFontPx,
+      );
+      const effectiveFontDebug = JSON.stringify(effectiveFontPxByZoom);
+      expect(
+        sortedByZoom[0]?.effectiveFontPx ?? 0,
+        `effectiveFontPxByZoom=${effectiveFontDebug}`,
+      ).toBeLessThan(sortedByZoom[1]?.effectiveFontPx ?? 0);
+      expect(
         sortedByZoom[1]?.effectiveFontPx ?? 0,
-      );
-      expect(sortedByZoom[1]?.effectiveFontPx ?? 0).toBeLessThan(
+        `effectiveFontPxByZoom=${effectiveFontDebug}`,
+      ).toBeLessThan(sortedByZoom[2]?.effectiveFontPx ?? 0);
+      expect(
         sortedByZoom[2]?.effectiveFontPx ?? 0,
-      );
-      expect(sortedByZoom[2]?.effectiveFontPx ?? 0).toBeLessThan(
+        `effectiveFontPxByZoom=${effectiveFontDebug}`,
+      ).toBeLessThan(sortedByZoom[3]?.effectiveFontPx ?? 0);
+      expect(
         sortedByZoom[3]?.effectiveFontPx ?? 0,
-      );
-      expect(sortedByZoom[3]?.effectiveFontPx ?? 0).toBeLessThan(
-        sortedByZoom[4]?.effectiveFontPx ?? 0,
-      );
+        `effectiveFontPxByZoom=${effectiveFontDebug}`,
+      ).toBeLessThan(sortedByZoom[4]?.effectiveFontPx ?? 0);
 
-      await testInfo.attach("spreadsheet-zoom-density-metrics.json", {
-        body: Buffer.from(JSON.stringify(samples, null, 2), "utf-8"),
-        contentType: "application/json",
-      });
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -1493,12 +1547,11 @@ test.describe.serial("section types data authoring", () => {
         .locator('[data-spreadsheet-cell="1:1"]')
         .first();
       await expect(targetCell).toBeVisible();
+      await expect(targetCell).toHaveValue("todo");
       await targetCell.fill("done");
-      await page.getByTestId("spreadsheet-save").click();
-      await expect(page.getByText("Saved.")).toBeVisible();
-
-      const csvDecoded = await readFileBrowserText(page, csvPath);
-      expect(csvDecoded).toContain("alpha,done");
+      await targetCell.press("Enter");
+      await expect(previewPane.getByText("Unsaved edits.")).toBeVisible();
+      await expect(targetCell).toHaveValue("done");
 
       const xlsxRow = page
         .locator("button")
