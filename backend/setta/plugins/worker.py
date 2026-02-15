@@ -584,7 +584,9 @@ class _WorkerState:
             ]
 
         for parameter in unresolved_parameters:
-            is_required, default_value = self._resolve_route_parameter_default(parameter)
+            is_required, default_value = self._resolve_route_parameter_default(
+                parameter
+            )
             if is_required:
                 raise WorkerError(
                     "PLUGIN_BACKEND_ROUTE_CALL_INVALID",

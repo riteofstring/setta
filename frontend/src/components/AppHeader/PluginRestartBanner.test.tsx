@@ -76,9 +76,8 @@ vi.mock("components/Panes/paneFns", () => ({
 }));
 
 vi.mock("plugins/restart", async () => {
-  const actual = await vi.importActual<typeof import("plugins/restart")>(
-    "plugins/restart",
-  );
+  const actual =
+    await vi.importActual<typeof import("plugins/restart")>("plugins/restart");
   return {
     ...actual,
     getRestartRequiredPluginIds: (...args: unknown[]) =>

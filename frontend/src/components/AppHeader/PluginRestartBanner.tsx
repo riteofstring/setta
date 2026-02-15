@@ -50,7 +50,9 @@ export function PluginRestartBanner() {
     setIsRestarting(true);
     let shouldRefreshRuntime = true;
     try {
-      const restartResult = mapPluginRestartResponse(await route_plugins_restart());
+      const restartResult = mapPluginRestartResponse(
+        await route_plugins_restart(),
+      );
       if (restartResult.kind === "request_failed") {
         addTemporaryNotification("Restart request failed.", "error");
         return;
@@ -60,10 +62,7 @@ export function PluginRestartBanner() {
         addTemporaryNotification("Restart request accepted.", "info");
         return;
       }
-      addTemporaryNotification(
-        restartResult.message,
-        "warning",
-      );
+      addTemporaryNotification(restartResult.message, "warning");
     } finally {
       setIsRestarting(false);
       if (shouldRefreshRuntime) {

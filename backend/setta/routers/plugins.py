@@ -1,6 +1,6 @@
+from collections.abc import Callable
 from pathlib import Path
 from typing import Literal, TypeVar
-from collections.abc import Callable
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
@@ -170,7 +170,9 @@ def route_plugins_enable(
     x: PluginEnableDisableRequest,
     state: AppStateFromRequest,
 ) -> PluginEnableDisableResponse:
-    return _run_manager_call(lambda: _manager(state).enable_plugin(plugin_id=x.pluginId))
+    return _run_manager_call(
+        lambda: _manager(state).enable_plugin(plugin_id=x.pluginId)
+    )
 
 
 @router.post(Route.PLUGINS_DISABLE, dependencies=[Depends(require_ide_mode)])
@@ -178,7 +180,9 @@ def route_plugins_disable(
     x: PluginEnableDisableRequest,
     state: AppStateFromRequest,
 ) -> PluginEnableDisableResponse:
-    return _run_manager_call(lambda: _manager(state).disable_plugin(plugin_id=x.pluginId))
+    return _run_manager_call(
+        lambda: _manager(state).disable_plugin(plugin_id=x.pluginId)
+    )
 
 
 @router.post(Route.PLUGINS_CONFIG, dependencies=[Depends(require_ide_mode)])

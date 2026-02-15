@@ -346,7 +346,10 @@ async function loadPluginRuntime(): Promise<void> {
   const listData = runtimeResponse.data.list;
   const statusData = runtimeResponse.data.status;
 
-  const pluginListById = mapPluginListById(listData, previousState.pluginListById);
+  const pluginListById = mapPluginListById(
+    listData,
+    previousState.pluginListById,
+  );
   const pluginStatusById = mapPrimaryStatusByPluginId(statusData);
   const registryAccumulator: PluginRegistryAccumulator = {
     sectionKinds: {},
@@ -886,9 +889,12 @@ function toProjectStateSectionSnapshot(
   if (!Array.isArray(rawValue)) {
     return {};
   }
-  const previousValues = Array.isArray(previousRawValue) ? previousRawValue : null;
+  const previousValues = Array.isArray(previousRawValue)
+    ? previousRawValue
+    : null;
   const previousBySection =
-    isRecordProjectStateValue(previousSnapshot) && !Array.isArray(previousSnapshot)
+    isRecordProjectStateValue(previousSnapshot) &&
+    !Array.isArray(previousSnapshot)
       ? previousSnapshot
       : null;
   const snapshot: Record<string, unknown> = {};
@@ -1893,7 +1899,10 @@ function stableCapabilitiesReference(
   capabilities: string[],
   previousCapabilities: string[] | undefined,
 ): string[] {
-  if (!previousCapabilities || capabilities.length !== previousCapabilities.length) {
+  if (
+    !previousCapabilities ||
+    capabilities.length !== previousCapabilities.length
+  ) {
     return capabilities;
   }
   for (let index = 0; index < capabilities.length; index += 1) {

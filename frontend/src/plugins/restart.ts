@@ -26,7 +26,7 @@ type PluginRestartActionPlan =
       message: string;
     };
 
-export type PluginRestartRequestResult =
+type PluginRestartRequestResult =
   | {
       kind: "accepted";
     }

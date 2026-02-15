@@ -25,7 +25,7 @@ const cachedCodegenTargetsByStatus = new WeakMap<
   PluginRegisteredCodegenTarget[]
 >();
 
-export type PluginCapabilityStatus =
+type PluginCapabilityStatus =
   | "effective"
   | "blocked"
   | "requested_unavailable"
@@ -288,7 +288,9 @@ export function buildCapabilityUnavailableMessage({
   return `${capability} is not requested by this plugin.`;
 }
 
-export function validateInstallSourceSpec(sourceSpecRaw: string): string | null {
+export function validateInstallSourceSpec(
+  sourceSpecRaw: string,
+): string | null {
   const sourceSpec = sourceSpecRaw.trim();
   if (!sourceSpec) {
     return "Source spec is required.";

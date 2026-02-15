@@ -47,6 +47,7 @@ import type {
   PluginUpdateRequestInput,
   SettingsState,
 } from "utils/generatedTypes";
+import { onOverviewTabClick } from "../../paneFns";
 import {
   buildBusyPluginIdSet,
   buildCapabilityUnavailableMessage,
@@ -65,7 +66,6 @@ import {
   setLanguageServerSettingsValue,
   validateInstallSourceSpec,
 } from "./PluginsPane.helpers";
-import { onOverviewTabClick } from "../../paneFns";
 
 type InstallScope = "workspace" | "setta_files" | "global";
 type InstallBackend = "auto" | "pip" | "uv";
@@ -608,21 +608,33 @@ export function PluginsPane() {
                     <td className="px-2 py-1">{entry.state}</td>
                     <td className="px-2 py-1">{entry.sourceScopeLabel}</td>
                     <td className="max-w-[150px] px-2 py-1 text-setta-600 dark:text-setta-300">
-                      <span title={formatCapabilitiesTooltip(entry.requestedCapabilities)}>
+                      <span
+                        title={formatCapabilitiesTooltip(
+                          entry.requestedCapabilities,
+                        )}
+                      >
                         {formatCapabilitiesForTableCached(
                           entry.requestedCapabilities,
                         )}
                       </span>
                     </td>
                     <td className="max-w-[150px] px-2 py-1 text-setta-600 dark:text-setta-300">
-                      <span title={formatCapabilitiesTooltip(entry.effectiveCapabilities)}>
+                      <span
+                        title={formatCapabilitiesTooltip(
+                          entry.effectiveCapabilities,
+                        )}
+                      >
                         {formatCapabilitiesForTableCached(
                           entry.effectiveCapabilities,
                         )}
                       </span>
                     </td>
                     <td className="max-w-[170px] px-2 py-1 text-setta-600 dark:text-setta-300">
-                      <span title={formatBlockedCapabilitiesTooltip(entry.blockedCapabilities)}>
+                      <span
+                        title={formatBlockedCapabilitiesTooltip(
+                          entry.blockedCapabilities,
+                        )}
+                      >
                         {formatBlockedCapabilitiesForTableCached(
                           entry.blockedCapabilities,
                         )}
@@ -1803,7 +1815,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return true;
 }
 
-
 function InstallSummaryCard({
   installSummary,
 }: {
@@ -1894,7 +1905,6 @@ function buildPluginActionError<T>(
   return `${actionLabel} failed (status ${response.status ?? "unknown"}).`;
 }
 
-
 function formatCapabilitiesForTable(capabilities: string[]): string {
   if (capabilities.length === 0) {
     return "none";
@@ -1947,7 +1957,8 @@ function formatBlockedCapabilitiesForTable(
 function formatBlockedCapabilitiesForTableCached(
   blockedCapabilities: PluginBlockedCapability[],
 ): string {
-  const cached = cachedFormattedBlockedCapabilitiesText.get(blockedCapabilities);
+  const cached =
+    cachedFormattedBlockedCapabilitiesText.get(blockedCapabilities);
   if (cached) {
     return cached;
   }
@@ -1975,7 +1986,6 @@ function formatBlockedCapabilitiesTooltip(
   cachedBlockedCapabilitiesTooltipText.set(blockedCapabilities, formatted);
   return formatted;
 }
-
 
 function getActionStatusClassName(type: PluginActionStatus["type"]): string {
   if (type === "error") {
