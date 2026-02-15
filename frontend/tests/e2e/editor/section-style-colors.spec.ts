@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Request } from "@playwright/test";
+import { expect, test, type Request } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   createCallableSection,
@@ -20,33 +20,6 @@ type LatestProjectStateResponse = {
 
 function getModKey(): "Control" | "Meta" {
   return process.platform === "darwin" ? "Meta" : "Control";
-}
-
-async function ensureAppearanceAccordionExpanded(
-  uiEditorPane: Locator,
-): Promise<void> {
-  const appearanceAccordionTrigger = uiEditorPane.getByTestId(
-    "section-config-accordion-appearance",
-  );
-  await expect(appearanceAccordionTrigger).toBeVisible();
-  if ((await appearanceAccordionTrigger.getAttribute("aria-expanded")) !== "true") {
-    await appearanceAccordionTrigger.click();
-  }
-  await expect(appearanceAccordionTrigger).toHaveAttribute(
-    "aria-expanded",
-    "true",
-  );
-}
-
-async function getStyleBlock(uiEditorPane: Locator): Promise<Locator> {
-  await ensureAppearanceAccordionExpanded(uiEditorPane);
-  const styleHeading = uiEditorPane.getByText("Style", { exact: true });
-  await expect(styleHeading).toBeVisible();
-  const styleBlock = styleHeading.locator(
-    "xpath=ancestor::div[contains(@class,'rounded-lg') or contains(@class,'rounded-xl')][1]",
-  );
-  await expect(styleBlock).toBeVisible();
-  return styleBlock;
 }
 
 test.describe.serial("section style colors", () => {
@@ -78,7 +51,13 @@ test.describe.serial("section style colors", () => {
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
 
-      const styleBlock = await getStyleBlock(uiEditorPane);
+      const styleBlock = uiEditorPane
+        .locator("div.rounded-xl")
+        .filter({
+          has: page.getByRole("heading", { name: "Style" }),
+        })
+        .first();
+      await expect(styleBlock).toBeVisible();
 
       const sectionChrome = node
         .locator(`section[data-section-id="${sectionId}"]`)
@@ -151,7 +130,12 @@ test.describe.serial("section style colors", () => {
 
       const uiEditorAfter = page.locator("#UiEditorPane");
       await expect(uiEditorAfter).toBeVisible();
-      const styleBlockAfter = await getStyleBlock(uiEditorAfter);
+      const styleBlockAfter = uiEditorAfter
+        .locator("div.rounded-xl")
+        .filter({
+          has: page.getByRole("heading", { name: "Style" }),
+        })
+        .first();
       await expect(styleBlockAfter.getByText("#ff0000").first()).toBeVisible();
 
       const sectionChromeAfter = nodeAfter
@@ -249,7 +233,13 @@ test.describe.serial("section style colors", () => {
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
 
-      const styleBlock = await getStyleBlock(uiEditorPane);
+      const styleBlock = uiEditorPane
+        .locator("div.rounded-xl")
+        .filter({
+          has: page.getByRole("heading", { name: "Style" }),
+        })
+        .first();
+      await expect(styleBlock).toBeVisible();
 
       const argsStrip = sectionChrome.locator(".section-args").first();
       await expect(argsStrip).toBeVisible();
@@ -528,7 +518,13 @@ test.describe.serial("section style colors", () => {
 
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
-      const styleBlock = await getStyleBlock(uiEditorPane);
+      const styleBlock = uiEditorPane
+        .locator("div.rounded-xl")
+        .filter({
+          has: page.getByRole("heading", { name: "Style" }),
+        })
+        .first();
+      await expect(styleBlock).toBeVisible();
 
       const colorInput = styleBlock.locator('input[type="color"]').first();
       await expect(colorInput).toBeVisible();

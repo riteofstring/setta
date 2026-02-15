@@ -1,13 +1,8 @@
-import {
-  SortableListProvider,
-  useSortableListItem,
-} from "components/Pages/Project/ViewModeDnd";
 import _ from "lodash";
 import { useState } from "react";
 import { FaRegSnowflake } from "react-icons/fa";
-import { FiFileText, FiPlus } from "react-icons/fi";
+import { FiFileText } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
-import { RxDragHandleDots2 } from "react-icons/rx";
 import { openDeleteJSONSourceFileModal } from "state/actions/modal";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -27,7 +22,6 @@ import {
   route_set_default_section_variant,
   route_set_section_variant,
   route_set_section_variant_name,
-  route_set_section_variant_sort_order,
   route_toggle_variant_frozen,
   route_toggle_variant_json_source,
 } from "utils/generatedEndpoints";
@@ -75,7 +69,6 @@ export function VariantList({ sectionId }) {
             onClick={onClickAddVariantButton}
             disabled={!canEditVariants}
           >
-            <FiPlus size={13} />
             Add Variant
           </button>
         )}
@@ -89,7 +82,7 @@ export function VariantList({ sectionId }) {
         </button>
       </header>
       <ul
-        className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-0 overflow-y-auto overflow-x-clip pt-6"
+        className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-6"
         onMouseLeave={() =>
           useProjectState.setState((x) => {
             delete x.previewSectionVariantMap[sectionId];
@@ -131,86 +124,33 @@ function VariantListCore({
     },
     _.isEqual,
   );
-  const sortableEnabled = canEditVariants && variantIds.length > 1;
 
-  function onReorderVariants(nextOrderedIds: Array<string>) {
-    if (!canEditVariants) {
-      return;
-    }
-    if (
-      nextOrderedIds.length !== variantIds.length ||
-      nextOrderedIds.every((id, idx) => id === variantIds[idx])
-    ) {
-      return;
-    }
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        const section = getSectionCore(state, sectionId);
-        section.variants = [...nextOrderedIds];
-      },
-      send: (frontendOpId) =>
-        route_set_section_variant_sort_order({
-          projectConfigId: getCurrProjectConfigId(),
-          sectionId,
-          orderedVariantIds: nextOrderedIds,
-          frontendOpId,
-        }),
-    });
+  if (isEditing) {
+    return variantIds.map((e) => (
+      <OneVariantEditing
+        key={e}
+        sectionId={sectionId}
+        id={e}
+        deletable={variantIds.length > 1}
+        canEditVariants={canEditVariants}
+        allowVariantDeletion={allowVariantDeletion}
+      />
+    ));
   }
 
-  return (
-    <SortableListProvider
-      id={`variant-list-sortable-${sectionId}`}
-      items={variantIds}
-      direction="vertical"
-      enabled={sortableEnabled}
-      onReorder={onReorderVariants}
-    >
-      {isEditing
-        ? variantIds.map((variantId) => (
-            <OneVariantEditing
-              key={variantId}
-              sectionId={sectionId}
-              id={variantId}
-              deletable={variantIds.length > 1}
-              canEditVariants={canEditVariants}
-              allowVariantDeletion={allowVariantDeletion}
-              sortableEnabled={sortableEnabled}
-            />
-          ))
-        : variantIds.map((variantId) => (
-            <OneVariant
-              key={variantId}
-              sectionId={sectionId}
-              id={variantId}
-              isCurr={currVariantId === variantId}
-              isDefault={variantId === defaultVariantId}
-              canEditVariants={canEditVariants}
-              sortableEnabled={sortableEnabled}
-            />
-          ))}
-    </SortableListProvider>
-  );
+  return variantIds.map((e) => (
+    <OneVariant
+      key={e}
+      sectionId={sectionId}
+      id={e}
+      isCurr={currVariantId === e}
+      isDefault={e === defaultVariantId}
+      canEditVariants={canEditVariants}
+    />
+  ));
 }
 
 function OneVariant({
-  sortableEnabled,
-  ...props
-}: {
-  sectionId: string;
-  id: string;
-  isCurr: boolean;
-  isDefault: boolean;
-  canEditVariants: boolean;
-  sortableEnabled: boolean;
-}) {
-  if (!sortableEnabled) {
-    return <OneVariantContent {...props} sortable={null} />;
-  }
-  return <OneVariantSortable {...props} sortableEnabled />;
-}
-
-function OneVariantSortable({
   sectionId,
   id,
   isCurr,
@@ -222,37 +162,6 @@ function OneVariantSortable({
   isCurr: boolean;
   isDefault: boolean;
   canEditVariants: boolean;
-  sortableEnabled: boolean;
-}) {
-  const sortable = useSortableListItem(id, false, "vertical");
-  return (
-    <OneVariantContent
-      sectionId={sectionId}
-      id={id}
-      isCurr={isCurr}
-      isDefault={isDefault}
-      canEditVariants={canEditVariants}
-      sortable={sortable}
-    />
-  );
-}
-
-type VariantSortableItem = ReturnType<typeof useSortableListItem>;
-
-function OneVariantContent({
-  sectionId,
-  id,
-  isCurr,
-  isDefault,
-  canEditVariants,
-  sortable,
-}: {
-  sectionId: string;
-  id: string;
-  isCurr: boolean;
-  isDefault: boolean;
-  canEditVariants: boolean;
-  sortable: VariantSortableItem | null;
 }) {
   const { name, isFrozen, isJsonSource, canUseJsonSource } = useProjectState(
     (x) => {
@@ -273,31 +182,8 @@ function OneVariantContent({
     _.isEqual,
   );
 
-  const rowClasses = `section-key-value group/versionitem flex h-8 w-full min-w-0 items-center gap-2 rounded px-2 text-xs transition-colors ${
-    canEditVariants ? "cursor-pointer" : "cursor-not-allowed opacity-60"
-  } ${
-    isCurr
-      ? "bg-white text-blue-600 shadow-sm dark:bg-setta-800"
-      : "text-setta-700 hover:bg-setta-100 dark:text-setta-300 dark:hover:bg-setta-800/50"
-  }`;
-  const dragHandleClasses = sortable
-    ? "inline-flex h-full w-4 shrink-0 cursor-grab items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
-    : "inline-flex h-full w-4 shrink-0 cursor-default items-center justify-center text-setta-400 opacity-60 dark:text-setta-600";
-  const labelClassName = `section-key min-w-0 flex-1 truncate text-left ${
-    isCurr
-      ? "font-medium text-blue-600 dark:text-blue-300"
-      : "text-setta-500 dark:text-setta-300"
-  }`;
-  const stopDragPointerDown = (event: React.PointerEvent<HTMLElement>) => {
-    event.stopPropagation();
-  };
-
   return (
     <li
-      ref={sortable?.setNodeRef}
-      data-testid="section-variant-row"
-      data-variant-id={id}
-      style={sortable?.style}
       onMouseEnter={() =>
         useProjectState.setState((x) => {
           x.previewSectionVariantMap[sectionId] = id;
@@ -321,20 +207,22 @@ function OneVariantContent({
           : undefined
       }
       aria-disabled={!canEditVariants}
-      className={rowClasses}
+      className={`section-key-value group/versionitem -my-[0.125rem] flex h-min items-center justify-between rounded-sm border-b border-transparent px-1 py-[0.125rem] text-xs ${
+        canEditVariants
+          ? "cursor-pointer hover:bg-setta-200/30 dark:hover:bg-setta-700/50"
+          : "cursor-not-allowed opacity-60"
+      } ${isCurr ? "bg-blue-500 dark:bg-blue-700" : ""}`}
     >
-      <span
-        ref={sortable?.setActivatorNodeRef}
-        data-testid="section-variant-drag-handle"
-        className={`${dragHandleClasses} touch-none`}
-        {...(sortable ? sortable.attributes : {})}
-        {...(sortable ? sortable.listeners : {})}
-        onClick={(event) => event.stopPropagation()}
+      <p
+        className={`section-key truncate ${
+          isCurr
+            ? "font-medium text-white group-hover/versionitem:text-setta-800 group-hover/versionitem:dark:text-setta-100"
+            : "text-setta-400 dark:text-setta-400"
+        } `}
       >
-        <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
-      </span>
-      <p className={labelClassName}>{name}</p>
-      <div className="flex shrink-0 items-center gap-2">
+        {name}
+      </p>
+      <div className="flex items-center gap-2">
         <button
           className={`cursor-pointer bg-transparent ${
             isDefault
@@ -359,7 +247,6 @@ function OneVariantContent({
                 }),
             });
           }}
-          onPointerDown={stopDragPointerDown}
           disabled={!canEditVariants}
         >
           <HiHome />
@@ -388,7 +275,6 @@ function OneVariantContent({
                 }),
             });
           }}
-          onPointerDown={stopDragPointerDown}
           disabled={!canEditVariants}
         >
           <FaRegSnowflake />
@@ -437,7 +323,6 @@ function OneVariantContent({
                   }),
               });
             }}
-            onPointerDown={stopDragPointerDown}
             disabled={!canEditVariants}
           >
             <FiFileText />
@@ -449,23 +334,6 @@ function OneVariantContent({
 }
 
 function OneVariantEditing({
-  sortableEnabled,
-  ...props
-}: {
-  sectionId: string;
-  id: string;
-  deletable: boolean;
-  canEditVariants: boolean;
-  allowVariantDeletion: boolean;
-  sortableEnabled: boolean;
-}) {
-  if (!sortableEnabled) {
-    return <OneVariantEditingContent {...props} sortable={null} />;
-  }
-  return <OneVariantEditingSortable {...props} sortableEnabled />;
-}
-
-function OneVariantEditingSortable({
   sectionId,
   id,
   deletable,
@@ -477,35 +345,6 @@ function OneVariantEditingSortable({
   deletable: boolean;
   canEditVariants: boolean;
   allowVariantDeletion: boolean;
-  sortableEnabled: boolean;
-}) {
-  const sortable = useSortableListItem(id, false, "vertical");
-  return (
-    <OneVariantEditingContent
-      sectionId={sectionId}
-      id={id}
-      deletable={deletable}
-      canEditVariants={canEditVariants}
-      allowVariantDeletion={allowVariantDeletion}
-      sortable={sortable}
-    />
-  );
-}
-
-function OneVariantEditingContent({
-  sectionId,
-  id,
-  deletable,
-  canEditVariants,
-  allowVariantDeletion,
-  sortable,
-}: {
-  sectionId: string;
-  id: string;
-  deletable: boolean;
-  canEditVariants: boolean;
-  allowVariantDeletion: boolean;
-  sortable: VariantSortableItem | null;
 }) {
   const name = useProjectState((x) => getSectionVariant(x, id).name);
 
@@ -540,9 +379,6 @@ function OneVariantEditingContent({
     onSetName,
     conditionToSetName,
   );
-  const stopDragPointerDown = (event: React.PointerEvent<HTMLElement>) => {
-    event.stopPropagation();
-  };
 
   async function onClickDelete(e) {
     e.stopPropagation();
@@ -564,33 +400,12 @@ function OneVariantEditingContent({
   }
 
   return (
-    <li
-      ref={sortable?.setNodeRef}
-      data-testid="section-variant-edit-row"
-      data-variant-id={id}
-      style={sortable?.style}
-      className="section-key-value group/versionitem flex h-8 cursor-pointer items-center gap-2 rounded border border-setta-200 px-2 text-xs transition-colors focus-within:!border-blue-500 hover:border-setta-500/70 dark:border-setta-700 dark:hover:border-setta-500/70"
-    >
-      <span
-        ref={sortable?.setActivatorNodeRef}
-        data-testid="section-variant-edit-drag-handle"
-        className={
-          sortable
-            ? "inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
-            : "inline-flex h-full w-4 shrink-0 cursor-default touch-none items-center justify-center text-setta-400 opacity-60 dark:text-setta-600"
-        }
-        {...(sortable ? sortable.attributes : {})}
-        {...(sortable ? sortable.listeners : {})}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
-      </span>
+    <li className="section-key-value group/versionitem -my-[0.125rem] flex h-min cursor-pointer items-center justify-between border-b border-setta-200 px-1 py-[0.125rem] text-xs focus-within:!border-blue-500  hover:border-setta-500 dark:border-setta-700 dark:hover:border-setta-500 ">
       <input
         value={inputValue}
         onChange={onChange}
         onBlur={onBlur}
         onKeyDown={onKeyDown}
-        onPointerDown={stopDragPointerDown}
         className="flex-1 truncate text-setta-500 focus:text-setta-900 focus:outline-none focus:ring-0 dark:text-setta-400 dark:focus:text-setta-200"
         disabled={!canEditVariants}
       />
@@ -601,7 +416,6 @@ function OneVariantEditingContent({
             "cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/versionitem:text-setta-400/50"
           }
           onClick={onClickDelete}
-          onPointerDown={stopDragPointerDown}
           disabled={!allowVariantDeletion}
         >
           <i className="gg-trash" />

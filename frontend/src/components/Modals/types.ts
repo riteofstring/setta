@@ -20,6 +20,7 @@ export type ModalType = ObjectValues<typeof ModalTypeEnum>;
 export type ModalDataMap = {
   [ModalTypeEnum.DELETE_PROJECT_WARNING]: {
     selectedProjectsIdName: Array<{ id: string; name: string }>;
+    setSelectedProjects: (x: Array<string>) => void;
   };
   [ModalTypeEnum.DELETE_JSON_SOURCE_FILE]: {
     sectionId: string;

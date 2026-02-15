@@ -1,8 +1,4 @@
-import {
-  type ConsoleMessage,
-  type Page,
-  type Response,
-} from "@playwright/test";
+import type { ConsoleMessage, Page, Response } from "@playwright/test";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
@@ -66,18 +62,11 @@ type EngineConfig = {
   engineType: string;
   settaLlmConfigId?: string | null;
 };
-type LLMConfigEntry = {
-  id?: string;
-  model: string;
-  provider?: string;
-  api_key_env?: string | null;
-  base_url?: string | null;
-  other_params?: Record<string, unknown> | null;
-  mcpServerIds?: string[] | null;
-  temporary?: boolean;
-};
 type AllLLMConfigs = {
-  configs?: Record<string, LLMConfigEntry>;
+  configs?: Record<
+    string,
+    { model: string; provider?: string; api_key_env?: string }
+  >;
   mcpServers?: Record<string, unknown>;
   default_config_id?: string | null;
 };
@@ -338,40 +327,17 @@ export async function cleanupIsolatedProject(
   if (!context) {
     return;
   }
-  // Isolated configs are created for tests only; deleting the config is enough
-  // and avoids an extra metadata write call that has proven flaky under CI load.
-  try {
-    await page.request.post(`${BACKEND_ORIGIN}/api/deleteProjectConfigs`, {
-      data: { ids: [context.projectConfigId] },
-      timeout: 5000,
+  if (
+    context.defaultProjectConfigId &&
+    context.defaultProjectConfigId !== context.projectConfigId
+  ) {
+    await postBackend(page, "/setAsDefaultProject", {
+      projectConfigId: context.defaultProjectConfigId,
     });
-  } catch {
-    // Cleanup is best-effort: each run uses an isolated workspace.
   }
-}
-
-function sanitizeLlmConfigsForWrite(
-  configs: Record<string, LLMConfigEntry> | undefined,
-): Record<string, LLMConfigEntry> {
-  if (!configs) {
-    return {};
-  }
-  const sanitized: Record<string, LLMConfigEntry> = {};
-  for (const [configId, config] of Object.entries(configs)) {
-    const nextConfig: LLMConfigEntry = { ...config };
-    if ("id" in nextConfig) {
-      delete nextConfig.id;
-    }
-    sanitized[configId] = nextConfig;
-  }
-  return sanitized;
-}
-
-function sanitizeAllLlmConfigsForWrite(config: AllLLMConfigs): AllLLMConfigs {
-  return {
-    ...config,
-    configs: sanitizeLlmConfigsForWrite(config.configs),
-  };
+  await postBackend(page, "/deleteProjectConfigs", {
+    ids: [context.projectConfigId],
+  });
 }
 
 export async function ensureManagedChatEngine(
@@ -381,10 +347,9 @@ export async function ensureManagedChatEngine(
   if (!initialConfig) {
     throw new Error("Missing LLM config payload.");
   }
-  const initialConfigForWrite = sanitizeAllLlmConfigsForWrite(initialConfig);
   let createdLlmConfigId: string | null = null;
   let didUpdateLlmConfig = false;
-  const existingConfigs = sanitizeLlmConfigsForWrite(initialConfig.configs);
+  const existingConfigs = initialConfig.configs ?? {};
 
   const engineConfigs = await getBackend<EngineConfig[]>(
     page,
@@ -396,7 +361,7 @@ export async function ensureManagedChatEngine(
   let llmConfigId = existingEngine?.settaLlmConfigId ?? null;
   if (llmConfigId && !existingConfigs[llmConfigId]) {
     const updated: AllLLMConfigs = {
-      ...initialConfigForWrite,
+      ...initialConfig,
       configs: {
         ...existingConfigs,
         [llmConfigId]: { model: "gpt-4o-mini", provider: "openai" },
@@ -418,7 +383,7 @@ export async function ensureManagedChatEngine(
   if (!llmConfigId) {
     llmConfigId = "e2e-llm";
     const updated: AllLLMConfigs = {
-      ...initialConfigForWrite,
+      ...initialConfig,
       configs: {
         ...existingConfigs,
         [llmConfigId]: { model: "gpt-4o-mini", provider: "openai" },
@@ -458,7 +423,7 @@ export async function ensureManagedChatEngine(
       await postBackend(
         page,
         "/llm/config",
-        initialConfigForWrite as Record<string, unknown>,
+        initialConfig as Record<string, unknown>,
       );
     }
   };
@@ -823,11 +788,7 @@ function consumeExpectedApiErrorOverride(
   method: HttpMethod,
 ): boolean {
   const now = Date.now();
-  for (
-    let index = 0;
-    index < guard.expectedApiErrorOverrides.length;
-    index += 1
-  ) {
+  for (let index = 0; index < guard.expectedApiErrorOverrides.length; index += 1) {
     const override = guard.expectedApiErrorOverrides[index];
     if (override.expiresAtMs < now) {
       guard.expectedApiErrorOverrides.splice(index, 1);
@@ -994,10 +955,7 @@ async function navigateToDefaultProject(page: Page): Promise<void> {
       return;
     }
 
-    const targetUrl = new URL(
-      encodeURIComponent(targetName),
-      BASE_URL,
-    ).toString();
+    const targetUrl = new URL(encodeURIComponent(targetName), BASE_URL).toString();
     await page.goto(withBackendOriginOverride(targetUrl), {
       waitUntil: "domcontentloaded",
     });

@@ -23,11 +23,8 @@ import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
 import { IframeArea } from "../Layouts/IframeArea";
 import { ImageArea } from "../Layouts/ImageArea";
 import { MetaControlArea } from "../Layouts/MetaControlArea";
-import { PluginArea } from "../Layouts/PluginArea";
 import { PromptArea } from "../Layouts/PromptArea";
 import { SocialArea } from "../Layouts/SocialArea";
-import { SpreadsheetArea } from "../Layouts/SpreadsheetArea";
-import { TaskBoardArea } from "../Layouts/TaskBoardArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
@@ -100,7 +97,6 @@ export function SectionContainerCoreResizable({
   return (
     <CustomResizable
       sectionId={sectionId}
-      as="section"
       bgColor={bgColor}
       isYouTube={isYouTube}
       isActiveSection={isActiveSection}
@@ -158,7 +154,6 @@ export function SectionContainerCoreResizable({
         sectionTypeName={sectionTypeName}
         bgColor={bgColor}
         isMinimized={isMinimized}
-        isUserView={isUserView}
       />
     </CustomResizable>
   );
@@ -169,13 +164,11 @@ function AreaSwitch({
   sectionTypeName,
   bgColor,
   isMinimized,
-  isUserView,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
   isMinimized: boolean;
-  isUserView: boolean;
 }) {
   if (isMinimized) {
     return null;
@@ -221,12 +214,6 @@ function AreaSwitch({
       return <ChatArea sectionId={sectionId} />;
     case SectionTypeEnum.Browser:
       return <BrowserArea sectionId={sectionId} />;
-    case SectionTypeEnum.Plugin:
-      return <PluginArea sectionId={sectionId} isUserView={isUserView} />;
-    case SectionTypeEnum.TaskBoard:
-      return <TaskBoardArea sectionId={sectionId} />;
-    case SectionTypeEnum.Spreadsheet:
-      return <SpreadsheetArea sectionId={sectionId} />;
     case SectionTypeEnum.ListRoot:
     case SectionTypeEnum.Group:
       return null;

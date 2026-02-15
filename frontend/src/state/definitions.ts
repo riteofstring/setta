@@ -1,13 +1,11 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
 import type { AIFollowMode } from "state/types/aiFollow";
-import type { AppGenerationMode } from "state/types/appGenerationMode";
 import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
-  isOverviewTabKey,
-  OverviewTabKey,
+  OverviewTabName,
   OverviewTabNameEnum,
   ProjectSearchMode,
   ProjectSearchModeEnum,
@@ -377,19 +375,6 @@ type FileBrowserState = {
 };
 
 export const useFileBrowserState = createWithEqualityFn(
-  withResetFn<FileBrowserState>(() => ({
-    rootPath: null,
-    selectedPath: null,
-    expandedPaths: {},
-    filterText: "",
-    pathSeparator: "/",
-    ignorePatterns: [],
-    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
-    searchScope: "recursive",
-  })),
-);
-
-export const useHomeFileBrowserState = createWithEqualityFn(
   withResetFn<FileBrowserState>(() => ({
     rootPath: null,
     selectedPath: null,
@@ -857,7 +842,6 @@ export const useToolArgumentPreview = withProjectState(
 );
 
 export type ColorModePreference = "dark" | "light" | "auto";
-export type HomeProjectGalleryViewMode = "thumbnails" | "list";
 
 type ZustandLocalStorage = {
   snapToGrid: boolean;
@@ -868,19 +852,10 @@ type ZustandLocalStorage = {
   showMinimap: boolean;
   projectConfigPreviewEnabled: boolean;
   appSpecStreamingEnabled: boolean;
-  homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
-  favoriteProjectConfigIds: string[];
-  overviewProjectConfigOrder: string[];
-  homePageLeftColumnWidth: number;
-  homePageRightColumnWidth: number;
-  appGenerationMode: AppGenerationMode;
-  appGenerationPrompt: string;
-  appGenerationReferenceImageUrl: string;
-  appGenerationReferenceImageNotes: string;
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
-  overviewTab: OverviewTabKey;
+  overviewTab: OverviewTabName;
   gitGraphSplitPct: number;
   gitGraphColWidthPx: number;
   gitGraphAuthorWidthPx: number;
@@ -894,14 +869,6 @@ type ZustandLocalStorage = {
   tooltipWidth: number;
   customRunsByProjectConfigId: Record<string, Array<CustomRunItem>>;
   runSnapshotModeByProjectConfigId: Record<string, RunSnapshotMode>;
-  runInstructionsAccordionOpenValuesByProjectConfigId: Record<
-    string,
-    Array<string>
-  >;
-  projectAiSettingsAccordionOpenValuesByProjectConfigId: Record<
-    string,
-    Array<string>
-  >;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -915,15 +882,6 @@ export const useLocalStorage = createWithEqualityFn(
       showMinimap: true,
       projectConfigPreviewEnabled: true,
       appSpecStreamingEnabled: false,
-      homeProjectGalleryViewMode: "thumbnails",
-      favoriteProjectConfigIds: [],
-      overviewProjectConfigOrder: [],
-      homePageLeftColumnWidth: 320,
-      homePageRightColumnWidth: 280,
-      appGenerationMode: "json_render",
-      appGenerationPrompt: "",
-      appGenerationReferenceImageUrl: "",
-      appGenerationReferenceImageNotes: "",
       overviewVis: true,
       overviewWidth: INITIAL_OVERVIEW_WIDTH,
       overviewTrueWidth: INITIAL_OVERVIEW_WIDTH,
@@ -941,8 +899,6 @@ export const useLocalStorage = createWithEqualityFn(
       tooltipWidth: 256,
       customRunsByProjectConfigId: {},
       runSnapshotModeByProjectConfigId: {},
-      runInstructionsAccordionOpenValuesByProjectConfigId: {},
-      projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
@@ -956,27 +912,6 @@ export const useLocalStorage = createWithEqualityFn(
 
         if (persisted.colorMode === undefined) {
           merged.colorMode = merged.darkMode ? "dark" : "light";
-        }
-        if (
-          merged.homeProjectGalleryViewMode !== "thumbnails" &&
-          merged.homeProjectGalleryViewMode !== "list"
-        ) {
-          merged.homeProjectGalleryViewMode = "thumbnails";
-        }
-        if (!Array.isArray(merged.favoriteProjectConfigIds)) {
-          merged.favoriteProjectConfigIds = [];
-        }
-        if (!Array.isArray(merged.overviewProjectConfigOrder)) {
-          merged.overviewProjectConfigOrder = [];
-        }
-        if (typeof merged.homePageLeftColumnWidth !== "number") {
-          merged.homePageLeftColumnWidth = 320;
-        }
-        if (typeof merged.homePageRightColumnWidth !== "number") {
-          merged.homePageRightColumnWidth = 280;
-        }
-        if (!isOverviewTabKey(merged.overviewTab)) {
-          merged.overviewTab = OverviewTabNameEnum.Overview;
         }
 
         return merged;

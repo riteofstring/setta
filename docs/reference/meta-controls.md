@@ -7,9 +7,8 @@ their values and action events propagate, and how they appear in generated code 
 - `SectionType.MetaControl` wraps a single control code object stored as
   `metaControlParamId` on the section impl.
 - The control type must be one of the backend control types
-  (`CodeParam`, `TextParam`, `DateParam`, `TimeParam`, `ButtonParam`,
-  `SliderParam`, `SwitchParam`, `ColorPickerParam`, `DropdownParam`,
-  `PasswordParam`, `DropzoneParam`).
+  (`CodeParam`, `TextParam`, `ButtonParam`, `SliderParam`, `SwitchParam`,
+  `ColorPickerParam`, `DropdownParam`, `PasswordParam`, `DropzoneParam`).
 - Meta controls are not "sections with params"; there is no way to add extra
   controls. Create another MetaControl section instead.
 
@@ -19,9 +18,6 @@ their values and action events propagate, and how they appear in generated code 
 - Changing the control type uses `route_change_param_impl` on the control param id.
 - The control name lives on the code object core and can be renamed via
   `set_code_obj_name` when needed.
-- `DateParam` controls support `input` and `calendar` modes plus single/multiple
-  selection options.
-- `TimeParam` controls support `display` and `input` modes plus 12/24h formatting.
 - `get_latest_project_state_summary` lists the control param as the single entry in
   `sections[].parameters`; use that `paramId` with `set_param_entered_value`,
   `change_param_impl`, or `set_code_obj_name`.

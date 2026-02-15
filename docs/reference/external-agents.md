@@ -5,28 +5,6 @@ Chat attachments are forwarded as inline text blocks or expiring download URLs
 depending on the adapter. Agents that consume URLs must be able to reach the
 Setta backend to fetch them.
 
-## Runtime execution settings
-
-External chat runs receive runtime execution settings from the composer:
-- `permissionMode` (`minimal`, `yolo`, `config_toml_custom`)
-- `searchEnabled` (included in run metadata/prompt policy text)
-
-For external agents, Setta can override adapter approval policy at run time when
-`permissionMode` is not `config_toml_custom`:
-
-| Adapter/tool type | `minimal` override | `yolo` override |
-| --- | --- | --- |
-| `claude_code` | `default` | `bypassPermissions` |
-| `opencode` | `ask` | `allow` |
-| `codex` (and fallback) | `on-request` | `never` |
-
-`config_toml_custom` preserves the configured adapter approval policy with no
-runtime override.
-
-Setta also applies a completion gate on finalized assistant messages for
-create/scaffold flows: completion claims are rewritten when explicit check
-results are missing or failing.
-
 ## Claude Code (SDK)
 
 Claude Code runs through the Python SDK.

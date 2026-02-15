@@ -196,17 +196,7 @@ test("terminal text selection stays aligned at react flow zoom", async ({
     const marker =
       "SELECTION_ZOOM_TEST_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     await focusTerminalAndType(page, terminalId, `printf '${marker}\\n'`);
-    await waitForTerminalOutputMarker(page, terminalId, marker, 20000);
-    await waitForTerminalOutputToStabilize(page, terminalId, {
-      timeoutMs: 10000,
-      stableMs: 500,
-    });
-    await waitForTerminalRowsMarker(
-      page,
-      terminalId,
-      marker,
-      process.env.CI ? 30000 : 20000,
-    );
+    await waitForTerminalRowsMarker(page, terminalId, marker);
 
     const startOffset = 14;
     const endOffset = 42;
@@ -877,26 +867,6 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
       }
       return await embeddedTerminalContainer.boundingBox();
     };
-    const getEmbeddedTerminalDragBox = async (): Promise<{
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    } | null> => {
-      if ((await embeddedTerminalContainer.count()) === 0) {
-        return null;
-      }
-      const headerHandle = embeddedTerminalContainer
-        .locator("header.section-title")
-        .first();
-      if ((await headerHandle.count()) > 0) {
-        const headerBox = await headerHandle.boundingBox();
-        if (headerBox) {
-          return headerBox;
-        }
-      }
-      return await getEmbeddedTerminalBox();
-    };
 
     const pane = page.locator(".react-flow__pane");
     const codeNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
@@ -914,14 +884,13 @@ test("embedded terminal can detach via drag and drop", async ({ page }) => {
       if (!paneBox || !codeBox) {
         throw new Error("Missing bounding boxes for drag.");
       }
-      const terminalBox = await getEmbeddedTerminalDragBox();
+      const terminalBox = await getEmbeddedTerminalBox();
       if (!terminalBox) {
         await page.waitForTimeout(250);
         continue;
       }
 
-      const startX = terminalBox.x + Math.min(4, terminalBox.width / 2);
-      const startY = terminalBox.y + Math.min(4, terminalBox.height / 2);
+      const { x: startX, y: startY } = getDragStartPoint(terminalBox);
       const { x: targetX, y: targetY } = getDetachTargetPoint({
         paneBox,
         codeBox,

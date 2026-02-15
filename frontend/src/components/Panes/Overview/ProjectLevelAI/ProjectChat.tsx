@@ -1,6 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
-import { type ChatPermissionModeValue } from "components/Chat/chatComposerControls";
 import {
   buildEngineGroups,
   getChatPlaceholderText,
@@ -12,7 +11,6 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
-import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
@@ -26,7 +24,7 @@ import {
 import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { IoSettingsOutline } from "react-icons/io5";
-import { MdAdd, MdOutlineExtension } from "react-icons/md";
+import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
 import { updateEngineConfig } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
@@ -36,12 +34,8 @@ import {
   EngineTypeEnum,
   ExternalAgentPreflightStatus,
 } from "utils/generatedTypes";
-import {
-  getDefaultProjectChatPermissionMode,
-  ProjectChatCore,
-} from "./ProjectChatCore";
+import { ProjectChatCore } from "./ProjectChatCore";
 import { ProjectChatHistory } from "./ProjectChatHistory";
-import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
 import { useHydrateLLMState } from "./useHydrateLLMState";
 
@@ -101,9 +95,6 @@ export function ProjectChat() {
   );
 
   const [selectedEngineId, setSelectedEngineId] = useState<string | null>(null);
-  const [runtimePermissionMode, setRuntimePermissionMode] =
-    useState<ChatPermissionModeValue>("minimal");
-  const [viewSkillsMcpViewer, setViewSkillsMcpViewer] = useState(false);
 
   const availableConfigGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
@@ -204,27 +195,16 @@ export function ProjectChat() {
       ) ?? null
     );
   }, [externalAgentConfigs, effectiveEngineConfig]);
-  const showPlanModeBadge = shouldShowPlanModeBadge({
-    engineType,
-    externalAgentToolType: externalAgentConfig?.toolType ?? null,
-    approvalPolicy: externalAgentConfig?.approvalPolicy ?? null,
-    permissionMode: runtimePermissionMode,
-  });
+  const showPlanModeBadge =
+    engineType === EngineTypeEnum.external_agent &&
+    externalAgentConfig?.toolType === "claude_code" &&
+    externalAgentConfig.approvalPolicy === "plan";
   const placeholderText = getChatPlaceholderText({
     engineType,
     hasEngineConfig: Boolean(effectiveEngineConfig),
     hasLLMConfig,
     noLLMConfigsAvailable: noConfigsAvailable,
   });
-  const projectHistoryRunType = useMemo(() => {
-    if (engineType === EngineTypeEnum.external_agent) {
-      return "external_agent";
-    }
-    if (engineType === EngineTypeEnum.setta_llm) {
-      return "llm_chat";
-    }
-    return null;
-  }, [engineType]);
   const externalStatusMessage = useMemo(() => {
     if (!externalEngineStatus) {
       return null;
@@ -264,7 +244,6 @@ export function ProjectChat() {
       setSelectedEngineId(nextEngineId);
       setChatId(undefined);
       useAIStore.setState({ viewHistory: false });
-      setViewSkillsMcpViewer(false);
     },
     [selectedEngineId, setChatId],
   );
@@ -327,11 +306,6 @@ export function ProjectChat() {
     preferredEngineId,
     selectedEngineId,
   ]);
-  useEffect(() => {
-    setRuntimePermissionMode(getDefaultProjectChatPermissionMode(engineType));
-  }, [engineType]);
-
-  const isAuxView = viewHistory || viewSkillsMcpViewer;
 
   return (
     apiKeysInitialLoadComplete &&
@@ -348,7 +322,6 @@ export function ProjectChat() {
                 useAIStore.setState({
                   viewHistory: false,
                 });
-                setViewSkillsMcpViewer(false);
               }}
             >
               <MdAdd size={15} />
@@ -357,7 +330,6 @@ export function ProjectChat() {
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
               onClick={() => {
-                setViewSkillsMcpViewer(false);
                 useAIStore.setState({ viewHistory: !viewHistory });
               }}
               aria-label="View History"
@@ -374,37 +346,13 @@ export function ProjectChat() {
                 </>
               )}
             </button>
-            <button
-              className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-              onClick={() => {
-                if (viewSkillsMcpViewer) {
-                  setViewSkillsMcpViewer(false);
-                  return;
-                }
-                useAIStore.setState({ viewHistory: false });
-                setViewSkillsMcpViewer(true);
-              }}
-              aria-label="View Skills and MCP"
-            >
-              {viewSkillsMcpViewer ? (
-                <>
-                  <IoMdArrowRoundBack />
-                  <span>Return to chat</span>
-                </>
-              ) : (
-                <>
-                  <MdOutlineExtension size={15} />
-                  <span className="hidden @[17.5rem]:block">Skills/MCP</span>
-                </>
-              )}
-            </button>
-            {!isAuxView ? (
+            {!viewHistory ? (
               <Menubar.Root className="contents">
                 <FollowAIToggleButton />
               </Menubar.Root>
             ) : null}
-            {!isAuxView && showPlanModeBadge ? <PlanModeBadge /> : null}
-            {!isAuxView &&
+            {!viewHistory && showPlanModeBadge ? <PlanModeBadge /> : null}
+            {!viewHistory &&
             (engineType === EngineTypeEnum.setta_llm ||
               engineType === EngineTypeEnum.external_agent) ? (
               <button
@@ -418,7 +366,7 @@ export function ProjectChat() {
                 <span className="hidden @[33.5rem]:block">Thinking</span>
               </button>
             ) : null}
-            {!isAuxView ? (
+            {!viewHistory ? (
               <div className="ml-auto flex items-center">
                 <ProjectAISettingsPopover
                   engineGroups={engineGroups}
@@ -436,14 +384,7 @@ export function ProjectChat() {
         </nav>
 
         {viewHistory ? (
-          <ProjectChatHistory
-            chatId={chatId}
-            setChatId={setChatId}
-            runType={projectHistoryRunType}
-            engineConfigId={effectiveEngineId}
-          />
-        ) : viewSkillsMcpViewer ? (
-          <ProjectChatSkillsMcpViewer />
+          <ProjectChatHistory chatId={chatId} setChatId={setChatId} />
         ) : (
           <>
             {externalStatusMessage ? (
@@ -463,7 +404,6 @@ export function ProjectChat() {
               externalEngineAvailable={externalEngineAvailable}
               noLLMConfigsAvailable={noConfigsAvailable}
               setChatId={setChatId}
-              onPermissionModeChange={setRuntimePermissionMode}
             />
           </>
         )}

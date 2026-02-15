@@ -1,9 +1,7 @@
 from datetime import datetime, timezone
-from typing import Literal
 
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException
 from pydantic import BaseModel, Field
-from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from setta.agentic.chat_view import (
     EXTERNAL_AGENT_RUN_TYPE,
@@ -23,16 +21,9 @@ from setta.agentic.store import (
     require_agent_profile,
 )
 from setta.database.utils import create_new_id
-from setta.llm.transcription import transcribe_audio_with_llm
-from setta.llm.user_facing_errors import get_user_facing_llm_error_message
 from setta.logging.project_id_route import require_project_context
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
-from setta.routers.app_generation_limits import (
-    MAX_REFERENCE_IMAGE_NOTES_CHARS,
-    MAX_REFERENCE_IMAGE_URL_CHARS,
-)
 from setta.routers.dependencies import RuntimeContextFromRequest
-from setta.routers.multipart_limits import enforce_multipart_max_part_size
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.agentic import (
     AgentProfile,
@@ -40,7 +31,6 @@ from setta.types.agentic import (
     AgentRunStatus,
     EngineType,
 )
-from setta.types.external_agents import ExternalAgentToolType
 from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
@@ -49,100 +39,9 @@ from setta.types.generated.chat_messages import (
 from setta.types.id import ID
 from setta.types.llm_config import LLMConfig
 from setta.types.routes import Route
-from setta.types.section_impls import ChatPermissionMode
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
-from setta.utils.constants import C
 
 router = SettaProjectContextAPIRouter()
-
-AppGenerationMode = Literal[
-    "json_render",
-    "json_render_with_image",
-    "prompt_builder",
-    "mcp_server",
-]
-
-_REQUIRED_ERROR_CHECK_PROMPT = (
-    "## Required completion gate for create/scaffold work\n"
-    "- For project creation, section creation, or scaffolding tasks: do not claim completion until you run error checks.\n"
-    "- Report check outcomes explicitly as pass/fail before any completion claim.\n"
-    "- If checks were not run or checks failed, state that explicitly instead of saying the work is done.\n"
-)
-_TRANSCRIBE_AUDIO_MAX_BYTES = (
-    C.REALTIME_BINARY_MAX_BYTES if C.REALTIME_BINARY_MAX_BYTES > 0 else 10 * 1024 * 1024
-)
-
-
-def _format_payload_size_label(max_bytes: int) -> str:
-    if max_bytes >= 1024 * 1024:
-        return f"{max_bytes // (1024 * 1024)} MB"
-    return f"{max_bytes} bytes"
-
-
-def _build_audio_payload_too_large_detail(max_bytes: int) -> str:
-    return f"Audio payload is too large. Maximum size is {_format_payload_size_label(max_bytes)}."
-
-
-async def _enforce_transcribe_audio_multipart_limit(request: Request) -> None:
-    max_bytes = _TRANSCRIBE_AUDIO_MAX_BYTES
-    await enforce_multipart_max_part_size(
-        request,
-        max_part_size=max_bytes,
-        too_large_detail=_build_audio_payload_too_large_detail(max_bytes),
-    )
-
-
-def _combine_prompt_sections(*sections: str | None) -> str:
-    parts: list[str] = []
-    for section in sections:
-        if section is None:
-            continue
-        stripped = section.strip()
-        if not stripped:
-            continue
-        parts.append(stripped)
-    return "\n\n".join(parts).strip()
-
-
-def _build_execution_policy_prompt(
-    permission_mode: ChatPermissionMode,
-    search_enabled: bool,
-) -> str:
-    lines = [
-        "## Runtime execution settings",
-        f"- permissionMode: {permission_mode.value}",
-        f"- searchEnabled: {'true' if search_enabled else 'false'}",
-    ]
-    if not search_enabled:
-        lines.append(
-            "- Search is disabled for this run. Do not rely on search tools; use existing context and local tools only."
-        )
-    return "\n".join(lines)
-
-
-def _resolve_external_approval_policy_override(
-    permission_mode: ChatPermissionMode,
-    tool_type: ExternalAgentToolType,
-) -> str | None:
-    if permission_mode == ChatPermissionMode.config_toml_custom:
-        return None
-    if tool_type == ExternalAgentToolType.claude_code:
-        if permission_mode == ChatPermissionMode.minimal:
-            return "default"
-        if permission_mode == ChatPermissionMode.yolo:
-            return "bypassPermissions"
-        return None
-    if tool_type == ExternalAgentToolType.opencode:
-        if permission_mode == ChatPermissionMode.minimal:
-            return "ask"
-        if permission_mode == ChatPermissionMode.yolo:
-            return "allow"
-        return None
-    if permission_mode == ChatPermissionMode.minimal:
-        return "on-request"
-    if permission_mode == ChatPermissionMode.yolo:
-        return "never"
-    return None
 
 
 def _get_llm_chat_runs(
@@ -185,9 +84,9 @@ def _ensure_external_chat_id_compatible(
     chat_id: ID | None,
     engine_config_id: ID,
     project_config_id: ID,
-) -> list[AgentRun]:
+) -> None:
     if chat_id is None:
-        return []
+        return
     llm_runs = _get_llm_chat_runs(dbe=dbe, chat_id=chat_id)
     if llm_runs:
         raise HTTPException(
@@ -196,7 +95,7 @@ def _ensure_external_chat_id_compatible(
         )
     external_runs = _get_external_agent_chat_runs(dbe=dbe, chat_id=chat_id)
     if not external_runs:
-        return []
+        return
     for run in external_runs:
         existing_engine = get_run_engine_config_id(run)
         if existing_engine != engine_config_id:
@@ -210,7 +109,6 @@ def _ensure_external_chat_id_compatible(
                 status_code=409,
                 detail="Chat project config mismatch; start a new chat.",
             )
-    return external_runs
 
 
 def _get_prior_messages_for_engine(
@@ -219,16 +117,21 @@ def _get_prior_messages_for_engine(
     engine_type: EngineType,
     chat_id: ID,
     project_config_id: ID | None,
-    external_runs: list[AgentRun] | None = None,
 ) -> list[BaseChatMessageUnion]:
     if engine_type == EngineType.external_agent:
-        if external_runs is None:
-            external_runs = _get_external_agent_chat_runs(
+        external_runs = _get_external_agent_chat_runs(
+            dbe=dbe,
+            chat_id=chat_id,
+            project_config_id=project_config_id,
+        )
+        latest_run = _select_latest_run(external_runs)
+        if latest_run is None:
+            llm_runs = _get_llm_chat_runs(
                 dbe=dbe,
                 chat_id=chat_id,
                 project_config_id=project_config_id,
             )
-        latest_run = _select_latest_run(external_runs)
+            latest_run = _select_latest_run(llm_runs)
     else:
         llm_runs = _get_llm_chat_runs(
             dbe=dbe,
@@ -324,165 +227,6 @@ def _resolve_branch_root_chat_id(
     return parent_chat_id
 
 
-def _build_app_generation_mode_prompt(
-    *,
-    mode: AppGenerationMode | None,
-    app_spec_streaming_enabled: bool,
-    reference_image_url: str | None,
-    reference_image_notes: str | None,
-) -> str | None:
-    if mode is None:
-        return None
-
-    lines = [
-        "## App spec generation mode",
-        f"- mode: {mode or 'unspecified'}",
-        (
-            "- streamingPreview: enabled"
-            if app_spec_streaming_enabled
-            else "- streamingPreview: disabled"
-        ),
-    ]
-
-    if mode in ("json_render", "json_render_with_image", "prompt_builder"):
-        lines.extend(
-            [
-                "- If you are generating/updating the App spec (json-render):",
-                "  - Use catalog-compatible components only.",
-                "  - Persist via Setta app tools.",
-            ]
-        )
-        if app_spec_streaming_enabled:
-            lines.extend(
-                [
-                    "  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.",
-                    "  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).",
-                ]
-            )
-        else:
-            lines.extend(
-                [
-                    "  - Prefer `setta__set_app_definition` with the full UITree appSpec payload.",
-                    "  - Optionally call `setta__validate_app_definition` first and fix errors before persisting.",
-                ]
-            )
-
-    if mode == "json_render_with_image":
-        lines.extend(
-            [
-                "- Prioritize reference-image fidelity in this order: layout structure, spacing rhythm, typography scale, then color intent.",
-                "- If exact parity is impossible with catalog constraints, preserve hierarchy and explain the closest approximation.",
-            ]
-        )
-
-    if mode == "prompt_builder":
-        lines.extend(
-            [
-                "- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
-            ]
-        )
-
-    if mode == "mcp_server":
-        lines.extend(
-            [
-                "- MCP-server flow: use MCP tools as the source of truth for design artifacts when available.",
-                "- For Figma-oriented requests, support both paths:",
-                "  - Pull an existing Figma design into a JSON-render appSpec.",
-                "  - Generate/update in Figma first, then pull the resulting design back into Setta.",
-            ]
-        )
-        if app_spec_streaming_enabled:
-            lines.append(
-                "- After MCP design retrieval, persist into Setta via `setta__stream_app_definition`."
-            )
-        else:
-            lines.append(
-                "- After MCP design retrieval, persist into Setta via `setta__set_app_definition`."
-            )
-
-    if mode == "json_render_with_image" and reference_image_url:
-        lines.extend(
-            [
-                f"- Reference image URL: {reference_image_url}",
-                "- Use this image as layout/style guidance when composing the app spec.",
-            ]
-        )
-        if reference_image_notes:
-            lines.append(f"- Reference image notes: {reference_image_notes}")
-
-    return "\n".join(lines)
-
-
-def _merge_app_generation_system_prompt(
-    *,
-    existing_system_prompt: str,
-    app_generation_mode_prompt: str | None,
-) -> str:
-    if app_generation_mode_prompt is None:
-        return existing_system_prompt
-    normalized_existing_prompt = existing_system_prompt.strip()
-    normalized_mode_prompt = app_generation_mode_prompt.strip()
-    if normalized_existing_prompt:
-        return f"{normalized_existing_prompt}\n\n{normalized_mode_prompt}"
-    return normalized_mode_prompt
-
-
-def _build_chat_profile_with_app_generation_mode(
-    *,
-    profile: AgentProfile | None,
-    engine_config_id: ID,
-    app_generation_mode_prompt: str | None,
-    default_name: str,
-    require_profile: bool,
-) -> AgentProfile | None:
-    if profile is None and (require_profile or app_generation_mode_prompt is not None):
-        profile = AgentProfile(
-            name=default_name,
-            description="",
-            systemPrompt="",
-            engineConfigId=engine_config_id,
-        )
-    if profile is None:
-        return None
-    combined_system_prompt = _merge_app_generation_system_prompt(
-        existing_system_prompt=profile.systemPrompt or "",
-        app_generation_mode_prompt=app_generation_mode_prompt,
-    )
-    return profile.model_copy(
-        update={
-            "engineConfigId": engine_config_id,
-            "systemPrompt": combined_system_prompt,
-        }
-    )
-
-
-def _normalize_reference_image_inputs(
-    *,
-    reference_image_url: str | None,
-    reference_image_notes: str | None,
-) -> tuple[str | None, str | None]:
-    normalized_url = (
-        reference_image_url.strip() if isinstance(reference_image_url, str) else ""
-    )
-    normalized_notes = (
-        reference_image_notes.strip() if isinstance(reference_image_notes, str) else ""
-    )
-    if len(normalized_url) > MAX_REFERENCE_IMAGE_URL_CHARS:
-        raise HTTPException(
-            status_code=400,
-            detail="appGenerationReferenceImageUrl is too large. Reduce it or omit it.",
-        )
-    if len(normalized_notes) > MAX_REFERENCE_IMAGE_NOTES_CHARS:
-        raise HTTPException(
-            status_code=400,
-            detail="appGenerationReferenceImageNotes is too large. Reduce it or omit it.",
-        )
-    return (
-        normalized_url if normalized_url else None,
-        normalized_notes if normalized_notes else None,
-    )
-
-
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
@@ -500,29 +244,11 @@ class GetLLMResponseRequest(BaseModel):
             "Whether the UI is configured to stream app spec patches for live preview."
         ),
     )
-    permissionMode: ChatPermissionMode
-    searchEnabled: bool
-    appGenerationMode: AppGenerationMode | None = Field(
-        default=None,
-        description="Optional app generation mode selected in the UI.",
-    )
-    appGenerationReferenceImageUrl: str | None = Field(
-        default=None,
-        description="Optional reference image URL for app generation fidelity.",
-    )
-    appGenerationReferenceImageNotes: str | None = Field(
-        default=None,
-        description="Optional notes describing reference-image fidelity goals.",
-    )
 
 
 class GetLLMChatRequest(BaseModel):
     chatId: ID
     projectConfigId: ID | None
-
-
-class TranscribeChatAudioResponse(BaseModel):
-    text: str
 
 
 class GetLLMChatRequestResponse(BaseModel):
@@ -548,28 +274,6 @@ class StopLLMChatRequest(BaseModel):
 
 class GetAIFollowSnapshotRequest(BaseModel):
     projectConfigId: ID
-
-
-async def _parse_transcribe_audio_form(
-    request: Request,
-) -> tuple[ID, StarletteUploadFile, str | None]:
-    form = await request.form()
-    engine_config_id_value = form.get("engineConfigId")
-    if not isinstance(engine_config_id_value, str):
-        raise HTTPException(status_code=400, detail="engineConfigId is required.")
-    stripped_engine_config_id = engine_config_id_value.strip()
-    if not stripped_engine_config_id:
-        raise HTTPException(status_code=400, detail="engineConfigId is required.")
-    file_value = form.get("file")
-    if not isinstance(file_value, StarletteUploadFile):
-        raise HTTPException(status_code=400, detail="Audio payload is required.")
-    language_value = form.get("language")
-    if isinstance(language_value, str):
-        stripped_language = language_value.strip()
-        language = stripped_language or None
-    else:
-        language = None
-    return ID(stripped_engine_config_id), file_value, language
 
 
 @router.post(Route.GET_LLM_RESPONSE)
@@ -604,14 +308,6 @@ async def route_get_llm_response(
     resolved = resolve_engine_config(
         ctx.state.dbe, ctx.state.agent_runner.config, x.engineConfigId
     )
-    external_runs_for_chat_id: list[AgentRun] | None = None
-    if resolved.engine_config.engineType == EngineType.external_agent:
-        external_runs_for_chat_id = _ensure_external_chat_id_compatible(
-            dbe=ctx.state.dbe,
-            chat_id=x.branchParentChatId if is_branch_request else x.chatId,
-            engine_config_id=x.engineConfigId,
-            project_config_id=x.projectConfigId,
-        )
     prior_messages: list[BaseChatMessageUnion] = []
     parent_run: AgentRun | None = None
     if is_branch_request:
@@ -638,19 +334,11 @@ async def route_get_llm_response(
             ) from exc
     else:
         if x.chatId is not None:
-            if (
-                resolved.engine_config.engineType == EngineType.external_agent
-                and external_runs_for_chat_id is None
-            ):
-                raise RuntimeError(
-                    "Expected prefetched external runs before loading external-agent chat history."
-                )
             prior_messages = _get_prior_messages_for_engine(
                 dbe=ctx.state.dbe,
                 engine_type=resolved.engine_config.engineType,
                 chat_id=chat_id,
                 project_config_id=x.projectConfigId,
-                external_runs=external_runs_for_chat_id,
             )
         combined_messages = _build_inputs_messages(
             prior_messages=prior_messages,
@@ -663,28 +351,15 @@ async def route_get_llm_response(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    resolved_mode = x.appGenerationMode
-    normalized_reference_image_url, normalized_reference_image_notes = (
-        _normalize_reference_image_inputs(
-            reference_image_url=x.appGenerationReferenceImageUrl,
-            reference_image_notes=x.appGenerationReferenceImageNotes,
+    app_generation_mode_prompt: str | None = None
+    if x.appSpecStreamingEnabled:
+        app_generation_mode_prompt = (
+            "## App spec generation mode\n"
+            "- streamingPreview: enabled\n"
+            "- If you are generating/updating the App spec (json-render):\n"
+            "  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.\n"
+            "  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).\n"
         )
-    )
-    if resolved_mode == "json_render_with_image":
-        reference_image_url = normalized_reference_image_url
-        reference_image_notes = normalized_reference_image_notes
-    else:
-        reference_image_url, reference_image_notes = (None, None)
-    app_generation_mode_prompt = _build_app_generation_mode_prompt(
-        mode=resolved_mode,
-        app_spec_streaming_enabled=x.appSpecStreamingEnabled,
-        reference_image_url=reference_image_url,
-        reference_image_notes=reference_image_notes,
-    )
-    execution_policy_prompt = _build_execution_policy_prompt(
-        x.permissionMode,
-        x.searchEnabled,
-    )
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")
@@ -695,12 +370,14 @@ async def route_get_llm_response(
                 systemPrompt="",
                 engineConfigId=x.engineConfigId,
             )
-        combined_system_prompt = _combine_prompt_sections(
-            profile.systemPrompt or "",
-            app_generation_mode_prompt,
-            execution_policy_prompt,
-            _REQUIRED_ERROR_CHECK_PROMPT,
-        )
+        existing_system_prompt = profile.systemPrompt or ""
+        combined_system_prompt = existing_system_prompt
+        if app_generation_mode_prompt is not None:
+            combined_system_prompt = (
+                f"{existing_system_prompt.strip()}\n\n{app_generation_mode_prompt}".strip()
+                if existing_system_prompt.strip()
+                else app_generation_mode_prompt.strip()
+            )
         profile = profile.model_copy(
             update={
                 "engineConfigId": x.engineConfigId,
@@ -713,8 +390,6 @@ async def route_get_llm_response(
             "thinking": x.thinking,
             "engineConfigId": str(x.engineConfigId),
             "runType": LLM_CHAT_RUN_TYPE,
-            "permissionMode": x.permissionMode.value,
-            "searchEnabled": x.searchEnabled,
             "messages": [
                 message.model_dump(mode="json") for message in combined_messages
             ],
@@ -742,30 +417,24 @@ async def route_get_llm_response(
             raise HTTPException(
                 status_code=503, detail="External agent runner is not available"
             )
+        _ensure_external_chat_id_compatible(
+            dbe=ctx.state.dbe,
+            chat_id=x.branchParentChatId if is_branch_request else x.chatId,
+            engine_config_id=x.engineConfigId,
+            project_config_id=x.projectConfigId,
+        )
         external_config = resolved.external_agent_config
         if external_config is None:
             raise HTTPException(
                 status_code=500, detail="External agent config not found"
             )
-        plugin_external_agent_adapters = runner.get_plugin_external_agent_adapters()
-        status = build_external_agent_preflight_status(
-            ctx.state.dbe,
-            external_config,
-            plugin_external_agent_adapters=plugin_external_agent_adapters,
-        )
+        status = build_external_agent_preflight_status(ctx.state.dbe, external_config)
         if not status.available:
             issues = "; ".join(status.issues) if status.issues else "preflight failed"
             raise HTTPException(
                 status_code=503,
                 detail=f"External agent config is not available: {issues}",
             )
-        profile = _build_chat_profile_with_app_generation_mode(
-            profile=profile,
-            engine_config_id=x.engineConfigId,
-            app_generation_mode_prompt=app_generation_mode_prompt,
-            default_name="External chat",
-            require_profile=False,
-        )
         if profile is not None and profile.toolAllowlist:
             _, error = build_external_tool_allowlist(
                 profile.toolAllowlist,
@@ -778,22 +447,10 @@ async def route_get_llm_response(
             "projectConfigId": str(x.projectConfigId),
             "thinking": x.thinking,
             "engineConfigId": str(x.engineConfigId),
-            "permissionMode": x.permissionMode.value,
-            "searchEnabled": x.searchEnabled,
             "messages": [
                 message.model_dump(mode="json") for message in combined_messages
             ],
         }
-        approval_policy_override = _resolve_external_approval_policy_override(
-            x.permissionMode,
-            external_config.toolType,
-        )
-        if approval_policy_override is not None:
-            inputs["approvalPolicy"] = approval_policy_override
-        inputs["systemPrompt"] = _combine_prompt_sections(
-            execution_policy_prompt,
-            _REQUIRED_ERROR_CHECK_PROMPT,
-        )
         if is_branch_request:
             branch_root_chat_id = _resolve_branch_root_chat_id(
                 parent_run=parent_run,
@@ -818,99 +475,7 @@ async def route_get_llm_response(
             ) from exc
         return chat_id
     raise HTTPException(status_code=400, detail="Unsupported engine config")
-
-
-@router.post(
-    Route.TRANSCRIBE_CHAT_AUDIO,
-    openapi_extra={
-        "requestBody": {
-            "required": True,
-            "content": {
-                "multipart/form-data": {
-                    "schema": {
-                        "type": "object",
-                        "required": ["engineConfigId", "file"],
-                        "properties": {
-                            "engineConfigId": {"type": "string"},
-                            "file": {"type": "string", "format": "binary"},
-                            "language": {"type": "string"},
-                        },
-                    }
-                }
-            },
-        }
-    },
-)
-async def route_transcribe_chat_audio(
-    ctx: RuntimeContextFromRequest,
-    request: Request,
-) -> TranscribeChatAudioResponse:
-    await ctx.enforce_llm_allowed()
-    await _enforce_transcribe_audio_multipart_limit(request)
-    (
-        resolved_engine_config_id,
-        resolved_file,
-        resolved_language,
-    ) = await _parse_transcribe_audio_form(request)
-
-    if ctx.state.agent_runner.disabled:
-        raise HTTPException(status_code=503, detail="Agent runner is not available")
-    resolved = resolve_engine_config(
-        ctx.state.dbe, ctx.state.agent_runner.config, resolved_engine_config_id
-    )
-    if resolved.engine_config.engineType != EngineType.setta_llm:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Provider dictation is available only for managed LLM engines. "
-                "Use browser dictation for external agents."
-            ),
-        )
-    llm_config = resolved.llm_config
-    if llm_config is None:
-        raise HTTPException(
-            status_code=400, detail="No LLM config available for engine"
-        )
-
-    try:
-        audio_bytes = await resolved_file.read(_TRANSCRIBE_AUDIO_MAX_BYTES + 1)
-    finally:
-        await resolved_file.close()
-
-    if not audio_bytes:
-        raise HTTPException(status_code=400, detail="Audio payload is empty.")
-    if len(audio_bytes) > _TRANSCRIBE_AUDIO_MAX_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=_build_audio_payload_too_large_detail(_TRANSCRIBE_AUDIO_MAX_BYTES),
-        )
-
-    mime_type = (resolved_file.content_type or "").strip() or "audio/webm"
-    file_name = (resolved_file.filename or "").strip() or "dictation.webm"
-
-    try:
-        text = await transcribe_audio_with_llm(
-            config=ctx.state.agent_runner.config,
-            llm_config=llm_config,
-            api_keys=ctx.state.agent_runner.api_keys,
-            audio_bytes=audio_bytes,
-            mime_type=mime_type,
-            file_name=file_name,
-            language=resolved_language,
-        )
-    except KeyError as exc:
-        detail = (
-            exc.args[0]
-            if exc.args and isinstance(exc.args[0], str)
-            else "Missing API key for transcription."
-        )
-        raise HTTPException(status_code=400, detail=detail) from exc
-    except Exception as exc:
-        detail = (
-            get_user_facing_llm_error_message(exc) or "Provider transcription failed."
-        )
-        raise HTTPException(status_code=502, detail=detail) from exc
-    return TranscribeChatAudioResponse(text=text)
+    return chat_id
 
 
 @router.post(Route.STOP_LLM_CHAT)
@@ -980,8 +545,8 @@ async def route_get_external_agent_chat(
         raise HTTPException(status_code=404, detail="Chat not found")
     state = build_chat_state_from_run(latest_run)
     if latest_run.status == AgentRunStatus.running:
-        runner = ctx.state.external_agent_runner
-        if not runner.disabled:
+        runner = getattr(ctx.state, "external_agent_runner", None)
+        if runner is not None and not runner.disabled:
             live_state = runner.get_live_chat_state(latest_run.id)
             if live_state is not None:
                 state = live_state

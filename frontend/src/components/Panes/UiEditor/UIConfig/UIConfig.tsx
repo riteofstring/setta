@@ -10,8 +10,8 @@ import { useProjectState } from "state/definitions";
 import { useParamIdsAndNamesForSidePane } from "state/hooks/sectionContents";
 import { useShareCapabilities } from "state/hooks/share";
 import { useMatchSorterFilterWithDelay } from "state/hooks/utils";
+import { route_change_param_impl } from "utils/generatedEndpoints";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
-import { applyUiTypeComboboxSelection } from "./applyUiTypeComboboxSelection";
 import { UIConfigDropdownAndFields } from "./UIConfigDropdownAndFields";
 import type { CodeObjTypeFilterKey } from "./UITypeCombobox";
 
@@ -51,7 +51,7 @@ function UIConfigCore({
     "flex-grow outline-0 min-w-0 w-full cursor-auto bg-transparent [border-width:0_0_1px_0] border-solid border-setta-200 dark:border-setta-800 focus-visible:!border-blue-300 pl-5 py-1 truncate placeholder-setta-400 dark:placeholder-setta-700 text-sm";
 
   return (
-    <div className="flex flex-1 flex-col gap-1 overflow-hidden">
+    <div className="flex flex-1 flex-col gap-1 overflow-y-hidden">
       <StandardSearch
         inputStyles={inputStyles}
         // leftElementStyles="pl-1"
@@ -61,7 +61,7 @@ function UIConfigCore({
         }
         onChange={(e) => setFilter(e.target.value)}
       />
-      <div className="setta-pane-scroll mt-4 flex flex-col gap-2 [&>*]:mx-[2px]">
+      <div className="mt-4 flex flex-col gap-2 overflow-y-scroll [&>*]:mx-[2px]">
         {filteredList.map((e) => (
           <UIElement
             sectionId={sectionId}
@@ -98,12 +98,11 @@ function _UIElement({
     if (!selectedId) {
       throw new Error();
     }
-    void applyUiTypeComboboxSelection({
+    route_change_param_impl({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
       paramInfoId,
       selectedId,
-      filterKey: codeObjTypeFilterKey,
     });
   };
 

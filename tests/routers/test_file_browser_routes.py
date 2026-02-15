@@ -1,6 +1,5 @@
 import json
 import os
-import threading
 from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -14,26 +13,16 @@ from setta.binary import BinaryStore
 from setta.database.db_objs import DBE
 from setta.lsp.managers import stop_file_watcher, stop_lsps
 from setta.routers.artifact import (
-    DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES,
     DeleteArtifactRequestItem,
     DeleteArtifactsRequest,
-    GetFileBrowserFileContentRequest,
-    GetFileBrowserFileStatRequest,
     GetFolderContentsRequest,
     ImportFilesToArtifactsRequest,
-    TransferFileBrowserEntryRequest,
-    TransferFileBrowserEntryResponse,
     UpdateArtifactsRequest,
-    WriteFileBrowserFileContentRequest,
     route_delete_artifacts,
-    route_get_file_browser_file_content,
-    route_get_file_browser_file_stat,
     route_get_file_browser_root,
     route_get_folder_contents,
     route_import_files_to_artifacts,
-    route_transfer_file_browser_entry,
     route_update_artifacts,
-    route_write_file_browser_file_content,
 )
 from setta.routers.binary import route_binary_download, router as binary_router
 from setta.server_state import SettaFastAPIState
@@ -59,7 +48,12 @@ def _build_share_deployment_root(
     project_config_name: str,
     deployment_version: str = "v1",
 ) -> Path:
-    root = Path(tmpdir) / "deployments" / project_config_name / deployment_version
+    root = (
+        Path(tmpdir)
+        / "deployments"
+        / project_config_name
+        / deployment_version
+    )
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -103,8 +97,6 @@ async def _shutdown_state(state: SettaFastAPIState) -> None:
         await stop_lsps(state.lsps, state.lsp_readers)
     if state.lsp_writers:
         stop_file_watcher(state.lsp_writers)
-
-
 class TestFileBrowserRoutes:
     pytestmark = pytest.mark.asyncio
 
@@ -191,286 +183,6 @@ class TestFileBrowserRoutes:
                     route_get_file_browser_root(runtime_ctx)
         assert ctx.value.status_code == 403
 
-    async def test_get_file_browser_file_content_reads_file(self) -> None:
-        state = await self._build_state()
-        file_path = get_setta_paths().workspace_root / "spreadsheet.csv"
-        file_path.write_text("name,done\nTask,false\n", encoding="utf-8")
-        store = BinaryStore.from_dbe(state.dbe)
-        with runtime_context(state) as runtime_ctx:
-            result = route_get_file_browser_file_content(
-                GetFileBrowserFileContentRequest(path=file_path.as_posix()),
-                runtime_ctx,
-            )
-
-        assert result.path == file_path.resolve().as_posix()
-        assert result.size == file_path.stat().st_size
-        assert result.mtimeNs == file_path.stat().st_mtime_ns
-        assert result.mimeType == "text/csv"
-        assert result.contentId
-        assert store.read_bytes(result.contentId) == file_path.read_bytes()
-
-    async def test_get_file_browser_file_stat_returns_mtime_ns_and_size(self) -> None:
-        state = await self._build_state()
-        file_path = get_setta_paths().workspace_root / "file-stat.txt"
-        file_path.write_text("hello", encoding="utf-8")
-
-        with runtime_context(state) as runtime_ctx:
-            result = route_get_file_browser_file_stat(
-                GetFileBrowserFileStatRequest(path=file_path.as_posix()),
-                runtime_ctx,
-            )
-
-        assert result.path == file_path.resolve().as_posix()
-        assert result.mtimeNs == file_path.stat().st_mtime_ns
-        assert result.size == file_path.stat().st_size
-
-    async def test_get_file_browser_file_content_rejects_oversized_file(self) -> None:
-        state = await self._build_state()
-        file_path = get_setta_paths().workspace_root / "large.bin"
-        file_path.write_bytes(b"abcd")
-        with runtime_context(state) as runtime_ctx:
-            with pytest.raises(HTTPException) as ctx:
-                route_get_file_browser_file_content(
-                    GetFileBrowserFileContentRequest(
-                        path=file_path.as_posix(),
-                        maxBytes=2,
-                    ),
-                    runtime_ctx,
-                )
-
-        assert ctx.value.status_code == 413
-
-    async def test_get_file_browser_file_content_caps_requested_max_bytes(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        file_path = get_setta_paths().workspace_root / "too-large.bin"
-        file_path.write_bytes(b"x" * (DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES + 1))
-        with runtime_context(state) as runtime_ctx:
-            with pytest.raises(HTTPException) as ctx:
-                route_get_file_browser_file_content(
-                    GetFileBrowserFileContentRequest(
-                        path=file_path.as_posix(),
-                        maxBytes=DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES * 100,
-                    ),
-                    runtime_ctx,
-                )
-
-        assert ctx.value.status_code == 413
-
-    async def test_get_file_browser_file_content_rejects_file_changed_while_reading(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        file_path = get_setta_paths().workspace_root / "changing.bin"
-        file_path.write_bytes(b"x" * (9 * 1024 * 1024))
-        stop_mutation = threading.Event()
-
-        def mutate_mtime() -> None:
-            while not stop_mutation.is_set():
-                os.utime(file_path, None)
-
-        mutator = threading.Thread(target=mutate_mtime)
-        mutator.start()
-        saw_conflict = False
-        try:
-            with runtime_context(state) as runtime_ctx:
-                for _ in range(20):
-                    try:
-                        route_get_file_browser_file_content(
-                            GetFileBrowserFileContentRequest(path=file_path.as_posix()),
-                            runtime_ctx,
-                        )
-                    except HTTPException as exc:
-                        if exc.status_code == 409:
-                            saw_conflict = True
-                            break
-        finally:
-            stop_mutation.set()
-            mutator.join(timeout=5)
-
-        assert saw_conflict
-
-    async def test_write_file_browser_file_content_updates_bytes(self) -> None:
-        state = await self._build_state()
-        file_path = get_setta_paths().workspace_root / "notes.csv"
-        file_path.write_text("a,b\n1,2\n", encoding="utf-8")
-        before_mtime_ns = file_path.stat().st_mtime_ns
-        store = BinaryStore.from_dbe(state.dbe)
-        content_ref = store.store_bytes(
-            "a,b\n1,9\n".encode("utf-8"),
-            mime_type="text/csv",
-            durable=False,
-        )
-
-        with runtime_context(state) as runtime_ctx:
-            result = route_write_file_browser_file_content(
-                WriteFileBrowserFileContentRequest(
-                    path=file_path.as_posix(),
-                    contentId=content_ref.contentId,
-                    expectedMtimeNs=before_mtime_ns,
-                ),
-                runtime_ctx,
-            )
-
-        assert result.path == file_path.resolve().as_posix()
-        assert file_path.read_text(encoding="utf-8") == "a,b\n1,9\n"
-        assert result.size == file_path.stat().st_size
-        assert result.mtimeNs >= before_mtime_ns
-
-    async def test_write_file_browser_file_content_creates_missing_file(self) -> None:
-        state = await self._build_state()
-        file_path = get_setta_paths().workspace_root / "new-file.csv"
-        store = BinaryStore.from_dbe(state.dbe)
-        content_ref = store.store_bytes(
-            "a,b\n7,8\n".encode("utf-8"),
-            mime_type="text/csv",
-            durable=False,
-        )
-
-        with runtime_context(state) as runtime_ctx:
-            result = route_write_file_browser_file_content(
-                WriteFileBrowserFileContentRequest(
-                    path=file_path.as_posix(),
-                    contentId=content_ref.contentId,
-                    expectedMtimeNs=None,
-                ),
-                runtime_ctx,
-            )
-
-        assert result.path == file_path.resolve().as_posix()
-        assert file_path.read_text(encoding="utf-8") == "a,b\n7,8\n"
-        assert result.size == file_path.stat().st_size
-        assert result.mtimeNs == file_path.stat().st_mtime_ns
-
-    async def test_write_file_browser_file_content_rejects_existing_file_without_mtime(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        file_path = get_setta_paths().workspace_root / "existing.csv"
-        file_path.write_text("a,b\n1,2\n", encoding="utf-8")
-        store = BinaryStore.from_dbe(state.dbe)
-        content_ref = store.store_bytes(
-            "a,b\n9,9\n".encode("utf-8"),
-            mime_type="text/csv",
-            durable=False,
-        )
-
-        with runtime_context(state) as runtime_ctx:
-            with pytest.raises(HTTPException) as ctx:
-                route_write_file_browser_file_content(
-                    WriteFileBrowserFileContentRequest(
-                        path=file_path.as_posix(),
-                        contentId=content_ref.contentId,
-                        expectedMtimeNs=None,
-                    ),
-                    runtime_ctx,
-                )
-
-        # expectedMtimeNs=None now means "create-only", so existing files conflict.
-        assert ctx.value.status_code == 409
-
-    async def test_write_file_browser_file_content_create_only_is_atomic(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        file_path = get_setta_paths().workspace_root / "create-only-race.csv"
-        store = BinaryStore.from_dbe(state.dbe)
-        first_ref = store.store_bytes(
-            "first\n".encode("utf-8"),
-            mime_type="text/csv",
-            durable=False,
-        )
-        second_ref = store.store_bytes(
-            "second\n".encode("utf-8"),
-            mime_type="text/csv",
-            durable=False,
-        )
-        statuses: list[int] = []
-        lock = threading.Lock()
-        start_barrier = threading.Barrier(2)
-
-        def run_create(content_id: str) -> None:
-            with runtime_context(state) as runtime_ctx:
-                start_barrier.wait(timeout=5)
-                try:
-                    route_write_file_browser_file_content(
-                        WriteFileBrowserFileContentRequest(
-                            path=file_path.as_posix(),
-                            contentId=content_id,
-                            expectedMtimeNs=None,
-                        ),
-                        runtime_ctx,
-                    )
-                    with lock:
-                        statuses.append(200)
-                except HTTPException as exc:
-                    with lock:
-                        statuses.append(exc.status_code)
-
-        first_thread = threading.Thread(
-            target=run_create,
-            args=(first_ref.contentId,),
-        )
-        second_thread = threading.Thread(
-            target=run_create,
-            args=(second_ref.contentId,),
-        )
-        first_thread.start()
-        second_thread.start()
-        first_thread.join(timeout=10)
-        second_thread.join(timeout=10)
-
-        assert not first_thread.is_alive()
-        assert not second_thread.is_alive()
-        assert len(statuses) == 2
-        assert sorted(statuses) == [200, 409]
-        assert file_path.read_text(encoding="utf-8") in {"first\n", "second\n"}
-
-    async def test_write_file_browser_file_content_rejects_stale_mtime(self) -> None:
-        state = await self._build_state()
-        file_path = get_setta_paths().workspace_root / "stale.csv"
-        file_path.write_text("x,y\n", encoding="utf-8")
-        store = BinaryStore.from_dbe(state.dbe)
-        content_ref = store.store_bytes(
-            "x,y\n2,3\n".encode("utf-8"),
-            mime_type="text/csv",
-            durable=False,
-        )
-
-        with runtime_context(state) as runtime_ctx:
-            with pytest.raises(HTTPException) as ctx:
-                route_write_file_browser_file_content(
-                    WriteFileBrowserFileContentRequest(
-                        path=file_path.as_posix(),
-                        contentId=content_ref.contentId,
-                        expectedMtimeNs=file_path.stat().st_mtime_ns - 1,
-                    ),
-                    runtime_ctx,
-                )
-
-        assert ctx.value.status_code == 409
-
-    async def test_write_file_browser_file_content_rejects_missing_binary_payload(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        file_path = get_setta_paths().workspace_root / "missing-payload.csv"
-        file_path.write_text("x,y\n", encoding="utf-8")
-
-        with runtime_context(state) as runtime_ctx:
-            with pytest.raises(HTTPException) as ctx:
-                route_write_file_browser_file_content(
-                    WriteFileBrowserFileContentRequest(
-                        path=file_path.as_posix(),
-                        contentId="missing-content-id",
-                        expectedMtimeNs=file_path.stat().st_mtime_ns,
-                    ),
-                    runtime_ctx,
-                )
-
-        assert ctx.value.status_code == 400
-
     async def test_get_folder_contents_share_mode_forbidden(self) -> None:
         with TemporaryDirectory() as tmpdir:
             project_config_name = "share-file-browser-folder"
@@ -489,32 +201,6 @@ class TestFileBrowserRoutes:
                 with pytest.raises(HTTPException) as ctx:
                     route_get_folder_contents(
                         GetFolderContentsRequest(folderPath=str(root)),
-                        runtime_ctx,
-                    )
-        assert ctx.value.status_code == 403
-
-    async def test_transfer_file_browser_entry_share_mode_forbidden(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            project_config_name = "share-file-browser-transfer"
-            root = _build_share_deployment_root(tmpdir, project_config_name)
-            _write_share_project(
-                root,
-                project_config_name=project_config_name,
-                deployment_version=root.name,
-            )
-            state = await self._build_state(
-                share_mode=True,
-                share_deployment_root=root,
-            )
-            session = state.share_session_store.create_session()
-            with runtime_context(state, session.id) as runtime_ctx:
-                with pytest.raises(HTTPException) as ctx:
-                    route_transfer_file_browser_entry(
-                        TransferFileBrowserEntryRequest(
-                            sourcePath="/tmp/source.csv",
-                            destinationFolderPath="/tmp",
-                            operation="move",
-                        ),
                         runtime_ctx,
                     )
         assert ctx.value.status_code == 403
@@ -621,54 +307,6 @@ class TestFileBrowserRoutes:
         expected_path = (root_path / items[0]["name"]).resolve()
         assert expected_path == Path(items[0]["fullPath"]).resolve()
 
-    async def test_get_folder_contents_include_setta_initialized_flag(self) -> None:
-        state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
-            root_path = Path(tmpdir)
-            initialized = root_path / "initialized-folder"
-            initialized.mkdir()
-            (initialized / "setta_files").mkdir()
-            plain = root_path / "plain-folder"
-            plain.mkdir()
-            with runtime_context(state) as runtime_ctx:
-                items = route_get_folder_contents(
-                    GetFolderContentsRequest(
-                        folderPath=str(root_path),
-                        includeSettaInitialized=True,
-                    ),
-                    runtime_ctx,
-                )
-
-        flags_by_name = {
-            item["name"]: item.get("isSettaInitialized", False)
-            for item in items
-            if item["type"] == "folder"
-        }
-        assert flags_by_name["initialized-folder"] is True
-        assert flags_by_name["plain-folder"] is False
-
-    async def test_get_folder_contents_omits_setta_initialized_flag_by_default(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
-            root_path = Path(tmpdir)
-            initialized = root_path / "initialized-folder"
-            initialized.mkdir()
-            (initialized / "setta_files").mkdir()
-            plain = root_path / "plain-folder"
-            plain.mkdir()
-            with runtime_context(state) as runtime_ctx:
-                items = route_get_folder_contents(
-                    GetFolderContentsRequest(folderPath=str(root_path)),
-                    runtime_ctx,
-                )
-
-        for item in items:
-            if item["type"] != "folder":
-                continue
-            assert "isSettaInitialized" not in item
-
     async def test_get_folder_contents_blocks_outside_cwd(self) -> None:
         state = await self._build_state()
         with TemporaryDirectory() as tmpdir:
@@ -700,109 +338,6 @@ class TestFileBrowserRoutes:
                         runtime_ctx,
                     )
                 assert directory_ctx.value.status_code == 400
-
-    async def test_transfer_file_browser_entry_moves_folder(self) -> None:
-        state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
-            root_path = Path(tmpdir)
-            source_folder = root_path / "src"
-            source_folder.mkdir(parents=True, exist_ok=True)
-            (source_folder / "task.csv").write_text("task,status\nalpha,todo\n")
-            destination_folder = root_path / "dest"
-            destination_folder.mkdir(parents=True, exist_ok=True)
-            with runtime_context(state) as runtime_ctx:
-                result: TransferFileBrowserEntryResponse = (
-                    route_transfer_file_browser_entry(
-                        TransferFileBrowserEntryRequest(
-                            sourcePath=str(source_folder),
-                            destinationFolderPath=str(destination_folder),
-                            operation="move",
-                        ),
-                        runtime_ctx,
-                    )
-                )
-            moved_path = destination_folder / source_folder.name
-            assert not source_folder.exists()
-            assert moved_path.exists()
-            assert moved_path.is_dir()
-            assert result.destinationPath == moved_path.resolve().as_posix()
-
-    async def test_transfer_file_browser_entry_copy_auto_renames_conflicts(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
-            root_path = Path(tmpdir)
-            source_file = root_path / "notes.csv"
-            source_file.write_text("task,status\nalpha,todo\n", encoding="utf-8")
-            # Force copy naming to advance beyond "copy".
-            (root_path / "notes copy.csv").write_text("existing", encoding="utf-8")
-            with runtime_context(state) as runtime_ctx:
-                result: TransferFileBrowserEntryResponse = (
-                    route_transfer_file_browser_entry(
-                        TransferFileBrowserEntryRequest(
-                            sourcePath=str(source_file),
-                            destinationFolderPath=str(root_path),
-                            operation="copy",
-                        ),
-                        runtime_ctx,
-                    )
-                )
-            copied_path = root_path / "notes copy 2.csv"
-            assert source_file.exists()
-            assert copied_path.exists()
-            assert copied_path.read_text(encoding="utf-8") == source_file.read_text(
-                encoding="utf-8"
-            )
-            assert result.destinationPath == copied_path.resolve().as_posix()
-
-    async def test_transfer_file_browser_entry_copy_dotfile_uses_extensionless_name(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
-            root_path = Path(tmpdir)
-            source_file = root_path / ".env"
-            source_file.write_text("API_KEY=123\n", encoding="utf-8")
-            with runtime_context(state) as runtime_ctx:
-                result: TransferFileBrowserEntryResponse = (
-                    route_transfer_file_browser_entry(
-                        TransferFileBrowserEntryRequest(
-                            sourcePath=str(source_file),
-                            destinationFolderPath=str(root_path),
-                            operation="copy",
-                        ),
-                        runtime_ctx,
-                    )
-                )
-            copied_path = root_path / ".env copy"
-            assert source_file.exists()
-            assert copied_path.exists()
-            assert copied_path.read_text(encoding="utf-8") == source_file.read_text(
-                encoding="utf-8"
-            )
-            assert result.destinationPath == copied_path.resolve().as_posix()
-
-    async def test_transfer_file_browser_entry_rejects_nested_folder_target(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
-            root_path = Path(tmpdir)
-            source_folder = root_path / "assets"
-            nested_target = source_folder / "inner"
-            nested_target.mkdir(parents=True, exist_ok=True)
-            with runtime_context(state) as runtime_ctx:
-                with pytest.raises(HTTPException) as ctx:
-                    route_transfer_file_browser_entry(
-                        TransferFileBrowserEntryRequest(
-                            sourcePath=str(source_folder),
-                            destinationFolderPath=str(nested_target),
-                            operation="move",
-                        ),
-                        runtime_ctx,
-                    )
-        assert ctx.value.status_code == 400
 
     async def test_import_files_to_artifacts_share_mode_forbidden(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1029,9 +564,7 @@ class TestFileBrowserRoutes:
         original_prefixes = C.DROPZONE_ALLOWED_MIME_PREFIXES
         try:
             C.DROPZONE_ALLOWED_MIME_PREFIXES = ["image/"]
-            with TemporaryDirectory(
-                dir=str(get_setta_paths().workspace_root)
-            ) as tmpdir:
+            with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
                 file_path = Path(tmpdir) / "notes.txt"
                 file_path.write_bytes(b"12345")
                 with runtime_context(state) as runtime_ctx:
@@ -1054,9 +587,7 @@ class TestFileBrowserRoutes:
         try:
             C.CHAT_ATTACHMENTS_MAX_FILE_BYTES = 4
             C.CHAT_ATTACHMENTS_MAX_FILE_LABEL = "4 bytes"
-            with TemporaryDirectory(
-                dir=str(get_setta_paths().workspace_root)
-            ) as tmpdir:
+            with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
                 file_path = Path(tmpdir) / "oversized.txt"
                 file_path.write_bytes(b"12345")
                 with runtime_context(state) as runtime_ctx:
@@ -1078,7 +609,9 @@ class TestFileBrowserRoutes:
         artifact_id = (C.ARTIFACTS_FOLDER / "dropzone.txt").as_posix()
         expected_id = Path(artifact_id).resolve().as_posix()
         binary_store = BinaryStore.from_dbe(state.dbe)
-        payload_ref = binary_store.store_bytes(b"data", mime_type="text/plain")
+        payload_ref = binary_store.store_bytes(
+            b"data", mime_type="text/plain"
+        )
         artifact = FileArtifact(id=artifact_id, value=payload_ref)
         with runtime_context(state) as runtime_ctx:
             await route_update_artifacts(
@@ -1187,43 +720,6 @@ class TestFileBrowserRoutes:
         metadata_path = binary_store.root / f"{ref.contentId}.json"
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
         assert metadata["durable"] is False
-
-    async def test_binary_upload_rejects_invalid_durable_value(self) -> None:
-        app = FastAPI()
-        await self._build_state(app=app)
-        app.include_router(binary_router, prefix=Route.PREFIX.value)
-        payload = b"temporary"
-        transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.post(
-                f"{Route.PREFIX.value}{Route.BINARY_UPLOAD.value}",
-                data={"durable": "not-a-bool"},
-                files={"file": ("payload.bin", payload, "application/octet-stream")},
-            )
-        assert response.status_code == 400
-        assert "Invalid boolean value" in response.json()["detail"]
-
-    async def test_binary_upload_rejects_oversized_payload(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        app = FastAPI()
-        await self._build_state(app=app)
-        app.include_router(binary_router, prefix=Route.PREFIX.value)
-        monkeypatch.setattr(C, "BINARY_UPLOAD_MAX_BYTES", 4)
-        payload = b"hello"
-        transport = ASGITransport(app=app)
-        async with AsyncClient(transport=transport, base_url="http://test") as client:
-            response = await client.post(
-                f"{Route.PREFIX.value}{Route.BINARY_UPLOAD.value}",
-                files={"file": ("payload.bin", payload, "application/octet-stream")},
-            )
-
-        assert response.status_code == 413
-        assert (
-            response.json()["detail"]
-            == "Binary payload is too large. Maximum size is 4 bytes."
-        )
 
     async def test_binary_download_rejects_invalid_content_id(self) -> None:
         state = await self._build_state()
