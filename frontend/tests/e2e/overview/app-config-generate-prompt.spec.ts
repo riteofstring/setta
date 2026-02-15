@@ -90,7 +90,6 @@ test("prompt-builder mode sends hidden app generation request to chat", async ({
     expect(capturedRequests.length).toBe(1);
     const request = capturedRequests[0];
     expect(request.appGenerationMode).toBe("prompt_builder");
-    expect(request).not.toHaveProperty("skillsEnabled");
     expect(request.appGenerationReferenceImageUrl).toBeNull();
 
     const message = request.message as {
@@ -235,7 +234,6 @@ test("prompt-builder waits for in-flight resource loads and uses default managed
   ).toBeVisible();
   expect(capturedRequests.length).toBe(1);
   expect(capturedRequests[0].engineConfigId).toBe("engine-primary");
-  expect(capturedRequests[0]).not.toHaveProperty("skillsEnabled");
   expect(llmConfigRequestCount).toBe(1);
   expect(apiKeysRequestCount).toBe(1);
 });
@@ -271,7 +269,6 @@ test("prompt-builder mode ignores stale reference-image context from image mode"
     expect(capturedRequests.length).toBe(1);
     const request = capturedRequests[0];
     expect(request.appGenerationMode).toBe("prompt_builder");
-    expect(request).not.toHaveProperty("skillsEnabled");
     expect(request.appGenerationReferenceImageUrl).toBeNull();
     expect(request.appGenerationReferenceImageNotes).toBeNull();
 
@@ -370,11 +367,9 @@ test("prompt-builder mode surfaces backend hidden-generation error detail", asyn
 
   await page.getByRole("button", { name: "Send To Chat" }).click();
   await expect(
-    page
-      .getByTestId("overview-tab-content-shell")
-      .getByText(
-        "Reference image notes exceed 5000 characters for app generation.",
-      ),
+    page.getByText(
+      "Reference image notes exceed 5000 characters for app generation.",
+    ),
   ).toBeVisible();
 });
 

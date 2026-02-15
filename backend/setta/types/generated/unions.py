@@ -18,6 +18,7 @@ from setta.types.section_impls import (
     ImageSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
+    PluginSectionImpl,
     PromptSectionImpl,
     SocialSectionImpl,
     TerminalSectionImpl,
@@ -44,6 +45,7 @@ BaseSectionImplUnion = (
     | IFrameSectionImpl
     | ChatSectionImpl
     | BrowserSectionImpl
+    | PluginSectionImpl
 )
 
 BaseSectionImplUnionWithDiscriminator = Annotated[
@@ -164,6 +166,7 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     ImageSectionImplArgs,
     ListRootSectionImplArgs,
     MetaControlSectionImplArgs,
+    PluginSectionImplArgs,
     PromptSectionImplArgs,
     SocialSectionImplArgs,
     TerminalSectionImplArgs,
@@ -190,6 +193,7 @@ BaseSectionImplArgsUnion = (
     | IFrameSectionImplArgs
     | ChatSectionImplArgs
     | BrowserSectionImplArgs
+    | PluginSectionImplArgs
 )
 
 BaseSectionImplArgsUnionWithDiscriminator = Annotated[

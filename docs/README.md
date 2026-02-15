@@ -64,5 +64,6 @@
 - `plans/app-mode-remaining-work-plan.md` – remaining app-mode work (integrations, extensibility, outputs, export escape hatches).
 - `plans/http-request-sections-plan.md` – planning notes for HTTP request sections.
 - `plans/pan-zoom-performance-plan.md` – ideas for pan/zoom performance improvements.
-- `plans/plugin-system-plan.md` – planning notes for a Setta plugin system (frontend, backend, content).
+- `guides/plugin-authoring-golden-path.md` – canonical end-to-end authoring/build/install flow for Setta plugins.
+- `guides/plugin-fixture-manual-smoke.md` – manual plugin fixture smoke-test workflow used in development.
 - `plans/ralph-mode.md` – planning notes for ralph mode.
