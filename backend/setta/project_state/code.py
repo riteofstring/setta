@@ -14,7 +14,13 @@ from setta.project_state.utils import (
     create_timestamped_folder,
 )
 from setta.types.id import ID
-from setta.types.section_impls import CodeFileAccessMode, CodeFileBinding
+from setta.types.section_impls import (
+    CodeFileAccessMode,
+    CodeFileBinding,
+    CodeLanguage,
+    CodeLanguageKey,
+    code_language_to_string,
+)
 from setta.utils.paths import normalize_workspace_path, workspace_relative_path
 from setta.utils.utils import GEN_CODE_META_FILENAME, compute_md5_hex
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -324,7 +330,7 @@ class Code(ABC):
         return target_path
 
 
-class PythonCode(Code):
+class LSPCode(Code):
     def __init__(
         self,
         dbe: DBE,
@@ -332,9 +338,12 @@ class PythonCode(Code):
         binding: "CodeFileBinding",
         lsp_writers: LSPWriters,
         websocket_msg_handler: WMHFrontendSender,
+        *,
+        language: CodeLanguageKey,
     ):
         super().__init__(dbe, code_files, binding)
-        self.lsp_writer = lsp_writers.full
+        self.language = language
+        self.lsp_writer = lsp_writers.get_for_language(language)
         self.websocket_msg_handler = websocket_msg_handler
         self.uri: str = ""
 
@@ -349,6 +358,7 @@ class PythonCode(Code):
             filepath=filepath,
             code=code,
             diagnostics_callback=self.diagnostics_callback,
+            language_id=code_language_to_string(self.language),
         )
 
     def callback_cleanup(self):
@@ -356,12 +366,6 @@ class PythonCode(Code):
             return
         if self.diagnostics_callback and self.uri:
             self.lsp_writer.remove_diagnostics_response_callback(self.uri)
-
-    def get_extension(self):
-        return "py"
-
-    def get_run_command(self, path: Path):
-        return build_python_module_run_command(path)
 
     @abstractmethod
     async def diagnostics_callback(self, lsp_response):
@@ -371,9 +375,8 @@ class PythonCode(Code):
     async def temporary_document(self, code: str):
         snapshot_dir = self.binding.snapshot_dir
         snapshot_dir.mkdir(parents=True, exist_ok=True)
-        filepath = (
-            snapshot_dir
-            / f"{self.get_base_filename()}__{uuid.uuid4().hex}.{self.get_extension()}"
+        filepath = snapshot_dir / (
+            f"{self.get_base_filename()}__{uuid.uuid4().hex}.{self.get_extension()}"
         )
         uri: str | None = None
         try:
@@ -384,6 +387,7 @@ class PythonCode(Code):
             uri = await self.lsp_writer.send_document_open_request(
                 filepath=filepath,
                 code=code,
+                language_id=code_language_to_string(self.language),
             )
             yield filepath
         finally:
@@ -391,6 +395,37 @@ class PythonCode(Code):
                 await self.lsp_writer.send_document_close_request(filepath)
             if filepath.exists():
                 filepath.unlink()
+
+    def get_extension(self):
+        suffix = self.binding.canonical_path.suffix
+        if suffix.startswith(".") and len(suffix) > 1:
+            return suffix[1:]
+        return "txt"
+
+
+class PythonCode(LSPCode):
+    def __init__(
+        self,
+        dbe: DBE,
+        code_files: "CodeFiles",
+        binding: "CodeFileBinding",
+        lsp_writers: LSPWriters,
+        websocket_msg_handler: WMHFrontendSender,
+    ):
+        super().__init__(
+            dbe,
+            code_files,
+            binding,
+            lsp_writers,
+            websocket_msg_handler,
+            language=CodeLanguage.python,
+        )
+
+    def get_extension(self):
+        return "py"
+
+    def get_run_command(self, path: Path):
+        return build_python_module_run_command(path)
 
 
 class BashCode(Code):

@@ -14,7 +14,6 @@ import {
   SiJson,
   SiMarkdown,
   SiPython,
-  SiToml,
   SiTypescript,
   SiYaml,
 } from "react-icons/si";
@@ -317,8 +316,6 @@ function CodeLanguageIcon({ sectionId, classes }) {
       return <SiJson className={classes} />;
     case CodeLanguageEnum.yaml:
       return <SiYaml className={classes} />;
-    case CodeLanguageEnum.toml:
-      return <SiToml className={classes} />;
     case CodeLanguageEnum.markdown:
       return <SiMarkdown className={classes} />;
     case CodeLanguageEnum.plaintext:

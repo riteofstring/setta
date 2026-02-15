@@ -26,3 +26,51 @@ def test_reset_setta_state_uses_shared_setta_path_flag_parser() -> None:
     )
     assert "scripts/lib/setta_path_flags.sh" in reset_script
     assert "setta_path_flags_try_parse" in reset_script
+
+
+def test_playwright_runner_gates_plugin_seeding_with_target_selection() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert 'SHOULD_SEED_PLUGIN_FIXTURES="${SHOULD_PREPARE_PLUGIN_FIXTURES}"' in script
+    assert 'SHOULD_SEED_PLUGIN_ARTIFACTS="${SHOULD_PREPARE_PLUGIN_FIXTURES}"' in script
+    assert 'if [[ "${SHOULD_SEED_PLUGIN_FIXTURES}" == "1" ]]; then' in script
+    assert 'if [[ "${SHOULD_SEED_PLUGIN_ARTIFACTS}" == "1" ]]; then' in script
+
+
+def test_playwright_runner_writes_non_empty_record_manifest_for_seeded_wheels() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "record_lines = []" in script
+    assert 'record_lines.append(f"{dist_info_name}/RECORD,,")' in script
+    assert (
+        'zipf.writestr(f"{dist_info_name}/RECORD", "\\n".join(record_lines) + "\\n")'
+        in script
+    )
+
+
+def test_playwright_runner_validates_seeded_fixture_completeness_before_skip() -> None:
+    root = repo_root()
+    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "seeded_plugin_fixture_is_complete()" in script
+    assert (
+        'if ! seeded_plugin_fixture_is_complete "${fixture_root}" "${seeded_fixture_root}"; then'
+        in script
+    )
+
+
+def test_plugin_fixture_link_and_unlink_scripts_do_not_rescan_by_default() -> None:
+    root = repo_root()
+    link_script = (root / "scripts" / "plugin-fixtures" / "link.sh").read_text(
+        encoding="utf-8"
+    )
+    unlink_script = (root / "scripts" / "plugin-fixtures" / "unlink.sh").read_text(
+        encoding="utf-8"
+    )
+    assert "rescan_after_link=0" in link_script
+    assert "rescan_after_unlink=0" in unlink_script

@@ -1,3 +1,8 @@
+import {
+  resetPluginRuntimeStoreForTests,
+  usePluginRuntimeStore,
+  type RegisteredPluginPane,
+} from "plugins/runtime";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router-dom";
 import {
@@ -7,7 +12,10 @@ import {
   useShareSession,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { OverviewTabNameEnum } from "utils/constants";
+import {
+  buildPluginPaneOverviewTabName,
+  OverviewTabNameEnum,
+} from "utils/constants";
 import { createProjectConfig, createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { syncStoreInitialState } from "../paneTestUtils";
@@ -42,6 +50,7 @@ describe("Overview rail offsets", () => {
 
   beforeEach(() => {
     resetProjectStores();
+    resetPluginRuntimeStoreForTests();
     memoryStorage.reset();
     useSettings.setState(createSettingsState());
     useLocalStorage.persist.setOptions({
@@ -61,10 +70,12 @@ describe("Overview rail offsets", () => {
     syncStoreInitialState(useShareSession);
     syncStoreInitialState(useSettings);
     syncStoreInitialState(useLocalStorage);
+    syncStoreInitialState(usePluginRuntimeStore);
   });
 
   afterEach(() => {
     resetProjectStores();
+    resetPluginRuntimeStoreForTests();
   });
 
   it("extends to the bottom when no view mode tabs exist", () => {
@@ -137,20 +148,43 @@ describe("Overview rail offsets", () => {
     expect(style).toContain("bottom:36px");
   });
 
-  it("renders the project ai chat icon before the overview icon by default", () => {
+  it("renders plugin pane tabs and selected plugin pane title", () => {
+    const pluginId = "setta-fixture-frontend";
+    const paneId = "fixture-overview-pane";
+    const tabKey = buildPluginPaneOverviewTabName(pluginId, paneId);
+
+    usePluginRuntimeStore.setState({
+      panesByPluginId: {
+        [pluginId]: [
+          {
+            pluginId,
+            id: paneId,
+            title: "Fixture Pane",
+            description: "Fixture plugin pane",
+            icon: "dashboard",
+            renderer: {
+              mount: () => undefined,
+            },
+          } satisfies RegisteredPluginPane,
+        ],
+      },
+    });
+    useLocalStorage.setState({
+      overviewTab: tabKey,
+    });
+    syncStoreInitialState(usePluginRuntimeStore);
+    syncStoreInitialState(useLocalStorage);
+
     const markup = renderToStaticMarkup(
       <MemoryRouter>
         <Overview />
       </MemoryRouter>,
     );
 
-    const chatIndex = markup.indexOf(
-      'data-testid="overview-tab-project-ai-chat"',
+    expect(markup).toContain(
+      "overview-plugin-pane-tab-setta-fixture-frontend-fixture-overview-pane",
     );
-    const overviewIndex = markup.indexOf('data-testid="overview-tab-overview"');
-
-    expect(chatIndex).toBeGreaterThanOrEqual(0);
-    expect(overviewIndex).toBeGreaterThanOrEqual(0);
-    expect(chatIndex).toBeLessThan(overviewIndex);
+    expect(markup).toContain("Fixture Pane");
+    expect(markup).toContain("setta-plugin-pane-icon--dashboard");
   });
 });

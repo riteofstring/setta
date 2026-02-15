@@ -43,7 +43,7 @@ export function ProjectConfigs() {
       <p className="text-xs text-setta-600 dark:text-setta-300">
         Hover over an item to preview another version of your project
       </p> */}
-      <section className="setta-pane-scroll flex h-full rounded-lg border border-setta-200/50 p-1 dark:border-setta-850">
+      <section className=" flex h-full overflow-y-scroll rounded-lg border border-setta-200/50 p-1 dark:border-setta-850">
         <div
           className="mt-1 flex w-full flex-col gap-1"
           onMouseLeave={() => {
@@ -83,7 +83,7 @@ function ProjectConfigRow({
 }: ProjectConfigRowProps) {
   const isActive = config.name === currProjectConfigName;
   const sharedClasses =
-    "group flex w-full min-w-0 cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-md px-2 py-1 hover:bg-white/60 dark:hover:bg-setta-800/50";
+    "group flex min-w-full cursor-pointer flex-row items-center justify-between overflow-clip truncate rounded-md px-2 py-1 hover:bg-white/60 dark:hover:bg-setta-800/50";
 
   const labelClassName = `${isActive ? "font-black !text-setta-900 dark:!text-setta-100" : ""} flex-shrink truncate text-xs text-setta-600 [transition:font-weight_100ms_ease-in-out]  group-hover:!text-setta-900 dark:text-setta-400 dark:group-hover:!text-setta-100`;
 
