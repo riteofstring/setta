@@ -18,18 +18,10 @@ from setta.types.code_obj_impls import (
     ButtonActionMode,
     CodeObjType,
     ColorPickerChoice,
-    DateCalendarWeekStart,
-    DateControlMode,
-    DateDisplayFormat,
-    DateSelectionMode,
     DropzoneMode,
     HttpRequestMethod,
     ParameterPassingStyle,
     ParamNameType,
-    TextParamInputUIType,
-    TimeControlMode,
-    TimeDisplayFont,
-    TimeDisplayFormat,
 )
 from setta.types.edges import Edge, EdgePort
 from setta.types.generated.shared_modifier import SharedModifier
@@ -50,14 +42,9 @@ from setta.types.section_impls import (
     CodeLanguage,
     CodeSectionDiagnosticsIgnoreState,
     ConfigLanguage,
-    ListRootViewMode,
     PromptFormat,
     SectionSize,
     SectionType,
-    SpreadsheetGridDensity,
-    TaskBoardColumn,
-    TaskBoardTask,
-    TaskBoardViewMode,
     TextBlockDisplayMode,
     TextBlockFormat,
     TypeErrorIgnoreState,
@@ -77,13 +64,11 @@ class CoreArgs(TypedDict):
                 "actionMode",
                 "activeBranchId",
                 "activeLayerIdx",
-                "activeSheet",
                 "agentProfileId",
                 "aspectRatio",
                 "aspectRatioExtraHeight",
                 "aspectRatioExtraWidth",
                 "attachedTerminalSectionId",
-                "autoReloadOnExternalChange",
                 "branches",
                 "brushColor",
                 "brushOpacity",
@@ -101,19 +86,11 @@ class CoreArgs(TypedDict):
                 "codeObjVariantMap",
                 "colorChoices",
                 "columnWidth",
-                "columns",
                 "configLanguage",
                 "coreNameEditable",
                 "coreNameType",
                 "dataPath",
-                "dateCalendarWeekStart",
-                "dateControlMode",
-                "dateDisplayFormat",
-                "dateIncludesTime",
-                "dateSelectionMode",
-                "defaultChildSectionType",
                 "defaultVal",
-                "density",
                 "description",
                 "diagnosticsIgnoreState",
                 "drawThrottleDelay",
@@ -121,7 +98,6 @@ class CoreArgs(TypedDict):
                 "edgeOutputPorts",
                 "engineConfigId",
                 "eraserBrushSize",
-                "filePath",
                 "folder",
                 "format",
                 "hasSecret",
@@ -145,7 +121,6 @@ class CoreArgs(TypedDict):
                 "label",
                 "layers",
                 "managed",
-                "masterFontSizePx",
                 "max",
                 "maxAttachments",
                 "messages",
@@ -161,7 +136,6 @@ class CoreArgs(TypedDict):
                 "pinnedParams",
                 "placeholder",
                 "positionAndSizeLocked",
-                "readOnly",
                 "renderError",
                 "renderedImagePath",
                 "renderedText",
@@ -172,28 +146,19 @@ class CoreArgs(TypedDict):
                 "requestUrl",
                 "savedSearches",
                 "selectedParams",
-                "showRowNumbers",
                 "showSectionTitle",
                 "size",
                 "step",
                 "styleColor",
                 "tagColor",
-                "tasks",
                 "template",
                 "text",
                 "textDisplayMode",
                 "thinking",
-                "timeControlMode",
-                "timeDisplayFont",
-                "timeDisplayFormat",
-                "timeDisplayScale",
-                "timeDisplayTransparent",
                 "toolCallArguments",
                 "topLevelParamId",
                 "type",
-                "typeAnnotation",
                 "typesColumnWidth",
-                "uiType",
                 "url",
                 "value",
                 "viewMode",
@@ -378,8 +343,6 @@ class DictSectionImplArgsWithCallable(BaseDictSectionImplArgsWithCallable):
 
 class ListRootSectionImplArgs(BaseParentSectionImplArgs):
     type: NotRequired[Literal[SectionType.ListRoot]]
-    defaultChildSectionType: NotRequired[SectionType]
-    viewMode: NotRequired[ListRootViewMode]
 
 
 class ListRootSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
@@ -387,19 +350,12 @@ class ListRootSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable)
         Literal[SectionType.ListRoot]
         | Callable[[Literal[SectionType.ListRoot]], Literal[SectionType.ListRoot]]
     ]
-    defaultChildSectionType: NotRequired[
-        SectionType | Callable[[SectionType], SectionType]
-    ]
-    viewMode: NotRequired[
-        ListRootViewMode | Callable[[ListRootViewMode], ListRootViewMode]
-    ]
 
 
 class GroupSectionImplArgs(BaseParentSectionImplArgs):
     type: NotRequired[Literal[SectionType.Group]]
     isHorizontalOrientation: NotRequired[bool]
     overflowMode: NotRequired[bool]
-    defaultChildSectionType: NotRequired[SectionType]
 
 
 class GroupSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
@@ -409,9 +365,6 @@ class GroupSectionImplArgsWithCallable(BaseParentSectionImplArgsWithCallable):
     ]
     isHorizontalOrientation: NotRequired[bool | Callable[[bool], bool]]
     overflowMode: NotRequired[bool | Callable[[bool], bool]]
-    defaultChildSectionType: NotRequired[
-        SectionType | Callable[[SectionType], SectionType]
-    ]
 
 
 class ImageSectionImplArgs(BaseSectionImplArgs):
@@ -492,7 +445,6 @@ class DrawSectionImplArgsWithCallable(BaseCanvasSectionImplArgsWithCallable):
 class TextBlockSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.TextBlock]]
     format: NotRequired[TextBlockFormat]
-    masterFontSizePx: NotRequired[float]
     headingAsSectionName: NotRequired[bool]
     metaControlStyle: NotRequired[bool]
     textDisplayMode: NotRequired[TextBlockDisplayMode]
@@ -505,7 +457,6 @@ class TextBlockSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         | Callable[[Literal[SectionType.TextBlock]], Literal[SectionType.TextBlock]]
     ]
     format: NotRequired[TextBlockFormat | Callable[[TextBlockFormat], TextBlockFormat]]
-    masterFontSizePx: NotRequired[float | Callable[[float], float]]
     headingAsSectionName: NotRequired[bool | Callable[[bool], bool]]
     metaControlStyle: NotRequired[bool | Callable[[bool], bool]]
     textDisplayMode: NotRequired[
@@ -741,55 +692,6 @@ class BrowserSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
 
 
-class TaskBoardSectionImplArgs(BaseSectionImplArgs):
-    type: NotRequired[Literal[SectionType.TaskBoard]]
-    viewMode: NotRequired[TaskBoardViewMode]
-    columns: NotRequired[list[TaskBoardColumn]]
-    tasks: NotRequired[list[TaskBoardTask]]
-
-
-class TaskBoardSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
-    type: NotRequired[
-        Literal[SectionType.TaskBoard]
-        | Callable[[Literal[SectionType.TaskBoard]], Literal[SectionType.TaskBoard]]
-    ]
-    viewMode: NotRequired[
-        TaskBoardViewMode | Callable[[TaskBoardViewMode], TaskBoardViewMode]
-    ]
-    columns: NotRequired[
-        list[TaskBoardColumn] | Callable[[list[TaskBoardColumn]], list[TaskBoardColumn]]
-    ]
-    tasks: NotRequired[
-        list[TaskBoardTask] | Callable[[list[TaskBoardTask]], list[TaskBoardTask]]
-    ]
-
-
-class SpreadsheetSectionImplArgs(BaseSectionImplArgs):
-    type: NotRequired[Literal[SectionType.Spreadsheet]]
-    filePath: NotRequired[str]
-    activeSheet: NotRequired[str | None]
-    readOnly: NotRequired[bool]
-    showRowNumbers: NotRequired[bool]
-    density: NotRequired[SpreadsheetGridDensity]
-    autoReloadOnExternalChange: NotRequired[bool]
-
-
-class SpreadsheetSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
-    type: NotRequired[
-        Literal[SectionType.Spreadsheet]
-        | Callable[[Literal[SectionType.Spreadsheet]], Literal[SectionType.Spreadsheet]]
-    ]
-    filePath: NotRequired[str | Callable[[str], str]]
-    activeSheet: NotRequired[str | None | Callable[[str | None], str | None]]
-    readOnly: NotRequired[bool | Callable[[bool], bool]]
-    showRowNumbers: NotRequired[bool | Callable[[bool], bool]]
-    density: NotRequired[
-        SpreadsheetGridDensity
-        | Callable[[SpreadsheetGridDensity], SpreadsheetGridDensity]
-    ]
-    autoReloadOnExternalChange: NotRequired[bool | Callable[[bool], bool]]
-
-
 class BaseCodeObjImplArgs(TypedDict):
     type: NotRequired[Any]
     id: NotRequired[ID]
@@ -811,7 +713,6 @@ class BaseParamCodeObjImplArgs(BaseCodeObjImplArgs):
     coreNameType: NotRequired[ParamNameType]
     coreNameEditable: NotRequired[bool]
     passingStyle: NotRequired[ParameterPassingStyle]
-    typeAnnotation: NotRequired[str]
 
 
 class BaseParamCodeObjImplArgsWithCallable(BaseCodeObjImplArgsWithCallable):
@@ -821,7 +722,6 @@ class BaseParamCodeObjImplArgsWithCallable(BaseCodeObjImplArgsWithCallable):
     passingStyle: NotRequired[
         ParameterPassingStyle | Callable[[ParameterPassingStyle], ParameterPassingStyle]
     ]
-    typeAnnotation: NotRequired[str | Callable[[str], str]]
 
 
 class BaseChildlessCodeObjImplArgs(BaseParamCodeObjImplArgs):
@@ -872,106 +772,12 @@ class CodeParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCalla
 
 class TextParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
     type: NotRequired[Literal[CodeObjType.TextParam]]
-    uiType: NotRequired[TextParamInputUIType]
-    timeControlMode: NotRequired[TimeControlMode]
-    timeDisplayFormat: NotRequired[TimeDisplayFormat]
-    timeDisplayTransparent: NotRequired[bool]
-    timeDisplayScale: NotRequired[float]
-    timeDisplayFont: NotRequired[TimeDisplayFont]
-    dateDisplayFormat: NotRequired[DateDisplayFormat]
-    dateControlMode: NotRequired[DateControlMode]
-    dateSelectionMode: NotRequired[DateSelectionMode]
-    dateCalendarWeekStart: NotRequired[DateCalendarWeekStart]
-    dateIncludesTime: NotRequired[bool]
 
 
 class TextParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
     type: NotRequired[
         Literal[CodeObjType.TextParam]
         | Callable[[Literal[CodeObjType.TextParam]], Literal[CodeObjType.TextParam]]
-    ]
-    uiType: NotRequired[
-        TextParamInputUIType | Callable[[TextParamInputUIType], TextParamInputUIType]
-    ]
-    timeControlMode: NotRequired[
-        TimeControlMode | Callable[[TimeControlMode], TimeControlMode]
-    ]
-    timeDisplayFormat: NotRequired[
-        TimeDisplayFormat | Callable[[TimeDisplayFormat], TimeDisplayFormat]
-    ]
-    timeDisplayTransparent: NotRequired[bool | Callable[[bool], bool]]
-    timeDisplayScale: NotRequired[float | Callable[[float], float]]
-    timeDisplayFont: NotRequired[
-        TimeDisplayFont | Callable[[TimeDisplayFont], TimeDisplayFont]
-    ]
-    dateDisplayFormat: NotRequired[
-        DateDisplayFormat | Callable[[DateDisplayFormat], DateDisplayFormat]
-    ]
-    dateControlMode: NotRequired[
-        DateControlMode | Callable[[DateControlMode], DateControlMode]
-    ]
-    dateSelectionMode: NotRequired[
-        DateSelectionMode | Callable[[DateSelectionMode], DateSelectionMode]
-    ]
-    dateCalendarWeekStart: NotRequired[
-        DateCalendarWeekStart | Callable[[DateCalendarWeekStart], DateCalendarWeekStart]
-    ]
-    dateIncludesTime: NotRequired[bool | Callable[[bool], bool]]
-
-
-class DateParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.DateParam]]
-    dateDisplayFormat: NotRequired[DateDisplayFormat]
-    dateControlMode: NotRequired[DateControlMode]
-    dateSelectionMode: NotRequired[DateSelectionMode]
-    dateCalendarWeekStart: NotRequired[DateCalendarWeekStart]
-    dateIncludesTime: NotRequired[bool]
-
-
-class DateParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
-    type: NotRequired[
-        Literal[CodeObjType.DateParam]
-        | Callable[[Literal[CodeObjType.DateParam]], Literal[CodeObjType.DateParam]]
-    ]
-    dateDisplayFormat: NotRequired[
-        DateDisplayFormat | Callable[[DateDisplayFormat], DateDisplayFormat]
-    ]
-    dateControlMode: NotRequired[
-        DateControlMode | Callable[[DateControlMode], DateControlMode]
-    ]
-    dateSelectionMode: NotRequired[
-        DateSelectionMode | Callable[[DateSelectionMode], DateSelectionMode]
-    ]
-    dateCalendarWeekStart: NotRequired[
-        DateCalendarWeekStart | Callable[[DateCalendarWeekStart], DateCalendarWeekStart]
-    ]
-    dateIncludesTime: NotRequired[bool | Callable[[bool], bool]]
-
-
-class TimeParamCodeObjImplArgs(BaseChildlessCodeObjImplArgs):
-    type: NotRequired[Literal[CodeObjType.TimeParam]]
-    timeControlMode: NotRequired[TimeControlMode]
-    timeDisplayFormat: NotRequired[TimeDisplayFormat]
-    timeDisplayTransparent: NotRequired[bool]
-    timeDisplayScale: NotRequired[float]
-    timeDisplayFont: NotRequired[TimeDisplayFont]
-
-
-class TimeParamCodeObjImplArgsWithCallable(BaseChildlessCodeObjImplArgsWithCallable):
-    type: NotRequired[
-        Literal[CodeObjType.TimeParam]
-        | Callable[[Literal[CodeObjType.TimeParam]], Literal[CodeObjType.TimeParam]]
-    ]
-    timeControlMode: NotRequired[
-        TimeControlMode | Callable[[TimeControlMode], TimeControlMode]
-    ]
-    timeDisplayFormat: NotRequired[
-        TimeDisplayFormat | Callable[[TimeDisplayFormat], TimeDisplayFormat]
-    ]
-    timeDisplayTransparent: NotRequired[bool | Callable[[bool], bool]]
-    timeDisplayScale: NotRequired[float | Callable[[float], float]]
-    timeDisplayFont: NotRequired[
-        TimeDisplayFont | Callable[[TimeDisplayFont], TimeDisplayFont]
     ]
 
 

@@ -1,7 +1,6 @@
 import "utils/backendOriginOverrideInit";
 import "utils/workspaceHistoryHandoffInit";
 
-import "@glideapps/glide-data-grid/dist/index.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { subscribe } from "state/subscriptions";

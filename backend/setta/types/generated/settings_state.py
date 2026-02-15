@@ -14,7 +14,6 @@ from setta.types.generated.user_defaults import (
     UserDefaultCodeParamCodeObjImpl,
     UserDefaultCodeSectionImpl,
     UserDefaultColorPickerParamCodeObjImpl,
-    UserDefaultDateParamCodeObjImpl,
     UserDefaultDictSectionImpl,
     UserDefaultDrawSectionImpl,
     UserDefaultDropdownParamCodeObjImpl,
@@ -33,14 +32,11 @@ from setta.types.generated.user_defaults import (
     UserDefaultRotaryParamCodeObjImpl,
     UserDefaultSliderParamCodeObjImpl,
     UserDefaultSocialSectionImpl,
-    UserDefaultSpreadsheetSectionImpl,
     UserDefaultSwitchParamCodeObjImpl,
-    UserDefaultTaskBoardSectionImpl,
     UserDefaultTerminalSectionImpl,
     UserDefaultTextAreaParamCodeObjImpl,
     UserDefaultTextBlockSectionImpl,
     UserDefaultTextParamCodeObjImpl,
-    UserDefaultTimeParamCodeObjImpl,
 )
 from setta.types.settings_state import (
     SectionSizingPolicy,
@@ -114,12 +110,6 @@ class SettingsState(BaseModel, extra="forbid"):
     socialSectionDefault: UserDefaultSocialSectionImpl = Field(
         default_factory=UserDefaultSocialSectionImpl
     )
-    spreadsheetSectionDefault: UserDefaultSpreadsheetSectionImpl = Field(
-        default_factory=UserDefaultSpreadsheetSectionImpl
-    )
-    taskBoardSectionDefault: UserDefaultTaskBoardSectionImpl = Field(
-        default_factory=UserDefaultTaskBoardSectionImpl
-    )
     terminalSectionDefault: UserDefaultTerminalSectionImpl = Field(
         default_factory=UserDefaultTerminalSectionImpl
     )
@@ -137,9 +127,6 @@ class SettingsState(BaseModel, extra="forbid"):
     )
     colorPickerParamCodeObjDefault: UserDefaultColorPickerParamCodeObjImpl = Field(
         default_factory=UserDefaultColorPickerParamCodeObjImpl
-    )
-    dateParamCodeObjDefault: UserDefaultDateParamCodeObjImpl = Field(
-        default_factory=UserDefaultDateParamCodeObjImpl
     )
     dropdownParamCodeObjDefault: UserDefaultDropdownParamCodeObjImpl = Field(
         default_factory=UserDefaultDropdownParamCodeObjImpl
@@ -167,9 +154,6 @@ class SettingsState(BaseModel, extra="forbid"):
     )
     textParamCodeObjDefault: UserDefaultTextParamCodeObjImpl = Field(
         default_factory=UserDefaultTextParamCodeObjImpl
-    )
-    timeParamCodeObjDefault: UserDefaultTimeParamCodeObjImpl = Field(
-        default_factory=UserDefaultTimeParamCodeObjImpl
     )
 
 
@@ -236,12 +220,6 @@ def get_user_default_section_from_settings(settings: SettingsState, type: Sectio
         case SectionType.Browser:
             return settings.browserSectionDefault
 
-        case SectionType.TaskBoard:
-            return settings.taskBoardSectionDefault
-
-        case SectionType.Spreadsheet:
-            return settings.spreadsheetSectionDefault
-
 
 def get_user_default_code_obj_from_settings(settings: SettingsState, type: CodeObjType):
     match type:
@@ -253,12 +231,6 @@ def get_user_default_code_obj_from_settings(settings: SettingsState, type: CodeO
 
         case CodeObjType.TextParam:
             return settings.textParamCodeObjDefault
-
-        case CodeObjType.DateParam:
-            return settings.dateParamCodeObjDefault
-
-        case CodeObjType.TimeParam:
-            return settings.timeParamCodeObjDefault
 
         case CodeObjType.ButtonParam:
             return settings.buttonParamCodeObjDefault

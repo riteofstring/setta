@@ -9,7 +9,6 @@ import {
 import { DropzoneInput } from "components/Params/ParamUIs/DropzoneInput";
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
-import { TextParamDateTimeInput } from "components/Params/ParamUIs/TextParamInput";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import type { ReactNode } from "react";
 import {
@@ -20,26 +19,7 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import {
-  CodeObjTypeEnum,
-  DateCalendarWeekStart,
-  DateCalendarWeekStartEnum,
-  DateControlMode,
-  DateControlModeEnum,
-  DateDisplayFormat,
-  DateDisplayFormatEnum,
-  DateSelectionMode,
-  DateSelectionModeEnum,
-  DropzoneModeEnum,
-  TextParamInputUIType,
-  TextParamInputUITypeEnum,
-  TimeControlMode,
-  TimeControlModeEnum,
-  TimeDisplayFont,
-  TimeDisplayFontEnum,
-  TimeDisplayFormat,
-  TimeDisplayFormatEnum,
-} from "utils/generatedTypes";
+import { CodeObjTypeEnum, DropzoneModeEnum } from "utils/generatedTypes";
 
 type MetaControlCodeObjType =
   | CodeObjTypeEnum.ButtonParam
@@ -52,9 +32,7 @@ type MetaControlCodeObjType =
   | CodeObjTypeEnum.SliderParam
   | CodeObjTypeEnum.SwitchParam
   | CodeObjTypeEnum.TextAreaParam
-  | CodeObjTypeEnum.TextParam
-  | CodeObjTypeEnum.DateParam
-  | CodeObjTypeEnum.TimeParam;
+  | CodeObjTypeEnum.TextParam;
 
 type MetaControlContentButtonProps = {
   sectionId: string;
@@ -80,16 +58,6 @@ type MetaControlContentValueProps = {
   dropzoneMaxAttachments?: number | null;
   dropzonePlaceholder?: string;
   onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
-  timeControlMode?: TimeControlMode;
-  timeDisplayFormat?: TimeDisplayFormat;
-  timeDisplayTransparent?: boolean;
-  timeDisplayScale?: number;
-  timeDisplayFont?: TimeDisplayFont;
-  dateDisplayFormat?: DateDisplayFormat;
-  dateControlMode?: DateControlMode;
-  dateSelectionMode?: DateSelectionMode;
-  dateCalendarWeekStart?: DateCalendarWeekStart;
-  dateIncludesTime?: boolean;
 };
 
 type MetaControlContentProps =
@@ -133,7 +101,7 @@ export function MetaControlContent(props: MetaControlContentProps) {
           showSectionTitle={showSectionTitle}
           onValueChange={onValueChange}
           language="python"
-          singleLine={false}
+          singleLine={true}
         />
       );
     case CodeObjTypeEnum.TextParam:
@@ -163,56 +131,6 @@ export function MetaControlContent(props: MetaControlContentProps) {
           language="python"
           singleLine={false}
           minHeightClassName="min-h-24"
-        />
-      );
-    case CodeObjTypeEnum.DateParam:
-      return (
-        <DateTimeControl
-          sectionName={sectionName}
-          value={value}
-          showSectionTitle={showSectionTitle}
-          onValueChange={onValueChange}
-          uiType={TextParamInputUITypeEnum.date}
-          timeControlMode={TimeControlModeEnum.display}
-          timeDisplayFormat={TimeDisplayFormatEnum.twenty_four_hour}
-          timeDisplayTransparent={false}
-          timeDisplayScale={1}
-          timeDisplayFont={TimeDisplayFontEnum.monospace}
-          dateDisplayFormat={
-            props.dateDisplayFormat ?? DateDisplayFormatEnum.iso
-          }
-          dateControlMode={props.dateControlMode ?? DateControlModeEnum.input}
-          dateSelectionMode={
-            props.dateSelectionMode ?? DateSelectionModeEnum.single
-          }
-          dateCalendarWeekStart={
-            props.dateCalendarWeekStart ?? DateCalendarWeekStartEnum.sunday
-          }
-          dateIncludesTime={props.dateIncludesTime ?? false}
-        />
-      );
-    case CodeObjTypeEnum.TimeParam:
-      return (
-        <DateTimeControl
-          sectionName={sectionName}
-          value={value}
-          showSectionTitle={showSectionTitle}
-          onValueChange={onValueChange}
-          uiType={TextParamInputUITypeEnum.time}
-          timeControlMode={props.timeControlMode ?? TimeControlModeEnum.display}
-          timeDisplayFormat={
-            props.timeDisplayFormat ?? TimeDisplayFormatEnum.twenty_four_hour
-          }
-          timeDisplayTransparent={props.timeDisplayTransparent ?? false}
-          timeDisplayScale={props.timeDisplayScale ?? 1}
-          timeDisplayFont={
-            props.timeDisplayFont ?? TimeDisplayFontEnum.monospace
-          }
-          dateDisplayFormat={DateDisplayFormatEnum.iso}
-          dateControlMode={DateControlModeEnum.input}
-          dateSelectionMode={DateSelectionModeEnum.single}
-          dateCalendarWeekStart={DateCalendarWeekStartEnum.sunday}
-          dateIncludesTime={false}
         />
       );
     case CodeObjTypeEnum.SliderParam:
@@ -634,79 +552,6 @@ function DropzoneControl({
         maxAttachments={maxAttachments}
         placeholder={placeholder}
       />
-    </MetaControlTitleStack>
-  );
-}
-
-function DateTimeControl({
-  sectionName,
-  value,
-  showSectionTitle,
-  onValueChange,
-  uiType,
-  timeControlMode,
-  timeDisplayFormat,
-  timeDisplayTransparent,
-  timeDisplayScale,
-  timeDisplayFont,
-  dateDisplayFormat,
-  dateControlMode,
-  dateSelectionMode,
-  dateCalendarWeekStart,
-  dateIncludesTime,
-}: {
-  sectionName: string;
-  value: string;
-  showSectionTitle: boolean;
-  onValueChange: ParamValueChange;
-  uiType: TextParamInputUIType;
-  timeControlMode: TimeControlMode;
-  timeDisplayFormat: TimeDisplayFormat;
-  timeDisplayTransparent: boolean;
-  timeDisplayScale: number;
-  timeDisplayFont: TimeDisplayFont;
-  dateDisplayFormat: DateDisplayFormat;
-  dateControlMode: DateControlMode;
-  dateSelectionMode: DateSelectionMode;
-  dateCalendarWeekStart: DateCalendarWeekStart;
-  dateIncludesTime: boolean;
-}) {
-  const isTimeDisplayMode =
-    uiType === TextParamInputUITypeEnum.time &&
-    timeControlMode === TimeControlModeEnum.display;
-  const containerClassName =
-    isTimeDisplayMode && timeDisplayTransparent
-      ? "single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto] rounded-lg border border-transparent bg-transparent px-3 py-2"
-      : "single-cell-container grid h-full min-h-0 w-full grid-cols-[1fr,auto] rounded-lg border border-setta-300/70 bg-setta-50 px-3 py-2 dark:border-setta-700 dark:bg-setta-850";
-
-  return (
-    <MetaControlTitleStack
-      showSectionTitle={showSectionTitle}
-      sectionName={sectionName}
-      contentClassName="items-stretch"
-    >
-      <div className={containerClassName}>
-        <TextParamDateTimeInput
-          value={value}
-          onChange={onValueChange}
-          isDisabled={false}
-          uiType={uiType}
-          timeControlMode={timeControlMode}
-          timeDisplayFormat={timeDisplayFormat}
-          timeDisplayTransparent={timeDisplayTransparent}
-          timeDisplayScale={timeDisplayScale}
-          timeDisplayFont={timeDisplayFont}
-          dateDisplayFormat={dateDisplayFormat}
-          dateControlMode={dateControlMode}
-          dateSelectionMode={dateSelectionMode}
-          dateCalendarWeekStart={dateCalendarWeekStart}
-          dateIncludesTime={dateIncludesTime}
-          wrapperClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-value single-cell-child flex min-w-0 items-center gap-2`}
-          inputClassName={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} peer/textinput flex min-w-0 flex-1 cursor-text self-center text-xs text-[rgb(3,_47,_98);] selection:bg-blue-500/30 dark:text-[rgb(165,_214,_255)]`}
-          formattedValueClassName="text-[10px] font-mono text-setta-500 dark:text-setta-400"
-          borderClassName="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 dark:border-setta-600/30 peer-focus-within/textinput:border-blue-400"
-        />
-      </div>
     </MetaControlTitleStack>
   );
 }

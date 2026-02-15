@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   flattenFileBrowserTree,
-  isEditableFileBrowserTarget,
-  shouldRefreshRootAfterFileBrowserTransfer,
-  shouldSkipFileBrowserTransfer,
+  getSettaBadgeRefreshFolderPaths,
   sortChildPaths,
   type FileNode,
 } from "./FileBrowserPane";
@@ -267,82 +265,46 @@ describe("flattenFileBrowserTree", () => {
   });
 });
 
-describe("isEditableFileBrowserTarget", () => {
-  it("detects native form fields and contenteditable targets", () => {
-    const input = {
-      closest: (selector: string) =>
-        selector === "input, textarea, select" ? {} : null,
+describe("getSettaBadgeRefreshFolderPaths", () => {
+  it("includes the root path and expanded folder paths only", () => {
+    const nodesByPath: Record<string, FileNode> = {
+      "/root": {
+        name: "root",
+        fullPath: "/root",
+        type: "folder",
+        parentPath: null,
+      },
+      "/root/folder-a": {
+        name: "folder-a",
+        fullPath: "/root/folder-a",
+        type: "folder",
+        parentPath: "/root",
+      },
+      "/root/file-a.txt": {
+        name: "file-a.txt",
+        fullPath: "/root/file-a.txt",
+        type: "file",
+        parentPath: "/root",
+      },
+      "/root/folder-b": {
+        name: "folder-b",
+        fullPath: "/root/folder-b",
+        type: "folder",
+        parentPath: "/root",
+      },
     };
-    const textarea = {
-      closest: (selector: string) =>
-        selector === "input, textarea, select" ? {} : null,
-    };
-    const editable = {
-      closest: (selector: string) =>
-        selector === '[contenteditable="true"]' ? {} : null,
+    const expandedPaths = {
+      "/root/folder-a": true,
+      "/root/file-a.txt": true,
+      "/root/folder-b": false,
     };
 
-    expect(isEditableFileBrowserTarget(input)).toBe(true);
-    expect(isEditableFileBrowserTarget(textarea)).toBe(true);
-    expect(isEditableFileBrowserTarget(editable)).toBe(true);
-  });
-
-  it("detects CodeMirror editor descendants", () => {
-    const content = {
-      closest: (selector: string) => (selector === ".cm-editor" ? {} : null),
-    };
-
-    expect(isEditableFileBrowserTarget(content)).toBe(true);
-  });
-
-  it("returns false for non-editable targets", () => {
-    const node = {
-      closest: () => null,
-    };
-    expect(isEditableFileBrowserTarget(node)).toBe(false);
-    expect(isEditableFileBrowserTarget(null)).toBe(false);
-  });
-});
-
-describe("file browser transfer guards", () => {
-  it("skips move requests when source and destination folders are the same", () => {
     expect(
-      shouldSkipFileBrowserTransfer({
-        operation: "move",
-        sourceParentPath: "/root/folder",
-        destinationFolderPath: "/root/folder",
-      }),
-    ).toBe(true);
-    expect(
-      shouldSkipFileBrowserTransfer({
-        operation: "copy",
-        sourceParentPath: "/root/folder",
-        destinationFolderPath: "/root/folder",
-      }),
-    ).toBe(false);
-  });
-
-  it("refreshes root only when a transfer touches root contents", () => {
-    expect(
-      shouldRefreshRootAfterFileBrowserTransfer({
+      getSettaBadgeRefreshFolderPaths({
         rootPath: "/root",
-        sourceParentPath: "/root/folder",
-        destinationFolderPath: "/root/other",
+        expandedPaths,
+        nodesByPath,
       }),
-    ).toBe(false);
-    expect(
-      shouldRefreshRootAfterFileBrowserTransfer({
-        rootPath: "/root",
-        sourceParentPath: "/root",
-        destinationFolderPath: "/root/other",
-      }),
-    ).toBe(true);
-    expect(
-      shouldRefreshRootAfterFileBrowserTransfer({
-        rootPath: "/root",
-        sourceParentPath: "/root/folder",
-        destinationFolderPath: "/root",
-      }),
-    ).toBe(true);
+    ).toEqual(["/root", "/root/folder-a"]);
   });
 });

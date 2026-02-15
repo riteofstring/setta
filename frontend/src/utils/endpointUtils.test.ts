@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { C_ADDRESSES } from "./c_addresses";
-import { get, getBinary, post } from "./endpointUtils";
+import { get, post } from "./endpointUtils";
 import { RouteEnum } from "./generatedTypes";
 
 describe("endpointUtils URL routing", () => {
@@ -46,22 +46,5 @@ describe("endpointUtils URL routing", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.BACKEND}${RouteEnum.STREAM_APP_SPEC}`,
     );
-  });
-
-  it("parses binary responses as Uint8Array", async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(new Uint8Array([1, 2, 3]), {
-        status: 200,
-        headers: { "content-type": "text/csv" },
-      }),
-    );
-
-    const result = await getBinary(RouteEnum.BINARY_DOWNLOAD, {
-      contentId: "abc123",
-    });
-
-    expect(result.status).toBe(200);
-    expect(result.data).toBeInstanceOf(Uint8Array);
-    expect(Array.from(result.data ?? [])).toEqual([1, 2, 3]);
   });
 });

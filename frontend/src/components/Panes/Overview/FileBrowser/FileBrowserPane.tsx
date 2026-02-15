@@ -16,7 +16,6 @@ import { FiSave } from "react-icons/fi";
 import { HiChevronDown, HiChevronRight, HiChevronUp } from "react-icons/hi";
 import { TbFile, TbFolder, TbFolders } from "react-icons/tb";
 import { List, useListRef } from "react-window";
-import { addTemporaryNotification } from "state/actions/notifications";
 import { openFileInCodeSection } from "state/actions/sections/createSections";
 import { useFileBrowserState } from "state/definitions";
 import { getDefaultColumnWidth } from "state/hooks/columnWidthUtils";
@@ -27,20 +26,11 @@ import { resolveCodeLanguageFromPath } from "utils/codeLanguage";
 import { NO_PAN_CLASS_NAME, NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  getFileBrowserDragPayload,
-  setFileBrowserDragPayload,
-  type FileBrowserDragPayload,
-} from "utils/fileBrowserDragPayload";
-import {
   matchesFileBrowserNameFilter,
   matchesFileBrowserPathFilter,
   normalizeFileBrowserPathForFilter,
   parseFileBrowserFilterText,
 } from "utils/fileBrowserFilter";
-import {
-  isSameOrDescendantBrowserPath,
-  normalizeFileBrowserPathForComparison,
-} from "utils/fileBrowserPathRelation";
 import {
   filterFileBrowserItemsByTypeFilters,
   type FileBrowserSearchScope,
@@ -49,9 +39,7 @@ import {
   route_get_file_browser_download_urls,
   route_get_file_browser_root,
   route_get_folder_contents,
-  route_transfer_file_browser_entry,
 } from "utils/generatedEndpoints";
-import { SettaNotificationTypeEnum } from "utils/generatedTypes";
 import { clamp } from "utils/utils";
 
 const ROW_HEIGHT = 24;
@@ -71,11 +59,6 @@ const FILTER_RECURSIVE_MAX_FOLDERS = 600;
 const FILE_URL_REFRESH_BUFFER_MS = 30_000;
 
 type NodeKind = "folder" | "file";
-type FileBrowserClipboardEntry = {
-  sourcePath: string;
-  sourceType: NodeKind;
-  operation: "copy" | "move";
-};
 
 type SortKey = "name" | "modified";
 type SortDirection = "asc" | "desc";
@@ -91,6 +74,7 @@ export type FileNode = {
   type: NodeKind;
   parentPath: string | null;
   mtime?: number | null;
+  isSettaInitialized?: boolean;
 };
 
 type FlattenedNode = FileNode & {
@@ -99,68 +83,26 @@ type FlattenedNode = FileNode & {
 
 type FlattenedFileNode = FlattenedNode;
 
-export function isEditableFileBrowserTarget(
-  target: EventTarget | null,
-): boolean {
-  if (
-    !target ||
-    typeof target !== "object" ||
-    !("closest" in target) ||
-    typeof (target as { closest?: unknown }).closest !== "function"
-  ) {
-    return false;
+export function getSettaBadgeRefreshFolderPaths({
+  rootPath,
+  expandedPaths,
+  nodesByPath,
+}: {
+  rootPath: string;
+  expandedPaths: Record<string, boolean>;
+  nodesByPath: Record<string, FileNode>;
+}): string[] {
+  const paths = new Set<string>([rootPath]);
+  for (const [path, isExpanded] of Object.entries(expandedPaths)) {
+    if (!isExpanded) {
+      continue;
+    }
+    const node = nodesByPath[path];
+    if (node?.type === "folder") {
+      paths.add(path);
+    }
   }
-  const closest = (target as { closest: (selector: string) => unknown })
-    .closest;
-  return (
-    closest("input, textarea, select") !== null ||
-    closest('[contenteditable="true"]') !== null ||
-    closest(".cm-editor") !== null
-  );
-}
-
-export function shouldSkipFileBrowserTransfer(args: {
-  operation: "copy" | "move";
-  sourceParentPath: string | null;
-  destinationFolderPath: string;
-}): boolean {
-  if (args.operation !== "move" || !args.sourceParentPath) {
-    return false;
-  }
-  const normalizedSourceParent = normalizeFileBrowserPathForComparison(
-    args.sourceParentPath,
-  );
-  const normalizedDestination = normalizeFileBrowserPathForComparison(
-    args.destinationFolderPath,
-  );
-  if (!normalizedSourceParent || !normalizedDestination) {
-    return false;
-  }
-  return normalizedSourceParent === normalizedDestination;
-}
-
-export function shouldRefreshRootAfterFileBrowserTransfer(args: {
-  rootPath: string | null;
-  sourceParentPath: string | null;
-  destinationFolderPath: string;
-}): boolean {
-  if (!args.rootPath) {
-    return false;
-  }
-  const normalizedRootPath = normalizeFileBrowserPathForComparison(args.rootPath);
-  const normalizedSourceParent = args.sourceParentPath
-    ? normalizeFileBrowserPathForComparison(args.sourceParentPath)
-    : null;
-  const normalizedDestination = normalizeFileBrowserPathForComparison(
-    args.destinationFolderPath,
-  );
-  if (!normalizedRootPath || !normalizedDestination) {
-    return false;
-  }
-  return (
-    normalizedSourceParent === normalizedRootPath ||
-    normalizedDestination === normalizedRootPath
-  );
+  return Array.from(paths);
 }
 
 export function flattenFileBrowserTree({
@@ -317,7 +259,6 @@ type RowData = {
   expandedPaths: Record<string, boolean>;
   selectedPath: string | null;
   rootPath: string | null;
-  dragTargetFolderPath: string | null;
   fileUrlMap: Record<string, FileUrlEntry>;
   showSearchPathTooltips: boolean;
   loadingPaths: Record<string, boolean>;
@@ -327,11 +268,6 @@ type RowData = {
   onToggle: (path: string) => void;
   onSelect: (path: string) => void;
   onOpen: (path: string) => void;
-  onSetDragTargetFolder: (path: string | null) => void;
-  onDropIntoFolder: (
-    payload: FileBrowserDragPayload,
-    destinationFolderPath: string,
-  ) => void;
 };
 
 type FileBrowserRowProps = RowData & {
@@ -345,6 +281,7 @@ type FileBrowserPaneProps = {
   onSelectionChange?: (node: FileNode | null) => void;
   useFileBrowserStateHook?: typeof useFileBrowserState;
   showFilter?: boolean;
+  includeSettaInitializedFolders?: boolean;
   metaPaddingClassName?: string;
   listInsetLeft?: number;
   columnWidthConfig?: {
@@ -359,6 +296,7 @@ export function FileBrowserPane({
   onSelectionChange,
   useFileBrowserStateHook,
   showFilter = true,
+  includeSettaInitializedFolders = false,
   metaPaddingClassName,
   listInsetLeft = 0,
   columnWidthConfig,
@@ -398,10 +336,6 @@ export function FileBrowserPane({
   const [pathSeparator, setPathSeparator] = useState("/");
   const [rootError, setRootError] = useState<string | null>(null);
   const [listSize, setListSize] = useState({ height: 320, width: 320 });
-  const clipboardEntryRef = useRef<FileBrowserClipboardEntry | null>(null);
-  const [dragTargetFolderPath, setDragTargetFolderPath] = useState<
-    string | null
-  >(null);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [fileUrlMap, setFileUrlMap] = useState<Record<string, FileUrlEntry>>(
@@ -419,6 +353,7 @@ export function FileBrowserPane({
   const folderRequestIdRef = useRef<Record<string, number>>({});
   const filterRequestIdRef = useRef(0);
   const appliedRootRef = useRef<string | null>(null);
+  const includeSettaInitializedRef = useRef(includeSettaInitializedFolders);
   const applyRootPathRef =
     useRef<
       (
@@ -492,6 +427,7 @@ export function FileBrowserPane({
         ignorePatterns: activeIgnorePatterns,
         maxEntries: MAX_ENTRIES,
         includeMtime: true,
+        includeSettaInitialized: includeSettaInitializedFolders,
         missingFolderBehavior: "empty",
       });
       if (rootRequestIdRef.current !== activeRootRequestId) {
@@ -509,6 +445,7 @@ export function FileBrowserPane({
           type: item.type,
           parentPath: folderPath,
           mtime: item.mtime ?? null,
+          isSettaInitialized: item.isSettaInitialized ?? false,
         }));
         const childPaths = loadedNodes.map((node) => node.fullPath);
         setNodesByPath((prev) => {
@@ -550,7 +487,7 @@ export function FileBrowserPane({
       });
       return loadedNodes;
     },
-    [ignorePatterns],
+    [ignorePatterns, includeSettaInitializedFolders],
   );
 
   const applyRootPath = useCallback(
@@ -591,6 +528,25 @@ export function FileBrowserPane({
     },
     [fetchFolderContents, fileBrowserState, pathSeparator],
   );
+
+  const refreshLoadedFoldersForSettaBadges = useCallback(async () => {
+    if (!rootPath) {
+      return;
+    }
+    rootRequestIdRef.current += 1;
+    const refreshRequestId = rootRequestIdRef.current;
+    folderRequestIdRef.current = {};
+    const folderPaths = getSettaBadgeRefreshFolderPaths({
+      rootPath,
+      expandedPaths,
+      nodesByPath: nodesByPathRef.current,
+    });
+    await Promise.all(
+      folderPaths.map((path) =>
+        fetchFolderContents(path, undefined, refreshRequestId),
+      ),
+    );
+  }, [expandedPaths, fetchFolderContents, rootPath]);
 
   const handleSort = useCallback((nextKey: SortKey) => {
     setSortKey((prevKey) => {
@@ -636,6 +592,22 @@ export function FileBrowserPane({
     }
     applyRootPath(rootPath, pathSeparator, ignorePatterns);
   }, [applyRootPath, ignorePatterns, pathSeparator, rootPath]);
+
+  useEffect(() => {
+    if (!rootPath) {
+      includeSettaInitializedRef.current = includeSettaInitializedFolders;
+      return;
+    }
+    if (includeSettaInitializedRef.current === includeSettaInitializedFolders) {
+      return;
+    }
+    includeSettaInitializedRef.current = includeSettaInitializedFolders;
+    void refreshLoadedFoldersForSettaBadges();
+  }, [
+    includeSettaInitializedFolders,
+    refreshLoadedFoldersForSettaBadges,
+    rootPath,
+  ]);
 
   useEffect(() => {
     if (didLoadRootRef.current) {
@@ -887,197 +859,9 @@ export function FileBrowserPane({
     [handleToggle, nodesByPath, onFileOpen, onFolderOpen],
   );
 
-  const transferEntryToFolder = useCallback(
-    async ({
-      sourcePath,
-      sourceType,
-      destinationFolderPath,
-      operation,
-    }: {
-      sourcePath: string;
-      sourceType: NodeKind;
-      destinationFolderPath: string;
-      operation: "copy" | "move";
-    }): Promise<string | null> => {
-      const normalizedSourcePath =
-        normalizeFileBrowserPathForComparison(sourcePath);
-      const normalizedDestinationFolderPath =
-        normalizeFileBrowserPathForComparison(destinationFolderPath);
-      if (!normalizedSourcePath || !normalizedDestinationFolderPath) {
-        return null;
-      }
-      const sourceNode = nodesByPathRef.current[normalizedSourcePath];
-      const sourceParentPath = sourceNode?.parentPath;
-      if (
-        shouldSkipFileBrowserTransfer({
-          operation,
-          sourceParentPath: sourceParentPath ?? null,
-          destinationFolderPath,
-        })
-      ) {
-        return null;
-      }
-      if (
-        sourceType === "folder" &&
-        isSameOrDescendantBrowserPath(
-          normalizedDestinationFolderPath,
-          normalizedSourcePath,
-        )
-      ) {
-        addTemporaryNotification(
-          "Cannot move or copy a folder into itself.",
-          SettaNotificationTypeEnum.warning,
-        );
-        return null;
-      }
-      const response = await route_transfer_file_browser_entry({
-        sourcePath: normalizedSourcePath,
-        destinationFolderPath: normalizedDestinationFolderPath,
-        operation,
-      });
-      if (!res200(response)) {
-        const detail = getErrorDetail(response.data);
-        addTemporaryNotification(
-          detail ??
-            `Failed to ${operation === "move" ? "move" : "copy"} file browser entry.`,
-          SettaNotificationTypeEnum.error,
-        );
-        return null;
-      }
-      const destinationPath = response.data.destinationPath;
-      const normalizedDestinationPath = normalizeFileBrowserPathForComparison(
-        destinationPath,
-      );
-      if (
-        operation === "move" &&
-        normalizedDestinationPath === normalizedSourcePath
-      ) {
-        return null;
-      }
-      const foldersToRefresh = new Set<string>();
-      if (sourceParentPath) {
-        foldersToRefresh.add(sourceParentPath);
-      }
-      foldersToRefresh.add(normalizedDestinationFolderPath);
-      if (
-        shouldRefreshRootAfterFileBrowserTransfer({
-          rootPath,
-          sourceParentPath: sourceParentPath ?? null,
-          destinationFolderPath: normalizedDestinationFolderPath,
-        })
-        && rootPath
-      ) {
-        foldersToRefresh.add(rootPath);
-      }
-      await Promise.all(
-        Array.from(foldersToRefresh).map(async (folderPath) => {
-          await fetchFolderContents(folderPath);
-        }),
-      );
-      fileBrowserState.setState((state) => {
-        if (operation !== "move") {
-          return { selectedPath: destinationPath };
-        }
-        const nextExpandedPaths = { ...state.expandedPaths };
-        const normalizedPrefix = `${normalizedSourcePath}/`;
-        const wasExpanded = nextExpandedPaths[normalizedSourcePath] === true;
-        for (const key of Object.keys(nextExpandedPaths)) {
-          const normalizedKey = normalizeFileBrowserPathForComparison(key);
-          if (
-            normalizedKey === normalizedSourcePath ||
-            normalizedKey.startsWith(normalizedPrefix)
-          ) {
-            delete nextExpandedPaths[key];
-          }
-        }
-        if (sourceType === "folder" && wasExpanded) {
-          nextExpandedPaths[destinationPath] = true;
-        }
-        return {
-          selectedPath: destinationPath,
-          expandedPaths: nextExpandedPaths,
-        };
-      });
-      return destinationPath;
-    },
-    [fetchFolderContents, fileBrowserState, rootPath],
-  );
-
-  const handleDropIntoFolder = useCallback(
-    (payload: FileBrowserDragPayload, destinationFolderPath: string) => {
-      void transferEntryToFolder({
-        sourcePath: payload.fullPath,
-        sourceType: payload.type,
-        destinationFolderPath,
-        operation: "move",
-      });
-    },
-    [transferEntryToFolder],
-  );
-
-  const handlePasteClipboard = useCallback(() => {
-    const activeClipboardEntry = clipboardEntryRef.current;
-    if (!activeClipboardEntry) {
-      return;
-    }
-    const selectedNode = selectedPath ? nodesByPath[selectedPath] : null;
-    const destinationFolderPath =
-      selectedNode?.type === "folder"
-        ? selectedNode.fullPath
-        : selectedNode?.parentPath ?? rootPath;
-    if (!destinationFolderPath) {
-      return;
-    }
-    void transferEntryToFolder({
-      sourcePath: activeClipboardEntry.sourcePath,
-      sourceType: activeClipboardEntry.sourceType,
-      destinationFolderPath,
-      operation: activeClipboardEntry.operation,
-    }).then((destinationPath) => {
-      if (!destinationPath) {
-        return;
-      }
-      if (activeClipboardEntry.operation === "move") {
-        clipboardEntryRef.current = null;
-      }
-    });
-  }, [nodesByPath, rootPath, selectedPath, transferEntryToFolder]);
-
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
       if (displayedItems.length === 0) {
-        return;
-      }
-      const hasModifier = event.metaKey || event.ctrlKey;
-      const lowerKey = event.key.toLowerCase();
-      if (
-        hasModifier &&
-        (lowerKey === "c" || lowerKey === "x" || lowerKey === "v")
-      ) {
-        if (isEditableFileBrowserTarget(event.target)) {
-          return;
-        }
-      }
-      if (hasModifier && (lowerKey === "c" || lowerKey === "x")) {
-        if (selectedIndex < 0) {
-          return;
-        }
-        const selectedItem = displayedItems[selectedIndex];
-        if (!selectedItem || selectedItem.fullPath === rootPath) {
-          return;
-        }
-        event.preventDefault();
-        const nextClipboardEntry = {
-          sourcePath: selectedItem.fullPath,
-          sourceType: selectedItem.type,
-          operation: lowerKey === "x" ? "move" : "copy",
-        } as const;
-        clipboardEntryRef.current = nextClipboardEntry;
-        return;
-      }
-      if (hasModifier && lowerKey === "v") {
-        event.preventDefault();
-        handlePasteClipboard();
         return;
       }
       if (selectedIndex < 0) {
@@ -1166,11 +950,9 @@ export function FileBrowserPane({
       childrenByPath,
       displayedItems,
       expandedPaths,
-      handlePasteClipboard,
       handleOpen,
       handleSelect,
       handleToggle,
-      rootPath,
       selectedIndex,
     ],
   );
@@ -1248,16 +1030,9 @@ export function FileBrowserPane({
         className="nodrag relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-white/80 dark:bg-setta-950/60"
         tabIndex={0}
         onKeyDown={handleKeyDown}
-        onDragLeave={(event) => {
-          if (
-            !event.currentTarget.contains(event.relatedTarget as Node | null)
-          ) {
-            setDragTargetFolderPath(null);
-          }
-        }}
       >
         <div
-          className="group grid h-7 items-center border-b border-setta-100/80 bg-setta-50/70 px-2 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800/80 dark:bg-setta-900/40 dark:text-setta-400"
+          className="group box-border grid h-7 items-center border-b border-setta-100/80 bg-setta-50/70 px-2 text-[10px] font-semibold uppercase tracking-wide text-setta-500 dark:border-setta-800/80 dark:bg-setta-900/40 dark:text-setta-400"
           style={{
             gridTemplateColumns,
           }}
@@ -1326,13 +1101,13 @@ export function FileBrowserPane({
             </button>
           </div>
         </div>
-        <div className="h-full w-full">
+        <div className="h-full w-full overflow-x-hidden">
           <List
             listRef={listRef}
             rowComponent={FileBrowserRow}
             rowCount={displayedItems.length}
             rowHeight={ROW_HEIGHT}
-            className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag`}
+            className={`${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} nodrag overflow-x-hidden`}
             onRowsRendered={(visibleRows) => {
               if (displayedItems.length === 0) {
                 return;
@@ -1369,7 +1144,6 @@ export function FileBrowserPane({
               expandedPaths,
               selectedPath,
               rootPath,
-              dragTargetFolderPath,
               fileUrlMap,
               showSearchPathTooltips,
               loadingPaths,
@@ -1379,8 +1153,6 @@ export function FileBrowserPane({
               onToggle: handleToggle,
               onSelect: handleSelect,
               onOpen: handleOpen,
-              onSetDragTargetFolder: setDragTargetFolderPath,
-              onDropIntoFolder: handleDropIntoFolder,
             }}
             style={{ height: listHeight, width: listWidth }}
           />
@@ -1397,7 +1169,6 @@ function FileBrowserRow({
   expandedPaths,
   selectedPath,
   rootPath,
-  dragTargetFolderPath,
   fileUrlMap,
   showSearchPathTooltips,
   loadingPaths,
@@ -1407,8 +1178,6 @@ function FileBrowserRow({
   onToggle,
   onSelect,
   onOpen,
-  onSetDragTargetFolder,
-  onDropIntoFolder,
 }: FileBrowserRowProps) {
   const item = items[index];
   if (!item) {
@@ -1417,16 +1186,13 @@ function FileBrowserRow({
   const isFolder = item.type === "folder";
   const isExpanded = expandedPaths[item.fullPath] === true;
   const isSelected = selectedPath === item.fullPath;
-  const isDragTargetFolder = isFolder && dragTargetFolderPath === item.fullPath;
   const isLoading = loadingPaths[item.fullPath] === true;
   const errorMessage = errorByPath[item.fullPath];
   const paddingLeft = listInsetLeft + 8 + item.depth * 12;
   const modifiedLabel = formatModifiedAt(item.mtime);
   const rowClasses = isSelected
     ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200"
-    : isDragTargetFolder
-      ? "bg-blue-100/80 text-blue-700 dark:bg-blue-950/45 dark:text-blue-200"
-      : "text-setta-700 hover:bg-setta-100 dark:text-setta-200 dark:hover:bg-setta-900";
+    : "text-setta-700 hover:bg-setta-100 dark:text-setta-200 dark:hover:bg-setta-900";
   const tooltipPath =
     showSearchPathTooltips && !isFolder
       ? formatBrowserPathTooltip(item.fullPath, rootPath)
@@ -1461,13 +1227,14 @@ function FileBrowserRow({
   return (
     <button
       type="button"
-      draggable={item.fullPath !== rootPath}
+      data-testid="file-browser-row"
+      data-path={item.fullPath}
       style={{
         ...style,
         display: "grid",
         gridTemplateColumns: `minmax(${FILE_BROWSER_FILE_COLUMN_MIN_WIDTH}px, min(${columnWidth}, calc(100% - ${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px))) minmax(${FILE_BROWSER_DATE_COLUMN_MIN_WIDTH}px, 1fr)`,
       }}
-      className={`cursor-pointer items-center gap-2 pr-2 text-left text-xs ${rowClasses}`}
+      className={`box-border cursor-pointer items-center gap-2 pr-2 text-left text-xs ${rowClasses}`}
       {...(tooltipHandlers ?? {})}
       onMouseDown={(event) => {
         event.stopPropagation();
@@ -1480,85 +1247,6 @@ function FileBrowserRow({
             active.blur();
           }
         }
-      }}
-      onDragStart={(event) => {
-        if (item.fullPath === rootPath) {
-          event.preventDefault();
-          return;
-        }
-        setFileBrowserDragPayload(event.dataTransfer, {
-          name: item.name,
-          fullPath: item.fullPath,
-          type: item.type,
-        });
-        event.dataTransfer.effectAllowed = "copyMove";
-      }}
-      onDragOver={(event) => {
-        if (!isFolder) {
-          return;
-        }
-        const payload = getFileBrowserDragPayload(event.dataTransfer);
-        if (!payload) {
-          return;
-        }
-        const normalizedTarget = normalizeFileBrowserPathForComparison(
-          item.fullPath,
-        );
-        const normalizedSource = normalizeFileBrowserPathForComparison(
-          payload.fullPath,
-        );
-        if (!normalizedTarget || !normalizedSource) {
-          return;
-        }
-        if (
-          normalizedTarget === normalizedSource ||
-          (payload.type === "folder" &&
-            isSameOrDescendantBrowserPath(normalizedTarget, normalizedSource))
-        ) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        event.dataTransfer.dropEffect = "move";
-        onSetDragTargetFolder(item.fullPath);
-      }}
-      onDragLeave={(event) => {
-        if (!isFolder) {
-          return;
-        }
-        if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          return;
-        }
-        onSetDragTargetFolder(null);
-      }}
-      onDrop={(event) => {
-        if (!isFolder) {
-          return;
-        }
-        const payload = getFileBrowserDragPayload(event.dataTransfer);
-        onSetDragTargetFolder(null);
-        if (!payload) {
-          return;
-        }
-        const normalizedTarget = normalizeFileBrowserPathForComparison(
-          item.fullPath,
-        );
-        const normalizedSource = normalizeFileBrowserPathForComparison(
-          payload.fullPath,
-        );
-        if (!normalizedTarget || !normalizedSource) {
-          return;
-        }
-        if (
-          normalizedTarget === normalizedSource ||
-          (payload.type === "folder" &&
-            isSameOrDescendantBrowserPath(normalizedTarget, normalizedSource))
-        ) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        onDropIntoFolder(payload, item.fullPath);
       }}
       onClick={(event) => {
         event.stopPropagation();
@@ -1610,6 +1298,14 @@ function FileBrowserRow({
         >
           {item.name}
         </span>
+        {isFolder && item.isSettaInitialized === true && (
+          <span
+            data-testid="setta-initialized-badge"
+            className="rounded-full border border-blue-200 bg-blue-50 px-1.5 py-[1px] text-[9px] font-semibold uppercase tracking-[0.08em] text-blue-700 dark:border-blue-900/80 dark:bg-blue-950/40 dark:text-blue-200"
+          >
+            Setta
+          </span>
+        )}
         {isLoading && (
           <span className="h-3 w-3 animate-spin rounded-full border border-setta-300 border-t-transparent" />
         )}
