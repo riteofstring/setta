@@ -1,9 +1,9 @@
 import {
-  buildPluginListEntryCardKey,
-  buildPluginSourceIdentityToken,
   buildBusyPluginIdSet,
   buildCapabilityUnavailableMessage,
   buildInstallTrustSummaryMessage,
+  buildPluginListEntryCardKey,
+  buildPluginSourceIdentityToken,
   buildSourceManagerGuidanceMessage,
   formatLanguageServerSettingsDraft,
   formatPluginConfigDraft,

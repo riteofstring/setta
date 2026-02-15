@@ -1886,11 +1886,7 @@ function mapPluginListById(
     );
     if (
       previousEntry &&
-      canReusePluginListEntry(
-        plugin,
-        previousEntry,
-        nextEffectiveCapabilities,
-      )
+      canReusePluginListEntry(plugin, previousEntry, nextEffectiveCapabilities)
     ) {
       pluginListById[plugin.pluginId] = previousEntry;
       continue;

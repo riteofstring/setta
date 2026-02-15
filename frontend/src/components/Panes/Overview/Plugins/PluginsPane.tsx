@@ -49,11 +49,11 @@ import type {
 } from "utils/generatedTypes";
 import { onOverviewTabClick } from "../../paneFns";
 import {
-  buildPluginListEntryCardKey,
-  buildPluginSourceIdentityToken,
   buildBusyPluginIdSet,
   buildCapabilityUnavailableMessage,
   buildInstallTrustSummaryMessage,
+  buildPluginListEntryCardKey,
+  buildPluginSourceIdentityToken,
   buildSourceManagerGuidanceMessage,
   formatLanguageServerSettingsDraft,
   formatPluginConfigDraft,
