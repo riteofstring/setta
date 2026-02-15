@@ -26,7 +26,7 @@ export function filterSkills(
   });
 }
 
-export type SkillActivityState = "active" | "inactive" | "unknown";
+export type SkillActivityState = "active" | "inactive";
 
 export type SkillStatus = {
   isApplicable: boolean;
@@ -325,19 +325,6 @@ function mapActiveSkillNamesToSkillIds({
   return activeSkillSourcesBySkillId;
 }
 
-function shouldUseUnknownState({
-  engineType,
-  externalAgentToolType,
-}: {
-  engineType: EngineType | null;
-  externalAgentToolType: ExternalAgentToolType | null;
-}): boolean {
-  if (engineType !== EngineTypeEnum.external_agent) {
-    return false;
-  }
-  return externalAgentToolType === ExternalAgentToolTypeEnum.claude_code;
-}
-
 export function buildSkillStatusBySkillId({
   skills,
   engineType,
@@ -364,10 +351,6 @@ export function buildSkillStatusBySkillId({
     activeSkillNames,
     applicableRootIds,
   });
-  const unknownStateEnabled = shouldUseUnknownState({
-    engineType,
-    externalAgentToolType,
-  });
   for (const skill of skills) {
     const rootId = getSkillRootId(skill.skillId);
     const isApplicable = applicableRootIdSet.has(rootId);
@@ -375,8 +358,6 @@ export function buildSkillStatusBySkillId({
     let activityState: SkillActivityState = "inactive";
     if (activeSource) {
       activityState = "active";
-    } else if (unknownStateEnabled && isApplicable) {
-      activityState = "unknown";
     }
     statusesBySkillId[skill.skillId] = {
       isApplicable,

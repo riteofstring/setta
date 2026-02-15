@@ -439,7 +439,6 @@ export function ProjectChatSkillsMcpViewer({
                           const status = skillStatusBySkillId[skill.skillId];
                           const isApplicable = status?.isApplicable ?? false;
                           const isActive = status?.activityState === "active";
-                          const isUnknown = status?.activityState === "unknown";
                           return (
                             <button
                               key={skill.skillId}
@@ -456,7 +455,7 @@ export function ProjectChatSkillsMcpViewer({
                               <span className="block w-full truncate text-[11px] opacity-80">
                                 {skill.relativePath}
                               </span>
-                              {isApplicable || isActive || isUnknown ? (
+                              {isApplicable || isActive ? (
                                 <span className="mt-0.5 flex w-full items-center gap-1 text-[10px] font-semibold">
                                   {isApplicable ? (
                                     <span
@@ -476,14 +475,6 @@ export function ProjectChatSkillsMcpViewer({
                                       }
                                     >
                                       Active
-                                    </span>
-                                  ) : null}
-                                  {isUnknown ? (
-                                    <span
-                                      className="rounded border border-amber-300 bg-amber-50 px-1 py-[1px] text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                                      title="Provider did not expose a reliable skill activation signal."
-                                    >
-                                      Unknown
                                     </span>
                                   ) : null}
                                 </span>

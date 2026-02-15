@@ -209,7 +209,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ).toBe("inactive");
   });
 
-  it("uses unknown activity for claude-applicable skills when no signal is present", () => {
+  it("keeps activity inactive when no signal is present", () => {
     const skills = [
       {
         skillId: "workspace_claude_skills::handoff",
@@ -237,7 +237,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     });
 
     expect(status["workspace_claude_skills::handoff"]?.activityState).toBe(
-      "unknown",
+      "inactive",
     );
     expect(status["workspace_agents_skills::ui-layout"]?.activityState).toBe(
       "inactive",
