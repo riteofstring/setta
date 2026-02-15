@@ -6,7 +6,8 @@ import {
   CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
   INITIAL_UI_EDITOR_WIDTH,
-  OverviewTabName,
+  isOverviewTabKey,
+  OverviewTabKey,
   OverviewTabNameEnum,
   ProjectSearchMode,
   ProjectSearchModeEnum,
@@ -376,6 +377,19 @@ type FileBrowserState = {
 };
 
 export const useFileBrowserState = createWithEqualityFn(
+  withResetFn<FileBrowserState>(() => ({
+    rootPath: null,
+    selectedPath: null,
+    expandedPaths: {},
+    filterText: "",
+    pathSeparator: "/",
+    ignorePatterns: [],
+    typeFilters: { ...DEFAULT_FILE_BROWSER_TYPE_FILTERS },
+    searchScope: "recursive",
+  })),
+);
+
+export const useHomeFileBrowserState = createWithEqualityFn(
   withResetFn<FileBrowserState>(() => ({
     rootPath: null,
     selectedPath: null,
@@ -860,7 +874,7 @@ type ZustandLocalStorage = {
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
-  overviewTab: OverviewTabName;
+  overviewTab: OverviewTabKey;
   gitGraphSplitPct: number;
   gitGraphColWidthPx: number;
   gitGraphAuthorWidthPx: number;
@@ -931,6 +945,9 @@ export const useLocalStorage = createWithEqualityFn(
 
         if (persisted.colorMode === undefined) {
           merged.colorMode = merged.darkMode ? "dark" : "light";
+        }
+        if (!isOverviewTabKey(merged.overviewTab)) {
+          merged.overviewTab = OverviewTabNameEnum.Overview;
         }
 
         return merged;

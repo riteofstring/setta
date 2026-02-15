@@ -886,6 +886,11 @@ try {
       break;
     }
     if (isSessionIdleEvent(event, sessionId)) {
+      // Newer OpenCode builds can emit an initial idle event before prompt
+      // processing starts. Ignore that transient idle and wait for prompt flow.
+      if (!promptDone && !sawAssistantEvent && pendingApprovals.size === 0) {
+        continue;
+      }
       break;
     }
   }
