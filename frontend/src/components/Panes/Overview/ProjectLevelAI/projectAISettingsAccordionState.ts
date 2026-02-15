@@ -1,6 +1,7 @@
 export const PROJECT_AI_SETTINGS_ACCORDION_ITEM_ORDER = [
   "project-ai-settings-llm-api-keys",
   "project-ai-settings-agent-profiles",
+  "project-ai-settings-transcription-profiles",
   "project-ai-settings-prompt-templates",
   "project-ai-settings-external-agents",
 ] as const;

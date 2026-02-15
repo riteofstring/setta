@@ -9,6 +9,96 @@ import {
   setOverviewTab,
 } from "../helpers";
 
+const BACKEND_ORIGIN =
+  process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+
+async function configureProjectChatTranscriptionProfile({
+  page,
+  dictationMode,
+}: {
+  page: Page;
+  dictationMode: "auto" | "provider";
+}): Promise<() => Promise<void>> {
+  const llmConfigResponse = await page.request.get(
+    `${BACKEND_ORIGIN}/api/llm/config`,
+  );
+  if (!llmConfigResponse.ok()) {
+    throw new Error(
+      "Failed to load LLM config for transcription profile setup.",
+    );
+  }
+  const llmConfigPayload = (await llmConfigResponse.json()) as {
+    default_config_id?: string | null;
+    configs?: Record<string, unknown>;
+  };
+  const defaultConfigId =
+    typeof llmConfigPayload.default_config_id === "string" &&
+    llmConfigPayload.default_config_id.length > 0
+      ? llmConfigPayload.default_config_id
+      : Object.keys(llmConfigPayload.configs ?? {})[0] ?? null;
+  if (!defaultConfigId) {
+    throw new Error(
+      "No LLM config id available for transcription profile setup.",
+    );
+  }
+  const createdProfile = await postBackend<{ id: string }>(
+    page,
+    "/createTranscriptionProfile",
+    {
+      name: `E2E Transcription ${Date.now()}`,
+      transcriptionLlmConfigId: defaultConfigId,
+    },
+  );
+  if (!createdProfile?.id) {
+    throw new Error(
+      "Failed to create transcription profile for dictation tests.",
+    );
+  }
+  await page.addInitScript(
+    ({ profileId, mode }) => {
+      const key = "setta_ai_data";
+      let payload: { state: Record<string, unknown>; version: number } = {
+        state: {},
+        version: 0,
+      };
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as {
+            state?: unknown;
+            version?: unknown;
+          };
+          payload = {
+            state:
+              parsed && typeof parsed.state === "object" && parsed.state
+                ? (parsed.state as Record<string, unknown>)
+                : {},
+            version: typeof parsed?.version === "number" ? parsed.version : 0,
+          };
+        } catch {
+          payload = { state: {}, version: 0 };
+        }
+      }
+      payload.state = {
+        ...payload.state,
+        projectChatDictationMode: mode,
+        projectChatTranscriptionProfileId: profileId,
+      };
+      localStorage.setItem(key, JSON.stringify(payload));
+    },
+    { profileId: createdProfile.id, mode: dictationMode },
+  );
+  return async () => {
+    try {
+      await postBackend(page, "/deleteTranscriptionProfile", {
+        profileId: createdProfile.id,
+      });
+    } catch {
+      // Best effort cleanup for per-test transcription profiles.
+    }
+  };
+}
+
 test("project chat falls back to browser dictation when provider capture fails in auto mode", async ({
   page,
 }) => {
@@ -74,6 +164,10 @@ test("project chat falls back to browser dictation when provider capture fails i
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
   const engineCleanup = await ensureManagedChatEngine(page);
+  const transcriptionCleanup = await configureProjectChatTranscriptionProfile({
+    page,
+    dictationMode: "auto",
+  });
 
   try {
     await page.reload();
@@ -97,6 +191,7 @@ test("project chat falls back to browser dictation when provider capture fails i
       overviewPane.getByText("Microphone access was denied."),
     ).toHaveCount(0);
   } finally {
+    await transcriptionCleanup();
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -191,6 +286,10 @@ test("project chat keeps browser fallback dictation active until the user stops"
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
   const engineCleanup = await ensureManagedChatEngine(page);
+  const transcriptionCleanup = await configureProjectChatTranscriptionProfile({
+    page,
+    dictationMode: "auto",
+  });
 
   try {
     await page.reload();
@@ -210,7 +309,9 @@ test("project chat keeps browser fallback dictation active until the user stops"
       .poll(async () => {
         return await page.evaluate(() => {
           const reader = (
-            window as Window & { __readBrowserDictationStartCount?: () => number }
+            window as Window & {
+              __readBrowserDictationStartCount?: () => number;
+            }
           ).__readBrowserDictationStartCount;
           return typeof reader === "function" ? reader() : 0;
         });
@@ -221,6 +322,7 @@ test("project chat keeps browser fallback dictation active until the user stops"
     ).toBeVisible();
     await expect(overviewPane.getByText("Listening...")).toBeVisible();
   } finally {
+    await transcriptionCleanup();
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -288,6 +390,10 @@ test("project chat releases provider mic stream when recorder start fails", asyn
   await ensureAppReady(page);
   const projectContext = await openIsolatedProject(page);
   const engineCleanup = await ensureManagedChatEngine(page);
+  const transcriptionCleanup = await configureProjectChatTranscriptionProfile({
+    page,
+    dictationMode: "provider",
+  });
 
   try {
     await page.reload();
@@ -316,6 +422,7 @@ test("project chat releases provider mic stream when recorder start fails", asyn
       })
       .toBe(1);
   } finally {
+    await transcriptionCleanup();
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -474,10 +581,12 @@ test("chat section stops browser dictation when composer becomes disabled", asyn
       projectConfigId: projectContext.projectConfigId,
       sectionId,
       managed: true,
+      transcriptionProfileId: null,
       agentProfileId: null,
       thinking: false,
       permissionMode: "minimal",
       searchEnabled: true,
+      dictationMode: "auto",
     };
     await postBackend(page, "/setChatSectionSettings", {
       ...baseSettings,

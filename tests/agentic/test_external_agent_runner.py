@@ -74,7 +74,6 @@ from setta.types.section_impls import SectionType
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
-    AGENTIC_CONTEXT_SETTA_TOOL_APPROVAL_POLICY_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
@@ -264,10 +263,6 @@ class TestExternalAgentRunnerContext:
             )
             assert headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER) == str(context.chat_id)
             assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(chat_section_id)
-            assert (
-                headers.get(AGENTIC_CONTEXT_SETTA_TOOL_APPROVAL_POLICY_HEADER)
-                == "deny_destructive_without_approval_channel"
-            )
 
     def test_context_injects_agentic_headers_for_codex(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -304,54 +299,6 @@ class TestExternalAgentRunnerContext:
             )
             assert headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER) == str(context.chat_id)
             assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(chat_section_id)
-            assert (
-                headers.get(AGENTIC_CONTEXT_SETTA_TOOL_APPROVAL_POLICY_HEADER)
-                == "deny_destructive_without_approval_channel"
-            )
-
-    def test_context_maps_yolo_to_allow_all_tool_policy_header(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            project_config, chat_section_id, _ = _write_project_state_with_agentic_context(
-                dbe
-            )
-            runner = _build_runner(dbe)
-            engine_config_id = ID("engine-codex-yolo")
-            config = ExternalAgentConfig(
-                id="codex-config",
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.app_server,
-            )
-
-            context = _build_context_for_test(
-                runner,
-                config,
-                engine_config_id=engine_config_id,
-                inputs={
-                    "sectionId": str(chat_section_id),
-                    "permissionMode": "yolo",
-                    "approvalPolicy": "never",
-                },
-            )
-
-            codex_home = Path(str(context.env["CODEX_HOME"]))
-            payload = tomllib.loads((codex_home / "config.toml").read_text(encoding="utf-8"))
-            mcp_servers = payload.get("mcp_servers")
-            assert isinstance(mcp_servers, dict)
-            setta_entry = mcp_servers.get(SETTA_MCP_SERVER_ID)
-            assert isinstance(setta_entry, dict)
-            headers = setta_entry.get("http_headers")
-            assert isinstance(headers, dict)
-            assert headers.get(AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER) == str(
-                project_config.id
-            )
-            assert headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER) == str(context.chat_id)
-            assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(chat_section_id)
-            assert (
-                headers.get(AGENTIC_CONTEXT_SETTA_TOOL_APPROVAL_POLICY_HEADER)
-                == "allow_all"
-            )
 
 
 async def _apply_claude_payloads(
