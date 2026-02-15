@@ -3,15 +3,27 @@ import type { ReactNode } from "react";
 import { BiCheck, BiHide, BiShow } from "react-icons/bi";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
+  setCurrEffectiveCodeObjImplValue,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useIsListElement } from "state/hooks/uiTypes";
 import { SETTA_PREVENT_SECTION_ACTIVE_CSS } from "utils/constants";
-import { route_set_meta_control_show_section_title } from "utils/generatedEndpoints";
-import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
+import {
+  route_set_meta_control_show_section_title,
+  route_update_param_impl_config,
+} from "utils/generatedEndpoints";
+import {
+  CodeObjTypeEnum,
+  SectionTypeEnum,
+  TextParamInputUITypeEnum,
+  TimeControlModeEnum,
+  isBaseChildlessCodeObjImpl,
+  type SectionType,
+} from "utils/generatedTypes";
 import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
 import { HeaderIcon } from "../Header/HeaderIcon";
 import { LockPositionButton } from "../Header/LockPositionButton";
@@ -29,14 +41,38 @@ export function MetaControlMenuButton({
   isInOtherProjectConfigs,
 }: MetaControlMenuButtonProps) {
   const isListElement = useIsListElement(sectionId);
-  const showSectionTitle = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplOfType(
-      x,
-      sectionId,
-      SectionTypeEnum.MetaControl,
-    );
-    return impl.showSectionTitle ?? false;
-  });
+  const { showSectionTitle, timeControlParamId, isTimeDisplayMode } =
+    useProjectState((x) => {
+      const impl = getCurrEffectiveSectionImplOfType(
+        x,
+        sectionId,
+        SectionTypeEnum.MetaControl,
+      );
+      const controlParamId = impl.metaControlParamId;
+      if (!controlParamId) {
+        return {
+          showSectionTitle: impl.showSectionTitle ?? false,
+          timeControlParamId: null,
+          isTimeDisplayMode: false,
+        };
+      }
+      const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+        x,
+        sectionId,
+        controlParamId,
+        isBaseChildlessCodeObjImpl,
+      );
+      const isTimeTextParam =
+        codeObjImpl.type === CodeObjTypeEnum.TextParam &&
+        codeObjImpl.uiType === TextParamInputUITypeEnum.time;
+      return {
+        showSectionTitle: impl.showSectionTitle ?? false,
+        timeControlParamId: isTimeTextParam ? controlParamId : null,
+        isTimeDisplayMode: isTimeTextParam
+          ? codeObjImpl.timeControlMode === TimeControlModeEnum.display
+          : false,
+      };
+    });
 
   const triggerClassName = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} nodrag flex h-[14px] w-[14px] cursor-pointer select-none items-center justify-center rounded-full ${!isListElement ? "p-1" : "ml-1 p-0.5"} mr-1 -ml-0.5 aspect-square font-semibold leading-none text-setta-700 outline-none transition-colors duration-150 hover:bg-setta-100 focus-visible:ring-2 dark:text-setta-200 dark:hover:bg-setta-800 [&_*]:data-[state=open]:!text-setta-300 dark:[&_*]:data-[state=open]:!text-setta-500 opacity-0 pointer-events-none group-hover/card-section:opacity-100 group-hover/card-section:pointer-events-auto`;
   const titleBaseClasses =
@@ -65,6 +101,37 @@ export function MetaControlMenuButton({
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
           showSectionTitle: nextValue,
+          frontendOpId,
+        }),
+    });
+  }
+
+  function onToggleTimeControlMode() {
+    if (!timeControlParamId) {
+      return;
+    }
+    const nextMode = isTimeDisplayMode
+      ? TimeControlModeEnum.input
+      : TimeControlModeEnum.display;
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCurrEffectiveCodeObjImplValue<"TextParamCodeObj">(
+          state,
+          sectionId,
+          timeControlParamId,
+          {
+            timeControlMode: nextMode,
+          },
+        );
+      },
+      send: (frontendOpId) =>
+        route_update_param_impl_config({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          paramInfoId: timeControlParamId,
+          newConfig: {
+            timeControlMode: nextMode,
+          },
           frontendOpId,
         }),
     });
@@ -99,6 +166,16 @@ export function MetaControlMenuButton({
               <span>Show title</span>
             </span>
           </DropdownMenuItem>
+          {timeControlParamId ? (
+            <DropdownMenuItem onClick={onToggleTimeControlMode}>
+              <span className="flex items-center gap-2">
+                <MenuIcon>
+                  {isTimeDisplayMode ? <BiCheck className="h-4 w-4" /> : null}
+                </MenuIcon>
+                <span>Time display mode</span>
+              </span>
+            </DropdownMenuItem>
+          ) : null}
           <LockPositionButton
             sectionId={sectionId}
             render={({ positionAndSizeLocked, iconClassName, onClick }) => {

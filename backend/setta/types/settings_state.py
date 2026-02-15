@@ -456,6 +456,22 @@ class SectionSizingPolicyByType(BaseModel):
             maxWidth=INFINITE_MAX_WIDTH,
         )
     )
+    TaskBoard: SectionSizingPolicyTypeEntry = Field(
+        default_factory=lambda: SectionSizingPolicyTypeEntry(
+            minHeight=240,
+            maxHeight=INFINITE_MAX_HEIGHT,
+            minWidth=360,
+            maxWidth=INFINITE_MAX_WIDTH,
+        )
+    )
+    Spreadsheet: SectionSizingPolicyTypeEntry = Field(
+        default_factory=lambda: SectionSizingPolicyTypeEntry(
+            minHeight=260,
+            maxHeight=INFINITE_MAX_HEIGHT,
+            minWidth=420,
+            maxWidth=INFINITE_MAX_WIDTH,
+        )
+    )
 
 
 class SectionSizingPolicy(BaseModel):

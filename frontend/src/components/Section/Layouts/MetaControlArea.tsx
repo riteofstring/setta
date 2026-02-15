@@ -32,12 +32,19 @@ import {
   BinaryDependencyValue,
   ButtonActionModeEnum,
   CodeObjTypeEnum,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
+  DateDisplayFormatEnum,
+  DateSelectionModeEnum,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   DropzoneModeEnum,
   HttpRequestMethodEnum,
   LiteralDependencyValue,
   SectionTypeEnum,
+  TextParamInputUITypeEnum,
+  TimeControlModeEnum,
+  TimeDisplayFormatEnum,
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
 import { shouldEmitRealtimeValue } from "utils/paramValue";
@@ -98,6 +105,13 @@ function MetaControlValueArea({
     dropzoneMode,
     dropzoneMaxAttachments,
     dropzonePlaceholder,
+    textParamUiType,
+    timeControlMode,
+    timeDisplayFormat,
+    dateDisplayFormat,
+    dateControlMode,
+    dateSelectionMode,
+    dateCalendarWeekStart,
   } = useProjectState((x) => {
     const sectionName = getSectionCore(x, sectionId).name;
     const paramDisplayName = getParamDisplayName(x, sectionId, controlParamId);
@@ -130,6 +144,13 @@ function MetaControlValueArea({
         dropzoneMode: null,
         dropzoneMaxAttachments: null,
         dropzonePlaceholder: null,
+        textParamUiType: TextParamInputUITypeEnum.plain,
+        timeControlMode: TimeControlModeEnum.display,
+        timeDisplayFormat: TimeDisplayFormatEnum.twenty_four_hour,
+        dateDisplayFormat: DateDisplayFormatEnum.iso,
+        dateControlMode: DateControlModeEnum.input,
+        dateSelectionMode: DateSelectionModeEnum.single,
+        dateCalendarWeekStart: DateCalendarWeekStartEnum.sunday,
       };
     }
     const childlessImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
@@ -139,6 +160,7 @@ function MetaControlValueArea({
       isBaseChildlessCodeObjImpl,
     );
     const isDropzone = childlessImpl.type === CodeObjTypeEnum.DropzoneParam;
+    const isTextParam = childlessImpl.type === CodeObjTypeEnum.TextParam;
     return {
       codeObjType: childlessImpl.type,
       baseValue: childlessImpl.value,
@@ -151,6 +173,27 @@ function MetaControlValueArea({
         ? childlessImpl.maxAttachments ?? null
         : null,
       dropzonePlaceholder: isDropzone ? childlessImpl.placeholder : null,
+      textParamUiType: isTextParam
+        ? childlessImpl.uiType
+        : TextParamInputUITypeEnum.plain,
+      timeControlMode: isTextParam
+        ? childlessImpl.timeControlMode
+        : TimeControlModeEnum.display,
+      timeDisplayFormat: isTextParam
+        ? childlessImpl.timeDisplayFormat
+        : TimeDisplayFormatEnum.twenty_four_hour,
+      dateDisplayFormat: isTextParam
+        ? childlessImpl.dateDisplayFormat
+        : DateDisplayFormatEnum.iso,
+      dateControlMode: isTextParam
+        ? childlessImpl.dateControlMode
+        : DateControlModeEnum.input,
+      dateSelectionMode: isTextParam
+        ? childlessImpl.dateSelectionMode
+        : DateSelectionModeEnum.single,
+      dateCalendarWeekStart: isTextParam
+        ? childlessImpl.dateCalendarWeekStart
+        : DateCalendarWeekStartEnum.sunday,
     };
   }, _.isEqual);
 
@@ -313,6 +356,13 @@ function MetaControlValueArea({
           dropzoneMode={dropzoneMode ?? DropzoneModeEnum.STATEFUL}
           dropzoneMaxAttachments={dropzoneMaxAttachments}
           dropzonePlaceholder={dropzonePlaceholder ?? undefined}
+          textParamUiType={textParamUiType}
+          timeControlMode={timeControlMode}
+          timeDisplayFormat={timeDisplayFormat}
+          dateDisplayFormat={dateDisplayFormat}
+          dateControlMode={dateControlMode}
+          dateSelectionMode={dateSelectionMode}
+          dateCalendarWeekStart={dateCalendarWeekStart}
           showSectionTitle={showSectionTitle}
         />
       )}
