@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { useMemo } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -37,7 +38,10 @@ export function TaskBoardSettings({ sectionId }: { sectionId: string }) {
   }, _.isEqual);
 
   const isDisabled = isFrozen || !canEditLayout;
-  const normalized = normalizeTaskBoardState({ viewMode, columns, tasks });
+  const normalized = useMemo(
+    () => normalizeTaskBoardState({ viewMode, columns, tasks }),
+    [viewMode, columns, tasks],
+  );
 
   function persist(nextViewMode: TaskBoardViewMode) {
     dispatchOptimisticProjectStateUpdate({

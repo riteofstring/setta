@@ -18,6 +18,18 @@ export function getErrorDetail(value: unknown): string | null {
   if (!value) {
     return null;
   }
+  if (value instanceof Uint8Array) {
+    const decoded = new TextDecoder().decode(value).trim();
+    if (decoded.length === 0) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(decoded) as unknown;
+      return getErrorDetail(parsed) ?? decoded;
+    } catch {
+      return decoded;
+    }
+  }
   if (typeof value === "string") {
     return value;
   }
@@ -73,11 +85,14 @@ async function parseResponse<T>(response: Response): Promise<T | undefined> {
 
 async function parseBinaryResponse(
   response: Response,
-): Promise<Uint8Array | undefined> {
+): Promise<unknown | undefined> {
   if (response.status === 204) {
     return undefined;
   }
-  return new Uint8Array(await response.arrayBuffer());
+  if (response.ok) {
+    return new Uint8Array(await response.arrayBuffer());
+  }
+  return await parseResponse<unknown>(response);
 }
 
 export function replaceAddressParams(
@@ -127,8 +142,9 @@ export async function getBinary(
       credentials: "include",
       headers: shareHeaders,
     });
+    const parsed = await parseBinaryResponse(response);
     return {
-      data: await parseBinaryResponse(response),
+      data: parsed as Uint8Array | undefined,
       status: response.status,
       hasResponse: true,
     };

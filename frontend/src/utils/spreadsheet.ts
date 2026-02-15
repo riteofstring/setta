@@ -1,8 +1,9 @@
-import * as XLSX from "xlsx/xlsx.mjs";
-
 const DEFAULT_SHEET_NAME = "Sheet1";
 
 const SPREADSHEET_EXTENSIONS = new Set(["csv", "tsv", "xlsx", "xls"]);
+type XlsxModule = typeof import("xlsx/xlsx.mjs");
+type SpreadsheetBookType = "csv" | "xls" | "xlsx";
+let xlsxModulePromise: Promise<XlsxModule> | null = null;
 
 type SpreadsheetData = {
   fileExtension: string;
@@ -12,6 +13,13 @@ type SpreadsheetData = {
   columnCount: number;
   sourceWorkbookBytes: Uint8Array | null;
 };
+
+async function getXlsxModule(): Promise<XlsxModule> {
+  if (xlsxModulePromise === null) {
+    xlsxModulePromise = import("xlsx/xlsx.mjs");
+  }
+  return await xlsxModulePromise;
+}
 
 function getExtension(path: string): string {
   const lastDot = path.lastIndexOf(".");
@@ -55,10 +63,11 @@ export function isSpreadsheetPath(path: string): boolean {
   return SPREADSHEET_EXTENSIONS.has(getExtension(path));
 }
 
-export function parseSpreadsheetBytes(
+export async function parseSpreadsheetBytes(
   filePath: string,
   bytes: Uint8Array,
-): SpreadsheetData {
+): Promise<SpreadsheetData> {
+  const XLSX = await getXlsxModule();
   const fileExtension = getExtension(filePath);
   const workbook = XLSX.read(bytes, { type: "array", dense: true, raw: false });
   const sheetName = workbook.SheetNames[0] ?? DEFAULT_SHEET_NAME;
@@ -116,7 +125,7 @@ function trimTrailingEmptyRows(rows: string[][]): string[][] {
   return trimmedRows.slice(0, end + 1);
 }
 
-function getBookType(extension: string): XLSX.BookType {
+function getBookType(extension: string): SpreadsheetBookType {
   if (extension === "csv" || extension === "tsv") {
     return "csv";
   }
@@ -126,28 +135,27 @@ function getBookType(extension: string): XLSX.BookType {
   return "xlsx";
 }
 
-export function serializeSpreadsheetBytes(
+export async function serializeSpreadsheetBytes(
   filePath: string,
   sheetName: string,
   rows: string[][],
   sourceWorkbookBytes: Uint8Array | null = null,
-): Uint8Array {
+): Promise<Uint8Array> {
+  const XLSX = await getXlsxModule();
   const extension = getExtension(filePath);
   const trimmedRows = trimTrailingEmptyRows(rows);
   const rowsToWrite = trimmedRows.length > 0 ? trimmedRows : [[""]];
   const worksheet = XLSX.utils.aoa_to_sheet(rowsToWrite);
   const resolvedSheetName = sheetName || DEFAULT_SHEET_NAME;
   const isExcelWorkbook = extension === "xlsx" || extension === "xls";
-  let workbook: XLSX.WorkBook;
-  if (isExcelWorkbook && sourceWorkbookBytes) {
-    workbook = XLSX.read(sourceWorkbookBytes, {
-      type: "array",
-      dense: true,
-      raw: false,
-    });
-  } else {
-    workbook = XLSX.utils.book_new();
-  }
+  const workbook =
+    isExcelWorkbook && sourceWorkbookBytes
+      ? XLSX.read(sourceWorkbookBytes, {
+          type: "array",
+          dense: true,
+          raw: false,
+        })
+      : XLSX.utils.book_new();
   workbook.Sheets[resolvedSheetName] = worksheet;
   if (!workbook.SheetNames.includes(resolvedSheetName)) {
     workbook.SheetNames.push(resolvedSheetName);

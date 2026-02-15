@@ -1414,31 +1414,19 @@ def create_child_sections_via_incrementer(
     numChildren: int,
 ):
     impl = get_curr_effective_section_impl(p, calledBy)
-    parentImpl: BaseParentSectionImpl | None = None
     if isinstance(impl, BaseParentSectionImpl):
         parentId = calledBy
         startIdx = 0
-        parentImpl = impl
     else:
         parentId = p.parentSectionMap[calledBy]
         if not parentId:
             raise ValueError
-        parentImpl = get_curr_effective_section_impl_with_type_guard(
+        parent_impl = get_curr_effective_section_impl_with_type_guard(
             p, parentId, BaseParentSectionImpl
         )
-        startIdx = parentImpl.children.index(calledBy) + 1
-    resolved_impl_type = impl_type
-    if impl_type is SectionType.Callable:
-        if isinstance(parentImpl, ListRootSectionImpl):
-            default_child_type = parentImpl.defaultChildSectionType
-            if default_child_type not in DISALLOWED_PARENT_DEFAULT_CHILD_SECTION_TYPES:
-                resolved_impl_type = default_child_type
-        if isinstance(parentImpl, GroupSectionImpl):
-            default_child_type = parentImpl.defaultChildSectionType
-            if default_child_type not in DISALLOWED_PARENT_DEFAULT_CHILD_SECTION_TYPES:
-                resolved_impl_type = default_child_type
+        startIdx = parent_impl.children.index(calledBy) + 1
     create_child_sections(
-        settings, p, parentId, resolved_impl_type, numChildren, startIdx
+        settings, p, parentId, impl_type, numChildren, startIdx
     )
 
 

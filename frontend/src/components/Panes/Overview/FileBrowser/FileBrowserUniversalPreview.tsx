@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { FiArchive, FiFileText, FiMusic } from "react-icons/fi";
 import { IoImageOutline, IoVideocam } from "react-icons/io5";
 import { getAttachmentPreviewKind } from "utils/attachmentPreview";
@@ -10,7 +10,11 @@ import {
 } from "utils/generatedEndpoints";
 import { isSpreadsheetPath } from "utils/spreadsheet";
 import type { FileNode } from "./FileBrowserPane";
-import { FileBrowserSpreadsheetEditor } from "./FileBrowserSpreadsheetEditor";
+
+const LazyFileBrowserSpreadsheetEditor = lazy(async () => {
+  const module = await import("./FileBrowserSpreadsheetEditor");
+  return { default: module.FileBrowserSpreadsheetEditor };
+});
 
 const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
 const TEXT_PREVIEW_MAX_BYTES = 1024 * 1024;
@@ -268,7 +272,15 @@ export function FileBrowserUniversalPreview({
         data-testid="file-browser-universal-preview"
         className="h-full min-h-0"
       >
-        <FileBrowserSpreadsheetEditor selectedFile={selectedFile} />
+        <Suspense
+          fallback={
+            <div className="flex h-full min-h-0 items-center justify-center rounded-lg border border-setta-200 bg-white/70 text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
+              Loading spreadsheet...
+            </div>
+          }
+        >
+          <LazyFileBrowserSpreadsheetEditor selectedFile={selectedFile} />
+        </Suspense>
       </div>
     );
   }

@@ -339,11 +339,16 @@ def _format_browser_path(path: Path, *, share_mode: bool) -> str:
 
 
 def _build_copy_candidate_name(source_name: str, attempt: int) -> str:
-    source_path = Path(source_name)
-    suffix = "".join(source_path.suffixes)
-    base_name = source_name[: -len(suffix)] if suffix else source_name
-    if not base_name:
+    has_only_leading_dot = source_name.startswith(".") and "." not in source_name[1:]
+    if has_only_leading_dot:
+        suffix = ""
         base_name = source_name
+    else:
+        source_path = Path(source_name)
+        suffix = "".join(source_path.suffixes)
+        base_name = source_name[: -len(suffix)] if suffix else source_name
+        if not base_name:
+            base_name = source_name
     if attempt == 1:
         return f"{base_name} copy{suffix}"
     return f"{base_name} copy {attempt}{suffix}"

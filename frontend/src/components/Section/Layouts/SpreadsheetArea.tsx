@@ -1,8 +1,7 @@
-import { FileBrowserSpreadsheetEditor } from "components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor";
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import type { DragEvent } from "react";
-import { useCallback, useMemo, useState } from "react";
+import { Suspense, lazy, useCallback, useMemo, useState } from "react";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -22,6 +21,13 @@ import {
 } from "utils/generatedTypes";
 import { importNativeFileToWorkspace } from "utils/nativeFileImport";
 import { isSpreadsheetPath } from "utils/spreadsheet";
+
+const LazyFileBrowserSpreadsheetEditor = lazy(async () => {
+  const module = await import(
+    "components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor"
+  );
+  return { default: module.FileBrowserSpreadsheetEditor };
+});
 
 function getFileNameFromPath(path: string): string {
   const normalized = path.replace(/\\/g, "/");
@@ -185,19 +191,27 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
       onDragLeave={handleDragLeave}
     >
       <div className="min-h-0 flex-1">
-        <FileBrowserSpreadsheetEditor
-          selectedFile={selectedFile}
-          gridMode="glide"
-          flowZoom={flowZoom}
-          readOnly={readOnly}
-          showRowNumbers={showRowNumbers}
-          density={
-            density === SpreadsheetGridDensityEnum.comfortable
-              ? "comfortable"
-              : "compact"
+        <Suspense
+          fallback={
+            <div className="flex h-full w-full items-center justify-center rounded-md border border-setta-200 bg-white/70 text-xs text-setta-500 dark:border-setta-800 dark:bg-setta-950/50 dark:text-setta-400">
+              Loading spreadsheet...
+            </div>
           }
-          autoReloadOnExternalChange={autoReloadOnExternalChange}
-        />
+        >
+          <LazyFileBrowserSpreadsheetEditor
+            selectedFile={selectedFile}
+            gridMode="glide"
+            flowZoom={flowZoom}
+            readOnly={readOnly}
+            showRowNumbers={showRowNumbers}
+            density={
+              density === SpreadsheetGridDensityEnum.comfortable
+                ? "comfortable"
+                : "compact"
+            }
+            autoReloadOnExternalChange={autoReloadOnExternalChange}
+          />
+        </Suspense>
       </div>
     </div>
   );

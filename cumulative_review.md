@@ -77,3 +77,16 @@
 - Fixed long-date parsing to use local date parts for unzoned long format input, preventing day shifts in positive-offset timezones.
 - Fixed file-browser move flow so moved expanded folders proactively refresh destination-folder contents and stay expansion/data consistent after transfer.
 - Added/updated backend pytest, frontend Vitest, and Playwright coverage for all of the above and completed CDP visual verification for task-board and file-browser UI behavior.
+
+## 2026-02-17 18:08:40 PST
+
+- Implemented the consolidated review fixes while explicitly avoiding any new backward-compatibility behavior.
+- Removed incrementer legacy child-type token rewriting so `create_child_sections_via_incrementer` now honors explicit requested section types only.
+- Fixed dotfile copy naming in file-browser transfers so names like `.env` copy as `.env copy` / `.env copy 2` instead of extension-mangled variants.
+- Closed share-policy regression gaps by adding deny-path route coverage for parent default child type, task board state, spreadsheet path/settings, and text-block master font size mutations.
+- Removed dead/no-op TextParam config plumbing and merged duplicated TextParam/CodeParam UI render branches to reduce maintenance drift.
+- Reduced avoidable frontend render work by adding shallow selector equality in `ManyNestedSections` and memoizing `TaskBoardSettings` normalization.
+- Improved file-browser binary error reporting by parsing non-2xx binary responses as JSON/text and surfacing actionable server detail to callers.
+- Deferred spreadsheet-heavy code paths with lazy component mounts and on-demand `xlsx` loading, including async spreadsheet parse/serialize flow updates.
+- Pinned `@glideapps/glide-data-grid` to `6.0.3` for deterministic dependency resolution.
+- Added/updated pytest, Vitest, and Playwright coverage for the above and verified targeted suites plus build checks pass.

@@ -227,13 +227,6 @@ function formatMonthTitle(year: number, monthIndex: number): string {
   }).format(new Date(Date.UTC(year, monthIndex, 1)));
 }
 
-export function TextParamInputConfigForParam(_: {
-  sectionId: string;
-  paramInfoId: string;
-}) {
-  return null;
-}
-
 export function TimeParamInputConfigForParam({
   sectionId,
   paramInfoId,

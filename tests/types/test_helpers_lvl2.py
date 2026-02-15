@@ -1183,7 +1183,7 @@ class TestListAndGroupChildDefaults:
             projectConfig=ProjectConfig(name="test-project")
         )
 
-    def test_incrementer_uses_list_root_default_child_type(self) -> None:
+    def test_incrementer_uses_requested_child_type(self) -> None:
         # Configure a list root to create dict children by default.
         parent_id = create_top_level_section(
             self.settings,
@@ -1195,12 +1195,12 @@ class TestListAndGroupChildDefaults:
             self.project_state, parent_id, SectionType.Dict
         )
 
-        # Incrementer requests Callable as a legacy default token.
+        # Incrementer uses explicit requested child type.
         create_child_sections_via_incrementer(
             self.settings,
             self.project_state,
             parent_id,
-            SectionType.Callable,
+            SectionType.Dict,
             1,
         )
 

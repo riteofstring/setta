@@ -18,8 +18,8 @@ describe("spreadsheet utils", () => {
     expect(isSpreadsheetPath("/tmp/tasks.txt")).toBe(false);
   });
 
-  it("parses csv bytes into editable rows", () => {
-    const parsed = parseSpreadsheetBytes(
+  it("parses csv bytes into editable rows", async () => {
+    const parsed = await parseSpreadsheetBytes(
       "tasks.csv",
       bytesFromText("title,status\nOne,todo\nTwo,done\n"),
     );
@@ -30,8 +30,8 @@ describe("spreadsheet utils", () => {
     expect(parsed.rows[2]).toEqual(["Two", "done"]);
   });
 
-  it("serializes edited rows back to csv bytes", () => {
-    const bytes = serializeSpreadsheetBytes("tasks.csv", "Sheet1", [
+  it("serializes edited rows back to csv bytes", async () => {
+    const bytes = await serializeSpreadsheetBytes("tasks.csv", "Sheet1", [
       ["title", "status"],
       ["One", "done"],
     ]);
@@ -41,7 +41,7 @@ describe("spreadsheet utils", () => {
     expect(text).toContain("One,done");
   });
 
-  it("parses xlsx bytes", () => {
+  it("parses xlsx bytes", async () => {
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.aoa_to_sheet([
       ["colA", "colB"],
@@ -50,13 +50,16 @@ describe("spreadsheet utils", () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, "SheetA");
     const encoded = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
 
-    const parsed = parseSpreadsheetBytes("sheet.xlsx", new Uint8Array(encoded));
+    const parsed = await parseSpreadsheetBytes(
+      "sheet.xlsx",
+      new Uint8Array(encoded),
+    );
     expect(parsed.sheetName).toBe("SheetA");
     expect(parsed.rows[1]).toEqual(["left", "right"]);
     expect(parsed.sourceWorkbookBytes).not.toBeNull();
   });
 
-  it("preserves non-active sheets when saving edited xlsx bytes", () => {
+  it("preserves non-active sheets when saving edited xlsx bytes", async () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(
       workbook,
@@ -75,11 +78,14 @@ describe("spreadsheet utils", () => {
       "Secondary",
     );
     const encoded = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
-    const parsed = parseSpreadsheetBytes("sheet.xlsx", new Uint8Array(encoded));
+    const parsed = await parseSpreadsheetBytes(
+      "sheet.xlsx",
+      new Uint8Array(encoded),
+    );
 
     const editedRows = parsed.rows.map((row) => [...row]);
     editedRows[1] = ["Alpha", "Zoe"];
-    const serialized = serializeSpreadsheetBytes(
+    const serialized = await serializeSpreadsheetBytes(
       "sheet.xlsx",
       parsed.sheetName,
       editedRows,

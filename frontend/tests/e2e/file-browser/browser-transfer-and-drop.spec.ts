@@ -695,4 +695,72 @@ test.describe.serial("file browser transfer and drag/drop", () => {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
+
+  test("transfer endpoint keeps dotfiles extensionless when auto-renaming", async ({
+    page,
+  }) => {
+    await seedLocalStorage(page, {
+      overviewTab: "Overview",
+      overviewVis: true,
+      uiEditorVis: false,
+      colorMode: "light",
+      darkMode: false,
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const root = await postBackend<FileBrowserRootResponse>(
+        page,
+        "/getFileBrowserRoot",
+        null,
+      );
+      const rootPath = root?.rootPath;
+      if (!rootPath) {
+        throw new Error("Missing file browser root path.");
+      }
+
+      const dotFilePath = path.join(rootPath, ".env");
+      const dotCopyPath = path.join(rootPath, ".env copy");
+      const dotCopyTwoPath = path.join(rootPath, ".env copy 2");
+      await fs.writeFile(dotFilePath, "API_KEY=alpha\n", "utf-8");
+
+      const firstCopy = await postBackend<{ destinationPath?: string }>(
+        page,
+        "/transferFileBrowserEntry",
+        {
+          sourcePath: dotFilePath,
+          destinationFolderPath: rootPath,
+          operation: "copy",
+        },
+      );
+      await expect.poll(async () => await pathExists(dotCopyPath)).toBe(true);
+      expect(normalizePathForComparison(firstCopy?.destinationPath ?? "")).toBe(
+        normalizePathForComparison(dotCopyPath),
+      );
+
+      const secondCopy = await postBackend<{ destinationPath?: string }>(
+        page,
+        "/transferFileBrowserEntry",
+        {
+          sourcePath: dotFilePath,
+          destinationFolderPath: rootPath,
+          operation: "copy",
+        },
+      );
+      await expect.poll(async () => await pathExists(dotCopyTwoPath)).toBe(true);
+      expect(normalizePathForComparison(secondCopy?.destinationPath ?? "")).toBe(
+        normalizePathForComparison(dotCopyTwoPath),
+      );
+
+      await expect(fs.readFile(dotCopyPath, "utf-8")).resolves.toBe(
+        "API_KEY=alpha\n",
+      );
+      await expect(fs.readFile(dotCopyTwoPath, "utf-8")).resolves.toBe(
+        "API_KEY=alpha\n",
+      );
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
 });

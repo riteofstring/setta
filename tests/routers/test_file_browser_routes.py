@@ -708,6 +708,33 @@ class TestFileBrowserRoutes:
             )
             assert result.destinationPath == copied_path.resolve().as_posix()
 
+    async def test_transfer_file_browser_entry_copy_dotfile_uses_extensionless_name(
+        self,
+    ) -> None:
+        state = await self._build_state()
+        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
+            root_path = Path(tmpdir)
+            source_file = root_path / ".env"
+            source_file.write_text("API_KEY=123\n", encoding="utf-8")
+            with runtime_context(state) as runtime_ctx:
+                result: TransferFileBrowserEntryResponse = (
+                    route_transfer_file_browser_entry(
+                        TransferFileBrowserEntryRequest(
+                            sourcePath=str(source_file),
+                            destinationFolderPath=str(root_path),
+                            operation="copy",
+                        ),
+                        runtime_ctx,
+                    )
+                )
+            copied_path = root_path / ".env copy"
+            assert source_file.exists()
+            assert copied_path.exists()
+            assert copied_path.read_text(encoding="utf-8") == source_file.read_text(
+                encoding="utf-8"
+            )
+            assert result.destinationPath == copied_path.resolve().as_posix()
+
     async def test_transfer_file_browser_entry_rejects_nested_folder_target(
         self,
     ) -> None:

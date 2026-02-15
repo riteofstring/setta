@@ -78,7 +78,7 @@ importers:
         specifier: 4.5.7
         version: 4.5.7
       '@glideapps/glide-data-grid':
-        specifier: ^6.0.3
+        specifier: 6.0.3
         version: 6.0.3(lodash@4.17.21)(marked@4.3.0)(react-dom@19.1.1(react@19.1.1))(react-responsive-carousel@3.2.23)(react@19.1.1)
       '@json-render/core':
         specifier: 0.4.3

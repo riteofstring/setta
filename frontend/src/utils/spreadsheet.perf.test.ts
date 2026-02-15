@@ -15,7 +15,7 @@ function buildLargeSheet(rows: number, columns: number): string[][] {
 }
 
 describe("spreadsheet performance", () => {
-  it("parses and serializes large xlsx files within budget", () => {
+  it("parses and serializes large xlsx files within budget", async () => {
     const sourceRows = buildLargeSheet(1200, 24);
     const workbook = XLSX.utils.book_new();
     const worksheet = XLSX.utils.aoa_to_sheet(sourceRows);
@@ -25,11 +25,11 @@ describe("spreadsheet performance", () => {
     );
 
     const parseStart = performance.now();
-    const parsed = parseSpreadsheetBytes("perf-sheet.xlsx", bytes);
+    const parsed = await parseSpreadsheetBytes("perf-sheet.xlsx", bytes);
     const parseElapsedMs = performance.now() - parseStart;
 
     const serializeStart = performance.now();
-    const serialized = serializeSpreadsheetBytes(
+    const serialized = await serializeSpreadsheetBytes(
       "perf-sheet.xlsx",
       parsed.sheetName,
       parsed.rows,

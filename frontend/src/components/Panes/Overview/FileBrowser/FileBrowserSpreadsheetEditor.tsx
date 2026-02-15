@@ -596,7 +596,7 @@ export function FileBrowserSpreadsheetEditor({
         setErrorText(detail ?? "Failed to load spreadsheet file payload.");
         return false;
       }
-      const parsed = parseSpreadsheetBytes(path, binaryResponse.data);
+      const parsed = await parseSpreadsheetBytes(path, binaryResponse.data);
       if (isStaleRequest()) {
         return false;
       }
@@ -970,7 +970,7 @@ export function FileBrowserSpreadsheetEditor({
     setErrorText(null);
     setStatusText(null);
     try {
-      const bytes = serializeSpreadsheetBytes(
+      const bytes = await serializeSpreadsheetBytes(
         savingPath,
         sheet.sheetName,
         sheet.rows,

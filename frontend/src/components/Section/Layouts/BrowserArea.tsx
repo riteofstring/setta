@@ -4,7 +4,6 @@ import {
   FileBrowserFilter,
   FileBrowserPane,
 } from "components/Panes/Overview/FileBrowser/FileBrowserPane";
-import { FileBrowserSpreadsheetEditor } from "components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor";
 import { ResizeHandle } from "components/Params/ResizeHandle";
 import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import { createDynamicFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
@@ -18,6 +17,8 @@ import _ from "lodash";
 import {
   type DragEventHandler,
   type ReactNode,
+  Suspense,
+  lazy,
   useCallback,
   useEffect,
   useMemo,
@@ -115,6 +116,12 @@ const BROWSER_TYPES_COLUMN_DEFAULT_RATIO = 0.24;
 const BROWSER_TYPES_COLUMN_DEFAULT_MIN_WIDTH = 180;
 const BROWSER_TYPES_COLUMN_DEFAULT_MAX_WIDTH = 260;
 const BROWSER_FILES_COLUMN_DEFAULT_RATIO = 0.72;
+const LazyFileBrowserSpreadsheetEditor = lazy(async () => {
+  const module = await import(
+    "components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor"
+  );
+  return { default: module.FileBrowserSpreadsheetEditor };
+});
 
 type BrowserFileAttachment = {
   id: string;
@@ -793,12 +800,20 @@ function ViewSwitch({
       if (previewKind === "spreadsheet") {
         return (
           <div className="h-full min-h-0 w-full">
-            <FileBrowserSpreadsheetEditor
-              selectedFile={{
-                name: data.name,
-                fullPath: data.fullPath,
-              }}
-            />
+            <Suspense
+              fallback={
+                <div className="flex h-full w-full items-center justify-center text-xs text-setta-500 dark:text-setta-400">
+                  Loading spreadsheet...
+                </div>
+              }
+            >
+              <LazyFileBrowserSpreadsheetEditor
+                selectedFile={{
+                  name: data.name,
+                  fullPath: data.fullPath,
+                }}
+              />
+            </Suspense>
           </div>
         );
       }

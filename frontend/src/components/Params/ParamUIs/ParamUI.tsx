@@ -55,7 +55,6 @@ import { SwitchInput } from "./SwitchInput";
 import {
   DateParamInputConfigForParam,
   TextParamDateTimeInput,
-  TextParamInputConfigForParam,
   TimeParamInputConfigForParam,
 } from "./TextParamInput";
 
@@ -115,13 +114,6 @@ export function ParamUIConfig({
     case CodeObjTypeEnum.DropzoneParam:
       return (
         <DropzoneInputConfigForParam
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-        />
-      );
-    case CodeObjTypeEnum.TextParam:
-      return (
-        <TextParamInputConfigForParam
           sectionId={sectionId}
           paramInfoId={paramInfoId}
         />
@@ -264,21 +256,6 @@ export function ParamUI({
 
   switch (codeObjType) {
     case CodeObjTypeEnum.CodeParam:
-      return (
-        <TextParamConfigured
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          value={value}
-          defaultVal={defaultVal}
-          onChange={onChange}
-          onEscape={onEscape}
-          maybeErrorMessage={maybeErrorMessage}
-          isDisabled={isDisabled}
-          configLanguage={configLanguage}
-          waitingForResult={waitingForResult}
-          isSelectingParams={isSelectingParams}
-        />
-      );
     case CodeObjTypeEnum.TextParam:
       return (
         <TextParamConfigured

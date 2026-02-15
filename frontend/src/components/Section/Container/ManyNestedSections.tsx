@@ -11,6 +11,7 @@ import {
   ListRootViewModeEnum,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import { SortableSectionContainer } from "./SortableSectionContainer";
 import { useHasTempNested } from "./utils";
 
@@ -65,7 +66,7 @@ function ManyNestedSections({
       isHorizontalOrientation: false,
       listRootViewMode: null,
     };
-  });
+  }, shallow);
   const hiddenAttachedTerminalId = useProjectState((x) => {
     const embeddedTerminal = getEmbeddedAttachedTerminalForCodeSection(
       x,
