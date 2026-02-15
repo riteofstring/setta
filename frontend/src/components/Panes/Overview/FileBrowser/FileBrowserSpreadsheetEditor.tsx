@@ -116,6 +116,20 @@ export function canSaveSpreadsheetDraft(args: {
   return args.sheetPath === args.selectedPath;
 }
 
+export function shouldIgnoreSpreadsheetSaveResult(args: {
+  savingPath: string;
+  currentSelectedPath: string | null;
+}): boolean {
+  return args.currentSelectedPath !== args.savingPath;
+}
+
+export function shouldClearSpreadsheetDirtyAfterSave(args: {
+  saveStartEditVersion: number;
+  currentEditVersion: number;
+}): boolean {
+  return args.saveStartEditVersion === args.currentEditVersion;
+}
+
 export function getSpreadsheetGlideTheme({
   darkMode,
   densityMultiplier,
@@ -317,6 +331,46 @@ function compareSpreadsheetCellValues(a: string, b: string): number {
   });
 }
 
+export function getFilteredSortedSpreadsheetRowIndexes({
+  baseIndexes,
+  rows,
+  columnCount,
+  normalizedFilter,
+  sortState,
+}: {
+  baseIndexes: readonly number[];
+  rows: readonly string[][];
+  columnCount: number;
+  normalizedFilter: string;
+  sortState: SpreadsheetSortState | null;
+}): number[] {
+  const filteredIndexes =
+    normalizedFilter.length === 0
+      ? [...baseIndexes]
+      : baseIndexes.filter((rowIndex) => {
+          const row = rows[rowIndex] ?? [];
+          for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+            const cellValue = (row[columnIndex] ?? "").toLowerCase();
+            if (cellValue.includes(normalizedFilter)) {
+              return true;
+            }
+          }
+          return false;
+        });
+  if (!sortState) {
+    return filteredIndexes;
+  }
+  filteredIndexes.sort((leftIndex, rightIndex) => {
+    const leftRow = rows[leftIndex] ?? [];
+    const rightRow = rows[rightIndex] ?? [];
+    const leftValue = leftRow[sortState.columnIndex] ?? "";
+    const rightValue = rightRow[sortState.columnIndex] ?? "";
+    const comparison = compareSpreadsheetCellValues(leftValue, rightValue);
+    return sortState.direction === "asc" ? comparison : -comparison;
+  });
+  return filteredIndexes;
+}
+
 function getSpreadsheetCellAddress(
   columnIndex: number,
   rowIndex: number,
@@ -450,6 +504,7 @@ export function FileBrowserSpreadsheetEditor({
   const listRef = useListRef();
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const loadRequestIdRef = useRef(0);
+  const editVersionRef = useRef(0);
   const selectedPath = selectedFile?.fullPath ?? null;
   const selectedPathRef = useRef<string | null>(selectedPath);
   const selectedName = selectedFile?.name ?? "";
@@ -540,6 +595,7 @@ export function FileBrowserSpreadsheetEditor({
         columnCount: parsed.columnCount,
         mtimeNs: response.data.mtimeNs,
       });
+      editVersionRef.current = 0;
       setIsDirty(false);
       setHasExternalDiskChange(false);
       setFilterQuery("");
@@ -563,6 +619,7 @@ export function FileBrowserSpreadsheetEditor({
     if (!selectedPath || !isSpreadsheetPath(selectedPath)) {
       loadRequestIdRef.current += 1;
       setSheet(null);
+      editVersionRef.current = 0;
       setIsDirty(false);
       setHasExternalDiskChange(false);
       setStatusText(null);
@@ -626,52 +683,44 @@ export function FileBrowserSpreadsheetEditor({
     sheet?.mtimeNs,
   ]);
 
-  const displayedRowIndexes = useMemo(() => {
+  const baseRowIndexes = useMemo(() => {
     if (!sheet) {
       return [];
     }
-    const baseIndexes = Array.from(
-      { length: sheet.rowCount },
-      (_value, index) => index,
-    );
-    const normalizedFilter = filterQuery.trim().toLowerCase();
-    const filteredIndexes =
-      normalizedFilter.length === 0
-        ? baseIndexes
-        : baseIndexes.filter((rowIndex) => {
-            const row = sheet.rows[rowIndex] ?? [];
-            for (
-              let columnIndex = 0;
-              columnIndex < sheet.columnCount;
-              columnIndex += 1
-            ) {
-              const cellValue = (row[columnIndex] ?? "").toLowerCase();
-              if (cellValue.includes(normalizedFilter)) {
-                return true;
-              }
-            }
-            return false;
-          });
-    if (!sortState) {
-      return filteredIndexes;
+    return Array.from({ length: sheet.rowCount }, (_value, index) => index);
+  }, [sheet?.rowCount]);
+  const normalizedFilterQuery = filterQuery.trim().toLowerCase();
+  const hasFilterOrSort =
+    normalizedFilterQuery.length > 0 || sortState !== null;
+  const filteredSortedRowIndexes = useMemo(() => {
+    if (!sheet || !hasFilterOrSort) {
+      return baseRowIndexes;
     }
-    const sorted = [...filteredIndexes];
-    sorted.sort((leftIndex, rightIndex) => {
-      const leftRow = sheet.rows[leftIndex] ?? [];
-      const rightRow = sheet.rows[rightIndex] ?? [];
-      const leftValue = leftRow[sortState.columnIndex] ?? "";
-      const rightValue = rightRow[sortState.columnIndex] ?? "";
-      const comparison = compareSpreadsheetCellValues(leftValue, rightValue);
-      return sortState.direction === "asc" ? comparison : -comparison;
+    return getFilteredSortedSpreadsheetRowIndexes({
+      baseIndexes: baseRowIndexes,
+      rows: sheet.rows,
+      columnCount: sheet.columnCount,
+      normalizedFilter: normalizedFilterQuery,
+      sortState,
     });
-    return sorted;
-  }, [filterQuery, sheet, sortState]);
+  }, [
+    baseRowIndexes,
+    hasFilterOrSort,
+    normalizedFilterQuery,
+    sheet?.columnCount,
+    sheet?.rows,
+    sortState,
+  ]);
+  const displayedRowIndexes = hasFilterOrSort
+    ? filteredSortedRowIndexes
+    : baseRowIndexes;
 
   const displayedRowCount = displayedRowIndexes.length;
+  const effectiveReadOnly = readOnly || isSaving;
 
   const onChangeCell = useCallback(
     (rowIndex: number, columnIndex: number, value: string) => {
-      if (readOnly) {
+      if (effectiveReadOnly) {
         return;
       }
       const sourceRowIndex = displayedRowIndexes[rowIndex];
@@ -698,11 +747,12 @@ export function FileBrowserSpreadsheetEditor({
         };
       });
       if (didMutate) {
+        editVersionRef.current += 1;
         setIsDirty(true);
         setStatusText(null);
       }
     },
-    [displayedRowIndexes, readOnly],
+    [displayedRowIndexes, effectiveReadOnly],
   );
 
   const onGridSelectionChange = useCallback((selection: GridSelection) => {
@@ -717,6 +767,9 @@ export function FileBrowserSpreadsheetEditor({
         value: EditableGridCell;
       }[],
     ) => {
+      if (effectiveReadOnly) {
+        return false;
+      }
       let didMutate = false;
       setSheet((prev) => {
         if (!prev) {
@@ -759,17 +812,18 @@ export function FileBrowserSpreadsheetEditor({
         };
       });
       if (didMutate) {
+        editVersionRef.current += 1;
         setIsDirty(true);
         setStatusText(null);
       }
       return true;
     },
-    [displayedRowIndexes],
+    [displayedRowIndexes, effectiveReadOnly],
   );
 
   const onDeleteSelection = useCallback(
     (selection: GridSelection) => {
-      if (readOnly) {
+      if (effectiveReadOnly) {
         return false;
       }
       const range = selection.current?.range;
@@ -817,16 +871,17 @@ export function FileBrowserSpreadsheetEditor({
         };
       });
       if (didMutate) {
+        editVersionRef.current += 1;
         setIsDirty(true);
         setStatusText(null);
       }
       return false;
     },
-    [displayedRowIndexes, readOnly],
+    [displayedRowIndexes, effectiveReadOnly],
   );
 
   const onAddRow = useCallback(() => {
-    if (readOnly) {
+    if (effectiveReadOnly) {
       return;
     }
     setSheet((prev) => {
@@ -842,12 +897,13 @@ export function FileBrowserSpreadsheetEditor({
         rowCount: prev.rowCount + 1,
       };
     });
+    editVersionRef.current += 1;
     setIsDirty(true);
     setStatusText(null);
-  }, [readOnly]);
+  }, [effectiveReadOnly]);
 
   const onAddColumn = useCallback(() => {
-    if (readOnly) {
+    if (effectiveReadOnly) {
       return;
     }
     setSheet((prev) => {
@@ -861,17 +917,26 @@ export function FileBrowserSpreadsheetEditor({
         rows: prev.rows.map((row) => [...row, ""]),
       };
     });
+    editVersionRef.current += 1;
     setIsDirty(true);
     setStatusText(null);
-  }, [readOnly]);
+  }, [effectiveReadOnly]);
 
   const onSave = useCallback(async () => {
-    if (!sheet || readOnly) {
+    if (!sheet || readOnly || isSaving) {
       return;
     }
+    const savingPath = sheet.path;
+    const saveStartEditVersion = editVersionRef.current;
+    const expectedMtimeNs = sheet.mtimeNs;
+    const isSaveResultStale = () =>
+      shouldIgnoreSpreadsheetSaveResult({
+        savingPath,
+        currentSelectedPath: selectedPathRef.current,
+      });
     if (
       !canSaveSpreadsheetDraft({
-        sheetPath: sheet.path,
+        sheetPath: savingPath,
         selectedPath,
       })
     ) {
@@ -885,7 +950,7 @@ export function FileBrowserSpreadsheetEditor({
     setStatusText(null);
     try {
       const bytes = serializeSpreadsheetBytes(
-        sheet.path,
+        savingPath,
         sheet.sheetName,
         sheet.rows,
       );
@@ -898,18 +963,24 @@ export function FileBrowserSpreadsheetEditor({
         setErrorText(uploadResult.error);
         return;
       }
+      if (isSaveResultStale()) {
+        return;
+      }
       const response = await route_write_file_browser_file_content({
-        path: sheet.path,
+        path: savingPath,
         contentId: uploadResult.contentId,
-        expectedMtimeNs: sheet.mtimeNs,
+        expectedMtimeNs,
       });
+      if (isSaveResultStale()) {
+        return;
+      }
       if (!res200(response)) {
         const detail = getErrorDetail(response.data);
         setErrorText(detail ?? "Failed to save spreadsheet file.");
         return;
       }
       setSheet((prev) => {
-        if (!prev) {
+        if (!prev || prev.path !== savingPath) {
           return prev;
         }
         return {
@@ -918,14 +989,21 @@ export function FileBrowserSpreadsheetEditor({
         };
       });
       setStatusText("Saved.");
-      setIsDirty(false);
+      if (
+        shouldClearSpreadsheetDirtyAfterSave({
+          saveStartEditVersion,
+          currentEditVersion: editVersionRef.current,
+        })
+      ) {
+        setIsDirty(false);
+      }
       setHasExternalDiskChange(false);
     } catch {
       setErrorText("Failed to save spreadsheet file.");
     } finally {
       setIsSaving(false);
     }
-  }, [readOnly, selectedPath, sheet]);
+  }, [isSaving, readOnly, selectedPath, sheet]);
 
   const onReload = useCallback(() => {
     if (!selectedPath || !isSpreadsheetPath(selectedPath)) {
@@ -1053,12 +1131,12 @@ export function FileBrowserSpreadsheetEditor({
         allowOverlay: true,
         displayData: value,
         data: value,
-        readonly: readOnly || isSaving,
+        readonly: effectiveReadOnly,
       };
     },
-    [displayedRowCount, displayedRowIndexes, isSaving, readOnly, sheet],
+    [displayedRowCount, displayedRowIndexes, effectiveReadOnly, sheet],
   );
-  const isGridEditable = !readOnly && !isSaving;
+  const isGridEditable = !effectiveReadOnly;
 
   if (!selectedPath) {
     return (
@@ -1464,7 +1542,7 @@ export function FileBrowserSpreadsheetEditor({
                       displayedRowIndexes,
                       columnCount: sheet.columnCount,
                       showRowNumbers,
-                      readOnly,
+                      readOnly: effectiveReadOnly,
                       gridTemplateColumns,
                       onChangeCell,
                     }}

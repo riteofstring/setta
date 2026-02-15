@@ -279,12 +279,19 @@ describe("isEditableFileBrowserTarget", () => {
     };
     const editable = {
       closest: (selector: string) =>
-        selector === '[contenteditable="true"]' ? {} : null,
+        selector === '[contenteditable]:not([contenteditable="false"])'
+          ? {}
+          : null,
+    };
+    const editableByProperty = {
+      isContentEditable: true,
+      closest: () => null,
     };
 
     expect(isEditableFileBrowserTarget(input)).toBe(true);
     expect(isEditableFileBrowserTarget(textarea)).toBe(true);
     expect(isEditableFileBrowserTarget(editable)).toBe(true);
+    expect(isEditableFileBrowserTarget(editableByProperty)).toBe(true);
   });
 
   it("detects CodeMirror editor descendants", () => {

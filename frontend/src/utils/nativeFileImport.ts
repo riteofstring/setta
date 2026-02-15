@@ -9,6 +9,8 @@ import {
 type NativeFileImportResult =
   | { status: "ok"; filePath: string; fileName: string }
   | { status: "failed"; error: string };
+const MAX_UNIQUE_NAME_PROBES = 10_000;
+const MAX_WRITE_FILE_CONFLICT_RETRIES = 1_000;
 
 function sanitizeDroppedFileName(fileName: string): string {
   const trimmed = fileName.trim();
@@ -48,7 +50,7 @@ function resolveUniqueWorkspacePath(
   fileName: string,
 ): { filePath: string; fileName: string } {
   const { stem, extension } = splitFileNameExtension(fileName);
-  for (let index = 0; index < 500; index += 1) {
+  for (let index = 0; index < MAX_UNIQUE_NAME_PROBES; index += 1) {
     const candidateName =
       index === 0 ? fileName : `${stem}-${index}${extension}`;
     if (!existingNames.has(candidateName)) {
@@ -123,7 +125,11 @@ export async function importNativeFileToWorkspace(
     };
   }
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < MAX_WRITE_FILE_CONFLICT_RETRIES;
+    attempt += 1
+  ) {
     const writeRes = await route_write_file_browser_file_content({
       path: target.filePath,
       contentId: uploadResult.contentId,
@@ -154,6 +160,7 @@ export async function importNativeFileToWorkspace(
 
   return {
     status: "failed",
-    error: "Failed to allocate a unique file path for the dropped file.",
+    error:
+      "Failed to allocate a unique file path for the dropped file after repeated conflicts.",
   };
 }

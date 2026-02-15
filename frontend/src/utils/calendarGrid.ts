@@ -53,10 +53,6 @@ export function parseIsoDate(
   return { year, monthIndex, day };
 }
 
-function getTodayIsoDate(date: Date = new Date()): string {
-  return formatIsoDate(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
 export function resolveCalendarAnchorDate(
   selectedDateIso: string,
   now: Date = new Date(),

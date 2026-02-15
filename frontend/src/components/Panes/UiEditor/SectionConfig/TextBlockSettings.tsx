@@ -1,5 +1,12 @@
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import {
+  useEffect,
+  useRef,
+  useState,
+  type FocusEvent,
+  type PointerEvent,
+} from "react";
+import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
@@ -20,6 +27,10 @@ type TextBlockSettingsProps = {
   sectionId: string;
 };
 
+export function clampTextBlockMasterFontSize(value: number): number {
+  return Math.max(8, Math.min(48, Number.isFinite(value) ? value : 14));
+}
+
 export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
   const {
     format,
@@ -34,6 +45,16 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
   const canToggleFormat = !isDeploymentMode || canEditParams;
   const canToggleHeading = !isDeploymentMode || canEditParams;
   const canToggleMetaControlStyle = !isDeploymentMode || canEditParams;
+  const [masterFontSizeDraft, setMasterFontSizeDraft] =
+    useState(masterFontSizePx);
+  const isMasterFontSizeDraggingRef = useRef(false);
+
+  useEffect(() => {
+    if (isMasterFontSizeDraggingRef.current) {
+      return;
+    }
+    setMasterFontSizeDraft(masterFontSizePx);
+  }, [masterFontSizePx]);
 
   async function onChangeRenderMarkdown(v: boolean) {
     if (!canToggleFormat) {
@@ -100,7 +121,7 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
     if (!canToggleMetaControlStyle) {
       return;
     }
-    const clamped = Math.max(8, Math.min(48, Number.isFinite(v) ? v : 14));
+    const clamped = clampTextBlockMasterFontSize(v);
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
         setCurrEffectiveSectionImplValue<"TextBlockSection">(state, sectionId, {
@@ -115,6 +136,34 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
           frontendOpId,
         }),
     });
+  }
+
+  function onMasterFontSizeDragStart() {
+    isMasterFontSizeDraggingRef.current = true;
+  }
+
+  function onMasterFontSizeInput(v: number) {
+    const clamped = clampTextBlockMasterFontSize(v);
+    setMasterFontSizeDraft(clamped);
+    if (!isMasterFontSizeDraggingRef.current) {
+      updateMasterFontSize(clamped);
+    }
+  }
+
+  function onMasterFontSizeDragEnd(
+    event:
+      | PointerEvent<HTMLInputElement>
+      | FocusEvent<HTMLInputElement>,
+  ) {
+    if (!isMasterFontSizeDraggingRef.current) {
+      return;
+    }
+    isMasterFontSizeDraggingRef.current = false;
+    const clamped = clampTextBlockMasterFontSize(
+      Number(event.currentTarget.value),
+    );
+    setMasterFontSizeDraft(clamped);
+    updateMasterFontSize(clamped);
   }
 
   return (
@@ -158,7 +207,7 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
             Master Font Size
           </p>
           <span className="font-mono text-[11px] text-setta-500 dark:text-setta-400">
-            {masterFontSizePx.toFixed(0)}px
+            {masterFontSizeDraft.toFixed(0)}px
           </span>
         </div>
         <input
@@ -166,10 +215,14 @@ export function TextBlockSettings({ sectionId }: TextBlockSettingsProps) {
           min={8}
           max={48}
           step={1}
-          value={masterFontSizePx}
+          value={masterFontSizeDraft}
           onChange={(event) =>
-            updateMasterFontSize(Number(event.currentTarget.value))
+            onMasterFontSizeInput(Number(event.currentTarget.value))
           }
+          onPointerDown={onMasterFontSizeDragStart}
+          onPointerUp={onMasterFontSizeDragEnd}
+          onPointerCancel={onMasterFontSizeDragEnd}
+          onBlur={onMasterFontSizeDragEnd}
           disabled={isFrozen || !canToggleMetaControlStyle}
           className="w-full accent-blue-500"
         />

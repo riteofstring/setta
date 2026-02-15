@@ -291,6 +291,16 @@ test.describe.serial("section types data authoring", () => {
     });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
+    let setMasterFontSizeCallCount = 0;
+    const handleSetMasterFontSizeRequest = (request: Request): void => {
+      if (
+        request.method() === "POST" &&
+        request.url().includes("/api/setTextBlockMasterFontSize")
+      ) {
+        setMasterFontSizeCallCount += 1;
+      }
+    };
+    page.on("request", handleSetMasterFontSizeRequest);
 
     try {
       const { sectionId } = await createTextBlockSection(
@@ -349,11 +359,17 @@ test.describe.serial("section types data authoring", () => {
           window.HTMLInputElement.prototype,
           "value",
         );
-        descriptor?.set?.call(input, "24");
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
+        input.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+        for (const nextValue of ["20", "22", "24"]) {
+          descriptor?.set?.call(input, nextValue);
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        input.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
       });
       await expect.poll(async () => await slider.inputValue()).toBe("24");
+      await expect
+        .poll(() => setMasterFontSizeCallCount)
+        .toBe(1);
 
       await expect
         .poll(async () => {
@@ -391,6 +407,7 @@ test.describe.serial("section types data authoring", () => {
       expect(after.h1).toBeGreaterThan(before.h1);
       expect(after.p).toBeGreaterThan(0);
     } finally {
+      page.off("request", handleSetMasterFontSizeRequest);
       await cleanupIsolatedProject(page, projectContext);
     }
   });

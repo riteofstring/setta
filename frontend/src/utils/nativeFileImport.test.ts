@@ -180,4 +180,58 @@ describe("importNativeFileToWorkspace", () => {
       },
     ]);
   });
+
+  it("keeps retrying write conflicts beyond three attempts", async () => {
+    const writePayloads: Array<Record<string, unknown>> = [];
+    fetchMock.mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.endsWith("/api/getFileBrowserRoot")) {
+        return jsonResponse({
+          rootPath: "/workspace",
+          pathSeparator: "/",
+          ignorePatterns: [],
+        });
+      }
+      if (url.endsWith("/api/getFolderContents")) {
+        return jsonResponse([]);
+      }
+      if (url.endsWith("/api/binary/upload")) {
+        return jsonResponse({
+          contentId: "content-abc",
+          byteLength: 11,
+          mimeType: "text/csv",
+          sha256: null,
+        });
+      }
+      if (url.endsWith("/api/writeFileBrowserFileContent")) {
+        if (typeof init?.body !== "string") {
+          throw new Error("Expected JSON write payload.");
+        }
+        const payload = JSON.parse(init.body) as Record<string, unknown>;
+        writePayloads.push(payload);
+        if (writePayloads.length <= 5) {
+          return jsonResponse({ detail: "File already exists." }, 409);
+        }
+        return jsonResponse({
+          path: "/workspace/drop-5.csv",
+          mimeType: "text/csv",
+          mtimeNs: 123,
+          size: 11,
+        });
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    const file = new File(["a,b\n1,2\n"], "drop.csv", { type: "text/csv" });
+    const result = await importNativeFileToWorkspace(file);
+
+    expect(result).toEqual({
+      status: "ok",
+      filePath: "/workspace/drop-5.csv",
+      fileName: "drop-5.csv",
+    });
+    expect(writePayloads.length).toBe(6);
+    expect(writePayloads[0]?.path).toBe("/workspace/drop.csv");
+    expect(writePayloads[5]?.path).toBe("/workspace/drop-5.csv");
+  });
 });

@@ -44,3 +44,14 @@
 - Replaced deep-equality task board selector comparison with shallow comparison for lower hot-path store-update overhead.
 - Cleaned up UI-type combobox calendar preset handling by enforcing `filterKey === "control"` invariant and removed redundant spreadsheet rename branching.
 - Added/updated Vitest, pytest, and Playwright coverage for the above behaviors and verified targeted suites pass; completed CDP visual verification for updated date/calendar UI flows.
+
+## 2026-02-17 13:07:50 PST
+
+- Implemented spreadsheet editor race-condition hardening so save completion only applies to the initiating file path and dirty state clears only when no newer edits happened during save.
+- Added explicit save-time edit locking in spreadsheet handlers (`effectiveReadOnly`) and aligned DOM + Glide editability to prevent in-flight save mutation drift.
+- Optimized spreadsheet row-index derivation with a no-filter/no-sort fast path and extracted deterministic filtered/sorted index computation for large-sheet edit responsiveness.
+- Increased native dropped-file import collision resilience by expanding candidate probe depth and write-conflict retry budget for large workspace roots.
+- Replaced strict contenteditable selector checks with standards-aligned editable detection using `isContentEditable` plus non-false contenteditable matching.
+- Reduced text-block master font slider backend churn by adding local drag-preview state and committing one persisted update at drag end (while preserving keyboard/input commit behavior).
+- Removed dead frontend code by deleting an unused `lodash` import in `TaskBoardArea` and an unused calendar utility helper.
+- Added/updated Vitest and Playwright coverage for spreadsheet save guards/index sorting, native import conflict retries, editable-target detection, and text-block slider commit semantics; verified targeted suites pass.

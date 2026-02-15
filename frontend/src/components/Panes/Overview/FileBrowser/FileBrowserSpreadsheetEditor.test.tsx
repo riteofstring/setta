@@ -3,12 +3,15 @@ import { describe, expect, it, vi } from "vitest";
 import {
   applySpreadsheetCellUpdates,
   canSaveSpreadsheetDraft,
+  getFilteredSortedSpreadsheetRowIndexes,
   getSpreadsheetDensityMetrics,
   getSpreadsheetGlideDensityMultiplier,
   getSpreadsheetGlideTheme,
   getSpreadsheetGridTemplateColumns,
   getSpreadsheetGridWidth,
   isSpreadsheetLoadRequestStale,
+  shouldClearSpreadsheetDirtyAfterSave,
+  shouldIgnoreSpreadsheetSaveResult,
   SPREADSHEET_DATA_COLUMN_WIDTH,
   SPREADSHEET_FILTER_INPUT_CLASS_NAME,
   SPREADSHEET_HEADER_HEIGHT,
@@ -189,5 +192,60 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
         selectedPath: null,
       }),
     ).toBe(false);
+  });
+
+  it("treats save results for another selected file as stale", () => {
+    expect(
+      shouldIgnoreSpreadsheetSaveResult({
+        savingPath: "/tmp/a.csv",
+        currentSelectedPath: "/tmp/a.csv",
+      }),
+    ).toBe(false);
+    expect(
+      shouldIgnoreSpreadsheetSaveResult({
+        savingPath: "/tmp/a.csv",
+        currentSelectedPath: "/tmp/b.csv",
+      }),
+    ).toBe(true);
+    expect(
+      shouldIgnoreSpreadsheetSaveResult({
+        savingPath: "/tmp/a.csv",
+        currentSelectedPath: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("clears dirty state only when no edits occurred during save", () => {
+    expect(
+      shouldClearSpreadsheetDirtyAfterSave({
+        saveStartEditVersion: 8,
+        currentEditVersion: 8,
+      }),
+    ).toBe(true);
+    expect(
+      shouldClearSpreadsheetDirtyAfterSave({
+        saveStartEditVersion: 8,
+        currentEditVersion: 9,
+      }),
+    ).toBe(false);
+  });
+
+  it("filters and numerically sorts displayed row indexes", () => {
+    const indexes = getFilteredSortedSpreadsheetRowIndexes({
+      baseIndexes: [0, 1, 2],
+      rows: [
+        ["alpha", "2"],
+        ["beta", "10"],
+        ["alpha", "1"],
+      ],
+      columnCount: 2,
+      normalizedFilter: "alpha",
+      sortState: {
+        columnIndex: 1,
+        direction: "asc",
+      },
+    });
+
+    expect(indexes).toEqual([2, 0]);
   });
 });

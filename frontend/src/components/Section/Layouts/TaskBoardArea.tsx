@@ -22,7 +22,6 @@ import {
 } from "forks/dnd-kit/adapter/zoom";
 import { DragOperationShapeSync } from "forks/dnd-kit/DragOperationShapeSync";
 import { useReactFlow } from "forks/xyflow/core/store";
-import _ from "lodash";
 import {
   Fragment,
   useCallback,

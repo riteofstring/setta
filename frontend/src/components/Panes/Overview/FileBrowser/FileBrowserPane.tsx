@@ -102,19 +102,23 @@ type FlattenedFileNode = FlattenedNode;
 export function isEditableFileBrowserTarget(
   target: EventTarget | null,
 ): boolean {
-  if (
-    !target ||
-    typeof target !== "object" ||
-    !("closest" in target) ||
-    typeof (target as { closest?: unknown }).closest !== "function"
-  ) {
+  if (!target || typeof target !== "object") {
     return false;
   }
-  const closest = (target as { closest: (selector: string) => unknown })
-    .closest;
+  const maybeElement = target as {
+    closest?: unknown;
+    isContentEditable?: unknown;
+  };
+  if (maybeElement.isContentEditable === true) {
+    return true;
+  }
+  if (typeof maybeElement.closest !== "function") {
+    return false;
+  }
+  const closest = maybeElement.closest as (selector: string) => unknown;
   return (
     closest("input, textarea, select") !== null ||
-    closest('[contenteditable="true"]') !== null ||
+    closest('[contenteditable]:not([contenteditable="false"])') !== null ||
     closest(".cm-editor") !== null
   );
 }
