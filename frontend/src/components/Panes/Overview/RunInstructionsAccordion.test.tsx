@@ -6,7 +6,8 @@ describe("RunInstructionsAccordion", () => {
   it("renders predictable accordion trigger ids for e2e targeting", () => {
     const markup = renderToStaticMarkup(
       <RunInstructionsAccordion
-        defaultOpenValues={["custom-runs"]}
+        openValues={["custom-runs"]}
+        onOpenValuesChange={() => {}}
         items={[
           {
             value: "codegen",
@@ -42,10 +43,11 @@ describe("RunInstructionsAccordion", () => {
     expect(markup).toContain("box-border");
   });
 
-  it("disables empty sections and excludes them from default-open values", () => {
+  it("disables empty sections and excludes them from controlled open values", () => {
     const markup = renderToStaticMarkup(
       <RunInstructionsAccordion
-        defaultOpenValues={["add-from-code-blocks"]}
+        openValues={["add-from-code-blocks"]}
+        onOpenValuesChange={() => {}}
         items={[
           {
             value: "custom-runs",
@@ -80,8 +82,8 @@ describe("RunInstructionsAccordion", () => {
   it("supports controlled open values for persisted accordion state", () => {
     const markup = renderToStaticMarkup(
       <RunInstructionsAccordion
-        defaultOpenValues={["custom-runs"]}
         openValues={["codegen"]}
+        onOpenValuesChange={() => {}}
         items={[
           {
             value: "codegen",

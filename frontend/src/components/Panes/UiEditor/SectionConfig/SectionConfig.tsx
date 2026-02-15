@@ -133,7 +133,6 @@ function _SectionConfig({ sectionId }: { sectionId: string }) {
       className="setta-pane-scroll flex min-h-0 flex-1 flex-col"
     >
       <SectionConfigAccordion
-        defaultOpenValues={defaultOpenValues}
         openValues={resolvedOpenValues}
         onOpenValuesChange={setOpenValues}
         items={[

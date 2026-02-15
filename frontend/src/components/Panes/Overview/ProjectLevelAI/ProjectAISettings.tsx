@@ -249,7 +249,6 @@ function ProjectAISettingsAccordion({
   return (
     <PaneAccordion
       items={items}
-      defaultOpenValues={PROJECT_AI_SETTINGS_ACCORDION_DEFAULT_OPEN_VALUES}
       openValues={openValues}
       onOpenValuesChange={onOpenValuesChange}
       enabledTriggerClassName={PROJECT_AI_SETTINGS_TRIGGER_ENABLED_CLASSES}

@@ -12,9 +12,6 @@ describe("RunInstructionsAccordion (perf)", () => {
       disabled: index % 7 === 0,
       disabledReason: index % 7 === 0 ? "Disabled for perf test" : undefined,
     }));
-    const defaultOpenValues = items
-      .filter((item, index) => index % 5 === 0)
-      .map((item) => item.value);
     const controlledOpenValues = items
       .filter((item, index) => index % 6 === 0)
       .map((item) => item.value);
@@ -24,8 +21,8 @@ describe("RunInstructionsAccordion (perf)", () => {
     for (let i = 0; i < 12; i += 1) {
       markup = renderToStaticMarkup(
         <RunInstructionsAccordion
-          defaultOpenValues={defaultOpenValues}
           openValues={controlledOpenValues}
+          onOpenValuesChange={() => {}}
           items={items}
         />,
       );

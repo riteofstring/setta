@@ -7,7 +7,8 @@ describe("SectionConfigAccordion", () => {
     // These testids are used by e2e tests to verify pane hierarchy behavior.
     const markup = renderToStaticMarkup(
       <SectionConfigAccordion
-        defaultOpenValues={["main"]}
+        openValues={["main"]}
+        onOpenValuesChange={() => {}}
         items={[
           {
             value: "main",
@@ -33,12 +34,13 @@ describe("SectionConfigAccordion", () => {
     expect(markup).toContain("box-border");
   });
 
-  it("keeps only configured sections open by default", () => {
-    // Default-open behavior drives the "primary visible, secondary collapsed"
+  it("keeps only configured sections open when controlled", () => {
+    // Controlled-open behavior drives the "primary visible, secondary collapsed"
     // hierarchy expected by the pane refinement plan.
     const markup = renderToStaticMarkup(
       <SectionConfigAccordion
-        defaultOpenValues={["main"]}
+        openValues={["main"]}
+        onOpenValuesChange={() => {}}
         items={[
           {
             value: "main",
@@ -69,10 +71,11 @@ describe("SectionConfigAccordion", () => {
     expect(appearanceTriggerTag).toContain('aria-expanded="false"');
   });
 
-  it("disables empty sections and prevents default-open on disabled sections", () => {
+  it("disables empty sections and prevents open-state on disabled sections", () => {
     const markup = renderToStaticMarkup(
       <SectionConfigAccordion
-        defaultOpenValues={["appearance"]}
+        openValues={["appearance"]}
+        onOpenValuesChange={() => {}}
         items={[
           {
             value: "main",
@@ -107,8 +110,8 @@ describe("SectionConfigAccordion", () => {
   it("supports controlled open values and drops disabled values", () => {
     const markup = renderToStaticMarkup(
       <SectionConfigAccordion
-        defaultOpenValues={["main"]}
         openValues={["main", "appearance"]}
+        onOpenValuesChange={() => {}}
         items={[
           {
             value: "main",

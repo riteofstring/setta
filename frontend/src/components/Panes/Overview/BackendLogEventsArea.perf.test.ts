@@ -4,7 +4,7 @@ import {
   applyBackendLogColumnResize,
   BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
   filterEvents,
-} from "./BackendLogEventsArea";
+} from "./BackendLogEventsArea.utils";
 
 const STRICT_PERF_BUDGETS_ENABLED = process.env.SETTA_STRICT_PERF === "1";
 

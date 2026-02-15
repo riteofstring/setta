@@ -157,12 +157,6 @@ function buildCombinedDecorations({
         pos = line.to + 1;
         continue;
       }
-      if (!parser || !highlighter) {
-        pos = line.to + 1;
-        continue;
-      }
-      const syntaxParser = parser;
-      const syntaxHighlighter = highlighter;
       if (!shouldSyntaxHighlightLine(lineText)) {
         pos = line.to + 1;
         continue;
@@ -193,8 +187,8 @@ function buildCombinedDecorations({
         }
       } else {
         const marks: Array<[number, number, string]> = [];
-        const tree = syntaxParser.parse(codeText) as never;
-        highlightTree(tree, syntaxHighlighter, (from, to, classes) => {
+        const tree = parser!.parse(codeText) as never;
+        highlightTree(tree, highlighter!, (from, to, classes) => {
           if (!classes) {
             return;
           }
@@ -217,7 +211,9 @@ function buildCombinedDecorations({
   return builder.finish();
 }
 
-function createDiffDecorationsPlugin(parser: ParserLike | null): Extension {
+function createDiffDecorationsPlugin(
+  parser: CodeMirrorParserLike | null,
+): Extension {
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;

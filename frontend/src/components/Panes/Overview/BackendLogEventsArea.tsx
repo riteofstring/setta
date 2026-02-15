@@ -19,142 +19,32 @@ import {
 } from "state/actions/backendLogEvents";
 import { useAllProjectMetadata, useBackendLogEvents } from "state/definitions";
 import { SettaBackendLogEvent } from "utils/generatedTypes";
+import {
+  addBackendLogResizeListeners,
+  BACKEND_LOG_DEFAULT_COLUMN_WIDTHS,
+  type BackendLogColumnWidthName,
+  type BackendLogColumnWidths,
+  type BackendLogSeverity,
+  buildBackendLogGridTemplateColumns,
+  copyBackendLogMessage,
+  filterEvents,
+  getBackendLogEventById,
+  getBackendLogEventsById,
+  getBackendLogGridMinWidth,
+  getBackendLogListRenderWidth,
+  getBackendLogResizedColumnWidth,
+  isBackendLogSeverity,
+  removeBackendLogResizeListeners,
+} from "./BackendLogEventsArea.utils";
 
-type BackendLogSeverity = SettaBackendLogEvent["severity"];
-
-type BackendLogColumnWidths = {
-  timestamp: number;
-  severity: number;
-  project: number;
-};
-
-type BackendLogColumnWidthName = keyof BackendLogColumnWidths;
-
-const SEVERITY_ORDER: Record<BackendLogSeverity, number> = {
-  info: 0,
-  warning: 1,
-  error: 2,
-  critical: 3,
-};
-
-const BACKEND_LOG_COPY_COLUMN_WIDTH_PX = 56;
-const BACKEND_LOG_MESSAGE_COLUMN_MIN_WIDTH_PX = 220;
 const BACKEND_LOG_COPY_FEEDBACK_MS = 1300;
 const BACKEND_LOG_ROW_HEIGHT_PX = 26;
 const BACKEND_LOG_MIN_GRID_WIDTH_PX = 640;
-
-export const BACKEND_LOG_DEFAULT_COLUMN_WIDTHS: BackendLogColumnWidths = {
-  timestamp: 72,
-  severity: 74,
-  project: 176,
-};
-
-const BACKEND_LOG_COLUMN_WIDTH_BOUNDS: Record<
-  BackendLogColumnWidthName,
-  { min: number; max: number }
-> = {
-  timestamp: { min: 64, max: 160 },
-  severity: { min: 64, max: 170 },
-  project: { min: 120, max: 380 },
-};
-
-function isBackendLogSeverity(value: string): value is BackendLogSeverity {
-  return Object.hasOwn(SEVERITY_ORDER, value);
-}
-
-export function clampBackendLogColumnWidth(
-  column: BackendLogColumnWidthName,
-  width: number,
-): number {
-  const bounds = BACKEND_LOG_COLUMN_WIDTH_BOUNDS[column];
-  return Math.max(bounds.min, Math.min(bounds.max, Math.round(width)));
-}
-
-export function applyBackendLogColumnResize(
-  initialWidths: BackendLogColumnWidths,
-  column: BackendLogColumnWidthName,
-  deltaX: number,
-): BackendLogColumnWidths {
-  const nextWidth = getBackendLogResizedColumnWidth(
-    initialWidths,
-    column,
-    deltaX,
-  );
-  return {
-    ...initialWidths,
-    [column]: nextWidth,
-  };
-}
-
-export function getBackendLogResizedColumnWidth(
-  initialWidths: BackendLogColumnWidths,
-  column: BackendLogColumnWidthName,
-  deltaX: number,
-): number {
-  return clampBackendLogColumnWidth(column, initialWidths[column] + deltaX);
-}
-
-export function buildBackendLogGridTemplateColumns(
-  columnWidths: BackendLogColumnWidths,
-): string {
-  return `${columnWidths.timestamp}px ${columnWidths.severity}px ${columnWidths.project}px minmax(${BACKEND_LOG_MESSAGE_COLUMN_MIN_WIDTH_PX}px, 1fr) ${BACKEND_LOG_COPY_COLUMN_WIDTH_PX}px`;
-}
-
-export function getBackendLogGridMinWidth(
-  columnWidths: BackendLogColumnWidths,
-): number {
-  return (
-    columnWidths.timestamp +
-    columnWidths.severity +
-    columnWidths.project +
-    BACKEND_LOG_MESSAGE_COLUMN_MIN_WIDTH_PX +
-    BACKEND_LOG_COPY_COLUMN_WIDTH_PX
-  );
-}
 
 type BackendLogResizeHandlers = {
   mouseMove: (event: globalThis.MouseEvent) => void;
   mouseUp: (event: globalThis.MouseEvent) => void;
 };
-
-export function addBackendLogResizeListeners(
-  handlers: BackendLogResizeHandlers,
-): void {
-  window.addEventListener("mousemove", handlers.mouseMove);
-  window.addEventListener("mouseup", handlers.mouseUp);
-}
-
-export function removeBackendLogResizeListeners(
-  handlers: BackendLogResizeHandlers | null,
-): void {
-  if (!handlers) {
-    return;
-  }
-  window.removeEventListener("mousemove", handlers.mouseMove);
-  window.removeEventListener("mouseup", handlers.mouseUp);
-}
-
-export async function copyBackendLogMessage(
-  writeText: (value: string) => Promise<void> | void,
-  message: string,
-): Promise<boolean> {
-  try {
-    await writeText(message);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function getBackendLogEventById(
-  events: Array<SettaBackendLogEvent>,
-  eventId: string | null,
-): SettaBackendLogEvent | null {
-  if (!eventId) {
-    return null;
-  }
-  return events.find((event) => event.id === eventId) ?? null;
-}
 
 type CopyFeedback = {
   eventId: string;
@@ -227,9 +117,13 @@ export function BackendLogEventsArea() {
     () => filterEvents(events, filter),
     [events, filter],
   );
+  const filteredEventsById = useMemo(
+    () => getBackendLogEventsById(filteredEvents),
+    [filteredEvents],
+  );
   const selectedEvent = useMemo(
-    () => getBackendLogEventById(filteredEvents, selectedEventId),
-    [filteredEvents, selectedEventId],
+    () => getBackendLogEventById(filteredEventsById, selectedEventId),
+    [filteredEventsById, selectedEventId],
   );
 
   const gridTemplateColumns = useMemo(
@@ -314,11 +208,11 @@ export function BackendLogEventsArea() {
     if (!selectedEventId) {
       return;
     }
-    if (getBackendLogEventById(filteredEvents, selectedEventId)) {
+    if (filteredEventsById.has(selectedEventId)) {
       return;
     }
     setSelectedEventId(null);
-  }, [filteredEvents, selectedEventId]);
+  }, [filteredEventsById, selectedEventId]);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col gap-1">
@@ -527,33 +421,6 @@ function Filters({
   );
 }
 
-export function filterEvents(
-  events: Array<SettaBackendLogEvent>,
-  filter: {
-    projectConfigId: string | null;
-    minSeverity: BackendLogSeverity;
-    query: string;
-  },
-): Array<SettaBackendLogEvent> {
-  const query = filter.query.trim().toLowerCase();
-  const minSeverityValue = SEVERITY_ORDER[filter.minSeverity];
-  return events.filter((event) => {
-    if (
-      filter.projectConfigId &&
-      event.projectConfigId !== filter.projectConfigId
-    ) {
-      return false;
-    }
-    if (SEVERITY_ORDER[event.severity] < minSeverityValue) {
-      return false;
-    }
-    if (!query) {
-      return true;
-    }
-    return event.message.toLowerCase().includes(query);
-  });
-}
-
 function LogLines({
   events,
   projectNameById,
@@ -578,11 +445,12 @@ function LogLines({
   onCopyMessage: (eventId: string, message: string) => void;
   onSelectEvent: (eventId: string) => void;
 }) {
+  const scrollShellRef = useRef<HTMLDivElement | null>(null);
   const listWrapperRef = useRef<HTMLDivElement | null>(null);
-  const [listSize, setListSize] = useState({
-    height: BACKEND_LOG_ROW_HEIGHT_PX * 10,
-    width: BACKEND_LOG_MIN_GRID_WIDTH_PX,
-  });
+  const [listHeight, setListHeight] = useState(BACKEND_LOG_ROW_HEIGHT_PX * 10);
+  const [viewportWidth, setViewportWidth] = useState(
+    BACKEND_LOG_MIN_GRID_WIDTH_PX,
+  );
 
   useEffect(() => {
     const wrapper = listWrapperRef.current;
@@ -594,14 +462,8 @@ function LogLines({
         return;
       }
       const nextHeight = Math.max(1, Math.floor(entry.contentRect.height));
-      const nextWidth = Math.max(1, Math.floor(entry.contentRect.width));
-      setListSize((current) =>
-        current.height === nextHeight && current.width === nextWidth
-          ? current
-          : {
-              height: nextHeight,
-              width: nextWidth,
-            },
+      setListHeight((currentHeight) =>
+        currentHeight === nextHeight ? currentHeight : nextHeight,
       );
     });
     observer.observe(wrapper);
@@ -610,17 +472,43 @@ function LogLines({
     };
   }, []);
 
-  const listHeight = Math.max(1, listSize.height);
-  const listWidth = Math.max(gridMinWidth, listSize.width);
+  useEffect(() => {
+    const scrollShell = scrollShellRef.current;
+    if (!scrollShell) {
+      return;
+    }
+    const observer = new ResizeObserver(([entry]) => {
+      if (!entry) {
+        return;
+      }
+      const nextViewportWidth = Math.max(
+        1,
+        Math.floor(entry.contentRect.width),
+      );
+      setViewportWidth((currentViewportWidth) =>
+        currentViewportWidth === nextViewportWidth
+          ? currentViewportWidth
+          : nextViewportWidth,
+      );
+    });
+    observer.observe(scrollShell);
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  const resolvedListHeight = Math.max(1, listHeight);
+  const listWidth = getBackendLogListRenderWidth(gridMinWidth, viewportWidth);
 
   return (
     <div
+      ref={scrollShellRef}
       data-testid="backend-log-grid-scroll-shell"
       className="flex min-h-0 flex-1 overflow-x-auto overflow-y-hidden"
     >
       <div
         className="flex min-h-0 flex-1 flex-col"
-        style={{ minWidth: listWidth }}
+        style={{ minWidth: gridMinWidth }}
       >
         <LogColumnHeader
           gridTemplateColumns={gridTemplateColumns}
@@ -644,7 +532,7 @@ function LogLines({
               onSelectEvent,
             }}
             style={{
-              height: listHeight,
+              height: resolvedListHeight,
               width: listWidth,
               overflowX: "hidden",
             }}

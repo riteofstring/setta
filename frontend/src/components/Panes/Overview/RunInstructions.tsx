@@ -1229,7 +1229,6 @@ export function RunInstructions() {
       >
         <div className={RUN_INSTRUCTIONS_INLINE_INSET_CLASS}>
           <RunInstructionsAccordion
-            defaultOpenValues={RUN_INSTRUCTIONS_ACCORDION_DEFAULT_OPEN_VALUES}
             openValues={visibleAccordionOpenValues}
             onOpenValuesChange={setAccordionOpenValues}
             items={accordionItems}

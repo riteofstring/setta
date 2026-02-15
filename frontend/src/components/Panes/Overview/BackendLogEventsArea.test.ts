@@ -9,10 +9,12 @@ import {
   copyBackendLogMessage,
   filterEvents,
   getBackendLogEventById,
+  getBackendLogEventsById,
   getBackendLogGridMinWidth,
+  getBackendLogListRenderWidth,
   getBackendLogResizedColumnWidth,
   removeBackendLogResizeListeners,
-} from "./BackendLogEventsArea";
+} from "./BackendLogEventsArea.utils";
 
 describe("BackendLogEventsArea column sizing helpers", () => {
   it("applies resize deltas for a single column while keeping other widths unchanged", () => {
@@ -197,7 +199,8 @@ describe("getBackendLogEventById", () => {
       },
     ];
 
-    const selected = getBackendLogEventById(events, "event-2");
+    const eventsById = getBackendLogEventsById(events);
+    const selected = getBackendLogEventById(eventsById, "event-2");
     expect(selected?.message).toBe("second");
   });
 
@@ -212,7 +215,18 @@ describe("getBackendLogEventById", () => {
       },
     ];
 
-    expect(getBackendLogEventById(events, "missing")).toBeNull();
-    expect(getBackendLogEventById(events, null)).toBeNull();
+    const eventsById = getBackendLogEventsById(events);
+    expect(getBackendLogEventById(eventsById, "missing")).toBeNull();
+    expect(getBackendLogEventById(eventsById, null)).toBeNull();
+  });
+});
+
+describe("backend log list width calculation", () => {
+  it("tracks viewport width when it is wider than grid minimum", () => {
+    expect(getBackendLogListRenderWidth(640, 900)).toBe(900);
+  });
+
+  it("sticks to grid minimum width when viewport is narrower", () => {
+    expect(getBackendLogListRenderWidth(820, 640)).toBe(820);
   });
 });

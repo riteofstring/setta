@@ -30,3 +30,14 @@
 - Reduced CI flake risk in perf tests by making strict wall-clock thresholds opt-in via `SETTA_STRICT_PERF=1` while keeping large-input structural guardrails in default runs.
 - Centralized CodeMirror language extension/parser registration into a shared utility and reused it from editor extensions, SSR dummy renderer, and git diff syntax parser resolution.
 - Added shared language utility tests and appended a perf report entry at `perf/reports/frontend/2026-02-17_pane-followups-runnable-gating.md`.
+
+## 2026-02-17 18:15
+
+- Tightened `PaneAccordion` into a discriminated controlled/uncontrolled API so controlled callers must provide `openValues` + `onOpenValuesChange` and cannot also pass `defaultOpenValues`.
+- Updated all controlled pane call sites (`RunInstructions`, `SectionConfig`, `ProjectAISettings`) and related tests/perf tests to match the stricter accordion contract.
+- Moved backend-log pure helpers out of `BackendLogEventsArea.tsx` into `BackendLogEventsArea.utils.ts`, reducing production component export surface while keeping test coverage on the helper module.
+- Fixed backend-log selected-row lookup overhead by memoizing an `eventsById` map and using O(1) lookups for selected-event resolution and stale-selection cleanup.
+- Fixed backend-log width ratchet behavior by measuring viewport width from the outer scroll shell, keeping container `minWidth` tied to `gridMinWidth`, and computing list render width as `max(gridMinWidth, viewportWidth)`.
+- Cleaned `GitDiffCodeMirror` parser typing (`CodeMirrorParserLike | null`) and removed redundant parser/highlighter null checks inside the syntax-highlighting hot loop.
+- Added/updated focused automated verification: Vitest unit/perf/integration coverage for backend-log sizing + lookup behavior and Playwright assertions that backend-log scroll width shrinks after dragging a column narrower.
+- Completed CDP visual verification on the backend-log pane, including near-min/near-max resize extremes and selected-message panel behavior.

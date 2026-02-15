@@ -59,8 +59,8 @@ describe("PaneAccordion", () => {
             content: <div>Disabled content</div>,
           },
         ]}
-        defaultOpenValues={["enabled-item", "disabled-item"]}
         openValues={["enabled-item", "disabled-item"]}
+        onOpenValuesChange={() => {}}
         enabledTriggerClassName={enabledTriggerClassName}
         disabledTriggerClassName={disabledTriggerClassName}
         chevronClassName="pane-accordion-chevron"

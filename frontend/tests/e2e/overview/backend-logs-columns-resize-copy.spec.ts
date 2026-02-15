@@ -17,53 +17,79 @@ test("backend logs pane supports column resize handles and copy feedback", async
   const rows = page.getByTestId("backend-log-row");
   await expect(rows.first()).toBeVisible();
 
-  const projectColumnHeader = page.getByTestId("backend-log-col-header-project");
+  const dragProjectColumn = async (deltaX: number) => {
+    await page.evaluate((delta) => {
+      const handle = document.querySelector(
+        '[data-testid="backend-log-resize-project"]',
+      );
+      if (!(handle instanceof HTMLElement)) {
+        throw new Error("Missing backend log project resize handle.");
+      }
+
+      const rect = handle.getBoundingClientRect();
+      const startX = rect.left + rect.width / 2;
+      const startY = rect.top + rect.height / 2;
+
+      handle.dispatchEvent(
+        new MouseEvent("mousedown", {
+          bubbles: true,
+          clientX: startX,
+          clientY: startY,
+          button: 0,
+        }),
+      );
+
+      window.dispatchEvent(
+        new MouseEvent("mousemove", {
+          bubbles: true,
+          clientX: startX + delta,
+          clientY: startY,
+          buttons: 1,
+        }),
+      );
+
+      window.dispatchEvent(
+        new MouseEvent("mouseup", {
+          bubbles: true,
+          clientX: startX + delta,
+          clientY: startY,
+          button: 0,
+        }),
+      );
+    }, deltaX);
+  };
+
+  const projectColumnHeader = page.getByTestId(
+    "backend-log-col-header-project",
+  );
+  const gridScrollShell = page.getByTestId("backend-log-grid-scroll-shell");
   const projectWidthBefore = await projectColumnHeader.evaluate(
     (element) => element.getBoundingClientRect().width,
   );
+  const scrollWidthBefore = await gridScrollShell.evaluate(
+    (element) => element.scrollWidth,
+  );
 
-  await page.evaluate(() => {
-    const handle = document.querySelector('[data-testid="backend-log-resize-project"]');
-    if (!(handle instanceof HTMLElement)) {
-      throw new Error("Missing backend log project resize handle.");
-    }
-
-    const rect = handle.getBoundingClientRect();
-    const startX = rect.left + rect.width / 2;
-    const startY = rect.top + rect.height / 2;
-
-    handle.dispatchEvent(
-      new MouseEvent("mousedown", {
-        bubbles: true,
-        clientX: startX,
-        clientY: startY,
-        button: 0,
-      }),
-    );
-
-    window.dispatchEvent(
-      new MouseEvent("mousemove", {
-        bubbles: true,
-        clientX: startX + 60,
-        clientY: startY,
-        buttons: 1,
-      }),
-    );
-
-    window.dispatchEvent(
-      new MouseEvent("mouseup", {
-        bubbles: true,
-        clientX: startX + 60,
-        clientY: startY,
-        button: 0,
-      }),
-    );
-  });
+  await dragProjectColumn(60);
 
   const projectWidthAfter = await projectColumnHeader.evaluate(
     (element) => element.getBoundingClientRect().width,
   );
+  const scrollWidthAfterExpand = await gridScrollShell.evaluate(
+    (element) => element.scrollWidth,
+  );
   expect(projectWidthAfter).toBeGreaterThan(projectWidthBefore + 30);
+  expect(scrollWidthAfterExpand).toBeGreaterThan(scrollWidthBefore + 20);
+
+  await dragProjectColumn(-100);
+  const projectWidthAfterNarrow = await projectColumnHeader.evaluate(
+    (element) => element.getBoundingClientRect().width,
+  );
+  const scrollWidthAfterNarrow = await gridScrollShell.evaluate(
+    (element) => element.scrollWidth,
+  );
+  expect(projectWidthAfterNarrow).toBeLessThan(projectWidthAfter - 30);
+  expect(scrollWidthAfterNarrow).toBeLessThan(scrollWidthAfterExpand - 20);
 
   const firstRow = rows.first();
   const copyButton = firstRow.getByTestId("backend-log-copy-message");
@@ -104,12 +130,18 @@ test("backend logs pane supports column resize handles and copy feedback", async
   });
   await expect(copyButton).toHaveAttribute("data-copy-status", /copied|failed/);
 
-  const gridScrollShell = page.getByTestId("backend-log-grid-scroll-shell");
   await expect(gridScrollShell).toBeVisible();
   const overflowState = await page.evaluate(() => {
-    const shell = document.querySelector('[data-testid="backend-log-grid-scroll-shell"]');
-    const virtualList = document.querySelector('[data-testid="backend-log-virtual-list"]');
-    if (!(shell instanceof HTMLElement) || !(virtualList instanceof HTMLElement)) {
+    const shell = document.querySelector(
+      '[data-testid="backend-log-grid-scroll-shell"]',
+    );
+    const virtualList = document.querySelector(
+      '[data-testid="backend-log-virtual-list"]',
+    );
+    if (
+      !(shell instanceof HTMLElement) ||
+      !(virtualList instanceof HTMLElement)
+    ) {
       throw new Error("Missing backend logs scroller elements.");
     }
     const shellStyle = getComputedStyle(shell);

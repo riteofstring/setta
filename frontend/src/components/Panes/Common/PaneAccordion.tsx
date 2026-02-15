@@ -12,27 +12,8 @@ export type PaneAccordionItem = {
   content: React.ReactNode;
 };
 
-export function PaneAccordion({
-  items,
-  defaultOpenValues,
-  openValues,
-  onOpenValuesChange,
-  enabledTriggerClassName,
-  disabledTriggerClassName,
-  chevronClassName,
-  includeItemTestId = false,
-  includeContentTestId = false,
-  rootClassName,
-  itemClassName,
-  contentClassName,
-  titleWrapperClassName,
-  titleClassName,
-  descriptionClassName,
-}: {
+type PaneAccordionBaseProps = {
   items: Array<PaneAccordionItem>;
-  defaultOpenValues: Array<string>;
-  openValues?: Array<string>;
-  onOpenValuesChange?: (openValues: Array<string>) => void;
   enabledTriggerClassName: string;
   disabledTriggerClassName: string;
   chevronClassName: string;
@@ -44,7 +25,39 @@ export function PaneAccordion({
   titleWrapperClassName?: string;
   titleClassName?: string;
   descriptionClassName?: string;
-}) {
+};
+
+type PaneAccordionControlledProps = PaneAccordionBaseProps & {
+  openValues: Array<string>;
+  onOpenValuesChange: (openValues: Array<string>) => void;
+  defaultOpenValues?: never;
+};
+
+type PaneAccordionUncontrolledProps = PaneAccordionBaseProps & {
+  defaultOpenValues: Array<string>;
+  openValues?: never;
+  onOpenValuesChange?: never;
+};
+
+type PaneAccordionProps =
+  | PaneAccordionControlledProps
+  | PaneAccordionUncontrolledProps;
+
+export function PaneAccordion({
+  items,
+  enabledTriggerClassName,
+  disabledTriggerClassName,
+  chevronClassName,
+  includeItemTestId = false,
+  includeContentTestId = false,
+  rootClassName,
+  itemClassName,
+  contentClassName,
+  titleWrapperClassName,
+  titleClassName,
+  descriptionClassName,
+  ...openStateProps
+}: PaneAccordionProps) {
   const resolvedRootClassName = rootClassName ?? "flex min-h-0 flex-col gap-2";
   const resolvedItemClassName =
     itemClassName ??
@@ -61,29 +74,31 @@ export function PaneAccordion({
   const disabledItemValues = new Set(
     items.filter((item) => item.disabled).map((item) => item.value),
   );
-  const resolvedDefaultOpenValues = defaultOpenValues.filter(
-    (value) => !disabledItemValues.has(value),
-  );
-  const hasControlledOpenValues = openValues !== undefined;
-  const resolvedOpenValues =
-    openValues?.filter((value) => !disabledItemValues.has(value)) ?? [];
+  const hasControlledOpenValues = "openValues" in openStateProps;
+  const resolvedDefaultOpenValues = hasControlledOpenValues
+    ? undefined
+    : openStateProps.defaultOpenValues.filter(
+        (value) => !disabledItemValues.has(value),
+      );
+  const resolvedOpenValues = hasControlledOpenValues
+    ? openStateProps.openValues.filter(
+        (value) => !disabledItemValues.has(value),
+      )
+    : undefined;
 
-  const handleOpenValuesChange = (nextOpenValues: Array<string>) => {
-    if (!onOpenValuesChange) {
-      return;
-    }
-    onOpenValuesChange(
-      nextOpenValues.filter((value) => !disabledItemValues.has(value)),
-    );
-  };
+  const handleOpenValuesChange = hasControlledOpenValues
+    ? (nextOpenValues: Array<string>) => {
+        openStateProps.onOpenValuesChange(
+          nextOpenValues.filter((value) => !disabledItemValues.has(value)),
+        );
+      }
+    : undefined;
 
   return (
     <Accordion.Root
       type="multiple"
-      value={hasControlledOpenValues ? resolvedOpenValues : undefined}
-      defaultValue={
-        hasControlledOpenValues ? undefined : resolvedDefaultOpenValues
-      }
+      value={resolvedOpenValues}
+      defaultValue={resolvedDefaultOpenValues}
       onValueChange={handleOpenValuesChange}
       className={resolvedRootClassName}
     >
