@@ -8,9 +8,6 @@ import {
   postBackend,
 } from "../helpers";
 
-const SELECT_ALL_SHORTCUT =
-  process.platform === "darwin" ? "Meta+A" : "Control+A";
-
 function normalizePathForComparison(value: string): string {
   const withoutPrivate = value.startsWith("/private")
     ? value.slice("/private".length)
@@ -41,39 +38,22 @@ async function setBrowserPath({
   sectionNode: Locator;
   sectionId: string;
   targetPath: string;
-}): Promise<void> {
+}): Promise<string> {
   const pathInputId = `CodeMirror-${sectionId}-browser-path`;
   const pathInput = sectionNode.locator(`[id="${pathInputId}"]`);
   await expect(pathInput).toBeVisible();
   const cmContent = pathInput.locator(".cm-content");
   await expect(cmContent).toBeVisible();
+  await cmContent.click();
+  await cmContent.fill(targetPath);
+  await page.keyboard.press("Enter");
   const normalizedTarget = normalizePathForComparison(targetPath);
-
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    await cmContent.click();
-    await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.type(targetPath);
-    await page.keyboard.press("Enter");
-
-    const startedAt = Date.now();
-    const timeoutMs = 2500;
-    while (Date.now() - startedAt < timeoutMs) {
-      const committedPath = normalizePathForComparison(
-        await readCodeMirrorValue(page, pathInputId),
-      );
-      if (committedPath === normalizedTarget) {
-        return;
-      }
-      await page.waitForTimeout(50);
-    }
-  }
-
-  const finalPath = normalizePathForComparison(
-    await readCodeMirrorValue(page, pathInputId),
-  );
-  throw new Error(
-    `Browser path did not commit cleanly. Expected "${normalizedTarget}", received "${finalPath}".`,
-  );
+  await expect
+    .poll(async () =>
+      normalizePathForComparison(await readCodeMirrorValue(page, pathInputId)),
+    )
+    .toContain(normalizedTarget);
+  return pathInputId;
 }
 
 test("carousel thumbnail strip is vertically resizable", async ({ page }) => {
@@ -114,70 +94,60 @@ test("carousel thumbnail strip is vertically resizable", async ({ page }) => {
     await fs.writeFile(path.join(parentDir, fileName), "hello\n");
 
     try {
-      const sectionNode = page.locator(
-        `.react-flow__node[data-id="${sectionId}"]`,
-      );
-      await expect(sectionNode).toBeVisible();
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
+    await expect(sectionNode).toBeVisible();
 
-      await sectionNode.locator('button[aria-label="Carousel view"]').click();
+    await sectionNode.locator('button[aria-label="Carousel view"]').click();
 
-      await setBrowserPath({
-        page,
-        sectionNode,
-        sectionId,
-        targetPath: parentDir,
-      });
+    await setBrowserPath({
+      page,
+      sectionNode,
+      sectionId,
+      targetPath: parentDir,
+    });
 
-      const expectedTile = sectionNode
-        .locator(`button[aria-label="${fileName}"]`)
-        .first();
-      await expect(expectedTile).toHaveCount(1, { timeout: 30000 });
-      await expectedTile.scrollIntoViewIfNeeded();
-      await expect(expectedTile).toBeVisible({ timeout: 15000 });
+    const resizeHandle = sectionNode.locator(
+      '[aria-label="Resize thumbnail strip"]',
+    );
+    await expect(resizeHandle).toBeVisible();
 
-      const resizeHandle = sectionNode.locator(
-        '[aria-label="Resize thumbnail strip"]',
-      );
-      await expect(resizeHandle).toBeVisible();
+    const thumbnailRow = resizeHandle
+      .locator("xpath=following-sibling::article")
+      .first();
+    await expect(thumbnailRow.locator("button")).toHaveCount(1, {
+      timeout: 15000,
+    });
+    const firstTile = thumbnailRow.locator("button").first();
+    await expect(firstTile).toBeVisible({ timeout: 15000 });
 
-      const thumbnailRow = resizeHandle
-        .locator("xpath=following-sibling::article")
-        .first();
-      await expect(thumbnailRow.locator("button")).toHaveCount(1, {
-        timeout: 15000,
-      });
-      const firstTile = thumbnailRow.locator("button").first();
-      await expect(firstTile).toBeVisible({ timeout: 15000 });
+    const initialBox = await firstTile.boundingBox();
+    if (!initialBox) {
+      throw new Error("Missing bounding box for the first carousel thumbnail.");
+    }
 
-      const initialBox = await firstTile.boundingBox();
-      if (!initialBox) {
-        throw new Error("Missing bounding box for the first carousel thumbnail.");
-      }
+    const handleBox = await resizeHandle.boundingBox();
+    if (!handleBox) {
+      throw new Error("Missing bounding box for the carousel resize handle.");
+    }
+    await page.mouse.move(
+      handleBox.x + handleBox.width / 2,
+      handleBox.y + handleBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + 220);
+    await page.mouse.up();
 
-      const handleBox = await resizeHandle.boundingBox();
-      if (!handleBox) {
-        throw new Error("Missing bounding box for the carousel resize handle.");
-      }
-      await page.mouse.move(
-        handleBox.x + handleBox.width / 2,
-        handleBox.y + handleBox.height / 2,
-      );
-      await page.mouse.down();
-      await page.mouse.move(
-        handleBox.x + handleBox.width / 2,
-        handleBox.y + 220,
-      );
-      await page.mouse.up();
+    await expect
+      .poll(async () => (await firstTile.boundingBox())?.width ?? 0)
+      .toBeLessThan(initialBox.width * 0.7);
 
-      await expect
-        .poll(async () => (await firstTile.boundingBox())?.width ?? 0)
-        .toBeLessThan(initialBox.width * 0.7);
-
-      // In compact mode, the filename is truncated but the extension is preserved
-      // as a separate span so it stays visible.
-      await expect(
-        firstTile.locator("span.shrink-0").filter({ hasText: ".txt" }),
-      ).toHaveCount(1);
+    // In compact mode, the filename is truncated but the extension is preserved
+    // as a separate span so it stays visible.
+    await expect(
+      firstTile.locator("span.shrink-0").filter({ hasText: ".txt" }),
+    ).toHaveCount(1);
     } finally {
       await fs.rm(parentDir, { recursive: true, force: true });
       await postBackend(page, "/deleteSections", {

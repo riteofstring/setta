@@ -21,3 +21,19 @@ Prevent pane content from bleeding outside the right edge and keep all pane layo
 - Run relevant frontend tests for pane components.
 - Run/extend Playwright coverage for pane overflow regressions.
 - CDP visual check for pane-heavy views at multiple viewport sizes.
+
+## Status
+- Completed on 2026-02-14.
+
+## Implementation Notes
+- Tightened pane container overflow behavior and width constraints in overview/ui-editor pane shells so content is clipped at pane boundaries.
+- Added overflow-safe classes for high-risk tab content containers (project configs, section config, UI config, quick info config).
+- Added deterministic pane-rail `data-testid` hooks used by regression tests.
+
+## Verification Summary
+- Playwright:
+  - `frontend/tests/e2e/overview/pane-content-overflow.spec.ts`
+  - `frontend/tests/e2e/overview/custom-runs-pane-overflow.spec.ts`
+- CDP geometry check (multi-tab pass):
+  - Overview tabs (`run-instructions`, `project-configs`, `notifications`, `backend-logs`) max right overflow <= 4 px.
+  - UI editor tabs (`section-config`, `ui-config`, `quick-info-config`, `section-variants-config`) max right overflow <= 0 px.

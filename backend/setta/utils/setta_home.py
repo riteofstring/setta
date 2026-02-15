@@ -5,29 +5,28 @@ from pathlib import Path
 from setta.utils.env_vars import SETTA_HOME_ENV
 
 
-def resolve_setta_home(*, allow_env_override: bool = True) -> Path:
+def resolve_setta_home() -> Path:
     """Return the per-user Setta directory (<setta_home>).
 
     - Unix/macOS: ~/.setta
-    - Windows: %APPDATA%\\.setta
+    - Windows: %APPDATA%\\Setta
 
-    Tests can override via SETTA_HOME unless allow_env_override=False.
+    Tests can override via SETTA_HOME.
     """
 
-    if allow_env_override:
-        raw_override = os.environ.get(SETTA_HOME_ENV)
-        if raw_override is not None:
-            trimmed = raw_override.strip()
-            if trimmed:
-                return Path(os.path.expandvars(os.path.expanduser(trimmed))).resolve(
-                    strict=False
-                )
+    raw_override = os.environ.get(SETTA_HOME_ENV)
+    if raw_override is not None:
+        trimmed = raw_override.strip()
+        if trimmed:
+            return Path(os.path.expandvars(os.path.expanduser(trimmed))).resolve(
+                strict=False
+            )
 
     if sys.platform == "win32":
         raw_appdata = os.environ.get("APPDATA", "").strip()
         if raw_appdata:
-            return (Path(raw_appdata) / ".setta").resolve(strict=False)
-        return (Path.home() / "AppData" / "Roaming" / ".setta").resolve(strict=False)
+            return (Path(raw_appdata) / "Setta").resolve(strict=False)
+        return (Path.home() / "AppData" / "Roaming" / "Setta").resolve(strict=False)
 
     return (Path.home() / ".setta").resolve(strict=False)
 

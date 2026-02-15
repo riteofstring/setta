@@ -313,6 +313,15 @@ html.dark body {
   }
 }
 
+/* Keep pane scrollbars visually offset from content while preserving layout width. */
+.setta-pane-scroll {
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  padding-left: 0.375rem;
+  padding-right: 0.375rem;
+}
+
 .js-focus-visible :focus:not([data-focus-visible-added]) {
   outline: none;
   box-shadow: none;
