@@ -58,19 +58,7 @@ type ChatSectionSettingsPayload = {
   thinking: boolean;
   permissionMode: "minimal" | "yolo" | "config_toml_custom";
   searchEnabled: boolean;
-  dictationMode: "auto" | "browser" | "provider";
 };
-
-const DICTATION_MODE_ITEMS: AllItemsType<string> = [
-  {
-    group: "Dictation Modes",
-    items: [
-      { id: "auto", name: "Auto" },
-      { id: "browser", name: "Browser" },
-      { id: "provider", name: "Provider" },
-    ],
-  },
-];
 
 export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   useHydrateLLMState();
@@ -86,7 +74,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     thinking,
     permissionMode,
     searchEnabled,
-    dictationMode,
     isFrozen,
   } = useProjectState((state) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -101,7 +88,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       thinking: impl.thinking,
       permissionMode: impl.permissionMode,
       searchEnabled: impl.searchEnabled,
-      dictationMode: impl.dictationMode,
       isFrozen: impl.isFrozen,
     };
   }, _.isEqual);
@@ -237,15 +223,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
-  const selectedTranscriptionLLMConfigId = useMemo(() => {
-    if (!selectedEngineConfig) {
-      return null;
-    }
-    if (selectedEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
-      return null;
-    }
-    return selectedEngineConfig.transcriptionLlmConfigId ?? null;
-  }, [selectedEngineConfig]);
 
   const sectionLabelsById = useMemo(() => {
     const labels: Record<string, string> = {};
@@ -444,7 +421,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             thinking: nextSettings.thinking,
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
-            dictationMode: nextSettings.dictationMode,
           });
         },
         send: (frontendOpId) =>
@@ -457,7 +433,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             thinking: nextSettings.thinking,
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
-            dictationMode: nextSettings.dictationMode,
             frontendOpId,
           }),
       });
@@ -474,7 +449,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         thinking,
         permissionMode,
         searchEnabled,
-        dictationMode,
       });
     },
     [
@@ -483,7 +457,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       permissionMode,
       searchEnabled,
       thinking,
-      dictationMode,
       updateSettings,
     ],
   );
@@ -497,7 +470,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         thinking: value,
         permissionMode,
         searchEnabled,
-        dictationMode,
       });
     },
     [
@@ -506,7 +478,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       managed,
       permissionMode,
       searchEnabled,
-      dictationMode,
       updateSettings,
     ],
   );
@@ -530,50 +501,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [isDisabled, selectedEngineConfig],
   );
-  const handleTranscriptionLLMConfigChange = useCallback(
-    (value: string | null) => {
-      if (isDisabled) {
-        return;
-      }
-      if (!selectedEngineConfig) {
-        return;
-      }
-      if (selectedEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
-        return;
-      }
-      const nextConfig = {
-        ...selectedEngineConfig,
-        transcriptionLlmConfigId: value,
-      };
-      void updateEngineConfig({ config: nextConfig });
-    },
-    [isDisabled, selectedEngineConfig],
-  );
-  const handleDictationModeChange = useCallback(
-    (value: string | null) => {
-      const nextMode =
-        value === "browser" || value === "provider" ? value : "auto";
-      updateSettings({
-        managed,
-        engineConfigId,
-        agentProfileId,
-        thinking,
-        permissionMode,
-        searchEnabled,
-        dictationMode: nextMode,
-      });
-    },
-    [
-      agentProfileId,
-      dictationMode,
-      engineConfigId,
-      managed,
-      permissionMode,
-      searchEnabled,
-      thinking,
-      updateSettings,
-    ],
-  );
 
   const handleAgentProfileChange = useCallback(
     (value: string | null) => {
@@ -584,7 +511,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         thinking,
         permissionMode,
         searchEnabled,
-        dictationMode,
       });
     },
     [
@@ -592,7 +518,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       managed,
       permissionMode,
       searchEnabled,
-      dictationMode,
       thinking,
       updateSettings,
     ],
@@ -671,7 +596,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
         thinking,
         permissionMode,
         searchEnabled,
-        dictationMode,
       });
       if (nextEngineId !== selectedEngineId) {
         handleNewChat();
@@ -684,7 +608,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       permissionMode,
       searchEnabled,
       selectedEngineId,
-      dictationMode,
       thinking,
       updateSettings,
     ],
@@ -791,37 +714,8 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                   selectedItemCanBeNull
                 />
               </div>
-              <div className="flex w-full flex-col gap-2">
-                <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-                  Transcription Config
-                </p>
-                <IdNameCombobox
-                  allItems={availableConfigGroups}
-                  value={selectedTranscriptionLLMConfigId}
-                  small={false}
-                  onSelectedItemChange={handleTranscriptionLLMConfigChange}
-                  placeholder="Select a transcription config"
-                  outerDivClasses="justify-center"
-                  isDisabled={isDisabled}
-                  selectedItemCanBeNull
-                />
-              </div>
             </>
           ) : null}
-          <div className="flex w-full flex-col gap-2">
-            <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-              Dictation Mode
-            </p>
-            <IdNameCombobox
-              allItems={DICTATION_MODE_ITEMS}
-              value={dictationMode}
-              small={false}
-              onSelectedItemChange={handleDictationModeChange}
-              placeholder="Select dictation mode"
-              outerDivClasses="justify-center"
-              isDisabled={isDisabled}
-            />
-          </div>
           <div className="flex justify-end">
             <button
               type="button"

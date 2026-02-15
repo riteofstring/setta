@@ -20,10 +20,10 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
       contentType: "application/json",
       body: JSON.stringify([
         {
-          skillId: "workspace_skills::ui-layout",
+          skillId: "workspace_agents_skills::ui-layout",
           name: "ui-layout",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
           relativePath: "ui-layout",
           description: "Create dense dashboard layouts.",
         },
@@ -68,7 +68,7 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: payload.skillId ?? "workspace_skills::ui-layout",
+        skillId: payload.skillId ?? "workspace_agents_skills::ui-layout",
         content: "# UI Layout\n\nCreate dense dashboard layouts.",
       }),
     });
@@ -83,7 +83,7 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await toggleButton.click();
 
   await expect(page.getByText(/^Skills$/)).toBeVisible();
-  await expect(page.getByText("/workspace/skills")).toBeVisible();
+  await expect(page.getByText("/workspace/.agents/skills")).toBeVisible();
   await expect(page.getByText("/home/.codex/skills")).toBeVisible();
   await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
   await expect(
@@ -115,10 +115,12 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await expect(page.getByText(/setta.*sse/i)).toBeVisible();
   await expect(page.getByText(/context7.*stdio/i)).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Copy path for Workspace skills/i }),
+    page.getByRole("button", { name: "Copy path for Workspace .agents/skills" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Reveal path for Workspace skills/i }),
+    page.getByRole("button", {
+      name: "Reveal path for Workspace .agents/skills",
+    }),
   ).toBeVisible();
   await expect(page.getByLabel("Filter MCP tools")).toHaveCount(0);
   await expect(page.getByText("Viewer only:")).toHaveCount(0);
@@ -188,10 +190,10 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
       contentType: "application/json",
       body: JSON.stringify([
         {
-          skillId: "workspace_skills::ui-layout",
+          skillId: "workspace_agents_skills::ui-layout",
           name: "ui-layout",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
           relativePath: "ui-layout",
           description: "Create dense dashboard layouts.",
         },
@@ -238,7 +240,7 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: payload.skillId ?? "workspace_skills::ui-layout",
+        skillId: payload.skillId ?? "workspace_agents_skills::ui-layout",
         content: "# UI Layout\n\nCreate dense dashboard layouts.",
       }),
     });
@@ -270,27 +272,27 @@ test("project ai chat keeps skills list stable during selection and ignores stal
     skillsFetchCount += 1;
     const skills = [
       {
-        skillId: "workspace_skills::alpha-skill",
+        skillId: "workspace_agents_skills::alpha-skill",
         name: "alpha-skill",
-        rootLabel: "Workspace skills",
-        rootPath: "/workspace/skills",
+        rootLabel: "Workspace .agents/skills",
+        rootPath: "/workspace/.agents/skills",
         relativePath: "alpha-skill",
         description: "Alpha skill",
       },
       {
-        skillId: "workspace_skills::beta-skill",
+        skillId: "workspace_agents_skills::beta-skill",
         name: "beta-skill",
-        rootLabel: "Workspace skills",
-        rootPath: "/workspace/skills",
+        rootLabel: "Workspace .agents/skills",
+        rootPath: "/workspace/.agents/skills",
         relativePath: "beta-skill",
         description: "Beta skill",
       },
       ...Array.from({ length: 203 }, (_, index) => {
         return {
-          skillId: `workspace_skills::skill-${index}`,
+          skillId: `workspace_agents_skills::skill-${index}`,
           name: `skill-${index}`,
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
           relativePath: `skill-${index}`,
           description: `Skill ${index}`,
         };
@@ -356,10 +358,10 @@ test("project ai chat keeps skills list stable during selection and ignores stal
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
   await expect.poll(() => skillContentRequestCount).toBe(1);
   const markdown = page.getByLabel("Skill Markdown Content");
-  await expect(markdown).toContainText("workspace_skills::beta-skill");
+  await expect(markdown).toContainText("workspace_agents_skills::beta-skill");
   await page.waitForTimeout(700);
-  await expect(markdown).toContainText("workspace_skills::beta-skill");
-  await expect(markdown).not.toContainText("workspace_skills::alpha-skill");
+  await expect(markdown).toContainText("workspace_agents_skills::beta-skill");
+  await expect(markdown).not.toContainText("workspace_agents_skills::alpha-skill");
 });
 
 test("project ai chat clears stale markdown when viewer is collapsed during an in-flight request", async ({
@@ -376,18 +378,18 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
       contentType: "application/json",
       body: JSON.stringify([
         {
-          skillId: "workspace_skills::alpha-skill",
+          skillId: "workspace_agents_skills::alpha-skill",
           name: "alpha-skill",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
           relativePath: "alpha-skill",
           description: "Alpha skill",
         },
         {
-          skillId: "workspace_skills::beta-skill",
+          skillId: "workspace_agents_skills::beta-skill",
           name: "beta-skill",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
           relativePath: "beta-skill",
           description: "Beta skill",
         },
@@ -446,9 +448,9 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
   const markdown = page.getByLabel("Skill Markdown Content");
   await expect(markdown).toBeVisible();
   const immediateText = (await markdown.textContent()) ?? "";
-  expect(immediateText).not.toContain("workspace_skills::alpha-skill");
-  await expect(markdown).toContainText("workspace_skills::beta-skill");
-  await expect(markdown).not.toContainText("workspace_skills::alpha-skill");
+  expect(immediateText).not.toContain("workspace_agents_skills::alpha-skill");
+  await expect(markdown).toContainText("workspace_agents_skills::beta-skill");
+  await expect(markdown).not.toContainText("workspace_agents_skills::alpha-skill");
 });
 
 test("project ai chat refresh updates selected markdown content without requiring reselection", async ({
@@ -465,10 +467,10 @@ test("project ai chat refresh updates selected markdown content without requirin
       contentType: "application/json",
       body: JSON.stringify([
         {
-          skillId: "workspace_skills::ui-layout",
+          skillId: "workspace_agents_skills::ui-layout",
           name: "ui-layout",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
           relativePath: "ui-layout",
           description: "Create dense dashboard layouts.",
         },
@@ -496,7 +498,7 @@ test("project ai chat refresh updates selected markdown content without requirin
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: "workspace_skills::ui-layout",
+        skillId: "workspace_agents_skills::ui-layout",
         content: `# UI Layout\n\nRevision ${skillContentVersion}`,
       }),
     });
@@ -530,10 +532,10 @@ test("project ai chat keeps existing skills and markdown preview on refresh fail
         contentType: "application/json",
         body: JSON.stringify([
           {
-            skillId: "workspace_skills::ui-layout",
+            skillId: "workspace_agents_skills::ui-layout",
             name: "ui-layout",
-            rootLabel: "Workspace skills",
-            rootPath: "/workspace/skills",
+            rootLabel: "Workspace .agents/skills",
+            rootPath: "/workspace/.agents/skills",
             relativePath: "ui-layout",
             description: "Create dense dashboard layouts.",
           },
@@ -570,7 +572,7 @@ test("project ai chat keeps existing skills and markdown preview on refresh fail
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: "workspace_skills::ui-layout",
+        skillId: "workspace_agents_skills::ui-layout",
         content: "# UI Layout\n\nStable preview",
       }),
     });
@@ -612,10 +614,10 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
         contentType: "application/json",
         body: JSON.stringify([
           {
-            skillId: "workspace_skills::baseline",
+            skillId: "workspace_agents_skills::baseline",
             name: "baseline",
-            rootLabel: "Workspace skills",
-            rootPath: "/workspace/skills",
+            rootLabel: "Workspace .agents/skills",
+            rootPath: "/workspace/.agents/skills",
             relativePath: "baseline",
             description: "Baseline skill",
           },
@@ -630,10 +632,10 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
         contentType: "application/json",
         body: JSON.stringify([
           {
-            skillId: "workspace_skills::fresh-skill",
+            skillId: "workspace_agents_skills::fresh-skill",
             name: "fresh-skill",
-            rootLabel: "Workspace skills",
-            rootPath: "/workspace/skills",
+            rootLabel: "Workspace .agents/skills",
+            rootPath: "/workspace/.agents/skills",
             relativePath: "fresh-skill",
             description: "Fresh result",
           },
@@ -663,8 +665,8 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: payload.skillId ?? "workspace_skills::baseline",
-        content: `# ${(payload.skillId ?? "workspace_skills::baseline").trim()}`,
+        skillId: payload.skillId ?? "workspace_agents_skills::baseline",
+        content: `# ${(payload.skillId ?? "workspace_agents_skills::baseline").trim()}`,
       }),
     });
   });
@@ -699,10 +701,10 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
       contentType: "application/json",
       body: JSON.stringify([
         {
-          skillId: "workspace_skills::ui-layout",
+          skillId: "workspace_agents_skills::ui-layout",
           name: "ui-layout",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
           relativePath: "ui-layout",
           description: "Create dense dashboard layouts.",
         },
@@ -728,7 +730,7 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: "workspace_skills::ui-layout",
+        skillId: "workspace_agents_skills::ui-layout",
         content: "# UI Layout",
       }),
     });
@@ -750,7 +752,7 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
   await page.getByRole("button", { name: "View Skills and MCP" }).click();
 
   await page
-    .getByRole("button", { name: /Reveal path for Workspace skills/i })
+    .getByRole("button", { name: "Reveal path for Workspace .agents/skills" })
     .click();
   await expect(
     page.getByText("Failed to reveal path: Reveal is disabled for this path."),
@@ -771,10 +773,10 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
       contentType: "application/json",
       body: JSON.stringify([
         {
-          skillId: "workspace_skills::ui-layout",
+          skillId: "workspace_agents_skills::ui-layout",
           name: "ui-layout",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
           relativePath: "ui-layout",
           description: "Create dense dashboard layouts.",
         },
@@ -820,7 +822,7 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        skillId: payload.skillId ?? "workspace_skills::ui-layout",
+        skillId: payload.skillId ?? "workspace_agents_skills::ui-layout",
         content: "# UI Layout\n\nPreview body",
         truncated: true,
         originalSizeBytes: 900000,

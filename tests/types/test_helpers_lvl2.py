@@ -67,7 +67,6 @@ from setta.types.section_impls import (
     BaseDictSectionImpl,
     BaseParentSectionImpl,
     CallableSectionImpl,
-    ChatDictationMode,
     ChatPermissionMode,
     ChatSectionImpl,
     ListRootSectionImpl,
@@ -341,7 +340,6 @@ class TestChatSectionChatId:
             thinking=True,
             permissionMode=ChatPermissionMode.yolo,
             searchEnabled=False,
-            dictationMode=ChatDictationMode.provider,
         )
 
         section_impl = get_curr_effective_section_impl_with_type_guard(
@@ -355,7 +353,6 @@ class TestChatSectionChatId:
         assert section_impl.thinking
         assert section_impl.permissionMode == ChatPermissionMode.yolo
         assert not section_impl.searchEnabled
-        assert section_impl.dictationMode == ChatDictationMode.provider
 
 
 class TestPromptSection:
