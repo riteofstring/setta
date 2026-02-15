@@ -156,17 +156,6 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
 
             turn_params = _build_turn_params(context, prompt, thread_id)
             await self._send_request(state, "turn/start", turn_params)
-            try:
-                mcp_status_payload = await self._send_request(
-                    state, "mcpServerStatus/list", {}
-                )
-                handle.metadata["mcp_server_status_payload"] = mcp_status_payload
-            except Exception as exc:
-                logger.debug(
-                    "Codex MCP status request failed (run_id=%s): %s",
-                    handle.run_id,
-                    exc,
-                )
             return handle
         except Exception:
             state.lock.release()

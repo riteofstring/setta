@@ -12,6 +12,7 @@ from setta.types.section_impls import (
     SectionType,
     SectionSize,
     SectionSizeMode,
+    TaskBoardSectionImpl,
 )
 from setta.types.settings_state import SectionSizingPolicy
 
@@ -61,3 +62,35 @@ def test_chat_section_settings_round_trip_without_legacy_skills_field() -> None:
         ChatSectionImpl,
     )
     assert "skillsEnabled" not in reloaded_chat_impl.model_dump(mode="python")
+
+
+def test_task_board_model_defaults_to_empty_columns() -> None:
+    assert TaskBoardSectionImpl().columns == []
+
+
+def test_create_top_level_task_board_populates_default_columns() -> None:
+    settings = SettingsState()
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="test"))
+    section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.TaskBoard,
+        Position(),
+    )
+    task_board_impl = get_curr_effective_section_impl_with_type_guard(
+        project_state,
+        section_id,
+        TaskBoardSectionImpl,
+    )
+    assert [column.name for column in task_board_impl.columns] == [
+        "Todo",
+        "Doing",
+        "Done",
+    ]
+    assert [column.color for column in task_board_impl.columns] == [
+        "#3b82f6",
+        "#a855f7",
+        "#10b981",
+    ]
+    assert [column.sortIndex for column in task_board_impl.columns] == [0, 1, 2]
+    assert len({column.id for column in task_board_impl.columns}) == 3
