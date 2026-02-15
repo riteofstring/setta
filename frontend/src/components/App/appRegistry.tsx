@@ -6,6 +6,7 @@ import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { RotaryInput } from "components/Params/ParamUIs/RotaryInput";
 import { SliderInput } from "components/Params/ParamUIs/SliderInput";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
+import { TextParamDateTimeInput } from "components/Params/ParamUIs/TextParamInput";
 import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import "katex/dist/katex.min.css";
@@ -53,6 +54,10 @@ import {
   BaseSectionImplUnion,
   CodeObjTypeEnum,
   ConfigLanguageEnum,
+  DateCalendarWeekStartEnum,
+  DateControlModeEnum,
+  DateDisplayFormatEnum,
+  DateSelectionModeEnum,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   DropzoneModeEnum,
@@ -61,8 +66,13 @@ import {
   LiteralDependencyValue,
   SectionTypeEnum,
   TextBlockFormatEnum,
+  TextParamInputUITypeEnum,
+  TimeControlModeEnum,
+  TimeDisplayFontEnum,
+  TimeDisplayFormatEnum,
 } from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
+import { buildTextBlockTypographyScale } from "utils/textBlockTypography";
 import {
   resolveActionBinding,
   resolveActionType,
@@ -918,7 +928,6 @@ function AppParamUI({
 
   switch (codeObjType) {
     case CodeObjTypeEnum.CodeParam:
-    case CodeObjTypeEnum.TextParam:
     case CodeObjTypeEnum.TextAreaParam: {
       return (
         <>
@@ -945,6 +954,167 @@ function AppParamUI({
             className={`section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]`}
           />
         </>
+      );
+    }
+    case CodeObjTypeEnum.TextParam: {
+      const textParamUiType =
+        "uiType" in codeObjImpl
+          ? codeObjImpl.uiType
+          : TextParamInputUITypeEnum.plain;
+      if (textParamUiType !== TextParamInputUITypeEnum.plain) {
+        const timeDisplayFormat =
+          "timeDisplayFormat" in codeObjImpl
+            ? codeObjImpl.timeDisplayFormat
+            : TimeDisplayFormatEnum.twenty_four_hour;
+        const timeDisplayTransparent =
+          "timeDisplayTransparent" in codeObjImpl
+            ? codeObjImpl.timeDisplayTransparent
+            : false;
+        const timeDisplayScale =
+          "timeDisplayScale" in codeObjImpl ? codeObjImpl.timeDisplayScale : 1;
+        const timeDisplayFont =
+          "timeDisplayFont" in codeObjImpl
+            ? codeObjImpl.timeDisplayFont
+            : TimeDisplayFontEnum.monospace;
+        const timeControlMode =
+          "timeControlMode" in codeObjImpl
+            ? codeObjImpl.timeControlMode
+            : TimeControlModeEnum.display;
+        const dateDisplayFormat =
+          "dateDisplayFormat" in codeObjImpl
+            ? codeObjImpl.dateDisplayFormat
+            : DateDisplayFormatEnum.iso;
+        const dateControlMode =
+          "dateControlMode" in codeObjImpl
+            ? codeObjImpl.dateControlMode
+            : DateControlModeEnum.input;
+        const dateSelectionMode =
+          "dateSelectionMode" in codeObjImpl
+            ? codeObjImpl.dateSelectionMode
+            : DateSelectionModeEnum.single;
+        const dateCalendarWeekStart =
+          "dateCalendarWeekStart" in codeObjImpl
+            ? codeObjImpl.dateCalendarWeekStart
+            : DateCalendarWeekStartEnum.sunday;
+        const dateIncludesTime =
+          "dateIncludesTime" in codeObjImpl
+            ? codeObjImpl.dateIncludesTime
+            : false;
+        return (
+          <TextParamDateTimeInput
+            value={stringValue}
+            onChange={onChange}
+            onEscape={onEscape}
+            isDisabled={isDisabled}
+            uiType={textParamUiType}
+            timeControlMode={timeControlMode}
+            timeDisplayFormat={timeDisplayFormat}
+            timeDisplayTransparent={timeDisplayTransparent}
+            timeDisplayScale={timeDisplayScale}
+            timeDisplayFont={timeDisplayFont}
+            dateDisplayFormat={dateDisplayFormat}
+            dateControlMode={dateControlMode}
+            dateSelectionMode={dateSelectionMode}
+            dateCalendarWeekStart={dateCalendarWeekStart}
+            dateIncludesTime={dateIncludesTime}
+            inputClassName={`${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]`}
+            formattedValueClassName="text-[10px] font-mono text-[color:var(--app-muted)]"
+            borderClassName="section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]"
+          />
+        );
+      }
+      return (
+        <>
+          <TextInputCodeMirror
+            dummyDivId={`${sectionId}-${paramInfoId}-ParamInput`}
+            sectionId={sectionId}
+            paramInfoId={paramInfoId}
+            value={stringValue}
+            defaultVal={_.toString(defaultVal ?? "")}
+            onChange={onChange}
+            onEscape={(completionResult) => {
+              if (!completionResult) {
+                onEscape();
+              }
+            }}
+            dummyCodeClassName={`${NO_PAN_CLASS_NAME} section-value self-end peer/textinput nodrag ${!isDisabled ? "cursor-text select-text" : ""} break-words font-mono text-xs [tab-size:4] [word-break:break-word] py-[.125rem]`}
+            realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-[color:var(--app-surface-alt)] [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
+            language={configLanguage}
+            isDisabled={isDisabled}
+            tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+            autocomplete={false}
+          />
+          <span
+            className={`section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]`}
+          />
+        </>
+      );
+    }
+    case CodeObjTypeEnum.TimeParam:
+    case CodeObjTypeEnum.DateParam: {
+      const timeDisplayFormat =
+        "timeDisplayFormat" in codeObjImpl
+          ? codeObjImpl.timeDisplayFormat
+          : TimeDisplayFormatEnum.twenty_four_hour;
+      const timeDisplayTransparent =
+        "timeDisplayTransparent" in codeObjImpl
+          ? codeObjImpl.timeDisplayTransparent
+          : false;
+      const timeDisplayScale =
+        "timeDisplayScale" in codeObjImpl ? codeObjImpl.timeDisplayScale : 1;
+      const timeDisplayFont =
+        "timeDisplayFont" in codeObjImpl
+          ? codeObjImpl.timeDisplayFont
+          : TimeDisplayFontEnum.monospace;
+      const timeControlMode =
+        "timeControlMode" in codeObjImpl
+          ? codeObjImpl.timeControlMode
+          : TimeControlModeEnum.display;
+      const dateDisplayFormat =
+        "dateDisplayFormat" in codeObjImpl
+          ? codeObjImpl.dateDisplayFormat
+          : DateDisplayFormatEnum.iso;
+      const dateControlMode =
+        "dateControlMode" in codeObjImpl
+          ? codeObjImpl.dateControlMode
+          : DateControlModeEnum.input;
+      const dateSelectionMode =
+        "dateSelectionMode" in codeObjImpl
+          ? codeObjImpl.dateSelectionMode
+          : DateSelectionModeEnum.single;
+      const dateCalendarWeekStart =
+        "dateCalendarWeekStart" in codeObjImpl
+          ? codeObjImpl.dateCalendarWeekStart
+          : DateCalendarWeekStartEnum.sunday;
+      const dateIncludesTime =
+        "dateIncludesTime" in codeObjImpl
+          ? codeObjImpl.dateIncludesTime
+          : false;
+      const uiType =
+        codeObjType === CodeObjTypeEnum.TimeParam
+          ? TextParamInputUITypeEnum.time
+          : TextParamInputUITypeEnum.date;
+      return (
+        <TextParamDateTimeInput
+          value={stringValue}
+          onChange={onChange}
+          onEscape={onEscape}
+          isDisabled={isDisabled}
+          uiType={uiType}
+          timeControlMode={timeControlMode}
+          timeDisplayFormat={timeDisplayFormat}
+          timeDisplayTransparent={timeDisplayTransparent}
+          timeDisplayScale={timeDisplayScale}
+          timeDisplayFont={timeDisplayFont}
+          dateDisplayFormat={dateDisplayFormat}
+          dateControlMode={dateControlMode}
+          dateSelectionMode={dateSelectionMode}
+          dateCalendarWeekStart={dateCalendarWeekStart}
+          dateIncludesTime={dateIncludesTime}
+          inputClassName={`${!isDisabled ? "cursor-text select-text" : ""} nodrag peer/textinput flex min-w-0 flex-1 self-center font-mono [font-size:var(--app-text-xs)] text-[color:var(--app-text)]`}
+          formattedValueClassName="text-[10px] font-mono text-[color:var(--app-muted)]"
+          borderClassName="section-value grid-row-start-1 border-box self-end border-b border-[color:var(--app-border)] peer-focus-within/textinput:border-[color:var(--app-accent)]"
+        />
       );
     }
     case CodeObjTypeEnum.SliderParam: {
@@ -1320,7 +1490,11 @@ function TextOutput({ element }: AppComponentProps) {
     if (effectiveImpl.type !== SectionTypeEnum.TextBlock) {
       return null;
     }
-    return { text: effectiveImpl.text, format: effectiveImpl.format };
+    return {
+      text: effectiveImpl.text,
+      format: effectiveImpl.format,
+      masterFontSizePx: effectiveImpl.masterFontSizePx,
+    };
   }, [configState, resolvedConfigId, sectionId]);
 
   if (!resolvedConfigId || !sectionId || !textData) {
@@ -1331,7 +1505,18 @@ function TextOutput({ element }: AppComponentProps) {
     );
   }
 
-  const { text, format } = textData;
+  const { text, format, masterFontSizePx } = textData;
+  const typography = buildTextBlockTypographyScale(masterFontSizePx);
+  const markdownTypographyStyle: React.CSSProperties = {
+    "--setta-textblock-body-size": `${typography.bodyPx}px`,
+    "--setta-textblock-code-size": `${typography.codePx}px`,
+    "--setta-textblock-h1-size": `${typography.h1Px}px`,
+    "--setta-textblock-h2-size": `${typography.h2Px}px`,
+    "--setta-textblock-h3-size": `${typography.h3Px}px`,
+    "--setta-textblock-h4-size": `${typography.h4Px}px`,
+    "--setta-textblock-h5-size": `${typography.h5Px}px`,
+    "--setta-textblock-h6-size": `${typography.h6Px}px`,
+  };
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-[color:var(--app-border)] bg-[color:var(--app-surface)] p-3">
@@ -1344,13 +1529,17 @@ function TextOutput({ element }: AppComponentProps) {
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeKatex]}
-          className="prose prose-sm max-w-none text-[color:var(--app-text)] dark:prose-invert"
+          className="prose max-w-none text-[color:var(--app-text)] dark:prose-invert prose-h1:text-[length:var(--setta-textblock-h1-size)] prose-h2:text-[length:var(--setta-textblock-h2-size)] prose-h3:text-[length:var(--setta-textblock-h3-size)] prose-h4:text-[length:var(--setta-textblock-h4-size)] prose-h5:text-[length:var(--setta-textblock-h5-size)] prose-h6:text-[length:var(--setta-textblock-h6-size)] prose-p:text-[length:var(--setta-textblock-body-size)] prose-code:text-[length:var(--setta-textblock-code-size)] prose-pre:text-[length:var(--setta-textblock-code-size)] prose-li:text-[length:var(--setta-textblock-body-size)]"
+          style={markdownTypographyStyle}
           components={{ code: CodeBlock }}
         >
           {text}
         </ReactMarkdown>
       ) : (
-        <pre className="whitespace-pre-wrap text-[color:var(--app-text)] [font-size:var(--app-text-xs)]">
+        <pre
+          className="whitespace-pre-wrap text-[color:var(--app-text)]"
+          style={{ fontSize: `${typography.bodyPx}px` }}
+        >
           {text}
         </pre>
       )}

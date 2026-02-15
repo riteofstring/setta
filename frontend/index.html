@@ -26,9 +26,7 @@
           } else {
             document.documentElement.classList.remove("dark");
           }
-          const themeMeta = document.querySelector(
-            'meta[name="theme-color"]',
-          );
+          const themeMeta = document.querySelector('meta[name="theme-color"]');
           if (themeMeta) {
             themeMeta.setAttribute(
               "content",
@@ -50,6 +48,7 @@
       id="root"
       class="app-shell flex h-screen w-screen flex-col items-center font-sans"
     ></main>
+    <div id="portal"></div>
 
     <script type="module" src="/src/index.tsx"></script>
   </body>
