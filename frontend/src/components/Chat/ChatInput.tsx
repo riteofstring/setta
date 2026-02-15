@@ -703,7 +703,7 @@ export const ChatInput = memo(function ChatInput({
       return;
     }
     const recognition = new RecognitionCtor();
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-US";
     recognition.onresult = (event) => {
@@ -733,9 +733,22 @@ export const ChatInput = memo(function ChatInput({
       dictationSourceRef.current = null;
     };
     recognition.onend = () => {
-      setDictationState((state) => (state === "error" ? "error" : "idle"));
-      recognitionRef.current = null;
-      dictationSourceRef.current = null;
+      const shouldContinueListening =
+        recognitionRef.current === recognition &&
+        dictationSourceRef.current === "browser";
+      if (!shouldContinueListening) {
+        return;
+      }
+      try {
+        recognition.start();
+        setDictationState("listening");
+        setDictationFeedback("Listening...");
+      } catch {
+        recognitionRef.current = null;
+        dictationSourceRef.current = null;
+        setDictationState("error");
+        setDictationFeedback(mapDictationError(undefined));
+      }
     };
     recognitionRef.current = recognition;
     dictationSourceRef.current = "browser";

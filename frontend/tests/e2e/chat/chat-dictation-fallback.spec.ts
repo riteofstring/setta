@@ -102,6 +102,130 @@ test("project chat falls back to browser dictation when provider capture fails i
   }
 });
 
+test("project chat keeps browser fallback dictation active until the user stops", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    class MockSpeechRecognition {
+      continuous = false;
+      interimResults = false;
+      lang = "en-US";
+      onresult: ((event: unknown) => void) | null = null;
+      onerror: ((event: { error?: string }) => void) | null = null;
+      onend: (() => void) | null = null;
+
+      start() {
+        const withState = window as Window & {
+          __browserDictationStartCount?: number;
+        };
+        withState.__browserDictationStartCount =
+          (withState.__browserDictationStartCount ?? 0) + 1;
+        if (withState.__browserDictationStartCount === 1) {
+          setTimeout(() => {
+            if (this.onend) {
+              this.onend();
+            }
+          }, 0);
+        }
+      }
+
+      stop() {
+        if (this.onend) {
+          this.onend();
+        }
+      }
+    }
+
+    class MockMediaRecorder {
+      static isTypeSupported(_mimeType: string) {
+        return true;
+      }
+
+      mimeType = "audio/webm";
+      state = "inactive";
+      ondataavailable: ((event: { data?: Blob }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      onstop: (() => void) | null = null;
+
+      start() {
+        this.state = "recording";
+      }
+
+      stop() {
+        this.state = "inactive";
+        if (this.onstop) {
+          this.onstop();
+        }
+      }
+    }
+
+    Object.defineProperty(window, "SpeechRecognition", {
+      value: MockSpeechRecognition,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitSpeechRecognition", {
+      value: MockSpeechRecognition,
+      configurable: true,
+    });
+    Object.defineProperty(window, "MediaRecorder", {
+      value: MockMediaRecorder,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: {
+        getUserMedia: () => Promise.reject(new Error("denied")),
+      },
+      configurable: true,
+    });
+    (
+      window as Window & { __readBrowserDictationStartCount?: () => number }
+    ).__readBrowserDictationStartCount = () => {
+      const withState = window as Window & {
+        __browserDictationStartCount?: number;
+      };
+      return withState.__browserDictationStartCount ?? 0;
+    };
+  });
+
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    const micButton = overviewPane.getByRole("button", { name: "Mic" });
+    await expect(micButton).toBeVisible();
+    await micButton.click();
+
+    // Simulate browser recognition ending once and verify we auto-restart.
+    await expect
+      .poll(async () => {
+        return await page.evaluate(() => {
+          const reader = (
+            window as Window & { __readBrowserDictationStartCount?: () => number }
+          ).__readBrowserDictationStartCount;
+          return typeof reader === "function" ? reader() : 0;
+        });
+      })
+      .toBeGreaterThanOrEqual(2);
+    await expect(
+      overviewPane.getByRole("button", { name: "Stop Mic" }),
+    ).toBeVisible();
+    await expect(overviewPane.getByText("Listening...")).toBeVisible();
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project chat releases provider mic stream when recorder start fails", async ({
   page,
 }) => {
