@@ -5,10 +5,11 @@ import shutil
 import tarfile
 import sys
 import threading
+import time
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import pytest
 from fastapi import FastAPI
@@ -26,6 +27,9 @@ from setta.plugins.models import (
     PluginScope,
     normalize_scope,
 )
+from setta.types.helpers_lvl3 import merge_single_config_into_backend
+from setta.types.project_config import ProjectConfig
+from setta.types.project_state import ProjectStateBackend, ProjectStateSingleConfig
 
 FIXTURE_PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "plugins"
 
@@ -320,6 +324,9 @@ def test_install_plugin_from_local_pypi_artifact(tmp_path: Path) -> None:
         "registerSectionKinds",
         "registerPane",
         "registerCommand",
+        "readProjectState",
+        "subscribeProjectState",
+        "emitListenerEvents",
     ]
     assert installed.trustStatus == "unverified"
     assert "Source is unverified." in installed.trustWarning
@@ -1348,7 +1355,13 @@ def test_link_backend_plugin_writes_runtime_marker(tmp_path: Path) -> None:
         force=False,
     )
     assert linked.sourceDigestSha256 is not None
-    assert linked.requestedCapabilities == ["registerRouter", "registerMcpTools"]
+    assert linked.requestedCapabilities == [
+        "registerRouter",
+        "registerMcpTools",
+        "readProjectState",
+        "emitListenerEvents",
+        "registerListenerEndpoint",
+    ]
     assert linked.trustStatus == "unverified"
     assert "Source is unverified." in linked.trustWarning
     runtime_marker = manager._runtime_marker_path(
@@ -1465,6 +1478,7 @@ def test_load_backend_plugins_registers_fixture_router_and_mcp_tool(
 
         loaded_tool_names = {tool.__name__ for tool in SETTA_MCP_TOOLS}
         assert "setta_fixture_backend_echo" in loaded_tool_names
+        assert "setta_fixture_backend_project_summary" in loaded_tool_names
 
         with TestClient(app) as client:
             response = client.get("/api/plugins/setta-fixture-backend/health")
@@ -1474,6 +1488,103 @@ def test_load_backend_plugins_registers_fixture_router_and_mcp_tool(
                 "status": "ok",
             }
     finally:
+        SETTA_MCP_TOOLS[:] = baseline_tools
+
+
+def test_backend_fixture_state_read_and_listener_emit_roundtrip(
+    tmp_path: Path,
+) -> None:
+    # Backend fixture should read project state through host RPC and emit listener dependency events.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+
+    project_state = ProjectStateSingleConfig(
+        projectConfig=ProjectConfig(id="fixture-project", name="Fixture Project")
+    )
+    backend_state = merge_single_config_into_backend(
+        ProjectStateBackend(),
+        project_state,
+    )
+    backend_state.validate_default_project_id()
+
+    class _StateManager:
+        def __init__(self, state: ProjectStateBackend) -> None:
+            self.project_state_backend = state
+
+    class _Switcher:
+        def __init__(self, state: ProjectStateBackend) -> None:
+            self._manager = _StateManager(state)
+
+        def get(self, project_identifier: str, *, share_session_id: str | None = None):
+            assert share_session_id is None
+            assert project_identifier == "fixture-project"
+            return self._manager
+
+    class _RealtimeHub:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, int, str | None]] = []
+
+        async def emit_dependency_event(
+            self,
+            *,
+            project_config_id: str,
+            dependency_events: list[Any],
+            share_session_id: str | None = None,
+        ) -> None:
+            self.calls.append(
+                (project_config_id, len(dependency_events), share_session_id)
+            )
+
+    class _FakeSettaState:
+        def __init__(self, state: ProjectStateBackend, hub: _RealtimeHub) -> None:
+            self.deployment_mode = False
+            self.project_manager_switcher = _Switcher(state)
+            self.realtime_event_hub = hub
+
+    realtime_hub = _RealtimeHub()
+    app = FastAPI()
+    app.state.setta = _FakeSettaState(backend_state, realtime_hub)
+    baseline_tools = list(SETTA_MCP_TOOLS)
+    try:
+        manager.load_backend_plugins(app=app)
+        with TestClient(app) as client:
+            summary_response = client.get(
+                "/api/plugins/setta-fixture-backend/project-state-summary",
+                params={"projectConfigId": "fixture-project"},
+            )
+            assert summary_response.status_code == 200
+            assert (
+                summary_response.json()["projectState"]["projectConfig"]["id"]
+                == "fixture-project"
+            )
+
+            emit_response = client.post(
+                "/api/plugins/setta-fixture-backend/emit-listener",
+                json={
+                    "projectConfigId": "fixture-project",
+                    "sectionId": "fixture-section",
+                    "payload": "hello",
+                    "timestampMs": 111,
+                },
+            )
+            assert emit_response.status_code == 200
+            assert emit_response.json()["emitted"] is True
+            deadline = time.time() + 1.0
+            while len(realtime_hub.calls) == 0 and time.time() < deadline:
+                time.sleep(0.01)
+            assert realtime_hub.calls == [("fixture-project", 1, None)]
+
+        tools_by_name = {tool.__name__: tool for tool in SETTA_MCP_TOOLS}
+        summary_tool = tools_by_name["setta_fixture_backend_project_summary"]
+        summary_payload = summary_tool(project_config_id="fixture-project")
+        assert summary_payload["projectConfig"]["id"] == "fixture-project"
+    finally:
+        manager.shutdown_backend_plugins()
         SETTA_MCP_TOOLS[:] = baseline_tools
 
 
@@ -2322,7 +2433,10 @@ def test_mode_policy_blocked_capabilities_are_exposed_in_status_and_list(
         if entry.pluginId == "setta-fixture-backend"
     ]
     assert len(list_entries) == 1
-    assert list_entries[0].effectiveCapabilities == []
+    assert set(list_entries[0].effectiveCapabilities) == {
+        "readProjectState",
+        "emitListenerEvents",
+    }
 
     status_response = manager.get_status_response()
     assert status_response.serverMode == server_mode
@@ -2336,14 +2450,24 @@ def test_mode_policy_blocked_capabilities_are_exposed_in_status_and_list(
     assert len(status_entries) == 1
     entry = status_entries[0]
     assert entry.state == PluginRuntimeState.active
-    assert set(entry.requestedCapabilities) == {"registerRouter", "registerMcpTools"}
-    assert entry.effectiveCapabilities == []
+    assert set(entry.requestedCapabilities) == {
+        "registerRouter",
+        "registerMcpTools",
+        "readProjectState",
+        "emitListenerEvents",
+        "registerListenerEndpoint",
+    }
+    assert set(entry.effectiveCapabilities) == {
+        "readProjectState",
+        "emitListenerEvents",
+    }
     blocked_reasons = {
         blocked.capability: blocked.reason for blocked in entry.blockedCapabilities
     }
     assert blocked_reasons == {
         "registerRouter": BlockedCapabilityReason.mode_policy,
         "registerMcpTools": BlockedCapabilityReason.mode_policy,
+        "registerListenerEndpoint": BlockedCapabilityReason.mode_policy,
     }
 
 
@@ -4574,6 +4698,249 @@ def test_dispatch_backend_worker_host_request_rejects_malformed_payloads(
         )
     assert exc_info.value.code == "PLUGIN_BACKEND_REGISTER_FAILED"
     assert expected_message_fragment in exc_info.value.message
+
+
+def test_dispatch_backend_worker_host_request_reads_project_state_summary(
+    tmp_path: Path,
+) -> None:
+    # Worker host read_project_state should return summary snapshots for valid project ids.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    project_state = ProjectStateSingleConfig(
+        projectConfig=ProjectConfig(id="fixture-project", name="Fixture Project")
+    )
+    backend_state = merge_single_config_into_backend(
+        ProjectStateBackend(),
+        project_state,
+    )
+    backend_state.validate_default_project_id()
+
+    class _Manager:
+        def __init__(self, state: ProjectStateBackend) -> None:
+            self.project_state_backend = state
+
+    class _Switcher:
+        def __init__(self, state: ProjectStateBackend) -> None:
+            self._manager = _Manager(state)
+
+        def get(self, project_identifier: str, *, share_session_id: str | None = None):
+            assert project_identifier == "fixture-project"
+            assert share_session_id is None
+            return self._manager
+
+    class _FakeSettaState:
+        def __init__(self) -> None:
+            self.deployment_mode = False
+            self.project_manager_switcher = _Switcher(backend_state)
+
+    app = FastAPI()
+    app.state.setta = _FakeSettaState()
+    result = manager._dispatch_backend_worker_host_request(
+        plugin_id=entry.plugin_id,
+        method="host.read_project_state",
+        params={
+            "projectConfigId": "fixture-project",
+            "view": "summary",
+        },
+        entry=entry,
+        app=app,
+    )
+    assert result["view"] == "summary"
+    assert result["projectState"]["projectConfig"]["id"] == "fixture-project"
+
+
+def test_dispatch_backend_worker_host_request_rejects_unknown_share_session(
+    tmp_path: Path,
+) -> None:
+    # Deployment-mode read_project_state should fail when share session is missing/unknown.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    class _FakeShareSessionStore:
+        def has_session(self, _session_id: str) -> bool:
+            return False
+
+        def touch_session(self, _session_id: str) -> None:
+            raise AssertionError("touch_session should not run for unknown sessions")
+
+    class _FakeSettaState:
+        def __init__(self) -> None:
+            self.deployment_mode = True
+            self.share_session_store = _FakeShareSessionStore()
+
+    app = FastAPI()
+    app.state.setta = _FakeSettaState()
+    with pytest.raises(PluginManagerError) as exc_info:
+        manager._dispatch_backend_worker_host_request(
+            plugin_id=entry.plugin_id,
+            method="host.read_project_state",
+            params={
+                "projectConfigId": "fixture-project",
+                "shareSessionId": "missing-share-session",
+                "view": "summary",
+            },
+            entry=entry,
+            app=app,
+        )
+    assert exc_info.value.code == "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED"
+
+
+def test_dispatch_backend_worker_host_request_emits_listener_dependency_event(
+    tmp_path: Path,
+) -> None:
+    # Worker host emit_listener_dependency_event should validate and publish dependency events.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    class _FakeRealtimeEventHub:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, int, str | None]] = []
+
+        async def emit_dependency_event(
+            self,
+            *,
+            project_config_id: str,
+            dependency_events: list[Any],
+            share_session_id: str | None = None,
+        ) -> None:
+            self.calls.append(
+                (project_config_id, len(dependency_events), share_session_id)
+            )
+
+    class _FakeSettaState:
+        def __init__(self, hub: _FakeRealtimeEventHub) -> None:
+            self.deployment_mode = False
+            self.realtime_event_hub = hub
+
+    hub = _FakeRealtimeEventHub()
+    app = FastAPI()
+    app.state.setta = _FakeSettaState(hub)
+
+    result = manager._dispatch_backend_worker_host_request(
+        plugin_id=entry.plugin_id,
+        method="host.emit_listener_dependency_event",
+        params={
+            "projectConfigId": "fixture-project",
+            "dependencyEvents": [
+                {
+                    "dependencyKey": {
+                        "type": "Section",
+                        "sectionId": "fixture-section",
+                    },
+                    "payload": {
+                        "type": "Literal",
+                        "payload": "hello",
+                    },
+                    "timestampMs": 123,
+                }
+            ],
+        },
+        entry=entry,
+        app=app,
+    )
+    assert result == {"ok": True}
+    assert hub.calls == [("fixture-project", 1, None)]
+
+
+def test_dispatch_backend_worker_host_request_registers_listener_endpoint(
+    tmp_path: Path,
+) -> None:
+    # Worker host register_listener_endpoint should bind registered route ids by endpoint name.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+    manager._backend_route_ids_by_plugin_id[entry.plugin_id] = {"route_0"}
+
+    result = manager._dispatch_backend_worker_host_request(
+        plugin_id=entry.plugin_id,
+        method="host.register_listener_endpoint",
+        params={
+            "endpointName": "fixture_listener_echo",
+            "routeId": "route_0",
+        },
+        entry=entry,
+        app=FastAPI(),
+    )
+    assert result == {"ok": True}
+    assert manager._backend_listener_endpoint_route_by_name == {
+        "fixture_listener_echo": (entry.plugin_id, "route_0")
+    }
+
+
+def test_invoke_listener_endpoint_dispatches_worker_route(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Listener endpoint invocation should route through plugin worker invoke_route and return body.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    entry = manager._find_entry("setta-fixture-backend", PluginScope.workspace)
+    assert entry is not None
+
+    class _AliveProcess:
+        def poll(self) -> None:
+            return None
+
+    manager._backend_worker_processes[entry.plugin_id] = _AliveProcess()  # type: ignore[assignment]
+    manager._backend_listener_endpoint_route_by_name["fixture_listener_echo"] = (
+        entry.plugin_id,
+        "route_0",
+    )
+
+    def _patched_call_backend_worker_method(**kwargs):
+        assert kwargs["method"] == "plugin.invoke_route"
+        assert kwargs["entry"] == entry
+        assert kwargs["params"]["routeId"] == "route_0"
+        assert kwargs["params"]["jsonBody"] == {"projectConfigId": "fixture-project"}
+        return {
+            "statusCode": 200,
+            "body": {"ok": True},
+        }
+
+    monkeypatch.setattr(
+        manager,
+        "_call_backend_worker_method",
+        _patched_call_backend_worker_method,
+    )
+
+    result = manager.invoke_listener_endpoint(
+        endpoint_name="fixture_listener_echo",
+        payload={"projectConfigId": "fixture-project"},
+    )
+    assert result == {"ok": True}
 
 
 def test_worker_route_proxy_returns_503_when_worker_process_unavailable(

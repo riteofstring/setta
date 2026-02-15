@@ -17,11 +17,14 @@ SUPPORTED_RPC_METHODS: tuple[str, ...] = (
     "plugin.invoke_mcp_tool",
     "plugin.invoke_codegen_target",
     "host.register_router",
+    "host.register_listener_endpoint",
     "host.register_static_dir",
     "host.register_mcp_tool",
     "host.register_language_server",
     "host.register_external_agent_adapter",
     "host.register_codegen_target",
+    "host.read_project_state",
+    "host.emit_listener_dependency_event",
 )
 
 
@@ -132,6 +135,7 @@ class _WorkerState:
     entrypoint_path: Path
     module: Any | None = None
     route_handlers: dict[str, _WorkerRouteHandler] = field(default_factory=dict)
+    route_ids_by_endpoint_name: dict[str, list[str]] = field(default_factory=dict)
     mcp_tools_by_name: dict[str, Callable[..., Any]] = field(default_factory=dict)
     codegen_target_generators: dict[str, Callable[..., Any]] = field(
         default_factory=dict
@@ -224,6 +228,10 @@ class _WorkerState:
                 methods=methods,
                 endpoint=route.endpoint,
             )
+            endpoint_name = route.endpoint.__name__
+            if endpoint_name not in self.route_ids_by_endpoint_name:
+                self.route_ids_by_endpoint_name[endpoint_name] = []
+            self.route_ids_by_endpoint_name[endpoint_name].append(route_id)
             route_descriptors.append(
                 {
                     "routeId": route_id,
@@ -251,6 +259,70 @@ class _WorkerState:
             {
                 "urlPrefix": url_prefix,
                 "path": str(path),
+            },
+        )
+
+    def _register_listener_endpoint(
+        self,
+        *,
+        endpoint_name: str,
+        route_id: str | None,
+        host_call: Callable[[str, dict[str, Any]], Any],
+    ) -> None:
+        if not isinstance(endpoint_name, str) or endpoint_name.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} listener endpoint name must be "
+                    "a non-empty string."
+                ),
+            )
+        normalized_endpoint_name = endpoint_name.strip()
+
+        resolved_route_id = route_id
+        if resolved_route_id is None:
+            route_ids = self.route_ids_by_endpoint_name.get(normalized_endpoint_name)
+            if route_ids is None or len(route_ids) == 0:
+                raise WorkerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {self.plugin_id} listener endpoint "
+                        f"{normalized_endpoint_name!r} does not match any "
+                        "registered route endpoint names."
+                    ),
+                )
+            if len(route_ids) > 1:
+                raise WorkerError(
+                    "PLUGIN_BACKEND_REGISTER_FAILED",
+                    (
+                        f"Plugin {self.plugin_id} listener endpoint "
+                        f"{normalized_endpoint_name!r} is ambiguous; pass route_id "
+                        "explicitly."
+                    ),
+                )
+            resolved_route_id = route_ids[0]
+        if not isinstance(resolved_route_id, str) or resolved_route_id.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} listener endpoint route_id must be "
+                    "a non-empty string when provided."
+                ),
+            )
+        normalized_route_id = resolved_route_id.strip()
+        if normalized_route_id not in self.route_handlers:
+            raise WorkerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin {self.plugin_id} listener endpoint references unknown "
+                    f"route id: {normalized_route_id}."
+                ),
+            )
+        host_call(
+            "host.register_listener_endpoint",
+            {
+                "endpointName": normalized_endpoint_name,
+                "routeId": normalized_route_id,
             },
         )
 
@@ -754,6 +826,106 @@ class _WorkerBackendPluginContext:
             target=target,
             host_call=self._host_call,
         )
+
+    def register_listener_endpoint(
+        self, endpoint_name: str, *, route_id: str | None = None
+    ) -> None:
+        self._state._register_listener_endpoint(
+            endpoint_name=endpoint_name,
+            route_id=route_id,
+            host_call=self._host_call,
+        )
+
+    def read_project_state(
+        self,
+        *,
+        project_config_id: str,
+        share_session_id: str | None = None,
+        view: Literal["summary", "full"] = "summary",
+    ) -> Any:
+        if not isinstance(project_config_id, str) or project_config_id.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                "read_project_state project_config_id must be a non-empty string.",
+            )
+        if view not in {"summary", "full"}:
+            raise WorkerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                "read_project_state view must be 'summary' or 'full'.",
+            )
+        params: dict[str, Any] = {
+            "projectConfigId": project_config_id.strip(),
+            "view": view,
+        }
+        if share_session_id is not None:
+            if (
+                not isinstance(share_session_id, str)
+                or share_session_id.strip() == ""
+            ):
+                raise WorkerError(
+                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                    "read_project_state share_session_id must be non-empty when set.",
+                )
+            params["shareSessionId"] = share_session_id.strip()
+        result = self._host_call("host.read_project_state", params)
+        if not isinstance(result, dict):
+            raise WorkerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                "Host read_project_state response must be an object.",
+            )
+        project_state = result.get("projectState")
+        if not isinstance(project_state, dict):
+            raise WorkerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                "Host read_project_state response missing projectState object.",
+            )
+        return project_state
+
+    def emit_listener_dependency_event(
+        self,
+        *,
+        project_config_id: str,
+        dependency_events: list[dict[str, Any]],
+        share_session_id: str | None = None,
+    ) -> None:
+        if not isinstance(project_config_id, str) or project_config_id.strip() == "":
+            raise WorkerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    "emit_listener_dependency_event project_config_id must be "
+                    "a non-empty string."
+                ),
+            )
+        if not isinstance(dependency_events, list) or len(dependency_events) == 0:
+            raise WorkerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    "emit_listener_dependency_event dependency_events must be a "
+                    "non-empty list."
+                ),
+            )
+        params: dict[str, Any] = {
+            "projectConfigId": project_config_id.strip(),
+            "dependencyEvents": _ensure_json_serializable(
+                dependency_events,
+                plugin_id=self.plugin_id,
+                label="dependency events",
+            ),
+        }
+        if share_session_id is not None:
+            if (
+                not isinstance(share_session_id, str)
+                or share_session_id.strip() == ""
+            ):
+                raise WorkerError(
+                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                    (
+                        "emit_listener_dependency_event share_session_id must be "
+                        "non-empty when set."
+                    ),
+                )
+            params["shareSessionId"] = share_session_id.strip()
+        _ = self._host_call("host.emit_listener_dependency_event", params)
 
     def register_startup_task(self, _coro_fn: Any) -> None:
         raise WorkerError(

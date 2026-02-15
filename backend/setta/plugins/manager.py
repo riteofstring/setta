@@ -1,5 +1,6 @@
 import hashlib
 import importlib.metadata
+import asyncio
 import json
 import os
 import select
@@ -19,6 +20,7 @@ from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
+from fastapi.encoders import jsonable_encoder
 from jsonschema import ValidationError as JSONSchemaValidationError
 from jsonschema import validate as jsonschema_validate
 from packaging.requirements import InvalidRequirement, Requirement
@@ -73,6 +75,11 @@ from setta.plugins.models import (
     normalize_scope,
     scope_label,
 )
+from setta.types.helpers_lvl3 import (
+    build_project_state_summary,
+    convert_backend_to_single_config,
+)
+from setta.types.listener import DependencyEvent
 from setta.types.external_agents import ExternalAgentRunMode
 from setta.types.project_config import ProjectCodegenLanguage
 from setta.types.section_impls import (
@@ -105,6 +112,9 @@ _MODE_ALLOWED_CAPABILITIES = {
             "registerCommand",
             "registerTopNavBarItem",
             "registerContextMenu",
+            "readProjectState",
+            "subscribeProjectState",
+            "emitListenerEvents",
         }
     ),
     "app": frozenset(
@@ -114,6 +124,9 @@ _MODE_ALLOWED_CAPABILITIES = {
             "registerCommand",
             "registerTopNavBarItem",
             "registerContextMenu",
+            "readProjectState",
+            "subscribeProjectState",
+            "emitListenerEvents",
         }
     ),
 }
@@ -131,11 +144,14 @@ _REQUIRED_BACKEND_RPC_METHODS = frozenset(
         "plugin.shutdown",
         "plugin.invoke_codegen_target",
         "host.register_router",
+        "host.register_listener_endpoint",
         "host.register_static_dir",
         "host.register_mcp_tool",
         "host.register_language_server",
         "host.register_external_agent_adapter",
         "host.register_codegen_target",
+        "host.read_project_state",
+        "host.emit_listener_dependency_event",
     }
 )
 
@@ -245,6 +261,11 @@ class BackendPluginContext:
     _register_external_agent_adapter_fn: Callable[[Any], None]
     _register_language_server_fn: Callable[[Any], None]
     _register_codegen_target_fn: Callable[[Any], None]
+    _register_listener_endpoint_fn: Callable[[str, str | None], None]
+    _read_project_state_fn: Callable[[str, str | None, Literal["summary", "full"]], Any]
+    _emit_listener_dependency_event_fn: Callable[
+        [str, list[DependencyEvent], str | None], None
+    ]
     _register_startup_task_fn: Callable[[Callable[..., Any]], None]
     _register_shutdown_task_fn: Callable[[Callable[..., Any]], None]
 
@@ -280,6 +301,33 @@ class BackendPluginContext:
 
     def register_codegen_target(self, target: Any) -> None:
         self._register_codegen_target_fn(target)
+
+    def register_listener_endpoint(
+        self, endpoint_name: str, *, route_id: str | None = None
+    ) -> None:
+        self._register_listener_endpoint_fn(endpoint_name, route_id)
+
+    def read_project_state(
+        self,
+        *,
+        project_config_id: str,
+        share_session_id: str | None = None,
+        view: Literal["summary", "full"] = "summary",
+    ) -> Any:
+        return self._read_project_state_fn(project_config_id, share_session_id, view)
+
+    def emit_listener_dependency_event(
+        self,
+        *,
+        project_config_id: str,
+        dependency_events: list[DependencyEvent],
+        share_session_id: str | None = None,
+    ) -> None:
+        self._emit_listener_dependency_event_fn(
+            project_config_id,
+            dependency_events,
+            share_session_id,
+        )
 
     def register_startup_task(self, coro_fn: Callable[..., Any]) -> None:
         self._register_startup_task_fn(coro_fn)
@@ -347,6 +395,9 @@ class PluginManager:
         self._backend_worker_request_locks: dict[str, threading.Lock] = {}
         self._backend_worker_next_request_ids: dict[str, int] = {}
         self._backend_worker_request_state_lock = threading.Lock()
+        self._backend_app: Optional["FastAPI"] = None
+        self._backend_route_ids_by_plugin_id: dict[str, set[str]] = {}
+        self._backend_listener_endpoint_route_by_name: dict[str, tuple[str, str]] = {}
         self._backend_registered_mcp_tools: dict[str, list[Callable[..., Any]]] = {}
         self._backend_external_agent_adapters: dict[
             str, list[PluginRegisteredExternalAgentAdapter]
@@ -381,11 +432,14 @@ class PluginManager:
         self._clear_pending_restart_backend_ids()
         self._pending_restart_removed_backend_plugins = {}
         self.shutdown_backend_plugins()
+        self._backend_app = app
         self._backend_runtime_errors = {}
         self._backend_loaded_plugin_ids = set()
         self._backend_worker_processes = {}
         self._backend_worker_request_locks = {}
         self._backend_worker_next_request_ids = {}
+        self._backend_route_ids_by_plugin_id = {}
+        self._backend_listener_endpoint_route_by_name = {}
         self._backend_registered_mcp_tools = {}
         self._backend_external_agent_adapters = {}
         self._backend_external_agent_adapter_by_id = {}
@@ -422,6 +476,9 @@ class PluginManager:
         for plugin_id, process in list(self._backend_worker_processes.items()):
             self._shutdown_backend_worker(plugin_id=plugin_id, process=process)
         self._backend_worker_processes = {}
+        self._backend_app = None
+        self._backend_route_ids_by_plugin_id = {}
+        self._backend_listener_endpoint_route_by_name = {}
         self._remove_backend_registered_mcp_tools()
 
     def rescan(self) -> PluginsRescanResponse:
@@ -684,6 +741,15 @@ class PluginManager:
                     f"{registration.plugin_id} while generating code."
                 ),
             )
+        entry = self._active_plugin_by_id.get(registration.plugin_id)
+        if entry is None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    "Backend worker context missing plugin entry for "
+                    f"{registration.plugin_id} while generating code."
+                ),
+            )
         generation_payload = self._call_backend_worker_method(
             process=process,
             plugin_id=registration.plugin_id,
@@ -691,6 +757,8 @@ class PluginManager:
             method="plugin.invoke_codegen_target",
             timeout_seconds=self._backend_register_timeout_seconds,
             timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            entry=entry,
+            app=self._backend_app,
             params={
                 "handlerId": registration.handler_id,
                 "projectState": project_state,
@@ -703,6 +771,67 @@ class PluginManager:
             payload=generation_payload,
             default_file_name=registration.default_file_name,
         )
+
+    def invoke_listener_endpoint(
+        self,
+        *,
+        endpoint_name: str,
+        payload: dict[str, object],
+    ) -> object:
+        registration = self._backend_listener_endpoint_route_by_name.get(endpoint_name)
+        if registration is None:
+            raise KeyError(f"unknown listener endpoint: {endpoint_name}")
+        plugin_id, route_id = registration
+        process = self._backend_worker_processes.get(plugin_id)
+        if process is None or process.poll() is not None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                f"Backend worker unavailable for plugin listener endpoint {endpoint_name}.",
+            )
+        entry = self._active_plugin_by_id.get(plugin_id)
+        if entry is None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    "Backend worker context missing plugin entry while invoking "
+                    f"listener endpoint {endpoint_name}."
+                ),
+            )
+        route_response = self._call_backend_worker_method(
+            process=process,
+            plugin_id=plugin_id,
+            request_id=self._next_backend_worker_request_id(plugin_id),
+            method="plugin.invoke_route",
+            timeout_seconds=self._backend_register_timeout_seconds,
+            timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+            entry=entry,
+            app=self._backend_app,
+            params={
+                "routeId": route_id,
+                "pathParams": {},
+                "queryParams": {},
+                "jsonBody": payload,
+            },
+        )
+        if not isinstance(route_response, dict):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Plugin listener endpoint {endpoint_name} returned "
+                    "a non-object response payload."
+                ),
+            )
+        raw_status_code = route_response.get("statusCode", 200)
+        status_code = raw_status_code if isinstance(raw_status_code, int) else 200
+        if status_code < 200 or status_code > 299:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                (
+                    f"Plugin listener endpoint {endpoint_name} returned "
+                    f"status {status_code}."
+                ),
+            )
+        return route_response.get("body")
 
     def get_restart_capability(self) -> PluginRestartCapability:
         if self._restart_callback is not None:
@@ -1058,6 +1187,11 @@ class PluginManager:
                 entry=entry,
                 params=params_payload,
             )
+        if method == "host.register_listener_endpoint":
+            return self._register_backend_listener_endpoint_from_worker_request(
+                entry=entry,
+                params=params_payload,
+            )
         if method == "host.register_static_dir":
             if app is None:
                 raise PluginManagerError(
@@ -1090,6 +1224,34 @@ class PluginManager:
         if method == "host.register_codegen_target":
             return self._register_backend_codegen_target_from_worker_request(
                 entry=entry,
+                params=params_payload,
+            )
+        if method == "host.read_project_state":
+            if app is None:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                    (
+                        f"Backend worker {plugin_id} sent host.read_project_state "
+                        "without an app context."
+                    ),
+                )
+            return self._read_project_state_from_worker_request(
+                entry=entry,
+                app=app,
+                params=params_payload,
+            )
+        if method == "host.emit_listener_dependency_event":
+            if app is None:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                    (
+                        f"Backend worker {plugin_id} sent "
+                        "host.emit_listener_dependency_event without an app context."
+                    ),
+                )
+            return self._emit_listener_dependency_event_from_worker_request(
+                entry=entry,
+                app=app,
                 params=params_payload,
             )
         raise PluginManagerError(
@@ -1539,6 +1701,9 @@ class PluginManager:
                 ("Plugin worker register_router payload must provide a routes array."),
             )
 
+        known_route_ids = self._backend_route_ids_by_plugin_id.setdefault(
+            entry.plugin_id, set()
+        )
         proxy_router = APIRouter()
         for raw_route in raw_routes:
             if not isinstance(raw_route, dict):
@@ -1568,6 +1733,7 @@ class PluginManager:
                 route_id=route_id,
                 raw_methods=raw_methods,
             )
+            known_route_ids.add(route_id)
 
             async def route_proxy(
                 request: Request,
@@ -1604,6 +1770,8 @@ class PluginManager:
                         method="plugin.invoke_route",
                         timeout_seconds=self._backend_register_timeout_seconds,
                         timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                        entry=entry,
+                        app=app,
                         params={
                             "routeId": _route_id,
                             "pathParams": path_params,
@@ -1649,6 +1817,273 @@ class PluginManager:
             router=proxy_router,
             prefix=raw_prefix,
         )
+        return {"ok": True}
+
+    def _register_backend_listener_endpoint_from_worker_request(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_effective_capability(
+            entry,
+            "registerListenerEndpoint",
+            api_name="register_listener_endpoint",
+        )
+        raw_endpoint_name = params.get("endpointName")
+        if not isinstance(raw_endpoint_name, str) or raw_endpoint_name.strip() == "":
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin worker listener endpoint registration missing endpointName.",
+            )
+        endpoint_name = raw_endpoint_name.strip()
+        raw_route_id = params.get("routeId")
+        if not isinstance(raw_route_id, str) or raw_route_id.strip() == "":
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                "Plugin worker listener endpoint registration missing routeId.",
+            )
+        route_id = raw_route_id.strip()
+
+        known_route_ids = self._backend_route_ids_by_plugin_id.get(entry.plugin_id)
+        if known_route_ids is None or route_id not in known_route_ids:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    "Plugin worker listener endpoint registration references an "
+                    f"unknown routeId {route_id!r} for plugin {entry.plugin_id}."
+                ),
+            )
+
+        from setta.listeners.listener_router_endpoint_registry import (
+            get_listener_router_endpoint_specs,
+        )
+
+        core_specs = get_listener_router_endpoint_specs()
+        if endpoint_name in core_specs:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin listener endpoint {endpoint_name!r} conflicts with "
+                    "a built-in listener endpoint name."
+                ),
+            )
+
+        existing = self._backend_listener_endpoint_route_by_name.get(endpoint_name)
+        if existing is not None:
+            existing_plugin_id, existing_route_id = existing
+            if existing_plugin_id == entry.plugin_id and existing_route_id == route_id:
+                return {"ok": True}
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_REGISTER_FAILED",
+                (
+                    f"Plugin listener endpoint {endpoint_name!r} is already "
+                    f"registered by plugin {existing_plugin_id}."
+                ),
+            )
+
+        self._backend_listener_endpoint_route_by_name[endpoint_name] = (
+            entry.plugin_id,
+            route_id,
+        )
+        return {"ok": True}
+
+    def _read_project_state_from_worker_request(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        app: "FastAPI",
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_effective_capability(
+            entry,
+            "readProjectState",
+            api_name="read_project_state",
+        )
+        raw_project_config_id = params.get("projectConfigId")
+        if (
+            not isinstance(raw_project_config_id, str)
+            or raw_project_config_id.strip() == ""
+        ):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED",
+                "host.read_project_state requires a non-empty projectConfigId.",
+            )
+        project_config_id = raw_project_config_id.strip()
+
+        raw_view = params.get("view", "summary")
+        if not isinstance(raw_view, str):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED",
+                "host.read_project_state view must be a string.",
+            )
+        view = raw_view.strip()
+        if view not in {"summary", "full"}:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED",
+                (
+                    "host.read_project_state view must be either "
+                    f"'summary' or 'full', received {view!r}."
+                ),
+            )
+
+        raw_share_session_id = params.get("shareSessionId")
+        share_session_id: str | None = None
+        if raw_share_session_id is not None:
+            if (
+                not isinstance(raw_share_session_id, str)
+                or raw_share_session_id.strip() == ""
+            ):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED",
+                    (
+                        "host.read_project_state shareSessionId must be a non-empty "
+                        "string when provided."
+                    ),
+                )
+            share_session_id = raw_share_session_id.strip()
+
+        setta_state = getattr(app.state, "setta", None)
+        if setta_state is None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED",
+                "FastAPI app state is missing Setta runtime state.",
+            )
+
+        if setta_state.deployment_mode:
+            if share_session_id is None:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED",
+                    (
+                        "host.read_project_state requires shareSessionId in "
+                        "deployment mode."
+                    ),
+                )
+            if not setta_state.share_session_store.has_session(share_session_id):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_PROJECT_STATE_READ_FAILED",
+                    f"Unknown share session id: {share_session_id}",
+                )
+            setta_state.share_session_store.touch_session(share_session_id)
+            manager = setta_state.project_manager_switcher.get(
+                project_config_id,
+                share_session_id=share_session_id,
+            )
+        else:
+            manager = setta_state.project_manager_switcher.get(project_config_id)
+
+        project_state = convert_backend_to_single_config(
+            manager.project_state_backend,
+            project_config_id,
+        )
+        if view == "summary":
+            serialized = jsonable_encoder(build_project_state_summary(project_state))
+        else:
+            serialized = project_state.model_dump(mode="json")
+        return {
+            "projectState": serialized,
+            "view": view,
+        }
+
+    def _emit_listener_dependency_event_from_worker_request(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        app: "FastAPI",
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
+        self._require_effective_capability(
+            entry,
+            "emitListenerEvents",
+            api_name="emit_listener_dependency_event",
+        )
+        raw_project_config_id = params.get("projectConfigId")
+        if (
+            not isinstance(raw_project_config_id, str)
+            or raw_project_config_id.strip() == ""
+        ):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_LISTENER_EMIT_FAILED",
+                (
+                    "host.emit_listener_dependency_event requires a non-empty "
+                    "projectConfigId."
+                ),
+            )
+        project_config_id = raw_project_config_id.strip()
+
+        raw_dependency_events = params.get("dependencyEvents")
+        if not isinstance(raw_dependency_events, list) or len(raw_dependency_events) == 0:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_LISTENER_EMIT_FAILED",
+                (
+                    "host.emit_listener_dependency_event requires a non-empty "
+                    "dependencyEvents array."
+                ),
+            )
+
+        dependency_events: list[DependencyEvent] = []
+        for raw_event in raw_dependency_events:
+            try:
+                dependency_events.append(DependencyEvent.model_validate(raw_event))
+            except ValidationError as exc:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_LISTENER_EMIT_FAILED",
+                    (
+                        "host.emit_listener_dependency_event received an invalid "
+                        f"dependency event payload: {exc}"
+                    ),
+                ) from exc
+
+        raw_share_session_id = params.get("shareSessionId")
+        share_session_id: str | None = None
+        if raw_share_session_id is not None:
+            if (
+                not isinstance(raw_share_session_id, str)
+                or raw_share_session_id.strip() == ""
+            ):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_LISTENER_EMIT_FAILED",
+                    (
+                        "host.emit_listener_dependency_event shareSessionId must be a "
+                        "non-empty string when provided."
+                    ),
+                )
+            share_session_id = raw_share_session_id.strip()
+
+        setta_state = getattr(app.state, "setta", None)
+        if setta_state is None:
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_LISTENER_EMIT_FAILED",
+                "FastAPI app state is missing Setta runtime state.",
+            )
+
+        if setta_state.deployment_mode:
+            if share_session_id is None:
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_LISTENER_EMIT_FAILED",
+                    (
+                        "host.emit_listener_dependency_event requires shareSessionId "
+                        "in deployment mode."
+                    ),
+                )
+            if not setta_state.share_session_store.has_session(share_session_id):
+                raise PluginManagerError(
+                    "PLUGIN_BACKEND_LISTENER_EMIT_FAILED",
+                    f"Unknown share session id: {share_session_id}",
+                )
+            setta_state.share_session_store.touch_session(share_session_id)
+
+        coroutine = setta_state.realtime_event_hub.emit_dependency_event(
+            project_config_id=project_config_id,
+            dependency_events=dependency_events,
+            share_session_id=share_session_id,
+        )
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(coroutine)
+        else:
+            running_loop.create_task(coroutine)
         return {"ok": True}
 
     def _normalize_worker_route_query_params(self, request: Any) -> dict[str, Any]:
@@ -1769,6 +2204,8 @@ class PluginManager:
                 method="plugin.invoke_mcp_tool",
                 timeout_seconds=self._backend_register_timeout_seconds,
                 timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
+                entry=entry,
+                app=self._backend_app,
                 params={
                     "toolName": tool_name,
                     "args": list(args),

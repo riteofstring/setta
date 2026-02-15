@@ -155,6 +155,8 @@ def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:
         assert register_response["result"] == {"ok": True}
         assert host_method_calls == [
             "host.register_router",
+            "host.register_listener_endpoint",
+            "host.register_mcp_tool",
             "host.register_mcp_tool",
         ]
 
@@ -165,6 +167,151 @@ def test_worker_initialize_register_shutdown_roundtrip(tmp_path: Path) -> None:
         )
         assert shutdown_response["id"] == 3
         assert shutdown_response["result"] == {"ok": True}
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_register_supports_read_state_emit_and_listener_endpoint(
+    tmp_path: Path,
+) -> None:
+    # Worker register should support host read_project_state, emit_listener_dependency_event, and listener endpoint registration.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "from fastapi import APIRouter\n\n"
+        "def register(plugin):\n"
+        "    router = APIRouter()\n\n"
+        "    @router.post('/listener-echo')\n"
+        "    def fixture_listener_echo(projectConfigId: str):\n"
+        "        return {'projectConfigId': projectConfigId}\n\n"
+        "    plugin.register_router(router)\n"
+        "    plugin.register_listener_endpoint('fixture_listener_echo')\n"
+        "    project_state = plugin.read_project_state(project_config_id='fixture-project', view='summary')\n"
+        "    assert project_state['projectConfig']['id'] == 'fixture-project'\n"
+        "    plugin.emit_listener_dependency_event(\n"
+        "        project_config_id='fixture-project',\n"
+        "        dependency_events=[\n"
+        "            {\n"
+        "                'dependencyKey': {'type': 'Section', 'sectionId': 'fixture-section'},\n"
+        "                'payload': {'type': 'Literal', 'payload': 'hello'},\n"
+        "                'timestampMs': 123,\n"
+        "            }\n"
+        "        ],\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        host_method_calls: list[str] = []
+        host_requests: list[dict[str, Any]] = []
+
+        def _host_response(
+            payload: dict[str, Any], _worker: subprocess.Popen[str]
+        ) -> dict[str, Any]:
+            nested_id = payload["id"]
+            nested_method = payload["method"]
+            if nested_method == "host.read_project_state":
+                return {
+                    "jsonrpc": "2.0",
+                    "id": nested_id,
+                    "result": {
+                        "projectState": {
+                            "projectConfig": {
+                                "id": "fixture-project",
+                            }
+                        },
+                        "view": "summary",
+                    },
+                }
+            return {
+                "jsonrpc": "2.0",
+                "id": nested_id,
+                "result": {"ok": True},
+            }
+
+        register_response = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_method_calls=host_method_calls,
+            host_requests=host_requests,
+            host_response_factory=_host_response,
+        )
+        assert register_response["id"] == 2
+        assert register_response["result"] == {"ok": True}
+        assert host_method_calls == [
+            "host.register_router",
+            "host.register_listener_endpoint",
+            "host.read_project_state",
+            "host.emit_listener_dependency_event",
+        ]
+        read_request = next(
+            request
+            for request in host_requests
+            if request["method"] == "host.read_project_state"
+        )
+        assert read_request["params"] == {
+            "projectConfigId": "fixture-project",
+            "view": "summary",
+        }
+        emit_request = next(
+            request
+            for request in host_requests
+            if request["method"] == "host.emit_listener_dependency_event"
+        )
+        assert emit_request["params"]["projectConfigId"] == "fixture-project"
+        assert isinstance(emit_request["params"]["dependencyEvents"], list)
+        assert len(emit_request["params"]["dependencyEvents"]) == 1
+    finally:
+        _stop_worker(worker)
+
+
+def test_worker_register_rejects_invalid_read_project_state_host_response(
+    tmp_path: Path,
+) -> None:
+    # Worker read_project_state should fail fast when host omits projectState from RPC result.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "def register(plugin):\n"
+        "    plugin.read_project_state(project_config_id='fixture-project')\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+
+        def _host_response(
+            payload: dict[str, Any], _worker: subprocess.Popen[str]
+        ) -> dict[str, Any]:
+            nested_id = payload["id"]
+            return {
+                "jsonrpc": "2.0",
+                "id": nested_id,
+                "result": {
+                    "view": "summary",
+                },
+            }
+
+        register_response = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_response_factory=_host_response,
+        )
+        assert register_response["id"] == 2
+        assert (
+            register_response["error"]["code"]
+            == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR"
+        )
+        assert "missing projectState object" in register_response["error"]["message"]
     finally:
         _stop_worker(worker)
 

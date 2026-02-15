@@ -823,7 +823,34 @@ class WMHPythonScriptReceiver(BaseWebsocketMsgReceiver):
     ) -> object:
         specs = get_listener_router_endpoint_specs()
         if endpoint_name not in specs:
-            raise ValueError(f"unknown listener endpoint: {endpoint_name}")
+            state = self._get_listener_state(websocket_id)
+            await state.wait_until_ready()
+            use_temporary_ids = self.listener_registry.use_temporary_ids_for_socket(
+                websocket_id
+            )
+            payload_data = dict(payload)
+            if "projectConfigId" not in payload_data:
+                if use_temporary_ids:
+                    if temporary_project_config_id is None:
+                        raise ValueError("project_config_mismatch")
+                    payload_data["projectConfigId"] = temporary_project_config_id
+                else:
+                    payload_data["projectConfigId"] = project_config_id
+            if use_temporary_ids:
+                payload_data = self._convert_incoming_payload(payload_data)
+            payload_project_config_id = payload_data.get("projectConfigId")
+            if payload_project_config_id != project_config_id:
+                raise ValueError("project_config_mismatch")
+            try:
+                return state.plugin_manager.invoke_listener_endpoint(
+                    endpoint_name=endpoint_name,
+                    payload=payload_data,
+                )
+            except KeyError as exc:
+                raise ValueError(
+                    f"unknown listener endpoint: {endpoint_name}"
+                ) from exc
+
         spec = specs[endpoint_name]
         state = self._get_listener_state(websocket_id)
         await state.wait_until_ready()

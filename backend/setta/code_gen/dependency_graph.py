@@ -1,4 +1,5 @@
 import logging
+import json
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, replace
@@ -60,6 +61,7 @@ from setta.types.section_impls import (
     ChatSectionState,
     DrawSectionImpl,
     ImageSectionImpl,
+    PluginSectionImpl,
     PromptSectionImpl,
     SectionType,
     TextBlockSectionImpl,
@@ -157,6 +159,7 @@ class DependencyGraph:
             SectionType.Prompt: self._export_prompt_section,
             SectionType.Draw: self._export_draw_section,
             SectionType.Image: self._export_image_section,
+            SectionType.Plugin: self._export_plugin_section,
             SectionType.MetaControl: self._export_meta_control_section,
             SectionType.Chat: self._export_chat_section,
         }
@@ -315,6 +318,25 @@ class DependencyGraph:
             type=section_impl.type,
             isTopLevel=ctx.is_top_level,
             value=LiteralDependencyValue(section_impl.text),
+            deps={},
+            representation=ctx.codegen_policy.representation,
+            include_in_codegen=ctx.codegen_policy.include_in_codegen,
+        )
+        self.add_to_graph(ctx.dep_key, node)
+
+    def _export_plugin_section(self, ctx: SectionExportContext):
+        section_impl = ctx.section_impl
+        if not isinstance(section_impl, PluginSectionImpl):
+            return
+        node = SectionNode(
+            id=ctx.section_id,
+            name=ctx.section_name,
+            full_path_name=ctx.full_path_name,
+            type=section_impl.type,
+            isTopLevel=ctx.is_top_level,
+            value=LiteralDependencyValue(
+                json.dumps(section_impl.data, sort_keys=True)
+            ),
             deps={},
             representation=ctx.codegen_policy.representation,
             include_in_codegen=ctx.codegen_policy.include_in_codegen,
