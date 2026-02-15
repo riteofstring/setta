@@ -823,6 +823,13 @@ async def route_transcribe_chat_audio(
             file_name=file_name,
             language=language,
         )
+    except KeyError as exc:
+        detail = (
+            exc.args[0]
+            if exc.args and isinstance(exc.args[0], str)
+            else "Missing API key for transcription."
+        )
+        raise HTTPException(status_code=400, detail=detail) from exc
     except Exception as exc:
         detail = (
             get_user_facing_llm_error_message(exc) or "Provider transcription failed."

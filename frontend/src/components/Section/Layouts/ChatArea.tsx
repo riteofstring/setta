@@ -9,6 +9,7 @@ import {
   buildChatSlashCommands,
   formatSlashCommandHelp,
   type ChatPermissionModeValue,
+  resolvePermissionModeArg,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
@@ -175,25 +176,6 @@ function emitChatStopAction({
     managed,
     timestampMs,
   });
-}
-
-function resolvePermissionModeArg(
-  rawArg: string | undefined,
-): ChatPermissionModeValue | null {
-  if (!rawArg) {
-    return null;
-  }
-  const normalized = rawArg.trim().toLowerCase().replaceAll(".", "_");
-  if (normalized === "config_toml_custom") {
-    return "config_toml_custom";
-  }
-  if (normalized === "minimal") {
-    return "minimal";
-  }
-  if (normalized === "yolo") {
-    return "yolo";
-  }
-  return null;
 }
 
 function formatHistoryTimestamp(timestampMs: number): string {
@@ -571,7 +553,7 @@ function ScriptableChatArea({
             searchEnabled: nextSettings.searchEnabled,
           });
         },
-        send: () =>
+        send: (frontendOpId) =>
           route_set_chat_section_settings({
             projectConfigId,
             sectionId,
@@ -581,6 +563,7 @@ function ScriptableChatArea({
             thinking,
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
+            frontendOpId,
           }),
       });
       return { feedback };
@@ -1194,6 +1177,19 @@ function ManagedChatArea({
     void loadAgentRuns();
   }, []);
 
+  useEffect(() => {
+    if (!showHistory) {
+      return;
+    }
+    void loadAgentRuns();
+    const intervalId = window.setInterval(() => {
+      void loadAgentRuns();
+    }, 5000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [showHistory]);
+
   const setChatId = useCallback(
     (next: ChatSectionChatIdUpdate) => {
       const currentState = useProjectState.getState();
@@ -1264,7 +1260,7 @@ function ManagedChatArea({
             searchEnabled: nextSettings.searchEnabled,
           });
         },
-        send: () =>
+        send: (frontendOpId) =>
           route_set_chat_section_settings({
             projectConfigId,
             sectionId,
@@ -1274,6 +1270,7 @@ function ManagedChatArea({
             thinking,
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
+            frontendOpId,
           }),
       });
       return { feedback };

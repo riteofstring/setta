@@ -99,3 +99,93 @@ test("project chat falls back to browser dictation when provider capture fails i
     await cleanupIsolatedProject(page, projectContext);
   }
 });
+
+test("project chat releases provider mic stream when recorder start fails", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "SpeechRecognition", {
+      value: undefined,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitSpeechRecognition", {
+      value: undefined,
+      configurable: true,
+    });
+
+    class MockMediaRecorder {
+      static isTypeSupported(_mimeType: string) {
+        return true;
+      }
+
+      mimeType = "audio/webm";
+      state = "inactive";
+      ondataavailable: ((event: { data?: Blob }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      onstop: (() => void) | null = null;
+
+      start() {
+        throw new Error("start failed");
+      }
+
+      stop() {
+        this.state = "inactive";
+      }
+    }
+
+    let stopCount = 0;
+    const audioTrack = {
+      stop: () => {
+        stopCount += 1;
+      },
+    };
+
+    Object.defineProperty(window, "MediaRecorder", {
+      value: MockMediaRecorder,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: {
+        getUserMedia: () =>
+          Promise.resolve({
+            getTracks: () => [audioTrack],
+          }),
+      },
+      configurable: true,
+    });
+    (window as Window & { __providerTrackStopCount?: () => number }).__providerTrackStopCount =
+      () => stopCount;
+  });
+
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    const micButton = overviewPane.getByRole("button", { name: "Mic" });
+    await expect(micButton).toBeVisible();
+    await micButton.click();
+
+    await expect(overviewPane.getByText("Microphone access was denied.")).toBeVisible();
+    await expect.poll(async () => {
+      return await page.evaluate(() => {
+        const reader = (
+          window as Window & { __providerTrackStopCount?: () => number }
+        ).__providerTrackStopCount;
+        return typeof reader === "function" ? reader() : 0;
+      });
+    }).toBe(1);
+  } finally {
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});

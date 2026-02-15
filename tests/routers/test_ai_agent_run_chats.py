@@ -820,6 +820,77 @@ class TestAgentRunChatRoutes:
             file_payload = kwargs.get("file")
             assert file_payload == ("voice.webm", b"hello", "audio/webm")
 
+    async def test_transcribe_chat_audio_returns_400_for_missing_api_key(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            runner.update_api_keys({})
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    upload = UploadFile(
+                        io.BytesIO(b"hello"),
+                        filename="voice.webm",
+                        headers=Headers({"content-type": "audio/webm"}),
+                    )
+                    await route_transcribe_chat_audio(
+                        ctx=ctx,
+                        engineConfigId=engine_config_id,
+                        file=upload,
+                    )
+
+            assert exc.value.status_code == 400
+            detail = str(exc.value.detail)
+            assert "Missing API key for" in detail
+            assert "OPENAI_API_KEY" in detail
+
+    async def test_transcribe_chat_audio_keeps_502_for_provider_failures(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            runner.update_api_keys({"OPENAI_API_KEY": "test-key"})
+
+            async def _raise_provider_failure(*_args, **_kwargs):
+                raise RuntimeError("provider exploded")
+
+            monkeypatch.setattr(
+                "setta.routers.ai.transcribe_audio_with_llm",
+                _raise_provider_failure,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    upload = UploadFile(
+                        io.BytesIO(b"hello"),
+                        filename="voice.webm",
+                        headers=Headers({"content-type": "audio/webm"}),
+                    )
+                    await route_transcribe_chat_audio(
+                        ctx=ctx,
+                        engineConfigId=engine_config_id,
+                        file=upload,
+                    )
+
+            assert exc.value.status_code == 502
+            assert exc.value.detail == "Provider transcription failed."
+
     async def test_transcribe_chat_audio_rejects_external_engine(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

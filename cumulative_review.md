@@ -40,3 +40,24 @@ Implemented the next review cycle fixes across backend and frontend, excluding b
 - Ruff on changed backend/test files passed.
 - ESLint targeted run not executable in this environment due missing `@eslint/js` resolution.
 - CDP visual verification completed in Project AI Chat (composer controls/mic behavior visible after changes).
+
+## 2026-02-17 09:28:23 PST
+
+### Summary
+Implemented the latest review-cycle fixes across chat UX, dictation reliability, optimistic update correctness, and backend completion/transcription semantics, without adding backward-compatibility shims.
+
+### Implemented fixes
+- Added a shared `resolvePermissionModeArg` parser in `chatComposerControls` and reused it across section chat and project chat to remove duplicate slash-command parsing logic.
+- Fixed optimistic chat section settings updates to pass `frontendOpId` so pending optimistic operations are completed correctly.
+- Updated managed chat history behavior to refresh runs immediately when History opens and poll every 5 seconds while visible.
+- Removed dead `ChatInput` starter-prompt props/branches (`starterPrompts`, `showPythonStarterPrompts`) from the production input component API.
+- Enforced disabled-state consistency in `ChatInput` by disabling permission/search/mic controls and guarding dictation toggles when composer input is disabled.
+- Hardened provider dictation cleanup so recorder/stream/chunks/source are always reset on recorder construction failure, recorder error, start failure, and unmount.
+- Tightened completion guard pass detection by removing overly broad `clean` pass matching.
+- Updated transcription route error mapping: missing local API-key config now returns HTTP 400, while provider/runtime failures remain HTTP 502.
+
+### Test and verification status
+- Frontend Vitest: targeted suites passed (`ChatInput`, `chatComposerControls`).
+- Backend pytest: targeted suites passed (`completion_guard`, transcription route behavior in `test_ai_agent_run_chats`).
+- Playwright: targeted e2e suites passed (`chat-composer-controls`, `chat-dictation-fallback`).
+- CDP visual verification completed in the running app session (Project AI Chat composer/control surface).

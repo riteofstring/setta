@@ -4,7 +4,6 @@ import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CHAT_STARTER_PROMPTS } from "./chatComposerControls";
 import { ChatInput } from "./ChatInput";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
@@ -71,6 +70,23 @@ function getButtonTagByAriaLabel(
     return null;
   }
   const buttonStart = markup.lastIndexOf("<button", labelIndex);
+  if (buttonStart < 0) {
+    return null;
+  }
+  const buttonEnd = markup.indexOf(">", buttonStart);
+  if (buttonEnd < 0) {
+    return null;
+  }
+  return markup.slice(buttonStart, buttonEnd);
+}
+
+function getButtonTagByText(markup: string, text: string): string | null {
+  const marker = `>${text}`;
+  const textIndex = markup.indexOf(marker);
+  if (textIndex < 0) {
+    return null;
+  }
+  const buttonStart = markup.lastIndexOf("<button", textIndex);
   if (buttonStart < 0) {
     return null;
   }
@@ -156,29 +172,6 @@ describe("ChatInput composer controls", () => {
     resetProjectStores();
   });
 
-  it("renders starter prompts without a dedicated quick slash row", () => {
-    const markup = renderChatInput({
-      starterPrompts: CHAT_STARTER_PROMPTS,
-      showPythonStarterPrompts: true,
-    });
-
-    expect(markup).toContain("Create Project");
-    expect(markup).toContain("Summarize Codebase");
-    expect(markup).not.toContain(">/new<");
-    expect(markup).not.toContain(">/resume<");
-    expect(markup).not.toContain(">/model<");
-  });
-
-  it("hides python starter prompt when python is unavailable", () => {
-    const markup = renderChatInput({
-      starterPrompts: CHAT_STARTER_PROMPTS,
-      showPythonStarterPrompts: false,
-    });
-
-    expect(markup).not.toContain("Create Project");
-    expect(markup).toContain("Summarize Codebase");
-  });
-
   it("renders execution controls when provided", () => {
     const markup = renderChatInput({
       executionControls: {
@@ -195,14 +188,30 @@ describe("ChatInput composer controls", () => {
   });
 
   it("does not render slash buttons above the composer", () => {
-    const markup = renderChatInput({
-      starterPrompts: CHAT_STARTER_PROMPTS,
-      showPythonStarterPrompts: true,
-    });
+    const markup = renderChatInput();
 
     expect(markup).not.toContain(">/new<");
     expect(markup).not.toContain(">/resume<");
     expect(markup).not.toContain(">/model<");
+  });
+
+  it("disables execution controls when the composer is disabled", () => {
+    const markup = renderChatInput({
+      disabled: true,
+      executionControls: {
+        permissionMode: "minimal",
+        searchEnabled: true,
+        onPermissionModeChange: vi.fn(),
+        onSearchEnabledChange: vi.fn(),
+      },
+    });
+
+    const permissionButton = getButtonTagByText(markup, "minimal");
+    const searchButton = getButtonTagByText(markup, "Search");
+    expect(permissionButton).not.toBeNull();
+    expect(searchButton).not.toBeNull();
+    expect(permissionButton).toContain("disabled");
+    expect(searchButton).toContain("disabled");
   });
 
   it("defaults slash suggestions to below placement", () => {

@@ -10,6 +10,7 @@ import {
   formatSlashCommandHelp,
   type ChatPermissionModeValue,
   type ChatStarterPrompt,
+  resolvePermissionModeArg,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
@@ -77,25 +78,6 @@ type ChatExecutionSettings = {
 type ProjectChatHistoryEntry = ReturnType<
   typeof buildChatHistoryEntries
 >[number];
-
-function resolvePermissionModeArg(
-  rawArg: string | undefined,
-): ChatPermissionModeValue | null {
-  if (!rawArg) {
-    return null;
-  }
-  const normalized = rawArg.trim().toLowerCase().replaceAll(".", "_");
-  if (normalized === "config_toml_custom") {
-    return "config_toml_custom";
-  }
-  if (normalized === "minimal") {
-    return "minimal";
-  }
-  if (normalized === "yolo") {
-    return "yolo";
-  }
-  return null;
-}
 
 function resolveToggleArg(
   rawArg: string | undefined,

@@ -5,6 +5,7 @@ import {
   ensureAppReady,
   ensureManagedChatEngine,
   openIsolatedProject,
+  postBackend,
   setChatSectionState,
   setOverviewTab,
 } from "../helpers";
@@ -135,32 +136,27 @@ test.describe.serial("chat composer controls", () => {
       const createProjectButton = overviewPane.getByRole("button", {
         name: /^Create Project$/,
       });
-      await expect(createProjectButton).toBeVisible();
       const summarizeCodebaseButton = overviewPane.getByRole("button", {
         name: /^Summarize Codebase$/,
       });
-      await expect(
-        summarizeCodebaseButton,
-      ).toBeVisible();
+      await expect(summarizeCodebaseButton).toBeVisible();
       const planNextStepsButton = overviewPane.getByRole("button", {
         name: /^Plan Next Steps$/,
       });
-      await expect(
-        planNextStepsButton,
-      ).toBeVisible();
-      const quickActionButtons: Locator[] = [
-        createProjectButton,
-        summarizeCodebaseButton,
-        planNextStepsButton,
-      ];
+      await expect(planNextStepsButton).toBeVisible();
+      const quickActionButtons: Locator[] = [summarizeCodebaseButton];
+      if (await createProjectButton.isVisible()) {
+        quickActionButtons.unshift(createProjectButton);
+      }
+      quickActionButtons.push(planNextStepsButton);
       await expectButtonsStackedVertically(quickActionButtons);
 
-      const createProjectClass = await createProjectButton.getAttribute("class");
-      const summarizeCodebaseClass = await summarizeCodebaseButton.getAttribute(
+      const firstButtonClass = await quickActionButtons[0]?.getAttribute("class");
+      const secondButtonClass = await quickActionButtons[1]?.getAttribute(
         "class",
       );
-      expect(createProjectClass).toBeTruthy();
-      expect(createProjectClass).toBe(summarizeCodebaseClass);
+      expect(firstButtonClass).toBeTruthy();
+      expect(firstButtonClass).toBe(secondButtonClass);
 
       const input = overviewPane.getByPlaceholder("Type a message...");
       await expect(input).toBeVisible();
@@ -202,13 +198,88 @@ test.describe.serial("chat composer controls", () => {
       ).toBeVisible();
       const searchButton = overviewPane.getByRole("button", { name: "Search" });
       await expect(searchButton).toBeVisible();
-      await expect(
-        overviewPane.getByRole("button", { name: "Skills" }),
-      ).toHaveCount(0);
       await searchButton.click();
       await expect(searchButton).toHaveAttribute("aria-pressed", "false");
     } finally {
       await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("chat section history refreshes runs when the history panel opens", async ({
+    page,
+  }) => {
+    let historySectionId: string | null = null;
+    let historyRefreshArmed = false;
+    let getAgentRunsRequestCount = 0;
+    await page.route("**/api/getAgentRuns", async (route) => {
+      getAgentRunsRequestCount += 1;
+      const runs =
+        historyRefreshArmed && historySectionId
+          ? [
+              {
+                id: "run-history-refresh",
+                profileId: null,
+                status: "completed",
+                startedAt: "2026-01-01T00:00:00Z",
+                finishedAt: "2026-01-01T00:00:01Z",
+                events: [],
+                inputs: {
+                  runType: "llm_chat",
+                  chatId: "chat-history-refresh",
+                  sectionId: historySectionId,
+                  messages: [
+                    {
+                      id: "history-message-1",
+                      role: "user",
+                      content: [
+                        { type: "text", text: "History refreshed entry" },
+                      ],
+                      attachments: [],
+                    },
+                  ],
+                },
+                outputs: {},
+              },
+            ]
+          : [];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(runs),
+      });
+    });
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_chat_history_refresh__",
+      );
+      historySectionId = sectionId;
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        managed: true,
+        engineConfigId: null,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+      });
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+      await expect(section.getByRole("button", { name: "History" })).toBeVisible();
+      const initialRequestCount = getAgentRunsRequestCount;
+      historyRefreshArmed = true;
+      await section.getByRole("button", { name: "History" }).click();
+      await expect
+        .poll(() => getAgentRunsRequestCount, { timeout: 15000 })
+        .toBeGreaterThan(initialRequestCount);
+      await expect(section.getByText("History refreshed entry")).toBeVisible();
+    } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
   });

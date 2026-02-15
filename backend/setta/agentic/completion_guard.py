@@ -17,7 +17,7 @@ _CHECK_RE = re.compile(
     re.IGNORECASE,
 )
 _PASS_RE = re.compile(
-    r"\b(pass(?:ed)?|success(?:ful)?|clean|no errors?)\b",
+    r"\b(pass(?:ed)?|success(?:ful(?:ly)?)?|no errors?)\b",
     re.IGNORECASE,
 )
 _FAIL_RE = re.compile(

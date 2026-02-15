@@ -6,6 +6,25 @@ const CHAT_PERMISSION_MODES = [
 
 export type ChatPermissionModeValue = (typeof CHAT_PERMISSION_MODES)[number];
 
+export function resolvePermissionModeArg(
+  rawArg: string | undefined,
+): ChatPermissionModeValue | null {
+  if (!rawArg) {
+    return null;
+  }
+  const normalized = rawArg.trim().toLowerCase().replaceAll(".", "_");
+  if (normalized === "config_toml_custom") {
+    return "config_toml_custom";
+  }
+  if (normalized === "minimal") {
+    return "minimal";
+  }
+  if (normalized === "yolo") {
+    return "yolo";
+  }
+  return null;
+}
+
 export type ChatSlashCommandAction =
   | "new"
   | "resume"

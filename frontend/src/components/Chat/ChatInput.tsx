@@ -29,7 +29,6 @@ import {
   type ChatPermissionModeValue,
   type ChatSlashCommandAction,
   type ChatSlashCommandDefinition,
-  type ChatStarterPrompt,
   getSlashCommandSuggestions,
   parseSlashCommand,
 } from "./chatComposerControls";
@@ -44,7 +43,6 @@ import {
 } from "./dictation";
 import { useChatAttachmentManager } from "./useChatAttachmentManager";
 
-const MAX_STARTER_PROMPTS_RENDERED = 6;
 const SLASH_SUGGESTIONS_MAX_HEIGHT_PX = 208;
 const SLASH_SUGGESTIONS_EDGE_PADDING_PX = 8;
 const SLASH_SUGGESTIONS_BASE_HEIGHT_PX = 12;
@@ -95,8 +93,6 @@ type ChatInputProps = {
   onSlashCommand?: (
     command: ChatSlashCommand,
   ) => Promise<ChatSlashCommandResult | void> | ChatSlashCommandResult | void;
-  starterPrompts?: ChatStarterPrompt[];
-  showPythonStarterPrompts?: boolean;
   slashSuggestionsPlacement?: "auto" | "above" | "below";
   dictationMode?: "auto" | "browser" | "provider";
   onProviderDictationTranscribe?: (audioBlob: Blob) => Promise<string | null>;
@@ -119,8 +115,6 @@ export const ChatInput = memo(function ChatInput({
   },
   slashCommands = CHAT_SLASH_COMMANDS,
   onSlashCommand,
-  starterPrompts = [],
-  showPythonStarterPrompts = false,
   slashSuggestionsPlacement = "auto",
   dictationMode = "auto",
   onProviderDictationTranscribe,
@@ -534,24 +528,6 @@ export const ChatInput = memo(function ChatInput({
     return `${base} ${dragClass} cursor-auto opacity-100`;
   }, [isDisabled, isDragActive]);
 
-  const visibleStarterPrompts = useMemo(
-    () =>
-      starterPrompts
-        .filter(
-          (starterPrompt) =>
-            !starterPrompt.requiresPython || showPythonStarterPrompts,
-        )
-        .slice(0, MAX_STARTER_PROMPTS_RENDERED),
-    [showPythonStarterPrompts, starterPrompts],
-  );
-
-  const handleStarterPrompt = useCallback(
-    async (prompt: string) => {
-      await submitMessage(prompt, []);
-    },
-    [submitMessage],
-  );
-
   const dictationSupported = Boolean(getSpeechRecognitionConstructor());
   const canBrowserDictate = isDictationAvailable(
     dictationEnabledByProvider,
@@ -568,11 +544,12 @@ export const ChatInput = memo(function ChatInput({
       mediaRecorderSupported,
   );
   const canDictate =
-    dictationMode === "provider"
+    !isDisabled &&
+    (dictationMode === "provider"
       ? canProviderDictate
       : dictationMode === "browser"
         ? canBrowserDictate
-        : canProviderDictate || canBrowserDictate;
+        : canProviderDictate || canBrowserDictate);
   const showPermissionControl = Boolean(
     executionControls && executionControlVisibility.permissionMode !== false,
   );
@@ -589,6 +566,24 @@ export const ChatInput = memo(function ChatInput({
     slashSuggestionsPortalStyle !== null &&
     typeof document !== "undefined" &&
     Boolean(document.body);
+
+  const cleanupProviderCapture = useCallback(() => {
+    const recorder = providerRecorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.onstop = null;
+      recorder.stop();
+    }
+    providerRecorderRef.current = null;
+    const stream = providerStreamRef.current;
+    if (stream) {
+      for (const track of stream.getTracks()) {
+        track.stop();
+      }
+    }
+    providerStreamRef.current = null;
+    providerChunksRef.current = [];
+    dictationSourceRef.current = null;
+  }, []);
 
   const stopProviderCapture = useCallback(() => {
     const recorder = providerRecorderRef.current;
@@ -720,6 +715,7 @@ export const ChatInput = memo(function ChatInput({
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      providerStreamRef.current = stream;
       const mimeType = pickProviderRecorderMimeType(
         MediaRecorder.isTypeSupported?.bind(MediaRecorder),
       );
@@ -729,9 +725,7 @@ export const ChatInput = memo(function ChatInput({
           ? new MediaRecorder(stream, { mimeType })
           : new MediaRecorder(stream);
       } catch {
-        for (const track of stream.getTracks()) {
-          track.stop();
-        }
+        cleanupProviderCapture();
         if (maybeFallbackToBrowserDictation()) {
           return;
         }
@@ -739,7 +733,6 @@ export const ChatInput = memo(function ChatInput({
         setDictationFeedback("Provider dictation is not available.");
         return;
       }
-      providerStreamRef.current = stream;
       providerRecorderRef.current = recorder;
       providerChunksRef.current = [];
       dictationSourceRef.current = "provider";
@@ -749,10 +742,9 @@ export const ChatInput = memo(function ChatInput({
         }
       };
       recorder.onerror = () => {
+        cleanupProviderCapture();
         setDictationState("error");
         setDictationFeedback("Microphone input failed.");
-        providerRecorderRef.current = null;
-        dictationSourceRef.current = null;
       };
       recorder.onstop = () => {
         providerRecorderRef.current = null;
@@ -807,6 +799,7 @@ export const ChatInput = memo(function ChatInput({
       setDictationFeedback("Listening...");
       recorder.start();
     } catch {
+      cleanupProviderCapture();
       if (maybeFallbackToBrowserDictation()) {
         return;
       }
@@ -815,6 +808,7 @@ export const ChatInput = memo(function ChatInput({
     }
   }, [
     canProviderDictate,
+    cleanupProviderCapture,
     insertTranscript,
     maybeFallbackToBrowserDictation,
     onProviderDictationTranscribe,
@@ -851,24 +845,14 @@ export const ChatInput = memo(function ChatInput({
     return () => {
       recognitionRef.current?.stop();
       recognitionRef.current = null;
-      const recorder = providerRecorderRef.current;
-      if (recorder && recorder.state !== "inactive") {
-        recorder.onstop = null;
-        recorder.stop();
-      }
-      providerRecorderRef.current = null;
-      const stream = providerStreamRef.current;
-      if (stream) {
-        for (const track of stream.getTracks()) {
-          track.stop();
-        }
-      }
-      providerStreamRef.current = null;
-      dictationSourceRef.current = null;
+      cleanupProviderCapture();
     };
-  }, []);
+  }, [cleanupProviderCapture]);
 
   const handleDictationToggle = useCallback(() => {
+    if (isDisabled) {
+      return;
+    }
     if (dictationState === "listening") {
       if (dictationSourceRef.current === "provider") {
         stopProviderCapture();
@@ -883,6 +867,7 @@ export const ChatInput = memo(function ChatInput({
     startDictation();
   }, [
     dictationState,
+    isDisabled,
     startDictation,
     stopBrowserDictation,
     stopProviderCapture,
@@ -923,21 +908,6 @@ export const ChatInput = memo(function ChatInput({
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          {visibleStarterPrompts.length > 0 ? (
-            <div className="mb-0.5 flex flex-wrap items-center gap-1">
-              {visibleStarterPrompts.map((starterPrompt) => (
-                <button
-                  key={starterPrompt.id}
-                  type="button"
-                  className="rounded border border-setta-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-                  onClick={() => void handleStarterPrompt(starterPrompt.prompt)}
-                  disabled={isSubmitDisabled}
-                >
-                  {starterPrompt.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
           <div className="relative my-1 w-full">
             <input
               ref={fileInputRef}
@@ -1059,7 +1029,8 @@ export const ChatInput = memo(function ChatInput({
                   <DropdownMenu.Trigger asChild>
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1 rounded-md border border-setta-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                      disabled={isDisabled}
+                      className="inline-flex items-center gap-1 rounded-md border border-setta-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
                     >
                       {executionControls.permissionMode.replaceAll("_", " ")}
                       <IoChevronDown />
@@ -1104,11 +1075,12 @@ export const ChatInput = memo(function ChatInput({
                 <button
                   type="button"
                   aria-pressed={executionControls.searchEnabled}
+                  disabled={isDisabled}
                   className={`rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
                     executionControls.searchEnabled
                       ? "border-blue-600 bg-blue-600 text-white"
                       : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-                  }`}
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
                   onClick={() =>
                     executionControls.onSearchEnabledChange(
                       !executionControls.searchEnabled,
@@ -1121,7 +1093,7 @@ export const ChatInput = memo(function ChatInput({
               {canDictate ? (
                 <button
                   type="button"
-                  disabled={dictationState === "transcribing"}
+                  disabled={isDisabled || dictationState === "transcribing"}
                   className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
                     dictationState === "listening"
                       ? "border-blue-600 bg-blue-600 text-white"

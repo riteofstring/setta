@@ -5,6 +5,7 @@ import {
   formatSlashCommandHelp,
   getSlashCommandSuggestions,
   parseSlashCommand,
+  resolvePermissionModeArg,
 } from "./chatComposerControls";
 
 describe("chatComposerControls", () => {
@@ -89,5 +90,18 @@ describe("chatComposerControls", () => {
     expect(CREATE_PROJECT_STARTER_PROMPT).toContain(
       "run error checks and report pass/fail explicitly",
     );
+  });
+
+  it("parses permission mode aliases from slash args", () => {
+    expect(resolvePermissionModeArg("minimal")).toBe("minimal");
+    expect(resolvePermissionModeArg("YOLO")).toBe("yolo");
+    expect(resolvePermissionModeArg("config.toml.custom")).toBe(
+      "config_toml_custom",
+    );
+  });
+
+  it("rejects unknown permission mode args", () => {
+    expect(resolvePermissionModeArg(undefined)).toBeNull();
+    expect(resolvePermissionModeArg("safe")).toBeNull();
   });
 });

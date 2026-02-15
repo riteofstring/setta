@@ -66,6 +66,20 @@ def test_completion_guard_allows_done_claim_after_passing_checks() -> None:
     assert _assistant_text(assistant_message) == "Done. Everything is complete."
 
 
+def test_completion_guard_does_not_treat_generic_clean_language_as_passed_checks() -> None:
+    # "clean" without explicit pass wording should not satisfy verification.
+    prior_messages = [
+        _user_message("Create a project setup for this repo."),
+        _assistant_message("I can check this and keep it clean."),
+    ]
+    assistant_message = _assistant_message("Done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+
+
 def test_completion_guard_ignores_non_creation_conversations() -> None:
     # Non-creation requests are out of scope for this completion gate.
     prior_messages = [_user_message("Explain this function in detail.")]
