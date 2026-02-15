@@ -1,12 +1,17 @@
 # File Browser Pane
 
-This document explains how the File Browser pane works in the Overview sidebar and how
-it opens files into Code sections.
+This document explains how the shared File Browser UI works in both the
+Overview sidebar and the Home page workspace browser, and how it opens files
+into Code sections.
 
 ## Where It Lives
 
 - The File Browser pane is the "Explorer" tab in the Overview sidebar.
-- It is hidden in share mode, and the backend blocks browsing routes with 403s.
+- The same `FileBrowserPane` component is also used in the Home page "Workspace
+  Browser" column (`frontend/src/components/Pages/Home/HomePage.tsx`), backed by
+  `useHomeFileBrowserState`.
+- In the Overview sidebar, Explorer is hidden in share/deployment mode.
+- Backend file-browser routes are still blocked with 403s in deployment mode.
 
 ## Loading Roots And Folders
 
@@ -21,6 +26,8 @@ it opens files into Code sections.
   to browse outside the project root fail with a 403.
 - The pane currently does not expose a root-path input; consumers change the root by
   updating file browser state.
+- The Home page wrapper adds a root path input (`home-file-browser-path-input`) and
+  writes the selected root into `useHomeFileBrowserState`.
 - Folder contents are fetched lazily when a folder expands.
 - Each folder request limits results to 5000 entries and returns folders before files,
   sorted by case-insensitive name.
@@ -28,6 +35,9 @@ it opens files into Code sections.
   project root when possible.
 - The pane requests `mtime` values (`includeMtime=true`) so the Date modified column
   can render.
+- Consumers can request Setta initialization metadata with
+  `includeSettaInitialized=true`; folder entries then include
+  `isSettaInitialized` when that folder contains a `setta_files/` directory.
 
 ## Sorting And Columns
 
@@ -54,6 +64,17 @@ it opens files into Code sections.
 - Hidden items (dotfiles) and default ignore patterns are filtered out by the backend.
 - Rows show a spinner while loading and a small error marker when a folder fails to
   load.
+
+## Setta Initialization Badges
+
+- Home page exposes a `Show Setta badges` toggle that passes
+  `includeSettaInitializedFolders` to `FileBrowserPane`.
+- When toggled on, the pane refreshes root + currently expanded folders so badge
+  metadata becomes available without manual collapse/expand.
+- Badge refresh requests use a bounded concurrency limit
+  (`SETTA_BADGE_REFRESH_CONCURRENCY_LIMIT = 8`).
+- Badge rendering is folder-only and uses `data-testid="setta-initialized-badge"`
+  with visible label text `Setta`.
 
 ## Selection And Opening Files
 
@@ -87,6 +108,7 @@ Keyboard navigation works when the list has focus.
 ## Implementation References
 
 - UI: `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserPane.tsx`
+- Home wrapper: `frontend/src/components/Pages/Home/HomePage.tsx`
 - Autocomplete: `frontend/src/components/Utils/CodeMirror/folderPathCompletions.ts`
 - Path helpers: `frontend/src/utils/browserPaths.ts`
 - State: `frontend/src/state/definitions.ts`
