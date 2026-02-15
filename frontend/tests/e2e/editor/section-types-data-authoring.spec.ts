@@ -134,6 +134,13 @@ async function applyZoomPreset(
   return getViewportScale(page);
 }
 
+function getExpectedSpreadsheetDensityMultiplier(viewportZoom: number): number {
+  const safeZoom = viewportZoom > 0 ? viewportZoom : 1;
+  const desiredMultiplier =
+    safeZoom >= 1 ? safeZoom : 1 / Math.max(0.01, safeZoom);
+  return Math.min(6, Math.max(1, desiredMultiplier));
+}
+
 type SpreadsheetCanvasDensityMetrics = {
   densityX: number;
   densityY: number;
@@ -141,6 +148,7 @@ type SpreadsheetCanvasDensityMetrics = {
   cssHeight: number;
   pixelWidth: number;
   pixelHeight: number;
+  baseFontPx: number;
 };
 
 async function getSpreadsheetCanvasDensityMetrics(
@@ -167,6 +175,16 @@ async function getSpreadsheetCanvasDensityMetrics(
       return best;
     });
     const rect = largest.getBoundingClientRect();
+    const themedElement =
+      grid.querySelector<HTMLElement>('[style*="--gdg-base-font-style"]') ??
+      (grid.firstElementChild as HTMLElement | null);
+    const computedTheme = themedElement
+      ? window.getComputedStyle(themedElement)
+      : null;
+    const baseFontStyle =
+      computedTheme?.getPropertyValue("--gdg-base-font-style").trim() ?? "";
+    const baseFontMatch = /([0-9.]+)px/.exec(baseFontStyle);
+    const baseFontPx = baseFontMatch ? Number(baseFontMatch[1]) : NaN;
     return {
       densityX: largest.width / Math.max(1, rect.width),
       densityY: largest.height / Math.max(1, rect.height),
@@ -174,6 +192,7 @@ async function getSpreadsheetCanvasDensityMetrics(
       cssHeight: rect.height,
       pixelWidth: largest.width,
       pixelHeight: largest.height,
+      baseFontPx,
     };
   });
 
@@ -931,6 +950,8 @@ test.describe.serial("section types data authoring", () => {
         zoom: number;
         densityX: number;
         densityY: number;
+        baseFontPx: number;
+        effectiveFontPx: number;
       }> = [];
 
       for (const preset of zoomPresets) {
@@ -946,6 +967,11 @@ test.describe.serial("section types data authoring", () => {
           zoom,
           densityX: metrics.densityX,
           densityY: metrics.densityY,
+          baseFontPx: metrics.baseFontPx,
+          effectiveFontPx:
+            (metrics.baseFontPx /
+              getExpectedSpreadsheetDensityMultiplier(zoom)) *
+            zoom,
         });
 
         await testInfo.attach(`spreadsheet-${preset.label}.png`, {
@@ -960,6 +986,10 @@ test.describe.serial("section types data authoring", () => {
       const sortedByZoom = [...samples].sort(
         (left, right) => left.zoom - right.zoom,
       );
+      for (const sample of sortedByZoom) {
+        expect(Number.isFinite(sample.baseFontPx)).toBe(true);
+        expect(Number.isFinite(sample.effectiveFontPx)).toBe(true);
+      }
       expect(sortedByZoom[0]?.zoom ?? 0).toBeLessThan(
         sortedByZoom[1]?.zoom ?? 0,
       );
@@ -992,6 +1022,19 @@ test.describe.serial("section types data authoring", () => {
       expect(maxSample.densityY).toBeGreaterThanOrEqual(0.95);
       expect(farOutSample.densityX).toBeGreaterThanOrEqual(1);
       expect(farOutSample.densityY).toBeGreaterThanOrEqual(1);
+
+      expect(sortedByZoom[0]?.effectiveFontPx ?? 0).toBeLessThan(
+        sortedByZoom[1]?.effectiveFontPx ?? 0,
+      );
+      expect(sortedByZoom[1]?.effectiveFontPx ?? 0).toBeLessThan(
+        sortedByZoom[2]?.effectiveFontPx ?? 0,
+      );
+      expect(sortedByZoom[2]?.effectiveFontPx ?? 0).toBeLessThan(
+        sortedByZoom[3]?.effectiveFontPx ?? 0,
+      );
+      expect(sortedByZoom[3]?.effectiveFontPx ?? 0).toBeLessThan(
+        sortedByZoom[4]?.effectiveFontPx ?? 0,
+      );
 
       await testInfo.attach("spreadsheet-zoom-density-metrics.json", {
         body: Buffer.from(JSON.stringify(samples, null, 2), "utf-8"),

@@ -708,3 +708,20 @@ Result:
   - non-regressive high-zoom canvas density floor,
   - non-degraded zoom-out density.
 - Chrome DevTools MCP (CDP) remained unavailable in-session (`Transport closed`), so no manual CDP trace was captured in this run.
+
+## 2026-02-15 (Spreadsheet zoom text-size + jitter stabilization)
+
+### Scope
+- Fixed zoom-in text shrink regression by scaling Glide typography/padding with the same density multiplier used for zoom oversampling.
+- Reduced zoom-time visual jitter by removing integer snapping on Glide render dimensions and row/header sizing (`Math.round` removal on zoom-scaled values).
+- Expanded five-level zoom Playwright coverage to include effective on-screen font scaling checks derived from grid theme CSS variables.
+
+### Automated performance + behavior checks
+- `cd frontend && pnpm exec vitest run src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.test.tsx src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.perf.test.tsx src/utils/spreadsheet.perf.test.ts`
+  - `3 passed` test files, `6 passed` tests.
+- `./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/section-types-data-authoring.spec.ts --grep "clock, calendar, task board, and spreadsheet sections are visible and interactive|spreadsheet filter and sort controls render correctly in dark mode|spreadsheet zoom rendering stays stable across five zoom levels"`
+  - `3 passed`.
+  - Zoom test now validates: 5 distinct viewport scales, canvas density floor, and monotonic effective text sizing across zoom levels.
+
+### Notes
+- Chrome DevTools MCP (CDP) remained unavailable in-session (`Transport closed`), so manual CDP profiling was not captured in this run.
