@@ -4,6 +4,7 @@ const CARD_THEME_NAMES = ["sunrise", "ocean", "forest"];
 const PANE_NOTE_STORAGE_KEY = "setta-fixture-frontend:pane-note";
 const cardStateBySectionId = new Map();
 const mountedCardContextBySectionId = new Map();
+const paneCleanupByElement = new WeakMap();
 let fixtureRuntimeStore = null;
 let disposeProjectStateSubscriptions = null;
 
@@ -42,6 +43,7 @@ function initFixtureRuntimeStore(host) {
     );
   } else {
     let fallbackState = createInitialFixtureRuntimeState();
+    const fallbackListeners = new Set();
     fixtureRuntimeStore = {
       getState() {
         return fallbackState;
@@ -54,7 +56,17 @@ function initFixtureRuntimeStore(host) {
         if (!nextPartial || typeof nextPartial !== "object") {
           return;
         }
+        const previousState = fallbackState;
         fallbackState = { ...fallbackState, ...nextPartial };
+        for (const listener of fallbackListeners) {
+          listener(fallbackState, previousState);
+        }
+      },
+      subscribe(listener) {
+        fallbackListeners.add(listener);
+        return () => {
+          fallbackListeners.delete(listener);
+        };
       },
     };
   }
@@ -78,6 +90,16 @@ function setFixtureRuntimeState(partialOrUpdater) {
 
 function readFixtureRuntimeState() {
   return getFixtureRuntimeStore().getState();
+}
+
+function subscribeFixtureRuntimeState(listener) {
+  const store = getFixtureRuntimeStore();
+  if (!store || typeof store.subscribe !== "function") {
+    return () => {};
+  }
+  return store.subscribe(() => {
+    listener();
+  });
 }
 
 function hostHasCapability(host, capability) {
@@ -662,6 +684,11 @@ function createPaneButton(label, testId, onClick, variant = "default") {
 }
 
 function mountFixturePane(el, host) {
+  const existingCleanup = paneCleanupByElement.get(el);
+  if (typeof existingCleanup === "function") {
+    existingCleanup();
+    paneCleanupByElement.delete(el);
+  }
   el.innerHTML = "";
 
   const container = document.createElement("section");
@@ -776,6 +803,19 @@ function mountFixturePane(el, host) {
       Number(state.projectStateUpdateCount || 0),
     );
   };
+  let refreshAnimationFrameId = null;
+  const scheduleMetricsRefresh = () => {
+    if (refreshAnimationFrameId !== null) {
+      return;
+    }
+    refreshAnimationFrameId = window.requestAnimationFrame(() => {
+      refreshAnimationFrameId = null;
+      refreshMetrics();
+    });
+  };
+  const unsubscribeRuntimeState = subscribeFixtureRuntimeState(() => {
+    scheduleMetricsRefresh();
+  });
 
   controls.appendChild(
     createPaneButton("Refresh Metrics", "fixture-pane-refresh", () => {
@@ -902,7 +942,23 @@ function mountFixturePane(el, host) {
 
   syncNoteMeta();
   refreshMetrics();
+  paneCleanupByElement.set(el, () => {
+    unsubscribeRuntimeState();
+    if (refreshAnimationFrameId !== null) {
+      window.cancelAnimationFrame(refreshAnimationFrameId);
+      refreshAnimationFrameId = null;
+    }
+  });
   el.appendChild(container);
+}
+
+function unmountFixturePane(el) {
+  const cleanup = paneCleanupByElement.get(el);
+  if (typeof cleanup === "function") {
+    cleanup();
+  }
+  paneCleanupByElement.delete(el);
+  el.textContent = "";
 }
 
 export function register(host) {
@@ -945,7 +1001,7 @@ export function register(host) {
           mountFixturePane(el, host);
         },
         unmount(el) {
-          el.textContent = "";
+          unmountFixturePane(el);
         },
       },
     });
