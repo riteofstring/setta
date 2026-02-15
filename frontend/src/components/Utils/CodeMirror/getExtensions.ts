@@ -9,10 +9,6 @@ import {
   startCompletion,
 } from "@codemirror/autocomplete";
 import { indentLess, indentMore } from "@codemirror/commands";
-import { javascript } from "@codemirror/lang-javascript";
-import { json } from "@codemirror/lang-json";
-import { markdown } from "@codemirror/lang-markdown";
-import { python } from "@codemirror/lang-python";
 import { EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, tooltips } from "@codemirror/view";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
@@ -20,6 +16,7 @@ import { useSettings } from "state/definitions";
 import type { CodeLanguage } from "utils/codeLanguage";
 import { moveFocus } from "utils/focusManager";
 import { shortcutCodemirrorFormat } from "utils/utils";
+import { getCodeMirrorLanguageExtensions } from "./codeMirrorLanguages";
 
 const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
   ".cm-gutters": {
@@ -32,7 +29,6 @@ const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
     borderRight: "0",
   },
 });
-
 type GetExtensionsOptions = {
   parent?: HTMLElement | null;
   language?: CodeLanguage | null;
@@ -86,17 +82,7 @@ export function getExtensions({
     );
   }
 
-  if (language === "python") {
-    extensions.push(python());
-  } else if (language === "typescript") {
-    extensions.push(javascript({ typescript: true, jsx: enableJsx }));
-  } else if (language === "javascript") {
-    extensions.push(javascript({ jsx: enableJsx }));
-  } else if (language === "json") {
-    extensions.push(json());
-  } else if (language === "markdown") {
-    extensions.push(markdown());
-  }
+  extensions.push(...getLanguageExtensions(language, enableJsx));
 
   // autocomplete
   if (completionsFn) {
@@ -209,6 +195,13 @@ export function getExtensions({
   extensions.push(Prec.highest(keymap.of(fullKeymap)));
 
   return extensions;
+}
+
+export function getLanguageExtensions(
+  language: CodeLanguage | null | undefined,
+  useJsx: boolean,
+) {
+  return getCodeMirrorLanguageExtensions(language, useJsx);
 }
 
 function getKeyMapArray({

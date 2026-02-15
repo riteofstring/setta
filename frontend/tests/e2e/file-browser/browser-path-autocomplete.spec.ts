@@ -1,6 +1,6 @@
+import { expect, test, type Page } from "@playwright/test";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   ensureAppReady,
@@ -11,12 +11,69 @@ import {
 
 const SELECT_ALL_SHORTCUT =
   process.platform === "darwin" ? "Meta+A" : "Control+A";
+const TOOLTIP_SELECTOR =
+  "#setta-codemirror-tooltips .cm-tooltip-autocomplete, .cm-tooltip-autocomplete";
 
 function normalizePathForComparison(value: string): string {
   const withoutPrivate = value.startsWith("/private")
     ? value.slice("/private".length)
     : value;
   return withoutPrivate.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+}
+
+async function readCodeMirrorValue(page: Page, id: string): Promise<string> {
+  const value = await page.evaluate((targetId) => {
+    const root = document.getElementById(targetId);
+    if (!root) {
+      return null;
+    }
+    const content =
+      root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
+    return content?.textContent ?? root.textContent ?? "";
+  }, id);
+  return value ?? "";
+}
+
+async function typeBrowserPath({
+  page,
+  pathInputId,
+  targetPath,
+}: {
+  page: Page;
+  pathInputId: string;
+  targetPath: string;
+}): Promise<void> {
+  const pathInput = page.locator(`[id="${pathInputId}"]`);
+  await expect(pathInput).toBeVisible();
+  const cmContent = pathInput.locator(".cm-content");
+  await expect(cmContent).toBeVisible();
+  const normalizedTarget = normalizePathForComparison(targetPath);
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await cmContent.click();
+    await page.keyboard.press(SELECT_ALL_SHORTCUT);
+    await page.keyboard.press("Backspace");
+    await page.keyboard.insertText(targetPath);
+
+    const startedAt = Date.now();
+    const timeoutMs = 2000;
+    while (Date.now() - startedAt < timeoutMs) {
+      const committedPath = normalizePathForComparison(
+        await readCodeMirrorValue(page, pathInputId),
+      );
+      if (committedPath === normalizedTarget) {
+        return;
+      }
+      await page.waitForTimeout(50);
+    }
+  }
+
+  const finalPath = normalizePathForComparison(
+    await readCodeMirrorValue(page, pathInputId),
+  );
+  throw new Error(
+    `Browser path did not update cleanly. Expected "${normalizedTarget}", received "${finalPath}".`,
+  );
 }
 
 test("browser path input autocompletes folders", async ({ page }) => {
@@ -36,30 +93,32 @@ test("browser path input autocompletes folders", async ({ page }) => {
     );
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error("Unable to resolve viewport bounds for section placement.");
+      throw new Error(
+        "Unable to resolve viewport bounds for section placement.",
+      );
     }
 
-	    const browserSection = await postBackend<{ sectionId?: string }>(
-	      page,
-	      "/createTopLevelSection",
-	      {
-	        projectConfigId,
-	        implType: "Browser",
-	        position: {
-	          x: viewportBounds.x + viewportBounds.w * 0.55,
-	          y: viewportBounds.y + viewportBounds.h * 0.25,
-	        },
-	        viewportBounds,
-	      },
-	    );
-	    const sectionId = browserSection?.sectionId;
-	    if (!sectionId) {
-	      throw new Error("Missing sectionId when creating browser section.");
-	    }
+    const browserSection = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId,
+        implType: "Browser",
+        position: {
+          x: viewportBounds.x + viewportBounds.w * 0.55,
+          y: viewportBounds.y + viewportBounds.h * 0.25,
+        },
+        viewportBounds,
+      },
+    );
+    const sectionId = browserSection?.sectionId;
+    if (!sectionId) {
+      throw new Error("Missing sectionId when creating browser section.");
+    }
 
-	    const parentDir = await fs.mkdtemp(
-	      path.join(workspaceRoot, "setta-autocomplete-"),
-	    );
+    const parentDir = await fs.mkdtemp(
+      path.join(workspaceRoot, "setta-autocomplete-"),
+    );
     const alphaDir = path.join(parentDir, "alpha");
     const betaDir = path.join(parentDir, "beta");
     const nestedDir = path.join(alphaDir, "child");
@@ -72,36 +131,32 @@ test("browser path input autocompletes folders", async ({ page }) => {
       const sectionNode = page.locator(
         `.react-flow__node[data-id="${sectionId}"]`,
       );
-	      await expect(sectionNode).toBeVisible();
-	      await rootResponsePromise;
+      await expect(sectionNode).toBeVisible();
+      await rootResponsePromise;
 
-	      await sectionNode.locator('button[aria-label="Carousel view"]').click();
+      await sectionNode.locator('button[aria-label="Carousel view"]').click();
 
-	      const pathInput = sectionNode.locator(
-	        `[id="CodeMirror-${sectionId}-browser-path"]`,
-	      );
+      const pathInput = sectionNode.locator(
+        `[id="CodeMirror-${sectionId}-browser-path"]`,
+      );
       await expect(pathInput).toBeVisible();
       await expect
         .poll(() =>
-          page.evaluate((id) => {
-            const root = document.getElementById(id);
-            if (!root) {
-              return null;
-            }
-            const content =
-              root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
-            return content?.textContent ?? root.textContent ?? "";
-          }, `CodeMirror-${sectionId}-browser-path`),
+          readCodeMirrorValue(page, `CodeMirror-${sectionId}-browser-path`),
         )
         .toContain(normalizedWorkspaceRoot);
-      const tooltip = page.locator(".cm-tooltip-autocomplete");
+      const pathInputId = `CodeMirror-${sectionId}-browser-path`;
+      const typedParentPath = `${parentDir}${path.sep}`;
+      await typeBrowserPath({
+        page,
+        pathInputId,
+        targetPath: typedParentPath,
+      });
+      const tooltip = page.locator(TOOLTIP_SELECTOR).first();
       const cmContent = pathInput.locator(".cm-content");
       await expect(cmContent).toBeVisible();
-      await cmContent.click();
-      await page.keyboard.press(SELECT_ALL_SHORTCUT);
-      await page.keyboard.type(`${parentDir}${path.sep}a`);
-
       await expect(tooltip).toBeVisible({ timeout: 15000 });
+      await page.keyboard.type("a");
       const alphaOption = tooltip.locator("li", { hasText: "alpha" }).first();
       await expect(alphaOption).toBeVisible();
       // Regression guard: the completion popup should still show after backspace
@@ -123,15 +178,7 @@ test("browser path input autocompletes folders", async ({ page }) => {
       );
       await expect
         .poll(() =>
-          page.evaluate((id) => {
-            const root = document.getElementById(id);
-            if (!root) {
-              return null;
-            }
-            const content =
-              root.querySelector(".cm-content") ?? root.querySelector(".cm-line");
-            return content?.textContent ?? root.textContent ?? "";
-          }, `CodeMirror-${sectionId}-browser-path`),
+          readCodeMirrorValue(page, `CodeMirror-${sectionId}-browser-path`),
         )
         .toContain(normalizedExpected);
     } finally {

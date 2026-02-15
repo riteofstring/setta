@@ -1,6 +1,7 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
 import React, { useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { HiChevronDown, HiChevronUp } from "react-icons/hi2";
 import { StandardSearchRightBtn } from "../atoms/search/StandardSearchRightBtn";
 
 export function ComboboxInput({
@@ -29,28 +30,25 @@ export function ComboboxInput({
   const resolvedOuterClasses = [inputOuterClasses, isPaneVariant ? "mx-0" : ""]
     .filter(Boolean)
     .join(" ");
-  const chevronScale = small ? 0.5 : 0.65;
-  const chevronStyle = { "--ggs": chevronScale } as React.CSSProperties;
   const resolvedInputThemeClassName = inputThemeClassName
     ? ` ${inputThemeClassName}`
     : "";
-  const pillInputClasses = `flex-grow truncate outline-0 cursor-auto ${resolvedBg} rounded-full text-xs font-mono text-setta-600 font-medium pl-3 pr-6 focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 ${
+  const pillRightPaddingClass = small ? "pr-6" : "pr-8";
+  const pillInputClasses = `flex-grow truncate outline-0 cursor-auto ${resolvedBg} rounded-full text-xs font-mono text-setta-600 font-medium pl-3 ${pillRightPaddingClass} focus-visible:border-white hover:bg-white/50 hover:dark:bg-setta-950 dark:text-setta-300 dark:focus-visible:border-setta-900 focus-visible:ring-2 border border-solid border-setta-100 dark:border-setta-700/70 placeholder:text-setta-200 dark:placeholder:text-setta-700 min-w-0 ${
     small ? "h-4 my-auto" : "h-7"
   }${resolvedInputThemeClassName}`;
   const paneInputClasses = `flex-grow truncate outline-0 cursor-auto ${resolvedBg} rounded-md border border-solid border-setta-200 px-2 pr-8 text-xs text-setta-800 placeholder:text-setta-300 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:placeholder:text-setta-600 min-w-0 ${
     small ? "h-6" : "h-8"
   }${resolvedInputThemeClassName}`;
   const toggleIcon = isPaneVariant ? (
-    <i
-      className={`gg-chevron-down transition-transform duration-150 ${
-        isOpen ? "rotate-180" : ""
-      }`}
-      style={chevronStyle}
+    <HiChevronDown
+      className={`transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
+      size={small ? 12 : 14}
     />
   ) : isOpen ? (
-    <i className="gg-chevron-up" style={chevronStyle} />
+    <HiChevronUp size={small ? 10 : 12} />
   ) : (
-    <i className="gg-chevron-down" style={chevronStyle} />
+    <HiChevronDown size={small ? 10 : 12} />
   );
   const rightButtonClassName = isPaneVariant
     ? "right-1 text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-100"
@@ -83,11 +81,11 @@ export function ComboboxInput({
           size={
             isPaneVariant
               ? small
-                ? "h-5 w-5"
+                ? "h-6 w-6"
                 : "h-6 w-6"
               : small
                 ? "h-4 w-4"
-                : "h-5 w-5"
+                : "h-7 w-7"
           }
         />
       }
