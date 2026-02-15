@@ -99,12 +99,14 @@ def get_modules_from_package(package):
 
 
 def get_all_sets(module):
-    return inspect.getmembers(
-        module,
-        lambda obj: isinstance(obj, (set, frozenset))
+    return [
+        (name, obj)
+        for name, obj in inspect.getmembers(module)
+        if isinstance(obj, (set, frozenset))
         and not inspect.isclass(obj)
-        and is_not_tagged_for_skipping(obj),
-    )
+        and not name.startswith("_")
+        and is_not_tagged_for_skipping(obj)
+    ]
 
 
 def get_all_type_aliases(module):

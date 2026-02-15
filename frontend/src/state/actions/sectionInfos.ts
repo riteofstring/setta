@@ -1136,19 +1136,11 @@ export function createNodesMapFromProjectConfigChildren(
       continue;
     }
     if (canFilterByView) {
-      const visibilityInfo = getSectionViewModeVisibilityIfPresent(
+      const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
         sectionId,
         p,
       );
-      if (!visibilityInfo) {
-        continue;
-      }
-      if (
-        !getSectionShouldRender(
-          visibilityInfo.visibility,
-          visibilityInfo.isEditingViewMode,
-        )
-      ) {
+      if (!getSectionShouldRender(visibility, isEditingViewMode)) {
         continue;
       }
     }
@@ -1177,24 +1169,17 @@ export function setSectionChildren(
 
 function getDisplayedSectionIdToChildrenHelper(
   sectionId: string,
-  sectionImpl: BaseSectionImplUnion | null,
+  sectionImpl: BaseSectionImplUnion,
   state: ZustandProjectState,
   output: Record<string, Array<string>>,
 ) {
-  if (!sectionImpl) {
-    return;
-  }
   if (isBaseParentSectionImpl(sectionImpl)) {
-    const displayedChildren: string[] = [];
-    for (const childId of sectionImpl.children) {
-      const childImpl = getEffectiveSectionImplIfPresent(state, childId);
-      if (!childImpl) {
-        continue;
-      }
-      displayedChildren.push(childId);
+    const { children } = sectionImpl;
+    output[sectionId] = children;
+    for (const childId of children) {
+      const childImpl = getCurrEffectiveSectionImpl(state, childId);
       getDisplayedSectionIdToChildrenHelper(childId, childImpl, state, output);
     }
-    output[sectionId] = displayedChildren;
   } else {
     output[sectionId] = [];
   }
@@ -1204,7 +1189,7 @@ export function getDisplayedSectionIdToChildren(state: ZustandProjectState) {
   const output: Record<string, Array<string>> = {};
   const topLevelSectionIds = getTopLevelSectionIdsForDisplay(state);
   for (const sectionId of topLevelSectionIds) {
-    const impl = getEffectiveSectionImplIfPresent(state, sectionId);
+    const impl = getCurrEffectiveSectionImpl(state, sectionId);
     getDisplayedSectionIdToChildrenHelper(sectionId, impl, state, output);
   }
   return output;
@@ -1295,22 +1280,6 @@ function getSectionVisibilityForActiveViewMode(
   return {
     visibility,
     viewMode,
-  };
-}
-
-function getSectionViewModeVisibilityIfPresent(
-  sectionId: string,
-  state: ZustandProjectState,
-): { visibility: boolean; isEditingViewMode: boolean } | null {
-  const { isEditingViewMode } = state.projectConfig;
-  const viewMode = getActiveViewModeConfig(state);
-  const visibility = viewMode.visibilityBySectionId[sectionId];
-  if (visibility === undefined) {
-    return null;
-  }
-  return {
-    visibility,
-    isEditingViewMode,
   };
 }
 

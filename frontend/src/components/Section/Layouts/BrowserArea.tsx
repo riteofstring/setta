@@ -1562,7 +1562,6 @@ function ItemsColumn({
         folderPath: safeFolder,
         ignorePatterns: rootInfo?.ignorePatterns ?? null,
         includeSize: true,
-        missingFolderBehavior: "empty",
       });
       if (folderRequestIdRef.current !== requestId) {
         return;
@@ -1902,7 +1901,6 @@ function ItemsColumn({
             folderPath: folder,
             ignorePatterns: rootInfo.ignorePatterns ?? null,
             includeSize: true,
-            missingFolderBehavior: "empty",
           });
           if (recursiveFilterRequestIdRef.current !== requestId) {
             return;
