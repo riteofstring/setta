@@ -162,9 +162,9 @@ class SettingsFile:
             return project_state
         project_state = self.dbe.read_settings_project()
         needs_write = False
-        if ensure_settings_code_objs(project_state):
-            needs_write = True
         if ensure_settings_view_modes(project_state):
+            needs_write = True
+        if ensure_settings_code_objs(project_state):
             needs_write = True
         if needs_write and self._allow_write:
             self.dbe.write_settings_project(project_state)
