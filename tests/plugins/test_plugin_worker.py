@@ -1229,6 +1229,61 @@ def test_worker_invoke_mcp_tool_supports_async_tools(tmp_path: Path) -> None:
         _stop_worker(worker)
 
 
+def test_worker_reuses_single_event_loop_for_async_tool_invocations(
+    tmp_path: Path,
+) -> None:
+    # Async worker calls should run on one persistent loop, not one loop per invocation.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "import asyncio\n\n"
+        "_seen_loops = []\n\n"
+        "def register(plugin):\n"
+        "    async def async_loop_count(*, value: str) -> str:\n"
+        "        loop = asyncio.get_running_loop()\n"
+        "        _seen_loops.append(loop)\n"
+        "        unique_loop_count = len({id(item) for item in _seen_loops})\n"
+        "        return f'loop-count:{value}:{unique_loop_count}'\n\n"
+        "    plugin.register_mcp_tool(async_loop_count, name='async_loop_count')\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(plugin_root)
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        _ = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+        )
+        first = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_mcp_tool",
+            params={
+                "toolName": "async_loop_count",
+                "args": [],
+                "kwargs": {"value": "first"},
+            },
+        )
+        second = _rpc_call(
+            worker,
+            request_id=4,
+            method="plugin.invoke_mcp_tool",
+            params={
+                "toolName": "async_loop_count",
+                "args": [],
+                "kwargs": {"value": "second"},
+            },
+        )
+        assert first["result"] == {"result": "loop-count:first:1"}
+        assert second["result"] == {"result": "loop-count:second:1"}
+    finally:
+        _stop_worker(worker)
+
+
 @pytest.mark.parametrize(
     ("entrypoint_source", "expected_payload_label"),
     [

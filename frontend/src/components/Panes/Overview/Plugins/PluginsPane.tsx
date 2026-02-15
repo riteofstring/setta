@@ -1,4 +1,3 @@
-import _ from "lodash";
 import {
   buildPluginRestartActionPlan,
   getRestartRequiredPluginIds,
@@ -40,6 +39,7 @@ import type {
   PluginInstallRequestInput,
   PluginInstallResponse,
   PluginListEntry,
+  PluginRestartCapability,
   PluginRollbackRequestInput,
   PluginStatusEntry,
   PluginUninstallRequestInput,
@@ -90,6 +90,14 @@ type PluginListEntryCardRuntimeState = {
   } | null;
 };
 
+type PluginsPaneRuntimeSummary = {
+  status: string;
+  statusMessage: string;
+  restartCapability: PluginRestartCapability | null;
+  serverMode: "ide" | "share" | "app";
+  loadGeneration: number;
+};
+
 const EMPTY_PLUGIN_PANES: readonly PluginPaneSummary[] = [];
 const EMPTY_PLUGIN_COMMANDS: readonly PluginCommandSummary[] = [];
 
@@ -103,6 +111,19 @@ function pluginListEntryCardRuntimeStateEqual(
     a.panes === b.panes &&
     a.commands === b.commands &&
     a.frontendError === b.frontendError
+  );
+}
+
+function pluginsPaneRuntimeSummaryEqual(
+  a: PluginsPaneRuntimeSummary,
+  b: PluginsPaneRuntimeSummary,
+): boolean {
+  return (
+    a.status === b.status &&
+    a.statusMessage === b.statusMessage &&
+    a.restartCapability === b.restartCapability &&
+    a.serverMode === b.serverMode &&
+    a.loadGeneration === b.loadGeneration
   );
 }
 
@@ -128,7 +149,7 @@ export function PluginsPane() {
       serverMode: state.serverMode,
       loadGeneration: state.loadGeneration,
     }),
-    _.isEqual,
+    pluginsPaneRuntimeSummaryEqual,
   );
   const isDeploymentMode = useShareSession((state) => state.isDeploymentMode);
   const currentProjectConfigName = useProjectState(
@@ -1412,7 +1433,6 @@ function LanguageServerSettingsEditor({
 }) {
   const languageServerSettings = useSettings(
     (state) => state.languageServer as Record<string, unknown>,
-    _.isEqual,
   );
   const [draft, setDraft] = useState("");
   const [status, setStatus] = useState<SettingsEditorStatus | null>(null);
@@ -1699,7 +1719,7 @@ function setTopLevelPluginConfigValue(
   fieldKey: string,
   nextValue: unknown,
 ): Record<string, unknown> {
-  const nextConfig = _.cloneDeep(config);
+  const nextConfig = { ...config };
   if (nextValue === undefined) {
     delete nextConfig[fieldKey];
   } else {
@@ -1781,24 +1801,28 @@ function setLanguageServerSettingsValue(
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0);
   if (path.length === 0) {
-    return _.cloneDeep(settings);
+    return { ...settings };
   }
-  const nextSettings = _.cloneDeep(settings);
-  let current: Record<string, unknown> = nextSettings;
-  for (let index = 0; index < path.length; index += 1) {
-    const segment = path[index];
-    const isLeaf = index === path.length - 1;
-    if (isLeaf) {
-      current[segment] = _.cloneDeep(value);
-      break;
-    }
-    const existing = current[segment];
-    if (!isPlainObject(existing)) {
-      current[segment] = {};
-    }
-    current = current[segment] as Record<string, unknown>;
+  const [head, ...tail] = path;
+  if (!head) {
+    return { ...settings };
   }
-  return nextSettings;
+  if (tail.length === 0) {
+    return {
+      ...settings,
+      [head]: { ...value },
+    };
+  }
+  const existing = settings[head];
+  const nextChild = setLanguageServerSettingsValue(
+    isPlainObject(existing) ? existing : {},
+    tail.join("."),
+    value,
+  );
+  return {
+    ...settings,
+    [head]: nextChild,
+  };
 }
 
 function InstallSummaryCard({

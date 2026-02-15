@@ -1063,6 +1063,18 @@ def _build_plugin_manager_for_cli() -> PluginManager:
     )
 
 
+def _build_plugin_manager_for_cli_without_rescan() -> PluginManager:
+    paths = get_setta_paths()
+    return PluginManager(
+        workspace_root=paths.workspace_root,
+        setta_files_root=paths.setta_files_root,
+        setta_home=resolve_setta_home(),
+        server_mode="ide",
+        setta_version=__version__,
+        auto_rescan=False,
+    )
+
+
 def _plugin_scope_choice_to_value(
     *,
     scope: str | None,
@@ -2775,8 +2787,11 @@ def plugins_lock_apply(check: bool, json_output: bool) -> None:
 @plugins.command(name="restart")
 @click.option("--json", "json_output", is_flag=True)
 def plugins_restart(json_output: bool) -> None:
-    manager = _build_plugin_manager_for_cli()
-    payload = manager.restart_backend()
+    manager = _build_plugin_manager_for_cli_without_rescan()
+    try:
+        payload = manager.restart_backend()
+    except PluginManagerError as exc:
+        _raise_click_plugin_error(exc)
     if json_output:
         _emit_json_output(payload)
         return

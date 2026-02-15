@@ -8,6 +8,7 @@ from click.testing import CliRunner
 from fastapi import FastAPI
 
 import setta.start as start_module
+from setta.plugins.errors import PluginManagerError
 from setta.plugins.manager import PluginManager
 from setta.start import plugins
 
@@ -126,6 +127,11 @@ def test_plugins_restart_required_json_includes_capability_payload(
 ) -> None:
     manager = _build_manager(tmp_path, restart_callback=lambda: True)
     monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    monkeypatch.setattr(
+        start_module,
+        "_build_plugin_manager_for_cli_without_rescan",
+        lambda: manager,
+    )
 
     runner = CliRunner()
     result = runner.invoke(plugins, ["restart-required", "--json"])
@@ -392,6 +398,11 @@ def test_plugins_link_enable_disable_rescan_unlink_and_restart_cli_json(
     # CLI should support link/unlink, state toggles, rescan, list, and restart JSON flows.
     manager = _build_manager(tmp_path, restart_callback=lambda: True)
     monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    monkeypatch.setattr(
+        start_module,
+        "_build_plugin_manager_for_cli_without_rescan",
+        lambda: manager,
+    )
     runner = CliRunner()
     fixture_root = FIXTURE_PLUGIN_ROOT / "frontend"
 
@@ -453,6 +464,33 @@ def test_plugins_link_enable_disable_rescan_unlink_and_restart_cli_json(
     assert unlink_result.exit_code == 0, unlink_result.output
     unlink_payload = json.loads(unlink_result.output)
     assert unlink_payload["pluginId"] == "setta-fixture-frontend"
+
+
+def test_plugins_restart_cli_surfaces_plugin_manager_errors(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    # Restart CLI should map PluginManagerError values to ClickException output.
+    manager = _build_manager(tmp_path)
+
+    def _raise_restart_error() -> dict[str, object]:
+        raise PluginManagerError(
+            "PLUGIN_RESTART_FAILED",
+            "Programmatic restart callback failed: boom",
+        )
+
+    monkeypatch.setattr(manager, "restart_backend", _raise_restart_error)
+    monkeypatch.setattr(start_module, "_build_plugin_manager_for_cli", lambda: manager)
+    monkeypatch.setattr(
+        start_module,
+        "_build_plugin_manager_for_cli_without_rescan",
+        lambda: manager,
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(plugins, ["restart"])
+    assert result.exit_code != 0
+    assert "PLUGIN_RESTART_FAILED: Programmatic restart callback failed: boom" in result.output
 
 
 def test_plugins_init_and_validate_cli_flow(tmp_path: Path, monkeypatch) -> None:

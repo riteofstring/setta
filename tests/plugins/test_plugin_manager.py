@@ -815,10 +815,9 @@ def test_package_manager_plugins_are_discovered_from_environment_search_paths(
         package_name=package_name,
         version=version,
     )
-    manager = _make_manager(
-        tmp_path,
-        package_manager_search_paths=[site_packages],
-    )
+    manager = _make_manager(tmp_path)
+    manager._package_manager_search_paths = [site_packages]
+    manager.rescan()
 
     entries = [
         entry
@@ -843,6 +842,44 @@ def test_package_manager_plugins_are_discovered_from_environment_search_paths(
     assert len(list_entries) == 1
     assert list_entries[0].sourceManager == "package_manager"
     assert list_entries[0].sourceScopeLabel == "setta_files"
+
+
+def test_package_manager_discovery_uses_distribution_fingerprint_not_tree_walk(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Package-manager discovery should not recurse plugin roots to compute digests.
+    package_name = "setta-fixture-frontend"
+    version = "0.1.0"
+    site_packages = _install_fixture_distribution_in_site_packages(
+        tmp_path=tmp_path,
+        fixture_name="frontend",
+        package_name=package_name,
+        version=version,
+    )
+    manager = _make_manager(tmp_path)
+    manager._package_manager_search_paths = [site_packages]
+
+    def _fail_directory_digest(_root: Path) -> str:
+        raise AssertionError(
+            "Expected package-manager discovery to avoid directory tree digesting."
+        )
+
+    monkeypatch.setattr(
+        manager,
+        "_compute_directory_digest",
+        _fail_directory_digest,
+    )
+
+    manager.rescan()
+    entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == package_name
+        and entry.sourceManager == "package_manager"
+        and entry.shadowedBySourcePath is None
+    ]
+    assert len(entries) == 1
 
 
 def test_package_manager_discovery_marks_multiple_manifest_roots_invalid(
@@ -6002,6 +6039,196 @@ def test_backend_language_server_registration_rejects_missing_command_binary(
         and "not available on PATH" in error.message
         for error in status_entries[0].errors
     )
+
+
+def test_scope_specific_plugin_config_persists_across_shadowing_lifecycle(
+    tmp_path: Path,
+) -> None:
+    # Config storage should be scoped so workspace/global variants do not overwrite each other.
+    manager = _make_manager(tmp_path)
+    plugin_id = "setta-fixture-full"
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("full")),
+        scope=PluginScope.global_scope,
+        enable=True,
+        force=False,
+    )
+    manager.write_plugin_config(
+        plugin_id=plugin_id,
+        config={"enabled": True, "label": "global-config"},
+    )
+
+    manager.link_plugin(
+        local_plugin_root=str(_fixture_path("full")),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.write_plugin_config(
+        plugin_id=plugin_id,
+        config={"enabled": True, "label": "workspace-config"},
+    )
+
+    manager.uninstall_plugin(plugin_id=plugin_id, scope=PluginScope.workspace)
+
+    list_entry = next(
+        plugin for plugin in manager.get_list_response().plugins if plugin.pluginId == plugin_id
+    )
+    assert list_entry.sourceScope == PluginScope.global_scope
+    assert list_entry.config.currentConfig == {
+        "enabled": True,
+        "label": "global-config",
+    }
+
+
+def test_shadowed_status_entries_do_not_report_active_backend_registrations(
+    tmp_path: Path,
+) -> None:
+    # Shadowed status rows should report only their own registrations, not the active row's.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-language-server",
+        scope=PluginScope.workspace,
+    )
+    setta_files_path = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="backend-language-server",
+        scope=PluginScope.setta_files,
+    )
+    manager.rescan()
+    manager.load_backend_plugins(app=FastAPI())
+
+    entries = [
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-backend-language-server"
+    ]
+    assert len(entries) == 2
+
+    active_entry = next(
+        entry for entry in entries if entry.sourceScope == PluginScope.workspace
+    )
+    shadowed_entry = next(
+        entry for entry in entries if entry.sourceScope == PluginScope.setta_files
+    )
+    assert active_entry.shadowedBySourcePath is None
+    assert len(active_entry.registeredLanguageServers) == 1
+    assert shadowed_entry.state == PluginRuntimeState.shadowed
+    assert shadowed_entry.shadowedBySourcePath == str(active_entry.sourcePath)
+    assert str(shadowed_entry.sourcePath) == str(setta_files_path)
+    assert shadowed_entry.registeredLanguageServers == []
+    assert shadowed_entry.registeredExternalAgentAdapters == []
+    assert shadowed_entry.registeredCodegenTargets == []
+
+
+def test_backend_registration_failure_rolls_back_partial_runtime_side_effects(
+    tmp_path: Path,
+) -> None:
+    # Failed register(plugin) calls should not leak routes/tools/adapters/servers/targets.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "partial-registration-fixture"
+    static_dir = plugin_root / "backend" / "static"
+    static_dir.mkdir(parents=True, exist_ok=True)
+    (static_dir / "hello.txt").write_text("hello", encoding="utf-8")
+    (plugin_root / "setta.plugin.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "id": "setta-fixture-partial-registration",
+                "name": "Partial Registration Fixture",
+                "version": "0.1.0",
+                "enabledByDefault": True,
+                "capabilities": [
+                    "registerRouter",
+                    "registerStaticDir",
+                    "registerMcpTools",
+                    "registerExternalAgentAdapter",
+                    "registerLanguageServer",
+                    "registerCodegenTarget",
+                    "registerListenerEndpoint",
+                ],
+                "backend": {
+                    "entrypoint": "backend/entrypoint.py",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "import sys\n"
+        "from fastapi import APIRouter\n\n"
+        "def register(plugin):\n"
+        "    router = APIRouter()\n\n"
+        "    @router.get('/health')\n"
+        "    def fixture_listener() -> dict[str, str]:\n"
+        "        return {'status': 'ok'}\n\n"
+        "    plugin.register_router(router)\n"
+        "    plugin.register_listener_endpoint('fixture_listener')\n"
+        "    plugin.register_static_dir('assets', 'backend/static')\n"
+        "    plugin.register_mcp_tool(lambda: 'ok', name='setta_partial_tool')\n"
+        "    plugin.register_external_agent_adapter(\n"
+        "        {\n"
+        "            'id': 'mini',\n"
+        "            'name': 'Mini Adapter',\n"
+        "            'runModes': ['workspace'],\n"
+        "            'command': sys.executable,\n"
+        "            'args': ['--version'],\n"
+        "        }\n"
+        "    )\n"
+        "    plugin.register_language_server(\n"
+        "        {\n"
+        "            'language': 'typescript',\n"
+        "            'command': sys.executable,\n"
+        "            'args': ['--version'],\n"
+        "        }\n"
+        "    )\n"
+        "    plugin.register_codegen_target(\n"
+        "        {\n"
+        "            'id': 'fixture',\n"
+        "            'name': 'Fixture',\n"
+        "            'language': 'typescript',\n"
+        "            'defaultFileName': 'fixture.txt',\n"
+        "            'generate': lambda *_args, **_kwargs: [],\n"
+        "        }\n"
+        "    )\n"
+        "    raise RuntimeError('register boom')\n",
+        encoding="utf-8",
+    )
+
+    manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    app = FastAPI()
+    with TestClient(app) as client:
+        manager.load_backend_plugins(app=app)
+        route_response = client.get(
+            "/api/plugins/setta-fixture-partial-registration/health"
+        )
+        assert route_response.status_code == 404
+        static_response = client.get(
+            "/plugin-static/setta-fixture-partial-registration/assets/hello.txt"
+        )
+        assert static_response.status_code == 404
+
+    status_entry = next(
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-partial-registration"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    )
+    assert status_entry.state == PluginRuntimeState.invalid
+    assert status_entry.registeredLanguageServers == []
+    assert status_entry.registeredExternalAgentAdapters == []
+    assert status_entry.registeredCodegenTargets == []
+    assert manager.get_backend_external_agent_adapters() == []
+    assert manager.get_backend_language_servers() == []
+    assert manager.get_backend_codegen_targets() == []
+    assert all(tool.__name__ != "setta_partial_tool" for tool in SETTA_MCP_TOOLS)
 
 
 def test_stderr_pipe_reader_keeps_bounded_tail(tmp_path: Path) -> None:

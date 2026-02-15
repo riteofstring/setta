@@ -251,6 +251,25 @@ class RegisteredBackendCodegenTarget:
     handler_id: str
 
 
+@dataclass(slots=True)
+class _BackendRegistrationSnapshot:
+    app_routes: list[Any]
+    backend_route_ids_by_plugin_id: dict[str, set[str]]
+    backend_listener_endpoint_route_by_name: dict[str, tuple[str, str]]
+    backend_registered_mcp_tools: dict[str, list[Callable[..., Any]]]
+    backend_external_agent_adapters: dict[
+        str, list[PluginRegisteredExternalAgentAdapter]
+    ]
+    backend_external_agent_adapter_by_id: dict[
+        str, PluginRegisteredExternalAgentAdapter
+    ]
+    backend_language_servers: dict[str, list[RegisteredLanguageServer]]
+    backend_language_server_by_language: dict[CodeLanguageKey, RegisteredLanguageServer]
+    backend_codegen_targets: dict[str, list[PluginRegisteredCodegenTarget]]
+    backend_codegen_target_by_id: dict[str, RegisteredBackendCodegenTarget]
+    setta_mcp_tools: list[Callable[..., Any]]
+
+
 class _BackendWorkerPipeReader:
     def __init__(
         self,
@@ -325,6 +344,7 @@ class PluginManager:
         backend_register_timeout_seconds: float = 10.0,
         backend_operation_timeout_seconds: float = 120.0,
         package_manager_search_paths: list[Path] | None = None,
+        auto_rescan: bool = True,
     ) -> None:
         self.workspace_root = workspace_root
         self.setta_files_root = setta_files_root
@@ -361,6 +381,7 @@ class PluginManager:
         self._directory_digest_cache: dict[
             str, tuple[tuple[tuple[str, int, int], ...], str]
         ] = {}
+        self._package_manager_source_digest_cache: dict[str, str] = {}
         self._content_descriptor_cache: dict[
             tuple[str, PluginScope, str | None], PluginContentDescriptor
         ] = {}
@@ -406,7 +427,8 @@ class PluginManager:
         self._discovered_plugins: list[DiscoveredPlugin] = []
         self._active_plugin_by_id: dict[str, DiscoveredPlugin] = {}
 
-        self.rescan()
+        if auto_rescan:
+            self.rescan()
 
     def __del__(self) -> None:
         if sys.is_finalizing():
@@ -589,59 +611,91 @@ class PluginManager:
             serverMode=self.server_mode,
             restartCapability=self.get_restart_capability(),
             plugins=[
-                PluginStatusEntry(
-                    pluginId=entry.plugin_id,
-                    name=entry.name,
-                    version=entry.version,
-                    state=entry.state,
-                    sourceScope=entry.scope,
-                    sourceScopeLabel=scope_label(entry.scope),
-                    sourceManager=entry.source_manager,
-                    sourceManagerHint=entry.source_manager_hint,
-                    sourcePath=(
-                        redacted_source_path_by_path[entry.source_path]
-                        if redact_source_details
-                        else str(entry.source_path)
-                    ),
-                    canonicalSourceKey=(
-                        self._redacted_canonical_source_key(
-                            entry.plugin_id,
-                            entry.scope,
-                            entry.source_manager,
-                            entry.source_path,
-                        )
-                        if redact_source_details
-                        else entry.canonical_source_key
-                    ),
-                    sourceDigestSha256=entry.source_digest_sha256,
-                    shadowedBySourcePath=(
-                        (
-                            redacted_source_path_by_path[entry.shadowed_by_source_path]
-                            if redact_source_details
-                            else str(entry.shadowed_by_source_path)
-                        )
-                        if entry.shadowed_by_source_path is not None
-                        else None
-                    ),
-                    requestedCapabilities=entry.requested_capabilities,
-                    effectiveCapabilities=entry.effective_capabilities,
-                    blockedCapabilities=entry.blocked_capabilities,
-                    registeredLanguageServers=self._serialize_registered_language_servers(
-                        entry.plugin_id
-                    ),
-                    registeredExternalAgentAdapters=self._serialize_registered_external_agent_adapters(
-                        entry.plugin_id
-                    ),
-                    registeredCodegenTargets=self._serialize_registered_codegen_targets(
-                        entry.plugin_id
-                    ),
-                    enablementSource=entry.enablement_source,
-                    restartRequired=entry.restart_required,
-                    errors=entry.errors,
+                self._build_status_entry(
+                    entry=entry,
+                    redact_source_details=redact_source_details,
+                    redacted_source_path_by_path=redacted_source_path_by_path,
                 )
                 for entry in ordered
             ],
         )
+
+    def _build_status_entry(
+        self,
+        *,
+        entry: DiscoveredPlugin,
+        redact_source_details: bool,
+        redacted_source_path_by_path: dict[Path, str],
+    ) -> PluginStatusEntry:
+        include_backend_registrations = (
+            self._status_entry_should_include_backend_registrations(entry)
+        )
+        registered_language_servers = (
+            self._serialize_registered_language_servers(entry.plugin_id)
+            if include_backend_registrations
+            else []
+        )
+        registered_external_adapters = (
+            self._serialize_registered_external_agent_adapters(entry.plugin_id)
+            if include_backend_registrations
+            else []
+        )
+        registered_codegen_targets = (
+            self._serialize_registered_codegen_targets(entry.plugin_id)
+            if include_backend_registrations
+            else []
+        )
+        return PluginStatusEntry(
+            pluginId=entry.plugin_id,
+            name=entry.name,
+            version=entry.version,
+            state=entry.state,
+            sourceScope=entry.scope,
+            sourceScopeLabel=scope_label(entry.scope),
+            sourceManager=entry.source_manager,
+            sourceManagerHint=entry.source_manager_hint,
+            sourcePath=(
+                redacted_source_path_by_path[entry.source_path]
+                if redact_source_details
+                else str(entry.source_path)
+            ),
+            canonicalSourceKey=(
+                self._redacted_canonical_source_key(
+                    entry.plugin_id,
+                    entry.scope,
+                    entry.source_manager,
+                    entry.source_path,
+                )
+                if redact_source_details
+                else entry.canonical_source_key
+            ),
+            sourceDigestSha256=entry.source_digest_sha256,
+            shadowedBySourcePath=(
+                (
+                    redacted_source_path_by_path[entry.shadowed_by_source_path]
+                    if redact_source_details
+                    else str(entry.shadowed_by_source_path)
+                )
+                if entry.shadowed_by_source_path is not None
+                else None
+            ),
+            requestedCapabilities=entry.requested_capabilities,
+            effectiveCapabilities=entry.effective_capabilities,
+            blockedCapabilities=entry.blocked_capabilities,
+            registeredLanguageServers=registered_language_servers,
+            registeredExternalAgentAdapters=registered_external_adapters,
+            registeredCodegenTargets=registered_codegen_targets,
+            enablementSource=entry.enablement_source,
+            restartRequired=entry.restart_required,
+            errors=entry.errors,
+        )
+
+    def _status_entry_should_include_backend_registrations(
+        self, entry: DiscoveredPlugin
+    ) -> bool:
+        if entry.shadowed_by_source_path is not None:
+            return False
+        return entry.plugin_id in self._backend_loaded_plugin_ids
 
     def _should_redact_source_details(self) -> bool:
         return self.server_mode != "ide"
@@ -1028,6 +1082,7 @@ class PluginManager:
         with self._backend_worker_request_state_lock:
             self._backend_worker_next_request_ids[entry.plugin_id] = 1_000
         request_id = 1
+        registration_snapshot: _BackendRegistrationSnapshot | None = None
         try:
             handshake_payload = self._call_backend_worker_method(
                 process=worker_process,
@@ -1049,6 +1104,7 @@ class PluginManager:
                     ),
                 )
             self._validate_backend_worker_handshake(entry, handshake_payload)
+            registration_snapshot = self._capture_backend_registration_snapshot(app=app)
             self._call_backend_worker_method(
                 process=worker_process,
                 plugin_id=entry.plugin_id,
@@ -1060,10 +1116,17 @@ class PluginManager:
                 app=app,
             )
         except Exception:
-            self._stop_backend_worker_process(worker_process)
-            self._backend_worker_request_locks.pop(entry.plugin_id, None)
-            with self._backend_worker_request_state_lock:
-                self._backend_worker_next_request_ids.pop(entry.plugin_id, None)
+            try:
+                if registration_snapshot is not None:
+                    self._restore_backend_registration_snapshot(
+                        app=app,
+                        snapshot=registration_snapshot,
+                    )
+            finally:
+                self._stop_backend_worker_process(worker_process)
+                self._backend_worker_request_locks.pop(entry.plugin_id, None)
+                with self._backend_worker_request_state_lock:
+                    self._backend_worker_next_request_ids.pop(entry.plugin_id, None)
             raise
         self._backend_worker_processes[entry.plugin_id] = worker_process
 
@@ -1627,6 +1690,87 @@ class PluginManager:
             if id(tool_fn) not in registered_tool_ids
         ]
         self._backend_registered_mcp_tools = {}
+
+    def _capture_backend_registration_snapshot(
+        self, *, app: "FastAPI"
+    ) -> _BackendRegistrationSnapshot:
+        from setta.mcp.tool_setup import SETTA_MCP_TOOLS
+
+        return _BackendRegistrationSnapshot(
+            app_routes=list(app.router.routes),
+            backend_route_ids_by_plugin_id={
+                plugin_id: set(route_ids)
+                for plugin_id, route_ids in self._backend_route_ids_by_plugin_id.items()
+            },
+            backend_listener_endpoint_route_by_name=dict(
+                self._backend_listener_endpoint_route_by_name
+            ),
+            backend_registered_mcp_tools={
+                plugin_id: list(tool_fns)
+                for plugin_id, tool_fns in self._backend_registered_mcp_tools.items()
+            },
+            backend_external_agent_adapters={
+                plugin_id: list(registrations)
+                for plugin_id, registrations in self._backend_external_agent_adapters.items()
+            },
+            backend_external_agent_adapter_by_id=dict(
+                self._backend_external_agent_adapter_by_id
+            ),
+            backend_language_servers={
+                plugin_id: list(registrations)
+                for plugin_id, registrations in self._backend_language_servers.items()
+            },
+            backend_language_server_by_language=dict(
+                self._backend_language_server_by_language
+            ),
+            backend_codegen_targets={
+                plugin_id: list(registrations)
+                for plugin_id, registrations in self._backend_codegen_targets.items()
+            },
+            backend_codegen_target_by_id=dict(self._backend_codegen_target_by_id),
+            setta_mcp_tools=list(SETTA_MCP_TOOLS),
+        )
+
+    def _restore_backend_registration_snapshot(
+        self,
+        *,
+        app: "FastAPI",
+        snapshot: _BackendRegistrationSnapshot,
+    ) -> None:
+        from setta.mcp.tool_setup import SETTA_MCP_TOOLS
+
+        app.router.routes = list(snapshot.app_routes)
+        self._backend_route_ids_by_plugin_id = {
+            plugin_id: set(route_ids)
+            for plugin_id, route_ids in snapshot.backend_route_ids_by_plugin_id.items()
+        }
+        self._backend_listener_endpoint_route_by_name = dict(
+            snapshot.backend_listener_endpoint_route_by_name
+        )
+        self._backend_registered_mcp_tools = {
+            plugin_id: list(tool_fns)
+            for plugin_id, tool_fns in snapshot.backend_registered_mcp_tools.items()
+        }
+        self._backend_external_agent_adapters = {
+            plugin_id: list(registrations)
+            for plugin_id, registrations in snapshot.backend_external_agent_adapters.items()
+        }
+        self._backend_external_agent_adapter_by_id = dict(
+            snapshot.backend_external_agent_adapter_by_id
+        )
+        self._backend_language_servers = {
+            plugin_id: list(registrations)
+            for plugin_id, registrations in snapshot.backend_language_servers.items()
+        }
+        self._backend_language_server_by_language = dict(
+            snapshot.backend_language_server_by_language
+        )
+        self._backend_codegen_targets = {
+            plugin_id: list(registrations)
+            for plugin_id, registrations in snapshot.backend_codegen_targets.items()
+        }
+        self._backend_codegen_target_by_id = dict(snapshot.backend_codegen_target_by_id)
+        SETTA_MCP_TOOLS[:] = list(snapshot.setta_mcp_tools)
 
     def _validate_backend_worker_handshake(
         self,
@@ -3659,7 +3803,9 @@ class PluginManager:
             )
         self._validate_plugin_config(entry, config)
         state_file = self._load_plugins_state()
-        state_file.pluginConfigById[plugin_id] = config
+        state_file.pluginConfigById[
+            self._plugin_config_key(plugin_id=entry.plugin_id, scope=entry.scope)
+        ] = config
         self._save_plugins_state(state_file)
         self.rescan()
         return PluginConfigWriteResponse(
@@ -4420,7 +4566,10 @@ class PluginManager:
                     )
                 )
                 continue
-            digest = self._compute_directory_digest(plugin_root)
+            digest = self._compute_package_manager_source_digest(
+                distribution=distribution,
+                plugin_root=plugin_root,
+            )
             entries.append(
                 DiscoveredPlugin(
                     plugin_id=manifest.id,
@@ -4470,6 +4619,59 @@ class PluginManager:
             return raw_version.strip()
         return "unknown"
 
+    def _compute_package_manager_source_digest(
+        self,
+        *,
+        distribution: importlib.metadata.Distribution,
+        plugin_root: Path,
+    ) -> str:
+        distribution_name = self._distribution_name(distribution) or "unknown"
+        distribution_version = self._distribution_version(distribution)
+        plugin_root_resolved = plugin_root.resolve(strict=False)
+        record_path = self._distribution_record_path(distribution)
+        record_fingerprint = "missing"
+        if record_path is not None and record_path.exists() and record_path.is_file():
+            record_stat = record_path.stat()
+            record_fingerprint = (
+                f"{record_path}:{record_stat.st_mtime_ns}:{record_stat.st_size}"
+            )
+        cache_key = (
+            f"{distribution_name}|{distribution_version}|"
+            f"{plugin_root_resolved}|{record_fingerprint}"
+        )
+        cached_digest = self._package_manager_source_digest_cache.get(cache_key)
+        if cached_digest is not None:
+            return cached_digest
+
+        hasher = hashlib.sha256()
+        hasher.update(distribution_name.encode("utf-8"))
+        hasher.update(distribution_version.encode("utf-8"))
+        hasher.update(str(plugin_root_resolved).encode("utf-8"))
+        if record_path is not None and record_path.exists() and record_path.is_file():
+            hasher.update(str(record_path).encode("utf-8"))
+            with record_path.open("rb") as handle:
+                while True:
+                    chunk = handle.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    hasher.update(chunk)
+        digest = hasher.hexdigest()
+        self._package_manager_source_digest_cache[cache_key] = digest
+        return digest
+
+    def _distribution_record_path(
+        self,
+        distribution: importlib.metadata.Distribution,
+    ) -> Path | None:
+        files = distribution.files
+        if files is None:
+            return None
+        for file in files:
+            if Path(str(file)).name != "RECORD":
+                continue
+            return Path(distribution.locate_file(file)).resolve(strict=False)
+        return None
+
     def _normalize_distribution_name(self, raw_name: str | None) -> str | None:
         if raw_name is None:
             return None
@@ -4516,7 +4718,11 @@ class PluginManager:
             entry.restart_required = False
             return
 
-        config = plugins_state.pluginConfigById.get(entry.plugin_id, {})
+        config = self._read_plugin_config(
+            plugins_state=plugins_state,
+            plugin_id=entry.plugin_id,
+            scope=entry.scope,
+        )
         if not isinstance(config, dict):
             config = {}
         try:
@@ -4664,7 +4870,11 @@ class PluginManager:
         *,
         plugins_state: PluginsStateFile,
     ) -> PluginConfigDescriptor:
-        current_config = plugins_state.pluginConfigById.get(entry.plugin_id, {})
+        current_config = self._read_plugin_config(
+            plugins_state=plugins_state,
+            plugin_id=entry.plugin_id,
+            scope=entry.scope,
+        )
         if not isinstance(current_config, dict):
             current_config = {}
         has_schema, schema_json = self._build_config_schema_descriptor(entry)
@@ -5320,7 +5530,10 @@ class PluginManager:
         state_file.disabledPluginIds = [
             value for value in state_file.disabledPluginIds if value != plugin_id
         ]
-        state_file.pluginConfigById.pop(plugin_id, None)
+        state_file.pluginConfigById.pop(
+            self._plugin_config_key(plugin_id=plugin_id, scope=scope),
+            None,
+        )
         self._save_plugins_state(state_file)
 
         if scope == PluginScope.global_scope:
@@ -5369,6 +5582,24 @@ class PluginManager:
         metadata = self._load_install_metadata()
         metadata.entries.pop(self._metadata_key(plugin_id, scope), None)
         self._save_install_metadata(metadata)
+
+    def _plugin_config_key(self, *, plugin_id: str, scope: PluginScope) -> str:
+        return f"{scope.value}:{plugin_id}"
+
+    def _read_plugin_config(
+        self,
+        *,
+        plugins_state: PluginsStateFile,
+        plugin_id: str,
+        scope: PluginScope,
+    ) -> dict[str, Any]:
+        config = plugins_state.pluginConfigById.get(
+            self._plugin_config_key(plugin_id=plugin_id, scope=scope),
+            {},
+        )
+        if not isinstance(config, dict):
+            return {}
+        return config
 
     def _metadata_key(self, plugin_id: str, scope: PluginScope) -> str:
         return f"{scope.value}:{plugin_id}"

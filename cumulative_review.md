@@ -76,3 +76,20 @@
 - Removed unnecessary frontend plugin runtime churn by clearing stale plugin styles on runtime fetch failures, removing forced refresh on Plugins-tab open, and replacing expensive deep-equality subscriptions/selectors in Plugins pane + PluginArea with leaner selector patterns.
 - Refactored duplicated `plugins update` / `plugins pin` CLI command flows in `start.py` into shared execution logic.
 - Added/updated backend unit/integration tests, frontend Vitest coverage, and Playwright E2E checks for all changed paths; executed targeted pytest/vitest/playwright runs and completed CDP visual verification of Plugins pane + plugin pane flow.
+
+## 2026-02-15T18:29:12-08:00
+
+- Implemented the latest review-fix batch from top-level `review*.md` findings, excluding backward-compatibility additions.
+- Fixed deployment/share plugin-root resolution so plugin manager roots use deployment runtime roots instead of host `setta_files` paths.
+- Corrected scoped plugin-config behavior by keying config storage per `(scope, pluginId)`, preserving shadowed-scope intent across lifecycle operations.
+- Fixed plugin status shadowing leakage so shadowed entries no longer inherit active-entry backend registrations (language servers, adapters, codegen targets).
+- Added backend registration rollback snapshots during `plugin.register` to revert partially applied routes/listeners/MCP/adapters/codegen on failures.
+- Improved package-manager discovery performance by replacing full plugin-directory digest walks with distribution-record fingerprinting and caching.
+- Added opt-in plugin-manager startup scanning (`auto_rescan`) and wired CLI plugin restart to use no-rescan construction plus consistent `PluginManagerError` surfacing.
+- Fixed listener dependency patch parsing to treat plugin payloads as control payloads only when top-level `data` exists; plain objects now remain data patches.
+- Reduced worker async overhead by reusing a persistent async event loop for async route/MCP/codegen invocations and closing it on plugin shutdown.
+- Fixed plugin top-nav UX so only the active async action button is disabled while other plugin actions remain clickable.
+- Expanded plugin SDK/runtime exports and removed expensive/deep-equality plugin selectors in key runtime/pane paths to reduce subscription churn.
+- Fixed realtime dependency event delivery so events are not dropped when coverage is unknown, only when coverage explicitly excludes the dependency key.
+- Hardened fixture-cache scripts: content-based signature hashing (`cksum < file`), manifest-driven frontend output completeness checks, and macOS-compatible shell handling.
+- Added/updated backend unit/integration tests, frontend unit/integration tests, and Playwright coverage for the new busy-state behavior; executed targeted pytest/vitest/playwright runs and completed CDP visual verification.

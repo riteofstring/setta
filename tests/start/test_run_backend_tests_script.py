@@ -35,7 +35,11 @@ def _build_backend_test_runner_sandbox(tmp_path: Path) -> tuple[Path, Path]:
 
     fixture_manifest = fixture_root / "setta.plugin.json"
     fixture_manifest.write_text(
-        '{"id":"fixture-a","name":"Fixture A"}', encoding="utf-8"
+        (
+            '{"id":"fixture-a","name":"Fixture A","frontend":'
+            '{"entrypoint":"frontend/dist/index.js","style":"frontend/dist/index.css"}}'
+        ),
+        encoding="utf-8",
     )
     (fixture_frontend_src / "index.js").write_text(
         "export const fixture = true;\n",
@@ -45,17 +49,18 @@ def _build_backend_test_runner_sandbox(tmp_path: Path) -> tuple[Path, Path]:
     build_count_file = sandbox_root / "build_count.txt"
     build_script = plugin_fixture_scripts / "build.sh"
     build_script.write_text(
-        f"""#!/usr/bin/env bash
+        """#!/usr/bin/env bash
 set -euo pipefail
-count_file="{build_count_file}"
-fixture_dist="{fixture_root / "frontend" / "dist"}"
+count_file="build_count.txt"
+fixture_dist="tests/fixtures/plugins/fixture-a/frontend/dist"
 count=0
-if [[ -f "${{count_file}}" ]]; then
-  count="$(<"${{count_file}}")"
+if [[ -f "${count_file}" ]]; then
+  count="$(<"${count_file}")"
 fi
-echo "$((count + 1))" > "${{count_file}}"
-mkdir -p "${{fixture_dist}}"
-printf '%s\n' 'export const built = true;' > "${{fixture_dist}}/index.js"
+echo "$((count + 1))" > "${count_file}"
+mkdir -p "${fixture_dist}"
+printf '%s\n' 'export const built = true;' > "${fixture_dist}/index.js"
+printf '%s\n' '.fixture { color: red; }' > "${fixture_dist}/index.css"
 """,
         encoding="utf-8",
     )
@@ -104,6 +109,35 @@ def _run_backend_test_runner(
         capture_output=True,
         text=True,
     )
+
+
+def _compute_plugin_fixture_signature(sandbox_root: Path) -> str:
+    command = (
+        f". '{sandbox_root / 'scripts' / 'plugin-fixtures' / 'cache.sh'}' && "
+        f"compute_plugin_fixture_signature '{sandbox_root}'"
+    )
+    result = subprocess.run(
+        ["bash", "-lc", command],
+        cwd=sandbox_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
+    return result.stdout.strip()
+
+
+def test_plugin_fixture_signature_is_content_based_not_path_based(
+    tmp_path: Path,
+) -> None:
+    # Fixture signatures should match across different root paths when file contents are identical.
+    first_sandbox, _ = _build_backend_test_runner_sandbox(tmp_path / "first")
+    second_sandbox, _ = _build_backend_test_runner_sandbox(tmp_path / "second")
+
+    first_signature = _compute_plugin_fixture_signature(first_sandbox)
+    second_signature = _compute_plugin_fixture_signature(second_sandbox)
+
+    assert first_signature == second_signature
 
 
 def test_run_backend_tests_rebuilds_fixtures_only_when_signature_changes(
@@ -189,6 +223,34 @@ def test_run_backend_tests_rebuilds_when_fixture_outputs_are_missing(
         / "index.js"
     )
     built_output.unlink()
+
+    second_run = _run_backend_test_runner(sandbox_root)
+    assert second_run.returncode == 0, f"{second_run.stdout}\n{second_run.stderr}"
+    assert "plugin fixture outputs missing; rebuilding" in second_run.stdout
+    assert build_count_file.read_text(encoding="utf-8").strip() == "2"
+
+
+def test_run_backend_tests_rebuilds_when_fixture_style_output_is_missing(
+    tmp_path: Path,
+) -> None:
+    # Missing declared style outputs should trigger a rebuild even with unchanged signatures.
+    sandbox_root, build_count_file = _build_backend_test_runner_sandbox(tmp_path)
+
+    first_run = _run_backend_test_runner(sandbox_root)
+    assert first_run.returncode == 0, f"{first_run.stdout}\n{first_run.stderr}"
+    assert build_count_file.read_text(encoding="utf-8").strip() == "1"
+
+    built_style_output = (
+        sandbox_root
+        / "tests"
+        / "fixtures"
+        / "plugins"
+        / "fixture-a"
+        / "frontend"
+        / "dist"
+        / "index.css"
+    )
+    built_style_output.unlink()
 
     second_run = _run_backend_test_runner(sandbox_root)
     assert second_run.returncode == 0, f"{second_run.stdout}\n{second_run.stderr}"

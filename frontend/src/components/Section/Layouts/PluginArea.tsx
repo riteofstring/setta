@@ -1,5 +1,6 @@
 import {
   getPluginSectionFallbackReason,
+  type RegisteredPluginSectionKind,
   usePluginRuntimeStore,
   usePluginSectionKind,
 } from "plugins/runtime";
@@ -32,6 +33,7 @@ type PluginSectionRendererHostProps = {
   kind: string;
   data: Record<string, unknown>;
   isUserView: boolean;
+  pluginSectionKind: RegisteredPluginSectionKind;
 };
 
 const EMPTY_PLUGIN_CAPABILITIES: readonly string[] = [];
@@ -54,6 +56,7 @@ export function PluginArea({ sectionId, isUserView }: PluginAreaProps) {
         kind={kind}
         data={data}
         isUserView={isUserView}
+        pluginSectionKind={pluginSectionKind}
       />
     );
   }
@@ -75,11 +78,11 @@ function PluginSectionRendererHost({
   kind,
   data,
   isUserView,
+  pluginSectionKind,
 }: PluginSectionRendererHostProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
   const previousSectionPropsRef = useRef<object | null>(null);
-  const pluginSectionKind = usePluginSectionKind(pluginId, kind);
   const serverMode = usePluginRuntimeStore((state) => state.serverMode ?? "ide");
   const effectiveCapabilities = usePluginRuntimeStore(
     (state) =>

@@ -33,9 +33,9 @@ import {
   type PluginPaneIconName,
 } from "./paneIcons";
 
-export { type PluginPaneIconName } from "./paneIcons";
+export { PluginPaneIconNameEnum, type PluginPaneIconName } from "./paneIcons";
 
-const PLUGIN_FRONTEND_API_VERSION = 1;
+export const PLUGIN_FRONTEND_API_VERSION = 1;
 
 export const PluginFrontendErrorCodeEnum = {
   RegistrationInvalid: "PLUGIN_FRONTEND_REGISTRATION_INVALID",
@@ -58,9 +58,9 @@ export const PluginSectionFallbackReasonEnum = {
 type PluginSectionFallbackReason =
   (typeof PluginSectionFallbackReasonEnum)[keyof typeof PluginSectionFallbackReasonEnum];
 
-type PluginServerMode = "ide" | "share" | "app";
+export type PluginServerMode = "ide" | "share" | "app";
 
-type PluginSectionProps = {
+export type PluginSectionProps = {
   sectionId: string;
   pluginId: string;
   kind: string;
@@ -70,13 +70,13 @@ type PluginSectionProps = {
   effectiveCapabilities: string[];
 };
 
-type PluginSectionRenderer = {
+export type PluginSectionRenderer = {
   mount: (el: HTMLElement, props: PluginSectionProps) => void;
   update?: (el: HTMLElement, props: PluginSectionProps) => void;
   unmount?: (el: HTMLElement) => void;
 };
 
-type PluginSectionKindDefinition = {
+export type PluginSectionKindDefinition = {
   kind: string;
   title: string;
   description?: string;
@@ -88,7 +88,7 @@ export type RegisteredPluginSectionKind = PluginSectionKindDefinition & {
   pluginId: string;
 };
 
-type PluginPaneProps = {
+export type PluginPaneProps = {
   pluginId: string;
   serverMode: PluginServerMode;
   effectiveCapabilities: string[];
@@ -100,7 +100,7 @@ type PluginPaneRenderer = {
   unmount?: (el: HTMLElement) => void;
 };
 
-type PluginPaneDefinition = {
+export type PluginPaneDefinition = {
   id: string;
   title: string;
   description?: string;
@@ -112,7 +112,7 @@ export type RegisteredPluginPane = PluginPaneDefinition & {
   pluginId: string;
 };
 
-type PluginCommandDefinition = {
+export type PluginCommandDefinition = {
   id: string;
   title: string;
   description?: string;
@@ -154,7 +154,7 @@ type PluginProjectContext = {
   serverMode: PluginServerMode;
 };
 
-type PluginProjectStateSelector =
+export type PluginProjectStateSelector =
   | { kind: "projectConfig" }
   | { kind: "activeSectionIds" }
   | { kind: "section"; sectionId: string }
@@ -162,23 +162,23 @@ type PluginProjectStateSelector =
   | { kind: "singletonSections" }
   | { kind: "full" };
 
-type PluginProjectStateSubscriptionOptions = {
+export type PluginProjectStateSubscriptionOptions = {
   fireImmediately?: boolean;
   throttleMs?: number;
 };
 
-type PluginRealtimeDependencyEvent = {
+export type PluginRealtimeDependencyEvent = {
   dependencyKey: BaseDependencyKeyUnion;
   payload?: BaseDependencyValueUnion | null;
   binaryPayload?: ArrayBuffer;
   timestampMs?: number;
 };
 
-type PluginSectionRealtimeEmitOptions = {
+export type PluginSectionRealtimeEmitOptions = {
   timestampMs?: number;
 };
 
-type SettaPluginHost = {
+export type SettaPluginHost = {
   apiVersion: number;
   pluginId: string;
   serverMode: PluginServerMode;
@@ -1777,80 +1777,31 @@ export function usePluginSectionKind(
   kind: string,
 ): RegisteredPluginSectionKind | null {
   const sectionKey = toPluginSectionKindKey(pluginId, kind);
-  return usePluginRuntimeStore(
-    (state) => state.sectionKindsByKey[sectionKey] ?? null,
-    _.isEqual,
-  );
+  return usePluginRuntimeStore((state) => state.sectionKindsByKey[sectionKey] ?? null);
 }
 
 export function usePluginSectionKinds(): RegisteredPluginSectionKind[] {
-  return usePluginRuntimeStore(
-    (state) => {
-      if (
-        state.sortedSectionKinds.length > 0 ||
-        Object.keys(state.sectionKindsByKey).length === 0
-      ) {
-        return state.sortedSectionKinds;
-      }
-      return toSortedSectionKinds(state.sectionKindsByKey);
-    },
-    _.isEqual,
-  );
+  return usePluginRuntimeStore((state) => state.sortedSectionKinds);
 }
 
 export function usePluginPaneTabs(): PluginPaneTabEntry[] {
-  return usePluginRuntimeStore((state) => {
-    if (
-      state.sortedPaneTabs.length > 0 ||
-      Object.keys(state.panesByPluginId).length === 0
-    ) {
-      return state.sortedPaneTabs;
-    }
-    return toSortedPluginPaneTabs(state.panesByPluginId);
-  }, _.isEqual);
+  return usePluginRuntimeStore((state) => state.sortedPaneTabs);
 }
 
 export function usePluginCommands(): RegisteredPluginCommand[] {
-  return usePluginRuntimeStore((state) => {
-    if (
-      state.sortedCommands.length > 0 ||
-      Object.keys(state.commandsByPluginId).length === 0
-    ) {
-      return state.sortedCommands;
-    }
-    return toSortedPluginCommands(state.commandsByPluginId);
-  }, _.isEqual);
+  return usePluginRuntimeStore((state) => state.sortedCommands);
 }
 
 export function usePluginTopNavBarItems(): RegisteredPluginTopNavBarItem[] {
-  return usePluginRuntimeStore((state) => {
-    if (
-      state.sortedTopNavBarItems.length > 0 ||
-      Object.keys(state.topNavBarItemsByPluginId).length === 0
-    ) {
-      return state.sortedTopNavBarItems;
-    }
-    return toSortedPluginTopNavBarItems(state.topNavBarItemsByPluginId);
-  }, _.isEqual);
+  return usePluginRuntimeStore((state) => state.sortedTopNavBarItems);
 }
 
 export function usePluginListEntries(): PluginListEntry[] {
-  return usePluginRuntimeStore(
-    (state) => {
-      if (
-        state.sortedPluginListEntries.length > 0 ||
-        Object.keys(state.pluginListById).length === 0
-      ) {
-        return state.sortedPluginListEntries;
-      }
-      return toSortedPluginListEntries(state.pluginListById);
-    },
-    _.isEqual,
-  );
+  return usePluginRuntimeStore((state) => state.sortedPluginListEntries);
 }
 
 export function usePluginStatusEntries(): PluginStatusEntry[] {
-  return usePluginRuntimeStore((state) => state.statusEntries, _.isEqual);
+  return usePluginRuntimeStore((state) => state.statusEntries);
 }
 
 export function getPluginSectionFallbackReason(

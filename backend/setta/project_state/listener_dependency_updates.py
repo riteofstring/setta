@@ -175,8 +175,8 @@ def _apply_plugin_section_update(
     next_args: dict[str, object] = {}
 
     control_keys = {"data", "kind", "schemaVersion", "merge"}
-    has_control_keys = any(key in parsed_payload for key in control_keys)
-    if has_control_keys:
+    has_control_payload = "data" in parsed_payload
+    if has_control_payload:
         unknown_keys = sorted(set(parsed_payload.keys()) - control_keys)
         if len(unknown_keys) > 0:
             raise ListenerDependencyUpdateError(

@@ -223,9 +223,19 @@ class SettaFastAPIState:
             self.paths = get_setta_paths()
         else:
             os.environ.setdefault(RUNTIME_ROOT_ENV, str(self.dbe.runtime_root))
+        plugin_workspace_root = (
+            self.share_deployment_root
+            if self.share_deployment_root is not None
+            else self.paths.workspace_root
+        )
+        plugin_setta_files_root = (
+            self.share_deployment_root
+            if self.share_deployment_root is not None
+            else self.paths.setta_files_root
+        )
         self.plugin_manager = PluginManager(
-            workspace_root=self.paths.workspace_root,
-            setta_files_root=self.paths.setta_files_root,
+            workspace_root=plugin_workspace_root,
+            setta_files_root=plugin_setta_files_root,
             setta_home=resolve_setta_home(),
             server_mode=self._resolve_server_mode(),
             setta_version=__version__,

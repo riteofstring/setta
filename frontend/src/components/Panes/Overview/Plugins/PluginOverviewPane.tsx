@@ -1,4 +1,3 @@
-import _ from "lodash";
 import { usePluginRuntimeStore } from "plugins/runtime";
 import { useEffect, useMemo, useRef } from "react";
 
@@ -6,6 +5,8 @@ type PluginOverviewPaneProps = {
   pluginId: string;
   paneId: string;
 };
+
+const EMPTY_EFFECTIVE_CAPABILITIES: readonly string[] = [];
 
 export function PluginOverviewPane({
   pluginId,
@@ -19,15 +20,12 @@ export function PluginOverviewPane({
       }
     }
     return null;
-  }, _.isEqual);
-
-  const runtime = usePluginRuntimeStore(
-    (state) => ({
-      serverMode: state.serverMode ?? "ide",
-      effectiveCapabilities:
-        state.pluginListById[pluginId]?.effectiveCapabilities ?? [],
-    }),
-    _.isEqual,
+  });
+  const serverMode = usePluginRuntimeStore((state) => state.serverMode ?? "ide");
+  const effectiveCapabilities = usePluginRuntimeStore(
+    (state) =>
+      state.pluginListById[pluginId]?.effectiveCapabilities ??
+      EMPTY_EFFECTIVE_CAPABILITIES,
   );
 
   const mountRef = useRef<HTMLDivElement>(null);
@@ -36,10 +34,10 @@ export function PluginOverviewPane({
   const paneProps = useMemo(
     () => ({
       pluginId,
-      serverMode: runtime.serverMode,
-      effectiveCapabilities: runtime.effectiveCapabilities,
+      serverMode,
+      effectiveCapabilities,
     }),
-    [pluginId, runtime.effectiveCapabilities, runtime.serverMode],
+    [effectiveCapabilities, pluginId, serverMode],
   );
   const previousPanePropsRef = useRef<typeof paneProps | null>(null);
 

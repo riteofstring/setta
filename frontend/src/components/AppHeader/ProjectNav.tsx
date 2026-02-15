@@ -104,7 +104,7 @@ function PluginTopNavBarItems() {
               void onItemClick(item.pluginId, item.id, item.onClick);
             }}
             title={item.description}
-            disabled={busyItemKey !== null}
+            disabled={busyItemKey === itemKey}
           >
             {item.label}
           </button>

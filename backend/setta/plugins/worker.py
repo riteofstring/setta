@@ -144,6 +144,12 @@ class _WorkerState:
         default_factory=dict
     )
     _next_route_counter: int = 0
+    _async_loop: asyncio.AbstractEventLoop | None = field(
+        init=False, repr=False, default=None
+    )
+
+    def __post_init__(self) -> None:
+        self._async_loop = asyncio.new_event_loop()
 
     def _load_module(self) -> Any:
         if self.module is not None:
@@ -581,16 +587,14 @@ class _WorkerState:
                 f"Plugin route {route_id} execution failed for {self.plugin_id}: {exc}",
             ) from exc
         if inspect.isawaitable(result):
-            try:
-                result = asyncio.run(result)
-            except Exception as exc:
-                raise WorkerError(
-                    "PLUGIN_BACKEND_ROUTE_CALL_FAILED",
-                    (
-                        f"Async plugin route {route_id} execution failed for "
-                        f"{self.plugin_id}: {exc}"
-                    ),
-                ) from exc
+            result = self._run_awaitable(
+                result,
+                code="PLUGIN_BACKEND_ROUTE_CALL_FAILED",
+                message_prefix=(
+                    f"Async plugin route {route_id} execution failed for "
+                    f"{self.plugin_id}"
+                ),
+            )
         return {
             "statusCode": 200,
             "body": result,
@@ -639,16 +643,14 @@ class _WorkerState:
                 ),
             ) from exc
         if inspect.isawaitable(result):
-            try:
-                result = asyncio.run(result)
-            except Exception as exc:
-                raise WorkerError(
-                    "PLUGIN_BACKEND_MCP_TOOL_FAILED",
-                    (
-                        f"Async plugin MCP tool {tool_name} execution failed for "
-                        f"{self.plugin_id}: {exc}"
-                    ),
-                ) from exc
+            result = self._run_awaitable(
+                result,
+                code="PLUGIN_BACKEND_MCP_TOOL_FAILED",
+                message_prefix=(
+                    f"Async plugin MCP tool {tool_name} execution failed for "
+                    f"{self.plugin_id}"
+                ),
+            )
         return {
             "result": result,
         }
@@ -695,21 +697,49 @@ class _WorkerState:
                 ),
             ) from exc
         if inspect.isawaitable(result):
-            try:
-                result = asyncio.run(result)
-            except Exception as exc:
-                raise WorkerError(
-                    "PLUGIN_BACKEND_CODEGEN_FAILED",
-                    (
-                        f"Async plugin codegen target {handler_id} execution failed "
-                        f"for {self.plugin_id}: {exc}"
-                    ),
-                ) from exc
+            result = self._run_awaitable(
+                result,
+                code="PLUGIN_BACKEND_CODEGEN_FAILED",
+                message_prefix=(
+                    f"Async plugin codegen target {handler_id} execution failed "
+                    f"for {self.plugin_id}"
+                ),
+            )
         return _ensure_json_serializable(
             result,
             plugin_id=self.plugin_id,
             label="codegen target result",
         )
+
+    def _run_awaitable(
+        self,
+        awaitable: Any,
+        *,
+        code: str,
+        message_prefix: str,
+    ) -> Any:
+        if self._async_loop is None:
+            self._async_loop = asyncio.new_event_loop()
+        try:
+            return self._async_loop.run_until_complete(awaitable)
+        except Exception as exc:
+            raise WorkerError(code, f"{message_prefix}: {exc}") from exc
+
+    def _close_async_loop(self) -> None:
+        if self._async_loop is None:
+            return
+        if self._async_loop.is_closed():
+            self._async_loop = None
+            return
+        pending_tasks = asyncio.all_tasks(self._async_loop)
+        for task in pending_tasks:
+            task.cancel()
+        if pending_tasks:
+            self._async_loop.run_until_complete(
+                asyncio.gather(*pending_tasks, return_exceptions=True)
+            )
+        self._async_loop.close()
+        self._async_loop = None
 
     def call(
         self,
@@ -757,6 +787,7 @@ class _WorkerState:
                 )
             return {"ok": True}
         if method == "plugin.shutdown":
+            self._close_async_loop()
             return {"ok": True}
         if method == "plugin.invoke_route":
             return self._invoke_route(params)

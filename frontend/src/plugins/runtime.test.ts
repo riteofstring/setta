@@ -469,25 +469,28 @@ describe("plugin runtime helpers", () => {
   });
 
   it("returns plugin section-kind lookup and sorted section-kind lists", () => {
+    const alpha = {
+      pluginId: "acme.plugin",
+      kind: "widget-a",
+      title: "Alpha Widget",
+      renderer: {
+        mount: () => undefined,
+      },
+    } as RegisteredPluginSectionKind;
+    const zeta = {
+      pluginId: "acme.plugin",
+      kind: "widget-b",
+      title: "Zeta Widget",
+      renderer: {
+        mount: () => undefined,
+      },
+    } as RegisteredPluginSectionKind;
     usePluginRuntimeStore.setState({
       sectionKindsByKey: {
-        [toPluginSectionKindKey("acme.plugin", "widget-b")]: {
-          pluginId: "acme.plugin",
-          kind: "widget-b",
-          title: "Zeta Widget",
-          renderer: {
-            mount: () => undefined,
-          },
-        } as RegisteredPluginSectionKind,
-        [toPluginSectionKindKey("acme.plugin", "widget-a")]: {
-          pluginId: "acme.plugin",
-          kind: "widget-a",
-          title: "Alpha Widget",
-          renderer: {
-            mount: () => undefined,
-          },
-        } as RegisteredPluginSectionKind,
+        [toPluginSectionKindKey("acme.plugin", "widget-b")]: zeta,
+        [toPluginSectionKindKey("acme.plugin", "widget-a")]: alpha,
       },
+      sortedSectionKinds: [alpha, zeta],
     });
 
     const selected = readPluginRuntimeHookValue(() =>
@@ -1960,6 +1963,26 @@ describe("plugin runtime helpers", () => {
   });
 
   it("returns sorted plugin pane tabs by title then plugin id then pane id", () => {
+    const sortedTabs = [
+      {
+        tabKey: "tab-alpha-acme",
+        pluginId: "acme.plugin",
+        paneId: "pane-a",
+        title: "Alpha",
+      },
+      {
+        tabKey: "tab-alpha-beta",
+        pluginId: "beta.plugin",
+        paneId: "pane-z",
+        title: "Alpha",
+      },
+      {
+        tabKey: "tab-beta-acme",
+        pluginId: "acme.plugin",
+        paneId: "pane-c",
+        title: "Beta",
+      },
+    ];
     usePluginRuntimeStore.setState({
       panesByPluginId: {
         "beta.plugin": [
@@ -1985,6 +2008,7 @@ describe("plugin runtime helpers", () => {
           },
         ],
       },
+      sortedPaneTabs: sortedTabs,
     });
 
     const tabs = readPluginRuntimeHookValue(() => usePluginPaneTabs());
@@ -1998,6 +2022,26 @@ describe("plugin runtime helpers", () => {
   });
 
   it("returns sorted plugin commands by title then plugin id then command id", () => {
+    const sortedCommands = [
+      {
+        pluginId: "acme.plugin",
+        id: "cmd-a",
+        title: "Action",
+        run: () => undefined,
+      },
+      {
+        pluginId: "beta.plugin",
+        id: "cmd-z",
+        title: "Action",
+        run: () => undefined,
+      },
+      {
+        pluginId: "acme.plugin",
+        id: "cmd-b",
+        title: "Build",
+        run: () => undefined,
+      },
+    ];
     usePluginRuntimeStore.setState({
       commandsByPluginId: {
         "beta.plugin": [
@@ -2023,6 +2067,7 @@ describe("plugin runtime helpers", () => {
           },
         ],
       },
+      sortedCommands,
     });
 
     const commands = readPluginRuntimeHookValue(() => usePluginCommands());
@@ -2038,6 +2083,29 @@ describe("plugin runtime helpers", () => {
   });
 
   it("returns sorted top-nav items by order then label then plugin id and id", () => {
+    const sortedTopNavItems = [
+      {
+        pluginId: "acme.plugin",
+        id: "item-a",
+        label: "Deploy",
+        order: 1,
+        onClick: () => undefined,
+      },
+      {
+        pluginId: "beta.plugin",
+        id: "item-z",
+        label: "Deploy",
+        order: 1,
+        onClick: () => undefined,
+      },
+      {
+        pluginId: "acme.plugin",
+        id: "item-build",
+        label: "Build",
+        order: 2,
+        onClick: () => undefined,
+      },
+    ];
     usePluginRuntimeStore.setState({
       topNavBarItemsByPluginId: {
         "beta.plugin": [
@@ -2066,6 +2134,7 @@ describe("plugin runtime helpers", () => {
           },
         ],
       },
+      sortedTopNavBarItems: sortedTopNavItems,
     });
 
     const items = readPluginRuntimeHookValue(() => usePluginTopNavBarItems());
@@ -2081,15 +2150,18 @@ describe("plugin runtime helpers", () => {
   });
 
   it("returns plugin list entries sorted by plugin id", () => {
+    const alpha = buildPluginListEntry({
+      pluginId: "alpha.plugin",
+    });
+    const zeta = buildPluginListEntry({
+      pluginId: "zeta.plugin",
+    });
     usePluginRuntimeStore.setState({
       pluginListById: {
-        "zeta.plugin": buildPluginListEntry({
-          pluginId: "zeta.plugin",
-        }),
-        "alpha.plugin": buildPluginListEntry({
-          pluginId: "alpha.plugin",
-        }),
+        "zeta.plugin": zeta,
+        "alpha.plugin": alpha,
       },
+      sortedPluginListEntries: [alpha, zeta],
     });
 
     const entries = readPluginRuntimeHookValue(() => usePluginListEntries());
