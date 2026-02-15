@@ -204,3 +204,39 @@ class TestMultipartRouteLimits:
         assert response.status_code == 403
         assert response.json() == {"detail": "LLM disabled"}
         assert decode_called is False
+
+    async def test_append_transcription_audio_rejects_oversized_payload_before_decode(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        self.app.include_router(ai_router, prefix=Route.PREFIX.value)
+        decode_called = False
+
+        def _fail_decode(*_args, **_kwargs):
+            nonlocal decode_called
+            decode_called = True
+            raise AssertionError("decode should not run for oversized payloads")
+
+        monkeypatch.setattr("setta.routers.ai.base64.b64decode", _fail_decode)
+
+        max_bytes = (
+            C.REALTIME_BINARY_MAX_BYTES
+            if C.REALTIME_BINARY_MAX_BYTES > 0
+            else 10 * 1024 * 1024
+        )
+        encoded_length = ((max_bytes + 3) // 3) * 4
+
+        transport = ASGITransport(app=self.app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                f"{Route.PREFIX.value}{Route.APPEND_TRANSCRIPTION_AUDIO.value}",
+                json={
+                    "sessionId": "session-oversized",
+                    "audioPcm16Base64": "A" * encoded_length,
+                    "sampleRateHz": 24_000,
+                    "channels": 1,
+                },
+            )
+
+        assert response.status_code == 413
+        assert decode_called is False

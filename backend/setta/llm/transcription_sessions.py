@@ -71,13 +71,11 @@ class FileTranscriptionEngine(BaseTranscriptionEngine):
         config: AllLLMConfigs,
         llm_config: LLMConfig,
         api_keys: dict[str, str],
-        chunk_ms: int,
         language: str | None,
     ) -> None:
         self._config = config
         self._llm_config = llm_config
         self._api_keys = api_keys
-        self._chunk_ms = chunk_ms
         self._language = language
         self._pending_pcm = bytearray()
         self._full_text = ""
@@ -196,18 +194,23 @@ class OpenAIRealtimeTranscriptionEngine(BaseTranscriptionEngine):
         client = AsyncOpenAI(api_key=api_key, base_url=api_base)
         model = llm_config.model
         connection_manager = client.beta.realtime.connect(model=model)
-        connection = await connection_manager.__aenter__()
-
-        input_audio_transcription: dict[str, str] = {"model": model}
-        if language:
-            input_audio_transcription["language"] = language
-        await connection.transcription_session.update(
-            session={
-                "input_audio_format": "pcm16",
-                "input_audio_transcription": input_audio_transcription,
-            }
-        )
-        return cls(connection_manager=connection_manager, connection=connection)
+        connection: Any | None = None
+        try:
+            connection = await connection_manager.__aenter__()
+            input_audio_transcription: dict[str, str] = {"model": model}
+            if language:
+                input_audio_transcription["language"] = language
+            await connection.transcription_session.update(
+                session={
+                    "input_audio_format": "pcm16",
+                    "input_audio_transcription": input_audio_transcription,
+                }
+            )
+            return cls(connection_manager=connection_manager, connection=connection)
+        except Exception as exc:
+            if connection is not None:
+                await connection_manager.__aexit__(type(exc), exc, exc.__traceback__)
+            raise
 
     async def append_audio(
         self,
@@ -310,8 +313,6 @@ def _event_value(payload: Any, key: str) -> Any:
 class _ActiveTranscriptionSession:
     scope_id: str
     engine: BaseTranscriptionEngine
-    chunk_ms: int
-    resolved_transport_mode: str
     last_activity_monotonic: float
 
 
@@ -356,7 +357,6 @@ class TranscriptionSessionManager:
                 config=config,
                 llm_config=llm_config,
                 api_keys=api_keys,
-                chunk_ms=profile.chunkMs,
                 language=language,
             )
         elif transport_mode == TranscriptionTransportMode.realtime:
@@ -377,12 +377,13 @@ class TranscriptionSessionManager:
                         language=language,
                     )
                     resolved_transport_mode = "realtime"
-                except Exception:
+                except Exception as exc:
+                    if not _is_realtime_fallback_error(exc):
+                        raise
                     engine = _build_file_engine(
                         config=config,
                         llm_config=llm_config,
                         api_keys=api_keys,
-                        chunk_ms=profile.chunkMs,
                         language=language,
                     )
                     resolved_transport_mode = "file"
@@ -391,7 +392,6 @@ class TranscriptionSessionManager:
                     config=config,
                     llm_config=llm_config,
                     api_keys=api_keys,
-                    chunk_ms=profile.chunkMs,
                     language=language,
                 )
 
@@ -402,11 +402,10 @@ class TranscriptionSessionManager:
             self._sessions[session_id] = _ActiveTranscriptionSession(
                 scope_id=scope_id,
                 engine=engine,
-                chunk_ms=profile.chunkMs,
-                resolved_transport_mode=resolved_transport_mode,
                 last_activity_monotonic=now,
             )
-        return session_id, resolved_transport_mode, profile.chunkMs
+        chunk_ms = profile.chunkMs if resolved_transport_mode == "realtime" else 0
+        return session_id, resolved_transport_mode, chunk_ms
 
     async def append_audio(
         self,
@@ -476,12 +475,12 @@ class TranscriptionSessionManager:
     ) -> _ActiveTranscriptionSession:
         await self._close_expired_sessions(time.monotonic())
         async with self._lock:
-            session = self._sessions.pop(session_id, None)
+            session = self._sessions.get(session_id)
             if session is None:
                 raise KeyError(f"Transcription session {session_id} not found")
             if session.scope_id != scope_id:
                 raise KeyError(f"Transcription session {session_id} not found")
-            return session
+            return self._sessions.pop(session_id)
 
     async def _close_expired_sessions(self, now: float) -> None:
         expired: list[_ActiveTranscriptionSession] = []
@@ -503,14 +502,12 @@ def _build_file_engine(
     config: AllLLMConfigs,
     llm_config: LLMConfig,
     api_keys: dict[str, str],
-    chunk_ms: int,
     language: str | None,
 ) -> FileTranscriptionEngine:
     return FileTranscriptionEngine(
         config=config,
         llm_config=llm_config,
         api_keys=api_keys,
-        chunk_ms=chunk_ms,
         language=language,
     )
 
@@ -524,17 +521,39 @@ def _supports_openai_realtime(llm_config: LLMConfig) -> bool:
     return llm_config.base_url is None
 
 
-def _compute_window_size_bytes(
-    *,
-    chunk_ms: int,
-    sample_rate_hz: int,
-    channels: int,
-) -> int:
-    bytes_per_second = sample_rate_hz * channels * 2
-    window_size = max(2 * channels, int(bytes_per_second * (chunk_ms / 1000.0)))
-    if window_size % 2 != 0:
-        return window_size + 1
-    return window_size
+def _is_realtime_fallback_error(exc: Exception) -> bool:
+    if isinstance(exc, KeyError):
+        return False
+    status_code = getattr(exc, "status_code", None)
+    if isinstance(status_code, int):
+        if status_code in (401, 403):
+            return False
+        if status_code not in (400, 404, 422):
+            return False
+    message = str(exc).strip().lower()
+    if not message:
+        return False
+    if any(
+        marker in message
+        for marker in (
+            "missing api key",
+            "authentication",
+            "unauthorized",
+            "forbidden",
+            "permission denied",
+        )
+    ):
+        return False
+    return any(
+        marker in message
+        for marker in (
+            "realtime transcription is unavailable",
+            "does not support realtime",
+            "realtime is not supported",
+            "input_audio_transcription",
+            "unsupported realtime",
+        )
+    )
 
 
 def _pcm16_to_wav_bytes(

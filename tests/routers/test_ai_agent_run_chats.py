@@ -135,12 +135,7 @@ def _build_share_deployment_root(
     project_config_name: str,
     deployment_version: str = "v1",
 ) -> Path:
-    root = (
-        Path(tmpdir)
-        / "deployments"
-        / project_config_name
-        / deployment_version
-    )
+    root = Path(tmpdir) / "deployments" / project_config_name / deployment_version
     root.mkdir(parents=True, exist_ok=True)
     return root
 
@@ -196,9 +191,7 @@ def _build_run(
     outputs = None
     if output_messages is not None:
         outputs = {
-            "messages": [
-                message.model_dump(mode="json") for message in output_messages
-            ]
+            "messages": [message.model_dump(mode="json") for message in output_messages]
         }
     return AgentRun(
         status=status,
@@ -244,9 +237,7 @@ def _build_external_run(
     outputs = None
     if output_messages is not None:
         outputs = {
-            "messages": [
-                message.model_dump(mode="json") for message in output_messages
-            ]
+            "messages": [message.model_dump(mode="json") for message in output_messages]
         }
     return AgentRun(
         status=status,
@@ -488,9 +479,7 @@ class TestAgentRunChatRoutes:
                 externalAgentConfigId=external_config.id,
             )
             save_external_agent_configs(dbe, [external_config])
-            save_engine_configs(
-                dbe, [internal_engine_config, external_engine_config]
-            )
+            save_engine_configs(dbe, [internal_engine_config, external_engine_config])
             chat_id = ID("chat-external-mismatch")
             project_config_id = ID("project-llm-1")
             user_message = UserChatMessage(
@@ -592,10 +581,7 @@ class TestAgentRunChatRoutes:
                     )
 
             assert exc.value.status_code == 404
-            assert (
-                exc.value.detail
-                == "Message missing not found in chat history"
-            )
+            assert exc.value.detail == "Message missing not found in chat history"
 
     async def test_get_llm_response_requires_section_or_allow_unscoped(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -681,7 +667,9 @@ class TestAgentRunChatRoutes:
             assert "## Runtime execution settings" in system_prompt
             assert "- permissionMode: yolo" in system_prompt
             assert "- searchEnabled: false" in system_prompt
-            assert "## Required completion gate for create/scaffold work" in system_prompt
+            assert (
+                "## Required completion gate for create/scaffold work" in system_prompt
+            )
             assert "streamingPreview: enabled" in system_prompt
 
             captured_inputs = captured.get("inputs")
@@ -757,7 +745,9 @@ class TestAgentRunChatRoutes:
                 captured["config"] = config
                 captured["profile"] = profile
                 captured["inputs"] = inputs
-                return create_agent_run(profile_id=profile.id if profile else None, inputs=inputs)
+                return create_agent_run(
+                    profile_id=profile.id if profile else None, inputs=inputs
+                )
 
             monkeypatch.setattr(
                 external_runner, "start_run", _capture_external_start_run
@@ -799,7 +789,9 @@ class TestAgentRunChatRoutes:
             assert isinstance(system_prompt, str)
             assert "## Runtime execution settings" in system_prompt
             assert "- permissionMode: minimal" in system_prompt
-            assert "## Required completion gate for create/scaffold work" in system_prompt
+            assert (
+                "## Required completion gate for create/scaffold work" in system_prompt
+            )
 
     async def test_get_llm_response_external_runner_preserves_config_policy_when_custom_mode(
         self,
@@ -854,7 +846,9 @@ class TestAgentRunChatRoutes:
                 captured["config"] = config
                 captured["profile"] = profile
                 captured["inputs"] = inputs
-                return create_agent_run(profile_id=profile.id if profile else None, inputs=inputs)
+                return create_agent_run(
+                    profile_id=profile.id if profile else None, inputs=inputs
+                )
 
             monkeypatch.setattr(
                 external_runner, "start_run", _capture_external_start_run
@@ -1017,6 +1011,7 @@ class TestAgentRunChatRoutes:
             assert stop_response.appendText == "hello from provider"
             assert stop_response.fullText == "hello from provider"
             assert stop_response.isFinal is True
+            assert start_response.chunkMs == 0
             kwargs = captured.get("kwargs")
             assert isinstance(kwargs, dict)
             assert kwargs.get("model") == "whisper-1"
@@ -1068,8 +1063,9 @@ class TestAgentRunChatRoutes:
                 )
             )
             runner.update_api_keys({"OPENAI_API_KEY": "test-key"})
+
             async def _raise_realtime_unavailable(*_args, **_kwargs):
-                raise RuntimeError("realtime unavailable")
+                raise RuntimeError("realtime transcription is unavailable")
 
             monkeypatch.setattr(
                 "setta.llm.transcription_sessions.OpenAIRealtimeTranscriptionEngine.create",
@@ -1085,6 +1081,114 @@ class TestAgentRunChatRoutes:
                 )
 
             assert response.resolvedTransportMode == "file"
+            assert response.chunkMs == 0
+
+    async def test_start_transcription_session_auto_does_not_fallback_on_missing_api_key(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            transcription_profile_id = ID("transcription-primary")
+            save_transcription_profiles(
+                dbe,
+                [
+                    TranscriptionProfile(
+                        id=transcription_profile_id,
+                        name="Auto Profile",
+                        transcriptionLlmConfigId="openai-transcribe",
+                        transportMode=TranscriptionTransportMode.auto,
+                        chunkMs=1200,
+                        language=None,
+                    )
+                ],
+            )
+            runner.update_config(
+                AllLLMConfigs(
+                    configs={
+                        "openai-transcribe": LLMConfig(
+                            id="openai-transcribe",
+                            model="gpt-4o-mini-transcribe",
+                            provider="openai",
+                            api_key_env="OPENAI_API_KEY",
+                            mcpServerIds=[],
+                        ),
+                    },
+                    mcpServers={},
+                )
+            )
+            runner.update_api_keys({})
+
+            async def _raise_missing_key(*_args, **_kwargs):
+                raise KeyError(
+                    "Missing API key for 'OPENAI_API_KEY'. Configure it in LLM API Keys."
+                )
+
+            monkeypatch.setattr(
+                "setta.llm.transcription_sessions.OpenAIRealtimeTranscriptionEngine.create",
+                _raise_missing_key,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_start_transcription_session(
+                        StartTranscriptionSessionRequest(
+                            transcriptionProfileId=transcription_profile_id,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 400
+            assert (
+                exc.value.detail
+                == "Missing API key for 'OPENAI_API_KEY'. Configure it in LLM API Keys."
+            )
+
+    async def test_transcription_session_scope_mismatch_does_not_remove_owner_session(
+        self,
+    ) -> None:
+        manager = TranscriptionSessionManager()
+        llm_config = LLMConfig(
+            id="openai-transcribe",
+            model="whisper-1",
+            provider="openai",
+            api_key_env="OPENAI_API_KEY",
+            mcpServerIds=[],
+        )
+        profile = TranscriptionProfile(
+            id=ID("profile-1"),
+            name="File Profile",
+            transcriptionLlmConfigId="openai-transcribe",
+            transportMode=TranscriptionTransportMode.file,
+            chunkMs=1200,
+            language=None,
+        )
+        session_id, resolved_transport_mode, chunk_ms = await manager.start_session(
+            scope_id="scope-owner",
+            resolved_profile=SimpleNamespace(profile=profile, llm_config=llm_config),
+            config=AllLLMConfigs(
+                configs={"openai-transcribe": llm_config}, mcpServers={}
+            ),
+            api_keys={},
+            language_override=None,
+        )
+        assert resolved_transport_mode == "file"
+        assert chunk_ms == 0
+
+        with pytest.raises(KeyError):
+            await manager.stop_session(scope_id="scope-other", session_id=session_id)
+
+        result = await manager.stop_session(
+            scope_id="scope-owner", session_id=session_id
+        )
+        assert result.is_final is True
+        assert result.full_text == ""
 
     async def test_start_transcription_session_rejects_realtime_on_unsupported_provider(
         self,
@@ -1485,6 +1589,7 @@ class TestAgentRunChatRoutes:
 
         assert len(prior_messages) == 2
         assert prior_messages[1].content[0].text == "External prefetched reply"
+
     async def test_stop_llm_chat(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)

@@ -47,11 +47,18 @@ The chat composer supports local slash commands and execution controls:
   - `engineConfigId` chooses the chat runtime.
   - `transcriptionProfileId` chooses the transcription runtime.
 - Transcription profiles own the provider config reference (`transcriptionLlmConfigId`).
-- Provider transcription requests (`/api/transcribeChatAudio`) use `transcriptionProfileId` only.
+- Provider transcription uses session routes:
+  - `POST /api/startTranscriptionSession` with `transcriptionProfileId` (+ optional `language`)
+  - `POST /api/appendTranscriptionAudio` with `sessionId`, `audioPcm16Base64`, `sampleRateHz`, `channels`
+  - `POST /api/stopTranscriptionSession` with `sessionId`
+  - `POST /api/cancelTranscriptionSession` with `sessionId`
 - Dictation mode is explicit in AI settings (`auto`, `browser`, `provider`):
   - `auto`: prefers provider dictation when the selected transcription profile resolves to a valid config, otherwise falls back to browser dictation.
   - `browser`: always uses browser dictation and never calls provider transcription.
   - `provider`: always attempts provider dictation and shows an explicit configuration error when unavailable.
+- Provider transport behavior:
+  - `realtime`: streams chunked PCM and receives incremental transcript deltas.
+  - `file`: captures full audio and transcribes once on stop.
 - Provider dictation is available for both internal and external chat engines.
 - Browser dictation uses `SpeechRecognition`/`webkitSpeechRecognition` and keeps listening across `onend` events until the user stops mic capture.
 

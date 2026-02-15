@@ -588,6 +588,16 @@ def _decode_pcm16_payload(audio_pcm16_base64: str) -> bytes:
     stripped_payload = audio_pcm16_base64.strip()
     if not stripped_payload:
         raise HTTPException(status_code=400, detail="Audio payload is empty.")
+    estimated_decoded_bytes = (len(stripped_payload) * 3) // 4
+    if stripped_payload.endswith("=="):
+        estimated_decoded_bytes -= 2
+    elif stripped_payload.endswith("="):
+        estimated_decoded_bytes -= 1
+    if estimated_decoded_bytes > _TRANSCRIPTION_PCM_MAX_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=_build_audio_payload_too_large_detail(_TRANSCRIPTION_PCM_MAX_BYTES),
+        )
     try:
         decoded = base64.b64decode(stripped_payload, validate=True)
     except binascii.Error as exc:
