@@ -10,9 +10,9 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { route_change_param_impl } from "utils/generatedEndpoints";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { SaveUITypeConfig } from "../SaveUITypeConfig";
-import { applyUiTypeComboboxSelection } from "../UIConfig/applyUiTypeComboboxSelection";
 
 type MetaControlConfigState = {
   controlParamId: string | null;
@@ -56,7 +56,7 @@ export function MetaControlSettings({ sectionId }: { sectionId: string }) {
     if (!selectedId || !controlParamId) {
       throw new Error();
     }
-    void applyUiTypeComboboxSelection({
+    route_change_param_impl({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
       paramInfoId: controlParamId,

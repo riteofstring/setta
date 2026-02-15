@@ -59,13 +59,12 @@ from setta.types.generated.impl_args_as_typed_dicts import (
     MetaControlSectionImplArgsWithCallable,
     NestedParamCodeObjImplArgsWithCallable,
     PasswordParamCodeObjImplArgsWithCallable,
+    PluginSectionImplArgsWithCallable,
     PromptSectionImplArgsWithCallable,
     RotaryParamCodeObjImplArgsWithCallable,
     SliderParamCodeObjImplArgsWithCallable,
     SocialSectionImplArgsWithCallable,
-    SpreadsheetSectionImplArgsWithCallable,
     SwitchParamCodeObjImplArgsWithCallable,
-    TaskBoardSectionImplArgsWithCallable,
     TerminalSectionImplArgsWithCallable,
     TextAreaParamCodeObjImplArgsWithCallable,
     TextBlockSectionImplArgsWithCallable,
@@ -105,10 +104,9 @@ from setta.types.section_impls import (
     ImageSectionImpl,
     ListRootSectionImpl,
     MetaControlSectionImpl,
+    PluginSectionImpl,
     PromptSectionImpl,
     SocialSectionImpl,
-    SpreadsheetSectionImpl,
-    TaskBoardSectionImpl,
     TerminalSectionImpl,
     TextBlockSectionImpl,
 )
@@ -261,18 +259,11 @@ def set_effective_impl_value(
 ) -> BrowserSectionImpl: ...
 @overload
 def set_effective_impl_value(
-    impl: TaskBoardSectionImpl,
+    impl: PluginSectionImpl,
     core: Core,
     variant: Variant,
-    args: TaskBoardSectionImplArgsWithCallable,
-) -> TaskBoardSectionImpl: ...
-@overload
-def set_effective_impl_value(
-    impl: SpreadsheetSectionImpl,
-    core: Core,
-    variant: Variant,
-    args: SpreadsheetSectionImplArgsWithCallable,
-) -> SpreadsheetSectionImpl: ...
+    args: PluginSectionImplArgsWithCallable,
+) -> PluginSectionImpl: ...
 @overload
 def set_effective_impl_value(
     impl: CodeCallableCodeObjImpl,

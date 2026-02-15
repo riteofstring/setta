@@ -23,23 +23,6 @@ const CODE_OBJ_TYPE_FILTERS = {
   sectionParam: SectionParamCodeObjTypeSet,
 } as const;
 
-export const CALENDAR_PRESET_ID = "__setta_text_param_calendar__";
-export const TIME_DISPLAY_PRESET_ID = "__setta_text_param_time_display__";
-
-const TEXT_PARAM_VIRTUAL_PRESET_ITEMS: ComboboxItemArrayType<string> = [
-  { id: CALENDAR_PRESET_ID, name: "Calendar - (TextParam)" },
-  { id: TIME_DISPLAY_PRESET_ID, name: "Time Display - (TextParam)" },
-];
-
-export function getVirtualTextParamPresetItemsForFilter(
-  filterKey: CodeObjTypeFilterKey,
-): ComboboxItemArrayType<string> {
-  if (!CODE_OBJ_TYPE_FILTERS[filterKey].has(CodeObjTypeEnum.TextParam)) {
-    return [];
-  }
-  return TEXT_PARAM_VIRTUAL_PRESET_ITEMS;
-}
-
 export type CodeObjTypeFilterKey = keyof typeof CODE_OBJ_TYPE_FILTERS;
 
 const CODE_OBJ_TYPE_ENUM_VALUES = Object.values(
@@ -75,6 +58,7 @@ function UITypeCombobox({
     { group: "Base", items: nonPresetImpls },
     { group: "Preset", items: presetImpls },
   ];
+  console.log(allItems);
 
   return (
     <IdNameCombobox
@@ -122,8 +106,6 @@ function usePresetCodeObjImpls(
   filterKey: CodeObjTypeFilterKey,
 ): ComboboxItemArrayType<string> {
   const typeSet = CODE_OBJ_TYPE_FILTERS[filterKey];
-  const virtualTextParamPresets =
-    getVirtualTextParamPresetItemsForFilter(filterKey);
   return useProjectState((x) => {
     const output: ComboboxItemArrayType<string> = [];
     for (const c of Object.values(x.codeObjImpls)) {
@@ -137,9 +119,6 @@ function usePresetCodeObjImpls(
         id: c.id,
         name: `${c.name} - (${c.type})`,
       });
-    }
-    if (virtualTextParamPresets.length > 0) {
-      output.push(...virtualTextParamPresets);
     }
     return output;
   }, _.isEqual);
