@@ -23,13 +23,12 @@ describe("updateEngineConfig", () => {
     resetProjectStores();
   });
 
-  it("persists transcriptionLlmConfigId updates in AI store state", async () => {
+  it("persists engine config updates in AI store state", async () => {
     const updatedConfig = createEngineConfig({
       id: "engine-1",
       name: "Primary Engine",
       engineType: EngineTypeEnum.setta_llm,
-      settaLlmConfigId: "claude-chat",
-      transcriptionLlmConfigId: "openai-transcribe",
+      settaLlmConfigId: "claude-3-7",
     });
     mockedRouteUpdateEngineConfig.mockResolvedValue({
       status: 200,
@@ -39,10 +38,10 @@ describe("updateEngineConfig", () => {
 
     const result = await updateEngineConfig({ config: updatedConfig });
 
-    expect(result?.transcriptionLlmConfigId).toBe("openai-transcribe");
+    expect(result?.settaLlmConfigId).toBe("claude-3-7");
     const stored = useAIStore
       .getState()
       .engineConfigs.find((config) => config.id === "engine-1");
-    expect(stored?.transcriptionLlmConfigId).toBe("openai-transcribe");
+    expect(stored?.settaLlmConfigId).toBe("claude-3-7");
   });
 });

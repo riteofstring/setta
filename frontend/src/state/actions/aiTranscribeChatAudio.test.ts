@@ -34,13 +34,15 @@ describe("transcribeChatAudio", () => {
     });
 
     const audioBlob = new Blob(["hello"], { type: "audio/webm" });
-    const text = await transcribeChatAudio("engine-1", audioBlob);
+    const text = await transcribeChatAudio("transcription-1", audioBlob);
 
     expect(text).toBe("transcribed text");
     expect(mockedRouteTranscribeChatAudio).toHaveBeenCalledTimes(1);
     const [form] = mockedRouteTranscribeChatAudio.mock.calls[0] ?? [];
     expect(form).toBeInstanceOf(FormData);
-    expect((form as FormData).get("engineConfigId")).toBe("engine-1");
+    expect((form as FormData).get("transcriptionProfileId")).toBe(
+      "transcription-1",
+    );
     const uploadedFile = (form as FormData).get("file");
     expect(uploadedFile).toBeInstanceOf(File);
     expect((uploadedFile as File).name).toBe("dictation.webm");
@@ -55,7 +57,7 @@ describe("transcribeChatAudio", () => {
     });
 
     const audioBlob = new Blob(["hello"], { type: "audio/mp4" });
-    await transcribeChatAudio("engine-1", audioBlob);
+    await transcribeChatAudio("transcription-1", audioBlob);
 
     expect(mockedRouteTranscribeChatAudio).toHaveBeenCalledTimes(1);
     const [form] = mockedRouteTranscribeChatAudio.mock.calls[0] ?? [];
@@ -75,7 +77,7 @@ describe("transcribeChatAudio", () => {
       type: "audio/webm",
     });
 
-    const text = await transcribeChatAudio("engine-1", oversizedBlob);
+    const text = await transcribeChatAudio("transcription-1", oversizedBlob);
 
     expect(text).toBe("oversized accepted by server policy");
     expect(mockedRouteTranscribeChatAudio).toHaveBeenCalledTimes(1);
@@ -90,7 +92,7 @@ describe("transcribeChatAudio", () => {
     });
 
     const text = await transcribeChatAudio(
-      "engine-1",
+      "transcription-1",
       new Blob(["hello"], { type: "audio/webm" }),
     );
 

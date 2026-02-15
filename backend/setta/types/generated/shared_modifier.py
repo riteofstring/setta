@@ -191,6 +191,7 @@ class SharedModifier(TypedDict):
     timeDisplayTransparent: NotRequired[bool]
     toolCallArguments: NotRequired[dict[str, str]]
     topLevelParamId: NotRequired[ID | None]
+    transcriptionProfileId: NotRequired[ID | None]
     typeAnnotation: NotRequired[str]
     typesColumnWidth: NotRequired[float | None]
     uiType: NotRequired[TextParamInputUIType]

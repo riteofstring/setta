@@ -4364,6 +4364,7 @@ class BaseProjectManager(ABC):
             x.sectionId,
             x.managed,
             x.engineConfigId,
+            x.transcriptionProfileId,
             x.agentProfileId,
             x.thinking,
             x.permissionMode,

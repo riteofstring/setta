@@ -34,6 +34,7 @@ from setta.types.websocket import (
     WebsocketMsgRealtimeUIChange,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
+    WebsocketMsgTranscriptionProfilesUpdated,
     WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
     WebsocketMsgUpdateSettings,
@@ -59,6 +60,7 @@ WebsocketMsgUnion = (
     | WebsocketMsgPromptTemplatesUpdated
     | WebsocketMsgExternalAgentConfigsUpdated
     | WebsocketMsgEngineConfigsUpdated
+    | WebsocketMsgTranscriptionProfilesUpdated
     | WebsocketMsgAIFollowToolArgumentsUpdate
     | WebsocketMsgAIFollowToolResultUpdate
     | WebsocketMsgRealtimeUIChange
@@ -103,6 +105,7 @@ WebsocketMsgTypeSet = set(
         "PromptTemplatesUpdated",
         "ExternalAgentConfigsUpdated",
         "EngineConfigsUpdated",
+        "TranscriptionProfilesUpdated",
         "AIFollowToolArgumentsUpdate",
         "AIFollowToolResultUpdate",
         "RealtimeUIChange",
@@ -141,6 +144,7 @@ FrontendWebsocketMsgUnion = (
     | WebsocketMsgPromptTemplatesUpdated
     | WebsocketMsgExternalAgentConfigsUpdated
     | WebsocketMsgEngineConfigsUpdated
+    | WebsocketMsgTranscriptionProfilesUpdated
     | WebsocketMsgAIFollowToolArgumentsUpdate
     | WebsocketMsgAIFollowToolResultUpdate
 )
@@ -174,6 +178,7 @@ FrontendWebsocketMsgTypeSet = set(
         "PromptTemplatesUpdated",
         "ExternalAgentConfigsUpdated",
         "EngineConfigsUpdated",
+        "TranscriptionProfilesUpdated",
         "AIFollowToolArgumentsUpdate",
         "AIFollowToolResultUpdate",
     ]

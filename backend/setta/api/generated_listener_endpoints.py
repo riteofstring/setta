@@ -595,6 +595,7 @@ class ListenerSetChatSectionSettingsRequestPayload(TypedDict):
     sectionId: ID
     managed: bool
     engineConfigId: ID | None
+    transcriptionProfileId: ID | None
     agentProfileId: ID | None
     thinking: bool
     permissionMode: ChatPermissionMode

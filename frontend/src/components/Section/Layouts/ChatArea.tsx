@@ -250,6 +250,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
   const {
     managed,
     engineConfigId,
+    transcriptionProfileId,
     agentProfileId,
     thinking,
     permissionMode,
@@ -271,6 +272,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     return {
       managed: impl.managed,
       engineConfigId: impl.engineConfigId,
+      transcriptionProfileId: impl.transcriptionProfileId,
       agentProfileId: impl.agentProfileId,
       thinking: impl.thinking,
       permissionMode: impl.permissionMode,
@@ -291,6 +293,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       <ManagedChatArea
         sectionId={sectionId}
         engineConfigId={engineConfigId}
+        transcriptionProfileId={transcriptionProfileId}
         agentProfileId={agentProfileId}
         thinking={thinking}
         permissionMode={permissionMode}
@@ -304,6 +307,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     <ScriptableChatArea
       sectionId={sectionId}
       engineConfigId={engineConfigId}
+      transcriptionProfileId={transcriptionProfileId}
       agentProfileId={agentProfileId}
       thinking={thinking}
       messages={messages}
@@ -323,6 +327,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
 type ScriptableChatAreaProps = {
   sectionId: string;
   engineConfigId: string | null;
+  transcriptionProfileId: string | null;
   agentProfileId: string | null;
   thinking: boolean;
   messages: Array<ChatSectionState["messages"][number]>;
@@ -340,6 +345,7 @@ type ScriptableChatAreaProps = {
 function ScriptableChatArea({
   sectionId,
   engineConfigId,
+  transcriptionProfileId,
   agentProfileId,
   thinking,
   messages,
@@ -614,6 +620,7 @@ function ScriptableChatArea({
             sectionId,
             managed: false,
             engineConfigId,
+            transcriptionProfileId,
             agentProfileId,
             thinking,
             permissionMode: nextSettings.permissionMode,
@@ -627,6 +634,7 @@ function ScriptableChatArea({
       agentProfileId,
       dictationMode,
       engineConfigId,
+      transcriptionProfileId,
       permissionMode,
       projectConfigId,
       searchEnabled,
@@ -1067,6 +1075,7 @@ function ManagedChatHistoryPanel({
 type ManagedChatAreaProps = {
   sectionId: string;
   engineConfigId: string | null;
+  transcriptionProfileId: string | null;
   agentProfileId: string | null;
   thinking: boolean;
   permissionMode: ChatPermissionModeValue;
@@ -1077,6 +1086,7 @@ type ManagedChatAreaProps = {
 function ManagedChatArea({
   sectionId,
   engineConfigId,
+  transcriptionProfileId,
   agentProfileId,
   thinking,
   permissionMode,
@@ -1155,6 +1165,7 @@ function ManagedChatArea({
     allLLMConfigs,
     agentProfiles,
     engineConfigs,
+    transcriptionProfiles,
     externalAgentHealth,
     externalAgentHealthInitialLoadComplete,
     externalAgentConfigs,
@@ -1164,6 +1175,7 @@ function ManagedChatArea({
       allLLMConfigs: state.allLLMConfigs,
       agentProfiles: state.agentProfiles,
       engineConfigs: state.engineConfigs,
+      transcriptionProfiles: state.transcriptionProfiles,
       externalAgentHealth: state.externalAgentHealth,
       externalAgentHealthInitialLoadComplete:
         state.externalAgentHealthInitialLoadComplete,
@@ -1220,33 +1232,31 @@ function ManagedChatArea({
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
-  const selectedTranscriptionLLMConfigId = useMemo(() => {
-    if (!selectedEngineConfig) {
+  const selectedTranscriptionProfile = useMemo(() => {
+    if (!transcriptionProfileId) {
       return null;
     }
-    if (selectedEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
-      return null;
-    }
-    return selectedEngineConfig.transcriptionLlmConfigId ?? null;
-  }, [selectedEngineConfig]);
-  const providerDictationAvailable =
-    engineType === EngineTypeEnum.setta_llm &&
-    Boolean(
-      selectedTranscriptionLLMConfigId &&
-        allLLMConfigs?.configs?.[selectedTranscriptionLLMConfigId],
+    return (
+      transcriptionProfiles.find(
+        (profile) => profile.id === transcriptionProfileId,
+      ) ?? null
     );
+  }, [transcriptionProfileId, transcriptionProfiles]);
+  const selectedTranscriptionLLMConfigId =
+    selectedTranscriptionProfile?.transcriptionLlmConfigId ?? null;
+  const providerDictationAvailable = Boolean(
+    selectedTranscriptionLLMConfigId &&
+      allLLMConfigs?.configs?.[selectedTranscriptionLLMConfigId],
+  );
   const providerDictationUnavailableReason = useMemo(() => {
-    if (engineType === EngineTypeEnum.external_agent) {
-      return "Provider dictation is available only for managed LLM engines.";
+    if (!selectedTranscriptionProfile) {
+      return "Provider dictation requires a transcription profile.";
     }
-    if (
-      engineType === EngineTypeEnum.setta_llm &&
-      !providerDictationAvailable
-    ) {
-      return "Provider dictation requires a valid transcription config.";
+    if (!providerDictationAvailable) {
+      return "Selected transcription profile has an invalid transcription config.";
     }
     return "Provider dictation is not available.";
-  }, [engineType, providerDictationAvailable]);
+  }, [providerDictationAvailable, selectedTranscriptionProfile]);
   const hasEngineConfig = Boolean(selectedEngineConfig);
   const hasLLMConfig = Boolean(selectedLLMConfigId);
   const externalEngineStatus = useMemo(
@@ -1418,6 +1428,7 @@ function ManagedChatArea({
             sectionId,
             managed: true,
             engineConfigId,
+            transcriptionProfileId,
             agentProfileId,
             thinking,
             permissionMode: nextSettings.permissionMode,
@@ -1431,6 +1442,7 @@ function ManagedChatArea({
       agentProfileId,
       dictationMode,
       engineConfigId,
+      transcriptionProfileId,
       permissionMode,
       projectConfigId,
       searchEnabled,
@@ -1689,12 +1701,12 @@ function ManagedChatArea({
   );
   const handleProviderDictationTranscribe = useCallback(
     async (audioBlob: Blob) => {
-      if (!effectiveEngineConfigId || isExternalEngine) {
+      if (!transcriptionProfileId) {
         return null;
       }
-      return transcribeChatAudio(effectiveEngineConfigId, audioBlob);
+      return transcribeChatAudio(transcriptionProfileId, audioBlob);
     },
-    [effectiveEngineConfigId, isExternalEngine],
+    [transcriptionProfileId],
   );
 
   return (
@@ -1783,9 +1795,7 @@ function ManagedChatArea({
           providerDictationUnavailableMessage={
             providerDictationUnavailableReason
           }
-          onProviderDictationTranscribe={
-            isExternalEngine ? undefined : handleProviderDictationTranscribe
-          }
+          onProviderDictationTranscribe={handleProviderDictationTranscribe}
         />
       </div>
     </div>

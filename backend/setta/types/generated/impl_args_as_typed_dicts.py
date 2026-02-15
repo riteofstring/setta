@@ -200,6 +200,7 @@ class CoreArgs(TypedDict):
                 "timeDisplayTransparent",
                 "toolCallArguments",
                 "topLevelParamId",
+                "transcriptionProfileId",
                 "type",
                 "typeAnnotation",
                 "typesColumnWidth",
@@ -669,6 +670,7 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chat]]
     managed: NotRequired[bool]
     engineConfigId: NotRequired[ID | None]
+    transcriptionProfileId: NotRequired[ID | None]
     agentProfileId: NotRequired[ID | None]
     chatId: NotRequired[ID | None]
     thinking: NotRequired[bool]
@@ -694,6 +696,7 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
     managed: NotRequired[bool | Callable[[bool], bool]]
     engineConfigId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
+    transcriptionProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     thinking: NotRequired[bool | Callable[[bool], bool]]

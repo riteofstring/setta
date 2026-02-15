@@ -212,6 +212,7 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     )
     managed: bool = False
     engineConfigId: ID | None = None
+    transcriptionProfileId: ID | None = None
     agentProfileId: ID | None = None
     chatId: ID | None = None
     thinking: bool = True

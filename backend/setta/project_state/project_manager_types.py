@@ -1124,6 +1124,7 @@ class SetSpreadsheetSectionSettingsRequest(ProjectManagerRequestWithSection):
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     managed: bool
     engineConfigId: ID | None
+    transcriptionProfileId: ID | None
     agentProfileId: ID | None
     thinking: bool
     permissionMode: ChatPermissionMode

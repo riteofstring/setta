@@ -124,6 +124,7 @@ AllImplFields = Literal[
     "timeDisplayTransparent",
     "toolCallArguments",
     "topLevelParamId",
+    "transcriptionProfileId",
     "type",
     "typeAnnotation",
     "typesColumnWidth",

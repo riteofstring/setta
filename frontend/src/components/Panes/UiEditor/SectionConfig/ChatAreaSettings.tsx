@@ -54,6 +54,7 @@ type ChatAreaSettingsProps = {
 type ChatSectionSettingsPayload = {
   managed: boolean;
   engineConfigId: string | null;
+  transcriptionProfileId: string | null;
   agentProfileId: string | null;
   thinking: boolean;
   permissionMode: "minimal" | "yolo" | "config_toml_custom";
@@ -82,6 +83,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const {
     managed,
     engineConfigId,
+    transcriptionProfileId,
     agentProfileId,
     thinking,
     permissionMode,
@@ -97,6 +99,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     return {
       managed: impl.managed,
       engineConfigId: impl.engineConfigId,
+      transcriptionProfileId: impl.transcriptionProfileId,
       agentProfileId: impl.agentProfileId,
       thinking: impl.thinking,
       permissionMode: impl.permissionMode,
@@ -125,6 +128,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     allLLMConfigs,
     agentProfiles,
     engineConfigs,
+    transcriptionProfiles,
     externalAgentHealth,
     externalAgentHealthInitialLoadComplete,
   } = useAIStore(
@@ -133,6 +137,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       allLLMConfigs: state.allLLMConfigs,
       agentProfiles: state.agentProfiles,
       engineConfigs: state.engineConfigs,
+      transcriptionProfiles: state.transcriptionProfiles,
       externalAgentHealth: state.externalAgentHealth,
       externalAgentHealthInitialLoadComplete:
         state.externalAgentHealthInitialLoadComplete,
@@ -158,6 +163,18 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   const engineGroups = useMemo(
     () => buildEngineGroups(engineConfigs),
     [engineConfigs],
+  );
+  const transcriptionProfileGroups = useMemo<AllItemsType<string>>(
+    () => [
+      {
+        group: "Transcription Profiles",
+        items: transcriptionProfiles.map((profile) => ({
+          id: profile.id,
+          name: profile.name || profile.id,
+        })),
+      },
+    ],
+    [transcriptionProfiles],
   );
   const selectedProfile = useMemo(() => {
     if (!agentProfileId) {
@@ -237,16 +254,6 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
-  const selectedTranscriptionLLMConfigId = useMemo(() => {
-    if (!selectedEngineConfig) {
-      return null;
-    }
-    if (selectedEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
-      return null;
-    }
-    return selectedEngineConfig.transcriptionLlmConfigId ?? null;
-  }, [selectedEngineConfig]);
-
   const sectionLabelsById = useMemo(() => {
     const labels: Record<string, string> = {};
     for (const [id, core] of Object.entries(sections)) {
@@ -440,6 +447,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
           setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
             managed: nextSettings.managed,
             engineConfigId: nextSettings.engineConfigId,
+            transcriptionProfileId: nextSettings.transcriptionProfileId,
             agentProfileId: nextSettings.agentProfileId,
             thinking: nextSettings.thinking,
             permissionMode: nextSettings.permissionMode,
@@ -453,6 +461,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
             sectionId,
             managed: nextSettings.managed,
             engineConfigId: nextSettings.engineConfigId,
+            transcriptionProfileId: nextSettings.transcriptionProfileId,
             agentProfileId: nextSettings.agentProfileId,
             thinking: nextSettings.thinking,
             permissionMode: nextSettings.permissionMode,
@@ -470,6 +479,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings({
         managed: value,
         engineConfigId,
+        transcriptionProfileId,
         agentProfileId,
         thinking,
         permissionMode,
@@ -480,6 +490,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     [
       agentProfileId,
       engineConfigId,
+      transcriptionProfileId,
       permissionMode,
       searchEnabled,
       thinking,
@@ -493,6 +504,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings({
         managed,
         engineConfigId,
+        transcriptionProfileId,
         agentProfileId,
         thinking: value,
         permissionMode,
@@ -504,6 +516,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       agentProfileId,
       engineConfigId,
       managed,
+      transcriptionProfileId,
       permissionMode,
       searchEnabled,
       dictationMode,
@@ -530,37 +543,17 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     },
     [isDisabled, selectedEngineConfig],
   );
-  const handleTranscriptionLLMConfigChange = useCallback(
+  const handleTranscriptionProfileChange = useCallback(
     (value: string | null) => {
-      if (isDisabled) {
-        return;
-      }
-      if (!selectedEngineConfig) {
-        return;
-      }
-      if (selectedEngineConfig.engineType !== EngineTypeEnum.setta_llm) {
-        return;
-      }
-      const nextConfig = {
-        ...selectedEngineConfig,
-        transcriptionLlmConfigId: value,
-      };
-      void updateEngineConfig({ config: nextConfig });
-    },
-    [isDisabled, selectedEngineConfig],
-  );
-  const handleDictationModeChange = useCallback(
-    (value: string | null) => {
-      const nextMode =
-        value === "browser" || value === "provider" ? value : "auto";
       updateSettings({
         managed,
         engineConfigId,
+        transcriptionProfileId: value,
         agentProfileId,
         thinking,
         permissionMode,
         searchEnabled,
-        dictationMode: nextMode,
+        dictationMode,
       });
     },
     [
@@ -574,12 +567,40 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings,
     ],
   );
+  const handleDictationModeChange = useCallback(
+    (value: string | null) => {
+      const nextMode =
+        value === "browser" || value === "provider" ? value : "auto";
+      updateSettings({
+        managed,
+        engineConfigId,
+        transcriptionProfileId,
+        agentProfileId,
+        thinking,
+        permissionMode,
+        searchEnabled,
+        dictationMode: nextMode,
+      });
+    },
+    [
+      agentProfileId,
+      dictationMode,
+      engineConfigId,
+      managed,
+      transcriptionProfileId,
+      permissionMode,
+      searchEnabled,
+      thinking,
+      updateSettings,
+    ],
+  );
 
   const handleAgentProfileChange = useCallback(
     (value: string | null) => {
       updateSettings({
         managed,
         engineConfigId,
+        transcriptionProfileId,
         agentProfileId: value,
         thinking,
         permissionMode,
@@ -590,6 +611,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
     [
       engineConfigId,
       managed,
+      transcriptionProfileId,
       permissionMode,
       searchEnabled,
       dictationMode,
@@ -667,6 +689,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       updateSettings({
         managed,
         engineConfigId: nextEngineId,
+        transcriptionProfileId,
         agentProfileId,
         thinking,
         permissionMode,
@@ -684,6 +707,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       permissionMode,
       searchEnabled,
       selectedEngineId,
+      transcriptionProfileId,
       dictationMode,
       thinking,
       updateSettings,
@@ -791,23 +815,23 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
                   selectedItemCanBeNull
                 />
               </div>
-              <div className="flex w-full flex-col gap-2">
-                <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
-                  Transcription Config
-                </p>
-                <IdNameCombobox
-                  allItems={availableConfigGroups}
-                  value={selectedTranscriptionLLMConfigId}
-                  small={false}
-                  onSelectedItemChange={handleTranscriptionLLMConfigChange}
-                  placeholder="Select a transcription config"
-                  outerDivClasses="justify-center"
-                  isDisabled={isDisabled}
-                  selectedItemCanBeNull
-                />
-              </div>
             </>
           ) : null}
+          <div className="flex w-full flex-col gap-2">
+            <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
+              Transcription Profile
+            </p>
+            <IdNameCombobox
+              allItems={transcriptionProfileGroups}
+              value={transcriptionProfileId}
+              small={false}
+              onSelectedItemChange={handleTranscriptionProfileChange}
+              placeholder="Select a transcription profile"
+              outerDivClasses="justify-center"
+              isDisabled={isDisabled}
+              selectedItemCanBeNull
+            />
+          </div>
           <div className="flex w-full flex-col gap-2">
             <p className="text-xs font-bold text-setta-700 dark:text-setta-300">
               Dictation Mode

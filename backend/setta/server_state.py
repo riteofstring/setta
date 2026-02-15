@@ -14,6 +14,7 @@ from setta.agentic.external_agent_watcher import ExternalAgentConfigWatcher
 from setta.agentic.profile_watcher import AgentProfileWatcher
 from setta.agentic.prompt_watcher import PromptTemplateWatcher
 from setta.agentic.run_chain import RunChainRunner
+from setta.agentic.transcription_profile_watcher import TranscriptionProfileWatcher
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
@@ -326,6 +327,9 @@ class SettaFastAPIState:
         self.engine_config_watcher: EngineConfigWatcher = self._defer_attr(
             "engine_config_watcher"
         )
+        self.transcription_profile_watcher: TranscriptionProfileWatcher = (
+            self._defer_attr("transcription_profile_watcher")
+        )
         self.external_agent_runner: ExternalAgentRunner = self._defer_attr(
             "external_agent_runner"
         )
@@ -522,6 +526,12 @@ class SettaFastAPIState:
                 self.dbe,
             )
             self.engine_config_watcher.start()
+            self.transcription_profile_watcher = TranscriptionProfileWatcher(
+                self.specific_file_watcher,
+                self.wmh_frontend_sender,
+                self.dbe,
+            )
+            self.transcription_profile_watcher.start()
             self.external_agent_runner = ExternalAgentRunner(
                 self.dbe,
                 self.wmh_frontend_sender,

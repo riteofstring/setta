@@ -3162,6 +3162,7 @@ def set_chat_section_settings(
     sectionId: ID,
     managed: bool,
     engineConfigId: ID | None,
+    transcriptionProfileId: ID | None,
     agentProfileId: ID | None,
     thinking: bool,
     permissionMode: ChatPermissionMode,
@@ -3175,6 +3176,7 @@ def set_chat_section_settings(
         ChatSectionImplArgsWithCallable(
             managed=managed,
             engineConfigId=engineConfigId,
+            transcriptionProfileId=transcriptionProfileId,
             agentProfileId=agentProfileId,
             thinking=thinking,
             permissionMode=permissionMode,

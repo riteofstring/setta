@@ -37,7 +37,6 @@ import {
   type SpeechRecognitionLike,
   getSpeechRecognitionConstructor,
   insertTextAtSelection,
-  isDictationAvailable,
   mapDictationError,
   pickProviderRecorderMimeType,
 } from "./dictation";
@@ -618,10 +617,7 @@ export const ChatInput = memo(function ChatInput({
   }, [isDisabled, isDragActive]);
 
   const dictationSupported = Boolean(getSpeechRecognitionConstructor());
-  const canBrowserDictate = isDictationAvailable(
-    dictationEnabledByProvider,
-    dictationSupported,
-  );
+  const canBrowserDictate = dictationSupported;
   const mediaRecorderSupported =
     typeof window !== "undefined" &&
     typeof window.MediaRecorder !== "undefined" &&
