@@ -72,7 +72,10 @@ function QuickInfoConfigCore({ sectionId, paramInfos }) {
 
   return (
     <div className="flex flex-1 flex-col gap-1 overflow-hidden">
-      <aside className="mb-2 flex items-center justify-between">
+      <aside
+        className="mb-2 flex items-center justify-between"
+        data-setting-anchor="core.project.show_param_display_names"
+      >
         <p className="text-xs text-setta-500">Show display names</p>
         <Switch.Root
           className={toggleRootClasses}

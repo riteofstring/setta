@@ -15,6 +15,7 @@ from setta.mcp.tool_metadata import (
     get_ai_follow_tool_arguments,
     get_ai_follow_tool_result,
     get_tool_access,
+    get_tool_approval_level,
     get_tool_argument_preview,
     get_tool_result_filter,
     get_tool_search_category,
@@ -173,18 +174,23 @@ def _build_tool_annotations(
         get_tool_search_category(fn),
     )
     access_type = "structural"
+    approval_level = "none"
     id_paths_by_type: dict[str, list[str]] = {}
     default_target_singleton_section: str | None = None
     if tool_access is not None:
         access_type = tool_access.accessType
         id_paths_by_type = dict(tool_access.idPathsByType)
         default_target_singleton_section = tool_access.defaultTargetSingletonSection
+    resolved_approval_level = get_tool_approval_level(fn)
+    if resolved_approval_level is not None:
+        approval_level = resolved_approval_level
     if not id_paths_by_type and ai_follow_tool_arguments is not None:
         id_paths_by_type = dict(ai_follow_tool_arguments.pathsByIdType)
     return ToolAnnotations.model_validate(
         SettaToolAnnotations(
             settaToolType=tool_type,
             accessType=access_type,
+            approvalLevel=approval_level,
             idPathsByType=id_paths_by_type,
             defaultTargetSingletonSection=default_target_singleton_section,
             resultFilter=result_filter,
