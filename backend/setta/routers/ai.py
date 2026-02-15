@@ -50,6 +50,9 @@ AppGenerationMode = Literal[
     "prompt_builder",
     "mcp_server",
 ]
+_MAX_REFERENCE_IMAGE_URL_CHARS = 4096
+_MAX_REFERENCE_IMAGE_NOTES_CHARS = 100_000
+
 
 def _get_llm_chat_runs(
     *,
@@ -316,6 +319,33 @@ def _build_app_generation_mode_prompt(
     return "\n".join(lines)
 
 
+def _normalize_reference_image_inputs(
+    *,
+    reference_image_url: str | None,
+    reference_image_notes: str | None,
+) -> tuple[str | None, str | None]:
+    normalized_url = (
+        reference_image_url.strip() if isinstance(reference_image_url, str) else ""
+    )
+    normalized_notes = (
+        reference_image_notes.strip() if isinstance(reference_image_notes, str) else ""
+    )
+    if len(normalized_url) > _MAX_REFERENCE_IMAGE_URL_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail="appGenerationReferenceImageUrl is too large. Reduce it or omit it.",
+        )
+    if len(normalized_notes) > _MAX_REFERENCE_IMAGE_NOTES_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail="appGenerationReferenceImageNotes is too large. Reduce it or omit it.",
+        )
+    return (
+        normalized_url if normalized_url else None,
+        normalized_notes if normalized_notes else None,
+    )
+
+
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
@@ -453,17 +483,9 @@ async def route_get_llm_response(
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     resolved_mode = x.appGenerationMode
-    reference_image_url = (
-        x.appGenerationReferenceImageUrl.strip()
-        if isinstance(x.appGenerationReferenceImageUrl, str)
-        and x.appGenerationReferenceImageUrl.strip()
-        else None
-    )
-    reference_image_notes = (
-        x.appGenerationReferenceImageNotes.strip()
-        if isinstance(x.appGenerationReferenceImageNotes, str)
-        and x.appGenerationReferenceImageNotes.strip()
-        else None
+    reference_image_url, reference_image_notes = _normalize_reference_image_inputs(
+        reference_image_url=x.appGenerationReferenceImageUrl,
+        reference_image_notes=x.appGenerationReferenceImageNotes,
     )
     app_generation_mode_prompt = _build_app_generation_mode_prompt(
         mode=resolved_mode,

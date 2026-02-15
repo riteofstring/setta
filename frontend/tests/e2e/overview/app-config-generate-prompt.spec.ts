@@ -10,12 +10,59 @@ test("prompt-builder mode sends hidden app generation request to chat", async ({
     overviewVis: true,
     appGenerationMode: "prompt_builder",
   });
-  await ensureAppReady(page);
 
-  await expect(page.getByText("App Config")).toBeVisible();
-  await page
-    .getByLabel("Generation Prompt")
-    .fill("Build a compact analytics dashboard with two cards.");
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          "llm-primary": {
+            id: "llm-primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: "OPENAI_API_KEY",
+            mcpServerIds: [],
+          },
+        },
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: "llm-primary",
+      }),
+    });
+  });
+  await page.route("**/api/llm/apiKeys", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        OPENAI_API_KEY: "pw-key",
+      }),
+    });
+  });
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-primary",
+          name: "Primary",
+          engineType: "setta_llm",
+          settaLlmConfigId: "llm-primary",
+          externalAgentConfigId: null,
+          defaults: { thinking: null },
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getExternalAgentHealth", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
 
   const capturedRequests: Array<Record<string, unknown>> = [];
   await page.route("**/api/getLLMResponse", async (route) => {
@@ -27,6 +74,12 @@ test("prompt-builder mode sends hidden app generation request to chat", async ({
       body: JSON.stringify(`pw-chat-${Date.now()}`),
     });
   });
+
+  await ensureAppReady(page);
+  await expect(page.getByText("App Config")).toBeVisible();
+  await page
+    .getByLabel("Generation Prompt")
+    .fill("Build a compact analytics dashboard with two cards.");
 
   await page.getByRole("button", { name: "Send To Chat" }).click();
   await expect(
@@ -49,4 +102,127 @@ test("prompt-builder mode sends hidden app generation request to chat", async ({
   expect(textContent).toContain(
     "Build a compact analytics dashboard with two cards.",
   );
+});
+
+test("prompt-builder mode clears stale in-pane patch counts from prior json-render runs", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "App",
+    overviewVis: true,
+    appGenerationMode: "json_render",
+    appGenerationPrompt: "Create a compact card.",
+  });
+  await ensureAppReady(page);
+
+  await expect(page.getByText("App Config")).toBeVisible();
+
+  await page.route("**/api/streamAppSpec", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/x-ndjson",
+      body:
+        '{"op":"set","path":"/root","value":"gen-root"}\n' +
+        '{"op":"set","path":"/elements/gen-root","value":{"key":"gen-root","type":"Card","props":{"title":"Generated"},"children":[]}}\n',
+    });
+  });
+
+  await page.route("**/api/setAppDefinition", async (route) => {
+    const payload = route.request().postDataJSON() as {
+      appSpec: unknown;
+      catalogId?: string;
+      appSpecVersion?: string;
+      appSpecPath?: string;
+      theme?: unknown;
+      assets?: unknown;
+    };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        appSpec: payload.appSpec,
+        appDefinition: {
+          catalogId: payload.catalogId ?? "setta.app.default",
+          appSpecVersion: payload.appSpecVersion ?? "v1",
+          appSpecPath: payload.appSpecPath ?? "app_specs/app.json",
+          routes: [],
+          dataBindings: {},
+          actions: {},
+          theme: payload.theme ?? null,
+          assets: payload.assets ?? [],
+        },
+      }),
+    });
+  });
+
+  await page.route("**/api/getLLMResponse", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(`pw-chat-${Date.now()}`),
+    });
+  });
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {
+          "llm-primary": {
+            id: "llm-primary",
+            model: "gpt-4o-mini",
+            provider: "openai",
+            api_key_env: "OPENAI_API_KEY",
+            mcpServerIds: [],
+          },
+        },
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: "llm-primary",
+      }),
+    });
+  });
+  await page.route("**/api/llm/apiKeys", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        OPENAI_API_KEY: "pw-key",
+      }),
+    });
+  });
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "engine-primary",
+          name: "Primary",
+          engineType: "setta_llm",
+          settaLlmConfigId: "llm-primary",
+          externalAgentConfigId: null,
+          defaults: { thinking: null },
+        },
+      ]),
+    });
+  });
+  await page.route("**/api/getExternalAgentHealth", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([]),
+    });
+  });
+
+  await page.getByRole("button", { name: "Generate In Pane" }).click();
+  await expect(page.getByText("applied 2 patches")).toBeVisible();
+
+  await page.getByRole("button", { name: "Prompt Builder" }).click();
+  await page.getByRole("button", { name: "Send To Chat" }).click();
+
+  await expect(
+    page.getByText("App generation request sent to chat."),
+  ).toBeVisible();
+  await expect(page.getByText(/applied 2 patches/)).toHaveCount(0);
 });

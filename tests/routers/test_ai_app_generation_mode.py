@@ -1,5 +1,8 @@
+from fastapi import HTTPException
+
 from setta.routers.ai import (
     _build_app_generation_mode_prompt,
+    _normalize_reference_image_inputs,
 )
 
 
@@ -29,3 +32,44 @@ class TestAIAppGenerationModeHelpers:
             reference_image_notes=None,
         )
         assert prompt is None
+
+    def test_reference_image_inputs_are_trimmed_and_empty_values_are_normalized(
+        self,
+    ) -> None:
+        reference_image_url, reference_image_notes = _normalize_reference_image_inputs(
+            reference_image_url="  https://example.com/reference.png  ",
+            reference_image_notes="  Match spacing first.  ",
+        )
+        assert reference_image_url == "https://example.com/reference.png"
+        assert reference_image_notes == "Match spacing first."
+
+        empty_url, empty_notes = _normalize_reference_image_inputs(
+            reference_image_url="   ",
+            reference_image_notes=None,
+        )
+        assert empty_url is None
+        assert empty_notes is None
+
+    def test_reference_image_url_has_max_length_guard(self) -> None:
+        try:
+            _normalize_reference_image_inputs(
+                reference_image_url="x" * 4097,
+                reference_image_notes=None,
+            )
+        except HTTPException as exc:
+            assert exc.status_code == 400
+            assert "appGenerationReferenceImageUrl is too large" in str(exc.detail)
+        else:
+            raise AssertionError("Expected HTTPException for oversized reference URL")
+
+    def test_reference_image_notes_has_max_length_guard(self) -> None:
+        try:
+            _normalize_reference_image_inputs(
+                reference_image_url=None,
+                reference_image_notes="x" * 100001,
+            )
+        except HTTPException as exc:
+            assert exc.status_code == 400
+            assert "appGenerationReferenceImageNotes is too large" in str(exc.detail)
+        else:
+            raise AssertionError("Expected HTTPException for oversized reference notes")

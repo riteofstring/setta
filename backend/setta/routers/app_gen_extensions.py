@@ -77,14 +77,14 @@ def _iter_skill_roots(workspace_root: Path) -> list[tuple[str, str, Path]]:
 
 def _extract_skill_description(skill_doc: Path) -> str:
     try:
-        raw = skill_doc.read_text(encoding="utf-8")
+        with skill_doc.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                trimmed = line.strip()
+                if not trimmed or trimmed.startswith("#"):
+                    continue
+                return trimmed[:240]
     except OSError:
         return ""
-    for line in raw.splitlines():
-        trimmed = line.strip()
-        if not trimmed or trimmed.startswith("#"):
-            continue
-        return trimmed[:240]
     return ""
 
 

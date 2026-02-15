@@ -166,3 +166,32 @@ class TestAppGenExtensionsRoutes:
 
             assert walked_after_prune == ["kept"]
             assert [row.skillId for row in rows] == ["workspace_skills::kept"]
+
+    def test_lists_skills_without_path_read_text_for_description(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            workspace_root = Path(tmpdir)
+            skill_dir = workspace_root / "skills" / "streamed-description"
+            skill_dir.mkdir(parents=True, exist_ok=True)
+            (skill_dir / "SKILL.md").write_text(
+                "# Streamed Description\n\nRead only first useful line.\nMore content.\n",
+                encoding="utf-8",
+            )
+
+            fake_home = workspace_root / "home"
+            fake_home.mkdir(parents=True, exist_ok=True)
+            monkeypatch.setattr(Path, "home", lambda: fake_home)
+
+            def fail_read_text(*_: object, **__: object) -> str:
+                raise AssertionError(
+                    "Path.read_text should not be used for descriptions"
+                )
+
+            monkeypatch.setattr(Path, "read_text", fail_read_text)
+
+            rows = list_app_gen_skills(workspace_root)
+
+            assert len(rows) == 1
+            assert rows[0].description == "Read only first useful line."

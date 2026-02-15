@@ -55,6 +55,7 @@ describe("AppConfigPane hidden generation helpers", () => {
         },
       ],
       availableLLMConfigIds: new Set(["llm-fallback", "llm-active"]),
+      externalAgentHealthByConfigId: new Map(),
     });
 
     expect(selection).toEqual({
@@ -80,12 +81,71 @@ describe("AppConfigPane hidden generation helpers", () => {
         },
       ],
       availableLLMConfigIds: new Set(["llm-fallback"]),
+      externalAgentHealthByConfigId: new Map(),
     });
 
     expect(selection).toEqual({
       engineConfigId: "engine-fallback",
       isExternalEngine: false,
       forceNewChat: true,
+    });
+  });
+
+  it("does not select external engines when health preflight is unavailable", () => {
+    const selection = resolveHiddenGenerationEngineSelection({
+      activeChatEngineConfigId: null,
+      engineConfigs: [
+        {
+          id: "external-engine",
+          engineType: EngineTypeEnum.external_agent,
+          externalAgentConfigId: "external-config",
+        },
+      ],
+      availableLLMConfigIds: new Set(),
+      externalAgentHealthByConfigId: new Map([
+        [
+          "external-config",
+          {
+            available: false,
+            supported: true,
+          },
+        ],
+      ]),
+    });
+
+    expect(selection).toEqual({
+      engineConfigId: null,
+      isExternalEngine: false,
+      forceNewChat: false,
+    });
+  });
+
+  it("selects healthy external engines when no managed LLM engine is usable", () => {
+    const selection = resolveHiddenGenerationEngineSelection({
+      activeChatEngineConfigId: null,
+      engineConfigs: [
+        {
+          id: "external-engine",
+          engineType: EngineTypeEnum.external_agent,
+          externalAgentConfigId: "external-config",
+        },
+      ],
+      availableLLMConfigIds: new Set(),
+      externalAgentHealthByConfigId: new Map([
+        [
+          "external-config",
+          {
+            available: true,
+            supported: true,
+          },
+        ],
+      ]),
+    });
+
+    expect(selection).toEqual({
+      engineConfigId: "external-engine",
+      isExternalEngine: true,
+      forceNewChat: false,
     });
   });
 

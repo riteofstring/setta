@@ -221,7 +221,6 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
       body: JSON.stringify({
         settaHome: "/home/test/.setta",
         globalSettaFilesBase: "/home/test/.setta/files",
-        activeSettaFilesRoot: "/workspace/setta_files",
         activeSettaFilesLocation: "local",
         llmConfigPath: "/workspace/setta_files/llm_config.json",
       }),
@@ -340,17 +339,13 @@ test("project ai chat keeps skills list stable during selection and ignores stal
   await page.getByRole("button", { name: "View Skills and MCP" }).click();
 
   await expect(page.getByRole("button", { name: /beta-skill/i })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: /skill-202/i }),
-  ).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /skill-202/i })).toHaveCount(1);
   await page.waitForTimeout(200);
   const fetchCountAfterInitialLoad = skillsFetchCount;
   expect(fetchCountAfterInitialLoad).toBeGreaterThan(0);
 
   await page.getByRole("button", { name: /beta-skill/i }).click();
-  await expect
-    .poll(() => skillsFetchCount)
-    .toBe(fetchCountAfterInitialLoad);
+  await expect.poll(() => skillsFetchCount).toBe(fetchCountAfterInitialLoad);
 
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
   const markdown = page.getByLabel("Skill Markdown Content");
@@ -358,4 +353,243 @@ test("project ai chat keeps skills list stable during selection and ignores stal
   await page.waitForTimeout(700);
   await expect(markdown).toContainText("workspace_skills::beta-skill");
   await expect(markdown).not.toContainText("workspace_skills::alpha-skill");
+});
+
+test("project ai chat refresh updates selected markdown content without requiring reselection", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_skills::ui-layout",
+          name: "ui-layout",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
+          relativePath: "ui-layout",
+          skillPath: "/workspace/skills/ui-layout/SKILL.md",
+          description: "Create dense dashboard layouts.",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  let skillContentVersion = 0;
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    skillContentVersion += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "workspace_skills::ui-layout",
+        content: `# UI Layout\n\nRevision ${skillContentVersion}`,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
+
+  const markdown = page.getByLabel("Skill Markdown Content");
+  await expect(markdown).toContainText("Revision 1");
+
+  await page.getByRole("button", { name: "Refresh" }).click();
+  await expect(markdown).toContainText("Revision 2");
+});
+
+test("project ai chat refresh ignores stale skills-list responses", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  let skillsRequestCount = 0;
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    skillsRequestCount += 1;
+    if (skillsRequestCount <= 2) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            skillId: "workspace_skills::baseline",
+            name: "baseline",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
+            relativePath: "baseline",
+            skillPath: "/workspace/skills/baseline/SKILL.md",
+            description: "Baseline skill",
+          },
+        ]),
+      });
+      return;
+    }
+    if (skillsRequestCount === 3) {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            skillId: "workspace_skills::stale-skill",
+            name: "stale-skill",
+            rootLabel: "Workspace skills",
+            rootPath: "/workspace/skills",
+            relativePath: "stale-skill",
+            skillPath: "/workspace/skills/stale-skill/SKILL.md",
+            description: "Stale result",
+          },
+        ]),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_skills::fresh-skill",
+          name: "fresh-skill",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
+          relativePath: "fresh-skill",
+          skillPath: "/workspace/skills/fresh-skill/SKILL.md",
+          description: "Fresh result",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    const payload = route.request().postDataJSON() as { skillId?: string };
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: payload.skillId ?? "workspace_skills::baseline",
+        content: `# ${(payload.skillId ?? "workspace_skills::baseline").trim()}`,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+  await expect(page.getByRole("button", { name: /baseline/i })).toBeVisible();
+
+  const refreshButton = page.getByRole("button", { name: "Refresh" });
+  await refreshButton.click();
+  await refreshButton.click();
+
+  await expect(
+    page.getByRole("button", { name: /fresh-skill/i }),
+  ).toBeVisible();
+  await page.waitForTimeout(900);
+  await expect(page.getByRole("button", { name: /stale-skill/i })).toHaveCount(
+    0,
+  );
+});
+
+test("project ai chat shows reveal-path failures instead of silently swallowing them", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_skills::ui-layout",
+          name: "ui-layout",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
+          relativePath: "ui-layout",
+          skillPath: "/workspace/skills/ui-layout/SKILL.md",
+          description: "Create dense dashboard layouts.",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await page.route("**/api/getAppGenSkillContent", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        skillId: "workspace_skills::ui-layout",
+        content: "# UI Layout",
+      }),
+    });
+  });
+
+  await page.route("**/api/revealPathInOsFileExplorer", async (route) => {
+    await route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Reveal is disabled for this path." }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+
+  await page
+    .getByRole("button", { name: /Reveal path for Workspace skills/i })
+    .click();
+  await expect(
+    page.getByText("Failed to reveal path: Reveal is disabled for this path."),
+  ).toBeVisible();
 });

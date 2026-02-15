@@ -26,7 +26,6 @@ router = SettaAPIRouter()
 class SettaHomeInfoResponse(BaseModel):
     settaHome: str
     globalSettaFilesBase: str
-    activeSettaFilesRoot: str
     activeSettaFilesLocation: str
     llmConfigPath: str
 
@@ -102,7 +101,6 @@ def route_get_setta_home_info() -> SettaHomeInfoResponse:
     return SettaHomeInfoResponse(
         settaHome=str(home),
         globalSettaFilesBase=str(config.global_setta_files_base),
-        activeSettaFilesRoot=str(paths.setta_files_root),
         activeSettaFilesLocation=paths.setta_files_location,
         llmConfigPath=str(paths.setta_files_root / "llm_config.json"),
     )

@@ -4,6 +4,7 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiChevronDown } from "react-icons/fi";
+import { addTemporaryNotification } from "state/actions/notifications";
 import { useAIStore } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
@@ -110,22 +111,31 @@ export function ProjectChatSkillsMcpViewer() {
     null,
   );
   const [mcpConfigInfoLoading, setMcpConfigInfoLoading] = useState(true);
+  const [skillsRevision, setSkillsRevision] = useState(0);
+  const skillsRequestSequence = useRef(0);
   const skillContentRequestSequence = useRef(0);
 
   const refreshSkillsBrowser = useCallback(async () => {
+    const requestSequence = skillsRequestSequence.current + 1;
+    skillsRequestSequence.current = requestSequence;
     setSkillsLoading(true);
     setSkillsError(null);
     const res = await route_get_app_gen_skills();
+    if (requestSequence !== skillsRequestSequence.current) {
+      return;
+    }
     setSkillsLoading(false);
     if (!res200(res)) {
       const detail = getErrorDetail(res.data);
       setSkillsError(detail ?? "Failed to load skills.");
       setSkills([]);
       setSelectedSkillId(null);
+      setSelectedSkillContent("");
       return;
     }
     const nextSkills = res.data;
     setSkills(nextSkills);
+    setSkillsRevision((value) => value + 1);
     setSelectedSkillId((current) => {
       if (nextSkills.length === 0) {
         return null;
@@ -168,7 +178,7 @@ export function ProjectChatSkillsMcpViewer() {
       setSelectedSkillContent(res.data.content);
     }
     void loadSkillContent();
-  }, [selectedSkillId]);
+  }, [selectedSkillId, skillsRevision]);
 
   useEffect(() => {
     async function loadMcpConfigPath() {
@@ -233,7 +243,21 @@ export function ProjectChatSkillsMcpViewer() {
     if (!isActionablePath(path)) {
       return;
     }
-    void navigator.clipboard.writeText(path);
+    void (async () => {
+      try {
+        await navigator.clipboard.writeText(path);
+        addTemporaryNotification("Copied path to clipboard.");
+      } catch (error) {
+        const detail =
+          getErrorDetail(error) ??
+          (error instanceof Error ? error.message : null);
+        addTemporaryNotification(
+          detail
+            ? `Failed to copy path: ${detail}`
+            : "Failed to copy path to clipboard.",
+        );
+      }
+    })();
   }, []);
 
   const revealPathInFileExplorer = useCallback(async (path: string) => {
@@ -242,6 +266,12 @@ export function ProjectChatSkillsMcpViewer() {
     }
     const res = await route_reveal_path_in_os_file_explorer({ path });
     if (!res200(res)) {
+      const detail = getErrorDetail(res.data);
+      addTemporaryNotification(
+        detail
+          ? `Failed to reveal path: ${detail}`
+          : "Failed to reveal path in file explorer.",
+      );
       return;
     }
   }, []);

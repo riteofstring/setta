@@ -38,7 +38,9 @@ import {
   isBaseSectionWithParamsImpl,
   RouteEnum,
   SectionTypeEnum,
+  type AppDefinition,
 } from "utils/generatedTypes";
+import { shallow } from "zustand/shallow";
 import {
   parseDraftAppAssets,
   parseDraftAppSpec,
@@ -460,24 +462,34 @@ export function buildSpecSeed({
 function pickHiddenGenerationEngine(args: {
   engineConfigs: HiddenGenerationEngineConfig[];
   availableLLMConfigIds: Set<string>;
+  externalAgentHealthByConfigId: Map<string, ExternalAgentHealthStatus>;
 }): {
   engineConfigId: string | null;
   isExternalEngine: boolean;
 } {
   for (const config of args.engineConfigs) {
-    if (config.engineType !== EngineTypeEnum.setta_llm) {
-      continue;
-    }
-    const llmConfigId = config.settaLlmConfigId ?? null;
-    if (llmConfigId && args.availableLLMConfigIds.has(llmConfigId)) {
+    if (
+      config.engineType === EngineTypeEnum.setta_llm &&
+      isHiddenGenerationEngineUsable({
+        config,
+        availableLLMConfigIds: args.availableLLMConfigIds,
+        externalAgentHealthByConfigId: args.externalAgentHealthByConfigId,
+      })
+    ) {
       return { engineConfigId: config.id, isExternalEngine: false };
     }
   }
-  const external = args.engineConfigs.find(
-    (config) => config.engineType === EngineTypeEnum.external_agent,
-  );
-  if (external) {
-    return { engineConfigId: external.id, isExternalEngine: true };
+  for (const config of args.engineConfigs) {
+    if (
+      config.engineType === EngineTypeEnum.external_agent &&
+      isHiddenGenerationEngineUsable({
+        config,
+        availableLLMConfigIds: args.availableLLMConfigIds,
+        externalAgentHealthByConfigId: args.externalAgentHealthByConfigId,
+      })
+    ) {
+      return { engineConfigId: config.id, isExternalEngine: true };
+    }
   }
   return { engineConfigId: null, isExternalEngine: false };
 }
@@ -495,25 +507,45 @@ type HiddenGenerationEngineSelection = {
   forceNewChat: boolean;
 };
 
+type ExternalAgentHealthStatus = {
+  available: boolean;
+  supported: boolean;
+};
+
 function isHiddenGenerationEngineUsable(args: {
   config: HiddenGenerationEngineConfig;
   availableLLMConfigIds: Set<string>;
+  externalAgentHealthByConfigId: Map<string, ExternalAgentHealthStatus>;
 }): boolean {
   if (args.config.engineType === EngineTypeEnum.setta_llm) {
     const llmConfigId = args.config.settaLlmConfigId ?? null;
     return Boolean(llmConfigId && args.availableLLMConfigIds.has(llmConfigId));
   }
-  return args.config.engineType === EngineTypeEnum.external_agent;
+  if (args.config.engineType === EngineTypeEnum.external_agent) {
+    const externalAgentConfigId = args.config.externalAgentConfigId ?? null;
+    if (!externalAgentConfigId) {
+      return false;
+    }
+    const health =
+      args.externalAgentHealthByConfigId.get(externalAgentConfigId) ?? null;
+    if (!health) {
+      return false;
+    }
+    return health.available && health.supported;
+  }
+  return false;
 }
 
 export function resolveHiddenGenerationEngineSelection(args: {
   activeChatEngineConfigId: string | null;
   engineConfigs: HiddenGenerationEngineConfig[];
   availableLLMConfigIds: Set<string>;
+  externalAgentHealthByConfigId: Map<string, ExternalAgentHealthStatus>;
 }): HiddenGenerationEngineSelection {
   const fallback = pickHiddenGenerationEngine({
     engineConfigs: args.engineConfigs,
     availableLLMConfigIds: args.availableLLMConfigIds,
+    externalAgentHealthByConfigId: args.externalAgentHealthByConfigId,
   });
 
   if (!args.activeChatEngineConfigId) {
@@ -532,6 +564,7 @@ export function resolveHiddenGenerationEngineSelection(args: {
       isHiddenGenerationEngineUsable({
         config: activeChatEngine,
         availableLLMConfigIds: args.availableLLMConfigIds,
+        externalAgentHealthByConfigId: args.externalAgentHealthByConfigId,
       })
     ) {
       return {
@@ -591,35 +624,33 @@ export function AppConfigPane() {
     appGenerationPrompt,
     appGenerationReferenceImageUrl,
     appGenerationReferenceImageNotes,
-  } = useLocalStorage((x) => ({
-    appSpecStreamingEnabled: x.appSpecStreamingEnabled,
-    appGenerationMode:
-      (x.appGenerationMode as AppGenerationMode | undefined) ??
-      DEFAULT_APP_GENERATION_MODE,
-    appGenerationPrompt: x.appGenerationPrompt,
-    appGenerationReferenceImageUrl: x.appGenerationReferenceImageUrl,
-    appGenerationReferenceImageNotes: x.appGenerationReferenceImageNotes,
-  }));
+  } = useLocalStorage(
+    (x) => ({
+      appSpecStreamingEnabled: x.appSpecStreamingEnabled,
+      appGenerationMode:
+        (x.appGenerationMode as AppGenerationMode | undefined) ??
+        DEFAULT_APP_GENERATION_MODE,
+      appGenerationPrompt: x.appGenerationPrompt,
+      appGenerationReferenceImageUrl: x.appGenerationReferenceImageUrl,
+      appGenerationReferenceImageNotes: x.appGenerationReferenceImageNotes,
+    }),
+    shallow,
+  );
   const {
-    engineConfigs,
     engineConfigsInitialLoadComplete,
-    allLLMConfigs,
     allLLMConfigsInitialLoadComplete,
-    apiKeys,
     apiKeysInitialLoadComplete,
-    activeChatId,
     externalAgentHealthInitialLoadComplete,
-  } = useAIStore((x) => ({
-    engineConfigs: x.engineConfigs,
-    engineConfigsInitialLoadComplete: x.engineConfigsInitialLoadComplete,
-    allLLMConfigs: x.allLLMConfigs,
-    allLLMConfigsInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
-    apiKeys: x.apiKeys,
-    apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
-    activeChatId: x.activeChatId,
-    externalAgentHealthInitialLoadComplete:
-      x.externalAgentHealthInitialLoadComplete,
-  }));
+  } = useAIStore(
+    (x) => ({
+      engineConfigsInitialLoadComplete: x.engineConfigsInitialLoadComplete,
+      allLLMConfigsInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
+      apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
+      externalAgentHealthInitialLoadComplete:
+        x.externalAgentHealthInitialLoadComplete,
+    }),
+    shallow,
+  );
   const { projectMetadata } = useAllProjectMetadata((x) => x);
   const [draftSpec, setDraftSpec] = useState("");
   const [draftTheme, setDraftTheme] = useState("");
@@ -806,36 +837,14 @@ export function AppConfigPane() {
     return { catalogSummary, sectionsSummary };
   }, [catalogId]);
 
-  const persistGeneratedSpec = useCallback(
-    async (spec: Spec): Promise<boolean> => {
-      const themePayload = parseThemePayloadForRequest({
-        draftTheme,
-        themeMode,
-      });
-      if (!themePayload.ok) {
-        setErrorMessage(themePayload.error);
-        return false;
-      }
-      const assetsPayload = parseAssetsPayloadForRequest(draftAssets);
-      if (!assetsPayload.ok) {
-        setErrorMessage(assetsPayload.error);
-        return false;
-      }
-      const res = await route_set_app_definition({
-        appSpec: spec as unknown as AppSpecPayload,
-        appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
-        appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
-        catalogId: catalogId.trim() ? catalogId.trim() : undefined,
-        theme: themePayload.value,
-        assets: assetsPayload.value,
-      });
-      if (!res200(res)) {
-        const detail = getErrorDetail(res.data);
-        setErrorMessage(detail ?? "Failed to save generated app spec.");
-        return false;
-      }
-      const savedSpec = res.data.appSpec ?? null;
-      const savedDefinition = res.data.appDefinition ?? null;
+  const hydrateSavedAppDefinition = useCallback(
+    ({
+      savedSpec,
+      savedDefinition,
+    }: {
+      savedSpec: unknown;
+      savedDefinition: AppDefinition | null;
+    }) => {
       const savedTheme = savedDefinition?.theme ?? null;
       const savedAssets = savedDefinition?.assets ?? [];
       useAppDefinition.setState({
@@ -850,16 +859,85 @@ export function AppConfigPane() {
       setDraftAssets(JSON.stringify(savedAssets, null, 2));
       setThemeMode(resolveThemeMode(savedTheme));
       useAppPreview.setState({
-        previewSpecOverride: savedSpec,
+        previewSpecOverride: isRecord(savedSpec) ? savedSpec : null,
         previewThemeOverride: savedTheme,
         previewAssetsOverride: savedAssets,
       });
       setDraftSpecError(null);
       setDraftThemeError(null);
       setDraftAssetsError(null);
+    },
+    [],
+  );
+
+  const saveAndHydrateAppDefinition = useCallback(
+    async ({
+      appSpec: nextSpec,
+      failureMessage,
+      withLoading,
+    }: {
+      appSpec: AppSpecPayload;
+      failureMessage: string;
+      withLoading: boolean;
+    }): Promise<boolean> => {
+      const themePayload = parseThemePayloadForRequest({
+        draftTheme,
+        themeMode,
+      });
+      if (!themePayload.ok) {
+        setErrorMessage(themePayload.error);
+        return false;
+      }
+      const assetsPayload = parseAssetsPayloadForRequest(draftAssets);
+      if (!assetsPayload.ok) {
+        setErrorMessage(assetsPayload.error);
+        return false;
+      }
+      if (withLoading) {
+        setLoading(true);
+      }
+      const res = await route_set_app_definition({
+        appSpec: nextSpec,
+        appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
+        appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
+        catalogId: catalogId.trim() ? catalogId.trim() : undefined,
+        theme: themePayload.value,
+        assets: assetsPayload.value,
+      });
+      if (withLoading) {
+        setLoading(false);
+      }
+      if (!res200(res)) {
+        const detail = getErrorDetail(res.data);
+        setErrorMessage(detail ?? failureMessage);
+        return false;
+      }
+      hydrateSavedAppDefinition({
+        savedSpec: res.data.appSpec ?? null,
+        savedDefinition: res.data.appDefinition ?? null,
+      });
       return true;
     },
-    [appSpecPath, catalogId, draftAssets, draftTheme, specVersion, themeMode],
+    [
+      appSpecPath,
+      catalogId,
+      draftAssets,
+      draftTheme,
+      hydrateSavedAppDefinition,
+      specVersion,
+      themeMode,
+    ],
+  );
+
+  const persistGeneratedSpec = useCallback(
+    async (spec: Spec): Promise<boolean> => {
+      return saveAndHydrateAppDefinition({
+        appSpec: spec as unknown as AppSpecPayload,
+        failureMessage: "Failed to save generated app spec.",
+        withLoading: false,
+      });
+    },
+    [saveAndHydrateAppDefinition],
   );
 
   const ensureHiddenGenerationResources = useCallback(async () => {
@@ -1019,30 +1097,44 @@ export function AppConfigPane() {
       promptOverride?: string;
     }) => {
       setGenerating(true);
+      setGenerationPatchCount(0);
       setErrorMessage(null);
       setGenerationHint(null);
       try {
         await ensureHiddenGenerationResources();
+        const aiState = useAIStore.getState();
         const { catalogSummary, sectionsSummary } =
           await preparePromptContext();
         const availableLLMConfigIds = new Set<string>();
-        if (allLLMConfigs?.configs) {
+        if (aiState.allLLMConfigs?.configs) {
           for (const [configId, config] of Object.entries(
-            allLLMConfigs.configs,
+            aiState.allLLMConfigs.configs,
           )) {
-            if (config.api_key_env && !apiKeys[config.api_key_env]) {
+            if (config.api_key_env && !aiState.apiKeys[config.api_key_env]) {
               continue;
             }
             availableLLMConfigIds.add(configId);
           }
         }
+        const externalAgentHealthByConfigId = new Map<
+          string,
+          ExternalAgentHealthStatus
+        >();
+        for (const health of aiState.externalAgentHealth) {
+          externalAgentHealthByConfigId.set(health.configId, {
+            available: health.available,
+            supported: health.supported,
+          });
+        }
+        const activeChatId = aiState.activeChatId ?? null;
         const activeChatEngineConfigId = activeChatId
           ? await resolveEngineConfigIdForChat(activeChatId, null)
           : null;
         const engineSelection = resolveHiddenGenerationEngineSelection({
           activeChatEngineConfigId,
-          engineConfigs,
+          engineConfigs: aiState.engineConfigs,
           availableLLMConfigIds,
+          externalAgentHealthByConfigId,
         });
         if (!engineSelection.engineConfigId) {
           setErrorMessage(
@@ -1100,14 +1192,10 @@ export function AppConfigPane() {
       }
     },
     [
-      activeChatId,
-      allLLMConfigs,
-      apiKeys,
       appGenerationPrompt,
       appGenerationReferenceImageNotes,
       appGenerationReferenceImageUrl,
       ensureHiddenGenerationResources,
-      engineConfigs,
       preparePromptContext,
     ],
   );
@@ -1136,57 +1224,14 @@ export function AppConfigPane() {
       setErrorMessage(specPayload.error);
       return;
     }
-    const themePayload = parseThemePayloadForRequest({
-      draftTheme,
-      themeMode,
-    });
-    if (!themePayload.ok) {
-      setErrorMessage(themePayload.error);
-      return;
-    }
-    const assetsPayload = parseAssetsPayloadForRequest(draftAssets);
-    if (!assetsPayload.ok) {
-      setErrorMessage(assetsPayload.error);
-      return;
-    }
-    setLoading(true);
-    const res = await route_set_app_definition({
+    const saved = await saveAndHydrateAppDefinition({
       appSpec: specPayload.value,
-      appSpecPath: appSpecPath.trim() ? appSpecPath.trim() : undefined,
-      appSpecVersion: specVersion.trim() ? specVersion.trim() : undefined,
-      catalogId: catalogId.trim() ? catalogId.trim() : undefined,
-      theme: themePayload.value,
-      assets: assetsPayload.value,
+      failureMessage: "Failed to save app spec.",
+      withLoading: true,
     });
-    setLoading(false);
-    if (!res200(res)) {
-      const detail = getErrorDetail(res.data);
-      setErrorMessage(detail ?? "Failed to save app spec.");
+    if (!saved) {
       return;
     }
-    useAppDefinition.setState({
-      appSpec: res.data.appSpec ?? null,
-      appDefinition: res.data.appDefinition ?? null,
-    });
-    const savedSpec = res.data.appSpec ?? null;
-    const savedDefinition = res.data.appDefinition ?? null;
-    const savedTheme = savedDefinition?.theme ?? null;
-    const savedAssets = savedDefinition?.assets ?? [];
-    setDraftSpec(savedSpec ? JSON.stringify(savedSpec, null, 2) : "");
-    setCatalogId(savedDefinition?.catalogId ?? DEFAULT_CATALOG_ID);
-    setSpecVersion(savedDefinition?.appSpecVersion ?? DEFAULT_SPEC_VERSION);
-    setAppSpecPath(savedDefinition?.appSpecPath ?? "");
-    setDraftTheme(savedTheme ? JSON.stringify(savedTheme, null, 2) : "");
-    setDraftAssets(JSON.stringify(savedAssets, null, 2));
-    setThemeMode(resolveThemeMode(savedTheme));
-    useAppPreview.setState({
-      previewSpecOverride: savedSpec,
-      previewThemeOverride: savedTheme,
-      previewAssetsOverride: savedAssets,
-    });
-    setDraftSpecError(null);
-    setDraftThemeError(null);
-    setDraftAssetsError(null);
     addTemporaryNotification("App spec saved.");
   }
 
