@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 from setta.utils.constants import C
 from setta.utils.timestamps import get_now_timestamp
-from setta.utils.worktree import get_dev_worktree_name
+from setta.utils.worktree import get_active_dev_worktree_name
 
 
 class BackendInitEvent(BaseModel):
@@ -45,7 +45,7 @@ class BackendInitializationStatus:
             isReady=self._is_ready,
             error=self._error,
             authCookieRefreshWindowSeconds=C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS,
-            worktreeName=get_dev_worktree_name(),
+            worktreeName=get_active_dev_worktree_name(),
         )
 
 
