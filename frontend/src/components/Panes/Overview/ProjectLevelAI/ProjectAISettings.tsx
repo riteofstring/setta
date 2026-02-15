@@ -123,15 +123,15 @@ type ClaudeSettingsSourceValue =
   (typeof ClaudeSettingsSourceEnum)[keyof typeof ClaudeSettingsSourceEnum];
 
 const INPUT_CLASS_NAME =
-  "h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
+  "box-border h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
 const TEXTAREA_CLASS_NAME =
-  "min-h-[110px] w-full resize-y rounded-md border border-solid border-setta-200 bg-white/80 p-3 font-mono text-xs text-setta-800 placeholder-setta-300 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:placeholder-setta-600";
+  "box-border min-h-[110px] w-full resize-y rounded-md border border-solid border-setta-200 bg-white/80 p-3 font-mono text-xs text-setta-800 placeholder-setta-300 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300 dark:placeholder-setta-600";
 const SELECT_CLASS_NAME =
-  "h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
+  "box-border h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
 const MANAGER_LIST_CLASS_NAME =
-  "flex max-h-[360px] flex-col gap-1 overflow-y-auto rounded-md bg-setta-50/45 p-2 dark:bg-setta-900/40";
+  "flex max-h-[360px] flex-col gap-1 overflow-x-hidden overflow-y-scroll rounded-md bg-setta-50/45 pl-2 pr-3 py-2 [scrollbar-gutter:stable] dark:bg-setta-900/40";
 const MANAGER_FORM_CLASS_NAME =
-  "flex min-h-0 flex-1 flex-col gap-4 rounded-md bg-white/45 p-3 dark:bg-setta-900/30";
+  "flex min-h-0 flex-1 flex-col gap-4 rounded-md bg-white/45 p-4 dark:bg-setta-900/30";
 
 const DEFAULT_CLAUDE_ASK_RULES = [
   "Bash(rm:*)",

@@ -147,6 +147,70 @@ test.describe.serial("project ai settings accordion layout", () => {
         throw new Error("Unable to compute external-agent input inset metrics.");
       }
       expect(insetMetrics.rightInset).toBeGreaterThanOrEqual(6);
+
+      // The internal manager list should keep item content clear of its scrollbar.
+      const listInsetMetrics = await page.evaluate(() => {
+        const content = document.querySelector<HTMLElement>(
+          '[data-testid="project-ai-settings-accordion-external-agents-content"]',
+        );
+        if (!(content instanceof HTMLElement)) {
+          return null;
+        }
+        const list = Array.from(content.querySelectorAll("div")).find(
+          (candidate) => {
+            const element = candidate as HTMLElement;
+            const style = window.getComputedStyle(element);
+            return (
+              style.overflowY === "scroll" &&
+              element.querySelector("button") instanceof HTMLElement
+            );
+          },
+        ) as HTMLElement | undefined;
+        if (!(list instanceof HTMLElement)) {
+          return null;
+        }
+        const firstButton = list.querySelector<HTMLElement>("button");
+        if (!(firstButton instanceof HTMLElement)) {
+          return null;
+        }
+        const listRect = list.getBoundingClientRect();
+        const buttonRect = firstButton.getBoundingClientRect();
+        const style = window.getComputedStyle(list);
+        return {
+          rightInset: listRect.right - buttonRect.right,
+          paddingRight: Number.parseFloat(style.paddingRight),
+        };
+      });
+      if (!listInsetMetrics) {
+        throw new Error(
+          "Unable to compute external-agent list scrollbar inset metrics.",
+        );
+      }
+      expect(listInsetMetrics.rightInset).toBeGreaterThanOrEqual(6);
+      expect(listInsetMetrics.paddingRight).toBeGreaterThanOrEqual(10);
+
+      // Inputs and selects should align to the same control width.
+      const controlWidths = await page.evaluate(() => {
+        const content = document.querySelector<HTMLElement>(
+          '[data-testid="project-ai-settings-accordion-external-agents-content"]',
+        );
+        if (!(content instanceof HTMLElement)) {
+          return null;
+        }
+        const input = content.querySelector<HTMLInputElement>("input");
+        const select = content.querySelector<HTMLSelectElement>("select");
+        if (!(input instanceof HTMLElement) || !(select instanceof HTMLElement)) {
+          return null;
+        }
+        return {
+          inputWidth: input.getBoundingClientRect().width,
+          selectWidth: select.getBoundingClientRect().width,
+        };
+      });
+      if (!controlWidths) {
+        throw new Error("Unable to compute input/select width metrics.");
+      }
+      expect(Math.abs(controlWidths.inputWidth - controlWidths.selectWidth)).toBeLessThanOrEqual(2);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
