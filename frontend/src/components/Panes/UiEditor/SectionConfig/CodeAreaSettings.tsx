@@ -109,7 +109,8 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
           File Path
         </label>
         <input
-          className="w-full truncate rounded-full bg-white px-4 py-1 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700"
+          data-testid="code-area-settings-file-path-input"
+          className="box-border w-full min-w-0 truncate rounded-full bg-white px-4 py-1 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700"
           value={localCanonicalPath}
           onChange={(event) => setLocalCanonicalPath(event.target.value)}
           onBlur={onCanonicalPathBlur}
@@ -122,7 +123,8 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
           Access Mode
         </label>
         <select
-          className="rounded-full bg-white px-4 py-1 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700"
+          data-testid="code-area-settings-access-mode-select"
+          className="box-border w-full min-w-0 rounded-full bg-white px-4 py-1 text-sm text-setta-700 ring-2 ring-setta-200 focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-setta-900 dark:text-setta-400 dark:ring-setta-700"
           value={accessMode}
           onChange={onAccessModeChange}
           disabled={isFrozen || !canEditStructure}

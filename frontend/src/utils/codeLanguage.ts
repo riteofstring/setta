@@ -45,6 +45,9 @@ export function resolveCodeLanguageFromPath(path: string): CodeLanguage {
   if (normalized.endsWith(".yaml") || normalized.endsWith(".yml")) {
     return CodeLanguageEnum.yaml;
   }
+  if (normalized.endsWith(".toml")) {
+    return CodeLanguageEnum.toml;
+  }
   if (normalized.endsWith(".md") || normalized.endsWith(".markdown")) {
     return CodeLanguageEnum.markdown;
   }

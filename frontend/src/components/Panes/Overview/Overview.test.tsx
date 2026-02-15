@@ -187,4 +187,21 @@ describe("Overview rail offsets", () => {
     expect(markup).toContain("Fixture Pane");
     expect(markup).toContain("setta-plugin-pane-icon--dashboard");
   });
+
+  it("renders the project ai chat icon before the overview icon by default", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <Overview />
+      </MemoryRouter>,
+    );
+
+    const chatIndex = markup.indexOf(
+      'data-testid="overview-tab-project-ai-chat"',
+    );
+    const overviewIndex = markup.indexOf('data-testid="overview-tab-overview"');
+
+    expect(chatIndex).toBeGreaterThanOrEqual(0);
+    expect(overviewIndex).toBeGreaterThanOrEqual(0);
+    expect(chatIndex).toBeLessThan(overviewIndex);
+  });
 });

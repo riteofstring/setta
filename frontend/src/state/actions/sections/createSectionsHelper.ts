@@ -25,6 +25,50 @@ export type CreateSectionsContextMenuInfo = {
   controlCodeObjType?: CodeObjType;
 };
 
+export function getBaseCodeSectionCreateItems(): Array<CreateSectionsContextMenuInfo> {
+  return [
+    {
+      name: "Python Code",
+      implSpecs: {
+        type: SectionTypeEnum.Code,
+        codeLanguage: CodeLanguageEnum.python,
+      },
+    },
+    {
+      name: "Bash Script",
+      implSpecs: {
+        type: SectionTypeEnum.Code,
+        codeLanguage: CodeLanguageEnum.bash,
+      },
+    },
+    {
+      name: "JSON",
+      implSpecs: {
+        type: SectionTypeEnum.Code,
+        codeLanguage: CodeLanguageEnum.json,
+      },
+    },
+    {
+      name: "YAML",
+      implSpecs: {
+        type: SectionTypeEnum.Code,
+        codeLanguage: CodeLanguageEnum.yaml,
+      },
+    },
+    {
+      name: "TOML",
+      implSpecs: {
+        type: SectionTypeEnum.Code,
+        codeLanguage: CodeLanguageEnum.toml,
+      },
+    },
+    {
+      name: "Terminal",
+      implSpecs: { type: SectionTypeEnum.Terminal },
+    },
+  ];
+}
+
 export function useCreateSectionsList() {
   const pluginSectionKinds = usePluginSectionKinds();
   const singletonSections = useProjectState(
@@ -56,26 +100,7 @@ export function useCreateSectionsList() {
     });
   }
 
-  const codeGroupItems: Array<CreateSectionsContextMenuInfo> = [
-    {
-      name: "Python Code",
-      implSpecs: {
-        type: SectionTypeEnum.Code,
-        codeLanguage: CodeLanguageEnum.python,
-      },
-    },
-    {
-      name: "Bash Script",
-      implSpecs: {
-        type: SectionTypeEnum.Code,
-        codeLanguage: CodeLanguageEnum.bash,
-      },
-    },
-    {
-      name: "Terminal",
-      implSpecs: { type: SectionTypeEnum.Terminal },
-    },
-  ];
+  const codeGroupItems = getBaseCodeSectionCreateItems();
 
   if (pythonCodegenEnabled && !singletonSections.GenPythonCode) {
     codeGroupItems.push({

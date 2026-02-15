@@ -80,8 +80,10 @@ Tool enforcement details:
 - `llm_config.json` stays in `setta_files/`, while `.env` lives in the project root (`./.env`). API keys never leave disk; `DotEnvWatcher` reloads them and `LLMChatManager._sync_api_keys` merges them into each chat request when needed.
 
 ## Frontend chat interface (`frontend/src/components/Panes/Overview/ProjectLevelAI`)
-- `ProjectChat.tsx` hydrates the LLM config/API key state, lets the user pick a provider, and renders both `ProjectChatCore` and `ProjectLLMSettings` side-by-side.
+- `ProjectChat.tsx` hydrates LLM/API-key state and now switches between three views: active chat (`ProjectChatCore`), chat history (`ProjectChatHistory`), and the Skills/MCP side viewer (`ProjectChatSkillsMcpViewer`).
 - `ProjectChatCore` pulls chat details from the zustand `useAIStore`. `ChatMessageList`/`ChatMessage` filter out tool-only messages, stitch assistant streams together, and surface edit + branch switcher controls using branch metadata derived from agent runs.
+- Empty-chat state now includes a "Create Project UI (Design First)" starter button that prefills the composer with a design-first/Figma-oriented prompt scaffold (`projectChatStarterPrompts.ts`).
+- `ProjectChatSkillsMcpViewer` is read-only discovery UI for workspace/user skills and configured MCP servers. It calls `/getAppGenSkills`, `/getAppGenSkillContent`, and `/settaHomeInfo`, then optionally reveals roots in the OS file explorer through `/revealPathInOsFileExplorer`.
 - `ChatInput` manages optimistic user submissions and attachments via `submitMessage`. `ChatMessageEditor` powers user-message edits and calls `submitEditedMessage`, which POSTs `/getLLMResponse` with `branchParentChatId`/`branchFromMessageId` to create a new branch chat. Pressing the send button while a response is inflight issues `/stopLLMChat`, mirroring the backend’s `request_stop_streaming`.
 - Websocket payloads of type `LLMStreamingResponse` are handled in `state/actions/ai.ts`. The reducer updates each chat’s `messages`, `toolCallArguments`, and `waitingForResponse` flags so the React tree stays synchronized with whatever the `LLMChatManager` is emitting.
 

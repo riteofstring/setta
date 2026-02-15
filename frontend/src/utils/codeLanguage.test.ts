@@ -1,6 +1,5 @@
 import { CodeLanguageEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-
 import {
   isBuiltinCodeLanguage,
   isRunnableCodeLanguage,
@@ -29,5 +28,15 @@ describe("codeLanguage helpers", () => {
     expect(resolveCodeLanguageFromPath("notes.unknownext")).toBe(
       CodeLanguageEnum.plaintext,
     );
+  });
+
+  it("maps toml file extensions to toml language", () => {
+    expect(resolveCodeLanguageFromPath("/tmp/app/config.toml")).toBe("toml");
+  });
+
+  it("keeps toml non-runnable while python/bash remain runnable", () => {
+    expect(isRunnableCodeLanguage("python")).toBe(true);
+    expect(isRunnableCodeLanguage("bash")).toBe(true);
+    expect(isRunnableCodeLanguage("toml")).toBe(false);
   });
 });

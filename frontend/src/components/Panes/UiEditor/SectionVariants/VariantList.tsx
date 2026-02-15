@@ -82,7 +82,7 @@ export function VariantList({ sectionId }) {
         </button>
       </header>
       <ul
-        className="section-full nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-y-auto overflow-x-clip pt-6"
+        className="section-full setta-pane-scroll nodrag nowheel grid auto-rows-min grid-cols-subgrid gap-y-2 overflow-x-clip pt-6"
         onMouseLeave={() =>
           useProjectState.setState((x) => {
             delete x.previewSectionVariantMap[sectionId];

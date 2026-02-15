@@ -136,7 +136,21 @@ The `/api/launch` request supports:
 
 In IDE mode, the launcher UI uses:
 
-- `GET /api/settaHomeInfo` -> `{ "settaHome": "...", "globalSettaFilesBase": "..." }`
+- `GET /api/settaHomeInfo` ->
+  ```json
+  {
+    "settaHome": "...",
+    "globalSettaFilesBase": "...",
+    "activeSettaFilesLocation": "local|global",
+    "llmConfigPath": ".../setta_files/llm_config.json"
+  }
+  ```
+
+Skills/MCP discovery UI also uses:
+
+- `POST /api/revealPathInOsFileExplorer` with `{ "path": "..." }`
+  - Allowed roots are restricted to workspace root, resolved `setta_files` root,
+    and discovered skill roots.
 
 ## Examples
 

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
@@ -23,6 +24,10 @@ from setta.agentic.store import (
 from setta.database.utils import create_new_id
 from setta.logging.project_id_route import require_project_context
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
+from setta.routers.app_generation_limits import (
+    MAX_REFERENCE_IMAGE_NOTES_CHARS,
+    MAX_REFERENCE_IMAGE_URL_CHARS,
+)
 from setta.routers.dependencies import RuntimeContextFromRequest
 from setta.routers.setta_api_router import SettaProjectContextAPIRouter
 from setta.types.agentic import (
@@ -42,6 +47,13 @@ from setta.types.routes import Route
 from setta.types.websocket import AIFollowToolArgumentsUpdateContent
 
 router = SettaProjectContextAPIRouter()
+
+AppGenerationMode = Literal[
+    "json_render",
+    "json_render_with_image",
+    "prompt_builder",
+    "mcp_server",
+]
 
 
 def _get_llm_chat_runs(
@@ -223,6 +235,165 @@ def _resolve_branch_root_chat_id(
     return parent_chat_id
 
 
+def _build_app_generation_mode_prompt(
+    *,
+    mode: AppGenerationMode | None,
+    app_spec_streaming_enabled: bool,
+    reference_image_url: str | None,
+    reference_image_notes: str | None,
+) -> str | None:
+    if mode is None:
+        return None
+
+    lines = [
+        "## App spec generation mode",
+        f"- mode: {mode or 'unspecified'}",
+        (
+            "- streamingPreview: enabled"
+            if app_spec_streaming_enabled
+            else "- streamingPreview: disabled"
+        ),
+    ]
+
+    if mode in (None, "json_render", "json_render_with_image", "prompt_builder"):
+        lines.extend(
+            [
+                "- If you are generating/updating the App spec (json-render):",
+                "  - Use catalog-compatible components only.",
+                "  - Persist via Setta app tools.",
+            ]
+        )
+        if app_spec_streaming_enabled:
+            lines.extend(
+                [
+                    "  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.",
+                    "  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    "  - Prefer `setta__set_app_definition` with the full UITree appSpec payload.",
+                    "  - Optionally call `setta__validate_app_definition` first and fix errors before persisting.",
+                ]
+            )
+
+    if mode == "json_render_with_image":
+        lines.extend(
+            [
+                "- Prioritize reference-image fidelity in this order: layout structure, spacing rhythm, typography scale, then color intent.",
+                "- If exact parity is impossible with catalog constraints, preserve hierarchy and explain the closest approximation.",
+            ]
+        )
+
+    if mode == "prompt_builder":
+        lines.extend(
+            [
+                "- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
+            ]
+        )
+
+    if mode == "mcp_server":
+        lines.extend(
+            [
+                "- MCP-server flow: use MCP tools as the source of truth for design artifacts when available.",
+                "- For Figma-oriented requests, support both paths:",
+                "  - Pull an existing Figma design into a JSON-render appSpec.",
+                "  - Generate/update in Figma first, then pull the resulting design back into Setta.",
+            ]
+        )
+        if app_spec_streaming_enabled:
+            lines.append(
+                "- After MCP design retrieval, persist into Setta via `setta__stream_app_definition`."
+            )
+        else:
+            lines.append(
+                "- After MCP design retrieval, persist into Setta via `setta__set_app_definition`."
+            )
+
+    if mode == "json_render_with_image" and reference_image_url:
+        lines.extend(
+            [
+                f"- Reference image URL: {reference_image_url}",
+                "- Use this image as layout/style guidance when composing the app spec.",
+            ]
+        )
+        if reference_image_notes:
+            lines.append(f"- Reference image notes: {reference_image_notes}")
+
+    return "\n".join(lines)
+
+
+def _merge_app_generation_system_prompt(
+    *,
+    existing_system_prompt: str,
+    app_generation_mode_prompt: str | None,
+) -> str:
+    if app_generation_mode_prompt is None:
+        return existing_system_prompt
+    normalized_existing_prompt = existing_system_prompt.strip()
+    normalized_mode_prompt = app_generation_mode_prompt.strip()
+    if normalized_existing_prompt:
+        return f"{normalized_existing_prompt}\n\n{normalized_mode_prompt}"
+    return normalized_mode_prompt
+
+
+def _build_chat_profile_with_app_generation_mode(
+    *,
+    profile: AgentProfile | None,
+    engine_config_id: ID,
+    app_generation_mode_prompt: str | None,
+    default_name: str,
+    require_profile: bool,
+) -> AgentProfile | None:
+    if profile is None and (require_profile or app_generation_mode_prompt is not None):
+        profile = AgentProfile(
+            name=default_name,
+            description="",
+            systemPrompt="",
+            engineConfigId=engine_config_id,
+        )
+    if profile is None:
+        return None
+    combined_system_prompt = _merge_app_generation_system_prompt(
+        existing_system_prompt=profile.systemPrompt or "",
+        app_generation_mode_prompt=app_generation_mode_prompt,
+    )
+    return profile.model_copy(
+        update={
+            "engineConfigId": engine_config_id,
+            "systemPrompt": combined_system_prompt,
+        }
+    )
+
+
+def _normalize_reference_image_inputs(
+    *,
+    reference_image_url: str | None,
+    reference_image_notes: str | None,
+) -> tuple[str | None, str | None]:
+    normalized_url = (
+        reference_image_url.strip() if isinstance(reference_image_url, str) else ""
+    )
+    normalized_notes = (
+        reference_image_notes.strip() if isinstance(reference_image_notes, str) else ""
+    )
+    if len(normalized_url) > MAX_REFERENCE_IMAGE_URL_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail="appGenerationReferenceImageUrl is too large. Reduce it or omit it.",
+        )
+    if len(normalized_notes) > MAX_REFERENCE_IMAGE_NOTES_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail="appGenerationReferenceImageNotes is too large. Reduce it or omit it.",
+        )
+    return (
+        normalized_url if normalized_url else None,
+        normalized_notes if normalized_notes else None,
+    )
+
+
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
@@ -239,6 +410,18 @@ class GetLLMResponseRequest(BaseModel):
         description=(
             "Whether the UI is configured to stream app spec patches for live preview."
         ),
+    )
+    appGenerationMode: AppGenerationMode | None = Field(
+        default=None,
+        description="Optional app generation mode selected in the UI.",
+    )
+    appGenerationReferenceImageUrl: str | None = Field(
+        default=None,
+        description="Optional reference image URL for app generation fidelity.",
+    )
+    appGenerationReferenceImageNotes: str | None = Field(
+        default=None,
+        description="Optional notes describing reference-image fidelity goals.",
     )
 
 
@@ -356,39 +539,36 @@ async def route_get_llm_response(
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
-    app_generation_mode_prompt: str | None = None
-    if x.appSpecStreamingEnabled:
-        app_generation_mode_prompt = (
-            "## App spec generation mode\n"
-            "- streamingPreview: enabled\n"
-            "- If you are generating/updating the App spec (json-render):\n"
-            "  - Use `setta__stream_app_definition` and stream patches into its `patches` string arg.\n"
-            "  - For updates, omit `baseAppSpec` to patch the currently stored app spec (or pass `baseAppSpec` explicitly).\n"
+    resolved_mode = x.appGenerationMode
+    normalized_reference_image_url, normalized_reference_image_notes = (
+        _normalize_reference_image_inputs(
+            reference_image_url=x.appGenerationReferenceImageUrl,
+            reference_image_notes=x.appGenerationReferenceImageNotes,
         )
+    )
+    if resolved_mode == "json_render_with_image":
+        reference_image_url = normalized_reference_image_url
+        reference_image_notes = normalized_reference_image_notes
+    else:
+        reference_image_url, reference_image_notes = (None, None)
+    app_generation_mode_prompt = _build_app_generation_mode_prompt(
+        mode=resolved_mode,
+        app_spec_streaming_enabled=x.appSpecStreamingEnabled,
+        reference_image_url=reference_image_url,
+        reference_image_notes=reference_image_notes,
+    )
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")
-        if profile is None:
-            profile = AgentProfile(
-                name="Managed chat",
-                description="",
-                systemPrompt="",
-                engineConfigId=x.engineConfigId,
-            )
-        existing_system_prompt = profile.systemPrompt or ""
-        combined_system_prompt = existing_system_prompt
-        if app_generation_mode_prompt is not None:
-            combined_system_prompt = (
-                f"{existing_system_prompt.strip()}\n\n{app_generation_mode_prompt}".strip()
-                if existing_system_prompt.strip()
-                else app_generation_mode_prompt.strip()
-            )
-        profile = profile.model_copy(
-            update={
-                "engineConfigId": x.engineConfigId,
-                "systemPrompt": combined_system_prompt,
-            }
+        profile = _build_chat_profile_with_app_generation_mode(
+            profile=profile,
+            engine_config_id=x.engineConfigId,
+            app_generation_mode_prompt=app_generation_mode_prompt,
+            default_name="Managed chat",
+            require_profile=True,
         )
+        if profile is None:
+            raise HTTPException(status_code=500, detail="Managed profile not found")
         inputs = {
             "chatId": str(chat_id),
             "projectConfigId": str(x.projectConfigId),
@@ -439,6 +619,13 @@ async def route_get_llm_response(
                 status_code=503,
                 detail=f"External agent config is not available: {issues}",
             )
+        profile = _build_chat_profile_with_app_generation_mode(
+            profile=profile,
+            engine_config_id=x.engineConfigId,
+            app_generation_mode_prompt=app_generation_mode_prompt,
+            default_name="External chat",
+            require_profile=False,
+        )
         if profile is not None and profile.toolAllowlist:
             _, error = build_external_tool_allowlist(
                 profile.toolAllowlist,
