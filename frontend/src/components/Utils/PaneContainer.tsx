@@ -8,7 +8,7 @@ import {
   getPaneMaxWidthForViewport,
   getPaneMinimumWidth,
   normalizePaneWidthForViewportChange,
-  setPaneFullWidth,
+  togglePaneFullWidth,
   setPaneWidthWithLayout,
 } from "components/Panes/paneLayout";
 
@@ -97,7 +97,7 @@ export function PaneContainer({
   const paddingClasses = paddingClassName ?? "py-2.5";
 
   function onExpandToFullWidth() {
-    const { previous, next } = setPaneFullWidth(paneName);
+    const { previous, next } = togglePaneFullWidth(paneName);
     if (onResizeStop) {
       const widthDiff =
         paneName === "overview"

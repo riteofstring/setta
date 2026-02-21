@@ -12,6 +12,10 @@ type PaneLayoutState = {
 };
 
 const PANE_FULL_WIDTH_EPSILON_PX = 2;
+const lastNonFullPaneWidthByName: Record<PaneName, number | null> = {
+  [PaneNameEnum.overview]: null,
+  [PaneNameEnum.uiEditor]: null,
+};
 
 export const PANE_MIN_WIDTH_BY_NAME: Record<PaneName, number> = {
   [PaneNameEnum.overview]: 250,
@@ -173,6 +177,9 @@ function openPaneAtWidth(
   viewportWidth: number,
 ) {
   const clampedWidth = clampPaneWidth(paneName, width, viewportWidth);
+  if (!isPaneFullWidth(clampedWidth, viewportWidth)) {
+    lastNonFullPaneWidthByName[paneName] = clampedWidth;
+  }
   setPaneVisibility(state, paneName, true);
   setPaneWidthValue(state, paneName, clampedWidth);
   setPaneTrueWidth(state, paneName, clampedWidth);
@@ -311,6 +318,14 @@ function setPaneToFullWidth(
   paneName: PaneName,
   viewportWidth: number,
 ) {
+  const currentWidth = clampPaneWidth(
+    paneName,
+    getPaneWidth(state, paneName),
+    viewportWidth,
+  );
+  if (!isPaneFullWidth(currentWidth, viewportWidth)) {
+    lastNonFullPaneWidthByName[paneName] = currentWidth;
+  }
   const oppositePaneName = getOppositePaneName(paneName);
   closePane(state, oppositePaneName);
   openPaneAtWidth(
@@ -319,6 +334,42 @@ function setPaneToFullWidth(
     getPaneMaxWidthForViewport(viewportWidth),
     viewportWidth,
   );
+}
+
+function restorePaneFromFullWidth(
+  state: PaneLayoutState,
+  paneName: PaneName,
+  viewportWidth: number,
+) {
+  const rememberedWidth = lastNonFullPaneWidthByName[paneName];
+  const fallbackWidth = getPaneMinWidthForViewport(paneName, viewportWidth);
+  const candidateWidth = clampPaneWidth(
+    paneName,
+    rememberedWidth ?? fallbackWidth,
+    viewportWidth,
+  );
+  const nextWidth = isPaneFullWidth(candidateWidth, viewportWidth)
+    ? fallbackWidth
+    : candidateWidth;
+  resizePaneWithLayout(state, paneName, nextWidth, viewportWidth);
+}
+
+function togglePaneFullWidthWithLayout(
+  state: PaneLayoutState,
+  paneName: PaneName,
+  viewportWidth: number,
+) {
+  const paneVisible = getPaneVisibility(state, paneName);
+  const currentWidth = clampPaneWidth(
+    paneName,
+    getPaneWidth(state, paneName),
+    viewportWidth,
+  );
+  if (paneVisible && isPaneFullWidth(currentWidth, viewportWidth)) {
+    restorePaneFromFullWidth(state, paneName, viewportWidth);
+    return;
+  }
+  setPaneToFullWidth(state, paneName, viewportWidth);
 }
 
 function applyAndSetState(
@@ -355,4 +406,17 @@ export function setPaneFullWidth(
   return applyAndSetState((state, viewportWidth) => {
     setPaneToFullWidth(state, paneName, viewportWidth);
   });
+}
+
+export function togglePaneFullWidth(
+  paneName: PaneName,
+): { previous: PaneLayoutState; next: PaneLayoutState } {
+  return applyAndSetState((state, viewportWidth) => {
+    togglePaneFullWidthWithLayout(state, paneName, viewportWidth);
+  });
+}
+
+export function resetPaneLayoutTransientStateForTests() {
+  lastNonFullPaneWidthByName[PaneNameEnum.overview] = null;
+  lastNonFullPaneWidthByName[PaneNameEnum.uiEditor] = null;
 }

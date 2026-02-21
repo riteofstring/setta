@@ -5,8 +5,10 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   getPaneMaxWidthForViewport,
   normalizePaneWidthForViewportChange,
+  resetPaneLayoutTransientStateForTests,
   setPaneFullWidth,
   setPaneWidthWithLayout,
+  togglePaneFullWidth,
   togglePaneVisibility,
 } from "./paneLayout";
 
@@ -28,6 +30,7 @@ function setViewportWidth(width: number) {
 describe("pane layout helpers", () => {
   beforeEach(() => {
     resetProjectStores();
+    resetPaneLayoutTransientStateForTests();
     setViewportWidth(1400);
     useLocalStorage.setState({
       overviewVis: true,
@@ -94,6 +97,29 @@ describe("pane layout helpers", () => {
     expect(state.overviewTrueWidth).toBe(getPaneMaxWidthForViewport(1300));
     expect(state.uiEditorVis).toBe(false);
     expect(state.uiEditorTrueWidth).toBe(CLOSED_PANE_WIDTH);
+  });
+
+  it("restores the previous pane width when toggling full-width off", () => {
+    setViewportWidth(1300);
+    useLocalStorage.setState({
+      overviewVis: true,
+      overviewWidth: 460,
+      overviewTrueWidth: 460,
+      uiEditorVis: false,
+      uiEditorWidth: 500,
+      uiEditorTrueWidth: CLOSED_PANE_WIDTH,
+    });
+
+    togglePaneFullWidth(PaneNameEnum.overview);
+    expect(useLocalStorage.getState().overviewTrueWidth).toBe(
+      getPaneMaxWidthForViewport(1300),
+    );
+
+    togglePaneFullWidth(PaneNameEnum.overview);
+    const restoredState = useLocalStorage.getState();
+    expect(restoredState.overviewVis).toBe(true);
+    expect(restoredState.overviewTrueWidth).toBe(460);
+    expect(restoredState.uiEditorVis).toBe(false);
   });
 
   it("resizes a single open pane up to full width", () => {
