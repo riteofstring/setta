@@ -434,6 +434,39 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(assistantBubbleTag).not.toContain(" w-full ");
   });
 
+  it("applies markdown hierarchy spacing classes for readable chat text density", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-markdown-density",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageTextContent({
+            text: [
+              "## Heading",
+              "",
+              "Paragraph one.",
+              "",
+              "- item one",
+              "- item two",
+            ].join("\n"),
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("prose-headings:mt-5");
+    expect(markup).toContain("prose-headings:mb-2");
+    expect(markup).toContain("prose-p:my-0");
+    expect(markup).toContain("prose-ul:my-1.5");
+    expect(markup).toContain("prose-li:my-0");
+  });
+
   it("renders reasoning cards separately from assistant bubble content", () => {
     const messages: BaseChatMessageUnion[] = [
       {

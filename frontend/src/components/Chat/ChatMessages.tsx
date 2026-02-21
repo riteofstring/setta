@@ -102,6 +102,10 @@ const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
 const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(88%,800px)]";
 const ASSISTANT_REASONING_BORDER_CLASS =
   "border-setta-100 dark:border-setta-700/50";
+const CHAT_MARKDOWN_BASE_CLASS =
+  "prose prose-sm max-w-none prose-headings:font-semibold prose-headings:tracking-tight prose-headings:leading-snug prose-headings:mt-5 prose-headings:mb-2 prose-h1:text-[1.05rem] prose-h2:text-[1rem] prose-h3:text-[0.95rem] prose-h4:text-[0.9rem] prose-p:my-0 prose-p:leading-[1.45] prose-ul:my-1.5 prose-ol:my-1.5 prose-ul:pl-5 prose-ol:pl-5 prose-li:my-0 prose-li:leading-[1.35] prose-code:before:hidden prose-code:after:hidden prose-pre:my-2 prose-pre:py-2 [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p+p]:mt-2.5 [&_li+li]:mt-0.5 [&_li_p]:my-0 [&_*]:break-words";
+const ASSISTANT_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} dark:prose-invert prose-headings:text-setta-600 dark:prose-headings:text-setta-300 prose-p:text-[13px] [&_*]:marker:text-setta-400`;
+const ASSISTANT_ERROR_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} dark:prose-invert prose-headings:text-red-900 dark:prose-headings:text-red-200 prose-p:text-[13px] [&_*]:marker:text-red-400`;
 const TOOL_CALL_RAIL_GRID_CLASS = "grid-cols-[1.75rem_minmax(0,1fr)]";
 const TOOL_CALL_RAIL_BACKGROUND_CLASS =
   "bg-setta-100/75 dark:bg-setta-800/75";
@@ -1144,7 +1148,7 @@ const ThinkingBox = memo(function ThinkingBox({
         <Accordion.Content className="mt-0 overflow-hidden px-0.5 py-0.5 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
           <MarkdownContent
             content={content}
-            className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words"
+            className={ASSISTANT_MARKDOWN_CLASS}
             role={ChatRoleEnum.assistant}
             isStreaming={isStreaming}
           />
@@ -1212,7 +1216,7 @@ const ContextCompactionSection = memo(function ContextCompactionSection({
         <Accordion.Content className="mt-0 overflow-hidden px-0.5 py-0.5 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
           <MarkdownContent
             content={displayText}
-            className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-xl prose-h1:leading-tight prose-p:my-1 prose-p:text-[13px] prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words"
+            className={ASSISTANT_MARKDOWN_CLASS}
             role={ChatRoleEnum.assistant}
             isStreaming={isStreaming}
           />
@@ -1765,7 +1769,7 @@ function AssistantErrorCallout({ content }: { content: string }) {
         </div>
         <MarkdownContent
           content={displayText}
-          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-red-900 prose-p:my-1 prose-p:text-[13px] prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-red-200 [&_*]:break-words [&_*]:marker:text-red-400"
+          className={ASSISTANT_ERROR_MARKDOWN_CLASS}
           role={ChatRoleEnum.assistant}
           isStreaming={false}
         />
@@ -1789,7 +1793,7 @@ function StreamItem({
       return (
         <MarkdownContent
           content={item.text}
-          className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-xl prose-h1:leading-tight prose-p:my-1 prose-p:text-[13px] prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words [&_*]:marker:text-setta-400"
+          className={ASSISTANT_MARKDOWN_CLASS}
           role={ChatRoleEnum.assistant}
           isStreaming={isStreaming}
         />
@@ -1951,9 +1955,9 @@ function SystemChatBubble({
 }
 
 const USER_MARKDOWN_CLASS =
-  "prose prose-sm text-setta-950 dark:prose-invert dark:text-white prose-headings:tracking-tighter prose-headings:text-blue-900 dark:prose-headings:text-blue-200 prose-h1:text-xl prose-h1:leading-tight prose-p:my-1 prose-p:text-[13px] prose-code:before:hidden prose-code:after:hidden [&>p]:inline-block [&_*]:break-words [&_*]:marker:text-setta-400";
+  `${CHAT_MARKDOWN_BASE_CLASS} text-setta-950 dark:prose-invert dark:text-white prose-headings:text-blue-900 dark:prose-headings:text-blue-200 prose-p:text-[13px] [&_*]:marker:text-setta-400`;
 const SYSTEM_MARKDOWN_CLASS =
-  "prose prose-sm text-setta-600 dark:prose-invert prose-p:my-1 prose-p:text-[12px] prose-headings:text-xs prose-headings:font-semibold prose-code:before:hidden prose-code:after:hidden [&_*]:break-words";
+  `${CHAT_MARKDOWN_BASE_CLASS} text-setta-600 dark:prose-invert prose-headings:text-setta-600 dark:prose-headings:text-setta-300 prose-h1:text-sm prose-h2:text-[13px] prose-h3:text-[12px] prose-p:text-[12px] [&_*]:marker:text-setta-400`;
 
 function ChatMessageActions({
   onCopy,
