@@ -1,6 +1,18 @@
 import {
+  buildChatSlashCommands,
+  type ChatSlashCommandDefinition,
+} from "components/Chat/chatComposerControls";
+import {
+  buildLLMConfigGroups,
+  pickDefaultConfigId,
+} from "components/Chat/llmConfigUtils";
+import {
+  type APIKeys,
   type AllLLMConfigs,
   type AppGenSkillEntry,
+  type EngineConfig,
+  type ExternalAgentPreflightStatus,
+  EngineTypeEnum,
 } from "utils/generatedTypes";
 
 export function filterSkills(
@@ -84,6 +96,13 @@ export type McpRuntimeServerStatus = {
   quickInfo: string;
   registeredToolCount: number;
   issue: string | null;
+};
+
+export type SlashCommandsByEngine = {
+  engineId: string;
+  engineName: string;
+  engineType: EngineConfig["engineType"];
+  commands: ChatSlashCommandDefinition[];
 };
 
 type McpServersByConfigPath = {
@@ -340,4 +359,76 @@ export function resolveMcpServerStatus({
     color: "red",
     quickInfo: runtimeStatus.quickInfo,
   };
+}
+
+function resolveEngineDisplayName(config: EngineConfig): string {
+  const explicitName = config.name.trim();
+  if (explicitName) {
+    return explicitName;
+  }
+  if (config.engineType === EngineTypeEnum.external_agent) {
+    return "External Agent";
+  }
+  return "Setta LLM";
+}
+
+export function buildSlashCommandsByEngine({
+  engineConfigs,
+  allLLMConfigs,
+  apiKeys,
+  externalAgentHealth,
+  externalAgentHealthInitialLoadComplete,
+}: {
+  engineConfigs: EngineConfig[];
+  allLLMConfigs: AllLLMConfigs | null;
+  apiKeys: APIKeys;
+  externalAgentHealth: ExternalAgentPreflightStatus[];
+  externalAgentHealthInitialLoadComplete: boolean;
+}): SlashCommandsByEngine[] {
+  const availableConfigIds = new Set<string>();
+  const availableConfigGroups = buildLLMConfigGroups(allLLMConfigs, apiKeys);
+  for (const group of availableConfigGroups) {
+    for (const item of group.items) {
+      availableConfigIds.add(item.id);
+    }
+  }
+  const defaultConfigId = pickDefaultConfigId(allLLMConfigs);
+  return engineConfigs.map((engineConfig) => {
+    const isExternalEngine =
+      engineConfig.engineType === EngineTypeEnum.external_agent;
+    const hasLLMConfig = !isExternalEngine
+      ? Boolean(
+          (engineConfig.settaLlmConfigId ?? defaultConfigId) &&
+            availableConfigIds.has(
+              engineConfig.settaLlmConfigId ?? defaultConfigId ?? "",
+            ),
+        )
+      : false;
+    const externalEngineStatus =
+      isExternalEngine && externalAgentHealthInitialLoadComplete
+        ? externalAgentHealth.find(
+            (status) =>
+              status.configId === engineConfig.externalAgentConfigId,
+          ) ?? null
+        : null;
+    const externalEngineAvailable = isExternalEngine
+      ? Boolean(
+          externalEngineStatus?.available && externalEngineStatus.supported,
+        )
+      : false;
+    const permissionsEnabled = isExternalEngine
+      ? externalEngineAvailable
+      : hasLLMConfig;
+    const searchEnabled = !isExternalEngine && hasLLMConfig;
+    return {
+      engineId: engineConfig.id,
+      engineName: resolveEngineDisplayName(engineConfig),
+      engineType: engineConfig.engineType,
+      commands: buildChatSlashCommands({
+        model: true,
+        permissions: permissionsEnabled,
+        search: searchEnabled,
+      }),
+    };
+  });
 }

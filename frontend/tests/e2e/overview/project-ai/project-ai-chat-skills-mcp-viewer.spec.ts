@@ -149,6 +149,13 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await expect(page.getByText("Viewer only:")).toHaveCount(0);
   await expect(page.getByText("MCP tools discovered:")).toHaveCount(0);
   await expect(page.getByText("MCP servers configured:")).toHaveCount(0);
+  const slashCommandsHeader = page.getByText(/^Slash Commands$/);
+  await slashCommandsHeader.scrollIntoViewIfNeeded();
+  await expect(slashCommandsHeader).toBeVisible();
+  await expect(page.getByTestId("skills-mcp-slash-tab").first()).toBeVisible();
+  const slashCommandRows = page.getByTestId("skills-mcp-slash-command");
+  await expect(slashCommandRows.first()).toBeVisible();
+  await expect(slashCommandRows).toContainText(["/new", "/resume", "/model"]);
 
   await closeSkillsMcpViewer(page);
   await expect(page.getByText(/^Skills$/)).toHaveCount(0);

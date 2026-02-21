@@ -16,6 +16,7 @@ import {
 } from "utils/generatedEndpoints";
 import { type AppGenSkillEntry } from "utils/generatedTypes";
 import {
+  buildSlashCommandsByEngine,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
@@ -91,6 +92,15 @@ function PathGroupHeader({
 }
 
 export function ProjectChatSkillsMcpViewer() {
+  const apiKeys = useAIStore((state) => state.apiKeys);
+  const engineConfigs = useAIStore((state) => state.engineConfigs);
+  const engineConfigsInitialLoadComplete = useAIStore(
+    (state) => state.engineConfigsInitialLoadComplete,
+  );
+  const externalAgentHealth = useAIStore((state) => state.externalAgentHealth);
+  const externalAgentHealthInitialLoadComplete = useAIStore(
+    (state) => state.externalAgentHealthInitialLoadComplete,
+  );
   const allLLMConfigs = useAIStore((state) => state.allLLMConfigs);
   const allLLMConfigsInitialLoadComplete = useAIStore(
     (state) => state.allLLMConfigsInitialLoadComplete,
@@ -129,6 +139,9 @@ export function ProjectChatSkillsMcpViewer() {
   >(null);
   const [mcpRuntimeStatusByServerId, setMcpRuntimeStatusByServerId] = useState<
     Record<string, McpRuntimeServerStatus> | null
+  >(null);
+  const [selectedSlashEngineId, setSelectedSlashEngineId] = useState<
+    string | null
   >(null);
   const [skillsRevision, setSkillsRevision] = useState(0);
   const skillsRefreshInFlight = useRef(false);
@@ -342,6 +355,49 @@ export function ProjectChatSkillsMcpViewer() {
       settaFilesLocation,
     });
   }, [allLLMConfigs?.mcpServers, mcpConfigPath, settaFilesLocation]);
+  const slashCommandsByEngine = useMemo(() => {
+    return buildSlashCommandsByEngine({
+      engineConfigs,
+      allLLMConfigs,
+      apiKeys,
+      externalAgentHealth,
+      externalAgentHealthInitialLoadComplete,
+    });
+  }, [
+    allLLMConfigs,
+    apiKeys,
+    engineConfigs,
+    externalAgentHealth,
+    externalAgentHealthInitialLoadComplete,
+  ]);
+  const selectedSlashEngine = useMemo(() => {
+    if (!selectedSlashEngineId) {
+      return slashCommandsByEngine[0] ?? null;
+    }
+    return (
+      slashCommandsByEngine.find(
+        (entry) => entry.engineId === selectedSlashEngineId,
+      ) ?? slashCommandsByEngine[0] ?? null
+    );
+  }, [selectedSlashEngineId, slashCommandsByEngine]);
+
+  useEffect(() => {
+    if (slashCommandsByEngine.length === 0) {
+      if (selectedSlashEngineId !== null) {
+        setSelectedSlashEngineId(null);
+      }
+      return;
+    }
+    if (
+      selectedSlashEngineId &&
+      slashCommandsByEngine.some(
+        (entry) => entry.engineId === selectedSlashEngineId,
+      )
+    ) {
+      return;
+    }
+    setSelectedSlashEngineId(slashCommandsByEngine[0]?.engineId ?? null);
+  }, [selectedSlashEngineId, slashCommandsByEngine]);
 
   const markdownViewerExtensions = useMemo(() => {
     return getExtensions({
@@ -632,6 +688,72 @@ export function ProjectChatSkillsMcpViewer() {
                   </div>
                 </div>
               ))
+            )}
+          </div>
+        </section>
+        <section className="grid min-w-0 gap-2">
+          <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+            Slash Commands
+          </div>
+          <div className="grid min-w-0 gap-2 rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
+            {!engineConfigsInitialLoadComplete ? (
+              <div className="text-setta-500 dark:text-setta-400">
+                Loading engine commands...
+              </div>
+            ) : slashCommandsByEngine.length === 0 ? (
+              <div className="text-setta-500 dark:text-setta-400">
+                No engines configured.
+              </div>
+            ) : (
+              <>
+                <div className="flex min-w-0 gap-1 overflow-x-auto pb-1">
+                  {slashCommandsByEngine.map((engine) => {
+                    const selected =
+                      selectedSlashEngine?.engineId === engine.engineId;
+                    return (
+                      <button
+                        key={engine.engineId}
+                        type="button"
+                        data-testid="skills-mcp-slash-tab"
+                        className={`box-border min-w-0 cursor-pointer rounded border px-2 py-1 text-left transition-colors ${
+                          selected
+                            ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/35 dark:text-blue-300"
+                            : "border-setta-200 text-setta-600 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                        }`}
+                        title={engine.engineName}
+                        onClick={() => setSelectedSlashEngineId(engine.engineId)}
+                      >
+                        <span className="block truncate font-semibold">
+                          {engine.engineName}
+                        </span>
+                        <span className="block truncate text-[10px] uppercase tracking-wide opacity-80">
+                          {engine.engineType === "external_agent"
+                            ? "External Agent"
+                            : "Setta LLM"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="grid min-w-0 gap-1">
+                  {selectedSlashEngine?.commands.map((command) => (
+                    <div
+                      key={`${selectedSlashEngine.engineId}:${command.command}`}
+                      className="grid min-w-0 grid-cols-[auto,1fr] items-start gap-2 rounded border border-setta-200/70 bg-setta-50/60 px-2 py-1 dark:border-setta-700 dark:bg-setta-900/60"
+                    >
+                      <code
+                        className="font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-300"
+                        data-testid="skills-mcp-slash-command"
+                      >
+                        {command.command}
+                      </code>
+                      <span className="min-w-0 text-setta-600 dark:text-setta-300">
+                        {command.summary}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </section>

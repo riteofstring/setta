@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildSlashCommandsByEngine,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
   parseMcpServerRuntimeStatuses,
   resolveMcpServerStatus,
 } from "./projectChatSkillsMcpViewerUtils";
+import {
+  createAllLLMConfigs,
+  createEngineConfig,
+  createExternalAgentPreflightStatus,
+  createLLMConfig,
+} from "utils/generatedTypes";
 
 describe("projectChatSkillsMcpViewerUtils", () => {
   it("filters skills by name/path/root/description", () => {
@@ -273,5 +280,126 @@ describe("projectChatSkillsMcpViewerUtils", () => {
 
     expect(status.color).toBe("yellow");
     expect(status.quickInfo).toContain("not reported");
+  });
+
+  it("builds slash commands by engine using setta/external availability", () => {
+    const engineConfigs = [
+      createEngineConfig({
+        id: "engine-setta",
+        name: "Setta",
+        engineType: "setta_llm",
+        settaLlmConfigId: "cfg-openai",
+      }),
+      createEngineConfig({
+        id: "engine-codex",
+        name: "Codex Agent",
+        engineType: "external_agent",
+        externalAgentConfigId: "external-codex",
+      }),
+    ];
+    const allLLMConfigs = createAllLLMConfigs({
+      configs: {
+        "cfg-openai": createLLMConfig({
+          id: "cfg-openai",
+          model: "gpt-5",
+          provider: "openai",
+          api_key_env: "OPENAI_API_KEY",
+        }),
+      },
+    });
+    const externalAgentHealth = [
+      createExternalAgentPreflightStatus({
+        configId: "external-codex",
+        name: "Codex Agent",
+        toolType: "codex",
+        runMode: "app_server",
+        available: true,
+        supported: true,
+      }),
+    ];
+    const rows = buildSlashCommandsByEngine({
+      engineConfigs,
+      allLLMConfigs,
+      apiKeys: { OPENAI_API_KEY: "secret" },
+      externalAgentHealth,
+      externalAgentHealthInitialLoadComplete: true,
+    });
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.engineId).toBe("engine-setta");
+    expect(rows[0]?.commands.map((entry) => entry.command)).toEqual([
+      "/new",
+      "/resume",
+      "/model",
+      "/permissions",
+      "/search",
+      "/help",
+    ]);
+    expect(rows[1]?.engineId).toBe("engine-codex");
+    expect(rows[1]?.commands.map((entry) => entry.command)).toEqual([
+      "/new",
+      "/resume",
+      "/model",
+      "/permissions",
+      "/help",
+    ]);
+  });
+
+  it("omits permission and search commands when required dependencies are unavailable", () => {
+    const engineConfigs = [
+      createEngineConfig({
+        id: "engine-setta",
+        name: "Setta",
+        engineType: "setta_llm",
+      }),
+      createEngineConfig({
+        id: "engine-opencode",
+        name: "OpenCode",
+        engineType: "external_agent",
+        externalAgentConfigId: "external-opencode",
+      }),
+    ];
+    const allLLMConfigs = createAllLLMConfigs({
+      configs: {
+        "cfg-anthropic": createLLMConfig({
+          id: "cfg-anthropic",
+          model: "claude-sonnet",
+          provider: "anthropic",
+          api_key_env: "ANTHROPIC_API_KEY",
+        }),
+      },
+    });
+    const externalAgentHealth = [
+      createExternalAgentPreflightStatus({
+        configId: "external-opencode",
+        name: "OpenCode Agent",
+        toolType: "opencode",
+        runMode: "app_server",
+        available: false,
+        supported: true,
+        issues: ["cli missing"],
+      }),
+    ];
+    const rows = buildSlashCommandsByEngine({
+      engineConfigs,
+      allLLMConfigs,
+      apiKeys: {},
+      externalAgentHealth,
+      externalAgentHealthInitialLoadComplete: true,
+    });
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.commands.map((entry) => entry.command)).toEqual([
+      "/new",
+      "/resume",
+      "/model",
+      "/help",
+    ]);
+    expect(rows[1]?.commands.map((entry) => entry.command)).toEqual([
+      "/new",
+      "/resume",
+      "/model",
+      "/help",
+    ]);
   });
 });
