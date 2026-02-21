@@ -125,9 +125,7 @@ type StopEscapeKeyEventLike = {
   ctrlKey: boolean;
 };
 
-export function isStopEscapeKey(
-  event: StopEscapeKeyEventLike,
-): boolean {
+export function isStopEscapeKey(event: StopEscapeKeyEventLike): boolean {
   return (
     event.key === "Escape" &&
     !event.shiftKey &&
@@ -135,6 +133,41 @@ export function isStopEscapeKey(
     !event.metaKey &&
     !event.ctrlKey
   );
+}
+
+type QueuedChatDraft = {
+  id: string;
+  message: string;
+  attachments: ChatFileAttachment[];
+  queuedAtMs: number;
+};
+
+export function enqueueQueuedDraft(
+  queue: QueuedChatDraft[],
+  draft: QueuedChatDraft,
+  prioritize: boolean,
+): QueuedChatDraft[] {
+  return prioritize ? [draft, ...queue] : [...queue, draft];
+}
+
+export function cycleQueuedDraftSelection(
+  queue: QueuedChatDraft[],
+  selectedId: string | null,
+  direction: "next" | "prev",
+): string | null {
+  if (queue.length === 0) {
+    return null;
+  }
+  const currentIndex = queue.findIndex((item) => item.id === selectedId);
+  if (currentIndex < 0) {
+    return queue[0]?.id ?? null;
+  }
+  if (direction === "next") {
+    const nextIndex = (currentIndex + 1) % queue.length;
+    return queue[nextIndex]?.id ?? null;
+  }
+  const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
+  return queue[prevIndex]?.id ?? null;
 }
 
 type ChatInputProps = {
@@ -205,6 +238,11 @@ export const ChatInput = memo(function ChatInput({
   const [contextBadgeMode, setContextBadgeMode] = useState<
     "percentage" | "tokens"
   >("percentage");
+  const [queuedDrafts, setQueuedDrafts] = useState<QueuedChatDraft[]>([]);
+  const [queuedDispatchEpoch, setQueuedDispatchEpoch] = useState(0);
+  const [selectedQueuedDraftId, setSelectedQueuedDraftId] = useState<
+    string | null
+  >(null);
   const isControlled = typeof value === "string" && Boolean(onChange);
   const inputValue = isControlled ? value : internalValue;
   const inputValueRef = useRef(inputValue);
@@ -214,11 +252,21 @@ export const ChatInput = memo(function ChatInput({
   const providerStreamRef = useRef<MediaStream | null>(null);
   const providerChunksRef = useRef<Array<BlobPart>>([]);
   const dictationSourceRef = useRef<"browser" | "provider" | null>(null);
+  const queuedDraftIdRef = useRef(0);
+  const queuedDispatchInFlightRef = useRef(false);
+  const blockedQueuedDraftIdRef = useRef<string | null>(null);
+  const componentMountedRef = useRef(true);
   const isDisabled = disabled;
 
   useEffect(() => {
     inputValueRef.current = inputValue;
   }, [inputValue]);
+
+  useEffect(() => {
+    return () => {
+      componentMountedRef.current = false;
+    };
+  }, []);
 
   const {
     attachments,
@@ -227,6 +275,7 @@ export const ChatInput = memo(function ChatInput({
     attachmentInputDisabled,
     attachmentWarning,
     clearAttachments,
+    replaceAttachments,
     fileInputRef,
     handleClearAttachments,
     handleDragEnter,
@@ -267,6 +316,157 @@ export const ChatInput = memo(function ChatInput({
   const clearInput = useCallback(() => {
     setInputValue("");
   }, [setInputValue]);
+
+  const getNextQueuedDraftId = useCallback(() => {
+    queuedDraftIdRef.current += 1;
+    return `queued-draft-${queuedDraftIdRef.current}`;
+  }, []);
+
+  const enqueueDraft = useCallback(
+    ({
+      message,
+      draftAttachments,
+      prioritize,
+      interruptCurrentRun,
+      feedback,
+    }: {
+      message: string;
+      draftAttachments: ChatFileAttachment[];
+      prioritize: boolean;
+      interruptCurrentRun: boolean;
+      feedback: string;
+    }): boolean => {
+      const trimmed = message.trim();
+      if (trimmed.length === 0 && draftAttachments.length === 0) {
+        return false;
+      }
+      const nextDraft: QueuedChatDraft = {
+        id: getNextQueuedDraftId(),
+        message,
+        attachments: draftAttachments.map((attachment) => ({ ...attachment })),
+        queuedAtMs: Date.now(),
+      };
+      blockedQueuedDraftIdRef.current = null;
+      setQueuedDrafts((current) =>
+        enqueueQueuedDraft(current, nextDraft, prioritize),
+      );
+      setSelectedQueuedDraftId(nextDraft.id);
+      setSlashFeedback(feedback);
+      clearInput();
+      clearAttachments();
+      if (interruptCurrentRun && onStop) {
+        void onStop();
+      }
+      return true;
+    },
+    [clearAttachments, clearInput, getNextQueuedDraftId, onStop],
+  );
+
+  const restoreQueuedDraftToComposer = useCallback(
+    (draftId: string) => {
+      const draft = queuedDrafts.find((item) => item.id === draftId);
+      if (!draft) {
+        return;
+      }
+      blockedQueuedDraftIdRef.current = null;
+      setQueuedDrafts((current) =>
+        current.filter((item) => item.id !== draftId),
+      );
+      setSelectedQueuedDraftId(null);
+      setInputValue(draft.message);
+      replaceAttachments(
+        draft.attachments.map((attachment) => ({ ...attachment })),
+      );
+      setSlashFeedback("Editing queued message.");
+      requestAnimationFrame(() => {
+        const node = textareaRef.current;
+        if (!node) {
+          return;
+        }
+        node.focus();
+        const end = draft.message.length;
+        node.setSelectionRange(end, end);
+      });
+    },
+    [queuedDrafts, replaceAttachments, setInputValue],
+  );
+
+  useEffect(() => {
+    if (queuedDrafts.length === 0) {
+      if (selectedQueuedDraftId !== null) {
+        setSelectedQueuedDraftId(null);
+      }
+      return;
+    }
+    if (!selectedQueuedDraftId) {
+      setSelectedQueuedDraftId(queuedDrafts[0]?.id ?? null);
+      return;
+    }
+    const hasSelection = queuedDrafts.some(
+      (item) => item.id === selectedQueuedDraftId,
+    );
+    if (!hasSelection) {
+      setSelectedQueuedDraftId(queuedDrafts[0]?.id ?? null);
+    }
+  }, [queuedDrafts, selectedQueuedDraftId]);
+
+  const nextQueuedDraft = queuedDrafts[0] ?? null;
+
+  useEffect(() => {
+    if (!nextQueuedDraft) {
+      return;
+    }
+    if (waitingForResponse || isSubmitDisabled) {
+      return;
+    }
+    if (queuedDispatchInFlightRef.current) {
+      return;
+    }
+    if (blockedQueuedDraftIdRef.current === nextQueuedDraft.id) {
+      return;
+    }
+    const draftToSend = nextQueuedDraft;
+    queuedDispatchInFlightRef.current = true;
+    blockedQueuedDraftIdRef.current = null;
+    setQueuedDrafts((current) =>
+      current.filter((item) => item.id !== draftToSend.id),
+    );
+    setSelectedQueuedDraftId((current) =>
+      current === draftToSend.id ? null : current,
+    );
+    void (async () => {
+      let result = false;
+      try {
+        result =
+          (await onSubmit(draftToSend.message, draftToSend.attachments)) ===
+          true;
+      } catch {
+        result = false;
+      }
+      if (!componentMountedRef.current) {
+        queuedDispatchInFlightRef.current = false;
+        return;
+      }
+      queuedDispatchInFlightRef.current = false;
+      if (result) {
+        setQueuedDispatchEpoch((current) => current + 1);
+        return;
+      }
+      blockedQueuedDraftIdRef.current = draftToSend.id;
+      setQueuedDrafts((current) =>
+        enqueueQueuedDraft(current, draftToSend, true),
+      );
+      setSelectedQueuedDraftId(draftToSend.id);
+      setSlashFeedback("Queued message failed. Edit it and retry.");
+      setQueuedDispatchEpoch((current) => current + 1);
+    })();
+  }, [
+    isSubmitDisabled,
+    nextQueuedDraft,
+    onSubmit,
+    queuedDispatchEpoch,
+    waitingForResponse,
+  ]);
 
   const runSlashCommand = useCallback(
     async (message: string): Promise<boolean> => {
@@ -312,6 +512,16 @@ export const ChatInput = memo(function ChatInput({
       submittedAttachments: ChatFileAttachment[],
     ): Promise<void> => {
       if (waitingForResponse) {
+        const queued = enqueueDraft({
+          message: submittedValue,
+          draftAttachments: submittedAttachments,
+          prioritize: true,
+          interruptCurrentRun: true,
+          feedback: "Queued and stopping current response...",
+        });
+        if (queued) {
+          return;
+        }
         if (onStop) {
           await onStop();
         }
@@ -336,6 +546,7 @@ export const ChatInput = memo(function ChatInput({
     [
       clearAttachments,
       clearInput,
+      enqueueDraft,
       isSubmitDisabled,
       onStop,
       onSubmit,
@@ -581,12 +792,50 @@ export const ChatInput = memo(function ChatInput({
         }
       }
 
+      const hasComposerDraft =
+        inputValue.trim().length > 0 || attachments.length > 0;
+
       if (
-        event.key !== "Enter" ||
-        event.shiftKey ||
-        waitingForResponse ||
-        isSubmitDisabled
+        event.key === "Tab" &&
+        !event.shiftKey &&
+        !shouldShowSlashSuggestions &&
+        hasComposerDraft
       ) {
+        event.preventDefault();
+        enqueueDraft({
+          message: inputValue,
+          draftAttachments: attachments,
+          prioritize: false,
+          interruptCurrentRun: false,
+          feedback: "Queued. Sends after current response finishes.",
+        });
+        return;
+      }
+
+      if (
+        !hasComposerDraft &&
+        queuedDrafts.length > 0 &&
+        !shouldShowSlashSuggestions
+      ) {
+        if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+          event.preventDefault();
+          setSelectedQueuedDraftId((current) =>
+            cycleQueuedDraftSelection(
+              queuedDrafts,
+              current,
+              event.key === "ArrowUp" ? "prev" : "next",
+            ),
+          );
+          return;
+        }
+        if (event.key === "Enter" && !event.shiftKey && selectedQueuedDraftId) {
+          event.preventDefault();
+          restoreQueuedDraftToComposer(selectedQueuedDraftId);
+          return;
+        }
+      }
+
+      if (event.key !== "Enter" || event.shiftKey || isSubmitDisabled) {
         return;
       }
       event.preventDefault();
@@ -599,12 +848,16 @@ export const ChatInput = memo(function ChatInput({
     [
       activeSlashIndex,
       applySlashSuggestion,
+      attachments,
+      enqueueDraft,
       inputValue,
       isSubmitDisabled,
+      queuedDrafts,
+      restoreQueuedDraftToComposer,
+      selectedQueuedDraftId,
       shouldShowSlashSuggestions,
       slashSuggestions,
       slashSuggestions.length,
-      waitingForResponse,
     ],
   );
 
@@ -1163,6 +1416,79 @@ export const ChatInput = memo(function ChatInput({
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
+          {queuedDrafts.length > 0 ? (
+            <div
+              className="mb-1 flex flex-col gap-1"
+              data-chat-queued-draft-stack="true"
+            >
+              {queuedDrafts.map((draft, index) => {
+                const isSelected = draft.id === selectedQueuedDraftId;
+                const previewText = draft.message.trim();
+                const attachmentCount = draft.attachments.length;
+                const attachmentLabel =
+                  attachmentCount === 1
+                    ? "1 attachment"
+                    : `${attachmentCount} attachments`;
+                return (
+                  <button
+                    key={draft.id}
+                    type="button"
+                    className={`w-full rounded-md border px-2 py-1 text-left transition-colors ${
+                      isSelected
+                        ? "border-blue-500/80 bg-blue-50/80 text-blue-900 dark:border-blue-500/70 dark:bg-blue-900/35 dark:text-blue-100"
+                        : "border-setta-200/80 bg-setta-50/80 text-setta-700 hover:border-setta-300 hover:bg-setta-100 dark:border-setta-700/80 dark:bg-setta-900/65 dark:text-setta-200 dark:hover:border-setta-600 dark:hover:bg-setta-800/80"
+                    }`}
+                    data-chat-queued-draft="true"
+                    data-selected={isSelected ? "true" : "false"}
+                    onClick={() => setSelectedQueuedDraftId(draft.id)}
+                    onDoubleClick={() => restoreQueuedDraftToComposer(draft.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        restoreQueuedDraftToComposer(draft.id);
+                        return;
+                      }
+                      if (
+                        event.key === "ArrowUp" ||
+                        event.key === "ArrowDown"
+                      ) {
+                        event.preventDefault();
+                        setSelectedQueuedDraftId((current) =>
+                          cycleQueuedDraftSelection(
+                            queuedDrafts,
+                            current,
+                            event.key === "ArrowUp" ? "prev" : "next",
+                          ),
+                        );
+                      }
+                    }}
+                    title={
+                      previewText.length > 0
+                        ? previewText
+                        : "Queued attachment message"
+                    }
+                  >
+                    <div className="flex min-w-0 items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.14em]">
+                      <span className="border-current/30 inline-flex h-4 min-w-4 items-center justify-center rounded-sm border px-1">
+                        {index + 1}
+                      </span>
+                      <span>Queued</span>
+                      {attachmentCount > 0 ? (
+                        <span className="truncate opacity-80">
+                          {attachmentLabel}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="mt-0.5 truncate text-[11px] font-medium">
+                      {previewText.length > 0
+                        ? previewText
+                        : "(Attachment message)"}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
           <div className="group relative my-1 w-full">
             <input
               ref={fileInputRef}

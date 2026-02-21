@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   areSlashSuggestionsPortalStylesEqual,
   ChatInput,
+  cycleQueuedDraftSelection,
+  enqueueQueuedDraft,
   isStopEscapeKey,
 } from "./ChatInput";
 
@@ -386,5 +388,44 @@ describe("isStopEscapeKey", () => {
         ctrlKey: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe("queued draft helpers", () => {
+  const draftA = {
+    id: "queued-a",
+    message: "First queued message",
+    attachments: [],
+    queuedAtMs: 1,
+  };
+  const draftB = {
+    id: "queued-b",
+    message: "Second queued message",
+    attachments: [],
+    queuedAtMs: 2,
+  };
+
+  it("adds prioritized drafts at the front of the queue", () => {
+    const queue = enqueueQueuedDraft([draftA], draftB, true);
+    expect(queue.map((draft) => draft.id)).toEqual(["queued-b", "queued-a"]);
+  });
+
+  it("adds non-prioritized drafts at the end of the queue", () => {
+    const queue = enqueueQueuedDraft([draftA], draftB, false);
+    expect(queue.map((draft) => draft.id)).toEqual(["queued-a", "queued-b"]);
+  });
+
+  it("cycles queue selection forward and backward", () => {
+    const queue = [draftA, draftB];
+    expect(cycleQueuedDraftSelection(queue, null, "next")).toBe("queued-a");
+    expect(cycleQueuedDraftSelection(queue, "queued-a", "next")).toBe(
+      "queued-b",
+    );
+    expect(cycleQueuedDraftSelection(queue, "queued-b", "next")).toBe(
+      "queued-a",
+    );
+    expect(cycleQueuedDraftSelection(queue, "queued-a", "prev")).toBe(
+      "queued-b",
+    );
   });
 });
