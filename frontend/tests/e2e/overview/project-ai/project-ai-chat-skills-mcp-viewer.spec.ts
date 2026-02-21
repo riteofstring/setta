@@ -1,10 +1,30 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator } from "@playwright/test";
 
 import {
   allowExpectedApiError,
   ensureAppReady,
   seedLocalStorage,
 } from "../../helpers";
+
+async function expectHasEllipsisTruncation(locator: Locator): Promise<void> {
+  await expect(locator).toBeVisible();
+  const styleInfo = await locator.evaluate((node) => {
+    const element = node as HTMLElement;
+    const style = window.getComputedStyle(element);
+    return {
+      overflowX: style.overflowX,
+      textOverflow: style.textOverflow,
+      whiteSpace: style.whiteSpace,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+    };
+  });
+
+  expect(styleInfo.textOverflow).toBe("ellipsis");
+  expect(styleInfo.whiteSpace).toBe("nowrap");
+  expect(["hidden", "clip"]).toContain(styleInfo.overflowX);
+  expect(styleInfo.scrollWidth).toBeGreaterThan(styleInfo.clientWidth);
+}
 
 test("project ai chat can open the skills and mcp viewer side view", async ({
   page,
@@ -127,6 +147,69 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
 
   await page.getByLabel("View Skills and MCP").click();
   await expect(page.getByText(/^Skills$/)).toHaveCount(0);
+});
+
+test("project ai chat truncates long skill and mcp rows in narrow panes", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 960, height: 900 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_skills::super-long-ui-layout-skill",
+          name: "super-long-ui-layout-skill-name-that-should-be-truncated-in-a-tight-pane-width",
+          rootLabel: "Workspace skills",
+          rootPath: "/workspace/skills",
+          relativePath:
+            "nested/deep/path/to/a/super-long-skill-relative-path-that-should-be-truncated-for-readability",
+          description: "Exercise truncation behavior for skill labels.",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {
+          "server-id-with-a-very-long-name-that-should-truncate-cleanly-in-the-list":
+            {
+              transport: "sse",
+              url: "https://example.com/very/long/mcp/endpoint/path/that/should-truncate-when-the-pane-is-narrower/and-still-remain-usable",
+            },
+        },
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await ensureAppReady(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+
+  await expectHasEllipsisTruncation(
+    page.getByTestId("skills-mcp-skill-name").first(),
+  );
+  await expectHasEllipsisTruncation(
+    page.getByTestId("skills-mcp-skill-path").first(),
+  );
+  await expectHasEllipsisTruncation(
+    page.getByTestId("skills-mcp-server-id").first(),
+  );
+  await expectHasEllipsisTruncation(
+    page.getByTestId("skills-mcp-server-endpoint").first(),
+  );
 });
 
 test("project ai chat shows inline skills endpoint error when routes are missing", async ({

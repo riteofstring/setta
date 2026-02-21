@@ -3,10 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { applyPendingNameValidationErrors } from "state/actions/nameValidation";
 import {
   useAllProjectMetadata,
+  useLocalStorage,
   useNodeInternals,
   useProjectState,
 } from "state/definitions";
 import {
+  OverviewTabNameEnum,
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
@@ -77,6 +79,9 @@ export function useCreateAndGoToProjectConfig() {
     }
     const res = await route_create_project_config({ previewImgColor });
     if (res200(res)) {
+      useLocalStorage.setState({
+        overviewTab: OverviewTabNameEnum.ProjectAIChat,
+      });
       navigateToAnotherConfig(res.data);
     }
   };

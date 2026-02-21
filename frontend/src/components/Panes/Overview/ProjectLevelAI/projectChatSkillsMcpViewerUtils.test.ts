@@ -88,4 +88,20 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(groups[0]?.configPath).toBeNull();
     expect(groups[0]?.servers[0]?.endpoint).toBe("http://127.0.0.1:8000/mcp");
   });
+
+  it("labels explicit setta_files roots as custom", () => {
+    const groups = groupMcpServersByConfigPath({
+      mcpServers: {
+        figma: {
+          transport: "streamable_http",
+          url: "http://127.0.0.1:3845/mcp",
+        },
+      },
+      mcpConfigPath: "/tmp/workspace/setta_files_dev/llm_config.json",
+      settaFilesLocation: "custom",
+    });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.configLabel).toBe("Active custom setta_files root");
+  });
 });

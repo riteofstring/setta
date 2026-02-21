@@ -139,6 +139,32 @@ test("home page renders the three-column file manager layout", async ({
   await expect(page.getByText("Other Project Configs")).toBeVisible();
 });
 
+test("home new config opens project ai chat first", async ({ page }) => {
+  await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
+  await ensureAppReady(page);
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  const newConfigButton = page.getByRole("button", { name: "New Config" });
+  await expect(newConfigButton).toBeVisible();
+  await newConfigButton.click();
+
+  await expect(page).not.toHaveURL(HOME_URL);
+  const overviewPane = page.locator("#OverviewPane");
+  await expect(
+    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+  ).toBeVisible();
+
+  const overviewTab = await page.evaluate(() => {
+    const raw = window.localStorage.getItem("setta_data");
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as { state?: { overviewTab?: string } };
+    return parsed.state?.overviewTab ?? null;
+  });
+  expect(overviewTab).toBe("ProjectAIChat");
+});
+
 test("home browser marks Setta-initialized folders", async ({ page }) => {
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {

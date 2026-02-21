@@ -408,10 +408,18 @@ export function ProjectChatSkillsMcpViewer() {
                               }`}
                               onClick={() => setSelectedSkillId(skill.skillId)}
                             >
-                              <span className="block w-full truncate font-semibold">
+                              <span
+                                className="block min-w-0 w-full truncate font-semibold"
+                                title={skill.name}
+                                data-testid="skills-mcp-skill-name"
+                              >
                                 {skill.name}
                               </span>
-                              <span className="block w-full truncate text-[11px] opacity-80">
+                              <span
+                                className="block min-w-0 w-full truncate text-[11px] opacity-80"
+                                title={skill.relativePath}
+                                data-testid="skills-mcp-skill-path"
+                              >
                                 {skill.relativePath}
                               </span>
                             </button>
@@ -507,14 +515,30 @@ export function ProjectChatSkillsMcpViewer() {
                     onRevealPath={(path) => void revealPathInFileExplorer(path)}
                   />
                   <div className="mt-1 grid gap-1 px-1">
-                    {group.servers.map((server) => (
-                      <div key={server.serverId} className="pb-1 last:pb-0">
-                        <div className="font-semibold">{server.serverId}</div>
-                        <div className="font-mono text-setta-500 dark:text-setta-400">
-                          {server.transport} · {server.endpoint}
+                    {group.servers.map((server) => {
+                      const serverEndpointDisplay = `${server.transport} · ${server.endpoint}`;
+                      return (
+                        <div
+                          key={server.serverId}
+                          className="min-w-0 pb-1 last:pb-0"
+                        >
+                          <div
+                            className="truncate font-semibold"
+                            title={server.serverId}
+                            data-testid="skills-mcp-server-id"
+                          >
+                            {server.serverId}
+                          </div>
+                          <div
+                            className="truncate font-mono text-setta-500 dark:text-setta-400"
+                            title={serverEndpointDisplay}
+                            data-testid="skills-mcp-server-endpoint"
+                          >
+                            {serverEndpointDisplay}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))
