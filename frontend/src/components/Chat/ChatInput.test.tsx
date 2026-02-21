@@ -190,6 +190,42 @@ describe("ChatInput composer controls", () => {
     expect(markup).not.toContain("Skills");
   });
 
+  it("renders a context-left badge when context limits are provided", () => {
+    const markup = renderChatInput({
+      contextWindowTokens: 200,
+      contextUsedTokens: 150,
+      value: "1234",
+      onChange: vi.fn(),
+    });
+
+    expect(markup).toContain("Context left 25%");
+    expect(markup).toContain("Show remaining context tokens");
+  });
+
+  it("renders estimated context label when usage is estimated", () => {
+    const markup = renderChatInput({
+      contextWindowTokens: 200,
+      contextUsedTokens: 150,
+      contextUsageIsEstimated: true,
+      value: "1234",
+      onChange: vi.fn(),
+    });
+
+    expect(markup).toContain("est. context left 25%");
+  });
+
+  it("does not render context badge when used tokens are unavailable", () => {
+    const markup = renderChatInput({
+      contextWindowTokens: 200,
+      contextUsedTokens: null,
+      value: "1234",
+      onChange: vi.fn(),
+    });
+
+    expect(markup).not.toContain("Context left");
+    expect(markup).not.toContain("est. context left");
+  });
+
   it("does not render slash buttons above the composer", () => {
     const markup = renderChatInput();
 
@@ -209,7 +245,10 @@ describe("ChatInput composer controls", () => {
       },
     });
 
-    const permissionButton = getButtonTagByText(markup, "minimal");
+    const permissionButton = getButtonTagByAriaLabel(
+      markup,
+      "minimal permissions",
+    );
     const searchButton = getButtonTagByText(markup, "Search");
     expect(permissionButton).not.toBeNull();
     expect(searchButton).not.toBeNull();

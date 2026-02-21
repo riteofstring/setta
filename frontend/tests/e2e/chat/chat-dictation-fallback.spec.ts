@@ -9,6 +9,39 @@ import {
   setOverviewTab,
 } from "../helpers";
 
+async function setProjectChatMicrophoneSource(
+  page: Page,
+  sourceLabel: string,
+): Promise<void> {
+  const overviewPane = page.locator("#OverviewPane");
+  await overviewPane
+    .getByRole("button", { name: "Project AI Settings" })
+    .click();
+  const micSourceInput = page.getByPlaceholder("Microphone source");
+  await expect(micSourceInput).toBeVisible();
+  await micSourceInput.fill(sourceLabel);
+  await micSourceInput.press("Enter");
+  const selectedSource = await micSourceInput.inputValue();
+  if (
+    sourceLabel === "Always provider" &&
+    selectedSource.includes("requires LLM engine")
+  ) {
+    const engineInput = page.getByPlaceholder("Select an engine");
+    await expect(engineInput).toBeVisible();
+    await engineInput.fill("setta");
+    await engineInput.press("Enter");
+    await micSourceInput.fill(sourceLabel);
+    await micSourceInput.press("Enter");
+  }
+  const escapedSourceLabel = sourceLabel.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&",
+  );
+  await expect(micSourceInput).toHaveValue(
+    new RegExp(`^${escapedSourceLabel}`),
+  );
+}
+
 test("project chat falls back to browser dictation when provider capture fails in auto mode", async ({
   page,
 }) => {
@@ -311,10 +344,7 @@ test("project chat browser-only dictation mode skips provider capture", async ({
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
 
-    await overviewPane
-      .getByRole("button", { name: "Project AI Settings" })
-      .click();
-    await page.getByLabel("Microphone source").selectOption("browser");
+    await setProjectChatMicrophoneSource(page, "Always browser / OS");
 
     const micButton = overviewPane.getByRole("button", { name: "Mic" });
     await expect(micButton).toBeVisible();
@@ -412,10 +442,7 @@ test("project chat releases provider mic stream when recorder start fails", asyn
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
 
-    await overviewPane
-      .getByRole("button", { name: "Project AI Settings" })
-      .click();
-    await page.getByLabel("Microphone source").selectOption("provider");
+    await setProjectChatMicrophoneSource(page, "Always provider");
 
     const micButton = overviewPane.getByRole("button", { name: "Mic" });
     await expect(micButton).toBeVisible();

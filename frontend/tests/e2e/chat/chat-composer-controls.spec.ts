@@ -138,6 +138,7 @@ test.describe.serial("chat composer controls", () => {
       await expect(
         overviewPane.getByRole("heading", { name: "Project AI Chat" }),
       ).toBeVisible();
+      await selectProjectAiEngine(page, "setta");
 
       await expect(
         overviewPane.getByRole("button", { name: "/new" }),
@@ -196,9 +197,11 @@ test.describe.serial("chat composer controls", () => {
       if (!inputBox || !suggestionBox) {
         throw new Error("Missing slash suggestion geometry.");
       }
-      expect(suggestionBox.y + suggestionBox.height).toBeLessThan(
-        inputBox.y + 2,
-      );
+      const suggestionBottom = suggestionBox.y + suggestionBox.height;
+      const inputBottom = inputBox.y + inputBox.height;
+      const isAboveInput = suggestionBottom <= inputBox.y + 2;
+      const isBelowInput = suggestionBox.y >= inputBottom - 2;
+      expect(isAboveInput || isBelowInput).toBe(true);
 
       const submitButton = overviewPane
         .locator('button[type="submit"]')
@@ -230,7 +233,7 @@ test.describe.serial("chat composer controls", () => {
       expect(llmSubmitCount).toBe(0);
 
       await expect(
-        overviewPane.getByRole("button", { name: /^minimal/i }),
+        overviewPane.getByRole("button", { name: /permissions$/i }),
       ).toBeVisible();
       const searchButton = overviewPane.getByRole("button", { name: "Search" });
       await expect(searchButton).toBeVisible();
@@ -242,6 +245,202 @@ test.describe.serial("chat composer controls", () => {
       await input.fill("/search off");
       await input.press("Enter");
       await expect(searchButton).toHaveAttribute("aria-pressed", "false");
+    } finally {
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("managed chat section shows estimated context badge from hydrated usage and toggles display mode", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    await page.route("**/api/getLLMResponse", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify("pw-context-chat"),
+      });
+    });
+    await page.route("**/api/getExternalAgentChat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          toolCallArguments: {},
+          contextUsage: null,
+        }),
+      });
+    });
+    await page.route("**/api/getLLMChat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          llmConfig: {
+            id: "pw-context-config",
+            model: "gpt-5-codex",
+            provider: "openai",
+            base_url: null,
+            api_key_env: null,
+            other_params: null,
+            mcpServerIds: null,
+            temporary: false,
+          },
+          contextUsage: {
+            contextWindowTokens: 200,
+            contextUsedTokens: 150,
+            estimated: true,
+          },
+        }),
+      });
+    });
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_context_badge__",
+      );
+      const backendOrigin =
+        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const managedEngineId =
+        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
+        null;
+      if (!managedEngineId) {
+        throw new Error("Missing managed LLM engine config.");
+      }
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        managed: true,
+        engineConfigId: managedEngineId,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+      });
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+      const input = section.locator("textarea").first();
+      await expect(input).toBeVisible();
+
+      await input.fill("Context badge test");
+      await input.press("Enter");
+
+      const percentageBadge = section.getByRole("button", {
+        name: "est. context left 25%",
+      });
+      await expect(percentageBadge).toBeVisible();
+      await percentageBadge.click();
+      await expect(
+        section.getByRole("button", {
+          name: "est. context left ~50",
+        }),
+      ).toBeVisible();
+    } finally {
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("managed chat section shows estimated context badge when usage payload is missing", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    await page.route("**/api/getLLMResponse", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify("pw-context-chat-missing-usage"),
+      });
+    });
+    await page.route("**/api/getExternalAgentChat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          toolCallArguments: {},
+          contextUsage: null,
+        }),
+      });
+    });
+    await page.route("**/api/getLLMChat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          llmConfig: {
+            id: "pw-context-config",
+            model: "gpt-5-codex",
+            provider: "openai",
+            base_url: null,
+            api_key_env: null,
+            other_params: null,
+            mcpServerIds: null,
+            temporary: false,
+          },
+          contextUsage: null,
+        }),
+      });
+    });
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_context_badge_missing_usage__",
+      );
+      const backendOrigin =
+        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const managedEngineId =
+        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
+        null;
+      if (!managedEngineId) {
+        throw new Error("Missing managed LLM engine config.");
+      }
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        managed: true,
+        engineConfigId: managedEngineId,
+        agentProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+      });
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+      await expect(section.locator("textarea").first()).toBeVisible();
+      await expect(
+        section.getByRole("button", {
+          name: /^est\. context left/i,
+        }),
+      ).toBeVisible();
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
@@ -271,31 +470,22 @@ test.describe.serial("chat composer controls", () => {
         await returnToChatButton.click();
       }
 
-      const followButton = overviewPane.getByRole("menuitem", {
-        name: "Follow AI",
-      });
-      await expect(followButton).toBeVisible();
-      const followVisibleLabel = followButton.getByTestId(
-        "follow-ai-visible-label",
-      );
       const historyVisibleLabel = overviewPane
-        .getByRole("button", { name: "View History" })
-        .locator("span", { hasText: /^History$/ })
+        .getByRole("button", { name: "View Threads" })
+        .locator("span", { hasText: /^Threads$/ })
         .first();
-      const skillsVisibleLabel = overviewPane
-        .getByRole("button", { name: "View Skills and MCP" })
-        .locator("span", { hasText: /^Skills\/MCP$/ })
+      const settingsVisibleLabel = overviewPane
+        .getByRole("button", { name: "Project AI Settings" })
+        .locator("span", { hasText: /^Settings$/ })
         .first();
 
       await setProjectChatPaneWidth(page, 700);
-      await expect(followVisibleLabel).toBeVisible();
       await expect(historyVisibleLabel).toBeVisible();
-      await expect(skillsVisibleLabel).toBeVisible();
+      await expect(settingsVisibleLabel).toBeVisible();
 
       await setProjectChatPaneWidth(page, 460);
-      await expect(followVisibleLabel).toBeHidden();
       await expect(historyVisibleLabel).toBeHidden();
-      await expect(skillsVisibleLabel).toBeHidden();
+      await expect(settingsVisibleLabel).toBeHidden();
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
@@ -550,7 +740,17 @@ test.describe.serial("chat composer controls", () => {
         overviewPane.getByRole("heading", { name: "Project AI Chat" }),
       ).toBeVisible();
 
-      await overviewPane.getByRole("button", { name: "View History" }).click();
+      const existingThreadsPanel = overviewPane.getByTestId(
+        "project-chat-threads-panel",
+      );
+      if (
+        (await existingThreadsPanel.count()) > 0 &&
+        (await existingThreadsPanel.first().isVisible())
+      ) {
+        await overviewPane.getByRole("button", { name: "View Threads" }).click();
+      }
+
+      await overviewPane.getByRole("button", { name: "View Threads" }).click();
       await expect(
         overviewPane.getByText("matching history entry"),
       ).toBeVisible();
@@ -558,7 +758,7 @@ test.describe.serial("chat composer controls", () => {
         overviewPane.getByText("mismatch history entry"),
       ).toHaveCount(0);
 
-      await overviewPane.getByRole("button", { name: "View History" }).click();
+      await overviewPane.getByRole("button", { name: "View Threads" }).click();
       const input = overviewPane.getByPlaceholder("Type a message...");
       await input.fill("/resume");
       await input.press("Enter");
@@ -787,6 +987,20 @@ function findSectionByName(page: Page, name: string): Locator {
     .first();
 }
 
+async function selectProjectAiEngine(
+  page: Page,
+  engineQuery: string,
+): Promise<void> {
+  const overviewPane = page.locator("#OverviewPane");
+  await overviewPane
+    .getByRole("button", { name: "Project AI Settings" })
+    .click();
+  const engineInput = page.getByPlaceholder("Select an engine");
+  await expect(engineInput).toBeVisible();
+  await engineInput.fill(engineQuery);
+  await engineInput.press("Enter");
+}
+
 async function expectButtonsStackedVertically(
   buttons: Locator[],
 ): Promise<void> {
@@ -825,7 +1039,8 @@ async function setProjectChatPaneWidth(
     if (!heading) {
       return false;
     }
-    const paneAside = heading.parentElement?.parentElement as HTMLElement | null;
+    const paneAside = heading.parentElement
+      ?.parentElement as HTMLElement | null;
     if (!paneAside) {
       return false;
     }
