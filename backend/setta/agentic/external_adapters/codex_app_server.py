@@ -73,6 +73,7 @@ _COMMAND_EXECUTION_TOOL_NAME = "command_execution"
 _FILE_CHANGE_TOOL_NAME = "file_change"
 _MAX_CLI_STDERR_LINES = 200
 _REQUEST_TIMEOUT_SECONDS = 15.0
+_MCP_STATUS_REQUEST_TIMEOUT_SECONDS = 1.0
 
 
 @dataclass
@@ -156,6 +157,7 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
 
             turn_params = _build_turn_params(context, prompt, thread_id)
             await self._send_request(state, "turn/start", turn_params)
+            await self._maybe_capture_mcp_server_status(state, handle)
             return handle
         except Exception:
             state.lock.release()
@@ -550,8 +552,34 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
         except asyncio.TimeoutError:
             return None
 
+    async def _maybe_capture_mcp_server_status(
+        self,
+        state: _CodexAppServerState,
+        handle: ExternalAgentRunHandle,
+    ) -> None:
+        try:
+            mcp_status_payload = await self._send_request(
+                state,
+                "mcpServerStatus/list",
+                {},
+                timeout_seconds=_MCP_STATUS_REQUEST_TIMEOUT_SECONDS,
+            )
+        except Exception as exc:
+            logger.debug(
+                "Codex MCP status request failed (run_id=%s): %s",
+                handle.run_id,
+                exc,
+            )
+            return
+        handle.metadata["mcp_server_status_payload"] = mcp_status_payload
+
     async def _send_request(
-        self, state: _CodexAppServerState, method: str, params: dict[str, Any] | None
+        self,
+        state: _CodexAppServerState,
+        method: str,
+        params: dict[str, Any] | None,
+        *,
+        timeout_seconds: float = _REQUEST_TIMEOUT_SECONDS,
     ) -> dict[str, Any]:
         process = state.process
         if process.stdin is None:
@@ -566,14 +594,14 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
         process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
         await process.stdin.drain()
         try:
-            response = await asyncio.wait_for(future, timeout=_REQUEST_TIMEOUT_SECONDS)
+            response = await asyncio.wait_for(future, timeout=timeout_seconds)
         except asyncio.TimeoutError as exc:
             state.pending_requests.pop(request_id, None)
             if not future.done():
                 future.cancel()
             raise RuntimeError(
                 "Codex app-server request timed out "
-                f"(method={method}, timeout={_REQUEST_TIMEOUT_SECONDS}s)"
+                f"(method={method}, timeout={timeout_seconds}s)"
             ) from exc
         if "error" in response:
             raise RuntimeError(

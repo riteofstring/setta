@@ -5,10 +5,10 @@ import {
   useNavigate,
   useParams,
 } from "react-router-dom";
+import { persistActiveViewMode } from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { VIEW_MODE_ROUTER_PATH } from "utils/constants";
-import { route_set_active_view_mode } from "utils/generatedEndpoints";
 
 type ViewModeUrlSyncOptions = {
   enabled: boolean;
@@ -86,10 +86,7 @@ export function useViewModeUrlSync({ enabled }: ViewModeUrlSyncOptions) {
       id: requestedViewModeId,
       activeAtRequest: activeViewModeId ?? null,
     };
-    void route_set_active_view_mode({
-      projectConfigId,
-      activeViewModeId: requestedViewModeId,
-    });
+    persistActiveViewMode(projectConfigId, requestedViewModeId);
   }, [
     activeViewModeId,
     canEditVariants,

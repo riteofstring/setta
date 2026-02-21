@@ -26,8 +26,13 @@ preview/editor surface.
 - Default ignore patterns include `.git`, `node_modules`, `.venv`, `dist`, `build`,
   `__pycache__`, and `setta_files`.
 - The root defaults to the workspace root (which defaults to the backend CWD when
-  no workspace override is provided) and must stay inside the project root. Attempts
-  to browse outside the project root fail with a 403.
+  no workspace override is provided).
+- `FileBrowserPane` supports an `allowOutsideWorkspaceRoot` flag:
+  - default `false`: root + folder browsing is restricted to workspace-root-relative paths.
+  - `true`: absolute path browsing is allowed (subject to backend existence/permission checks).
+- Overview Explorer keeps `allowOutsideWorkspaceRoot=false`; Home workspace browser
+  enables `allowOutsideWorkspaceRoot=true` so the path bar can jump to folders
+  outside the workspace root.
 - The pane currently does not expose a root-path input; consumers change the root by
   updating file browser state.
 - The Home page wrapper adds a root path input (`home-file-browser-path-input`) and
@@ -41,7 +46,8 @@ preview/editor surface.
   can render.
 - Consumers can request Setta initialization metadata with
   `includeSettaInitialized=true`; folder entries then include
-  `isSettaInitialized` when that folder contains a `setta_files/` directory.
+  `isSettaInitialized` when that folder has Setta state (local `setta_files/`,
+  local `setta_files_dev/`, or a resolved global setta-files directory for that path).
 
 ## Sorting And Columns
 
@@ -90,6 +96,9 @@ preview/editor surface.
   `includeSettaInitializedFolders` to `FileBrowserPane`.
 - When toggled on, the pane refreshes root + currently expanded folders so badge
   metadata becomes available without manual collapse/expand.
+- Root-folder badge state is fetched through `route_check_workspace_initialized`
+  because `route_get_folder_contents` returns metadata for children, not the root
+  node entry itself.
 - Badge refresh requests use a bounded concurrency limit
   (`SETTA_BADGE_REFRESH_CONCURRENCY_LIMIT = 8`).
 - Badge rendering is folder-only and uses `data-testid="setta-initialized-badge"`

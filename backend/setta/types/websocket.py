@@ -9,7 +9,11 @@ from setta.project_state.project_manager_types import (
     ProjectStateSingleConfigWithCompletedOpIds,
     RenameRefactorBroadcastContent,
 )
-from setta.types.agentic import AgentProfileList, EngineConfigList
+from setta.types.agentic import (
+    AgentProfileList,
+    EngineConfigList,
+    TranscriptionProfileList,
+)
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
 from setta.types.chat_stream_events import LLMStreamingResponse
@@ -57,11 +61,11 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     LLMApiKeysUpdated = "LLMApiKeysUpdated"
     AIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
     AIFollowToolResultUpdate = "AIFollowToolResultUpdate"
-    UISettingReveal = "UISettingReveal"
     AgentProfilesUpdated = "AgentProfilesUpdated"
     PromptTemplatesUpdated = "PromptTemplatesUpdated"
     ExternalAgentConfigsUpdated = "ExternalAgentConfigsUpdated"
     EngineConfigsUpdated = "EngineConfigsUpdated"
+    TranscriptionProfilesUpdated = "TranscriptionProfilesUpdated"
 
 
 class WebsocketMsgTypeForBackend(str, Enum):
@@ -260,6 +264,13 @@ class WebsocketMsgEngineConfigsUpdated(FrontendWebsocketMsg):
     )
 
 
+class WebsocketMsgTranscriptionProfilesUpdated(FrontendWebsocketMsg):
+    content: TranscriptionProfileList
+    messageType: Literal[WebsocketMsgTypeForFrontend.TranscriptionProfilesUpdated] = (
+        WebsocketMsgTypeForFrontend.TranscriptionProfilesUpdated
+    )
+
+
 class AIFollowToolArgumentsUpdateContent(BaseModel):
     projectConfigId: ID
     chatId: ID
@@ -283,33 +294,6 @@ class WebsocketMsgAIFollowToolResultUpdate(FrontendWebsocketMsg):
     content: AIFollowToolResultUpdateContent
     messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowToolResultUpdate] = (
         WebsocketMsgTypeForFrontend.AIFollowToolResultUpdate
-    )
-
-
-class UISettingRevealTarget(BaseModel):
-    settingId: str
-    side: Literal["left", "right"]
-    overviewTabKey: str | None = None
-    uiEditorTabName: str | None = None
-    pluginId: str | None = None
-    paneId: str | None = None
-    strategy: Literal["dom_anchor", "plugin_handler"]
-    anchorId: str | None = None
-    pluginRevealKey: str | None = None
-
-
-class UISettingRevealContent(BaseModel):
-    projectConfigId: ID
-    chatId: ID | None = None
-    reveals: list[UISettingRevealTarget]
-    durationMs: int = 3000
-    requestId: str
-
-
-class WebsocketMsgUISettingReveal(FrontendWebsocketMsg):
-    content: UISettingRevealContent
-    messageType: Literal[WebsocketMsgTypeForFrontend.UISettingReveal] = (
-        WebsocketMsgTypeForFrontend.UISettingReveal
     )
 
 
