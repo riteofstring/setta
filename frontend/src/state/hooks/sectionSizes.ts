@@ -332,11 +332,6 @@ export function useIsScrollable(options: UseIsScrollableOptions = {}) {
   const [isScrollableHorizontal, setIsScrollableHorizontal] = useState(false);
   const elementRef = useRef<HTMLDivElement>(null);
   const onMeasureRef = useRef<UseIsScrollableOptions["onMeasure"]>(null);
-  const frameRef = useRef<number | null>(null);
-  const scrollableRef = useRef({
-    vertical: false,
-    horizontal: false,
-  });
 
   useEffect(() => {
     onMeasureRef.current = options.onMeasure ?? null;
@@ -346,43 +341,25 @@ export function useIsScrollable(options: UseIsScrollableOptions = {}) {
     if (!elementRef.current) return;
 
     function checkScrollable() {
-      const element = elementRef.current;
-      if (!element) {
-        return;
+      if (elementRef.current) {
+        setIsScrollableVertical(
+          elementRef.current.scrollHeight > elementRef.current.clientHeight,
+        );
+        setIsScrollableHorizontal(
+          elementRef.current.scrollWidth > elementRef.current.clientWidth,
+        );
+        onMeasureRef.current?.(elementRef.current);
       }
-
-      const nextVertical = element.scrollHeight > element.clientHeight;
-      const nextHorizontal = element.scrollWidth > element.clientWidth;
-
-      if (scrollableRef.current.vertical !== nextVertical) {
-        scrollableRef.current.vertical = nextVertical;
-        setIsScrollableVertical(nextVertical);
-      }
-      if (scrollableRef.current.horizontal !== nextHorizontal) {
-        scrollableRef.current.horizontal = nextHorizontal;
-        setIsScrollableHorizontal(nextHorizontal);
-      }
-      onMeasureRef.current?.(element);
-    }
-
-    function scheduleCheck() {
-      if (frameRef.current !== null) {
-        return;
-      }
-      frameRef.current = requestAnimationFrame(() => {
-        frameRef.current = null;
-        checkScrollable();
-      });
     }
 
     // Set up ResizeObserver to monitor size changes
     const resizeObserver = new ResizeObserver(() => {
-      scheduleCheck();
+      checkScrollable();
     });
 
     // Set up MutationObserver to monitor content changes
     const mutationObserver = new MutationObserver(() => {
-      scheduleCheck();
+      checkScrollable();
     });
 
     // Start observing
@@ -395,14 +372,10 @@ export function useIsScrollable(options: UseIsScrollableOptions = {}) {
     });
 
     // Initial check
-    scheduleCheck();
+    checkScrollable();
 
     // Cleanup
     return () => {
-      if (frameRef.current !== null) {
-        cancelAnimationFrame(frameRef.current);
-        frameRef.current = null;
-      }
       resizeObserver.disconnect();
       mutationObserver.disconnect();
     };

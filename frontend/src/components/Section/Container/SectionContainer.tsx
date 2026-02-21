@@ -92,7 +92,10 @@ function _SectionContainer({
   if (isGenPythonMetadata && !hasMetadata) {
     return null;
   }
-  const shouldRender = getSectionShouldRender(visibility, isEditingViewMode);
+
+  if (!getSectionShouldRender(visibility, isEditingViewMode)) {
+    return null;
+  }
 
   return (
     <NodeIdProvider value={sectionId}>
@@ -104,7 +107,6 @@ function _SectionContainer({
         visibility={visibility}
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
-        shouldRender={shouldRender}
       >
         <>
           {!isGroup && isJoinedAttachedTerminalGroup ? (

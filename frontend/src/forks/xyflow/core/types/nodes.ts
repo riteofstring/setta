@@ -9,7 +9,6 @@ export type Node = {
   height: number | null;
   zIndex: number;
   tempZIndex: number;
-  hidden?: boolean;
   type?: string;
   style?: CSSProperties;
 };

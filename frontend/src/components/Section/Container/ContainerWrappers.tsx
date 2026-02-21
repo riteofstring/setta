@@ -17,7 +17,6 @@ function _DndSlotAndDndWatcher({
   visibility,
   isEditingViewMode,
   isUserView,
-  shouldRender,
   children,
 }) {
   const { style, behaviorDropType } = useHighlightDroppable({
@@ -37,7 +36,6 @@ function _DndSlotAndDndWatcher({
         visibility={visibility}
         isEditingViewMode={isEditingViewMode}
         isUserView={isUserView}
-        shouldRender={shouldRender}
         style={style}
       >
         {children}
@@ -54,7 +52,6 @@ export const DndSlotAndDndWatcher = React.memo(
     p.visibility === n.visibility &&
     p.isEditingViewMode === n.isEditingViewMode &&
     p.isUserView === n.isUserView &&
-    p.shouldRender === n.shouldRender &&
     _.isEqual(p.dragListeners, n.dragListeners),
 );
 
@@ -68,7 +65,6 @@ function _DndWatcherAndContainer({
   visibility,
   isEditingViewMode,
   isUserView,
-  shouldRender,
   style,
   children,
 }) {
@@ -114,7 +110,6 @@ function _DndWatcherAndContainer({
       isDraggingSelection,
       visibility,
       isEditingViewMode,
-      shouldRender,
       ancestorHasSameVisibility,
       isSorting,
     ),
@@ -141,15 +136,11 @@ function maybeGetOpacityStyle(
   isDraggingSelection,
   visibility,
   isEditingViewMode,
-  shouldRender,
   ancestorHasSameVisibility,
   isSorting,
 ) {
   if (!visibility && isEditingViewMode) {
     return ancestorHasSameVisibility ? {} : { opacity: 0.3 };
-  }
-  if (!shouldRender) {
-    return { display: "none" };
   }
   if (isDraggingSelection) {
     return { opacity: isSorting ? 0.85 : 0.5 };

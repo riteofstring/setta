@@ -4,6 +4,7 @@ import { memo, useLayoutEffect, useRef } from "react";
 import {
   registerEdgeHandle,
   unregisterEdgeHandle,
+  updateEdgeHandlePosition,
 } from "state/actions/edgeHandles";
 import { useReactFlow } from "../../store";
 import type { Connection, HandleProps } from "../../types";
@@ -44,6 +45,7 @@ function HandleComponent({
       side: position,
       element: handleRef.current,
     });
+    updateEdgeHandlePosition(key);
     const element = handleRef.current;
     if (!element || typeof ResizeObserver === "undefined") {
       return () => unregisterEdgeHandle(nodeId, handleId, type);
