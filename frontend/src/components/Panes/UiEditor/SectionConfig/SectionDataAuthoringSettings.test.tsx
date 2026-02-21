@@ -172,7 +172,6 @@ describe("Section data-authoring settings", () => {
         {
           id: implId,
           viewMode: TaskBoardViewModeEnum.task_list,
-          columns: undefined,
         },
       ),
     });
