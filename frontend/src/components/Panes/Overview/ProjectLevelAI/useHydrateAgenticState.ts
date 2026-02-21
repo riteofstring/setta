@@ -5,7 +5,6 @@ import {
   loadExternalAgentConfigs,
   loadExternalAgentHealth,
   loadPromptTemplates,
-  loadTranscriptionProfiles,
 } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 
@@ -16,7 +15,6 @@ export function useHydrateAgenticState() {
     externalAgentConfigsInitialLoadComplete,
     externalAgentHealthInitialLoadComplete,
     engineConfigsInitialLoadComplete,
-    transcriptionProfilesInitialLoadComplete,
   } = useAIStore((x) => ({
     agentProfilesInitialLoadComplete: x.agentProfilesInitialLoadComplete,
     promptTemplatesInitialLoadComplete: x.promptTemplatesInitialLoadComplete,
@@ -25,8 +23,6 @@ export function useHydrateAgenticState() {
     externalAgentHealthInitialLoadComplete:
       x.externalAgentHealthInitialLoadComplete,
     engineConfigsInitialLoadComplete: x.engineConfigsInitialLoadComplete,
-    transcriptionProfilesInitialLoadComplete:
-      x.transcriptionProfilesInitialLoadComplete,
   }));
 
   useEffect(() => {
@@ -45,15 +41,11 @@ export function useHydrateAgenticState() {
     if (!engineConfigsInitialLoadComplete) {
       void loadEngineConfigs();
     }
-    if (!transcriptionProfilesInitialLoadComplete) {
-      void loadTranscriptionProfiles();
-    }
   }, [
     agentProfilesInitialLoadComplete,
     promptTemplatesInitialLoadComplete,
     externalAgentConfigsInitialLoadComplete,
     externalAgentHealthInitialLoadComplete,
     engineConfigsInitialLoadComplete,
-    transcriptionProfilesInitialLoadComplete,
   ]);
 }

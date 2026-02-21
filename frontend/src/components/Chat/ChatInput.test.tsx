@@ -7,8 +7,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   areSlashSuggestionsPortalStylesEqual,
   ChatInput,
-  resolveDictationStartPath,
-  resolveDictationUnavailableFeedback,
+  cycleQueuedDraftSelection,
+  enqueueQueuedDraft,
+  isStopEscapeKey,
 } from "./ChatInput";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
@@ -195,6 +196,42 @@ describe("ChatInput composer controls", () => {
     expect(markup).not.toContain("Skills");
   });
 
+  it("renders a context-left badge when context limits are provided", () => {
+    const markup = renderChatInput({
+      contextWindowTokens: 200,
+      contextUsedTokens: 150,
+      value: "1234",
+      onChange: vi.fn(),
+    });
+
+    expect(markup).toContain("Context left 25%");
+    expect(markup).toContain("Show remaining context tokens");
+  });
+
+  it("renders estimated context label when usage is estimated", () => {
+    const markup = renderChatInput({
+      contextWindowTokens: 200,
+      contextUsedTokens: 150,
+      contextUsageIsEstimated: true,
+      value: "1234",
+      onChange: vi.fn(),
+    });
+
+    expect(markup).toContain("est. context left 25%");
+  });
+
+  it("does not render context badge when used tokens are unavailable", () => {
+    const markup = renderChatInput({
+      contextWindowTokens: 200,
+      contextUsedTokens: null,
+      value: "1234",
+      onChange: vi.fn(),
+    });
+
+    expect(markup).not.toContain("Context left");
+    expect(markup).not.toContain("est. context left");
+  });
+
   it("does not render slash buttons above the composer", () => {
     const markup = renderChatInput();
 
@@ -214,12 +251,31 @@ describe("ChatInput composer controls", () => {
       },
     });
 
-    const permissionButton = getButtonTagByText(markup, "minimal");
+    const permissionButton = getButtonTagByAriaLabel(
+      markup,
+      "minimal permissions",
+    );
     const searchButton = getButtonTagByText(markup, "Search");
     expect(permissionButton).not.toBeNull();
     expect(searchButton).not.toBeNull();
     expect(permissionButton).toContain("disabled");
     expect(searchButton).toContain("disabled");
+  });
+
+  it("keeps attachment controls inside the textarea", () => {
+    const markup = renderChatInput();
+    const attachmentButton = getButtonTagByAriaLabel(
+      markup,
+      "Attachment options",
+    );
+    const textareaClassName = getTextareaClassName(markup);
+
+    expect(markup).not.toContain('data-chat-composer-side-rail="true"');
+    expect(attachmentButton).not.toBeNull();
+    expect(attachmentButton).toContain("absolute left-1.5 top-1.5");
+    expect(textareaClassName).not.toBeNull();
+    expect(textareaClassName).toContain("pl-9");
+    expect(textareaClassName).not.toContain("pl-3");
   });
 
   it("defaults slash suggestions to below placement", () => {
@@ -288,36 +344,88 @@ describe("areSlashSuggestionsPortalStylesEqual", () => {
   });
 });
 
-describe("dictation mode resolution", () => {
-  it("falls back to browser in auto mode when provider is unavailable", () => {
-    const path = resolveDictationStartPath({
-      dictationMode: "auto",
-      canProviderDictate: false,
-      canBrowserDictate: true,
-    });
-
-    expect(path).toBe("browser");
+describe("isStopEscapeKey", () => {
+  it("returns true for Escape without modifiers", () => {
+    expect(
+      isStopEscapeKey({
+        key: "Escape",
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      }),
+    ).toBe(true);
   });
 
-  it("never routes browser mode through provider capture", () => {
-    const path = resolveDictationStartPath({
-      dictationMode: "browser",
-      canProviderDictate: true,
-      canBrowserDictate: true,
-    });
-
-    expect(path).toBe("browser");
+  it("returns false when Escape includes modifiers", () => {
+    expect(
+      isStopEscapeKey({
+        key: "Escape",
+        shiftKey: true,
+        altKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      }),
+    ).toBe(false);
+    expect(
+      isStopEscapeKey({
+        key: "Escape",
+        shiftKey: false,
+        altKey: false,
+        metaKey: true,
+        ctrlKey: false,
+      }),
+    ).toBe(false);
   });
 
-  it("uses explicit provider-unavailable messaging in provider mode", () => {
-    const feedback = resolveDictationUnavailableFeedback({
-      dictationMode: "provider",
-      providerUnavailableMessage:
-        "Provider dictation requires a valid transcription config.",
-    });
+  it("returns false for non-Escape keys", () => {
+    expect(
+      isStopEscapeKey({
+        key: "Enter",
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      }),
+    ).toBe(false);
+  });
+});
 
-    expect(feedback).toBe(
-      "Provider dictation requires a valid transcription config.",
+describe("queued draft helpers", () => {
+  const draftA = {
+    id: "queued-a",
+    message: "First queued message",
+    attachments: [],
+    queuedAtMs: 1,
+  };
+  const draftB = {
+    id: "queued-b",
+    message: "Second queued message",
+    attachments: [],
+    queuedAtMs: 2,
+  };
+
+  it("adds prioritized drafts at the front of the queue", () => {
+    const queue = enqueueQueuedDraft([draftA], draftB, true);
+    expect(queue.map((draft) => draft.id)).toEqual(["queued-b", "queued-a"]);
+  });
+
+  it("adds non-prioritized drafts at the end of the queue", () => {
+    const queue = enqueueQueuedDraft([draftA], draftB, false);
+    expect(queue.map((draft) => draft.id)).toEqual(["queued-a", "queued-b"]);
+  });
+
+  it("cycles queue selection forward and backward", () => {
+    const queue = [draftA, draftB];
+    expect(cycleQueuedDraftSelection(queue, null, "next")).toBe("queued-a");
+    expect(cycleQueuedDraftSelection(queue, "queued-a", "next")).toBe(
+      "queued-b",
+    );
+    expect(cycleQueuedDraftSelection(queue, "queued-b", "next")).toBe(
+      "queued-a",
+    );
+    expect(cycleQueuedDraftSelection(queue, "queued-a", "prev")).toBe(
+      "queued-b",
     );
   });
 });

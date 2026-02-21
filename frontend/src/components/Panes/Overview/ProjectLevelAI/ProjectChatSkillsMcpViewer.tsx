@@ -8,25 +8,21 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { useAIStore } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
+  route_call_mcp_tool,
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
-  route_get_mcp_server_runtime_status,
+  route_get_setta_home_info,
   route_reveal_path_in_os_file_explorer,
 } from "utils/generatedEndpoints";
+import { type AppGenSkillEntry } from "utils/generatedTypes";
 import {
-  type AppGenSkillEntry,
-  type BaseChatMessageUnion,
-  type EngineType,
-  type ExternalAgentToolType,
-  type MCPServerRuntimeState,
-  type MCPServerRuntimeStatus,
-} from "utils/generatedTypes";
-import {
-  buildMcpStatusSummary,
-  buildSkillStatusBySkillId,
+  buildSlashCommandsByEngine,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
+  type McpRuntimeServerStatus,
+  parseMcpServerRuntimeStatuses,
+  resolveMcpServerStatus,
 } from "./projectChatSkillsMcpViewerUtils";
 
 type PathGroupHeaderProps = {
@@ -34,13 +30,6 @@ type PathGroupHeaderProps = {
   path: string | null;
   onCopyPath: (path: string | null) => void;
   onRevealPath: (path: string | null) => void;
-};
-
-type ProjectChatSkillsMcpViewerProps = {
-  chatId: string | null | undefined;
-  engineConfigId: string | null;
-  engineType: EngineType | null;
-  externalAgentToolType: ExternalAgentToolType | null;
 };
 
 const SKILL_MARKDOWN_VIEWER_STORAGE_KEY =
@@ -102,84 +91,20 @@ function PathGroupHeader({
   );
 }
 
-function formatMcpStatusLabel(state: MCPServerRuntimeState): string {
-  if (state === "connected") {
-    return "Connected";
-  }
-  if (state === "connecting") {
-    return "Connecting";
-  }
-  if (state === "retrying") {
-    return "Retrying";
-  }
-  if (state === "error") {
-    return "Error";
-  }
-  if (state === "disabled") {
-    return "Disabled";
-  }
-  return "Unknown";
-}
-
-function getMcpStatusBadgeClassName(state: MCPServerRuntimeState): string {
-  if (state === "connected") {
-    return "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300";
-  }
-  if (state === "connecting") {
-    return "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-700 dark:bg-sky-900/30 dark:text-sky-300";
-  }
-  if (state === "retrying") {
-    return "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300";
-  }
-  if (state === "error") {
-    return "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-900/30 dark:text-rose-300";
-  }
-  if (state === "disabled") {
-    return "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/30 dark:text-slate-300";
-  }
-  return "border-setta-300 bg-setta-100 text-setta-700 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-200";
-}
-
-type McpServerDetailEntry = Pick<
-  MCPServerRuntimeStatus,
-  | "state"
-  | "transport"
-  | "endpoint"
-  | "toolCount"
-  | "lastError"
-  | "missingEnvVar"
->;
-
-function buildMcpServerDetail(server: McpServerDetailEntry): string {
-  if (server.state === "connected") {
-    return `${server.transport} · ${server.endpoint} · tools ${server.toolCount}`;
-  }
-  const detailParts = [server.transport, server.endpoint];
-  if (server.missingEnvVar) {
-    detailParts.push(`missing ${server.missingEnvVar}`);
-  }
-  if (server.lastError) {
-    detailParts.push(server.lastError);
-  }
-  return detailParts.join(" · ");
-}
-
-export function ProjectChatSkillsMcpViewer({
-  chatId,
-  engineConfigId,
-  engineType,
-  externalAgentToolType,
-}: ProjectChatSkillsMcpViewerProps) {
-  const chatMessages = useAIStore((state): BaseChatMessageUnion[] | null => {
-    if (!chatId) {
-      return null;
-    }
-    const details = state.chatDetails[chatId];
-    if (!details) {
-      return null;
-    }
-    return details.messages;
-  });
+export function ProjectChatSkillsMcpViewer() {
+  const apiKeys = useAIStore((state) => state.apiKeys);
+  const engineConfigs = useAIStore((state) => state.engineConfigs);
+  const engineConfigsInitialLoadComplete = useAIStore(
+    (state) => state.engineConfigsInitialLoadComplete,
+  );
+  const externalAgentHealth = useAIStore((state) => state.externalAgentHealth);
+  const externalAgentHealthInitialLoadComplete = useAIStore(
+    (state) => state.externalAgentHealthInitialLoadComplete,
+  );
+  const allLLMConfigs = useAIStore((state) => state.allLLMConfigs);
+  const allLLMConfigsInitialLoadComplete = useAIStore(
+    (state) => state.allLLMConfigsInitialLoadComplete,
+  );
   const codeMirrorTheme = useCodeMirrorStyle();
   const [skills, setSkills] = useState<AppGenSkillEntry[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(true);
@@ -207,25 +132,19 @@ export function ProjectChatSkillsMcpViewer({
   const [settaFilesLocation, setSettaFilesLocation] = useState<string | null>(
     null,
   );
-  const [mcpRuntimeStatuses, setMcpRuntimeStatuses] = useState<
-    MCPServerRuntimeStatus[]
-  >([]);
-  const [externalMcpRuntimeStatuses, setExternalMcpRuntimeStatuses] = useState<
-    MCPServerRuntimeStatus[]
-  >([]);
-  const [mcpServersLoading, setMcpServersLoading] = useState(true);
-  const [mcpServersError, setMcpServersError] = useState<string | null>(null);
+  const [mcpConfigInfoLoading, setMcpConfigInfoLoading] = useState(true);
+  const [mcpRuntimeStatusLoading, setMcpRuntimeStatusLoading] = useState(true);
+  const [mcpRuntimeStatusError, setMcpRuntimeStatusError] = useState<
+    string | null
+  >(null);
+  const [mcpRuntimeStatusByServerId, setMcpRuntimeStatusByServerId] = useState<
+    Record<string, McpRuntimeServerStatus> | null
+  >(null);
+  const [selectedSlashEngineId, setSelectedSlashEngineId] = useState<
+    string | null
+  >(null);
   const [skillsRevision, setSkillsRevision] = useState(0);
   const skillsRefreshInFlight = useRef(false);
-  const mcpStatusRefreshInFlight = useRef(false);
-  const mcpStatusRefreshQueued = useRef(false);
-  const mcpStatusRequestParamsRef = useRef<{
-    chatId: string | null;
-    engineConfigId: string | null;
-  }>({
-    chatId: chatId ?? null,
-    engineConfigId: engineConfigId ?? null,
-  });
   const skillContentRequestSequence = useRef(0);
   const selectedSkillIdRef = useRef<string | null>(null);
   const skillContentCache = useRef(
@@ -271,65 +190,9 @@ export function ProjectChatSkillsMcpViewer({
     }
   }, []);
 
-  const refreshMcpServerStatuses = useCallback(async () => {
-    if (mcpStatusRefreshInFlight.current) {
-      mcpStatusRefreshQueued.current = true;
-      return;
-    }
-    mcpStatusRefreshInFlight.current = true;
-    setMcpServersLoading(true);
-    setMcpServersError(null);
-    try {
-      while (true) {
-        mcpStatusRefreshQueued.current = false;
-        const requestParams = {
-          chatId: mcpStatusRequestParamsRef.current.chatId,
-          engineConfigId: mcpStatusRequestParamsRef.current.engineConfigId,
-        };
-        const res = await route_get_mcp_server_runtime_status(requestParams);
-        const requestParamsStillCurrent =
-          requestParams.chatId === mcpStatusRequestParamsRef.current.chatId &&
-          requestParams.engineConfigId ===
-            mcpStatusRequestParamsRef.current.engineConfigId;
-        if (!requestParamsStillCurrent) {
-          mcpStatusRefreshQueued.current = true;
-        }
-        if (requestParamsStillCurrent) {
-          if (!res200(res)) {
-            const detail = getErrorDetail(res.data);
-            setMcpServersError(detail ?? "Failed to load MCP runtime status.");
-            setMcpRuntimeStatuses([]);
-            setExternalMcpRuntimeStatuses([]);
-            setMcpConfigPath(null);
-            setSettaFilesLocation(null);
-          } else {
-            setMcpRuntimeStatuses(res.data.servers);
-            setExternalMcpRuntimeStatuses(res.data.externalServers);
-            setMcpConfigPath(res.data.llmConfigPath);
-            setSettaFilesLocation(res.data.activeSettaFilesLocation);
-          }
-        }
-        if (!mcpStatusRefreshQueued.current) {
-          break;
-        }
-      }
-    } finally {
-      setMcpServersLoading(false);
-      mcpStatusRefreshInFlight.current = false;
-    }
-  }, []);
-
   useEffect(() => {
     void refreshSkillsBrowser();
   }, [refreshSkillsBrowser]);
-
-  useEffect(() => {
-    mcpStatusRequestParamsRef.current = {
-      chatId: chatId ?? null,
-      engineConfigId: engineConfigId ?? null,
-    };
-    void refreshMcpServerStatuses();
-  }, [chatId, engineConfigId, refreshMcpServerStatuses]);
 
   useEffect(() => {
     selectedSkillIdRef.current = selectedSkillId;
@@ -398,6 +261,77 @@ export function ProjectChatSkillsMcpViewer({
   }, [isSkillMarkdownViewerOpen, selectedSkillId, skillsRevision]);
 
   useEffect(() => {
+    async function loadMcpConfigPath() {
+      setMcpConfigInfoLoading(true);
+      const res = await route_get_setta_home_info();
+      if (!res200(res)) {
+        setMcpConfigPath(null);
+        setSettaFilesLocation(null);
+        setMcpConfigInfoLoading(false);
+        return;
+      }
+      setMcpConfigPath(res.data.llmConfigPath);
+      setSettaFilesLocation(res.data.activeSettaFilesLocation);
+      setMcpConfigInfoLoading(false);
+    }
+    void loadMcpConfigPath();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMcpRuntimeStatus() {
+      if (!allLLMConfigsInitialLoadComplete) {
+        return;
+      }
+      setMcpRuntimeStatusLoading(true);
+      setMcpRuntimeStatusError(null);
+      const res = await route_call_mcp_tool({
+        tool: "get_mcp_server_runtime_status",
+        arguments: {},
+      });
+      if (cancelled) {
+        return;
+      }
+      if (!res200(res)) {
+        const detail = getErrorDetail(res.data);
+        const resolvedError =
+          res.status === 404
+            ? detail?.includes("Unknown tool: get_mcp_server_runtime_status")
+              ? "MCP runtime status tool is not loaded by the backend process yet. Restart Setta to apply the latest MCP status checks."
+              : "MCP status endpoint is unavailable in this mode."
+            : (detail ?? "Failed to query MCP runtime registration.");
+        setMcpRuntimeStatusError(resolvedError);
+        setMcpRuntimeStatusByServerId(null);
+        setMcpRuntimeStatusLoading(false);
+        return;
+      }
+      if (res.data.isError === true) {
+        setMcpRuntimeStatusError(
+          "MCP runtime reported an error while querying server status.",
+        );
+        setMcpRuntimeStatusByServerId(null);
+        setMcpRuntimeStatusLoading(false);
+        return;
+      }
+      const runtimeStatuses = parseMcpServerRuntimeStatuses(res.data);
+      if (!runtimeStatuses) {
+        setMcpRuntimeStatusError(
+          "MCP runtime status response is malformed for this mode.",
+        );
+        setMcpRuntimeStatusByServerId(null);
+        setMcpRuntimeStatusLoading(false);
+        return;
+      }
+      setMcpRuntimeStatusByServerId(runtimeStatuses);
+      setMcpRuntimeStatusLoading(false);
+    }
+    void loadMcpRuntimeStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [allLLMConfigs?.mcpServers, allLLMConfigsInitialLoadComplete]);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -410,34 +344,60 @@ export function ProjectChatSkillsMcpViewer({
   const filteredSkills = useMemo(() => {
     return filterSkills(skills, skillFilter);
   }, [skillFilter, skills]);
-  const skillStatusBySkillId = useMemo(() => {
-    return buildSkillStatusBySkillId({
-      skills,
-      engineType,
-      externalAgentToolType,
-      messages: chatMessages,
-    });
-  }, [chatMessages, engineType, externalAgentToolType, skills]);
   const groupedSkills = useMemo(() => {
     return groupSkillsByRootPath(filteredSkills);
   }, [filteredSkills]);
 
   const mcpServerGroups = useMemo(() => {
     return groupMcpServersByConfigPath({
-      mcpRuntimeStatuses,
-      externalMcpRuntimeStatuses,
+      mcpServers: allLLMConfigs?.mcpServers,
       mcpConfigPath,
       settaFilesLocation,
     });
+  }, [allLLMConfigs?.mcpServers, mcpConfigPath, settaFilesLocation]);
+  const slashCommandsByEngine = useMemo(() => {
+    return buildSlashCommandsByEngine({
+      engineConfigs,
+      allLLMConfigs,
+      apiKeys,
+      externalAgentHealth,
+      externalAgentHealthInitialLoadComplete,
+    });
   }, [
-    externalMcpRuntimeStatuses,
-    mcpConfigPath,
-    mcpRuntimeStatuses,
-    settaFilesLocation,
+    allLLMConfigs,
+    apiKeys,
+    engineConfigs,
+    externalAgentHealth,
+    externalAgentHealthInitialLoadComplete,
   ]);
-  const mcpStatusSummary = useMemo(() => {
-    return buildMcpStatusSummary(mcpServerGroups);
-  }, [mcpServerGroups]);
+  const selectedSlashEngine = useMemo(() => {
+    if (!selectedSlashEngineId) {
+      return slashCommandsByEngine[0] ?? null;
+    }
+    return (
+      slashCommandsByEngine.find(
+        (entry) => entry.engineId === selectedSlashEngineId,
+      ) ?? slashCommandsByEngine[0] ?? null
+    );
+  }, [selectedSlashEngineId, slashCommandsByEngine]);
+
+  useEffect(() => {
+    if (slashCommandsByEngine.length === 0) {
+      if (selectedSlashEngineId !== null) {
+        setSelectedSlashEngineId(null);
+      }
+      return;
+    }
+    if (
+      selectedSlashEngineId &&
+      slashCommandsByEngine.some(
+        (entry) => entry.engineId === selectedSlashEngineId,
+      )
+    ) {
+      return;
+    }
+    setSelectedSlashEngineId(slashCommandsByEngine[0]?.engineId ?? null);
+  }, [selectedSlashEngineId, slashCommandsByEngine]);
 
   const markdownViewerExtensions = useMemo(() => {
     return getExtensions({
@@ -449,6 +409,8 @@ export function ProjectChatSkillsMcpViewer({
     });
   }, []);
 
+  const mcpServersLoading =
+    !allLLMConfigsInitialLoadComplete || mcpConfigInfoLoading;
   const showSkillsLoadingState = skillsLoading && skills.length === 0;
   const skillPreviewContent =
     skillContentLoading || (skillsLoading && !selectedSkillId)
@@ -507,11 +469,8 @@ export function ProjectChatSkillsMcpViewer({
               </div>
               <button
                 className="absolute right-0 top-0 cursor-pointer rounded-full border border-setta-200 px-3 py-1 text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-                onClick={() => {
-                  void refreshSkillsBrowser();
-                  void refreshMcpServerStatuses();
-                }}
-                disabled={skillsLoading || mcpServersLoading}
+                onClick={() => void refreshSkillsBrowser()}
+                disabled={skillsLoading}
               >
                 Refresh
               </button>
@@ -527,15 +486,9 @@ export function ProjectChatSkillsMcpViewer({
                   placeholder="Filter"
                 />
               </search>
-              <p className="text-[11px] text-setta-500 dark:text-setta-400">
-                Applicable is based on selected engine roots. Active uses
-                engine-specific signals in this chat (for example Codex
-                <span className="px-0.5 font-mono">$skill</span> tokens or
-                OpenCode skill tool calls).
-              </p>
             </div>
             <div className="grid min-w-0 gap-2">
-              <div className="max-h-[360px] min-h-[220px] min-w-0 overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-xs dark:border-setta-700 dark:bg-setta-950/60">
+              <div className="h-[280px] max-h-[70vh] min-h-[140px] min-w-0 resize-y overflow-auto rounded-md border border-setta-200 bg-white/80 p-2 text-xs dark:border-setta-700 dark:bg-setta-950/60">
                 {skillsError ? (
                   <div className="mb-2 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
                     Skills unavailable ({skillsError}).
@@ -566,9 +519,6 @@ export function ProjectChatSkillsMcpViewer({
                       <div className="mt-1 grid gap-1 px-1">
                         {group.skills.map((skill) => {
                           const selected = skill.skillId === selectedSkillId;
-                          const status = skillStatusBySkillId[skill.skillId];
-                          const isApplicable = status?.isApplicable ?? false;
-                          const isActive = status?.activityState === "active";
                           return (
                             <button
                               key={skill.skillId}
@@ -579,36 +529,20 @@ export function ProjectChatSkillsMcpViewer({
                               }`}
                               onClick={() => setSelectedSkillId(skill.skillId)}
                             >
-                              <span className="block w-full truncate font-semibold leading-tight">
+                              <span
+                                className="block min-w-0 w-full truncate font-semibold"
+                                title={skill.name}
+                                data-testid="skills-mcp-skill-name"
+                              >
                                 {skill.name}
                               </span>
-                              <span className="block w-full truncate text-[11px] opacity-80">
+                              <span
+                                className="block min-w-0 w-full truncate text-[11px] opacity-80"
+                                title={skill.relativePath}
+                                data-testid="skills-mcp-skill-path"
+                              >
                                 {skill.relativePath}
                               </span>
-                              {isApplicable || isActive ? (
-                                <span className="mt-0.5 flex w-full items-center gap-1 text-[10px] font-semibold">
-                                  {isApplicable ? (
-                                    <span
-                                      className="rounded border border-emerald-300 bg-emerald-50 px-1 py-[1px] text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                                      title={status.applicabilityReason}
-                                    >
-                                      Applicable
-                                    </span>
-                                  ) : null}
-                                  {isActive ? (
-                                    <span
-                                      className="rounded border border-blue-300 bg-blue-50 px-1 py-[1px] text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                                      title={
-                                        status.activitySource
-                                          ? `Detected from ${status.activitySource}`
-                                          : "Skill invocation observed."
-                                      }
-                                    >
-                                      Active
-                                    </span>
-                                  ) : null}
-                                </span>
-                              ) : null}
                             </button>
                           );
                         })}
@@ -680,59 +614,146 @@ export function ProjectChatSkillsMcpViewer({
           <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
             MCP Servers
           </div>
-          <p className="text-[11px] text-setta-500 dark:text-setta-400">
-            {mcpStatusSummary.total === 0
-              ? "No runtime MCP status available yet."
-              : `${mcpStatusSummary.connected} connected · ${mcpStatusSummary.connecting} connecting · ${mcpStatusSummary.retrying} retrying · ${mcpStatusSummary.error} error · ${mcpStatusSummary.disabled} disabled · ${mcpStatusSummary.unknown} unknown`}
-          </p>
-          <div className="max-h-[220px] min-h-[110px] min-w-0 overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
-            {mcpServersError ? (
-              <div className="mb-2 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-                MCP runtime status unavailable ({mcpServersError}).
-              </div>
-            ) : null}
+          <div className="h-[180px] max-h-[60vh] min-h-[90px] min-w-0 resize-y overflow-auto rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
             {mcpServersLoading ? (
               <div className="text-setta-500 dark:text-setta-400">
                 Loading MCP servers...
               </div>
             ) : mcpServerGroups.length === 0 ? (
               <div className="text-setta-500 dark:text-setta-400">
-                No MCP runtime status available.
+                No MCP servers configured.
               </div>
             ) : (
               mcpServerGroups.map((group, groupIndex) => (
                 <div
-                  key={`${group.sourceLabel}:${group.configPath ?? "unavailable"}`}
+                  key={group.configPath ?? "unavailable"}
                   className={groupIndex === 0 ? "" : "mt-3"}
                 >
                   <PathGroupHeader
-                    title={`${group.configLabel} · ${group.sourceLabel}`}
+                    title={group.configLabel}
                     path={group.configPath}
                     onCopyPath={copyPathToClipboard}
                     onRevealPath={(path) => void revealPathInFileExplorer(path)}
                   />
+                  {mcpRuntimeStatusError ? (
+                    <div className="mt-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                      Runtime status check unavailable: {mcpRuntimeStatusError}
+                    </div>
+                  ) : null}
                   <div className="mt-1 grid gap-1 px-1">
-                    {group.servers.map((server) => (
-                      <div key={server.serverId} className="pb-1 last:pb-0">
-                        <div className="flex items-center gap-1">
-                          <div className="font-semibold">{server.serverId}</div>
-                          <span
-                            className={`rounded border px-1 py-[1px] text-[10px] font-semibold ${getMcpStatusBadgeClassName(server.state)}`}
-                          >
-                            {formatMcpStatusLabel(server.state)}
-                          </span>
-                        </div>
+                    {group.servers.map((server) => {
+                      const serverEndpointDisplay = `${server.transport} · ${server.endpoint}`;
+                      const status = resolveMcpServerStatus({
+                        serverId: server.serverId,
+                        endpoint: server.endpoint,
+                        runtimeStatusByServerId: mcpRuntimeStatusByServerId,
+                        runtimeStatusLoading: mcpRuntimeStatusLoading,
+                        runtimeStatusError: mcpRuntimeStatusError,
+                      });
+                      const statusDotClassName =
+                        status.color === "green"
+                          ? "bg-emerald-500"
+                          : status.color === "yellow"
+                            ? "bg-amber-500"
+                            : "bg-red-500";
+                      return (
                         <div
-                          className="truncate font-mono text-setta-500 dark:text-setta-400"
-                          title={buildMcpServerDetail(server)}
+                          key={server.serverId}
+                          className="min-w-0 pb-1 last:pb-0"
                         >
-                          {buildMcpServerDetail(server)}
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`h-2 w-2 rounded-full ${statusDotClassName}`}
+                              title={status.quickInfo}
+                              aria-label={status.quickInfo}
+                            />
+                            <div
+                              className="truncate font-semibold"
+                              title={`${server.serverId} - ${status.quickInfo}`}
+                              data-testid="skills-mcp-server-id"
+                            >
+                              {server.serverId}
+                            </div>
+                          </div>
+                          <div
+                            className="truncate font-mono text-setta-500 dark:text-setta-400"
+                            title={serverEndpointDisplay}
+                            data-testid="skills-mcp-server-endpoint"
+                          >
+                            {serverEndpointDisplay}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))
+            )}
+          </div>
+        </section>
+        <section className="grid min-w-0 gap-2">
+          <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+            Slash Commands
+          </div>
+          <div className="grid min-w-0 gap-2 rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
+            {!engineConfigsInitialLoadComplete ? (
+              <div className="text-setta-500 dark:text-setta-400">
+                Loading engine commands...
+              </div>
+            ) : slashCommandsByEngine.length === 0 ? (
+              <div className="text-setta-500 dark:text-setta-400">
+                No engines configured.
+              </div>
+            ) : (
+              <>
+                <div className="flex min-w-0 gap-1 overflow-x-auto pb-1">
+                  {slashCommandsByEngine.map((engine) => {
+                    const selected =
+                      selectedSlashEngine?.engineId === engine.engineId;
+                    return (
+                      <button
+                        key={engine.engineId}
+                        type="button"
+                        data-testid="skills-mcp-slash-tab"
+                        className={`box-border min-w-0 cursor-pointer rounded border px-2 py-1 text-left transition-colors ${
+                          selected
+                            ? "border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500 dark:bg-blue-950/35 dark:text-blue-300"
+                            : "border-setta-200 text-setta-600 hover:bg-setta-100 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
+                        }`}
+                        title={engine.engineName}
+                        onClick={() => setSelectedSlashEngineId(engine.engineId)}
+                      >
+                        <span className="block truncate font-semibold">
+                          {engine.engineName}
+                        </span>
+                        <span className="block truncate text-[10px] uppercase tracking-wide opacity-80">
+                          {engine.engineType === "external_agent"
+                            ? "External Agent"
+                            : "Setta LLM"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="grid min-w-0 gap-1">
+                  {selectedSlashEngine?.commands.map((command) => (
+                    <div
+                      key={`${selectedSlashEngine.engineId}:${command.command}`}
+                      className="grid min-w-0 grid-cols-[auto,1fr] items-start gap-2 rounded border border-setta-200/70 bg-setta-50/60 px-2 py-1 dark:border-setta-700 dark:bg-setta-900/60"
+                    >
+                      <code
+                        className="font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-300"
+                        data-testid="skills-mcp-slash-command"
+                      >
+                        {command.command}
+                      </code>
+                      <span className="min-w-0 text-setta-600 dark:text-setta-300">
+                        {command.summary}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </section>

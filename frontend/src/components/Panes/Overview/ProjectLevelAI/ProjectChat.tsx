@@ -2,12 +2,9 @@ import * as Menubar from "@radix-ui/react-menubar";
 import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
 import { type ChatPermissionModeValue } from "components/Chat/chatComposerControls";
 import {
-  DICTATION_MODE_ITEMS,
-  resolveProviderDictationAvailability,
-} from "components/Chat/dictationMode";
-import {
   buildEngineGroups,
   getChatPlaceholderText,
+  getExternalEngineIssueMessage,
   getExternalEngineStatus,
 } from "components/Chat/engineUtils";
 import {
@@ -17,35 +14,45 @@ import {
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
+import { isProviderDictationLikelySupported } from "components/Chat/providerDictationSupport";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
+import { Resizable } from "re-resizable";
 import {
   SetStateAction,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { BiSolidBrain } from "react-icons/bi";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import { IoSettingsOutline } from "react-icons/io5";
-import { MdAdd, MdOutlineExtension } from "react-icons/md";
+import { MdAdd } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
-import { updateEngineConfig } from "state/actions/ai";
-import { useAIStore } from "state/definitions";
+import { saveLLMConfig, updateEngineConfig } from "state/actions/ai";
+import { addPersistentNotification } from "state/actions/notifications";
+import { useAIStore, useLocalStorage } from "state/definitions";
 import {
   AllLLMConfigs,
-  ChatDictationMode,
   EngineConfig,
   EngineTypeEnum,
+  ExternalAgentConfig,
   ExternalAgentPreflightStatus,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
+import { clamp } from "utils/utils";
 import {
   getDefaultProjectChatPermissionMode,
   ProjectChatCore,
 } from "./ProjectChatCore";
+import {
+  focusInputWithoutSelectionById,
+  PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID,
+} from "./projectChatFocusUtils";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
@@ -53,19 +60,28 @@ import { useHydrateLLMState } from "./useHydrateLLMState";
 
 type ProjectAISettingsPopoverProps = {
   engineGroups: ReturnType<typeof buildEngineGroups>;
-  transcriptionProfileGroups: AllItemsType<string>;
   availableConfigGroups: ReturnType<typeof buildLLMConfigGroups>;
   selectedEngineId: string | null;
   selectedLLMConfigId: string | null;
-  selectedTranscriptionProfileId: string | null;
-  dictationMode: ChatDictationMode;
+  defaultLLMConfigId: string | null;
   engineType: EngineTypeEnum | null;
   noConfigsAvailable: boolean;
+  dictationMode: ProjectDictationMode;
+  providerDictationLikelySupported: boolean;
+  onOpenSkillsMcpViewer: () => void;
   onEngineChange: (value: string | null) => void;
   onLLMConfigChange: (value: string | null) => void;
-  onTranscriptionProfileChange: (value: string | null) => void;
-  onDictationModeChange: (value: string | null) => void;
+  onPinDefaultModel: () => void;
+  onDictationModeChange: (value: ProjectDictationMode) => void;
 };
+
+type ProjectDictationMode = "auto" | "browser" | "provider";
+const INLINE_THREADS_BREAKPOINT_PX = 760;
+const INLINE_THREADS_MIN_WIDTH_PX = 220;
+const INLINE_THREADS_DEFAULT_WIDTH_PX = 288;
+const INLINE_THREADS_MAX_WIDTH_PX = 520;
+const INLINE_THREADS_MIN_CHAT_WIDTH_PX = 420;
+const INLINE_THREADS_WIDTH_STORAGE_KEY = "setta_project_ai_inline_threads_width";
 
 export function ProjectChat() {
   const chatId = useAIStore((state) => state.activeChatId);
@@ -86,9 +102,7 @@ export function ProjectChat() {
   const {
     apiKeys,
     apiKeysInitialLoadComplete,
-    viewHistory,
-    projectChatDictationMode,
-    projectChatTranscriptionProfileId,
+    viewThreads,
     allLLMConfigs,
     llmConfigInitialLoadComplete,
     externalAgentHealth,
@@ -96,15 +110,13 @@ export function ProjectChat() {
     externalAgentConfigs,
     engineConfigs,
     engineConfigsInitialLoadComplete,
-    transcriptionProfiles,
-    transcriptionProfilesInitialLoadComplete,
+    projectChatDictationMode,
+    projectChatSelectedEngineId,
   } = useAIStore(
     (x) => ({
       apiKeys: x.apiKeys,
       apiKeysInitialLoadComplete: x.apiKeysInitialLoadComplete,
-      viewHistory: x.viewHistory,
-      projectChatDictationMode: x.projectChatDictationMode,
-      projectChatTranscriptionProfileId: x.projectChatTranscriptionProfileId,
+      viewThreads: x.viewThreads,
       allLLMConfigs: x.allLLMConfigs,
       llmConfigInitialLoadComplete: x.allLLMConfigsInitialLoadComplete,
       externalAgentHealth: x.externalAgentHealth,
@@ -113,17 +125,31 @@ export function ProjectChat() {
       externalAgentConfigs: x.externalAgentConfigs,
       engineConfigs: x.engineConfigs,
       engineConfigsInitialLoadComplete: x.engineConfigsInitialLoadComplete,
-      transcriptionProfiles: x.transcriptionProfiles,
-      transcriptionProfilesInitialLoadComplete:
-        x.transcriptionProfilesInitialLoadComplete,
+      projectChatDictationMode: x.projectChatDictationMode,
+      projectChatSelectedEngineId: x.projectChatSelectedEngineId,
     }),
     _.isEqual,
   );
+  const overviewPaneWidth = useLocalStorage((state) => state.overviewWidth);
+  const [inlineThreadsWidth, setInlineThreadsWidth] = useState(() => {
+    if (typeof window === "undefined") {
+      return INLINE_THREADS_DEFAULT_WIDTH_PX;
+    }
+    const stored = Number(window.localStorage.getItem(INLINE_THREADS_WIDTH_STORAGE_KEY));
+    if (!Number.isFinite(stored)) {
+      return INLINE_THREADS_DEFAULT_WIDTH_PX;
+    }
+    return stored;
+  });
 
-  const [selectedEngineId, setSelectedEngineId] = useState<string | null>(null);
+  const selectedEngineId = projectChatSelectedEngineId;
+  const setSelectedEngineId = useCallback((value: string | null) => {
+    useAIStore.setState({ projectChatSelectedEngineId: value });
+  }, []);
   const [runtimePermissionMode, setRuntimePermissionMode] =
     useState<ChatPermissionModeValue>("minimal");
   const [viewSkillsMcpViewer, setViewSkillsMcpViewer] = useState(false);
+  const notifiedExternalEngineIssueRef = useRef<string | null>(null);
 
   const availableConfigGroups = useMemo(
     () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
@@ -141,18 +167,6 @@ export function ProjectChat() {
   const engineGroups = useMemo(
     () => buildEngineGroups(engineConfigs),
     [engineConfigs],
-  );
-  const transcriptionProfileGroups = useMemo<AllItemsType<string>>(
-    () => [
-      {
-        group: "Transcription Profiles",
-        items: transcriptionProfiles.map((profile) => ({
-          id: profile.id,
-          name: profile.name || profile.id,
-        })),
-      },
-    ],
-    [transcriptionProfiles],
   );
   const preferredEngineId = useMemo(
     () =>
@@ -207,26 +221,17 @@ export function ProjectChat() {
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, effectiveEngineConfig]);
-  const selectedTranscriptionProfile = useMemo(() => {
-    if (!projectChatTranscriptionProfileId) {
+  const selectedLLMConfig = useMemo(() => {
+    if (!selectedLLMConfigId || !allLLMConfigs) {
       return null;
     }
-    return (
-      transcriptionProfiles.find(
-        (profile) => profile.id === projectChatTranscriptionProfileId,
-      ) ?? null
-    );
-  }, [projectChatTranscriptionProfileId, transcriptionProfiles]);
-  const { providerDictationAvailable, providerDictationUnavailableReason } =
-    useMemo(
-      () =>
-        resolveProviderDictationAvailability({
-          selectedTranscriptionProfile,
-          allLLMConfigs,
-          apiKeys,
-        }),
-      [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
-    );
+    return allLLMConfigs.configs[selectedLLMConfigId] ?? null;
+  }, [allLLMConfigs, selectedLLMConfigId]);
+  const defaultLLMConfigId = allLLMConfigs?.default_config_id ?? null;
+  const providerDictationLikelySupported = useMemo(
+    () => isProviderDictationLikelySupported(selectedLLMConfig),
+    [selectedLLMConfig],
+  );
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
   );
@@ -262,6 +267,15 @@ export function ProjectChat() {
     approvalPolicy: externalAgentConfig?.approvalPolicy ?? null,
     permissionMode: runtimePermissionMode,
   });
+  const activeModelForContextEstimate = useMemo(() => {
+    if (engineType === EngineTypeEnum.setta_llm) {
+      return selectedLLMConfig?.model ?? null;
+    }
+    if (engineType === EngineTypeEnum.external_agent) {
+      return resolveExternalAgentModelForContext(externalAgentConfig);
+    }
+    return null;
+  }, [engineType, externalAgentConfig, selectedLLMConfig?.model]);
   const placeholderText = getChatPlaceholderText({
     engineType,
     hasEngineConfig: Boolean(effectiveEngineConfig),
@@ -277,35 +291,25 @@ export function ProjectChat() {
     }
     return null;
   }, [engineType]);
-  const externalStatusMessage = useMemo(() => {
-    if (!externalEngineStatus) {
-      return null;
+  const externalEngineIssueMessage = useMemo(
+    () => getExternalEngineIssueMessage(externalEngineStatus),
+    [externalEngineStatus],
+  );
+
+  useEffect(() => {
+    if (!externalEngineIssueMessage) {
+      notifiedExternalEngineIssueRef.current = null;
+      return;
     }
-    if (externalEngineStatus.status === "loading") {
-      return "Checking external engine status...";
+    if (notifiedExternalEngineIssueRef.current === externalEngineIssueMessage) {
+      return;
     }
-    if (externalEngineStatus.status === "available") {
-      return "External engine available";
-    }
-    if (externalEngineStatus.issues.length > 0) {
-      return `External engine unavailable: ${externalEngineStatus.issues.join(
-        "; ",
-      )}`;
-    }
-    return "External engine unavailable";
-  }, [externalEngineStatus]);
-  const externalStatusClassName = useMemo(() => {
-    if (!externalEngineStatus) {
-      return "";
-    }
-    if (externalEngineStatus.status === "available") {
-      return "text-emerald-600 dark:text-emerald-400";
-    }
-    if (externalEngineStatus.status === "loading") {
-      return "text-setta-500 dark:text-setta-400";
-    }
-    return "text-red-600 dark:text-red-400";
-  }, [externalEngineStatus]);
+    notifiedExternalEngineIssueRef.current = externalEngineIssueMessage;
+    addPersistentNotification(
+      externalEngineIssueMessage,
+      SettaNotificationTypeEnum.warning,
+    );
+  }, [externalEngineIssueMessage]);
 
   const handleEngineChange = useCallback(
     (value: string | null) => {
@@ -315,10 +319,10 @@ export function ProjectChat() {
       }
       setSelectedEngineId(nextEngineId);
       setChatId(undefined);
-      useAIStore.setState({ viewHistory: false });
+      useAIStore.setState({ viewThreads: false });
       setViewSkillsMcpViewer(false);
     },
-    [selectedEngineId, setChatId],
+    [selectedEngineId, setChatId, setSelectedEngineId],
   );
 
   const handleLLMConfigChange = useCallback(
@@ -337,17 +341,24 @@ export function ProjectChat() {
     },
     [effectiveEngineConfig],
   );
-  const handleTranscriptionProfileChange = useCallback(
-    (value: string | null) => {
-      useAIStore.setState({ projectChatTranscriptionProfileId: value ?? null });
+  const handlePinDefaultModel = useCallback(() => {
+    if (!allLLMConfigs || !selectedLLMConfigId) {
+      return;
+    }
+    if (allLLMConfigs.default_config_id === selectedLLMConfigId) {
+      return;
+    }
+    void saveLLMConfig({
+      ...allLLMConfigs,
+      default_config_id: selectedLLMConfigId,
+    });
+  }, [allLLMConfigs, selectedLLMConfigId]);
+  const handleDictationModeChange = useCallback(
+    (value: ProjectDictationMode) => {
+      useAIStore.setState({ projectChatDictationMode: value });
     },
     [],
   );
-  const handleDictationModeChange = useCallback((value: string | null) => {
-    const nextMode =
-      value === "browser" || value === "provider" ? value : "auto";
-    useAIStore.setState({ projectChatDictationMode: nextMode });
-  }, []);
 
   useEffect(() => {
     if (!engineConfigsInitialLoadComplete) {
@@ -389,32 +400,74 @@ export function ProjectChat() {
     externalAgentHealthInitialLoadComplete,
     preferredEngineId,
     selectedEngineId,
-  ]);
-  useEffect(() => {
-    if (!transcriptionProfilesInitialLoadComplete) {
-      return;
-    }
-    if (!projectChatTranscriptionProfileId) {
-      return;
-    }
-    const selectedProfile = projectChatTranscriptionProfileId
-      ? transcriptionProfiles.find(
-          (profile) => profile.id === projectChatTranscriptionProfileId,
-        ) ?? null
-      : null;
-    if (!selectedProfile) {
-      useAIStore.setState({ projectChatTranscriptionProfileId: null });
-    }
-  }, [
-    projectChatTranscriptionProfileId,
-    transcriptionProfiles,
-    transcriptionProfilesInitialLoadComplete,
+    setSelectedEngineId,
   ]);
   useEffect(() => {
     setRuntimePermissionMode(getDefaultProjectChatPermissionMode(engineType));
   }, [engineType]);
 
-  const isAuxView = viewHistory || viewSkillsMcpViewer;
+  const showInlineThreads =
+    viewThreads &&
+    !viewSkillsMcpViewer &&
+    overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
+  const inlineThreadsMaxWidth = useMemo(() => {
+    const boundedMaxWidth = clamp(
+      overviewPaneWidth - INLINE_THREADS_MIN_CHAT_WIDTH_PX,
+      INLINE_THREADS_MIN_WIDTH_PX,
+      INLINE_THREADS_MAX_WIDTH_PX,
+    );
+    return boundedMaxWidth;
+  }, [overviewPaneWidth]);
+  const resolvedInlineThreadsWidth = useMemo(() => {
+    return clamp(
+      inlineThreadsWidth,
+      INLINE_THREADS_MIN_WIDTH_PX,
+      inlineThreadsMaxWidth,
+    );
+  }, [inlineThreadsMaxWidth, inlineThreadsWidth]);
+  const canResizeInlineThreads =
+    inlineThreadsMaxWidth > INLINE_THREADS_MIN_WIDTH_PX;
+
+  const updateInlineThreadsWidth = useCallback(
+    (nextWidth: number) => {
+      const resolvedWidth = clamp(
+        nextWidth,
+        INLINE_THREADS_MIN_WIDTH_PX,
+        inlineThreadsMaxWidth,
+      );
+      setInlineThreadsWidth((current) => {
+        if (current === resolvedWidth) {
+          return current;
+        }
+        return resolvedWidth;
+      });
+    },
+    [inlineThreadsMaxWidth],
+  );
+
+  useEffect(() => {
+    if (inlineThreadsWidth === resolvedInlineThreadsWidth) {
+      return;
+    }
+    setInlineThreadsWidth(resolvedInlineThreadsWidth);
+  }, [inlineThreadsWidth, resolvedInlineThreadsWidth]);
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(
+      INLINE_THREADS_WIDTH_STORAGE_KEY,
+      String(inlineThreadsWidth),
+    );
+  }, [inlineThreadsWidth]);
+
+  const showThreadsOnlyView = viewThreads && !showInlineThreads;
+  const isAuxView = viewSkillsMcpViewer || showThreadsOnlyView;
+  const showReturnOnlyNav = viewSkillsMcpViewer || showThreadsOnlyView;
+  const handleReturnToChat = useCallback(() => {
+    setViewSkillsMcpViewer(false);
+    useAIStore.setState({ viewThreads: false });
+  }, []);
 
   return (
     apiKeysInitialLoadComplete &&
@@ -423,69 +476,55 @@ export function ProjectChat() {
       <div className="flex h-full min-h-0 flex-col @container">
         <nav className="flex flex-col border-b border-setta-100 pb-2 dark:border-setta-800">
           <div className="mt-2 flex w-full flex-nowrap items-center gap-2 overflow-x-auto">
-            <button
-              className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-              aria-label="New Chat"
-              onClick={() => {
-                setChatId(undefined);
-                useAIStore.setState({
-                  viewHistory: false,
-                });
-                setViewSkillsMcpViewer(false);
-              }}
-            >
-              <MdAdd size={15} />
-              <span className="hidden @[17.5rem]:block">New</span>
-            </button>
-            <button
-              className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-              onClick={() => {
-                setViewSkillsMcpViewer(false);
-                useAIStore.setState({ viewHistory: !viewHistory });
-              }}
-              aria-label="View History"
-            >
-              {viewHistory ? (
-                <>
-                  <IoMdArrowRoundBack />
-                  <span>Return to chat</span>
-                </>
-              ) : (
-                <>
-                  <RiChatHistoryLine size={15} />
-                  <span className="hidden @[17.5rem]:block">History</span>
-                </>
-              )}
-            </button>
-            <button
-              className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-              onClick={() => {
-                if (viewSkillsMcpViewer) {
-                  setViewSkillsMcpViewer(false);
-                  return;
-                }
-                useAIStore.setState({ viewHistory: false });
-                setViewSkillsMcpViewer(true);
-              }}
-              aria-label="View Skills and MCP"
-            >
-              {viewSkillsMcpViewer ? (
-                <>
-                  <IoMdArrowRoundBack />
-                  <span>Return to chat</span>
-                </>
-              ) : (
-                <>
-                  <MdOutlineExtension size={15} />
-                  <span className="hidden @[17.5rem]:block">Skills/MCP</span>
-                </>
-              )}
-            </button>
-            {!isAuxView ? (
-              <Menubar.Root className="contents">
-                <FollowAIToggleButton />
-              </Menubar.Root>
-            ) : null}
+            {showReturnOnlyNav ? (
+              <button
+                className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+                onClick={handleReturnToChat}
+                aria-label="Return to chat"
+              >
+                <IoMdArrowRoundBack />
+                <span className="hidden @[31.25rem]:block">Return to chat</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+                  aria-label="New Chat"
+                  onClick={() => {
+                    setChatId(undefined);
+                    useAIStore.setState({
+                      viewThreads: false,
+                    });
+                    setViewSkillsMcpViewer(false);
+                  }}
+                >
+                  <MdAdd size={15} />
+                  <span className="hidden @[31.25rem]:block">New</span>
+                </button>
+                <button
+                  className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+                  onClick={() => {
+                    setViewSkillsMcpViewer(false);
+                    useAIStore.setState({ viewThreads: !viewThreads });
+                  }}
+                  aria-label="View Threads"
+                >
+                  {viewThreads && showInlineThreads ? (
+                    <>
+                      <RiChatHistoryLine size={15} />
+                      <span className="hidden @[31.25rem]:block">
+                        Hide Threads
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <RiChatHistoryLine size={15} />
+                      <span className="hidden @[31.25rem]:block">Threads</span>
+                    </>
+                  )}
+                </button>
+              </>
+            )}
             {!isAuxView && showPlanModeBadge ? <PlanModeBadge /> : null}
             {!isAuxView &&
             (engineType === EngineTypeEnum.setta_llm ||
@@ -498,28 +537,30 @@ export function ProjectChat() {
                 }}
               >
                 <BiSolidBrain size={15} />
-                <span className="hidden @[33.5rem]:block">Thinking</span>
+                <span className="hidden @[31.25rem]:block">Thinking</span>
               </button>
             ) : null}
             {!isAuxView ? (
               <div className="ml-auto flex items-center">
                 <ProjectAISettingsPopover
                   engineGroups={engineGroups}
-                  transcriptionProfileGroups={transcriptionProfileGroups}
                   availableConfigGroups={availableConfigGroups}
                   selectedEngineId={effectiveEngineId}
                   selectedLLMConfigId={selectedLLMConfigId}
-                  selectedTranscriptionProfileId={
-                    projectChatTranscriptionProfileId
-                  }
-                  dictationMode={projectChatDictationMode}
+                  defaultLLMConfigId={defaultLLMConfigId}
                   engineType={engineType}
                   noConfigsAvailable={noConfigsAvailable}
+                  dictationMode={projectChatDictationMode}
+                  providerDictationLikelySupported={
+                    providerDictationLikelySupported
+                  }
+                  onOpenSkillsMcpViewer={() => {
+                    useAIStore.setState({ viewThreads: false });
+                    setViewSkillsMcpViewer(true);
+                  }}
                   onEngineChange={handleEngineChange}
                   onLLMConfigChange={handleLLMConfigChange}
-                  onTranscriptionProfileChange={
-                    handleTranscriptionProfileChange
-                  }
+                  onPinDefaultModel={handlePinDefaultModel}
                   onDictationModeChange={handleDictationModeChange}
                 />
               </div>
@@ -527,29 +568,80 @@ export function ProjectChat() {
           </div>
         </nav>
 
-        {viewHistory ? (
+        {viewSkillsMcpViewer ? (
+          <ProjectChatSkillsMcpViewer />
+        ) : showInlineThreads ? (
+          <div className="flex min-h-0 flex-1">
+            <Resizable
+              className="h-full shrink-0"
+              size={{ width: resolvedInlineThreadsWidth, height: "100%" }}
+              minWidth={INLINE_THREADS_MIN_WIDTH_PX}
+              maxWidth={inlineThreadsMaxWidth}
+              boundsByDirection
+              enable={{
+                top: false,
+                right: canResizeInlineThreads,
+                bottom: false,
+                left: false,
+                topRight: false,
+                bottomRight: false,
+                bottomLeft: false,
+                topLeft: false,
+              }}
+              handleComponent={{
+                right: (
+                  <div
+                    data-testid="project-chat-inline-threads-resize-handle"
+                    className="h-full w-2 cursor-col-resize bg-transparent hover:bg-blue-500/20"
+                  />
+                ),
+              }}
+              onResize={(_event, _direction, elementRef) => {
+                updateInlineThreadsWidth(elementRef.offsetWidth);
+              }}
+              onResizeStop={(_event, _direction, elementRef) => {
+                updateInlineThreadsWidth(elementRef.offsetWidth);
+              }}
+            >
+              <ProjectChatHistory
+                chatId={chatId}
+                setChatId={setChatId}
+                runType={projectHistoryRunType}
+                engineConfigId={effectiveEngineId}
+                inline={true}
+                closeOnSelect={false}
+              />
+            </Resizable>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col pl-2">
+              <ProjectChatCore
+                chatId={chatId}
+                placeholderText={placeholderText}
+                thinking={thinking}
+                engineConfigId={effectiveEngineId}
+                engineType={engineType}
+                hasLLMConfig={hasLLMConfig}
+                externalEngineAvailable={externalEngineAvailable}
+                noLLMConfigsAvailable={noConfigsAvailable}
+                dictationMode={projectChatDictationMode}
+                providerDictationLikelySupported={
+                  providerDictationLikelySupported
+                }
+                contextEstimateModel={activeModelForContextEstimate}
+                setChatId={setChatId}
+                onPermissionModeChange={setRuntimePermissionMode}
+              />
+            </div>
+          </div>
+        ) : viewThreads ? (
           <ProjectChatHistory
             chatId={chatId}
             setChatId={setChatId}
             runType={projectHistoryRunType}
             engineConfigId={effectiveEngineId}
-          />
-        ) : viewSkillsMcpViewer ? (
-          <ProjectChatSkillsMcpViewer
-            chatId={chatId}
-            engineConfigId={effectiveEngineId}
-            engineType={engineType}
-            externalAgentToolType={externalAgentConfig?.toolType ?? null}
+            closeOnSelect={true}
           />
         ) : (
           <>
-            {externalStatusMessage ? (
-              <div className="px-1 pb-2">
-                <p className={`text-xs ${externalStatusClassName}`}>
-                  {externalStatusMessage}
-                </p>
-              </div>
-            ) : null}
             <ProjectChatCore
               chatId={chatId}
               placeholderText={placeholderText}
@@ -559,12 +651,11 @@ export function ProjectChat() {
               hasLLMConfig={hasLLMConfig}
               externalEngineAvailable={externalEngineAvailable}
               noLLMConfigsAvailable={noConfigsAvailable}
-              transcriptionProfileId={projectChatTranscriptionProfileId}
               dictationMode={projectChatDictationMode}
-              providerDictationAvailable={providerDictationAvailable}
-              providerDictationUnavailableReason={
-                providerDictationUnavailableReason
+              providerDictationLikelySupported={
+                providerDictationLikelySupported
               }
+              contextEstimateModel={activeModelForContextEstimate}
               setChatId={setChatId}
               onPermissionModeChange={setRuntimePermissionMode}
             />
@@ -654,19 +745,42 @@ function isEngineUsable({
   return false;
 }
 
+function resolveExternalAgentModelForContext(
+  externalAgentConfig: ExternalAgentConfig | null,
+): string | null {
+  if (!externalAgentConfig) {
+    return null;
+  }
+  const managed = externalAgentConfig.settingsManagedBlock;
+  if (
+    externalAgentConfig.toolType === "codex" &&
+    managed?.codex?.model?.trim()
+  ) {
+    return managed.codex.model.trim();
+  }
+  if (
+    externalAgentConfig.toolType === "opencode" &&
+    managed?.opencode?.model?.trim()
+  ) {
+    return managed.opencode.model.trim();
+  }
+  return externalAgentConfig.defaultModel?.trim() ?? null;
+}
+
 function ProjectAISettingsPopover({
   engineGroups,
-  transcriptionProfileGroups,
   availableConfigGroups,
   selectedEngineId,
   selectedLLMConfigId,
-  selectedTranscriptionProfileId,
-  dictationMode,
+  defaultLLMConfigId,
   engineType,
   noConfigsAvailable,
+  dictationMode,
+  providerDictationLikelySupported,
+  onOpenSkillsMcpViewer,
   onEngineChange,
   onLLMConfigChange,
-  onTranscriptionProfileChange,
+  onPinDefaultModel,
   onDictationModeChange,
 }: ProjectAISettingsPopoverProps) {
   const showLLMConfig = engineType === EngineTypeEnum.setta_llm;
@@ -676,6 +790,53 @@ function ProjectAISettingsPopover({
   const llmBg = selectedLLMConfigId
     ? ""
     : "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500";
+  const providerModeAvailable = showLLMConfig;
+  const autoFallsBackToBrowser =
+    showLLMConfig && !providerDictationLikelySupported;
+  const selectedModelPinnedAsDefault =
+    selectedLLMConfigId !== null && selectedLLMConfigId === defaultLLMConfigId;
+  const dictationModeOptions = useMemo<AllItemsType<ProjectDictationMode>>(
+    () => [
+      {
+        group: "Microphone Source",
+        items: [
+          {
+            id: "auto",
+            name: "Auto (provider, then browser/OS)",
+          },
+          {
+            id: "provider",
+            name: providerModeAvailable
+              ? "Always provider"
+              : "Always provider (requires LLM engine)",
+          },
+          {
+            id: "browser",
+            name: "Always browser / OS",
+          },
+        ],
+      },
+    ],
+    [providerModeAvailable],
+  );
+  const handleDictationModeOptionChange = useCallback(
+    (value: ProjectDictationMode | null) => {
+      if (!value) {
+        return;
+      }
+      if (value === "provider" && !providerModeAvailable) {
+        return;
+      }
+      onDictationModeChange(value);
+    },
+    [onDictationModeChange, providerModeAvailable],
+  );
+  const handleSettingsPopoverOpenAutoFocus = useCallback((event: Event) => {
+    event.preventDefault();
+    requestAnimationFrame(() => {
+      focusInputWithoutSelectionById(PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID);
+    });
+  }, []);
 
   return (
     <StandardPopover
@@ -686,11 +847,12 @@ function ProjectAISettingsPopover({
           type="button"
         >
           <IoSettingsOutline size={15} />
-          <span className="hidden @[33.5rem]:block">Settings</span>
+          <span className="hidden @[31.25rem]:block">Settings</span>
         </button>
       }
       contentClasses="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-setta-200/80 bg-white/95 p-3 shadow-xl backdrop-blur relative overflow-visible dark:border-setta-700/70 dark:bg-setta-900/95 data-[state=open]:animate-fade-in"
       arrowClasses="fill-white/95 stroke-[1px] stroke-setta-200/80 dark:fill-setta-900/95 dark:stroke-setta-700/70"
+      contentProps={{ onOpenAutoFocus: handleSettingsPopoverOpenAutoFocus }}
     >
       <div className="flex flex-col gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-400 dark:text-setta-500">
@@ -708,7 +870,31 @@ function ProjectAISettingsPopover({
               onSelectedItemChange={onEngineChange}
               placeholder="Select an engine"
               outerDivClasses="w-full"
+              inputDivId={PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID}
             />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+              Microphone Source
+            </span>
+            <IdNameCombobox
+              allItems={dictationModeOptions}
+              value={dictationMode}
+              small={false}
+              onSelectedItemChange={handleDictationModeOptionChange}
+              placeholder="Microphone source"
+              outerDivClasses="w-full"
+              inputDivId="project-ai-microphone-source"
+            />
+            <p className="text-[10px] text-setta-500 dark:text-setta-400">
+              Provider mode uses the current LLM Config.
+            </p>
+            {dictationMode === "auto" && autoFallsBackToBrowser ? (
+              <p className="text-[10px] text-amber-700 dark:text-amber-300">
+                Auto currently prefers browser/OS because the selected model
+                does not appear transcription-capable.
+              </p>
+            ) : null}
           </div>
           {showLLMConfig ? (
             <div className="flex flex-col gap-1">
@@ -725,34 +911,37 @@ function ProjectAISettingsPopover({
                 bg={llmBg}
                 outerDivClasses="w-full"
               />
+              <button
+                type="button"
+                onClick={onPinDefaultModel}
+                disabled={!selectedLLMConfigId || selectedModelPinnedAsDefault}
+                className="h-8 w-full rounded-md border border-setta-200 bg-white px-2 text-left text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800/70"
+              >
+                {selectedModelPinnedAsDefault
+                  ? "Selected model is pinned as default"
+                  : "Pin selected model as default"}
+              </button>
             </div>
           ) : null}
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
-              Transcription Profile
+              Tools
             </span>
-            <IdNameCombobox
-              allItems={transcriptionProfileGroups}
-              value={selectedTranscriptionProfileId}
-              small={false}
-              onSelectedItemChange={onTranscriptionProfileChange}
-              placeholder="Select a transcription profile"
-              outerDivClasses="w-full"
-              selectedItemCanBeNull
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
-              Dictation Mode
-            </span>
-            <IdNameCombobox
-              allItems={DICTATION_MODE_ITEMS}
-              value={dictationMode}
-              small={false}
-              onSelectedItemChange={onDictationModeChange}
-              placeholder="Select dictation mode"
-              outerDivClasses="w-full"
-            />
+            <div className="grid w-full min-w-0 grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={onOpenSkillsMcpViewer}
+                className="box-border h-8 w-full min-w-0 rounded-md border border-setta-200 bg-white px-2 text-center text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800/70"
+              >
+                Open Skills/MCP
+              </button>
+              <Menubar.Root className="w-full min-w-0">
+                <FollowAIToggleButton
+                  labelMode="always"
+                  triggerClassName="nodrag relative inline-flex box-border h-8 w-full min-w-0 select-none items-center justify-center gap-1 rounded-md border border-setta-200 bg-white px-2 text-[11px] font-semibold transition-colors hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-700 dark:bg-setta-900 dark:hover:bg-setta-800/70"
+                />
+              </Menubar.Root>
+            </div>
           </div>
         </div>
       </div>
