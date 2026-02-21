@@ -943,26 +943,24 @@ const ThinkingBox = memo(function ThinkingBox({
 });
 
 function ToolCallAccordionStatus({
-  success,
-  isStreaming,
+  runState,
 }: {
-  success: boolean | undefined;
-  isStreaming: boolean;
+  runState: ToolCallRunState;
 }) {
-  if (success === true) {
+  if (runState === "success") {
     return (
       <IoMdCheckmark className="mr-1.5 self-center justify-self-end text-setta-400" />
     );
   }
-  if (success === false) {
+  if (runState === "failed") {
     return (
       <MdErrorOutline className="mr-1.5 self-center justify-self-end text-red-500" />
     );
   }
-  if (!isStreaming) {
+  if (runState === "stopped") {
     return (
-      <span className="mr-1.5 self-center justify-self-end text-[10px] font-semibold uppercase tracking-wide text-setta-300/80 dark:text-setta-500">
-        Pending
+      <span className="mr-1.5 self-center justify-self-end text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-600/90 dark:text-amber-300/90">
+        Stopped
       </span>
     );
   }
@@ -975,14 +973,12 @@ const ToolCallItem = memo(function ToolCallItem({
   name,
   args,
   result,
-  success,
-  isStreaming,
+  runState,
 }: {
   name: string;
   args: unknown;
   result: ToolResultValue | undefined;
-  success: boolean | undefined;
-  isStreaming: boolean;
+  runState: ToolCallRunState;
 }) {
   const resultDisplay = (() => {
     if (typeof result === "string") {
@@ -999,56 +995,159 @@ const ToolCallItem = memo(function ToolCallItem({
         return String(result);
       }
     }
-    if (success === false) {
+    if (runState === "failed") {
       return "Tool execution failed";
     }
-    if (success === true) {
+    if (runState === "success") {
       return "Tool completed successfully";
+    }
+    if (runState === "stopped") {
+      return "Stopped mid-tool call before completion.";
     }
     return null;
   })();
 
   return (
-    <Accordion.Root type="single" collapsible>
-      <Accordion.Item value="details">
-        <Accordion.Trigger className="relative flex w-full cursor-pointer items-center justify-between overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-900 dark:hover:bg-setta-950 dark:hover:shadow-none">
-          <div className="px-2 py-2 ">
+    <Accordion.Root type="single" collapsible className="w-full">
+      <Accordion.Item value="details" data-chat-tool-call-item="true">
+        <Accordion.Trigger className="relative flex w-full cursor-pointer items-center justify-between overflow-hidden rounded-md border border-setta-200/70 bg-white/70 transition-colors hover:bg-white dark:border-setta-700/70 dark:bg-setta-900/70 dark:hover:bg-setta-900">
+          <div className="px-1.5 py-1">
             <PiWrenchFill
-              size={15}
+              size={13}
               className="min-w-6 text-setta-200 dark:text-setta-400"
             />
           </div>
 
-          <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
+          <div className="min-w-0 flex-1 truncate break-words pr-1 font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200">
             {name}
           </div>
-          <ToolCallAccordionStatus
-            success={success}
-            isStreaming={isStreaming}
-          />
+          <ToolCallAccordionStatus runState={runState} />
         </Accordion.Trigger>
 
-        <Accordion.Content className="overflow-hidden rounded-b-md data-[state=open]:-mt-2.5 data-[state=open]:mb-2 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+        <Accordion.Content className="overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
           {args && (
-            <div className="bg-setta-200/50 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860">
-              <h3 className="!mt-2.5 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
+            <div className="border-x border-t border-setta-200/70 bg-setta-200/35 px-2 py-1 text-xs dark:border-setta-700/70 dark:bg-setta-860">
+              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
                 Arguments
               </h3>
-              <pre className="m-0 cursor-auto whitespace-pre-wrap break-words font-mono text-xs text-setta-600 dark:text-setta-200">
+              <pre className="m-0 cursor-auto whitespace-pre-wrap break-words font-mono text-[11px] text-setta-600 dark:text-setta-200">
                 {formatToolArgs(args)}
               </pre>
             </div>
           )}
           {resultDisplay && (
-            <div className=" bg-setta-200 p-3  dark:bg-setta-900">
-              <h3 className="!mt-0 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
+            <div className="rounded-b-md border border-setta-200/70 bg-setta-200 px-2 py-1 dark:border-setta-700/70 dark:bg-setta-900">
+              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
                 Result
               </h3>
-              <pre className="m-0 cursor-auto whitespace-pre-wrap break-words font-mono text-xs text-setta-600 dark:text-setta-200">
+              <pre className="m-0 cursor-auto whitespace-pre-wrap break-words font-mono text-[11px] text-setta-600 dark:text-setta-200">
                 {resultDisplay}
               </pre>
             </div>
           )}
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
+  );
+});
+
+type ToolCallRunState = "running" | "success" | "failed" | "stopped";
+type ToolCallSectionState = "running" | "complete" | "stopped";
+
+function resolveToolCallRunState(
+  success: boolean | undefined,
+  isStreaming: boolean,
+): ToolCallRunState {
+  if (success === true) {
+    return "success";
+  }
+  if (success === false) {
+    return "failed";
+  }
+  if (isStreaming) {
+    return "running";
+  }
+  return "stopped";
+}
+
+function resolveToolCallSectionState(
+  states: ToolCallRunState[],
+): ToolCallSectionState {
+  if (states.some((state) => state === "failed" || state === "stopped")) {
+    return "stopped";
+  }
+  if (states.some((state) => state === "running")) {
+    return "running";
+  }
+  return "complete";
+}
+
+function ToolCallSectionStatus({
+  sectionState,
+}: {
+  sectionState: ToolCallSectionState;
+}) {
+  if (sectionState === "complete") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-400 dark:text-setta-300">
+        <IoMdCheckmark className="text-[11px]" />
+        Complete
+      </span>
+    );
+  }
+  if (sectionState === "stopped") {
+    return (
+      <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-600 dark:text-amber-300">
+        <MdErrorOutline className="text-[11px]" />
+        Stopped Mid-Tool Call
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-400 dark:text-setta-300">
+      <i className="gg-spinner !scale-75" />
+      Working
+    </span>
+  );
+}
+
+const ToolCallSection = memo(function ToolCallSection({
+  children,
+  toolCount,
+  latestToolLabel,
+  sectionState,
+}: {
+  children: ReactNode;
+  toolCount: number;
+  latestToolLabel: string;
+  sectionState: ToolCallSectionState;
+}) {
+  const title = `Tool calls (${toolCount})`;
+  return (
+    <Accordion.Root type="single" collapsible className="w-full">
+      <Accordion.Item
+        value="tool-call-details"
+        className="w-full rounded-md border border-setta-200/70 bg-setta-50/70 dark:border-setta-700/60 dark:bg-setta-900/45"
+        data-chat-tool-call-section="true"
+        data-chat-tool-call-section-state={sectionState}
+      >
+        <Accordion.Trigger className="flex w-full cursor-pointer items-center gap-1.5 px-1.5 py-1 text-left transition-colors hover:bg-white/60 dark:hover:bg-setta-900/80">
+          <PiWrenchFill
+            size={13}
+            className="min-w-5 text-setta-300 dark:text-setta-400"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[11px] font-semibold text-setta-500 dark:text-setta-200">
+              {title}
+            </div>
+            <div className="truncate text-[10px] text-setta-400 dark:text-setta-400/90">
+              {latestToolLabel}
+            </div>
+          </div>
+          <ToolCallSectionStatus sectionState={sectionState} />
+        </Accordion.Trigger>
+        <Accordion.Content className="overflow-hidden px-1 pb-1 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+          <div className="flex w-full flex-col gap-0.5">{children}</div>
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>
@@ -1579,9 +1678,22 @@ const ChatMessage = memo(function ChatMessage({
               />
             ) : null}
             {toolCalls.length > 0 ? (
-              <div className="flex flex-col gap-1">
-                {toolCalls.map((toolCall: ToolCall) => {
+              (() => {
+                const toolCallStates: ToolCallRunState[] = [];
+                const toolLabels: string[] = [];
+                const rows = toolCalls.map((toolCall: ToolCall) => {
                   const toolResult = toolResultsById[toolCall.id];
+                  const rawToolName =
+                    toolResult?.tool_name ||
+                    toolCall.function?.name ||
+                    `Tool call ${toolCall.id}`;
+                  const runState = resolveToolCallRunState(
+                    toolResult ? !toolResult.is_error : undefined,
+                    isStreaming,
+                  );
+                  toolCallStates.push(runState);
+                  toolLabels.push(rawToolName);
+
                   const questionPayload =
                     toolCallContext.questionPayloadById[toolCall.id];
                   if (questionPayload) {
@@ -1590,12 +1702,13 @@ const ChatMessage = memo(function ChatMessage({
                       toolResult,
                     );
                     return (
-                      <QuestionCard
-                        key={toolCall.id}
-                        toolCallId={toolCall.id}
-                        payload={questionPayload}
-                        resolvedAnswers={resolvedAnswers}
-                      />
+                      <div key={toolCall.id} className="w-full">
+                        <QuestionCard
+                          toolCallId={toolCall.id}
+                          payload={questionPayload}
+                          resolvedAnswers={resolvedAnswers}
+                        />
+                      </div>
                     );
                   }
                   const todoPayload =
@@ -1604,26 +1717,28 @@ const ChatMessage = memo(function ChatMessage({
                     const summaryOnly =
                       toolCallContext.latestTodoCallId !== toolCall.id;
                     return (
-                      <TodoListCard
-                        key={toolCall.id}
-                        todos={todoPayload.todos}
-                        summaryOnly={summaryOnly}
-                      />
+                      <div key={toolCall.id} className="w-full">
+                        <TodoListCard
+                          todos={todoPayload.todos}
+                          summaryOnly={summaryOnly}
+                        />
+                      </div>
                     );
                   }
                   const approvalPayload =
                     toolCallContext.approvalPayloadById[toolCall.id];
                   if (approvalPayload) {
                     return (
-                      <ApprovalCard
-                        key={toolCall.id}
-                        toolCallId={toolCall.id}
-                        toolName={approvalPayload.toolName ?? null}
-                        toolType={approvalPayload.toolType ?? null}
-                        input={approvalPayload.input}
-                        toolResult={toolResult}
-                        isStreaming={isStreaming}
-                      />
+                      <div key={toolCall.id} className="w-full">
+                        <ApprovalCard
+                          toolCallId={toolCall.id}
+                          toolName={approvalPayload.toolName ?? null}
+                          toolType={approvalPayload.toolType ?? null}
+                          input={approvalPayload.input}
+                          toolResult={toolResult}
+                          isStreaming={isStreaming}
+                        />
+                      </div>
                     );
                   }
                   const argsFromAssistant = toolCall.function?.arguments;
@@ -1640,22 +1755,33 @@ const ChatMessage = memo(function ChatMessage({
                   ) {
                     argsToDisplay = argsFromAssistant;
                   }
-                  const rawToolName =
-                    toolResult?.tool_name ||
-                    toolCall.function?.name ||
-                    `Tool call ${toolCall.id}`;
                   return (
                     <ToolCallItem
                       key={toolCall.id}
                       name={rawToolName}
                       args={argsToDisplay}
                       result={formatToolResult(toolResult)}
-                      success={toolResult ? !toolResult.is_error : undefined}
-                      isStreaming={isStreaming}
+                      runState={runState}
                     />
                   );
-                })}
-              </div>
+                });
+
+                const sectionState = resolveToolCallSectionState(toolCallStates);
+                const latestToolLabel =
+                  toolLabels.length > 0
+                    ? toolLabels[toolLabels.length - 1]
+                    : "Tool activity";
+
+                return (
+                  <ToolCallSection
+                    toolCount={toolCalls.length}
+                    latestToolLabel={latestToolLabel}
+                    sectionState={sectionState}
+                  >
+                    {rows}
+                  </ToolCallSection>
+                );
+              })()
             ) : null}
           </LLMChatBubble>
         ) : (

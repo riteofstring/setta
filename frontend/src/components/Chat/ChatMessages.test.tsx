@@ -81,7 +81,11 @@ describe("ChatMessageList edit gating", () => {
     );
 
     const editButton = getButtonTagByAriaLabel(markup, "Edit message");
+    const copyButton = getButtonTagByAriaLabel(markup, "Copy message");
+    expect(copyButton).not.toBeNull();
+    expect(copyButton).toContain("cursor-pointer");
     expect(editButton).not.toBeNull();
+    expect(editButton).toContain("cursor-pointer");
     expect(editButton).toContain("disabled");
     expect(editButton).toContain('title="Engine unavailable."');
   });
@@ -113,8 +117,43 @@ describe("ChatMessages assistant error rendering", () => {
   });
 });
 
+describe("ChatMessages markdown code rendering", () => {
+  it("renders inline code and fenced code blocks with monospace formatting hooks", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-code-1",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageTextContent({
+            text: [
+              "Path: `frontend/src/components/Chat/ChatMessages.tsx`",
+              "",
+              "```ts",
+              "const path = 'frontend/src/components/Chat/ChatMessages.tsx';",
+              "console.log(path);",
+              "```",
+            ].join("\n"),
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain('data-setta-inline-code="true"');
+    expect(markup).toContain("frontend/src/components/Chat/ChatMessages.tsx");
+    expect(markup).toContain('data-setta-code-block="true"');
+    expect(markup).toContain('aria-label="Copy code"');
+    expect(markup).toContain("cm-line");
+  });
+});
+
 describe("ChatMessages tool call status", () => {
-  it("does not render loading spinners for unresolved tool calls once streaming stops", () => {
+  it("marks unresolved tool calls as stopped when streaming has ended", () => {
     const messages: BaseChatMessageUnion[] = [
       {
         id: "m-tool-1",
@@ -138,12 +177,73 @@ describe("ChatMessages tool call status", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(markup).toContain("Pending");
+    expect(markup).toContain("Stopped Mid-Tool Call");
+    expect(markup).toContain("Stopped");
     expect(markup).not.toContain("gg-spinner");
+  });
+
+  it("renders tool calls inside a single expandable section container", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-tool-group-1",
+        role: ChatRoleEnum.assistant,
+        content: [createMessageTextContent({ text: "Tool group test" })],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "tool-group-1",
+            type: "function",
+            function: {
+              name: "setta__first_tool",
+              arguments: { one: 1 },
+            },
+          },
+          {
+            id: "tool-group-2",
+            type: "function",
+            function: {
+              name: "setta__second_tool",
+              arguments: { two: 2 },
+            },
+          },
+        ],
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    const sectionCount = (markup.match(/data-chat-tool-call-section="true"/g) ?? [])
+      .length;
+    expect(sectionCount).toBe(1);
+    expect(markup).toContain("Tool calls (2)");
   });
 });
 
 describe("ChatMessages assistant reasoning layout", () => {
+  it("keeps assistant groups at the reduced max width to leave right-side room", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-assistant-width",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageTextContent({
+            text: "This long assistant response should use the compact max width class.",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("max-w-[min(88%,800px)]");
+  });
+
   it("renders reasoning cards separately from assistant bubble content", () => {
     const messages: BaseChatMessageUnion[] = [
       {
@@ -219,6 +319,42 @@ describe("ChatMessages assistant reasoning layout", () => {
 
     expect(markup).not.toContain("m-empty-assistant");
     expect(markup).not.toContain('data-chat-assistant-bubble="true"');
+  });
+
+  it("keeps bubble bottom padding compact and anchors actions by role", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-user-actions",
+        role: ChatRoleEnum.user,
+        content: [createMessageTextContent({ text: "Action styling check" })],
+        attachments: [],
+      },
+      {
+        id: "m-assistant-actions",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageTextContent({
+            text: "Assistant action placement check",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList
+        messages={messages}
+        waitingForResponse={false}
+        onEditMessage={() => true}
+      />,
+    );
+
+    expect(markup).not.toContain("pb-6");
+    expect(markup).not.toContain("bg-setta-50/85");
+    expect(markup).not.toContain("border-setta-200/90");
+    expect(markup).toContain("absolute bottom-0 right-0");
+    expect(markup).toContain("absolute bottom-0 left-0");
   });
 });
 
