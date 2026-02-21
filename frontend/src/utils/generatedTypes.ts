@@ -107,6 +107,8 @@ export const EngineTypeEnum = {
   external_agent: "external_agent",
 } as const;
 
+export type EngineType = ObjectValues<typeof EngineTypeEnum>;
+
 export const AgenticEdgeContextModeEnum = {
   reference_only: "reference_only",
   inline_text: "inline_text",
@@ -359,6 +361,10 @@ export const ExternalAgentToolTypeEnum = {
   plugin: "plugin",
 } as const;
 
+export type ExternalAgentToolType = ObjectValues<
+  typeof ExternalAgentToolTypeEnum
+>;
+
 export const ExternalAgentWorkingDirStrategyEnum = {
   project_root: "project_root",
   temp_dir: "temp_dir",
@@ -432,6 +438,19 @@ export const TextBlockFormatEnum = {
 } as const;
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
+
+const MCPServerRuntimeStateEnum = {
+  connected: "connected",
+  connecting: "connecting",
+  retrying: "retrying",
+  error: "error",
+  disabled: "disabled",
+  unknown: "unknown",
+} as const;
+
+export type MCPServerRuntimeState = ObjectValues<
+  typeof MCPServerRuntimeStateEnum
+>;
 
 const SettaBackendLogEventSeverityEnum = {
   critical: "critical",
@@ -512,6 +531,7 @@ export const RouteEnum = {
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   GET_SERVER_MODE: "/serverMode",
   GET_SETTA_HOME_INFO: "/settaHomeInfo",
+  GET_MCP_SERVER_RUNTIME_STATUS: "/mcpServerRuntimeStatus",
   PLUGINS_RUNTIME: "/plugins/runtime",
   PLUGINS_INSTALL: "/plugins/install",
   PLUGINS_UNINSTALL: "/plugins/uninstall",
@@ -555,7 +575,6 @@ export const RouteEnum = {
   CREATE_FILE: "/createFile",
   DELETE_JSON_SOURCE_FILE_AND_VARIANT: "/deleteJsonSourceFileAndVariant",
   CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
-  CHECK_WORKSPACE_INITIALIZED: "/checkWorkspaceInitialized",
   LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
   GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
   GET_ATTACHMENT_DOWNLOAD_URLS: "/getAttachmentDownloadUrls",
@@ -2654,17 +2673,17 @@ const TaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "5af906d6-ec2d-4c5a-93ca-de88f78c2caf" as const,
+      id: "952ba8c3-cb0a-475d-a0e9-c13d3390044f" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "81fb4303-dbe5-45c4-a7fd-e2414c68bcbd" as const,
+      id: "4b98285a-9f5b-4437-bdb2-018dcb1e60ea" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "7cf4ac53-89f5-4536-8e82-da0f7102a061" as const,
+      id: "335fe52b-87c2-4849-8f33-da2de4a0769f" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
@@ -6042,17 +6061,17 @@ const UserDefaultTaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "9ac6f580-b8aa-41f8-b943-7cf2c9efb0e9" as const,
+      id: "5cdf357e-44e0-493b-b48f-d2821084f85f" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "a591d817-8271-492b-9822-8e5b2615f8cb" as const,
+      id: "4527326d-6b3e-4641-9b43-2ea42361126f" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "9549cf86-798c-4bf2-8780-9a961b1dab2d" as const,
+      id: "91d9823e-c8c9-4816-abfb-70262772b609" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
@@ -7968,6 +7987,47 @@ export type ListenerCoverageRequestInput = z.input<
   typeof ListenerCoverageRequestSchema
 >;
 
+const GetMCPServerRuntimeStatusRequestSchema = z.object({
+  chatId: z.union([IDSchema, z.null()]).default(null),
+  engineConfigId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type GetMCPServerRuntimeStatusRequestInput = z.input<
+  typeof GetMCPServerRuntimeStatusRequestSchema
+>;
+
+const MCPServerRuntimeStatusSchema = z.object({
+  serverId: z.string(),
+  source: z.string().default("setta_mcp" as const),
+  transport: z.string(),
+  endpoint: z.string(),
+  state: z
+    .enum(MCPServerRuntimeStateEnum)
+    .default(MCPServerRuntimeStateEnum.unknown),
+  lastAttemptAt: z.union([z.iso.datetime(), z.null()]).default(null),
+  lastConnectedAt: z.union([z.iso.datetime(), z.null()]).default(null),
+  lastFailureAt: z.union([z.iso.datetime(), z.null()]).default(null),
+  consecutiveFailures: z.int().default(0),
+  lastError: z.union([z.string(), z.null()]).default(null),
+  missingEnvVar: z.union([z.string(), z.null()]).default(null),
+  toolCount: z.int().default(0),
+});
+
+export type MCPServerRuntimeStatus = z.infer<
+  typeof MCPServerRuntimeStatusSchema
+>;
+
+const MCPServerRuntimeStatusResponseSchema = z.object({
+  llmConfigPath: z.string(),
+  activeSettaFilesLocation: z.union([z.string(), z.null()]),
+  servers: z.array(MCPServerRuntimeStatusSchema).default([]),
+  externalServers: z.array(MCPServerRuntimeStatusSchema).default([]),
+});
+
+export type MCPServerRuntimeStatusResponse = z.infer<
+  typeof MCPServerRuntimeStatusResponseSchema
+>;
+
 const ServerModeResponseSchema = z.object({
   mode: z.literal(["ide", "share", "app"]),
 });
@@ -8483,15 +8543,6 @@ export type CheckIfFileExistsRequestsInput = z.input<
   typeof CheckIfFileExistsRequestsSchema
 >;
 
-const CheckWorkspaceInitializedRequestSchema = z.object({
-  folderPath: z.string(),
-  allowOutsideWorkspaceRoot: z.boolean().default(false),
-});
-
-export type CheckWorkspaceInitializedRequestInput = z.input<
-  typeof CheckWorkspaceInitializedRequestSchema
->;
-
 const DeleteArtifactRequestItemSchema = z.object({
   id: z.string(),
   type: z.enum(ArtifactTypeEnum),
@@ -8574,7 +8625,6 @@ export type GetFileBrowserRootResponse = z.infer<
 
 const GetFolderContentsRequestSchema = z.object({
   folderPath: z.string(),
-  allowOutsideWorkspaceRoot: z.boolean().default(false),
   includeMtime: z.boolean().default(false),
   includeSize: z.boolean().default(false),
   includeHidden: z.boolean().default(false),
@@ -11143,7 +11193,7 @@ export type RevealPathInOsFileExplorerRequestInput = z.input<
 const SettaHomeInfoResponseSchema = z.object({
   settaHome: z.string(),
   globalSettaFilesBase: z.string(),
-  activeSettaFilesLocation: z.string(),
+  activeSettaFilesLocation: z.union([z.string(), z.null()]),
   llmConfigPath: z.string(),
 });
 
