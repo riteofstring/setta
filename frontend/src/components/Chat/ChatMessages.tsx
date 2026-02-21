@@ -1,6 +1,9 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import * as Dialog from "@radix-ui/react-dialog";
-import { CodeBlock } from "components/Section/Layouts/TextBlock";
+import {
+  CodeBlock,
+  MarkdownCodePre,
+} from "components/Section/Layouts/TextBlock";
 import {
   MediaCarousel,
   type MediaCarouselItem,
@@ -90,7 +93,7 @@ type ToolCallContext = {
 const EMPTY_ASSISTANT_CONTENT: ChatContentItem[] = [];
 const IDLE_SPINNER_DELAY_MS = 1000;
 const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
-const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(90%,820px)]";
+const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(88%,800px)]";
 const ASSISTANT_REASONING_BORDER_CLASS =
   "border-setta-100 dark:border-setta-700/50";
 
@@ -153,7 +156,7 @@ function MarkdownContent({
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
         className={className}
-        components={{ code: CodeBlock }}
+        components={{ code: CodeBlock, pre: MarkdownCodePre }}
       >
         {displayText}
       </ReactMarkdown>
@@ -1156,12 +1159,14 @@ function LLMChatBubble({
   return (
     <div className="my-2 w-full">
       <div
-        className="flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg bg-setta-100 px-3 py-2 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50"
+        className="relative flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg bg-setta-100 pb-2 pl-3 pr-2.5 pt-1.5 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50"
         data-chat-assistant-bubble="true"
       >
         {children}
+        {actions ? (
+          <div className="absolute bottom-0.5 left-0">{actions}</div>
+        ) : null}
       </div>
-      {actions}
     </div>
   );
 }
@@ -1170,10 +1175,12 @@ function UserChatBubble({
   children,
   actions,
   messageId,
+  bubbleWidthPx,
 }: {
   children: ReactNode;
   actions?: ReactNode;
   messageId?: string;
+  bubbleWidthPx?: number | null;
 }) {
   return (
     <div className="my-2 flex justify-end">
@@ -1181,10 +1188,20 @@ function UserChatBubble({
         className="group flex max-w-[min(90%,820px)] flex-col items-end"
         data-message-id={messageId}
       >
-        <div className="flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg bg-blue-500 px-3 py-2 text-white dark:bg-blue-700">
+        <div
+          className="relative flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-900/60 bg-blue-950 pb-2 pl-3 pr-2.5 pt-1.5 text-white dark:border-blue-800/80 dark:bg-blue-950"
+          data-chat-user-bubble="true"
+          style={
+            typeof bubbleWidthPx === "number"
+              ? { width: `${bubbleWidthPx}px` }
+              : undefined
+          }
+        >
           {children}
+          {actions ? (
+            <div className="absolute bottom-0.5 right-0">{actions}</div>
+          ) : null}
         </div>
-        {actions}
       </div>
     </div>
   );
@@ -1205,10 +1222,15 @@ function SystemChatBubble({
         className="group flex max-w-[min(90%,800px)] flex-col items-start"
         data-message-id={messageId}
       >
-        <div className="flex max-w-full cursor-text flex-col gap-1.5 rounded-md border border-setta-200 bg-setta-50 px-2.5 py-1.5 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
+        <div
+          className="relative flex max-w-full cursor-text flex-col gap-1.5 rounded-md border border-setta-200 bg-setta-50 px-2.5 pb-1.5 pt-1 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300"
+          data-chat-system-bubble="true"
+        >
           {children}
+          {actions ? (
+            <div className="absolute bottom-1 right-1">{actions}</div>
+          ) : null}
         </div>
-        {actions}
       </div>
     </div>
   );
@@ -1219,10 +1241,7 @@ const USER_MARKDOWN_CLASS =
 const SYSTEM_MARKDOWN_CLASS =
   "prose prose-sm text-setta-600 dark:prose-invert prose-p:my-1 prose-p:text-[12px] prose-headings:text-xs prose-headings:font-semibold prose-code:before:hidden prose-code:after:hidden [&_*]:break-words";
 
-type ChatMessageActionAlignment = "left" | "right";
-
 function ChatMessageActions({
-  alignment,
   onCopy,
   showEdit,
   editDisabled,
@@ -1231,17 +1250,14 @@ function ChatMessageActions({
   branchInfo,
   onBranchSwitch,
 }: {
-  alignment: ChatMessageActionAlignment;
   onCopy: () => void;
   showEdit: boolean;
   editDisabled: boolean;
   editDisabledReason: string | null;
-  onEdit?: () => void;
+  onEdit?: (bubbleWidthPx?: number) => void;
   branchInfo?: ChatMessageBranchInfo;
   onBranchSwitch?: (nextChatId: string) => void;
 }) {
-  const alignmentClass =
-    alignment === "right" ? "justify-end" : "justify-start";
   const branchCount = branchInfo?.branchChatIds.length ?? 0;
   const activeIndex = branchInfo?.activeIndex ?? 0;
   const hasBranches = branchCount > 1 && Boolean(onBranchSwitch);
@@ -1249,37 +1265,41 @@ function ChatMessageActions({
   const canGoNext = activeIndex < branchCount - 1;
 
   return (
-    <div
-      className={`mt-0.5 flex w-full items-center gap-1.5 text-[11px] text-setta-400 opacity-0 transition-opacity group-hover:opacity-100 ${alignmentClass}`}
-    >
+    <div className="inline-flex items-center gap-1 text-setta-500 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 dark:text-setta-300">
       <button
         type="button"
         aria-label="Copy message"
-        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-700 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+        className="inline-flex h-5 w-5 cursor-pointer items-center justify-center text-[11px] transition-colors hover:text-setta-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-setta-400 dark:hover:text-setta-100"
         onClick={onCopy}
       >
         <FiCopy />
-        Copy
       </button>
       {showEdit ? (
         <button
           type="button"
           aria-label="Edit message"
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-200"
-          onClick={onEdit}
+          className="inline-flex h-5 w-5 cursor-pointer items-center justify-center text-[11px] transition-colors hover:text-setta-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-setta-400 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-setta-100"
+          onClick={(event) => {
+            const bubble = event.currentTarget.closest(
+              '[data-chat-user-bubble="true"]',
+            );
+            const bubbleWidthPx = bubble
+              ? bubble.getBoundingClientRect().width
+              : undefined;
+            onEdit?.(bubbleWidthPx);
+          }}
           disabled={editDisabled}
           title={editDisabledReason ?? undefined}
         >
           <FiEdit3 />
-          Edit
         </button>
       ) : null}
       {hasBranches ? (
-        <div className="inline-flex items-center gap-1 rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:border-setta-700 dark:text-setta-500">
+        <div className="ml-0.5 inline-flex items-center gap-0.5 rounded-sm border border-setta-200 px-0.5 py-0.5 text-[9px] font-medium tabular-nums text-setta-500 dark:border-setta-700 dark:text-setta-300">
           <button
             type="button"
             aria-label="Previous branch"
-            className="rounded p-1 text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+            className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-[10px] transition-colors hover:bg-setta-200/80 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-setta-700 dark:hover:text-setta-100"
             onClick={() => {
               if (!branchInfo || !onBranchSwitch) {
                 return;
@@ -1293,13 +1313,13 @@ function ChatMessageActions({
           >
             <MdChevronLeft />
           </button>
-          <span className="px-1">
+          <span className="min-w-[30px] px-1 text-center">
             {activeIndex + 1}/{branchCount}
           </span>
           <button
             type="button"
             aria-label="Next branch"
-            className="rounded p-1 text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+            className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-[10px] transition-colors hover:bg-setta-200/80 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-setta-700 dark:hover:text-setta-100"
             onClick={() => {
               if (!branchInfo || !onBranchSwitch) {
                 return;
@@ -1395,6 +1415,7 @@ const ChatMessage = memo(function ChatMessage({
   attachmentUrlMap,
   requestAttachmentUrls,
   isEditing,
+  editingBubbleWidthPx,
   canEdit,
   editDisabledReason,
   onStartEdit,
@@ -1414,9 +1435,10 @@ const ChatMessage = memo(function ChatMessage({
     options?: { force?: boolean },
   ) => Promise<Record<string, AttachmentUrlEntry>>;
   isEditing: boolean;
+  editingBubbleWidthPx?: number | null;
   canEdit: boolean;
   editDisabledReason: string | null;
-  onStartEdit?: () => void;
+  onStartEdit?: (bubbleWidthPx?: number) => void;
   onCancelEdit?: () => void;
   onSaveEdit?: (
     text: string,
@@ -1430,7 +1452,6 @@ const ChatMessage = memo(function ChatMessage({
       ? message.attachments
       : [];
   const isUser = message.role === ChatRoleEnum.user;
-  const actionAlignment: ChatMessageActionAlignment = isUser ? "right" : "left";
   const showEdit = isUser && canEdit;
   const editDisabled = Boolean(editDisabledReason);
   const handleCopy = useCallback(() => {
@@ -1455,7 +1476,6 @@ const ChatMessage = memo(function ChatMessage({
   }, [message, toolCallArguments, toolResultsById]);
   const actionBar = !isEditing ? (
     <ChatMessageActions
-      alignment={actionAlignment}
       onCopy={handleCopy}
       showEdit={showEdit}
       editDisabled={editDisabled}
@@ -1647,7 +1667,10 @@ const ChatMessage = memo(function ChatMessage({
 
   if (isUser && isEditing) {
     return (
-      <UserChatBubble messageId={message.id}>
+      <UserChatBubble
+        messageId={message.id}
+        bubbleWidthPx={editingBubbleWidthPx}
+      >
         <ChatMessageEditor
           initialText={getPlainTextFromMessage(message)}
           initialAttachments={attachments}
@@ -1758,6 +1781,9 @@ function ChatMessages({
 }) {
   const { canEditParams } = useShareCapabilities();
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingBubbleWidthPx, setEditingBubbleWidthPx] = useState<
+    number | null
+  >(null);
   const [attachmentUrlMap, setAttachmentUrlMap] = useState<
     Record<string, AttachmentUrlEntry>
   >({});
@@ -1852,6 +1878,7 @@ function ChatMessages({
   useEffect(() => {
     if (waitingForResponse) {
       setEditingMessageId(null);
+      setEditingBubbleWidthPx(null);
     }
   }, [waitingForResponse]);
 
@@ -1894,14 +1921,21 @@ function ChatMessages({
         attachmentUrlMap={attachmentUrlMap}
         requestAttachmentUrls={requestAttachmentUrls}
         isEditing={isEditing}
+        editingBubbleWidthPx={isEditing ? editingBubbleWidthPx : null}
         canEdit={canEdit}
         editDisabledReason={resolvedEditDisabledReason}
         onStartEdit={
           !canEdit || resolvedEditDisabledReason
             ? undefined
-            : () => setEditingMessageId(message.id)
+            : (bubbleWidthPx?: number) => {
+                setEditingBubbleWidthPx(bubbleWidthPx ?? null);
+                setEditingMessageId(message.id);
+              }
         }
-        onCancelEdit={() => setEditingMessageId(null)}
+        onCancelEdit={() => {
+          setEditingMessageId(null);
+          setEditingBubbleWidthPx(null);
+        }}
         onSaveEdit={
           !onEditMessage
             ? undefined
@@ -1913,6 +1947,7 @@ function ChatMessages({
                 );
                 if (result === true) {
                   setEditingMessageId(null);
+                  setEditingBubbleWidthPx(null);
                 }
                 return result;
               }
