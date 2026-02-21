@@ -38,6 +38,36 @@ Ship a cross-platform design with phased OS rollouts:
 3. Deliver macOS first as the initial desktop-launch UX.
 4. Add Windows and Linux launchers on top of the same core.
 
+## Implementation Defaults (Ready to Build)
+
+1. CLI contract:
+   - Add `setta launcher`, `setta launcher install`, `setta launcher uninstall`.
+   - `setta launcher --json` returns a stable payload shape: `ok`, `workspaceRoot`, `sessionId`, `bootstrapUrl`, `reusedSession`, and structured `error` (`code`, `message`) on failure.
+   - Exit codes: `0` success, `2` user-fixable/configuration error, `1` unexpected/internal failure.
+   - UX effect: desktop launch can show precise remediation instead of generic "failed to launch" errors.
+
+2. Launcher metadata schema:
+   - Store versioned metadata in `<setta_home>/launcher/launcher-install.json`.
+   - Include `schemaVersion`, explicit `targetCommand` (absolute path), install `channel`, Setta `version`, defaults (`openMode`, workspace behavior), `lastUsedWorkspace`, and managed artifact paths.
+   - UX effect: launcher always opens the intended Setta install, even when users have multiple virtual environments or versions.
+
+3. Workspace resolution policy:
+   - Resolve workspace in this order: explicit workspace argument/context from OS launch -> saved default/last-used workspace -> workspace picker.
+   - On first run, if no workspace is configured, open picker instead of inventing a hidden default folder.
+   - UX effect: predictable first-run behavior and one-click repeat launches for returning users.
+
+4. Installer/uninstaller behavior:
+   - `setta launcher install` is primarily installer-facing (shell/PowerShell/package-manager hooks), not a required manual user step.
+   - Installer flow: ensure `uv` -> install/upgrade Setta -> invoke the just-installed Setta executable by absolute path with `launcher install`.
+   - Installer is idempotent and safe to re-run for repair.
+   - Uninstall removes only launcher-managed artifacts and metadata, never workspaces or `setta_files`.
+   - UX effect: "reinstall to fix launcher" is safe and reliable.
+
+5. Open mode default:
+   - Default launcher open mode is `browser`.
+   - `chrome-app` is opt-in via installer/settings and must gracefully fall back to browser when unavailable.
+   - UX effect: highest compatibility by default with optional app-like window behavior.
+
 ## Phase 1: Shared Launcher Core (All OSes)
 
 Add `setta launcher` command in `backend/setta/start.py`:
@@ -47,7 +77,7 @@ Add `setta launcher` command in `backend/setta/start.py`:
 3. Reuses `launch_workspace_session` for reuse/start behavior.
 4. Opens bootstrap URL by default.
 5. Supports `--open-mode browser|chrome-app`.
-6. Supports `--json` for wrapper scripts.
+6. Supports `--json` for wrapper scripts with stable payload fields and exit codes defined above.
 
 Add `setta launcher install` and `setta launcher uninstall` commands:
 
@@ -79,7 +109,7 @@ Convenience installer layer:
 2. Script responsibilities:
    - Ensure `uv` is present (install instructions or bootstrap).
    - Install/upgrade Setta via `uv tool install setta`.
-   - Run `setta launcher install`.
+   - Resolve the just-installed Setta executable path and run `launcher install` through that absolute target.
 3. This keeps a one-command install UX while preserving a Python-native packaging model.
 
 ## Phase 3: macOS Launcher (V1)
@@ -166,6 +196,5 @@ Improve desktop-first experience across all OSes:
 
 ## Open Questions
 
-1. Should `chrome-app` mode be opt-in only, or selectable during installer setup?
-2. Do we want a single cross-platform installer entrypoint later, or keep per-OS scripts permanently?
-3. How should we expose multi-version launch profiles (stable/beta/dev) in launcher UX?
+1. Do we want a single cross-platform installer entrypoint later, or keep per-OS scripts permanently?
+2. How should we expose multi-version launch profiles (stable/beta/dev) in launcher UX?
