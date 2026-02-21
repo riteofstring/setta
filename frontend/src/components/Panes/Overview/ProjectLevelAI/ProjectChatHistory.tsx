@@ -304,7 +304,7 @@ function ThreadGroupFolder({
     >
       <button
         type="button"
-        className="group/thread-folder flex w-full items-center gap-1 rounded px-1 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-setta-500 hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-300 dark:hover:bg-setta-800"
+        className="group/thread-folder flex w-full items-center gap-1 rounded px-0.5 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-setta-500 hover:bg-setta-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:text-setta-300 dark:hover:bg-setta-800"
         onClick={() => {
           toggleProjectChatThreadGroupCollapsed(projectConfigId, section.id);
         }}
@@ -329,24 +329,26 @@ function ThreadGroupFolder({
         <span className="truncate">{section.name}</span>
       </button>
 
-      {!section.collapsed && section.entries.length > 0
-        ? section.entries.map((entry) => (
-            <ThreadEntryLine
-              key={entry.chatId}
-              entry={entry}
-              isActive={entry.chatId === chatId}
-              isViewed={
-                viewedThreadIdsSet.has(entry.chatId) || entry.chatId === chatId
-              }
-              onSelect={onSelectThread}
-            />
-          ))
-        : null}
-
-      {!section.collapsed && section.entries.length === 0 ? (
-        <p className="ml-3 text-[11px] text-setta-400 dark:text-setta-500">
-          No threads in this group.
-        </p>
+      {!section.collapsed ? (
+        <div className="ml-2 flex flex-col gap-1 border-l border-setta-200/70 pl-2 dark:border-setta-700/70">
+          {section.entries.length > 0 ? (
+            section.entries.map((entry) => (
+              <ThreadEntryLine
+                key={entry.chatId}
+                entry={entry}
+                isActive={entry.chatId === chatId}
+                isViewed={
+                  viewedThreadIdsSet.has(entry.chatId) || entry.chatId === chatId
+                }
+                onSelect={onSelectThread}
+              />
+            ))
+          ) : (
+            <p className="py-1 text-[11px] text-setta-400 dark:text-setta-500">
+              No threads in this group.
+            </p>
+          )}
+        </div>
       ) : null}
     </section>
   );
@@ -370,15 +372,19 @@ function ThreadUngroupedFolder({
         <TbFolderOpen size={14} className="text-setta-400" />
         <span className="truncate">Ungrouped</span>
       </div>
-      {entries.map((entry) => (
-        <ThreadEntryLine
-          key={entry.chatId}
-          entry={entry}
-          isActive={entry.chatId === chatId}
-          isViewed={viewedThreadIdsSet.has(entry.chatId) || entry.chatId === chatId}
-          onSelect={onSelectThread}
-        />
-      ))}
+      <div className="ml-2 flex flex-col gap-1 border-l border-setta-200/70 pl-2 dark:border-setta-700/70">
+        {entries.map((entry) => (
+          <ThreadEntryLine
+            key={entry.chatId}
+            entry={entry}
+            isActive={entry.chatId === chatId}
+            isViewed={
+              viewedThreadIdsSet.has(entry.chatId) || entry.chatId === chatId
+            }
+            onSelect={onSelectThread}
+          />
+        ))}
+      </div>
     </section>
   );
 }
@@ -408,7 +414,7 @@ function ThreadEntryLine({
   return (
     <button
       type="button"
-      className={`ml-3 flex w-[calc(100%-0.75rem)] items-center rounded px-1.5 py-1 text-left transition-colors ${rowClassName}`}
+      className={`flex w-full items-center rounded px-1.5 py-1 text-left transition-colors ${rowClassName}`}
       onClick={() => onSelect(entry)}
       onKeyDown={(event) => onThreadEntryKeyDown(event, entry, onSelect)}
       data-testid="project-chat-thread-entry"
