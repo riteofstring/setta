@@ -18,14 +18,16 @@ import { TbUser } from "react-icons/tb";
 import { pruneActiveSectionIdsForViewMode } from "state/actions/activeSections";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
-import { persistViewModeSortOrder } from "state/actions/viewModes";
+import {
+  persistActiveViewMode,
+  persistViewModeSortOrder,
+} from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   route_create_view_mode,
   route_delete_view_mode,
-  route_set_active_view_mode,
   route_set_view_mode_name,
   route_toggle_is_editing_view_mode,
   route_toggle_view_mode_tab,
@@ -118,10 +120,7 @@ export function ViewingEditingMode() {
     if (!canEditVariants) {
       return;
     }
-    void route_set_active_view_mode({
-      projectConfigId,
-      activeViewModeId: modeId,
-    });
+    persistActiveViewMode(projectConfigId, modeId);
   };
 
   const handleToggleEdit = () => {

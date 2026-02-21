@@ -1,9 +1,6 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import * as Dialog from "@radix-ui/react-dialog";
-import {
-  CodeBlock,
-  MarkdownCodePre,
-} from "components/Section/Layouts/TextBlock";
+import { CodeBlock } from "components/Section/Layouts/TextBlock";
 import {
   MediaCarousel,
   type MediaCarouselItem,
@@ -82,10 +79,6 @@ type AssistantChatMessage = Extract<
 type ChatContentItem = AssistantChatMessage["content"][number];
 
 type ToolResultValue = ToolChatMessage["result"] | string;
-type ToolCallRenderEntry = {
-  toolCall: ToolCall;
-  isStreaming: boolean;
-};
 
 type ToolCallContext = {
   todoPayloadById: Record<string, TodoListPayload>;
@@ -97,7 +90,7 @@ type ToolCallContext = {
 const EMPTY_ASSISTANT_CONTENT: ChatContentItem[] = [];
 const IDLE_SPINNER_DELAY_MS = 1000;
 const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
-const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(88%,800px)]";
+const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(90%,820px)]";
 const ASSISTANT_REASONING_BORDER_CLASS =
   "border-setta-100 dark:border-setta-700/50";
 
@@ -160,7 +153,7 @@ function MarkdownContent({
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
         className={className}
-        components={{ code: CodeBlock, pre: MarkdownCodePre }}
+        components={{ code: CodeBlock }}
       >
         {displayText}
       </ReactMarkdown>
@@ -947,27 +940,31 @@ const ThinkingBox = memo(function ThinkingBox({
 });
 
 function ToolCallAccordionStatus({
-  runState,
+  success,
+  isStreaming,
 }: {
-  runState: ToolCallRunState;
+  success: boolean | undefined;
+  isStreaming: boolean;
 }) {
-  if (runState === "success") {
+  if (success === true) {
     return (
-      <IoMdCheckmark className="text-[12px] text-setta-400 dark:text-setta-300" />
+      <IoMdCheckmark className="mr-1.5 self-center justify-self-end text-setta-400" />
     );
   }
-  if (runState === "failed") {
+  if (success === false) {
     return (
-      <MdErrorOutline className="text-[11px] text-red-500 dark:text-red-400" />
+      <MdErrorOutline className="mr-1.5 self-center justify-self-end text-red-500" />
     );
   }
-  if (runState === "stopped") {
+  if (!isStreaming) {
     return (
-      <MdErrorOutline className="text-[11px] text-amber-600 dark:text-amber-300" />
+      <span className="mr-1.5 self-center justify-self-end text-[10px] font-semibold uppercase tracking-wide text-setta-300/80 dark:text-setta-500">
+        Pending
+      </span>
     );
   }
   return (
-    <i className="gg-spinner !scale-75 text-setta-400 dark:text-setta-300/70" />
+    <i className="gg-spinner mr-1.5 !scale-75 self-center justify-self-end text-setta-400 dark:text-setta-300/70" />
   );
 }
 
@@ -975,12 +972,14 @@ const ToolCallItem = memo(function ToolCallItem({
   name,
   args,
   result,
-  runState,
+  success,
+  isStreaming,
 }: {
   name: string;
   args: unknown;
   result: ToolResultValue | undefined;
-  runState: ToolCallRunState;
+  success: boolean | undefined;
+  isStreaming: boolean;
 }) {
   const resultDisplay = (() => {
     if (typeof result === "string") {
@@ -997,52 +996,52 @@ const ToolCallItem = memo(function ToolCallItem({
         return String(result);
       }
     }
-    if (runState === "failed") {
+    if (success === false) {
       return "Tool execution failed";
     }
-    if (runState === "success") {
+    if (success === true) {
       return "Tool completed successfully";
-    }
-    if (runState === "stopped") {
-      return "Stopped mid-tool call before completion.";
     }
     return null;
   })();
 
   return (
-    <Accordion.Root type="single" collapsible className="w-full">
-      <Accordion.Item value="details" data-chat-tool-call-item="true">
-        <Accordion.Trigger className="grid w-full cursor-pointer grid-cols-[1.5rem_minmax(0,1fr)] overflow-hidden rounded-md border border-setta-200/70 bg-white/60 transition-colors hover:bg-white/80 dark:border-setta-700/70 dark:bg-setta-900/65 dark:hover:bg-setta-900">
-          <div
-            className="flex h-full items-center justify-center bg-setta-100/75 text-setta-400 dark:bg-setta-800/80 dark:text-setta-300"
-            data-chat-tool-call-item-rail="true"
-            title={`Tool state: ${runState}`}
-            aria-label={`Tool state: ${runState}`}
-          >
-            <ToolCallAccordionStatus runState={runState} />
+    <Accordion.Root type="single" collapsible>
+      <Accordion.Item value="details">
+        <Accordion.Trigger className="relative flex w-full cursor-pointer items-center justify-between overflow-hidden rounded-md bg-setta-50 transition-all hover:bg-white hover:shadow-md dark:bg-setta-900 dark:hover:bg-setta-950 dark:hover:shadow-none">
+          <div className="px-2 py-2 ">
+            <PiWrenchFill
+              size={15}
+              className="min-w-6 text-setta-200 dark:text-setta-400"
+            />
           </div>
-          <div className="min-w-0 truncate break-words px-2 py-1 font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200">
+
+          <div className="max-w-[calc(100%_-_6rem)] truncate break-words font-mono text-xs font-bold text-setta-500 dark:text-setta-200">
             {name}
           </div>
+          <ToolCallAccordionStatus
+            success={success}
+            isStreaming={isStreaming}
+          />
         </Accordion.Trigger>
 
-        <Accordion.Content className="overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+        <Accordion.Content className="overflow-hidden rounded-b-md data-[state=open]:-mt-2.5 data-[state=open]:mb-2 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
           {args && (
-            <div className="border-x border-t border-setta-200/70 bg-setta-200/35 px-1.5 py-1 text-xs dark:border-setta-700/70 dark:bg-setta-860">
-              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
+            <div className="bg-setta-200/50 px-3 pb-2 pt-2.5 text-xs dark:bg-setta-860">
+              <h3 className="!mt-2.5 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
                 Arguments
               </h3>
-              <pre className="m-0 cursor-auto whitespace-pre-wrap break-words font-mono text-[11px] text-setta-600 dark:text-setta-200">
+              <pre className="m-0 cursor-auto whitespace-pre-wrap break-words font-mono text-xs text-setta-600 dark:text-setta-200">
                 {formatToolArgs(args)}
               </pre>
             </div>
           )}
           {resultDisplay && (
-            <div className="rounded-b-md border border-setta-200/70 bg-setta-200 px-1.5 py-1 dark:border-setta-700/70 dark:bg-setta-900">
-              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
+            <div className=" bg-setta-200 p-3  dark:bg-setta-900">
+              <h3 className="!mt-0 text-xs font-bold uppercase text-setta-600 dark:text-setta-300">
                 Result
               </h3>
-              <pre className="m-0 cursor-auto whitespace-pre-wrap break-words font-mono text-[11px] text-setta-600 dark:text-setta-200">
+              <pre className="m-0 cursor-auto whitespace-pre-wrap break-words font-mono text-xs text-setta-600 dark:text-setta-200">
                 {resultDisplay}
               </pre>
             </div>
@@ -1050,212 +1049,6 @@ const ToolCallItem = memo(function ToolCallItem({
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>
-  );
-});
-
-type ToolCallRunState = "running" | "success" | "failed" | "stopped";
-type ToolCallSectionState = "running" | "complete" | "stopped";
-
-function resolveToolCallRunState(
-  success: boolean | undefined,
-  isStreaming: boolean,
-): ToolCallRunState {
-  if (success === true) {
-    return "success";
-  }
-  if (success === false) {
-    return "failed";
-  }
-  if (isStreaming) {
-    return "running";
-  }
-  return "stopped";
-}
-
-function resolveToolCallSectionState(
-  states: ToolCallRunState[],
-): ToolCallSectionState {
-  if (states.some((state) => state === "failed" || state === "stopped")) {
-    return "stopped";
-  }
-  if (states.some((state) => state === "running")) {
-    return "running";
-  }
-  return "complete";
-}
-
-function ToolCallSectionStatus({
-  sectionState,
-}: {
-  sectionState: ToolCallSectionState;
-}) {
-  if (sectionState === "complete") {
-    return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300">
-        <IoMdCheckmark className="text-[11px]" />
-        Complete
-      </span>
-    );
-  }
-  if (sectionState === "stopped") {
-    return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-600 dark:text-amber-300">
-        <MdErrorOutline className="text-[11px]" />
-        Stopped Mid-Tool Call
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300">
-      <i className="gg-spinner !scale-75" />
-      Working
-    </span>
-  );
-}
-
-const ToolCallSection = memo(function ToolCallSection({
-  children,
-  toolCount,
-  latestToolLabel,
-  sectionState,
-}: {
-  children: ReactNode;
-  toolCount: number;
-  latestToolLabel: string;
-  sectionState: ToolCallSectionState;
-}) {
-  const title = `Tool calls (${toolCount})`;
-  return (
-    <Accordion.Root type="single" collapsible className="w-full">
-      <Accordion.Item
-        value="tool-call-details"
-        className="w-full overflow-hidden rounded-md border border-setta-200/70 bg-setta-50/70 dark:border-setta-700/60 dark:bg-setta-900/45"
-        data-chat-tool-call-section="true"
-        data-chat-tool-call-section-state={sectionState}
-      >
-        <Accordion.Trigger className="grid w-full cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)] text-left transition-colors hover:bg-white/60 dark:hover:bg-setta-900/80">
-          <div
-            className="flex h-full items-center justify-center bg-setta-100/75 text-setta-400 dark:bg-setta-800/75 dark:text-setta-300"
-            data-chat-tool-call-section-rail="true"
-          >
-            <PiWrenchFill size={13} className="min-w-4" />
-          </div>
-          <div className="flex min-w-0 items-start gap-2 px-2 py-1">
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[11px] font-semibold text-setta-500 dark:text-setta-200">
-                {title}
-              </div>
-              <div className="truncate text-[10px] text-setta-400 dark:text-setta-400/90">
-                {latestToolLabel}
-              </div>
-            </div>
-            <div className="ml-auto shrink-0 self-center">
-              <ToolCallSectionStatus sectionState={sectionState} />
-            </div>
-          </div>
-        </Accordion.Trigger>
-        <Accordion.Content className="overflow-hidden px-0.5 pb-0.5 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-          <div className="flex w-full flex-col gap-0.5">{children}</div>
-        </Accordion.Content>
-      </Accordion.Item>
-    </Accordion.Root>
-  );
-});
-
-const AssistantToolCallSection = memo(function AssistantToolCallSection({
-  entries,
-  toolResultsById,
-  toolCallArguments,
-  toolCallContext,
-}: {
-  entries: ToolCallRenderEntry[];
-  toolResultsById: Record<string, ToolChatMessage>;
-  toolCallArguments: Record<string, string>;
-  toolCallContext: ToolCallContext;
-}) {
-  const toolCallStates: ToolCallRunState[] = [];
-  const toolLabels: string[] = [];
-  const rows = entries.map(({ toolCall, isStreaming }) => {
-    const toolResult = toolResultsById[toolCall.id];
-    const rawToolName =
-      toolResult?.tool_name ||
-      toolCall.function?.name ||
-      `Tool call ${toolCall.id}`;
-    const runState = resolveToolCallRunState(
-      toolResult ? !toolResult.is_error : undefined,
-      isStreaming,
-    );
-    toolCallStates.push(runState);
-    toolLabels.push(rawToolName);
-
-    const questionPayload = toolCallContext.questionPayloadById[toolCall.id];
-    if (questionPayload) {
-      const resolvedAnswers = resolveQuestionAnswers(questionPayload, toolResult);
-      return (
-        <div key={toolCall.id} className="w-full">
-          <QuestionCard
-            toolCallId={toolCall.id}
-            payload={questionPayload}
-            resolvedAnswers={resolvedAnswers}
-          />
-        </div>
-      );
-    }
-    const todoPayload = toolCallContext.todoPayloadById[toolCall.id];
-    if (todoPayload) {
-      const summaryOnly = toolCallContext.latestTodoCallId !== toolCall.id;
-      return (
-        <div key={toolCall.id} className="w-full">
-          <TodoListCard todos={todoPayload.todos} summaryOnly={summaryOnly} />
-        </div>
-      );
-    }
-    const approvalPayload = toolCallContext.approvalPayloadById[toolCall.id];
-    if (approvalPayload) {
-      return (
-        <div key={toolCall.id} className="w-full">
-          <ApprovalCard
-            toolCallId={toolCall.id}
-            toolName={approvalPayload.toolName ?? null}
-            toolType={approvalPayload.toolType ?? null}
-            input={approvalPayload.input}
-            toolResult={toolResult}
-            isStreaming={isStreaming}
-          />
-        </div>
-      );
-    }
-    const argsFromAssistant = toolCall.function?.arguments;
-    const pendingArgs = toolCallArguments?.[toolCall.id];
-    let argsToDisplay = pendingArgs;
-    if (toolResult?.arguments && Object.keys(toolResult.arguments).length > 0) {
-      argsToDisplay = toolResult.arguments;
-    } else if (argsFromAssistant && Object.keys(argsFromAssistant).length > 0) {
-      argsToDisplay = argsFromAssistant;
-    }
-    return (
-      <ToolCallItem
-        key={toolCall.id}
-        name={rawToolName}
-        args={argsToDisplay}
-        result={formatToolResult(toolResult)}
-        runState={runState}
-      />
-    );
-  });
-
-  const sectionState = resolveToolCallSectionState(toolCallStates);
-  const latestToolLabel =
-    toolLabels.length > 0 ? toolLabels[toolLabels.length - 1] : "Tool activity";
-
-  return (
-    <ToolCallSection
-      toolCount={entries.length}
-      latestToolLabel={latestToolLabel}
-      sectionState={sectionState}
-    >
-      {rows}
-    </ToolCallSection>
   );
 });
 
@@ -1323,7 +1116,7 @@ function StreamItem({
 
 function AssistantReasoningCard({ children }: { children: ReactNode }) {
   return (
-    <div className="w-full">
+    <div className="my-2 w-full">
       <div
         className={`flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-0.5 rounded-b-lg rounded-tr-lg border ${ASSISTANT_REASONING_BORDER_CLASS} bg-transparent px-1.5 py-1`}
         data-chat-assistant-reasoning-card="true"
@@ -1334,29 +1127,19 @@ function AssistantReasoningCard({ children }: { children: ReactNode }) {
   );
 }
 
-function AssistantToolCallCard({ children }: { children: ReactNode }) {
-  return (
-    <div className="w-full" data-chat-assistant-tool-call-card="true">
-      {children}
-    </div>
-  );
-}
-
 function AssistantMessageGroup({
   children,
   messageId,
-  fixedWidth = false,
 }: {
   children: ReactNode;
   messageId?: string;
-  fixedWidth?: boolean;
 }) {
-  const widthClass = fixedWidth
-    ? `group flex w-full ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-start gap-2`
-    : `group inline-flex w-fit ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} max-w-full flex-col items-start gap-2`;
   return (
     <div className="my-2 flex justify-start">
-      <div className={widthClass} data-message-id={messageId}>
+      <div
+        className={`group inline-flex w-fit ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} max-w-full flex-col items-start`}
+        data-message-id={messageId}
+      >
         {children}
       </div>
     </div>
@@ -1371,16 +1154,14 @@ function LLMChatBubble({
   actions?: ReactNode;
 }) {
   return (
-    <div className="w-full">
+    <div className="my-2 w-full">
       <div
-        className="relative flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg bg-setta-100 pb-2.5 pl-3 pr-2.5 pt-1.5 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50"
+        className="flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg bg-setta-100 px-3 py-2 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50"
         data-chat-assistant-bubble="true"
       >
         {children}
-        {actions ? (
-          <div className="absolute bottom-0 left-0">{actions}</div>
-        ) : null}
       </div>
+      {actions}
     </div>
   );
 }
@@ -1389,12 +1170,10 @@ function UserChatBubble({
   children,
   actions,
   messageId,
-  bubbleWidthPx,
 }: {
   children: ReactNode;
   actions?: ReactNode;
   messageId?: string;
-  bubbleWidthPx?: number | null;
 }) {
   return (
     <div className="my-2 flex justify-end">
@@ -1402,20 +1181,10 @@ function UserChatBubble({
         className="group flex max-w-[min(90%,820px)] flex-col items-end"
         data-message-id={messageId}
       >
-        <div
-          className="relative flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-900/60 bg-blue-950 pb-2.5 pl-3 pr-2.5 pt-1.5 text-white dark:border-blue-800/80 dark:bg-blue-950"
-          data-chat-user-bubble="true"
-          style={
-            typeof bubbleWidthPx === "number"
-              ? { width: `${bubbleWidthPx}px` }
-              : undefined
-          }
-        >
+        <div className="flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg bg-blue-500 px-3 py-2 text-white dark:bg-blue-700">
           {children}
-          {actions ? (
-            <div className="absolute bottom-0 right-0">{actions}</div>
-          ) : null}
         </div>
+        {actions}
       </div>
     </div>
   );
@@ -1436,15 +1205,10 @@ function SystemChatBubble({
         className="group flex max-w-[min(90%,800px)] flex-col items-start"
         data-message-id={messageId}
       >
-        <div
-          className="relative flex max-w-full cursor-text flex-col gap-1.5 rounded-md border border-setta-200 bg-setta-50 px-2.5 pb-2 pt-1 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300"
-          data-chat-system-bubble="true"
-        >
+        <div className="flex max-w-full cursor-text flex-col gap-1.5 rounded-md border border-setta-200 bg-setta-50 px-2.5 py-1.5 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300">
           {children}
-          {actions ? (
-            <div className="absolute bottom-0.5 right-0.5">{actions}</div>
-          ) : null}
         </div>
+        {actions}
       </div>
     </div>
   );
@@ -1455,7 +1219,10 @@ const USER_MARKDOWN_CLASS =
 const SYSTEM_MARKDOWN_CLASS =
   "prose prose-sm text-setta-600 dark:prose-invert prose-p:my-1 prose-p:text-[12px] prose-headings:text-xs prose-headings:font-semibold prose-code:before:hidden prose-code:after:hidden [&_*]:break-words";
 
+type ChatMessageActionAlignment = "left" | "right";
+
 function ChatMessageActions({
+  alignment,
   onCopy,
   showEdit,
   editDisabled,
@@ -1464,14 +1231,17 @@ function ChatMessageActions({
   branchInfo,
   onBranchSwitch,
 }: {
+  alignment: ChatMessageActionAlignment;
   onCopy: () => void;
   showEdit: boolean;
   editDisabled: boolean;
   editDisabledReason: string | null;
-  onEdit?: (bubbleWidthPx?: number) => void;
+  onEdit?: () => void;
   branchInfo?: ChatMessageBranchInfo;
   onBranchSwitch?: (nextChatId: string) => void;
 }) {
+  const alignmentClass =
+    alignment === "right" ? "justify-end" : "justify-start";
   const branchCount = branchInfo?.branchChatIds.length ?? 0;
   const activeIndex = branchInfo?.activeIndex ?? 0;
   const hasBranches = branchCount > 1 && Boolean(onBranchSwitch);
@@ -1479,41 +1249,37 @@ function ChatMessageActions({
   const canGoNext = activeIndex < branchCount - 1;
 
   return (
-    <div className="inline-flex items-center gap-1 text-setta-500 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 dark:text-setta-300">
+    <div
+      className={`mt-0.5 flex w-full items-center gap-1.5 text-[11px] text-setta-400 opacity-0 transition-opacity group-hover:opacity-100 ${alignmentClass}`}
+    >
       <button
         type="button"
         aria-label="Copy message"
-        className="inline-flex h-5 w-5 cursor-pointer items-center justify-center text-[11px] transition-colors hover:text-setta-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-setta-400 dark:hover:text-setta-100"
+        className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-700 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-200"
         onClick={onCopy}
       >
         <FiCopy />
+        Copy
       </button>
       {showEdit ? (
         <button
           type="button"
           aria-label="Edit message"
-          className="inline-flex h-5 w-5 cursor-pointer items-center justify-center text-[11px] transition-colors hover:text-setta-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-setta-400 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-setta-100"
-          onClick={(event) => {
-            const bubble = event.currentTarget.closest(
-              '[data-chat-user-bubble="true"]',
-            );
-            const bubbleWidthPx = bubble
-              ? bubble.getBoundingClientRect().width
-              : undefined;
-            onEdit?.(bubbleWidthPx);
-          }}
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+          onClick={onEdit}
           disabled={editDisabled}
           title={editDisabledReason ?? undefined}
         >
           <FiEdit3 />
+          Edit
         </button>
       ) : null}
       {hasBranches ? (
-        <div className="ml-0.5 inline-flex items-center gap-0.5 rounded-sm border border-setta-200 px-0.5 py-0.5 text-[9px] font-medium tabular-nums text-setta-500 dark:border-setta-700 dark:text-setta-300">
+        <div className="inline-flex items-center gap-1 rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:border-setta-700 dark:text-setta-500">
           <button
             type="button"
             aria-label="Previous branch"
-            className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-[10px] transition-colors hover:bg-setta-200/80 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-setta-700 dark:hover:text-setta-100"
+            className="rounded p-1 text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-200"
             onClick={() => {
               if (!branchInfo || !onBranchSwitch) {
                 return;
@@ -1527,13 +1293,13 @@ function ChatMessageActions({
           >
             <MdChevronLeft />
           </button>
-          <span className="min-w-[30px] px-1 text-center">
+          <span className="px-1">
             {activeIndex + 1}/{branchCount}
           </span>
           <button
             type="button"
             aria-label="Next branch"
-            className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-[10px] transition-colors hover:bg-setta-200/80 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-setta-700 dark:hover:text-setta-100"
+            className="rounded p-1 text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-200"
             onClick={() => {
               if (!branchInfo || !onBranchSwitch) {
                 return;
@@ -1566,60 +1332,6 @@ function getPlainTextFromMessage(message: BaseChatMessageUnion): string {
   return output.join("\n\n").trim();
 }
 
-export function buildCopyTextForMessage({
-  message,
-  toolResultsById,
-  toolCallArguments,
-}: {
-  message: BaseChatMessageUnion;
-  toolResultsById: Record<string, ToolChatMessage>;
-  toolCallArguments: Record<string, string>;
-}): string {
-  const output: string[] = [];
-  const plainText = getPlainTextFromMessage(message);
-  if (plainText.length > 0) {
-    output.push(plainText);
-  }
-  if (message.role !== ChatRoleEnum.assistant) {
-    return output.join("\n\n").trim();
-  }
-  const toolCalls = message.tool_calls ?? [];
-  for (const toolCall of toolCalls) {
-    const toolResult = toolResultsById[toolCall.id];
-    const toolName =
-      toolResult?.tool_name ||
-      toolCall.function?.name ||
-      `Tool call ${toolCall.id}`;
-    const lines: string[] = [toolName];
-    const argsFromResult = toolResult?.arguments;
-    const argsFromMessage = toolCall.function?.arguments;
-    const pendingArgs = toolCallArguments[toolCall.id];
-    let args: unknown = null;
-    if (argsFromResult && Object.keys(argsFromResult).length > 0) {
-      args = argsFromResult;
-    } else if (argsFromMessage && Object.keys(argsFromMessage).length > 0) {
-      args = argsFromMessage;
-    } else if (pendingArgs && pendingArgs.trim().length > 0) {
-      args = pendingArgs;
-    }
-    if (args) {
-      lines.push(`Arguments:\n${formatToolArgs(args)}`);
-    }
-    const result = formatToolResult(toolResult);
-    if (result !== undefined) {
-      if (typeof result === "string" && result.trim().length > 0) {
-        lines.push(`Result:\n${result}`);
-      } else if (typeof result === "number" || typeof result === "boolean") {
-        lines.push(`Result:\n${String(result)}`);
-      } else if (result && typeof result === "object") {
-        lines.push(`Result:\n${formatToolArgs(result)}`);
-      }
-    }
-    output.push(lines.join("\n"));
-  }
-  return output.join("\n\n").trim();
-}
-
 const ChatMessage = memo(function ChatMessage({
   message,
   toolResultsById,
@@ -1629,7 +1341,6 @@ const ChatMessage = memo(function ChatMessage({
   attachmentUrlMap,
   requestAttachmentUrls,
   isEditing,
-  editingBubbleWidthPx,
   canEdit,
   editDisabledReason,
   onStartEdit,
@@ -1649,10 +1360,9 @@ const ChatMessage = memo(function ChatMessage({
     options?: { force?: boolean },
   ) => Promise<Record<string, AttachmentUrlEntry>>;
   isEditing: boolean;
-  editingBubbleWidthPx?: number | null;
   canEdit: boolean;
   editDisabledReason: string | null;
-  onStartEdit?: (bubbleWidthPx?: number) => void;
+  onStartEdit?: () => void;
   onCancelEdit?: () => void;
   onSaveEdit?: (
     text: string,
@@ -1666,30 +1376,18 @@ const ChatMessage = memo(function ChatMessage({
       ? message.attachments
       : [];
   const isUser = message.role === ChatRoleEnum.user;
+  const actionAlignment: ChatMessageActionAlignment = isUser ? "right" : "left";
   const showEdit = isUser && canEdit;
   const editDisabled = Boolean(editDisabledReason);
   const handleCopy = useCallback(() => {
-    const text = buildCopyTextForMessage({
-      message,
-      toolResultsById,
-      toolCallArguments,
+    const text = getPlainTextFromMessage(message);
+    void navigator.clipboard.writeText(text).then(() => {
+      addTemporaryNotification("Copied message.");
     });
-    if (text.length === 0) {
-      addTemporaryNotification("Nothing to copy for this message.", "warning");
-      return;
-    }
-    void navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        addTemporaryNotification("Copied message.");
-      })
-      .catch((error) => {
-        console.error("Failed to copy message:", error);
-        addTemporaryNotification("Failed to copy message.", "error");
-      });
-  }, [message, toolCallArguments, toolResultsById]);
+  }, [message]);
   const actionBar = !isEditing ? (
     <ChatMessageActions
+      alignment={actionAlignment}
       onCopy={handleCopy}
       showEdit={showEdit}
       editDisabled={editDisabled}
@@ -1745,23 +1443,8 @@ const ChatMessage = memo(function ChatMessage({
 
   if (message.role === ChatRoleEnum.assistant) {
     const showTypingIndicator = showAssistantSpinner;
-    const hasBubbleContent = attachments.length > 0 || displayItems.length > 0;
-    const shouldRenderBubble =
-      hasBubbleContent || showTypingIndicator || (isStreaming && toolCalls.length === 0);
-    const hasThinkingContent = thinkingItems.length > 0;
-    const lockGroupToBubbleMaxWidth = hasThinkingContent || toolCalls.length > 0;
-    if (!shouldRenderBubble && !hasThinkingContent && toolCalls.length === 0) {
-      return null;
-    }
-    const toolCallEntries: ToolCallRenderEntry[] = toolCalls.map((toolCall) => ({
-      toolCall,
-      isStreaming,
-    }));
     return (
-      <AssistantMessageGroup
-        messageId={message.id}
-        fixedWidth={lockGroupToBubbleMaxWidth}
-      >
+      <AssistantMessageGroup messageId={message.id}>
         {thinkingItems.map((item, idx) => (
           <AssistantReasoningCard key={`${message.id}-thinking-${idx}`}>
             <ThinkingBox
@@ -1772,57 +1455,119 @@ const ChatMessage = memo(function ChatMessage({
             />
           </AssistantReasoningCard>
         ))}
-        {shouldRenderBubble ? (
-          <LLMChatBubble actions={actionBar}>
-            <ChatAttachmentList
-              attachments={attachments}
-              isUser={false}
-              attachmentUrlMap={attachmentUrlMap}
-              requestAttachmentUrls={requestAttachmentUrls}
-            />
-            {displayItems.map(({ item, fullIndex }) => {
-              return (
-                <StreamItem
-                  key={fullIndex}
-                  item={item}
-                  isStreaming={isStreaming}
-                  showTypingIndicator={
-                    showTypingIndicator && fullIndex === lastTextIndex
-                  }
-                />
-              );
-            })}
-            {showTypingIndicator && lastTextIndex === -1 ? (
-              <span
-                className="chat-typing-inline"
-                data-typing="true"
-                aria-hidden="true"
+        <LLMChatBubble actions={actionBar}>
+          <ChatAttachmentList
+            attachments={attachments}
+            isUser={false}
+            attachmentUrlMap={attachmentUrlMap}
+            requestAttachmentUrls={requestAttachmentUrls}
+          />
+          {displayItems.map(({ item, fullIndex }) => {
+            return (
+              <StreamItem
+                key={fullIndex}
+                item={item}
+                isStreaming={isStreaming}
+                showTypingIndicator={
+                  showTypingIndicator && fullIndex === lastTextIndex
+                }
               />
-            ) : null}
-          </LLMChatBubble>
-        ) : (
-          toolCalls.length === 0 ? actionBar : null
-        )}
-        {toolCalls.length > 0 ? (
-          <AssistantToolCallCard>
-            <AssistantToolCallSection
-              entries={toolCallEntries}
-              toolResultsById={toolResultsById}
-              toolCallArguments={toolCallArguments}
-              toolCallContext={toolCallContext}
+            );
+          })}
+          {showTypingIndicator && lastTextIndex === -1 ? (
+            <span
+              className="chat-typing-inline"
+              data-typing="true"
+              aria-hidden="true"
             />
-          </AssistantToolCallCard>
-        ) : null}
+          ) : null}
+          {toolCalls.length > 0 ? (
+            <div className="flex flex-col gap-1">
+              {toolCalls.map((toolCall: ToolCall) => {
+                const toolResult = toolResultsById[toolCall.id];
+                const questionPayload =
+                  toolCallContext.questionPayloadById[toolCall.id];
+                if (questionPayload) {
+                  const resolvedAnswers = resolveQuestionAnswers(
+                    questionPayload,
+                    toolResult,
+                  );
+                  return (
+                    <QuestionCard
+                      key={toolCall.id}
+                      toolCallId={toolCall.id}
+                      payload={questionPayload}
+                      resolvedAnswers={resolvedAnswers}
+                    />
+                  );
+                }
+                const todoPayload =
+                  toolCallContext.todoPayloadById[toolCall.id];
+                if (todoPayload) {
+                  const summaryOnly =
+                    toolCallContext.latestTodoCallId !== toolCall.id;
+                  return (
+                    <TodoListCard
+                      key={toolCall.id}
+                      todos={todoPayload.todos}
+                      summaryOnly={summaryOnly}
+                    />
+                  );
+                }
+                const approvalPayload =
+                  toolCallContext.approvalPayloadById[toolCall.id];
+                if (approvalPayload) {
+                  return (
+                    <ApprovalCard
+                      key={toolCall.id}
+                      toolCallId={toolCall.id}
+                      toolName={approvalPayload.toolName ?? null}
+                      toolType={approvalPayload.toolType ?? null}
+                      input={approvalPayload.input}
+                      toolResult={toolResult}
+                      isStreaming={isStreaming}
+                    />
+                  );
+                }
+                const argsFromAssistant = toolCall.function?.arguments;
+                const pendingArgs = toolCallArguments?.[toolCall.id];
+                let argsToDisplay = pendingArgs;
+                if (
+                  toolResult?.arguments &&
+                  Object.keys(toolResult.arguments).length > 0
+                ) {
+                  argsToDisplay = toolResult.arguments;
+                } else if (
+                  argsFromAssistant &&
+                  Object.keys(argsFromAssistant).length > 0
+                ) {
+                  argsToDisplay = argsFromAssistant;
+                }
+                const rawToolName =
+                  toolResult?.tool_name ||
+                  toolCall.function?.name ||
+                  `Tool call ${toolCall.id}`;
+                return (
+                  <ToolCallItem
+                    key={toolCall.id}
+                    name={rawToolName}
+                    args={argsToDisplay}
+                    result={formatToolResult(toolResult)}
+                    success={toolResult ? !toolResult.is_error : undefined}
+                    isStreaming={isStreaming}
+                  />
+                );
+              })}
+            </div>
+          ) : null}
+        </LLMChatBubble>
       </AssistantMessageGroup>
     );
   }
 
   if (isUser && isEditing) {
     return (
-      <UserChatBubble
-        messageId={message.id}
-        bubbleWidthPx={editingBubbleWidthPx}
-      >
+      <UserChatBubble messageId={message.id}>
         <ChatMessageEditor
           initialText={getPlainTextFromMessage(message)}
           initialAttachments={attachments}
@@ -1908,26 +1653,6 @@ function resolveQuestionAnswers(
   return null;
 }
 
-function isToolCallOnlyAssistantMessage(
-  message: BaseChatMessageUnion,
-): message is AssistantChatMessage {
-  if (message.role !== ChatRoleEnum.assistant) {
-    return false;
-  }
-  const toolCalls = message.tool_calls ?? [];
-  if (toolCalls.length === 0) {
-    return false;
-  }
-  const attachments =
-    "attachments" in message && Array.isArray(message.attachments)
-      ? message.attachments
-      : [];
-  if (attachments.length > 0) {
-    return false;
-  }
-  return message.content.length === 0;
-}
-
 function ChatMessages({
   messages,
   waitingForResponse,
@@ -1953,9 +1678,6 @@ function ChatMessages({
 }) {
   const { canEditParams } = useShareCapabilities();
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editingBubbleWidthPx, setEditingBubbleWidthPx] = useState<
-    number | null
-  >(null);
   const [attachmentUrlMap, setAttachmentUrlMap] = useState<
     Record<string, AttachmentUrlEntry>
   >({});
@@ -2050,7 +1772,6 @@ function ChatMessages({
   useEffect(() => {
     if (waitingForResponse) {
       setEditingMessageId(null);
-      setEditingBubbleWidthPx(null);
     }
   }, [waitingForResponse]);
 
@@ -2066,48 +1787,7 @@ function ChatMessages({
   if (waitingForResponse && lastMessage?.role === ChatRoleEnum.assistant) {
     streamingMessageId = lastMessage.id;
   }
-  let index = 0;
-  while (index < messages.length) {
-    const message = messages[index];
-    if (isToolCallOnlyAssistantMessage(message)) {
-      const groupedToolCalls: ToolCallRenderEntry[] = [];
-      const firstMessageId = message.id;
-      let groupEnd = index;
-      while (groupEnd < messages.length) {
-        const nextMessage = messages[groupEnd];
-        if (!isToolCallOnlyAssistantMessage(nextMessage)) {
-          break;
-        }
-        const isStreamingMessage =
-          waitingForResponse && nextMessage.id === streamingMessageId;
-        const toolCalls = nextMessage.tool_calls ?? [];
-        for (const toolCall of toolCalls) {
-          groupedToolCalls.push({
-            toolCall,
-            isStreaming: isStreamingMessage,
-          });
-        }
-        groupEnd += 1;
-      }
-      output.push(
-        <AssistantMessageGroup
-          key={`tool-call-group-${firstMessageId}`}
-          messageId={firstMessageId}
-          fixedWidth
-        >
-          <AssistantToolCallCard>
-            <AssistantToolCallSection
-              entries={groupedToolCalls}
-              toolResultsById={toolResultsById}
-              toolCallArguments={toolCallArguments}
-              toolCallContext={toolCallContext}
-            />
-          </AssistantToolCallCard>
-        </AssistantMessageGroup>,
-      );
-      index = groupEnd;
-      continue;
-    }
+  for (const message of messages) {
     const isStreamingMessage =
       waitingForResponse &&
       message.role === ChatRoleEnum.assistant &&
@@ -2134,21 +1814,14 @@ function ChatMessages({
         attachmentUrlMap={attachmentUrlMap}
         requestAttachmentUrls={requestAttachmentUrls}
         isEditing={isEditing}
-        editingBubbleWidthPx={isEditing ? editingBubbleWidthPx : null}
         canEdit={canEdit}
         editDisabledReason={resolvedEditDisabledReason}
         onStartEdit={
           !canEdit || resolvedEditDisabledReason
             ? undefined
-            : (bubbleWidthPx?: number) => {
-                setEditingBubbleWidthPx(bubbleWidthPx ?? null);
-                setEditingMessageId(message.id);
-              }
+            : () => setEditingMessageId(message.id)
         }
-        onCancelEdit={() => {
-          setEditingMessageId(null);
-          setEditingBubbleWidthPx(null);
-        }}
+        onCancelEdit={() => setEditingMessageId(null)}
         onSaveEdit={
           !onEditMessage
             ? undefined
@@ -2160,7 +1833,6 @@ function ChatMessages({
                 );
                 if (result === true) {
                   setEditingMessageId(null);
-                  setEditingBubbleWidthPx(null);
                 }
                 return result;
               }
@@ -2169,7 +1841,6 @@ function ChatMessages({
         onBranchSwitch={onBranchSwitch}
       />,
     );
-    index += 1;
   }
 
   if (waitingForResponse && lastMessage?.role !== ChatRoleEnum.assistant) {

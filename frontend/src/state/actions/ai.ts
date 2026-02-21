@@ -37,12 +37,16 @@ import {
 import type { AppGenerationMode } from "state/types/appGenerationMode";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
+  route_append_transcription_audio,
+  route_cancel_transcription_session,
   route_create_agent_profile,
   route_create_external_agent_config,
   route_create_prompt_template,
+  route_create_transcription_profile,
   route_delete_agent_profile,
   route_delete_external_agent_config,
   route_delete_prompt_template,
+  route_delete_transcription_profile,
   route_get_agent_profiles,
   route_get_agent_runs,
   route_get_engine_configs,
@@ -54,18 +58,20 @@ import {
   route_get_llm_config,
   route_get_llm_response,
   route_get_prompt_templates,
+  route_get_transcription_profiles,
   route_respond_external_agent_approval,
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
-  route_set_llm_config,
+  route_start_transcription_session,
   route_stop_external_agent_run,
   route_stop_llm_chat,
-  route_transcribe_chat_audio,
+  route_stop_transcription_session,
   route_update_agent_profile,
   route_update_engine_config,
   route_update_external_agent_config,
   route_update_prompt_template,
+  route_update_transcription_profile,
 } from "utils/generatedEndpoints";
 import {
   AgentProfile,
@@ -87,9 +93,11 @@ import {
   createMessageTextContent,
   createMessageThinkingContent,
   CreatePromptTemplateRequestInput,
+  CreateTranscriptionProfileRequestInput,
   DeleteAgentProfileRequestInput,
   DeleteExternalAgentConfigRequestInput,
   DeletePromptTemplateRequestInput,
+  DeleteTranscriptionProfileRequestInput,
   EngineConfig,
   ExternalAgentConfig,
   ExternalAgentPreflightStatus,
@@ -103,16 +111,20 @@ import {
   PromptTemplate,
   SectionTypeEnum,
   SettaNotificationTypeEnum,
+  StartTranscriptionSessionResponse,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
   ToolCallDeltaEvent,
   ToolChatMessage,
   ToolResultEvent,
+  TranscriptionProfile,
+  TranscriptionSessionDeltaResponse,
   UpdateAgentProfileRequestInput,
   UpdateEngineConfigRequestInput,
   UpdateExternalAgentConfigRequestInput,
   UpdatePromptTemplateRequestInput,
+  UpdateTranscriptionProfileRequestInput,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
@@ -144,52 +156,88 @@ const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
   searchEnabled: true,
 };
 
-function resolveTranscriptionFileExtension(mimeType: string): string {
-  const normalized = mimeType.trim().toLowerCase();
-  if (normalized.includes("webm")) {
-    return "webm";
+function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length === 0) {
+    return "";
   }
-  if (normalized.includes("mpeg") || normalized.includes("mp3")) {
-    return "mp3";
+  const CHUNK_SIZE = 0x8000;
+  const binaryChunks: string[] = [];
+  for (let index = 0; index < bytes.length; index += CHUNK_SIZE) {
+    const chunk = bytes.subarray(index, index + CHUNK_SIZE);
+    binaryChunks.push(String.fromCharCode(...chunk));
   }
-  if (normalized.includes("ogg")) {
-    return "ogg";
-  }
-  if (normalized.includes("wav")) {
-    return "wav";
-  }
-  if (
-    normalized.includes("mp4") ||
-    normalized.includes("m4a") ||
-    normalized.includes("aac")
-  ) {
-    return "m4a";
-  }
-  return "webm";
+  return btoa(binaryChunks.join(""));
 }
 
-export async function transcribeChatAudio(
-  engineConfigId: string,
-  audioBlob: Blob,
-): Promise<string | null> {
-  if (!engineConfigId || audioBlob.size === 0) {
+export async function startTranscriptionSession(
+  transcriptionProfileId: string,
+  language: string | null = null,
+  options: { suppressNotification?: boolean } = {},
+): Promise<StartTranscriptionSessionResponse | null> {
+  if (!transcriptionProfileId) {
     return null;
   }
-  const form = new FormData();
-  form.set("engineConfigId", engineConfigId);
-  const extension = resolveTranscriptionFileExtension(audioBlob.type);
-  form.set("file", audioBlob, `dictation.${extension}`);
-  const res = await route_transcribe_chat_audio(form);
+  const res = await route_start_transcription_session({
+    transcriptionProfileId,
+    language,
+  });
+  if (!res200(res)) {
+    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
+    if (!options.suppressNotification) {
+      addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    }
+    return null;
+  }
+  return res.data;
+}
+
+export async function appendTranscriptionAudio(
+  sessionId: string,
+  audioPcm16: ArrayBuffer,
+  sampleRateHz: number,
+  channels: number,
+): Promise<TranscriptionSessionDeltaResponse | null> {
+  if (!sessionId || audioPcm16.byteLength === 0) {
+    return null;
+  }
+  const res = await route_append_transcription_audio({
+    sessionId,
+    audioPcm16Base64: encodeArrayBufferBase64(audioPcm16),
+    sampleRateHz,
+    channels,
+  });
   if (!res200(res)) {
     const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
     addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
     return null;
   }
-  const text = res.data.text.trim();
-  if (!text) {
+  return res.data;
+}
+
+export async function stopTranscriptionSession(
+  sessionId: string,
+): Promise<TranscriptionSessionDeltaResponse | null> {
+  if (!sessionId) {
     return null;
   }
-  return text;
+  const res = await route_stop_transcription_session({ sessionId });
+  if (!res200(res)) {
+    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
+    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    return null;
+  }
+  return res.data;
+}
+
+export async function cancelTranscriptionSession(
+  sessionId: string,
+): Promise<boolean> {
+  if (!sessionId) {
+    return true;
+  }
+  const res = await route_cancel_transcription_session({ sessionId });
+  return res200(res);
 }
 
 export async function loadLLMConfig() {
@@ -213,21 +261,6 @@ export async function loadLLMConfig() {
   } finally {
     llmConfigLoadPromise = null;
   }
-}
-
-export async function saveLLMConfig(
-  config: AllLLMConfigs,
-): Promise<AllLLMConfigs | null> {
-  const res = await route_set_llm_config(config);
-  if (!res200(res)) {
-    useAIStore.setState({
-      allLLMConfigsInitialLoadComplete: true,
-      allLLMConfigsLoadError: "Failed to save LLM config",
-    });
-    return null;
-  }
-  receiveLLMConfigUpdate(res.data);
-  return res.data;
 }
 
 export async function loadLLMApiKeys() {
@@ -455,6 +488,38 @@ export function receiveEngineConfigsUpdate(payload: Array<EngineConfig>) {
   });
 }
 
+export async function loadTranscriptionProfiles(force: boolean = false) {
+  const state = useAIStore.getState();
+  if (state.transcriptionProfilesLoading) {
+    return;
+  }
+  if (!force && state.transcriptionProfilesInitialLoadComplete) {
+    return;
+  }
+  useAIStore.setState({ transcriptionProfilesLoading: true });
+  const res = await route_get_transcription_profiles();
+  if (res200(res)) {
+    receiveTranscriptionProfilesUpdate(res.data);
+  } else {
+    useAIStore.setState({
+      transcriptionProfilesInitialLoadComplete: true,
+      transcriptionProfilesLoadError: "Failed to load transcription profiles",
+      transcriptionProfilesLoading: false,
+    });
+  }
+}
+
+export function receiveTranscriptionProfilesUpdate(
+  payload: Array<TranscriptionProfile>,
+) {
+  useAIStore.setState({
+    transcriptionProfiles: payload,
+    transcriptionProfilesInitialLoadComplete: true,
+    transcriptionProfilesLoadError: null,
+    transcriptionProfilesLoading: false,
+  });
+}
+
 type HasId = { id: string };
 
 function upsertById<T extends HasId>(items: Array<T>, entry: T): Array<T> {
@@ -544,6 +609,69 @@ export async function updateEngineConfig(
     engineConfigsLoadError: null,
   }));
   return config;
+}
+
+export async function createTranscriptionProfile(
+  payload: CreateTranscriptionProfileRequestInput,
+): Promise<TranscriptionProfile | null> {
+  const res = await route_create_transcription_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      transcriptionProfilesLoadError: "Failed to create transcription profile",
+    });
+    return null;
+  }
+  const profile = res.data;
+  useAIStore.setState((state) => ({
+    transcriptionProfiles: upsertById(state.transcriptionProfiles, profile),
+    transcriptionProfilesInitialLoadComplete: true,
+    transcriptionProfilesLoadError: null,
+  }));
+  return profile;
+}
+
+export async function updateTranscriptionProfile(
+  payload: UpdateTranscriptionProfileRequestInput,
+): Promise<TranscriptionProfile | null> {
+  const res = await route_update_transcription_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      transcriptionProfilesLoadError: "Failed to update transcription profile",
+    });
+    return null;
+  }
+  const profile = res.data;
+  useAIStore.setState((state) => ({
+    transcriptionProfiles: upsertById(state.transcriptionProfiles, profile),
+    transcriptionProfilesInitialLoadComplete: true,
+    transcriptionProfilesLoadError: null,
+  }));
+  return profile;
+}
+
+export async function deleteTranscriptionProfile(
+  payload: DeleteTranscriptionProfileRequestInput,
+): Promise<boolean> {
+  const res = await route_delete_transcription_profile(payload);
+  if (!res200(res)) {
+    useAIStore.setState({
+      transcriptionProfilesLoadError: "Failed to delete transcription profile",
+    });
+    return false;
+  }
+  useAIStore.setState((state) => ({
+    transcriptionProfiles: removeById(
+      state.transcriptionProfiles,
+      payload.profileId,
+    ),
+    transcriptionProfilesInitialLoadComplete: true,
+    transcriptionProfilesLoadError: null,
+    projectChatTranscriptionProfileId:
+      state.projectChatTranscriptionProfileId === payload.profileId
+        ? null
+        : state.projectChatTranscriptionProfileId,
+  }));
+  return true;
 }
 
 export async function createPromptTemplate(

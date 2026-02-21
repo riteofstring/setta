@@ -30,6 +30,7 @@ from setta.types.id import ID
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatDictationMode,
     ChatPermissionMode,
     ChatSectionBranch,
     CodeFileBinding,
@@ -211,11 +212,13 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     )
     managed: bool = False
     engineConfigId: ID | None = None
+    transcriptionProfileId: ID | None = None
     agentProfileId: ID | None = None
     chatId: ID | None = None
     thinking: bool = True
     permissionMode: ChatPermissionMode = ChatPermissionMode.minimal
     searchEnabled: bool = True
+    dictationMode: ChatDictationMode = ChatDictationMode.auto
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False
@@ -248,13 +251,7 @@ class UserDefaultTaskBoardSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"
         default_factory=lambda: SectionSize(width=720.0, height=430.0)
     )
     viewMode: TaskBoardViewMode = TaskBoardViewMode.kanban
-    columns: list[TaskBoardColumn] = Field(
-        default_factory=lambda: [
-            TaskBoardColumn(name="Todo", color="#3b82f6", sortIndex=0),
-            TaskBoardColumn(name="Doing", color="#a855f7", sortIndex=1),
-            TaskBoardColumn(name="Done", color="#10b981", sortIndex=2),
-        ]
-    )
+    columns: list[TaskBoardColumn] | None = None
     tasks: list[TaskBoardTask] = Field(default_factory=list)
 
 

@@ -30,6 +30,7 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
+  ChatDictationMode,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -48,6 +49,7 @@ import {
   SettaProjectNameValidationErrors,
   SettingsState,
   SharePolicy,
+  TranscriptionProfile,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import {
@@ -687,7 +689,6 @@ type ZustandAIStore = {
   apiKeysInitialLoadComplete: boolean;
   apiKeysLoadError: string | null;
   activeChatId: string | null | undefined;
-  projectChatSelectedEngineId: string | null;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
   viewHistory: boolean;
@@ -717,8 +718,13 @@ type ZustandAIStore = {
   engineConfigsInitialLoadComplete: boolean;
   engineConfigsLoadError: string | null;
   engineConfigsLoading: boolean;
+  transcriptionProfiles: Array<TranscriptionProfile>;
+  transcriptionProfilesInitialLoadComplete: boolean;
+  transcriptionProfilesLoadError: string | null;
+  transcriptionProfilesLoading: boolean;
   pendingProjectChatPrompt: string | null;
-  projectChatDictationMode: "auto" | "browser" | "provider";
+  projectChatDictationMode: ChatDictationMode;
+  projectChatTranscriptionProfileId: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -731,7 +737,6 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         apiKeysInitialLoadComplete: false,
         apiKeysLoadError: null,
         activeChatId: undefined,
-        projectChatSelectedEngineId: null,
         chatDetails: {},
         pendingChatDetails: null,
         viewHistory: false,
@@ -761,15 +766,21 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         engineConfigsInitialLoadComplete: false,
         engineConfigsLoadError: null,
         engineConfigsLoading: false,
+        transcriptionProfiles: [],
+        transcriptionProfilesInitialLoadComplete: false,
+        transcriptionProfilesLoadError: null,
+        transcriptionProfilesLoading: false,
         pendingProjectChatPrompt: null,
         projectChatDictationMode: "auto",
+        projectChatTranscriptionProfileId: null,
       }),
       {
         name: "setta_ai_data",
         partialize: (state) => ({
           viewHistory: state.viewHistory,
           projectChatDictationMode: state.projectChatDictationMode,
-          projectChatSelectedEngineId: state.projectChatSelectedEngineId,
+          projectChatTranscriptionProfileId:
+            state.projectChatTranscriptionProfileId,
         }),
         storage: getPersistStorage(),
       },
@@ -877,8 +888,10 @@ type ZustandLocalStorage = {
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
   favoriteProjectConfigIds: string[];
   overviewProjectConfigOrder: string[];
-  homePageLeftColumnWidth: number;
-  homePageRightColumnWidth: number;
+  homeWorkspacePaneVis: boolean;
+  homeWorkspacePaneWidth: number;
+  homeSelectedProjectPaneVis: boolean;
+  homeSelectedProjectPaneWidth: number;
   appGenerationMode: AppGenerationMode;
   appGenerationPrompt: string;
   appGenerationReferenceImageUrl: string;
@@ -924,8 +937,10 @@ export const useLocalStorage = createWithEqualityFn(
       homeProjectGalleryViewMode: "thumbnails",
       favoriteProjectConfigIds: [],
       overviewProjectConfigOrder: [],
-      homePageLeftColumnWidth: 320,
-      homePageRightColumnWidth: 280,
+      homeWorkspacePaneVis: true,
+      homeWorkspacePaneWidth: 320,
+      homeSelectedProjectPaneVis: true,
+      homeSelectedProjectPaneWidth: 320,
       appGenerationMode: "json_render",
       appGenerationPrompt: "",
       appGenerationReferenceImageUrl: "",
@@ -959,6 +974,11 @@ export const useLocalStorage = createWithEqualityFn(
           ...currentState,
           ...persisted,
         };
+        delete (merged as Record<string, unknown>).homePageLeftColumnWidth;
+        delete (merged as Record<string, unknown>).homePageRightColumnWidth;
+        delete (merged as Record<string, unknown>).homeWorkspacePaneTrueWidth;
+        delete (merged as Record<string, unknown>)
+          .homeSelectedProjectPaneTrueWidth;
 
         if (persisted.colorMode === undefined) {
           merged.colorMode = merged.darkMode ? "dark" : "light";
@@ -975,11 +995,17 @@ export const useLocalStorage = createWithEqualityFn(
         if (!Array.isArray(merged.overviewProjectConfigOrder)) {
           merged.overviewProjectConfigOrder = [];
         }
-        if (typeof merged.homePageLeftColumnWidth !== "number") {
-          merged.homePageLeftColumnWidth = 320;
+        if (typeof merged.homeWorkspacePaneVis !== "boolean") {
+          merged.homeWorkspacePaneVis = true;
         }
-        if (typeof merged.homePageRightColumnWidth !== "number") {
-          merged.homePageRightColumnWidth = 280;
+        if (typeof merged.homeWorkspacePaneWidth !== "number") {
+          merged.homeWorkspacePaneWidth = 320;
+        }
+        if (typeof merged.homeSelectedProjectPaneVis !== "boolean") {
+          merged.homeSelectedProjectPaneVis = true;
+        }
+        if (typeof merged.homeSelectedProjectPaneWidth !== "number") {
+          merged.homeSelectedProjectPaneWidth = 320;
         }
         if (!isOverviewTabKey(merged.overviewTab)) {
           merged.overviewTab = OverviewTabNameEnum.Overview;
