@@ -8059,8 +8059,8 @@ export type MCPServerRuntimeStatus = z.infer<
 const MCPServerRuntimeStatusResponseSchema = z.object({
   llmConfigPath: z.string(),
   activeSettaFilesLocation: z.union([z.string(), z.null()]),
-  servers: z.array(MCPServerRuntimeStatusSchema).default([]),
-  externalServers: z.array(MCPServerRuntimeStatusSchema).default([]),
+  servers: z.array(MCPServerRuntimeStatusSchema).default(() => []),
+  externalServers: z.array(MCPServerRuntimeStatusSchema).default(() => []),
 });
 
 export type MCPServerRuntimeStatusResponse = z.infer<
