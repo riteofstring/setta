@@ -14,6 +14,7 @@ from setta.agentic.external_adapters.base import (
     ExternalAgentRunContext,
     ExternalAgentRunHandle,
 )
+from setta.agentic.completion_guard import MISSING_CHECKS_MESSAGE
 from setta.auth.cookies import auth_cookie_name
 from setta.agentic.external_adapters.claude_sdk import (
     ClaudeSdkAdapter,
@@ -29,7 +30,6 @@ from setta.agentic.external_agent_runner import (
     ExternalAgentRunState,
     ExternalAgentRunner,
 )
-from setta.agentic.completion_guard import MISSING_CHECKS_MESSAGE
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE
 from setta.agentic.store import create_agent_run, load_agent_run, save_agent_run
 from setta.database.db_objs import DBE
@@ -175,6 +175,7 @@ def _build_context_for_test(
 
 class TestExternalAgentRunnerStopRun:
     pytestmark = pytest.mark.asyncio
+
     async def test_stop_run_does_not_override_completed(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -200,6 +201,61 @@ class TestExternalAgentRunnerStopRun:
 
 
 class TestExternalAgentRunnerContext:
+    def test_context_caches_completion_guard_toggle_for_run(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": False,
+                    }
+                },
+            )
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = _build_context_for_test(runner, config)
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": True,
+                    }
+                },
+            )
+
+            assert context.completion_guard_enabled is False
+
+    def test_context_omits_completion_contract_when_guard_disabled(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": False,
+                    }
+                },
+            )
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = _build_context_for_test(runner, config)
+
+            assert "## Completion Reporting Contract" not in context.system_prompt
+            assert "report_completion_status" not in context.system_prompt
+
     def test_context_rejects_mismatched_engine_config_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -262,13 +318,15 @@ class TestExternalAgentRunnerContext:
                 project_config.id
             )
             assert headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER) == str(context.chat_id)
-            assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(chat_section_id)
+            assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(
+                chat_section_id
+            )
 
     def test_context_injects_agentic_headers_for_codex(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
-            project_config, chat_section_id, _ = _write_project_state_with_agentic_context(
-                dbe
+            project_config, chat_section_id, _ = (
+                _write_project_state_with_agentic_context(dbe)
             )
             runner = _build_runner(dbe)
             engine_config_id = ID("engine-codex")
@@ -287,7 +345,9 @@ class TestExternalAgentRunnerContext:
             )
 
             codex_home = Path(str(context.env["CODEX_HOME"]))
-            payload = tomllib.loads((codex_home / "config.toml").read_text(encoding="utf-8"))
+            payload = tomllib.loads(
+                (codex_home / "config.toml").read_text(encoding="utf-8")
+            )
             mcp_servers = payload.get("mcp_servers")
             assert isinstance(mcp_servers, dict)
             setta_entry = mcp_servers.get(SETTA_MCP_SERVER_ID)
@@ -298,7 +358,9 @@ class TestExternalAgentRunnerContext:
                 project_config.id
             )
             assert headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER) == str(context.chat_id)
-            assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(chat_section_id)
+            assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(
+                chat_section_id
+            )
 
 
 async def _apply_claude_payloads(
@@ -784,9 +846,7 @@ class TestExternalAgentRunner:
                 content=[MessageTextContent(text="Hello")],
             )
             stream_chunks = [
-                MessageStartEvent(
-                    message=AssistantChatMessage(id="m1", content=[])
-                ),
+                MessageStartEvent(message=AssistantChatMessage(id="m1", content=[])),
                 MessageDeltaEvent(
                     message_id="m1",
                     content=[MessageTextDelta(index=0, text="Hello")],
@@ -832,9 +892,7 @@ class TestExternalAgentRunner:
                 content=[MessageTextContent(text="Hello")],
             )
             stream_chunks = [
-                MessageStartEvent(
-                    message=AssistantChatMessage(id="m7", content=[])
-                ),
+                MessageStartEvent(message=AssistantChatMessage(id="m7", content=[])),
                 MessageDeltaEvent(
                     message_id="m7",
                     content=[MessageTextDelta(index=0, text="Hello")],
@@ -1171,11 +1229,50 @@ class TestExternalAgentRunner:
             allowed_tools = context.inputs.get("allowedTools")
             assert isinstance(allowed_tools, list)
             assert "mcp__setta__getProjectState" in allowed_tools
+            assert "mcp__setta__report_completion_status" in allowed_tools
             assert "mcp__setta__runTool" in allowed_tools
             assert "mcp__setta__set_agentic_context" in allowed_tools
 
             runner._cleanup_context(context)
             assert not path.exists()
+
+    def test_claude_mcp_config_omits_completion_report_tool_when_guard_disabled(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": False,
+                    }
+                },
+            )
+            runner = _build_runner(dbe)
+            profile = AgentProfile(
+                name="Claude",
+                toolAllowlist=["setta__getProjectState", "mcp__setta__runTool"],
+            )
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+
+            context = _build_context_for_test(
+                runner,
+                config,
+                profile=profile,
+            )
+
+            allowed_tools = context.inputs.get("allowedTools")
+            assert isinstance(allowed_tools, list)
+            assert "mcp__setta__getProjectState" in allowed_tools
+            assert "mcp__setta__runTool" in allowed_tools
+            assert "mcp__setta__set_agentic_context" in allowed_tools
+            assert "mcp__setta__report_completion_status" not in allowed_tools
 
     def test_opencode_mcp_config_is_written(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1237,8 +1334,10 @@ class TestExternalAgentRunner:
             assert config_path.exists()
             content = config_path.read_text(encoding="utf-8")
             assert "[mcp_servers.setta]" in content
-            assert f"url = \"{C.BACKEND}/mcp/streamable/\"" in content
-            expected_dir = dbe.path / "external_agent_settings" / "codex" / "codex-config"
+            assert f'url = "{C.BACKEND}/mcp/streamable/"' in content
+            expected_dir = (
+                dbe.path / "external_agent_settings" / "codex" / "codex-config"
+            )
             expected_runtime_dir = expected_dir / "sessions" / str(context.chat_id)
             # With agentic headers/session-scoped home we skip writing the base config.
             assert not (expected_dir / "config.toml").exists()
@@ -1354,12 +1453,67 @@ class TestExternalAgentRunner:
                 enabled_tools = None
             assert enabled_tools == [
                 "getProjectState",
+                "report_completion_status",
                 "runTool",
                 "set_agentic_context",
             ]
 
             runner._cleanup_context(context)
             assert config_path.exists()
+
+    def test_codex_config_omits_completion_report_tool_when_guard_disabled(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": False,
+                    }
+                },
+            )
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
+            profile = AgentProfile(
+                name="Codex",
+                toolAllowlist=["setta__getProjectState", "runTool"],
+            )
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                settingsMode=ExternalAgentSettingsMode.managed_project,
+            )
+
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=engine_config_id,
+                profile=profile,
+            )
+
+            codex_home = context.env.get("CODEX_HOME")
+            assert isinstance(codex_home, str)
+            config_path = Path(str(codex_home)) / "config.toml"
+            payload = tomllib.loads(config_path.read_text(encoding="utf-8"))
+            mcp_servers = payload.get("mcp_servers")
+            assert isinstance(mcp_servers, dict)
+            server_entry = (
+                mcp_servers.get(SETTA_MCP_SERVER_ID)
+                if isinstance(mcp_servers, dict)
+                else None
+            )
+            assert isinstance(server_entry, dict)
+            if isinstance(server_entry, dict):
+                enabled_tools = server_entry.get("enabled_tools")
+            else:
+                enabled_tools = None
+            assert enabled_tools == [
+                "getProjectState",
+                "runTool",
+                "set_agentic_context",
+            ]
 
     def test_opencode_config_writes_permissions(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1416,9 +1570,53 @@ class TestExternalAgentRunner:
             assert isinstance(permissions, dict)
             assert permissions.get("setta_*") == "deny"
             assert permissions.get("setta_getProjectState") == "allow"
+            assert permissions.get("setta_report_completion_status") == "allow"
             assert permissions.get("setta_set_agentic_context") == "allow"
 
             runner._cleanup_context(context)
+
+    def test_opencode_config_omits_completion_report_when_guard_disabled(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": False,
+                    }
+                },
+            )
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-1")
+            profile = AgentProfile(
+                name="OpenCode",
+                toolAllowlist=["setta__getProjectState"],
+            )
+            config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+                settingsMode=ExternalAgentSettingsMode.managed_project,
+            )
+
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=engine_config_id,
+                profile=profile,
+            )
+
+            config_path = context.env.get("OPENCODE_CONFIG")
+            assert isinstance(config_path, str)
+            config_text = Path(str(config_path)).read_text(encoding="utf-8")
+            payload = json.loads(config_text)
+            permissions = payload.get("permission")
+            assert isinstance(permissions, dict)
+            assert permissions.get("setta_*") == "deny"
+            assert permissions.get("setta_getProjectState") == "allow"
+            assert permissions.get("setta_set_agentic_context") == "allow"
+            assert permissions.get("setta_report_completion_status") != "allow"
 
     def test_opencode_config_accepts_json_permissions(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1546,6 +1744,7 @@ class TestExternalAgentRunnerPluginAdapter:
 
 class TestExternalAgentRunnerApproval:
     pytestmark = pytest.mark.asyncio
+
     async def test_approval_request_emits_tool_call(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1582,8 +1781,7 @@ class TestExternalAgentRunnerApproval:
             assert isinstance(tool_calls, list)
             assert tool_calls[0]["function"]["name"] == "setta.approval"
             assert (
-                tool_calls[0]["function"]["arguments"].get("approvalId")
-                == "approval-1"
+                tool_calls[0]["function"]["arguments"].get("approvalId") == "approval-1"
             )
 
     async def test_codex_approval_request_preserves_tool_metadata(self) -> None:
@@ -1702,6 +1900,7 @@ class TestExternalAgentRunnerApproval:
 
 class TestExternalAgentRunnerQuestion:
     pytestmark = pytest.mark.asyncio
+
     async def test_question_request_queues_claude_approval(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1785,7 +1984,7 @@ class TestExternalAgentRunnerQuestion:
             assert state.section_id == ID("section-1")
             assert state.approval_id is None
 
-    async def test_message_finalized_applies_completion_guard(self) -> None:
+    async def test_message_finalized_blocks_user_visible_text_without_report(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             project_config = _write_project_state(dbe)
@@ -1808,8 +2007,7 @@ class TestExternalAgentRunnerQuestion:
                             content=[
                                 MessageTextContent(
                                     text=(
-                                        "Create a new project and scaffold "
-                                        "everything."
+                                        "Create a new project and scaffold everything."
                                     )
                                 )
                             ],
@@ -1825,9 +2023,7 @@ class TestExternalAgentRunnerQuestion:
                 MessageFinalizedEvent(
                     message=AssistantChatMessage(
                         id="assistant-1",
-                        content=[
-                            MessageTextContent(text="Done. Everything is ready.")
-                        ],
+                        content=[MessageTextContent(text="I need one clarification.")],
                     )
                 ),
             )
@@ -1848,6 +2044,69 @@ class TestExternalAgentRunnerQuestion:
             last_text_block = assistant_content[0]
             assert isinstance(last_text_block, dict)
             assert last_text_block.get("text") == MISSING_CHECKS_MESSAGE
+
+    async def test_message_finalized_skips_completion_guard_when_disabled(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            dbe.write_json(
+                dbe.settings,
+                {
+                    "backend": {
+                        "completionGuardEnabled": False,
+                    }
+                },
+            )
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                inputs={
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "projectConfigId": str(project_config.id),
+                    "messages": [
+                        UserChatMessage(
+                            id="user-1",
+                            content=[MessageTextContent(text="Implement task A.")],
+                        ).model_dump(mode="json")
+                    ],
+                },
+            )
+            run = context.run
+
+            await runner._handle_stream_chunk(
+                context,
+                run,
+                MessageFinalizedEvent(
+                    message=AssistantChatMessage(
+                        id="assistant-1",
+                        content=[MessageTextContent(text="Task A is done.")],
+                    )
+                ),
+            )
+
+            updated = load_agent_run(dbe, run.id)
+            assert updated is not None
+            outputs = updated.outputs or {}
+            messages = outputs.get("messages")
+            assert isinstance(messages, list)
+            assistant_messages = [
+                message
+                for message in messages
+                if isinstance(message, dict) and message.get("role") == "assistant"
+            ]
+            assert assistant_messages
+            assistant_content = assistant_messages[-1].get("content")
+            assert isinstance(assistant_content, list)
+            last_text_block = assistant_content[0]
+            assert isinstance(last_text_block, dict)
+            assert last_text_block.get("text") == "Task A is done."
 
     async def test_question_approval_attaches_after_tool_call(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1895,7 +2154,6 @@ class TestExternalAgentRunnerQuestion:
             state = runner._pending_questions["tool-1"]
             assert state.approval_id == "approval-1"
             assert runner._pending_question_approvals.get(run.id) is None
-
 
     async def test_question_approval_attaches_before_tool_call(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -2137,6 +2395,7 @@ class TestExternalAgentRunnerQuestion:
 
 class TestExternalAgentRunnerClaudeCapture:
     pytestmark = pytest.mark.asyncio
+
     async def test_streamed_text_persists_outputs(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -2347,7 +2606,7 @@ class TestExternalAgentRunnerClaudeCapture:
                             "index": 0,
                             "delta": {
                                 "type": "input_json_delta",
-                                "partial_json": "{\"command\": \"ls\"}",
+                                "partial_json": '{"command": "ls"}',
                             },
                         },
                     },
