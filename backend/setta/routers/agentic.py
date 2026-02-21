@@ -64,6 +64,7 @@ from setta.types.external_agents import (
 )
 from setta.types.helpers_lvl3 import convert_backend_to_single_config
 from setta.types.id import ID
+from setta.types.llm_config import LLMConfig
 from setta.types.prompt import PromptFormat, PromptTemplate
 from setta.types.routes import Route
 from setta.utils.constants import C
@@ -240,7 +241,7 @@ def _get_plugin_external_agent_adapters(
 def _require_valid_transcription_llm_config_id(
     ctx: RuntimeContextFromRequest,
     transcription_llm_config_id: str,
-) -> str:
+) -> tuple[str, LLMConfig]:
     normalized_config_id = transcription_llm_config_id.strip()
     if not normalized_config_id:
         raise HTTPException(
@@ -248,7 +249,7 @@ def _require_valid_transcription_llm_config_id(
             detail="Transcription profile requires a transcription LLM config id.",
         )
     try:
-        ctx.state.agent_runner.config.resolve_config(normalized_config_id)
+        llm_config = ctx.state.agent_runner.config.resolve_config(normalized_config_id)
     except ValueError as exc:
         raise HTTPException(
             status_code=400,
@@ -257,7 +258,30 @@ def _require_valid_transcription_llm_config_id(
                 f"LLM config '{normalized_config_id}'."
             ),
         ) from exc
-    return normalized_config_id
+    return normalized_config_id, llm_config
+
+
+def _supports_realtime_transcription(llm_config: LLMConfig) -> bool:
+    provider = (llm_config.provider or "").strip().lower()
+    if provider == "openai":
+        return True
+    if provider:
+        return False
+    return llm_config.base_url is None
+
+
+def _require_valid_transcription_transport_mode(
+    transport_mode: TranscriptionTransportMode,
+    llm_config: LLMConfig,
+) -> None:
+    if transport_mode != TranscriptionTransportMode.realtime:
+        return
+    if _supports_realtime_transcription(llm_config):
+        return
+    raise HTTPException(
+        status_code=400,
+        detail="Realtime transcription is unavailable for this provider/model.",
+    )
 
 
 def _validate_plugin_external_agent_selection(
@@ -925,9 +949,10 @@ async def route_create_transcription_profile(
 ) -> TranscriptionProfile:
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow creating transcription profiles.")
-    transcription_llm_config_id = _require_valid_transcription_llm_config_id(
+    transcription_llm_config_id, llm_config = _require_valid_transcription_llm_config_id(
         ctx, x.transcriptionLlmConfigId
     )
+    _require_valid_transcription_transport_mode(x.transportMode, llm_config)
     profiles = load_transcription_profiles(ctx.state.dbe)
     profile = TranscriptionProfile(
         name=x.name,
@@ -951,8 +976,11 @@ async def route_update_transcription_profile(
 ) -> TranscriptionProfile:
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow updating transcription profiles.")
-    transcription_llm_config_id = _require_valid_transcription_llm_config_id(
+    transcription_llm_config_id, llm_config = _require_valid_transcription_llm_config_id(
         ctx, x.profile.transcriptionLlmConfigId
+    )
+    _require_valid_transcription_transport_mode(
+        x.profile.transportMode, llm_config
     )
     profiles = load_transcription_profiles(ctx.state.dbe)
     next_profile = x.profile.model_copy(

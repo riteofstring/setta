@@ -241,6 +241,13 @@ class TestAgenticRoutes:
                             provider="openai",
                             api_key_env="OPENAI_API_KEY",
                             mcpServerIds=[],
+                        ),
+                        "anthropic-transcribe": LLMConfig(
+                            id="anthropic-transcribe",
+                            model="claude-3-5-sonnet-latest",
+                            provider="anthropic",
+                            api_key_env="ANTHROPIC_API_KEY",
+                            mcpServerIds=[],
                         )
                     },
                     mcpServers={},
@@ -294,6 +301,41 @@ class TestAgenticRoutes:
                 assert (
                     update_exc.value.detail
                     == "Transcription profile references unknown transcription LLM config 'missing-transcribe'."
+                )
+
+                with pytest.raises(HTTPException) as realtime_create_exc:
+                    await route_create_transcription_profile(
+                        CreateTranscriptionProfileRequest(
+                            name="Invalid realtime profile",
+                            transcriptionLlmConfigId="anthropic-transcribe",
+                            transportMode=TranscriptionTransportMode.realtime,
+                            chunkMs=1200,
+                            language=None,
+                        ),
+                        ctx,
+                    )
+                assert realtime_create_exc.value.status_code == 400
+                assert (
+                    realtime_create_exc.value.detail
+                    == "Realtime transcription is unavailable for this provider/model."
+                )
+
+                with pytest.raises(HTTPException) as realtime_update_exc:
+                    await route_update_transcription_profile(
+                        UpdateTranscriptionProfileRequest(
+                            profile=created.model_copy(
+                                update={
+                                    "transcriptionLlmConfigId": "anthropic-transcribe",
+                                    "transportMode": TranscriptionTransportMode.realtime,
+                                }
+                            )
+                        ),
+                        ctx,
+                    )
+                assert realtime_update_exc.value.status_code == 400
+                assert (
+                    realtime_update_exc.value.detail
+                    == "Realtime transcription is unavailable for this provider/model."
                 )
 
     async def test_prompt_template_crud(self) -> None:

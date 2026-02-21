@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  allowExpectedApiError,
   cleanupIsolatedProject,
   createChatSection,
   ensureAppReady,
@@ -214,6 +215,211 @@ test("project chat falls back to browser dictation when provider capture fails i
   }
 });
 
+test("project chat stops provider dictation immediately when append fails", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "SpeechRecognition", {
+      value: undefined,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitSpeechRecognition", {
+      value: undefined,
+      configurable: true,
+    });
+
+    type MockAudioProcessEvent = {
+      inputBuffer: { getChannelData: (channel: number) => Float32Array };
+    };
+    type MockScriptProcessorNode = {
+      onaudioprocess: ((event: MockAudioProcessEvent) => void) | null;
+      connect: () => void;
+      disconnect: () => void;
+      __intervalId: ReturnType<typeof setInterval> | null;
+    };
+
+    class MockAudioContext {
+      sampleRate = 24_000;
+      destination = {};
+      private _processors: MockScriptProcessorNode[] = [];
+
+      async resume() {}
+
+      async close() {
+        for (const processor of this._processors) {
+          if (processor.__intervalId !== null) {
+            clearInterval(processor.__intervalId);
+            processor.__intervalId = null;
+          }
+        }
+      }
+
+      createMediaStreamSource(_stream: unknown) {
+        return {
+          connect: () => undefined,
+          disconnect: () => undefined,
+        };
+      }
+
+      createGain() {
+        return {
+          gain: { value: 1 },
+          connect: () => undefined,
+          disconnect: () => undefined,
+        };
+      }
+
+      createScriptProcessor() {
+        const processor: MockScriptProcessorNode = {
+          onaudioprocess: null,
+          __intervalId: null,
+          connect: () => {
+            if (processor.__intervalId !== null) {
+              return;
+            }
+            processor.__intervalId = setInterval(() => {
+              if (typeof processor.onaudioprocess !== "function") {
+                return;
+              }
+              const channelData = new Float32Array(4096);
+              channelData.fill(0.2);
+              processor.onaudioprocess({
+                inputBuffer: {
+                  getChannelData: () => channelData,
+                },
+              });
+            }, 40);
+          },
+          disconnect: () => {
+            if (processor.__intervalId !== null) {
+              clearInterval(processor.__intervalId);
+              processor.__intervalId = null;
+            }
+          },
+        };
+        this._processors.push(processor);
+        return processor;
+      }
+    }
+
+    Object.defineProperty(window, "AudioContext", {
+      value: MockAudioContext,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitAudioContext", {
+      value: MockAudioContext,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: {
+        getUserMedia: () =>
+          Promise.resolve({
+            getTracks: () => [{ stop: () => undefined }],
+          }),
+      },
+      configurable: true,
+    });
+  });
+
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+  const transcriptionCleanup = await configureProjectChatTranscriptionProfile({
+    page,
+    dictationMode: "provider",
+  });
+
+  allowExpectedApiError(page, {
+    path: "/api/appendTranscriptionAudio",
+    statuses: [502],
+  });
+  let appendCallCount = 0;
+  let cancelCallCount = 0;
+  let stopCallCount = 0;
+  await page.route(
+    `${BACKEND_ORIGIN}/api/startTranscriptionSession`,
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          sessionId: "session-provider-append-failure",
+          resolvedTransportMode: "realtime",
+          chunkMs: 300,
+        }),
+      });
+    },
+  );
+  await page.route(
+    `${BACKEND_ORIGIN}/api/appendTranscriptionAudio`,
+    async (route) => {
+      appendCallCount += 1;
+      await route.fulfill({
+        status: 502,
+        contentType: "application/json",
+        body: JSON.stringify({
+          detail: "Provider transcription failed.",
+        }),
+      });
+    },
+  );
+  await page.route(
+    `${BACKEND_ORIGIN}/api/cancelTranscriptionSession`,
+    async (route) => {
+      cancelCallCount += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      });
+    },
+  );
+  await page.route(
+    `${BACKEND_ORIGIN}/api/stopTranscriptionSession`,
+    async (route) => {
+      stopCallCount += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          appendText: "",
+          fullText: "",
+          isFinal: true,
+        }),
+      });
+    },
+  );
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    const micButton = overviewPane.getByRole("button", { name: "Mic" });
+    await expect(micButton).toBeVisible();
+    await micButton.click();
+
+    await expect(overviewPane.getByText("Provider transcription failed.")).toBeVisible();
+    await expect(overviewPane.getByText("No speech was detected.")).toHaveCount(0);
+    await expect
+      .poll(() => appendCallCount, { timeout: 10_000 })
+      .toBe(1);
+    await expect
+      .poll(() => cancelCallCount, { timeout: 10_000 })
+      .toBe(1);
+    expect(stopCallCount).toBe(0);
+  } finally {
+    await transcriptionCleanup();
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("project chat keeps browser fallback dictation active until the user stops", async ({
   page,
 }) => {
@@ -381,6 +587,7 @@ test("project chat streams provider file transcription while listening and on st
       disconnect: () => void;
       __intervalId: ReturnType<typeof setInterval> | null;
     };
+    let audioProcessCount = 0;
 
     class MockAudioContext {
       sampleRate = 24_000;
@@ -425,6 +632,7 @@ test("project chat streams provider file transcription while listening and on st
               if (typeof processor.onaudioprocess !== "function") {
                 return;
               }
+              audioProcessCount += 1;
               const channelData = new Float32Array(4096);
               channelData.fill(0.2);
               processor.onaudioprocess({
@@ -463,6 +671,9 @@ test("project chat streams provider file transcription while listening and on st
       },
       configurable: true,
     });
+    (
+      window as Window & { __readProviderAudioProcessCount?: () => number }
+    ).__readProviderAudioProcessCount = () => audioProcessCount;
   });
 
   await setOverviewTab(page, "ProjectAIChat");
@@ -538,6 +749,18 @@ test("project chat streams provider file transcription while listening and on st
     await expect
       .poll(() => transcriptionCallCount, { timeout: 10_000 })
       .toBeGreaterThan(0);
+    await page.waitForTimeout(1200);
+    const audioProcessCount = await page.evaluate(() => {
+      const withReader = window as Window & {
+        __readProviderAudioProcessCount?: () => number;
+      };
+      return typeof withReader.__readProviderAudioProcessCount === "function"
+        ? withReader.__readProviderAudioProcessCount()
+        : 0;
+    });
+    expect(audioProcessCount).toBeGreaterThan(8);
+    expect(transcriptionCallCount).toBeLessThan(audioProcessCount);
+    expect(transcriptionCallCount * 3).toBeLessThan(audioProcessCount);
     const streamedWhileListeningCount = transcriptionCallCount;
 
     await overviewPane.getByRole("button", { name: "Stop Mic" }).click();
@@ -545,6 +768,140 @@ test("project chat streams provider file transcription while listening and on st
       .poll(() => transcriptionCallCount, { timeout: 10_000 })
       .toBeGreaterThanOrEqual(streamedWhileListeningCount);
     await expect(overviewPane.locator("textarea")).toHaveValue(/streamed-/);
+  } finally {
+    await transcriptionCleanup();
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project chat ignores re-entrant provider dictation starts while startup is pending", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "SpeechRecognition", {
+      value: undefined,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitSpeechRecognition", {
+      value: undefined,
+      configurable: true,
+    });
+
+    class MockAudioContext {
+      sampleRate = 24_000;
+      destination = {};
+
+      async resume() {}
+      async close() {}
+
+      createMediaStreamSource(_stream: unknown) {
+        return {
+          connect: () => undefined,
+          disconnect: () => undefined,
+        };
+      }
+
+      createGain() {
+        return {
+          gain: { value: 1 },
+          connect: () => undefined,
+          disconnect: () => undefined,
+        };
+      }
+
+      createScriptProcessor() {
+        return {
+          onaudioprocess: null as ((event: unknown) => void) | null,
+          connect: () => undefined,
+          disconnect: () => undefined,
+        };
+      }
+    }
+
+    Object.defineProperty(window, "AudioContext", {
+      value: MockAudioContext,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitAudioContext", {
+      value: MockAudioContext,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: {
+        getUserMedia: () =>
+          Promise.resolve({
+            getTracks: () => [{ stop: () => undefined }],
+          }),
+      },
+      configurable: true,
+    });
+  });
+
+  await setOverviewTab(page, "ProjectAIChat");
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+  const transcriptionCleanup = await configureProjectChatTranscriptionProfile({
+    page,
+    dictationMode: "provider",
+  });
+
+  let startCallCount = 0;
+  await page.route(
+    `${BACKEND_ORIGIN}/api/startTranscriptionSession`,
+    async (route) => {
+      startCallCount += 1;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          sessionId: `session-start-guard-${startCallCount}`,
+          resolvedTransportMode: "file",
+          chunkMs: 0,
+        }),
+      });
+    },
+  );
+  await page.route(
+    `${BACKEND_ORIGIN}/api/stopTranscriptionSession`,
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          appendText: "",
+          fullText: "",
+          isFinal: true,
+        }),
+      });
+    },
+  );
+
+  try {
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    await expect(
+      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+    ).toBeVisible();
+
+    const micButton = overviewPane.getByRole("button", { name: "Mic" });
+    await expect(micButton).toBeVisible();
+    await micButton.evaluate((button) => {
+      (button as HTMLButtonElement).click();
+      (button as HTMLButtonElement).click();
+    });
+
+    await expect
+      .poll(() => startCallCount, { timeout: 10_000 })
+      .toBe(1);
+    await expect(
+      overviewPane.getByRole("button", { name: "Stop Mic" }),
+    ).toBeVisible();
+    await overviewPane.getByRole("button", { name: "Stop Mic" }).click();
   } finally {
     await transcriptionCleanup();
     await engineCleanup();

@@ -58,6 +58,11 @@ const SLASH_SUGGESTIONS_PORTAL_STYLE_KEYS = [
 const PROVIDER_DEFAULT_CHUNK_MS = 1200;
 const PROVIDER_TARGET_SAMPLE_RATE_HZ = 24_000;
 const PROVIDER_CHANNELS = 1;
+const PROVIDER_FILE_BATCH_MS = 1000;
+const PROVIDER_FILE_BATCH_SAMPLES = Math.max(
+  1,
+  Math.floor((PROVIDER_FILE_BATCH_MS * PROVIDER_TARGET_SAMPLE_RATE_HZ) / 1000),
+);
 
 type ProviderTranscriptionSessionStart = {
   sessionId: string;
@@ -304,6 +309,8 @@ export const ChatInput = memo(function ChatInput({
   const providerPcmPendingRef = useRef<Int16Array>(new Int16Array(0));
   const providerPcmQueueRef = useRef<ArrayBuffer[]>([]);
   const providerTranscriptionInFlightRef = useRef(false);
+  const providerStartInFlightRef = useRef(false);
+  const providerStartAttemptRef = useRef(0);
   const providerStopRequestedRef = useRef(false);
   const providerHasTranscriptRef = useRef(false);
   const providerBackendSessionIdRef = useRef<string | null>(null);
@@ -792,6 +799,7 @@ export const ChatInput = memo(function ChatInput({
   }, []);
 
   const resetProviderCaptureSession = useCallback(() => {
+    providerStartAttemptRef.current += 1;
     providerPcmPendingRef.current = new Int16Array(0);
     providerPcmQueueRef.current = [];
     providerTranscriptionInFlightRef.current = false;
@@ -980,12 +988,10 @@ export const ChatInput = memo(function ChatInput({
     }
     providerStopRequestedRef.current = true;
     dictationSourceRef.current = null;
-    if (providerResolvedTransportModeRef.current === "realtime") {
-      const pending = providerPcmPendingRef.current;
-      if (pending.length > 0) {
-        providerPcmQueueRef.current.push(int16ToArrayBuffer(pending));
-        providerPcmPendingRef.current = new Int16Array(0);
-      }
+    const pending = providerPcmPendingRef.current;
+    if (pending.length > 0) {
+      providerPcmQueueRef.current.push(int16ToArrayBuffer(pending));
+      providerPcmPendingRef.current = new Int16Array(0);
     }
     teardownProviderAudioCapture();
     setDictationState("transcribing");
@@ -1006,7 +1012,10 @@ export const ChatInput = memo(function ChatInput({
   }, []);
 
   const stopActiveDictationImmediately = useCallback(() => {
-    if (dictationSourceRef.current === "provider") {
+    if (
+      dictationSourceRef.current === "provider" ||
+      providerStartInFlightRef.current
+    ) {
       cleanupProviderCapture(true);
     } else {
       stopBrowserDictation();
@@ -1098,6 +1107,9 @@ export const ChatInput = memo(function ChatInput({
   }, [canBrowserDictate, dictationMode, startBrowserDictation]);
 
   const startProviderDictation = useCallback(async () => {
+    if (providerStartInFlightRef.current) {
+      return;
+    }
     if (
       !canProviderDictate ||
       !onProviderTranscriptionSessionStart ||
@@ -1125,7 +1137,12 @@ export const ChatInput = memo(function ChatInput({
       setDictationFeedback(resolvedProviderUnavailableMessage);
       return;
     }
+    providerStartInFlightRef.current = true;
+    setDictationState("starting");
+    setDictationFeedback("Starting...");
     cleanupProviderCapture(false);
+    const startAttemptId = providerStartAttemptRef.current + 1;
+    providerStartAttemptRef.current = startAttemptId;
     let backendSessionId: string | null = null;
     try {
       const startedSession = await onProviderTranscriptionSessionStart();
@@ -1138,7 +1155,18 @@ export const ChatInput = memo(function ChatInput({
         return;
       }
       backendSessionId = startedSession.sessionId;
+      if (providerStartAttemptRef.current !== startAttemptId) {
+        await onProviderTranscriptionSessionCancel(backendSessionId);
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (providerStartAttemptRef.current !== startAttemptId) {
+        for (const track of stream.getTracks()) {
+          track.stop();
+        }
+        await onProviderTranscriptionSessionCancel(backendSessionId);
+        return;
+      }
       providerStreamRef.current = stream;
       const sessionId = providerSessionRef.current + 1;
       providerSessionRef.current = sessionId;
@@ -1158,6 +1186,16 @@ export const ChatInput = memo(function ChatInput({
       const audioContext = new window.AudioContext();
       providerAudioContextRef.current = audioContext;
       await audioContext.resume();
+      if (providerStartAttemptRef.current !== startAttemptId) {
+        for (const track of stream.getTracks()) {
+          track.stop();
+        }
+        await audioContext.close();
+        providerStreamRef.current = null;
+        providerAudioContextRef.current = null;
+        await onProviderTranscriptionSessionCancel(backendSessionId);
+        return;
+      }
       const sourceNode = audioContext.createMediaStreamSource(stream);
       providerSourceNodeRef.current = sourceNode;
       const processorNode = audioContext.createScriptProcessor(4096, 1, 1);
@@ -1186,32 +1224,34 @@ export const ChatInput = memo(function ChatInput({
         if (pcmChunk.length === 0) {
           return;
         }
-        if (providerResolvedTransportModeRef.current === "realtime") {
-          providerPcmPendingRef.current = concatInt16(
-            providerPcmPendingRef.current,
-            pcmChunk,
+        providerPcmPendingRef.current = concatInt16(
+          providerPcmPendingRef.current,
+          pcmChunk,
+        );
+        const chunkSamples =
+          providerResolvedTransportModeRef.current === "realtime"
+            ? Math.max(
+                1,
+                Math.floor(
+                  (providerChunkMsRef.current * PROVIDER_TARGET_SAMPLE_RATE_HZ) /
+                    1000,
+                ),
+              )
+            : PROVIDER_FILE_BATCH_SAMPLES;
+        let enqueued = false;
+        while (providerPcmPendingRef.current.length >= chunkSamples) {
+          const nextSamples = providerPcmPendingRef.current.slice(
+            0,
+            chunkSamples,
           );
-          const chunkSamples = Math.max(
-            1,
-            Math.floor(
-              (providerChunkMsRef.current * PROVIDER_TARGET_SAMPLE_RATE_HZ) /
-                1000,
-            ),
-          );
-          while (providerPcmPendingRef.current.length >= chunkSamples) {
-            const nextSamples = providerPcmPendingRef.current.slice(
-              0,
-              chunkSamples,
-            );
-            providerPcmQueueRef.current.push(int16ToArrayBuffer(nextSamples));
-            providerPcmPendingRef.current =
-              providerPcmPendingRef.current.slice(chunkSamples);
-          }
-          flushProviderPcmQueue(sessionId);
-          return;
+          providerPcmQueueRef.current.push(int16ToArrayBuffer(nextSamples));
+          providerPcmPendingRef.current =
+            providerPcmPendingRef.current.slice(chunkSamples);
+          enqueued = true;
         }
-        providerPcmQueueRef.current.push(int16ToArrayBuffer(pcmChunk));
-        flushProviderPcmQueue(sessionId);
+        if (enqueued) {
+          flushProviderPcmQueue(sessionId);
+        }
       };
       setDictationState("listening");
       setDictationFeedback("Listening...");
@@ -1225,6 +1265,8 @@ export const ChatInput = memo(function ChatInput({
       }
       setDictationState("error");
       setDictationFeedback(resolveProviderStartFailureFeedback(error));
+    } finally {
+      providerStartInFlightRef.current = false;
     }
   }, [
     canProviderDictate,
@@ -1272,7 +1314,10 @@ export const ChatInput = memo(function ChatInput({
   }, [cleanupProviderCapture]);
 
   useEffect(() => {
-    if (!isDisabled || dictationState !== "listening") {
+    if (
+      !isDisabled ||
+      (dictationState !== "listening" && dictationState !== "starting")
+    ) {
       return;
     }
     stopActiveDictationImmediately();
@@ -1290,7 +1335,7 @@ export const ChatInput = memo(function ChatInput({
       stopBrowserDictation();
       return;
     }
-    if (dictationState === "transcribing") {
+    if (dictationState === "transcribing" || dictationState === "starting") {
       return;
     }
     startDictation();
@@ -1523,7 +1568,11 @@ export const ChatInput = memo(function ChatInput({
               {showDictationButton ? (
                 <button
                   type="button"
-                  disabled={isDisabled || dictationState === "transcribing"}
+                  disabled={
+                    isDisabled ||
+                    dictationState === "transcribing" ||
+                    dictationState === "starting"
+                  }
                   className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
                     dictationState === "listening"
                       ? "border-blue-600 bg-blue-600 text-white"
@@ -1536,6 +1585,8 @@ export const ChatInput = memo(function ChatInput({
                     ? "Stop Mic"
                     : dictationState === "transcribing"
                       ? "Transcribing"
+                      : dictationState === "starting"
+                        ? "Starting"
                       : "Mic"}
                 </button>
               ) : null}

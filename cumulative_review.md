@@ -30,3 +30,22 @@
   - updated chunk setting UX copy/behavior to reflect realtime-only chunk semantics
   - exported and adopted generated `ChatDictationMode` typing instead of repeated string-literal unions
 - Added/updated backend unit/integration tests, frontend Vitest tests, and Playwright dictation e2e coverage for these changes; targeted suites passed.
+
+## 2026-02-19 00:27:20 PST
+
+- Implemented the remaining review fixes without adding backward-compatibility shims.
+- Dictation startup/runtime hardening:
+  - prevented re-entrant provider starts with an explicit in-flight/start state
+  - added startup-attempt invalidation/cancellation to avoid superseded/orphan sessions
+  - surfaced provider append/stop failures as hard errors instead of empty transcript segments
+- Provider availability alignment:
+  - required non-empty trimmed API key values for provider dictation readiness
+  - added realtime capability checks in frontend availability logic
+  - enforced the same realtime capability rule in backend transcription profile create/update routes
+- File-mode efficiency and settings UX:
+  - batched file-mode PCM appends into larger windows before upload while still flushing on stop
+  - made file-mode transcription profile saves independent of invalid `chunkMs` draft values by persisting a canonical chunk value
+- Cleanup:
+  - removed stale dictation helpers from the legacy MediaRecorder path
+- Verification:
+  - added/updated frontend unit tests, backend route tests, and Playwright dictation coverage (batching, append failure behavior, startup re-entry guard); targeted suites passed.

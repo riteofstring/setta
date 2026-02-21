@@ -2,6 +2,7 @@ import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReduce
 import type {
   APIKeys,
   AllLLMConfigs,
+  LLMConfig,
   TranscriptionProfile,
 } from "utils/generatedTypes";
 
@@ -15,6 +16,19 @@ export const DICTATION_MODE_ITEMS: AllItemsType<string> = [
     ],
   },
 ];
+
+export function supportsProviderRealtimeTranscription(
+  llmConfig: LLMConfig,
+): boolean {
+  const provider = (llmConfig.provider ?? "").trim().toLowerCase();
+  if (provider === "openai") {
+    return true;
+  }
+  if (provider) {
+    return false;
+  }
+  return llmConfig.base_url === null;
+}
 
 export function resolveProviderDictationAvailability({
   selectedTranscriptionProfile,
@@ -50,10 +64,23 @@ export function resolveProviderDictationAvailability({
     };
   }
   const requiredApiKeyEnv = llmConfig.api_key_env?.trim() ?? "";
-  if (requiredApiKeyEnv && !(requiredApiKeyEnv in apiKeys)) {
+  const apiKeyValue = requiredApiKeyEnv
+    ? (apiKeys[requiredApiKeyEnv] ?? "").trim()
+    : "";
+  if (requiredApiKeyEnv && !apiKeyValue) {
     return {
       providerDictationAvailable: false,
       providerDictationUnavailableReason: `Selected transcription profile is missing required API key '${requiredApiKeyEnv}'.`,
+    };
+  }
+  if (
+    selectedTranscriptionProfile.transportMode === "realtime" &&
+    !supportsProviderRealtimeTranscription(llmConfig)
+  ) {
+    return {
+      providerDictationAvailable: false,
+      providerDictationUnavailableReason:
+        "Realtime transcription is unavailable for this provider/model.",
     };
   }
   return {

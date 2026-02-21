@@ -5,7 +5,19 @@ import {
   startTranscriptionSession,
   stopTranscriptionSession,
 } from "state/actions/ai";
-import type { StartTranscriptionSessionResponse } from "utils/generatedTypes";
+import type {
+  StartTranscriptionSessionResponse,
+  TranscriptionSessionDeltaResponse,
+} from "utils/generatedTypes";
+
+export function requireTranscriptionSessionDelta(
+  response: TranscriptionSessionDeltaResponse | null,
+): TranscriptionSessionDeltaResponse {
+  if (!response) {
+    throw new Error("Provider transcription failed.");
+  }
+  return response;
+}
 
 export function useProviderTranscriptionSessionHandlers({
   transcriptionProfileId,
@@ -46,10 +58,7 @@ export function useProviderTranscriptionSessionHandlers({
         sampleRateHz,
         channels,
       );
-      if (!response) {
-        return null;
-      }
-      return response.appendText || null;
+      return requireTranscriptionSessionDelta(response).appendText || null;
     },
     [],
   );
@@ -57,10 +66,7 @@ export function useProviderTranscriptionSessionHandlers({
   const onProviderTranscriptionSessionStop = useCallback(
     async (sessionId: string) => {
       const response = await stopTranscriptionSession(sessionId);
-      if (!response) {
-        return null;
-      }
-      return response.appendText || null;
+      return requireTranscriptionSessionDelta(response).appendText || null;
     },
     [],
   );

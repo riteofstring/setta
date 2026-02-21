@@ -1,6 +1,7 @@
 import { buildLLMConfigGroups } from "components/Chat/llmConfigUtils";
 import { PaneAccordion } from "components/Panes/Common/PaneAccordion";
 import { ProjectLLMSettings } from "components/Panes/Overview/ProjectLevelAI/ProjectLLMSettings";
+import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import {
   type ChangeEvent,
   type ReactNode,
@@ -167,6 +168,27 @@ const DEFAULT_CLAUDE_ASK_RULES = [
   "Bash(reboot:*)",
 ];
 const TRANSCRIPTION_CHUNK_MS_DEFAULT = 1200;
+
+export function resolveTranscriptionChunkMsForSave({
+  transportMode,
+  chunkMsInput,
+}: {
+  transportMode: TranscriptionTransportModeValue;
+  chunkMsInput: string;
+}): number | null {
+  if (transportMode === TranscriptionTransportModeEnum.file) {
+    return TRANSCRIPTION_CHUNK_MS_DEFAULT;
+  }
+  const parsedChunkMs = Number.parseInt(chunkMsInput, 10);
+  if (
+    !Number.isInteger(parsedChunkMs) ||
+    parsedChunkMs < 200 ||
+    parsedChunkMs > 10_000
+  ) {
+    return null;
+  }
+  return parsedChunkMs;
+}
 
 export function ProjectAISettings() {
   useHydrateAgenticState();
@@ -767,12 +789,11 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     if (!draft || !draft.transcriptionLlmConfigId) {
       return;
     }
-    const parsedChunkMs = Number.parseInt(draft.chunkMs, 10);
-    if (
-      !Number.isInteger(parsedChunkMs) ||
-      parsedChunkMs < 200 ||
-      parsedChunkMs > 10_000
-    ) {
+    const resolvedChunkMs = resolveTranscriptionChunkMsForSave({
+      transportMode: draft.transportMode,
+      chunkMsInput: draft.chunkMs,
+    });
+    if (resolvedChunkMs === null) {
       return;
     }
     const trimmedName = draft.name.trim() || "Untitled";
@@ -782,7 +803,7 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
         name: trimmedName,
         transcriptionLlmConfigId: draft.transcriptionLlmConfigId,
         transportMode: draft.transportMode,
-        chunkMs: parsedChunkMs,
+        chunkMs: resolvedChunkMs,
         language: normalizedLanguage,
       });
       if (created) {
@@ -800,7 +821,7 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
         name: trimmedName,
         transcriptionLlmConfigId: draft.transcriptionLlmConfigId,
         transportMode: draft.transportMode,
-        chunkMs: parsedChunkMs,
+        chunkMs: resolvedChunkMs,
         language: normalizedLanguage,
       },
     });
@@ -831,13 +852,17 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     }
   };
 
-  const parsedChunkMs = draft ? Number.parseInt(draft.chunkMs, 10) : Number.NaN;
-  const isChunkMsValid =
-    Number.isInteger(parsedChunkMs) &&
-    parsedChunkMs >= 200 &&
-    parsedChunkMs <= 10_000;
+  const resolvedChunkMs = draft
+    ? resolveTranscriptionChunkMsForSave({
+        transportMode: draft.transportMode,
+        chunkMsInput: draft.chunkMs,
+      })
+    : null;
   const isSaveDisabled =
-    !canEdit || !draft || !draft.transcriptionLlmConfigId || !isChunkMsValid;
+    !canEdit ||
+    !draft ||
+    !draft.transcriptionLlmConfigId ||
+    resolvedChunkMs === null;
   const isDeleteDisabled = !canEdit || !activeProfile || isCreating;
   const isCancelDisabled = !draft;
 
