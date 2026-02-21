@@ -953,23 +953,21 @@ function ToolCallAccordionStatus({
 }) {
   if (runState === "success") {
     return (
-      <IoMdCheckmark className="mr-1.5 self-center justify-self-end text-setta-400" />
+      <IoMdCheckmark className="text-[12px] text-setta-400 dark:text-setta-300" />
     );
   }
   if (runState === "failed") {
     return (
-      <MdErrorOutline className="mr-1.5 self-center justify-self-end text-red-500" />
+      <MdErrorOutline className="text-[11px] text-red-500 dark:text-red-400" />
     );
   }
   if (runState === "stopped") {
     return (
-      <span className="mr-1.5 self-center justify-self-end text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-600/90 dark:text-amber-300/90">
-        Stopped
-      </span>
+      <MdErrorOutline className="text-[11px] text-amber-600 dark:text-amber-300" />
     );
   }
   return (
-    <i className="gg-spinner mr-1.5 !scale-75 self-center justify-self-end text-setta-400 dark:text-setta-300/70" />
+    <i className="gg-spinner !scale-75 text-setta-400 dark:text-setta-300/70" />
   );
 }
 
@@ -1014,16 +1012,23 @@ const ToolCallItem = memo(function ToolCallItem({
   return (
     <Accordion.Root type="single" collapsible className="w-full">
       <Accordion.Item value="details" data-chat-tool-call-item="true">
-        <Accordion.Trigger className="relative flex w-full cursor-pointer items-center justify-between overflow-hidden rounded-md border border-setta-200/70 bg-white/70 transition-colors hover:bg-white dark:border-setta-700/70 dark:bg-setta-900/70 dark:hover:bg-setta-900">
-          <div className="min-w-0 flex-1 truncate break-words pl-2 pr-1 font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200">
+        <Accordion.Trigger className="grid w-full cursor-pointer grid-cols-[1.5rem_minmax(0,1fr)] overflow-hidden rounded-md border border-setta-200/70 bg-white/60 transition-colors hover:bg-white/80 dark:border-setta-700/70 dark:bg-setta-900/65 dark:hover:bg-setta-900">
+          <div
+            className="flex h-full items-center justify-center bg-setta-100/75 text-setta-400 dark:bg-setta-800/80 dark:text-setta-300"
+            data-chat-tool-call-item-rail="true"
+            title={`Tool state: ${runState}`}
+            aria-label={`Tool state: ${runState}`}
+          >
+            <ToolCallAccordionStatus runState={runState} />
+          </div>
+          <div className="min-w-0 truncate break-words px-2 py-1 font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200">
             {name}
           </div>
-          <ToolCallAccordionStatus runState={runState} />
         </Accordion.Trigger>
 
         <Accordion.Content className="overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
           {args && (
-            <div className="border-x border-t border-setta-200/70 bg-setta-200/35 px-2 py-1 text-xs dark:border-setta-700/70 dark:bg-setta-860">
+            <div className="border-x border-t border-setta-200/70 bg-setta-200/35 px-1.5 py-1 text-xs dark:border-setta-700/70 dark:bg-setta-860">
               <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
                 Arguments
               </h3>
@@ -1033,7 +1038,7 @@ const ToolCallItem = memo(function ToolCallItem({
             </div>
           )}
           {resultDisplay && (
-            <div className="rounded-b-md border border-setta-200/70 bg-setta-200 px-2 py-1 dark:border-setta-700/70 dark:bg-setta-900">
+            <div className="rounded-b-md border border-setta-200/70 bg-setta-200 px-1.5 py-1 dark:border-setta-700/70 dark:bg-setta-900">
               <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
                 Result
               </h3>
@@ -1086,7 +1091,7 @@ function ToolCallSectionStatus({
 }) {
   if (sectionState === "complete") {
     return (
-      <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-400 dark:text-setta-300">
+      <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300">
         <IoMdCheckmark className="text-[11px]" />
         Complete
       </span>
@@ -1094,14 +1099,14 @@ function ToolCallSectionStatus({
   }
   if (sectionState === "stopped") {
     return (
-      <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-amber-600 dark:text-amber-300">
+      <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-600 dark:text-amber-300">
         <MdErrorOutline className="text-[11px]" />
         Stopped Mid-Tool Call
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-400 dark:text-setta-300">
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300">
       <i className="gg-spinner !scale-75" />
       Working
     </span>
@@ -1124,26 +1129,32 @@ const ToolCallSection = memo(function ToolCallSection({
     <Accordion.Root type="single" collapsible className="w-full">
       <Accordion.Item
         value="tool-call-details"
-        className="w-full rounded-md border border-setta-200/70 bg-setta-50/70 dark:border-setta-700/60 dark:bg-setta-900/45"
+        className="w-full overflow-hidden rounded-md border border-setta-200/70 bg-setta-50/70 dark:border-setta-700/60 dark:bg-setta-900/45"
         data-chat-tool-call-section="true"
         data-chat-tool-call-section-state={sectionState}
       >
-        <Accordion.Trigger className="flex w-full cursor-pointer items-center gap-1.5 px-1.5 py-1 text-left transition-colors hover:bg-white/60 dark:hover:bg-setta-900/80">
-          <PiWrenchFill
-            size={13}
-            className="min-w-5 text-setta-300 dark:text-setta-400"
-          />
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[11px] font-semibold text-setta-500 dark:text-setta-200">
-              {title}
+        <Accordion.Trigger className="grid w-full cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)] text-left transition-colors hover:bg-white/60 dark:hover:bg-setta-900/80">
+          <div
+            className="flex h-full items-center justify-center bg-setta-100/75 text-setta-400 dark:bg-setta-800/75 dark:text-setta-300"
+            data-chat-tool-call-section-rail="true"
+          >
+            <PiWrenchFill size={13} className="min-w-4" />
+          </div>
+          <div className="flex min-w-0 items-start gap-2 px-2 py-1">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[11px] font-semibold text-setta-500 dark:text-setta-200">
+                {title}
+              </div>
+              <div className="truncate text-[10px] text-setta-400 dark:text-setta-400/90">
+                {latestToolLabel}
+              </div>
             </div>
-            <div className="truncate text-[10px] text-setta-400 dark:text-setta-400/90">
-              {latestToolLabel}
+            <div className="ml-auto shrink-0 self-center">
+              <ToolCallSectionStatus sectionState={sectionState} />
             </div>
           </div>
-          <ToolCallSectionStatus sectionState={sectionState} />
         </Accordion.Trigger>
-        <Accordion.Content className="overflow-hidden px-1 pb-1 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+        <Accordion.Content className="overflow-hidden px-0.5 pb-0.5 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
           <div className="flex w-full flex-col gap-0.5">{children}</div>
         </Accordion.Content>
       </Accordion.Item>
@@ -1334,14 +1345,14 @@ function AssistantToolCallCard({ children }: { children: ReactNode }) {
 function AssistantMessageGroup({
   children,
   messageId,
-  forceMaxWidth = false,
+  fixedWidth = false,
 }: {
   children: ReactNode;
   messageId?: string;
-  forceMaxWidth?: boolean;
+  fixedWidth?: boolean;
 }) {
-  const widthClass = forceMaxWidth
-    ? `group flex w-full ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} max-w-full flex-col items-start`
+  const widthClass = fixedWidth
+    ? `group flex w-full ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-start`
     : `group inline-flex w-fit ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} max-w-full flex-col items-start`;
   return (
     <div className="my-2 flex justify-start">
@@ -1738,8 +1749,7 @@ const ChatMessage = memo(function ChatMessage({
     const shouldRenderBubble =
       hasBubbleContent || showTypingIndicator || (isStreaming && toolCalls.length === 0);
     const hasThinkingContent = thinkingItems.length > 0;
-    const forceMaxWidthForToolCalls =
-      toolCalls.length > 0 && !hasBubbleContent && !hasThinkingContent;
+    const lockGroupToBubbleMaxWidth = hasThinkingContent || toolCalls.length > 0;
     if (!shouldRenderBubble && !hasThinkingContent && toolCalls.length === 0) {
       return null;
     }
@@ -1750,7 +1760,7 @@ const ChatMessage = memo(function ChatMessage({
     return (
       <AssistantMessageGroup
         messageId={message.id}
-        forceMaxWidth={forceMaxWidthForToolCalls}
+        fixedWidth={lockGroupToBubbleMaxWidth}
       >
         {thinkingItems.map((item, idx) => (
           <AssistantReasoningCard key={`${message.id}-thinking-${idx}`}>
@@ -2083,7 +2093,7 @@ function ChatMessages({
         <AssistantMessageGroup
           key={`tool-call-group-${firstMessageId}`}
           messageId={firstMessageId}
-          forceMaxWidth
+          fixedWidth
         >
           <AssistantToolCallCard>
             <AssistantToolCallSection

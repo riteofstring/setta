@@ -219,6 +219,7 @@ describe("ChatMessages tool call status", () => {
     expect(sectionCount).toBe(1);
     expect(markup).toContain("Tool calls (2)");
     expect(markup).toContain('data-chat-assistant-tool-call-card="true"');
+    expect(markup).toContain('data-chat-tool-call-section-rail="true"');
     expect(markup).toContain('data-chat-assistant-bubble="true"');
   });
 
@@ -267,6 +268,7 @@ describe("ChatMessages tool call status", () => {
     expect(sectionCount).toBe(1);
     expect(markup).toContain("Tool calls (2)");
     expect(markup).not.toContain('data-chat-assistant-bubble="true"');
+    expect(markup).toContain("group flex w-full max-w-[min(88%,800px)] flex-col items-start");
   });
 });
 
@@ -325,6 +327,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(bubbleIndex).toBeGreaterThan(-1);
     expect(reasoningIndex).toBeLessThan(bubbleIndex);
     expect(markup).toContain("border-setta-100");
+    expect(markup).toContain("group flex w-full max-w-[min(88%,800px)] flex-col items-start");
   });
 
   it("does not render an empty assistant bubble when message only has reasoning", () => {
