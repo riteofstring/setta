@@ -479,6 +479,30 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain("00:00");
   });
 
+  it("does not inject a typing marker class inside assistant bubbles", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-streaming-empty",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageTextContent({
+            text: "Streaming response body",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={true} />,
+    );
+
+    expect(markup).toContain('data-chat-assistant-bubble="true"');
+    expect(markup).not.toContain('class="chat-typing"');
+    expect(markup).not.toContain('class="chat-typing-inline"');
+  });
+
   it("does not render fully empty assistant messages after streaming completes", () => {
     const messages: BaseChatMessageUnion[] = [
       {

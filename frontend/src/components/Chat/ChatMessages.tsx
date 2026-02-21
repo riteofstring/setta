@@ -153,7 +153,6 @@ type MarkdownContentProps = {
   className: string;
   role: ChatRoleEnum;
   isStreaming: boolean;
-  typingIndicator?: boolean;
 };
 
 function MarkdownContent({
@@ -161,16 +160,12 @@ function MarkdownContent({
   className,
   role,
   isStreaming,
-  typingIndicator = false,
 }: MarkdownContentProps) {
   const shouldAnimate = role === ChatRoleEnum.assistant && isStreaming;
   const displayText = useTypewriterEffect(content, shouldAnimate, 5);
 
   return (
-    <div
-      className={typingIndicator ? "chat-typing" : undefined}
-      data-typing={typingIndicator ? "true" : undefined}
-    >
+    <div>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}
@@ -1782,11 +1777,9 @@ function AssistantErrorCallout({ content }: { content: string }) {
 function StreamItem({
   item,
   isStreaming,
-  showTypingIndicator = false,
 }: {
   item: ChatContentItem;
   isStreaming: boolean;
-  showTypingIndicator?: boolean;
 }) {
   switch (item.type) {
     case C.LLM_TEXT:
@@ -1799,7 +1792,6 @@ function StreamItem({
           className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-xl prose-h1:leading-tight prose-p:my-1 prose-p:text-[13px] prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words [&_*]:marker:text-setta-400"
           role={ChatRoleEnum.assistant}
           isStreaming={isStreaming}
-          typingIndicator={showTypingIndicator}
         />
       );
     case C.LLM_THINKING:
@@ -1835,6 +1827,21 @@ function AssistantToolCallCard({ children }: { children: ReactNode }) {
   return (
     <div className="w-full" data-chat-assistant-tool-call-card="true">
       {children}
+    </div>
+  );
+}
+
+function AssistantTypingIndicator({ visible }: { visible: boolean }) {
+  if (!visible) {
+    return null;
+  }
+  return (
+    <div
+      className="w-full px-1.5 text-setta-400 dark:text-setta-500"
+      data-chat-assistant-typing-indicator="true"
+      aria-hidden="true"
+    >
+      <span className="chat-typing-inline" data-typing="true" />
     </div>
   );
 }
@@ -2231,7 +2238,7 @@ const ChatMessage = memo(function ChatMessage({
     };
   }, [isAssistant, message.content]);
   const showAssistantSpinner = useIdleStreamSpinner(
-    isAssistant && isStreaming && toolCalls.length === 0,
+    isAssistant && isStreaming,
     activityKey,
     spinnerDelayMs,
   );
@@ -2251,8 +2258,7 @@ const ChatMessage = memo(function ChatMessage({
   if (message.role === ChatRoleEnum.assistant) {
     const showTypingIndicator = showAssistantSpinner;
     const hasBubbleContent = attachments.length > 0 || displayItems.length > 0;
-    const shouldRenderBubble =
-      hasBubbleContent || showTypingIndicator || (isStreaming && toolCalls.length === 0);
+    const shouldRenderBubble = hasBubbleContent;
     const hasThinkingContent = thinkingItems.length > 0;
     const hasCompactionContent = compactionEntries.length > 0;
     const hasActionContent = actionEntries.length > 0;
@@ -2301,23 +2307,18 @@ const ChatMessage = memo(function ChatMessage({
                   key={fullIndex}
                   item={item}
                   isStreaming={isStreaming}
-                  showTypingIndicator={
-                    showTypingIndicator && fullIndex === lastTextIndex
-                  }
                 />
               );
             })}
-            {showTypingIndicator && lastTextIndex === -1 ? (
-              <span
-                className="chat-typing-inline"
-                data-typing="true"
-                aria-hidden="true"
-              />
-            ) : null}
           </LLMChatBubble>
         ) : (
           !hasActionContent && !hasToolCallContent ? actionBar : null
         )}
+        <AssistantTypingIndicator
+          visible={
+            showTypingIndicator && lastTextIndex === -1 && thinkingItems.length === 0
+          }
+        />
         {actionEntries.length > 0 ? (
           <AssistantToolCallCard>
             <AssistantActionSection
