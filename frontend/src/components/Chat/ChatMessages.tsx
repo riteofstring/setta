@@ -1403,7 +1403,7 @@ function UserChatBubble({
         data-message-id={messageId}
       >
         <div
-          className="relative flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-900/60 bg-blue-950 pb-2.5 pl-3 pr-2.5 pt-1.5 text-white dark:border-blue-800/80 dark:bg-blue-950"
+          className="relative flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-700/70 bg-blue-700 pb-2.5 pl-3 pr-2.5 pt-1.5 text-white dark:border-blue-800/80 dark:bg-blue-950"
           data-chat-user-bubble="true"
           style={
             typeof bubbleWidthPx === "number"

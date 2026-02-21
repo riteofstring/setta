@@ -224,9 +224,9 @@ test.describe.serial("chat editing", () => {
       await expect(copyButton).toBeVisible();
       await expect(editButton).toBeVisible();
 
-      // Keep the darker user bubble palette and compact top padding.
+      // Keep the lighter blue user bubble in light mode and dark palette in dark mode.
       const bubbleClasses = await userBubble.getAttribute("class");
-      expect(bubbleClasses).toContain("bg-blue-950");
+      expect(bubbleClasses).toContain("bg-blue-700");
       expect(bubbleClasses).toContain("dark:bg-blue-950");
       expect(bubbleClasses).toContain("pt-1.5");
 
