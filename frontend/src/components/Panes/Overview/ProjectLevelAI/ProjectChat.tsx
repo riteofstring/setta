@@ -29,7 +29,7 @@ import { IoMdArrowRoundBack } from "react-icons/io";
 import { IoSettingsOutline } from "react-icons/io5";
 import { MdAdd, MdOutlineExtension } from "react-icons/md";
 import { RiChatHistoryLine } from "react-icons/ri";
-import { updateEngineConfig } from "state/actions/ai";
+import { saveLLMConfig, updateEngineConfig } from "state/actions/ai";
 import { useAIStore } from "state/definitions";
 import {
   AllLLMConfigs,
@@ -51,12 +51,14 @@ type ProjectAISettingsPopoverProps = {
   availableConfigGroups: ReturnType<typeof buildLLMConfigGroups>;
   selectedEngineId: string | null;
   selectedLLMConfigId: string | null;
+  defaultLLMConfigId: string | null;
   engineType: EngineTypeEnum | null;
   noConfigsAvailable: boolean;
   dictationMode: ProjectDictationMode;
   providerDictationLikelySupported: boolean;
   onEngineChange: (value: string | null) => void;
   onLLMConfigChange: (value: string | null) => void;
+  onPinDefaultModel: () => void;
   onDictationModeChange: (value: ProjectDictationMode) => void;
 };
 
@@ -90,6 +92,7 @@ export function ProjectChat() {
     engineConfigs,
     engineConfigsInitialLoadComplete,
     projectChatDictationMode,
+    projectChatSelectedEngineId,
   } = useAIStore(
     (x) => ({
       apiKeys: x.apiKeys,
@@ -104,11 +107,15 @@ export function ProjectChat() {
       engineConfigs: x.engineConfigs,
       engineConfigsInitialLoadComplete: x.engineConfigsInitialLoadComplete,
       projectChatDictationMode: x.projectChatDictationMode,
+      projectChatSelectedEngineId: x.projectChatSelectedEngineId,
     }),
     _.isEqual,
   );
 
-  const [selectedEngineId, setSelectedEngineId] = useState<string | null>(null);
+  const selectedEngineId = projectChatSelectedEngineId;
+  const setSelectedEngineId = useCallback((value: string | null) => {
+    useAIStore.setState({ projectChatSelectedEngineId: value });
+  }, []);
   const [runtimePermissionMode, setRuntimePermissionMode] =
     useState<ChatPermissionModeValue>("minimal");
   const [viewSkillsMcpViewer, setViewSkillsMcpViewer] = useState(false);
@@ -189,6 +196,7 @@ export function ProjectChat() {
     }
     return allLLMConfigs.configs[selectedLLMConfigId] ?? null;
   }, [allLLMConfigs, selectedLLMConfigId]);
+  const defaultLLMConfigId = allLLMConfigs?.default_config_id ?? null;
   const providerDictationLikelySupported = useMemo(
     () => isProviderDictationLikelySupported(selectedLLMConfig),
     [selectedLLMConfig],
@@ -284,7 +292,7 @@ export function ProjectChat() {
       useAIStore.setState({ viewHistory: false });
       setViewSkillsMcpViewer(false);
     },
-    [selectedEngineId, setChatId],
+    [selectedEngineId, setChatId, setSelectedEngineId],
   );
 
   const handleLLMConfigChange = useCallback(
@@ -303,6 +311,18 @@ export function ProjectChat() {
     },
     [effectiveEngineConfig],
   );
+  const handlePinDefaultModel = useCallback(() => {
+    if (!allLLMConfigs || !selectedLLMConfigId) {
+      return;
+    }
+    if (allLLMConfigs.default_config_id === selectedLLMConfigId) {
+      return;
+    }
+    void saveLLMConfig({
+      ...allLLMConfigs,
+      default_config_id: selectedLLMConfigId,
+    });
+  }, [allLLMConfigs, selectedLLMConfigId]);
   const handleDictationModeChange = useCallback(
     (value: ProjectDictationMode) => {
       useAIStore.setState({ projectChatDictationMode: value });
@@ -350,6 +370,7 @@ export function ProjectChat() {
     externalAgentHealthInitialLoadComplete,
     preferredEngineId,
     selectedEngineId,
+    setSelectedEngineId,
   ]);
   useEffect(() => {
     setRuntimePermissionMode(getDefaultProjectChatPermissionMode(engineType));
@@ -453,6 +474,7 @@ export function ProjectChat() {
                   availableConfigGroups={availableConfigGroups}
                   selectedEngineId={effectiveEngineId}
                   selectedLLMConfigId={selectedLLMConfigId}
+                  defaultLLMConfigId={defaultLLMConfigId}
                   engineType={engineType}
                   noConfigsAvailable={noConfigsAvailable}
                   dictationMode={projectChatDictationMode}
@@ -461,6 +483,7 @@ export function ProjectChat() {
                   }
                   onEngineChange={handleEngineChange}
                   onLLMConfigChange={handleLLMConfigChange}
+                  onPinDefaultModel={handlePinDefaultModel}
                   onDictationModeChange={handleDictationModeChange}
                 />
               </div>
@@ -593,12 +616,14 @@ function ProjectAISettingsPopover({
   availableConfigGroups,
   selectedEngineId,
   selectedLLMConfigId,
+  defaultLLMConfigId,
   engineType,
   noConfigsAvailable,
   dictationMode,
   providerDictationLikelySupported,
   onEngineChange,
   onLLMConfigChange,
+  onPinDefaultModel,
   onDictationModeChange,
 }: ProjectAISettingsPopoverProps) {
   const showLLMConfig = engineType === EngineTypeEnum.setta_llm;
@@ -611,6 +636,8 @@ function ProjectAISettingsPopover({
   const providerModeAvailable = showLLMConfig;
   const autoFallsBackToBrowser =
     showLLMConfig && !providerDictationLikelySupported;
+  const selectedModelPinnedAsDefault =
+    selectedLLMConfigId !== null && selectedLLMConfigId === defaultLLMConfigId;
 
   return (
     <StandardPopover
@@ -660,6 +687,16 @@ function ProjectAISettingsPopover({
                 bg={llmBg}
                 outerDivClasses="w-full"
               />
+              <button
+                type="button"
+                onClick={onPinDefaultModel}
+                disabled={!selectedLLMConfigId || selectedModelPinnedAsDefault}
+                className="h-8 w-full rounded-md border border-setta-200 bg-white px-2 text-left text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800/70"
+              >
+                {selectedModelPinnedAsDefault
+                  ? "Selected model is pinned as default"
+                  : "Pin selected model as default"}
+              </button>
             </div>
           ) : null}
           <div className="flex flex-col gap-1">
