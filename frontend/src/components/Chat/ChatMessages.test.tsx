@@ -691,11 +691,11 @@ describe("ChatMessages assistant reasoning layout", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(countOccurrences(markup, summary)).toBe(1);
+    expect(countOccurrences(markup, summary)).toBe(2);
     expect(markup).not.toContain("top-bottom-fade");
   });
 
-  it("renders non-expandable thinking summaries without pointer affordance", () => {
+  it("renders grouped thinking summaries in a collapsed parent row", () => {
     const messages: BaseChatMessageUnion[] = [
       {
         id: "m-reasoning-summary-non-expandable",
@@ -715,14 +715,15 @@ describe("ChatMessages assistant reasoning layout", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(markup).toContain('data-chat-thinking-trigger="true"');
-    expect(markup).toContain('data-chat-thinking-expandable="false"');
-    expect(markup).toContain("cursor-default");
-    expect(markup).not.toContain('data-chat-thinking-chevron="true"');
+    expect(markup).toContain('data-chat-thinking-list-section="true"');
+    expect(markup).toContain('data-chat-thinking-list-latest-summary="true"');
+    expect(markup).toContain('data-chat-thinking-list-expandable="false"');
+    expect(markup).not.toContain('data-chat-thinking-list-chevron="true"');
+    expect(markup).not.toContain('data-chat-thinking-trigger="true"');
     expect(markup).not.toContain('data-chat-thinking-summary-expanded="true"');
   });
 
-  it("renders a chevron affordance when reasoning details can expand", () => {
+  it("shows grouped thinking rows with a list chevron affordance", () => {
     const messages: BaseChatMessageUnion[] = [
       {
         id: "m-reasoning-expandable-chevron",
@@ -742,8 +743,42 @@ describe("ChatMessages assistant reasoning layout", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(markup).toContain('data-chat-thinking-expandable="true"');
-    expect(markup).toContain('data-chat-thinking-chevron="true"');
+    expect(markup).toContain('data-chat-thinking-list-section="true"');
+    expect(markup).toContain('data-chat-thinking-list-expandable="true"');
+    expect(markup).toContain('data-chat-thinking-list-chevron="true"');
+    expect(markup).toContain("Thought: Reviewing approach");
+  });
+
+  it("groups consecutive thinking items into one thought section and uses the latest summary", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-grouped-thoughts",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "First thought body",
+            summary: "First summary",
+          }),
+          createMessageThinkingContent({
+            thinking: "Second thought body",
+            summary: "Second summary",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(countOccurrences(markup, 'data-chat-thinking-list-section="true"')).toBe(
+      1,
+    );
+    expect(markup).toContain('title="2 thought sections"');
+    expect(markup).toContain("Thought: Second summary");
+    expect(markup).not.toContain("Thought: First summary");
   });
 
   it("uses a summary placeholder in collapsed view when summary is unavailable", () => {
@@ -847,7 +882,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).not.toContain(
       "I don't support slash commands; I'll ask what specific functionality or help is needed instead.",
     );
-    expect(markup).toContain('data-chat-thinking-expandable="true"');
+    expect(markup).toContain('data-chat-thinking-list-section="true"');
   });
 
   it("does not show full reasoning text in collapsed summary when summary mirrors thinking text", () => {
