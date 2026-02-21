@@ -47,6 +47,22 @@ function getButtonTagByAriaLabel(
   return markup.slice(buttonStart, buttonEnd);
 }
 
+function getTagByMarker(markup: string, marker: string): string | null {
+  const markerIndex = markup.indexOf(marker);
+  if (markerIndex < 0) {
+    return null;
+  }
+  const tagStart = markup.lastIndexOf("<div", markerIndex);
+  if (tagStart < 0) {
+    return null;
+  }
+  const tagEnd = markup.indexOf(">", tagStart);
+  if (tagEnd < 0) {
+    return null;
+  }
+  return markup.slice(tagStart, tagEnd);
+}
+
 describe("ChatMessageList edit gating", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -392,6 +408,30 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain("mb-2 mt-1.5 flex justify-start");
     expect(markup).toContain("border border-transparent bg-white");
     expect(markup).toContain("dark:bg-setta-850");
+  });
+
+  it("keeps assistant speech bubbles content-fit instead of filling the group width", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-assistant-fit-width",
+        role: ChatRoleEnum.assistant,
+        content: [createMessageTextContent({ text: "Short reply" })],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    const assistantBubbleTag = getTagByMarker(
+      markup,
+      'data-chat-assistant-bubble="true"',
+    );
+    expect(assistantBubbleTag).not.toBeNull();
+    expect(assistantBubbleTag).toContain("w-fit");
+    expect(assistantBubbleTag).not.toContain(" w-full ");
   });
 
   it("renders reasoning cards separately from assistant bubble content", () => {
