@@ -44,6 +44,7 @@ import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
+  SETTA_POPOVER_PORTAL_PARENT_ID,
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
 import { router_set_as_default_project } from "utils/generatedEndpoints";
@@ -441,6 +442,14 @@ function HomeWorkspaceLayout({
           <HomeProjectGallery {...commonGalleryProps} fullScreenSurface />
         </main>
       </GridWrapper>
+      <div
+        className="setta-codemirror-tooltips pointer-events-auto absolute left-0 top-0 z-[300] h-px w-px overflow-visible"
+        id={CODEMIRROR_TOOLTIP_PARENT_ID}
+      />
+      <div
+        className="setta-popover-portals pointer-events-auto absolute left-0 top-0 z-[320] h-px w-px overflow-visible"
+        id={SETTA_POPOVER_PORTAL_PARENT_ID}
+      />
     </>
   );
 }
