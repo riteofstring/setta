@@ -858,6 +858,29 @@ function ProjectAISettingsPopover({
               outerDivClasses="w-full"
             />
           </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+              Microphone Source
+            </span>
+            <IdNameCombobox
+              allItems={dictationModeOptions}
+              value={dictationMode}
+              small={false}
+              onSelectedItemChange={handleDictationModeOptionChange}
+              placeholder="Microphone source"
+              outerDivClasses="w-full"
+              inputDivId="project-ai-microphone-source"
+            />
+            <p className="text-[10px] text-setta-500 dark:text-setta-400">
+              Provider mode uses the current LLM Config.
+            </p>
+            {dictationMode === "auto" && autoFallsBackToBrowser ? (
+              <p className="text-[10px] text-amber-700 dark:text-amber-300">
+                Auto currently prefers browser/OS because the selected model
+                does not appear transcription-capable.
+              </p>
+            ) : null}
+          </div>
           {showLLMConfig ? (
             <div className="flex flex-col gap-1">
               <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
@@ -889,42 +912,21 @@ function ProjectAISettingsPopover({
             <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
               Tools
             </span>
-            <button
-              type="button"
-              onClick={onOpenSkillsMcpViewer}
-              className="h-8 w-full rounded-md border border-setta-200 bg-white px-2 text-left text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800/70"
-            >
-              Open Skills/MCP
-            </button>
-            <Menubar.Root className="contents">
-              <FollowAIToggleButton
-                labelMode="always"
-                triggerClassName="nodrag relative inline-flex h-8 w-full select-none items-center gap-1 rounded-md border border-setta-200 bg-white px-2 text-[11px] font-semibold transition-colors hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-700 dark:bg-setta-900 dark:hover:bg-setta-800/70"
-              />
-            </Menubar.Root>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
-              Microphone Source
-            </span>
-            <IdNameCombobox
-              allItems={dictationModeOptions}
-              value={dictationMode}
-              small={false}
-              onSelectedItemChange={handleDictationModeOptionChange}
-              placeholder="Microphone source"
-              outerDivClasses="w-full"
-              inputDivId="project-ai-microphone-source"
-            />
-            <p className="text-[10px] text-setta-500 dark:text-setta-400">
-              Provider mode uses the current LLM Config.
-            </p>
-            {dictationMode === "auto" && autoFallsBackToBrowser ? (
-              <p className="text-[10px] text-amber-700 dark:text-amber-300">
-                Auto currently prefers browser/OS because the selected model
-                does not appear transcription-capable.
-              </p>
-            ) : null}
+            <div className="grid w-full min-w-0 grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={onOpenSkillsMcpViewer}
+                className="box-border h-8 w-full min-w-0 rounded-md border border-setta-200 bg-white px-2 text-center text-[11px] font-semibold text-setta-600 transition-colors hover:bg-setta-50 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:bg-setta-800/70"
+              >
+                Open Skills/MCP
+              </button>
+              <Menubar.Root className="w-full min-w-0">
+                <FollowAIToggleButton
+                  labelMode="always"
+                  triggerClassName="nodrag relative inline-flex box-border h-8 w-full min-w-0 select-none items-center justify-center gap-1 rounded-md border border-setta-200 bg-white px-2 text-[11px] font-semibold transition-colors hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-700 dark:bg-setta-900 dark:hover:bg-setta-800/70"
+                />
+              </Menubar.Root>
+            </div>
           </div>
         </div>
       </div>
