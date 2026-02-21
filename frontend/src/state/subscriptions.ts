@@ -25,6 +25,8 @@ import {
 } from "./actions/sectionInfos";
 import { decodeExistingRawImages } from "./hooks/artifacts";
 
+let nodeDimensionsUpdateQueued = false;
+
 export function subscribe() {
   useProjectState.subscribe(
     getDisplayedSectionIdToChildren,
@@ -83,12 +85,7 @@ export function subscribe() {
     updateNodeDimensionsSubscriptionFn,
     (shouldUpdate) => {
       if (shouldUpdate) {
-        updateNodeDimensions(
-          getNodeUpdateInformation(useNodeInternals.getState().x.keys(), false),
-        );
-        useMisc.setState({
-          requestUpdateNodeDimensions: false,
-        });
+        queueNodeDimensionsUpdate();
       }
     },
     { equalityFn: _.isEqual },
@@ -142,6 +139,37 @@ function reactFlowTransformSubscriptionFn(state) {
 
 function updateNodeDimensionsSubscriptionFn(state) {
   return state.undoOrRedoWasTriggered || state.requestUpdateNodeDimensions;
+}
+
+function queueNodeDimensionsUpdate() {
+  if (nodeDimensionsUpdateQueued) {
+    return;
+  }
+  nodeDimensionsUpdateQueued = true;
+  const runUpdate = () => {
+    nodeDimensionsUpdateQueued = false;
+    if (!updateNodeDimensionsSubscriptionFn(useMisc.getState())) {
+      return;
+    }
+    updateNodeDimensions(
+      getNodeUpdateInformation(useNodeInternals.getState().x.keys(), false),
+    );
+    useMisc.setState({
+      requestUpdateNodeDimensions: false,
+    });
+  };
+  if (
+    typeof window !== "undefined" &&
+    typeof window.requestAnimationFrame === "function"
+  ) {
+    window.requestAnimationFrame(() => {
+      runUpdate();
+    });
+    return;
+  }
+  setTimeout(() => {
+    runUpdate();
+  }, 0);
 }
 
 function topLevelSectionVisibilitySubscriptionFn(state: ZustandProjectState) {
