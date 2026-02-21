@@ -1,6 +1,7 @@
 import { createProjectConfig } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
+  getHomeMaxTotalSideWidth,
   getHomeProjectConfigsSectionTitle,
   getProjectTopLevelSectionCount,
   partitionProjectsByFavoriteStatus,
@@ -8,6 +9,14 @@ import {
 } from "./HomePage";
 
 describe("HomePage", () => {
+  it("computes max side width budget from measured desktop width", () => {
+    expect(getHomeMaxTotalSideWidth(1600)).toBe(1148);
+  });
+
+  it("never returns less than the minimum combined side width", () => {
+    expect(getHomeMaxTotalSideWidth(640)).toBe(510);
+  });
+
   it("counts top-level sections from object keys", () => {
     const project = createProjectConfig({
       id: "project-1",
@@ -41,8 +50,10 @@ describe("HomePage", () => {
   });
 
   it("labels the non-favorite section as 'Other' when favorites are present", () => {
-    expect(getHomeProjectConfigsSectionTitle(true)).toBe("Other Projects");
-    expect(getHomeProjectConfigsSectionTitle(false)).toBe("All Projects");
+    expect(getHomeProjectConfigsSectionTitle(true)).toBe(
+      "Other Project Configs",
+    );
+    expect(getHomeProjectConfigsSectionTitle(false)).toBe("Project Configs");
   });
 
   it("opens from keyboard Space in list rows only when selection is disabled", () => {

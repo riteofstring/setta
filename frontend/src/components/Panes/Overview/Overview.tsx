@@ -6,10 +6,9 @@ import {
   type PluginPaneIconName,
   type PluginPaneTabEntry,
 } from "plugins/runtime";
-import { Link } from "react-router-dom";
 import { useMemo, useRef, type ReactElement, type RefObject } from "react";
 import { HiOutlineEye } from "react-icons/hi";
-import { IoChatbox, IoSettingsOutline } from "react-icons/io5";
+import { IoChatbox } from "react-icons/io5";
 import {
   MdBugReport,
   MdExtension,
@@ -29,10 +28,8 @@ import {
   OverviewTabName,
   OverviewTabNameEnum,
   OverviewTabNamePrettified,
-  PAGE_LOAD_TYPES,
   PaneNameEnum,
   parsePluginPaneOverviewTabName,
-  SETTINGS_ROUTER_PATH,
 } from "utils/constants";
 import { useTabScope } from "utils/focusManager";
 import {
@@ -262,16 +259,6 @@ export function Overview() {
           />
         )}
         <Controls />
-        <Link
-          to={SETTINGS_ROUTER_PATH}
-          state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
-          data-testid="overview-left-rail-settings-link"
-          className="mb-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center text-setta-400 hover:text-setta-600 focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500 dark:text-setta-600 dark:hover:text-setta-500"
-          aria-label="Open settings"
-          {...getFloatingBoxHandlers({ content: "Settings" })}
-        >
-          <IoSettingsOutline size={18} />
-        </Link>
       </div>
       <PaneContainer
         paneName={PaneNameEnum.overview}
