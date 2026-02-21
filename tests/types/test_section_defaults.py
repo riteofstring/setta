@@ -68,8 +68,41 @@ def test_task_board_model_defaults_to_empty_columns() -> None:
     assert TaskBoardSectionImpl().columns == []
 
 
+def test_task_board_settings_defaults_use_none_columns_sentinel() -> None:
+    settings = SettingsState()
+    assert settings.taskBoardSectionDefault.columns is None
+
+
 def test_create_top_level_task_board_populates_default_columns() -> None:
     settings = SettingsState()
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="test"))
+    section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.TaskBoard,
+        Position(),
+    )
+    task_board_impl = get_curr_effective_section_impl_with_type_guard(
+        project_state,
+        section_id,
+        TaskBoardSectionImpl,
+    )
+    assert [column.name for column in task_board_impl.columns] == [
+        "Todo",
+        "Doing",
+        "Done",
+    ]
+    assert [column.color for column in task_board_impl.columns] == [
+        "#3b82f6",
+        "#a855f7",
+        "#10b981",
+    ]
+    assert [column.sortIndex for column in task_board_impl.columns] == [0, 1, 2]
+    assert len({column.id for column in task_board_impl.columns}) == 3
+
+
+def test_task_board_defaults_survive_settings_round_trip() -> None:
+    settings = SettingsState.model_validate(SettingsState().model_dump(mode="json"))
     project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="test"))
     section_id = create_top_level_section(
         settings,
@@ -114,13 +147,14 @@ def test_create_top_level_task_board_respects_explicit_empty_columns_override() 
     assert task_board_impl.columns == []
 
 
-def test_create_top_level_task_board_respects_explicit_empty_columns_settings_default() -> None:
+def test_task_board_explicit_empty_settings_survive_round_trip() -> None:
     settings = SettingsState.model_validate(
         {"taskBoardSectionDefault": {"columns": []}}
     )
+    reloaded_settings = SettingsState.model_validate(settings.model_dump(mode="json"))
     project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="test"))
     section_id = create_top_level_section(
-        settings,
+        reloaded_settings,
         project_state,
         SectionType.TaskBoard,
         Position(),
@@ -130,5 +164,5 @@ def test_create_top_level_task_board_respects_explicit_empty_columns_settings_de
         section_id,
         TaskBoardSectionImpl,
     )
-    assert "columns" in settings.taskBoardSectionDefault.model_fields_set
+    assert reloaded_settings.taskBoardSectionDefault.columns == []
     assert task_board_impl.columns == []

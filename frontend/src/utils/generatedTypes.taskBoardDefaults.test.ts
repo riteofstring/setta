@@ -7,11 +7,29 @@ import {
 import { describe, expect, it } from "vitest";
 
 describe("generated task board defaults", () => {
-  it("creates isolated arrays for user default task board settings", () => {
+  it("uses a null columns sentinel for user default task board settings", () => {
     const first = createUserDefaultTaskBoardSectionImpl();
     const second = createUserDefaultTaskBoardSectionImpl();
 
-    first.columns.push(createTaskBoardColumn({ name: "Backlog" }));
+    first.tasks.push(createTaskBoardTask({ title: "Task A" }));
+
+    expect(first.columns).toBeNull();
+    expect(second.columns).toBeNull();
+    expect(first.tasks).not.toBe(second.tasks);
+    expect(second.tasks).toHaveLength(0);
+  });
+
+  it("creates isolated explicit arrays for user default task board settings", () => {
+    const first = createUserDefaultTaskBoardSectionImpl({
+      columns: [],
+      tasks: [],
+    });
+    const second = createUserDefaultTaskBoardSectionImpl({
+      columns: [],
+      tasks: [],
+    });
+
+    first.columns?.push(createTaskBoardColumn({ name: "Backlog" }));
     first.tasks.push(createTaskBoardTask({ title: "Task A" }));
 
     expect(first.columns).not.toBe(second.columns);
@@ -20,7 +38,7 @@ describe("generated task board defaults", () => {
     expect(second.tasks).toHaveLength(0);
   });
 
-  it("creates isolated arrays when section defaults are resolved by schema", () => {
+  it("creates isolated arrays when section defaults use null columns sentinel", () => {
     const defaults = createUserDefaultTaskBoardSectionImpl();
     const first = createTaskBoardSectionImpl(defaults, {
       columns: undefined,

@@ -462,8 +462,9 @@ class AgentRunner:
                         ],
                         context,
                     )
-                    if context.completion_guard_enabled and not self._payload_has_completion_report_tool(
-                        payload
+                    if (
+                        context.completion_guard_enabled
+                        and not self._payload_has_completion_report_tool(payload)
                     ):
                         raise CompletionGuardToolUnavailableError(
                             _COMPLETION_GUARD_TOOL_REQUIRED_MESSAGE
@@ -1800,12 +1801,9 @@ class AgentRunner:
             tool_name[len("mcp__") :] if tool_name.startswith("mcp__") else tool_name
         )
         server_id, base_name = split_namespaced_tool_name(normalized_tool_name)
-        if (
-            completion_guard_enabled
-            and (
-                base_name == REPORT_COMPLETION_STATUS_TOOL_NAME
-                and server_id != SETTA_MCP_SERVER_ID
-            )
+        if completion_guard_enabled and (
+            base_name == REPORT_COMPLETION_STATUS_TOOL_NAME
+            and server_id != SETTA_MCP_SERVER_ID
         ):
             return False
         if allowlist is None:

@@ -91,6 +91,7 @@ from setta.types.generated.unions import (
     BaseParamCodeObjImplUnion,
     BaseSectionImplArgsUnion,
 )
+from setta.types.generated.user_defaults import UserDefaultTaskBoardSectionImpl
 from setta.types.helpers_lvl1 import (
     get_curr_code_obj_variant,
     get_curr_effective_code_obj_impl,
@@ -509,19 +510,8 @@ def create_default_task_board_columns() -> list[TaskBoardColumn]:
 
 def _task_board_columns_explicitly_overridden(
     impl_overrides: BaseSectionImplArgsUnion | None,
-    *,
-    settings: SettingsState | None = None,
 ) -> bool:
     if impl_overrides is None:
-        if settings is None:
-            return False
-        settings_fields_set = getattr(
-            settings.taskBoardSectionDefault,
-            "model_fields_set",
-            None,
-        )
-        if isinstance(settings_fields_set, set):
-            return "columns" in settings_fields_set
         return False
     if isinstance(impl_overrides, dict):
         return "columns" in impl_overrides
@@ -539,18 +529,26 @@ def create_section(
     core_overrides: CoreArgs | None = None,
     control_code_obj_type: CodeObjType | None = None,
 ):
+    section_defaults = get_user_default_section_from_settings(settings, impl_type)
+    if (
+        impl_type == SectionType.TaskBoard
+        and isinstance(section_defaults, UserDefaultTaskBoardSectionImpl)
+        and section_defaults.columns is None
+    ):
+        section_defaults = section_defaults.model_copy(
+            deep=True,
+            update={"columns": []},
+        )
     impl = create_section_impl(  # type: ignore
         impl_type,  # type: ignore
-        get_user_default_section_from_settings(settings, impl_type),  # type: ignore
+        section_defaults,  # type: ignore
         impl_overrides,  # type: ignore
     )
     if (
         isinstance(impl, TaskBoardSectionImpl)
         and len(impl.columns) == 0
-        and not _task_board_columns_explicitly_overridden(
-            impl_overrides,
-            settings=settings,
-        )
+        and not _task_board_columns_explicitly_overridden(impl_overrides)
+        and settings.taskBoardSectionDefault.columns is None
     ):
         impl.columns = create_default_task_board_columns()
     impl.size = normalize_section_size(settings, impl.type, impl.id, impl.size)

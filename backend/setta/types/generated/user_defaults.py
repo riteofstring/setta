@@ -248,7 +248,7 @@ class UserDefaultTaskBoardSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"
         default_factory=lambda: SectionSize(width=720.0, height=430.0)
     )
     viewMode: TaskBoardViewMode = TaskBoardViewMode.kanban
-    columns: list[TaskBoardColumn] = Field(default_factory=list)
+    columns: list[TaskBoardColumn] | None = None
     tasks: list[TaskBoardTask] = Field(default_factory=list)
 
 

@@ -6027,7 +6027,7 @@ const UserDefaultTaskBoardSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
-  columns: z.array(TaskBoardColumnSchema).default(() => []),
+  columns: z.union([z.array(TaskBoardColumnSchema), z.null()]).default(null),
   tasks: z.array(TaskBoardTaskSchema).default(() => []),
 });
 

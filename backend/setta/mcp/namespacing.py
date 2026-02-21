@@ -28,6 +28,6 @@ def normalize_mcp_tool_name(tool_name: str | None) -> str | None:
     ):
         normalized = (
             f"{SETTA_MCP_SERVER_ID}{MCP_TOOL_NAME_SEPARATOR}"
-            f"{normalized[len(setta_single_prefix):]}"
+            f"{normalized[len(setta_single_prefix) :]}"
         )
     return normalized
