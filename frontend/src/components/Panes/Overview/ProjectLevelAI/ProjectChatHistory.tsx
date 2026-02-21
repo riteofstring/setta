@@ -414,7 +414,7 @@ function ThreadEntryLine({
   return (
     <button
       type="button"
-      className={`flex w-full items-center rounded px-1.5 py-1 text-left transition-colors ${rowClassName}`}
+      className={`flex self-stretch min-w-0 max-w-full items-center rounded px-1.5 py-1 text-left transition-colors ${rowClassName}`}
       onClick={() => onSelect(entry)}
       onKeyDown={(event) => onThreadEntryKeyDown(event, entry, onSelect)}
       data-testid="project-chat-thread-entry"
