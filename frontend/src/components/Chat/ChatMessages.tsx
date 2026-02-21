@@ -1366,7 +1366,7 @@ function AssistantMessageGroup({
     ? `group flex w-full ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-start gap-2`
     : `group inline-flex w-fit ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} max-w-full flex-col items-start gap-2`;
   return (
-    <div className="my-2 flex justify-start">
+    <div className="mb-2 mt-1.5 flex justify-start">
       <div className={widthClass} data-message-id={messageId}>
         {children}
       </div>
@@ -1384,7 +1384,7 @@ function LLMChatBubble({
   return (
     <div className="w-full">
       <div
-        className="relative flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg bg-setta-100/45 pb-2.5 pl-3 pr-2.5 pt-1.5 text-setta-800 dark:bg-setta-900/45 dark:text-setta-50"
+        className="relative flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg border border-setta-200/45 bg-transparent pb-2.5 pl-3 pr-2.5 pt-1.5 text-setta-800 dark:border-setta-700/45 dark:bg-transparent dark:text-setta-50"
         data-chat-assistant-bubble="true"
       >
         {children}
