@@ -22,6 +22,7 @@ class Route(str, Enum):
     GET_AUTH_REFRESH_STATUS = "/authRefreshStatus"
     GET_SERVER_MODE = "/serverMode"
     GET_SETTA_HOME_INFO = "/settaHomeInfo"
+    GET_MCP_SERVER_RUNTIME_STATUS = "/mcpServerRuntimeStatus"
     PLUGINS_RUNTIME = "/plugins/runtime"
     PLUGINS_INSTALL = "/plugins/install"
     PLUGINS_UNINSTALL = "/plugins/uninstall"
