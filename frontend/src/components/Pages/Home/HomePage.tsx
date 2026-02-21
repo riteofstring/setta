@@ -2,12 +2,12 @@ import { FileBrowserPane } from "components/Panes/Overview/FileBrowser/FileBrows
 import { ProjectConfigThumbnailSurface } from "components/ProjectConfigs/ProjectConfigThumbnailSurface";
 import { HomePageSearchBar } from "components/AppHeader/SearchBar/HomePageSearch";
 import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
-import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
+import { createDynamicFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { PaneContainer } from "components/Utils/PaneContainer";
 import _ from "lodash";
 import { matchSorter } from "match-sorter";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BiPlus } from "react-icons/bi";
 import { FiGrid, FiList } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
@@ -55,7 +55,8 @@ const HOME_SELECTED_PROJECT_PANE_NAME = "homeSelectedProjectPane";
 const HOME_MIN_PANE_WIDTH = 260;
 const HOME_PROJECT_CARD_GRID_TEMPLATE_COLUMNS =
   "repeat(auto-fill, minmax(10.5rem, 14rem))";
-const HOME_FILE_BROWSER_META_INSET_CLASS = "px-2";
+const HOME_FILE_BROWSER_META_INSET_CLASS =
+  "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const HOME_FILE_BROWSER_TITLE_INSET_CLASS =
   "mx-auto w-[calc(100%_-_1.5rem)] px-1.5";
 const HOME_FILE_BROWSER_LIST_INSET_LEFT = 10;
@@ -554,14 +555,20 @@ function HomeFileBrowserColumn() {
     _.isEqual,
   );
   const [pathInput, setPathInput] = useState("");
+  const completionOptionsRef = useRef<{
+    rootPath: string | null;
+    pathSeparator?: string;
+    ignorePatterns?: string[] | null;
+  }>({ rootPath: null });
+  completionOptionsRef.current.rootPath = rootPath;
+  completionOptionsRef.current.pathSeparator = pathSeparator;
+  completionOptionsRef.current.ignorePatterns = ignorePatterns;
   const completionSource = useMemo(
     () =>
-      createFolderPathCompletionSource({
-        rootPath,
-        pathSeparator,
-        ignorePatterns,
-      }),
-    [ignorePatterns, pathSeparator, rootPath],
+      createDynamicFolderPathCompletionSource(
+        () => completionOptionsRef.current,
+      ),
+    [],
   );
   const blurActiveElement = useCallback(() => {
     if (typeof document === "undefined") {
@@ -583,9 +590,9 @@ function HomeFileBrowserColumn() {
     [blurActiveElement, rootPath],
   );
   const browserPathDummyInputClassName =
-    "flex-1 min-w-0 cursor-text truncate bg-transparent pl-4 py-1 text-xs leading-4 outline-0 placeholder-setta-300 dark:placeholder-setta-700 font-sans";
+    "flex-1 min-w-0 cursor-text truncate bg-transparent pl-6 py-1 text-xs leading-4 outline-0 placeholder-setta-300 dark:placeholder-setta-700 font-sans";
   const browserPathInputClassName =
-    "setta-cm-browser-path-input flex-1 min-w-0 h-full cursor-text truncate bg-transparent outline-0 [&_.cm-content]:!py-1 [&_.cm-content]:!pl-4 [&_.cm-content]:!pr-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs [&_.cm-content]:!leading-4 [&_.cm-content]:text-setta-700 dark:[&_.cm-content]:text-setta-200 [&_.cm-placeholder]:text-setta-300 dark:[&_.cm-placeholder]:text-setta-700 [&_.cm-content]:font-sans";
+    "setta-cm-browser-path-input flex-1 min-w-0 h-full cursor-text truncate bg-transparent outline-0 [&_.cm-content]:!py-1 [&_.cm-content]:!pl-6 [&_.cm-content]:!pr-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs [&_.cm-content]:!leading-4 [&_.cm-content]:text-setta-700 dark:[&_.cm-content]:text-setta-200 [&_.cm-placeholder]:text-setta-300 dark:[&_.cm-placeholder]:text-setta-700 [&_.cm-content]:font-sans";
 
   useEffect(() => {
     if (!rootPath) {
@@ -616,11 +623,15 @@ function HomeFileBrowserColumn() {
             data-testid="home-file-browser-path-input"
             className="nodrag group/folderpath relative mx-[2px] flex h-7 min-w-0 flex-1 overflow-hidden border-solid border-transparent bg-transparent [border-width:0_0_1px_0] focus-within:border-blue-300 dark:text-setta-200"
           >
+            <TbFolder
+              className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 text-setta-400 dark:text-setta-600"
+              size={14}
+            />
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 overflow-hidden opacity-100 transition-opacity duration-0 group-focus-within/folderpath:opacity-0 group-focus-within/folderpath:duration-150"
             >
-              <span className="block min-w-0 truncate py-1 pl-4 font-sans text-xs leading-4 text-setta-700 dark:text-setta-200">
+              <span className="block min-w-0 truncate py-1 pl-6 font-sans text-xs leading-4 text-setta-700 dark:text-setta-200">
                 {pathInput}
               </span>
             </div>
