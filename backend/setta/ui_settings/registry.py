@@ -3,6 +3,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
 
+from setta.agentic.store import (
+    list_prompt_templates,
+    load_agent_profiles,
+    load_external_agent_configs,
+)
 from setta.project_state.project_manager_types import (
     GetAppDefinitionRequest,
     SetProjectConfigCodegenTargetsRequest,
@@ -350,6 +355,102 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
             ),
             readValue=_read_project_name,
             writeValue=_write_project_name,
+        ),
+        UISettingRuntimeEntry(
+            metadata=UISettingEntry(
+                settingId="core.project_ai_settings.llm_api_keys",
+                title="Project AI LLM API Keys",
+                synonyms=[
+                    "project ai settings llm keys",
+                    "project ai llm api keys",
+                    "llm api keys",
+                ],
+                description="Count of configured API keys used by Project AI settings.",
+                location=UISettingLocation(
+                    side="left",
+                    overviewTabKey="ProjectAISettings",
+                ),
+                highlight=UISettingHighlight(
+                    strategy="dom_anchor",
+                    anchorId="core.project_ai_settings.llm_api_keys",
+                ),
+                source="core",
+                mutability="readOnly",
+                valueSchema=UISettingValueSchema(type="integer", minimum=0),
+            ),
+            readValue=_read_project_ai_llm_api_keys_count,
+        ),
+        UISettingRuntimeEntry(
+            metadata=UISettingEntry(
+                settingId="core.project_ai_settings.agent_profiles",
+                title="Project AI Agent Profiles",
+                synonyms=[
+                    "project ai agent profiles",
+                    "agent profiles",
+                    "project ai profiles",
+                ],
+                description="Count of agent profiles available to Project AI settings.",
+                location=UISettingLocation(
+                    side="left",
+                    overviewTabKey="ProjectAISettings",
+                ),
+                highlight=UISettingHighlight(
+                    strategy="dom_anchor",
+                    anchorId="core.project_ai_settings.agent_profiles",
+                ),
+                source="core",
+                mutability="readOnly",
+                valueSchema=UISettingValueSchema(type="integer", minimum=0),
+            ),
+            readValue=_read_project_ai_agent_profiles_count,
+        ),
+        UISettingRuntimeEntry(
+            metadata=UISettingEntry(
+                settingId="core.project_ai_settings.prompt_templates",
+                title="Project AI Prompt Templates",
+                synonyms=[
+                    "project ai prompt templates",
+                    "prompt templates",
+                    "project ai prompts",
+                ],
+                description="Count of prompt templates available to Project AI settings.",
+                location=UISettingLocation(
+                    side="left",
+                    overviewTabKey="ProjectAISettings",
+                ),
+                highlight=UISettingHighlight(
+                    strategy="dom_anchor",
+                    anchorId="core.project_ai_settings.prompt_templates",
+                ),
+                source="core",
+                mutability="readOnly",
+                valueSchema=UISettingValueSchema(type="integer", minimum=0),
+            ),
+            readValue=_read_project_ai_prompt_templates_count,
+        ),
+        UISettingRuntimeEntry(
+            metadata=UISettingEntry(
+                settingId="core.project_ai_settings.external_agents",
+                title="Project AI External Agents",
+                synonyms=[
+                    "project ai external agents",
+                    "external agent configs",
+                    "external agents",
+                ],
+                description="Count of external agent configs available to Project AI settings.",
+                location=UISettingLocation(
+                    side="left",
+                    overviewTabKey="ProjectAISettings",
+                ),
+                highlight=UISettingHighlight(
+                    strategy="dom_anchor",
+                    anchorId="core.project_ai_settings.external_agents",
+                ),
+                source="core",
+                mutability="readOnly",
+                valueSchema=UISettingValueSchema(type="integer", minimum=0),
+            ),
+            readValue=_read_project_ai_external_agents_count,
         ),
         UISettingRuntimeEntry(
             metadata=UISettingEntry(
@@ -1122,6 +1223,49 @@ def _read_show_param_display_names(ctx: "Context", project_config_id: ID) -> JSO
     manager = _get_project_manager(ctx, project_config_id)
     project_state = manager.get_single_config_state(project_config_id)
     return project_state.projectConfig.showParamDisplayNames
+
+
+def _read_project_ai_llm_api_keys_count(
+    ctx: "Context",
+    project_config_id: ID,  # noqa: ARG001 - project scoped tool; value is global
+) -> JSONValue:
+    agent_runner = getattr(ctx.fastmcp.state, "agent_runner", None)
+    if agent_runner is None:
+        return 0
+    api_keys = getattr(agent_runner, "api_keys", None)
+    if not isinstance(api_keys, dict):
+        return 0
+    return len(api_keys)
+
+
+def _read_project_ai_agent_profiles_count(
+    ctx: "Context",
+    project_config_id: ID,  # noqa: ARG001 - project scoped tool; value is global
+) -> JSONValue:
+    dbe = getattr(ctx.fastmcp.state, "dbe", None)
+    if dbe is None:
+        return 0
+    return len(load_agent_profiles(dbe))
+
+
+def _read_project_ai_prompt_templates_count(
+    ctx: "Context",
+    project_config_id: ID,  # noqa: ARG001 - project scoped tool; value is global
+) -> JSONValue:
+    dbe = getattr(ctx.fastmcp.state, "dbe", None)
+    if dbe is None:
+        return 0
+    return len(list_prompt_templates(dbe))
+
+
+def _read_project_ai_external_agents_count(
+    ctx: "Context",
+    project_config_id: ID,  # noqa: ARG001 - project scoped tool; value is global
+) -> JSONValue:
+    dbe = getattr(ctx.fastmcp.state, "dbe", None)
+    if dbe is None:
+        return 0
+    return len(load_external_agent_configs(dbe))
 
 
 def _read_project_name(ctx: "Context", project_config_id: ID) -> JSONValue:

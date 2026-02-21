@@ -228,10 +228,6 @@ async function waitForAnchorElement({
         return anchor;
       }
     }
-    const globalAnchor = findSettingAnchor(document, anchorId);
-    if (globalAnchor) {
-      return globalAnchor;
-    }
     await sleep(FIND_TARGET_INTERVAL_MS);
   }
   return null;

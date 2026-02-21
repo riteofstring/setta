@@ -180,4 +180,30 @@ describe("receiveUISettingReveal", () => {
         "Right-pane reveal requires an active section. Provide sectionIdToActivate.",
     });
   });
+
+  it("limits anchor lookup to the active pane root", async () => {
+    const globalAnchor = createFakeAnchor("core.watch_code.enabled");
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+        querySelectorAll: (selector: string) => Array<HTMLElement>;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn(() => null),
+      querySelectorAll: vi.fn(() => [globalAnchor]),
+    };
+
+    const statusesPromise = receiveUISettingReveal(createRevealContent({}));
+    await vi.runAllTimersAsync();
+    const statuses = await statusesPromise;
+
+    expect(statuses[0]).toEqual({
+      settingId: "core.watch_code.enabled",
+      status: "failed",
+      errorCode: "mutation_failed",
+      errorMessage:
+        "Could not find anchor core.watch_code.enabled for core.watch_code.enabled.",
+    });
+  });
 });

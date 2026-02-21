@@ -8,6 +8,8 @@ import {
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const WATCH_CODE_ENABLED_SETTING_ID = "core.watch_code.enabled";
+const PROJECT_AI_PROMPT_TEMPLATES_SETTING_ID =
+  "core.project_ai_settings.prompt_templates";
 
 type ToolError = {
   code: string;
@@ -198,6 +200,29 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
       },
     );
     expect(invalidSetResult.error?.code).toBe("invalid_value_type");
+
+    const projectAiGetResult = await callMcpTool<GetUISettingValueResult>(
+      page,
+      projectContext.projectConfigId,
+      "get_ui_setting_value",
+      {
+        settingId: PROJECT_AI_PROMPT_TEMPLATES_SETTING_ID,
+      },
+    );
+    expect(projectAiGetResult.error).toBeNull();
+    expect(typeof projectAiGetResult.value).toBe("number");
+
+    const projectAiSetResult = await callMcpTool<SetUISettingValueResult>(
+      page,
+      projectContext.projectConfigId,
+      "set_ui_setting_value",
+      {
+        settingId: PROJECT_AI_PROMPT_TEMPLATES_SETTING_ID,
+        value: 0,
+      },
+    );
+    expect(projectAiSetResult.error?.code).toBe("setting_read_only");
+
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

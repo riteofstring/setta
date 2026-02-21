@@ -83,6 +83,8 @@ def _build_ctx(
     settings_manager,
     frontend_sender: _RecordingFrontendSender,
     plugin_manager: PluginManager | None = None,
+    dbe=None,
+    agent_runner=None,
     request_meta: BaseModel | dict[str, object] | None = None,
 ) -> Context:
     reveal_result_hub = UISettingRevealResultHub()
@@ -96,6 +98,8 @@ def _build_ctx(
         wmh_frontend_sender=frontend_sender,
         plugin_manager=plugin_manager,
         ui_setting_reveal_result_hub=reveal_result_hub,
+        dbe=dbe,
+        agent_runner=agent_runner,
     )
     if request_meta is None:
         return Context(fastmcp=SimpleNamespace(state=state))
@@ -241,6 +245,66 @@ async def test_set_ui_setting_value_returns_structured_validation_error() -> Non
         assert result.error is not None
         assert result.error.code == "invalid_value_type"
         assert result.changed is False
+
+
+@pytest.mark.asyncio
+async def test_project_ai_settings_are_discoverable_revealable_and_read_only() -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            dbe=project_fixture.dbe,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        entries = [
+            ("core.project_ai_settings.llm_api_keys", "llm api keys"),
+            ("core.project_ai_settings.agent_profiles", "agent profiles"),
+            ("core.project_ai_settings.prompt_templates", "prompt templates"),
+            ("core.project_ai_settings.external_agents", "external agents"),
+        ]
+
+        for setting_id, query in entries:
+            search_result = search_ui_settings(
+                query=query,
+                sourceFilter="core",
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+            result_ids = [entry.settingId for entry in search_result.results]
+            assert setting_id in result_ids
+
+            get_result = await get_ui_setting_value(
+                settingId=setting_id,
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+            assert get_result.error is None
+            assert isinstance(get_result.value, int)
+            assert get_result.value >= 0
+
+            set_result = await set_ui_setting_value(
+                settingId=setting_id,
+                value=0,
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+            assert set_result.error is not None
+            assert set_result.error.code == "setting_read_only"
+
+            reveal_result = await reveal_ui_setting(
+                settingId=setting_id,
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+            assert reveal_result.emittedRevealCount == 1
+            assert len(reveal_result.statuses) == 1
+            assert reveal_result.statuses[0].status == "revealed"
+            assert reveal_result.statuses[0].target is not None
+            assert reveal_result.statuses[0].target.overviewTabKey == "ProjectAISettings"
 
 
 @pytest.mark.asyncio
@@ -758,3 +822,133 @@ async def test_plugin_ui_setting_returns_plugin_unavailable_when_register_pane_n
             "registerPane capability not effective"
             in reveal_result.statuses[0].error.message
         )
+
+
+@pytest.mark.asyncio
+async def test_search_ui_settings_source_filter_separates_core_and_plugin_entries(
+    tmp_path: Path,
+) -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, _ = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        core_results = search_ui_settings(
+            query="full fixture enabled",
+            sourceFilter="core",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        core_result_ids = [entry.settingId for entry in core_results.results]
+        assert plugin_setting_id not in core_result_ids
+
+        plugin_results = search_ui_settings(
+            query="full fixture enabled",
+            sourceFilter="plugin",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        plugin_result_ids = [entry.settingId for entry in plugin_results.results]
+        assert plugin_setting_id in plugin_result_ids
+
+
+@pytest.mark.asyncio
+async def test_search_ui_settings_ignores_disabled_plugins(
+    tmp_path: Path,
+) -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, _ = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+        plugin_manager.disable_plugin(plugin_id=plugin_id)
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        plugin_results = search_ui_settings(
+            query="full fixture enabled",
+            sourceFilter="plugin",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert plugin_results.results == []
+
+
+@pytest.mark.asyncio
+async def test_search_ui_settings_rejects_duplicate_plugin_setting_ids(
+    tmp_path: Path,
+) -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        schema_path = plugin_root / "content" / "config" / "schema.json"
+        schema_payload = json.loads(schema_path.read_text(encoding="utf-8"))
+        if not isinstance(schema_payload.get("x-setta-ui-settings"), list):
+            raise ValueError("Fixture plugin schema is missing x-setta-ui-settings list.")
+        first_entry = dict(schema_payload["x-setta-ui-settings"][0])
+        schema_payload["x-setta-ui-settings"].append(first_entry)
+        schema_path.write_text(
+            json.dumps(schema_payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        with pytest.raises(ValueError, match="duplicated ui settingId"):
+            search_ui_settings(
+                query="full fixture enabled",
+                sourceFilter="plugin",
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
