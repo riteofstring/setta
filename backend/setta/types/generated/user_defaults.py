@@ -30,7 +30,6 @@ from setta.types.id import ID
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
-    ChatDictationMode,
     ChatPermissionMode,
     ChatSectionBranch,
     CodeFileBinding,
@@ -212,13 +211,11 @@ class UserDefaultChatSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"):
     )
     managed: bool = False
     engineConfigId: ID | None = None
-    transcriptionProfileId: ID | None = None
     agentProfileId: ID | None = None
     chatId: ID | None = None
     thinking: bool = True
     permissionMode: ChatPermissionMode = ChatPermissionMode.minimal
     searchEnabled: bool = True
-    dictationMode: ChatDictationMode = ChatDictationMode.auto
     messages: list[BaseChatMessageUnion] = Field(default_factory=list)
     inputText: str = ""
     waitingForResponse: bool = False

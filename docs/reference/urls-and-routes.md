@@ -50,29 +50,17 @@ use the `Route` enum (`backend/setta/types/routes.py`) and are called via
 `/api/<route>` using the generated endpoint helpers in
 `frontend/src/utils/generatedEndpoints.ts`.
 
-### Chat dictation session routes
+### Chat dictation multipart route
 
-Chat dictation uses session-based JSON routes:
-- `/api/startTranscriptionSession`
+Chat dictation adds a multipart backend route:
+- `/api/transcribeChatAudio`
   - Method: `POST`
-  - Content type: `application/json`
-  - Request fields: `transcriptionProfileId` (string), optional `language` (string)
-- `/api/appendTranscriptionAudio`
-  - Method: `POST`
-  - Content type: `application/json`
-  - Request fields: `sessionId` (string), `audioPcm16Base64` (base64 PCM16), `sampleRateHz` (int), `channels` (int)
-- `/api/stopTranscriptionSession`
-  - Method: `POST`
-  - Content type: `application/json`
-  - Request fields: `sessionId` (string)
-- `/api/cancelTranscriptionSession`
-  - Method: `POST`
-  - Content type: `application/json`
-  - Request fields: `sessionId` (string)
+  - Content type: `multipart/form-data`
+  - Required fields: `engineConfigId` (string), `file` (binary)
+  - Optional field: `language` (string)
 
-Generated endpoint helpers expose these routes as JSON helpers (for example
-`route_start_transcription_session`, `route_append_transcription_audio`,
-`route_stop_transcription_session`, and `route_cancel_transcription_session`).
+Generated endpoint helpers expose multipart routes as `FormData` functions
+(for example `route_transcribe_chat_audio(form)` and `route_binary_upload(form)`).
 
 ## Frontend API Origin Mapping
 
