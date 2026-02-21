@@ -234,7 +234,9 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await expect(page.getByText(/context7.*stdio/i)).toBeVisible();
   await expect(page.getByText(/0 disabled/)).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Copy path for Workspace .agents/skills" }),
+    page.getByRole("button", {
+      name: "Copy path for Workspace .agents/skills",
+    }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", {
@@ -541,9 +543,7 @@ test("project ai chat marks codex skills active from multi-token prompts", async
           {
             id: "user-1",
             role: "user",
-            content: [
-              { type: "text", text: "Use: $readme, then $ui-layout." },
-            ],
+            content: [{ type: "text", text: "Use: $readme, then $ui-layout." }],
             attachments: [],
           },
           {
@@ -625,6 +625,208 @@ test("project ai chat marks codex skills active from multi-token prompts", async
   await expect(uiLayoutSkillButton).toBeVisible();
   await expect(uiLayoutSkillButton.getByText("Applicable")).toBeVisible();
   await expect(uiLayoutSkillButton.getByText("Active")).toBeVisible();
+});
+
+test("project ai chat keeps codex mixed skill and shell references token-scoped", async ({
+  page,
+}) => {
+  const externalEngineConfigId = "engine-codex-token-scoped";
+  const externalAgentConfigId = "external-codex-token-scoped";
+  const chatId = "chat-codex-token-scoped";
+  let externalChatRequestCount = 0;
+
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: externalEngineConfigId,
+          name: "Codex Engine",
+          engineType: "external_agent",
+          externalAgentConfigId,
+          defaults: {},
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getExternalAgentConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: externalAgentConfigId,
+          name: "Codex app-server",
+          toolType: "codex",
+          runMode: "app_server",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getExternalAgentHealth", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          configId: externalAgentConfigId,
+          name: "Codex app-server",
+          toolType: "codex",
+          runMode: "app_server",
+          supported: true,
+          available: true,
+          issues: [],
+          envVars: { present: [], missing: [] },
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-codex-token-scoped",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-01-01T00:00:00Z",
+          finishedAt: "2026-01-01T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "external_agent",
+            chatId,
+            engineConfigId: externalEngineConfigId,
+            messages: [
+              {
+                id: "user-1",
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: "Use $readme, then run echo $HOME",
+                  },
+                ],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Codex Token Scoped Run",
+            nameSource: "deterministic",
+          },
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    externalChatRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "user-1",
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Use $readme, then run echo $HOME",
+              },
+            ],
+            attachments: [],
+          },
+          {
+            id: "assistant-1",
+            role: "assistant",
+            content: [],
+            attachments: [],
+            tool_calls: [],
+          },
+        ],
+        waitingForResponse: false,
+        toolCallArguments: {},
+      }),
+    });
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_agents_skills::readme",
+          name: "readme",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "readme",
+          description: "Reader skill",
+        },
+        {
+          skillId: "workspace_agents_skills::home",
+          name: "home",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "home",
+          description: "Home skill",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await page.route("**/api/llm/apiKeys", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({}),
+    });
+  });
+
+  await mockMcpRuntimeStatusRoute(page);
+
+  await ensureAppReady(page);
+
+  await page.getByRole("button", { name: "View History" }).click();
+  await expect(page.getByText("Codex Token Scoped Run")).toBeVisible();
+  await page.getByText("Codex Token Scoped Run").click();
+  await expect.poll(() => externalChatRequestCount).toBeGreaterThan(0);
+
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+
+  const readmeSkillButton = page.getByRole("button", { name: /readme/i });
+  await expect(readmeSkillButton).toBeVisible();
+  await expect(readmeSkillButton.getByText("Applicable")).toBeVisible();
+  await expect(readmeSkillButton.getByText("Active")).toBeVisible();
+
+  const homeSkillButton = page.getByRole("button", { name: /home/i });
+  await expect(homeSkillButton).toBeVisible();
+  await expect(homeSkillButton.getByText("Applicable")).toBeVisible();
+  await expect(homeSkillButton.getByText("Active")).toHaveCount(0);
 });
 
 test("project ai chat does not mark codex skills active for shell-style $variables", async ({
@@ -1088,7 +1290,9 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
   await expect(page.getByText("Loading skills...")).toBeVisible();
   await expect(page.getByText("No skills found.")).toHaveCount(0);
   await expect(page.getByText("Loading MCP servers...")).toBeVisible();
-  await expect(page.getByText("No MCP runtime status available.")).toHaveCount(0);
+  await expect(page.getByText("No MCP runtime status available.")).toHaveCount(
+    0,
+  );
 
   await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
   await expect(page.getByText("Loading skills...")).toHaveCount(0);
@@ -1198,7 +1402,9 @@ test("project ai chat keeps skills list stable during selection and ignores stal
   await expect(markdown).toContainText("workspace_agents_skills::beta-skill");
   await page.waitForTimeout(700);
   await expect(markdown).toContainText("workspace_agents_skills::beta-skill");
-  await expect(markdown).not.toContainText("workspace_agents_skills::alpha-skill");
+  await expect(markdown).not.toContainText(
+    "workspace_agents_skills::alpha-skill",
+  );
 });
 
 test("project ai chat clears stale markdown when viewer is collapsed during an in-flight request", async ({
@@ -1288,7 +1494,9 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
   const immediateText = (await markdown.textContent()) ?? "";
   expect(immediateText).not.toContain("workspace_agents_skills::alpha-skill");
   await expect(markdown).toContainText("workspace_agents_skills::beta-skill");
-  await expect(markdown).not.toContainText("workspace_agents_skills::alpha-skill");
+  await expect(markdown).not.toContainText(
+    "workspace_agents_skills::alpha-skill",
+  );
 });
 
 test("project ai chat refresh updates selected markdown content without requiring reselection", async ({

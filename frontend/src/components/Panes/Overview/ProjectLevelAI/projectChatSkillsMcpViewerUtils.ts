@@ -158,6 +158,14 @@ const CODEX_SKILL_CONTEXT_VERBS = new Set<string>([
   "with",
 ]);
 
+const CODEX_SKILL_LIST_CONNECTOR_WORDS = new Set<string>([
+  "and",
+  "or",
+  "plus",
+  "then",
+  "with",
+]);
+
 function isLikelyCodexSkillTokenContext(prefix: string): boolean {
   const normalizedPrefix = prefix.replace(
     /\$[A-Za-z0-9][A-Za-z0-9._/-]*/g,
@@ -183,6 +191,21 @@ function isLikelyCodexSkillTokenContext(prefix: string): boolean {
   return CODEX_SKILL_CONTEXT_VERBS.has(trailingWord);
 }
 
+function isLikelyCodexSkillListContinuation(segment: string): boolean {
+  const normalizedSegment = segment.trim().toLowerCase();
+  if (!normalizedSegment) {
+    return true;
+  }
+  const words = normalizedSegment.match(/[a-z]+/g) ?? [];
+  for (const word of words) {
+    if (!CODEX_SKILL_LIST_CONNECTOR_WORDS.has(word)) {
+      return false;
+    }
+  }
+  const nonWordCharacters = normalizedSegment.replace(/[a-z]+/g, "");
+  return /^[,/:()\[\]{}\-\s]*$/.test(nonWordCharacters);
+}
+
 function extractSkillTokensFromText(value: string): string[] {
   const tokens: string[] = [];
   const lines = value.split(/\r?\n/);
@@ -200,7 +223,7 @@ function extractSkillTokensFromText(value: string): string[] {
     const matches = Array.from(
       line.matchAll(/(^|[^A-Za-z0-9_./-\\])\$([A-Za-z0-9][A-Za-z0-9._/-]*)/g),
     );
-    let lineHasActivationContext = false;
+    let lastAcceptedTokenEndIndex: number | null = null;
     for (const match of matches) {
       const token = match[2];
       const tokenPrefix = match[1];
@@ -208,19 +231,29 @@ function extractSkillTokensFromText(value: string): string[] {
       if (!token || tokenPrefix === undefined || matchIndex === undefined) {
         continue;
       }
-      if (!lineHasActivationContext) {
-        const tokenStartIndex = matchIndex + tokenPrefix.length;
-        const prefix = line.slice(0, tokenStartIndex);
-        if (!isLikelyCodexSkillTokenContext(prefix)) {
-          continue;
-        }
-        lineHasActivationContext = true;
+      const tokenStartIndex = matchIndex + tokenPrefix.length;
+      const tokenEndIndex = tokenStartIndex + token.length + 1;
+      const prefix = line.slice(0, tokenStartIndex);
+      const hasPerTokenActivationContext =
+        isLikelyCodexSkillTokenContext(prefix);
+      let hasListContinuationContext = false;
+      if (lastAcceptedTokenEndIndex !== null) {
+        const continuationSegment = line.slice(
+          lastAcceptedTokenEndIndex,
+          tokenStartIndex,
+        );
+        hasListContinuationContext =
+          isLikelyCodexSkillListContinuation(continuationSegment);
+      }
+      if (!hasPerTokenActivationContext && !hasListContinuationContext) {
+        continue;
       }
       const normalizedToken = token.replace(/[.,:;!?]+$/g, "");
       if (!normalizedToken) {
         continue;
       }
       tokens.push(normalizedToken);
+      lastAcceptedTokenEndIndex = tokenEndIndex;
     }
   }
   return tokens;

@@ -109,3 +109,17 @@
   - Frontend Vitest targeted suite: pass (`14 passed`).
   - Playwright targeted Skills/MCP viewer suite: pass (`15 passed`).
   - CDP visual verification: pass (Project AI Chat -> View Skills and MCP, runtime row/detail rendering verified).
+
+## 2026-02-19 10:08:14 PST
+
+- Solidified Codex active-skill token parsing to avoid repeated mixed-line false-positive regressions:
+  - Replaced line-level activation carry-over with token-scoped activation decisions in `extractSkillTokensFromText`.
+  - Added explicit list-continuation parsing between accepted tokens (punctuation/connectors only) so follow-on `$...` tokens are accepted only in the same skills list context.
+  - Prevented mixed prompt/shell lines like `Use $readme, then run echo $HOME` from activating unrelated skills (`home`) while preserving intended skill activation (`readme`).
+- Added/updated automated coverage:
+  - Frontend Vitest regression for mixed `skill token + shell variable` lines.
+  - Playwright e2e regression for mixed Codex skill + shell variable prompts in Skills/MCP viewer.
+- Verification run:
+  - Frontend Vitest targeted suites: pass (`18 passed`).
+  - Playwright targeted Skills/MCP viewer scenarios: pass (`3 passed`).
+  - CDP visual verification: not run (chrome-devtools-mcp unavailable in this session).

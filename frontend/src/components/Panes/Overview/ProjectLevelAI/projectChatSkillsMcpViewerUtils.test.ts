@@ -383,6 +383,54 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     );
   });
 
+  it("keeps mixed skill-and-shell lines token-scoped for codex activity", () => {
+    const skills = [
+      {
+        skillId: "workspace_agents_skills::readme",
+        name: "readme",
+        rootLabel: "Workspace .agents/skills",
+        rootPath: "/workspace/.agents/skills",
+        relativePath: "readme",
+        description: "Codex skill",
+      },
+      {
+        skillId: "workspace_agents_skills::home",
+        name: "home",
+        rootLabel: "Workspace .agents/skills",
+        rootPath: "/workspace/.agents/skills",
+        relativePath: "home",
+        description: "Codex skill",
+      },
+    ];
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "user-1",
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Use $readme, then run echo $HOME",
+          },
+        ],
+        attachments: [],
+      },
+    ];
+
+    const status = buildSkillStatusBySkillId({
+      skills,
+      engineType: EngineTypeEnum.external_agent,
+      externalAgentToolType: ExternalAgentToolTypeEnum.codex,
+      messages,
+    });
+
+    expect(status["workspace_agents_skills::readme"]?.activityState).toBe(
+      "active",
+    );
+    expect(status["workspace_agents_skills::home"]?.activityState).toBe(
+      "inactive",
+    );
+  });
+
   it("keeps codex activity inactive for shell-style variable usage", () => {
     const skills = [
       {
