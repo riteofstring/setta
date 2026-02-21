@@ -1334,16 +1334,18 @@ function AssistantToolCallCard({ children }: { children: ReactNode }) {
 function AssistantMessageGroup({
   children,
   messageId,
+  forceMaxWidth = false,
 }: {
   children: ReactNode;
   messageId?: string;
+  forceMaxWidth?: boolean;
 }) {
+  const widthClass = forceMaxWidth
+    ? `group flex w-full ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} max-w-full flex-col items-start`
+    : `group inline-flex w-fit ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} max-w-full flex-col items-start`;
   return (
     <div className="my-2 flex justify-start">
-      <div
-        className={`group inline-flex w-fit ${ASSISTANT_BUBBLE_MAX_WIDTH_CLASS} max-w-full flex-col items-start`}
-        data-message-id={messageId}
-      >
+      <div className={widthClass} data-message-id={messageId}>
         {children}
       </div>
     </div>
@@ -1736,6 +1738,8 @@ const ChatMessage = memo(function ChatMessage({
     const shouldRenderBubble =
       hasBubbleContent || showTypingIndicator || (isStreaming && toolCalls.length === 0);
     const hasThinkingContent = thinkingItems.length > 0;
+    const forceMaxWidthForToolCalls =
+      toolCalls.length > 0 && !hasBubbleContent && !hasThinkingContent;
     if (!shouldRenderBubble && !hasThinkingContent && toolCalls.length === 0) {
       return null;
     }
@@ -1744,7 +1748,10 @@ const ChatMessage = memo(function ChatMessage({
       isStreaming,
     }));
     return (
-      <AssistantMessageGroup messageId={message.id}>
+      <AssistantMessageGroup
+        messageId={message.id}
+        forceMaxWidth={forceMaxWidthForToolCalls}
+      >
         {thinkingItems.map((item, idx) => (
           <AssistantReasoningCard key={`${message.id}-thinking-${idx}`}>
             <ThinkingBox
@@ -2076,6 +2083,7 @@ function ChatMessages({
         <AssistantMessageGroup
           key={`tool-call-group-${firstMessageId}`}
           messageId={firstMessageId}
+          forceMaxWidth
         >
           <AssistantToolCallCard>
             <AssistantToolCallSection
