@@ -46,6 +46,7 @@ from setta.types.project_config import (
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatDictationMode,
     ChatPermissionMode,
     ChatSectionBranch,
     CodeFileBinding,
@@ -119,6 +120,7 @@ class CoreArgs(TypedDict):
                 "density",
                 "description",
                 "diagnosticsIgnoreState",
+                "dictationMode",
                 "drawThrottleDelay",
                 "edgeInputParams",
                 "edgeOutputPorts",
@@ -198,6 +200,7 @@ class CoreArgs(TypedDict):
                 "timeDisplayTransparent",
                 "toolCallArguments",
                 "topLevelParamId",
+                "transcriptionProfileId",
                 "type",
                 "typeAnnotation",
                 "typesColumnWidth",
@@ -667,11 +670,13 @@ class ChatSectionImplArgs(BaseSectionImplArgs):
     type: NotRequired[Literal[SectionType.Chat]]
     managed: NotRequired[bool]
     engineConfigId: NotRequired[ID | None]
+    transcriptionProfileId: NotRequired[ID | None]
     agentProfileId: NotRequired[ID | None]
     chatId: NotRequired[ID | None]
     thinking: NotRequired[bool]
     permissionMode: NotRequired[ChatPermissionMode]
     searchEnabled: NotRequired[bool]
+    dictationMode: NotRequired[ChatDictationMode]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
@@ -691,6 +696,7 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
     ]
     managed: NotRequired[bool | Callable[[bool], bool]]
     engineConfigId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
+    transcriptionProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     agentProfileId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     chatId: NotRequired[ID | None | Callable[[ID | None], ID | None]]
     thinking: NotRequired[bool | Callable[[bool], bool]]
@@ -698,6 +704,9 @@ class ChatSectionImplArgsWithCallable(BaseSectionImplArgsWithCallable):
         ChatPermissionMode | Callable[[ChatPermissionMode], ChatPermissionMode]
     ]
     searchEnabled: NotRequired[bool | Callable[[bool], bool]]
+    dictationMode: NotRequired[
+        ChatDictationMode | Callable[[ChatDictationMode], ChatDictationMode]
+    ]
     messages: NotRequired[
         list[
             SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
