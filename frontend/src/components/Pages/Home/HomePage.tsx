@@ -1094,7 +1094,7 @@ function ThumbnailArea({
     ? "opacity-100"
     : hoverControlVisibilityClass;
   const iconButtonBaseClass =
-    "nodrag inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-black/30 transition-colors focus-visible:ring-2 dark:bg-setta-950/70";
+    "nodrag inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full transition-colors focus-visible:ring-2";
 
   function onThumbnailKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) {
@@ -1118,14 +1118,14 @@ function ThumbnailArea({
       scalePreview={false}
       previewContainerProps={{ tabIndex: 0, onKeyDown: onThumbnailKeyDown }}
       overlay={
-        <aside className="z-[1] col-start-1 col-end-2 row-start-1 row-end-2 grid h-full w-full grid-rows-[auto_1fr_auto] p-2">
+        <aside className="z-[1] col-start-1 col-end-2 row-start-1 row-end-2 -m-4 grid h-[calc(100%+2rem)] w-[calc(100%+2rem)] grid-rows-[auto_1fr_auto] p-1">
           <div className="flex items-start justify-between gap-1">
             {selectionEnabled && (
               <button
                 className={`${iconButtonBaseClass} ${checkmarkVisibilityClass} ${
                   isSelected
                     ? "bg-blue-500 text-white"
-                    : "text-white/90 hover:bg-blue-500 hover:text-white"
+                    : "bg-black/30 text-white/90 hover:bg-blue-500 hover:text-white dark:bg-setta-950/70"
                 }`}
                 onClick={(event) => {
                   event.preventDefault();
@@ -1143,8 +1143,8 @@ function ThumbnailArea({
               data-testid="home-project-favorite-toggle"
               className={`${iconButtonBaseClass} ${hoverControlVisibilityClass} ${
                 isFavorite
-                  ? "text-amber-400 hover:bg-black/45"
-                  : "text-white/90 hover:bg-black/45 hover:text-amber-400"
+                  ? "bg-black/30 text-amber-400 hover:bg-black/45 dark:bg-setta-950/70"
+                  : "bg-black/30 text-white/90 hover:bg-black/45 hover:text-amber-400 dark:bg-setta-950/70"
               }`}
               onClick={(event) => {
                 event.preventDefault();
@@ -1167,8 +1167,8 @@ function ThumbnailArea({
                 data-testid="home-project-default-toggle"
                 className={`${iconButtonBaseClass} ${hoverControlVisibilityClass} ${
                   isDefault
-                    ? "text-green-400 hover:bg-black/45"
-                    : "text-white/90 hover:bg-black/45 hover:text-green-400"
+                    ? "bg-black/30 text-green-400 hover:bg-black/45 dark:bg-setta-950/70"
+                    : "bg-black/30 text-white/90 hover:bg-black/45 hover:text-green-400 dark:bg-setta-950/70"
                 }`}
                 onClick={(event) => {
                   event.preventDefault();
