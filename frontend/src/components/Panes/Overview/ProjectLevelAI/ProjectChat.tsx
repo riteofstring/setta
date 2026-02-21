@@ -505,7 +505,7 @@ export function ProjectChat() {
               inline={true}
               closeOnSelect={false}
             />
-            <div className="min-w-0 flex-1">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col pl-2">
               <ProjectChatCore
                 chatId={chatId}
                 placeholderText={placeholderText}

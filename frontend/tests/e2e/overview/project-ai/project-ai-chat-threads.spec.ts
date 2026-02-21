@@ -1,0 +1,69 @@
+import { expect, test } from "@playwright/test";
+import { ensureAppReady, seedLocalStorage } from "../../helpers";
+
+test("project ai threads render folder groups and support group drag reorder", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 980,
+    overviewTrueWidth: 980,
+  });
+
+  await ensureAppReady(page);
+
+  const overviewPane = page.locator("#OverviewPane");
+  await expect(
+    overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+  ).toBeVisible();
+
+  await overviewPane.getByRole("button", { name: "View Threads" }).click();
+  const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+  await expect(threadsPanel).toHaveAttribute("data-inline", "true");
+  await expect(overviewPane.getByPlaceholder("Type a message...")).toBeVisible();
+  await expect(threadsPanel.getByTestId("project-chat-thread-group-select")).toHaveCount(0);
+
+  page.once("dialog", (dialog) => dialog.accept("Backend"));
+  await threadsPanel.getByRole("button", { name: "New Group" }).click();
+  await expect(
+    threadsPanel
+      .getByTestId("project-chat-thread-group-row")
+      .filter({ hasText: "Backend" }),
+  ).toBeVisible();
+
+  page.once("dialog", (dialog) => dialog.accept("Frontend"));
+  await threadsPanel.getByRole("button", { name: "New Group" }).click();
+  await expect(
+    threadsPanel
+      .getByTestId("project-chat-thread-group-row")
+      .filter({ hasText: "Frontend" }),
+  ).toBeVisible();
+
+  const backendHandle = threadsPanel
+    .getByTestId("project-chat-thread-group-row")
+    .filter({ hasText: "Backend" })
+    .getByTestId("project-chat-thread-group-drag-handle");
+  const frontendHandle = threadsPanel
+    .getByTestId("project-chat-thread-group-row")
+    .filter({ hasText: "Frontend" })
+    .getByTestId("project-chat-thread-group-drag-handle");
+
+  await frontendHandle.dragTo(backendHandle);
+
+  await expect
+    .poll(async () => {
+      return await threadsPanel
+        .getByTestId("project-chat-thread-group-row")
+        .evaluateAll((elements) => {
+          return elements
+            .map((element) => {
+              const titleEl = element.querySelector("span.truncate");
+              return titleEl?.textContent?.trim() ?? "";
+            })
+            .filter((value) => value.length > 0);
+        });
+    })
+    .toEqual(["Frontend", "Backend"]);
+});
