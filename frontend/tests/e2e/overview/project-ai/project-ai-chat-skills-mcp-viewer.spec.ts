@@ -432,6 +432,185 @@ test("project ai chat does not mark skills active for non-skill tool names", asy
   await expect(readmeSkillButton.getByText("Active")).toHaveCount(0);
 });
 
+test("project ai chat marks codex skills active from $skill tokens", async ({
+  page,
+}) => {
+  const externalEngineConfigId = "engine-codex-token";
+  const externalAgentConfigId = "external-codex-token";
+  const chatId = "chat-codex-token-active";
+  let externalChatRequestCount = 0;
+
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getEngineConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: externalEngineConfigId,
+          name: "Codex Engine",
+          engineType: "external_agent",
+          externalAgentConfigId,
+          defaults: {},
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getExternalAgentConfigs", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: externalAgentConfigId,
+          name: "Codex app-server",
+          toolType: "codex",
+          runMode: "app_server",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getExternalAgentHealth", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          configId: externalAgentConfigId,
+          name: "Codex app-server",
+          toolType: "codex",
+          runMode: "app_server",
+          supported: true,
+          available: true,
+          issues: [],
+          envVars: { present: [], missing: [] },
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-codex-token-active",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-01-01T00:00:00Z",
+          finishedAt: "2026-01-01T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "external_agent",
+            chatId,
+            engineConfigId: externalEngineConfigId,
+            messages: [
+              {
+                id: "user-1",
+                role: "user",
+                content: [{ type: "text", text: "please use $readme" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Codex Token Run",
+            nameSource: "deterministic",
+          },
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    externalChatRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          {
+            id: "user-1",
+            role: "user",
+            content: [{ type: "text", text: "please use $readme" }],
+            attachments: [],
+          },
+          {
+            id: "assistant-1",
+            role: "assistant",
+            content: [],
+            attachments: [],
+            tool_calls: [],
+          },
+        ],
+        waitingForResponse: false,
+        toolCallArguments: {},
+      }),
+    });
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_agents_skills::readme",
+          name: "readme",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "readme",
+          description: "Reader skill",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {},
+        defaultMcpServerIds: [],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await page.route("**/api/llm/apiKeys", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({}),
+    });
+  });
+
+  await mockMcpRuntimeStatusRoute(page);
+
+  await ensureAppReady(page);
+
+  await page.getByRole("button", { name: "View History" }).click();
+  await expect(page.getByText("Codex Token Run")).toBeVisible();
+  await page.getByText("Codex Token Run").click();
+  await expect.poll(() => externalChatRequestCount).toBeGreaterThan(0);
+
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+
+  const readmeSkillButton = page.getByRole("button", { name: /readme/i });
+  await expect(readmeSkillButton).toBeVisible();
+  await expect(readmeSkillButton.getByText("Applicable")).toBeVisible();
+  await expect(readmeSkillButton.getByText("Active")).toBeVisible();
+});
+
 test("project ai chat surfaces disabled MCP runtime servers in the summary", async ({
   page,
 }) => {

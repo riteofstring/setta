@@ -54,3 +54,19 @@
   - Targeted backend pytest: pass (`13 + 33 + 5` tests across updated suites).
   - Targeted frontend Vitest: pass (`13 passed`).
   - Targeted Playwright MCP viewer suite: pass (`12 passed`).
+
+## 2026-02-19 00:37:55 PST
+
+- Completed the remaining MCP runtime and Skills/MCP viewer fixes from the review batch (excluding uuid churn):
+  - External runtime status parsing now ignores non-MCP generic payloads and treats generic `servers` containers as trusted only for seeded providers.
+  - Persisted external status snapshots now tolerate malformed rows without breaking valid row recovery.
+  - Disabled runtime state now clears stale failure metadata, and missing-env runtime failures no longer move into `retrying`.
+  - Codex active-skill detection now keys off explicit `$skill` user tokens instead of tool-call-only inference.
+- Added/updated automated coverage:
+  - Backend unit/integration tests for trusted-container parsing, malformed persisted snapshot tolerance, disabled-metadata reset, and missing-env no-retry behavior.
+  - Frontend Vitest coverage for Codex token-driven active-skill behavior and associated performance fixture updates.
+  - Playwright e2e coverage for Codex `$skill` activation in the Skills/MCP viewer.
+- Verification run:
+  - Backend pytest suite for touched areas: pass (`90 passed`).
+  - Frontend Vitest targeted suites: pass (`14 passed`).
+  - Playwright targeted suite: pass (`13 passed`).

@@ -300,7 +300,42 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ).toBe("inactive");
   });
 
-  it("marks active skills from namespaced skill path tool names", () => {
+  it("marks codex skills active from $skill tokens in user prompts", () => {
+    const skills = [
+      {
+        skillId: "workspace_agents_skills::ui-layout",
+        name: "ui-layout",
+        rootLabel: "Workspace .agents/skills",
+        rootPath: "/workspace/.agents/skills",
+        relativePath: "ui-layout",
+        description: "Codex skill",
+      },
+    ];
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "user-1",
+        role: "user",
+        content: [{ type: "text", text: "Use $ui-layout for this task." }],
+        attachments: [],
+      },
+    ];
+
+    const status = buildSkillStatusBySkillId({
+      skills,
+      engineType: EngineTypeEnum.external_agent,
+      externalAgentToolType: ExternalAgentToolTypeEnum.codex,
+      messages,
+    });
+
+    expect(status["workspace_agents_skills::ui-layout"]?.activityState).toBe(
+      "active",
+    );
+    expect(status["workspace_agents_skills::ui-layout"]?.activitySource).toBe(
+      "codex_skill_token",
+    );
+  });
+
+  it("keeps codex activity inactive for tool-call-only skill signals", () => {
     const skills = [
       {
         skillId: "workspace_agents_skills::ui-layout",
@@ -338,10 +373,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     });
 
     expect(status["workspace_agents_skills::ui-layout"]?.activityState).toBe(
-      "active",
-    );
-    expect(status["workspace_agents_skills::ui-layout"]?.activitySource).toBe(
-      "codex_skill_item",
+      "inactive",
     );
   });
 
@@ -408,20 +440,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     ];
     const messages: BaseChatMessageUnion[] = [
       {
-        id: "assistant-1",
-        role: "assistant",
-        content: [],
+        id: "user-1",
+        role: "user",
+        content: [{ type: "text", text: "Please load $shared-skill now." }],
         attachments: [],
-        tool_calls: [
-          {
-            id: "tc-1",
-            type: "function",
-            function: {
-              name: "skill",
-              arguments: { name: "shared-skill" },
-            },
-          },
-        ],
       },
     ];
 

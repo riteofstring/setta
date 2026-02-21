@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp.types import TextContent
+from pydantic import ValidationError
 
 from setta.agentic.agentic_context_payload_builder import (
     build_agentic_context_payload_with_temporary_ids,
@@ -266,7 +267,10 @@ class ExternalAgentRunner:
                 status.model_copy(deep=True)
                 for _, status in sorted(statuses.items(), key=lambda item: item[0])
             ]
-        persisted = self._load_external_mcp_status_snapshot(run.outputs)
+        persisted = self._load_external_mcp_status_snapshot(
+            run.outputs,
+            run_id=run_id,
+        )
         return [status.model_copy(deep=True) for status in persisted]
 
     def start_run(
@@ -1456,6 +1460,8 @@ class ExternalAgentRunner:
     @staticmethod
     def _load_external_mcp_status_snapshot(
         outputs: dict[str, Any] | None,
+        *,
+        run_id: ID | None = None,
     ) -> list[MCPServerRuntimeStatus]:
         if not outputs:
             return []
@@ -1463,10 +1469,24 @@ class ExternalAgentRunner:
         if not isinstance(raw_snapshot, list):
             return []
         statuses: list[MCPServerRuntimeStatus] = []
+        invalid_row_count = 0
+        first_error_message: str | None = None
         for raw_status in raw_snapshot:
             if not isinstance(raw_status, dict):
                 continue
-            statuses.append(MCPServerRuntimeStatus.model_validate(raw_status))
+            try:
+                statuses.append(MCPServerRuntimeStatus.model_validate(raw_status))
+            except ValidationError as exc:
+                invalid_row_count += 1
+                if first_error_message is None:
+                    first_error_message = str(exc).splitlines()[0]
+        if invalid_row_count > 0:
+            logger.warning(
+                "Ignored %s invalid persisted external MCP runtime status row(s) for run_id=%s. first_error=%s",
+                invalid_row_count,
+                str(run_id) if run_id is not None else "(unknown)",
+                first_error_message or "(validation error)",
+            )
         return statuses
 
     def _build_unknown_statuses_from_claude_mcp_config(
@@ -1556,7 +1576,14 @@ class ExternalAgentRunner:
         payload: dict[str, Any] | list[Any],
         provider: str,
     ) -> list[MCPServerRuntimeStatus]:
-        status_payloads = _extract_status_payloads(payload)
+        allow_generic_server_containers = provider in {
+            ExternalAgentToolType.codex.value,
+            ExternalAgentToolType.opencode.value,
+        }
+        status_payloads = _extract_status_payloads(
+            payload,
+            allow_generic_server_containers=allow_generic_server_containers,
+        )
         if len(status_payloads) == 0:
             return []
         now = get_now_timestamp()
@@ -2142,10 +2169,13 @@ class ExternalAgentRunner:
 
 def _extract_status_payloads(
     payload: dict[str, Any] | list[Any],
+    *,
+    allow_generic_server_containers: bool = False,
 ) -> list[dict[str, Any]]:
     return _extract_status_payloads_from_container(
         payload,
         is_mcp_container=isinstance(payload, list),
+        allow_generic_server_containers=allow_generic_server_containers,
     )
 
 
@@ -2153,6 +2183,7 @@ def _extract_status_payloads_from_container(
     payload: dict[str, Any] | list[Any],
     *,
     is_mcp_container: bool,
+    allow_generic_server_containers: bool,
 ) -> list[dict[str, Any]]:
     container: dict[str, Any] | list[Any] | None
     if isinstance(payload, dict):
@@ -2163,15 +2194,25 @@ def _extract_status_payloads_from_container(
                 nested_payloads = _extract_status_payloads_from_container(
                     nested,
                     is_mcp_container=is_mcp_container,
+                    allow_generic_server_containers=allow_generic_server_containers,
                 )
                 if len(nested_payloads) > 0:
                     return nested_payloads
-        for key in ("mcp_servers", "mcpServers", "servers", "items"):
+        for key in ("mcp_servers", "mcpServers"):
             nested = container.get(key)
             if isinstance(nested, dict | list):
                 return _extract_status_payloads_from_container(
                     nested,
                     is_mcp_container=True,
+                    allow_generic_server_containers=allow_generic_server_containers,
+                )
+        if allow_generic_server_containers:
+            nested = container.get("servers")
+            if isinstance(nested, dict | list):
+                return _extract_status_payloads_from_container(
+                    nested,
+                    is_mcp_container=True,
+                    allow_generic_server_containers=allow_generic_server_containers,
                 )
     else:
         container = payload

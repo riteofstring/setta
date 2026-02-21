@@ -4,7 +4,7 @@ import anyio
 import pytest
 from mcp.types import Tool, ToolAnnotations
 
-from setta.mcp.client import MultiMCPClient
+from setta.mcp.client import MissingMCPEnvVarError, MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.types.llm_config import MCPServerConfig
@@ -293,3 +293,86 @@ class TestMultiMCPClientRuntimeStatus:
         statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
         assert statuses["github"].state == MCPServerRuntimeState.disabled
         assert statuses["github"].toolCount == 0
+
+    def test_mark_disabled_clears_failure_metadata(self) -> None:
+        client = MultiMCPClient(
+            {
+                "github": MCPServerConfig(
+                    transport="streamable_http",
+                    url="http://localhost:9000/mcp",
+                )
+            }
+        )
+
+        client._mark_failure(
+            "github",
+            error=RuntimeError("connect failed"),
+            missing_env_var="GITHUB_TOKEN",
+        )
+        client._mark_disabled("github")
+
+        statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
+        assert statuses["github"].state == MCPServerRuntimeState.disabled
+        assert statuses["github"].lastError is None
+        assert statuses["github"].missingEnvVar is None
+        assert statuses["github"].consecutiveFailures == 0
+
+    @pytest.mark.asyncio
+    async def test_missing_env_failure_does_not_mark_retrying(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        client = MultiMCPClient(
+            {
+                "github": MCPServerConfig(
+                    transport="streamable_http",
+                    url="http://localhost:9000/mcp",
+                )
+            }
+        )
+        config = client.server_configs["github"]
+        retry_marks: list[str] = []
+
+        async def _raise_missing_env(
+            _server_id: str,
+            _config: MCPServerConfig,
+        ) -> None:
+            raise MissingMCPEnvVarError("GITHUB_TOKEN")
+
+        async def _noop_report_connection_failure(*_args: Any, **_kwargs: Any) -> None:
+            return None
+
+        async def _noop_cleanup(
+            _server_id: str,
+            *,
+            rebuild_tool_cache: bool = True,
+        ) -> None:
+            del rebuild_tool_cache
+
+        async def _stop_after_sleep(_seconds: float) -> None:
+            raise RuntimeError("stop-loop")
+
+        monkeypatch.setattr(client, "_connect_server_once", _raise_missing_env)
+        monkeypatch.setattr(
+            client,
+            "_report_connection_failure",
+            _noop_report_connection_failure,
+        )
+        monkeypatch.setattr(client, "_cleanup_server", _noop_cleanup)
+        monkeypatch.setattr(
+            "setta.mcp.client.asyncio.sleep",
+            _stop_after_sleep,
+        )
+
+        def _record_retry(server_id: str) -> None:
+            retry_marks.append(server_id)
+
+        monkeypatch.setattr(client, "_mark_retrying", _record_retry)
+
+        with pytest.raises(RuntimeError, match="stop-loop"):
+            await client._connect_server_loop("github", config, retry_delay=1)
+
+        statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
+        assert statuses["github"].state == MCPServerRuntimeState.error
+        assert statuses["github"].missingEnvVar == "GITHUB_TOKEN"
+        assert retry_marks == []

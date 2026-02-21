@@ -248,6 +248,7 @@ class MultiMCPClient:
         missing_env_var: str | None = None,
         tool_count: int | None = None,
         reset_failure_count: bool = False,
+        clear_failure_metadata: bool = False,
     ) -> None:
         if server_id not in self._server_runtime_statuses:
             return
@@ -267,6 +268,9 @@ class MultiMCPClient:
             updates["consecutiveFailures"] = status.consecutiveFailures + 1
         elif reset_failure_count:
             updates["consecutiveFailures"] = 0
+        if clear_failure_metadata:
+            updates["lastError"] = None
+            updates["missingEnvVar"] = None
         if tool_count is not None:
             updates["toolCount"] = tool_count
         self._server_runtime_statuses[server_id] = status.model_copy(update=updates)
@@ -318,6 +322,8 @@ class MultiMCPClient:
             server_id,
             state=MCPServerRuntimeState.disabled,
             tool_count=0,
+            reset_failure_count=True,
+            clear_failure_metadata=True,
         )
 
     async def connect_to_servers(self, retry_delay: int = 1) -> None:
@@ -532,6 +538,7 @@ class MultiMCPClient:
         logger.info("Starting MCP client connection to %s (%s)", server_id, config)
 
         while True:
+            should_mark_retrying = True
             try:
                 logger.info("Attempting to connect to %s", server_id)
                 self._mark_connecting(server_id)
@@ -560,6 +567,7 @@ class MultiMCPClient:
                     message=message,
                     handled=True,
                 )
+                should_mark_retrying = False
             except Exception as exc:
                 if self._is_shutting_down:
                     await self._cleanup_server(server_id)
@@ -574,7 +582,8 @@ class MultiMCPClient:
             await self._cleanup_server(server_id)
             if self._is_shutting_down:
                 return
-            self._mark_retrying(server_id)
+            if should_mark_retrying:
+                self._mark_retrying(server_id)
             await asyncio.sleep(retry_delay)
 
     async def _connect_server_once(

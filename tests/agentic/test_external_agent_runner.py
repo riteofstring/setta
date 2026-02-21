@@ -2658,6 +2658,43 @@ class TestExternalAgentRunnerMcpRuntimeStatus:
         )
         assert rows == []
 
+    def test_extract_status_payloads_ignores_generic_servers_container_by_default(
+        self,
+    ) -> None:
+        # Generic "servers" containers should only be parsed for trusted
+        # provider-specific status payloads.
+        rows = _extract_status_payloads(
+            {
+                "message": {
+                    "servers": [
+                        {
+                            "id": "api-east-1",
+                            "status": "online",
+                        }
+                    ]
+                }
+            }
+        )
+        assert rows == []
+
+    def test_extract_status_payloads_ignores_generic_items_container(self) -> None:
+        # Generic "items" containers can include non-MCP events and should not
+        # be treated as MCP status rows.
+        rows = _extract_status_payloads(
+            {
+                "message": {
+                    "items": [
+                        {
+                            "id": "evt-1",
+                            "status": "failed",
+                            "error": "tool crashed",
+                        }
+                    ]
+                }
+            }
+        )
+        assert rows == []
+
     def test_resolve_mcp_runtime_state_prefers_explicit_disabled_status(self) -> None:
         # Some providers report disabled via textual status even when connected=false.
         state = _resolve_mcp_runtime_state(
@@ -2820,6 +2857,64 @@ class TestExternalAgentRunnerMcpRuntimeStatus:
             assert statuses[0].state == MCPServerRuntimeState.connected
             assert statuses[0].toolCount == 3
 
+    def test_completed_run_ignores_invalid_persisted_mcp_status_snapshot_rows(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-1"),
+            )
+            run = context.run
+            runner._runs[run.id] = run
+            runner._external_mcp_statuses_by_run_id[run.id] = {
+                "filesystem": MCPServerRuntimeStatus(
+                    serverId="filesystem",
+                    source="external_runtime",
+                    transport="stdio",
+                    endpoint="npx @modelcontextprotocol/server-filesystem",
+                    state=MCPServerRuntimeState.connected,
+                    toolCount=3,
+                )
+            }
+            runner._persist_external_mcp_status_snapshot(run.id, run=run)
+
+            persisted_run = load_agent_run(dbe, run.id)
+            assert persisted_run is not None
+            if persisted_run is None:
+                return
+            outputs = persisted_run.outputs or {}
+            snapshot = outputs.get("externalMcpServerRuntimeStatuses")
+            assert isinstance(snapshot, list)
+            snapshot.append({"serverId": 123})
+            outputs["externalMcpServerRuntimeStatuses"] = snapshot
+            persisted_run.outputs = outputs
+            save_agent_run(dbe, persisted_run)
+
+            # Simulate normal task cleanup after completion.
+            runner._runs.pop(run.id, None)
+            runner._run_state.pop(run.id, None)
+            runner._external_mcp_statuses_by_run_id.pop(run.id, None)
+
+            statuses = runner.get_mcp_server_runtime_statuses(
+                chat_id=run.id,
+                engine_config_id=ID("engine-1"),
+            )
+
+            assert len(statuses) == 1
+            assert statuses[0].serverId == "filesystem"
+            assert statuses[0].state == MCPServerRuntimeState.connected
+            assert statuses[0].toolCount == 3
+
     def test_claude_raw_status_payload_is_captured(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -2941,6 +3036,51 @@ class TestExternalAgentRunnerMcpRuntimeStatus:
                     "message": {
                         "id": "evt-123",
                         "error": "initialization failed",
+                    },
+                },
+            )
+
+            statuses = runner.get_mcp_server_runtime_statuses(
+                chat_id=run.id,
+                engine_config_id=ID("engine-1"),
+            )
+            assert statuses == []
+
+    def test_claude_raw_generic_servers_container_is_ignored(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-1"),
+            )
+            run = context.run
+            handle = ExternalAgentRunHandle(run_id=run.id)
+            runner._runs[run.id] = run
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=ClaudeSdkAdapter(),
+            )
+
+            runner._capture_external_mcp_statuses_from_raw(
+                context,
+                run_id=run.id,
+                raw_payload={
+                    "type": "system_message",
+                    "message": {
+                        "servers": [
+                            {
+                                "id": "api-east-1",
+                                "status": "online",
+                            }
+                        ]
                     },
                 },
             )

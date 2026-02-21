@@ -41,20 +41,16 @@ function averageRunTimeMs(iterations: number, fn: () => void): number {
 }
 
 function makeSkillActivityMessages(size: number): BaseChatMessageUnion[] {
+  const skillTokens = Array.from(
+    { length: size },
+    (_, index) => `$skill-${index}`,
+  ).join(" ");
   return [
     {
-      id: "assistant-1",
-      role: "assistant",
-      content: [],
+      id: "user-1",
+      role: "user",
+      content: [{ type: "text", text: `Use ${skillTokens}` }],
       attachments: [],
-      tool_calls: Array.from({ length: size }, (_, index) => ({
-        id: `tc-${index}`,
-        type: "function" as const,
-        function: {
-          name: "skill",
-          arguments: { name: `skill-${index}` },
-        },
-      })),
     },
   ];
 }

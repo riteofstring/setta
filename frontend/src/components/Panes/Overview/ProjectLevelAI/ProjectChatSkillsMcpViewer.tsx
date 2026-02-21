@@ -517,8 +517,10 @@ export function ProjectChatSkillsMcpViewer({
                 />
               </search>
               <p className="text-[11px] text-setta-500 dark:text-setta-400">
-                Applicable is based on selected engine roots. Active is inferred
-                from observed skill-invocation tool calls in this chat.
+                Applicable is based on selected engine roots. Active uses
+                engine-specific signals in this chat (for example Codex
+                <span className="px-0.5 font-mono">$skill</span> tokens or
+                OpenCode skill tool calls).
               </p>
             </div>
             <div className="grid min-w-0 gap-2">

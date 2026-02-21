@@ -144,6 +144,38 @@ function normalizeSkillToken(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function extractSkillTokensFromText(value: string): string[] {
+  const matches = value.matchAll(
+    /(^|[^A-Za-z0-9_./-])\$([A-Za-z0-9][A-Za-z0-9._/-]*)/g,
+  );
+  const tokens: string[] = [];
+  for (const match of matches) {
+    const token = match[2];
+    if (!token) {
+      continue;
+    }
+    tokens.push(token);
+  }
+  return tokens;
+}
+
+function getMessageTextBlocks(message: BaseChatMessageUnion): string[] {
+  const blocks: string[] = [];
+  for (const block of message.content) {
+    if (!isRecord(block)) {
+      continue;
+    }
+    if (block.type !== "text") {
+      continue;
+    }
+    if (typeof block.text !== "string" || !block.text.trim()) {
+      continue;
+    }
+    blocks.push(block.text);
+  }
+  return blocks;
+}
+
 function stripMcpToolNamespace(toolName: string): string {
   if (!toolName.startsWith("mcp__")) {
     return toolName;
@@ -238,10 +270,21 @@ function collectActiveSkillNames({
   ) {
     return activeByName;
   }
-  const activitySource =
-    externalAgentToolType === ExternalAgentToolTypeEnum.codex
-      ? "codex_skill_item"
-      : "opencode_skill_tool";
+  if (externalAgentToolType === ExternalAgentToolTypeEnum.codex) {
+    for (const message of messages) {
+      if (message.role !== "user") {
+        continue;
+      }
+      const textBlocks = getMessageTextBlocks(message);
+      for (const text of textBlocks) {
+        const tokens = extractSkillTokensFromText(text);
+        for (const token of tokens) {
+          activeByName.set(normalizeSkillToken(token), "codex_skill_token");
+        }
+      }
+    }
+    return activeByName;
+  }
   for (const message of messages) {
     if (message.role === "assistant" && Array.isArray(message.tool_calls)) {
       for (const toolCall of message.tool_calls) {
@@ -252,7 +295,7 @@ function collectActiveSkillNames({
         if (!skillName) {
           continue;
         }
-        activeByName.set(normalizeSkillToken(skillName), activitySource);
+        activeByName.set(normalizeSkillToken(skillName), "opencode_skill_tool");
       }
       continue;
     }
@@ -266,7 +309,7 @@ function collectActiveSkillNames({
     if (!skillName) {
       continue;
     }
-    activeByName.set(normalizeSkillToken(skillName), activitySource);
+    activeByName.set(normalizeSkillToken(skillName), "opencode_skill_tool");
   }
   return activeByName;
 }
