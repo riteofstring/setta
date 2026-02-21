@@ -3,6 +3,8 @@ from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.types.agentic import AgentProfile
 from setta.types.id import ID
 
+_COMPLETION_REPORTING_CONTRACT_HEADER = "## Completion Reporting Contract"
+
 
 def build_agent_system_prompt(
     *,
@@ -10,9 +12,19 @@ def build_agent_system_prompt(
     profile: AgentProfile | None,
     project_config_id: ID,
     dbe: DBE,
+    completion_guard_enabled: bool = True,
 ) -> str:
+    effective_base_prompt = base_prompt
+    if not completion_guard_enabled:
+        effective_base_prompt = _remove_markdown_section(
+            base_prompt,
+            _COMPLETION_REPORTING_CONTRACT_HEADER,
+        )
     temporary_project_config_id = _ensure_temporary_project_id(project_config_id, dbe)
-    prompt = f"{base_prompt}\n\n## Active project config\n- id: {temporary_project_config_id}\n"
+    prompt = (
+        f"{effective_base_prompt}\n\n## Active project config\n"
+        f"- id: {temporary_project_config_id}\n"
+    )
     if profile is None:
         return prompt
 
@@ -28,6 +40,24 @@ def build_agent_system_prompt(
         if profile.systemPrompt.strip():
             prompt = f"{prompt}\n\n{profile.systemPrompt.strip()}"
     return prompt
+
+
+def _remove_markdown_section(text: str, heading: str) -> str:
+    lines = text.splitlines()
+    start_index: int | None = None
+    for index, line in enumerate(lines):
+        if line.strip() == heading:
+            start_index = index
+            break
+    if start_index is None:
+        return text
+    end_index = len(lines)
+    for index in range(start_index + 1, len(lines)):
+        if lines[index].startswith("## "):
+            end_index = index
+            break
+    filtered = lines[:start_index] + lines[end_index:]
+    return "\n".join(filtered).strip()
 
 
 def _ensure_temporary_project_id(project_config_id: ID, dbe: DBE) -> ID:
