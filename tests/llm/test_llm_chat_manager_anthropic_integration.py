@@ -146,6 +146,10 @@ class TestLLMChatManagerAnthropicIntegration:
                     defaultProjectConfigId=project_config.id,
                 )
                 dbe.write_project(project_state)
+                dbe.write_json(
+                    dbe.settings,
+                    {"backend": {"completionGuardEnabled": False}},
+                )
 
                 websocket_manager = WebsocketManager()
                 frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
@@ -344,6 +348,10 @@ class TestLLMChatManagerAnthropicIntegration:
                 _mcp_client,
                 fixture,
             ):
+                fixture.dbe.write_json(
+                    fixture.dbe.settings,
+                    {"backend": {"completionGuardEnabled": False}},
+                )
                 llm_config = LLMConfig(
                     id="claude-sonnet-tools",
                     model="claude-sonnet-4-5-20250929",

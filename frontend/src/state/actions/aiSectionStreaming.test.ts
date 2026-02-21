@@ -4,7 +4,6 @@ import {
 } from "state/actions/sectionInfos";
 import { resetProjectStores } from "state/utils";
 import {
-  createMessageThinkingContent,
   ChatRoleEnum,
   SectionTypeEnum,
   StreamingEventTypeEnum,
@@ -365,62 +364,6 @@ describe("section chat streaming updates", () => {
           content.type === "text" && content.text === "Launching tasks",
       ),
     ).toBe(true);
-  });
-
-  it("keeps placeholder thinking deltas and replaces placeholder ids on finalized messages", () => {
-    receiveLLMResponseChunk({
-      chatId,
-      sectionId,
-      chunk: {
-        type: StreamingEventTypeEnum.DELTA,
-        message_id: "resp_placeholder_1",
-        content: [
-          {
-            type: "thinking_delta",
-            index: 0,
-            thinking: "Analyzing code paths...",
-            summary: "Reviewing code paths",
-            signature: "",
-          },
-        ],
-      },
-    });
-    receiveLLMResponseChunk({
-      chatId,
-      sectionId,
-      chunk: {
-        type: StreamingEventTypeEnum.MESSAGE_FINALIZED,
-        message: {
-          id: "msg-finalized-thinking",
-          role: ChatRoleEnum.assistant,
-          content: [],
-          attachments: [],
-          tool_calls: null,
-        },
-      },
-    });
-
-    const impl = getCurrEffectiveSectionImplOfType(
-      useProjectState.getState(),
-      sectionId,
-      SectionTypeEnum.Chat,
-    );
-    const placeholderMessage = impl.messages.find(
-      (message) => message.id === "resp_placeholder_1",
-    );
-    expect(placeholderMessage).toBeUndefined();
-
-    const finalizedMessage = impl.messages.find(
-      (message) => message.id === "msg-finalized-thinking",
-    );
-    expect(finalizedMessage?.role).toBe(ChatRoleEnum.assistant);
-    expect(finalizedMessage?.content).toEqual([
-      createMessageThinkingContent({
-        thinking: "Analyzing code paths...",
-        summary: "Reviewing code paths",
-        signature: "",
-      }),
-    ]);
   });
 
   it("keeps streaming content when backend updates arrive mid-stream", () => {

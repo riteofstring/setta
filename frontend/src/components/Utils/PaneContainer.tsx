@@ -1,18 +1,9 @@
 import { Resizable } from "re-resizable";
-import { useEffect, useRef } from "react";
-import { RiExpandDiagonalLine } from "react-icons/ri";
+import { useEffect, useState } from "react";
+import { useLocalStorage } from "state/definitions";
 import { useWindowSize } from "state/hooks/utils";
-import { CLOSED_PANE_WIDTH, PaneName } from "utils/constants";
+import { CLOSED_PANE_WIDTH } from "utils/constants";
 import { clamp } from "utils/utils";
-import {
-  getPaneMaxWidthForViewport,
-  getPaneMinimumWidth,
-  normalizePaneWidthForViewportChange,
-  togglePaneFullWidth,
-  setPaneWidthWithLayout,
-} from "components/Panes/paneLayout";
-
-const FULL_WIDTH_BORDER_EPSILON = 2;
 
 export function PaneContainer({
   paneName,
@@ -24,7 +15,7 @@ export function PaneContainer({
   onResizeStop,
   paddingClassName,
 }: {
-  paneName: PaneName;
+  paneName: string;
   right: boolean;
   children: React.ReactNode;
   minimumWidth: number;
@@ -34,91 +25,58 @@ export function PaneContainer({
   paddingClassName?: string;
 }) {
   const size = useWindowSize();
-  const viewportWidth = size.winWidth ?? 0;
-  const maxWidth =
-    viewportWidth > 0 ? getPaneMaxWidthForViewport(viewportWidth) : 100000;
-  const baselineMinimum = getPaneMinimumWidth(paneName);
-  const effectiveMinimumWidth = Math.max(baselineMinimum, minimumWidth);
-  const minWidth = Math.min(effectiveMinimumWidth, maxWidth);
-  const previousViewportWidthRef = useRef<number | null>(null);
+  const [vMax, setVMax] = useState(100000);
+  const [vMin, setVMin] = useState(minimumWidth);
+
+  function setNewWidth(newWidth: number) {
+    useLocalStorage.setState({
+      [`${paneName}Width`]: newWidth,
+      [`${paneName}TrueWidth`]: vis ? newWidth : CLOSED_PANE_WIDTH,
+    });
+  }
 
   useEffect(() => {
-    if (viewportWidth <= 0) {
+    if (size.winWidth === undefined || size.winHeight === undefined) {
       return;
     }
-    if (!vis) {
-      previousViewportWidthRef.current = viewportWidth;
-      return;
+    const newVMax = size.winWidth / 2.1;
+    const newVMin = Math.min(minimumWidth, newVMax);
+    if (newVMax) setVMax(newVMax);
+    if (newVMin) setVMin(newVMin);
+    if (width > newVMax) {
+      setNewWidth(newVMax);
+    } else if (width < newVMin) {
+      setNewWidth(newVMin);
     }
-    const previousViewportWidth = previousViewportWidthRef.current ?? viewportWidth;
-    previousViewportWidthRef.current = viewportWidth;
-    const normalizedWidth = normalizePaneWidthForViewportChange({
-      paneName,
-      width,
-      viewportWidth,
-      previousViewportWidth,
-    });
-    if (normalizedWidth !== width) {
-      const { previous, next } = setPaneWidthWithLayout(paneName, normalizedWidth);
-      if (onResizeStop) {
-        const widthDiff =
-          paneName === "overview"
-            ? next.overviewTrueWidth - previous.overviewTrueWidth
-            : next.uiEditorTrueWidth - previous.uiEditorTrueWidth;
-        onResizeStop(widthDiff);
-      }
-    }
-  }, [maxWidth, minWidth, onResizeStop, paneName, viewportWidth, vis, width]);
+  }, [vis, size.winWidth]);
 
   function localOnResizeStop(_e, _direction, _ref, d) {
-    const requestedWidth = clamp(width + d.width, minWidth, maxWidth);
-    if (requestedWidth === width) {
+    const newWidth = clamp(width + d.width, vMin, vMax);
+    if (newWidth === width) {
       return;
     }
-    const { previous, next } = setPaneWidthWithLayout(paneName, requestedWidth);
+    setNewWidth(newWidth);
     if (onResizeStop) {
-      const widthDiff =
-        paneName === "overview"
-          ? next.overviewTrueWidth - previous.overviewTrueWidth
-          : next.uiEditorTrueWidth - previous.uiEditorTrueWidth;
-      onResizeStop(widthDiff);
+      onResizeStop(d.width);
     }
   }
 
   const style = `${!right ? "-" : ""}${width - CLOSED_PANE_WIDTH}px`;
-  const isFullWidth = vis && width >= maxWidth - FULL_WIDTH_BORDER_EPSILON;
-  const seamBorderClass = right
-    ? isFullWidth
-      ? "border-l-0"
-      : "border-l"
-    : isFullWidth
-      ? "border-r-0"
-      : "border-r";
 
   const rightCondition = right
-    ? `justify-self-end left-auto pr-7 ${seamBorderClass}`
-    : `justify-self-start right-auto pl-9 ${seamBorderClass}`;
+    ? "justify-self-end left-auto border-l pr-7"
+    : "justify-self-start right-auto border-r pl-9";
   const paddingClasses = paddingClassName ?? "py-2.5";
-  const fullscreenButtonPositionClass = right ? "left-2 top-2" : "right-2 top-2";
 
-  function onExpandToFullWidth() {
-    const { previous, next } = togglePaneFullWidth(paneName);
-    if (onResizeStop) {
-      const widthDiff =
-        paneName === "overview"
-          ? next.overviewTrueWidth - previous.overviewTrueWidth
-          : next.uiEditorTrueWidth - previous.uiEditorTrueWidth;
-      onResizeStop(widthDiff);
-    }
-  }
+  // flex flex-grow flex-col
 
   return (
     <Resizable
       size={{ width, height: "100%" }}
       as="aside"
       onResizeStop={localOnResizeStop}
-      maxWidth={maxWidth}
-      minWidth={minWidth}
+      maxWidth={vMax}
+      minWidth={vMin}
       enable={{
         top: false,
         right: vis && !right,
@@ -132,18 +90,6 @@ export function PaneContainer({
       className={`single-cell-container z-10 col-start-1 col-end-2 row-start-2 row-end-3 min-h-0 min-w-0 border-setta-200 bg-setta-50 shadow-md transition-transform dark:border-setta-800 dark:bg-setta-900 ${paddingClasses} ${rightCondition} overflow-x-hidden overflow-y-hidden`}
       style={{ transform: `translateX(${vis ? "0" : style})` }}
     >
-      {vis ? (
-        <button
-          type="button"
-          className={`absolute z-20 inline-flex h-6 w-6 items-center justify-center rounded border border-setta-200 bg-setta-100 text-setta-500 transition-colors hover:border-blue-400 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-300 dark:hover:border-blue-500 dark:hover:text-blue-400 ${fullscreenButtonPositionClass}`}
-          aria-label="Full screen pane"
-          title="Full width"
-          data-testid={`${paneName}-pane-fullscreen-button`}
-          onClick={onExpandToFullWidth}
-        >
-          <RiExpandDiagonalLine size={13} />
-        </button>
-      ) : null}
       {children}
     </Resizable>
   );

@@ -15,6 +15,7 @@ type CalendarMonthAnchor = {
 };
 
 const ISO_DATE_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function pad2(value: number): string {
   return value.toString().padStart(2, "0");
@@ -74,12 +75,12 @@ export function shiftCalendarMonth(
   anchor: CalendarMonthAnchor,
   deltaMonths: number,
 ): CalendarMonthAnchor {
-  const shifted = new Date(
-    Date.UTC(anchor.year, anchor.monthIndex + deltaMonths, 1),
-  );
+  const shiftedTotalMonths = anchor.year * 12 + anchor.monthIndex + deltaMonths;
+  const shiftedYear = Math.floor(shiftedTotalMonths / 12);
+  const shiftedMonthIndex = ((shiftedTotalMonths % 12) + 12) % 12;
   return {
-    year: shifted.getUTCFullYear(),
-    monthIndex: shifted.getUTCMonth(),
+    year: shiftedYear,
+    monthIndex: shiftedMonthIndex,
   };
 }
 
@@ -102,26 +103,23 @@ export function buildCalendarMonthGrid({
   monthIndex: number;
   weekStartsOn: DateCalendarWeekStart;
 }): CalendarMonthCell[] {
-  const firstOfMonth = new Date(Date.UTC(year, monthIndex, 1));
+  const firstOfMonthUtcMs = Date.UTC(year, monthIndex, 1);
+  const firstOfMonth = new Date(firstOfMonthUtcMs);
   const offset = getWeekOffset(firstOfMonth.getUTCDay(), weekStartsOn);
-  const startDate = new Date(Date.UTC(year, monthIndex, 1 - offset));
+  const startUtcMs = firstOfMonthUtcMs - offset * MS_PER_DAY;
+  const reusableDate = new Date(startUtcMs);
+  const grid: CalendarMonthCell[] = new Array(42);
 
-  return Array.from({ length: 42 }, (_, index) => {
-    const cellDate = new Date(
-      Date.UTC(
-        startDate.getUTCFullYear(),
-        startDate.getUTCMonth(),
-        startDate.getUTCDate() + index,
-      ),
-    );
-    return {
-      isoDate: formatIsoDate(
-        cellDate.getUTCFullYear(),
-        cellDate.getUTCMonth(),
-        cellDate.getUTCDate(),
-      ),
-      dayOfMonth: cellDate.getUTCDate(),
-      inCurrentMonth: cellDate.getUTCMonth() === monthIndex,
+  for (let index = 0; index < 42; index += 1) {
+    reusableDate.setTime(startUtcMs + index * MS_PER_DAY);
+    const cellYear = reusableDate.getUTCFullYear();
+    const cellMonthIndex = reusableDate.getUTCMonth();
+    const cellDay = reusableDate.getUTCDate();
+    grid[index] = {
+      isoDate: formatIsoDate(cellYear, cellMonthIndex, cellDay),
+      dayOfMonth: cellDay,
+      inCurrentMonth: cellMonthIndex === monthIndex,
     };
-  });
+  }
+  return grid;
 }
