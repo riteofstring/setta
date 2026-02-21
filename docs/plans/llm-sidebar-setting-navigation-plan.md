@@ -85,7 +85,6 @@ The core planning conclusion still holds: we cannot model setting location as a 
 5. Preserve compatibility with both managed and external-agent runs.
 6. Keep plugin support explicit: plugin settings are only discoverable/revealable/readable/writable when the plugin is enabled and runtime-available.
 7. Keep mutation safe: strict type validation, explicit writable policy, and structured errors for invalid requests.
-8. Normalize approval behavior once: external-agent policy differences must map into one internal Setta MCP approval policy before tool execution.
 
 ## Proposed architecture
 
@@ -254,30 +253,6 @@ Do not reuse AI Follow IDs for this feature:
 - AI Follow is for graph entities (`section`, `codeObj`), not UI controls.
 - Separate reveal/mutation contracts avoid coupling and ID-mapping complexity.
 
-### 8) Approval/policy normalization for Setta MCP tools
-This is a cross-cutting requirement for Setta MCP tools, including this settings toolset.
-
-Execution model:
-- Each external-agent adapter maps provider-specific approval policy values to one internal Setta policy.
-- Mapping input: external policy value + yolo flag + whether the run has an approval channel.
-- Mapping output: internal policy enum used by Setta tool execution.
-
-Internal policy behavior:
-- `allow_all`: execute all Setta MCP tools without approval prompts.
-- `require_approval_for_destructive`: execute non-destructive tools directly; require approval for destructive tools.
-- `deny_destructive_without_approval_channel`: execute non-destructive tools directly; reject destructive tools with structured tool failure when approval is required but unavailable.
-
-Tool classification (v1):
-- `approvalLevel=none`: default for most tools.
-- `approvalLevel=destructive`: for operations such as project config deletion or section deletion.
-
-Required yolo behavior:
-- If yolo is on, internal policy resolves to `allow_all`, including destructive operations such as `delete_sections`.
-
-User-facing behavior:
-- Approval-required operations should surface as approval requests in chat when the channel exists.
-- Rejections should surface as structured tool failures in chat (no separate UX surface required).
-
 ## Plugin-specific additions (current gap)
 
 ### Required extension points
@@ -342,7 +317,6 @@ Deliverables:
 - Register tools with search metadata.
 - Update system prompt instructions.
 - Ship core setting mutators for initial writable subset.
-- Ensure these tools integrate with Setta MCP internal approval policy enforcement.
 
 Deliverables:
 - Managed and external-agent runs can discover/reveal/read/set core settings.
@@ -358,7 +332,7 @@ Deliverables:
 
 ### Phase 4: Hardening and coverage expansion
 - Expand core setting coverage.
-- Finalize external-adapter -> internal approval policy mappings and destructive-operation coverage.
+- Expand plugin setting coverage and failure-path hardening.
 
 Deliverables:
 - Production-ready reliability and broader setting + mutation coverage.
@@ -377,13 +351,7 @@ Deliverables:
   - get-value correctness
   - set-value validation/coercion
   - read-only rejection
-  - mode/policy rejection
-  - internal approval policy enforcement (`none` vs `destructive`)
-  - yolo bypass behavior for destructive tools (`allow_all`)
-  - structured failure when destructive approval is required but no approval channel exists
   - mutation side-effect correctness
-- Adapter mapping tests:
-  - each supported external agent policy maps to expected internal Setta policy
 - Websocket sender contract tests:
   - payload shape and required fields
 
@@ -432,12 +400,11 @@ Suggested location:
 - Enforce strict value validation before persisting writes.
 - Require explicit writable allowlist by `settingId`.
 - Return structured errors; do not silently coerce unsafe values.
-- Enforce approval rules from normalized internal policy, not provider-specific policy strings.
-- Keep destructive-tool classification explicit in tool metadata (no keyword-based inference).
 
 ## Scope boundaries
 - This plan focuses on project-scoped UI settings (core + plugin-contributed).
 - Global settings in `setta-settings.json` / Settings project are related architecture but out of scope for this plan's implementation phases.
+- Setta MCP approval-policy normalization and destructive-tool approval UX are out of scope for this plan.
 
 ## Performance and UX constraints
 - O(1) lookup by `settingId`.
