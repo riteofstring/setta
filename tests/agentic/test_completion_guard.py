@@ -1,6 +1,7 @@
 from setta.agentic.completion_guard import (
     FAILED_CHECKS_MESSAGE,
     MISSING_CHECKS_MESSAGE,
+    MISSING_REPORT_MESSAGE,
     apply_completion_guard,
     load_completion_guard_enabled,
 )
@@ -78,8 +79,8 @@ def test_completion_guard_blocks_completion_claim_when_report_is_missing() -> No
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
-    assert replacement == MISSING_CHECKS_MESSAGE
-    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+    assert replacement == MISSING_REPORT_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_REPORT_MESSAGE
 
 
 def test_completion_guard_blocks_non_completion_text_when_report_is_missing() -> None:
@@ -89,8 +90,8 @@ def test_completion_guard_blocks_non_completion_text_when_report_is_missing() ->
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
-    assert replacement == MISSING_CHECKS_MESSAGE
-    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+    assert replacement == MISSING_REPORT_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_REPORT_MESSAGE
 
 
 def test_completion_guard_keeps_error_text_when_report_is_missing() -> None:
@@ -246,8 +247,8 @@ def test_completion_guard_uses_only_active_task_scope() -> None:
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
-    assert replacement == MISSING_CHECKS_MESSAGE
-    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+    assert replacement == MISSING_REPORT_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_REPORT_MESSAGE
 
 
 def test_completion_guard_requires_fresh_report_after_latest_assistant() -> None:
@@ -267,8 +268,8 @@ def test_completion_guard_requires_fresh_report_after_latest_assistant() -> None
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
-    assert replacement == MISSING_CHECKS_MESSAGE
-    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+    assert replacement == MISSING_REPORT_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_REPORT_MESSAGE
 
 
 def test_completion_guard_blocks_completion_text_with_tool_calls_without_report() -> None:
@@ -277,8 +278,8 @@ def test_completion_guard_blocks_completion_text_with_tool_calls_without_report(
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
-    assert replacement == MISSING_CHECKS_MESSAGE
-    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+    assert replacement == MISSING_REPORT_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_REPORT_MESSAGE
 
 
 def test_completion_guard_uses_same_turn_tool_results_for_completion_claims() -> None:
@@ -367,8 +368,8 @@ def test_completion_guard_blocks_when_completion_report_payload_is_malformed() -
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
-    assert replacement == MISSING_CHECKS_MESSAGE
-    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
+    assert replacement == MISSING_REPORT_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_REPORT_MESSAGE
 
 
 def test_load_completion_guard_enabled_reads_backend_toggle(tmp_path) -> None:

@@ -84,3 +84,27 @@
   - `source activate.sh && ruff check backend/setta/llm/agent_runner.py tests/llm/test_agent_runner.py` passed.
   - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx tests/e2e/overview/project-ai/project-ai-settings-agent-profiles.spec.ts` passed.
   - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-settings-agent-profiles.spec.ts` passed (`5 passed`).
+
+## 2026-02-19 00:37:16 PST
+
+- Fixed completion-guard messaging and simplification:
+  - `backend/setta/agentic/completion_guard.py` now distinguishes missing-report contract violations from verification-result failures.
+  - Added `MISSING_REPORT_MESSAGE` for turns with no `report_completion_status` call.
+  - Kept check-result failures on `MISSING_CHECKS_MESSAGE` / `FAILED_CHECKS_MESSAGE`.
+  - Removed redundant early-return branch for tool-calls-without-text.
+- Fixed managed-runner completion tool availability and filtering behavior:
+  - `backend/setta/llm/agent_runner.py` now injects required internal tool server ids into allowlist narrowing so `setta__report_completion_status` is not dropped by server-id scoping.
+  - Non-Setta `report_completion_status` filtering is now gated by `completion_guard_enabled` (guard-on blocks non-Setta variants; guard-off does not reserve the basename globally).
+  - Added run-time guard effectiveness resolution: strict completion guard now applies only when `setta__report_completion_status` is actually present in the built tool payload.
+  - When guard is enabled but report tool is unavailable, run emits a warning log + warning notification and temporarily bypasses strict guard for that turn (prevents dead-end response loops).
+- Fixed external/OpenCode same-turn ordering race:
+  - `backend/setta/agentic/external_adapters/opencode_sdk.py` now normalizes parser output so `MessageFinalizedEvent` is emitted after same-payload tool events (including `ToolResultEvent`).
+  - This ensures completion-guard evaluation in external runner sees same-turn report tool results before finalizing visible assistant text.
+- Added regression coverage:
+  - `tests/agentic/test_completion_guard.py` updated for split missing-report vs missing-checks semantics.
+  - `tests/llm/test_agent_runner.py` added regressions for allowlist/server narrowing, guard-off non-Setta tool support, not-run verification status, and turn-level guard effectiveness detection.
+  - `tests/agentic/test_opencode_sdk_event_parser.py` added ordering regression (`ToolResultEvent` precedes `MessageFinalizedEvent`).
+  - `tests/agentic/test_external_agent_runner.py` added integration-style regression for same-payload OpenCode report result avoiding false completion-guard block.
+- Validation:
+  - `source activate.sh && pytest tests/agentic/test_completion_guard.py tests/llm/test_agent_runner.py tests/agentic/test_opencode_sdk_event_parser.py tests/agentic/test_external_agent_runner.py` passed (`123 passed`).
+  - `source activate.sh && ruff check backend/setta/agentic/completion_guard.py backend/setta/llm/agent_runner.py backend/setta/agentic/external_adapters/opencode_sdk.py tests/agentic/test_completion_guard.py tests/llm/test_agent_runner.py tests/agentic/test_external_agent_runner.py tests/agentic/test_opencode_sdk_event_parser.py` passed.

@@ -43,7 +43,10 @@ from setta.agentic.completion_guard import (
     apply_completion_guard,
     load_completion_guard_enabled,
 )
-from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
+from setta.agentic.completion_report import (
+    REPORT_COMPLETION_STATUS_TOOL_NAME,
+    is_report_completion_status_tool,
+)
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.run_outputs import build_run_outputs
 from setta.agentic.store import (
@@ -158,6 +161,10 @@ MAX_CHAT_TITLE_INPUT_CHARS = 2000
 _REPORT_COMPLETION_STATUS_TOOL_NAME = build_namespaced_tool_name(
     SETTA_MCP_SERVER_ID,
     REPORT_COMPLETION_STATUS_TOOL_NAME,
+)
+_COMPLETION_GUARD_TOOL_UNAVAILABLE_MESSAGE = (
+    "Completion guard is temporarily bypassed because "
+    "`setta__report_completion_status` is not available in this run's tool payload."
 )
 
 
@@ -418,6 +425,7 @@ class AgentRunner:
             )
         usage_summary: dict[str, int] | None = None
         cost_value: float | None = None
+        completion_guard_tool_unavailable_notified = False
         try:
             while True:
                 payload = self._build_llm_request_payload(
@@ -429,6 +437,44 @@ class AgentRunner:
                     agentic_scope=context.agentic_scope,
                     completion_guard_enabled=context.completion_guard_enabled,
                 )
+                turn_completion_guard_enabled = (
+                    self._resolve_turn_completion_guard_enabled(
+                        completion_guard_enabled=context.completion_guard_enabled,
+                        payload=payload,
+                    )
+                )
+                if (
+                    context.completion_guard_enabled
+                    and not turn_completion_guard_enabled
+                ):
+                    if not completion_guard_tool_unavailable_notified:
+                        await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
+                            _COMPLETION_GUARD_TOOL_UNAVAILABLE_MESSAGE,
+                            severity=SettaBackendLogEventSeverity.warning,
+                            project_config_id=context.project_config_id,
+                            logger=logger,
+                            context={"run_id": str(run.id)},
+                            share_session_id=self.share_session_id,
+                        )
+                        await self.websocket_msg_handler.broadcast_notification(
+                            SettaNotification(
+                                projectConfigId=context.project_config_id,
+                                type=SettaNotificationType.warning,
+                                message=_COMPLETION_GUARD_TOOL_UNAVAILABLE_MESSAGE,
+                                temporary=True,
+                            ),
+                            share_session_id=self.share_session_id,
+                        )
+                        completion_guard_tool_unavailable_notified = True
+                    payload = self._build_llm_request_payload(
+                        llm_config=context.llm_config,
+                        messages=messages,
+                        thinking=context.thinking,
+                        system_prompt=context.system_prompt,
+                        allowlist=context.allowlist,
+                        agentic_scope=context.agentic_scope,
+                        completion_guard_enabled=False,
+                    )
                 assistant_message = AssistantChatMessage(content=[])
                 tool_call_state = ManagedToolCallState()
                 tool_call_accumulator = ManagedToolCallAccumulator(
@@ -501,11 +547,12 @@ class AgentRunner:
                     tool_results = await self._execute_tool_calls(
                         context,
                         parsed_tool_calls,
+                        completion_guard_enabled=turn_completion_guard_enabled,
                     )
                     self._apply_completion_guard(
                         messages,
                         assistant_message,
-                        completion_guard_enabled=context.completion_guard_enabled,
+                        completion_guard_enabled=turn_completion_guard_enabled,
                         same_turn_tool_results=tool_results,
                     )
                     if assistant_message.tool_calls:
@@ -741,13 +788,19 @@ class AgentRunner:
         self,
         context: AgentRunContext,
         parsed_tool_calls: list[ToolCall],
+        *,
+        completion_guard_enabled: bool = True,
     ) -> list[ToolChatMessage]:
         if not parsed_tool_calls:
             return []
         allowed_calls: list[ToolCall] = []
         disallowed_calls: list[ToolCall] = []
         for call in parsed_tool_calls:
-            if self._is_tool_allowed(call.function.name, context.allowlist):
+            if self._is_tool_allowed(
+                call.function.name,
+                context.allowlist,
+                completion_guard_enabled=completion_guard_enabled,
+            ):
                 allowed_calls.append(call)
             else:
                 disallowed_calls.append(call)
@@ -957,6 +1010,11 @@ class AgentRunner:
             completion_guard_enabled
         ):
             tool_names.add(required_tool_name)
+            required_server_id, _ = split_namespaced_tool_name(required_tool_name)
+            if required_server_id is None:
+                continue
+            if required_server_id in self.config.mcpServers:
+                server_ids.add(required_server_id)
         return ToolAllowlist(
             tool_names=tool_names,
             tool_basenames=tool_basenames,
@@ -1656,11 +1714,20 @@ class AgentRunner:
         tool_names = [
             name
             for name in tool_names
-            if self._is_supported_completion_status_tool_name(name)
+            if self._is_supported_completion_status_tool_name(
+                name,
+                completion_guard_enabled=completion_guard_enabled,
+            )
         ]
         if allowlist is not None:
             tool_names = [
-                name for name in tool_names if self._is_tool_allowed(name, allowlist)
+                name
+                for name in tool_names
+                if self._is_tool_allowed(
+                    name,
+                    allowlist,
+                    completion_guard_enabled=completion_guard_enabled,
+                )
             ]
         tool_names = self._filter_tool_names_by_scope(
             tool_names,
@@ -1730,7 +1797,14 @@ class AgentRunner:
             return None
         return set(allowlist.server_ids) & server_ids
 
-    def _is_supported_completion_status_tool_name(self, tool_name: str) -> bool:
+    def _is_supported_completion_status_tool_name(
+        self,
+        tool_name: str,
+        *,
+        completion_guard_enabled: bool = True,
+    ) -> bool:
+        if not completion_guard_enabled:
+            return True
         normalized_tool_name = (
             tool_name[len("mcp__") :] if tool_name.startswith("mcp__") else tool_name
         )
@@ -1739,7 +1813,13 @@ class AgentRunner:
             return True
         return server_id == SETTA_MCP_SERVER_ID
 
-    def _is_tool_allowed(self, tool_name: str, allowlist: ToolAllowlist | None) -> bool:
+    def _is_tool_allowed(
+        self,
+        tool_name: str,
+        allowlist: ToolAllowlist | None,
+        *,
+        completion_guard_enabled: bool = True,
+    ) -> bool:
         if allowlist is None:
             return True
         normalized_tool_name = (
@@ -1747,8 +1827,11 @@ class AgentRunner:
         )
         server_id, base_name = split_namespaced_tool_name(normalized_tool_name)
         if (
-            base_name == REPORT_COMPLETION_STATUS_TOOL_NAME
-            and server_id != SETTA_MCP_SERVER_ID
+            completion_guard_enabled
+            and (
+                base_name == REPORT_COMPLETION_STATUS_TOOL_NAME
+                and server_id != SETTA_MCP_SERVER_ID
+            )
         ):
             return False
         if normalized_tool_name in allowlist.tool_names:
@@ -2570,6 +2653,35 @@ class AgentRunner:
             completion_guard_enabled=completion_guard_enabled,
             same_turn_tool_results=same_turn_tool_results,
         )
+
+    @staticmethod
+    def _payload_has_completion_report_tool(payload: dict[str, Any]) -> bool:
+        raw_tools = payload.get("tools")
+        if not isinstance(raw_tools, list):
+            return False
+        for raw_tool in raw_tools:
+            if not isinstance(raw_tool, dict):
+                continue
+            function_payload = raw_tool.get("function")
+            if not isinstance(function_payload, dict):
+                continue
+            tool_name = function_payload.get("name")
+            if not isinstance(tool_name, str):
+                continue
+            if is_report_completion_status_tool(tool_name):
+                return True
+        return False
+
+    @classmethod
+    def _resolve_turn_completion_guard_enabled(
+        cls,
+        *,
+        completion_guard_enabled: bool,
+        payload: dict[str, Any],
+    ) -> bool:
+        if not completion_guard_enabled:
+            return False
+        return cls._payload_has_completion_report_tool(payload)
 
     def _record_event(
         self, run: AgentRun, event_type: str, payload: dict[str, Any]

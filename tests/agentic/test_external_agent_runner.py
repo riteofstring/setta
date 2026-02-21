@@ -14,13 +14,14 @@ from setta.agentic.external_adapters.base import (
     ExternalAgentRunContext,
     ExternalAgentRunHandle,
 )
-from setta.agentic.completion_guard import MISSING_CHECKS_MESSAGE
+from setta.agentic.completion_guard import MISSING_REPORT_MESSAGE
 from setta.auth.cookies import auth_cookie_name
 from setta.agentic.external_adapters.claude_sdk import (
     ClaudeSdkAdapter,
     _ClaudeSdkEventParser,
     _PendingApproval,
 )
+from setta.agentic.external_adapters.opencode_sdk import _OpenCodeSdkEventParser
 from setta.agentic.external_agent_defaults import (
     DEFAULT_CLAUDE_ALLOW_RULES,
     build_default_claude_settings_block,
@@ -2043,7 +2044,7 @@ class TestExternalAgentRunnerQuestion:
             assert isinstance(assistant_content, list)
             last_text_block = assistant_content[0]
             assert isinstance(last_text_block, dict)
-            assert last_text_block.get("text") == MISSING_CHECKS_MESSAGE
+            assert last_text_block.get("text") == MISSING_REPORT_MESSAGE
 
     async def test_message_finalized_skips_completion_guard_when_disabled(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -2090,6 +2091,77 @@ class TestExternalAgentRunnerQuestion:
                     )
                 ),
             )
+
+            updated = load_agent_run(dbe, run.id)
+            assert updated is not None
+            outputs = updated.outputs or {}
+            messages = outputs.get("messages")
+            assert isinstance(messages, list)
+            assistant_messages = [
+                message
+                for message in messages
+                if isinstance(message, dict) and message.get("role") == "assistant"
+            ]
+            assert assistant_messages
+            assistant_content = assistant_messages[-1].get("content")
+            assert isinstance(assistant_content, list)
+            last_text_block = assistant_content[0]
+            assert isinstance(last_text_block, dict)
+            assert last_text_block.get("text") == "Task A is done."
+
+    async def test_opencode_same_payload_tool_result_prevents_false_guard_block(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="OpenCode SDK",
+                toolType=ExternalAgentToolType.opencode,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                inputs={
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "projectConfigId": str(project_config.id),
+                    "messages": [
+                        UserChatMessage(
+                            id="user-1",
+                            content=[MessageTextContent(text="Implement task A.")],
+                        ).model_dump(mode="json")
+                    ],
+                },
+            )
+            run = context.run
+            parser = _OpenCodeSdkEventParser()
+            payload = {
+                "id": "assistant-1",
+                "text": "Task A is done.",
+                "tool_call_id": "tool-report",
+                "tool_name": "setta__report_completion_status",
+                "result": {
+                    "structuredContent": {
+                        "completionIntent": True,
+                        "requiresVerification": True,
+                        "checkResults": [
+                            {
+                                "checkName": "pytest",
+                                "required": True,
+                                "status": "passed",
+                            }
+                        ],
+                    }
+                },
+            }
+
+            for event in parser.handle(payload):
+                if event.stream_chunk is None:
+                    continue
+                await runner._handle_stream_chunk(context, run, event.stream_chunk)
 
             updated = load_agent_run(dbe, run.id)
             assert updated is not None

@@ -10,9 +10,10 @@ from setta.database.db_objs import DBE
 from setta.types.chat_messages import AssistantChatMessage, MessageTextContent
 from setta.types.generated.settings_state import SettingsState
 
+MISSING_REPORT_MESSAGE = "I need to call `report_completion_status` before replying."
 MISSING_CHECKS_MESSAGE = (
-    "I cannot mark this complete yet. I need a structured completion report "
-    "that includes explicit error-check pass/fail results."
+    "I cannot mark this complete yet. I need explicit pass/fail results "
+    "for required verification checks."
 )
 FAILED_CHECKS_MESSAGE = (
     "I cannot mark this complete because required error checks are failing. "
@@ -31,8 +32,6 @@ def apply_completion_guard(
         return None
     assistant_text = _extract_assistant_text(assistant_message)
     has_user_visible_text = bool(assistant_text.strip())
-    if assistant_message.tool_calls and not has_user_visible_text:
-        return None
     if not has_user_visible_text:
         return None
     if _is_backend_error_text(assistant_text):
@@ -45,8 +44,8 @@ def apply_completion_guard(
         return None
     report = _resolve_latest_completion_report(scoped_messages)
     if report is None:
-        _replace_assistant_text(assistant_message, MISSING_CHECKS_MESSAGE)
-        return MISSING_CHECKS_MESSAGE
+        _replace_assistant_text(assistant_message, MISSING_REPORT_MESSAGE)
+        return MISSING_REPORT_MESSAGE
     if not report.completionIntent:
         return None
     if not report.requiresVerification:
