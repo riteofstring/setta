@@ -1565,6 +1565,12 @@ export async function route_get_setta_home_info(): Promise<
   return await get("/settaHomeInfo");
 }
 
+export async function route_get_mcp_server_runtime_status(
+  x: gt.GetMCPServerRuntimeStatusRequestInput,
+): Promise<ResponseDataAndStatus<gt.MCPServerRuntimeStatusResponse>> {
+  return await post("/mcpServerRuntimeStatus", x);
+}
+
 export async function route_reveal_path_in_os_file_explorer(
   x: gt.RevealPathInOsFileExplorerRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
