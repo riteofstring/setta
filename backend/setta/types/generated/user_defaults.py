@@ -248,7 +248,13 @@ class UserDefaultTaskBoardSectionImpl(UserDefaultBaseSectionImpl, extra="forbid"
         default_factory=lambda: SectionSize(width=720.0, height=430.0)
     )
     viewMode: TaskBoardViewMode = TaskBoardViewMode.kanban
-    columns: list[TaskBoardColumn] | None = None
+    columns: list[TaskBoardColumn] = Field(
+        default_factory=lambda: [
+            TaskBoardColumn(name="Todo", color="#3b82f6", sortIndex=0),
+            TaskBoardColumn(name="Doing", color="#a855f7", sortIndex=1),
+            TaskBoardColumn(name="Done", color="#10b981", sortIndex=2),
+        ]
+    )
     tasks: list[TaskBoardTask] = Field(default_factory=list)
 
 

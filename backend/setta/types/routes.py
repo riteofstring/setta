@@ -65,6 +65,7 @@ class Route(str, Enum):
     CREATE_FILE = "/createFile"
     DELETE_JSON_SOURCE_FILE_AND_VARIANT = "/deleteJsonSourceFileAndVariant"
     CHECK_IF_FILE_EXISTS = "/checkIfFileExists"
+    CHECK_WORKSPACE_INITIALIZED = "/checkWorkspaceInitialized"
     LOAD_ARTIFACT_FROM_DISK = "/loadArtifactFromDisk"
     GET_ATTACHMENT_DOWNLOAD_URL = "/getAttachmentDownloadUrl"
     GET_ATTACHMENT_DOWNLOAD_URLS = "/getAttachmentDownloadUrls"
