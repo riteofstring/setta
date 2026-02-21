@@ -41,6 +41,7 @@ import {
   mapDictationError,
   pickProviderRecorderMimeType,
 } from "./dictation";
+import { isProviderDictationUnsupportedError } from "./providerDictationSupport";
 import { useChatAttachmentManager } from "./useChatAttachmentManager";
 
 const SLASH_SUGGESTIONS_MAX_HEIGHT_PX = 208;
@@ -124,6 +125,7 @@ type ChatInputProps = {
   dictationMode?: "auto" | "browser" | "provider";
   onProviderDictationTranscribe?: (audioBlob: Blob) => Promise<string | null>;
   dictationEnabledByProvider?: boolean;
+  providerDictationLikelySupported?: boolean;
 };
 
 export const ChatInput = memo(function ChatInput({
@@ -146,6 +148,7 @@ export const ChatInput = memo(function ChatInput({
   dictationMode = "auto",
   onProviderDictationTranscribe,
   dictationEnabledByProvider = true,
+  providerDictationLikelySupported = true,
 }: ChatInputProps) {
   const [internalValue, setInternalValue] = useState("");
   const [slashFeedback, setSlashFeedback] = useState<string | null>(null);
@@ -577,10 +580,7 @@ export const ChatInput = memo(function ChatInput({
   }, [isDisabled, isDragActive]);
 
   const dictationSupported = Boolean(getSpeechRecognitionConstructor());
-  const canBrowserDictate = isDictationAvailable(
-    dictationEnabledByProvider,
-    dictationSupported,
-  );
+  const canBrowserDictate = isDictationAvailable(dictationSupported);
   const mediaRecorderSupported =
     typeof window !== "undefined" &&
     typeof window.MediaRecorder !== "undefined" &&
@@ -591,13 +591,19 @@ export const ChatInput = memo(function ChatInput({
       onProviderDictationTranscribe &&
       mediaRecorderSupported,
   );
+  const canAutoUseProviderDictation =
+    canProviderDictate && providerDictationLikelySupported;
   const canDictate =
     !isDisabled &&
-    (dictationMode === "provider"
-      ? canProviderDictate
-      : dictationMode === "browser"
-        ? canBrowserDictate
-        : canProviderDictate || canBrowserDictate);
+    (() => {
+      if (dictationMode === "provider") {
+        return canProviderDictate;
+      }
+      if (dictationMode === "browser") {
+        return canBrowserDictate;
+      }
+      return canAutoUseProviderDictation || canBrowserDictate;
+    })();
   const showPermissionControl = Boolean(
     executionControls && executionControlVisibility.permissionMode !== false,
   );
@@ -764,135 +770,147 @@ export const ChatInput = memo(function ChatInput({
     }
   }, [canBrowserDictate, insertTranscript]);
 
-  const maybeFallbackToBrowserDictation = useCallback((): boolean => {
-    if (dictationMode !== "auto" || !canBrowserDictate) {
-      return false;
-    }
-    startBrowserDictation();
-    return true;
-  }, [canBrowserDictate, dictationMode, startBrowserDictation]);
+  const maybeFallbackToBrowserDictation = useCallback(
+    (allowFallback: boolean): boolean => {
+      if (!allowFallback || !canBrowserDictate) {
+        return false;
+      }
+      startBrowserDictation();
+      return true;
+    },
+    [canBrowserDictate, startBrowserDictation],
+  );
 
-  const startProviderDictation = useCallback(async () => {
-    if (!canProviderDictate || !onProviderDictationTranscribe) {
-      if (maybeFallbackToBrowserDictation()) {
-        return;
-      }
-      setDictationState("error");
-      setDictationFeedback("Provider dictation is not available.");
-      return;
-    }
-    if (
-      typeof navigator === "undefined" ||
-      !navigator.mediaDevices?.getUserMedia ||
-      typeof MediaRecorder === "undefined"
-    ) {
-      if (maybeFallbackToBrowserDictation()) {
-        return;
-      }
-      setDictationState("error");
-      setDictationFeedback("Provider dictation is not available.");
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      providerStreamRef.current = stream;
-      const mimeType = pickProviderRecorderMimeType(
-        MediaRecorder.isTypeSupported?.bind(MediaRecorder),
-      );
-      let recorder: MediaRecorder;
-      try {
-        recorder = mimeType
-          ? new MediaRecorder(stream, { mimeType })
-          : new MediaRecorder(stream);
-      } catch {
-        cleanupProviderCapture();
-        if (maybeFallbackToBrowserDictation()) {
+  const startProviderDictation = useCallback(
+    async (allowBrowserFallback: boolean) => {
+      if (!canProviderDictate || !onProviderDictationTranscribe) {
+        if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
           return;
         }
         setDictationState("error");
         setDictationFeedback("Provider dictation is not available.");
         return;
       }
-      providerRecorderRef.current = recorder;
-      providerChunksRef.current = [];
-      dictationSourceRef.current = "provider";
-      recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          providerChunksRef.current.push(event.data);
-        }
-      };
-      recorder.onerror = () => {
-        cleanupProviderCapture();
-        setDictationState("error");
-        setDictationFeedback("Microphone input failed.");
-      };
-      recorder.onstop = () => {
-        providerRecorderRef.current = null;
-        dictationSourceRef.current = null;
-        const streamRef = providerStreamRef.current;
-        if (streamRef) {
-          for (const track of streamRef.getTracks()) {
-            track.stop();
-          }
-        }
-        providerStreamRef.current = null;
-        const chunks = providerChunksRef.current;
-        providerChunksRef.current = [];
-        let blobType = recorder.mimeType || mimeType || "audio/webm";
-        for (const chunk of chunks) {
-          if (chunk instanceof Blob && chunk.type) {
-            blobType = chunk.type;
-            break;
-          }
-        }
-        const blob = new Blob(chunks, { type: blobType });
-        if (blob.size === 0) {
-          setDictationState("error");
-          setDictationFeedback("No speech was detected.");
+      if (
+        typeof navigator === "undefined" ||
+        !navigator.mediaDevices?.getUserMedia ||
+        typeof MediaRecorder === "undefined"
+      ) {
+        if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
           return;
         }
-        setDictationState("transcribing");
-        setDictationFeedback("Transcribing...");
-        void (async () => {
-          try {
-            const transcript = await onProviderDictationTranscribe(blob);
-            const normalized = (transcript ?? "").trim();
-            if (!normalized) {
-              setDictationState("error");
-              setDictationFeedback("Provider transcription failed.");
-              return;
-            }
-            insertTranscript(`${normalized} `);
-            setDictationState("idle");
-            setDictationFeedback(null);
-          } catch (error) {
-            setDictationState("error");
-            setDictationFeedback(
-              error instanceof Error && error.message
-                ? error.message
-                : "Provider transcription failed.",
-            );
-          }
-        })();
-      };
-      setDictationState("listening");
-      setDictationFeedback("Listening...");
-      recorder.start();
-    } catch {
-      cleanupProviderCapture();
-      if (maybeFallbackToBrowserDictation()) {
+        setDictationState("error");
+        setDictationFeedback("Provider dictation is not available.");
         return;
       }
-      setDictationState("error");
-      setDictationFeedback("Microphone access was denied.");
-    }
-  }, [
-    canProviderDictate,
-    cleanupProviderCapture,
-    insertTranscript,
-    maybeFallbackToBrowserDictation,
-    onProviderDictationTranscribe,
-  ]);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        providerStreamRef.current = stream;
+        const mimeType = pickProviderRecorderMimeType(
+          MediaRecorder.isTypeSupported?.bind(MediaRecorder),
+        );
+        let recorder: MediaRecorder;
+        try {
+          recorder = mimeType
+            ? new MediaRecorder(stream, { mimeType })
+            : new MediaRecorder(stream);
+        } catch {
+          cleanupProviderCapture();
+          if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
+            return;
+          }
+          setDictationState("error");
+          setDictationFeedback("Provider dictation is not available.");
+          return;
+        }
+        providerRecorderRef.current = recorder;
+        providerChunksRef.current = [];
+        dictationSourceRef.current = "provider";
+        recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            providerChunksRef.current.push(event.data);
+          }
+        };
+        recorder.onerror = () => {
+          cleanupProviderCapture();
+          setDictationState("error");
+          setDictationFeedback("Microphone input failed.");
+        };
+        recorder.onstop = () => {
+          providerRecorderRef.current = null;
+          dictationSourceRef.current = null;
+          const streamRef = providerStreamRef.current;
+          if (streamRef) {
+            for (const track of streamRef.getTracks()) {
+              track.stop();
+            }
+          }
+          providerStreamRef.current = null;
+          const chunks = providerChunksRef.current;
+          providerChunksRef.current = [];
+          let blobType = recorder.mimeType || mimeType || "audio/webm";
+          for (const chunk of chunks) {
+            if (chunk instanceof Blob && chunk.type) {
+              blobType = chunk.type;
+              break;
+            }
+          }
+          const blob = new Blob(chunks, { type: blobType });
+          if (blob.size === 0) {
+            setDictationState("error");
+            setDictationFeedback("No speech was detected.");
+            return;
+          }
+          setDictationState("transcribing");
+          setDictationFeedback("Transcribing...");
+          void (async () => {
+            try {
+              const transcript = await onProviderDictationTranscribe(blob);
+              const normalized = (transcript ?? "").trim();
+              if (!normalized) {
+                setDictationState("error");
+                setDictationFeedback("Provider transcription failed.");
+                return;
+              }
+              insertTranscript(`${normalized} `);
+              setDictationState("idle");
+              setDictationFeedback(null);
+            } catch (error) {
+              if (
+                isProviderDictationUnsupportedError(error) &&
+                maybeFallbackToBrowserDictation(allowBrowserFallback)
+              ) {
+                return;
+              }
+              setDictationState("error");
+              setDictationFeedback(
+                error instanceof Error && error.message
+                  ? error.message
+                  : "Provider transcription failed.",
+              );
+            }
+          })();
+        };
+        setDictationState("listening");
+        setDictationFeedback("Listening...");
+        recorder.start();
+      } catch {
+        cleanupProviderCapture();
+        if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
+          return;
+        }
+        setDictationState("error");
+        setDictationFeedback("Microphone access was denied.");
+      }
+    },
+    [
+      canProviderDictate,
+      cleanupProviderCapture,
+      insertTranscript,
+      maybeFallbackToBrowserDictation,
+      onProviderDictationTranscribe,
+    ],
+  );
 
   const startDictation = useCallback(() => {
     if (!canDictate) {
@@ -901,21 +919,21 @@ export const ChatInput = memo(function ChatInput({
       return;
     }
     if (dictationMode === "provider") {
-      void startProviderDictation();
+      void startProviderDictation(false);
       return;
     }
     if (dictationMode === "browser") {
       startBrowserDictation();
       return;
     }
-    if (canProviderDictate) {
-      void startProviderDictation();
+    if (canAutoUseProviderDictation) {
+      void startProviderDictation(true);
       return;
     }
     startBrowserDictation();
   }, [
     canDictate,
-    canProviderDictate,
+    canAutoUseProviderDictation,
     dictationMode,
     startBrowserDictation,
     startProviderDictation,

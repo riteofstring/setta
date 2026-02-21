@@ -11,6 +11,7 @@ import {
   countLLMConfigs,
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
+import { isProviderDictationLikelySupported } from "components/Chat/providerDictationSupport";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
@@ -52,9 +53,14 @@ type ProjectAISettingsPopoverProps = {
   selectedLLMConfigId: string | null;
   engineType: EngineTypeEnum | null;
   noConfigsAvailable: boolean;
+  dictationMode: ProjectDictationMode;
+  providerDictationLikelySupported: boolean;
   onEngineChange: (value: string | null) => void;
   onLLMConfigChange: (value: string | null) => void;
+  onDictationModeChange: (value: ProjectDictationMode) => void;
 };
+
+type ProjectDictationMode = "auto" | "browser" | "provider";
 
 export function ProjectChat() {
   const chatId = useAIStore((state) => state.activeChatId);
@@ -83,6 +89,7 @@ export function ProjectChat() {
     externalAgentConfigs,
     engineConfigs,
     engineConfigsInitialLoadComplete,
+    projectChatDictationMode,
   } = useAIStore(
     (x) => ({
       apiKeys: x.apiKeys,
@@ -96,6 +103,7 @@ export function ProjectChat() {
       externalAgentConfigs: x.externalAgentConfigs,
       engineConfigs: x.engineConfigs,
       engineConfigsInitialLoadComplete: x.engineConfigsInitialLoadComplete,
+      projectChatDictationMode: x.projectChatDictationMode,
     }),
     _.isEqual,
   );
@@ -175,6 +183,16 @@ export function ProjectChat() {
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, effectiveEngineConfig]);
+  const selectedLLMConfig = useMemo(() => {
+    if (!selectedLLMConfigId || !allLLMConfigs) {
+      return null;
+    }
+    return allLLMConfigs.configs[selectedLLMConfigId] ?? null;
+  }, [allLLMConfigs, selectedLLMConfigId]);
+  const providerDictationLikelySupported = useMemo(
+    () => isProviderDictationLikelySupported(selectedLLMConfig),
+    [selectedLLMConfig],
+  );
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
   );
@@ -284,6 +302,12 @@ export function ProjectChat() {
       void updateEngineConfig({ config: nextConfig });
     },
     [effectiveEngineConfig],
+  );
+  const handleDictationModeChange = useCallback(
+    (value: ProjectDictationMode) => {
+      useAIStore.setState({ projectChatDictationMode: value });
+    },
+    [],
   );
 
   useEffect(() => {
@@ -427,8 +451,13 @@ export function ProjectChat() {
                   selectedLLMConfigId={selectedLLMConfigId}
                   engineType={engineType}
                   noConfigsAvailable={noConfigsAvailable}
+                  dictationMode={projectChatDictationMode}
+                  providerDictationLikelySupported={
+                    providerDictationLikelySupported
+                  }
                   onEngineChange={handleEngineChange}
                   onLLMConfigChange={handleLLMConfigChange}
+                  onDictationModeChange={handleDictationModeChange}
                 />
               </div>
             ) : null}
@@ -462,6 +491,10 @@ export function ProjectChat() {
               hasLLMConfig={hasLLMConfig}
               externalEngineAvailable={externalEngineAvailable}
               noLLMConfigsAvailable={noConfigsAvailable}
+              dictationMode={projectChatDictationMode}
+              providerDictationLikelySupported={
+                providerDictationLikelySupported
+              }
               setChatId={setChatId}
               onPermissionModeChange={setRuntimePermissionMode}
             />
@@ -558,8 +591,11 @@ function ProjectAISettingsPopover({
   selectedLLMConfigId,
   engineType,
   noConfigsAvailable,
+  dictationMode,
+  providerDictationLikelySupported,
   onEngineChange,
   onLLMConfigChange,
+  onDictationModeChange,
 }: ProjectAISettingsPopoverProps) {
   const showLLMConfig = engineType === EngineTypeEnum.setta_llm;
   const llmPlaceholder = noConfigsAvailable
@@ -568,6 +604,9 @@ function ProjectAISettingsPopover({
   const llmBg = selectedLLMConfigId
     ? ""
     : "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500";
+  const providerModeAvailable = showLLMConfig;
+  const autoFallsBackToBrowser =
+    showLLMConfig && !providerDictationLikelySupported;
 
   return (
     <StandardPopover
@@ -619,6 +658,34 @@ function ProjectAISettingsPopover({
               />
             </div>
           ) : null}
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+              Microphone Source
+            </span>
+            <select
+              value={dictationMode}
+              onChange={(event) =>
+                onDictationModeChange(event.target.value as ProjectDictationMode)
+              }
+              className="h-9 w-full rounded-md border border-setta-200 bg-white px-2 text-xs text-setta-700 shadow-sm transition-colors hover:border-setta-300 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200 dark:hover:border-setta-500 dark:focus:border-blue-500"
+              aria-label="Microphone source"
+            >
+              <option value="auto">Auto (provider, then browser/OS)</option>
+              <option value="provider" disabled={!providerModeAvailable}>
+                Always provider
+              </option>
+              <option value="browser">Always browser / OS</option>
+            </select>
+            <p className="text-[10px] text-setta-500 dark:text-setta-400">
+              Provider mode uses the current LLM Config.
+            </p>
+            {dictationMode === "auto" && autoFallsBackToBrowser ? (
+              <p className="text-[10px] text-amber-700 dark:text-amber-300">
+                Auto currently prefers browser/OS because the selected model
+                does not appear transcription-capable.
+              </p>
+            ) : null}
+          </div>
         </div>
       </div>
     </StandardPopover>
