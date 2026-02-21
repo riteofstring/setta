@@ -659,6 +659,25 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).not.toContain('class="chat-typing-inline"');
   });
 
+  it("shows the inline typing indicator when waiting before assistant output starts", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-user-pending",
+        role: ChatRoleEnum.user,
+        content: [createMessageTextContent({ text: "Run a command" })],
+        attachments: [],
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={true} />,
+    );
+
+    expect(markup).toContain('data-chat-assistant-typing-indicator="true"');
+    expect(markup).toContain('class="chat-typing-inline"');
+    expect(markup).not.toContain('data-chat-assistant-bubble="true"');
+  });
+
   it("does not render fully empty assistant messages after streaming completes", () => {
     const messages: BaseChatMessageUnion[] = [
       {

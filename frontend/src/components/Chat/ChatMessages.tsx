@@ -426,7 +426,9 @@ function useIdleStreamSpinner(
   activityKey: string,
   delayMs: number,
 ): boolean {
-  const [showSpinner, setShowSpinner] = useState(false);
+  const [showSpinner, setShowSpinner] = useState(
+    shouldTrack && delayMs <= 0,
+  );
   const lastActivityRef = useRef<number>(Date.now());
 
   useEffect(() => {
@@ -435,11 +437,14 @@ function useIdleStreamSpinner(
       return;
     }
     lastActivityRef.current = Date.now();
-    setShowSpinner(false);
-  }, [activityKey, shouldTrack]);
+    setShowSpinner(delayMs <= 0);
+  }, [activityKey, delayMs, shouldTrack]);
 
   useEffect(() => {
     if (!shouldTrack) {
+      return undefined;
+    }
+    if (delayMs <= 0) {
       return undefined;
     }
     const timer = window.setTimeout(() => {
@@ -2682,6 +2687,13 @@ const ChatMessage = memo(function ChatMessage({
       !hasActionContent &&
       !hasToolCallContent
     ) {
+      if (showTypingIndicator) {
+        return (
+          <AssistantMessageGroup messageId={message.id}>
+            <AssistantTypingIndicator visible={true} />
+          </AssistantMessageGroup>
+        );
+      }
       return null;
     }
     return (
