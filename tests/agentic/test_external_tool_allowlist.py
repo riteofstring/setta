@@ -23,7 +23,6 @@ class TestExternalToolAllowlist:
         assert not allowlist.allow_all
         assert list(allowlist.tool_names) == [
             "getProjectState",
-            "report_completion_status",
             "runTool",
             "set_agentic_context",
         ]
@@ -31,21 +30,6 @@ class TestExternalToolAllowlist:
     def test_accepts_namespaced_tool_names(self) -> None:
         allowlist, error = build_external_tool_allowlist(
             ["setta__getProjectState", "mcp__setta__runTool"]
-        )
-        assert error is None
-        assert allowlist is not None
-        assert not allowlist.allow_all
-        assert list(allowlist.tool_names) == [
-            "getProjectState",
-            "report_completion_status",
-            "runTool",
-            "set_agentic_context",
-        ]
-
-    def test_skips_required_completion_report_tool_when_guard_disabled(self) -> None:
-        allowlist, error = build_external_tool_allowlist(
-            ["setta__getProjectState", "mcp__setta__runTool"],
-            completion_guard_enabled=False,
         )
         assert error is None
         assert allowlist is not None

@@ -8,7 +8,6 @@ Use these first for day-to-day work.
 
 - `./start.sh`
   - Starts the full dev stack (Vite + backend) using worktree-aware ports.
-  - Prefers worktree-derived ports and auto-selects the next free ports when collisions occur.
   - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/setta_files_dev`.
   - Accepts runtime path flags: `--profile`, `--setta-home`, `--setta-files-root`, `--setta-files-location`, `--runtime-root`.
   - Wrapper over `scripts/run-dev-instance.sh`.
@@ -17,7 +16,6 @@ Use these first for day-to-day work.
   - Accepts the same runtime path flags as `start.sh`.
 - `./ai.sh`
   - Starts dev + Chrome DevTools MCP helpers (worktree-aware ports).
-  - Prefers worktree-derived backend/frontend/CDP ports and auto-selects free ports when collisions occur.
   - Uses the same default dev paths as `start.sh`.
   - Accepts the same runtime path flags as `start.sh`.
   - Wrapper over `scripts/ai.sh`.
@@ -65,15 +63,13 @@ Use these first for day-to-day work.
   - One-stop local setup (uv sync + frontend deps + sidecars).
 - `./init_env.sh`
   - Creates/updates the Python environment.
-  - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync`.
 
 ## Layer 2: Repo `scripts/` helpers
 
 These are used by the top-level wrappers or for advanced workflows.
 
 - `./scripts/run-dev-instance.sh`
-  - Launches dev server with worktree-based preferred port offsets.
-  - Automatically finds the next free backend/frontend ports if the preferred ports are already in use.
+  - Launches dev server with worktree-based port offsets.
   - Modes: `start`, `startr`, `reset`.
   - Defaults runtime paths to `SETTA_HOME=~/.setta-development` and `<worktree>/setta_files_dev`.
   - Supports runtime identity flags: `--profile`, `--setta-home`, `--setta-files-root`, `--setta-files-location`, `--runtime-root`.

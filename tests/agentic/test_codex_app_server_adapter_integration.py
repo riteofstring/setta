@@ -207,10 +207,6 @@ class TestCodexAppServerAdapterIntegration:
                 defaultProjectConfigId=project_config.id,
             )
         )
-        dbe.write_json(
-            dbe.settings,
-            {"backend": {"completionGuardEnabled": False}},
-        )
         websocket_manager = WebsocketManager()
         frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
         registry = ExternalAgentAdapterRegistry(adapters=[CodexAppServerAdapter()])

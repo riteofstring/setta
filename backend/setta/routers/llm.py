@@ -42,7 +42,7 @@ async def route_get_llm_api_keys(
 ) -> APIKeys:
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow reading LLM API keys.")
-    return ctx.state.agent_runner.api_keys
+    return ctx.state.agent_runner.raw_env_vars
 
 
 @router.post(Route.LLM_API_KEYS)
@@ -76,7 +76,7 @@ async def route_set_llm_api_keys(
             severity=SettaBackendLogEventSeverity.info,
         )
         ctx.state.agent_runner.update_api_keys(env_vars)
-        return ctx.state.agent_runner.api_keys
+        return ctx.state.agent_runner.raw_env_vars
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail="Failed to save LLM API keys"

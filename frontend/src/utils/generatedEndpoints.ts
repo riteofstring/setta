@@ -163,12 +163,6 @@ export async function route_check_if_file_exists(
   return await post("/checkIfFileExists", x);
 }
 
-export async function route_check_workspace_initialized(
-  x: gt.CheckWorkspaceInitializedRequestInput,
-): Promise<ResponseDataAndStatus<boolean>> {
-  return await post("/checkWorkspaceInitialized", x);
-}
-
 export async function route_get_file_browser_root(): Promise<
   ResponseDataAndStatus<gt.GetFileBrowserRootResponse>
 > {
@@ -425,28 +419,10 @@ export async function route_get_llm_response(
   return await post("/getLLMResponse", x);
 }
 
-export async function route_start_transcription_session(
-  x: gt.StartTranscriptionSessionRequestInput,
-): Promise<ResponseDataAndStatus<gt.StartTranscriptionSessionResponse>> {
-  return await post("/startTranscriptionSession", x);
-}
-
-export async function route_append_transcription_audio(
-  x: gt.AppendTranscriptionAudioRequestInput,
-): Promise<ResponseDataAndStatus<gt.TranscriptionSessionDeltaResponse>> {
-  return await post("/appendTranscriptionAudio", x);
-}
-
-export async function route_stop_transcription_session(
-  x: gt.StopTranscriptionSessionRequestInput,
-): Promise<ResponseDataAndStatus<gt.TranscriptionSessionDeltaResponse>> {
-  return await post("/stopTranscriptionSession", x);
-}
-
-export async function route_cancel_transcription_session(
-  x: gt.CancelTranscriptionSessionRequestInput,
-): Promise<ResponseDataAndStatus<gt.CancelTranscriptionSessionResponse>> {
-  return await post("/cancelTranscriptionSession", x);
+export async function route_transcribe_chat_audio(
+  form: FormData,
+): Promise<ResponseDataAndStatus<gt.TranscribeChatAudioResponse>> {
+  return await post("/transcribeChatAudio", form);
 }
 
 export async function route_stop_llm_chat(
@@ -671,30 +647,6 @@ export async function route_delete_engine_config(
   x: gt.DeleteEngineConfigRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deleteEngineConfig", x);
-}
-
-export async function route_get_transcription_profiles(): Promise<
-  ResponseDataAndStatus<Array<gt.TranscriptionProfile>>
-> {
-  return await get("/getTranscriptionProfiles");
-}
-
-export async function route_create_transcription_profile(
-  x: gt.CreateTranscriptionProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
-  return await post("/createTranscriptionProfile", x);
-}
-
-export async function route_update_transcription_profile(
-  x: gt.UpdateTranscriptionProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
-  return await post("/updateTranscriptionProfile", x);
-}
-
-export async function route_delete_transcription_profile(
-  x: gt.DeleteTranscriptionProfileRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteTranscriptionProfile", x);
 }
 
 export async function route_stream_app_spec(
@@ -1611,12 +1563,6 @@ export async function route_get_setta_home_info(): Promise<
   ResponseDataAndStatus<gt.SettaHomeInfoResponse>
 > {
   return await get("/settaHomeInfo");
-}
-
-export async function route_get_mcp_server_runtime_status(
-  x: gt.GetMCPServerRuntimeStatusRequestInput,
-): Promise<ResponseDataAndStatus<gt.MCPServerRuntimeStatusResponse>> {
-  return await post("/mcpServerRuntimeStatus", x);
 }
 
 export async function route_reveal_path_in_os_file_explorer(

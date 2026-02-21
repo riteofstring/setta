@@ -39,14 +39,7 @@ from setta.agentic.chat_view import (
     build_chat_state_from_run,
     get_run_last_updated,
 )
-from setta.agentic.completion_guard import (
-    apply_completion_guard,
-    load_completion_guard_enabled,
-)
-from setta.agentic.completion_report import (
-    REPORT_COMPLETION_STATUS_TOOL_NAME,
-    is_report_completion_status_tool,
-)
+from setta.agentic.completion_guard import apply_completion_guard
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.run_outputs import build_run_outputs
 from setta.agentic.store import (
@@ -158,25 +151,6 @@ ANTHROPIC_TOOL_SEARCH_BETA_HEADER = "advanced-tool-use-2025-11-20"
 DEFAULT_ANTHROPIC_THINKING_BUDGET = 1024
 MAX_AGENTIC_SECTION_SUMMARY_OUTPUT_CHARS = 1200
 MAX_CHAT_TITLE_INPUT_CHARS = 2000
-_REPORT_COMPLETION_STATUS_TOOL_NAME = build_namespaced_tool_name(
-    SETTA_MCP_SERVER_ID,
-    REPORT_COMPLETION_STATUS_TOOL_NAME,
-)
-_COMPLETION_GUARD_TOOL_REQUIRED_MESSAGE = (
-    "Completion guard is enabled, but `setta__report_completion_status` is "
-    "not available in this run's tool payload. Ensure the Setta MCP server and "
-    "tool allowlist include this tool."
-)
-
-
-class CompletionGuardToolUnavailableError(RuntimeError):
-    pass
-
-
-def _required_internal_tool_names(completion_guard_enabled: bool) -> tuple[str, ...]:
-    if not completion_guard_enabled:
-        return ()
-    return (_REPORT_COMPLETION_STATUS_TOOL_NAME,)
 
 
 @dataclass(frozen=True)
@@ -204,7 +178,6 @@ class AgentRunContext:
     context_payload: AgenticContextPayload | None
     emit_stream: bool
     emit_ai_follow: bool
-    completion_guard_enabled: bool = True
 
 
 @dataclass
@@ -259,6 +232,10 @@ class AgentRunner:
     @property
     def disabled(self) -> bool:
         return False
+
+    @property
+    def raw_env_vars(self) -> dict[str, str]:
+        return dict(self._raw_env_vars)
 
     def update_config(self, config: AllLLMConfigs) -> None:
         self.config = config
@@ -439,7 +416,6 @@ class AgentRunner:
                     system_prompt=context.system_prompt,
                     allowlist=context.allowlist,
                     agentic_scope=context.agentic_scope,
-                    completion_guard_enabled=context.completion_guard_enabled,
                 )
                 assistant_message = AssistantChatMessage(content=[])
                 tool_call_state = ManagedToolCallState()
@@ -462,13 +438,6 @@ class AgentRunner:
                         ],
                         context,
                     )
-                    if (
-                        context.completion_guard_enabled
-                        and not self._payload_has_completion_report_tool(payload)
-                    ):
-                        raise CompletionGuardToolUnavailableError(
-                            _COMPLETION_GUARD_TOOL_REQUIRED_MESSAGE
-                        )
                     stream_result = await litellm.acompletion(**payload, stream=True)
                     if not isinstance(stream_result, CustomStreamWrapper):
                         raise TypeError(
@@ -520,14 +489,8 @@ class AgentRunner:
                     tool_results = await self._execute_tool_calls(
                         context,
                         parsed_tool_calls,
-                        completion_guard_enabled=context.completion_guard_enabled,
                     )
-                    self._apply_completion_guard(
-                        messages,
-                        assistant_message,
-                        completion_guard_enabled=context.completion_guard_enabled,
-                        same_turn_tool_results=tool_results,
-                    )
+                    self._apply_completion_guard(messages, assistant_message)
                     if assistant_message.tool_calls:
                         await self._apply_actions(
                             [
@@ -575,6 +538,7 @@ class AgentRunner:
                             context,
                             parsed_tool_calls,
                         )
+                        self._apply_completion_guard(messages, assistant_message)
                         messages.append(assistant_message)
                         await self._apply_actions(
                             [
@@ -620,11 +584,7 @@ class AgentRunner:
                         self._record_event(run, "run_cancelled", {})
                     raise
                 except Exception as exc:
-                    user_facing_message = (
-                        str(exc).strip()
-                        if isinstance(exc, CompletionGuardToolUnavailableError)
-                        else get_user_facing_llm_error_message(exc)
-                    )
+                    user_facing_message = get_user_facing_llm_error_message(exc)
                     chat_error_text = (
                         user_facing_message
                         if user_facing_message
@@ -659,6 +619,7 @@ class AgentRunner:
                             context,
                             parsed_tool_calls,
                         )
+                        self._apply_completion_guard(messages, assistant_message)
                         messages.append(assistant_message)
                         await self._apply_actions(
                             [
@@ -765,19 +726,13 @@ class AgentRunner:
         self,
         context: AgentRunContext,
         parsed_tool_calls: list[ToolCall],
-        *,
-        completion_guard_enabled: bool = True,
     ) -> list[ToolChatMessage]:
         if not parsed_tool_calls:
             return []
         allowed_calls: list[ToolCall] = []
         disallowed_calls: list[ToolCall] = []
         for call in parsed_tool_calls:
-            if self._is_tool_allowed(
-                call.function.name,
-                context.allowlist,
-                completion_guard_enabled=completion_guard_enabled,
-            ):
+            if self._is_tool_allowed(call.function.name, context.allowlist):
                 allowed_calls.append(call)
             else:
                 disallowed_calls.append(call)
@@ -892,7 +847,6 @@ class AgentRunner:
             thinking = raw_thinking
         payload_inputs = dict(inputs or {})
         engine_config_id, llm_config = self._resolve_engine_llm_config(profile)
-        completion_guard_enabled = load_completion_guard_enabled(self.dbe)
         if "engineConfigId" in payload_inputs:
             raw_engine_config_id = payload_inputs["engineConfigId"]
             if not isinstance(raw_engine_config_id, str):
@@ -901,15 +855,8 @@ class AgentRunner:
                 raise KeyError("engineConfigId does not match resolved engine config")
         payload_inputs["engineConfigId"] = str(engine_config_id)
         run = create_agent_run(profile_id=profile.id, inputs=payload_inputs)
-        system_prompt = self._build_system_prompt(
-            profile,
-            project_config_id,
-            completion_guard_enabled=completion_guard_enabled,
-        )
-        allowlist = self._normalize_tool_allowlist(
-            profile,
-            completion_guard_enabled=completion_guard_enabled,
-        )
+        system_prompt = self._build_system_prompt(profile, project_config_id)
+        allowlist = self._normalize_tool_allowlist(profile)
         project_state = convert_backend_to_single_config(
             project_state_backend, project_config_id
         )
@@ -953,15 +900,9 @@ class AgentRunner:
             context_payload=None,
             emit_stream=emit_stream,
             emit_ai_follow=emit_ai_follow,
-            completion_guard_enabled=completion_guard_enabled,
         )
 
-    def _normalize_tool_allowlist(
-        self,
-        profile: AgentProfile,
-        *,
-        completion_guard_enabled: bool = True,
-    ) -> ToolAllowlist | None:
+    def _normalize_tool_allowlist(self, profile: AgentProfile) -> ToolAllowlist | None:
         if not profile.toolAllowlist:
             return None
         tool_names: set[str] = set()
@@ -983,15 +924,6 @@ class AgentRunner:
                 server_ids.add(normalized)
             else:
                 tool_basenames.add(normalized)
-        for required_tool_name in _required_internal_tool_names(
-            completion_guard_enabled
-        ):
-            tool_names.add(required_tool_name)
-            required_server_id, _ = split_namespaced_tool_name(required_tool_name)
-            if required_server_id is None:
-                continue
-            if required_server_id in self.config.mcpServers:
-                server_ids.add(required_server_id)
         return ToolAllowlist(
             tool_names=tool_names,
             tool_basenames=tool_basenames,
@@ -1013,15 +945,12 @@ class AgentRunner:
         self,
         profile: AgentProfile,
         project_config_id: ID,
-        *,
-        completion_guard_enabled: bool = True,
     ) -> str:
         return build_agent_system_prompt(
             base_prompt=self.system_prompt,
             profile=profile,
             project_config_id=project_config_id,
             dbe=self.dbe,
-            completion_guard_enabled=completion_guard_enabled,
         )
 
     def _record_snapshot(self, run: AgentRun, project_config_id: ID) -> None:
@@ -1558,7 +1487,6 @@ class AgentRunner:
         system_prompt: str,
         allowlist: ToolAllowlist | None,
         agentic_scope: AgenticScope,
-        completion_guard_enabled: bool = True,
     ) -> dict[str, Any]:
         system_message = SystemChatMessage(
             content=[MessageTextContent(text=system_prompt)],
@@ -1595,7 +1523,6 @@ class AgentRunner:
             allowlist=allowlist,
             use_tool_search=use_tool_search,
             agentic_scope=agentic_scope,
-            completion_guard_enabled=completion_guard_enabled,
         )
         if tools:
             request["tools"] = tools
@@ -1643,7 +1570,6 @@ class AgentRunner:
         allowlist: ToolAllowlist | None,
         use_tool_search: bool,
         agentic_scope: AgenticScope,
-        completion_guard_enabled: bool = True,
     ) -> list[ChatCompletionToolParam]:
         if not server_ids:
             return []
@@ -1661,7 +1587,6 @@ class AgentRunner:
             include_search_tool=use_tool_search,
             allowlist=allowlist,
             agentic_scope=agentic_scope,
-            completion_guard_enabled=completion_guard_enabled,
         )
         return tools
 
@@ -1673,7 +1598,6 @@ class AgentRunner:
         include_search_tool: bool,
         allowlist: ToolAllowlist | None,
         agentic_scope: AgenticScope,
-        completion_guard_enabled: bool = True,
     ) -> list[ChatCompletionToolParam]:
         init_tools = self.mcp_client.init_tool_definitions_for_servers(server_ids)
         discoverable_tools = self.mcp_client.discoverable_tool_definitions_for_servers(
@@ -1688,29 +1612,11 @@ class AgentRunner:
         tool_names = sorted(combined.keys())
         if not include_search_tool:
             tool_names = [name for name in tool_names if name != self._search_tool_name]
-        tool_names = [
-            name
-            for name in tool_names
-            if self._is_supported_completion_status_tool_name(
-                name,
-                completion_guard_enabled=completion_guard_enabled,
-            )
-        ]
         if allowlist is not None:
             tool_names = [
-                name
-                for name in tool_names
-                if self._is_tool_allowed(
-                    name,
-                    allowlist,
-                    completion_guard_enabled=completion_guard_enabled,
-                )
+                name for name in tool_names if self._is_tool_allowed(name, allowlist)
             ]
-        tool_names = self._filter_tool_names_by_scope(
-            tool_names,
-            agentic_scope,
-            completion_guard_enabled=completion_guard_enabled,
-        )
+        tool_names = self._filter_tool_names_by_scope(tool_names, agentic_scope)
         if not tool_names:
             return []
         payload: list[ChatCompletionToolParam] = []
@@ -1730,24 +1636,15 @@ class AgentRunner:
         self,
         tool_names: list[str],
         agentic_scope: AgenticScope,
-        *,
-        completion_guard_enabled: bool = True,
     ) -> list[str]:
         if not tool_names:
             return tool_names
         has_structural = agentic_scope.structural_allowed
         has_read = bool(agentic_scope.effective_read_section_ids())
         has_write = bool(agentic_scope.write_section_ids)
-        required_internal_tool_names = _required_internal_tool_names(
-            completion_guard_enabled
-        )
         filtered: list[str] = []
         for name in tool_names:
             if not is_setta_tool_name(name):
-                filtered.append(name)
-                continue
-            normalized_name = name[len("mcp__") :] if name.startswith("mcp__") else name
-            if normalized_name in required_internal_tool_names:
                 filtered.append(name)
                 continue
             annotations = self.mcp_client.tool_annotations_by_name.get(name)
@@ -1774,42 +1671,12 @@ class AgentRunner:
             return None
         return set(allowlist.server_ids) & server_ids
 
-    def _is_supported_completion_status_tool_name(
-        self,
-        tool_name: str,
-        *,
-        completion_guard_enabled: bool = True,
-    ) -> bool:
-        if not completion_guard_enabled:
-            return True
-        normalized_tool_name = (
-            tool_name[len("mcp__") :] if tool_name.startswith("mcp__") else tool_name
-        )
-        server_id, base_name = split_namespaced_tool_name(normalized_tool_name)
-        if base_name != REPORT_COMPLETION_STATUS_TOOL_NAME:
-            return True
-        return server_id == SETTA_MCP_SERVER_ID
-
-    def _is_tool_allowed(
-        self,
-        tool_name: str,
-        allowlist: ToolAllowlist | None,
-        *,
-        completion_guard_enabled: bool = True,
-    ) -> bool:
-        normalized_tool_name = (
-            tool_name[len("mcp__") :] if tool_name.startswith("mcp__") else tool_name
-        )
-        server_id, base_name = split_namespaced_tool_name(normalized_tool_name)
-        if completion_guard_enabled and (
-            base_name == REPORT_COMPLETION_STATUS_TOOL_NAME
-            and server_id != SETTA_MCP_SERVER_ID
-        ):
-            return False
+    def _is_tool_allowed(self, tool_name: str, allowlist: ToolAllowlist | None) -> bool:
         if allowlist is None:
             return True
-        if normalized_tool_name in allowlist.tool_names:
+        if tool_name in allowlist.tool_names:
             return True
+        server_id, base_name = split_namespaced_tool_name(tool_name)
         if base_name in allowlist.tool_basenames:
             return True
         if server_id and server_id in allowlist.server_ids:
@@ -2617,45 +2484,8 @@ class AgentRunner:
     def _apply_completion_guard(
         prior_messages: list[BaseChatMessageUnion],
         assistant_message: AssistantChatMessage,
-        *,
-        completion_guard_enabled: bool,
-        same_turn_tool_results: list[ToolChatMessage] | None = None,
     ) -> None:
-        apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=completion_guard_enabled,
-            same_turn_tool_results=same_turn_tool_results,
-        )
-
-    @staticmethod
-    def _payload_has_completion_report_tool(payload: dict[str, Any]) -> bool:
-        raw_tools = payload.get("tools")
-        if not isinstance(raw_tools, list):
-            return False
-        for raw_tool in raw_tools:
-            if not isinstance(raw_tool, dict):
-                continue
-            function_payload = raw_tool.get("function")
-            if not isinstance(function_payload, dict):
-                continue
-            tool_name = function_payload.get("name")
-            if not isinstance(tool_name, str):
-                continue
-            if is_report_completion_status_tool(tool_name):
-                return True
-        return False
-
-    @classmethod
-    def _resolve_turn_completion_guard_enabled(
-        cls,
-        *,
-        completion_guard_enabled: bool,
-        payload: dict[str, Any],
-    ) -> bool:
-        if not completion_guard_enabled:
-            return False
-        return cls._payload_has_completion_report_tool(payload)
+        apply_completion_guard(prior_messages, assistant_message)
 
     def _record_event(
         self, run: AgentRun, event_type: str, payload: dict[str, Any]
