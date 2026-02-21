@@ -89,3 +89,23 @@
   - Backend pytest targeted: pass (`1 + 4 + 19` selected tests across touched suites).
   - Frontend Vitest targeted suites: pass (`16 passed`).
   - Playwright targeted skills/MCP viewer scenarios: pass (`3 passed`).
+
+## 2026-02-19 09:34:56 PST
+
+- Implemented follow-up review fixes (excluding generated UUID churn, without backward-compatibility additions):
+  - External MCP error parsing now treats only explicit error fields (`lastError`/`error`, including nested objects) as failures; informational `message` text no longer forces `error`.
+  - External MCP status capture from raw stream payloads now includes Codex in addition to Claude, so delayed Codex status payloads are still applied.
+  - Terminal external-run paths now avoid redundant persistence writes by snapshotting status into the in-flight run and saving once per terminal transition.
+  - Missing-env MCP connection failures now stop retry-loop churn (no retrying/sleep loop for static env-var misconfiguration).
+  - Skills viewer now recognizes multi-token Codex prompts more reliably (`Use: $a, then $b.`) and normalizes trailing punctuation on tokens.
+  - MCP row detail now surfaces missing env-var guidance alongside last error text when both are present.
+- Added/updated automated coverage:
+  - Backend tests for message-only status rows remaining `unknown`, nested error object extraction, Codex raw status capture, and snapshot persist-without-immediate-save behavior.
+  - MCP client test asserting missing-env failures do not transition to retrying or sleep-loop retries.
+  - Frontend Vitest coverage for multi-token Codex activation in one prompt line.
+  - Playwright e2e updates for multi-token Codex active badges and missing-env MCP detail rendering.
+- Verification run:
+  - Backend pytest targeted suites: pass (`94 passed`).
+  - Frontend Vitest targeted suite: pass (`14 passed`).
+  - Playwright targeted Skills/MCP viewer suite: pass (`15 passed`).
+  - CDP visual verification: pass (Project AI Chat -> View Skills and MCP, runtime row/detail rendering verified).

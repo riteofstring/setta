@@ -149,13 +149,14 @@ function buildMcpServerDetail(server: McpServerDetailEntry): string {
   if (server.state === "connected") {
     return `${server.transport} · ${server.endpoint} · tools ${server.toolCount}`;
   }
-  if (server.lastError) {
-    return `${server.transport} · ${server.endpoint} · ${server.lastError}`;
-  }
+  const detailParts = [server.transport, server.endpoint];
   if (server.missingEnvVar) {
-    return `${server.transport} · ${server.endpoint} · missing ${server.missingEnvVar}`;
+    detailParts.push(`missing ${server.missingEnvVar}`);
   }
-  return `${server.transport} · ${server.endpoint}`;
+  if (server.lastError) {
+    detailParts.push(server.lastError);
+  }
+  return detailParts.join(" · ");
 }
 
 export function ProjectChatSkillsMcpViewer({

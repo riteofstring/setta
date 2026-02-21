@@ -432,7 +432,7 @@ test("project ai chat does not mark skills active for non-skill tool names", asy
   await expect(readmeSkillButton.getByText("Active")).toHaveCount(0);
 });
 
-test("project ai chat marks codex skills active from $skill tokens", async ({
+test("project ai chat marks codex skills active from multi-token prompts", async ({
   page,
 }) => {
   const externalEngineConfigId = "engine-codex-token";
@@ -515,7 +515,9 @@ test("project ai chat marks codex skills active from $skill tokens", async ({
               {
                 id: "user-1",
                 role: "user",
-                content: [{ type: "text", text: "please use $readme" }],
+                content: [
+                  { type: "text", text: "Use: $readme, then $ui-layout." },
+                ],
                 attachments: [],
               },
             ],
@@ -539,7 +541,9 @@ test("project ai chat marks codex skills active from $skill tokens", async ({
           {
             id: "user-1",
             role: "user",
-            content: [{ type: "text", text: "please use $readme" }],
+            content: [
+              { type: "text", text: "Use: $readme, then $ui-layout." },
+            ],
             attachments: [],
           },
           {
@@ -568,6 +572,14 @@ test("project ai chat marks codex skills active from $skill tokens", async ({
           rootPath: "/workspace/.agents/skills",
           relativePath: "readme",
           description: "Reader skill",
+        },
+        {
+          skillId: "workspace_agents_skills::ui-layout",
+          name: "ui-layout",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "ui-layout",
+          description: "Layout skill",
         },
       ]),
     });
@@ -609,6 +621,10 @@ test("project ai chat marks codex skills active from $skill tokens", async ({
   await expect(readmeSkillButton).toBeVisible();
   await expect(readmeSkillButton.getByText("Applicable")).toBeVisible();
   await expect(readmeSkillButton.getByText("Active")).toBeVisible();
+  const uiLayoutSkillButton = page.getByRole("button", { name: /ui-layout/i });
+  await expect(uiLayoutSkillButton).toBeVisible();
+  await expect(uiLayoutSkillButton.getByText("Applicable")).toBeVisible();
+  await expect(uiLayoutSkillButton.getByText("Active")).toBeVisible();
 });
 
 test("project ai chat does not mark codex skills active for shell-style $variables", async ({
@@ -870,6 +886,84 @@ test("project ai chat surfaces disabled MCP runtime servers in the summary", asy
 
   await expect(page.getByText(/1 disabled/)).toBeVisible();
   await expect(page.getByText(/context7.*disabled/i)).toBeVisible();
+});
+
+test("project ai chat surfaces missing env var details for MCP runtime errors", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+  });
+
+  await page.route("**/api/getAppGenSkills", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          skillId: "workspace_agents_skills::ui-layout",
+          name: "ui-layout",
+          rootLabel: "Workspace .agents/skills",
+          rootPath: "/workspace/.agents/skills",
+          relativePath: "ui-layout",
+          description: "Create dense dashboard layouts.",
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/llm/config", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        configs: {},
+        mcpServers: {
+          setta: {
+            transport: "sse",
+            url: "http://127.0.0.1:8000/mcp",
+          },
+        },
+        defaultMcpServerIds: ["setta"],
+        default_config_id: null,
+      }),
+    });
+  });
+
+  await mockMcpRuntimeStatusRoute(page, {
+    payload: buildMcpRuntimeStatusResponse({
+      servers: [
+        buildMcpRuntimeServer({
+          serverId: "setta",
+          state: "connected",
+          transport: "sse",
+          endpoint: "http://127.0.0.1:8000/mcp",
+          toolCount: 8,
+        }),
+      ],
+      externalServers: [
+        buildMcpRuntimeServer({
+          serverId: "github",
+          source: "external_runtime",
+          state: "error",
+          transport: "streamable_http",
+          endpoint: "http://localhost:8100/mcp",
+          missingEnvVar: "GITHUB_TOKEN",
+          lastError: "auth failed",
+        }),
+      ],
+    }),
+  });
+
+  await ensureAppReady(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
+
+  await expect(
+    page.getByText(
+      "streamable_http · http://localhost:8100/mcp · missing GITHUB_TOKEN · auth failed",
+    ),
+  ).toBeVisible();
 });
 
 test("project ai chat shows inline skills endpoint error when routes are missing", async ({

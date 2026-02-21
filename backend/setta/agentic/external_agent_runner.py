@@ -421,7 +421,7 @@ class ExternalAgentRunner:
             if return_code not in (None, 0):
                 raise RuntimeError(f"External agent exited with code {return_code}")
             self._persist_outputs_from_state(run, context.config)
-            self._persist_external_mcp_status_snapshot(run.id, run=run)
+            self._persist_external_mcp_status_snapshot(run.id, run=run, save=False)
             run.status = AgentRunStatus.completed
             run.finishedAt = get_now_timestamp()
             save_agent_run(self.dbe, run)
@@ -434,7 +434,7 @@ class ExternalAgentRunner:
             if not was_cancelled:
                 run.status = AgentRunStatus.cancelled
                 run.finishedAt = get_now_timestamp()
-            self._persist_external_mcp_status_snapshot(run.id, run=run)
+            self._persist_external_mcp_status_snapshot(run.id, run=run, save=False)
             save_agent_run(self.dbe, run)
             if not was_cancelled:
                 self._record_event(run, "run_cancelled", {})
@@ -465,7 +465,7 @@ class ExternalAgentRunner:
             )
             run.status = AgentRunStatus.failed
             run.finishedAt = get_now_timestamp()
-            self._persist_external_mcp_status_snapshot(run.id, run=run)
+            self._persist_external_mcp_status_snapshot(run.id, run=run, save=False)
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_failed", error_payload)
         finally:
@@ -1409,7 +1409,10 @@ class ExternalAgentRunner:
         run_id: ID,
         raw_payload: dict[str, Any],
     ) -> None:
-        if context.config.toolType != ExternalAgentToolType.claude_code:
+        if context.config.toolType not in {
+            ExternalAgentToolType.claude_code,
+            ExternalAgentToolType.codex,
+        }:
             return
         status_entries = self._build_external_statuses_from_payload(
             payload=raw_payload,
@@ -1442,6 +1445,7 @@ class ExternalAgentRunner:
         run_id: ID,
         *,
         run: AgentRun | None = None,
+        save: bool = True,
     ) -> None:
         statuses = self._external_mcp_statuses_by_run_id.get(run_id)
         if statuses is None:
@@ -1455,7 +1459,8 @@ class ExternalAgentRunner:
             for _, status in sorted(statuses.items(), key=lambda item: item[0])
         ]
         target_run.outputs = outputs
-        save_agent_run(self.dbe, target_run)
+        if save:
+            save_agent_run(self.dbe, target_run)
 
     @staticmethod
     def _load_external_mcp_status_snapshot(
@@ -2326,15 +2331,27 @@ def _extract_endpoint(row: dict[str, Any]) -> str:
     return "(no endpoint)"
 
 
+def _extract_error_from_value(value: Any) -> str | None:
+    if isinstance(value, str) and value.strip() != "":
+        return value
+    if not isinstance(value, dict):
+        return None
+    for key in ("message", "error", "lastError", "detail"):
+        nested_value = value.get(key)
+        if isinstance(nested_value, str) and nested_value.strip() != "":
+            return nested_value
+    for nested_value in value.values():
+        nested_error = _extract_error_from_value(nested_value)
+        if nested_error is not None:
+            return nested_error
+    return None
+
+
 def _extract_error_message(row: dict[str, Any]) -> str | None:
-    for key in ("lastError", "error", "message"):
-        value = row.get(key)
-        if isinstance(value, str) and value.strip() != "":
-            return value
-        if isinstance(value, dict):
-            nested = value.get("message")
-            if isinstance(nested, str) and nested.strip() != "":
-                return nested
+    for key in ("lastError", "error"):
+        error_message = _extract_error_from_value(row.get(key))
+        if error_message is not None:
+            return error_message
     return None
 
 

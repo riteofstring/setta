@@ -584,7 +584,9 @@ class MultiMCPClient:
                 return
             if should_mark_retrying:
                 self._mark_retrying(server_id)
-            await asyncio.sleep(retry_delay)
+                await asyncio.sleep(retry_delay)
+                continue
+            return
 
     async def _connect_server_once(
         self, server_id: str, config: MCPServerConfig

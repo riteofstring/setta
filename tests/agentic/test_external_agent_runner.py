@@ -2709,6 +2709,16 @@ class TestExternalAgentRunnerMcpRuntimeStatus:
         )
         assert state == MCPServerRuntimeState.disabled
 
+    def test_resolve_mcp_runtime_state_keeps_message_only_rows_unknown(self) -> None:
+        # Informational messages should not be treated as failure signals.
+        state = _resolve_mcp_runtime_state(
+            {
+                "connected": False,
+                "message": "waiting for handshake",
+            }
+        )
+        assert state == MCPServerRuntimeState.unknown
+
     def test_get_mcp_runtime_statuses_empty_without_chat_or_engine(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -2832,6 +2842,58 @@ class TestExternalAgentRunnerMcpRuntimeStatus:
 
             assert statuses == []
 
+    def test_status_payload_message_only_row_stays_unknown(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+
+            statuses = runner._build_external_statuses_from_payload(
+                payload={
+                    "message": {
+                        "mcp_servers": [
+                            {
+                                "serverId": "filesystem",
+                                "connected": False,
+                                "message": "waiting for handshake",
+                                "transport": "stdio",
+                                "command": "npx @modelcontextprotocol/server-filesystem .",
+                            }
+                        ]
+                    }
+                },
+                provider=ExternalAgentToolType.claude_code.value,
+            )
+
+            assert len(statuses) == 1
+            assert statuses[0].state == MCPServerRuntimeState.unknown
+            assert statuses[0].lastError is None
+
+    def test_status_payload_nested_error_object_sets_error(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+
+            statuses = runner._build_external_statuses_from_payload(
+                payload={
+                    "message": {
+                        "mcp_servers": [
+                            {
+                                "serverId": "filesystem",
+                                "connected": False,
+                                "error": {"message": "spawn failed"},
+                            }
+                        ]
+                    }
+                },
+                provider=ExternalAgentToolType.claude_code.value,
+            )
+
+            assert len(statuses) == 1
+            assert statuses[0].state == MCPServerRuntimeState.error
+            assert statuses[0].lastError == "spawn failed"
+
     def test_completed_run_reads_persisted_mcp_status_snapshot(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -2875,6 +2937,53 @@ class TestExternalAgentRunnerMcpRuntimeStatus:
             assert statuses[0].serverId == "filesystem"
             assert statuses[0].state == MCPServerRuntimeState.connected
             assert statuses[0].toolCount == 3
+
+    def test_snapshot_persist_can_update_run_without_immediate_save(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-1"),
+            )
+            run = context.run
+            runner._runs[run.id] = run
+            runner._external_mcp_statuses_by_run_id[run.id] = {
+                "filesystem": MCPServerRuntimeStatus(
+                    serverId="filesystem",
+                    source="external_runtime",
+                    transport="stdio",
+                    endpoint="npx @modelcontextprotocol/server-filesystem",
+                    state=MCPServerRuntimeState.connected,
+                    toolCount=3,
+                )
+            }
+
+            runner._persist_external_mcp_status_snapshot(run.id, run=run, save=False)
+
+            assert run.outputs is not None
+            assert "externalMcpServerRuntimeStatuses" in run.outputs
+            persisted_before_save = load_agent_run(dbe, run.id)
+            assert persisted_before_save is not None
+            if persisted_before_save is None:
+                return
+            outputs_before_save = persisted_before_save.outputs or {}
+            assert "externalMcpServerRuntimeStatuses" not in outputs_before_save
+
+            save_agent_run(dbe, run)
+            persisted_after_save = load_agent_run(dbe, run.id)
+            assert persisted_after_save is not None
+            if persisted_after_save is None:
+                return
+            outputs_after_save = persisted_after_save.outputs or {}
+            assert "externalMcpServerRuntimeStatuses" in outputs_after_save
 
     def test_completed_run_ignores_invalid_persisted_mcp_status_snapshot_rows(
         self,
@@ -2933,6 +3042,57 @@ class TestExternalAgentRunnerMcpRuntimeStatus:
             assert statuses[0].serverId == "filesystem"
             assert statuses[0].state == MCPServerRuntimeState.connected
             assert statuses[0].toolCount == 3
+
+    def test_codex_raw_response_payload_is_captured(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-1"),
+            )
+            run = context.run
+            handle = ExternalAgentRunHandle(run_id=run.id)
+            runner._runs[run.id] = run
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=ClaudeSdkAdapter(),
+            )
+
+            runner._capture_external_mcp_statuses_from_raw(
+                context,
+                run_id=run.id,
+                raw_payload={
+                    "id": 42,
+                    "result": {
+                        "servers": [
+                            {
+                                "id": "setta",
+                                "connected": True,
+                                "transport": "streamable_http",
+                                "endpoint": "http://127.0.0.1:8000/mcp",
+                                "toolCount": 8,
+                            }
+                        ]
+                    },
+                },
+            )
+
+            statuses = runner.get_mcp_server_runtime_statuses(
+                chat_id=run.id,
+                engine_config_id=ID("engine-1"),
+            )
+            assert len(statuses) == 1
+            assert statuses[0].serverId == "setta"
+            assert statuses[0].state == MCPServerRuntimeState.connected
+            assert statuses[0].toolCount == 8
 
     def test_claude_raw_status_payload_is_captured(self) -> None:
         with TemporaryDirectory() as tmpdir:

@@ -335,6 +335,54 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     );
   });
 
+  it("marks multiple codex skills active when tokens follow one activation phrase", () => {
+    const skills = [
+      {
+        skillId: "workspace_agents_skills::readme",
+        name: "readme",
+        rootLabel: "Workspace .agents/skills",
+        rootPath: "/workspace/.agents/skills",
+        relativePath: "readme",
+        description: "Codex skill",
+      },
+      {
+        skillId: "workspace_agents_skills::ui-layout",
+        name: "ui-layout",
+        rootLabel: "Workspace .agents/skills",
+        rootPath: "/workspace/.agents/skills",
+        relativePath: "ui-layout",
+        description: "Codex skill",
+      },
+    ];
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "user-1",
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Use: $readme, then $ui-layout.",
+          },
+        ],
+        attachments: [],
+      },
+    ];
+
+    const status = buildSkillStatusBySkillId({
+      skills,
+      engineType: EngineTypeEnum.external_agent,
+      externalAgentToolType: ExternalAgentToolTypeEnum.codex,
+      messages,
+    });
+
+    expect(status["workspace_agents_skills::readme"]?.activityState).toBe(
+      "active",
+    );
+    expect(status["workspace_agents_skills::ui-layout"]?.activityState).toBe(
+      "active",
+    );
+  });
+
   it("keeps codex activity inactive for shell-style variable usage", () => {
     const skills = [
       {

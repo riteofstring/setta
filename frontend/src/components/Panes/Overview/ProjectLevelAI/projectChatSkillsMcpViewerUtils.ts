@@ -159,14 +159,20 @@ const CODEX_SKILL_CONTEXT_VERBS = new Set<string>([
 ]);
 
 function isLikelyCodexSkillTokenContext(prefix: string): boolean {
-  const trimmedPrefix = prefix.trimEnd();
+  const normalizedPrefix = prefix.replace(
+    /\$[A-Za-z0-9][A-Za-z0-9._/-]*/g,
+    " ",
+  );
+  const trimmedPrefix = normalizedPrefix.trimEnd();
   if (!trimmedPrefix) {
     return true;
   }
-  if (/^[>*\-+0-9.)\s]+$/.test(trimmedPrefix)) {
+  if (/^[>*\-+0-9.)\s:;,\[\]{}!?'"`]+$/.test(trimmedPrefix)) {
     return true;
   }
-  const trailingWordMatch = trimmedPrefix.toLowerCase().match(/([a-z]+)$/);
+  const trailingWordMatch = trimmedPrefix
+    .toLowerCase()
+    .match(/([a-z]+)[^a-z]*$/);
   if (!trailingWordMatch) {
     return false;
   }
@@ -191,9 +197,10 @@ function extractSkillTokensFromText(value: string): string[] {
       continue;
     }
     const line = rawLine.replace(/`[^`\n]*`/g, " ");
-    const matches = line.matchAll(
-      /(^|[^A-Za-z0-9_./-\\])\$([A-Za-z0-9][A-Za-z0-9._/-]*)/g,
+    const matches = Array.from(
+      line.matchAll(/(^|[^A-Za-z0-9_./-\\])\$([A-Za-z0-9][A-Za-z0-9._/-]*)/g),
     );
+    let lineHasActivationContext = false;
     for (const match of matches) {
       const token = match[2];
       const tokenPrefix = match[1];
@@ -201,12 +208,19 @@ function extractSkillTokensFromText(value: string): string[] {
       if (!token || tokenPrefix === undefined || matchIndex === undefined) {
         continue;
       }
-      const tokenStartIndex = matchIndex + tokenPrefix.length;
-      const prefix = line.slice(0, tokenStartIndex);
-      if (!isLikelyCodexSkillTokenContext(prefix)) {
+      if (!lineHasActivationContext) {
+        const tokenStartIndex = matchIndex + tokenPrefix.length;
+        const prefix = line.slice(0, tokenStartIndex);
+        if (!isLikelyCodexSkillTokenContext(prefix)) {
+          continue;
+        }
+        lineHasActivationContext = true;
+      }
+      const normalizedToken = token.replace(/[.,:;!?]+$/g, "");
+      if (!normalizedToken) {
         continue;
       }
-      tokens.push(token);
+      tokens.push(normalizedToken);
     }
   }
   return tokens;

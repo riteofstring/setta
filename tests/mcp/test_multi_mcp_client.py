@@ -332,6 +332,8 @@ class TestMultiMCPClientRuntimeStatus:
         )
         config = client.server_configs["github"]
         retry_marks: list[str] = []
+        sleep_calls: list[float] = []
+        cleanup_calls: list[str] = []
 
         async def _raise_missing_env(
             _server_id: str,
@@ -343,14 +345,15 @@ class TestMultiMCPClientRuntimeStatus:
             return None
 
         async def _noop_cleanup(
-            _server_id: str,
+            server_id: str,
             *,
             rebuild_tool_cache: bool = True,
         ) -> None:
             del rebuild_tool_cache
+            cleanup_calls.append(server_id)
 
-        async def _stop_after_sleep(_seconds: float) -> None:
-            raise RuntimeError("stop-loop")
+        async def _record_sleep(seconds: float) -> None:
+            sleep_calls.append(seconds)
 
         monkeypatch.setattr(client, "_connect_server_once", _raise_missing_env)
         monkeypatch.setattr(
@@ -361,7 +364,7 @@ class TestMultiMCPClientRuntimeStatus:
         monkeypatch.setattr(client, "_cleanup_server", _noop_cleanup)
         monkeypatch.setattr(
             "setta.mcp.client.asyncio.sleep",
-            _stop_after_sleep,
+            _record_sleep,
         )
 
         def _record_retry(server_id: str) -> None:
@@ -369,10 +372,11 @@ class TestMultiMCPClientRuntimeStatus:
 
         monkeypatch.setattr(client, "_mark_retrying", _record_retry)
 
-        with pytest.raises(RuntimeError, match="stop-loop"):
-            await client._connect_server_loop("github", config, retry_delay=1)
+        await client._connect_server_loop("github", config, retry_delay=1)
 
         statuses = {x.serverId: x for x in client.get_server_runtime_statuses()}
         assert statuses["github"].state == MCPServerRuntimeState.error
         assert statuses["github"].missingEnvVar == "GITHUB_TOKEN"
         assert retry_marks == []
+        assert sleep_calls == []
+        assert cleanup_calls == ["github"]
