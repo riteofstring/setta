@@ -300,7 +300,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain("max-w-[min(88%,800px)]");
     expect(markup).toContain("mb-2 mt-1.5 flex justify-start");
     expect(markup).toContain("border border-transparent bg-white");
-    expect(markup).toContain("dark:bg-setta-875");
+    expect(markup).toContain("dark:bg-setta-850");
   });
 
   it("renders reasoning cards separately from assistant bubble content", () => {
