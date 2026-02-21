@@ -9,6 +9,8 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 import pytest
+from claude_agent_sdk import SystemMessage
+from claude_agent_sdk.types import StreamEvent
 
 from setta.agentic.external_adapters.base import (
     ExternalAgentRunContext,
@@ -17,6 +19,8 @@ from setta.agentic.external_adapters.base import (
 from setta.auth.cookies import auth_cookie_name
 from setta.agentic.external_adapters.claude_sdk import (
     ClaudeSdkAdapter,
+    _QUEUE_KIND_DONE,
+    _QUEUE_KIND_MESSAGE,
     _ClaudeSdkEventParser,
     _PendingApproval,
 )
@@ -2813,6 +2817,21 @@ class TestExternalAgentRunnerMcpRuntimeStatus:
             assert statuses[0].state == MCPServerRuntimeState.error
             assert statuses[0].lastError == "spawn failed"
 
+    def test_opencode_empty_payload_does_not_fabricate_status_rows(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+
+            # OpenCode unknown fallback rows are seeded from OPENCODE_CONFIG.
+            # Empty status payload extraction must stay empty.
+            statuses = runner._build_external_statuses_from_payload(
+                payload={"type": "system_message", "message": {"status": "ok"}},
+                provider=ExternalAgentToolType.opencode.value,
+            )
+
+            assert statuses == []
+
     def test_completed_run_reads_persisted_mcp_status_snapshot(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -2966,6 +2985,90 @@ class TestExternalAgentRunnerMcpRuntimeStatus:
             assert statuses[0].state == MCPServerRuntimeState.error
             assert statuses[0].lastError == "spawn failed"
             assert statuses[0].endpoint == "npx @modelcontextprotocol/server-filesystem ."
+
+    def test_claude_stream_event_then_system_message_captures_status(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            config = ExternalAgentConfig(
+                name="Claude SDK",
+                toolType=ExternalAgentToolType.claude_code,
+                runMode=ExternalAgentRunMode.sdk,
+            )
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=ID("engine-1"),
+            )
+            run = context.run
+            queue: asyncio.Queue[tuple[str, object]] = asyncio.Queue()
+            adapter = ClaudeSdkAdapter()
+            handle = ExternalAgentRunHandle(
+                run_id=run.id,
+                metadata={"queue": queue},
+            )
+            runner._runs[run.id] = run
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=adapter,
+            )
+
+            async def _run_stream() -> None:
+                await queue.put(
+                    (
+                        _QUEUE_KIND_MESSAGE,
+                        StreamEvent(
+                            uuid="stream-1",
+                            session_id="session-1",
+                            event={
+                                "type": "message_start",
+                                "message": {"id": "msg-1", "content": []},
+                            },
+                        ),
+                    )
+                )
+                await queue.put(
+                    (
+                        _QUEUE_KIND_MESSAGE,
+                        SystemMessage(
+                            subtype="mcp_status",
+                            data={
+                                "mcp_servers": [
+                                    {
+                                        "serverId": "filesystem",
+                                        "status": "failed",
+                                        "transport": "stdio",
+                                        "command": "npx @modelcontextprotocol/server-filesystem .",
+                                        "error": "spawn failed",
+                                    }
+                                ]
+                            },
+                        ),
+                    )
+                )
+                await queue.put((_QUEUE_KIND_DONE, None))
+                async for event in adapter.stream_events(handle, context):
+                    if not isinstance(event.raw, dict):
+                        continue
+                    runner._capture_external_mcp_statuses_from_raw(
+                        context,
+                        run_id=run.id,
+                        raw_payload=event.raw,
+                    )
+
+            # Ensures raw MCP status from SystemMessage is still consumed even
+            # after partial StreamEvent output has already started.
+            asyncio.run(_run_stream())
+
+            statuses = runner.get_mcp_server_runtime_statuses(
+                chat_id=run.id,
+                engine_config_id=ID("engine-1"),
+            )
+            assert len(statuses) == 1
+            assert statuses[0].serverId == "filesystem"
+            assert statuses[0].state == MCPServerRuntimeState.error
+            assert statuses[0].lastError == "spawn failed"
 
     def test_claude_raw_non_mcp_system_message_is_ignored(self) -> None:
         with TemporaryDirectory() as tmpdir:

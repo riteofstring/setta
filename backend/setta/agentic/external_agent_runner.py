@@ -1625,14 +1625,6 @@ class ExternalAgentRunner:
                 status.lastFailureAt = now
                 status.consecutiveFailures = 1
             statuses.append(status)
-        if len(statuses) == 0 and provider == ExternalAgentToolType.opencode.value:
-            return [
-                self._build_unknown_status_entry(
-                    server_id=SETTA_MCP_SERVER_ID,
-                    transport="sse",
-                    endpoint=self._build_setta_mcp_url(),
-                )
-            ]
         return statuses
 
     async def _handle_stream_chunk(
@@ -2188,7 +2180,7 @@ def _extract_status_payloads_from_container(
     container: dict[str, Any] | list[Any] | None
     if isinstance(payload, dict):
         container = payload
-        for key in ("result", "message", "event", "stream_event"):
+        for key in ("result", "message", "event", "stream_event", "data"):
             nested = container.get(key)
             if isinstance(nested, dict | list):
                 nested_payloads = _extract_status_payloads_from_container(

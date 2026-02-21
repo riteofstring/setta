@@ -144,17 +144,70 @@ function normalizeSkillToken(value: string): string {
   return value.trim().toLowerCase();
 }
 
+const CODEX_SKILL_CONTEXT_VERBS = new Set<string>([
+  "activate",
+  "apply",
+  "call",
+  "execute",
+  "invoke",
+  "load",
+  "run",
+  "try",
+  "use",
+  "using",
+  "with",
+]);
+
+function isLikelyCodexSkillTokenContext(prefix: string): boolean {
+  const trimmedPrefix = prefix.trimEnd();
+  if (!trimmedPrefix) {
+    return true;
+  }
+  if (/^[>*\-+0-9.)\s]+$/.test(trimmedPrefix)) {
+    return true;
+  }
+  const trailingWordMatch = trimmedPrefix.toLowerCase().match(/([a-z]+)$/);
+  if (!trailingWordMatch) {
+    return false;
+  }
+  const trailingWord = trailingWordMatch[1];
+  if (!trailingWord) {
+    return false;
+  }
+  return CODEX_SKILL_CONTEXT_VERBS.has(trailingWord);
+}
+
 function extractSkillTokensFromText(value: string): string[] {
-  const matches = value.matchAll(
-    /(^|[^A-Za-z0-9_./-])\$([A-Za-z0-9][A-Za-z0-9._/-]*)/g,
-  );
   const tokens: string[] = [];
-  for (const match of matches) {
-    const token = match[2];
-    if (!token) {
+  const lines = value.split(/\r?\n/);
+  let inFencedCodeBlock = false;
+  for (const rawLine of lines) {
+    const trimmedLine = rawLine.trimStart();
+    if (trimmedLine.startsWith("```")) {
+      inFencedCodeBlock = !inFencedCodeBlock;
       continue;
     }
-    tokens.push(token);
+    if (inFencedCodeBlock) {
+      continue;
+    }
+    const line = rawLine.replace(/`[^`\n]*`/g, " ");
+    const matches = line.matchAll(
+      /(^|[^A-Za-z0-9_./-\\])\$([A-Za-z0-9][A-Za-z0-9._/-]*)/g,
+    );
+    for (const match of matches) {
+      const token = match[2];
+      const tokenPrefix = match[1];
+      const matchIndex = match.index;
+      if (!token || tokenPrefix === undefined || matchIndex === undefined) {
+        continue;
+      }
+      const tokenStartIndex = matchIndex + tokenPrefix.length;
+      const prefix = line.slice(0, tokenStartIndex);
+      if (!isLikelyCodexSkillTokenContext(prefix)) {
+        continue;
+      }
+      tokens.push(token);
+    }
   }
   return tokens;
 }
@@ -345,6 +398,63 @@ function buildSkillIdentifierIndex(
   return index;
 }
 
+function compareSkillCandidates({
+  left,
+  right,
+  applicableRootPriority,
+}: {
+  left: AppGenSkillEntry;
+  right: AppGenSkillEntry;
+  applicableRootPriority: Map<string, number>;
+}): number {
+  const leftRootId = getSkillRootId(left.skillId);
+  const rightRootId = getSkillRootId(right.skillId);
+  const leftIsApplicable = applicableRootPriority.has(leftRootId);
+  const rightIsApplicable = applicableRootPriority.has(rightRootId);
+  if (leftIsApplicable !== rightIsApplicable) {
+    return leftIsApplicable ? -1 : 1;
+  }
+  const leftPriority =
+    applicableRootPriority.get(leftRootId) ?? Number.MAX_SAFE_INTEGER;
+  const rightPriority =
+    applicableRootPriority.get(rightRootId) ?? Number.MAX_SAFE_INTEGER;
+  if (leftPriority !== rightPriority) {
+    return leftPriority - rightPriority;
+  }
+  const leftRelativePathLength = left.relativePath.length;
+  const rightRelativePathLength = right.relativePath.length;
+  if (leftRelativePathLength !== rightRelativePathLength) {
+    return leftRelativePathLength - rightRelativePathLength;
+  }
+  return left.skillId.localeCompare(right.skillId);
+}
+
+function selectBestSkillCandidate({
+  candidates,
+  applicableRootPriority,
+}: {
+  candidates: AppGenSkillEntry[];
+  applicableRootPriority: Map<string, number>;
+}): AppGenSkillEntry | null {
+  let bestCandidate: AppGenSkillEntry | null = null;
+  for (const candidate of candidates) {
+    if (bestCandidate === null) {
+      bestCandidate = candidate;
+      continue;
+    }
+    if (
+      compareSkillCandidates({
+        left: candidate,
+        right: bestCandidate,
+        applicableRootPriority,
+      }) < 0
+    ) {
+      bestCandidate = candidate;
+    }
+  }
+  return bestCandidate;
+}
+
 function mapActiveSkillNamesToSkillIds({
   skills,
   activeSkillNames,
@@ -368,29 +478,10 @@ function mapActiveSkillNamesToSkillIds({
     if (candidates.length === 0) {
       continue;
     }
-    const sortedCandidates = [...candidates].sort((a, b) => {
-      const rootIdA = getSkillRootId(a.skillId);
-      const rootIdB = getSkillRootId(b.skillId);
-      const applicableA = applicableRootPriority.has(rootIdA);
-      const applicableB = applicableRootPriority.has(rootIdB);
-      if (applicableA !== applicableB) {
-        return applicableA ? -1 : 1;
-      }
-      const priorityA =
-        applicableRootPriority.get(rootIdA) ?? Number.MAX_SAFE_INTEGER;
-      const priorityB =
-        applicableRootPriority.get(rootIdB) ?? Number.MAX_SAFE_INTEGER;
-      if (priorityA !== priorityB) {
-        return priorityA - priorityB;
-      }
-      const relativeLengthA = a.relativePath.length;
-      const relativeLengthB = b.relativePath.length;
-      if (relativeLengthA !== relativeLengthB) {
-        return relativeLengthA - relativeLengthB;
-      }
-      return a.skillId.localeCompare(b.skillId);
+    const bestCandidate = selectBestSkillCandidate({
+      candidates,
+      applicableRootPriority,
     });
-    const bestCandidate = sortedCandidates[0];
     if (!bestCandidate) {
       continue;
     }
@@ -484,14 +575,9 @@ export function groupSkillsByRootPath(
 
 type McpServerListEntry = {
   serverId: string;
-  source: string;
   transport: string;
   endpoint: string;
   state: MCPServerRuntimeState;
-  lastAttemptAt: string | null;
-  lastConnectedAt: string | null;
-  lastFailureAt: string | null;
-  consecutiveFailures: number;
   lastError: string | null;
   missingEnvVar: string | null;
   toolCount: number;
@@ -533,14 +619,9 @@ function mcpStatusPriority(state: MCPServerRuntimeState): number {
 function toMcpListEntry(server: MCPServerRuntimeStatus): McpServerListEntry {
   return {
     serverId: server.serverId,
-    source: server.source,
     transport: server.transport,
     endpoint: server.endpoint,
     state: server.state,
-    lastAttemptAt: server.lastAttemptAt,
-    lastConnectedAt: server.lastConnectedAt,
-    lastFailureAt: server.lastFailureAt,
-    consecutiveFailures: server.consecutiveFailures,
     lastError: server.lastError,
     missingEnvVar: server.missingEnvVar,
     toolCount: server.toolCount,

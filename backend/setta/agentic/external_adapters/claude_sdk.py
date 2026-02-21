@@ -230,13 +230,13 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
                     yield event
                 continue
 
-            if saw_partial:
-                continue
-
             if isinstance(message, SystemMessage):
                 raw_payload = _build_raw_sdk_message_payload(message)
                 if raw_payload is not None:
                     yield ExternalAgentStreamEvent(raw=raw_payload)
+                continue
+
+            if saw_partial:
                 continue
 
             if isinstance(message, ResultMessage):

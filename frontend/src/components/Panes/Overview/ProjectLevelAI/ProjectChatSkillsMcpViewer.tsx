@@ -140,7 +140,12 @@ function getMcpStatusBadgeClassName(state: MCPServerRuntimeState): string {
   return "border-setta-300 bg-setta-100 text-setta-700 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-200";
 }
 
-function buildMcpServerDetail(server: MCPServerRuntimeStatus): string {
+type McpServerDetailEntry = Pick<
+  MCPServerRuntimeStatus,
+  "state" | "transport" | "endpoint" | "toolCount" | "lastError" | "missingEnvVar"
+>;
+
+function buildMcpServerDetail(server: McpServerDetailEntry): string {
   if (server.state === "connected") {
     return `${server.transport} · ${server.endpoint} · tools ${server.toolCount}`;
   }

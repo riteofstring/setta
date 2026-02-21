@@ -70,3 +70,22 @@
   - Backend pytest suite for touched areas: pass (`90 passed`).
   - Frontend Vitest targeted suites: pass (`14 passed`).
   - Playwright targeted suite: pass (`13 passed`).
+
+## 2026-02-19 08:40:32 PST
+
+- Implemented remaining review fixes (excluding generated UUID churn and excluding backward-compatibility additions):
+  - Fixed Claude SDK stream ordering so `SystemMessage` payloads are still emitted after partial streaming has started.
+  - Removed unreachable OpenCode empty-payload fallback from external status parsing and kept empty-payload behavior explicit.
+  - Expanded status-payload extraction to include nested `data` envelopes used by Claude SDK `SystemMessage` payloads.
+  - Tightened Codex active-skill token detection to avoid shell/code false positives (escaped/code span/fenced code handling + context gating).
+  - Replaced per-token candidate sort in active-skill resolution with single-pass best-candidate selection.
+  - Trimmed MCP viewer list-entry shape to fields currently consumed by rendering.
+- Added/updated automated coverage:
+  - Backend test for `StreamEvent -> SystemMessage` MCP status capture continuity.
+  - Backend test locking OpenCode empty-payload no-fabrication behavior.
+  - Frontend Vitest additions for shell-variable and code-block token false-positive suppression.
+  - Playwright e2e addition asserting Codex shell-style `$variables` do not mark skills as `Active`.
+- Verification run:
+  - Backend pytest targeted: pass (`1 + 4 + 19` selected tests across touched suites).
+  - Frontend Vitest targeted suites: pass (`16 passed`).
+  - Playwright targeted skills/MCP viewer scenarios: pass (`3 passed`).

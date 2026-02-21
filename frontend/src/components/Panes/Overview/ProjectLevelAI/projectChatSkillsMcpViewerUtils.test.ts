@@ -335,6 +335,87 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     );
   });
 
+  it("keeps codex activity inactive for shell-style variable usage", () => {
+    const skills = [
+      {
+        skillId: "workspace_agents_skills::readme",
+        name: "readme",
+        rootLabel: "Workspace .agents/skills",
+        rootPath: "/workspace/.agents/skills",
+        relativePath: "readme",
+        description: "Codex skill",
+      },
+    ];
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "user-1",
+        role: "user",
+        content: [
+          {
+            type: "text",
+            // Shell-like variable references should not activate skills.
+            text: "Set env first: export $readme && echo $readme",
+          },
+        ],
+        attachments: [],
+      },
+    ];
+
+    const status = buildSkillStatusBySkillId({
+      skills,
+      engineType: EngineTypeEnum.external_agent,
+      externalAgentToolType: ExternalAgentToolTypeEnum.codex,
+      messages,
+    });
+
+    expect(status["workspace_agents_skills::readme"]?.activityState).toBe(
+      "inactive",
+    );
+  });
+
+  it("ignores codex skill tokens when they are only inside code spans or fences", () => {
+    const skills = [
+      {
+        skillId: "workspace_agents_skills::readme",
+        name: "readme",
+        rootLabel: "Workspace .agents/skills",
+        rootPath: "/workspace/.agents/skills",
+        relativePath: "readme",
+        description: "Codex skill",
+      },
+    ];
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "user-1",
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: [
+              "Use this command:",
+              "`echo $readme`",
+              "```bash",
+              "echo $readme",
+              "```",
+            ].join("\n"),
+          },
+        ],
+        attachments: [],
+      },
+    ];
+
+    const status = buildSkillStatusBySkillId({
+      skills,
+      engineType: EngineTypeEnum.external_agent,
+      externalAgentToolType: ExternalAgentToolTypeEnum.codex,
+      messages,
+    });
+
+    expect(status["workspace_agents_skills::readme"]?.activityState).toBe(
+      "inactive",
+    );
+  });
+
   it("keeps codex activity inactive for tool-call-only skill signals", () => {
     const skills = [
       {
