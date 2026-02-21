@@ -414,8 +414,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hasLLMConfig,
   externalEngineAvailable,
   noLLMConfigsAvailable,
-  dictationMode,
-  providerDictationLikelySupported,
   setChatId,
   onPermissionModeChange,
 }: {
@@ -427,8 +425,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hasLLMConfig: boolean;
   externalEngineAvailable: boolean;
   noLLMConfigsAvailable: boolean;
-  dictationMode: "auto" | "browser" | "provider";
-  providerDictationLikelySupported: boolean;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
   onPermissionModeChange?: (
     nextPermissionMode: ChatPermissionModeValue,
@@ -860,9 +856,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           permissionMode: showPermissionExecutionControl,
           search: showSearchExecutionControl,
         }}
-        dictationMode={dictationMode}
         dictationEnabledByProvider={Boolean(engineConfigId)}
-        providerDictationLikelySupported={providerDictationLikelySupported}
         onProviderDictationTranscribe={
           isExternalEngine ? undefined : handleProviderDictationTranscribe
         }
