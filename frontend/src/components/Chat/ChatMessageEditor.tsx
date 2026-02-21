@@ -67,6 +67,8 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
     const trimmed = value.trim();
     return !isDisabled && (trimmed.length > 0 || attachments.length > 0);
   }, [attachments.length, isDisabled, value]);
+  const hasStatusMessage =
+    showSharePolicyMessage || showAttachmentDisabledMessage || isUploading;
 
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -97,7 +99,7 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
 
   const textAreaClassName = useMemo(() => {
     const base =
-      "w-full resize-none border-0 bg-transparent py-1.5 pl-3 pr-2 text-[13px] leading-5 text-white outline-none placeholder:text-white/70 [field-sizing:content]";
+      "w-full resize-none overflow-y-auto border-0 bg-transparent pb-5 pl-9 pr-2 pt-1 text-[13px] leading-5 text-white outline-none placeholder:text-white/70";
     const dragClass = isDragActive
       ? "rounded-md ring-2 ring-white/40"
       : "";
@@ -108,7 +110,7 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
   }, [isDisabled, isDragActive]);
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-full min-w-0 flex-col gap-2">
+    <form onSubmit={handleSubmit} className="flex w-full min-w-0 flex-col gap-1">
       <div
         className="flex min-w-0 flex-1 flex-col"
         onDragEnter={handleDragEnter}
@@ -127,14 +129,14 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
           />
           <div
             data-chat-editor-side-rail="true"
-            className="absolute -left-7 top-1.5 z-10 flex flex-col items-center gap-1"
+            className="absolute left-2 top-1 z-10 flex flex-col items-center gap-1"
           >
             <DropdownMenu.Root modal={false}>
               <DropdownMenu.Trigger asChild>
                 <button
                   type="button"
                   aria-label="Attachment options"
-                  className={`inline-flex h-5 w-5 items-center justify-center rounded-md border border-transparent text-white/80 transition-colors hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 ${
+                  className={`inline-flex h-4 w-4 items-center justify-center rounded-sm border border-transparent text-white/80 transition-colors hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 ${
                     attachmentInputDisabled
                       ? "cursor-not-allowed opacity-40 hover:bg-transparent"
                       : "cursor-pointer"
@@ -185,26 +187,45 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
             disabled={isDisabled}
             rows={1}
           />
+          <div className="absolute bottom-1 right-1 flex items-center gap-1">
+            <button
+              type="button"
+              className="h-4 cursor-pointer rounded border border-white/35 px-1.5 text-[10px] font-semibold leading-none text-white/80 transition-colors hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={handleCancel}
+              disabled={isSaving}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="h-4 cursor-pointer rounded bg-white px-1.5 text-[10px] font-semibold leading-none text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!canSubmit}
+            >
+              Save
+            </button>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          {showSharePolicyMessage ? (
-            <span className="text-[10px] uppercase tracking-[0.2em] text-white/70">
-              Attachments blocked by share policy
-            </span>
-          ) : null}
-          {showAttachmentDisabledMessage ? (
-            <span className="text-[10px] uppercase tracking-[0.2em] text-white/70">
-              Attachments disabled
-            </span>
-          ) : null}
-          {isUploading ? (
-            <span className="text-[10px] uppercase tracking-[0.2em] text-white/70">
-              Uploading...
-            </span>
-          ) : null}
-        </div>
+        {hasStatusMessage ? (
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+            {showSharePolicyMessage ? (
+              <span className="text-[10px] uppercase tracking-[0.2em] text-white/70">
+                Attachments blocked by share policy
+              </span>
+            ) : null}
+            {showAttachmentDisabledMessage ? (
+              <span className="text-[10px] uppercase tracking-[0.2em] text-white/70">
+                Attachments disabled
+              </span>
+            ) : null}
+            {isUploading ? (
+              <span className="text-[10px] uppercase tracking-[0.2em] text-white/70">
+                Uploading...
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         {attachments.length > 0 ? (
-          <div className="mt-1 flex flex-wrap gap-2">
+          <div className="mt-0.5 flex flex-wrap gap-2">
             {attachments.map((attachment) => (
               <div
                 key={attachment.id}
@@ -242,29 +263,12 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
         ) : null}
         {attachmentWarning ? (
           <div
-            className="mt-1 rounded-md border border-amber-200 bg-amber-50/90 px-2 py-1 text-xs text-amber-700"
+            className="mt-0.5 rounded-md border border-amber-200 bg-amber-50/90 px-2 py-1 text-xs text-amber-700"
             role="alert"
           >
             {attachmentWarning}
           </div>
         ) : null}
-      </div>
-      <div className="flex items-center justify-end gap-2">
-        <button
-          type="button"
-          className="cursor-pointer rounded-md border border-white/40 px-3 py-1 text-xs font-semibold text-white/80 transition-colors hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-          onClick={handleCancel}
-          disabled={isSaving}
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="cursor-pointer rounded-md bg-white px-3 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40"
-          disabled={!canSubmit}
-        >
-          Save
-        </button>
       </div>
     </form>
   );
