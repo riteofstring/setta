@@ -1233,7 +1233,8 @@ export const ChatInput = memo(function ChatInput({
             ? Math.max(
                 1,
                 Math.floor(
-                  (providerChunkMsRef.current * PROVIDER_TARGET_SAMPLE_RATE_HZ) /
+                  (providerChunkMsRef.current *
+                    PROVIDER_TARGET_SAMPLE_RATE_HZ) /
                     1000,
                 ),
               )
@@ -1587,7 +1588,7 @@ export const ChatInput = memo(function ChatInput({
                       ? "Transcribing"
                       : dictationState === "starting"
                         ? "Starting"
-                      : "Mic"}
+                        : "Mic"}
                 </button>
               ) : null}
             </div>

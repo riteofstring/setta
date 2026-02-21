@@ -2,6 +2,10 @@ import * as Menubar from "@radix-ui/react-menubar";
 import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
 import { type ChatPermissionModeValue } from "components/Chat/chatComposerControls";
 import {
+  DICTATION_MODE_ITEMS,
+  resolveProviderDictationAvailability,
+} from "components/Chat/dictationMode";
+import {
   buildEngineGroups,
   getChatPlaceholderText,
   getExternalEngineStatus,
@@ -12,10 +16,6 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
-import {
-  DICTATION_MODE_ITEMS,
-  resolveProviderDictationAvailability,
-} from "components/Chat/dictationMode";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
@@ -217,18 +217,16 @@ export function ProjectChat() {
       ) ?? null
     );
   }, [projectChatTranscriptionProfileId, transcriptionProfiles]);
-  const {
-    providerDictationAvailable,
-    providerDictationUnavailableReason,
-  } = useMemo(
-    () =>
-      resolveProviderDictationAvailability({
-        selectedTranscriptionProfile,
-        allLLMConfigs,
-        apiKeys,
-      }),
-    [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
-  );
+  const { providerDictationAvailable, providerDictationUnavailableReason } =
+    useMemo(
+      () =>
+        resolveProviderDictationAvailability({
+          selectedTranscriptionProfile,
+          allLLMConfigs,
+          apiKeys,
+        }),
+      [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
+    );
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
   );

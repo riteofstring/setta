@@ -38,7 +38,10 @@ export function resolveProviderDictationAvailability({
   selectedTranscriptionProfile: TranscriptionProfile | null;
   allLLMConfigs: AllLLMConfigs | null;
   apiKeys: APIKeys;
-}): { providerDictationAvailable: boolean; providerDictationUnavailableReason: string } {
+}): {
+  providerDictationAvailable: boolean;
+  providerDictationUnavailableReason: string;
+} {
   if (!selectedTranscriptionProfile) {
     return {
       providerDictationAvailable: false,

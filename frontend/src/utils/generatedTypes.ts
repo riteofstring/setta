@@ -379,7 +379,7 @@ export const BrowserAreaViewModeEnum = {
 
 export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
 
-export const ChatDictationModeEnum = {
+const ChatDictationModeEnum = {
   auto: "auto",
   browser: "browser",
   provider: "provider",
@@ -2684,17 +2684,17 @@ const TaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "cef6b19e-d53c-4196-ac7f-97dbd95ff4ba" as const,
+      id: "ac25c255-cfff-4014-a1b9-5dd1c11d54ac" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "3005f313-d33a-4ac0-bb96-f6cf38459fa1" as const,
+      id: "61baf662-a692-4b54-8a90-703747416045" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "97c14251-797d-481b-99c3-5c8e1d822b8a" as const,
+      id: "b413517c-e76c-45c9-ae58-e1b10b5687be" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
@@ -6078,17 +6078,17 @@ const UserDefaultTaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "e8b5908d-911a-4fef-89de-a77fcef1534a" as const,
+      id: "a9ae53c0-c479-4a62-89d2-3cc677c7b413" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "ea854b38-58ff-4974-82ec-fd74edb2262d" as const,
+      id: "d7a495cf-57ce-4af8-9a7d-f9b66a6b79d8" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "bb2338ba-99f4-4f24-8e1b-ac02767031ee" as const,
+      id: "c34a3285-ffef-4c30-abe1-36e9cf30a1ce" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,

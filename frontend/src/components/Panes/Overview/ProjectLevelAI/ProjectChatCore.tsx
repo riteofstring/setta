@@ -818,10 +818,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     setDraftMessage((current) => (current.trim() ? current : starterPrompt));
   }, []);
   const {
-    onProviderTranscriptionSessionStart: handleProviderTranscriptionSessionStart,
-    onProviderTranscriptionSessionAppend: handleProviderTranscriptionSessionAppend,
+    onProviderTranscriptionSessionStart:
+      handleProviderTranscriptionSessionStart,
+    onProviderTranscriptionSessionAppend:
+      handleProviderTranscriptionSessionAppend,
     onProviderTranscriptionSessionStop: handleProviderTranscriptionSessionStop,
-    onProviderTranscriptionSessionCancel: handleProviderTranscriptionSessionCancel,
+    onProviderTranscriptionSessionCancel:
+      handleProviderTranscriptionSessionCancel,
   } = useProviderTranscriptionSessionHandlers({
     transcriptionProfileId,
     suppressStartNotification: dictationMode === "auto",

@@ -1244,18 +1244,16 @@ function ManagedChatArea({
       ) ?? null
     );
   }, [transcriptionProfileId, transcriptionProfiles]);
-  const {
-    providerDictationAvailable,
-    providerDictationUnavailableReason,
-  } = useMemo(
-    () =>
-      resolveProviderDictationAvailability({
-        selectedTranscriptionProfile,
-        allLLMConfigs,
-        apiKeys,
-      }),
-    [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
-  );
+  const { providerDictationAvailable, providerDictationUnavailableReason } =
+    useMemo(
+      () =>
+        resolveProviderDictationAvailability({
+          selectedTranscriptionProfile,
+          allLLMConfigs,
+          apiKeys,
+        }),
+      [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
+    );
   const hasEngineConfig = Boolean(selectedEngineConfig);
   const hasLLMConfig = Boolean(selectedLLMConfigId);
   const externalEngineStatus = useMemo(
@@ -1699,10 +1697,13 @@ function ManagedChatArea({
     [executionControlHandlers.onPermissionModeChange, permissionMode],
   );
   const {
-    onProviderTranscriptionSessionStart: handleProviderTranscriptionSessionStart,
-    onProviderTranscriptionSessionAppend: handleProviderTranscriptionSessionAppend,
+    onProviderTranscriptionSessionStart:
+      handleProviderTranscriptionSessionStart,
+    onProviderTranscriptionSessionAppend:
+      handleProviderTranscriptionSessionAppend,
     onProviderTranscriptionSessionStop: handleProviderTranscriptionSessionStop,
-    onProviderTranscriptionSessionCancel: handleProviderTranscriptionSessionCancel,
+    onProviderTranscriptionSessionCancel:
+      handleProviderTranscriptionSessionCancel,
   } = useProviderTranscriptionSessionHandlers({
     transcriptionProfileId,
     suppressStartNotification: dictationMode === "auto",

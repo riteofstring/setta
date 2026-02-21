@@ -1013,7 +1013,8 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
                     className={INPUT_CLASS_NAME}
                     disabled={
                       !canEdit ||
-                      draft.transportMode === TranscriptionTransportModeEnum.file
+                      draft.transportMode ===
+                        TranscriptionTransportModeEnum.file
                     }
                   />
                 </Field>

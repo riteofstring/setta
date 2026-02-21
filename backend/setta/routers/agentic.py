@@ -949,8 +949,8 @@ async def route_create_transcription_profile(
 ) -> TranscriptionProfile:
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow creating transcription profiles.")
-    transcription_llm_config_id, llm_config = _require_valid_transcription_llm_config_id(
-        ctx, x.transcriptionLlmConfigId
+    transcription_llm_config_id, llm_config = (
+        _require_valid_transcription_llm_config_id(ctx, x.transcriptionLlmConfigId)
     )
     _require_valid_transcription_transport_mode(x.transportMode, llm_config)
     profiles = load_transcription_profiles(ctx.state.dbe)
@@ -976,12 +976,12 @@ async def route_update_transcription_profile(
 ) -> TranscriptionProfile:
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow updating transcription profiles.")
-    transcription_llm_config_id, llm_config = _require_valid_transcription_llm_config_id(
-        ctx, x.profile.transcriptionLlmConfigId
+    transcription_llm_config_id, llm_config = (
+        _require_valid_transcription_llm_config_id(
+            ctx, x.profile.transcriptionLlmConfigId
+        )
     )
-    _require_valid_transcription_transport_mode(
-        x.profile.transportMode, llm_config
-    )
+    _require_valid_transcription_transport_mode(x.profile.transportMode, llm_config)
     profiles = load_transcription_profiles(ctx.state.dbe)
     next_profile = x.profile.model_copy(
         update={"transcriptionLlmConfigId": transcription_llm_config_id}

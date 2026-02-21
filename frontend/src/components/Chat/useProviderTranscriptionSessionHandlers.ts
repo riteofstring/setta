@@ -33,7 +33,9 @@ export function useProviderTranscriptionSessionHandlers({
     sampleRateHz: number,
     channels: number,
   ) => Promise<string | null>;
-  onProviderTranscriptionSessionStop: (sessionId: string) => Promise<string | null>;
+  onProviderTranscriptionSessionStop: (
+    sessionId: string,
+  ) => Promise<string | null>;
   onProviderTranscriptionSessionCancel: (sessionId: string) => Promise<void>;
 } {
   const onProviderTranscriptionSessionStart = useCallback(async () => {
