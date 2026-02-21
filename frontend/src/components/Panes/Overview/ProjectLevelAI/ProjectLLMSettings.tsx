@@ -1,16 +1,24 @@
+import * as Accordion from "@radix-ui/react-accordion";
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { useState } from "react";
+import { HiChevronDown } from "react-icons/hi2";
 import { useAIStore } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { route_set_llm_api_keys } from "utils/generatedEndpoints";
 import { APIKeys, AllLLMConfigs, LLMConfig } from "utils/generatedTypes";
 import { useHydrateLLMState } from "./useHydrateLLMState";
 
+const API_KEY_INPUT_CLASS_NAME =
+  "box-border h-8 w-full rounded-md border border-solid border-setta-200 bg-white/80 px-2 text-xs text-setta-800 focus:!border-blue-500 focus:outline-0 focus:ring-0 disabled:cursor-not-allowed disabled:bg-setta-100 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-300";
+const API_KEY_BUTTON_CLASS_NAME =
+  "h-8 rounded-md border border-setta-200 bg-white px-3 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200";
+
 type IsolatedInputProps = {
   apiKeyName: string;
+  inputId: string;
 };
 
-const IsolatedInput = ({ apiKeyName }: IsolatedInputProps) => {
+const IsolatedInput = ({ apiKeyName, inputId }: IsolatedInputProps) => {
   const initialValue = useAIStore((x) => x.apiKeys[apiKeyName] ?? "");
 
   const onSetValue = (v: string) => {
@@ -37,13 +45,14 @@ const IsolatedInput = ({ apiKeyName }: IsolatedInputProps) => {
 
   return (
     <PasswordInput
-      className="nodrag single-cell-child peer/textinput flex w-full min-w-0 max-w-[calc(100%_-_1.1rem)] self-center justify-self-start font-mono text-xs text-[rgb(3,_47,_98);] dark:text-[rgb(165,_214,_255)]"
+      id={inputId}
+      className={API_KEY_INPUT_CLASS_NAME}
       value={inputValue}
       onChange={onChange}
       onBlur={onBlur}
       onKeyDown={onKeyDown}
       isDisabled={false}
-      gridArea="single-cell-child"
+      gridArea=""
     />
   );
 };
@@ -63,8 +72,8 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
   const [newApiKeyError, setNewApiKeyError] = useState<string | null>(null);
   const apiKeyEntries = buildApiKeyEntries(allLLMConfigs, apiKeys);
   const wrapperClassName = className
-    ? `setta-pane-scroll flex min-h-0 flex-col gap-4 text-setta-600 dark:text-setta-400 ${className}`
-    : "setta-pane-scroll flex min-h-0 flex-col gap-4 text-setta-600 dark:text-setta-400";
+    ? `setta-pane-scroll flex min-h-0 flex-col gap-3 text-setta-600 dark:text-setta-400 ${className}`
+    : "setta-pane-scroll flex min-h-0 flex-col gap-3 text-setta-600 dark:text-setta-400";
 
   const persistApiKeys = (nextApiKeys: APIKeys, patch: APIKeys) => {
     useAIStore.setState({ apiKeys: nextApiKeys });
@@ -102,23 +111,88 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
 
   return (
     <div className={wrapperClassName}>
-      <div className="mr-0.5 flex flex-col gap-2 rounded-lg border border-setta-200/70 bg-white/50 p-3 text-xs dark:border-setta-800/70 dark:bg-setta-900/30">
-        <p className="text-base font-bold">Add API Key</p>
-        <p className="text-[11px] text-setta-500 dark:text-setta-400">
-          Add any key/value pair. These are stored in your Setta env config.
+      {apiKeyEntries.length === 0 ? (
+        <div className="rounded-md border border-dashed border-setta-200/70 px-3 py-4 text-xs text-setta-500 dark:border-setta-800 dark:text-setta-400">
+          No API keys configured yet.
+        </div>
+      ) : (
+        <Accordion.Root type="multiple" className="overflow-hidden rounded-md">
+          {apiKeyEntries.map((entry) => (
+            <Accordion.Item
+              key={entry.envKey}
+              value={entry.envKey}
+              className="border-b border-setta-200/70 last:border-b-0 dark:border-setta-800/70"
+            >
+              <Accordion.Header>
+                <Accordion.Trigger className="group flex w-full items-center justify-between gap-2 px-1.5 py-2 text-left transition-colors hover:bg-setta-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/60 [&[data-state=open]_.project-llm-settings-api-key-chevron]:rotate-180">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-semibold text-setta-700 dark:text-setta-200">
+                      {entry.envKey}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-setta-500 dark:text-setta-400">
+                      {apiKeys[entry.envKey] ? "Set" : "Unset"}
+                    </span>
+                  </span>
+                  <HiChevronDown
+                    size={16}
+                    className="project-llm-settings-api-key-chevron shrink-0 text-setta-400 transition-transform duration-150 dark:text-setta-500"
+                  />
+                </Accordion.Trigger>
+              </Accordion.Header>
+              <Accordion.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+                <div className="grid gap-2 px-1.5 pb-2">
+                  {entry.configLabels.length > 0 ? (
+                    <p className="text-[11px] text-setta-500 dark:text-setta-400">
+                      Used by: {entry.configLabels.join(", ")}
+                    </p>
+                  ) : null}
+                  <div className="grid gap-2 @container @[32rem]:grid-cols-[1fr,auto]">
+                    <div className="flex flex-col gap-1">
+                      <label
+                        htmlFor={`api-key-${entry.envKey}`}
+                        className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400"
+                      >
+                        API Key
+                      </label>
+                      <IsolatedInput
+                        apiKeyName={entry.envKey}
+                        inputId={`api-key-${entry.envKey}`}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className={`${API_KEY_BUTTON_CLASS_NAME} self-end`}
+                      disabled={!apiKeys[entry.envKey]}
+                      onClick={() => handleClearApiKey(entry.envKey)}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              </Accordion.Content>
+            </Accordion.Item>
+          ))}
+        </Accordion.Root>
+      )}
+
+      <hr className="border-setta-200/70 dark:border-setta-800/70" />
+
+      <div className="flex flex-col gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
+          Add API Key
         </p>
         <div className="grid gap-2 @container @[30rem]:grid-cols-[1fr,1fr,auto]">
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-1">
             <label
               htmlFor="project-llm-settings-new-api-key-name"
-              className="text-[11px]"
+              className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400"
             >
               Key
             </label>
             <input
               id="project-llm-settings-new-api-key-name"
               data-testid="project-llm-settings-new-api-key-name"
-              className="h-8 rounded-md border border-setta-200 bg-white px-2 font-mono text-xs text-setta-700 focus:border-blue-500 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
+              className={`${API_KEY_INPUT_CLASS_NAME} font-mono`}
               placeholder="OPENAI_API_KEY"
               value={newApiKeyName}
               onChange={(event) => {
@@ -129,16 +203,16 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
               }}
             />
           </div>
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-1">
             <label
               htmlFor="project-llm-settings-new-api-key-value"
-              className="text-[11px]"
+              className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400"
             >
               Value
             </label>
             <PasswordInput
               id="project-llm-settings-new-api-key-value"
-              className="h-8 rounded-md border border-setta-200 bg-white px-2 font-mono text-xs text-setta-700 focus:border-blue-500 focus:outline-none dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200"
+              className={`${API_KEY_INPUT_CLASS_NAME} font-mono`}
               value={newApiKeyValue}
               onChange={(nextValue: string) => {
                 setNewApiKeyValue(nextValue);
@@ -153,12 +227,13 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
                 }
               }}
               isDisabled={false}
+              gridArea=""
             />
           </div>
           <button
             type="button"
             data-testid="project-llm-settings-add-api-key"
-            className="h-8 self-end rounded-md bg-blue-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-blue-500"
+            className={`${API_KEY_BUTTON_CLASS_NAME} self-end`}
             onClick={handleAddApiKey}
           >
             Add
@@ -170,43 +245,6 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
           </p>
         ) : null}
       </div>
-      {apiKeyEntries.length === 0 ? (
-        <div className="rounded-md border border-dashed border-setta-200/70 px-3 py-4 text-xs text-setta-500 dark:border-setta-800 dark:text-setta-400">
-          No API keys configured yet.
-        </div>
-      ) : (
-        apiKeyEntries.map((entry) => (
-          <div
-            key={entry.envKey}
-            className="mr-0.5 flex flex-col gap-2 rounded-lg p-3 text-xs transition-colors hover:bg-white/50 hover:dark:bg-setta-800/50"
-          >
-            <p className="text-base font-bold">{entry.envKey}</p>
-            {entry.configLabels.length > 0 ? (
-              <p className="text-[11px] text-setta-500 dark:text-setta-400">
-                Used by: {entry.configLabels.join(", ")}
-              </p>
-            ) : null}
-            <div className="flex flex-col gap-0.5">
-              <label htmlFor={`api-key-${entry.envKey}`}>
-                API Key
-                {apiKeys[entry.envKey] ? " (set)" : ""}
-              </label>
-              <div className="single-cell-container grid min-h-[19px] grid-cols-[1fr,auto,auto] gap-2">
-                <IsolatedInput apiKeyName={entry.envKey} />
-                <button
-                  type="button"
-                  className="h-7 rounded-md border border-setta-200 px-2 text-[11px] font-semibold text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
-                  disabled={!apiKeys[entry.envKey]}
-                  onClick={() => handleClearApiKey(entry.envKey)}
-                >
-                  Clear
-                </button>
-                <span className="single-cell-child border-box col-span-2 self-end border-b border-setta-200/50 peer-focus-within/textinput:border-blue-400 dark:border-setta-600/30" />
-              </div>
-            </div>
-          </div>
-        ))
-      )}
     </div>
   );
 }
