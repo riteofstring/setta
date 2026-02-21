@@ -74,6 +74,26 @@ Generated endpoint helpers expose these routes as JSON helpers (for example
 `route_start_transcription_session`, `route_append_transcription_audio`,
 `route_stop_transcription_session`, and `route_cancel_transcription_session`).
 
+### Transcription profile management routes
+
+Transcription profile CRUD is separate from chat engine config:
+- `/api/getTranscriptionProfiles`
+  - Method: `GET`
+  - Returns: list of transcription profiles.
+- `/api/createTranscriptionProfile`
+  - Method: `POST`
+  - Content type: `application/json`
+  - Request fields: `name`, `transcriptionLlmConfigId`, `transportMode`
+    (`auto`/`file`/`realtime`), `chunkMs` (`200-10000`), optional `language`.
+- `/api/updateTranscriptionProfile`
+  - Method: `POST`
+  - Content type: `application/json`
+  - Request fields: `profile` (full profile object).
+- `/api/deleteTranscriptionProfile`
+  - Method: `POST`
+  - Content type: `application/json`
+  - Request fields: `profileId`.
+
 ## Frontend API Origin Mapping
 
 Most generated endpoint calls use the backend origin (`C_ADDRESSES.BACKEND`),
@@ -98,6 +118,11 @@ The app-generation/skills viewer flow adds these backend routes:
   - Accepts `appGenerationMode`, `appSpecStreamingEnabled`,
     `appGenerationReferenceImageUrl`, and `appGenerationReferenceImageNotes`
     for chat-driven app generation modes.
+- `/api/mcpServerRuntimeStatus`
+  - Returns current MCP runtime status for Setta + external agent integrations.
+  - Request fields: optional `chatId`, optional `engineConfigId`.
+  - Response includes `servers`, `externalServers`, `llmConfigPath`, and
+    `activeSettaFilesLocation`.
 
 For git route details (`/api/git/*`), see `docs/reference/git-pane.md`.
 
@@ -114,3 +139,10 @@ Recent frontend features in this branch rely on these backend API routes:
 - `/api/getFolderContents` with `includeSettaInitialized: true`
   - Adds `isSettaInitialized` on folder entries, used by Home page file-browser
     "Setta" badges.
+  - Optional `allowOutsideWorkspaceRoot: true` allows absolute-path browsing in
+    surfaces that opt into out-of-workspace navigation (Home workspace browser).
+- `/api/checkWorkspaceInitialized`
+  - Returns whether a folder has Setta workspace state.
+  - Request fields: `folderPath`, optional `allowOutsideWorkspaceRoot`.
+  - Used to resolve root-folder badge state (since `getFolderContents` returns
+    metadata for children, not the root node itself).
