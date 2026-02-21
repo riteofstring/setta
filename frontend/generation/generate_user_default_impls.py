@@ -83,11 +83,18 @@ CODE_OBJ_EXCLUSIONS: Dict[str, Set[str]] = {
     "NestedParamCodeObjImpl": DEFAULT_EXCLUSIONS,
 }
 
+USER_DEFAULT_FIELD_OVERRIDES: Dict[str, Dict[str, str]] = {
+    "TaskBoardSectionImpl": {
+        "columns": "list[TaskBoardColumn] | None = None",
+    }
+}
+
 
 def transform_class_to_user_default(
     class_lines: List[str],
     cls_info: ImplClassInfoForGeneration,
     exclusions: Set[str],
+    field_overrides: Dict[str, str],
 ) -> List[str]:
     """Transform class source to UserDefault version."""
     new_lines = []
@@ -119,6 +126,23 @@ def transform_class_to_user_default(
             ):
                 field_name = stripped.split(":")[0].strip()
                 if field_name not in exclusions:
+                    if field_name in field_overrides:
+                        indent = " " * (len(line) - len(line.lstrip()))
+                        new_lines.append(
+                            f"{indent}{field_name}: {field_overrides[field_name]}\n"
+                        )
+
+                        # Skip the full original field definition, including
+                        # any multiline Field(...) payload.
+                        paren_count = line.count("(") - line.count(")")
+                        i += 1
+                        while i < len(class_lines) and paren_count > 0:
+                            paren_count += class_lines[i].count("(") - class_lines[
+                                i
+                            ].count(")")
+                            i += 1
+                        continue
+
                     # Add this line
                     new_lines.append(line)
 
@@ -177,10 +201,12 @@ def process_module_classes() -> List[str]:
                 SECTION_EXCLUSIONS if cls_info.is_for_section else CODE_OBJ_EXCLUSIONS
             )
             exclusions = exclusions_map[cls_name]
+            field_overrides = USER_DEFAULT_FIELD_OVERRIDES.get(cls_name, {})
             transformed = transform_class_to_user_default(
                 class_lines,
                 cls_info,
                 exclusions,
+                field_overrides,
             )
             class_definitions.extend(transformed)
             class_definitions.append("\n")
@@ -223,7 +249,6 @@ from setta.types.section_impls import (
     BrowserAreaItem,
     BrowserSavedSearch,
     ChatPermissionMode,
-    ChatDictationMode,
     CodeFileBinding,
     ChatSectionBranch,
     TaskBoardColumn,

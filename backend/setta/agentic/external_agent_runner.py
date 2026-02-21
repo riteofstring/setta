@@ -26,7 +26,11 @@ from setta.agentic.chat_view import (
     get_run_project_config_id,
     is_external_agent_run,
 )
-from setta.agentic.completion_guard import apply_completion_guard
+from setta.agentic.completion_guard import (
+    apply_completion_guard,
+    load_completion_guard_enabled,
+)
+from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
 from setta.agentic.external_adapters.base import (
     ExternalAgentAdapter,
     ExternalAgentRunContext,
@@ -74,7 +78,11 @@ from setta.llm.chat_toolkit.section_sync import apply_stream_delta
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.agentic_context_headers import build_agentic_context_headers
 from setta.mcp.client import MultiMCPClient
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
+from setta.mcp.namespacing import (
+    SETTA_MCP_SERVER_ID,
+    normalize_mcp_tool_name,
+    split_namespaced_tool_name,
+)
 from setta.mcp.tool_metadata import FollowIdType
 from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
@@ -362,7 +370,7 @@ class ExternalAgentRunner:
                     continue
                 if event.stream_chunk is not None:
                     chunk = self._prepare_stream_chunk_for_delivery(
-                        run, event.stream_chunk
+                        context, run, event.stream_chunk
                     )
                     await self.websocket_msg_handler.send_streaming_response(
                         context.chat_id,
@@ -555,13 +563,18 @@ class ExternalAgentRunner:
             profile=profile,
             payload_inputs=payload_inputs,
         )
+        completion_guard_enabled = load_completion_guard_enabled(self.dbe)
         agentic_headers = build_agentic_context_headers(
             project_config_id=project_config_id,
             chat_id=chat_id,
             section_id=section_id,
             allow_unscoped=allow_unscoped,
         )
-        system_prompt = self._build_system_prompt(profile, project_config_id)
+        system_prompt = self._build_system_prompt(
+            profile,
+            project_config_id,
+            completion_guard_enabled=completion_guard_enabled,
+        )
         raw_system_prompt = payload_inputs.pop("systemPrompt", None)
         if isinstance(raw_system_prompt, str) and raw_system_prompt.strip():
             merged_system_prompt = raw_system_prompt.strip()
@@ -625,6 +638,7 @@ class ExternalAgentRunner:
             agentic_headers=agentic_headers,
             system_prompt=system_prompt,
             working_dir=working_dir,
+            completion_guard_enabled=completion_guard_enabled,
         )
         runtime_inputs = dict(payload_inputs)
         runtime_inputs.update(attachment_payload)
@@ -641,6 +655,7 @@ class ExternalAgentRunner:
             env=env,
             agentic_context_section_ids=agentic_context_section_ids,
             cleanup_paths=tuple(cleanup_paths),
+            completion_guard_enabled=completion_guard_enabled,
         ), is_new
 
     def _build_attachment_payload(
@@ -968,13 +983,18 @@ class ExternalAgentRunner:
         save_agent_run(self.dbe, run)
 
     def _build_system_prompt(
-        self, profile: AgentProfile | None, project_config_id: ID
+        self,
+        profile: AgentProfile | None,
+        project_config_id: ID,
+        *,
+        completion_guard_enabled: bool = True,
     ) -> str:
         base_prompt = build_agent_system_prompt(
             base_prompt=self._system_prompt,
             profile=profile,
             project_config_id=project_config_id,
             dbe=self.dbe,
+            completion_guard_enabled=completion_guard_enabled,
         )
         return base_prompt
 
@@ -1022,12 +1042,15 @@ class ExternalAgentRunner:
     @staticmethod
     def _resolve_external_tool_allowlist(
         profile: AgentProfile | None,
+        *,
+        completion_guard_enabled: bool = True,
     ) -> ExternalToolAllowlist | None:
         if profile is None:
             return None
         allowlist, error = build_external_tool_allowlist(
             profile.toolAllowlist,
             server_id=_MCP_SERVER_NAME,
+            completion_guard_enabled=completion_guard_enabled,
         )
         if error:
             raise ValueError(error)
@@ -1044,8 +1067,12 @@ class ExternalAgentRunner:
         agentic_headers: dict[str, str] | None = None,
         system_prompt: str,
         working_dir: Path | None = None,
+        completion_guard_enabled: bool = True,
     ) -> None:
-        allowlist = self._resolve_external_tool_allowlist(profile)
+        allowlist = self._resolve_external_tool_allowlist(
+            profile,
+            completion_guard_enabled=completion_guard_enabled,
+        )
         chat_id = None
         raw_chat_id = payload_inputs.get("chatId")
         if isinstance(raw_chat_id, str) and raw_chat_id.strip():
@@ -1071,7 +1098,10 @@ class ExternalAgentRunner:
                 payload_inputs["mcpConfig"] = str(config_path)
                 cleanup_paths.append(config_path.parent)
             write_claude_settings_file(config, project_root=self.dbe.path.parent)
-            allowed_tools = self._build_claude_allowed_tools(profile)
+            allowed_tools = self._build_claude_allowed_tools(
+                profile,
+                completion_guard_enabled=completion_guard_enabled,
+            )
             if allowed_tools:
                 payload_inputs["allowedTools"] = allowed_tools
             return
@@ -1203,6 +1233,8 @@ class ExternalAgentRunner:
     @staticmethod
     def _build_claude_allowed_tools(
         profile: AgentProfile | None,
+        *,
+        completion_guard_enabled: bool = True,
     ) -> list[str] | None:
         if profile is None or not profile.toolAllowlist:
             return None
@@ -1220,9 +1252,14 @@ class ExternalAgentRunner:
                     tools.append(f"mcp__{server_id}__{tool_name}")
                     continue
             tools.append(normalized)
-        required_tool = f"mcp__{SETTA_MCP_SERVER_ID}__set_agentic_context"
-        if required_tool not in tools:
-            tools.append(required_tool)
+        required_tools = [f"mcp__{SETTA_MCP_SERVER_ID}__set_agentic_context"]
+        if completion_guard_enabled:
+            required_tools.append(
+                f"mcp__{SETTA_MCP_SERVER_ID}__{REPORT_COMPLETION_STATUS_TOOL_NAME}"
+            )
+        for required_tool in required_tools:
+            if required_tool not in tools:
+                tools.append(required_tool)
         return tools or None
 
     def _resolve_working_dir(self, config: ExternalAgentConfig) -> Path:
@@ -1319,7 +1356,7 @@ class ExternalAgentRunner:
         prepared: bool = False,
     ) -> None:
         if not prepared:
-            chunk = self._prepare_stream_chunk_for_delivery(run, chunk)
+            chunk = self._prepare_stream_chunk_for_delivery(context, run, chunk)
         state = self._apply_stream_chunk_to_state(run, chunk)
         if isinstance(chunk, ToolCallDeltaEvent):
             self._store_tool_call_delta(run.id, chunk)
@@ -1377,13 +1414,19 @@ class ExternalAgentRunner:
             )
             self._persist_outputs_from_state(run, context.config, state)
 
-    def _prepare_stream_chunk_for_delivery(self, run: AgentRun, chunk: Any) -> Any:
+    def _prepare_stream_chunk_for_delivery(
+        self, context: ExternalAgentRunContext, run: AgentRun, chunk: Any
+    ) -> Any:
         if not isinstance(chunk, MessageFinalizedEvent):
             return chunk
         if not isinstance(chunk.message, AssistantChatMessage):
             return chunk
         prior_messages = list(self._ensure_chat_state(run).messages)
-        apply_completion_guard(prior_messages, chunk.message)
+        apply_completion_guard(
+            prior_messages,
+            chunk.message,
+            completion_guard_enabled=context.completion_guard_enabled,
+        )
         return chunk
 
     def _store_tool_call_delta(self, run_id: ID, chunk: ToolCallDeltaEvent) -> None:
@@ -1808,19 +1851,14 @@ class ExternalAgentRunner:
     def _normalize_tool_name(tool_name: str | None) -> str | None:
         if not tool_name:
             return None
-        normalized = tool_name.strip()
-        if not normalized:
+        raw_name = tool_name.strip()
+        if not raw_name:
             return None
-        has_mcp_prefix = normalized.startswith("mcp__")
-        if has_mcp_prefix:
-            normalized = normalized[len("mcp__") :]
-        if not has_mcp_prefix and normalized.lower() == "question":
+        normalized = normalize_mcp_tool_name(raw_name)
+        if normalized is None:
+            return None
+        if not raw_name.startswith("mcp__") and normalized.lower() == "question":
             return _ASK_USER_QUESTION_TOOL_NAME
-        setta_prefix = f"{SETTA_MCP_SERVER_ID}_"
-        if normalized.startswith(setta_prefix) and not normalized.startswith(
-            f"{SETTA_MCP_SERVER_ID}__"
-        ):
-            normalized = f"{SETTA_MCP_SERVER_ID}__{normalized[len(setta_prefix) :]}"
         return normalized
 
     def _normalize_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolCall]:

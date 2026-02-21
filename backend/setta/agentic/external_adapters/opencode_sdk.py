@@ -18,6 +18,7 @@ from setta.agentic.external_adapters.stream_utils import (
 )
 from setta.agentic.node_runtime import resolve_node_command
 from setta.database.utils import create_new_id
+from setta.mcp.namespacing import normalize_mcp_tool_name
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -265,11 +266,17 @@ class _OpenCodeSdkEventParser:
         if isinstance(event_type, str):
             normalized = event_type.strip().lower()
             if normalized == "message.part.updated":
-                return self._handle_part_updated(payload)
+                return self._ensure_message_finalized_events_last(
+                    self._handle_part_updated(payload)
+                )
             if normalized == "message.updated":
-                return self._handle_message_updated(payload)
+                return self._ensure_message_finalized_events_last(
+                    self._handle_message_updated(payload)
+                )
             if normalized == "assistant_message":
-                return self._handle_assistant_message(payload)
+                return self._ensure_message_finalized_events_last(
+                    self._handle_assistant_message(payload)
+                )
 
         events: list[ExternalAgentStreamEvent] = []
         text = _extract_text(payload)
@@ -316,7 +323,7 @@ class _OpenCodeSdkEventParser:
             events.extend(tool_events)
 
         if events:
-            return events
+            return self._ensure_message_finalized_events_last(events)
         return [ExternalAgentStreamEvent(raw=payload)]
 
     def _handle_part_updated(
@@ -549,7 +556,10 @@ class _OpenCodeSdkEventParser:
                 )
             )
         tool_call_id = part.get("callID")
-        tool_name = part.get("tool")
+        tool_name = None
+        raw_tool_name = part.get("tool")
+        if isinstance(raw_tool_name, str):
+            tool_name = normalize_mcp_tool_name(raw_tool_name)
         if isinstance(tool_call_id, str) and tool_call_id:
             state = part.get("state")
             if not isinstance(state, dict):
@@ -631,6 +641,21 @@ class _OpenCodeSdkEventParser:
         self._messages[message.id] = message
         self._last_message_id = message.id
         return message, True
+
+    @staticmethod
+    def _ensure_message_finalized_events_last(
+        events: list[ExternalAgentStreamEvent],
+    ) -> list[ExternalAgentStreamEvent]:
+        non_finalized_events: list[ExternalAgentStreamEvent] = []
+        finalized_events: list[ExternalAgentStreamEvent] = []
+        for event in events:
+            if isinstance(event.stream_chunk, MessageFinalizedEvent):
+                finalized_events.append(event)
+                continue
+            non_finalized_events.append(event)
+        if not finalized_events:
+            return events
+        return non_finalized_events + finalized_events
 
     def _register_tool_call(
         self,
@@ -971,12 +996,12 @@ def _extract_tool_name(payload: dict[str, Any]) -> str | None:
     for key in ("tool_name", "toolName", "name"):
         raw = payload.get(key)
         if isinstance(raw, str) and raw:
-            return raw
+            return normalize_mcp_tool_name(raw)
     function = payload.get("function")
     if isinstance(function, dict):
         raw = function.get("name")
         if isinstance(raw, str) and raw:
-            return raw
+            return normalize_mcp_tool_name(raw)
     return None
 
 
