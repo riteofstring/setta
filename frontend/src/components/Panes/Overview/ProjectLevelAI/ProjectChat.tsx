@@ -457,7 +457,13 @@ export function ProjectChat() {
     );
   }, [inlineThreadsWidth]);
 
-  const isAuxView = viewSkillsMcpViewer || (viewThreads && !showInlineThreads);
+  const showThreadsOnlyView = viewThreads && !showInlineThreads;
+  const isAuxView = viewSkillsMcpViewer || showThreadsOnlyView;
+  const showReturnOnlyNav = viewSkillsMcpViewer || showThreadsOnlyView;
+  const handleReturnToChat = useCallback(() => {
+    setViewSkillsMcpViewer(false);
+    useAIStore.setState({ viewThreads: false });
+  }, []);
 
   return (
     apiKeysInitialLoadComplete &&
@@ -466,58 +472,55 @@ export function ProjectChat() {
       <div className="flex h-full min-h-0 flex-col @container">
         <nav className="flex flex-col border-b border-setta-100 pb-2 dark:border-setta-800">
           <div className="mt-2 flex w-full flex-nowrap items-center gap-2 overflow-x-auto">
-            <button
-              className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-              aria-label="New Chat"
-              onClick={() => {
-                setChatId(undefined);
-                useAIStore.setState({
-                  viewThreads: false,
-                });
-                setViewSkillsMcpViewer(false);
-              }}
-            >
-              <MdAdd size={15} />
-              <span className="hidden @[31.25rem]:block">New</span>
-            </button>
-            <button
-              className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-              onClick={() => {
-                setViewSkillsMcpViewer(false);
-                useAIStore.setState({ viewThreads: !viewThreads });
-              }}
-              aria-label="View Threads"
-            >
-              {viewThreads ? (
-                <>
-                  {showInlineThreads ? (
-                    <RiChatHistoryLine size={15} />
-                  ) : (
-                    <IoMdArrowRoundBack />
-                  )}
-                  <span className="hidden @[31.25rem]:block">
-                    {showInlineThreads ? "Hide Threads" : "Return to chat"}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <RiChatHistoryLine size={15} />
-                  <span className="hidden @[31.25rem]:block">Threads</span>
-                </>
-              )}
-            </button>
-            {viewSkillsMcpViewer ? (
+            {showReturnOnlyNav ? (
               <button
                 className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
-                onClick={() => {
-                  setViewSkillsMcpViewer(false);
-                }}
+                onClick={handleReturnToChat}
                 aria-label="Return to chat"
               >
                 <IoMdArrowRoundBack />
                 <span className="hidden @[31.25rem]:block">Return to chat</span>
               </button>
-            ) : null}
+            ) : (
+              <>
+                <button
+                  className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+                  aria-label="New Chat"
+                  onClick={() => {
+                    setChatId(undefined);
+                    useAIStore.setState({
+                      viewThreads: false,
+                    });
+                    setViewSkillsMcpViewer(false);
+                  }}
+                >
+                  <MdAdd size={15} />
+                  <span className="hidden @[31.25rem]:block">New</span>
+                </button>
+                <button
+                  className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+                  onClick={() => {
+                    setViewSkillsMcpViewer(false);
+                    useAIStore.setState({ viewThreads: !viewThreads });
+                  }}
+                  aria-label="View Threads"
+                >
+                  {viewThreads && showInlineThreads ? (
+                    <>
+                      <RiChatHistoryLine size={15} />
+                      <span className="hidden @[31.25rem]:block">
+                        Hide Threads
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <RiChatHistoryLine size={15} />
+                      <span className="hidden @[31.25rem]:block">Threads</span>
+                    </>
+                  )}
+                </button>
+              </>
+            )}
             {!isAuxView && showPlanModeBadge ? <PlanModeBadge /> : null}
             {!isAuxView &&
             (engineType === EngineTypeEnum.setta_llm ||
