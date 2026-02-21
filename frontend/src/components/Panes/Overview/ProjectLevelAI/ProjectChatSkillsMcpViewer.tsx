@@ -142,7 +142,12 @@ function getMcpStatusBadgeClassName(state: MCPServerRuntimeState): string {
 
 type McpServerDetailEntry = Pick<
   MCPServerRuntimeStatus,
-  "state" | "transport" | "endpoint" | "toolCount" | "lastError" | "missingEnvVar"
+  | "state"
+  | "transport"
+  | "endpoint"
+  | "toolCount"
+  | "lastError"
+  | "missingEnvVar"
 >;
 
 function buildMcpServerDetail(server: McpServerDetailEntry): string {

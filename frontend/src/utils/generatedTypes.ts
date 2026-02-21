@@ -2673,17 +2673,17 @@ const TaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "952ba8c3-cb0a-475d-a0e9-c13d3390044f" as const,
+      id: "9b12835f-2acb-479a-89dc-d14014b341a7" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "4b98285a-9f5b-4437-bdb2-018dcb1e60ea" as const,
+      id: "dc5bdea7-6400-4bf7-9645-b0676ca4e027" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "335fe52b-87c2-4849-8f33-da2de4a0769f" as const,
+      id: "f90d0005-082b-472a-a1fd-1f9c1a580235" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
@@ -6061,17 +6061,17 @@ const UserDefaultTaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "5cdf357e-44e0-493b-b48f-d2821084f85f" as const,
+      id: "f19d5b20-100c-4ec7-916a-af7a53dddf11" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "4527326d-6b3e-4641-9b43-2ea42361126f" as const,
+      id: "bd2a65ee-8d77-46e4-9dbc-38f1ac90429b" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "91d9823e-c8c9-4816-abfb-70262772b609" as const,
+      id: "1f127730-5faf-405c-856a-551eb291361f" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
