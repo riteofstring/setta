@@ -38,6 +38,7 @@ another host.
 | `setta tools` | yes | no | Emit the MCP tool list (JSON only). |
 | `setta api` | yes | no | Call Setta MCP tools with auto-auth. |
 | `setta launch` | yes | no | Start (or reuse) a local session and emit bootstrap JSON. |
+| `setta launcher` | yes | no | Desktop-launch entrypoint with installer metadata + workspace picker fallback. |
 | `setta stop` | yes | yes | Remote stop requires an SSH target. |
 | `setta connect` | no | yes | SSH helper for remote sessions. |
 
@@ -404,6 +405,68 @@ Error payload:
   "error": { "code": "InvalidWorkspace", "message": "..." }
 }
 ```
+
+## `setta launcher`
+
+Desktop-launch entrypoint for OS launchers (`Setta.app`, desktop shortcuts).
+It can run directly (`setta launcher`) or manage launcher metadata via
+subcommands (`setta launcher install` / `setta launcher uninstall`).
+
+### `setta launcher` (run)
+
+Starts or reuses a Setta session and optionally opens it.
+
+Workspace resolution order:
+- Explicit `--workspace`
+- Saved launcher `lastUsedWorkspace`
+- Fallback launcher workspace at `<setta_home>/launcher/workspace` (and requests workspace switcher UI)
+
+Run options:
+- `--workspace PATH` chooses the workspace.
+- `--open-mode {browser,chrome-app}` overrides launcher open mode.
+- `--no-open` skips auto-open.
+- `--timeout SECONDS` launch timeout (default: `30`).
+- `--json` emits machine-readable payload and never auto-opens.
+
+Success JSON includes:
+- `ok`, `bootstrapUrl`, `workspaceRoot`, `sessionId`
+- `startedNew`, `reusedSession`
+- `openMode`, `openWorkspaceSwitcher`
+
+Error JSON includes:
+- `ok: false`
+- `error.code` and `error.message`
+
+Exit codes:
+- `0` success
+- `2` user-fixable/configuration errors
+- `1` unexpected/internal errors
+
+### `setta launcher install`
+
+Writes launcher metadata under `<setta_home>/launcher/launcher-install.json`.
+This is primarily installer-facing (scripts/package-manager hooks).
+
+Options:
+- `--channel NAME` install channel label (default: `manual`)
+- `--open-mode {browser,chrome-app}` default launcher mode
+- `--managed-artifact NAME=PATH` records artifact paths to remove during uninstall
+- `--json` emits machine-readable payload
+
+The metadata stores:
+- schema version
+- explicit launcher target command
+- channel + Setta version
+- open mode + workspace behavior
+- last used workspace
+- managed artifact paths
+
+### `setta launcher uninstall`
+
+Removes launcher metadata and managed artifacts registered in the metadata file.
+
+Options:
+- `--json` emits machine-readable payload
 
 ## `setta tools`
 

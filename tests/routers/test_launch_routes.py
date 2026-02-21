@@ -5,10 +5,12 @@ import socket
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 import pytest
 
 from setta.launch import LaunchError
+from setta.launcher_metadata import LauncherMetadataError
 from setta.routers.launch import LaunchRequest, route_launch
 from setta.ssh_common import RemoteSessionSummary
 from setta.ssh_connect import RemoteConnectResult
@@ -372,6 +374,107 @@ class TestLaunchRoutes:
         assert response.error.code == "Captured"
         assert captured["allow_env_files_overrides"] is False
         assert captured["allow_env_non_files_overrides"] is False
+
+    def test_launch_local_updates_launcher_last_used_workspace(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+        workspace_root = Path("/tmp/workspace").resolve(strict=False)
+        setta_home = Path("/tmp/.setta").resolve(strict=False)
+        setta_files_root = (workspace_root / "setta_files").resolve(strict=False)
+        runtime_root = (setta_files_root / "runtime").resolve(strict=False)
+
+        result = SimpleNamespace(
+            session=SimpleNamespace(
+                id="session-1",
+                workspacePath=str(workspace_root),
+                workspacePathCanonical=str(workspace_root),
+                host="127.0.0.1",
+                port=61234,
+                pid=12345,
+                startedAt=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            ),
+            registry=SimpleNamespace(load_secret=lambda _session: b"secret"),
+            paths=SimpleNamespace(
+                workspace_root=workspace_root,
+                setta_files_location="local",
+                setta_files_root=setta_files_root,
+                runtime_root=runtime_root,
+                setta_home=setta_home,
+                profile_name=None,
+            ),
+            started_new=False,
+        )
+
+        monkeypatch.setattr("setta.routers.launch.launch_workspace_session", lambda **_k: result)
+        monkeypatch.setattr(
+            "setta.routers.launch.update_launcher_last_used_workspace_if_installed",
+            lambda **kwargs: captured.update(kwargs) or True,
+        )
+        monkeypatch.setattr("setta.routers.launch.BOOTSTRAP_TOKEN_MANAGER.mint", lambda *_a, **_k: "tok")
+        monkeypatch.setattr(
+            "setta.routers.launch.build_bootstrap_urls",
+            lambda host, port, token: (
+                f"http://{host}:{port}/__setta__/bootstrap#token={token}",
+                f"http://{host}:{port}/__setta__/bootstrap",
+            ),
+        )
+
+        response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+
+        assert response.ok is True
+        assert captured["setta_home"] == setta_home
+        assert captured["workspace_root"] == workspace_root
+
+    def test_launch_local_ignores_launcher_metadata_update_errors(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        workspace_root = Path("/tmp/workspace").resolve(strict=False)
+        setta_home = Path("/tmp/.setta").resolve(strict=False)
+        setta_files_root = (workspace_root / "setta_files").resolve(strict=False)
+        runtime_root = (setta_files_root / "runtime").resolve(strict=False)
+
+        result = SimpleNamespace(
+            session=SimpleNamespace(
+                id="session-1",
+                workspacePath=str(workspace_root),
+                workspacePathCanonical=str(workspace_root),
+                host="127.0.0.1",
+                port=61234,
+                pid=12345,
+                startedAt=datetime(2026, 1, 1, tzinfo=timezone.utc),
+            ),
+            registry=SimpleNamespace(load_secret=lambda _session: b"secret"),
+            paths=SimpleNamespace(
+                workspace_root=workspace_root,
+                setta_files_location="local",
+                setta_files_root=setta_files_root,
+                runtime_root=runtime_root,
+                setta_home=setta_home,
+                profile_name=None,
+            ),
+            started_new=False,
+        )
+
+        monkeypatch.setattr("setta.routers.launch.launch_workspace_session", lambda **_k: result)
+        monkeypatch.setattr(
+            "setta.routers.launch.update_launcher_last_used_workspace_if_installed",
+            lambda **_kwargs: (_ for _ in ()).throw(
+                LauncherMetadataError("invalid launcher metadata")
+            ),
+        )
+        monkeypatch.setattr("setta.routers.launch.BOOTSTRAP_TOKEN_MANAGER.mint", lambda *_a, **_k: "tok")
+        monkeypatch.setattr(
+            "setta.routers.launch.build_bootstrap_urls",
+            lambda host, port, token: (
+                f"http://{host}:{port}/__setta__/bootstrap#token={token}",
+                f"http://{host}:{port}/__setta__/bootstrap",
+            ),
+        )
+
+        response = route_launch(LaunchRequest(workspaceRoot=str(workspace_root)))
+
+        assert response.ok is True
 
     def test_launch_ssh_profile_preserves_omitted_setta_files_location(
         self, monkeypatch: pytest.MonkeyPatch
