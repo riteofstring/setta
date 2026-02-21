@@ -697,7 +697,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).not.toContain('data-chat-assistant-bubble="true"');
   });
 
-  it("keeps bubble bottom padding compact and anchors actions by role", () => {
+  it("positions actions half outside bubble edges with a contrast backdrop", () => {
     const messages: BaseChatMessageUnion[] = [
       {
         id: "m-user-actions",
@@ -730,9 +730,12 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain("pb-2");
     expect(markup).toContain("pt-1");
     expect(markup).not.toContain("bg-setta-50/85");
-    expect(markup).not.toContain("border-setta-200/90");
-    expect(markup).toContain("absolute bottom-0 right-0");
-    expect(markup).toContain("absolute bottom-0 left-0");
+    expect(markup).toContain("absolute bottom-0 right-2 translate-y-1/2");
+    expect(markup).toContain("absolute bottom-0 left-2 translate-y-1/2");
+    expect(markup).toContain(
+      "rounded-md border border-setta-200/90 bg-setta-100/95",
+    );
+    expect(markup).toContain("dark:bg-setta-925/95");
   });
 });
 

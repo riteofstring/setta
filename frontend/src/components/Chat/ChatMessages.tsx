@@ -2290,14 +2290,14 @@ function LLMChatBubble({
   actions?: ReactNode;
 }) {
   return (
-    <div className="w-fit max-w-full">
+    <div className={`w-fit max-w-full ${actions ? "pb-2" : ""}`}>
       <div
         className="relative flex min-h-[24px] w-fit min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg border border-transparent bg-white pb-2 pl-3 pr-2.5 pt-1 text-setta-800 dark:border-setta-700/45 dark:bg-setta-850 dark:text-setta-50"
         data-chat-assistant-bubble="true"
       >
         {children}
         {actions ? (
-          <div className="absolute bottom-0 left-0">{actions}</div>
+          <div className="absolute bottom-0 left-2 translate-y-1/2">{actions}</div>
         ) : null}
       </div>
     </div>
@@ -2318,7 +2318,7 @@ function UserChatBubble({
   return (
     <div className="my-2 flex justify-end">
       <div
-        className={`group flex ${CHAT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-end`}
+        className={`group flex ${CHAT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-end ${actions ? "pb-2" : ""}`}
         data-message-id={messageId}
       >
         <div
@@ -2332,7 +2332,9 @@ function UserChatBubble({
         >
           {children}
           {actions ? (
-            <div className="absolute bottom-0 right-0">{actions}</div>
+            <div className="absolute bottom-0 right-2 translate-y-1/2">
+              {actions}
+            </div>
           ) : null}
         </div>
       </div>
@@ -2396,7 +2398,7 @@ function ChatMessageActions({
   const canGoNext = activeIndex < branchCount - 1;
 
   return (
-    <div className="inline-flex items-center gap-1 text-setta-500 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 dark:text-setta-300">
+    <div className="inline-flex items-center gap-1 rounded-md border border-setta-200/90 bg-setta-100/95 px-1 py-0.5 text-setta-500 shadow-sm opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 dark:border-setta-700/90 dark:bg-setta-925/95 dark:text-setta-300">
       <button
         type="button"
         aria-label="Copy message"
