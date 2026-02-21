@@ -183,13 +183,20 @@ function extractToolNamesFromContent(value: unknown): string[] | null {
   return null;
 }
 
+function extractToolNamesFromCallResult(
+  callResult: Record<string, unknown>,
+): string[] {
+  return (
+    extractToolNamesFromStructuredContent(callResult.structuredContent) ??
+    extractToolNamesFromContent(callResult.content) ??
+    []
+  );
+}
+
 export function parseRegisteredMcpToolCounts(
   callResult: Record<string, unknown>,
 ): Record<string, number> {
-  const toolNames =
-    extractToolNamesFromStructuredContent(callResult.structuredContent) ??
-    extractToolNamesFromContent(callResult.content) ??
-    [];
+  const toolNames = extractToolNamesFromCallResult(callResult);
   const toolCountsByServerId: Record<string, number> = {};
   for (const toolName of toolNames) {
     const separatorIndex = toolName.indexOf(MCP_TOOL_NAME_SEPARATOR);
@@ -203,16 +210,27 @@ export function parseRegisteredMcpToolCounts(
   return toolCountsByServerId;
 }
 
+export function hasNamespacedMcpToolNames(
+  callResult: Record<string, unknown>,
+): boolean {
+  const toolNames = extractToolNamesFromCallResult(callResult);
+  return toolNames.some((toolName) => {
+    return toolName.indexOf(MCP_TOOL_NAME_SEPARATOR) > 0;
+  });
+}
+
 export function resolveMcpServerStatus({
   serverId,
   endpoint,
   runtimeToolCountsByServerId,
+  runtimeSupportsServerMapping,
   runtimeStatusLoading,
   runtimeStatusError,
 }: {
   serverId: string;
   endpoint: string;
   runtimeToolCountsByServerId: Record<string, number> | null;
+  runtimeSupportsServerMapping: boolean | null;
   runtimeStatusLoading: boolean;
   runtimeStatusError: string | null;
 }): McpServerStatus {
@@ -240,6 +258,13 @@ export function resolveMcpServerStatus({
       color: "yellow",
       quickInfo:
         "Status unknown: MCP runtime registration data is not available.",
+    };
+  }
+  if (runtimeSupportsServerMapping === false) {
+    return {
+      color: "yellow",
+      quickInfo:
+        "Status unknown: runtime MCP tool list does not expose server IDs in this mode.",
     };
   }
   const registeredToolCount = runtimeToolCountsByServerId[serverId] ?? 0;

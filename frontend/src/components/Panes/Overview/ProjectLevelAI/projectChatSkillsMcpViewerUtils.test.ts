@@ -4,6 +4,7 @@ import {
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
+  hasNamespacedMcpToolNames,
   parseRegisteredMcpToolCounts,
   resolveMcpServerStatus,
 } from "./projectChatSkillsMcpViewerUtils";
@@ -126,6 +127,24 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     });
   });
 
+  it("detects whether runtime tool names are namespaced by server", () => {
+    expect(
+      hasNamespacedMcpToolNames({
+        structuredContent: {
+          tools: ["figma-desktop__get_design_context", "setta__list_mcp_tools"],
+        },
+      }),
+    ).toBe(true);
+
+    expect(
+      hasNamespacedMcpToolNames({
+        structuredContent: {
+          tools: ["list_mcp_tools", "set_code"],
+        },
+      }),
+    ).toBe(false);
+  });
+
   it("parses registered MCP tool counts from text content payloads", () => {
     const counts = parseRegisteredMcpToolCounts({
       content: [
@@ -148,6 +167,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       serverId: "figma-desktop",
       endpoint: "http://127.0.0.1:3845/mcp",
       runtimeToolCountsByServerId: { "figma-desktop": 3 },
+      runtimeSupportsServerMapping: true,
       runtimeStatusLoading: false,
       runtimeStatusError: null,
     });
@@ -161,6 +181,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       serverId: "pencil",
       endpoint: "/Applications/Pencil.app/Contents/Resources/app.asar",
       runtimeToolCountsByServerId: { "figma-desktop": 2 },
+      runtimeSupportsServerMapping: true,
       runtimeStatusLoading: false,
       runtimeStatusError: null,
     });
@@ -174,11 +195,26 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       serverId: "pencil",
       endpoint: "/Applications/Pencil.app/Contents/Resources/app.asar",
       runtimeToolCountsByServerId: null,
+      runtimeSupportsServerMapping: null,
       runtimeStatusLoading: false,
       runtimeStatusError: "unknown MCP server 'pencil'",
     });
 
     expect(status.color).toBe("yellow");
     expect(status.quickInfo).toContain("Status unknown");
+  });
+
+  it("marks per-server runtime mapping gaps as unknown", () => {
+    const status = resolveMcpServerStatus({
+      serverId: "figma-desktop",
+      endpoint: "http://127.0.0.1:3845/mcp",
+      runtimeToolCountsByServerId: {},
+      runtimeSupportsServerMapping: false,
+      runtimeStatusLoading: false,
+      runtimeStatusError: null,
+    });
+
+    expect(status.color).toBe("yellow");
+    expect(status.quickInfo).toContain("does not expose server IDs");
   });
 });

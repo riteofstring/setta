@@ -19,6 +19,7 @@ import {
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
+  hasNamespacedMcpToolNames,
   parseRegisteredMcpToolCounts,
   resolveMcpServerStatus,
 } from "./projectChatSkillsMcpViewerUtils";
@@ -126,6 +127,8 @@ export function ProjectChatSkillsMcpViewer() {
   const [mcpRuntimeStatusError, setMcpRuntimeStatusError] = useState<
     string | null
   >(null);
+  const [mcpRuntimeSupportsServerMapping, setMcpRuntimeSupportsServerMapping] =
+    useState<boolean | null>(null);
   const [mcpRuntimeToolCountsByServerId, setMcpRuntimeToolCountsByServerId] =
     useState<Record<string, number> | null>(null);
   const [skillsRevision, setSkillsRevision] = useState(0);
@@ -284,6 +287,7 @@ export function ProjectChatSkillsMcpViewer() {
             ? "MCP status endpoint is unavailable in this mode."
             : (detail ?? "Failed to query MCP runtime registration.");
         setMcpRuntimeStatusError(resolvedError);
+        setMcpRuntimeSupportsServerMapping(null);
         setMcpRuntimeToolCountsByServerId(null);
         setMcpRuntimeStatusLoading(false);
         return;
@@ -292,10 +296,12 @@ export function ProjectChatSkillsMcpViewer() {
         setMcpRuntimeStatusError(
           "MCP runtime reported an error while listing tools.",
         );
+        setMcpRuntimeSupportsServerMapping(null);
         setMcpRuntimeToolCountsByServerId(null);
         setMcpRuntimeStatusLoading(false);
         return;
       }
+      setMcpRuntimeSupportsServerMapping(hasNamespacedMcpToolNames(res.data));
       setMcpRuntimeToolCountsByServerId(parseRegisteredMcpToolCounts(res.data));
       setMcpRuntimeStatusLoading(false);
     }
@@ -571,6 +577,14 @@ export function ProjectChatSkillsMcpViewer() {
                       Runtime status check unavailable: {mcpRuntimeStatusError}
                     </div>
                   ) : null}
+                  {!mcpRuntimeStatusError &&
+                  !mcpRuntimeStatusLoading &&
+                  mcpRuntimeSupportsServerMapping === false ? (
+                    <div className="mt-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                      Runtime status check limited: tool list does not expose
+                      per-server IDs in this mode.
+                    </div>
+                  ) : null}
                   <div className="mt-1 grid gap-1 px-1">
                     {group.servers.map((server) => {
                       const serverEndpointDisplay = `${server.transport} · ${server.endpoint}`;
@@ -579,6 +593,8 @@ export function ProjectChatSkillsMcpViewer() {
                         endpoint: server.endpoint,
                         runtimeToolCountsByServerId:
                           mcpRuntimeToolCountsByServerId,
+                        runtimeSupportsServerMapping:
+                          mcpRuntimeSupportsServerMapping,
                         runtimeStatusLoading: mcpRuntimeStatusLoading,
                         runtimeStatusError: mcpRuntimeStatusError,
                       });
