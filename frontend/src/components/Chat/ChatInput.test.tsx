@@ -256,18 +256,20 @@ describe("ChatInput composer controls", () => {
     expect(searchButton).toContain("disabled");
   });
 
-  it("keeps attachment controls in a left-side rail outside the textarea", () => {
+  it("keeps attachment controls inside the textarea", () => {
     const markup = renderChatInput();
-    const attachmentButton = getButtonTagByAriaLabel(markup, "Attachment options");
+    const attachmentButton = getButtonTagByAriaLabel(
+      markup,
+      "Attachment options",
+    );
     const textareaClassName = getTextareaClassName(markup);
 
-    expect(markup).toContain('data-chat-composer-side-rail="true"');
-    expect(markup).toContain("absolute -left-7 top-1.5");
+    expect(markup).not.toContain('data-chat-composer-side-rail="true"');
     expect(attachmentButton).not.toBeNull();
-    expect(attachmentButton).not.toContain("absolute left-1.5 top-1.5");
+    expect(attachmentButton).toContain("absolute left-1.5 top-1.5");
     expect(textareaClassName).not.toBeNull();
-    expect(textareaClassName).toContain("pl-3");
-    expect(textareaClassName).not.toContain("pl-9");
+    expect(textareaClassName).toContain("pl-9");
+    expect(textareaClassName).not.toContain("pl-3");
   });
 
   it("defaults slash suggestions to below placement", () => {
