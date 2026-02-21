@@ -109,6 +109,12 @@ export const EngineTypeEnum = {
 
 export type EngineType = ObjectValues<typeof EngineTypeEnum>;
 
+export const TranscriptionTransportModeEnum = {
+  auto: "auto",
+  file: "file",
+  realtime: "realtime",
+} as const;
+
 export const AgenticEdgeContextModeEnum = {
   reference_only: "reference_only",
   inline_text: "inline_text",
@@ -379,6 +385,14 @@ export const BrowserAreaViewModeEnum = {
 
 export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
 
+const ChatDictationModeEnum = {
+  auto: "auto",
+  browser: "browser",
+  provider: "provider",
+} as const;
+
+export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
+
 export const ChatPermissionModeEnum = {
   minimal: "minimal",
   yolo: "yolo",
@@ -584,7 +598,10 @@ export const RouteEnum = {
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
-  TRANSCRIBE_CHAT_AUDIO: "/transcribeChatAudio",
+  START_TRANSCRIPTION_SESSION: "/startTranscriptionSession",
+  APPEND_TRANSCRIPTION_AUDIO: "/appendTranscriptionAudio",
+  STOP_TRANSCRIPTION_SESSION: "/stopTranscriptionSession",
+  CANCEL_TRANSCRIPTION_SESSION: "/cancelTranscriptionSession",
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
   LLM_CONFIG: "/llm/config",
   LLM_API_KEYS: "/llm/apiKeys",
@@ -622,6 +639,10 @@ export const RouteEnum = {
   CREATE_ENGINE_CONFIG: "/createEngineConfig",
   UPDATE_ENGINE_CONFIG: "/updateEngineConfig",
   DELETE_ENGINE_CONFIG: "/deleteEngineConfig",
+  GET_TRANSCRIPTION_PROFILES: "/getTranscriptionProfiles",
+  CREATE_TRANSCRIPTION_PROFILE: "/createTranscriptionProfile",
+  UPDATE_TRANSCRIPTION_PROFILE: "/updateTranscriptionProfile",
+  DELETE_TRANSCRIPTION_PROFILE: "/deleteTranscriptionProfile",
   STOP_EXTERNAL_AGENT_RUN: "/stopExternalAgentRun",
   RESPOND_EXTERNAL_AGENT_APPROVAL: "/respondExternalAgentApproval",
   RESPOND_EXTERNAL_AGENT_QUESTION: "/respondExternalAgentQuestion",
@@ -935,6 +956,7 @@ export const WebsocketMsgTypeForFrontendEnum = {
   PromptTemplatesUpdated: "PromptTemplatesUpdated",
   ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
   EngineConfigsUpdated: "EngineConfigsUpdated",
+  TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
 } as const;
 
 const SaveConflictStrategyEnum = {
@@ -1788,6 +1810,7 @@ const SharedModifierSchema = z.object({
   density: z.enum(SpreadsheetGridDensityEnum).optional(),
   description: z.string().optional(),
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
+  dictationMode: z.enum(ChatDictationModeEnum).optional(),
   drawThrottleDelay: z.int().optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
@@ -1878,6 +1901,7 @@ const SharedModifierSchema = z.object({
   timeDisplayTransparent: z.boolean().optional(),
   toolCallArguments: z.record(z.string(), z.string()).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
+  transcriptionProfileId: z.union([IDSchema, z.null()]).optional(),
   typeAnnotation: z.string().optional(),
   typesColumnWidth: z.union([z.number(), z.null()]).optional(),
   uiType: z.enum(TextParamInputUITypeEnum).optional(),
@@ -1954,6 +1978,7 @@ const CoreSchema = z.object({
         "density",
         "description",
         "diagnosticsIgnoreState",
+        "dictationMode",
         "drawThrottleDelay",
         "edgeInputParams",
         "edgeOutputPorts",
@@ -2033,6 +2058,7 @@ const CoreSchema = z.object({
         "timeDisplayTransparent",
         "toolCallArguments",
         "topLevelParamId",
+        "transcriptionProfileId",
         "type",
         "typeAnnotation",
         "typesColumnWidth",
@@ -2569,6 +2595,7 @@ const ChatSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   managed: z.boolean().default(false),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
+  transcriptionProfileId: z.union([IDSchema, z.null()]).default(null),
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
@@ -2576,6 +2603,9 @@ const ChatSectionImplSchema = z.object({
     .enum(ChatPermissionModeEnum)
     .default(ChatPermissionModeEnum.minimal),
   searchEnabled: z.boolean().default(true),
+  dictationMode: z
+    .enum(ChatDictationModeEnum)
+    .default(ChatDictationModeEnum.auto),
   messages: z
     .array(
       z.union([
@@ -2674,17 +2704,17 @@ const TaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "5af906d6-ec2d-4c5a-93ca-de88f78c2caf" as const,
+      id: "bd02bad3-81ab-4c2a-bc96-147c6077dafa" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "81fb4303-dbe5-45c4-a7fd-e2414c68bcbd" as const,
+      id: "9bcdedf0-83a0-47a9-ae56-e69679b9c1a8" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "7cf4ac53-89f5-4536-8e82-da0f7102a061" as const,
+      id: "266d955b-87ef-46e2-abe7-bd3c91854e8c" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
@@ -4066,11 +4096,13 @@ const ChatSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   managed: z.boolean().optional(),
   engineConfigId: z.union([IDSchema, z.null()]).optional(),
+  transcriptionProfileId: z.union([IDSchema, z.null()]).optional(),
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
   thinking: z.boolean().optional(),
   permissionMode: z.enum(ChatPermissionModeEnum).optional(),
   searchEnabled: z.boolean().optional(),
+  dictationMode: z.enum(ChatDictationModeEnum).optional(),
   messages: z
     .array(
       z.union([
@@ -5635,6 +5667,7 @@ const UserDefaultChatSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   managed: z.boolean().default(false),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
+  transcriptionProfileId: z.union([IDSchema, z.null()]).default(null),
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
@@ -5642,6 +5675,9 @@ const UserDefaultChatSectionImplSchema = z.object({
     .enum(ChatPermissionModeEnum)
     .default(ChatPermissionModeEnum.minimal),
   searchEnabled: z.boolean().default(true),
+  dictationMode: z
+    .enum(ChatDictationModeEnum)
+    .default(ChatDictationModeEnum.auto),
   messages: z
     .array(
       z.union([
@@ -6062,17 +6098,17 @@ const UserDefaultTaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "9ac6f580-b8aa-41f8-b943-7cf2c9efb0e9" as const,
+      id: "bfe3d5e7-3242-4243-bd6f-b227208f3af4" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "a591d817-8271-492b-9822-8e5b2615f8cb" as const,
+      id: "ca278e2f-eddb-40f5-afbe-46bb82274552" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "9549cf86-798c-4bf2-8780-9a961b1dab2d" as const,
+      id: "b1ea73cb-7b91-4be0-b7a5-84f33d3b7cbc" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
@@ -6884,6 +6920,12 @@ const EngineConfigSchema = z.object({
 
 export type EngineConfig = z.infer<typeof EngineConfigSchema>;
 
+export function createEngineConfig(
+  options: Partial<EngineConfig> = {},
+): EngineConfig {
+  return EngineConfigSchema.parse(options);
+}
+
 const EngineConfigListSchema = z.object({
   configs: z.array(EngineConfigSchema),
 });
@@ -6894,6 +6936,30 @@ const WebsocketMsgEngineConfigsUpdatedSchema = z.object({
   messageType: z
     .literal("EngineConfigsUpdated")
     .default(WebsocketMsgTypeForFrontendEnum.EngineConfigsUpdated),
+});
+
+const TranscriptionProfileSchema = z.object({
+  id: IDSchema.default(create_new_id),
+  name: z.string(),
+  transcriptionLlmConfigId: z.string(),
+  transportMode: z.enum(TranscriptionTransportModeEnum),
+  chunkMs: z.int(),
+  supportsRealtimeTranscription: z.boolean().default(false),
+  language: z.union([z.string(), z.null()]).default(null),
+});
+
+export type TranscriptionProfile = z.infer<typeof TranscriptionProfileSchema>;
+
+const TranscriptionProfileListSchema = z.object({
+  profiles: z.array(TranscriptionProfileSchema),
+});
+
+const WebsocketMsgTranscriptionProfilesUpdatedSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: TranscriptionProfileListSchema,
+  messageType: z
+    .literal("TranscriptionProfilesUpdated")
+    .default(WebsocketMsgTypeForFrontendEnum.TranscriptionProfilesUpdated),
 });
 
 const AIFollowToolArgumentsUpdateContentSchema = z.object({
@@ -6952,6 +7018,7 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgPromptTemplatesUpdatedSchema,
   WebsocketMsgExternalAgentConfigsUpdatedSchema,
   WebsocketMsgEngineConfigsUpdatedSchema,
+  WebsocketMsgTranscriptionProfilesUpdatedSchema,
   WebsocketMsgAIFollowToolArgumentsUpdateSchema,
   WebsocketMsgAIFollowToolResultUpdateSchema,
 ]);
@@ -8145,6 +8212,18 @@ export type CreatePromptTemplateRequestInput = z.input<
   typeof CreatePromptTemplateRequestSchema
 >;
 
+const CreateTranscriptionProfileRequestSchema = z.object({
+  name: z.string(),
+  transcriptionLlmConfigId: z.string(),
+  transportMode: z.enum(TranscriptionTransportModeEnum),
+  chunkMs: z.int(),
+  language: z.union([z.string(), z.null()]).default(null),
+});
+
+export type CreateTranscriptionProfileRequestInput = z.input<
+  typeof CreateTranscriptionProfileRequestSchema
+>;
+
 const DeleteAgentProfileRequestSchema = z.object({
   profileId: IDSchema,
 });
@@ -8175,6 +8254,14 @@ const DeletePromptTemplateRequestSchema = z.object({
 
 export type DeletePromptTemplateRequestInput = z.input<
   typeof DeletePromptTemplateRequestSchema
+>;
+
+const DeleteTranscriptionProfileRequestSchema = z.object({
+  profileId: IDSchema,
+});
+
+export type DeleteTranscriptionProfileRequestInput = z.input<
+  typeof DeleteTranscriptionProfileRequestSchema
 >;
 
 const GetAgentProfileRequestSchema = z.object({
@@ -8327,6 +8414,41 @@ export type UpdatePromptTemplateRequestInput = z.input<
   typeof UpdatePromptTemplateRequestSchema
 >;
 
+const UpdateTranscriptionProfileRequestSchema = z.object({
+  profile: TranscriptionProfileSchema,
+});
+
+export type UpdateTranscriptionProfileRequestInput = z.input<
+  typeof UpdateTranscriptionProfileRequestSchema
+>;
+
+const AppendTranscriptionAudioRequestSchema = z.object({
+  sessionId: IDSchema,
+  audioPcm16Base64: z.string(),
+  sampleRateHz: z.int(),
+  channels: z.int().default(1),
+});
+
+export type AppendTranscriptionAudioRequestInput = z.input<
+  typeof AppendTranscriptionAudioRequestSchema
+>;
+
+const CancelTranscriptionSessionRequestSchema = z.object({
+  sessionId: IDSchema,
+});
+
+export type CancelTranscriptionSessionRequestInput = z.input<
+  typeof CancelTranscriptionSessionRequestSchema
+>;
+
+const CancelTranscriptionSessionResponseSchema = z.object({
+  ok: z.boolean().default(true),
+});
+
+export type CancelTranscriptionSessionResponse = z.infer<
+  typeof CancelTranscriptionSessionResponseSchema
+>;
+
 const GetAIFollowSnapshotRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
@@ -8425,18 +8547,47 @@ export type GetLLMResponseRequestInput = z.input<
   typeof GetLLMResponseRequestSchema
 >;
 
+const StartTranscriptionSessionRequestSchema = z.object({
+  transcriptionProfileId: IDSchema,
+  language: z.union([z.string(), z.null()]).default(null),
+});
+
+export type StartTranscriptionSessionRequestInput = z.input<
+  typeof StartTranscriptionSessionRequestSchema
+>;
+
+const StartTranscriptionSessionResponseSchema = z.object({
+  sessionId: IDSchema,
+  resolvedTransportMode: z.literal(["file", "realtime"]),
+  chunkMs: z.int(),
+});
+
+export type StartTranscriptionSessionResponse = z.infer<
+  typeof StartTranscriptionSessionResponseSchema
+>;
+
 const StopLLMChatRequestSchema = z.object({
   chatId: IDSchema,
 });
 
 export type StopLLMChatRequestInput = z.input<typeof StopLLMChatRequestSchema>;
 
-const TranscribeChatAudioResponseSchema = z.object({
-  text: z.string(),
+const StopTranscriptionSessionRequestSchema = z.object({
+  sessionId: IDSchema,
 });
 
-export type TranscribeChatAudioResponse = z.infer<
-  typeof TranscribeChatAudioResponseSchema
+export type StopTranscriptionSessionRequestInput = z.input<
+  typeof StopTranscriptionSessionRequestSchema
+>;
+
+const TranscriptionSessionDeltaResponseSchema = z.object({
+  appendText: z.string(),
+  fullText: z.string(),
+  isFinal: z.boolean(),
+});
+
+export type TranscriptionSessionDeltaResponse = z.infer<
+  typeof TranscriptionSessionDeltaResponseSchema
 >;
 
 const AppPolicyOverridesSchema = z.object({
@@ -10061,10 +10212,12 @@ const SetChatSectionSettingsRequestSchema = z.object({
   sectionId: IDSchema,
   managed: z.boolean(),
   engineConfigId: z.union([IDSchema, z.null()]),
+  transcriptionProfileId: z.union([IDSchema, z.null()]),
   agentProfileId: z.union([IDSchema, z.null()]),
   thinking: z.boolean(),
   permissionMode: z.enum(ChatPermissionModeEnum),
   searchEnabled: z.boolean(),
+  dictationMode: z.enum(ChatDictationModeEnum),
 });
 
 export type SetChatSectionSettingsRequestInput = z.input<
