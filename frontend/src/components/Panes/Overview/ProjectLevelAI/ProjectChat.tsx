@@ -376,7 +376,7 @@ export function ProjectChat() {
               }}
             >
               <MdAdd size={15} />
-              <span className="hidden @[17.5rem]:block">New</span>
+              <span className="hidden @[31.25rem]:block">New</span>
             </button>
             <button
               className="nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
@@ -389,12 +389,14 @@ export function ProjectChat() {
               {viewHistory ? (
                 <>
                   <IoMdArrowRoundBack />
-                  <span>Return to chat</span>
+                  <span className="hidden @[31.25rem]:block">
+                    Return to chat
+                  </span>
                 </>
               ) : (
                 <>
                   <RiChatHistoryLine size={15} />
-                  <span className="hidden @[17.5rem]:block">History</span>
+                  <span className="hidden @[31.25rem]:block">History</span>
                 </>
               )}
             </button>
@@ -413,12 +415,14 @@ export function ProjectChat() {
               {viewSkillsMcpViewer ? (
                 <>
                   <IoMdArrowRoundBack />
-                  <span>Return to chat</span>
+                  <span className="hidden @[31.25rem]:block">
+                    Return to chat
+                  </span>
                 </>
               ) : (
                 <>
                   <MdOutlineExtension size={15} />
-                  <span className="hidden @[17.5rem]:block">Skills/MCP</span>
+                  <span className="hidden @[31.25rem]:block">Skills/MCP</span>
                 </>
               )}
             </button>
@@ -439,7 +443,7 @@ export function ProjectChat() {
                 }}
               >
                 <BiSolidBrain size={15} />
-                <span className="hidden @[33.5rem]:block">Thinking</span>
+                <span className="hidden @[31.25rem]:block">Thinking</span>
               </button>
             ) : null}
             {!isAuxView ? (
@@ -617,7 +621,7 @@ function ProjectAISettingsPopover({
           type="button"
         >
           <IoSettingsOutline size={15} />
-          <span className="hidden @[33.5rem]:block">Settings</span>
+          <span className="hidden @[31.25rem]:block">Settings</span>
         </button>
       }
       contentClasses="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-setta-200/80 bg-white/95 p-3 shadow-xl backdrop-blur relative overflow-visible dark:border-setta-700/70 dark:bg-setta-900/95 data-[state=open]:animate-fade-in"
