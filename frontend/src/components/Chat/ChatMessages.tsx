@@ -1373,7 +1373,7 @@ function LLMChatBubble({
   return (
     <div className="w-full">
       <div
-        className="relative flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg bg-setta-100 pb-2.5 pl-3 pr-2.5 pt-1.5 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50"
+        className="relative flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg bg-setta-100/45 pb-2.5 pl-3 pr-2.5 pt-1.5 text-setta-800 dark:bg-setta-900/45 dark:text-setta-50"
         data-chat-assistant-bubble="true"
       >
         {children}
