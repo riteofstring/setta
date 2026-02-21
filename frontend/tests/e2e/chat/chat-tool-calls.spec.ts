@@ -122,6 +122,119 @@ test.describe.serial("chat tool calls", () => {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
+
+  test("renders tool outputs with structured syntax highlighting for diff and yaml", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_tool_output_highlight__",
+      );
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      await setChatSectionState(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        state: {
+          messages: [
+            {
+              id: "tool-highlight-msg-1",
+              role: "assistant",
+              content: [],
+              attachments: [],
+              tool_calls: [
+                {
+                  id: "tool-highlight-call-1",
+                  type: "function",
+                  function: {
+                    name: "file_change",
+                    arguments: { path: "src/app.ts" },
+                  },
+                },
+                {
+                  id: "tool-highlight-call-2",
+                  type: "function",
+                  function: {
+                    name: "mcp__workspace__read_file",
+                    arguments: { path: "configs/app.yaml" },
+                  },
+                },
+              ],
+            },
+            {
+              id: "tool-highlight-result-1",
+              role: "tool",
+              tool_call_id: "tool-highlight-call-1",
+              tool_name: "file_change",
+              arguments: { path: "src/app.ts" },
+              result: [
+                "diff --git a/src/app.ts b/src/app.ts",
+                "--- a/src/app.ts",
+                "+++ b/src/app.ts",
+                "@@ -1 +1 @@",
+                "-const value = 1;",
+                "+const value = 2;",
+              ].join("\n"),
+              is_error: false,
+              content: [],
+            },
+            {
+              id: "tool-highlight-result-2",
+              role: "tool",
+              tool_call_id: "tool-highlight-call-2",
+              tool_name: "mcp__workspace__read_file",
+              arguments: { path: "configs/app.yaml" },
+              result: "name: setta\nenabled: true",
+              is_error: false,
+              content: [],
+            },
+          ],
+          inputText: "",
+          waitingForResponse: false,
+          toolCallArguments: {},
+        },
+      });
+
+      const actionSection = section
+        .locator('[data-chat-action-section="true"]')
+        .first();
+      await expect(actionSection).toBeVisible();
+      await actionSection.getByText("Actions").click();
+
+      const actionItems = actionSection.locator('[data-chat-action-item="true"]');
+      await expect(actionItems).toHaveCount(2);
+
+      const diffItem = actionItems.nth(0);
+      await diffItem.locator("button").first().click();
+      const diffOutput = diffItem.locator(
+        '[data-chat-structured-output-part="output"][data-chat-structured-output-kind="diff"]',
+      );
+      await expect(diffOutput).toBeVisible();
+      await expect(diffOutput.locator('[data-chat-diff-line-kind="add"]')).toHaveCount(
+        1,
+      );
+      await expect(diffOutput.locator('[data-chat-diff-line-kind="del"]')).toHaveCount(
+        1,
+      );
+
+      const yamlItem = actionItems.nth(1);
+      await yamlItem.locator("button").first().click();
+      const yamlOutput = yamlItem.locator(
+        '[data-chat-structured-output-part="output"][data-chat-structured-output-kind="code"][data-chat-structured-output-language="yaml"]',
+      );
+      await expect(yamlOutput).toBeVisible();
+      await expect(yamlOutput).toContainText("name: setta");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
 });
 
 function findSectionByName(page: Page, name: string): Locator {
