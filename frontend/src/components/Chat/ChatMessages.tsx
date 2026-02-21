@@ -1903,7 +1903,7 @@ function UserChatBubble({
 }) {
   return (
     <div className="my-2 flex justify-end">
-        <div
+      <div
         className={`group flex ${CHAT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-end`}
         data-message-id={messageId}
       >
