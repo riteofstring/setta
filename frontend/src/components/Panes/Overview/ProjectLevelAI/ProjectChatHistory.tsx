@@ -219,7 +219,7 @@ export function ProjectChatHistory({
         </button>
       </header>
 
-      <div className="setta-pane-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
+      <div className="setta-pane-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-2 py-2">
         {!hasAnyContent ? (
           <p className="text-center text-xs text-setta-400">{placeholderText}</p>
         ) : (
@@ -344,7 +344,7 @@ function ThreadGroupFolder({
         : null}
 
       {!section.collapsed && section.entries.length === 0 ? (
-        <p className="ml-6 text-[11px] text-setta-400 dark:text-setta-500">
+        <p className="ml-3 text-[11px] text-setta-400 dark:text-setta-500">
           No threads in this group.
         </p>
       ) : null}
@@ -365,8 +365,8 @@ function ThreadUngroupedFolder({
 }) {
   return (
     <section className="flex flex-col gap-1">
-      <div className="flex w-full items-center gap-1 rounded px-1 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-300">
-        <span className="inline-flex h-4 w-4 shrink-0" aria-hidden="true" />
+      <div className="flex w-full items-center gap-1 rounded px-0.5 py-1 text-left text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-300">
+        <span className="inline-flex h-4 w-2 shrink-0" aria-hidden="true" />
         <TbFolderOpen size={14} className="text-setta-400" />
         <span className="truncate">Ungrouped</span>
       </div>
@@ -408,7 +408,7 @@ function ThreadEntryLine({
   return (
     <button
       type="button"
-      className={`ml-6 flex w-[calc(100%-1.5rem)] items-center rounded px-1.5 py-1 text-left transition-colors ${rowClassName}`}
+      className={`ml-3 flex w-[calc(100%-0.75rem)] items-center rounded px-1.5 py-1 text-left transition-colors ${rowClassName}`}
       onClick={() => onSelect(entry)}
       onKeyDown={(event) => onThreadEntryKeyDown(event, entry, onSelect)}
       data-testid="project-chat-thread-entry"
