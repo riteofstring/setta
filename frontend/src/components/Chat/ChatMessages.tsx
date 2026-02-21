@@ -1423,7 +1423,7 @@ function UserChatBubble({
         data-message-id={messageId}
       >
         <div
-          className="relative flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-700/70 bg-blue-700 pb-2 pl-3 pr-2.5 pt-1 text-white dark:border-blue-800/80 dark:bg-blue-950"
+          className="relative flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-300 bg-blue-200 pb-2 pl-3 pr-2.5 pt-1 text-setta-950 dark:border-blue-800/80 dark:bg-blue-950 dark:text-white"
           data-chat-user-bubble="true"
           style={
             typeof bubbleWidthPx === "number"
@@ -1471,7 +1471,7 @@ function SystemChatBubble({
 }
 
 const USER_MARKDOWN_CLASS =
-  "prose prose-sm text-white dark:prose-invert prose-headings:tracking-tighter prose-headings:text-blue-200 prose-h1:text-xl prose-h1:leading-tight prose-p:my-1 prose-p:text-[13px] prose-code:before:hidden prose-code:after:hidden [&>p]:inline-block [&_*]:break-words [&_*]:marker:text-setta-400";
+  "prose prose-sm text-setta-950 dark:prose-invert dark:text-white prose-headings:tracking-tighter prose-headings:text-blue-900 dark:prose-headings:text-blue-200 prose-h1:text-xl prose-h1:leading-tight prose-p:my-1 prose-p:text-[13px] prose-code:before:hidden prose-code:after:hidden [&>p]:inline-block [&_*]:break-words [&_*]:marker:text-setta-400";
 const SYSTEM_MARKDOWN_CLASS =
   "prose prose-sm text-setta-600 dark:prose-invert prose-p:my-1 prose-p:text-[12px] prose-headings:text-xs prose-headings:font-semibold prose-code:before:hidden prose-code:after:hidden [&_*]:break-words";
 
