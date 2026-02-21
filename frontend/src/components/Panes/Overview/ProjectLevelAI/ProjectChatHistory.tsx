@@ -195,7 +195,7 @@ export function ProjectChatHistory({
   );
 
   const panelClasses = inline
-    ? "flex h-full min-h-0 w-[18rem] min-w-[15rem] max-w-[22rem] flex-col border-r border-setta-200 bg-setta-50 dark:border-setta-800 dark:bg-setta-900/40"
+    ? "flex h-full min-h-0 w-full min-w-0 flex-col border-r border-setta-200 bg-setta-50 dark:border-setta-800 dark:bg-setta-900/40"
     : "flex h-full min-h-0 flex-col";
 
   const hasAnyContent = groupSections.length > 0 || ungroupedEntries.length > 0;

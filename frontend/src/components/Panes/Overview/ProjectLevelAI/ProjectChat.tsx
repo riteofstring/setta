@@ -19,6 +19,7 @@ import { StandardPopover } from "components/Utils/atoms/popover/standardpopover"
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import _ from "lodash";
+import { Resizable } from "re-resizable";
 import {
   SetStateAction,
   useCallback,
@@ -43,6 +44,7 @@ import {
   ExternalAgentPreflightStatus,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
+import { clamp } from "utils/utils";
 import {
   getDefaultProjectChatPermissionMode,
   ProjectChatCore,
@@ -71,6 +73,11 @@ type ProjectAISettingsPopoverProps = {
 
 type ProjectDictationMode = "auto" | "browser" | "provider";
 const INLINE_THREADS_BREAKPOINT_PX = 760;
+const INLINE_THREADS_MIN_WIDTH_PX = 220;
+const INLINE_THREADS_DEFAULT_WIDTH_PX = 288;
+const INLINE_THREADS_MAX_WIDTH_PX = 520;
+const INLINE_THREADS_MIN_CHAT_WIDTH_PX = 420;
+const INLINE_THREADS_WIDTH_STORAGE_KEY = "setta_project_ai_inline_threads_width";
 
 export function ProjectChat() {
   const chatId = useAIStore((state) => state.activeChatId);
@@ -120,6 +127,16 @@ export function ProjectChat() {
     _.isEqual,
   );
   const overviewPaneWidth = useLocalStorage((state) => state.overviewWidth);
+  const [inlineThreadsWidth, setInlineThreadsWidth] = useState(() => {
+    if (typeof window === "undefined") {
+      return INLINE_THREADS_DEFAULT_WIDTH_PX;
+    }
+    const stored = Number(window.localStorage.getItem(INLINE_THREADS_WIDTH_STORAGE_KEY));
+    if (!Number.isFinite(stored)) {
+      return INLINE_THREADS_DEFAULT_WIDTH_PX;
+    }
+    return stored;
+  });
 
   const selectedEngineId = projectChatSelectedEngineId;
   const setSelectedEngineId = useCallback((value: string | null) => {
@@ -389,6 +406,57 @@ export function ProjectChat() {
     viewThreads &&
     !viewSkillsMcpViewer &&
     overviewPaneWidth >= INLINE_THREADS_BREAKPOINT_PX;
+  const inlineThreadsMaxWidth = useMemo(() => {
+    const boundedMaxWidth = clamp(
+      overviewPaneWidth - INLINE_THREADS_MIN_CHAT_WIDTH_PX,
+      INLINE_THREADS_MIN_WIDTH_PX,
+      INLINE_THREADS_MAX_WIDTH_PX,
+    );
+    return boundedMaxWidth;
+  }, [overviewPaneWidth]);
+  const resolvedInlineThreadsWidth = useMemo(() => {
+    return clamp(
+      inlineThreadsWidth,
+      INLINE_THREADS_MIN_WIDTH_PX,
+      inlineThreadsMaxWidth,
+    );
+  }, [inlineThreadsMaxWidth, inlineThreadsWidth]);
+  const canResizeInlineThreads =
+    inlineThreadsMaxWidth > INLINE_THREADS_MIN_WIDTH_PX;
+
+  const updateInlineThreadsWidth = useCallback(
+    (nextWidth: number) => {
+      const resolvedWidth = clamp(
+        nextWidth,
+        INLINE_THREADS_MIN_WIDTH_PX,
+        inlineThreadsMaxWidth,
+      );
+      setInlineThreadsWidth((current) => {
+        if (current === resolvedWidth) {
+          return current;
+        }
+        return resolvedWidth;
+      });
+    },
+    [inlineThreadsMaxWidth],
+  );
+
+  useEffect(() => {
+    if (inlineThreadsWidth === resolvedInlineThreadsWidth) {
+      return;
+    }
+    setInlineThreadsWidth(resolvedInlineThreadsWidth);
+  }, [inlineThreadsWidth, resolvedInlineThreadsWidth]);
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(
+      INLINE_THREADS_WIDTH_STORAGE_KEY,
+      String(inlineThreadsWidth),
+    );
+  }, [inlineThreadsWidth]);
+
   const isAuxView = viewSkillsMcpViewer || (viewThreads && !showInlineThreads);
 
   return (
@@ -497,14 +565,46 @@ export function ProjectChat() {
           <ProjectChatSkillsMcpViewer />
         ) : showInlineThreads ? (
           <div className="flex min-h-0 flex-1">
-            <ProjectChatHistory
-              chatId={chatId}
-              setChatId={setChatId}
-              runType={projectHistoryRunType}
-              engineConfigId={effectiveEngineId}
-              inline={true}
-              closeOnSelect={false}
-            />
+            <Resizable
+              className="h-full shrink-0"
+              size={{ width: resolvedInlineThreadsWidth, height: "100%" }}
+              minWidth={INLINE_THREADS_MIN_WIDTH_PX}
+              maxWidth={inlineThreadsMaxWidth}
+              boundsByDirection
+              enable={{
+                top: false,
+                right: canResizeInlineThreads,
+                bottom: false,
+                left: false,
+                topRight: false,
+                bottomRight: false,
+                bottomLeft: false,
+                topLeft: false,
+              }}
+              handleComponent={{
+                right: (
+                  <div
+                    data-testid="project-chat-inline-threads-resize-handle"
+                    className="h-full w-2 cursor-col-resize bg-transparent hover:bg-blue-500/20"
+                  />
+                ),
+              }}
+              onResize={(_event, _direction, elementRef) => {
+                updateInlineThreadsWidth(elementRef.offsetWidth);
+              }}
+              onResizeStop={(_event, _direction, elementRef) => {
+                updateInlineThreadsWidth(elementRef.offsetWidth);
+              }}
+            >
+              <ProjectChatHistory
+                chatId={chatId}
+                setChatId={setChatId}
+                runType={projectHistoryRunType}
+                engineConfigId={effectiveEngineId}
+                inline={true}
+                closeOnSelect={false}
+              />
+            </Resizable>
             <div className="flex min-h-0 min-w-0 flex-1 flex-col pl-2">
               <ProjectChatCore
                 chatId={chatId}

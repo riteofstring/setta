@@ -24,6 +24,43 @@ test("project ai threads render folder groups and support group drag reorder", a
   await expect(threadsPanel).toHaveAttribute("data-inline", "true");
   await expect(overviewPane.getByPlaceholder("Type a message...")).toBeVisible();
   await expect(threadsPanel.getByTestId("project-chat-thread-group-select")).toHaveCount(0);
+  const resizeHandle = overviewPane.getByTestId(
+    "project-chat-inline-threads-resize-handle",
+  );
+  await expect(resizeHandle).toBeVisible();
+
+  const beforeThreadsWidth = await threadsPanel.evaluate(
+    (element) => element.getBoundingClientRect().width,
+  );
+  const input = overviewPane.getByPlaceholder("Type a message...");
+  const beforeInputLeft = await input.evaluate(
+    (element) => element.getBoundingClientRect().left,
+  );
+  const resizeHandleBox = await resizeHandle.boundingBox();
+  if (!resizeHandleBox) {
+    throw new Error("Threads resize handle box was not available.");
+  }
+  const handleCenterX = resizeHandleBox.x + resizeHandleBox.width / 2;
+  const handleCenterY = resizeHandleBox.y + resizeHandleBox.height / 2;
+  await page.mouse.move(handleCenterX, handleCenterY);
+  await page.mouse.down();
+  await page.mouse.move(handleCenterX + 80, handleCenterY);
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => {
+      return await threadsPanel.evaluate(
+        (element) => element.getBoundingClientRect().width,
+      );
+    })
+    .toBeGreaterThan(beforeThreadsWidth + 40);
+  await expect
+    .poll(async () => {
+      return await input.evaluate(
+        (element) => element.getBoundingClientRect().left,
+      );
+    })
+    .toBeGreaterThan(beforeInputLeft + 20);
 
   page.once("dialog", (dialog) => dialog.accept("Backend"));
   await threadsPanel.getByRole("button", { name: "New Group" }).click();
