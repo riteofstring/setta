@@ -63,6 +63,13 @@ function getTagByMarker(markup: string, marker: string): string | null {
   return markup.slice(tagStart, tagEnd);
 }
 
+function countOccurrences(haystack: string, needle: string): number {
+  if (!needle) {
+    return 0;
+  }
+  return haystack.split(needle).length - 1;
+}
+
 describe("ChatMessageList edit gating", () => {
   beforeEach(() => {
     resetProjectStores();
@@ -633,6 +640,30 @@ describe("ChatMessages assistant reasoning layout", () => {
 
     expect(markup).toContain('data-chat-thinking-timer="true"');
     expect(markup).toContain("00:00");
+  });
+
+  it("shows summary text inside the preview when thinking body is empty", () => {
+    const summary = "Evaluating workspace navigator priority";
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-summary-fallback",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "",
+            summary,
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(countOccurrences(markup, summary)).toBeGreaterThan(1);
   });
 
   it("does not inject a typing marker class inside assistant bubbles", () => {

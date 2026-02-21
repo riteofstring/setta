@@ -672,6 +672,11 @@ export type ChatDetails = {
   toolCallArguments: Record<string, string>;
   waitingForResponse: boolean;
   llmConfig: LLMConfig | null;
+  contextUsage: {
+    contextWindowTokens: number | null;
+    contextUsedTokens: number | null;
+    estimated: boolean;
+  } | null;
 };
 
 export type ChatBranchInfo = {
@@ -690,7 +695,11 @@ type ZustandAIStore = {
   projectChatSelectedEngineId: string | null;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
-  viewHistory: boolean;
+  interruptedAssistantMessageIdsByChatId: Record<
+    string,
+    Record<string, true>
+  >;
+  viewThreads: boolean;
   allLLMConfigs: AllLLMConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
   allLLMConfigsLoadError: string | null;
@@ -734,7 +743,8 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         projectChatSelectedEngineId: null,
         chatDetails: {},
         pendingChatDetails: null,
-        viewHistory: false,
+        interruptedAssistantMessageIdsByChatId: {},
+        viewThreads: false,
         allLLMConfigs: null,
         allLLMConfigsInitialLoadComplete: false,
         allLLMConfigsLoadError: null,
@@ -766,8 +776,25 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
       }),
       {
         name: "setta_ai_data",
+        merge: (persistedState, currentState) => {
+          const persisted =
+            (persistedState as Partial<
+              ZustandAIStore & { viewHistory?: boolean }
+            > | null) ?? {};
+          const merged = {
+            ...currentState,
+            ...persisted,
+          };
+          if (
+            persisted.viewThreads === undefined &&
+            typeof persisted.viewHistory === "boolean"
+          ) {
+            merged.viewThreads = persisted.viewHistory;
+          }
+          return merged;
+        },
         partialize: (state) => ({
-          viewHistory: state.viewHistory,
+          viewThreads: state.viewThreads,
           projectChatDictationMode: state.projectChatDictationMode,
           projectChatSelectedEngineId: state.projectChatSelectedEngineId,
         }),
@@ -800,7 +827,7 @@ export const useAIFollow = withProjectState(
   createWithEqualityFn(
     immer(
       withResetFn<AIFollowState>(() => ({
-        mode: "off",
+        mode: "all",
         isFollowTransitioning: false,
         toolArgumentsIdsByProjectConfigId: {},
         toolResultIdsByProjectConfigId: {},
@@ -908,6 +935,19 @@ type ZustandLocalStorage = {
     string,
     Array<string>
   >;
+  viewedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
+  projectChatThreadGroupsByProjectConfigId: Record<
+    string,
+    Array<{
+      id: string;
+      name: string;
+      collapsed: boolean;
+    }>
+  >;
+  projectChatThreadAssignmentsByProjectConfigId: Record<
+    string,
+    Record<string, string>
+  >;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -949,6 +989,9 @@ export const useLocalStorage = createWithEqualityFn(
       runSnapshotModeByProjectConfigId: {},
       runInstructionsAccordionOpenValuesByProjectConfigId: {},
       projectAiSettingsAccordionOpenValuesByProjectConfigId: {},
+      viewedProjectChatThreadIdsByProjectConfigId: {},
+      projectChatThreadGroupsByProjectConfigId: {},
+      projectChatThreadAssignmentsByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
@@ -983,6 +1026,29 @@ export const useLocalStorage = createWithEqualityFn(
         }
         if (!isOverviewTabKey(merged.overviewTab)) {
           merged.overviewTab = OverviewTabNameEnum.Overview;
+        }
+        if (
+          !merged.viewedProjectChatThreadIdsByProjectConfigId ||
+          typeof merged.viewedProjectChatThreadIdsByProjectConfigId !==
+            "object" ||
+          Array.isArray(merged.viewedProjectChatThreadIdsByProjectConfigId)
+        ) {
+          merged.viewedProjectChatThreadIdsByProjectConfigId = {};
+        }
+        if (
+          !merged.projectChatThreadGroupsByProjectConfigId ||
+          typeof merged.projectChatThreadGroupsByProjectConfigId !== "object" ||
+          Array.isArray(merged.projectChatThreadGroupsByProjectConfigId)
+        ) {
+          merged.projectChatThreadGroupsByProjectConfigId = {};
+        }
+        if (
+          !merged.projectChatThreadAssignmentsByProjectConfigId ||
+          typeof merged.projectChatThreadAssignmentsByProjectConfigId !==
+            "object" ||
+          Array.isArray(merged.projectChatThreadAssignmentsByProjectConfigId)
+        ) {
+          merged.projectChatThreadAssignmentsByProjectConfigId = {};
         }
 
         return merged;

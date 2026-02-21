@@ -674,7 +674,81 @@ export function getDefaultChatDetails(): ChatDetails {
 type StopChatResponseSnapshot = {
   waitingForResponse: boolean;
   toolCallArguments: Record<string, string>;
+  latestAssistantMessageId: string | null;
 };
+
+function findLatestAssistantMessageId(
+  messages: Array<BaseChatMessageUnion>,
+): string | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role === ChatRoleEnum.assistant) {
+      return message.id;
+    }
+  }
+  return null;
+}
+
+function markInterruptedAssistantMessage(chatId: string, messageId: string) {
+  useAIStore.setState((state) => {
+    const existingByChat =
+      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
+    if (existingByChat[messageId]) {
+      return state;
+    }
+    return {
+      interruptedAssistantMessageIdsByChatId: {
+        ...state.interruptedAssistantMessageIdsByChatId,
+        [chatId]: {
+          ...existingByChat,
+          [messageId]: true,
+        },
+      },
+    };
+  });
+}
+
+function clearInterruptedAssistantMessages(
+  chatId: string,
+  messageIds: Array<string | null | undefined>,
+) {
+  const normalizedIds = messageIds.filter(
+    (messageId): messageId is string => typeof messageId === "string",
+  );
+  if (normalizedIds.length === 0) {
+    return;
+  }
+  useAIStore.setState((state) => {
+    const existingByChat =
+      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
+    let changed = false;
+    const nextByChat = { ...existingByChat };
+    for (const messageId of normalizedIds) {
+      if (nextByChat[messageId]) {
+        changed = true;
+        delete nextByChat[messageId];
+      }
+    }
+    if (!changed) {
+      return state;
+    }
+    if (Object.keys(nextByChat).length === 0) {
+      const nextByChatId = {
+        ...state.interruptedAssistantMessageIdsByChatId,
+      };
+      delete nextByChatId[chatId];
+      return {
+        interruptedAssistantMessageIdsByChatId: nextByChatId,
+      };
+    }
+    return {
+      interruptedAssistantMessageIdsByChatId: {
+        ...state.interruptedAssistantMessageIdsByChatId,
+        [chatId]: nextByChat,
+      },
+    };
+  });
+}
 
 function getStopChatResponseSnapshot(
   chatId: string | null | undefined,
@@ -687,6 +761,9 @@ function getStopChatResponseSnapshot(
   return {
     waitingForResponse: currentDetails.waitingForResponse,
     toolCallArguments: { ...currentDetails.toolCallArguments },
+    latestAssistantMessageId: findLatestAssistantMessageId(
+      currentDetails.messages,
+    ),
   };
 }
 
@@ -716,6 +793,9 @@ function stopChatResponseLocally(
   });
   if (typeof chatId === "string") {
     updateChatDetails(chatId, stopDetails);
+    if (snapshot.waitingForResponse && snapshot.latestAssistantMessageId) {
+      markInterruptedAssistantMessage(chatId, snapshot.latestAssistantMessageId);
+    }
   } else {
     updatePendingChatDetails(stopDetails);
   }
@@ -1685,6 +1765,9 @@ export function persistChatSectionState({
 }
 
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
+  if (chunk.message.role === ChatRoleEnum.assistant) {
+    clearInterruptedAssistantMessages(chatId, [chunk.message.id]);
+  }
   updateChatDetails(chatId, (details) => ({
     ...details,
     messages: upsertMessage(details.messages, chunk.message),
@@ -1847,6 +1930,7 @@ function handleMessageFinalized(
   chunk: MessageFinalizedEvent,
   projectConfigId: string,
 ) {
+  let resolvedTargetId: string | null = chunk.message.id;
   updateChatDetails(chatId, (details) => {
     const { message: messageToUpsert, targetId } =
       chunk.message.role === ChatRoleEnum.assistant
@@ -1858,6 +1942,7 @@ function handleMessageFinalized(
             message: chunk.message,
             targetId: chunk.message.id,
           };
+    resolvedTargetId = targetId;
     return {
       ...details,
       messages: upsertMessage(details.messages, messageToUpsert, targetId),
@@ -1865,6 +1950,12 @@ function handleMessageFinalized(
       toolCallArguments: {},
     };
   });
+  if (chunk.message.role === ChatRoleEnum.assistant) {
+    clearInterruptedAssistantMessages(chatId, [
+      resolvedTargetId,
+      chunk.message.id,
+    ]);
+  }
   const toolCallIds: string[] =
     chunk.message.role === "assistant"
       ? chunk.message.tool_calls?.map((toolCall) => toolCall.id) ?? []

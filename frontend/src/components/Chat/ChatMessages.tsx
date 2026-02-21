@@ -140,6 +140,7 @@ type ChatMessageListProps = {
   messages: Array<BaseChatMessageUnion>;
   waitingForResponse: boolean;
   toolCallArguments?: Record<string, string>;
+  interruptedAssistantMessageIds?: Record<string, true>;
   className?: string;
   scrollRef?: Ref<HTMLDivElement>;
   editDisabledReason?: string | null;
@@ -1327,24 +1328,27 @@ const ThinkingBox = memo(function ThinkingBox({
   summary,
   signature,
   isStreaming,
+  wasInterrupted,
   runKey,
 }: {
   content: string;
   summary: string | null | undefined;
   signature: string | null | undefined;
   isStreaming: boolean;
+  wasInterrupted: boolean;
   runKey: string;
 }) {
   const streaming = !signature && isStreaming;
   const displayText = useTypewriterEffect(content, streaming, 5);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const summaryText = summary?.trim() ?? "";
+  const previewText = displayText.trim().length > 0 ? displayText : summaryText;
   const title = summaryText || (streaming ? "Working..." : "Reasoning");
   const thinkingRunState: ToolCallSectionState = streaming
     ? "running"
-    : signature
-      ? "complete"
-      : "stopped";
+    : wasInterrupted
+      ? "stopped"
+      : "complete";
   const { elapsedSeconds, hasKnownDuration } = useRunElapsedDuration({
     active: streaming,
     runKey,
@@ -1408,7 +1412,7 @@ const ThinkingBox = memo(function ThinkingBox({
                 msOverflowStyle: "none",
               }}
             >
-              {displayText}
+              {previewText}
             </div>
           </div>
         </Accordion.Trigger>
@@ -2219,6 +2223,7 @@ function StreamItem({
           summary={item.summary}
           signature={item.signature}
           isStreaming={isStreaming}
+          wasInterrupted={false}
           runKey={runKey}
         />
       );
@@ -2549,6 +2554,7 @@ const ChatMessage = memo(function ChatMessage({
   requestAttachmentUrls,
   isEditing,
   editingBubbleWidthPx,
+  interrupted,
   canEdit,
   editDisabledReason,
   onStartEdit,
@@ -2569,6 +2575,7 @@ const ChatMessage = memo(function ChatMessage({
   ) => Promise<Record<string, AttachmentUrlEntry>>;
   isEditing: boolean;
   editingBubbleWidthPx?: number | null;
+  interrupted: boolean;
   canEdit: boolean;
   editDisabledReason: string | null;
   onStartEdit?: (bubbleWidthPx?: number) => void;
@@ -2707,6 +2714,7 @@ const ChatMessage = memo(function ChatMessage({
               summary={item.summary}
               signature={item.signature}
               isStreaming={isStreaming}
+              wasInterrupted={interrupted}
               runKey={`${message.id}-thinking-${idx}`}
             />
           </AssistantReasoningCard>
@@ -2887,6 +2895,7 @@ function ChatMessages({
   messages,
   waitingForResponse,
   toolCallArguments,
+  interruptedAssistantMessageIds,
   allMessages,
   editDisabledReason,
   onEditMessage,
@@ -2896,6 +2905,7 @@ function ChatMessages({
   messages: Array<BaseChatMessageUnion>;
   waitingForResponse: boolean;
   toolCallArguments: Record<string, string>;
+  interruptedAssistantMessageIds?: Record<string, true>;
   allMessages: Array<BaseChatMessageUnion>;
   editDisabledReason?: string | null;
   onEditMessage?: (
@@ -3111,6 +3121,7 @@ function ChatMessages({
         requestAttachmentUrls={requestAttachmentUrls}
         isEditing={isEditing}
         editingBubbleWidthPx={isEditing ? editingBubbleWidthPx : null}
+        interrupted={Boolean(interruptedAssistantMessageIds?.[message.id])}
         canEdit={canEdit}
         editDisabledReason={resolvedEditDisabledReason}
         onStartEdit={
@@ -3165,6 +3176,7 @@ function ChatMessages({
         toolResultsById={toolResultsById}
         toolCallArguments={toolCallArguments}
         isStreaming={true}
+        interrupted={false}
         toolCallContext={toolCallContext}
         attachmentUrlMap={attachmentUrlMap}
         requestAttachmentUrls={requestAttachmentUrls}
@@ -3179,6 +3191,7 @@ export const ChatMessageList = memo(function ChatMessageList({
   messages,
   waitingForResponse,
   toolCallArguments,
+  interruptedAssistantMessageIds,
   className,
   scrollRef,
   editDisabledReason,
@@ -3200,6 +3213,7 @@ export const ChatMessageList = memo(function ChatMessageList({
           messages={filteredMessages}
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolArgs}
+          interruptedAssistantMessageIds={interruptedAssistantMessageIds}
           allMessages={messages}
           editDisabledReason={editDisabledReason}
           onEditMessage={onEditMessage}
