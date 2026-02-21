@@ -24,6 +24,20 @@ test("project ai threads render folder groups and support group drag reorder", a
   await expect(threadsPanel).toHaveAttribute("data-inline", "true");
   await expect(overviewPane.getByPlaceholder("Type a message...")).toBeVisible();
   await expect(threadsPanel.getByTestId("project-chat-thread-group-select")).toHaveCount(0);
+  const attachmentButton = overviewPane.getByRole("button", {
+    name: "Attachment options",
+  });
+  await expect(attachmentButton).toBeVisible();
+  await expect
+    .poll(async () => {
+      const panelBox = await threadsPanel.boundingBox();
+      const attachmentBox = await attachmentButton.boundingBox();
+      if (!panelBox || !attachmentBox) {
+        return null;
+      }
+      return attachmentBox.x - (panelBox.x + panelBox.width);
+    })
+    .toBeGreaterThanOrEqual(0);
   const resizeHandle = overviewPane.getByTestId(
     "project-chat-inline-threads-resize-handle",
   );
