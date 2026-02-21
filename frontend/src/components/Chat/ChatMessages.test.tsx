@@ -463,8 +463,11 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain("prose-headings:mt-5");
     expect(markup).toContain("prose-headings:mb-2");
     expect(markup).toContain("prose-p:my-0");
-    expect(markup).toContain("prose-ul:my-1.5");
+    expect(markup).toContain("prose-ul:my-1");
+    expect(markup).toContain("prose-ul:leading-[1.45]");
+    expect(markup).toContain("prose-ul:text-[13px]");
     expect(markup).toContain("prose-li:my-0");
+    expect(markup).toContain("prose-li:text-[13px]");
   });
 
   it("renders reasoning cards separately from assistant bubble content", () => {
