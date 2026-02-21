@@ -158,16 +158,12 @@ test("home browser marks Setta-initialized folders", async ({ page }) => {
     await ensureAppReady(page);
     await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
 
-    const pathInput = page
-      .getByTestId("home-file-browser-path-input")
-      .first()
-      .locator('[contenteditable="true"]')
-      .first();
+    const pathInput = page.getByTestId("home-file-browser-path-input").first();
     await expect(pathInput).toBeVisible();
     await pathInput.click();
-    await pathInput.press("ControlOrMeta+A");
-    await pathInput.type(tempRoot);
-    await pathInput.press("Enter");
+    await page.keyboard.press("ControlOrMeta+A");
+    await page.keyboard.type(tempRoot);
+    await page.getByRole("button", { name: "Go" }).first().click();
 
     const initializedRow = page
       .getByTestId("file-browser-row")
