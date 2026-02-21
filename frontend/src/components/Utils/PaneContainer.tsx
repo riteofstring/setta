@@ -46,6 +46,10 @@ export function PaneContainer({
     if (viewportWidth <= 0) {
       return;
     }
+    if (!vis) {
+      previousViewportWidthRef.current = viewportWidth;
+      return;
+    }
     const previousViewportWidth = previousViewportWidthRef.current ?? viewportWidth;
     previousViewportWidthRef.current = viewportWidth;
     const normalizedWidth = normalizePaneWidthForViewportChange({
@@ -64,7 +68,7 @@ export function PaneContainer({
         onResizeStop(widthDiff);
       }
     }
-  }, [maxWidth, minWidth, onResizeStop, paneName, viewportWidth, width]);
+  }, [maxWidth, minWidth, onResizeStop, paneName, viewportWidth, vis, width]);
 
   function localOnResizeStop(_e, _direction, _ref, d) {
     const requestedWidth = clamp(width + d.width, minWidth, maxWidth);
