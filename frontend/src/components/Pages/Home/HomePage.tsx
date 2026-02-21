@@ -706,7 +706,7 @@ function HomeProjectGallery({
     ? "flex items-center justify-between gap-2 border-b border-setta-200/80 bg-setta-50/80 px-3 py-2 dark:border-setta-800/80 dark:bg-setta-900/40"
     : "mb-2 flex items-center justify-between gap-2";
   const galleryBodyClassName = fullScreenSurface
-    ? "setta-pane-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-2"
+    ? "setta-pane-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto !px-3 py-2"
     : "min-h-0 flex-1 overflow-x-hidden overflow-y-auto pr-1";
 
   if (totalProjectsCount === 0) {
@@ -914,6 +914,7 @@ function ProjectGridItems({
   const gridStyle = {
     gridTemplateColumns: HOME_PROJECT_CARD_GRID_TEMPLATE_COLUMNS,
   };
+  const showSelectionControls = selectionEnabled && selectedProjects.length > 0;
 
   return (
     <div className={gridClassName} style={gridStyle} data-testid={dataTestId}>
@@ -932,6 +933,7 @@ function ProjectGridItems({
           onActivate={() => onActivateProject(project.id)}
           onSetDefaultProject={onSetDefaultProject}
           onToggleFavoriteProjectConfig={onToggleFavoriteProjectConfig}
+          showSelectionControls={showSelectionControls}
         />
       ))}
     </div>
@@ -951,6 +953,7 @@ function ProjectCard({
   onActivate,
   onSetDefaultProject,
   onToggleFavoriteProjectConfig,
+  showSelectionControls,
 }: {
   project: ProjectConfig;
   isFavorite: boolean;
@@ -964,11 +967,12 @@ function ProjectCard({
   onActivate: () => void;
   onSetDefaultProject: (projectConfigId: string) => Promise<void>;
   onToggleFavoriteProjectConfig: (projectConfigId: string) => void;
+  showSelectionControls: boolean;
 }) {
   const navigate = useNavigate();
   const itemStyles = isActive
-    ? "group/projectcard relative isolate grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-2xl border border-blue-500/55 bg-blue-50/50 transition-colors dark:border-blue-500/45 dark:bg-blue-950/20"
-    : "group/projectcard relative isolate grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-2xl border border-setta-200/85 bg-setta-50/65 transition-colors hover:border-setta-300 dark:border-setta-700 dark:bg-setta-900/35 dark:hover:border-setta-600";
+    ? "group/projectcard relative isolate grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-lg border border-blue-500 bg-blue-50/50 transition-colors dark:border-blue-500 dark:bg-blue-950/20"
+    : "group/projectcard relative isolate grid grid-rows-[1fr_min-content] min-h-[13rem] w-full max-w-[14rem] overflow-hidden rounded-lg border border-setta-200 bg-setta-50/65 transition-colors hover:border-setta-300 dark:border-setta-700 dark:bg-setta-900/35 dark:hover:border-setta-600";
   const projectPath = resolveProjectPath(project.name, isDeploymentMode);
   function openProjectFromCard() {
     if (!projectPath) {
@@ -998,43 +1002,15 @@ function ProjectCard({
           selectionEnabled={selectionEnabled}
           isFavorite={isFavorite}
           onToggleFavoriteProjectConfig={onToggleFavoriteProjectConfig}
+          isDefault={isDefault}
+          isDeploymentMode={isDeploymentMode}
+          onSetDefaultProject={onSetDefaultProject}
+          showSelectionControls={showSelectionControls}
         />
-        <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-4 py-3 dark:bg-setta-860">
-          <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-sm text-setta-600 dark:text-setta-100">
-              {project.name}
-            </p>
-            <div className="flex items-center gap-1">
-              {!isDeploymentMode && (
-                <button
-                  type="button"
-                  data-testid="home-project-default-toggle"
-                  className={`nodrag inline-flex h-5 w-5 items-center justify-center rounded-full bg-transparent transition-colors focus-visible:ring-2 ${
-                    isDefault
-                      ? "text-green-500"
-                      : "text-transparent hover:!text-setta-400 group-hover/projectcard:text-setta-400/60 dark:hover:!text-setta-300 dark:group-hover/projectcard:text-setta-500"
-                  }`}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    void onSetDefaultProject(project.id);
-                  }}
-                  onKeyDown={(event) => event.stopPropagation()}
-                  aria-label={
-                    isDefault ? "Default project" : "Make default project"
-                  }
-                  title={isDefault ? "Default project" : "Make default project"}
-                >
-                  <HiHome size={13} />
-                </button>
-              )}
-              {isFavorite ? (
-                <IoStar className="h-4 w-4 text-amber-400" />
-              ) : (
-                <IoStarOutline className="h-4 w-4 text-setta-300 dark:text-setta-600" />
-              )}
-            </div>
-          </div>
+        <div className="col-start-1 col-end-2 row-start-2 row-end-3 w-full place-self-end bg-white px-3 py-2 dark:bg-setta-860">
+          <p className="truncate text-sm text-setta-600 dark:text-setta-100">
+            {project.name}
+          </p>
         </div>
       </ThumbnailWrapper>
     </article>
@@ -1094,6 +1070,10 @@ function ThumbnailArea({
   selectionEnabled,
   isFavorite,
   onToggleFavoriteProjectConfig,
+  isDefault,
+  isDeploymentMode,
+  onSetDefaultProject,
+  showSelectionControls,
 }: {
   project: ProjectConfig;
   isSelected: boolean;
@@ -1103,7 +1083,19 @@ function ThumbnailArea({
   selectionEnabled: boolean;
   isFavorite: boolean;
   onToggleFavoriteProjectConfig: (projectConfigId: string) => void;
+  isDefault: boolean;
+  isDeploymentMode: boolean;
+  onSetDefaultProject: (projectConfigId: string) => Promise<void>;
+  showSelectionControls: boolean;
 }) {
+  const hoverControlVisibilityClass =
+    "opacity-0 pointer-events-none group-hover/projectcard:opacity-100 group-hover/projectcard:pointer-events-auto group-focus-within/projectcard:opacity-100 group-focus-within/projectcard:pointer-events-auto";
+  const checkmarkVisibilityClass = showSelectionControls
+    ? "opacity-100"
+    : hoverControlVisibilityClass;
+  const iconButtonBaseClass =
+    "nodrag inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-black/30 transition-colors focus-visible:ring-2 dark:bg-setta-950/70";
+
   function onThumbnailKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) {
       return;
@@ -1122,45 +1114,77 @@ function ThumbnailArea({
     <ProjectConfigThumbnailSurface
       previewImgColor={project.previewImgColor}
       topLevelSections={project.topLevelSections}
-      className="absolute bottom-0 left-0 top-0"
+      className="group/thumbnail absolute bottom-0 left-0 top-0"
+      scalePreview={false}
       previewContainerProps={{ tabIndex: 0, onKeyDown: onThumbnailKeyDown }}
       overlay={
-        <aside className="z-[1] col-start-1 col-end-2 row-start-1 row-end-2 flex w-full items-center justify-between gap-1 [place-self:flex-start_flex-end]">
-          {selectionEnabled && (
+        <aside className="z-[1] col-start-1 col-end-2 row-start-1 row-end-2 grid h-full w-full grid-rows-[auto_1fr_auto] p-2">
+          <div className="flex items-start justify-between gap-1">
+            {selectionEnabled && (
+              <button
+                className={`${iconButtonBaseClass} ${checkmarkVisibilityClass} ${
+                  isSelected
+                    ? "bg-blue-500 text-white"
+                    : "text-white/90 hover:bg-blue-500 hover:text-white"
+                }`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onToggleProjectSelection(project.id);
+                }}
+                onKeyDown={(event) => event.stopPropagation()}
+                aria-label={isSelected ? "Selected project" : "Select project"}
+              >
+                <IoMdCheckmark size={13} />
+              </button>
+            )}
             <button
-              className={`nodrag inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-full px-1 py-1 text-white/80 focus-visible:ring-2 ${
-                isSelected ? "bg-blue-500" : "bg-black/20 hover:bg-blue-500"
+              type="button"
+              data-testid="home-project-favorite-toggle"
+              className={`${iconButtonBaseClass} ${hoverControlVisibilityClass} ${
+                isFavorite
+                  ? "text-amber-400 hover:bg-black/45"
+                  : "text-white/90 hover:bg-black/45 hover:text-amber-400"
               }`}
               onClick={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                onToggleProjectSelection(project.id);
+                onToggleFavoriteProjectConfig(project.id);
               }}
               onKeyDown={(event) => event.stopPropagation()}
+              aria-label={
+                isFavorite ? "Remove from favourites" : "Add to favourites"
+              }
             >
-              <IoMdCheckmark />
+              {isFavorite ? <IoStar size={13} /> : <IoStarOutline size={13} />}
             </button>
+          </div>
+          <div />
+          {!isDeploymentMode && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                data-testid="home-project-default-toggle"
+                className={`${iconButtonBaseClass} ${hoverControlVisibilityClass} ${
+                  isDefault
+                    ? "text-green-400 hover:bg-black/45"
+                    : "text-white/90 hover:bg-black/45 hover:text-green-400"
+                }`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void onSetDefaultProject(project.id);
+                }}
+                onKeyDown={(event) => event.stopPropagation()}
+                aria-label={
+                  isDefault ? "Default project" : "Make default project"
+                }
+                title={isDefault ? "Default project" : "Make default project"}
+              >
+                <HiHome size={13} />
+              </button>
+            </div>
           )}
-          <button
-            type="button"
-            data-testid="home-project-favorite-toggle"
-            className={`nodrag inline-flex h-5 w-5 cursor-pointer items-center justify-center rounded-full focus-visible:ring-2 ${
-              isFavorite
-                ? "bg-amber-500/85 text-white hover:bg-amber-400"
-                : "bg-black/20 text-white/85 hover:bg-amber-500 hover:text-white"
-            }`}
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onToggleFavoriteProjectConfig(project.id);
-            }}
-            onKeyDown={(event) => event.stopPropagation()}
-            aria-label={
-              isFavorite ? "Remove from favourites" : "Add to favourites"
-            }
-          >
-            {isFavorite ? <IoStar size={12} /> : <IoStarOutline size={12} />}
-          </button>
         </aside>
       }
     />
