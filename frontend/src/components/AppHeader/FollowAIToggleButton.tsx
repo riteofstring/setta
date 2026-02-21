@@ -6,7 +6,15 @@ import { RiCheckLine, RiFocus2Line } from "react-icons/ri";
 import { useAIFollow, useAIStore, useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
-export function FollowAIToggleButton() {
+type FollowAIToggleButtonProps = {
+  labelMode?: "responsive" | "always";
+  triggerClassName?: string;
+};
+
+export function FollowAIToggleButton({
+  labelMode = "responsive",
+  triggerClassName,
+}: FollowAIToggleButtonProps = {}) {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const {
     mode,
@@ -51,6 +59,12 @@ export function FollowAIToggleButton() {
     mode !== "off"
       ? "text-blue-600 hover:text-blue-500 dark:hover:text-blue-500"
       : "text-setta-600 hover:text-setta-900 dark:text-setta-300 dark:hover:text-white";
+  const defaultTriggerClassName =
+    "nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300";
+  const resolvedTriggerClassName = triggerClassName
+    ? `${triggerClassName} ${stateClasses}`
+    : `${defaultTriggerClassName} ${stateClasses}`;
+  const showResponsiveLabel = labelMode === "responsive";
   const menuItemClasses =
     "flex items-center gap-2 px-1.5 py-1.5 text-xs text-setta-700 dark:text-setta-200 mx-1 rounded-md text-left hover:bg-setta-600 hover:text-white dark:hover:bg-setta-900 dark:hover:text-white active:bg-blue-100 active:dark:bg-blue-950 cursor-pointer";
 
@@ -118,15 +132,23 @@ export function FollowAIToggleButton() {
         <span className="inline-flex items-center gap-1">
           <RiFocus2Line size={15} aria-hidden="true" />
           <span
-            className="hidden @[31.25rem]:block"
+            className={
+              showResponsiveLabel ? "hidden @[31.25rem]:block" : undefined
+            }
             data-testid="follow-ai-visible-label"
           >
             Follow AI
           </span>
-          <span className="sr-only @[31.25rem]:hidden">Follow AI</span>
+          <span
+            className={
+              showResponsiveLabel ? "sr-only @[31.25rem]:hidden" : "sr-only"
+            }
+          >
+            Follow AI
+          </span>
         </span>
       }
-      triggerClassName={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300 ${stateClasses}`}
+      triggerClassName={resolvedTriggerClassName}
       contentClassName="z-20 min-w-[220px] rounded-md border border-solid border-setta-100 bg-white p-1 shadow-xl transition-all will-change-[transform,opacity] dark:border-setta-700/50 dark:bg-setta-850"
     >
       <MenuItem
