@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import {
@@ -307,10 +308,12 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
   const completionGuardEnabled = useSettings(
     (settings) => settings.backend.completionGuardEnabled,
   );
+  const [isSavingCompletionGuard, setIsSavingCompletionGuard] = useState(false);
+  const completionGuardSaveRequestIdRef = useRef(0);
 
   const handleCompletionGuardEnabledChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
-      if (!canEdit) {
+      if (!canEdit || isSavingCompletionGuard) {
         return;
       }
       const checked = event.target.checked;
@@ -322,8 +325,15 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
           completionGuardEnabled: checked,
         },
       };
+      const requestId = completionGuardSaveRequestIdRef.current + 1;
+      completionGuardSaveRequestIdRef.current = requestId;
+      setIsSavingCompletionGuard(true);
       void (async () => {
         const response = await route_save_settings({ settings: nextSettings });
+        if (requestId !== completionGuardSaveRequestIdRef.current) {
+          return;
+        }
+        setIsSavingCompletionGuard(false);
         if (!res200(response)) {
           const detail = getErrorDetail(response.data);
           addTemporaryNotification(
@@ -335,7 +345,7 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
         useSettings.setState(nextSettings);
       })();
     },
-    [canEdit],
+    [canEdit, isSavingCompletionGuard],
   );
 
   return (
@@ -345,7 +355,7 @@ function GuardrailsSettings({ canEdit }: { canEdit: boolean }) {
           type="checkbox"
           checked={completionGuardEnabled}
           onChange={handleCompletionGuardEnabledChange}
-          disabled={!canEdit}
+          disabled={!canEdit || isSavingCompletionGuard}
           data-testid="project-ai-settings-completion-guard-toggle"
           className="h-4 w-4 cursor-pointer rounded border border-setta-300 bg-white text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:bg-setta-950"
         />

@@ -103,7 +103,9 @@ test.describe.serial("project ai settings accordion layout", () => {
       });
       for (const metric of clippingMetrics) {
         expect(metric.missing).toBe(false);
-        expect(metric.scrollHeight - metric.clientHeight).toBeLessThanOrEqual(1);
+        expect(metric.scrollHeight - metric.clientHeight).toBeLessThanOrEqual(
+          1,
+        );
       }
 
       await page.reload({ waitUntil: "domcontentloaded" });
@@ -153,7 +155,9 @@ test.describe.serial("project ai settings accordion layout", () => {
         };
       });
       if (!insetMetrics) {
-        throw new Error("Unable to compute external-agent input inset metrics.");
+        throw new Error(
+          "Unable to compute external-agent input inset metrics.",
+        );
       }
       expect(insetMetrics.rightInset).toBeGreaterThanOrEqual(6);
 
@@ -208,7 +212,10 @@ test.describe.serial("project ai settings accordion layout", () => {
         }
         const input = content.querySelector<HTMLInputElement>("input");
         const select = content.querySelector<HTMLSelectElement>("select");
-        if (!(input instanceof HTMLElement) || !(select instanceof HTMLElement)) {
+        if (
+          !(input instanceof HTMLElement) ||
+          !(select instanceof HTMLElement)
+        ) {
           return null;
         }
         return {
@@ -219,13 +226,17 @@ test.describe.serial("project ai settings accordion layout", () => {
       if (!controlWidths) {
         throw new Error("Unable to compute input/select width metrics.");
       }
-      expect(Math.abs(controlWidths.inputWidth - controlWidths.selectWidth)).toBeLessThanOrEqual(2);
+      expect(
+        Math.abs(controlWidths.inputWidth - controlWidths.selectWidth),
+      ).toBeLessThanOrEqual(2);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
 
-  test("agent profile toggles are visible and default off", async ({ page }) => {
+  test("agent profile toggles are visible and default off", async ({
+    page,
+  }) => {
     await setOverviewTab(page, "ProjectAISettings");
     const projectContext = await openIsolatedProject(page);
     try {
@@ -274,8 +285,20 @@ test.describe.serial("project ai settings accordion layout", () => {
       );
       await expect(completionGuardToggle).toBeVisible();
       const initiallyChecked = await completionGuardToggle.isChecked();
+      const expectedChecked = !initiallyChecked;
+      const saveResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/saveSettings") &&
+          response.request().method() === "POST",
+      );
       await completionGuardToggle.click();
-      await expect(completionGuardToggle).not.toBeChecked();
+      const saveResponse = await saveResponsePromise;
+      expect(saveResponse.ok()).toBe(true);
+      if (expectedChecked) {
+        await expect(completionGuardToggle).toBeChecked();
+      } else {
+        await expect(completionGuardToggle).not.toBeChecked();
+      }
 
       await page.reload({ waitUntil: "domcontentloaded" });
       const reloadedGuardrailsTrigger = page.getByTestId(
@@ -290,7 +313,69 @@ test.describe.serial("project ai settings accordion layout", () => {
       const reloadedToggle = page.getByTestId(
         "project-ai-settings-completion-guard-toggle",
       );
-      await expect(reloadedToggle).not.toBeChecked();
+      if (expectedChecked) {
+        await expect(reloadedToggle).toBeChecked();
+      } else {
+        await expect(reloadedToggle).not.toBeChecked();
+      }
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("guardrails completion toggle is disabled while save is in flight", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAISettings");
+    const projectContext = await openIsolatedProject(page);
+    try {
+      const guardrailsTrigger = page.getByTestId(
+        "project-ai-settings-accordion-guardrails",
+      );
+      if ((await guardrailsTrigger.getAttribute("aria-expanded")) !== "true") {
+        await guardrailsTrigger.click();
+      }
+
+      const completionGuardToggle = page.getByTestId(
+        "project-ai-settings-completion-guard-toggle",
+      );
+      await expect(completionGuardToggle).toBeVisible();
+
+      let releaseSave: (() => void) | null = null;
+      const saveBlocked = new Promise<void>((resolve) => {
+        releaseSave = resolve;
+      });
+      let saveRequestCount = 0;
+      const delayedSaveSettings = async (route: Route) => {
+        saveRequestCount += 1;
+        await saveBlocked;
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({}),
+        });
+      };
+      await page.route("**/api/saveSettings", delayedSaveSettings);
+
+      const saveResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/saveSettings") &&
+          response.request().method() === "POST",
+      );
+      await completionGuardToggle.click();
+      await expect(completionGuardToggle).toBeDisabled();
+      await expect
+        .poll(() => saveRequestCount, { timeout: 5_000 })
+        .toBeGreaterThanOrEqual(1);
+
+      if (!releaseSave) {
+        throw new Error("Save gate was not initialized.");
+      }
+      releaseSave();
+      const saveResponse = await saveResponsePromise;
+      expect(saveResponse.ok()).toBe(true);
+      await expect(completionGuardToggle).toBeEnabled();
+      await page.unroute("**/api/saveSettings", delayedSaveSettings);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

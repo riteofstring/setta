@@ -1653,6 +1653,11 @@ class AgentRunner:
         tool_names = sorted(combined.keys())
         if not include_search_tool:
             tool_names = [name for name in tool_names if name != self._search_tool_name]
+        tool_names = [
+            name
+            for name in tool_names
+            if self._is_supported_completion_status_tool_name(name)
+        ]
         if allowlist is not None:
             tool_names = [
                 name for name in tool_names if self._is_tool_allowed(name, allowlist)
@@ -1724,6 +1729,15 @@ class AgentRunner:
         if allowlist is None or not allowlist.server_ids:
             return None
         return set(allowlist.server_ids) & server_ids
+
+    def _is_supported_completion_status_tool_name(self, tool_name: str) -> bool:
+        normalized_tool_name = (
+            tool_name[len("mcp__") :] if tool_name.startswith("mcp__") else tool_name
+        )
+        server_id, base_name = split_namespaced_tool_name(normalized_tool_name)
+        if base_name != REPORT_COMPLETION_STATUS_TOOL_NAME:
+            return True
+        return server_id == SETTA_MCP_SERVER_ID
 
     def _is_tool_allowed(self, tool_name: str, allowlist: ToolAllowlist | None) -> bool:
         if allowlist is None:

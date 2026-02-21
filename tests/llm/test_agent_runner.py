@@ -238,6 +238,83 @@ class TestAgentRunner:
                 "other__report_completion_status", allowlist
             )
 
+    def test_tool_definitions_filter_non_setta_report_completion_status_without_allowlist(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=["other", SETTA_MCP_SERVER_ID],
+                    )
+                },
+                mcpServers={
+                    "other": MCPServerConfig(
+                        transport="sse",
+                        url="http://localhost:8001/mcp",
+                    ),
+                    SETTA_MCP_SERVER_ID: MCPServerConfig(
+                        transport="sse",
+                        url="http://localhost:8000/mcp",
+                    ),
+                },
+            )
+            runner = _build_runner(dbe, config)
+            runner.mcp_client.disabled = False
+
+            def tool_definition(name: str) -> dict[str, object]:
+                return {
+                    "type": "function",
+                    "function": {
+                        "name": name,
+                        "description": "",
+                        "parameters": {},
+                    },
+                }
+
+            runner.mcp_client.discoverable_tool_definitions = {
+                "other__report_completion_status": tool_definition(
+                    "other__report_completion_status"
+                ),
+                "other__tool_alpha": tool_definition("other__tool_alpha"),
+                "setta__report_completion_status": tool_definition(
+                    "setta__report_completion_status"
+                ),
+            }
+            runner.mcp_client.routing = {
+                "other__report_completion_status": ("other", "report_completion_status"),
+                "other__tool_alpha": ("other", "tool_alpha"),
+                "setta__report_completion_status": (
+                    SETTA_MCP_SERVER_ID,
+                    "report_completion_status",
+                ),
+            }
+
+            tools = runner._build_full_tool_definitions(
+                {"other", SETTA_MCP_SERVER_ID},
+                defer_loading=False,
+                include_search_tool=False,
+                allowlist=None,
+                agentic_scope=AgenticScope(),
+                completion_guard_enabled=True,
+            )
+
+            tool_names = {
+                tool["function"]["name"]
+                for tool in tools
+                if isinstance(tool.get("function"), dict)
+                and isinstance(tool["function"].get("name"), str)
+            }
+            assert "other__report_completion_status" not in tool_names
+            assert "setta__report_completion_status" in tool_names
+            assert "other__tool_alpha" in tool_names
+
     def test_scope_filter_keeps_required_completion_report_tool(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
