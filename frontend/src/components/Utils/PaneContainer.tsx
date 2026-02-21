@@ -12,6 +12,8 @@ import {
   setPaneWidthWithLayout,
 } from "components/Panes/paneLayout";
 
+const FULL_WIDTH_BORDER_EPSILON = 2;
+
 export function PaneContainer({
   paneName,
   right,
@@ -80,10 +82,18 @@ export function PaneContainer({
   }
 
   const style = `${!right ? "-" : ""}${width - CLOSED_PANE_WIDTH}px`;
+  const isFullWidth = vis && width >= maxWidth - FULL_WIDTH_BORDER_EPSILON;
+  const seamBorderClass = right
+    ? isFullWidth
+      ? "border-l-0"
+      : "border-l"
+    : isFullWidth
+      ? "border-r-0"
+      : "border-r";
 
   const rightCondition = right
-    ? "justify-self-end left-auto border-l pr-7"
-    : "justify-self-start right-auto border-r pl-9";
+    ? `justify-self-end left-auto pr-7 ${seamBorderClass}`
+    : `justify-self-start right-auto pl-9 ${seamBorderClass}`;
   const paddingClasses = paddingClassName ?? "py-2.5";
 
   function onExpandToFullWidth() {
