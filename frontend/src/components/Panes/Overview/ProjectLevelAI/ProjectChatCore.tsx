@@ -14,6 +14,7 @@ import {
   type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
+import { useProviderTranscriptionSessionHandlers } from "components/Chat/useProviderTranscriptionSessionHandlers";
 import {
   Dispatch,
   SetStateAction,
@@ -37,7 +38,6 @@ import {
   stopProjectChatResponse,
   submitEditedMessage,
   submitMessage,
-  transcribeChatAudio,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
@@ -54,6 +54,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   AgentRun,
+  ChatDictationMode,
   ChatFileAttachment,
   EngineTypeEnum,
 } from "utils/generatedTypes";
@@ -414,6 +415,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hasLLMConfig,
   externalEngineAvailable,
   noLLMConfigsAvailable,
+  transcriptionProfileId,
+  dictationMode,
+  providerDictationAvailable,
+  providerDictationUnavailableReason,
   setChatId,
   onPermissionModeChange,
 }: {
@@ -425,6 +430,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hasLLMConfig: boolean;
   externalEngineAvailable: boolean;
   noLLMConfigsAvailable: boolean;
+  transcriptionProfileId: string | null;
+  dictationMode: ChatDictationMode;
+  providerDictationAvailable: boolean;
+  providerDictationUnavailableReason: string;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
   onPermissionModeChange?: (
     nextPermissionMode: ChatPermissionModeValue,
@@ -808,15 +817,18 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     const starterPrompt = buildDesignFirstFigmaStarterPrompt();
     setDraftMessage((current) => (current.trim() ? current : starterPrompt));
   }, []);
-  const handleProviderDictationTranscribe = useCallback(
-    async (audioBlob: Blob) => {
-      if (!engineConfigId || isExternalEngine) {
-        return null;
-      }
-      return transcribeChatAudio(engineConfigId, audioBlob);
-    },
-    [engineConfigId, isExternalEngine],
-  );
+  const {
+    onProviderTranscriptionSessionStart:
+      handleProviderTranscriptionSessionStart,
+    onProviderTranscriptionSessionAppend:
+      handleProviderTranscriptionSessionAppend,
+    onProviderTranscriptionSessionStop: handleProviderTranscriptionSessionStop,
+    onProviderTranscriptionSessionCancel:
+      handleProviderTranscriptionSessionCancel,
+  } = useProviderTranscriptionSessionHandlers({
+    transcriptionProfileId,
+    suppressStartNotification: dictationMode === "auto",
+  });
 
   return (
     <>
@@ -856,9 +868,20 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           permissionMode: showPermissionExecutionControl,
           search: showSearchExecutionControl,
         }}
-        dictationEnabledByProvider={Boolean(engineConfigId)}
-        onProviderDictationTranscribe={
-          isExternalEngine ? undefined : handleProviderDictationTranscribe
+        dictationMode={dictationMode}
+        dictationEnabledByProvider={providerDictationAvailable}
+        providerDictationUnavailableMessage={providerDictationUnavailableReason}
+        onProviderTranscriptionSessionStart={
+          handleProviderTranscriptionSessionStart
+        }
+        onProviderTranscriptionSessionAppend={
+          handleProviderTranscriptionSessionAppend
+        }
+        onProviderTranscriptionSessionStop={
+          handleProviderTranscriptionSessionStop
+        }
+        onProviderTranscriptionSessionCancel={
+          handleProviderTranscriptionSessionCancel
         }
       />
     </>

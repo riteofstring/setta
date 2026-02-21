@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -23,7 +22,6 @@ from setta.types.websocket import (
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgRealtimeUIChange,
 )
-from setta.ui_settings.reveal_result_hub import UISettingRevealResultHub
 from setta.types.project_state import ProjectStateBackend
 from setta.types.share_deployment import DeploymentManifest, DeploymentType, SharePolicy
 from setta.websockets.listener_registry import ListenerRegistry
@@ -117,7 +115,6 @@ async def test_share_receiver_requires_session_id() -> None:
             websocket_manager,
             project_manager=None,
             realtime_event_hub=event_hub,
-            ui_setting_reveal_result_hub=UISettingRevealResultHub(),
             share_mode=True,
             share_runtime_state=share_runtime_state,
         )
@@ -156,7 +153,6 @@ async def test_share_receiver_emits_realtime_delta() -> None:
             websocket_manager,
             project_manager=None,
             realtime_event_hub=event_hub,
-            ui_setting_reveal_result_hub=UISettingRevealResultHub(),
             share_mode=True,
             share_runtime_state=share_runtime_state,
         )
@@ -218,71 +214,3 @@ async def test_share_receiver_emits_realtime_delta() -> None:
         finally:
             await frontend_socket.close()
             await listener_socket.close()
-
-
-@pytest.mark.asyncio
-async def test_share_receiver_resolves_ui_setting_reveal_result() -> None:
-    with TemporaryDirectory() as tmpdir:
-        websocket_manager = WebsocketManager()
-        listener_registry = ListenerRegistry()
-        sender = WMHPythonScriptSender(websocket_manager, listener_registry)
-        event_hub = RealtimeEventHub(sender)
-        project_config_id = ID("share-project")
-        share_runtime_state = _build_share_runtime_state(
-            tmpdir,
-            websocket_manager,
-            project_config_id,
-            "Share Project",
-        )
-        share_runtime_state.create_session_backend("session-a")
-        reveal_result_hub = UISettingRevealResultHub()
-        receiver = WMHFrontendReceiver(
-            websocket_manager,
-            project_manager=None,
-            realtime_event_hub=event_hub,
-            ui_setting_reveal_result_hub=reveal_result_hub,
-            share_mode=True,
-            share_runtime_state=share_runtime_state,
-        )
-        frontend_messages: list[Message] = []
-        frontend_socket = await _build_websocket(frontend_messages)
-        frontend_id = await websocket_manager.on_connect(
-            frontend_socket,
-            WebsocketConnectionType.FRONTEND,
-            id="frontend-share-reveal",
-            shareSessionId="session-a",
-        )
-        try:
-            await receiver.on_connect(frontend_id)
-            reveal_result_hub.register_request("reveal-request-1")
-
-            await receiver.process_json_str(
-                json.dumps(
-                    {
-                        "messageType": "UISettingRevealResult",
-                        "content": {
-                            "projectConfigId": str(project_config_id),
-                            "requestId": "reveal-request-1",
-                            "statuses": [
-                                {
-                                    "settingId": "core.watch_code.enabled",
-                                    "status": "revealed",
-                                    "errorCode": None,
-                                    "errorMessage": None,
-                                }
-                            ],
-                        },
-                    }
-                ),
-                frontend_id,
-            )
-            resolved = await reveal_result_hub.wait_for_result(
-                request_id="reveal-request-1",
-                timeout_seconds=0.2,
-            )
-            assert resolved is not None
-            assert resolved.requestId == "reveal-request-1"
-            assert resolved.statuses[0].settingId == "core.watch_code.enabled"
-            assert resolved.statuses[0].status == "revealed"
-        finally:
-            await frontend_socket.close()

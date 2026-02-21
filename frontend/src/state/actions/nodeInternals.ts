@@ -54,11 +54,11 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
     return;
   }
 
-  const newNodes = getNewNodes();
-  let prevWidthHeightWasNull = false;
+  const currentNodes = useNodeInternals.getState().x;
+  let newNodes: Map<string, Node> | null = null;
 
   for (const u of updates) {
-    const node = newNodes.get(u.id);
+    const node = (newNodes ?? currentNodes).get(u.id);
     if (node) {
       const dimensions = getDimensions(u.nodeElement);
       const doUpdate = !!(
@@ -70,8 +70,8 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
       );
 
       if (doUpdate) {
-        if (node.width === null || node.height === null) {
-          prevWidthHeightWasNull = true;
+        if (!newNodes) {
+          newNodes = new Map(currentNodes);
         }
         newNodes.set(node.id, {
           ...node,
@@ -81,8 +81,10 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
     }
   }
 
-  useNodeInternals.setState({ x: newNodes });
-  debounced_route_set_top_level_section_layout();
+  if (newNodes) {
+    useNodeInternals.setState({ x: newNodes });
+    debounced_route_set_top_level_section_layout();
+  }
 
   const miscState = useMisc.getState();
   // don't do fitView until all code areas are done rendering
@@ -177,7 +179,7 @@ export function getNodeUpdateInformation(entries, fromResizeObserver: boolean) {
     return entries.map((entry) => ({
       id: entry.target.getAttribute("data-id"),
       nodeElement: entry.target,
-      forceUpdate: true,
+      forceUpdate: false,
     }));
   }
   const output: NodeDimensionsUpdate = [];
@@ -187,7 +189,7 @@ export function getNodeUpdateInformation(entries, fromResizeObserver: boolean) {
       output.push({
         id: nodeId,
         nodeElement: refState[nodeId],
-        forceUpdate: true,
+        forceUpdate: false,
       });
     }
   });

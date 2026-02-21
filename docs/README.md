@@ -57,6 +57,7 @@
 - `reference/section-colors.md` – section `tagColor`/`styleColor` model, routes, UI behavior, and guardrails.
 - `reference/section-sizing-and-ux.md` – default section sizes, sizing rules, and resize UX.
 - `reference/watch-code.md` – watch-mode notes for code sections.
+- `skill-catalog/README.md` – catalog location for Setta-maintained skill docs and runtime-root notes.
 
 ## Notes
 - `notes/setta-assessment.md` – product/market assessment and positioning notes.
