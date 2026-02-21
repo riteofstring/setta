@@ -62,7 +62,8 @@ const _NodeWrapper = ({
       ref={nodeRef}
       style={{
         transform: `translate(${node?.position.x}px,${node?.position.y}px)`,
-        pointerEvents: "all",
+        pointerEvents: node?.hidden ? "none" : "all",
+        display: node?.hidden ? "none" : undefined,
         visibility,
         zIndex: node?.tempZIndex,
       }}

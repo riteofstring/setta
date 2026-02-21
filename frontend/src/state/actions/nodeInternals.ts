@@ -23,9 +23,16 @@ type NodeDimensionsUpdate = Array<{
   forceUpdate: boolean;
 }>;
 
-export function getNodes(s: null | ZustandNodeInternalsState = null) {
+export function getNodes(
+  s: null | ZustandNodeInternalsState = null,
+  includeHidden = false,
+) {
   const source = s ? s.x : useNodeInternals.getState().x;
-  return Array.from(source.values());
+  const nodes = Array.from(source.values());
+  if (includeHidden) {
+    return nodes;
+  }
+  return nodes.filter((node) => !node.hidden);
 }
 
 export function addNodes(nodes: Array<Node>) {

@@ -9,6 +9,7 @@ export function TopLevelContainer({
   visibility,
   isEditingViewMode,
   isUserView,
+  shouldRender,
   children,
 }: {
   isGroup: boolean;
@@ -17,6 +18,7 @@ export function TopLevelContainer({
   visibility: boolean;
   isEditingViewMode: boolean;
   isUserView: boolean;
+  shouldRender: boolean;
 }) {
   const activeIsSelf = useDndState((x) => x.activeId === sectionId);
   const { isMovingFree } = useDndMode();
@@ -41,6 +43,7 @@ export function TopLevelContainer({
       visibility={visibility}
       isEditingViewMode={isEditingViewMode}
       isUserView={isUserView}
+      shouldRender={shouldRender}
     >
       {children}
     </DndSlotAndDndWatcher>

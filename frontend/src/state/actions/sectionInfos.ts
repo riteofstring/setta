@@ -1310,6 +1310,7 @@ export function createNodesMapFromProjectConfigChildren(
     if (!layout) {
       continue;
     }
+    let hidden = false;
     if (canFilterByView) {
       const visibilityInfo = getSectionViewModeVisibilityIfPresent(
         sectionId,
@@ -1318,14 +1319,10 @@ export function createNodesMapFromProjectConfigChildren(
       if (!visibilityInfo) {
         continue;
       }
-      if (
-        !getSectionShouldRender(
-          visibilityInfo.visibility,
-          visibilityInfo.isEditingViewMode,
-        )
-      ) {
-        continue;
-      }
+      hidden = !getSectionShouldRender(
+        visibilityInfo.visibility,
+        visibilityInfo.isEditingViewMode,
+      );
     }
     nodesMap.set(sectionId, {
       id: sectionId,
@@ -1334,6 +1331,7 @@ export function createNodesMapFromProjectConfigChildren(
       height: nodes.get(sectionId)?.height ?? layout.h,
       zIndex: layout.zIndex,
       tempZIndex: layout.zIndex,
+      hidden,
     });
   }
 

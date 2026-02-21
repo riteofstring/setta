@@ -422,7 +422,7 @@ describe("attached terminal helper lookups", () => {
 });
 
 describe("createNodesMapFromProjectConfigChildren", () => {
-  it("filters out hidden sections when not editing view modes", () => {
+  it("marks hidden sections instead of dropping them when not editing view modes", () => {
     const sectionVisible = "section-visible";
     const sectionHidden = "section-hidden";
     const sectionVisibleVariantId = "variant-visible";
@@ -511,7 +511,9 @@ describe("createNodesMapFromProjectConfigChildren", () => {
     );
 
     expect(nodesMap.has(sectionVisible)).toBe(true);
-    expect(nodesMap.has(sectionHidden)).toBe(false);
+    expect(nodesMap.get(sectionVisible)?.hidden).toBe(false);
+    expect(nodesMap.has(sectionHidden)).toBe(true);
+    expect(nodesMap.get(sectionHidden)?.hidden).toBe(true);
   });
 
   it("uses view mode layout when project layout is missing visible sections", () => {
@@ -602,7 +604,9 @@ describe("createNodesMapFromProjectConfigChildren", () => {
     );
 
     expect(nodesMap.has(sectionVisible)).toBe(true);
-    expect(nodesMap.has(sectionHidden)).toBe(false);
+    expect(nodesMap.get(sectionVisible)?.hidden).toBe(false);
+    expect(nodesMap.has(sectionHidden)).toBe(true);
+    expect(nodesMap.get(sectionHidden)?.hidden).toBe(true);
   });
 
   it("skips sections that are missing visibility in the active view mode", () => {

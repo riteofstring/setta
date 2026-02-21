@@ -32,9 +32,10 @@ export function getDragItems(
   return Array.from(nodeInternals.values())
     .filter(
       (n) =>
-        (!nodeId && activeSections.includes(n.id)) ||
-        (draggedNodeIsActive && activeSections.includes(n.id)) ||
-        (!draggedNodeIsActive && n.id === nodeId),
+        !n.hidden &&
+        ((!nodeId && activeSections.includes(n.id)) ||
+          (draggedNodeIsActive && activeSections.includes(n.id)) ||
+          (!draggedNodeIsActive && n.id === nodeId)),
     )
     .map((n) => ({
       id: n.id,

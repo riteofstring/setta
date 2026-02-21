@@ -25,11 +25,7 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   });
   await expect(allTab).toBeVisible();
   await allTab.click();
-  await page.waitForFunction(
-    (minCount) =>
-      document.querySelectorAll(".react-flow__node").length > minCount,
-    13,
-  );
+  await waitForNodeCount(page, 42);
 
   const allZoom = await getViewportScale(page);
   expect(coreZoom).toBeGreaterThan(allZoom);
@@ -93,7 +89,12 @@ test("settings view modes keep visible sections when layout payload is partial",
 
 async function waitForNodeCount(page: Page, expected: number): Promise<void> {
   await page.waitForFunction(
-    (count) => document.querySelectorAll(".react-flow__node").length === count,
+    (count) =>
+      Array.from(document.querySelectorAll(".react-flow__node")).filter(
+        (node) =>
+          window.getComputedStyle(node).display !== "none" &&
+          window.getComputedStyle(node).visibility !== "hidden",
+      ).length === count,
     expected,
   );
 }
