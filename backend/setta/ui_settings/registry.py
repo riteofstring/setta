@@ -8,6 +8,8 @@ from setta.agentic.store import (
     load_agent_profiles,
     load_external_agent_configs,
 )
+from setta.plugins.errors import PluginManagerError
+from setta.plugins.models import PluginRegisteredUISetting
 from setta.project_state.project_manager_types import (
     GetAppDefinitionRequest,
     SetProjectConfigCodegenTargetsRequest,
@@ -608,17 +610,27 @@ def _build_plugin_entries(
         if "registerPane" not in plugin.effectiveCapabilities:
             continue
         schema_json = plugin.config.schemaJson
-        if not isinstance(schema_json, dict):
-            continue
-        definitions = _parse_plugin_ui_setting_definitions(
-            schema_json=schema_json,
+        if isinstance(schema_json, dict):
+            definitions = _parse_plugin_ui_setting_definitions(
+                schema_json=schema_json,
+                plugin_id=plugin.pluginId,
+            )
+            for definition in definitions:
+                entries.append(
+                    _build_plugin_runtime_entry(
+                        plugin_id=plugin.pluginId,
+                        definition=definition,
+                    )
+                )
+        backend_registrations = plugin_manager.get_backend_ui_settings(
             plugin_id=plugin.pluginId,
         )
-        for definition in definitions:
+        for registration in backend_registrations:
             entries.append(
-                _build_plugin_runtime_entry(
+                _build_backend_plugin_runtime_entry(
                     plugin_id=plugin.pluginId,
-                    definition=definition,
+                    registration=registration,
+                    plugin_manager=plugin_manager,
                 )
             )
     return entries
@@ -670,6 +682,61 @@ def _build_plugin_runtime_entry(
             pluginId=plugin_id,
             mutability=definition.mutability,
             valueSchema=definition.valueSchema,
+        ),
+        readValue=read_value,
+        writeValue=write_value,
+    )
+
+
+def _build_backend_plugin_runtime_entry(
+    *,
+    plugin_id: str,
+    registration: PluginRegisteredUISetting,
+    plugin_manager,
+) -> UISettingRuntimeEntry:
+    setting_id = build_plugin_setting_id(
+        plugin_id=plugin_id,
+        local_setting_id=registration.localSettingId,
+    )
+    value_schema = UISettingValueSchema.model_validate(registration.valueSchema)
+    read_value = _build_plugin_backend_read_value(
+        plugin_id=plugin_id,
+        read_handler_id=registration.readHandlerId,
+        plugin_manager=plugin_manager,
+    )
+    write_value = (
+        None
+        if registration.mutability == "readOnly" or registration.writeHandlerId is None
+        else _build_plugin_backend_write_value(
+            plugin_id=plugin_id,
+            read_handler_id=registration.readHandlerId,
+            write_handler_id=registration.writeHandlerId,
+            plugin_manager=plugin_manager,
+        )
+    )
+    return UISettingRuntimeEntry(
+        metadata=UISettingEntry(
+            settingId=setting_id,
+            title=registration.title,
+            synonyms=list(registration.synonyms),
+            description=registration.description,
+            location=UISettingLocation(
+                side="left",
+                overviewTabKey=_build_plugin_pane_overview_tab_key(
+                    plugin_id=plugin_id,
+                    pane_id=registration.paneId,
+                ),
+                pluginId=plugin_id,
+                paneId=registration.paneId,
+            ),
+            highlight=UISettingHighlight(
+                strategy="plugin_handler",
+                pluginRevealKey=registration.revealKey,
+            ),
+            source="plugin",
+            pluginId=plugin_id,
+            mutability=registration.mutability,
+            valueSchema=value_schema,
         ),
         readValue=read_value,
         writeValue=write_value,
@@ -746,6 +813,107 @@ def _build_plugin_write_value(
         )
 
     return _write_plugin_value
+
+
+def _build_plugin_backend_read_value(
+    *,
+    plugin_id: str,
+    read_handler_id: str,
+    plugin_manager,
+):
+    def _read_plugin_backend_value(
+        ctx: "Context",
+        project_config_id: ID,
+    ) -> JSONValue:
+        _require_active_plugin_runtime_entry(
+            ctx=ctx,
+            plugin_id=plugin_id,
+        )
+        try:
+            return plugin_manager.read_backend_ui_setting_value(
+                plugin_id=plugin_id,
+                read_handler_id=read_handler_id,
+                project_config_id=project_config_id,
+            )
+        except PluginManagerError as exc:
+            raise _convert_plugin_manager_error_for_ui_setting(
+                exc,
+                plugin_id=plugin_id,
+                operation="read",
+            ) from exc
+
+    return _read_plugin_backend_value
+
+
+def _build_plugin_backend_write_value(
+    *,
+    plugin_id: str,
+    read_handler_id: str,
+    write_handler_id: str,
+    plugin_manager,
+):
+    async def _write_plugin_backend_value(
+        ctx: "Context",
+        project_config_id: ID,
+        value: JSONValue,
+    ) -> UISettingMutationResult:
+        _require_active_plugin_runtime_entry(
+            ctx=ctx,
+            plugin_id=plugin_id,
+        )
+        try:
+            old_value = plugin_manager.read_backend_ui_setting_value(
+                plugin_id=plugin_id,
+                read_handler_id=read_handler_id,
+                project_config_id=project_config_id,
+            )
+            plugin_manager.write_backend_ui_setting_value(
+                plugin_id=plugin_id,
+                write_handler_id=write_handler_id,
+                project_config_id=project_config_id,
+                value=value,
+            )
+            new_value = plugin_manager.read_backend_ui_setting_value(
+                plugin_id=plugin_id,
+                read_handler_id=read_handler_id,
+                project_config_id=project_config_id,
+            )
+        except PluginManagerError as exc:
+            raise _convert_plugin_manager_error_for_ui_setting(
+                exc,
+                plugin_id=plugin_id,
+                operation="write",
+            ) from exc
+        return UISettingMutationResult(
+            oldValue=old_value,
+            newValue=new_value,
+            normalizedValue=value,
+            changed=old_value != new_value,
+        )
+
+    return _write_plugin_backend_value
+
+
+def _convert_plugin_manager_error_for_ui_setting(
+    exc: PluginManagerError,
+    *,
+    plugin_id: str,
+    operation: str,
+) -> UISettingValidationError:
+    if exc.code == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR":
+        return UISettingValidationError(
+            "plugin_unavailable",
+            (
+                f"Plugin {plugin_id} is unavailable for ui setting {operation}: "
+                f"{exc.message}"
+            ),
+        )
+    return UISettingValidationError(
+        "mutation_failed",
+        (
+            f"Plugin {plugin_id} ui setting {operation} failed: {exc.message}"
+        ),
+    )
 
 
 def _clone_json_object(value: Any) -> dict[str, Any]:

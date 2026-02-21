@@ -253,7 +253,7 @@ Do not reuse AI Follow IDs for this feature:
 - AI Follow is for graph entities (`section`, `codeObj`), not UI controls.
 - Separate reveal/mutation contracts avoid coupling and ID-mapping complexity.
 
-## Plugin-specific additions (current gap)
+## Plugin-specific additions
 
 ### Required extension points
 To support plugin panes/settings cleanly:
@@ -262,15 +262,14 @@ To support plugin panes/settings cleanly:
 3. Plugin read/write hooks for plugin-owned setting values.
 4. Stable plugin setting IDs namespaced by plugin ID.
 
-Note: plugin pane registration already exists in frontend runtime. Backend now has
-a v1 plugin-setting path via config-schema declarations and plugin config
-persistence; richer plugin-owned runtime handlers remain follow-up work.
-
-Current v1 contract implemented:
+Current contract implemented:
 - Plugin settings can be declared in plugin config schema JSON under `x-setta-ui-settings`.
 - Each declaration includes `settingId`, `title`, `description`, `paneId`, `revealKey`, and `configPath` (plus optional `synonyms`, `mutability`, `valueSchema`, `defaultValue`).
 - Setting IDs are namespaced as `plugin::<pluginId>::<settingId>`.
 - Read/write resolves through plugin config persistence (same path used by plugin config save APIs).
+- Backend plugins can register plugin-owned UI settings at runtime via `register_ui_setting(...)`.
+- Backend-registered plugin settings provide typed `valueSchema` plus read/write handler IDs.
+- Backend read/write handler execution is routed through plugin workers via `plugin.invoke_ui_setting_handler`.
 
 ### Registry merge policy
 - Include only enabled + runtime-healthy plugins.

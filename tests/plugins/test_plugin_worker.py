@@ -382,6 +382,102 @@ def test_worker_context_reflects_server_mode_and_capabilities(tmp_path: Path) ->
     }
 
 
+def test_worker_register_ui_setting_and_invoke_handler_roundtrip(
+    tmp_path: Path,
+) -> None:
+    # Worker should expose register_ui_setting and invoke registered read/write handlers.
+    plugin_root = _copy_backend_fixture(tmp_path)
+    (plugin_root / "backend" / "entrypoint.py").write_text(
+        "_STATE = {'enabled': False}\n\n"
+        "def _read_setting(*, project_config_id: str):\n"
+        "    return _STATE['enabled']\n\n"
+        "def _write_setting(*, project_config_id: str, value):\n"
+        "    _STATE['enabled'] = bool(value)\n"
+        "    return {'ok': True, 'projectConfigId': project_config_id}\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend setting behavior.',\n"
+        "            'paneId': 'full-settings-pane',\n"
+        "            'revealKey': 'full-settings',\n"
+        "            'synonyms': ['backend enabled'],\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'boolean'},\n"
+        "            'read': _read_setting,\n"
+        "            'write': _write_setting,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+    worker = _start_worker(
+        plugin_root,
+        requested_capabilities=["registerPane"],
+        effective_capabilities=["registerPane"],
+    )
+    try:
+        _ = _rpc_call(
+            worker,
+            request_id=1,
+            method="plugin.initialize",
+        )
+        host_method_calls: list[str] = []
+        host_requests: list[dict[str, Any]] = []
+        register_response = _rpc_call(
+            worker,
+            request_id=2,
+            method="plugin.register",
+            host_method_calls=host_method_calls,
+            host_requests=host_requests,
+        )
+        assert register_response["result"] == {"ok": True}
+        assert host_method_calls == ["host.register_ui_setting"]
+        setting_payload = host_requests[0]["params"]["setting"]
+        assert setting_payload["id"] == "backend_enabled"
+        assert setting_payload["readHandlerId"] == "backend_enabled"
+        assert setting_payload["writeHandlerId"] == "backend_enabled"
+
+        first_read = _rpc_call(
+            worker,
+            request_id=3,
+            method="plugin.invoke_ui_setting_handler",
+            params={
+                "handlerId": "backend_enabled",
+                "operation": "read",
+                "projectConfigId": "project-a",
+            },
+        )
+        assert first_read["result"]["value"] is False
+
+        write_response = _rpc_call(
+            worker,
+            request_id=4,
+            method="plugin.invoke_ui_setting_handler",
+            params={
+                "handlerId": "backend_enabled",
+                "operation": "write",
+                "projectConfigId": "project-a",
+                "value": True,
+            },
+        )
+        assert write_response["result"]["result"]["ok"] is True
+
+        second_read = _rpc_call(
+            worker,
+            request_id=5,
+            method="plugin.invoke_ui_setting_handler",
+            params={
+                "handlerId": "backend_enabled",
+                "operation": "read",
+                "projectConfigId": "project-a",
+            },
+        )
+        assert second_read["result"]["value"] is True
+    finally:
+        _stop_worker(worker)
+
+
 def test_worker_register_rejects_invalid_read_project_state_host_response(
     tmp_path: Path,
 ) -> None:

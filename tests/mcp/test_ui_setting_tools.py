@@ -4,6 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from fastapi import FastAPI
 from mcp.server.fastmcp.server import Context
 from mcp.shared.context import RequestContext
 from pydantic import BaseModel
@@ -693,6 +694,120 @@ async def test_plugin_ui_setting_flow_from_config_schema_metadata(
         assert target.pluginRevealKey == "full-settings"
         assert target.overviewTabKey == "PluginPane:setta-fixture-full:full-settings-pane"
         assert frontend_sender.reveal_messages
+
+
+@pytest.mark.asyncio
+async def test_plugin_ui_setting_flow_from_backend_registered_handlers(
+    tmp_path: Path,
+) -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        (plugin_root / "backend" / "entrypoint.py").write_text(
+            "_STATE = {'enabled': False}\n\n"
+            "def _read_backend_enabled(*, project_config_id: str):\n"
+            "    return _STATE['enabled']\n\n"
+            "def _write_backend_enabled(*, project_config_id: str, value):\n"
+            "    _STATE['enabled'] = bool(value)\n"
+            "    return {'ok': True, 'projectConfigId': project_config_id}\n\n"
+            "def register(plugin):\n"
+            "    plugin.register_ui_setting(\n"
+            "        {\n"
+            "            'id': 'backend_enabled',\n"
+            "            'title': 'Backend Enabled',\n"
+            "            'description': 'Enable backend-provided fixture behavior.',\n"
+            "            'paneId': 'full-settings-pane',\n"
+            "            'revealKey': 'full-settings',\n"
+            "            'synonyms': ['backend enabled'],\n"
+            "            'mutability': 'writable',\n"
+            "            'valueSchema': {'type': 'boolean'},\n"
+            "            'read': _read_backend_enabled,\n"
+            "            'write': _write_backend_enabled,\n"
+            "        }\n"
+            "    )\n",
+            encoding="utf-8",
+        )
+
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+        plugin_manager.load_backend_plugins(app=FastAPI())
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::backend_enabled"
+
+        try:
+            search_result = search_ui_settings(
+                query="backend enabled",
+                sourceFilter="plugin",
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+            result_ids = [entry.settingId for entry in search_result.results]
+            assert plugin_setting_id in result_ids
+
+            get_result = await get_ui_setting_value(
+                settingId=plugin_setting_id,
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+            assert get_result.error is None
+            assert get_result.value is False
+
+            set_result = await set_ui_setting_value(
+                settingId=plugin_setting_id,
+                value=True,
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+            assert set_result.error is None
+            assert set_result.changed is True
+            assert set_result.newValue is True
+
+            updated_get_result = await get_ui_setting_value(
+                settingId=plugin_setting_id,
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+            assert updated_get_result.error is None
+            assert updated_get_result.value is True
+
+            reveal_result = await reveal_ui_setting(
+                settingId=plugin_setting_id,
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+            assert reveal_result.emittedRevealCount == 1
+            assert len(reveal_result.statuses) == 1
+            assert reveal_result.statuses[0].status == "revealed"
+            assert reveal_result.statuses[0].target is not None
+            target = reveal_result.statuses[0].target
+            assert target is not None
+            assert target.strategy == "plugin_handler"
+            assert target.pluginId == plugin_id
+            assert target.paneId == "full-settings-pane"
+            assert target.pluginRevealKey == "full-settings"
+            assert (
+                target.overviewTabKey
+                == "PluginPane:setta-fixture-full:full-settings-pane"
+            )
+            assert frontend_sender.reveal_messages
+        finally:
+            plugin_manager.shutdown_backend_plugins()
 
 
 @pytest.mark.asyncio
