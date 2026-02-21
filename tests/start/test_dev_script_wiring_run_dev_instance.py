@@ -339,3 +339,191 @@ env | sort > "{capture_env}"
     assert captured_env.get("SETTA_HOME") != str(home_dir / ".setta")
     assert captured_env.get("SETTA_FILES_ROOT") != str(sandbox_root / "setta_files")
     assert "SETTA_FILES_LOCATION" not in captured_env
+
+
+def test_run_dev_instance_auto_frontend_port_excludes_fixed_backend_port(
+    tmp_path: Path,
+) -> None:
+    sandbox_root = build_run_dev_instance_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    capture_cmd = tmp_path / "pnpm_cmd.txt"
+    capture_env = tmp_path / "pnpm_env.txt"
+
+    write_stub_executable(
+        stub_dir / "pnpm",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{capture_cmd}"
+env | sort > "{capture_env}"
+""",
+    )
+    # Keep all ports free so we can assert only exclude logic drives the next pick.
+    write_stub_executable(
+        stub_dir / "lsof",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 1
+""",
+    )
+
+    baseline_result = run_script(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "run-dev-instance.sh"),
+            "--mode",
+            "reset",
+        ],
+        cwd=sandbox_root,
+        env=script_env(stub_dir, home_dir),
+    )
+    assert baseline_result.returncode == 0, baseline_result.stderr
+    baseline_env = parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    default_frontend_port = baseline_env["SETTA_DEV_FRONTEND_PORT"]
+
+    result = run_script(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "run-dev-instance.sh"),
+            "--backend-port",
+            default_frontend_port,
+            "--mode",
+            "reset",
+        ],
+        cwd=sandbox_root,
+        env=script_env(stub_dir, home_dir),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert capture_cmd.read_text(encoding="utf-8").strip() == "reset"
+    captured_env = parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    assert captured_env.get("SETTA_PORT") == default_frontend_port
+    assert captured_env.get("SETTA_DEV_FRONTEND_PORT") != default_frontend_port
+    assert int(captured_env["SETTA_DEV_FRONTEND_PORT"]) == int(default_frontend_port) + 1
+
+
+def test_run_dev_instance_auto_backend_port_excludes_fixed_frontend_port(
+    tmp_path: Path,
+) -> None:
+    sandbox_root = build_run_dev_instance_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    capture_cmd = tmp_path / "pnpm_cmd.txt"
+    capture_env = tmp_path / "pnpm_env.txt"
+
+    write_stub_executable(
+        stub_dir / "pnpm",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{capture_cmd}"
+env | sort > "{capture_env}"
+""",
+    )
+    # Keep all ports free so we can assert only exclude logic drives the next pick.
+    write_stub_executable(
+        stub_dir / "lsof",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 1
+""",
+    )
+
+    baseline_result = run_script(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "run-dev-instance.sh"),
+            "--mode",
+            "reset",
+        ],
+        cwd=sandbox_root,
+        env=script_env(stub_dir, home_dir),
+    )
+    assert baseline_result.returncode == 0, baseline_result.stderr
+    baseline_env = parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    default_backend_port = baseline_env["SETTA_PORT"]
+
+    result = run_script(
+        [
+            "bash",
+            str(sandbox_root / "scripts" / "run-dev-instance.sh"),
+            "--frontend-port",
+            default_backend_port,
+            "--mode",
+            "reset",
+        ],
+        cwd=sandbox_root,
+        env=script_env(stub_dir, home_dir),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert capture_cmd.read_text(encoding="utf-8").strip() == "reset"
+    captured_env = parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    assert captured_env.get("SETTA_DEV_FRONTEND_PORT") == default_backend_port
+    assert captured_env.get("SETTA_PORT") != default_backend_port
+    assert int(captured_env["SETTA_PORT"]) == int(default_backend_port) + 1
+
+
+@pytest.mark.parametrize(
+    ("entry_script", "expected_cmd"),
+    [
+        ("start.sh", "start"),
+        ("reset.sh", "reset"),
+    ],
+)
+def test_start_and_reset_scripts_auto_frontend_excludes_fixed_backend_port(
+    tmp_path: Path, entry_script: str, expected_cmd: str
+) -> None:
+    sandbox_root = build_run_dev_instance_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    capture_cmd = tmp_path / "pnpm_cmd.txt"
+    capture_env = tmp_path / "pnpm_env.txt"
+
+    write_stub_executable(
+        stub_dir / "pnpm",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" > "{capture_cmd}"
+env | sort > "{capture_env}"
+""",
+    )
+    write_stub_executable(
+        stub_dir / "lsof",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 1
+""",
+    )
+
+    baseline_result = run_script(
+        ["bash", str(sandbox_root / entry_script)],
+        cwd=sandbox_root,
+        env=script_env(stub_dir, home_dir),
+    )
+    assert baseline_result.returncode == 0, baseline_result.stderr
+    baseline_env = parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    default_frontend_port = baseline_env["SETTA_DEV_FRONTEND_PORT"]
+
+    result = run_script(
+        [
+            "bash",
+            str(sandbox_root / entry_script),
+            "--backend-port",
+            default_frontend_port,
+        ],
+        cwd=sandbox_root,
+        env=script_env(stub_dir, home_dir),
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert capture_cmd.read_text(encoding="utf-8").strip() == expected_cmd
+    captured_env = parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
+    assert captured_env.get("SETTA_PORT") == default_frontend_port
+    assert captured_env.get("SETTA_DEV_FRONTEND_PORT") != default_frontend_port
+    assert int(captured_env["SETTA_DEV_FRONTEND_PORT"]) == int(default_frontend_port) + 1

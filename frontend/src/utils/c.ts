@@ -55,6 +55,7 @@ export class C {
   static SETTINGS_PROJECT_NAME = "settings";
   static SHARE_DEPLOYMENT_ROOT = null;
   static SHARE_MODE = false;
+  static TRANSCRIPTION_FILE_SESSION_MAX_BYTES = 26214400;
   static WS_RUN_CODE = "runCode";
   static WS_TERMINAL_RESIZE = "terminalResize";
 }

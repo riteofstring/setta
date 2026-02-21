@@ -4,7 +4,7 @@ from pathlib import Path
 import yaml
 
 
-SKILLS_ROOT = Path(__file__).resolve().parents[2] / "skills"
+SKILLS_ROOT = Path(__file__).resolve().parents[2] / "docs" / "skill-catalog"
 FRONT_MATTER_DELIMITER = "---"
 REFERENCE_PATTERN = re.compile(r"(references/[A-Za-z0-9._/\\-]+)")
 
@@ -31,7 +31,7 @@ def _parse_front_matter(text: str) -> tuple[dict, str]:
 class TestSkillDocs:
     def test_skills_exist(self) -> None:
         skills = list(SKILLS_ROOT.rglob("SKILL.md"))
-        assert skills, "No SKILL.md files found under skills/"
+        assert skills, "No SKILL.md files found under docs/skill-catalog/"
 
     def test_skill_front_matter_contract(self) -> None:
         for skill_path in SKILLS_ROOT.rglob("SKILL.md"):

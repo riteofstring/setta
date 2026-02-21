@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 import pytest
 from fastapi import FastAPI
 
@@ -76,3 +78,44 @@ async def test_lifespan_continues_cleanup_when_plugin_shutdown_fails(
     assert logged_exceptions == [
         "Plugin manager shutdown failed during lifespan teardown."
     ]
+
+
+@pytest.mark.asyncio
+async def test_lifespan_stops_transcription_cleanup_loop_when_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Lifespan teardown should stop transcription session cleanup tasks when the state exposes it.
+    state_ref: dict[str, object] = {}
+
+    class _FakePluginManager:
+        def shutdown_backend_plugins(self) -> None:
+            return None
+
+    class _FakeSettaState:
+        def __init__(self, _app: FastAPI, **_kwargs) -> None:
+            self.plugin_manager = _FakePluginManager()
+            self.specific_file_watcher = None
+            self.mcp_client = SimpleNamespace(disabled=True)
+            self.lsps = None
+            self.lsp_readers = None
+            self.lsp_writers = None
+            self.stop_transcription_cleanup_calls = 0
+            state_ref["value"] = self
+
+        async def stop_transcription_session_cleanup_loop(self) -> None:
+            self.stop_transcription_cleanup_calls += 1
+
+    monkeypatch.setattr(server_module, "SettaFastAPIState", _FakeSettaState)
+    monkeypatch.setattr(server_module, "IS_DEV_MODE", True)
+    monkeypatch.setattr(server_module.C, "SHARE_MODE", False, raising=False)
+    monkeypatch.setattr(server_module.C, "APP_MODE", False, raising=False)
+    monkeypatch.setattr(server_module.C, "OPEN_BROWSER_ON_START", None, raising=False)
+
+    app = FastAPI()
+    async with server_module.lifespan(app):
+        assert app.state.setta is not None
+
+    fake_state = state_ref.get("value")
+    assert fake_state is not None
+    assert isinstance(fake_state, _FakeSettaState)
+    assert fake_state.stop_transcription_cleanup_calls == 1

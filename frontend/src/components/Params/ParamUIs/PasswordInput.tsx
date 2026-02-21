@@ -2,7 +2,6 @@ import { useState } from "react";
 import { BiHide, BiShow } from "react-icons/bi";
 
 export function PasswordInput({
-  id,
   className,
   value,
   onChange,
@@ -22,7 +21,6 @@ export function PasswordInput({
   return (
     <>
       <input
-        id={id}
         className={className}
         value={value}
         onChange={(e) => onChange(e.target.value)}
