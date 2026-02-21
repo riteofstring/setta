@@ -125,6 +125,7 @@ test("home page renders pane rails and toggles side panes", async ({
     .getByTestId("home-project-favorite-toggle")
     .first();
   const defaultToggle = page.getByTestId("home-project-default-toggle").first();
+  await firstCard.hover();
   await expect(favoriteToggle).toBeVisible();
   await expect(defaultToggle).toBeVisible();
   await favoriteToggle.click();
@@ -163,7 +164,9 @@ test("home browser marks Setta-initialized folders", async ({ page }) => {
       .locator('[contenteditable="true"]')
       .first();
     await expect(pathInput).toBeVisible();
-    await pathInput.fill(tempRoot);
+    await pathInput.click();
+    await pathInput.press("ControlOrMeta+A");
+    await pathInput.type(tempRoot);
     await pathInput.press("Enter");
 
     const initializedRow = page
