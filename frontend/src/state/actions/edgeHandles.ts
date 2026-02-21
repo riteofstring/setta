@@ -1,7 +1,7 @@
 import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import type { HandlePosition, HandleType } from "forks/xyflow/core/types";
 import type { EdgeHandleRecord } from "state/definitions";
-import { useEdgeHandleRegistry, useProjectState } from "state/definitions";
+import { useEdgeHandleRegistry } from "state/definitions";
 
 export function makeEdgeHandleKey(
   sectionId: string,
@@ -9,10 +9,6 @@ export function makeEdgeHandleKey(
   type: HandleType,
 ) {
   return `${sectionId}:${portId}:${type}`;
-}
-
-function shouldMeasureEdgeHandles() {
-  return useProjectState.getState().projectConfig.edges.length > 0;
 }
 
 function getHandleCenter(element: HTMLElement) {
@@ -39,12 +35,8 @@ export function registerEdgeHandlesWithSharedElement({
   if (portIds.length === 0) {
     return;
   }
-  const shouldUpdatePositions = shouldMeasureEdgeHandles();
-  let nextFlowPosition: { x: number; y: number } | null = null;
-  if (shouldUpdatePositions) {
-    const center = getHandleCenter(element);
-    nextFlowPosition = screenToFlowPosition(center, true);
-  }
+  const center = getHandleCenter(element);
+  const { x, y } = screenToFlowPosition(center, true);
   useEdgeHandleRegistry.setState((state) => {
     for (const portId of portIds) {
       const key = makeEdgeHandleKey(sectionId, portId, type);
@@ -55,23 +47,15 @@ export function registerEdgeHandlesWithSharedElement({
         side,
         element,
       };
-      if (!shouldUpdatePositions || !nextFlowPosition) {
-        continue;
-      }
       const prev = state.positions[key];
-      if (
-        !prev ||
-        prev.x !== nextFlowPosition.x ||
-        prev.y !== nextFlowPosition.y ||
-        prev.side !== side
-      ) {
+      if (!prev || prev.x !== x || prev.y !== y || prev.side !== side) {
         state.positions[key] = {
           sectionId,
           portId,
           type,
           side,
-          x: nextFlowPosition.x,
-          y: nextFlowPosition.y,
+          x,
+          y,
         };
       }
     }
@@ -107,9 +91,7 @@ export function registerEdgeHandle(record: EdgeHandleRecord) {
   useEdgeHandleRegistry.setState((state) => {
     state.handles[key] = record;
   });
-  if (shouldMeasureEdgeHandles()) {
-    setHandlePosition(key, record);
-  }
+  setHandlePosition(key, record);
   return key;
 }
 
@@ -128,9 +110,6 @@ export function unregisterEdgeHandle(
 }
 
 export function updateEdgeHandlePosition(key: string) {
-  if (!shouldMeasureEdgeHandles()) {
-    return;
-  }
   const record = useEdgeHandleRegistry.getState().handles[key];
   if (!record) {
     return;
@@ -214,7 +193,7 @@ let pendingHandleUpdateFrame: number | null = null;
 const pendingHandleSectionIds = new Set<string>();
 
 export function scheduleEdgeHandlePositionUpdate(sectionIds: string[]) {
-  if (sectionIds.length === 0 || !shouldMeasureEdgeHandles()) {
+  if (sectionIds.length === 0) {
     return;
   }
   for (const sectionId of sectionIds) {
@@ -226,10 +205,6 @@ export function scheduleEdgeHandlePositionUpdate(sectionIds: string[]) {
   pendingHandleUpdateFrame = requestAnimationFrame(() => {
     pendingHandleUpdateFrame = null;
     if (pendingHandleSectionIds.size === 0) {
-      return;
-    }
-    if (!shouldMeasureEdgeHandles()) {
-      pendingHandleSectionIds.clear();
       return;
     }
     const nextIds = Array.from(pendingHandleSectionIds);

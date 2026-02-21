@@ -15,8 +15,6 @@ import {
 import { isSectionStreamActive } from "state/aiStreamingTracker";
 import {
   NULL_PROJECT_CONFIG_ID,
-  PendingOperationKind,
-  PendingOperationKindEnum,
   PendingOperation,
   useAllProjectMetadata,
   useMisc,
@@ -999,27 +997,14 @@ export function processProjectStateUpdateFromBackend(
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
-  const shouldSkipNodeMapRebuild =
-    shouldSkipNodeMapRebuildForActiveViewModeAck({
-      currentState,
-      nextState: x.projectState,
-      currentPending,
-      nextPending,
-      completedIds,
-      backendPendingIds,
-    });
   const shouldRequestFitView = applyViewportFromProjectState(x.projectState);
-  const nextNodesMap = shouldSkipNodeMapRebuild
-    ? null
-    : createNodesMapFromProjectConfigChildren(
-        x.projectState,
-        useNodeInternals.getState().x,
-      );
+  const nextNodesMap = createNodesMapFromProjectConfigChildren(
+    x.projectState,
+    useNodeInternals.getState().x,
+  );
   unstable_batchedUpdates(() => {
     usePendingOperations.setState({ pending: nextPending });
-    if (nextNodesMap) {
-      useNodeInternals.setState({ x: nextNodesMap });
-    }
+    useNodeInternals.setState({ x: nextNodesMap });
     useProjectState.setState(() => x.projectState);
   });
   if (shouldRequestFitView) {
@@ -1032,101 +1017,6 @@ export function processProjectStateUpdateFromBackend(
     projectConfigId,
     useProjectState.getState(),
   );
-}
-
-function getTopLevelVisibilityForNodeMap(
-  state: ZustandProjectState,
-  topLevelSectionIds: string[],
-): Record<string, boolean> | null {
-  const { activeViewModeId, isEditingViewMode, viewModes } = state.projectConfig;
-  if (isEditingViewMode || !activeViewModeId || !(activeViewModeId in viewModes)) {
-    const allVisible: Record<string, boolean> = {};
-    for (const sectionId of topLevelSectionIds) {
-      allVisible[sectionId] = true;
-    }
-    return allVisible;
-  }
-  const viewMode = viewModes[activeViewModeId];
-  const output: Record<string, boolean> = {};
-  for (const sectionId of topLevelSectionIds) {
-    const visibility = viewMode.visibilityBySectionId[sectionId];
-    if (visibility === undefined) {
-      return null;
-    }
-    output[sectionId] = visibility;
-  }
-  return output;
-}
-
-function shouldSkipNodeMapRebuildForActiveViewModeAck({
-  currentState,
-  nextState,
-  currentPending,
-  nextPending,
-  completedIds,
-  backendPendingIds,
-}: {
-  currentState: ZustandProjectState;
-  nextState: ZustandProjectState;
-  currentPending: PendingOperation[];
-  nextPending: PendingOperation[];
-  completedIds: Set<string>;
-  backendPendingIds: Set<string>;
-}): boolean {
-  if (completedIds.size === 0 || backendPendingIds.size > 0 || nextPending.length > 0) {
-    return false;
-  }
-  const completedPending = currentPending.filter((opInfo) =>
-    completedIds.has(opInfo.opId),
-  );
-  if (completedPending.length === 0) {
-    return false;
-  }
-  if (
-    completedPending.some(
-      (opInfo) => opInfo.kind !== PendingOperationKindEnum.ActiveViewMode,
-    )
-  ) {
-    return false;
-  }
-  const currentProjectConfig = currentState.projectConfig;
-  const nextProjectConfig = nextState.projectConfig;
-  if (currentProjectConfig.activeViewModeId !== nextProjectConfig.activeViewModeId) {
-    return false;
-  }
-  if (currentProjectConfig.isEditingViewMode !== nextProjectConfig.isEditingViewMode) {
-    return false;
-  }
-  if (
-    !_.isEqual(
-      currentProjectConfig.sectionVariantMap,
-      nextProjectConfig.sectionVariantMap,
-    )
-  ) {
-    return false;
-  }
-  const currentTopLevelSectionIds = getTopLevelSectionIdsForDisplay(currentState);
-  const nextTopLevelSectionIds = getTopLevelSectionIdsForDisplay(nextState);
-  if (!_.isEqual(currentTopLevelSectionIds, nextTopLevelSectionIds)) {
-    return false;
-  }
-  const currentTopLevelSections = getActiveViewModeTopLevelSections(currentState);
-  const nextTopLevelSections = getActiveViewModeTopLevelSections(nextState);
-  if (!_.isEqual(currentTopLevelSections, nextTopLevelSections)) {
-    return false;
-  }
-  const currentVisibility = getTopLevelVisibilityForNodeMap(
-    currentState,
-    currentTopLevelSectionIds,
-  );
-  const nextVisibility = getTopLevelVisibilityForNodeMap(
-    nextState,
-    nextTopLevelSectionIds,
-  );
-  if (!currentVisibility || !nextVisibility) {
-    return false;
-  }
-  return _.isEqual(currentVisibility, nextVisibility);
 }
 
 function applyViewportFromProjectState(
@@ -1775,13 +1665,10 @@ export async function ungroupActiveGroups() {
   route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
 }
 
-function addPendingOp(
-  apply: (x: ZustandProjectState) => void,
-  kind: PendingOperationKind = PendingOperationKindEnum.Generic,
-) {
+function addPendingOp(apply: (x: ZustandProjectState) => void) {
   const opId = createNewId();
   usePendingOperations.setState((state) => ({
-    pending: [...state.pending, { apply, opId, acknowledged: false, kind }],
+    pending: [...state.pending, { apply, opId, acknowledged: false }],
   }));
   return opId;
 }
@@ -1824,15 +1711,13 @@ export function dispatchOptimisticProjectStateUpdate({
   apply,
   send,
   rollback,
-  kind = PendingOperationKindEnum.Generic,
 }: {
   apply: (state: ZustandProjectState) => void;
   send: (frontendOpId: string) => void | Promise<unknown>;
   rollback?: (state: ZustandProjectState) => void;
-  kind?: PendingOperationKind;
 }) {
   useProjectState.setState(apply);
-  const opId = addPendingOp(apply, kind);
+  const opId = addPendingOp(apply);
   const result = send(opId);
   if (result instanceof Promise) {
     void result.then((res) => {
