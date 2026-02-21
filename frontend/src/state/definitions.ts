@@ -717,6 +717,7 @@ type ZustandAIStore = {
   engineConfigsLoadError: string | null;
   engineConfigsLoading: boolean;
   pendingProjectChatPrompt: string | null;
+  projectChatDictationMode: "auto" | "browser" | "provider";
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -759,11 +760,13 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         engineConfigsLoadError: null,
         engineConfigsLoading: false,
         pendingProjectChatPrompt: null,
+        projectChatDictationMode: "auto",
       }),
       {
         name: "setta_ai_data",
         partialize: (state) => ({
           viewHistory: state.viewHistory,
+          projectChatDictationMode: state.projectChatDictationMode,
         }),
         storage: getPersistStorage(),
       },
@@ -871,12 +874,8 @@ type ZustandLocalStorage = {
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
   favoriteProjectConfigIds: string[];
   overviewProjectConfigOrder: string[];
-  homeWorkspacePaneVis: boolean;
-  homeWorkspacePaneWidth: number;
-  homeWorkspacePaneTrueWidth: number;
-  homeSelectedProjectPaneVis: boolean;
-  homeSelectedProjectPaneWidth: number;
-  homeSelectedProjectPaneTrueWidth: number;
+  homePageLeftColumnWidth: number;
+  homePageRightColumnWidth: number;
   appGenerationMode: AppGenerationMode;
   appGenerationPrompt: string;
   appGenerationReferenceImageUrl: string;
@@ -922,12 +921,8 @@ export const useLocalStorage = createWithEqualityFn(
       homeProjectGalleryViewMode: "thumbnails",
       favoriteProjectConfigIds: [],
       overviewProjectConfigOrder: [],
-      homeWorkspacePaneVis: true,
-      homeWorkspacePaneWidth: 320,
-      homeWorkspacePaneTrueWidth: 320,
-      homeSelectedProjectPaneVis: true,
-      homeSelectedProjectPaneWidth: 320,
-      homeSelectedProjectPaneTrueWidth: 320,
+      homePageLeftColumnWidth: 320,
+      homePageRightColumnWidth: 280,
       appGenerationMode: "json_render",
       appGenerationPrompt: "",
       appGenerationReferenceImageUrl: "",
@@ -961,8 +956,6 @@ export const useLocalStorage = createWithEqualityFn(
           ...currentState,
           ...persisted,
         };
-        delete (merged as Record<string, unknown>).homePageLeftColumnWidth;
-        delete (merged as Record<string, unknown>).homePageRightColumnWidth;
 
         if (persisted.colorMode === undefined) {
           merged.colorMode = merged.darkMode ? "dark" : "light";
@@ -979,28 +972,11 @@ export const useLocalStorage = createWithEqualityFn(
         if (!Array.isArray(merged.overviewProjectConfigOrder)) {
           merged.overviewProjectConfigOrder = [];
         }
-        if (typeof merged.homeWorkspacePaneVis !== "boolean") {
-          merged.homeWorkspacePaneVis = true;
+        if (typeof merged.homePageLeftColumnWidth !== "number") {
+          merged.homePageLeftColumnWidth = 320;
         }
-        if (typeof merged.homeWorkspacePaneWidth !== "number") {
-          merged.homeWorkspacePaneWidth = 320;
-        }
-        if (typeof merged.homeWorkspacePaneTrueWidth !== "number") {
-          merged.homeWorkspacePaneTrueWidth = merged.homeWorkspacePaneVis
-            ? merged.homeWorkspacePaneWidth
-            : CLOSED_PANE_WIDTH;
-        }
-        if (typeof merged.homeSelectedProjectPaneVis !== "boolean") {
-          merged.homeSelectedProjectPaneVis = true;
-        }
-        if (typeof merged.homeSelectedProjectPaneWidth !== "number") {
-          merged.homeSelectedProjectPaneWidth = 320;
-        }
-        if (typeof merged.homeSelectedProjectPaneTrueWidth !== "number") {
-          merged.homeSelectedProjectPaneTrueWidth =
-            merged.homeSelectedProjectPaneVis
-              ? merged.homeSelectedProjectPaneWidth
-              : CLOSED_PANE_WIDTH;
+        if (typeof merged.homePageRightColumnWidth !== "number") {
+          merged.homePageRightColumnWidth = 280;
         }
         if (!isOverviewTabKey(merged.overviewTab)) {
           merged.overviewTab = OverviewTabNameEnum.Overview;

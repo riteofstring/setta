@@ -1,15 +1,22 @@
 import { createProjectConfig } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
+  getHomeMaxTotalSideWidth,
   getHomeProjectConfigsSectionTitle,
   getProjectTopLevelSectionCount,
   partitionProjectsByFavoriteStatus,
-  shouldApplyHomeFileBrowserPath,
   shouldOpenProjectOnListRowSpace,
-  shouldUseCompactHomeLayout,
 } from "./HomePage";
 
 describe("HomePage", () => {
+  it("computes max side width budget from measured desktop width", () => {
+    expect(getHomeMaxTotalSideWidth(1600)).toBe(1148);
+  });
+
+  it("never returns less than the minimum combined side width", () => {
+    expect(getHomeMaxTotalSideWidth(640)).toBe(510);
+  });
+
   it("counts top-level sections from object keys", () => {
     const project = createProjectConfig({
       id: "project-1",
@@ -43,40 +50,14 @@ describe("HomePage", () => {
   });
 
   it("labels the non-favorite section as 'Other' when favorites are present", () => {
-    expect(getHomeProjectConfigsSectionTitle(true)).toBe("Other Projects");
-    expect(getHomeProjectConfigsSectionTitle(false)).toBe("All Projects");
+    expect(getHomeProjectConfigsSectionTitle(true)).toBe(
+      "Other Project Configs",
+    );
+    expect(getHomeProjectConfigsSectionTitle(false)).toBe("Project Configs");
   });
 
   it("opens from keyboard Space in list rows only when selection is disabled", () => {
     expect(shouldOpenProjectOnListRowSpace(true)).toBe(false);
     expect(shouldOpenProjectOnListRowSpace(false)).toBe(true);
-  });
-
-  it("uses compact home layout only below the breakpoint", () => {
-    expect(shouldUseCompactHomeLayout(600)).toBe(true);
-    expect(shouldUseCompactHomeLayout(1099)).toBe(true);
-    expect(shouldUseCompactHomeLayout(1100)).toBe(false);
-    expect(shouldUseCompactHomeLayout(1400)).toBe(false);
-  });
-
-  it("applies home file-browser path changes only for real path updates", () => {
-    expect(
-      shouldApplyHomeFileBrowserPath({
-        nextPath: "",
-        currentRootPath: "/workspace",
-      }),
-    ).toBe(false);
-    expect(
-      shouldApplyHomeFileBrowserPath({
-        nextPath: "/workspace",
-        currentRootPath: "/workspace",
-      }),
-    ).toBe(false);
-    expect(
-      shouldApplyHomeFileBrowserPath({
-        nextPath: "/workspace/new",
-        currentRootPath: "/workspace",
-      }),
-    ).toBe(true);
   });
 });

@@ -555,7 +555,6 @@ export const RouteEnum = {
   CREATE_FILE: "/createFile",
   DELETE_JSON_SOURCE_FILE_AND_VARIANT: "/deleteJsonSourceFileAndVariant",
   CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
-  CHECK_WORKSPACE_INITIALIZED: "/checkWorkspaceInitialized",
   LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
   GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
   GET_ATTACHMENT_DOWNLOAD_URLS: "/getAttachmentDownloadUrls",
@@ -2654,17 +2653,17 @@ const TaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "265b6f06-0841-43ee-8eed-636cab5c0056" as const,
+      id: "b82b660e-6479-4e06-8bb3-759a0ed16fc2" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "2eb8f2ba-9f06-475e-93d0-c46ce0dc2e3c" as const,
+      id: "67795cdb-d80a-4842-854c-d535ab397a62" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "ba6ea67b-18cc-4bc9-a575-68440b2dd31f" as const,
+      id: "f82b50cc-61dd-47f8-9f78-fb666c8a0eb5" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
@@ -6042,17 +6041,17 @@ const UserDefaultTaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "6c6b7483-e9ec-4218-ae7f-d7f74463d017" as const,
+      id: "885a1622-5b8b-4725-ac09-e8b1b6b71e06" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "2465dbcc-f676-4236-8ea7-e49bdb93c108" as const,
+      id: "196a95f6-ce33-43fc-b526-9ab1ab322f36" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "2e3ee9d3-daae-41e1-8189-5566136dd494" as const,
+      id: "f5163822-0c56-47c5-abed-09bb4e43e229" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
@@ -8483,15 +8482,6 @@ export type CheckIfFileExistsRequestsInput = z.input<
   typeof CheckIfFileExistsRequestsSchema
 >;
 
-const CheckWorkspaceInitializedRequestSchema = z.object({
-  folderPath: z.string(),
-  allowOutsideWorkspaceRoot: z.boolean().default(false),
-});
-
-export type CheckWorkspaceInitializedRequestInput = z.input<
-  typeof CheckWorkspaceInitializedRequestSchema
->;
-
 const DeleteArtifactRequestItemSchema = z.object({
   id: z.string(),
   type: z.enum(ArtifactTypeEnum),
@@ -8574,7 +8564,6 @@ export type GetFileBrowserRootResponse = z.infer<
 
 const GetFolderContentsRequestSchema = z.object({
   folderPath: z.string(),
-  allowOutsideWorkspaceRoot: z.boolean().default(false),
   includeMtime: z.boolean().default(false),
   includeSize: z.boolean().default(false),
   includeHidden: z.boolean().default(false),

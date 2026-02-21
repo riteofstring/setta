@@ -24,6 +24,7 @@ import {
   countLLMConfigs,
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
+import { isProviderDictationLikelySupported } from "components/Chat/providerDictationSupport";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
@@ -1209,6 +1210,16 @@ function ManagedChatArea({
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
+  const selectedLLMConfig = useMemo(() => {
+    if (!selectedLLMConfigId || !allLLMConfigs) {
+      return null;
+    }
+    return allLLMConfigs.configs[selectedLLMConfigId] ?? null;
+  }, [allLLMConfigs, selectedLLMConfigId]);
+  const providerDictationLikelySupported = useMemo(
+    () => isProviderDictationLikelySupported(selectedLLMConfig),
+    [selectedLLMConfig],
+  );
   const hasEngineConfig = Boolean(selectedEngineConfig);
   const hasLLMConfig = Boolean(selectedLLMConfigId);
   const externalEngineStatus = useMemo(
@@ -1738,7 +1749,9 @@ function ManagedChatArea({
             permissionMode: showPermissionExecutionControl,
             search: false,
           }}
+          dictationMode="auto"
           dictationEnabledByProvider={hasEngineConfig}
+          providerDictationLikelySupported={providerDictationLikelySupported}
           onProviderDictationTranscribe={
             isExternalEngine ? undefined : handleProviderDictationTranscribe
           }
