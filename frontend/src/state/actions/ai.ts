@@ -58,7 +58,6 @@ import {
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
-  route_set_llm_config,
   route_stop_external_agent_run,
   route_stop_llm_chat,
   route_transcribe_chat_audio,
@@ -213,21 +212,6 @@ export async function loadLLMConfig() {
   } finally {
     llmConfigLoadPromise = null;
   }
-}
-
-export async function saveLLMConfig(
-  config: AllLLMConfigs,
-): Promise<AllLLMConfigs | null> {
-  const res = await route_set_llm_config(config);
-  if (!res200(res)) {
-    useAIStore.setState({
-      allLLMConfigsInitialLoadComplete: true,
-      allLLMConfigsLoadError: "Failed to save LLM config",
-    });
-    return null;
-  }
-  receiveLLMConfigUpdate(res.data);
-  return res.data;
 }
 
 export async function loadLLMApiKeys() {

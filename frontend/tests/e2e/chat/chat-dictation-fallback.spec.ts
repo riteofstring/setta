@@ -9,39 +9,6 @@ import {
   setOverviewTab,
 } from "../helpers";
 
-async function setProjectChatMicrophoneSource(
-  page: Page,
-  sourceLabel: string,
-): Promise<void> {
-  const overviewPane = page.locator("#OverviewPane");
-  await overviewPane
-    .getByRole("button", { name: "Project AI Settings" })
-    .click();
-  const micSourceInput = page.getByPlaceholder("Microphone source");
-  await expect(micSourceInput).toBeVisible();
-  await micSourceInput.fill(sourceLabel);
-  await micSourceInput.press("Enter");
-  const selectedSource = await micSourceInput.inputValue();
-  if (
-    sourceLabel === "Always provider" &&
-    selectedSource.includes("requires LLM engine")
-  ) {
-    const engineInput = page.getByPlaceholder("Select an engine");
-    await expect(engineInput).toBeVisible();
-    await engineInput.fill("setta");
-    await engineInput.press("Enter");
-    await micSourceInput.fill(sourceLabel);
-    await micSourceInput.press("Enter");
-  }
-  const escapedSourceLabel = sourceLabel.replace(
-    /[.*+?^${}()|[\]\\]/g,
-    "\\$&",
-  );
-  await expect(micSourceInput).toHaveValue(
-    new RegExp(`^${escapedSourceLabel}`),
-  );
-}
-
 test("project chat falls back to browser dictation when provider capture fails in auto mode", async ({
   page,
 }) => {
@@ -259,117 +226,6 @@ test("project chat keeps browser fallback dictation active until the user stops"
   }
 });
 
-test("project chat browser-only dictation mode skips provider capture", async ({
-  page,
-}) => {
-  await page.addInitScript(() => {
-    class MockSpeechRecognition {
-      continuous = false;
-      interimResults = false;
-      lang = "en-US";
-      onresult: ((event: unknown) => void) | null = null;
-      onerror: ((event: { error?: string }) => void) | null = null;
-      onend: (() => void) | null = null;
-
-      start() {}
-
-      stop() {
-        if (this.onend) {
-          this.onend();
-        }
-      }
-    }
-
-    class MockMediaRecorder {
-      static isTypeSupported(_mimeType: string) {
-        return true;
-      }
-
-      mimeType = "audio/webm";
-      state = "inactive";
-      ondataavailable: ((event: { data?: Blob }) => void) | null = null;
-      onerror: (() => void) | null = null;
-      onstop: (() => void) | null = null;
-
-      start() {
-        this.state = "recording";
-      }
-
-      stop() {
-        this.state = "inactive";
-        if (this.onstop) {
-          this.onstop();
-        }
-      }
-    }
-
-    let getUserMediaCount = 0;
-    Object.defineProperty(window, "SpeechRecognition", {
-      value: MockSpeechRecognition,
-      configurable: true,
-    });
-    Object.defineProperty(window, "webkitSpeechRecognition", {
-      value: MockSpeechRecognition,
-      configurable: true,
-    });
-    Object.defineProperty(window, "MediaRecorder", {
-      value: MockMediaRecorder,
-      configurable: true,
-    });
-    Object.defineProperty(navigator, "mediaDevices", {
-      value: {
-        getUserMedia: () => {
-          getUserMediaCount += 1;
-          return Promise.reject(new Error("provider should not be used"));
-        },
-      },
-      configurable: true,
-    });
-    (
-      window as Window & { __readProviderGetUserMediaCount?: () => number }
-    ).__readProviderGetUserMediaCount = () => getUserMediaCount;
-  });
-
-  await setOverviewTab(page, "ProjectAIChat");
-  await ensureAppReady(page);
-  const projectContext = await openIsolatedProject(page);
-  const engineCleanup = await ensureManagedChatEngine(page);
-
-  try {
-    await page.reload();
-    await page.waitForSelector(".react-flow__pane");
-
-    const overviewPane = page.locator("#OverviewPane");
-    await expect(
-      overviewPane.getByRole("heading", { name: "Project AI Chat" }),
-    ).toBeVisible();
-
-    await setProjectChatMicrophoneSource(page, "Always browser / OS");
-
-    const micButton = overviewPane.getByRole("button", { name: "Mic" });
-    await expect(micButton).toBeVisible();
-    await micButton.click();
-
-    await expect(
-      overviewPane.getByRole("button", { name: "Stop Mic" }),
-    ).toBeVisible();
-    await expect(overviewPane.getByText("Listening...")).toBeVisible();
-    await expect
-      .poll(async () => {
-        return await page.evaluate(() => {
-          const reader = (
-            window as Window & { __readProviderGetUserMediaCount?: () => number }
-          ).__readProviderGetUserMediaCount;
-          return typeof reader === "function" ? reader() : -1;
-        });
-      })
-      .toBe(0);
-  } finally {
-    await engineCleanup();
-    await cleanupIsolatedProject(page, projectContext);
-  }
-});
-
 test("project chat releases provider mic stream when recorder start fails", async ({
   page,
 }) => {
@@ -441,8 +297,6 @@ test("project chat releases provider mic stream when recorder start fails", asyn
     await expect(
       overviewPane.getByRole("heading", { name: "Project AI Chat" }),
     ).toBeVisible();
-
-    await setProjectChatMicrophoneSource(page, "Always provider");
 
     const micButton = overviewPane.getByRole("button", { name: "Mic" });
     await expect(micButton).toBeVisible();

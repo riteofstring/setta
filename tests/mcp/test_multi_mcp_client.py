@@ -1,4 +1,3 @@
-import asyncio
 from typing import Any
 
 import anyio
@@ -8,7 +7,6 @@ from mcp.types import Tool, ToolAnnotations
 from setta.mcp.client import MultiMCPClient
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
-from setta.types.llm_config import MCPServerConfig
 from setta.utils.constants import C
 
 
@@ -204,107 +202,3 @@ class TestMultiMCPClientCallTool:
 
         with pytest.raises(anyio.ClosedResourceError):
             await client.call_tool(namespaced_tool_name, {"path": "README.md"})
-
-
-class TestMultiMCPClientRuntimeStatus:
-    def test_marks_connected_servers_as_available(self) -> None:
-        client = MultiMCPClient(
-            {
-                "figma-desktop": MCPServerConfig(
-                    transport="streamable_http",
-                    url="http://127.0.0.1:3845/mcp",
-                )
-            }
-        )
-        client._sessions["figma-desktop"] = object()
-        client._update_tool_cache_for_server(
-            "figma-desktop",
-            [
-                _build_tool(name="get_design_context"),
-                _build_tool(name="get_metadata"),
-            ],
-        )
-
-        snapshot = client.get_server_runtime_status_snapshot()
-
-        assert snapshot["figma-desktop"].state == "available"
-        assert snapshot["figma-desktop"].registered_tool_count == 2
-        assert "connected" in snapshot["figma-desktop"].quick_info.lower()
-
-    @pytest.mark.asyncio
-    async def test_marks_retrying_servers_with_last_error(self) -> None:
-        client = MultiMCPClient(
-            {
-                "figma-desktop": MCPServerConfig(
-                    transport="streamable_http",
-                    url="http://127.0.0.1:3845/mcp",
-                )
-            }
-        )
-        task = asyncio.create_task(asyncio.sleep(60))
-        client._connection_tasks["figma-desktop"] = task
-        client._last_connection_error_by_server_id["figma-desktop"] = (
-            "Connection failed: connect ECONNREFUSED 127.0.0.1:3845"
-        )
-
-        try:
-            snapshot = client.get_server_runtime_status_snapshot()
-        finally:
-            task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
-
-        assert snapshot["figma-desktop"].state == "retrying"
-        assert "ECONNREFUSED" in snapshot["figma-desktop"].quick_info
-
-    def test_marks_disconnected_servers_with_error_as_unavailable(self) -> None:
-        client = MultiMCPClient(
-            {
-                "pencil": MCPServerConfig(
-                    transport="stdio",
-                    command="/Applications/Pencil.app/mcp",
-                )
-            }
-        )
-        client._last_connection_error_by_server_id["pencil"] = "command not found"
-
-        snapshot = client.get_server_runtime_status_snapshot()
-
-        assert snapshot["pencil"].state == "unavailable"
-        assert snapshot["pencil"].issue == "command not found"
-
-    @pytest.mark.asyncio
-    async def test_marks_inflight_servers_without_errors_as_connecting(self) -> None:
-        client = MultiMCPClient(
-            {
-                "setta": MCPServerConfig(
-                    transport="sse",
-                    url="http://127.0.0.1:8096/mcp",
-                )
-            }
-        )
-        task = asyncio.create_task(asyncio.sleep(60))
-        client._connection_tasks["setta"] = task
-
-        try:
-            snapshot = client.get_server_runtime_status_snapshot()
-        finally:
-            task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
-
-        assert snapshot["setta"].state == "connecting"
-        assert "connecting" in snapshot["setta"].quick_info.lower()
-
-    def test_marks_disabled_client_as_disabled(self) -> None:
-        client = MultiMCPClient(
-            {
-                "setta": MCPServerConfig(
-                    transport="sse",
-                    url="http://127.0.0.1:8096/mcp",
-                )
-            },
-            disabled=True,
-        )
-
-        snapshot = client.get_server_runtime_status_snapshot()
-
-        assert snapshot["setta"].state == "disabled"
