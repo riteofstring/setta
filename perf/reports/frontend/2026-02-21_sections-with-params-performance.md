@@ -85,3 +85,23 @@ Vitest:
 Budgets/assertions added:
 - Param pan structural guardrail: no param-row add/remove churn while panning.
 - Param filter utility perf smoke budget under strict mode (`SETTA_STRICT_PERF=1`).
+
+## Follow-up (DOM Flattening, same day)
+
+Additional behavior-preserving DOM flattening pass while keeping hover/selection UX:
+- removed non-kwarg key wrapper node in `ParamContainer` and let key label node own placement classes.
+- removed `display: contents` wrapper in `ParamNameInput`.
+- flattened `ResizeHandle` inner structure by replacing a nested bar node with a pseudo-element.
+
+Verification rerun:
+- Vitest suite (targeted params/code-mirror coverage): pass.
+- Playwright:
+  - `frontend/tests/e2e/settings/settings-all-settings-pan-perf.spec.ts` pass
+  - `frontend/tests/e2e/params/params-section-scroll.spec.ts` pass
+
+CDP same-scenario measurement (160-frame scripted viewport sweep):
+- Avg frame time: `20.38ms` (`49.07 FPS`)
+- p95 frame time: `23.30ms` (`42.92 FPS`)
+
+Additional artifact:
+- `perf/artifacts/frontend/2026-02-21-settings-all-settings-dom-flattening-v1.png`
