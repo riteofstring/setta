@@ -592,7 +592,7 @@ export const ChatInput = memo(function ChatInput({
 
   const textAreaClassName = useMemo(() => {
     const base =
-      "nodrag max-h-40 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-md border border-setta-200 bg-transparent py-1.5 pl-9 pr-9 text-[13px] leading-[1.35] text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:border-blue-500 focus:ring-1 focus:ring-inset focus:ring-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:border-blue-700 dark:focus:ring-blue-700";
+      "nodrag max-h-40 w-full max-w-none flex-1 resize-none overflow-y-auto rounded-md border border-setta-200 bg-transparent py-1.5 pl-3 pr-9 text-[13px] leading-[1.35] text-setta-800 outline-none [field-sizing:content] hover:bg-setta-100/50 focus:border-blue-500 focus:ring-1 focus:ring-inset focus:ring-blue-500 dark:border-setta-700 dark:text-white dark:hover:bg-setta-800 dark:focus:bg-setta-800/50 dark:focus:border-blue-700 dark:focus:ring-blue-700";
     const dragClass = isDragActive
       ? "ring-2 ring-blue-400 bg-blue-50/40 dark:bg-blue-900/20"
       : "";
@@ -716,8 +716,7 @@ export const ChatInput = memo(function ChatInput({
     remainingContextTokens,
   ]);
   const showContextBadge = contextRemainingLabel !== null;
-  const shouldShowComposerMetaRow =
-    showExecutionControls || canDictate || showContextBadge;
+  const shouldShowComposerMetaRow = showExecutionControls || showContextBadge;
   const handleContextBadgeToggle = useCallback(() => {
     setContextBadgeMode((current) =>
       current === "percentage" ? "tokens" : "percentage",
@@ -1125,7 +1124,7 @@ export const ChatInput = memo(function ChatInput({
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          <div className="relative my-1 w-full">
+          <div className="group relative my-1 w-full">
             <input
               ref={fileInputRef}
               type="file"
@@ -1134,52 +1133,93 @@ export const ChatInput = memo(function ChatInput({
               onChange={handleFileInputChange}
               disabled={attachmentInputDisabled}
             />
-            <DropdownMenu.Root modal={false}>
-              <DropdownMenu.Trigger asChild>
-                <button
-                  type="button"
-                  aria-label="Attachment options"
-                  className={`absolute left-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200 ${
-                    attachmentInputDisabled
-                      ? "cursor-not-allowed opacity-40 hover:bg-transparent"
-                      : "cursor-pointer"
-                  }`}
-                  disabled={attachmentInputDisabled}
-                >
-                  <IoAdd />
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content
-                  align="start"
-                  sideOffset={8}
-                  className="z-30 flex min-w-[170px] flex-col gap-1 rounded-lg border border-setta-200 bg-white p-2 text-xs font-semibold text-setta-600 shadow-xl dark:border-setta-700/70 dark:bg-setta-900 dark:text-setta-200"
-                >
-                  <DropdownMenu.Label className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
-                    {attachmentCountLabel}
-                  </DropdownMenu.Label>
-                  <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
-                  <DropdownMenu.Item
-                    className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-setta-100 hover:text-setta-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:hover:bg-setta-800 dark:hover:text-white"
-                    onSelect={() => fileInputRef.current?.click()}
+            <div
+              data-chat-composer-side-rail="true"
+              className="absolute -left-7 top-1.5 z-10 flex flex-col items-center gap-1"
+            >
+              <DropdownMenu.Root modal={false}>
+                <DropdownMenu.Trigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Attachment options"
+                    className={`inline-flex h-5 w-5 items-center justify-center rounded-md border border-transparent text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 focus-visible:ring-2 focus-visible:ring-blue-500/60 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200 ${
+                      attachmentInputDisabled
+                        ? "cursor-not-allowed opacity-40 hover:bg-transparent"
+                        : "cursor-pointer"
+                    }`}
                     disabled={attachmentInputDisabled}
                   >
-                    <IoAttach />
-                    Attach
-                  </DropdownMenu.Item>
-                  {!isDeploymentMode ? (
+                    <IoAdd />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="start"
+                    sideOffset={8}
+                    className="z-30 flex min-w-[170px] flex-col gap-1 rounded-lg border border-setta-200 bg-white p-2 text-xs font-semibold text-setta-600 shadow-xl dark:border-setta-700/70 dark:bg-setta-900 dark:text-setta-200"
+                  >
+                    <DropdownMenu.Label className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
+                      {attachmentCountLabel}
+                    </DropdownMenu.Label>
+                    <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
                     <DropdownMenu.Item
                       className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-setta-100 hover:text-setta-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:hover:bg-setta-800 dark:hover:text-white"
-                      onSelect={handlePickFromProject}
+                      onSelect={() => fileInputRef.current?.click()}
                       disabled={attachmentInputDisabled}
                     >
-                      <IoFolderOpen />
-                      Project
+                      <IoAttach />
+                      Attach
                     </DropdownMenu.Item>
-                  ) : null}
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
+                    {!isDeploymentMode ? (
+                      <DropdownMenu.Item
+                        className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-setta-100 hover:text-setta-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:hover:bg-setta-800 dark:hover:text-white"
+                        onSelect={handlePickFromProject}
+                        disabled={attachmentInputDisabled}
+                      >
+                        <IoFolderOpen />
+                        Project
+                      </DropdownMenu.Item>
+                    ) : null}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
+              {canDictate ? (
+                <button
+                  type="button"
+                  aria-label={
+                    dictationState === "listening"
+                      ? "Stop Mic"
+                      : dictationState === "transcribing"
+                        ? "Transcribing"
+                        : "Mic"
+                  }
+                  title={
+                    dictationState === "listening"
+                      ? "Stop Mic"
+                      : dictationState === "transcribing"
+                        ? "Transcribing"
+                        : "Mic"
+                  }
+                  aria-pressed={dictationState === "listening"}
+                  disabled={isDisabled || dictationState === "transcribing"}
+                  className={`inline-flex h-5 w-5 items-center justify-center rounded-md border border-transparent text-[11px] transition-colors ${
+                    dictationState === "listening"
+                      ? "bg-blue-600 text-white"
+                      : "text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                  onClick={handleDictationToggle}
+                >
+                  <IoMic
+                    size={11}
+                    className={
+                      dictationState === "listening"
+                        ? "animate-pulse"
+                        : undefined
+                    }
+                  />
+                </button>
+              ) : null}
+            </div>
             <textarea
               ref={textareaRef}
               value={inputValue}
@@ -1315,25 +1355,6 @@ export const ChatInput = memo(function ChatInput({
                     }
                   >
                     Search
-                  </button>
-                ) : null}
-                {canDictate ? (
-                  <button
-                    type="button"
-                    disabled={isDisabled || dictationState === "transcribing"}
-                    className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-                      dictationState === "listening"
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-                    } disabled:cursor-not-allowed disabled:opacity-60`}
-                    onClick={handleDictationToggle}
-                  >
-                    <IoMic size={12} />
-                    {dictationState === "listening"
-                      ? "Stop Mic"
-                      : dictationState === "transcribing"
-                        ? "Transcribing"
-                        : "Mic"}
                   </button>
                 ) : null}
               </div>

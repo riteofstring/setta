@@ -49,8 +49,15 @@ test.describe.serial("chat editing", () => {
       const userBubbleBeforeEdit = messageGroup
         .locator('[data-chat-user-bubble="true"]')
         .first();
-      const bubbleWidthBeforeEdit = await userBubbleBeforeEdit.evaluate((bubble) =>
-        bubble.getBoundingClientRect().width,
+      const bubbleLayoutBeforeEdit = await userBubbleBeforeEdit.evaluate(
+        (bubble) => {
+          const rect = bubble.getBoundingClientRect();
+          return {
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+          };
+        },
       );
 
       await messageGroup
@@ -66,12 +73,53 @@ test.describe.serial("chat editing", () => {
       const userBubbleInEditMode = messageGroup
         .locator('[data-chat-user-bubble="true"]')
         .first();
-      const bubbleWidthInEditMode = await userBubbleInEditMode.evaluate((bubble) =>
-        bubble.getBoundingClientRect().width,
+      const bubbleLayoutInEditMode = await userBubbleInEditMode.evaluate(
+        (bubble) => {
+          const rect = bubble.getBoundingClientRect();
+          return {
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+          };
+        },
       );
-      expect(Math.abs(bubbleWidthInEditMode - bubbleWidthBeforeEdit)).toBeLessThanOrEqual(
-        6,
+      expect(
+        Math.abs(bubbleLayoutInEditMode.width - bubbleLayoutBeforeEdit.width),
+      ).toBeLessThanOrEqual(2);
+      expect(
+        Math.abs(bubbleLayoutInEditMode.left - bubbleLayoutBeforeEdit.left),
+      ).toBeLessThanOrEqual(1);
+
+      const editorAttachmentLayout = await messageGroup.evaluate((group) => {
+        const bubble = group.querySelector('[data-chat-user-bubble="true"]');
+        const attachmentButton = group.querySelector(
+          'button[aria-label="Attachment options"]',
+        );
+        if (!bubble || !attachmentButton) {
+          return null;
+        }
+        const bubbleRect = bubble.getBoundingClientRect();
+        const buttonRect = attachmentButton.getBoundingClientRect();
+        return {
+          buttonRightGapToBubbleLeft: bubbleRect.left - buttonRect.right,
+          buttonTopOffset: buttonRect.top - bubbleRect.top,
+        };
+      });
+      expect(editorAttachmentLayout).not.toBeNull();
+      if (!editorAttachmentLayout) {
+        throw new Error("Missing editor attachment button.");
+      }
+      expect(editorAttachmentLayout.buttonRightGapToBubbleLeft).toBeGreaterThanOrEqual(
+        -8,
       );
+      expect(editorAttachmentLayout.buttonRightGapToBubbleLeft).toBeLessThanOrEqual(
+        12,
+      );
+      expect(editorAttachmentLayout.buttonTopOffset).toBeGreaterThanOrEqual(-2);
+      expect(editorAttachmentLayout.buttonTopOffset).toBeLessThanOrEqual(18);
+
+      const sideRail = messageGroup.locator('[data-chat-editor-side-rail="true"]');
+      await expect(sideRail).toBeVisible();
 
       const updateRequestPromise = page.waitForRequest((request) => {
         return (
