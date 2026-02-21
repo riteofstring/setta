@@ -248,6 +248,14 @@ describe("openWebSocket", () => {
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
     });
+    vi.mocked(receiveUISettingReveal).mockResolvedValue([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "revealed",
+        errorCode: null,
+        errorMessage: null,
+      },
+    ]);
 
     openWebSocket("/project");
     vi.runAllTimers();
@@ -279,7 +287,35 @@ describe("openWebSocket", () => {
         },
       }),
     });
+    await Promise.resolve();
 
     expect(receiveUISettingReveal).toHaveBeenCalledTimes(1);
+    const revealResultPayload = socket.send.mock.calls
+      .map((call) => call[0])
+      .filter((payload): payload is string => typeof payload === "string")
+      .map((payload) => {
+        try {
+          return JSON.parse(payload) as {
+            messageType?: string;
+            content?: { requestId?: string; statuses?: unknown };
+          };
+        } catch {
+          return null;
+        }
+      })
+      .find(
+        (payload) =>
+          payload?.messageType === "UISettingRevealResult" &&
+          payload.content?.requestId === "request-1",
+      );
+    expect(revealResultPayload).not.toBeUndefined();
+    expect(revealResultPayload?.content?.statuses).toEqual([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "revealed",
+        errorCode: null,
+        errorMessage: null,
+      },
+    ]);
   });
 });

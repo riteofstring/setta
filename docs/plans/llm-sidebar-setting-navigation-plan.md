@@ -154,9 +154,6 @@ Add discoverable MCP tools in `backend/setta/mcp/tools/`:
 - Output: old value, new value, changed flag, and reveal result (if requested)
 - Access type: `write`
 
-Optional supporting tools:
-- `list_ui_settings` (init tool) for debugging/inspection
-
 ### 3) Add websocket contract for reveal intents
 Add a new frontend websocket message type, for example `UISettingReveal`.
 

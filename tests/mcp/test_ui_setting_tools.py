@@ -22,6 +22,11 @@ from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.plugins.manager import PluginManager
 from setta.types.id import ID
 from setta.types.section_impls import SectionType
+from setta.ui_settings.reveal_result_hub import (
+    UISettingRevealResultContent,
+    UISettingRevealResultHub,
+    UISettingRevealResultStatus,
+)
 
 from tests.utils.manager_fixture import real_project_manager, real_settings_manager
 
@@ -29,8 +34,14 @@ FIXTURE_PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "plugin
 
 
 class _RecordingFrontendSender:
-    def __init__(self) -> None:
+    def __init__(
+        self, *, reveal_result_hub: UISettingRevealResultHub | None = None
+    ) -> None:
         self.reveal_messages: list[tuple[object, str | None]] = []
+        self.reveal_result_hub = (
+            reveal_result_hub if reveal_result_hub is not None else UISettingRevealResultHub()
+        )
+        self.forced_status_by_setting_id: dict[str, UISettingRevealResultStatus] = {}
 
     async def broadcast_ui_setting_reveal(
         self,
@@ -39,6 +50,27 @@ class _RecordingFrontendSender:
         share_session_id: str | None = None,
     ) -> None:
         self.reveal_messages.append((content, share_session_id))
+        statuses: list[UISettingRevealResultStatus] = []
+        for target in content.reveals:
+            forced_status = self.forced_status_by_setting_id.get(target.settingId)
+            if forced_status is not None:
+                statuses.append(forced_status)
+                continue
+            statuses.append(
+                UISettingRevealResultStatus(
+                    settingId=target.settingId,
+                    status="revealed",
+                    errorCode=None,
+                    errorMessage=None,
+                )
+            )
+        self.reveal_result_hub.resolve(
+            UISettingRevealResultContent(
+                projectConfigId=content.projectConfigId,
+                requestId=content.requestId,
+                statuses=statuses,
+            )
+        )
 
 
 class _RequestMetaModel(BaseModel):
@@ -53,6 +85,8 @@ def _build_ctx(
     plugin_manager: PluginManager | None = None,
     request_meta: BaseModel | dict[str, object] | None = None,
 ) -> Context:
+    reveal_result_hub = UISettingRevealResultHub()
+    frontend_sender.reveal_result_hub = reveal_result_hub
     switcher = ProjectManagerSwitcher(
         main_manager=main_manager,
         settings_manager=settings_manager,
@@ -61,6 +95,7 @@ def _build_ctx(
         project_manager_switcher=switcher,
         wmh_frontend_sender=frontend_sender,
         plugin_manager=plugin_manager,
+        ui_setting_reveal_result_hub=reveal_result_hub,
     )
     if request_meta is None:
         return Context(fastmcp=SimpleNamespace(state=state))
@@ -206,6 +241,100 @@ async def test_set_ui_setting_value_returns_structured_validation_error() -> Non
         assert result.error is not None
         assert result.error.code == "invalid_value_type"
         assert result.changed is False
+
+
+@pytest.mark.asyncio
+async def test_project_name_setting_round_trip() -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        get_result = await get_ui_setting_value(
+            settingId="core.project.name",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert get_result.error is None
+        assert isinstance(get_result.value, str)
+        original_name = get_result.value
+        next_name = f"{original_name}-renamed"
+
+        set_result = await set_ui_setting_value(
+            settingId="core.project.name",
+            value=next_name,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is None
+        assert set_result.changed is True
+        assert set_result.newValue == next_name
+
+        revert_result = await set_ui_setting_value(
+            settingId="core.project.name",
+            value=original_name,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert revert_result.error is None
+        assert revert_result.newValue == original_name
+
+
+@pytest.mark.asyncio
+async def test_python_codegen_enabled_setting_round_trip() -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        initial_result = await get_ui_setting_value(
+            settingId="core.run_instructions.python_codegen_enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert initial_result.error is None
+        assert isinstance(initial_result.value, bool)
+        original_value = initial_result.value
+        target_value = not original_value
+
+        set_result = await set_ui_setting_value(
+            settingId="core.run_instructions.python_codegen_enabled",
+            value=target_value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is None
+        assert set_result.changed is True
+        assert set_result.newValue == target_value
+
+        updated_result = await get_ui_setting_value(
+            settingId="core.run_instructions.python_codegen_enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert updated_result.error is None
+        assert updated_result.value == target_value
+
+        revert_result = await set_ui_setting_value(
+            settingId="core.run_instructions.python_codegen_enabled",
+            value=original_value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert revert_result.error is None
+        assert revert_result.newValue == original_value
 
 
 @pytest.mark.asyncio
@@ -384,6 +513,40 @@ async def test_reveal_right_pane_setting_fails_for_unknown_section_override() ->
         assert result.statuses[0].error.code == "mutation_failed"
         assert "Unknown section id" in result.statuses[0].error.message
         assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_returns_frontend_failure_status() -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.forced_status_by_setting_id["core.watch_code.enabled"] = (
+            UISettingRevealResultStatus(
+                settingId="core.watch_code.enabled",
+                status="failed",
+                errorCode="mutation_failed",
+                errorMessage="Anchor not found in active pane.",
+            )
+        )
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert len(result.statuses) == 1
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert result.statuses[0].error.code == "mutation_failed"
+        assert "Anchor not found" in result.statuses[0].error.message
 
 
 @pytest.mark.asyncio

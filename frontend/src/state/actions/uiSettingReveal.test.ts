@@ -101,10 +101,12 @@ describe("receiveUISettingReveal", () => {
     const docRef = globalThis as unknown as {
       document: {
         querySelector: (selector: string) => HTMLElement | null;
+        querySelectorAll: (selector: string) => Array<HTMLElement>;
       };
     };
     docRef.document = {
       querySelector: vi.fn(() => null),
+      querySelectorAll: vi.fn(() => []),
     };
   });
 
@@ -120,21 +122,32 @@ describe("receiveUISettingReveal", () => {
     const docRef = globalThis as unknown as {
       document: {
         querySelector: (selector: string) => HTMLElement | null;
+        querySelectorAll: (selector: string) => Array<HTMLElement>;
       };
     };
-    docRef.document.querySelector = vi.fn((selector: string) => {
-      if (selector === '[data-testid="overview-tab-content-shell"]') {
-        return paneRoot;
-      }
-      return null;
-    });
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
+          return paneRoot;
+        }
+        return null;
+      }),
+      querySelectorAll: vi.fn(() => []),
+    };
 
-    receiveUISettingReveal(createRevealContent({}));
-    await Promise.resolve();
+    const statuses = await receiveUISettingReveal(createRevealContent({}));
 
     const localState = useLocalStorage.getState();
     expect(localState.overviewVis).toBe(true);
     expect(localState.overviewTab).toBe("WatchCode");
+    expect(statuses).toEqual([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "revealed",
+        errorCode: null,
+        errorMessage: null,
+      },
+    ]);
     expect(anchor.classList.contains("setta-ui-setting-reveal-highlight")).toBe(
       true,
     );
@@ -145,8 +158,8 @@ describe("receiveUISettingReveal", () => {
     );
   });
 
-  it("ignores right-pane reveal requests with no active section", async () => {
-    receiveUISettingReveal(
+  it("returns a structured failure for right-pane reveals with no active section", async () => {
+    const statuses = await receiveUISettingReveal(
       createRevealContent({
         reveals: [
           createRevealTarget({
@@ -158,7 +171,13 @@ describe("receiveUISettingReveal", () => {
         ],
       }),
     );
-    await Promise.resolve();
     expect(useLocalStorage.getState().uiEditorVis).toBe(false);
+    expect(statuses[0]).toEqual({
+      settingId: "core.watch_code.enabled",
+      status: "failed",
+      errorCode: "mutation_failed",
+      errorMessage:
+        "Right-pane reveal requires an active section. Provide sectionIdToActivate.",
+    });
   });
 });

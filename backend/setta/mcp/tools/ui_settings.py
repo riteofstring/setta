@@ -22,6 +22,10 @@ from setta.ui_settings.models import (
     UISettingToolError,
     UISettingValueSchema,
 )
+from setta.ui_settings.reveal_result_hub import (
+    UISettingRevealResultContent,
+    UISettingRevealResultStatus,
+)
 from setta.ui_settings.registry import (
     UISettingValidationError,
     build_ui_settings_registry,
@@ -513,6 +517,9 @@ async def _reveal_settings(
         anchorId=runtime_entry.metadata.highlight.anchorId,
         pluginRevealKey=runtime_entry.metadata.highlight.pluginRevealKey,
     )
+    reveal_result_hub = getattr(ctx.fastmcp.state, "ui_setting_reveal_result_hub", None)
+    if reveal_result_hub is not None:
+        reveal_result_hub.register_request(request_id)
     await ctx.fastmcp.state.wmh_frontend_sender.broadcast_ui_setting_reveal(
         UISettingRevealContent(
             projectConfigId=project_config_id,
@@ -524,16 +531,96 @@ async def _reveal_settings(
         share_session_id=_resolve_share_session_id(ctx),
     )
 
+    if reveal_result_hub is None:
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=1,
+            statuses=[
+                RevealUISettingStatus(
+                    settingId=setting_id,
+                    status="revealed",
+                    target=target,
+                )
+            ],
+        )
+
+    frontend_reveal_result = await reveal_result_hub.wait_for_result(
+        request_id=request_id,
+        timeout_seconds=_resolve_frontend_reveal_timeout_seconds(bounded_duration_ms),
+    )
+    if frontend_reveal_result is None:
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=0,
+            statuses=[
+                RevealUISettingStatus(
+                    settingId=setting_id,
+                    status="failed",
+                    error=UISettingToolError(
+                        code="mutation_failed",
+                        message=(
+                            "Timed out waiting for frontend reveal confirmation "
+                            f"for {setting_id}."
+                        ),
+                    ),
+                )
+            ],
+        )
+
+    frontend_status = _find_frontend_reveal_status(
+        frontend_reveal_result=frontend_reveal_result,
+        setting_id=setting_id,
+    )
+    if frontend_status is None:
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=0,
+            statuses=[
+                RevealUISettingStatus(
+                    settingId=setting_id,
+                    status="failed",
+                    error=UISettingToolError(
+                        code="mutation_failed",
+                        message=(
+                            "Frontend reveal response did not include status for "
+                            f"{setting_id}."
+                        ),
+                    ),
+                )
+            ],
+        )
+
+    if frontend_status.status == "revealed":
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=1,
+            statuses=[
+                RevealUISettingStatus(
+                    settingId=setting_id,
+                    status="revealed",
+                    target=target,
+                )
+            ],
+        )
+
     return RevealUISettingResult(
         requestId=request_id,
         projectConfigId=project_config_id,
         durationMs=bounded_duration_ms,
-        emittedRevealCount=1,
+        emittedRevealCount=0,
         statuses=[
             RevealUISettingStatus(
                 settingId=setting_id,
-                status="revealed",
-                target=target,
+                status="failed",
+                error=_build_ui_setting_error_from_frontend_reveal_status(frontend_status),
             )
         ],
     )
@@ -642,6 +729,57 @@ def _bound_duration(duration_ms: int) -> int:
     if duration_ms > 10000:
         return 10000
     return duration_ms
+
+
+def _resolve_frontend_reveal_timeout_seconds(duration_ms: int) -> float:
+    timeout_seconds = (duration_ms / 1000.0) + 1.5
+    if timeout_seconds < 3.0:
+        return 3.0
+    if timeout_seconds > 12.0:
+        return 12.0
+    return timeout_seconds
+
+
+def _find_frontend_reveal_status(
+    *,
+    frontend_reveal_result: UISettingRevealResultContent,
+    setting_id: str,
+) -> UISettingRevealResultStatus | None:
+    for status in frontend_reveal_result.statuses:
+        if status.settingId == setting_id:
+            return status
+    return None
+
+
+def _build_ui_setting_error_from_frontend_reveal_status(
+    status: UISettingRevealResultStatus,
+) -> UISettingToolError:
+    raw_error_code = status.errorCode
+    resolved_code: Literal[
+        "setting_not_found",
+        "setting_read_only",
+        "invalid_value_type",
+        "invalid_value_range_or_enum",
+        "plugin_unavailable",
+        "mutation_failed",
+    ] = "mutation_failed"
+    if raw_error_code in {
+        "setting_not_found",
+        "setting_read_only",
+        "invalid_value_type",
+        "invalid_value_range_or_enum",
+        "plugin_unavailable",
+        "mutation_failed",
+    }:
+        resolved_code = raw_error_code
+    return UISettingToolError(
+        code=resolved_code,
+        message=(
+            status.errorMessage
+            if isinstance(status.errorMessage, str) and status.errorMessage.strip() != ""
+            else f"Frontend reveal failed for {status.settingId}."
+        ),
+    )
 
 
 async def _call_maybe_async(value: Any) -> Any:

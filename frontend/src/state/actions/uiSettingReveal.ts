@@ -23,14 +23,36 @@ const HIGHLIGHT_CLASS_NAME = "setta-ui-setting-reveal-highlight";
 const highlightTimeoutByElement = new WeakMap<HTMLElement, number>();
 const uiEditorTabNameValues = new Set<string>(Object.values(UIEditorTabNameEnum));
 
-export function receiveUISettingReveal(content: UISettingRevealContent): void {
+export type UISettingRevealResultStatus = {
+  settingId: string;
+  status: "revealed" | "failed";
+  errorCode: string | null;
+  errorMessage: string | null;
+};
+
+type OpenPaneResult =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      errorMessage: string;
+    };
+
+export async function receiveUISettingReveal(
+  content: UISettingRevealContent,
+): Promise<Array<UISettingRevealResultStatus>> {
   const durationMs = normalizeDurationMs(content.durationMs);
+  const statuses: Array<UISettingRevealResultStatus> = [];
   for (const revealTarget of content.reveals) {
-    void revealSingleSetting({
-      target: revealTarget,
-      durationMs,
-    });
+    statuses.push(
+      await revealSingleSetting({
+        target: revealTarget,
+        durationMs,
+      }),
+    );
   }
+  return statuses;
 }
 
 async function revealSingleSetting({
@@ -39,21 +61,40 @@ async function revealSingleSetting({
 }: {
   target: UISettingRevealTarget;
   durationMs: number;
-}): Promise<void> {
+}): Promise<UISettingRevealResultStatus> {
   const opened = openPaneForRevealTarget(target);
-  if (!opened) {
-    return;
+  if (!opened.ok) {
+    return {
+      settingId: target.settingId,
+      status: "failed",
+      errorCode: "mutation_failed",
+      errorMessage: opened.errorMessage,
+    };
   }
 
+  let pluginHandlerFailed = false;
   if (target.strategy === "plugin_handler") {
     const pluginRevealOk = await revealWithPluginHandler(target, durationMs);
     if (pluginRevealOk) {
-      return;
+      return {
+        settingId: target.settingId,
+        status: "revealed",
+        errorCode: null,
+        errorMessage: null,
+      };
     }
+    pluginHandlerFailed = true;
   }
 
   if (target.anchorId === null || target.anchorId === undefined) {
-    return;
+    return {
+      settingId: target.settingId,
+      status: "failed",
+      errorCode: "mutation_failed",
+      errorMessage: pluginHandlerFailed
+        ? "Plugin reveal handler failed and no fallback anchorId is available."
+        : `Setting ${target.settingId} is missing a reveal anchorId.`,
+    };
   }
 
   const anchorElement = await waitForAnchorElement({
@@ -61,23 +102,39 @@ async function revealSingleSetting({
     anchorId: target.anchorId,
   });
   if (!anchorElement) {
-    return;
+    return {
+      settingId: target.settingId,
+      status: "failed",
+      errorCode: "mutation_failed",
+      errorMessage: pluginHandlerFailed
+        ? "Plugin reveal handler failed and fallback anchor was not found."
+        : `Could not find anchor ${target.anchorId} for ${target.settingId}.`,
+    };
   }
   scrollIntoView(anchorElement);
   applyHighlight(anchorElement, durationMs);
+  return {
+    settingId: target.settingId,
+    status: "revealed",
+    errorCode: null,
+    errorMessage: null,
+  };
 }
 
-function openPaneForRevealTarget(target: UISettingRevealTarget): boolean {
+function openPaneForRevealTarget(target: UISettingRevealTarget): OpenPaneResult {
   if (target.side === "left") {
     const overviewTab = target.overviewTabKey;
     if (typeof overviewTab !== "string" || !isOverviewTabKey(overviewTab)) {
-      return false;
+      return {
+        ok: false,
+        errorMessage: `Invalid overviewTabKey for ${target.settingId}.`,
+      };
     }
     useLocalStorage.setState({
       overviewVis: true,
       overviewTab: overviewTab as OverviewTabKey,
     });
-    return true;
+    return { ok: true };
   }
 
   const uiEditorTabName = target.uiEditorTabName;
@@ -85,11 +142,18 @@ function openPaneForRevealTarget(target: UISettingRevealTarget): boolean {
     typeof uiEditorTabName !== "string" ||
     !uiEditorTabNameValues.has(uiEditorTabName)
   ) {
-    return false;
+    return {
+      ok: false,
+      errorMessage: `Invalid uiEditorTabName for ${target.settingId}.`,
+    };
   }
   const sectionType = getActiveSectionType();
   if (sectionType === null) {
-    return false;
+    return {
+      ok: false,
+      errorMessage:
+        "Right-pane reveal requires an active section. Provide sectionIdToActivate.",
+    };
   }
   useLocalStorage.setState((state) => ({
     uiEditorVis: true,
@@ -98,7 +162,7 @@ function openPaneForRevealTarget(target: UISettingRevealTarget): boolean {
       [sectionType]: uiEditorTabName as UIEditorTabName,
     },
   }));
-  return true;
+  return { ok: true };
 }
 
 async function revealWithPluginHandler(
@@ -114,14 +178,18 @@ async function revealWithPluginHandler(
   if (!tabExists) {
     return false;
   }
-  const result = await invokePluginSettingRevealHandler({
-    pluginId: target.pluginId,
-    revealKey: target.pluginRevealKey,
-    settingId: target.settingId,
-    paneId: target.paneId ?? null,
-    durationMs,
-  });
-  return result.ok;
+  try {
+    const result = await invokePluginSettingRevealHandler({
+      pluginId: target.pluginId,
+      revealKey: target.pluginRevealKey,
+      settingId: target.settingId,
+      paneId: target.paneId ?? null,
+      durationMs,
+    });
+    return result.ok;
+  } catch {
+    return false;
+  }
 }
 
 function getActiveSectionType(): string | null {
@@ -160,6 +228,10 @@ async function waitForAnchorElement({
         return anchor;
       }
     }
+    const globalAnchor = findSettingAnchor(document, anchorId);
+    if (globalAnchor) {
+      return globalAnchor;
+    }
     await sleep(FIND_TARGET_INTERVAL_MS);
   }
   return null;
@@ -176,7 +248,10 @@ function getPaneRoot(side: "left" | "right"): HTMLElement | null {
   );
 }
 
-function findSettingAnchor(root: HTMLElement, anchorId: string): HTMLElement | null {
+function findSettingAnchor(
+  root: ParentNode,
+  anchorId: string,
+): HTMLElement | null {
   const candidates = root.querySelectorAll<HTMLElement>("[data-setting-anchor]");
   for (const candidate of candidates) {
     if (candidate.dataset.settingAnchor === anchorId) {

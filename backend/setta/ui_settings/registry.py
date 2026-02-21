@@ -5,6 +5,7 @@ from urllib.parse import quote
 
 from setta.project_state.project_manager_types import (
     GetAppDefinitionRequest,
+    SetProjectConfigCodegenTargetsRequest,
     SetAppDefinitionRequest,
     SetShowParamDisplayNamesRequest,
     SetWatchCodeEnabledRequest,
@@ -13,7 +14,13 @@ from setta.project_state.project_manager_types import (
 from setta.types.app_definition import AppDefinition
 from setta.types.chat_messages import JSONValue
 from setta.types.id import ID
-from setta.types.project_config import WatchCodeFolder
+from setta.types.project_config import (
+    ProjectCodegenLanguage,
+    ProjectCodegenPluginTarget,
+    ProjectCodegenPythonTarget,
+    WatchCodeFolder,
+    project_config_has_codegen_language,
+)
 from setta.ui_settings.models import (
     UISettingEntry,
     UISettingHighlight,
@@ -322,6 +329,48 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
             ),
             readValue=_read_watch_code_files,
             writeValue=_write_watch_code_files,
+        ),
+        UISettingRuntimeEntry(
+            metadata=UISettingEntry(
+                settingId="core.project.name",
+                title="Project Name",
+                synonyms=["project title", "config name"],
+                description="Name of the active project configuration.",
+                location=UISettingLocation(
+                    side="left",
+                    overviewTabKey="Overview",
+                ),
+                highlight=UISettingHighlight(
+                    strategy="dom_anchor",
+                    anchorId="core.project.name",
+                ),
+                source="core",
+                mutability="writable",
+                valueSchema=UISettingValueSchema(type="string", minLength=1),
+            ),
+            readValue=_read_project_name,
+            writeValue=_write_project_name,
+        ),
+        UISettingRuntimeEntry(
+            metadata=UISettingEntry(
+                settingId="core.run_instructions.python_codegen_enabled",
+                title="Python Codegen Enabled",
+                synonyms=["python codegen", "codegen toggle", "run instructions python"],
+                description="Enable or disable the Python codegen target for this project.",
+                location=UISettingLocation(
+                    side="left",
+                    overviewTabKey="RunInstructions",
+                ),
+                highlight=UISettingHighlight(
+                    strategy="dom_anchor",
+                    anchorId="core.run_instructions.python_codegen_enabled",
+                ),
+                source="core",
+                mutability="writable",
+                valueSchema=UISettingValueSchema(type="boolean"),
+            ),
+            readValue=_read_python_codegen_enabled,
+            writeValue=_write_python_codegen_enabled,
         ),
         UISettingRuntimeEntry(
             metadata=UISettingEntry(
@@ -1073,6 +1122,100 @@ def _read_show_param_display_names(ctx: "Context", project_config_id: ID) -> JSO
     manager = _get_project_manager(ctx, project_config_id)
     project_state = manager.get_single_config_state(project_config_id)
     return project_state.projectConfig.showParamDisplayNames
+
+
+def _read_project_name(ctx: "Context", project_config_id: ID) -> JSONValue:
+    manager = _get_project_manager(ctx, project_config_id)
+    project_state = manager.get_single_config_state(project_config_id)
+    return project_state.projectConfig.name
+
+
+async def _write_project_name(
+    ctx: "Context",
+    project_config_id: ID,
+    value: JSONValue,
+) -> UISettingMutationResult:
+    if not isinstance(value, str):
+        raise UISettingValidationError("invalid_value_type", "Expected a string value.")
+    normalized_name = value.strip()
+    if normalized_name == "":
+        raise UISettingValidationError(
+            "invalid_value_range_or_enum",
+            "Project name must not be empty.",
+        )
+    old_value = _read_project_name(ctx, project_config_id)
+    manager = _get_project_manager(ctx, project_config_id)
+    await manager.set_project_config_name(project_config_id, normalized_name)
+    new_value = _read_project_name(ctx, project_config_id)
+    return UISettingMutationResult(
+        oldValue=old_value,
+        newValue=new_value,
+        normalizedValue=normalized_name,
+        changed=old_value != new_value,
+    )
+
+
+def _read_python_codegen_enabled(ctx: "Context", project_config_id: ID) -> JSONValue:
+    manager = _get_project_manager(ctx, project_config_id)
+    project_state = manager.get_single_config_state(project_config_id)
+    return project_config_has_codegen_language(
+        project_state.projectConfig,
+        ProjectCodegenLanguage.python,
+    )
+
+
+async def _write_python_codegen_enabled(
+    ctx: "Context",
+    project_config_id: ID,
+    value: JSONValue,
+) -> UISettingMutationResult:
+    if not isinstance(value, bool):
+        raise UISettingValidationError(
+            "invalid_value_type", "Expected a boolean value."
+        )
+    old_value = _read_python_codegen_enabled(ctx, project_config_id)
+    manager = _get_project_manager(ctx, project_config_id)
+    project_state = manager.get_single_config_state(project_config_id)
+    plugin_targets: list[ProjectCodegenPluginTarget] = []
+    python_target: ProjectCodegenPythonTarget | None = None
+    for target in project_state.projectConfig.codegenTargets:
+        if target.language == ProjectCodegenLanguage.python:
+            if not isinstance(target, ProjectCodegenPythonTarget):
+                raise UISettingValidationError(
+                    "mutation_failed",
+                    "Project config has invalid python codegen target type.",
+                )
+            python_target = target
+            continue
+        if not isinstance(target, ProjectCodegenPluginTarget):
+            raise UISettingValidationError(
+                "mutation_failed",
+                f"Project config has invalid plugin codegen target type: {target.language}.",
+            )
+        plugin_targets.append(target)
+    next_targets: list[ProjectCodegenPluginTarget | ProjectCodegenPythonTarget]
+    if value:
+        next_targets = [
+            *plugin_targets,
+            python_target
+            if python_target is not None
+            else ProjectCodegenPythonTarget(),
+        ]
+    else:
+        next_targets = plugin_targets
+    await manager.set_project_config_codegen_targets(
+        SetProjectConfigCodegenTargetsRequest(
+            projectConfigId=project_config_id,
+            codegenTargets=next_targets,
+        )
+    )
+    new_value = _read_python_codegen_enabled(ctx, project_config_id)
+    return UISettingMutationResult(
+        oldValue=old_value,
+        newValue=new_value,
+        normalizedValue=value,
+        changed=old_value != new_value,
+    )
 
 
 async def _write_show_param_display_names(
