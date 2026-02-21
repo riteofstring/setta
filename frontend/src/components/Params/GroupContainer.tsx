@@ -54,6 +54,7 @@ import {
 } from "./paramAreaMeasurements";
 import { attachParamAreaObservers } from "./paramAreaObservers";
 import { ParamDndList } from "./ParamDndList";
+import { installParamsPerfDebugHelper } from "./paramsPerfDebug";
 
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
 const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
@@ -92,6 +93,10 @@ function _ParamGroupContainer({
   useEffect(() => {
     waitingForResultRef.current = waitingForResult;
   }, [waitingForResult]);
+
+  useEffect(() => {
+    installParamsPerfDebugHelper();
+  }, []);
 
   useLayoutEffect(() => {
     const outer = outerRef.current;
@@ -824,7 +829,7 @@ function PinnedParamsArea({
         </header>
 
         <div
-          className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
+          className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5 [contain:layout_paint]"
           ref={rowsRef}
         >
           <ParamDndList
@@ -943,7 +948,7 @@ function GetUnpinnedParams({
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div
-        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
+        className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 [contain:layout_paint] ${
           isScrollable ? "nowheel" : ""
         }`}
         ref={setContainerRef}
