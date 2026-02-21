@@ -292,7 +292,7 @@ describe("ChatMessages tool call status", () => {
     expect(markup).toContain(">2<");
     expect(markup).not.toContain('data-chat-assistant-bubble="true"');
     expect(markup).toContain(
-      "group flex w-full max-w-[min(88%,800px)] flex-col items-start gap-2",
+      "group flex w-full max-w-[min(90%,820px)] flex-col items-start gap-2",
     );
   });
 
@@ -382,7 +382,7 @@ describe("ChatMessages tool call status", () => {
 });
 
 describe("ChatMessages assistant reasoning layout", () => {
-  it("keeps assistant groups at the reduced max width to leave right-side room", () => {
+  it("keeps assistant groups at the same max width cap as user bubbles", () => {
     const messages: BaseChatMessageUnion[] = [
       {
         id: "m-assistant-width",
@@ -401,9 +401,9 @@ describe("ChatMessages assistant reasoning layout", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(markup).toContain("max-w-[min(88%,800px)]");
+    expect(markup).toContain("max-w-[min(90%,820px)]");
     expect(markup).toContain(
-      "group flex w-full max-w-[min(88%,800px)] flex-col items-start gap-2",
+      "group flex w-full max-w-[min(90%,820px)] flex-col items-start gap-2",
     );
     expect(markup).toContain("mb-2 mt-1.5 flex justify-start");
     expect(markup).toContain("border border-transparent bg-white");
@@ -503,7 +503,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(reasoningIndex).toBeLessThan(bubbleIndex);
     expect(markup).toContain("border-setta-100");
     expect(markup).toContain(
-      "group flex w-full max-w-[min(88%,800px)] flex-col items-start gap-2",
+      "group flex w-full max-w-[min(90%,820px)] flex-col items-start gap-2",
     );
   });
 

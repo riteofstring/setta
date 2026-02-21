@@ -99,7 +99,8 @@ type ToolCallContext = {
 const EMPTY_ASSISTANT_CONTENT: ChatContentItem[] = [];
 const IDLE_SPINNER_DELAY_MS = 1000;
 const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
-const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(88%,800px)]";
+const CHAT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(90%,820px)]";
+const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = CHAT_BUBBLE_MAX_WIDTH_CLASS;
 const ASSISTANT_REASONING_BORDER_CLASS =
   "border-setta-100 dark:border-setta-700/50";
 const CHAT_MARKDOWN_BASE_CLASS =
@@ -1902,8 +1903,8 @@ function UserChatBubble({
 }) {
   return (
     <div className="my-2 flex justify-end">
-      <div
-        className="group flex max-w-[min(90%,820px)] flex-col items-end"
+        <div
+        className={`group flex ${CHAT_BUBBLE_MAX_WIDTH_CLASS} flex-col items-end`}
         data-message-id={messageId}
       >
         <div
