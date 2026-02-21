@@ -61,7 +61,7 @@ async function loadFolderEntries({
     maxEntries: maxEntries ?? null,
     allowOutsideWorkspaceRoot: allowOutsideWorkspaceRoot ?? false,
     missingFolderBehavior: "empty",
-  } as Parameters<typeof route_get_folder_contents>[0]);
+  });
   if (!res200(res)) {
     return [];
   }

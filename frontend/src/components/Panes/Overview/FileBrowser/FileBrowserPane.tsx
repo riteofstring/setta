@@ -158,6 +158,21 @@ export function shouldCheckRootWorkspaceInitialization({
   return rootPath !== null && folderPath === rootPath;
 }
 
+export function shouldLoadRootWorkspaceInitializationMetadata({
+  includeSettaInitializedFolders,
+  folderPath,
+  rootPath,
+}: {
+  includeSettaInitializedFolders: boolean;
+  folderPath: string;
+  rootPath: string | null;
+}): boolean {
+  return (
+    includeSettaInitializedFolders &&
+    shouldCheckRootWorkspaceInitialization({ folderPath, rootPath })
+  );
+}
+
 export function buildFileBrowserLoadingPathOwner({
   rootRequestId,
   folderRequestId,
@@ -676,10 +691,10 @@ export function FileBrowserPane({
           ignorePatterns: activeIgnorePatterns,
           maxEntries: MAX_ENTRIES,
           includeMtime: true,
-          includeSettaInitialized: true,
+          includeSettaInitialized: includeSettaInitializedRef.current,
           allowOutsideWorkspaceRoot,
           missingFolderBehavior: "empty",
-        } as Parameters<typeof route_get_folder_contents>[0]);
+        });
         if (rootRequestIdRef.current !== activeRootRequestId) {
           return null;
         }
@@ -722,7 +737,9 @@ export function FileBrowserPane({
             setRootError(null);
           }
           if (
-            shouldCheckRootWorkspaceInitialization({
+            shouldLoadRootWorkspaceInitializationMetadata({
+              includeSettaInitializedFolders:
+                includeSettaInitializedRef.current,
               folderPath,
               rootPath: activeRootPath,
             })
@@ -730,7 +747,7 @@ export function FileBrowserPane({
             const initializationRes = await route_check_workspace_initialized({
               folderPath,
               allowOutsideWorkspaceRoot,
-            } as Parameters<typeof route_check_workspace_initialized>[0]);
+            });
             if (rootRequestIdRef.current !== activeRootRequestId) {
               return null;
             }

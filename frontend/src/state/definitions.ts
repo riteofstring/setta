@@ -871,8 +871,6 @@ type ZustandLocalStorage = {
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
   favoriteProjectConfigIds: string[];
   overviewProjectConfigOrder: string[];
-  homePageLeftColumnWidth: number;
-  homePageRightColumnWidth: number;
   homeWorkspacePaneVis: boolean;
   homeWorkspacePaneWidth: number;
   homeWorkspacePaneTrueWidth: number;
@@ -924,8 +922,6 @@ export const useLocalStorage = createWithEqualityFn(
       homeProjectGalleryViewMode: "thumbnails",
       favoriteProjectConfigIds: [],
       overviewProjectConfigOrder: [],
-      homePageLeftColumnWidth: 320,
-      homePageRightColumnWidth: 280,
       homeWorkspacePaneVis: true,
       homeWorkspacePaneWidth: 320,
       homeWorkspacePaneTrueWidth: 320,
@@ -965,6 +961,12 @@ export const useLocalStorage = createWithEqualityFn(
           ...currentState,
           ...persisted,
         };
+        delete (
+          merged as Record<string, unknown>
+        ).homePageLeftColumnWidth;
+        delete (
+          merged as Record<string, unknown>
+        ).homePageRightColumnWidth;
 
         if (persisted.colorMode === undefined) {
           merged.colorMode = merged.darkMode ? "dark" : "light";
@@ -980,12 +982,6 @@ export const useLocalStorage = createWithEqualityFn(
         }
         if (!Array.isArray(merged.overviewProjectConfigOrder)) {
           merged.overviewProjectConfigOrder = [];
-        }
-        if (typeof merged.homePageLeftColumnWidth !== "number") {
-          merged.homePageLeftColumnWidth = 320;
-        }
-        if (typeof merged.homePageRightColumnWidth !== "number") {
-          merged.homePageRightColumnWidth = 280;
         }
         if (typeof merged.homeWorkspacePaneVis !== "boolean") {
           merged.homeWorkspacePaneVis = true;

@@ -10,6 +10,7 @@ import {
   shouldRefreshRootAfterFileBrowserTransfer,
   shouldRefreshSettaBadgeDataOnToggleChange,
   shouldCheckRootWorkspaceInitialization,
+  shouldLoadRootWorkspaceInitializationMetadata,
   shouldShowSettaInitializedFolderIcon,
   shouldSkipFileBrowserTransfer,
   sortChildPaths,
@@ -383,6 +384,32 @@ describe("shouldCheckRootWorkspaceInitialization", () => {
       shouldCheckRootWorkspaceInitialization({
         folderPath: "/workspace",
         rootPath: null,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("shouldLoadRootWorkspaceInitializationMetadata", () => {
+  it("requires both Setta metadata mode and root folder context", () => {
+    expect(
+      shouldLoadRootWorkspaceInitializationMetadata({
+        includeSettaInitializedFolders: false,
+        folderPath: "/workspace",
+        rootPath: "/workspace",
+      }),
+    ).toBe(false);
+    expect(
+      shouldLoadRootWorkspaceInitializationMetadata({
+        includeSettaInitializedFolders: true,
+        folderPath: "/workspace",
+        rootPath: "/workspace",
+      }),
+    ).toBe(true);
+    expect(
+      shouldLoadRootWorkspaceInitializationMetadata({
+        includeSettaInitializedFolders: true,
+        folderPath: "/workspace/child",
+        rootPath: "/workspace",
       }),
     ).toBe(false);
   });

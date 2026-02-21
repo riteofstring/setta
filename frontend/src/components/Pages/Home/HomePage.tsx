@@ -38,6 +38,7 @@ import {
   useProjectLoading,
   useShareSession,
 } from "state/definitions";
+import { useWindowSize } from "state/hooks/utils";
 import {
   buildSharePath,
   CLOSED_PANE_WIDTH,
@@ -67,6 +68,30 @@ const HOME_FILE_BROWSER_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden";
 const HOME_INSET_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2";
+const HOME_COMPACT_LAYOUT_BREAKPOINT_PX = 1100;
+
+export function shouldUseCompactHomeLayout(winWidth: number | undefined): boolean {
+  if (typeof winWidth === "number") {
+    return winWidth < HOME_COMPACT_LAYOUT_BREAKPOINT_PX;
+  }
+  if (typeof window !== "undefined") {
+    return window.innerWidth < HOME_COMPACT_LAYOUT_BREAKPOINT_PX;
+  }
+  return false;
+}
+
+export function shouldApplyHomeFileBrowserPath({
+  nextPath,
+  currentRootPath,
+}: {
+  nextPath: string;
+  currentRootPath: string | null;
+}): boolean {
+  if (!nextPath) {
+    return false;
+  }
+  return nextPath !== currentRootPath;
+}
 
 export function partitionProjectsByFavoriteStatus({
   projects,
@@ -191,6 +216,8 @@ function HomeWorkspaceLayout({
     }),
     _.isEqual,
   );
+  const { winWidth } = useWindowSize();
+  const isCompactLayout = shouldUseCompactHomeLayout(winWidth);
 
   const filteredProjects = useMemo(
     () => matchSorter(projects, searchValue, { keys: ["name"] }),
@@ -348,58 +375,74 @@ function HomeWorkspaceLayout({
     onToggleFavoriteProjectConfig: toggleFavoriteProjectConfig,
     galleryViewMode: homeProjectGalleryViewMode,
   };
-  const middleInsetLeft = homeWorkspacePaneVis
-    ? homeWorkspacePaneWidth
-    : CLOSED_PANE_WIDTH;
-  const middleInsetRight = homeSelectedProjectPaneVis
-    ? homeSelectedProjectPaneWidth
-    : CLOSED_PANE_WIDTH;
+  const showSidePanes = !isCompactLayout;
+  const middleInsetLeft = showSidePanes
+    ? homeWorkspacePaneVis
+      ? homeWorkspacePaneWidth
+      : CLOSED_PANE_WIDTH
+    : 0;
+  const middleInsetRight = showSidePanes
+    ? homeSelectedProjectPaneVis
+      ? homeSelectedProjectPaneWidth
+      : CLOSED_PANE_WIDTH
+    : 0;
 
   return (
     <>
-      <HomeLeftIconRail workspacePaneVisible={homeWorkspacePaneVis} />
-      <HomeRightIconRail
-        selectedProjectPaneVisible={homeSelectedProjectPaneVis}
-      />
-      <PaneContainer
-        paneName={HOME_WORKSPACE_PANE_NAME}
-        right={false}
-        minimumWidth={HOME_MIN_PANE_WIDTH}
-        vis={homeWorkspacePaneVis}
-        width={homeWorkspacePaneWidth}
-        paddingClassName="pt-2.5 pb-0"
-      >
-        {homeWorkspacePaneVis && (
-          <section
-            className={HOME_FILE_BROWSER_PANE_CONTENT_CLASS}
-            data-testid="home-file-browser-column"
-          >
-            <div className={HOME_FILE_BROWSER_TITLE_INSET_CLASS}>
-              <h2 className={HOME_PANE_TITLE_CLASS}>Workspace Browser</h2>
-            </div>
-            <HomeFileBrowserColumn />
-          </section>
-        )}
-      </PaneContainer>
-      <PaneContainer
-        paneName={HOME_SELECTED_PROJECT_PANE_NAME}
-        right={true}
-        minimumWidth={HOME_MIN_PANE_WIDTH}
-        vis={homeSelectedProjectPaneVis}
-        width={homeSelectedProjectPaneWidth}
-      >
-        {homeSelectedProjectPaneVis && (
-          <section className={HOME_INSET_PANE_CONTENT_CLASS}>
-            <h2 className={HOME_PANE_TITLE_CLASS}>Selected Project</h2>
-            <SelectedProjectDetails
-              project={selectedDetailProject}
-              isDefault={selectedDetailProject?.id === defaultProjectConfigId}
-              isDeploymentMode={isDeploymentMode}
-              hideTitle
-            />
-          </section>
-        )}
-      </PaneContainer>
+      {showSidePanes && (
+        <HomeLeftIconRail
+          workspacePaneVisible={homeWorkspacePaneVis}
+          isDeploymentMode={isDeploymentMode}
+        />
+      )}
+      {showSidePanes && (
+        <HomeRightIconRail
+          selectedProjectPaneVisible={homeSelectedProjectPaneVis}
+        />
+      )}
+      {showSidePanes && (
+        <PaneContainer
+          paneName={HOME_WORKSPACE_PANE_NAME}
+          right={false}
+          minimumWidth={HOME_MIN_PANE_WIDTH}
+          vis={homeWorkspacePaneVis}
+          width={homeWorkspacePaneWidth}
+          paddingClassName="pt-2.5 pb-0"
+        >
+          {homeWorkspacePaneVis && (
+            <section
+              className={HOME_FILE_BROWSER_PANE_CONTENT_CLASS}
+              data-testid="home-file-browser-column"
+            >
+              <div className={HOME_FILE_BROWSER_TITLE_INSET_CLASS}>
+                <h2 className={HOME_PANE_TITLE_CLASS}>Workspace Browser</h2>
+              </div>
+              <HomeFileBrowserColumn />
+            </section>
+          )}
+        </PaneContainer>
+      )}
+      {showSidePanes && (
+        <PaneContainer
+          paneName={HOME_SELECTED_PROJECT_PANE_NAME}
+          right={true}
+          minimumWidth={HOME_MIN_PANE_WIDTH}
+          vis={homeSelectedProjectPaneVis}
+          width={homeSelectedProjectPaneWidth}
+        >
+          {homeSelectedProjectPaneVis && (
+            <section className={HOME_INSET_PANE_CONTENT_CLASS}>
+              <h2 className={HOME_PANE_TITLE_CLASS}>Selected Project</h2>
+              <SelectedProjectDetails
+                project={selectedDetailProject}
+                isDefault={selectedDetailProject?.id === defaultProjectConfigId}
+                isDeploymentMode={isDeploymentMode}
+                hideTitle
+              />
+            </section>
+          )}
+        </PaneContainer>
+      )}
       <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-dark">
         <main
           className="relative z-0 flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-x border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950"
@@ -487,8 +530,10 @@ function toggleHomeSelectedProjectPaneVisibility() {
 
 function HomeLeftIconRail({
   workspacePaneVisible,
+  isDeploymentMode,
 }: {
   workspacePaneVisible: boolean;
+  isDeploymentMode: boolean;
 }) {
   return (
     <div
@@ -510,17 +555,19 @@ function HomeLeftIconRail({
       >
         <TbFolder size={18} />
       </button>
-      <Link
-        to={SETTINGS_ROUTER_PATH}
-        state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
-        data-testid="home-left-rail-settings-link"
-        className={`mt-auto mb-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500 ${getHomeRailButtonColor(
-          false,
-        )}`}
-        aria-label="Open settings"
-      >
-        <IoSettingsOutline size={18} />
-      </Link>
+      {!isDeploymentMode && (
+        <Link
+          to={SETTINGS_ROUTER_PATH}
+          state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
+          data-testid="home-left-rail-settings-link"
+          className={`mt-auto mb-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500 ${getHomeRailButtonColor(
+            false,
+          )}`}
+          aria-label="Open settings"
+        >
+          <IoSettingsOutline size={18} />
+        </Link>
+      )}
     </div>
   );
 }
@@ -614,7 +661,12 @@ function HomeFileBrowserColumn() {
 
   function applyPath(nextPathValue?: string) {
     const nextPath = (nextPathValue ?? pathInput).trim();
-    if (!nextPath) {
+    if (
+      !shouldApplyHomeFileBrowserPath({
+        nextPath,
+        currentRootPath: useHomeFileBrowserState.getState().rootPath,
+      })
+    ) {
       return;
     }
     useHomeFileBrowserState.setState({

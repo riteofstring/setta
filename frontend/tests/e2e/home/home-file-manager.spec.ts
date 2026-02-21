@@ -135,6 +135,30 @@ test("home page renders pane rails and toggles side panes", async ({
   await expect(page.getByText("Other Projects")).toBeVisible();
 });
 
+test("home uses compact layout on narrow viewports", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await ensureAppReady(page);
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  const layout = page.getByTestId("home-file-manager-layout").first();
+  const gallery = page.getByTestId("home-project-gallery").first();
+  await expect(layout).toBeVisible();
+  await expect(gallery).toBeVisible();
+  await expect(page.getByTestId("home-left-icon-rail")).toHaveCount(0);
+  await expect(page.getByTestId("home-right-icon-rail")).toHaveCount(0);
+  await expect(page.getByTestId("home-file-browser-column")).toHaveCount(0);
+  await expect(page.getByTestId("home-selected-project-details")).toHaveCount(
+    0,
+  );
+
+  const layoutBox = await layout.boundingBox();
+  const galleryBox = await gallery.boundingBox();
+  if (!layoutBox || !galleryBox) {
+    throw new Error("Expected compact home layout geometry on mobile viewport.");
+  }
+  expect(galleryBox.width).toBeGreaterThan(layoutBox.width * 0.8);
+});
+
 test("home browser marks Setta-initialized folders", async ({ page }) => {
   const workspaceRoot = process.env.SETTA_WORKSPACE_ROOT;
   if (!workspaceRoot) {
@@ -383,6 +407,9 @@ test("home opens projects on single click in deployment mode", async ({
     });
   });
   await expect(page.getByText("Sharing mode is read-only")).toBeVisible();
+  await expect(page.getByTestId("home-left-rail-settings-link")).toHaveCount(
+    0,
+  );
 
   await page.getByTestId("home-project-card").first().click();
   await expect.poll(() => new URL(page.url()).pathname).not.toBe(homePathname);
@@ -417,6 +444,71 @@ test("home opens projects on single click in deployment mode", async ({
   await expect(firstRow).toBeVisible();
   await firstRow.click();
   await expect.poll(() => new URL(page.url()).pathname).not.toBe(homePathname);
+});
+
+test("home path blur is a no-op when the path value is unchanged", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+  await expect
+    .poll(async () => {
+      return await page.evaluate(async () => {
+        const { useHomeFileBrowserState } = await import(
+          "/src/state/definitions.ts"
+        );
+        return useHomeFileBrowserState.getState().rootPath;
+      });
+    })
+    .not.toBeNull();
+
+  const stateBeforeBlur = await page.evaluate(async () => {
+    const { useHomeFileBrowserState } = await import("/src/state/definitions.ts");
+    const current = useHomeFileBrowserState.getState();
+    const rootPath = current.rootPath;
+    if (!rootPath) {
+      throw new Error("Missing home root path before blur no-op test.");
+    }
+    const separator = current.pathSeparator || "/";
+    const selectedPath = `${rootPath}${separator}synthetic-selected-folder`;
+    useHomeFileBrowserState.setState({
+      selectedPath,
+      expandedPaths: {
+        [rootPath]: true,
+        [selectedPath]: true,
+      },
+    });
+    return {
+      rootPath,
+      selectedPath,
+      expandedPaths: [rootPath, selectedPath],
+    };
+  });
+
+  const pathInput = page.getByTestId("home-file-browser-path-input").first();
+  await expect(pathInput).toBeVisible();
+  await pathInput.click();
+  await page.getByTestId("home-project-gallery").first().click();
+
+  await expect
+    .poll(async () => {
+      return await page.evaluate(async () => {
+        const { useHomeFileBrowserState } = await import(
+          "/src/state/definitions.ts"
+        );
+        const current = useHomeFileBrowserState.getState();
+        return {
+          rootPath: current.rootPath,
+          selectedPath: current.selectedPath,
+          expandedPaths: Object.keys(current.expandedPaths).sort(),
+        };
+      });
+    })
+    .toEqual({
+      rootPath: stateBeforeBlur.rootPath,
+      selectedPath: stateBeforeBlur.selectedPath,
+      expandedPaths: [...stateBeforeBlur.expandedPaths].sort(),
+    });
 });
 
 test("home column widths persist across reload when viewport can fit stored widths", async ({

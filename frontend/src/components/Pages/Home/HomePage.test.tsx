@@ -4,6 +4,8 @@ import {
   getHomeProjectConfigsSectionTitle,
   getProjectTopLevelSectionCount,
   partitionProjectsByFavoriteStatus,
+  shouldApplyHomeFileBrowserPath,
+  shouldUseCompactHomeLayout,
   shouldOpenProjectOnListRowSpace,
 } from "./HomePage";
 
@@ -48,5 +50,33 @@ describe("HomePage", () => {
   it("opens from keyboard Space in list rows only when selection is disabled", () => {
     expect(shouldOpenProjectOnListRowSpace(true)).toBe(false);
     expect(shouldOpenProjectOnListRowSpace(false)).toBe(true);
+  });
+
+  it("uses compact home layout only below the breakpoint", () => {
+    expect(shouldUseCompactHomeLayout(600)).toBe(true);
+    expect(shouldUseCompactHomeLayout(1099)).toBe(true);
+    expect(shouldUseCompactHomeLayout(1100)).toBe(false);
+    expect(shouldUseCompactHomeLayout(1400)).toBe(false);
+  });
+
+  it("applies home file-browser path changes only for real path updates", () => {
+    expect(
+      shouldApplyHomeFileBrowserPath({
+        nextPath: "",
+        currentRootPath: "/workspace",
+      }),
+    ).toBe(false);
+    expect(
+      shouldApplyHomeFileBrowserPath({
+        nextPath: "/workspace",
+        currentRootPath: "/workspace",
+      }),
+    ).toBe(false);
+    expect(
+      shouldApplyHomeFileBrowserPath({
+        nextPath: "/workspace/new",
+        currentRootPath: "/workspace",
+      }),
+    ).toBe(true);
   });
 });
