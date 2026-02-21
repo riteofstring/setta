@@ -49,6 +49,10 @@ import {
   getDefaultProjectChatPermissionMode,
   ProjectChatCore,
 } from "./ProjectChatCore";
+import {
+  focusInputWithoutSelectionById,
+  PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID,
+} from "./projectChatFocusUtils";
 import { ProjectChatHistory } from "./ProjectChatHistory";
 import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
 import { useHydrateAgenticState } from "./useHydrateAgenticState";
@@ -827,6 +831,12 @@ function ProjectAISettingsPopover({
     },
     [onDictationModeChange, providerModeAvailable],
   );
+  const handleSettingsPopoverOpenAutoFocus = useCallback((event: Event) => {
+    event.preventDefault();
+    requestAnimationFrame(() => {
+      focusInputWithoutSelectionById(PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID);
+    });
+  }, []);
 
   return (
     <StandardPopover
@@ -842,6 +852,7 @@ function ProjectAISettingsPopover({
       }
       contentClasses="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-setta-200/80 bg-white/95 p-3 shadow-xl backdrop-blur relative overflow-visible dark:border-setta-700/70 dark:bg-setta-900/95 data-[state=open]:animate-fade-in"
       arrowClasses="fill-white/95 stroke-[1px] stroke-setta-200/80 dark:fill-setta-900/95 dark:stroke-setta-700/70"
+      contentProps={{ onOpenAutoFocus: handleSettingsPopoverOpenAutoFocus }}
     >
       <div className="flex flex-col gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-400 dark:text-setta-500">
@@ -859,6 +870,7 @@ function ProjectAISettingsPopover({
               onSelectedItemChange={onEngineChange}
               placeholder="Select an engine"
               outerDivClasses="w-full"
+              inputDivId={PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID}
             />
           </div>
           <div className="flex flex-col gap-1">
