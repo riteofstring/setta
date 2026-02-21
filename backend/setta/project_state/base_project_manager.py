@@ -4364,12 +4364,10 @@ class BaseProjectManager(ABC):
             x.sectionId,
             x.managed,
             x.engineConfigId,
-            x.transcriptionProfileId,
             x.agentProfileId,
             x.thinking,
             x.permissionMode,
             x.searchEnabled,
-            x.dictationMode,
         )
         await self._update_and_broadcast_project_state_no_name_validation(project_state)
 
