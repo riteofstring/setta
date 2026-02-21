@@ -7,9 +7,10 @@ import {
 } from "./dictation";
 
 describe("dictation helpers", () => {
-  it("reports availability from environment support only", () => {
-    expect(isDictationAvailable(true)).toBe(true);
-    expect(isDictationAvailable(false)).toBe(false);
+  it("reports availability only when provider and environment support dictation", () => {
+    expect(isDictationAvailable(true, true)).toBe(true);
+    expect(isDictationAvailable(true, false)).toBe(false);
+    expect(isDictationAvailable(false, true)).toBe(false);
   });
 
   it("inserts transcript text at selection", () => {

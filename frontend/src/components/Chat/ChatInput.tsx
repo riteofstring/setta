@@ -12,10 +12,10 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { IoMdKey } from "react-icons/io";
 import {
   IoAdd,
   IoAttach,
+  IoChevronDown,
   IoClose,
   IoFolderOpen,
   IoMic,
@@ -41,7 +41,6 @@ import {
   mapDictationError,
   pickProviderRecorderMimeType,
 } from "./dictation";
-import { isProviderDictationUnsupportedError } from "./providerDictationSupport";
 import { useChatAttachmentManager } from "./useChatAttachmentManager";
 
 const SLASH_SUGGESTIONS_MAX_HEIGHT_PX = 208;
@@ -103,20 +102,6 @@ export type ChatSlashCommandResult =
       keepInput?: boolean;
     };
 
-function formatCompactTokenCount(value: number): string {
-  if (value >= 1_000_000) {
-    const millions = value / 1_000_000;
-    const digits = millions >= 10 ? 0 : 1;
-    return `${millions.toFixed(digits).replace(/\.0$/u, "")}m`;
-  }
-  if (value >= 1_000) {
-    const thousands = value / 1_000;
-    const digits = thousands >= 10 ? 0 : 1;
-    return `${thousands.toFixed(digits).replace(/\.0$/u, "")}k`;
-  }
-  return `${value}`;
-}
-
 type ChatInputProps = {
   placeholderText: string | undefined;
   waitingForResponse: boolean;
@@ -139,10 +124,6 @@ type ChatInputProps = {
   dictationMode?: "auto" | "browser" | "provider";
   onProviderDictationTranscribe?: (audioBlob: Blob) => Promise<string | null>;
   dictationEnabledByProvider?: boolean;
-  providerDictationLikelySupported?: boolean;
-  contextWindowTokens?: number | null;
-  contextUsedTokens?: number | null;
-  contextUsageIsEstimated?: boolean;
 };
 
 export const ChatInput = memo(function ChatInput({
@@ -165,10 +146,6 @@ export const ChatInput = memo(function ChatInput({
   dictationMode = "auto",
   onProviderDictationTranscribe,
   dictationEnabledByProvider = true,
-  providerDictationLikelySupported = true,
-  contextWindowTokens = null,
-  contextUsedTokens = null,
-  contextUsageIsEstimated = false,
 }: ChatInputProps) {
   const [internalValue, setInternalValue] = useState("");
   const [slashFeedback, setSlashFeedback] = useState<string | null>(null);
@@ -182,9 +159,6 @@ export const ChatInput = memo(function ChatInput({
   const [dictationFeedback, setDictationFeedback] = useState<string | null>(
     null,
   );
-  const [contextBadgeMode, setContextBadgeMode] = useState<
-    "percentage" | "tokens"
-  >("percentage");
   const isControlled = typeof value === "string" && Boolean(onChange);
   const inputValue = isControlled ? value : internalValue;
   const inputValueRef = useRef(inputValue);
@@ -603,7 +577,10 @@ export const ChatInput = memo(function ChatInput({
   }, [isDisabled, isDragActive]);
 
   const dictationSupported = Boolean(getSpeechRecognitionConstructor());
-  const canBrowserDictate = isDictationAvailable(dictationSupported);
+  const canBrowserDictate = isDictationAvailable(
+    dictationEnabledByProvider,
+    dictationSupported,
+  );
   const mediaRecorderSupported =
     typeof window !== "undefined" &&
     typeof window.MediaRecorder !== "undefined" &&
@@ -614,19 +591,13 @@ export const ChatInput = memo(function ChatInput({
       onProviderDictationTranscribe &&
       mediaRecorderSupported,
   );
-  const canAutoUseProviderDictation =
-    canProviderDictate && providerDictationLikelySupported;
   const canDictate =
     !isDisabled &&
-    (() => {
-      if (dictationMode === "provider") {
-        return canProviderDictate;
-      }
-      if (dictationMode === "browser") {
-        return canBrowserDictate;
-      }
-      return canAutoUseProviderDictation || canBrowserDictate;
-    })();
+    (dictationMode === "provider"
+      ? canProviderDictate
+      : dictationMode === "browser"
+        ? canBrowserDictate
+        : canProviderDictate || canBrowserDictate);
   const showPermissionControl = Boolean(
     executionControls && executionControlVisibility.permissionMode !== false,
   );
@@ -636,92 +607,6 @@ export const ChatInput = memo(function ChatInput({
       typeof executionControls.onSearchEnabledChange === "function",
   );
   const showExecutionControls = showPermissionControl || showSearchControl;
-  const permissionModeIconClassName = useMemo(() => {
-    if (!executionControls) {
-      return "text-setta-600 dark:text-setta-300";
-    }
-    if (executionControls.permissionMode === "yolo") {
-      return "text-orange-500 dark:text-orange-400";
-    }
-    if (executionControls.permissionMode === "config_toml_custom") {
-      return "text-amber-500 dark:text-amber-300";
-    }
-    return "text-setta-600 dark:text-setta-300";
-  }, [executionControls?.permissionMode]);
-  const normalizedContextWindowTokens = useMemo(() => {
-    if (
-      typeof contextWindowTokens !== "number" ||
-      !Number.isFinite(contextWindowTokens)
-    ) {
-      return null;
-    }
-    return Math.max(0, Math.floor(contextWindowTokens));
-  }, [contextWindowTokens]);
-  const normalizedContextUsedTokens = useMemo(() => {
-    if (
-      typeof contextUsedTokens !== "number" ||
-      !Number.isFinite(contextUsedTokens)
-    ) {
-      return null;
-    }
-    return Math.max(0, Math.floor(contextUsedTokens));
-  }, [contextUsedTokens]);
-  const remainingContextTokens = useMemo(() => {
-    if (
-      normalizedContextWindowTokens === null ||
-      normalizedContextUsedTokens === null
-    ) {
-      return null;
-    }
-    return Math.max(
-      0,
-      normalizedContextWindowTokens - normalizedContextUsedTokens,
-    );
-  }, [normalizedContextUsedTokens, normalizedContextWindowTokens]);
-  const remainingContextPercentage = useMemo(() => {
-    if (remainingContextTokens === null) {
-      return null;
-    }
-    if (
-      normalizedContextWindowTokens === null ||
-      normalizedContextWindowTokens <= 0
-    ) {
-      return 0;
-    }
-    const rawPercentage = Math.round(
-      (remainingContextTokens / normalizedContextWindowTokens) * 100,
-    );
-    return Math.max(0, Math.min(100, rawPercentage));
-  }, [normalizedContextWindowTokens, remainingContextTokens]);
-  const contextRemainingLabel = useMemo(() => {
-    if (remainingContextTokens === null) {
-      return null;
-    }
-    const contextLabelPrefix = contextUsageIsEstimated
-      ? "est. context left"
-      : "Context left";
-    if (contextBadgeMode === "tokens") {
-      return `${contextLabelPrefix} ~${formatCompactTokenCount(
-        remainingContextTokens,
-      )}`;
-    }
-    if (remainingContextPercentage === null) {
-      return null;
-    }
-    return `${contextLabelPrefix} ${remainingContextPercentage}%`;
-  }, [
-    contextBadgeMode,
-    contextUsageIsEstimated,
-    remainingContextPercentage,
-    remainingContextTokens,
-  ]);
-  const showContextBadge = contextRemainingLabel !== null;
-  const shouldShowComposerMetaRow = showExecutionControls || showContextBadge;
-  const handleContextBadgeToggle = useCallback(() => {
-    setContextBadgeMode((current) =>
-      current === "percentage" ? "tokens" : "percentage",
-    );
-  }, []);
   const slashSuggestionsPositionClass =
     resolvedSlashPlacement === "below"
       ? "top-[calc(100%+4px)]"
@@ -879,149 +764,135 @@ export const ChatInput = memo(function ChatInput({
     }
   }, [canBrowserDictate, insertTranscript]);
 
-  const maybeFallbackToBrowserDictation = useCallback(
-    (allowFallback: boolean): boolean => {
-      if (!allowFallback || !canBrowserDictate) {
-        return false;
-      }
-      startBrowserDictation();
-      return true;
-    },
-    [canBrowserDictate, startBrowserDictation],
-  );
+  const maybeFallbackToBrowserDictation = useCallback((): boolean => {
+    if (dictationMode !== "auto" || !canBrowserDictate) {
+      return false;
+    }
+    startBrowserDictation();
+    return true;
+  }, [canBrowserDictate, dictationMode, startBrowserDictation]);
 
-  const startProviderDictation = useCallback(
-    async (allowBrowserFallback: boolean) => {
-      if (!canProviderDictate || !onProviderDictationTranscribe) {
-        if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
-          return;
-        }
-        setDictationState("error");
-        setDictationFeedback("Provider dictation is not available.");
+  const startProviderDictation = useCallback(async () => {
+    if (!canProviderDictate || !onProviderDictationTranscribe) {
+      if (maybeFallbackToBrowserDictation()) {
         return;
       }
-      if (
-        typeof navigator === "undefined" ||
-        !navigator.mediaDevices?.getUserMedia ||
-        typeof MediaRecorder === "undefined"
-      ) {
-        if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
-          return;
-        }
-        setDictationState("error");
-        setDictationFeedback("Provider dictation is not available.");
+      setDictationState("error");
+      setDictationFeedback("Provider dictation is not available.");
+      return;
+    }
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof MediaRecorder === "undefined"
+    ) {
+      if (maybeFallbackToBrowserDictation()) {
         return;
       }
+      setDictationState("error");
+      setDictationFeedback("Provider dictation is not available.");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      providerStreamRef.current = stream;
+      const mimeType = pickProviderRecorderMimeType(
+        MediaRecorder.isTypeSupported?.bind(MediaRecorder),
+      );
+      let recorder: MediaRecorder;
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-        providerStreamRef.current = stream;
-        const mimeType = pickProviderRecorderMimeType(
-          MediaRecorder.isTypeSupported?.bind(MediaRecorder),
-        );
-        let recorder: MediaRecorder;
-        try {
-          recorder = mimeType
-            ? new MediaRecorder(stream, { mimeType })
-            : new MediaRecorder(stream);
-        } catch {
-          cleanupProviderCapture();
-          if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
-            return;
-          }
-          setDictationState("error");
-          setDictationFeedback("Provider dictation is not available.");
-          return;
-        }
-        providerRecorderRef.current = recorder;
-        providerChunksRef.current = [];
-        dictationSourceRef.current = "provider";
-        recorder.ondataavailable = (event) => {
-          if (event.data && event.data.size > 0) {
-            providerChunksRef.current.push(event.data);
-          }
-        };
-        recorder.onerror = () => {
-          cleanupProviderCapture();
-          setDictationState("error");
-          setDictationFeedback("Microphone input failed.");
-        };
-        recorder.onstop = () => {
-          providerRecorderRef.current = null;
-          dictationSourceRef.current = null;
-          const streamRef = providerStreamRef.current;
-          if (streamRef) {
-            for (const track of streamRef.getTracks()) {
-              track.stop();
-            }
-          }
-          providerStreamRef.current = null;
-          const chunks = providerChunksRef.current;
-          providerChunksRef.current = [];
-          let blobType = recorder.mimeType || mimeType || "audio/webm";
-          for (const chunk of chunks) {
-            if (chunk instanceof Blob && chunk.type) {
-              blobType = chunk.type;
-              break;
-            }
-          }
-          const blob = new Blob(chunks, { type: blobType });
-          if (blob.size === 0) {
-            setDictationState("error");
-            setDictationFeedback("No speech was detected.");
-            return;
-          }
-          setDictationState("transcribing");
-          setDictationFeedback("Transcribing...");
-          void (async () => {
-            try {
-              const transcript = await onProviderDictationTranscribe(blob);
-              const normalized = (transcript ?? "").trim();
-              if (!normalized) {
-                setDictationState("error");
-                setDictationFeedback("Provider transcription failed.");
-                return;
-              }
-              insertTranscript(`${normalized} `);
-              setDictationState("idle");
-              setDictationFeedback(null);
-            } catch (error) {
-              if (
-                isProviderDictationUnsupportedError(error) &&
-                maybeFallbackToBrowserDictation(allowBrowserFallback)
-              ) {
-                return;
-              }
-              setDictationState("error");
-              setDictationFeedback(
-                error instanceof Error && error.message
-                  ? error.message
-                  : "Provider transcription failed.",
-              );
-            }
-          })();
-        };
-        setDictationState("listening");
-        setDictationFeedback("Listening...");
-        recorder.start();
+        recorder = mimeType
+          ? new MediaRecorder(stream, { mimeType })
+          : new MediaRecorder(stream);
       } catch {
         cleanupProviderCapture();
-        if (maybeFallbackToBrowserDictation(allowBrowserFallback)) {
+        if (maybeFallbackToBrowserDictation()) {
           return;
         }
         setDictationState("error");
-        setDictationFeedback("Microphone access was denied.");
+        setDictationFeedback("Provider dictation is not available.");
+        return;
       }
-    },
-    [
-      canProviderDictate,
-      cleanupProviderCapture,
-      insertTranscript,
-      maybeFallbackToBrowserDictation,
-      onProviderDictationTranscribe,
-    ],
-  );
+      providerRecorderRef.current = recorder;
+      providerChunksRef.current = [];
+      dictationSourceRef.current = "provider";
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          providerChunksRef.current.push(event.data);
+        }
+      };
+      recorder.onerror = () => {
+        cleanupProviderCapture();
+        setDictationState("error");
+        setDictationFeedback("Microphone input failed.");
+      };
+      recorder.onstop = () => {
+        providerRecorderRef.current = null;
+        dictationSourceRef.current = null;
+        const streamRef = providerStreamRef.current;
+        if (streamRef) {
+          for (const track of streamRef.getTracks()) {
+            track.stop();
+          }
+        }
+        providerStreamRef.current = null;
+        const chunks = providerChunksRef.current;
+        providerChunksRef.current = [];
+        let blobType = recorder.mimeType || mimeType || "audio/webm";
+        for (const chunk of chunks) {
+          if (chunk instanceof Blob && chunk.type) {
+            blobType = chunk.type;
+            break;
+          }
+        }
+        const blob = new Blob(chunks, { type: blobType });
+        if (blob.size === 0) {
+          setDictationState("error");
+          setDictationFeedback("No speech was detected.");
+          return;
+        }
+        setDictationState("transcribing");
+        setDictationFeedback("Transcribing...");
+        void (async () => {
+          try {
+            const transcript = await onProviderDictationTranscribe(blob);
+            const normalized = (transcript ?? "").trim();
+            if (!normalized) {
+              setDictationState("error");
+              setDictationFeedback("Provider transcription failed.");
+              return;
+            }
+            insertTranscript(`${normalized} `);
+            setDictationState("idle");
+            setDictationFeedback(null);
+          } catch (error) {
+            setDictationState("error");
+            setDictationFeedback(
+              error instanceof Error && error.message
+                ? error.message
+                : "Provider transcription failed.",
+            );
+          }
+        })();
+      };
+      setDictationState("listening");
+      setDictationFeedback("Listening...");
+      recorder.start();
+    } catch {
+      cleanupProviderCapture();
+      if (maybeFallbackToBrowserDictation()) {
+        return;
+      }
+      setDictationState("error");
+      setDictationFeedback("Microphone access was denied.");
+    }
+  }, [
+    canProviderDictate,
+    cleanupProviderCapture,
+    insertTranscript,
+    maybeFallbackToBrowserDictation,
+    onProviderDictationTranscribe,
+  ]);
 
   const startDictation = useCallback(() => {
     if (!canDictate) {
@@ -1030,21 +901,21 @@ export const ChatInput = memo(function ChatInput({
       return;
     }
     if (dictationMode === "provider") {
-      void startProviderDictation(false);
+      void startProviderDictation();
       return;
     }
     if (dictationMode === "browser") {
       startBrowserDictation();
       return;
     }
-    if (canAutoUseProviderDictation) {
-      void startProviderDictation(true);
+    if (canProviderDictate) {
+      void startProviderDictation();
       return;
     }
     startBrowserDictation();
   }, [
     canDictate,
-    canAutoUseProviderDictation,
+    canProviderDictate,
     dictationMode,
     startBrowserDictation,
     startProviderDictation,
@@ -1124,7 +995,7 @@ export const ChatInput = memo(function ChatInput({
           onDragOver={handleDragOver}
           onDrop={handleDrop}
         >
-          <div className="group relative my-1 w-full">
+          <div className="relative my-1 w-full">
             <input
               ref={fileInputRef}
               type="file"
@@ -1237,134 +1108,93 @@ export const ChatInput = memo(function ChatInput({
               </span>
             ) : null}
           </div>
-          {shouldShowComposerMetaRow ? (
-            <div className="mb-0.5 flex items-center justify-between gap-2">
-              <div className="flex min-w-0 flex-wrap items-center gap-1">
-                {executionControls &&
-                executionControlVisibility.permissionMode !== false ? (
-                  <DropdownMenu.Root modal={false}>
-                    <DropdownMenu.Trigger asChild>
-                      <button
-                        type="button"
-                        disabled={isDisabled}
-                        aria-label={`${executionControls.permissionMode} permissions`}
-                        title={`Permissions: ${executionControls.permissionMode.replaceAll(
-                          "_",
-                          " ",
-                        )}`}
-                        className="inline-flex h-5 w-5 items-center justify-center rounded-md text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                      >
-                        <IoMdKey
-                          size={12}
-                          className={permissionModeIconClassName}
-                        />
-                      </button>
-                    </DropdownMenu.Trigger>
-                    <DropdownMenu.Portal>
-                      <DropdownMenu.Content
-                        align="start"
-                        sideOffset={6}
-                        className="z-30 min-w-[220px] rounded-md border border-setta-200 bg-white p-1 text-xs shadow-xl dark:border-setta-700 dark:bg-setta-900"
-                      >
-                        {[
-                          { value: "minimal", label: "minimal" },
-                          { value: "yolo", label: "yolo" },
-                          {
-                            value: "config_toml_custom",
-                            label: "config.toml custom",
-                          },
-                        ].map((mode) => (
-                          <DropdownMenu.Item
-                            key={mode.value}
-                            className={`cursor-pointer rounded px-2 py-1.5 transition-colors ${
-                              executionControls.permissionMode === mode.value
-                                ? "bg-blue-600 text-white"
-                                : "text-setta-700 hover:bg-setta-100 dark:text-setta-200 dark:hover:bg-setta-800"
-                            }`}
-                            onSelect={() =>
-                              executionControls.onPermissionModeChange(
-                                mode.value as ChatPermissionModeValue,
-                              )
-                            }
-                          >
-                            {mode.label}
-                          </DropdownMenu.Item>
-                        ))}
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Portal>
-                  </DropdownMenu.Root>
-                ) : null}
-                {canDictate ? (
-                  <button
-                    type="button"
-                    aria-label={
-                      dictationState === "listening"
-                        ? "Stop Mic"
-                        : dictationState === "transcribing"
-                          ? "Transcribing"
-                          : "Mic"
-                    }
-                    title={
-                      dictationState === "listening"
-                        ? "Stop Mic"
-                        : dictationState === "transcribing"
-                          ? "Transcribing"
-                          : "Mic"
-                    }
-                    aria-pressed={dictationState === "listening"}
-                    disabled={isDisabled || dictationState === "transcribing"}
-                    className={`inline-flex h-5 w-5 items-center justify-center rounded-md text-[11px] transition-colors ${
-                      dictationState === "listening"
-                        ? "bg-blue-600 text-white"
-                        : "text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
-                    } disabled:cursor-not-allowed disabled:opacity-60`}
-                    onClick={handleDictationToggle}
-                  >
-                    <IoMic
-                      size={11}
-                      className={
-                        dictationState === "listening"
-                          ? "animate-pulse"
-                          : undefined
-                      }
-                    />
-                  </button>
-                ) : null}
-                {executionControls &&
-                executionControlVisibility.search !== false &&
-                typeof executionControls.onSearchEnabledChange ===
-                  "function" ? (
-                  <button
-                    type="button"
-                    aria-pressed={Boolean(executionControls.searchEnabled)}
-                    disabled={isDisabled}
-                    className={`rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
-                      executionControls.searchEnabled
-                        ? "border-blue-600 bg-blue-600 text-white"
-                        : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
-                    } disabled:cursor-not-allowed disabled:opacity-60`}
-                    onClick={() =>
-                      executionControls.onSearchEnabledChange?.(
-                        !Boolean(executionControls.searchEnabled),
-                      )
-                    }
-                  >
-                    Search
-                  </button>
-                ) : null}
-              </div>
-              {contextRemainingLabel ? (
+          {showExecutionControls || canDictate ? (
+            <div className="mb-0.5 flex flex-wrap items-center gap-1">
+              {executionControls &&
+              executionControlVisibility.permissionMode !== false ? (
+                <DropdownMenu.Root modal={false}>
+                  <DropdownMenu.Trigger asChild>
+                    <button
+                      type="button"
+                      disabled={isDisabled}
+                      className="inline-flex items-center gap-1 rounded-md border border-setta-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                    >
+                      {executionControls.permissionMode.replaceAll("_", " ")}
+                      <IoChevronDown />
+                    </button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Portal>
+                    <DropdownMenu.Content
+                      align="start"
+                      sideOffset={6}
+                      className="z-30 min-w-[220px] rounded-md border border-setta-200 bg-white p-1 text-xs shadow-xl dark:border-setta-700 dark:bg-setta-900"
+                    >
+                      {[
+                        { value: "minimal", label: "minimal" },
+                        { value: "yolo", label: "yolo" },
+                        {
+                          value: "config_toml_custom",
+                          label: "config.toml custom",
+                        },
+                      ].map((mode) => (
+                        <DropdownMenu.Item
+                          key={mode.value}
+                          className={`cursor-pointer rounded px-2 py-1.5 transition-colors ${
+                            executionControls.permissionMode === mode.value
+                              ? "bg-blue-600 text-white"
+                              : "text-setta-700 hover:bg-setta-100 dark:text-setta-200 dark:hover:bg-setta-800"
+                          }`}
+                          onSelect={() =>
+                            executionControls.onPermissionModeChange(
+                              mode.value as ChatPermissionModeValue,
+                            )
+                          }
+                        >
+                          {mode.label}
+                        </DropdownMenu.Item>
+                      ))}
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Portal>
+                </DropdownMenu.Root>
+              ) : null}
+              {executionControls &&
+              executionControlVisibility.search !== false &&
+              typeof executionControls.onSearchEnabledChange === "function" ? (
                 <button
                   type="button"
-                  className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-600 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-300"
-                  onClick={handleContextBadgeToggle}
-                  title={
-                    contextBadgeMode === "tokens"
-                      ? "Show remaining context percentage"
-                      : "Show remaining context tokens"
+                  aria-pressed={Boolean(executionControls.searchEnabled)}
+                  disabled={isDisabled}
+                  className={`rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
+                    executionControls.searchEnabled
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                  onClick={() =>
+                    executionControls.onSearchEnabledChange?.(
+                      !Boolean(executionControls.searchEnabled),
+                    )
                   }
                 >
-                  {contextRemainingLabel}
+                  Search
+                </button>
+              ) : null}
+              {canDictate ? (
+                <button
+                  type="button"
+                  disabled={isDisabled || dictationState === "transcribing"}
+                  className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] transition-colors ${
+                    dictationState === "listening"
+                      ? "border-blue-600 bg-blue-600 text-white"
+                      : "border-setta-200 text-setta-600 hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
+                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                  onClick={handleDictationToggle}
+                >
+                  <IoMic size={12} />
+                  {dictationState === "listening"
+                    ? "Stop Mic"
+                    : dictationState === "transcribing"
+                      ? "Transcribing"
+                      : "Mic"}
                 </button>
               ) : null}
             </div>

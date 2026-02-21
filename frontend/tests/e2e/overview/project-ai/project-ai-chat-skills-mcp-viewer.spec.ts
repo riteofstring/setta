@@ -1,39 +1,10 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 import {
   allowExpectedApiError,
   ensureAppReady,
   seedLocalStorage,
 } from "../../helpers";
-
-async function expectHasEllipsisTruncation(locator: Locator): Promise<void> {
-  await expect(locator).toBeVisible();
-  const styleInfo = await locator.evaluate((node) => {
-    const element = node as HTMLElement;
-    const style = window.getComputedStyle(element);
-    return {
-      overflowX: style.overflowX,
-      textOverflow: style.textOverflow,
-      whiteSpace: style.whiteSpace,
-      scrollWidth: element.scrollWidth,
-      clientWidth: element.clientWidth,
-    };
-  });
-
-  expect(styleInfo.textOverflow).toBe("ellipsis");
-  expect(styleInfo.whiteSpace).toBe("nowrap");
-  expect(["hidden", "clip"]).toContain(styleInfo.overflowX);
-  expect(styleInfo.scrollWidth).toBeGreaterThan(styleInfo.clientWidth);
-}
-
-async function openSkillsMcpViewer(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Project AI Settings" }).click();
-  await page.getByRole("button", { name: "Open Skills/MCP" }).click();
-}
-
-async function closeSkillsMcpViewer(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Return to chat" }).click();
-}
 
 test("project ai chat can open the skills and mcp viewer side view", async ({
   page,
@@ -105,7 +76,11 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
 
   await ensureAppReady(page);
 
-  await openSkillsMcpViewer(page);
+  const toggleButton = page.getByRole("button", {
+    name: "View Skills and MCP",
+  });
+  await expect(toggleButton).toBeVisible();
+  await toggleButton.click();
 
   await expect(page.getByText(/^Skills$/)).toBeVisible();
   await expect(page.getByText("/workspace/skills")).toBeVisible();
@@ -150,71 +125,8 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await expect(page.getByText("MCP tools discovered:")).toHaveCount(0);
   await expect(page.getByText("MCP servers configured:")).toHaveCount(0);
 
-  await closeSkillsMcpViewer(page);
+  await page.getByLabel("View Skills and MCP").click();
   await expect(page.getByText(/^Skills$/)).toHaveCount(0);
-});
-
-test("project ai chat truncates long skill and mcp rows in narrow panes", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 960, height: 900 });
-  await seedLocalStorage(page, {
-    overviewTab: "ProjectAIChat",
-    overviewVis: true,
-  });
-
-  await page.route("**/api/getAppGenSkills", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify([
-        {
-          skillId: "workspace_skills::super-long-ui-layout-skill",
-          name: "super-long-ui-layout-skill-name-that-should-be-truncated-in-a-tight-pane-width",
-          rootLabel: "Workspace skills",
-          rootPath: "/workspace/skills",
-          relativePath:
-            "nested/deep/path/to/a/super-long-skill-relative-path-that-should-be-truncated-for-readability",
-          description: "Exercise truncation behavior for skill labels.",
-        },
-      ]),
-    });
-  });
-
-  await page.route("**/api/llm/config", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        configs: {},
-        mcpServers: {
-          "server-id-with-a-very-long-name-that-should-truncate-cleanly-in-the-list":
-            {
-              transport: "sse",
-              url: "https://example.com/very/long/mcp/endpoint/path/that/should-truncate-when-the-pane-is-narrower/and-still-remain-usable",
-            },
-        },
-        defaultMcpServerIds: [],
-        default_config_id: null,
-      }),
-    });
-  });
-
-  await ensureAppReady(page);
-  await openSkillsMcpViewer(page);
-
-  await expectHasEllipsisTruncation(
-    page.getByTestId("skills-mcp-skill-name").first(),
-  );
-  await expectHasEllipsisTruncation(
-    page.getByTestId("skills-mcp-skill-path").first(),
-  );
-  await expectHasEllipsisTruncation(
-    page.getByTestId("skills-mcp-server-id").first(),
-  );
-  await expectHasEllipsisTruncation(
-    page.getByTestId("skills-mcp-server-endpoint").first(),
-  );
 });
 
 test("project ai chat shows inline skills endpoint error when routes are missing", async ({
@@ -257,7 +169,7 @@ test("project ai chat shows inline skills endpoint error when routes are missing
 
   await ensureAppReady(page);
 
-  await openSkillsMcpViewer(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
   await expect(page.getByText("Skills unavailable (Not Found).")).toBeVisible();
 });
 
@@ -333,7 +245,7 @@ test("project ai chat shows loading states before skills and mcp data arrive", a
   });
 
   await ensureAppReady(page);
-  await openSkillsMcpViewer(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
 
   await expect(page.getByText("Loading skills...")).toBeVisible();
   await expect(page.getByText("No skills found.")).toHaveCount(0);
@@ -428,7 +340,7 @@ test("project ai chat keeps skills list stable during selection and ignores stal
   });
 
   await ensureAppReady(page);
-  await openSkillsMcpViewer(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
 
   await expect(page.getByRole("button", { name: /beta-skill/i })).toBeVisible();
   await expect(page.getByRole("button", { name: /skill-202/i })).toHaveCount(1);
@@ -513,7 +425,7 @@ test("project ai chat clears stale markdown when viewer is collapsed during an i
   });
 
   await ensureAppReady(page);
-  await openSkillsMcpViewer(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
   await expect(page.getByRole("button", { name: /beta-skill/i })).toBeVisible();
 
   const viewerToggle = page.getByRole("button", {
@@ -591,7 +503,7 @@ test("project ai chat refresh updates selected markdown content without requirin
   });
 
   await ensureAppReady(page);
-  await openSkillsMcpViewer(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
 
   const markdown = page.getByLabel("Skill Markdown Content");
@@ -665,7 +577,7 @@ test("project ai chat keeps existing skills and markdown preview on refresh fail
   });
 
   await ensureAppReady(page);
-  await openSkillsMcpViewer(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
   await page.getByRole("button", { name: "Skill Markdown Viewer" }).click();
 
   await expect(page.getByRole("button", { name: /ui-layout/i })).toBeVisible();
@@ -758,7 +670,7 @@ test("project ai chat refresh is disabled while loading to prevent redundant sca
   });
 
   await ensureAppReady(page);
-  await openSkillsMcpViewer(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
   await expect(page.getByRole("button", { name: /baseline/i })).toBeVisible();
 
   const refreshButton = page.getByRole("button", { name: "Refresh" });
@@ -835,7 +747,7 @@ test("project ai chat shows reveal-path failures instead of silently swallowing 
   });
 
   await ensureAppReady(page);
-  await openSkillsMcpViewer(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
 
   await page
     .getByRole("button", { name: /Reveal path for Workspace skills/i })
@@ -917,7 +829,7 @@ test("project ai chat mounts markdown viewer lazily and shows truncation metadat
   });
 
   await ensureAppReady(page);
-  await openSkillsMcpViewer(page);
+  await page.getByRole("button", { name: "View Skills and MCP" }).click();
 
   await expect(page.getByText("Unavailable")).toBeVisible();
   await expect(

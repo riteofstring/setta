@@ -40,6 +40,7 @@ import {
   SectionDependencyKey,
   SectionParamDependencyKey,
   SettaNotificationTypeEnum,
+  UISettingRevealContent,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
   WebsocketMsgRealtimeDependencyEvent,
@@ -86,6 +87,7 @@ import {
   initializeShareSessionFromCurrentDeployment,
   resetShareSessionState,
 } from "./share";
+import { receiveUISettingReveal } from "./uiSettingReveal";
 
 let wss: WebSocket | null;
 let wasOpen = false;
@@ -469,6 +471,9 @@ function receiveMessage(message: string) {
       return receiveAIFollowToolArgumentsUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
       return receiveAIFollowToolResultUpdate(m.content);
+    case WebsocketMsgTypeForFrontendEnum.UISettingReveal:
+      void handleUISettingRevealMessage(m.content);
+      return;
     case WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated:
       return receiveAgentProfilesUpdate(m.content.profiles);
     case WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated:
@@ -480,6 +485,22 @@ function receiveMessage(message: string) {
     default:
       return m satisfies never;
   }
+}
+
+async function handleUISettingRevealMessage(
+  content: UISettingRevealContent,
+): Promise<void> {
+  const revealStatuses = await receiveUISettingReveal(content);
+  const statuses = Array.isArray(revealStatuses) ? revealStatuses : [];
+  sendMessage({
+    id: null,
+    messageType: "UISettingRevealResult",
+    content: {
+      projectConfigId: content.projectConfigId,
+      requestId: content.requestId,
+      statuses,
+    },
+  });
 }
 
 function sendCurrentAddress(currentAddress: string) {

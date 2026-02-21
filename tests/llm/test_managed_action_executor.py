@@ -120,6 +120,7 @@ class TestManagedActionExecutor:
                     chat_id=ID("chat-1"),
                     section_id=None,
                 ),
+                setta_tool_approval_policy=None,
             )
 
             actions = await executor.apply(action)
@@ -215,6 +216,7 @@ class TestManagedActionExecutor:
                     chat_id=ID("chat-1"),
                     section_id=None,
                 ),
+                setta_tool_approval_policy=None,
             )
 
             actions = await executor.apply(action)
@@ -271,6 +273,7 @@ class TestManagedActionExecutor:
                     chat_id=ID("chat-1"),
                     section_id=None,
                 ),
+                setta_tool_approval_policy=None,
             )
 
             actions = await executor.apply(action)
@@ -433,6 +436,7 @@ class TestManagedActionExecutor:
                             chat_id=ID("chat-1"),
                             section_id=chat_section_id,
                         ),
+                        setta_tool_approval_policy=None,
                     )
 
                     actions = await executor.apply(action)

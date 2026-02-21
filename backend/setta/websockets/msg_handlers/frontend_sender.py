@@ -45,6 +45,7 @@ from setta.types.prompt import PromptTemplate, PromptTemplateList
 from setta.types.websocket import (
     AIFollowToolArgumentsUpdateContent,
     AIFollowToolResultUpdateContent,
+    UISettingRevealContent,
     WebsocketConnectionType,
     WebsocketMsgAgentProfilesUpdated,
     WebsocketMsgAIFollowToolArgumentsUpdate,
@@ -63,6 +64,7 @@ from setta.types.websocket import (
     WebsocketMsgPromptTemplatesUpdated,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
+    WebsocketMsgUISettingReveal,
     WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
     WebsocketMsgUpdateSettings,
@@ -474,5 +476,16 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
                     idsByType=idsByType,
                 )
             ),
+            share_session_id,
+        )
+
+    async def broadcast_ui_setting_reveal(
+        self,
+        content: UISettingRevealContent,
+        *,
+        share_session_id: str | None = None,
+    ) -> None:
+        await self._broadcast_frontend(
+            WebsocketMsgUISettingReveal(content=content),
             share_session_id,
         )
