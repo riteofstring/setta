@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi import FastAPI
@@ -8,6 +9,7 @@ from setta.types.routes import Route
 from setta.utils.paths import get_setta_paths
 from setta.utils.setta_home import resolve_setta_home
 from setta.utils.user_config import load_setta_user_config
+from tests.utils.setta_paths import temporary_setta_paths
 
 
 def test_setta_home_info_route_returns_resolved_paths() -> None:
@@ -42,3 +44,28 @@ def test_setta_home_info_route_blocked_in_deployment_mode() -> None:
         response = client.get(f"{Route.PREFIX.value}{Route.GET_SETTA_HOME_INFO.value}")
 
     assert response.status_code == 403
+
+
+def test_setta_home_info_route_reports_custom_setta_files_location_when_explicit_root(
+    tmp_path: Path,
+) -> None:
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir()
+    setta_files_root = workspace_root / "setta_files_dev"
+    setta_files_root.mkdir()
+
+    app = FastAPI()
+    app.state.setta = SimpleNamespace(deployment_mode=False)
+    app.include_router(status_router, prefix=Route.PREFIX.value)
+
+    with temporary_setta_paths(
+        workspace_root=workspace_root, setta_files_root=setta_files_root
+    ):
+        with TestClient(app) as client:
+            response = client.get(
+                f"{Route.PREFIX.value}{Route.GET_SETTA_HOME_INFO.value}"
+            )
+
+    assert response.status_code == 200
+    assert response.json()["activeSettaFilesLocation"] == "custom"
+    assert response.json()["llmConfigPath"] == str(setta_files_root / "llm_config.json")

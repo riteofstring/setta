@@ -190,6 +190,42 @@ describe("ChatInput composer controls", () => {
     expect(markup).not.toContain("Skills");
   });
 
+  it("renders a context-left badge when context limits are provided", () => {
+    const markup = renderChatInput({
+      contextWindowTokens: 200,
+      contextUsedTokens: 150,
+      value: "1234",
+      onChange: vi.fn(),
+    });
+
+    expect(markup).toContain("Context left 25%");
+    expect(markup).toContain("Show remaining context tokens");
+  });
+
+  it("renders estimated context label when usage is estimated", () => {
+    const markup = renderChatInput({
+      contextWindowTokens: 200,
+      contextUsedTokens: 150,
+      contextUsageIsEstimated: true,
+      value: "1234",
+      onChange: vi.fn(),
+    });
+
+    expect(markup).toContain("est. context left 25%");
+  });
+
+  it("does not render context badge when used tokens are unavailable", () => {
+    const markup = renderChatInput({
+      contextWindowTokens: 200,
+      contextUsedTokens: null,
+      value: "1234",
+      onChange: vi.fn(),
+    });
+
+    expect(markup).not.toContain("Context left");
+    expect(markup).not.toContain("est. context left");
+  });
+
   it("does not render slash buttons above the composer", () => {
     const markup = renderChatInput();
 
@@ -209,12 +245,31 @@ describe("ChatInput composer controls", () => {
       },
     });
 
-    const permissionButton = getButtonTagByText(markup, "minimal");
+    const permissionButton = getButtonTagByAriaLabel(
+      markup,
+      "minimal permissions",
+    );
     const searchButton = getButtonTagByText(markup, "Search");
     expect(permissionButton).not.toBeNull();
     expect(searchButton).not.toBeNull();
     expect(permissionButton).toContain("disabled");
     expect(searchButton).toContain("disabled");
+  });
+
+  it("keeps attachment controls inside the textarea", () => {
+    const markup = renderChatInput();
+    const attachmentButton = getButtonTagByAriaLabel(
+      markup,
+      "Attachment options",
+    );
+    const textareaClassName = getTextareaClassName(markup);
+
+    expect(markup).not.toContain('data-chat-composer-side-rail="true"');
+    expect(attachmentButton).not.toBeNull();
+    expect(attachmentButton).toContain("absolute left-1.5 top-1.5");
+    expect(textareaClassName).not.toBeNull();
+    expect(textareaClassName).toContain("pl-9");
+    expect(textareaClassName).not.toContain("pl-3");
   });
 
   it("defaults slash suggestions to below placement", () => {

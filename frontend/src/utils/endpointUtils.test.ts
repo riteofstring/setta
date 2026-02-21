@@ -40,6 +40,17 @@ describe("endpointUtils URL routing", () => {
     );
   });
 
+  it("routes tools call via backend origin without /api prefix", async () => {
+    await post(RouteEnum.TOOLS_CALL, {
+      tool: "list_mcp_tools",
+      arguments: {},
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.TOOLS_CALL}`,
+    );
+  });
+
   it("keeps streamAppSpec on backend origin", async () => {
     await post(RouteEnum.STREAM_APP_SPEC, { prompt: "Generate app" });
     expect(fetchMock).toHaveBeenCalledTimes(1);

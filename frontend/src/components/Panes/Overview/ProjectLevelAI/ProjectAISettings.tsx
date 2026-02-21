@@ -190,13 +190,9 @@ export function ProjectAISettings() {
         description: "Manage API keys for built-in LLM engines.",
         triggerTestId: "project-ai-settings-accordion-llm-api-keys",
         content: isDeploymentMode ? (
-          <div data-setting-anchor="core.project_ai_settings.llm_api_keys">
-            <ShareModeNotice />
-          </div>
+          <ShareModeNotice />
         ) : (
-          <div data-setting-anchor="core.project_ai_settings.llm_api_keys">
-            <ProjectLLMSettings className="pb-2" />
-          </div>
+          <ProjectLLMSettings className="pb-2" />
         ),
       },
       {
@@ -204,33 +200,21 @@ export function ProjectAISettings() {
         title: "Agent Profiles",
         description: "Create reusable agent personas and tool allowlists.",
         triggerTestId: "project-ai-settings-accordion-agent-profiles",
-        content: (
-          <div data-setting-anchor="core.project_ai_settings.agent_profiles">
-            <AgentProfilesManager canEdit={canEdit} />
-          </div>
-        ),
+        content: <AgentProfilesManager canEdit={canEdit} />,
       },
       {
         value: "project-ai-settings-prompt-templates",
         title: "Prompt Templates",
         description: "Store reusable prompt assets for Prompt sections.",
         triggerTestId: "project-ai-settings-accordion-prompt-templates",
-        content: (
-          <div data-setting-anchor="core.project_ai_settings.prompt_templates">
-            <PromptTemplatesManager canEdit={canEdit} />
-          </div>
-        ),
+        content: <PromptTemplatesManager canEdit={canEdit} />,
       },
       {
         value: "project-ai-settings-external-agents",
         title: "External Agents",
         description: "Configure Claude Code, Codex, or OpenCode adapters.",
         triggerTestId: "project-ai-settings-accordion-external-agents",
-        content: (
-          <div data-setting-anchor="core.project_ai_settings.external_agents">
-            <ExternalAgentConfigsManager canEdit={canEdit} />
-          </div>
-        ),
+        content: <ExternalAgentConfigsManager canEdit={canEdit} />,
       },
     ],
     [canEdit, isDeploymentMode],

@@ -8,6 +8,7 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { useAIStore } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
+  route_call_mcp_tool,
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
   route_get_setta_home_info,
@@ -18,6 +19,9 @@ import {
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
+  type McpRuntimeServerStatus,
+  parseMcpServerRuntimeStatuses,
+  resolveMcpServerStatus,
 } from "./projectChatSkillsMcpViewerUtils";
 
 type PathGroupHeaderProps = {
@@ -119,6 +123,13 @@ export function ProjectChatSkillsMcpViewer() {
     null,
   );
   const [mcpConfigInfoLoading, setMcpConfigInfoLoading] = useState(true);
+  const [mcpRuntimeStatusLoading, setMcpRuntimeStatusLoading] = useState(true);
+  const [mcpRuntimeStatusError, setMcpRuntimeStatusError] = useState<
+    string | null
+  >(null);
+  const [mcpRuntimeStatusByServerId, setMcpRuntimeStatusByServerId] = useState<
+    Record<string, McpRuntimeServerStatus> | null
+  >(null);
   const [skillsRevision, setSkillsRevision] = useState(0);
   const skillsRefreshInFlight = useRef(false);
   const skillContentRequestSequence = useRef(0);
@@ -254,6 +265,60 @@ export function ProjectChatSkillsMcpViewer() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    async function loadMcpRuntimeStatus() {
+      if (!allLLMConfigsInitialLoadComplete) {
+        return;
+      }
+      setMcpRuntimeStatusLoading(true);
+      setMcpRuntimeStatusError(null);
+      const res = await route_call_mcp_tool({
+        tool: "get_mcp_server_runtime_status",
+        arguments: {},
+      });
+      if (cancelled) {
+        return;
+      }
+      if (!res200(res)) {
+        const detail = getErrorDetail(res.data);
+        const resolvedError =
+          res.status === 404
+            ? detail?.includes("Unknown tool: get_mcp_server_runtime_status")
+              ? "MCP runtime status tool is not loaded by the backend process yet. Restart Setta to apply the latest MCP status checks."
+              : "MCP status endpoint is unavailable in this mode."
+            : (detail ?? "Failed to query MCP runtime registration.");
+        setMcpRuntimeStatusError(resolvedError);
+        setMcpRuntimeStatusByServerId(null);
+        setMcpRuntimeStatusLoading(false);
+        return;
+      }
+      if (res.data.isError === true) {
+        setMcpRuntimeStatusError(
+          "MCP runtime reported an error while querying server status.",
+        );
+        setMcpRuntimeStatusByServerId(null);
+        setMcpRuntimeStatusLoading(false);
+        return;
+      }
+      const runtimeStatuses = parseMcpServerRuntimeStatuses(res.data);
+      if (!runtimeStatuses) {
+        setMcpRuntimeStatusError(
+          "MCP runtime status response is malformed for this mode.",
+        );
+        setMcpRuntimeStatusByServerId(null);
+        setMcpRuntimeStatusLoading(false);
+        return;
+      }
+      setMcpRuntimeStatusByServerId(runtimeStatuses);
+      setMcpRuntimeStatusLoading(false);
+    }
+    void loadMcpRuntimeStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [allLLMConfigs?.mcpServers, allLLMConfigsInitialLoadComplete]);
+
+  useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
@@ -367,7 +432,7 @@ export function ProjectChatSkillsMcpViewer() {
               </search>
             </div>
             <div className="grid min-w-0 gap-2">
-              <div className="max-h-[360px] min-h-[220px] min-w-0 overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-xs dark:border-setta-700 dark:bg-setta-950/60">
+              <div className="h-[280px] max-h-[70vh] min-h-[140px] min-w-0 resize-y overflow-auto rounded-md border border-setta-200 bg-white/80 p-2 text-xs dark:border-setta-700 dark:bg-setta-950/60">
                 {skillsError ? (
                   <div className="mb-2 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
                     Skills unavailable ({skillsError}).
@@ -408,10 +473,18 @@ export function ProjectChatSkillsMcpViewer() {
                               }`}
                               onClick={() => setSelectedSkillId(skill.skillId)}
                             >
-                              <span className="block w-full truncate font-semibold">
+                              <span
+                                className="block min-w-0 w-full truncate font-semibold"
+                                title={skill.name}
+                                data-testid="skills-mcp-skill-name"
+                              >
                                 {skill.name}
                               </span>
-                              <span className="block w-full truncate text-[11px] opacity-80">
+                              <span
+                                className="block min-w-0 w-full truncate text-[11px] opacity-80"
+                                title={skill.relativePath}
+                                data-testid="skills-mcp-skill-path"
+                              >
                                 {skill.relativePath}
                               </span>
                             </button>
@@ -485,7 +558,7 @@ export function ProjectChatSkillsMcpViewer() {
           <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
             MCP Servers
           </div>
-          <div className="max-h-[220px] min-h-[110px] min-w-0 overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
+          <div className="h-[180px] max-h-[60vh] min-h-[90px] min-w-0 resize-y overflow-auto rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
             {mcpServersLoading ? (
               <div className="text-setta-500 dark:text-setta-400">
                 Loading MCP servers...
@@ -506,15 +579,56 @@ export function ProjectChatSkillsMcpViewer() {
                     onCopyPath={copyPathToClipboard}
                     onRevealPath={(path) => void revealPathInFileExplorer(path)}
                   />
+                  {mcpRuntimeStatusError ? (
+                    <div className="mt-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                      Runtime status check unavailable: {mcpRuntimeStatusError}
+                    </div>
+                  ) : null}
                   <div className="mt-1 grid gap-1 px-1">
-                    {group.servers.map((server) => (
-                      <div key={server.serverId} className="pb-1 last:pb-0">
-                        <div className="font-semibold">{server.serverId}</div>
-                        <div className="font-mono text-setta-500 dark:text-setta-400">
-                          {server.transport} · {server.endpoint}
+                    {group.servers.map((server) => {
+                      const serverEndpointDisplay = `${server.transport} · ${server.endpoint}`;
+                      const status = resolveMcpServerStatus({
+                        serverId: server.serverId,
+                        endpoint: server.endpoint,
+                        runtimeStatusByServerId: mcpRuntimeStatusByServerId,
+                        runtimeStatusLoading: mcpRuntimeStatusLoading,
+                        runtimeStatusError: mcpRuntimeStatusError,
+                      });
+                      const statusDotClassName =
+                        status.color === "green"
+                          ? "bg-emerald-500"
+                          : status.color === "yellow"
+                            ? "bg-amber-500"
+                            : "bg-red-500";
+                      return (
+                        <div
+                          key={server.serverId}
+                          className="min-w-0 pb-1 last:pb-0"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`h-2 w-2 rounded-full ${statusDotClassName}`}
+                              title={status.quickInfo}
+                              aria-label={status.quickInfo}
+                            />
+                            <div
+                              className="truncate font-semibold"
+                              title={`${server.serverId} - ${status.quickInfo}`}
+                              data-testid="skills-mcp-server-id"
+                            >
+                              {server.serverId}
+                            </div>
+                          </div>
+                          <div
+                            className="truncate font-mono text-setta-500 dark:text-setta-400"
+                            title={serverEndpointDisplay}
+                            data-testid="skills-mcp-server-endpoint"
+                          >
+                            {serverEndpointDisplay}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))

@@ -57,7 +57,6 @@ from setta.utils.paths import (
     get_setta_paths,
 )
 from setta.utils.setta_home import resolve_setta_home
-from setta.ui_settings.reveal_result_hub import UISettingRevealResultHub
 from setta.websockets.listener_registry import ListenerRegistry
 from setta.websockets.msg_handlers.cli_receiver import WMHCLIReceiver
 from setta.websockets.msg_handlers.cli_sender import WMHCLISender
@@ -213,7 +212,6 @@ class SettaFastAPIState:
         )
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
-        self.ui_setting_reveal_result_hub = UISettingRevealResultHub()
         self.dbe = DBE(
             self.share_deployment_root
             if self.share_deployment_root is not None
@@ -449,7 +447,6 @@ class SettaFastAPIState:
                 self.websocket_manager,
                 project_manager,
                 self.realtime_event_hub,
-                ui_setting_reveal_result_hub=self.ui_setting_reveal_result_hub,
             )
             self.wmh_python_script_receiver = WMHPythonScriptReceiver(
                 self.websocket_manager,
@@ -657,7 +654,6 @@ class SettaFastAPIState:
             self.websocket_manager,
             project_manager=None,
             realtime_event_hub=self.realtime_event_hub,
-            ui_setting_reveal_result_hub=self.ui_setting_reveal_result_hub,
             share_mode=True,
             share_runtime_state=self.share_runtime_state,
         )
