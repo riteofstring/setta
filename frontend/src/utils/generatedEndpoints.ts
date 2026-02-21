@@ -163,6 +163,15 @@ export async function route_check_if_file_exists(
   return await post("/checkIfFileExists", x);
 }
 
+export async function route_check_workspace_initialized(
+  x: {
+    folderPath: string;
+    allowOutsideWorkspaceRoot?: boolean;
+  },
+): Promise<ResponseDataAndStatus<boolean>> {
+  return await post("/checkWorkspaceInitialized", x);
+}
+
 export async function route_get_file_browser_root(): Promise<
   ResponseDataAndStatus<gt.GetFileBrowserRootResponse>
 > {
