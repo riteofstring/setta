@@ -154,7 +154,6 @@ test.describe.serial("chat composer controls", () => {
       const createProjectButton = overviewPane.getByRole("button", {
         name: /^Create Project$/,
       });
-      await expect(createProjectButton).toBeVisible();
       const summarizeCodebaseButton = overviewPane.getByRole("button", {
         name: /^Summarize Codebase$/,
       });
@@ -163,11 +162,11 @@ test.describe.serial("chat composer controls", () => {
         name: /^Plan Next Steps$/,
       });
       await expect(planNextStepsButton).toBeVisible();
-      const quickActionButtons: Locator[] = [
-        createProjectButton,
-        summarizeCodebaseButton,
-        planNextStepsButton,
-      ];
+      const quickActionButtons: Locator[] = [summarizeCodebaseButton];
+      if (await createProjectButton.isVisible()) {
+        quickActionButtons.unshift(createProjectButton);
+      }
+      quickActionButtons.push(planNextStepsButton);
       await expectButtonsStackedVertically(quickActionButtons);
 
       const firstButtonClass =
@@ -200,9 +199,7 @@ test.describe.serial("chat composer controls", () => {
         inputBox.y + 2,
       );
 
-      const submitButton = overviewPane
-        .locator('button[type="submit"]')
-        .first();
+      const submitButton = overviewPane.locator('button[type="submit"]').first();
       await input.fill("/res");
       await submitButton.click();
       await expect

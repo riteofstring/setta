@@ -86,9 +86,6 @@ function resolveMcpConfigLabel(settaFilesLocation: string | null): string {
   if (!settaFilesLocation) {
     return "Active setta_files";
   }
-  if (settaFilesLocation === "custom") {
-    return "Active custom setta_files root";
-  }
   return `Active ${settaFilesLocation} setta_files`;
 }
 
