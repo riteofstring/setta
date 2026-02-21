@@ -419,7 +419,7 @@ export function ProjectChatSkillsMcpViewer() {
               </search>
             </div>
             <div className="grid min-w-0 gap-2">
-              <div className="max-h-[360px] min-h-[220px] min-w-0 overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-xs dark:border-setta-700 dark:bg-setta-950/60">
+              <div className="h-[280px] max-h-[70vh] min-h-[140px] min-w-0 resize-y overflow-auto rounded-md border border-setta-200 bg-white/80 p-2 text-xs dark:border-setta-700 dark:bg-setta-950/60">
                 {skillsError ? (
                   <div className="mb-2 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
                     Skills unavailable ({skillsError}).
@@ -545,7 +545,7 @@ export function ProjectChatSkillsMcpViewer() {
           <div className="text-xs font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
             MCP Servers
           </div>
-          <div className="max-h-[220px] min-h-[110px] min-w-0 overflow-y-auto rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
+          <div className="h-[180px] max-h-[60vh] min-h-[90px] min-w-0 resize-y overflow-auto rounded-md border border-setta-200 bg-white/80 p-2 text-[11px] dark:border-setta-700 dark:bg-setta-950/60">
             {mcpServersLoading ? (
               <div className="text-setta-500 dark:text-setta-400">
                 Loading MCP servers...
