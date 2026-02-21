@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { IoAdd, IoAttach, IoClose, IoFolderOpen } from "react-icons/io5";
@@ -23,6 +24,23 @@ type ChatMessageEditorProps = {
   ) => Promise<boolean | void> | boolean | void;
 };
 
+type TextAreaHeightTarget = {
+  scrollHeight: number;
+  style: {
+    height: string;
+  };
+};
+
+export function syncTextAreaHeight(
+  textArea: TextAreaHeightTarget | null,
+): void {
+  if (!textArea) {
+    return;
+  }
+  textArea.style.height = "0px";
+  textArea.style.height = `${textArea.scrollHeight}px`;
+}
+
 export const ChatMessageEditor = memo(function ChatMessageEditor({
   initialText,
   initialAttachments,
@@ -32,6 +50,7 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
 }: ChatMessageEditorProps) {
   const [value, setValue] = useState(initialText);
   const [isSaving, setIsSaving] = useState(false);
+  const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
   const isDisabled = disabled || isSaving;
   const {
     attachments,
@@ -62,6 +81,9 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
   useEffect(() => {
     setValue(initialText);
   }, [initialText]);
+  useEffect(() => {
+    syncTextAreaHeight(textAreaRef.current);
+  }, [value]);
 
   const canSubmit = useMemo(() => {
     const trimmed = value.trim();
@@ -99,9 +121,9 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
 
   const textAreaClassName = useMemo(() => {
     const base =
-      "w-full resize-none overflow-y-auto border-0 bg-transparent pb-5 pl-9 pr-2 pt-1 text-[13px] leading-5 text-white outline-none placeholder:text-white/70";
+      "w-full resize-none overflow-y-hidden border-0 bg-transparent pb-5 pl-9 pr-2 pt-1 text-[13px] leading-5 text-inherit outline-none placeholder:text-setta-800/70 dark:placeholder:text-white/70";
     const dragClass = isDragActive
-      ? "rounded-md ring-2 ring-white/40"
+      ? "rounded-md ring-2 ring-blue-500/35 dark:ring-white/40"
       : "";
     if (isDisabled) {
       return `${base} ${dragClass} cursor-not-allowed opacity-60`;
@@ -129,14 +151,14 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
           />
           <div
             data-chat-editor-side-rail="true"
-            className="absolute left-2 top-1 z-10 flex flex-col items-center gap-1"
+            className="absolute left-2 top-1.5 z-10 flex flex-col items-center gap-1"
           >
             <DropdownMenu.Root modal={false}>
               <DropdownMenu.Trigger asChild>
                 <button
                   type="button"
                   aria-label="Attachment options"
-                  className={`inline-flex h-4 w-4 items-center justify-center rounded-sm border border-transparent text-white/80 transition-colors hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 ${
+                  className={`inline-flex h-4 w-4 items-center justify-center rounded-sm border border-transparent text-setta-900/70 transition-colors hover:bg-white/30 hover:text-setta-950 focus-visible:ring-2 focus-visible:ring-blue-500/40 dark:text-white/80 dark:hover:bg-white/20 dark:hover:text-white dark:focus-visible:ring-white/40 ${
                     attachmentInputDisabled
                       ? "cursor-not-allowed opacity-40 hover:bg-transparent"
                       : "cursor-pointer"
@@ -179,9 +201,13 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
             </DropdownMenu.Root>
           </div>
           <textarea
+            ref={textAreaRef}
             aria-label="Edit message"
             value={value}
-            onChange={(event) => setValue(event.target.value)}
+            onChange={(event) => {
+              setValue(event.target.value);
+              syncTextAreaHeight(event.currentTarget);
+            }}
             placeholder="Edit message..."
             className={textAreaClassName}
             disabled={isDisabled}
@@ -208,17 +234,17 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
         {hasStatusMessage ? (
           <div className="flex flex-wrap items-center gap-2 pt-0.5">
             {showSharePolicyMessage ? (
-              <span className="text-[10px] uppercase tracking-[0.2em] text-white/70">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-setta-900/70 dark:text-white/70">
                 Attachments blocked by share policy
               </span>
             ) : null}
             {showAttachmentDisabledMessage ? (
-              <span className="text-[10px] uppercase tracking-[0.2em] text-white/70">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-setta-900/70 dark:text-white/70">
                 Attachments disabled
               </span>
             ) : null}
             {isUploading ? (
-              <span className="text-[10px] uppercase tracking-[0.2em] text-white/70">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-setta-900/70 dark:text-white/70">
                 Uploading...
               </span>
             ) : null}
