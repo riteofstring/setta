@@ -108,3 +108,15 @@
 - Validation:
   - `source activate.sh && pytest tests/agentic/test_completion_guard.py tests/llm/test_agent_runner.py tests/agentic/test_opencode_sdk_event_parser.py tests/agentic/test_external_agent_runner.py` passed (`123 passed`).
   - `source activate.sh && ruff check backend/setta/agentic/completion_guard.py backend/setta/llm/agent_runner.py backend/setta/agentic/external_adapters/opencode_sdk.py tests/agentic/test_completion_guard.py tests/llm/test_agent_runner.py tests/agentic/test_external_agent_runner.py tests/agentic/test_opencode_sdk_event_parser.py` passed.
+
+## 2026-02-19 01:01:29 PST
+
+- Fixed dev-script port auto-selection collisions so startup wrappers "just work" without manual port flags:
+  - `scripts/run-dev-instance.sh` now supports exclusion-aware free-port selection and prevents backend/frontend from selecting the same port when one side is fixed and the other is auto-picked.
+  - `scripts/ai.sh` now applies the same exclusion-aware selection across backend/frontend/debug ports.
+- Added regression coverage for direct and wrapper script paths:
+  - `tests/start/test_dev_script_wiring_run_dev_instance.py` now covers fixed-backend/auto-frontend and fixed-frontend/auto-backend collision prevention plus `start.sh`/`reset.sh` wrapper behavior.
+  - `tests/start/test_dev_script_wiring_ai.py` now covers fixed-backend/auto-frontend collision prevention and debug-port exclusion against selected backend/frontend ports.
+  - `tests/start/test_dev_script_wiring_aireset.py` now includes an end-to-end regression using real `ai.sh` wiring under `aireset.sh`.
+- Validation:
+  - `source activate.sh && pytest tests/start/test_dev_script_wiring_run_dev_instance.py tests/start/test_dev_script_wiring_ai.py tests/start/test_dev_script_wiring_aireset.py` passed (`33 passed`).

@@ -117,9 +117,19 @@ pick_free_offset() {
 pick_free_port_from() {
   port="$1"
   attempts="${2:-200}"
+  exclude_port_a="${3:-}"
+  exclude_port_b="${4:-}"
   i=0
   while [ "${i}" -le "${attempts}" ]; do
     candidate_port=$((port + i))
+    if [ -n "${exclude_port_a}" ] && [ "${candidate_port}" = "${exclude_port_a}" ]; then
+      i=$((i + 1))
+      continue
+    fi
+    if [ -n "${exclude_port_b}" ] && [ "${candidate_port}" = "${exclude_port_b}" ]; then
+      i=$((i + 1))
+      continue
+    fi
     if ! port_in_use "${candidate_port}"; then
       echo "${candidate_port}"
       return 0
@@ -200,7 +210,13 @@ if [ "${SETTA_PORT_WAS_SET}" -eq 0 ] && [ "${SETTA_DEV_FRONTEND_PORT_WAS_SET}" -
 fi
 
 if [ "${SETTA_PORT_WAS_SET}" -eq 0 ]; then
-  SETTA_PORT="$(pick_free_port_from "${DEFAULT_BACKEND_PORT}" || true)"
+  SETTA_PORT="$(
+    pick_free_port_from \
+      "${DEFAULT_BACKEND_PORT}" \
+      200 \
+      "${SETTA_DEV_FRONTEND_PORT:-}" \
+      || true
+  )"
   if [ -z "${SETTA_PORT:-}" ]; then
     echo "Unable to find a free backend port starting at ${DEFAULT_BACKEND_PORT}." >&2
     exit 1
@@ -208,7 +224,13 @@ if [ "${SETTA_PORT_WAS_SET}" -eq 0 ]; then
 fi
 
 if [ "${SETTA_DEV_FRONTEND_PORT_WAS_SET}" -eq 0 ]; then
-  SETTA_DEV_FRONTEND_PORT="$(pick_free_port_from "${DEFAULT_FRONTEND_PORT}" || true)"
+  SETTA_DEV_FRONTEND_PORT="$(
+    pick_free_port_from \
+      "${DEFAULT_FRONTEND_PORT}" \
+      200 \
+      "${SETTA_PORT}" \
+      || true
+  )"
   if [ -z "${SETTA_DEV_FRONTEND_PORT:-}" ]; then
     echo "Unable to find a free frontend port starting at ${DEFAULT_FRONTEND_PORT}." >&2
     exit 1
