@@ -108,8 +108,7 @@ const CHAT_MARKDOWN_BASE_CLASS =
 const ASSISTANT_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} dark:prose-invert prose-headings:text-setta-600 dark:prose-headings:text-setta-300 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-setta-400`;
 const ASSISTANT_ERROR_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} dark:prose-invert prose-headings:text-red-900 dark:prose-headings:text-red-200 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-red-400`;
 const TOOL_CALL_RAIL_GRID_CLASS = "grid-cols-[1.75rem_minmax(0,1fr)]";
-const TOOL_CALL_RAIL_BACKGROUND_CLASS =
-  "bg-setta-100/75 dark:bg-setta-800/75";
+const TOOL_CALL_RAIL_BACKGROUND_CLASS = "bg-setta-100/75 dark:bg-setta-800/75";
 const CONTEXT_COMPACTION_TOOL_NAME = "compacted";
 const ACTION_TOOL_NAMES = new Set<string>([
   "command_execution",
@@ -229,7 +228,10 @@ function resolveToolRawName(
   toolResultsById: Record<string, ToolChatMessage>,
 ): string {
   const toolResult = toolResultsById[entry.toolCall.id];
-  if (typeof toolResult?.tool_name === "string" && toolResult.tool_name.trim()) {
+  if (
+    typeof toolResult?.tool_name === "string" &&
+    toolResult.tool_name.trim()
+  ) {
     return toolResult.tool_name.trim();
   }
   if (
@@ -313,7 +315,9 @@ function resolveActionLabel(name: string, args: unknown): string {
   return normalized || "Action";
 }
 
-function resolveToolResultDisplay(result: ToolResultValue | undefined): string | null {
+function resolveToolResultDisplay(
+  result: ToolResultValue | undefined,
+): string | null {
   if (typeof result === "string") {
     const trimmed = result.trim();
     if (trimmed.length > 0) {
@@ -341,7 +345,9 @@ function resolveCompactionSummaryText(
       continue;
     }
     const toolResult = toolResultsById[entry.toolCall.id];
-    const resultDisplay = resolveToolResultDisplay(formatToolResult(toolResult));
+    const resultDisplay = resolveToolResultDisplay(
+      formatToolResult(toolResult),
+    );
     if (resultDisplay) {
       return resultDisplay;
     }
@@ -466,6 +472,102 @@ function parseIsoTimestampMs(value: string | null | undefined): number | null {
   return parsed;
 }
 
+type RunTimerStorageAdapter = {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+};
+
+type RunTimerSnapshot = {
+  startMs: number | null;
+  endMs: number | null;
+  hasBeenActive: boolean;
+};
+
+const RUN_TIMER_STORAGE_KEY_PREFIX = "setta.chat.runTimer.v1";
+const RUN_TIMER_MEMORY_FALLBACK = new Map<string, string>();
+const RUN_TIMER_STORAGE_PROBE_KEY = `${RUN_TIMER_STORAGE_KEY_PREFIX}.__probe__`;
+let cachedRunTimerStorageAdapter: RunTimerStorageAdapter | null | undefined;
+
+function getRunTimerStorageAdapter(): RunTimerStorageAdapter | null {
+  if (cachedRunTimerStorageAdapter !== undefined) {
+    return cachedRunTimerStorageAdapter;
+  }
+  if (typeof window === "undefined") {
+    cachedRunTimerStorageAdapter = {
+      getItem: (key) => RUN_TIMER_MEMORY_FALLBACK.get(key) ?? null,
+      setItem: (key, value) => {
+        RUN_TIMER_MEMORY_FALLBACK.set(key, value);
+      },
+    };
+    return cachedRunTimerStorageAdapter;
+  }
+  try {
+    const storage = window.localStorage;
+    storage.setItem(RUN_TIMER_STORAGE_PROBE_KEY, "1");
+    storage.removeItem(RUN_TIMER_STORAGE_PROBE_KEY);
+    cachedRunTimerStorageAdapter = {
+      getItem: (key) => storage.getItem(key),
+      setItem: (key, value) => {
+        storage.setItem(key, value);
+      },
+    };
+    return cachedRunTimerStorageAdapter;
+  } catch {
+    cachedRunTimerStorageAdapter = null;
+    return null;
+  }
+}
+
+function getRunTimerStorageKey(runKey: string): string {
+  return `${RUN_TIMER_STORAGE_KEY_PREFIX}.${runKey}`;
+}
+
+function readRunTimerSnapshot(runKey: string): RunTimerSnapshot | null {
+  const adapter = getRunTimerStorageAdapter();
+  if (!adapter) {
+    return null;
+  }
+  let raw: string | null = null;
+  try {
+    raw = adapter.getItem(getRunTimerStorageKey(runKey));
+  } catch {
+    return null;
+  }
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as Partial<RunTimerSnapshot>;
+    const startMs =
+      typeof parsed.startMs === "number" && Number.isFinite(parsed.startMs)
+        ? parsed.startMs
+        : null;
+    const endMs =
+      typeof parsed.endMs === "number" && Number.isFinite(parsed.endMs)
+        ? parsed.endMs
+        : null;
+    const hasBeenActive = parsed.hasBeenActive === true;
+    return { startMs, endMs, hasBeenActive };
+  } catch {
+    return null;
+  }
+}
+
+function writeRunTimerSnapshot(
+  runKey: string,
+  snapshot: RunTimerSnapshot,
+): void {
+  const adapter = getRunTimerStorageAdapter();
+  if (!adapter) {
+    return;
+  }
+  try {
+    adapter.setItem(getRunTimerStorageKey(runKey), JSON.stringify(snapshot));
+  } catch {
+    // Intentionally ignored: timer display must disappear when storage is inaccessible.
+  }
+}
+
 function useRunElapsedDuration({
   active,
   startedAtMs,
@@ -482,6 +584,20 @@ function useRunElapsedDuration({
   const finalizedEndMsRef = useRef<number | null>(null);
   const hasBeenActiveRef = useRef(false);
   const previousRunKeyRef = useRef<string | null>(runKey ?? null);
+  const storageAvailableRef = useRef<boolean>(
+    getRunTimerStorageAdapter() !== null,
+  );
+
+  const persistSnapshot = useCallback(() => {
+    if (!storageAvailableRef.current || !runKey) {
+      return;
+    }
+    writeRunTimerSnapshot(runKey, {
+      startMs: localStartMsRef.current,
+      endMs: finalizedEndMsRef.current,
+      hasBeenActive: hasBeenActiveRef.current,
+    });
+  }, [runKey]);
 
   useEffect(() => {
     const nextRunKey = runKey ?? null;
@@ -492,6 +608,15 @@ function useRunElapsedDuration({
     localStartMsRef.current = null;
     finalizedEndMsRef.current = null;
     hasBeenActiveRef.current = false;
+    storageAvailableRef.current = getRunTimerStorageAdapter() !== null;
+    if (storageAvailableRef.current && nextRunKey) {
+      const persisted = readRunTimerSnapshot(nextRunKey);
+      if (persisted) {
+        localStartMsRef.current = persisted.startMs;
+        finalizedEndMsRef.current = persisted.endMs;
+        hasBeenActiveRef.current = persisted.hasBeenActive;
+      }
+    }
     setTick(0);
   }, [runKey]);
 
@@ -504,9 +629,10 @@ function useRunElapsedDuration({
       startedAtMs < localStartMsRef.current
     ) {
       localStartMsRef.current = startedAtMs;
+      persistSnapshot();
       setTick((current) => current + 1);
     }
-  }, [startedAtMs]);
+  }, [persistSnapshot, startedAtMs]);
 
   useEffect(() => {
     if (!active) {
@@ -520,12 +646,13 @@ function useRunElapsedDuration({
           : Date.now();
     }
     finalizedEndMsRef.current = null;
+    persistSnapshot();
     setTick((current) => current + 1);
     const timer = window.setInterval(() => {
       setTick((current) => current + 1);
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [active, startedAtMs]);
+  }, [active, persistSnapshot, startedAtMs]);
 
   useEffect(() => {
     if (active) {
@@ -537,14 +664,21 @@ function useRunElapsedDuration({
         : null;
     if (normalizedCompletedAtMs !== null) {
       finalizedEndMsRef.current = normalizedCompletedAtMs;
+      persistSnapshot();
       setTick((current) => current + 1);
       return;
     }
     if (hasBeenActiveRef.current && finalizedEndMsRef.current === null) {
       finalizedEndMsRef.current = Date.now();
+      persistSnapshot();
       setTick((current) => current + 1);
     }
-  }, [active, completedAtMs]);
+  }, [active, completedAtMs, persistSnapshot]);
+
+  const hasStorage = storageAvailableRef.current;
+  if (!hasStorage || !runKey) {
+    return { elapsedSeconds: 0, hasKnownDuration: false };
+  }
 
   const normalizedStartedAtMs =
     typeof startedAtMs === "number" && Number.isFinite(startedAtMs)
@@ -1188,11 +1322,13 @@ const ThinkingBox = memo(function ThinkingBox({
   summary,
   signature,
   isStreaming,
+  runKey,
 }: {
   content: string;
   summary: string | null | undefined;
   signature: string | null | undefined;
   isStreaming: boolean;
+  runKey: string;
 }) {
   const streaming = !signature && isStreaming;
   const displayText = useTypewriterEffect(content, streaming, 5);
@@ -1206,6 +1342,7 @@ const ThinkingBox = memo(function ThinkingBox({
       : "stopped";
   const { elapsedSeconds, hasKnownDuration } = useRunElapsedDuration({
     active: streaming,
+    runKey,
   });
   const thinkingStatusLabel =
     thinkingRunState === "running"
@@ -1381,11 +1518,7 @@ const ContextCompactionSection = memo(function ContextCompactionSection({
   );
 });
 
-function ToolCallAccordionStatus({
-  runState,
-}: {
-  runState: ToolCallRunState;
-}) {
+function ToolCallAccordionStatus({ runState }: { runState: ToolCallRunState }) {
   if (runState === "success") {
     return (
       <IoMdCheckmark className="text-[12px] text-setta-400 dark:text-setta-300" />
@@ -1949,7 +2082,10 @@ const AssistantToolCallSection = memo(function AssistantToolCallSection({
 
     const questionPayload = toolCallContext.questionPayloadById[toolCall.id];
     if (questionPayload) {
-      const resolvedAnswers = resolveQuestionAnswers(questionPayload, toolResult);
+      const resolvedAnswers = resolveQuestionAnswers(
+        questionPayload,
+        toolResult,
+      );
       return (
         <div key={toolCall.id} className="w-full">
           <QuestionCard
@@ -2052,9 +2188,11 @@ function AssistantErrorCallout({ content }: { content: string }) {
 function StreamItem({
   item,
   isStreaming,
+  runKey,
 }: {
   item: ChatContentItem;
   isStreaming: boolean;
+  runKey: string;
 }) {
   switch (item.type) {
     case C.LLM_TEXT:
@@ -2076,6 +2214,7 @@ function StreamItem({
           summary={item.summary}
           signature={item.signature}
           isStreaming={isStreaming}
+          runKey={runKey}
         />
       );
     case "image_url":
@@ -2225,10 +2364,8 @@ function SystemChatBubble({
   );
 }
 
-const USER_MARKDOWN_CLASS =
-  `${CHAT_MARKDOWN_BASE_CLASS} text-setta-950 dark:prose-invert dark:text-white prose-headings:text-blue-900 dark:prose-headings:text-blue-200 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-setta-400`;
-const SYSTEM_MARKDOWN_CLASS =
-  `${CHAT_MARKDOWN_BASE_CLASS} text-setta-600 dark:prose-invert prose-headings:text-setta-600 dark:prose-headings:text-setta-300 prose-h1:text-sm prose-h2:text-[13px] prose-h3:text-[12px] prose-p:text-[12px] prose-ul:text-[12px] prose-ol:text-[12px] prose-li:text-[12px] [&_*]:marker:text-setta-400`;
+const USER_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} text-setta-950 dark:prose-invert dark:text-white prose-headings:text-blue-900 dark:prose-headings:text-blue-200 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-setta-400`;
+const SYSTEM_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} text-setta-600 dark:prose-invert prose-headings:text-setta-600 dark:prose-headings:text-setta-300 prose-h1:text-sm prose-h2:text-[13px] prose-h3:text-[12px] prose-p:text-[12px] prose-ul:text-[12px] prose-ol:text-[12px] prose-li:text-[12px] [&_*]:marker:text-setta-400`;
 
 function ChatMessageActions({
   onCopy,
@@ -2556,6 +2693,7 @@ const ChatMessage = memo(function ChatMessage({
               summary={item.summary}
               signature={item.signature}
               isStreaming={isStreaming}
+              runKey={`${message.id}-thinking-${idx}`}
             />
           </AssistantReasoningCard>
         ))}
@@ -2582,16 +2720,19 @@ const ChatMessage = memo(function ChatMessage({
                   key={fullIndex}
                   item={item}
                   isStreaming={isStreaming}
+                  runKey={`${message.id}-content-${fullIndex}`}
                 />
               );
             })}
           </LLMChatBubble>
-        ) : (
-          !hasActionContent && !hasToolCallContent ? actionBar : null
-        )}
+        ) : !hasActionContent && !hasToolCallContent ? (
+          actionBar
+        ) : null}
         <AssistantTypingIndicator
           visible={
-            showTypingIndicator && lastTextIndex === -1 && thinkingItems.length === 0
+            showTypingIndicator &&
+            lastTextIndex === -1 &&
+            thinkingItems.length === 0
           }
         />
         {actionEntries.length > 0 ? (
