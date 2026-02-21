@@ -95,6 +95,7 @@ export function PaneContainer({
     ? `justify-self-end left-auto pr-7 ${seamBorderClass}`
     : `justify-self-start right-auto pl-9 ${seamBorderClass}`;
   const paddingClasses = paddingClassName ?? "py-2.5";
+  const fullscreenButtonPositionClass = right ? "left-2 top-2" : "right-2 top-2";
 
   function onExpandToFullWidth() {
     const { previous, next } = togglePaneFullWidth(paneName);
@@ -130,7 +131,7 @@ export function PaneContainer({
       {vis ? (
         <button
           type="button"
-          className="absolute right-2 top-2 z-20 inline-flex h-6 w-6 items-center justify-center rounded border border-setta-200 bg-setta-100 text-setta-500 transition-colors hover:border-blue-400 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-300 dark:hover:border-blue-500 dark:hover:text-blue-400"
+          className={`absolute z-20 inline-flex h-6 w-6 items-center justify-center rounded border border-setta-200 bg-setta-100 text-setta-500 transition-colors hover:border-blue-400 hover:text-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-300 dark:hover:border-blue-500 dark:hover:text-blue-400 ${fullscreenButtonPositionClass}`}
           aria-label="Full screen pane"
           title="Full width"
           data-testid={`${paneName}-pane-fullscreen-button`}
