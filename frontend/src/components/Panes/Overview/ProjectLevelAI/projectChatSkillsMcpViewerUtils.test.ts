@@ -4,6 +4,8 @@ import {
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
+  parseRegisteredMcpToolCounts,
+  resolveMcpServerStatus,
 } from "./projectChatSkillsMcpViewerUtils";
 
 describe("projectChatSkillsMcpViewerUtils", () => {
@@ -103,5 +105,80 @@ describe("projectChatSkillsMcpViewerUtils", () => {
 
     expect(groups).toHaveLength(1);
     expect(groups[0]?.configLabel).toBe("Active custom setta_files root");
+  });
+
+  it("parses registered MCP tool counts from structured content", () => {
+    const counts = parseRegisteredMcpToolCounts({
+      structuredContent: {
+        tools: [
+          "figma-desktop__get_design_context",
+          "figma-desktop__get_metadata",
+          "playwriter__execute",
+          "setta__list_mcp_tools",
+        ],
+      },
+    });
+
+    expect(counts).toEqual({
+      "figma-desktop": 2,
+      playwriter: 1,
+      setta: 1,
+    });
+  });
+
+  it("parses registered MCP tool counts from text content payloads", () => {
+    const counts = parseRegisteredMcpToolCounts({
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            tools: ["pencil__open_document", "pencil__save_document"],
+          }),
+        },
+      ],
+    });
+
+    expect(counts).toEqual({
+      pencil: 2,
+    });
+  });
+
+  it("marks configured and registered servers as available", () => {
+    const status = resolveMcpServerStatus({
+      serverId: "figma-desktop",
+      endpoint: "http://127.0.0.1:3845/mcp",
+      runtimeToolCountsByServerId: { "figma-desktop": 3 },
+      runtimeStatusLoading: false,
+      runtimeStatusError: null,
+    });
+
+    expect(status.color).toBe("green");
+    expect(status.quickInfo).toContain("registered with 3 MCP tools");
+  });
+
+  it("marks configured but unregistered servers as unavailable", () => {
+    const status = resolveMcpServerStatus({
+      serverId: "pencil",
+      endpoint: "/Applications/Pencil.app/Contents/Resources/app.asar",
+      runtimeToolCountsByServerId: { "figma-desktop": 2 },
+      runtimeStatusLoading: false,
+      runtimeStatusError: null,
+    });
+
+    expect(status.color).toBe("red");
+    expect(status.quickInfo).toContain("no MCP tools are registered");
+  });
+
+  it("marks runtime lookup failures as unknown status", () => {
+    const status = resolveMcpServerStatus({
+      serverId: "pencil",
+      endpoint: "/Applications/Pencil.app/Contents/Resources/app.asar",
+      runtimeToolCountsByServerId: null,
+      runtimeStatusLoading: false,
+      runtimeStatusError: "unknown MCP server 'pencil'",
+    });
+
+    expect(status.color).toBe("yellow");
+    expect(status.quickInfo).toContain("Status unknown");
   });
 });

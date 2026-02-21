@@ -8,6 +8,7 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { useAIStore } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
+  route_call_mcp_tool,
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
   route_get_setta_home_info,
@@ -18,6 +19,8 @@ import {
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
+  parseRegisteredMcpToolCounts,
+  resolveMcpServerStatus,
 } from "./projectChatSkillsMcpViewerUtils";
 
 type PathGroupHeaderProps = {
@@ -119,6 +122,12 @@ export function ProjectChatSkillsMcpViewer() {
     null,
   );
   const [mcpConfigInfoLoading, setMcpConfigInfoLoading] = useState(true);
+  const [mcpRuntimeStatusLoading, setMcpRuntimeStatusLoading] = useState(true);
+  const [mcpRuntimeStatusError, setMcpRuntimeStatusError] = useState<
+    string | null
+  >(null);
+  const [mcpRuntimeToolCountsByServerId, setMcpRuntimeToolCountsByServerId] =
+    useState<Record<string, number> | null>(null);
   const [skillsRevision, setSkillsRevision] = useState(0);
   const skillsRefreshInFlight = useRef(false);
   const skillContentRequestSequence = useRef(0);
@@ -252,6 +261,49 @@ export function ProjectChatSkillsMcpViewer() {
     }
     void loadMcpConfigPath();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadMcpRuntimeStatus() {
+      if (!allLLMConfigsInitialLoadComplete) {
+        return;
+      }
+      setMcpRuntimeStatusLoading(true);
+      setMcpRuntimeStatusError(null);
+      const res = await route_call_mcp_tool({
+        tool: "list_mcp_tools",
+        arguments: {},
+      });
+      if (cancelled) {
+        return;
+      }
+      if (!res200(res)) {
+        const detail = getErrorDetail(res.data);
+        const resolvedError =
+          res.status === 404
+            ? "MCP status endpoint is unavailable in this mode."
+            : (detail ?? "Failed to query MCP runtime registration.");
+        setMcpRuntimeStatusError(resolvedError);
+        setMcpRuntimeToolCountsByServerId(null);
+        setMcpRuntimeStatusLoading(false);
+        return;
+      }
+      if (res.data.isError === true) {
+        setMcpRuntimeStatusError(
+          "MCP runtime reported an error while listing tools.",
+        );
+        setMcpRuntimeToolCountsByServerId(null);
+        setMcpRuntimeStatusLoading(false);
+        return;
+      }
+      setMcpRuntimeToolCountsByServerId(parseRegisteredMcpToolCounts(res.data));
+      setMcpRuntimeStatusLoading(false);
+    }
+    void loadMcpRuntimeStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [allLLMConfigs?.mcpServers, allLLMConfigsInitialLoadComplete]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -514,20 +566,46 @@ export function ProjectChatSkillsMcpViewer() {
                     onCopyPath={copyPathToClipboard}
                     onRevealPath={(path) => void revealPathInFileExplorer(path)}
                   />
+                  {mcpRuntimeStatusError ? (
+                    <div className="mt-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+                      Runtime status check unavailable: {mcpRuntimeStatusError}
+                    </div>
+                  ) : null}
                   <div className="mt-1 grid gap-1 px-1">
                     {group.servers.map((server) => {
                       const serverEndpointDisplay = `${server.transport} · ${server.endpoint}`;
+                      const status = resolveMcpServerStatus({
+                        serverId: server.serverId,
+                        endpoint: server.endpoint,
+                        runtimeToolCountsByServerId:
+                          mcpRuntimeToolCountsByServerId,
+                        runtimeStatusLoading: mcpRuntimeStatusLoading,
+                        runtimeStatusError: mcpRuntimeStatusError,
+                      });
+                      const statusDotClassName =
+                        status.color === "green"
+                          ? "bg-emerald-500"
+                          : status.color === "yellow"
+                            ? "bg-amber-500"
+                            : "bg-red-500";
                       return (
                         <div
                           key={server.serverId}
                           className="min-w-0 pb-1 last:pb-0"
                         >
-                          <div
-                            className="truncate font-semibold"
-                            title={server.serverId}
-                            data-testid="skills-mcp-server-id"
-                          >
-                            {server.serverId}
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`h-2 w-2 rounded-full ${statusDotClassName}`}
+                              title={status.quickInfo}
+                              aria-label={status.quickInfo}
+                            />
+                            <div
+                              className="truncate font-semibold"
+                              title={`${server.serverId} - ${status.quickInfo}`}
+                              data-testid="skills-mcp-server-id"
+                            >
+                              {server.serverId}
+                            </div>
                           </div>
                           <div
                             className="truncate font-mono text-setta-500 dark:text-setta-400"
