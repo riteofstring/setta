@@ -100,6 +100,9 @@ const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
 const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(88%,800px)]";
 const ASSISTANT_REASONING_BORDER_CLASS =
   "border-setta-100 dark:border-setta-700/50";
+const TOOL_CALL_RAIL_GRID_CLASS = "grid-cols-[1.75rem_minmax(0,1fr)]";
+const TOOL_CALL_RAIL_BACKGROUND_CLASS =
+  "bg-setta-100/75 dark:bg-setta-800/75";
 
 type AttachmentUrlEntry = {
   url: string;
@@ -1011,10 +1014,16 @@ const ToolCallItem = memo(function ToolCallItem({
 
   return (
     <Accordion.Root type="single" collapsible className="w-full">
-      <Accordion.Item value="details" data-chat-tool-call-item="true">
-        <Accordion.Trigger className="grid w-full cursor-pointer grid-cols-[1.5rem_minmax(0,1fr)] overflow-hidden rounded-md border border-setta-200/70 bg-white/60 transition-colors hover:bg-white/80 dark:border-setta-700/70 dark:bg-setta-900/65 dark:hover:bg-setta-900">
+      <Accordion.Item
+        value="details"
+        className="w-full border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
+        data-chat-tool-call-item="true"
+      >
+        <Accordion.Trigger
+          className={`grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} text-left transition-colors hover:bg-white/45 dark:hover:bg-setta-900/70`}
+        >
           <div
-            className="flex h-full items-center justify-center bg-setta-100/75 text-setta-400 dark:bg-setta-800/80 dark:text-setta-300"
+            className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
             data-chat-tool-call-item-rail="true"
             title={`Tool state: ${runState}`}
             aria-label={`Tool state: ${runState}`}
@@ -1026,9 +1035,9 @@ const ToolCallItem = memo(function ToolCallItem({
           </div>
         </Accordion.Trigger>
 
-        <Accordion.Content className="overflow-hidden rounded-b-md data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+        <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
           {args && (
-            <div className="border-x border-t border-setta-200/70 bg-setta-200/35 px-1.5 py-1 text-xs dark:border-setta-700/70 dark:bg-setta-860">
+            <div className="border-t border-setta-200/70 bg-setta-200/35 px-2 py-1 text-xs dark:border-setta-700/70 dark:bg-setta-860">
               <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
                 Arguments
               </h3>
@@ -1038,7 +1047,7 @@ const ToolCallItem = memo(function ToolCallItem({
             </div>
           )}
           {resultDisplay && (
-            <div className="rounded-b-md border border-setta-200/70 bg-setta-200 px-1.5 py-1 dark:border-setta-700/70 dark:bg-setta-900">
+            <div className="border-t border-setta-200/70 bg-setta-200 px-2 py-1 dark:border-setta-700/70 dark:bg-setta-900">
               <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
                 Result
               </h3>
@@ -1133,9 +1142,11 @@ const ToolCallSection = memo(function ToolCallSection({
         data-chat-tool-call-section="true"
         data-chat-tool-call-section-state={sectionState}
       >
-        <Accordion.Trigger className="grid w-full cursor-pointer grid-cols-[1.75rem_minmax(0,1fr)] text-left transition-colors hover:bg-white/60 dark:hover:bg-setta-900/80">
+        <Accordion.Trigger
+          className={`grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} text-left transition-colors hover:bg-white/60 dark:hover:bg-setta-900/80`}
+        >
           <div
-            className="flex h-full items-center justify-center bg-setta-100/75 text-setta-400 dark:bg-setta-800/75 dark:text-setta-300"
+            className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
             data-chat-tool-call-section-rail="true"
           >
             <PiWrenchFill size={13} className="min-w-4" />
@@ -1154,8 +1165,8 @@ const ToolCallSection = memo(function ToolCallSection({
             </div>
           </div>
         </Accordion.Trigger>
-        <Accordion.Content className="overflow-hidden px-0.5 pb-0.5 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-          <div className="flex w-full flex-col gap-0.5">{children}</div>
+        <Accordion.Content className="overflow-hidden border-t border-setta-200/60 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/60">
+          <div className="flex w-full flex-col">{children}</div>
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>

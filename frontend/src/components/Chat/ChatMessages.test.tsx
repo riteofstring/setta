@@ -221,6 +221,9 @@ describe("ChatMessages tool call status", () => {
     expect(markup).toContain('data-chat-assistant-tool-call-card="true"');
     expect(markup).toContain('data-chat-tool-call-section-rail="true"');
     expect(markup).toContain('data-chat-assistant-bubble="true"');
+    expect(markup).toContain("grid-cols-[1.75rem_minmax(0,1fr)]");
+    expect(markup).not.toContain("grid-cols-[1.5rem_minmax(0,1fr)]");
+    expect(markup).not.toContain("px-0.5 pb-0.5");
   });
 
   it("groups consecutive tool-only assistant messages into a single tool-call section", () => {
