@@ -642,7 +642,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain("00:00");
   });
 
-  it("shows summary text inside the preview when thinking body is empty", () => {
+  it("does not duplicate summary text into preview when thinking body is empty", () => {
     const summary = "Evaluating workspace navigator priority";
     const messages: BaseChatMessageUnion[] = [
       {
@@ -663,7 +663,7 @@ describe("ChatMessages assistant reasoning layout", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(countOccurrences(markup, summary)).toBeGreaterThan(1);
+    expect(countOccurrences(markup, summary)).toBe(1);
   });
 
   it("does not inject a typing marker class inside assistant bubbles", () => {

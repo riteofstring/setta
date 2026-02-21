@@ -1342,7 +1342,7 @@ const ThinkingBox = memo(function ThinkingBox({
   const displayText = useTypewriterEffect(content, streaming, 5);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const summaryText = summary?.trim() ?? "";
-  const previewText = displayText.trim().length > 0 ? displayText : summaryText;
+  const previewText = displayText;
   const title = summaryText || (streaming ? "Working..." : "Reasoning");
   const thinkingRunState: ToolCallSectionState = streaming
     ? "running"
