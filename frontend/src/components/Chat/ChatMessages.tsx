@@ -1159,12 +1159,12 @@ function LLMChatBubble({
   return (
     <div className="my-2 w-full">
       <div
-        className="relative flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg bg-setta-100 pb-2 pl-3 pr-2.5 pt-1.5 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50"
+        className="relative flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg bg-setta-100 pb-2.5 pl-3 pr-2.5 pt-1.5 text-setta-800 dark:bg-setta-700/50 dark:text-setta-50"
         data-chat-assistant-bubble="true"
       >
         {children}
         {actions ? (
-          <div className="absolute bottom-0.5 left-0">{actions}</div>
+          <div className="absolute bottom-0 left-0">{actions}</div>
         ) : null}
       </div>
     </div>
@@ -1189,7 +1189,7 @@ function UserChatBubble({
         data-message-id={messageId}
       >
         <div
-          className="relative flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-900/60 bg-blue-950 pb-2 pl-3 pr-2.5 pt-1.5 text-white dark:border-blue-800/80 dark:bg-blue-950"
+          className="relative flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-900/60 bg-blue-950 pb-2.5 pl-3 pr-2.5 pt-1.5 text-white dark:border-blue-800/80 dark:bg-blue-950"
           data-chat-user-bubble="true"
           style={
             typeof bubbleWidthPx === "number"
@@ -1199,7 +1199,7 @@ function UserChatBubble({
         >
           {children}
           {actions ? (
-            <div className="absolute bottom-0.5 right-0">{actions}</div>
+            <div className="absolute bottom-0 right-0">{actions}</div>
           ) : null}
         </div>
       </div>
@@ -1223,12 +1223,12 @@ function SystemChatBubble({
         data-message-id={messageId}
       >
         <div
-          className="relative flex max-w-full cursor-text flex-col gap-1.5 rounded-md border border-setta-200 bg-setta-50 px-2.5 pb-1.5 pt-1 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300"
+          className="relative flex max-w-full cursor-text flex-col gap-1.5 rounded-md border border-setta-200 bg-setta-50 px-2.5 pb-2 pt-1 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300"
           data-chat-system-bubble="true"
         >
           {children}
           {actions ? (
-            <div className="absolute bottom-1 right-1">{actions}</div>
+            <div className="absolute bottom-0.5 right-0.5">{actions}</div>
           ) : null}
         </div>
       </div>
