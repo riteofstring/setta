@@ -54,6 +54,7 @@ test("home page renders pane rails and toggles side panes", async ({
   await expect(page.getByTestId("home-left-icon-rail")).toBeVisible();
   await expect(page.getByTestId("home-right-icon-rail")).toBeVisible();
   await expect(page.getByTestId("home-left-rail-settings-link")).toBeVisible();
+  await expect(page.getByTestId("home-compact-settings-link")).toHaveCount(0);
   await expect(
     page.getByTestId("home-left-rail-workspace-toggle"),
   ).toBeVisible();
@@ -150,11 +151,14 @@ test("home uses compact layout on narrow viewports", async ({ page }) => {
   await expect(page.getByTestId("home-selected-project-details")).toHaveCount(
     0,
   );
+  await expect(page.getByTestId("home-compact-settings-link")).toBeVisible();
 
   const layoutBox = await layout.boundingBox();
   const galleryBox = await gallery.boundingBox();
   if (!layoutBox || !galleryBox) {
-    throw new Error("Expected compact home layout geometry on mobile viewport.");
+    throw new Error(
+      "Expected compact home layout geometry on mobile viewport.",
+    );
   }
   expect(galleryBox.width).toBeGreaterThan(layoutBox.width * 0.8);
 });
@@ -215,7 +219,7 @@ test("home browser marks Setta-initialized folders", async ({ page }) => {
     );
     await expect(
       initializedRow.getByTestId("setta-initialized-badge"),
-    ).toBeHidden();
+    ).toHaveCount(0);
     await initializedRow.getByLabel("Expand folder").click();
     await expect(nestedRow).toBeVisible();
     await nestedRow.click();
@@ -407,9 +411,7 @@ test("home opens projects on single click in deployment mode", async ({
     });
   });
   await expect(page.getByText("Sharing mode is read-only")).toBeVisible();
-  await expect(page.getByTestId("home-left-rail-settings-link")).toHaveCount(
-    0,
-  );
+  await expect(page.getByTestId("home-left-rail-settings-link")).toHaveCount(0);
 
   await page.getByTestId("home-project-card").first().click();
   await expect.poll(() => new URL(page.url()).pathname).not.toBe(homePathname);
@@ -463,7 +465,9 @@ test("home path blur is a no-op when the path value is unchanged", async ({
     .not.toBeNull();
 
   const stateBeforeBlur = await page.evaluate(async () => {
-    const { useHomeFileBrowserState } = await import("/src/state/definitions.ts");
+    const { useHomeFileBrowserState } = await import(
+      "/src/state/definitions.ts"
+    );
     const current = useHomeFileBrowserState.getState();
     const rootPath = current.rootPath;
     if (!rootPath) {
@@ -509,6 +513,59 @@ test("home path blur is a no-op when the path value is unchanged", async ({
       selectedPath: stateBeforeBlur.selectedPath,
       expandedPaths: [...stateBeforeBlur.expandedPaths].sort(),
     });
+});
+
+test("home path Escape cancels pending edits", async ({ page }) => {
+  await ensureAppReady(page);
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  await expect
+    .poll(async () => {
+      return await page.evaluate(async () => {
+        const { useHomeFileBrowserState } = await import(
+          "/src/state/definitions.ts"
+        );
+        return useHomeFileBrowserState.getState().rootPath;
+      });
+    })
+    .not.toBeNull();
+  const rootPath = await page.evaluate(async () => {
+    const { useHomeFileBrowserState } = await import(
+      "/src/state/definitions.ts"
+    );
+    return useHomeFileBrowserState.getState().rootPath;
+  });
+  if (!rootPath) {
+    throw new Error("Missing initial home root path before Escape test.");
+  }
+
+  const pathInput = page.getByTestId("home-file-browser-path-input").first();
+  await expect(pathInput).toBeVisible();
+  await pathInput.click();
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.type("/tmp");
+  await page.keyboard.press("Escape");
+
+  await expect
+    .poll(async () => {
+      return await page.evaluate(async () => {
+        const { useHomeFileBrowserState } = await import(
+          "/src/state/definitions.ts"
+        );
+        return useHomeFileBrowserState.getState().rootPath;
+      });
+    })
+    .toBe(rootPath);
+  await expect
+    .poll(async () => {
+      return await page.evaluate(async () => {
+        const { useHomeFileBrowserState } = await import(
+          "/src/state/definitions.ts"
+        );
+        return useHomeFileBrowserState.getState().selectedPath;
+      });
+    })
+    .not.toBe("/tmp");
 });
 
 test("home column widths persist across reload when viewport can fit stored widths", async ({

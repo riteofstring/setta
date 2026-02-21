@@ -513,6 +513,7 @@ type FileBrowserPaneProps = {
   useFileBrowserStateHook?: typeof useFileBrowserState;
   showFilter?: boolean;
   includeSettaInitializedFolders?: boolean;
+  showSettaInitializedBadgePill?: boolean;
   allowOutsideWorkspaceRoot?: boolean;
   metaPaddingClassName?: string;
   listInsetLeft?: number;
@@ -529,6 +530,7 @@ export function FileBrowserPane({
   useFileBrowserStateHook,
   showFilter = true,
   includeSettaInitializedFolders = false,
+  showSettaInitializedBadgePill = true,
   allowOutsideWorkspaceRoot = false,
   metaPaddingClassName,
   listInsetLeft = 0,
@@ -1686,7 +1688,8 @@ export function FileBrowserPane({
               errorByPath,
               columnWidth,
               listInsetLeft,
-              showSettaInitializedBadge: includeSettaInitializedFolders,
+              showSettaInitializedBadge:
+                includeSettaInitializedFolders && showSettaInitializedBadgePill,
               onToggle: handleToggle,
               onSelect: handleSelect,
               onOpen: handleOpen,

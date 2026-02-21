@@ -873,10 +873,8 @@ type ZustandLocalStorage = {
   overviewProjectConfigOrder: string[];
   homeWorkspacePaneVis: boolean;
   homeWorkspacePaneWidth: number;
-  homeWorkspacePaneTrueWidth: number;
   homeSelectedProjectPaneVis: boolean;
   homeSelectedProjectPaneWidth: number;
-  homeSelectedProjectPaneTrueWidth: number;
   appGenerationMode: AppGenerationMode;
   appGenerationPrompt: string;
   appGenerationReferenceImageUrl: string;
@@ -924,10 +922,8 @@ export const useLocalStorage = createWithEqualityFn(
       overviewProjectConfigOrder: [],
       homeWorkspacePaneVis: true,
       homeWorkspacePaneWidth: 320,
-      homeWorkspacePaneTrueWidth: 320,
       homeSelectedProjectPaneVis: true,
       homeSelectedProjectPaneWidth: 320,
-      homeSelectedProjectPaneTrueWidth: 320,
       appGenerationMode: "json_render",
       appGenerationPrompt: "",
       appGenerationReferenceImageUrl: "",
@@ -963,6 +959,9 @@ export const useLocalStorage = createWithEqualityFn(
         };
         delete (merged as Record<string, unknown>).homePageLeftColumnWidth;
         delete (merged as Record<string, unknown>).homePageRightColumnWidth;
+        delete (merged as Record<string, unknown>).homeWorkspacePaneTrueWidth;
+        delete (merged as Record<string, unknown>)
+          .homeSelectedProjectPaneTrueWidth;
 
         if (persisted.colorMode === undefined) {
           merged.colorMode = merged.darkMode ? "dark" : "light";
@@ -985,22 +984,11 @@ export const useLocalStorage = createWithEqualityFn(
         if (typeof merged.homeWorkspacePaneWidth !== "number") {
           merged.homeWorkspacePaneWidth = 320;
         }
-        if (typeof merged.homeWorkspacePaneTrueWidth !== "number") {
-          merged.homeWorkspacePaneTrueWidth = merged.homeWorkspacePaneVis
-            ? merged.homeWorkspacePaneWidth
-            : CLOSED_PANE_WIDTH;
-        }
         if (typeof merged.homeSelectedProjectPaneVis !== "boolean") {
           merged.homeSelectedProjectPaneVis = true;
         }
         if (typeof merged.homeSelectedProjectPaneWidth !== "number") {
           merged.homeSelectedProjectPaneWidth = 320;
-        }
-        if (typeof merged.homeSelectedProjectPaneTrueWidth !== "number") {
-          merged.homeSelectedProjectPaneTrueWidth =
-            merged.homeSelectedProjectPaneVis
-              ? merged.homeSelectedProjectPaneWidth
-              : CLOSED_PANE_WIDTH;
         }
         if (!isOverviewTabKey(merged.overviewTab)) {
           merged.overviewTab = OverviewTabNameEnum.Overview;

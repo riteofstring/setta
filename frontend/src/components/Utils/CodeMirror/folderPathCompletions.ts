@@ -16,6 +16,9 @@ type FolderPathCompletionOptions = {
   allowOutsideWorkspaceRoot?: boolean;
 };
 
+const WINDOWS_DRIVE_ROOT_REGEX = /^[A-Za-z]:$/;
+const WINDOWS_DRIVE_ABSOLUTE_REGEX = /^[A-Za-z]:\//;
+
 function resolveSeparator(text: string, fallback: string): string {
   const lastSlash = text.lastIndexOf("/");
   const lastBackslash = text.lastIndexOf("\\");
@@ -42,6 +45,18 @@ function splitPathInput(text: string, fallbackSeparator: string) {
     from: lastSeparator + 1,
     separator,
   };
+}
+
+function resolveAbsoluteCompletionFolder(absoluteCandidate: string) {
+  let normalizedCandidate = normalizeBrowserPath(absoluteCandidate);
+  if (WINDOWS_DRIVE_ROOT_REGEX.test(normalizedCandidate)) {
+    normalizedCandidate = `${normalizedCandidate}/`;
+  }
+  if (WINDOWS_DRIVE_ABSOLUTE_REGEX.test(normalizedCandidate)) {
+    const driveRoot = `${normalizedCandidate.slice(0, 2)}/`;
+    return resolvePathWithinRoot(normalizedCandidate, driveRoot);
+  }
+  return resolvePathWithinRoot(normalizedCandidate, "/");
 }
 
 async function loadFolderEntries({
@@ -122,7 +137,7 @@ export function createFolderPathCompletionSource(
     const absoluteCandidate = dirPart || separator;
     const targetFolder =
       (options.allowOutsideWorkspaceRoot && isAbsoluteBrowserPath(textBefore)
-        ? resolvePathWithinRoot(normalizeBrowserPath(absoluteCandidate), "/")
+        ? resolveAbsoluteCompletionFolder(absoluteCandidate)
         : null) ?? resolvePathWithinRoot(dirPart || "", options.rootPath);
     if (!targetFolder) {
       return null;
@@ -165,7 +180,7 @@ export function createDynamicFolderPathCompletionSource(
 
   const getCacheKey = (options: FolderPathCompletionOptions) => {
     const ignoreKey = (options.ignorePatterns ?? []).join("\n");
-    return `${options.rootPath ?? ""}||${options.pathSeparator ?? ""}||${ignoreKey}||${options.maxEntries ?? ""}`;
+    return `${options.rootPath ?? ""}||${options.pathSeparator ?? ""}||${ignoreKey}||${options.maxEntries ?? ""}||${options.allowOutsideWorkspaceRoot === true}`;
   };
 
   const getEntries = (
@@ -228,7 +243,7 @@ export function createDynamicFolderPathCompletionSource(
     const absoluteCandidate = dirPart || separator;
     const targetFolder =
       (options.allowOutsideWorkspaceRoot && isAbsoluteBrowserPath(textBefore)
-        ? resolvePathWithinRoot(normalizeBrowserPath(absoluteCandidate), "/")
+        ? resolveAbsoluteCompletionFolder(absoluteCandidate)
         : null) ?? resolvePathWithinRoot(dirPart || "", options.rootPath);
     if (!targetFolder) {
       return null;

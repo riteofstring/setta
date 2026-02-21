@@ -83,6 +83,22 @@ describe("local storage merge", () => {
     expect("homePageLeftColumnWidth" in merged).toBe(false);
     expect("homePageRightColumnWidth" in merged).toBe(false);
   });
+
+  it("drops deprecated home true-width fields from persisted state", () => {
+    const merge = useLocalStorage.persist.getOptions().merge;
+    const current = useLocalStorage.getState();
+
+    const merged = merge(
+      {
+        homeWorkspacePaneTrueWidth: 480,
+        homeSelectedProjectPaneTrueWidth: 520,
+      } as Record<string, unknown>,
+      current,
+    ) as typeof current & Record<string, unknown>;
+
+    expect("homeWorkspacePaneTrueWidth" in merged).toBe(false);
+    expect("homeSelectedProjectPaneTrueWidth" in merged).toBe(false);
+  });
 });
 
 describe("setOverviewProjectConfigOrder", () => {

@@ -6,6 +6,7 @@ import {
   partitionProjectsByFavoriteStatus,
   shouldApplyHomeFileBrowserPath,
   shouldOpenProjectOnListRowSpace,
+  shouldShowCompactHomeSettingsButton,
   shouldUseCompactHomeLayout,
 } from "./HomePage";
 
@@ -57,6 +58,27 @@ describe("HomePage", () => {
     expect(shouldUseCompactHomeLayout(1099)).toBe(true);
     expect(shouldUseCompactHomeLayout(1100)).toBe(false);
     expect(shouldUseCompactHomeLayout(1400)).toBe(false);
+  });
+
+  it("shows the compact settings button only on compact non-deployment layout", () => {
+    expect(
+      shouldShowCompactHomeSettingsButton({
+        isCompactLayout: true,
+        isDeploymentMode: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowCompactHomeSettingsButton({
+        isCompactLayout: true,
+        isDeploymentMode: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowCompactHomeSettingsButton({
+        isCompactLayout: false,
+        isDeploymentMode: false,
+      }),
+    ).toBe(false);
   });
 
   it("applies home file-browser path changes only for real path updates", () => {

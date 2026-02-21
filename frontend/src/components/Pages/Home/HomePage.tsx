@@ -137,6 +137,16 @@ export function shouldOpenProjectOnListRowSpace(
   return !selectionEnabled;
 }
 
+export function shouldShowCompactHomeSettingsButton({
+  isCompactLayout,
+  isDeploymentMode,
+}: {
+  isCompactLayout: boolean;
+  isDeploymentMode: boolean;
+}): boolean {
+  return isCompactLayout && !isDeploymentMode;
+}
+
 export function HomePage() {
   const { projectMetadata, defaultProjectConfigId } = useAllProjectMetadata(
     (x) => x,
@@ -388,6 +398,10 @@ function HomeWorkspaceLayout({
       ? homeSelectedProjectPaneWidth
       : CLOSED_PANE_WIDTH
     : 0;
+  const showCompactSettingsButton = shouldShowCompactHomeSettingsButton({
+    isCompactLayout,
+    isDeploymentMode,
+  });
 
   return (
     <>
@@ -469,6 +483,20 @@ function HomeWorkspaceLayout({
             </div>
             {!isDeploymentMode && (
               <div className="flex flex-wrap gap-2">
+                {showCompactSettingsButton && (
+                  <Link
+                    to={SETTINGS_ROUTER_PATH}
+                    state={{
+                      pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG,
+                    }}
+                    data-testid="home-compact-settings-link"
+                    className="nodrag inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-setta-300 bg-white px-3 text-xs font-semibold text-setta-700 transition-colors hover:border-setta-400 hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-100 dark:hover:border-setta-600 dark:hover:bg-setta-900"
+                    aria-label="Open settings"
+                  >
+                    <IoSettingsOutline />
+                    Settings
+                  </Link>
+                )}
                 <button
                   className="nodrag inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-setta-300 bg-white px-3 text-xs font-semibold text-setta-700 transition-colors hover:border-setta-400 hover:bg-setta-50 focus-visible:ring-2 dark:border-setta-700 dark:bg-setta-850 dark:text-setta-100 dark:hover:border-setta-600 dark:hover:bg-setta-900"
                   onClick={handleCreateConfig}
@@ -510,26 +538,18 @@ function getHomeRailButtonColor(isActive: boolean): string {
 }
 
 function toggleHomeWorkspacePaneVisibility() {
-  const { homeWorkspacePaneVis, homeWorkspacePaneWidth } =
-    useLocalStorage.getState();
+  const { homeWorkspacePaneVis } = useLocalStorage.getState();
   const nextVis = !homeWorkspacePaneVis;
   useLocalStorage.setState({
     homeWorkspacePaneVis: nextVis,
-    homeWorkspacePaneTrueWidth: nextVis
-      ? homeWorkspacePaneWidth
-      : CLOSED_PANE_WIDTH,
   });
 }
 
 function toggleHomeSelectedProjectPaneVisibility() {
-  const { homeSelectedProjectPaneVis, homeSelectedProjectPaneWidth } =
-    useLocalStorage.getState();
+  const { homeSelectedProjectPaneVis } = useLocalStorage.getState();
   const nextVis = !homeSelectedProjectPaneVis;
   useLocalStorage.setState({
     homeSelectedProjectPaneVis: nextVis,
-    homeSelectedProjectPaneTrueWidth: nextVis
-      ? homeSelectedProjectPaneWidth
-      : CLOSED_PANE_WIDTH,
   });
 }
 
@@ -633,6 +653,7 @@ function HomeFileBrowserColumn() {
       ),
     [],
   );
+  const blurTriggeredByEscapeKey = useRef(false);
   const blurActiveElement = useCallback(() => {
     if (typeof document === "undefined") {
       return;
@@ -645,6 +666,7 @@ function HomeFileBrowserColumn() {
   const pathKeyComboActions = useMemo(
     () => ({
       Escape: () => {
+        blurTriggeredByEscapeKey.current = true;
         setPathInput(rootPath ?? "");
         blurActiveElement();
         return true;
@@ -682,7 +704,7 @@ function HomeFileBrowserColumn() {
   }
 
   return (
-    <section className="flex h-full min-h-0 w-full min-w-0 flex-col pb-2 [&_[data-testid='setta-initialized-badge']]:hidden [&_[data-testid='setta-initialized-folder-icon']]:text-blue-500 dark:[&_[data-testid='setta-initialized-folder-icon']]:text-blue-400">
+    <section className="flex h-full min-h-0 w-full min-w-0 flex-col pb-2 [&_[data-testid='setta-initialized-folder-icon']]:text-blue-500 dark:[&_[data-testid='setta-initialized-folder-icon']]:text-blue-400">
       <div
         className={`flex flex-col gap-2 ${HOME_FILE_BROWSER_META_INSET_CLASS}`}
       >
@@ -707,7 +729,13 @@ function HomeFileBrowserColumn() {
               id="CodeMirror-home-browser-path"
               value={pathInput}
               onChange={setPathInput}
-              onBlur={applyPath}
+              onBlur={(value) => {
+                if (blurTriggeredByEscapeKey.current) {
+                  blurTriggeredByEscapeKey.current = false;
+                  return;
+                }
+                applyPath(value);
+              }}
               onEnter={(_, completionResult) => {
                 if (completionResult) {
                   return;
@@ -737,6 +765,7 @@ function HomeFileBrowserColumn() {
         <FileBrowserPane
           useFileBrowserStateHook={useHomeFileBrowserState}
           includeSettaInitializedFolders
+          showSettaInitializedBadgePill={false}
           allowOutsideWorkspaceRoot
           metaPaddingClassName={HOME_FILE_BROWSER_META_INSET_CLASS}
           listInsetLeft={HOME_FILE_BROWSER_LIST_INSET_LEFT}

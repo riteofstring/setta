@@ -18,3 +18,20 @@
   - Backend file-browser pytest suite: passed.
   - Home Playwright suite: passed.
   - CDP visual verification: completed for desktop and narrow/mobile Home states.
+
+## 2026-02-19 09:47:15 PST
+
+- Fixed Home path-input Escape behavior so Escape-triggered blur cancels pending edits instead of applying typed paths.
+- Restored a Settings entrypoint on compact/narrow Home layout with a header fallback link while keeping rail settings on desktop layout.
+- Removed redundant Setta badge rendering on Home by separating initialized-folder metadata loading from badge-pill rendering (`showSettaInitializedBadgePill`).
+- Fixed folder-path completion behavior for Windows absolute outside-root paths (for example `C:\\Users\\...`) when outside-root completion is enabled.
+- Fixed dynamic folder-path completion cache invalidation by including `allowOutsideWorkspaceRoot` in the cache key.
+- Removed unused Home local-storage `homeWorkspacePaneTrueWidth` and `homeSelectedProjectPaneTrueWidth` fields and dropped persisted values during merge.
+- Added verification coverage:
+  - Vitest unit tests for compact settings visibility logic, Windows outside-root completions, dynamic-cache invalidation, and deprecated true-width local-storage key pruning.
+  - Vitest integration test for dynamic completion mode toggling + Windows outside-root completion behavior.
+  - Playwright Home e2e checks for compact settings visibility, Escape-cancel path editing, and non-rendered Setta badge pills on Home.
+- Validation status:
+  - Targeted Vitest suite: passed.
+  - Home Playwright suite: passed.
+  - CDP visual verification: completed for desktop and compact Home states.
