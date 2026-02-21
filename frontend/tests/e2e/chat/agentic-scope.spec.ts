@@ -324,12 +324,10 @@ test.describe.serial("agentic scope", () => {
         sectionId: chatSectionId,
         managed: true,
         engineConfigId: null,
-        transcriptionProfileId: null,
         agentProfileId: null,
         thinking: true,
         permissionMode: "minimal",
         searchEnabled: true,
-        dictationMode: "auto",
       });
       const { sectionId: sourceSectionId } = await createTextBlockSection(
         page,

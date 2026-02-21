@@ -33,7 +33,7 @@ export function WorktreeHint() {
 
   return (
     <aside
-      className="relative z-10 flex items-center gap-2"
+      className="relative z-10 mr-4 flex items-center gap-2"
       data-testid="worktree-hint"
     >
       <div className="hidden items-center gap-2 lg:flex">
