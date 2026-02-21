@@ -14,6 +14,12 @@ DEFAULT_EXAMPLE_LLM_CONFIGS = AllLLMConfigs(
             provider="anthropic",
             api_key_env="ANTHROPIC_API_KEY",
         ),
+        "openai-whisper-1": LLMConfig(
+            id="openai-whisper-1",
+            model="whisper-1",
+            provider="openai",
+            api_key_env="OPENAI_API_KEY",
+        ),
     },
     mcpServers={
         SETTA_MCP_SERVER_ID: MCPServerConfig(

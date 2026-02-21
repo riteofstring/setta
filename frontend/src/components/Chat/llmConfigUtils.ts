@@ -8,14 +8,21 @@ type LLMConfigGroup = {
 export function buildLLMConfigGroups(
   allLLMConfigs: AllLLMConfigs | null,
   apiKeys: APIKeys,
+  options: { includeConfigsWithoutApiKey?: boolean } = {},
 ): Array<LLMConfigGroup> {
   if (!allLLMConfigs) {
     return [];
   }
+  const includeConfigsWithoutApiKey =
+    options.includeConfigsWithoutApiKey === true;
 
   const groups = new Map<string, LLMConfigGroup>();
   for (const [configId, config] of Object.entries(allLLMConfigs.configs)) {
-    if (config.api_key_env && !(config.api_key_env in apiKeys)) {
+    if (
+      !includeConfigsWithoutApiKey &&
+      config.api_key_env &&
+      !(config.api_key_env in apiKeys)
+    ) {
       continue;
     }
     const groupName = config.provider || "LLM Configs";

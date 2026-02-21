@@ -8,7 +8,7 @@ Read docs/mcp-multi-server-plan.md. Implement the plan. Remember we never need b
 
 Read docs/mcp-multi-server-plan.md. Read the code base. Is the plan fully implemented?
 
-Implement the fixes. Add unit, integration, and playwright tests when appropriate.
+Implement the fixes. Add unit, integration, and playwright tests when appropriate. The CDP MCP server is already running and available for you to use, so do not try to start it up yourself, and you should not run pnpm start or pnpm reset.
 
 Merge the main branch into our current branch. If there are merge conflicts, resolve them, and then afterwards explain your logic for how you resolved each conflict. All branches are up to date (no need to fetch).
 
@@ -19,3 +19,8 @@ Read all the top-level review*.md docs. Present me the consolidated findings, in
 Read all the top-level review*.md docs. Present me the consolidated findings, including the proposed fixes, and the UX/DX before/after the proposed fixes. Exclude fixes that involve adding backward compatibility. Also, are the findings in conflict with our past fixes outlined in cumulative_review.md?
 
 Read the diff of <commit hash>. Write a summary of the changes to a new doc called cumulative_review.md. We are going to be appending to this document in future commits with the same concept (writing a summary of changes of each commit), so put the summary under a heading with the commit hash in the heading.
+
+See the latest github actions tests on the main branch. What are the all errors caused by? Can it be fixed? I also ran the tests locally, see the logs in tests-frontend.log.
+
+Add a new entry to cumulative_review.md (use date time as the heading). Then commit all of that (including cumulative_review.md but excluding the review*.md docs). Remove all top-level review*.md files
+

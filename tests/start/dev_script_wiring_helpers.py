@@ -22,16 +22,27 @@ def write_stub_executable(path: Path, body: str) -> None:
     path.chmod(0o755)
 
 
+def copy_script_libs(scripts_dir: Path, *lib_names: str) -> None:
+    root = repo_root()
+    lib_dir = scripts_dir / "lib"
+    lib_dir.mkdir(parents=True, exist_ok=True)
+    for lib_name in lib_names:
+        src = root / "scripts" / "lib" / lib_name
+        dst = lib_dir / lib_name
+        dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        dst.chmod(0o755)
+
+
 def build_aireset_sandbox(tmp_path: Path) -> Path:
     root = repo_root()
     sandbox_root = tmp_path / "aireset_sandbox"
     scripts_dir = sandbox_root / "scripts"
     scripts_dir.mkdir(parents=True, exist_ok=True)
-    helper_src = root / "scripts" / "lib" / "setta_path_flags.sh"
-    helper_dst = scripts_dir / "lib" / "setta_path_flags.sh"
-    helper_dst.parent.mkdir(parents=True, exist_ok=True)
-    helper_dst.write_text(helper_src.read_text(encoding="utf-8"), encoding="utf-8")
-    helper_dst.chmod(0o755)
+    copy_script_libs(
+        scripts_dir,
+        "setta_path_flags.sh",
+        "setta_port_selection.sh",
+    )
 
     sandbox_aireset = sandbox_root / "aireset.sh"
     sandbox_aireset.write_text(
@@ -79,11 +90,11 @@ def build_run_dev_instance_sandbox(tmp_path: Path) -> Path:
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
         dst.chmod(0o755)
-    helper_src = root / "scripts" / "lib" / "setta_path_flags.sh"
-    helper_dst = scripts_dir / "lib" / "setta_path_flags.sh"
-    helper_dst.parent.mkdir(parents=True, exist_ok=True)
-    helper_dst.write_text(helper_src.read_text(encoding="utf-8"), encoding="utf-8")
-    helper_dst.chmod(0o755)
+    copy_script_libs(
+        scripts_dir,
+        "setta_path_flags.sh",
+        "setta_port_selection.sh",
+    )
 
     activate = sandbox_root / ".venv" / "bin" / "activate"
     activate.parent.mkdir(parents=True, exist_ok=True)
@@ -107,11 +118,11 @@ def build_ai_sandbox(tmp_path: Path) -> Path:
         dst.parent.mkdir(parents=True, exist_ok=True)
         dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
         dst.chmod(0o755)
-    helper_src = root / "scripts" / "lib" / "setta_path_flags.sh"
-    helper_dst = scripts_dir / "lib" / "setta_path_flags.sh"
-    helper_dst.parent.mkdir(parents=True, exist_ok=True)
-    helper_dst.write_text(helper_src.read_text(encoding="utf-8"), encoding="utf-8")
-    helper_dst.chmod(0o755)
+    copy_script_libs(
+        scripts_dir,
+        "setta_path_flags.sh",
+        "setta_port_selection.sh",
+    )
 
     activate = sandbox_root / ".venv" / "bin" / "activate"
     activate.parent.mkdir(parents=True, exist_ok=True)
