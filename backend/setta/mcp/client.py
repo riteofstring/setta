@@ -39,11 +39,9 @@ from setta.logging.errors import log_failure
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, build_namespaced_tool_name
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.types.llm_config import MCPServerConfig
-from setta.types.mcp_runtime_status import MCPServerRuntimeState, MCPServerRuntimeStatus
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 from setta.utils.constants import C
-from setta.utils.timestamps import get_now_timestamp
 
 if TYPE_CHECKING:  # pragma: no cover
     from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
@@ -183,14 +181,6 @@ class _ServerToolCache:
     routing: dict[str, tuple[str, str]]
 
 
-def _resolve_server_endpoint(config: MCPServerConfig) -> str:
-    if config.url is not None and config.url.strip() != "":
-        return config.url
-    if config.command is not None and config.command.strip() != "":
-        return config.command
-    return "(no endpoint)"
-
-
 class MultiMCPClient:
     """Unified interface for multi-server MCP access."""
 
@@ -213,123 +203,9 @@ class MultiMCPClient:
         self.discoverable_tool_definitions: dict[str, ChatCompletionToolParam] = {}
         self.tool_annotations_by_name: dict[str, SettaToolAnnotations | None] = {}
         self.routing: dict[str, tuple[str, str]] = {}
-        self._server_runtime_statuses: dict[str, MCPServerRuntimeStatus] = {}
-        for server_id, config in self.server_configs.items():
-            self._server_runtime_statuses[server_id] = MCPServerRuntimeStatus(
-                serverId=server_id,
-                source="setta_mcp",
-                transport=config.transport,
-                endpoint=_resolve_server_endpoint(config),
-                state=(
-                    MCPServerRuntimeState.disabled
-                    if self.disabled
-                    else MCPServerRuntimeState.unknown
-                ),
-            )
-
-    def get_server_runtime_statuses(self) -> list[MCPServerRuntimeStatus]:
-        return [
-            status.model_copy(deep=True)
-            for _, status in sorted(
-                self._server_runtime_statuses.items(),
-                key=lambda item: item[0],
-            )
-        ]
-
-    def _mark_server_state(
-        self,
-        server_id: str,
-        *,
-        state: MCPServerRuntimeState,
-        update_attempt: bool = False,
-        update_connected: bool = False,
-        update_failure: bool = False,
-        error: str | None = None,
-        missing_env_var: str | None = None,
-        tool_count: int | None = None,
-        reset_failure_count: bool = False,
-        clear_failure_metadata: bool = False,
-    ) -> None:
-        if server_id not in self._server_runtime_statuses:
-            return
-        status = self._server_runtime_statuses[server_id]
-        now = get_now_timestamp()
-        updates: dict[str, Any] = {"state": state}
-        if update_attempt:
-            updates["lastAttemptAt"] = now
-        if update_connected:
-            updates["lastConnectedAt"] = now
-            updates["lastError"] = None
-            updates["missingEnvVar"] = None
-        if update_failure:
-            updates["lastFailureAt"] = now
-            updates["lastError"] = error
-            updates["missingEnvVar"] = missing_env_var
-            updates["consecutiveFailures"] = status.consecutiveFailures + 1
-        elif reset_failure_count:
-            updates["consecutiveFailures"] = 0
-        if clear_failure_metadata:
-            updates["lastError"] = None
-            updates["missingEnvVar"] = None
-        if tool_count is not None:
-            updates["toolCount"] = tool_count
-        self._server_runtime_statuses[server_id] = status.model_copy(update=updates)
-
-    def _mark_connecting(self, server_id: str) -> None:
-        self._mark_server_state(
-            server_id,
-            state=MCPServerRuntimeState.connecting,
-            update_attempt=True,
-        )
-
-    def _mark_connected(self, server_id: str, *, tool_count: int) -> None:
-        self._mark_server_state(
-            server_id,
-            state=MCPServerRuntimeState.connected,
-            update_connected=True,
-            tool_count=tool_count,
-            reset_failure_count=True,
-        )
-
-    def _mark_failure(
-        self,
-        server_id: str,
-        *,
-        error: BaseException,
-        missing_env_var: str | None = None,
-    ) -> None:
-        message = str(error).strip()
-        if message == "":
-            message = error.__class__.__name__
-        self._mark_server_state(
-            server_id,
-            state=MCPServerRuntimeState.error,
-            update_failure=True,
-            error=message,
-            missing_env_var=missing_env_var,
-            tool_count=0,
-        )
-
-    def _mark_retrying(self, server_id: str) -> None:
-        self._mark_server_state(
-            server_id,
-            state=MCPServerRuntimeState.retrying,
-            tool_count=0,
-        )
-
-    def _mark_disabled(self, server_id: str) -> None:
-        self._mark_server_state(
-            server_id,
-            state=MCPServerRuntimeState.disabled,
-            tool_count=0,
-            reset_failure_count=True,
-            clear_failure_metadata=True,
-        )
 
     async def connect_to_servers(self, retry_delay: int = 1) -> None:
         if self.disabled:
-            for server_id in self._server_runtime_statuses:
-                self._mark_disabled(server_id)
             return
         if self._connection_tasks:
             logger.warning("MCP client already running; skipping duplicate start")
@@ -422,8 +298,6 @@ class MultiMCPClient:
 
     async def stop(self) -> None:
         if self.disabled:
-            for server_id in self._server_runtime_statuses:
-                self._mark_disabled(server_id)
             return
         self._is_shutting_down = True
         tasks = list(self._connection_tasks.values())
@@ -439,8 +313,6 @@ class MultiMCPClient:
         self._sessions.clear()
         self._server_tool_cache.clear()
         self._rebuild_tool_cache()
-        for server_id in self._server_runtime_statuses:
-            self._mark_disabled(server_id)
         logger.info("MCP client resources cleaned up successfully")
 
     def init_tool_definitions_for_servers(
@@ -538,23 +410,19 @@ class MultiMCPClient:
         logger.info("Starting MCP client connection to %s (%s)", server_id, config)
 
         while True:
-            should_mark_retrying = True
             try:
                 logger.info("Attempting to connect to %s", server_id)
-                self._mark_connecting(server_id)
                 await self._connect_server_once(server_id, config)
             except asyncio.CancelledError:
                 await asyncio.shield(self._cleanup_server(server_id))
                 raise
-            except asyncio.TimeoutError as exc:
-                self._mark_failure(server_id, error=exc)
+            except asyncio.TimeoutError:
                 logger.warning(
                     "Connection to %s timed out; retrying in %s seconds",
                     server_id,
                     retry_delay,
                 )
             except MissingMCPEnvVarError as exc:
-                self._mark_failure(server_id, error=exc, missing_env_var=exc.var_name)
                 message = (
                     f"MCP server '{server_id}' is missing required environment variable "
                     f"'{exc.var_name}'. Add it to .env to enable this server."
@@ -567,12 +435,10 @@ class MultiMCPClient:
                     message=message,
                     handled=True,
                 )
-                should_mark_retrying = False
-            except Exception as exc:
+            except Exception:
                 if self._is_shutting_down:
                     await self._cleanup_server(server_id)
                     return
-                self._mark_failure(server_id, error=exc)
                 logger.exception(
                     "Connection to %s failed; retrying in %s seconds",
                     server_id,
@@ -582,8 +448,6 @@ class MultiMCPClient:
             await self._cleanup_server(server_id)
             if self._is_shutting_down:
                 return
-            if should_mark_retrying:
-                self._mark_retrying(server_id)
             await asyncio.sleep(retry_delay)
 
     async def _connect_server_once(
@@ -601,7 +465,6 @@ class MultiMCPClient:
         await session.initialize()
         logger.info("Connected to %s", server_id)
         response = await session.list_tools()
-        self._mark_connected(server_id, tool_count=len(response.tools))
         self._update_tool_cache_for_server(server_id, list(response.tools))
         await self._keep_alive(server_id)
 
@@ -676,10 +539,6 @@ class MultiMCPClient:
             logger.debug("Ignoring MCP cleanup error for %s", server_id, exc_info=True)
         self._sessions.pop(server_id, None)
         self._server_tool_cache.pop(server_id, None)
-        if server_id in self._server_runtime_statuses:
-            status = self._server_runtime_statuses[server_id]
-            if status.toolCount != 0:
-                self._mark_server_state(server_id, state=status.state, tool_count=0)
         if rebuild_tool_cache:
             self._rebuild_tool_cache()
 
