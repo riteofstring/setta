@@ -67,7 +67,6 @@ from setta.types.section_impls import (
     BaseDictSectionImpl,
     BaseParentSectionImpl,
     CallableSectionImpl,
-    ChatDictationMode,
     ChatPermissionMode,
     ChatSectionImpl,
     ListRootSectionImpl,
@@ -331,19 +330,16 @@ class TestChatSectionChatId:
         )
         agent_profile_id = ID("agent-1")
         engine_config_id = ID("engine-1")
-        transcription_profile_id = ID("transcription-1")
 
         set_chat_section_settings(
             self.project_state,
             section_id,
             managed=True,
             engineConfigId=engine_config_id,
-            transcriptionProfileId=transcription_profile_id,
             agentProfileId=agent_profile_id,
             thinking=True,
             permissionMode=ChatPermissionMode.yolo,
             searchEnabled=False,
-            dictationMode=ChatDictationMode.provider,
         )
 
         section_impl = get_curr_effective_section_impl_with_type_guard(
@@ -353,12 +349,10 @@ class TestChatSectionChatId:
         )
         assert section_impl.managed
         assert section_impl.engineConfigId == engine_config_id
-        assert section_impl.transcriptionProfileId == transcription_profile_id
         assert section_impl.agentProfileId == agent_profile_id
         assert section_impl.thinking
         assert section_impl.permissionMode == ChatPermissionMode.yolo
         assert not section_impl.searchEnabled
-        assert section_impl.dictationMode == ChatDictationMode.provider
 
 
 class TestPromptSection:

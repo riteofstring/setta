@@ -16,8 +16,6 @@ from setta.types.agentic import (
     AgentProfileList,
     EngineConfig,
     EngineConfigList,
-    TranscriptionProfile,
-    TranscriptionProfileList,
 )
 from setta.types.artifact_messages import UpdateArtifactMsgContent
 from setta.types.chat import APIKeys
@@ -65,7 +63,6 @@ from setta.types.websocket import (
     WebsocketMsgPromptTemplatesUpdated,
     WebsocketMsgReturnRenameRefactorResults,
     WebsocketMsgTerminalMetadata,
-    WebsocketMsgTranscriptionProfilesUpdated,
     WebsocketMsgUpdateArtifacts,
     WebsocketMsgUpdateFrontendProjectState,
     WebsocketMsgUpdateSettings,
@@ -439,19 +436,6 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
     ) -> None:
         await self._broadcast_frontend(
             WebsocketMsgEngineConfigsUpdated(content=EngineConfigList(configs=configs)),
-            share_session_id,
-        )
-
-    async def broadcast_transcription_profiles_update(
-        self,
-        profiles: list[TranscriptionProfile],
-        *,
-        share_session_id: str | None = None,
-    ) -> None:
-        await self._broadcast_frontend(
-            WebsocketMsgTranscriptionProfilesUpdated(
-                content=TranscriptionProfileList(profiles=profiles)
-            ),
             share_session_id,
         )
 

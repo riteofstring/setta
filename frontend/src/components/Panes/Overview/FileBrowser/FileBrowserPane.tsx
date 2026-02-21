@@ -1,4 +1,5 @@
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
+import SettaSLogo from "assets/icons/s-logo-only-og.svg?react";
 import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
@@ -46,6 +47,7 @@ import {
   type FileBrowserSearchScope,
 } from "utils/fileBrowserTypes";
 import {
+  route_check_workspace_initialized,
   route_get_file_browser_download_urls,
   route_get_file_browser_root,
   route_get_folder_contents,
@@ -134,6 +136,26 @@ export function shouldRefreshSettaBadgeDataOnToggleChange({
     !previousIncludeSettaInitializedFolders &&
     nextIncludeSettaInitializedFolders
   );
+}
+
+export function shouldShowSettaInitializedFolderIcon({
+  isFolder,
+  isSettaInitialized,
+}: {
+  isFolder: boolean;
+  isSettaInitialized: boolean;
+}): boolean {
+  return isFolder && isSettaInitialized;
+}
+
+export function shouldCheckRootWorkspaceInitialization({
+  folderPath,
+  rootPath,
+}: {
+  folderPath: string;
+  rootPath: string | null;
+}): boolean {
+  return rootPath !== null && folderPath === rootPath;
 }
 
 export function buildFileBrowserLoadingPathOwner({
@@ -652,7 +674,7 @@ export function FileBrowserPane({
           ignorePatterns: activeIgnorePatterns,
           maxEntries: MAX_ENTRIES,
           includeMtime: true,
-          includeSettaInitialized: includeSettaInitializedFolders,
+          includeSettaInitialized: true,
           missingFolderBehavior: "empty",
         });
         if (rootRequestIdRef.current !== activeRootRequestId) {
@@ -692,6 +714,45 @@ export function FileBrowserPane({
             delete next[folderPath];
             return next;
           });
+          const activeRootPath = fileBrowserState.getState().rootPath;
+          if (activeRootPath === folderPath) {
+            setRootError(null);
+          }
+          if (
+            shouldCheckRootWorkspaceInitialization({
+              folderPath,
+              rootPath: activeRootPath,
+            })
+          ) {
+            const initializationRes = await route_check_workspace_initialized({
+              folderPath,
+            });
+            if (rootRequestIdRef.current !== activeRootRequestId) {
+              return null;
+            }
+            if (folderRequestIdRef.current[folderPath] !== nextRequestId) {
+              return null;
+            }
+            if (res200(initializationRes)) {
+              const isSettaInitialized = initializationRes.data === true;
+              setNodesByPath((prev) => {
+                const folderNode = prev[folderPath];
+                if (!folderNode || folderNode.type !== "folder") {
+                  return prev;
+                }
+                if (folderNode.isSettaInitialized === isSettaInitialized) {
+                  return prev;
+                }
+                return {
+                  ...prev,
+                  [folderPath]: {
+                    ...folderNode,
+                    isSettaInitialized,
+                  },
+                };
+              });
+            }
+          }
         } else {
           let errorMessage = "Failed to load folder contents.";
           const detail = getErrorDetail(res.data);
@@ -701,13 +762,17 @@ export function FileBrowserPane({
             errorMessage = `Failed to load folder contents (${res.status}).`;
           }
           setErrorByPath((prev) => ({ ...prev, [folderPath]: errorMessage }));
+          const activeRootPath = fileBrowserState.getState().rootPath;
+          if (activeRootPath === folderPath) {
+            setRootError(errorMessage);
+          }
         }
         return loadedNodes;
       } finally {
         clearLoadingPathForRequest();
       }
     },
-    [ignorePatterns, includeSettaInitializedFolders],
+    [fileBrowserState, ignorePatterns],
   );
 
   const applyRootPath = useCallback(
@@ -1641,6 +1706,12 @@ function FileBrowserRow({
     return null;
   }
   const isFolder = item.type === "folder";
+  const showSettaInitializedFolderIcon = shouldShowSettaInitializedFolderIcon({
+    isFolder,
+    isSettaInitialized: item.isSettaInitialized === true,
+  });
+  const showSettaInitializedBadgePill =
+    showSettaInitializedBadge && showSettaInitializedFolderIcon;
   const isExpanded = expandedPaths[item.fullPath] === true;
   const isSelected = selectedPath === item.fullPath;
   const isDragTargetFolder = isFolder && dragTargetFolderPath === item.fullPath;
@@ -1821,7 +1892,14 @@ function FileBrowserRow({
           <span className="h-4 w-4" />
         )}
         {isFolder ? (
-          <TbFolder className="text-setta-400" size={14} />
+          showSettaInitializedFolderIcon ? (
+            <SettaSLogo
+              data-testid="setta-initialized-folder-icon"
+              className="h-[14px] w-[14px] shrink-0 text-setta-500 [&>g>path]:fill-current [&>g>rect]:fill-current"
+            />
+          ) : (
+            <TbFolder className="text-setta-400" size={14} />
+          )
         ) : imageUrl ? (
           <img
             src={imageUrl}
@@ -1838,16 +1916,14 @@ function FileBrowserRow({
         >
           {item.name}
         </span>
-        {showSettaInitializedBadge &&
-          isFolder &&
-          item.isSettaInitialized === true && (
-            <span
-              data-testid="setta-initialized-badge"
-              className="rounded-full border border-blue-200 bg-blue-50 px-1.5 py-[1px] text-[9px] font-semibold uppercase tracking-[0.08em] text-blue-700 dark:border-blue-900/80 dark:bg-blue-950/40 dark:text-blue-200"
-            >
-              Setta
-            </span>
-          )}
+        {showSettaInitializedBadgePill && (
+          <span
+            data-testid="setta-initialized-badge"
+            className="rounded-full border border-blue-200 bg-blue-50 px-1.5 py-[1px] text-[9px] font-semibold uppercase tracking-[0.08em] text-blue-700 dark:border-blue-900/80 dark:bg-blue-950/40 dark:text-blue-200"
+          >
+            Setta
+          </span>
+        )}
         {isLoading && (
           <span className="h-3 w-3 animate-spin rounded-full border border-setta-300 border-t-transparent" />
         )}

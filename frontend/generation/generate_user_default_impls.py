@@ -223,7 +223,6 @@ from setta.types.section_impls import (
     BrowserAreaItem,
     BrowserSavedSearch,
     ChatPermissionMode,
-    ChatDictationMode,
     CodeFileBinding,
     ChatSectionBranch,
     TaskBoardColumn,

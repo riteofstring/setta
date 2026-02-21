@@ -30,7 +30,6 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
-  ChatDictationMode,
   createProjectConfig,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
@@ -49,7 +48,6 @@ import {
   SettaProjectNameValidationErrors,
   SettingsState,
   SharePolicy,
-  TranscriptionProfile,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import {
@@ -718,13 +716,7 @@ type ZustandAIStore = {
   engineConfigsInitialLoadComplete: boolean;
   engineConfigsLoadError: string | null;
   engineConfigsLoading: boolean;
-  transcriptionProfiles: Array<TranscriptionProfile>;
-  transcriptionProfilesInitialLoadComplete: boolean;
-  transcriptionProfilesLoadError: string | null;
-  transcriptionProfilesLoading: boolean;
   pendingProjectChatPrompt: string | null;
-  projectChatDictationMode: ChatDictationMode;
-  projectChatTranscriptionProfileId: string | null;
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -766,21 +758,12 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         engineConfigsInitialLoadComplete: false,
         engineConfigsLoadError: null,
         engineConfigsLoading: false,
-        transcriptionProfiles: [],
-        transcriptionProfilesInitialLoadComplete: false,
-        transcriptionProfilesLoadError: null,
-        transcriptionProfilesLoading: false,
         pendingProjectChatPrompt: null,
-        projectChatDictationMode: "auto",
-        projectChatTranscriptionProfileId: null,
       }),
       {
         name: "setta_ai_data",
         partialize: (state) => ({
           viewHistory: state.viewHistory,
-          projectChatDictationMode: state.projectChatDictationMode,
-          projectChatTranscriptionProfileId:
-            state.projectChatTranscriptionProfileId,
         }),
         storage: getPersistStorage(),
       },
@@ -890,6 +873,12 @@ type ZustandLocalStorage = {
   overviewProjectConfigOrder: string[];
   homePageLeftColumnWidth: number;
   homePageRightColumnWidth: number;
+  homeWorkspacePaneVis: boolean;
+  homeWorkspacePaneWidth: number;
+  homeWorkspacePaneTrueWidth: number;
+  homeSelectedProjectPaneVis: boolean;
+  homeSelectedProjectPaneWidth: number;
+  homeSelectedProjectPaneTrueWidth: number;
   appGenerationMode: AppGenerationMode;
   appGenerationPrompt: string;
   appGenerationReferenceImageUrl: string;
@@ -937,6 +926,12 @@ export const useLocalStorage = createWithEqualityFn(
       overviewProjectConfigOrder: [],
       homePageLeftColumnWidth: 320,
       homePageRightColumnWidth: 280,
+      homeWorkspacePaneVis: true,
+      homeWorkspacePaneWidth: 320,
+      homeWorkspacePaneTrueWidth: 320,
+      homeSelectedProjectPaneVis: true,
+      homeSelectedProjectPaneWidth: 320,
+      homeSelectedProjectPaneTrueWidth: 320,
       appGenerationMode: "json_render",
       appGenerationPrompt: "",
       appGenerationReferenceImageUrl: "",
@@ -991,6 +986,29 @@ export const useLocalStorage = createWithEqualityFn(
         }
         if (typeof merged.homePageRightColumnWidth !== "number") {
           merged.homePageRightColumnWidth = 280;
+        }
+        if (typeof merged.homeWorkspacePaneVis !== "boolean") {
+          merged.homeWorkspacePaneVis = true;
+        }
+        if (typeof merged.homeWorkspacePaneWidth !== "number") {
+          merged.homeWorkspacePaneWidth = 320;
+        }
+        if (typeof merged.homeWorkspacePaneTrueWidth !== "number") {
+          merged.homeWorkspacePaneTrueWidth = merged.homeWorkspacePaneVis
+            ? merged.homeWorkspacePaneWidth
+            : CLOSED_PANE_WIDTH;
+        }
+        if (typeof merged.homeSelectedProjectPaneVis !== "boolean") {
+          merged.homeSelectedProjectPaneVis = true;
+        }
+        if (typeof merged.homeSelectedProjectPaneWidth !== "number") {
+          merged.homeSelectedProjectPaneWidth = 320;
+        }
+        if (typeof merged.homeSelectedProjectPaneTrueWidth !== "number") {
+          merged.homeSelectedProjectPaneTrueWidth =
+            merged.homeSelectedProjectPaneVis
+              ? merged.homeSelectedProjectPaneWidth
+              : CLOSED_PANE_WIDTH;
         }
         if (!isOverviewTabKey(merged.overviewTab)) {
           merged.overviewTab = OverviewTabNameEnum.Overview;
