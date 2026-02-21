@@ -50,6 +50,7 @@ describe("createFolderPathCompletionSource", () => {
       folderPath: "/root",
       ignorePatterns: null,
       maxEntries: null,
+      allowOutsideWorkspaceRoot: false,
       missingFolderBehavior: "empty",
     });
     expect(result?.options.map((option) => option.label)).toEqual([
@@ -77,6 +78,32 @@ describe("createFolderPathCompletionSource", () => {
     const result = await source(buildContext("/etc/"));
     expect(result).toBeNull();
     expect(mockedGetFolderContents).not.toHaveBeenCalled();
+  });
+
+  it("supports absolute completions outside the root when enabled", async () => {
+    mockedGetFolderContents.mockResolvedValue({
+      data: [{ name: "projects", type: "folder", fullPath: "/Users/projects" }],
+      status: 200,
+      hasResponse: true,
+    });
+
+    const source = createFolderPathCompletionSource({
+      rootPath: "/root/project",
+      allowOutsideWorkspaceRoot: true,
+    });
+    if (!source) {
+      throw new Error("Missing completion source.");
+    }
+
+    const result = await source(buildContext("/Users/p"));
+    expect(mockedGetFolderContents).toHaveBeenCalledWith({
+      folderPath: "/Users",
+      ignorePatterns: null,
+      maxEntries: null,
+      allowOutsideWorkspaceRoot: true,
+      missingFolderBehavior: "empty",
+    });
+    expect(result?.options.map((option) => option.label)).toEqual(["projects"]);
   });
 
   it("uses backslashes when completing Windows-style paths", async () => {

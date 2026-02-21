@@ -1,12 +1,9 @@
-import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from setta.agentic.external_adapters.codex_app_server import (
     CodexAppServerAdapter,
-    _MCP_STATUS_REQUEST_TIMEOUT_SECONDS,
-    _REQUEST_TIMEOUT_SECONDS,
     _CodexAppServerEventParser,
     _build_approval_payload,
     _build_turn_params,
@@ -1048,121 +1045,3 @@ class TestCodexAppServerAdapterMapping:
         assert params.get("summary") == "auto"
         assert params.get("outputSchema") == output_schema
         assert params.get("cwd") == str(context.working_dir)
-
-
-class TestCodexAppServerMcpStatusProbe:
-    @staticmethod
-    def _build_context() -> ExternalAgentRunContext:
-        config = ExternalAgentConfig(
-            id=ID("codex-config"),
-            name="Codex",
-            toolType=ExternalAgentToolType.codex,
-            runMode=ExternalAgentRunMode.app_server,
-        )
-        return ExternalAgentRunContext(
-            run=AgentRun(id=ID("run-1"), inputs={"messages": []}),
-            config=config,
-            profile=None,
-            project_config_id=ID("project-1"),
-            chat_id=ID("chat-1"),
-            section_id=None,
-            inputs={},
-            system_prompt="",
-            working_dir=Path("."),
-            env={},
-        )
-
-    @pytest.mark.asyncio
-    async def test_start_run_uses_short_timeout_for_mcp_status_probe(self) -> None:
-        adapter = CodexAppServerAdapter()
-        state = SimpleNamespace(
-            process=SimpleNamespace(),
-            lock=asyncio.Lock(),
-            stderr_lines=[],
-            thread_id=None,
-        )
-        sent_timeouts: dict[str, float] = {}
-
-        async def _ensure_process_state(_context: ExternalAgentRunContext):
-            return state
-
-        async def _initialize(_state) -> None:
-            return None
-
-        async def _send_request(
-            _state,
-            method: str,
-            _params,
-            *,
-            timeout_seconds: float = _REQUEST_TIMEOUT_SECONDS,
-        ):
-            sent_timeouts[method] = timeout_seconds
-            if method == "thread/start":
-                return {"threadId": "thread-1"}
-            if method == "turn/start":
-                return {}
-            if method == "mcpServerStatus/list":
-                return {"servers": [{"id": "setta", "connected": True}]}
-            raise AssertionError(f"Unexpected request method: {method}")
-
-        adapter._ensure_process_state = _ensure_process_state
-        adapter._initialize = _initialize
-        adapter._send_request = _send_request
-
-        handle = await adapter.start_run(self._build_context())
-
-        # Core run startup keeps the standard timeout, while optional MCP status
-        # probing is bounded tightly.
-        assert sent_timeouts.get("thread/start") == _REQUEST_TIMEOUT_SECONDS
-        assert sent_timeouts.get("turn/start") == _REQUEST_TIMEOUT_SECONDS
-        assert (
-            sent_timeouts.get("mcpServerStatus/list")
-            == _MCP_STATUS_REQUEST_TIMEOUT_SECONDS
-        )
-        assert handle.metadata.get("mcp_server_status_payload") == {
-            "servers": [{"id": "setta", "connected": True}]
-        }
-        state.lock.release()
-
-    @pytest.mark.asyncio
-    async def test_start_run_continues_when_mcp_status_probe_fails(self) -> None:
-        adapter = CodexAppServerAdapter()
-        state = SimpleNamespace(
-            process=SimpleNamespace(),
-            lock=asyncio.Lock(),
-            stderr_lines=[],
-            thread_id=None,
-        )
-
-        async def _ensure_process_state(_context: ExternalAgentRunContext):
-            return state
-
-        async def _initialize(_state) -> None:
-            return None
-
-        async def _send_request(
-            _state,
-            method: str,
-            _params,
-            *,
-            timeout_seconds: float = _REQUEST_TIMEOUT_SECONDS,
-        ):
-            if method == "thread/start":
-                return {"threadId": "thread-1"}
-            if method == "turn/start":
-                return {}
-            if method == "mcpServerStatus/list":
-                raise RuntimeError(
-                    f"probe timeout {timeout_seconds} for {method}"
-                )
-            raise AssertionError(f"Unexpected request method: {method}")
-
-        adapter._ensure_process_state = _ensure_process_state
-        adapter._initialize = _initialize
-        adapter._send_request = _send_request
-
-        handle = await adapter.start_run(self._build_context())
-
-        # Startup should succeed even when the optional status probe fails.
-        assert "mcp_server_status_payload" not in handle.metadata
-        state.lock.release()

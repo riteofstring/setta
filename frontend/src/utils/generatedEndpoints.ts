@@ -163,6 +163,15 @@ export async function route_check_if_file_exists(
   return await post("/checkIfFileExists", x);
 }
 
+export async function route_check_workspace_initialized(
+  x: {
+    folderPath: string;
+    allowOutsideWorkspaceRoot?: boolean;
+  },
+): Promise<ResponseDataAndStatus<boolean>> {
+  return await post("/checkWorkspaceInitialized", x);
+}
+
 export async function route_get_file_browser_root(): Promise<
   ResponseDataAndStatus<gt.GetFileBrowserRootResponse>
 > {
@@ -1563,12 +1572,6 @@ export async function route_get_setta_home_info(): Promise<
   ResponseDataAndStatus<gt.SettaHomeInfoResponse>
 > {
   return await get("/settaHomeInfo");
-}
-
-export async function route_get_mcp_server_runtime_status(
-  x: gt.GetMCPServerRuntimeStatusRequestInput,
-): Promise<ResponseDataAndStatus<gt.MCPServerRuntimeStatusResponse>> {
-  return await post("/mcpServerRuntimeStatus", x);
 }
 
 export async function route_reveal_path_in_os_file_explorer(

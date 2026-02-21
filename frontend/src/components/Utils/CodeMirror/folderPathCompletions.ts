@@ -1,6 +1,7 @@
 import type { Completion, CompletionSource } from "@codemirror/autocomplete";
 import {
   isAbsoluteBrowserPath,
+  normalizeBrowserPath,
   resolvePathWithinRoot,
 } from "utils/browserPaths";
 import { res200 } from "utils/endpointUtils";
@@ -12,6 +13,7 @@ type FolderPathCompletionOptions = {
   pathSeparator?: string;
   ignorePatterns?: string[] | null;
   maxEntries?: number;
+  allowOutsideWorkspaceRoot?: boolean;
 };
 
 function resolveSeparator(text: string, fallback: string): string {
@@ -46,17 +48,20 @@ async function loadFolderEntries({
   folderPath,
   ignorePatterns,
   maxEntries,
+  allowOutsideWorkspaceRoot,
 }: {
   folderPath: string;
   ignorePatterns: string[] | null | undefined;
   maxEntries: number | undefined;
+  allowOutsideWorkspaceRoot: boolean | undefined;
 }): Promise<FolderContentItem[]> {
   const res = await route_get_folder_contents({
     folderPath,
     ignorePatterns: ignorePatterns ?? null,
     maxEntries: maxEntries ?? null,
+    allowOutsideWorkspaceRoot: allowOutsideWorkspaceRoot ?? false,
     missingFolderBehavior: "empty",
-  });
+  } as Parameters<typeof route_get_folder_contents>[0]);
   if (!res200(res)) {
     return [];
   }
@@ -87,6 +92,7 @@ export function createFolderPathCompletionSource(
       folderPath,
       ignorePatterns: options.ignorePatterns,
       maxEntries: options.maxEntries,
+      allowOutsideWorkspaceRoot: options.allowOutsideWorkspaceRoot,
     }).then((entries) => {
       inflight.delete(folderPath);
       cache.set(folderPath, entries);
@@ -103,7 +109,8 @@ export function createFolderPathCompletionSource(
     }
     if (
       isAbsoluteBrowserPath(textBefore) &&
-      !resolvePathWithinRoot(textBefore, options.rootPath)
+      !resolvePathWithinRoot(textBefore, options.rootPath) &&
+      !options.allowOutsideWorkspaceRoot
     ) {
       return null;
     }
@@ -112,7 +119,14 @@ export function createFolderPathCompletionSource(
       textBefore,
       fallbackSeparator,
     );
-    const targetFolder = resolvePathWithinRoot(dirPart || "", options.rootPath);
+    const absoluteCandidate = dirPart || separator;
+    const targetFolder =
+      (options.allowOutsideWorkspaceRoot && isAbsoluteBrowserPath(textBefore)
+        ? resolvePathWithinRoot(
+            normalizeBrowserPath(absoluteCandidate),
+            "/",
+          )
+        : null) ?? resolvePathWithinRoot(dirPart || "", options.rootPath);
     if (!targetFolder) {
       return null;
     }
@@ -173,6 +187,7 @@ export function createDynamicFolderPathCompletionSource(
       folderPath,
       ignorePatterns: options.ignorePatterns,
       maxEntries: options.maxEntries,
+      allowOutsideWorkspaceRoot: options.allowOutsideWorkspaceRoot,
     }).then((entries) => {
       inflight.delete(folderPath);
       cache.set(folderPath, entries);
@@ -203,7 +218,8 @@ export function createDynamicFolderPathCompletionSource(
     }
     if (
       isAbsoluteBrowserPath(textBefore) &&
-      !resolvePathWithinRoot(textBefore, options.rootPath)
+      !resolvePathWithinRoot(textBefore, options.rootPath) &&
+      !options.allowOutsideWorkspaceRoot
     ) {
       return null;
     }
@@ -212,7 +228,14 @@ export function createDynamicFolderPathCompletionSource(
       textBefore,
       fallbackSeparator,
     );
-    const targetFolder = resolvePathWithinRoot(dirPart || "", options.rootPath);
+    const absoluteCandidate = dirPart || separator;
+    const targetFolder =
+      (options.allowOutsideWorkspaceRoot && isAbsoluteBrowserPath(textBefore)
+        ? resolvePathWithinRoot(
+            normalizeBrowserPath(absoluteCandidate),
+            "/",
+          )
+        : null) ?? resolvePathWithinRoot(dirPart || "", options.rootPath);
     if (!targetFolder) {
       return null;
     }

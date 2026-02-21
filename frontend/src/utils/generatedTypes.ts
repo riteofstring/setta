@@ -107,8 +107,6 @@ export const EngineTypeEnum = {
   external_agent: "external_agent",
 } as const;
 
-export type EngineType = ObjectValues<typeof EngineTypeEnum>;
-
 export const AgenticEdgeContextModeEnum = {
   reference_only: "reference_only",
   inline_text: "inline_text",
@@ -361,10 +359,6 @@ export const ExternalAgentToolTypeEnum = {
   plugin: "plugin",
 } as const;
 
-export type ExternalAgentToolType = ObjectValues<
-  typeof ExternalAgentToolTypeEnum
->;
-
 export const ExternalAgentWorkingDirStrategyEnum = {
   project_root: "project_root",
   temp_dir: "temp_dir",
@@ -438,19 +432,6 @@ export const TextBlockFormatEnum = {
 } as const;
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
-
-const MCPServerRuntimeStateEnum = {
-  connected: "connected",
-  connecting: "connecting",
-  retrying: "retrying",
-  error: "error",
-  disabled: "disabled",
-  unknown: "unknown",
-} as const;
-
-export type MCPServerRuntimeState = ObjectValues<
-  typeof MCPServerRuntimeStateEnum
->;
 
 const SettaBackendLogEventSeverityEnum = {
   critical: "critical",
@@ -531,7 +512,6 @@ export const RouteEnum = {
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   GET_SERVER_MODE: "/serverMode",
   GET_SETTA_HOME_INFO: "/settaHomeInfo",
-  GET_MCP_SERVER_RUNTIME_STATUS: "/mcpServerRuntimeStatus",
   PLUGINS_RUNTIME: "/plugins/runtime",
   PLUGINS_INSTALL: "/plugins/install",
   PLUGINS_UNINSTALL: "/plugins/uninstall",
@@ -2673,17 +2653,17 @@ const TaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "952ba8c3-cb0a-475d-a0e9-c13d3390044f" as const,
+      id: "b82b660e-6479-4e06-8bb3-759a0ed16fc2" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "4b98285a-9f5b-4437-bdb2-018dcb1e60ea" as const,
+      id: "67795cdb-d80a-4842-854c-d535ab397a62" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "335fe52b-87c2-4849-8f33-da2de4a0769f" as const,
+      id: "f82b50cc-61dd-47f8-9f78-fb666c8a0eb5" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
@@ -6061,17 +6041,17 @@ const UserDefaultTaskBoardSectionImplSchema = z.object({
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
   columns: z.array(TaskBoardColumnSchema).default(() => [
     createTaskBoardColumn({
-      id: "5cdf357e-44e0-493b-b48f-d2821084f85f" as const,
+      id: "885a1622-5b8b-4725-ac09-e8b1b6b71e06" as const,
       name: "Todo" as const,
     }),
     createTaskBoardColumn({
-      id: "4527326d-6b3e-4641-9b43-2ea42361126f" as const,
+      id: "196a95f6-ce33-43fc-b526-9ab1ab322f36" as const,
       name: "Doing" as const,
       color: "#a855f7" as const,
       sortIndex: 1,
     }),
     createTaskBoardColumn({
-      id: "91d9823e-c8c9-4816-abfb-70262772b609" as const,
+      id: "f5163822-0c56-47c5-abed-09bb4e43e229" as const,
       name: "Done" as const,
       color: "#10b981" as const,
       sortIndex: 2,
@@ -7985,47 +7965,6 @@ const ListenerCoverageRequestSchema = z.object({
 
 export type ListenerCoverageRequestInput = z.input<
   typeof ListenerCoverageRequestSchema
->;
-
-const GetMCPServerRuntimeStatusRequestSchema = z.object({
-  chatId: z.union([IDSchema, z.null()]).default(null),
-  engineConfigId: z.union([IDSchema, z.null()]).default(null),
-});
-
-export type GetMCPServerRuntimeStatusRequestInput = z.input<
-  typeof GetMCPServerRuntimeStatusRequestSchema
->;
-
-const MCPServerRuntimeStatusSchema = z.object({
-  serverId: z.string(),
-  source: z.string().default("setta_mcp" as const),
-  transport: z.string(),
-  endpoint: z.string(),
-  state: z
-    .enum(MCPServerRuntimeStateEnum)
-    .default(MCPServerRuntimeStateEnum.unknown),
-  lastAttemptAt: z.union([z.iso.datetime(), z.null()]).default(null),
-  lastConnectedAt: z.union([z.iso.datetime(), z.null()]).default(null),
-  lastFailureAt: z.union([z.iso.datetime(), z.null()]).default(null),
-  consecutiveFailures: z.int().default(0),
-  lastError: z.union([z.string(), z.null()]).default(null),
-  missingEnvVar: z.union([z.string(), z.null()]).default(null),
-  toolCount: z.int().default(0),
-});
-
-export type MCPServerRuntimeStatus = z.infer<
-  typeof MCPServerRuntimeStatusSchema
->;
-
-const MCPServerRuntimeStatusResponseSchema = z.object({
-  llmConfigPath: z.string(),
-  activeSettaFilesLocation: z.union([z.string(), z.null()]),
-  servers: z.array(MCPServerRuntimeStatusSchema).default([]),
-  externalServers: z.array(MCPServerRuntimeStatusSchema).default([]),
-});
-
-export type MCPServerRuntimeStatusResponse = z.infer<
-  typeof MCPServerRuntimeStatusResponseSchema
 >;
 
 const ServerModeResponseSchema = z.object({
@@ -11193,7 +11132,7 @@ export type RevealPathInOsFileExplorerRequestInput = z.input<
 const SettaHomeInfoResponseSchema = z.object({
   settaHome: z.string(),
   globalSettaFilesBase: z.string(),
-  activeSettaFilesLocation: z.union([z.string(), z.null()]),
+  activeSettaFilesLocation: z.string(),
   llmConfigPath: z.string(),
 });
 
