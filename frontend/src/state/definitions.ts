@@ -871,8 +871,10 @@ type ZustandLocalStorage = {
   homeProjectGalleryViewMode: HomeProjectGalleryViewMode;
   favoriteProjectConfigIds: string[];
   overviewProjectConfigOrder: string[];
-  homePageLeftColumnWidth: number;
-  homePageRightColumnWidth: number;
+  homeWorkspacePaneVis: boolean;
+  homeWorkspacePaneWidth: number;
+  homeSelectedProjectPaneVis: boolean;
+  homeSelectedProjectPaneWidth: number;
   appGenerationMode: AppGenerationMode;
   appGenerationPrompt: string;
   appGenerationReferenceImageUrl: string;
@@ -918,8 +920,10 @@ export const useLocalStorage = createWithEqualityFn(
       homeProjectGalleryViewMode: "thumbnails",
       favoriteProjectConfigIds: [],
       overviewProjectConfigOrder: [],
-      homePageLeftColumnWidth: 320,
-      homePageRightColumnWidth: 280,
+      homeWorkspacePaneVis: true,
+      homeWorkspacePaneWidth: 320,
+      homeSelectedProjectPaneVis: true,
+      homeSelectedProjectPaneWidth: 320,
       appGenerationMode: "json_render",
       appGenerationPrompt: "",
       appGenerationReferenceImageUrl: "",
@@ -953,6 +957,11 @@ export const useLocalStorage = createWithEqualityFn(
           ...currentState,
           ...persisted,
         };
+        delete (merged as Record<string, unknown>).homePageLeftColumnWidth;
+        delete (merged as Record<string, unknown>).homePageRightColumnWidth;
+        delete (merged as Record<string, unknown>).homeWorkspacePaneTrueWidth;
+        delete (merged as Record<string, unknown>)
+          .homeSelectedProjectPaneTrueWidth;
 
         if (persisted.colorMode === undefined) {
           merged.colorMode = merged.darkMode ? "dark" : "light";
@@ -969,11 +978,17 @@ export const useLocalStorage = createWithEqualityFn(
         if (!Array.isArray(merged.overviewProjectConfigOrder)) {
           merged.overviewProjectConfigOrder = [];
         }
-        if (typeof merged.homePageLeftColumnWidth !== "number") {
-          merged.homePageLeftColumnWidth = 320;
+        if (typeof merged.homeWorkspacePaneVis !== "boolean") {
+          merged.homeWorkspacePaneVis = true;
         }
-        if (typeof merged.homePageRightColumnWidth !== "number") {
-          merged.homePageRightColumnWidth = 280;
+        if (typeof merged.homeWorkspacePaneWidth !== "number") {
+          merged.homeWorkspacePaneWidth = 320;
+        }
+        if (typeof merged.homeSelectedProjectPaneVis !== "boolean") {
+          merged.homeSelectedProjectPaneVis = true;
+        }
+        if (typeof merged.homeSelectedProjectPaneWidth !== "number") {
+          merged.homeSelectedProjectPaneWidth = 320;
         }
         if (!isOverviewTabKey(merged.overviewTab)) {
           merged.overviewTab = OverviewTabNameEnum.Overview;

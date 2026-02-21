@@ -41,10 +41,12 @@ from setta.utils.attachment_policy import (
 from setta.utils.attachment_tokens import AttachmentTokenManager
 from setta.utils.constants import C
 from setta.utils.paths import (
+    build_files_root_from_base,
     ensure_within_workspace_root,
     get_setta_paths,
     normalize_workspace_path,
 )
+from setta.utils.user_config import load_setta_user_config
 
 router = SettaAPIRouter()
 TArtifact = TypeVar("TArtifact")
@@ -59,6 +61,7 @@ DEFAULT_FILE_BROWSER_IGNORE_PATTERNS = [
 ]
 DEFAULT_FILE_BROWSER_MAX_ENTRIES = 5000
 DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES = 10 * 1024 * 1024
+_LOCAL_SETTA_FILES_FOLDER_NAMES = ("setta_files", "setta_files_dev")
 _FILE_BROWSER_TOKEN_MANAGER = AttachmentTokenManager(
     C.CHAT_ATTACHMENTS_TOKEN_TTL_SECONDS
 )
@@ -66,6 +69,11 @@ _FILE_BROWSER_TOKEN_MANAGER = AttachmentTokenManager(
 
 class CheckIfFileExistsRequests(BaseModel):
     filepath: str
+
+
+class CheckWorkspaceInitializedRequest(BaseModel):
+    folderPath: str
+    allowOutsideWorkspaceRoot: bool = False
 
 
 class GetFileBrowserRootResponse(BaseModel):
@@ -76,6 +84,7 @@ class GetFileBrowserRootResponse(BaseModel):
 
 class GetFolderContentsRequest(BaseModel):
     folderPath: str
+    allowOutsideWorkspaceRoot: bool = False
     includeMtime: bool = False
     includeSize: bool = False
     includeHidden: bool = False
@@ -260,11 +269,14 @@ def _resolve_folder_path(
     *,
     share_mode: bool,
     deployment_root: Path | None,
+    allow_outside_workspace_root: bool = False,
 ) -> Path:
     if share_mode:
         return ensure_share_deployment_path(folder_path, deployment_root)
     workspace_root = get_setta_paths().workspace_root
     resolved = normalize_workspace_path(folder_path, workspace_root=workspace_root)
+    if allow_outside_workspace_root:
+        return resolved
     try:
         return ensure_within_workspace_root(
             resolved, label="Folder path", workspace_root=workspace_root
@@ -424,6 +436,26 @@ def _is_under_ignored_root(path: Path, ignored_roots: tuple[Path, ...]) -> bool:
     return False
 
 
+def _resolve_global_setta_files_base() -> Path:
+    paths = get_setta_paths()
+    config = load_setta_user_config(setta_home=paths.setta_home)
+    return config.global_setta_files_base.resolve(strict=False)
+
+
+def _is_initialized_workspace_folder(
+    path: Path,
+    *,
+    global_setta_files_base: Path,
+) -> bool:
+    for folder_name in _LOCAL_SETTA_FILES_FOLDER_NAMES:
+        if (path / folder_name).is_dir():
+            return True
+    global_root = build_files_root_from_base(global_setta_files_base, path).resolve(
+        strict=False
+    )
+    return global_root.is_dir()
+
+
 @router.post(Route.CHECK_IF_FILE_EXISTS)
 def route_check_if_file_exists(
     x: CheckIfFileExistsRequests, ctx: RuntimeContextFromRequest
@@ -446,6 +478,31 @@ def route_check_if_file_exists(
             detail=str(exc),
         ) from exc
     return resolved.exists()
+
+
+@router.post(Route.CHECK_WORKSPACE_INITIALIZED)
+def route_check_workspace_initialized(
+    x: CheckWorkspaceInitializedRequest,
+    ctx: RuntimeContextFromRequest,
+) -> bool:
+    if ctx.deployment_mode:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="File browsing is disabled in deployment mode.",
+        )
+    path = _resolve_folder_path(
+        x.folderPath,
+        share_mode=ctx.deployment_mode,
+        deployment_root=ctx.deployment_root,
+        allow_outside_workspace_root=x.allowOutsideWorkspaceRoot,
+    )
+    if not path.exists() or not path.is_dir():
+        return False
+    global_setta_files_base = _resolve_global_setta_files_base()
+    return _is_initialized_workspace_folder(
+        path,
+        global_setta_files_base=global_setta_files_base,
+    )
 
 
 @router.post(Route.GET_FILE_BROWSER_ROOT)
@@ -478,6 +535,7 @@ def route_get_folder_contents(
         x.folderPath,
         share_mode=ctx.deployment_mode,
         deployment_root=ctx.deployment_root,
+        allow_outside_workspace_root=x.allowOutsideWorkspaceRoot,
     )
 
     # Check if path exists and is a directory
@@ -509,6 +567,9 @@ def route_get_folder_contents(
     include_mtime = x.includeMtime
     include_size = x.includeSize
     include_setta_initialized = x.includeSettaInitialized
+    global_setta_files_base = (
+        _resolve_global_setta_files_base() if include_setta_initialized else None
+    )
 
     for item in path.iterdir():
         if _is_under_ignored_root(item, internal_ignore_roots):
@@ -535,7 +596,12 @@ def route_get_folder_contents(
             if include_size:
                 entry["size"] = stat_result.st_size
         if include_setta_initialized and is_dir:
-            entry["isSettaInitialized"] = (item / "setta_files").is_dir()
+            if global_setta_files_base is None:
+                raise ValueError("Missing global setta files base path.")
+            entry["isSettaInitialized"] = _is_initialized_workspace_folder(
+                item,
+                global_setta_files_base=global_setta_files_base,
+            )
         contents.append(entry)
         if len(contents) >= max_entries:
             break
