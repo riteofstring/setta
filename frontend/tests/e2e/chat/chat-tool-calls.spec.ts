@@ -68,7 +68,9 @@ test.describe.serial("chat tool calls", () => {
         },
       });
 
-      const toolCard = section.locator('[data-chat-assistant-tool-call-card="true"]');
+      const toolCard = section.locator(
+        '[data-chat-assistant-tool-call-card="true"]',
+      );
       await expect(toolCard).toHaveCount(1);
 
       const toolSection = toolCard
@@ -83,14 +85,18 @@ test.describe.serial("chat tool calls", () => {
       await expect(toolSection).toContainText("Stopped Mid-Tool Call");
 
       // Tool-call-only runs should not render a speech bubble.
-      await expect(section.locator('[data-chat-assistant-bubble="true"]')).toHaveCount(0);
+      await expect(
+        section.locator('[data-chat-assistant-bubble="true"]'),
+      ).toHaveCount(0);
 
       // Interrupted tool calls should not show a running spinner state.
       await expect(toolSection.locator(".gg-spinner")).toHaveCount(0);
 
       await toolSection.getByText("Tool calls").click();
 
-      const toolItems = toolSection.locator('[data-chat-tool-call-item="true"]');
+      const toolItems = toolSection.locator(
+        '[data-chat-tool-call-item="true"]',
+      );
       await expect(toolItems).toHaveCount(2);
 
       // Keep tool call rows close to full width with compact vertical height.
@@ -208,7 +214,9 @@ test.describe.serial("chat tool calls", () => {
       await expect(actionSection).toBeVisible();
       await actionSection.getByText("Actions").click();
 
-      const actionItems = actionSection.locator('[data-chat-action-item="true"]');
+      const actionItems = actionSection.locator(
+        '[data-chat-action-item="true"]',
+      );
       await expect(actionItems).toHaveCount(2);
 
       const diffItem = actionItems.nth(0);
@@ -217,12 +225,12 @@ test.describe.serial("chat tool calls", () => {
         '[data-chat-structured-output-part="output"][data-chat-structured-output-kind="diff"]',
       );
       await expect(diffOutput).toBeVisible();
-      await expect(diffOutput.locator('[data-chat-diff-line-kind="add"]')).toHaveCount(
-        1,
-      );
-      await expect(diffOutput.locator('[data-chat-diff-line-kind="del"]')).toHaveCount(
-        1,
-      );
+      await expect(
+        diffOutput.locator('[data-chat-diff-line-kind="add"]'),
+      ).toHaveCount(1);
+      await expect(
+        diffOutput.locator('[data-chat-diff-line-kind="del"]'),
+      ).toHaveCount(1);
 
       const yamlItem = actionItems.nth(1);
       await yamlItem.locator("button").first().click();
@@ -231,6 +239,125 @@ test.describe.serial("chat tool calls", () => {
       );
       await expect(yamlOutput).toBeVisible();
       await expect(yamlOutput).toContainText("name: setta");
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("groups consecutive thoughts, actions, and tool calls under one parent activity accordion", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_activity_parent_grouping__",
+      );
+
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      await setChatSectionState(page, {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        state: {
+          messages: [
+            {
+              id: "activity-group-thought-1",
+              role: "assistant",
+              content: [
+                {
+                  type: "thinking",
+                  thinking: "Reviewing repository structure before changes.",
+                  summary: "Reviewing structure",
+                },
+              ],
+              attachments: [],
+              tool_calls: null,
+            },
+            {
+              id: "activity-group-action-1",
+              role: "assistant",
+              content: [],
+              attachments: [],
+              tool_calls: [
+                {
+                  id: "activity-group-action-call-1",
+                  type: "function",
+                  function: {
+                    name: "command_execution",
+                    arguments: {
+                      command: "rg --files frontend/src/components/Chat",
+                    },
+                  },
+                },
+              ],
+            },
+            {
+              id: "activity-group-tool-1",
+              role: "assistant",
+              content: [],
+              attachments: [],
+              tool_calls: [
+                {
+                  id: "activity-group-tool-call-1",
+                  type: "function",
+                  function: {
+                    name: "setta__run_tests",
+                    arguments: { target: "chat" },
+                  },
+                },
+              ],
+            },
+            {
+              id: "activity-group-action-result-1",
+              role: "tool",
+              tool_call_id: "activity-group-action-call-1",
+              tool_name: "command_execution",
+              arguments: { command: "rg --files frontend/src/components/Chat" },
+              result: "frontend/src/components/Chat/ChatMessages.tsx",
+              content: [],
+              is_error: false,
+            },
+            {
+              id: "activity-group-tool-result-1",
+              role: "tool",
+              tool_call_id: "activity-group-tool-call-1",
+              tool_name: "setta__run_tests",
+              arguments: { target: "chat" },
+              result: { ok: true },
+              content: [],
+              is_error: false,
+            },
+          ],
+          inputText: "",
+          waitingForResponse: false,
+          toolCallArguments: {},
+        },
+      });
+
+      const activitySections = section.locator(
+        '[data-chat-assistant-activity-section="true"]',
+      );
+      await expect(activitySections).toHaveCount(1);
+
+      await expect(
+        section.locator('[data-chat-thinking-list-section="true"]'),
+      ).toHaveCount(1);
+      await expect(
+        section.locator('[data-chat-action-section="true"]'),
+      ).toHaveCount(1);
+      await expect(
+        section.locator('[data-chat-tool-call-section="true"]'),
+      ).toHaveCount(1);
+
+      await expect(
+        section.locator('[data-chat-thinking-list-count-badge="true"]'),
+      ).toHaveText("1");
+      await expect(section).toContainText("Reviewing structure");
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }

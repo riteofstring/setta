@@ -302,8 +302,9 @@ describe("ChatMessages tool call status", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    const sectionCount = (markup.match(/data-chat-tool-call-section="true"/g) ?? [])
-      .length;
+    const sectionCount = (
+      markup.match(/data-chat-tool-call-section="true"/g) ?? []
+    ).length;
     expect(sectionCount).toBe(1);
     expect(markup).toContain("Tool calls");
     expect(markup).toContain('data-chat-tool-call-count-badge="true"');
@@ -435,8 +436,9 @@ describe("ChatMessages tool call status", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    const sectionCount = (markup.match(/data-chat-tool-call-section="true"/g) ?? [])
-      .length;
+    const sectionCount = (
+      markup.match(/data-chat-tool-call-section="true"/g) ?? []
+    ).length;
     expect(sectionCount).toBe(1);
     expect(markup).toContain("Tool calls");
     expect(markup).toContain('data-chat-tool-call-count-badge="true"');
@@ -657,7 +659,8 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(bubbleIndex).toBeGreaterThan(-1);
     expect(reasoningIndex).toBeLessThan(bubbleIndex);
     expect(markup).toContain('data-chat-thinking-section="true"');
-    expect(markup).toContain("rounded-md border border-setta-200/70");
+    expect(markup).toContain('data-chat-assistant-activity-section="true"');
+    expect(markup).not.toContain("rounded-md border border-setta-200/70");
     expect(markup).toContain(
       "group flex w-full max-w-[min(90%,820px)] flex-col items-start gap-2",
     );
@@ -709,6 +712,34 @@ describe("ChatMessages assistant reasoning layout", () => {
 
     expect(markup).toContain('data-chat-thinking-timer="true"');
     expect(markup).toContain("00:00");
+  });
+
+  it("keeps streaming thought previews stable as Thinking... until completion", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-streaming-stable-summary",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "Interim reasoning body that changes quickly.",
+            summary:
+              "Interim summary text that should not appear while streaming.",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={true} />,
+    );
+
+    expect(markup).toContain("Thought: Thinking...");
+    expect(markup).toContain("Thinking...");
+    expect(markup).not.toContain(
+      "Interim summary text that should not appear while streaming.",
+    );
   });
 
   it("shows a checkmark-only status for completed reasoning sections", () => {
@@ -838,12 +869,143 @@ describe("ChatMessages assistant reasoning layout", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(countOccurrences(markup, 'data-chat-thinking-list-section="true"')).toBe(
-      1,
-    );
+    expect(
+      countOccurrences(markup, 'data-chat-thinking-list-section="true"'),
+    ).toBe(1);
     expect(markup).toContain('title="2 thought sections"');
     expect(markup).toContain("Thought: Second summary");
     expect(markup).not.toContain("Thought: First summary");
+  });
+
+  it("groups consecutive thinking-only assistant messages into one thought section", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-consecutive-1",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "First message thought body",
+            summary: "First summary",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+      {
+        id: "m-reasoning-consecutive-2",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "Second message thought body",
+            summary: "Second summary",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(
+      countOccurrences(markup, 'data-chat-assistant-activity-section="true"'),
+    ).toBe(1);
+    expect(
+      countOccurrences(markup, 'data-chat-thinking-list-section="true"'),
+    ).toBe(1);
+    expect(markup).toContain('title="2 thought sections"');
+    expect(markup).toContain("Thought: Second summary");
+    expect(markup).not.toContain("Thought: First summary");
+    expect(markup).not.toContain('data-chat-assistant-bubble="true"');
+  });
+
+  it("groups consecutive thought, action, and tool-call messages under one parent activity section", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-activity-mix-thought",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "Planning the next steps.",
+            summary: "Planning",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+      {
+        id: "m-activity-mix-action",
+        role: ChatRoleEnum.assistant,
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "activity-action-call",
+            type: "function",
+            function: {
+              name: "command_execution",
+              arguments: { command: "rg --files" },
+            },
+          },
+        ],
+      },
+      {
+        id: "m-activity-mix-tool",
+        role: ChatRoleEnum.assistant,
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "activity-tool-call",
+            type: "function",
+            function: {
+              name: "setta__list_files",
+              arguments: { scope: "frontend" },
+            },
+          },
+        ],
+      },
+      {
+        id: "m-activity-mix-action-result",
+        role: ChatRoleEnum.tool,
+        tool_call_id: "activity-action-call",
+        tool_name: "command_execution",
+        arguments: { command: "rg --files" },
+        result: "frontend/src/App.tsx",
+        content: [],
+        is_error: false,
+      },
+      {
+        id: "m-activity-mix-tool-result",
+        role: ChatRoleEnum.tool,
+        tool_call_id: "activity-tool-call",
+        tool_name: "setta__list_files",
+        arguments: { scope: "frontend" },
+        result: { files: ["App.tsx"] },
+        content: [],
+        is_error: false,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(
+      countOccurrences(markup, 'data-chat-assistant-activity-section="true"'),
+    ).toBe(1);
+    expect(
+      countOccurrences(markup, 'data-chat-thinking-list-section="true"'),
+    ).toBe(1);
+    expect(countOccurrences(markup, 'data-chat-action-section="true"')).toBe(1);
+    expect(countOccurrences(markup, 'data-chat-tool-call-section="true"')).toBe(
+      1,
+    );
+    expect(markup).toContain("Thoughts");
+    expect(markup).toContain("Actions");
+    expect(markup).toContain("Tool calls");
   });
 
   it("uses a summary placeholder in collapsed view when summary is unavailable", () => {
@@ -867,7 +1029,9 @@ describe("ChatMessages assistant reasoning layout", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(markup).toContain("Summary unavailable. Expand to view full reasoning.");
+    expect(markup).toContain(
+      "Summary unavailable. Expand to view full reasoning.",
+    );
     expect(markup).not.toContain("top-bottom-fade");
   });
 
@@ -878,7 +1042,8 @@ describe("ChatMessages assistant reasoning layout", () => {
         role: ChatRoleEnum.assistant,
         content: [
           createMessageThinkingContent({
-            thinking: "Detailed reasoning body that should stay in expanded content.",
+            thinking:
+              "Detailed reasoning body that should stay in expanded content.",
             summary: "**Confirming no slash commands**",
           }),
         ],
@@ -902,7 +1067,8 @@ describe("ChatMessages assistant reasoning layout", () => {
         role: ChatRoleEnum.assistant,
         content: [
           createMessageThinkingContent({
-            thinking: "Detailed reasoning body that should only be visible when expanded.",
+            thinking:
+              "Detailed reasoning body that should only be visible when expanded.",
             summary:
               "**Confirming no slash commands**\nI don't support slash commands; I'll ask what specific functionality or help is needed instead.",
           }),
@@ -972,7 +1138,9 @@ describe("ChatMessages assistant reasoning layout", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(markup).toContain("Summary unavailable. Expand to view full reasoning.");
+    expect(markup).toContain(
+      "Summary unavailable. Expand to view full reasoning.",
+    );
     expect(markup).not.toContain("**Confirming no slash commands**");
   });
 
@@ -1149,12 +1317,8 @@ describe("ChatMessages assistant reasoning layout", () => {
     );
 
     expect(markup).toContain("pt-1");
-    expect(markup).toContain(
-      'data-chat-actions-anchor="left"',
-    );
-    expect(markup).toContain(
-      'data-chat-actions-anchor="right"',
-    );
+    expect(markup).toContain('data-chat-actions-anchor="left"');
+    expect(markup).toContain('data-chat-actions-anchor="right"');
     expect(markup).toContain("absolute right-full top-1/2");
     expect(markup).toContain("absolute left-full top-1/2");
     expect(markup).toContain(

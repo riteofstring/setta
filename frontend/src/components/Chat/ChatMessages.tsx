@@ -1,11 +1,11 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import * as Dialog from "@radix-ui/react-dialog";
-import { DummyCodeMirror } from "components/Utils/CodeMirror/DummyCodeMirror";
-import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import {
   CodeBlock,
   MarkdownCodePre,
 } from "components/Section/Layouts/TextBlock";
+import { DummyCodeMirror } from "components/Utils/CodeMirror/DummyCodeMirror";
+import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import {
   MediaCarousel,
   type MediaCarouselItem,
@@ -67,6 +67,10 @@ import {
   parseTodoPayload,
   resolveToolCallArguments,
 } from "utils/claudeTools";
+import {
+  type CodeLanguage,
+  resolveCodeLanguageFromPath,
+} from "utils/codeLanguage";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
 import {
@@ -77,10 +81,6 @@ import {
   ToolCall,
   ToolChatMessage,
 } from "utils/generatedTypes";
-import {
-  resolveCodeLanguageFromPath,
-  type CodeLanguage,
-} from "utils/codeLanguage";
 import { ApprovalCard } from "./ApprovalCard";
 import { ChatMessageEditor } from "./ChatMessageEditor";
 import { QuestionCard } from "./QuestionCard";
@@ -103,6 +103,24 @@ type ToolCallRenderEntry = {
   isStreaming: boolean;
 };
 
+type ThinkingRenderEntry = {
+  item: ThinkingContentItem;
+  messageId: string;
+  itemIndex: number;
+  isStreaming: boolean;
+  wasInterrupted: boolean;
+};
+
+type AssistantDisplayItem = {
+  item: ChatContentItem;
+  fullIndex: number;
+};
+
+type AssistantContentPartition = {
+  thinkingItems: ThinkingContentItem[];
+  displayItems: AssistantDisplayItem[];
+};
+
 type ToolCallDisplayKind = "tool" | "action" | "compaction";
 
 type ToolCallContext = {
@@ -123,14 +141,12 @@ const ASSISTANT_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} dark:prose-invert 
 const ASSISTANT_ERROR_MARKDOWN_CLASS = `${CHAT_MARKDOWN_BASE_CLASS} dark:prose-invert prose-headings:text-red-900 dark:prose-headings:text-red-200 prose-p:text-[13px] prose-ul:text-[13px] prose-ol:text-[13px] prose-li:text-[13px] [&_*]:marker:text-red-400`;
 const TOOL_CALL_RAIL_GRID_CLASS = "grid-cols-[1.75rem_minmax(0,1fr)]";
 const TOOL_CALL_RAIL_BACKGROUND_CLASS = "bg-setta-100/75 dark:bg-setta-800/75";
-const TOOL_SECTION_CARD_CLASS =
-  "w-full overflow-hidden rounded-md border border-setta-200/70 bg-setta-50/70 dark:border-setta-700/60 dark:bg-setta-900/45";
+const TOOL_SECTION_CARD_CLASS = "w-full overflow-hidden";
 const TOOL_SECTION_TRIGGER_CLASS = `group grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} text-left transition-colors hover:bg-white/60 dark:hover:bg-setta-900/80 [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const TOOL_ROW_TRIGGER_CLASS = `group grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} text-left transition-colors hover:bg-white/45 dark:hover:bg-setta-900/70 [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const ASSISTANT_ACTIVITY_PARENT_CLASS =
   "w-full overflow-hidden rounded-md border border-setta-200/65 bg-setta-50/40 dark:border-setta-700/60 dark:bg-setta-900/30";
-const ASSISTANT_ACTIVITY_TRIGGER_CLASS =
-  "group flex w-full items-start gap-2 px-2 py-1 text-left transition-colors hover:bg-white/50 dark:hover:bg-setta-900/70 [&[data-state=open]_.chat-accordion-chevron]:rotate-180";
+const ASSISTANT_ACTIVITY_TRIGGER_CLASS = `group grid w-full ${TOOL_CALL_RAIL_GRID_CLASS} text-left transition-colors hover:bg-white/50 dark:hover:bg-setta-900/70 [&[data-state=open]_.chat-accordion-chevron]:rotate-180`;
 const CONTEXT_COMPACTION_TOOL_NAME = "compacted";
 const ACTION_TOOL_NAMES = new Set<string>([
   "command_execution",
@@ -368,9 +384,10 @@ export type StructuredOutputPayload = {
 
 export type StructuredOutputPart = "input" | "output";
 
-function resolveCodeLanguageFromMimeType(
-  mimeType: string | null,
-): { language: CodeLanguage | null; useJsx: boolean } {
+function resolveCodeLanguageFromMimeType(mimeType: string | null): {
+  language: CodeLanguage | null;
+  useJsx: boolean;
+} {
   if (!mimeType) {
     return { language: null, useJsx: false };
   }
@@ -407,15 +424,19 @@ function resolveCodeLanguageFromMimeType(
   ) {
     return { language: CodeLanguageEnum.javascript, useJsx: false };
   }
-  if (normalized === "application/typescript" || normalized === "text/typescript") {
+  if (
+    normalized === "application/typescript" ||
+    normalized === "text/typescript"
+  ) {
     return { language: CodeLanguageEnum.typescript, useJsx: false };
   }
   return { language: null, useJsx: false };
 }
 
-function resolveLanguageFromPathHint(
-  pathHint: string | null,
-): { language: CodeLanguage | null; useJsx: boolean } {
+function resolveLanguageFromPathHint(pathHint: string | null): {
+  language: CodeLanguage | null;
+  useJsx: boolean;
+} {
   if (!pathHint) {
     return { language: null, useJsx: false };
   }
@@ -495,7 +516,9 @@ function resolveDiffTextFromUnknown(value: unknown): string | null {
   return diff;
 }
 
-export function classifyDiffLineForChat(line: string): "add" | "del" | "hunk" | "file" | "meta" | "context" {
+export function classifyDiffLineForChat(
+  line: string,
+): "add" | "del" | "hunk" | "file" | "meta" | "context" {
   if (line.startsWith("@@")) {
     return "hunk";
   }
@@ -770,9 +793,7 @@ function resolveLatestActionSectionLabel(
   const toolCall = latestEntry.toolCall;
   const toolResult = toolResultsById[toolCall.id];
   const rawToolName =
-    toolResult?.tool_name ||
-    toolCall.function?.name ||
-    `Action ${toolCall.id}`;
+    toolResult?.tool_name || toolCall.function?.name || `Action ${toolCall.id}`;
   const argsFromResult = toolResult?.arguments;
   const argsFromAssistant = toolCall.function?.arguments;
   const pendingArgs = toolCallArguments?.[toolCall.id];
@@ -845,7 +866,10 @@ function resolveLatestActivityPreviewLabel({
     }
   }
   if (toolEntries.length > 0) {
-    const latestTool = resolveLatestToolSectionLabel(toolEntries, toolResultsById);
+    const latestTool = resolveLatestToolSectionLabel(
+      toolEntries,
+      toolResultsById,
+    );
     if (latestTool) {
       latestLabel = `Tool: ${latestTool}`;
     }
@@ -873,6 +897,22 @@ function isThinkingContentItem(
   item: ChatContentItem,
 ): item is ThinkingContentItem {
   return item.type === C.LLM_THINKING;
+}
+
+function partitionAssistantContent(
+  content: ChatContentItem[],
+): AssistantContentPartition {
+  const thinkingItems: ThinkingContentItem[] = [];
+  const displayItems: AssistantDisplayItem[] = [];
+  for (let index = 0; index < content.length; index += 1) {
+    const item = content[index];
+    if (isThinkingContentItem(item)) {
+      thinkingItems.push(item);
+      continue;
+    }
+    displayItems.push({ item, fullIndex: index });
+  }
+  return { thinkingItems, displayItems };
 }
 
 function getStreamActivitySummary(
@@ -916,9 +956,7 @@ function useIdleStreamSpinner(
   activityKey: string,
   delayMs: number,
 ): boolean {
-  const [showSpinner, setShowSpinner] = useState(
-    shouldTrack && delayMs <= 0,
-  );
+  const [showSpinner, setShowSpinner] = useState(shouldTrack && delayMs <= 0);
   const lastActivityRef = useRef<number>(Date.now());
 
   useEffect(() => {
@@ -987,7 +1025,9 @@ function resolveThinkingSummaryHeadline({
 }): string {
   const summaryText = summary?.trim() ?? "";
   const hasThinkingText = content.trim().length > 0;
-  const summaryHeadlineSourceText = (summaryText.split(/\r?\n/u)[0] ?? "").trim();
+  const summaryHeadlineSourceText = (
+    summaryText.split(/\r?\n/u)[0] ?? ""
+  ).trim();
   const normalizedSummaryText = summaryText.replace(/\s+/gu, " ").trim();
   const normalizedThinkingText = content.replace(/\s+/gu, " ").trim();
   const summaryLooksLikeThinking =
@@ -1010,9 +1050,12 @@ function resolveLatestThinkingSummary(
   thinkingItems: ThinkingContentItem[],
   isStreaming: boolean,
 ): string {
+  if (isStreaming) {
+    return "Thinking...";
+  }
   const latestItem = thinkingItems[thinkingItems.length - 1];
   if (!latestItem) {
-    return isStreaming ? "Thinking..." : "No thoughts yet.";
+    return "No thoughts yet.";
   }
   return resolveThinkingSummaryHeadline({
     content: latestItem.thinking,
@@ -1917,10 +1960,12 @@ const ThinkingBox = memo(function ThinkingBox({
     : wasInterrupted
       ? "stopped"
       : "complete";
-  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration({
-    active: streaming,
-    runKey,
-  });
+  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration(
+    {
+      active: streaming,
+      runKey,
+    },
+  );
   const durationLabel = resolveDurationLabel({
     elapsedMs,
     elapsedSeconds,
@@ -1938,8 +1983,10 @@ const ThinkingBox = memo(function ThinkingBox({
         setIsSummaryTitleTruncated(false);
         return;
       }
-      const verticallyTruncated = element.scrollHeight > element.clientHeight + 1;
-      const horizontallyTruncated = element.scrollWidth > element.clientWidth + 1;
+      const verticallyTruncated =
+        element.scrollHeight > element.clientHeight + 1;
+      const horizontallyTruncated =
+        element.scrollWidth > element.clientWidth + 1;
       const truncated = verticallyTruncated || horizontallyTruncated;
       setIsSummaryTitleTruncated((prev) =>
         prev === truncated ? prev : truncated,
@@ -1976,7 +2023,9 @@ const ThinkingBox = memo(function ThinkingBox({
         <Accordion.Trigger
           disabled={!hasExpandableContent}
           data-chat-thinking-trigger="true"
-          data-chat-thinking-expandable={hasExpandableContent ? "true" : "false"}
+          data-chat-thinking-expandable={
+            hasExpandableContent ? "true" : "false"
+          }
           className={triggerClassName}
         >
           <div
@@ -1991,7 +2040,7 @@ const ThinkingBox = memo(function ThinkingBox({
             <div className="min-w-0 flex-1">
               <div
                 ref={summaryPreviewRef}
-                className="truncate text-[11px] font-semibold text-setta-500 dark:text-setta-200 [&_p]:m-0 [&_p]:inline [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80"
+                className="truncate text-[11px] font-semibold text-setta-500 dark:text-setta-200 [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
               >
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
@@ -2066,7 +2115,7 @@ const ThinkingBox = memo(function ThinkingBox({
           </div>
         </Accordion.Trigger>
         {hasExpandableContent ? (
-          <Accordion.Content className="overflow-hidden border-t border-setta-200/60 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/60">
+          <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
             {hasThinkingText ? (
               <div className="px-2 py-1">
                 <MarkdownContent
@@ -2138,13 +2187,17 @@ const ThinkingSection = memo(function ThinkingSection({
   const summaryPreviewRef = useRef<HTMLDivElement | null>(null);
   const [isSummaryTitleTruncated, setIsSummaryTitleTruncated] = useState(false);
   const shouldMeasureSummaryOverflow =
-    thoughtCount <= 1 && !hasExpandableDetails && latestSummary.trim().length > 0;
+    thoughtCount <= 1 &&
+    !hasExpandableDetails &&
+    latestSummary.trim().length > 0;
   const hasExpandableContent =
     thoughtCount > 1 || hasExpandableDetails || isSummaryTitleTruncated;
-  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration({
-    active: sectionState === "running",
-    runKey,
-  });
+  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration(
+    {
+      active: sectionState === "running",
+      runKey,
+    },
+  );
 
   useEffect(() => {
     if (!shouldMeasureSummaryOverflow) {
@@ -2157,8 +2210,10 @@ const ThinkingSection = memo(function ThinkingSection({
         setIsSummaryTitleTruncated(false);
         return;
       }
-      const verticallyTruncated = element.scrollHeight > element.clientHeight + 1;
-      const horizontallyTruncated = element.scrollWidth > element.clientWidth + 1;
+      const verticallyTruncated =
+        element.scrollHeight > element.clientHeight + 1;
+      const horizontallyTruncated =
+        element.scrollWidth > element.clientWidth + 1;
       const truncated = verticallyTruncated || horizontallyTruncated;
       setIsSummaryTitleTruncated((prev) =>
         prev === truncated ? prev : truncated,
@@ -2197,7 +2252,9 @@ const ThinkingSection = memo(function ThinkingSection({
           disabled={!hasExpandableContent}
           className={triggerClassName}
           data-chat-thinking-list-trigger="true"
-          data-chat-thinking-list-expandable={hasExpandableContent ? "true" : "false"}
+          data-chat-thinking-list-expandable={
+            hasExpandableContent ? "true" : "false"
+          }
         >
           <div
             className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
@@ -2222,7 +2279,7 @@ const ThinkingSection = memo(function ThinkingSection({
               <div
                 data-chat-thinking-list-latest-summary="true"
                 ref={summaryPreviewRef}
-                className="truncate text-[10px] text-setta-400 dark:text-setta-400/90 [&_p]:m-0 [&_p]:inline [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80"
+                className="truncate text-[10px] text-setta-400 dark:text-setta-400/90 [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
               >
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
@@ -2253,8 +2310,10 @@ const ThinkingSection = memo(function ThinkingSection({
           </div>
         </Accordion.Trigger>
         {hasExpandableContent ? (
-          <Accordion.Content className="overflow-hidden border-t border-setta-200/60 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/60">
-            <div className="flex w-full flex-col gap-1 px-1 py-1">{children}</div>
+          <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/70">
+            <div className="flex w-full flex-col divide-y divide-setta-200/70 dark:divide-setta-700/70">
+              {children}
+            </div>
           </Accordion.Content>
         ) : null}
       </Accordion.Item>
@@ -2263,35 +2322,48 @@ const ThinkingSection = memo(function ThinkingSection({
 });
 
 const AssistantThinkingSection = memo(function AssistantThinkingSection({
-  thinkingItems,
-  isStreaming,
-  wasInterrupted,
-  messageId,
+  entries,
+  runKey,
 }: {
-  thinkingItems: ThinkingContentItem[];
-  isStreaming: boolean;
-  wasInterrupted: boolean;
-  messageId: string;
+  entries: ThinkingRenderEntry[];
+  runKey: string;
 }) {
-  const sectionState = resolveThinkingSectionState({ isStreaming, wasInterrupted });
-  const latestSummary = resolveLatestThinkingSummary(thinkingItems, isStreaming);
-  const hasExpandableDetails = thinkingItems.some(thinkingItemHasExpandableDetail);
+  const thinkingItems = entries.map(({ item }) => item);
+  const isStreaming = entries.some(
+    ({ isStreaming: entryIsStreaming }) => entryIsStreaming,
+  );
+  const wasInterrupted =
+    !isStreaming &&
+    entries.some(
+      ({ wasInterrupted: entryWasInterrupted }) => entryWasInterrupted,
+    );
+  const sectionState = resolveThinkingSectionState({
+    isStreaming,
+    wasInterrupted,
+  });
+  const latestSummary = resolveLatestThinkingSummary(
+    thinkingItems,
+    isStreaming,
+  );
+  const hasExpandableDetails = thinkingItems.some(
+    thinkingItemHasExpandableDetail,
+  );
   return (
     <ThinkingSection
-      thoughtCount={thinkingItems.length}
+      thoughtCount={entries.length}
       latestSummary={latestSummary}
       sectionState={sectionState}
-      runKey={`${messageId}-thinking-list`}
+      runKey={runKey}
       hasExpandableDetails={hasExpandableDetails}
     >
-      {thinkingItems.map((item, idx) => (
+      {entries.map((entry) => (
         <ThinkingBox
-          key={`${messageId}-thinking-${idx}`}
-          content={item.thinking}
-          summary={item.summary}
-          isStreaming={isStreaming}
-          wasInterrupted={wasInterrupted}
-          runKey={`${messageId}-thinking-${idx}`}
+          key={`${entry.messageId}-thinking-${entry.itemIndex}`}
+          content={entry.item.thinking}
+          summary={entry.item.summary}
+          isStreaming={entry.isStreaming}
+          wasInterrupted={entry.wasInterrupted}
+          runKey={`${entry.messageId}-thinking-${entry.itemIndex}`}
         />
       ))}
     </ThinkingSection>
@@ -2321,32 +2393,42 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
           className={ASSISTANT_ACTIVITY_TRIGGER_CLASS}
           data-chat-assistant-activity-trigger="true"
         >
-          <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-400 dark:text-setta-500">
-              Activity
-            </div>
-            <div
-              data-chat-assistant-activity-latest="true"
-              className="truncate text-[11px] text-setta-500 dark:text-setta-300 [&_p]:m-0 [&_p]:inline [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80"
-            >
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  p: ({ children }) => <span>{children}</span>,
-                  a: ({ children }) => <span>{children}</span>,
-                }}
-              >
-                {latestLabel}
-              </ReactMarkdown>
-            </div>
+          <div
+            className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
+            data-chat-assistant-activity-rail="true"
+          >
+            <FaBrain size={13} className="min-w-4" />
           </div>
-          <MdKeyboardArrowDown
-            data-chat-assistant-activity-chevron="true"
-            className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
-          />
+          <div className="flex min-w-0 items-start gap-2 px-2 py-1">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-400 dark:text-setta-500">
+                Activity
+              </div>
+              <div
+                data-chat-assistant-activity-latest="true"
+                className="truncate text-[11px] text-setta-500 dark:text-setta-300 [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
+              >
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ children }) => <span>{children}</span>,
+                    a: ({ children }) => <span>{children}</span>,
+                  }}
+                >
+                  {latestLabel}
+                </ReactMarkdown>
+              </div>
+            </div>
+            <MdKeyboardArrowDown
+              data-chat-assistant-activity-chevron="true"
+              className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
+            />
+          </div>
         </Accordion.Trigger>
-        <Accordion.Content className="overflow-hidden border-t border-setta-200/60 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/60">
-          <div className="flex w-full flex-col gap-1 p-1">{children}</div>
+        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/70">
+          <div className="flex w-full flex-col divide-y divide-setta-200/70 dark:divide-setta-700/70">
+            {children}
+          </div>
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>
@@ -2381,12 +2463,14 @@ const ContextCompactionSection = memo(function ContextCompactionSection({
     toolResultsById,
   );
   const runKey = entries.map((entry) => entry.toolCall.id).join("|");
-  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration({
-    active: sectionState === "running",
-    startedAtMs,
-    completedAtMs,
-    runKey,
-  });
+  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration(
+    {
+      active: sectionState === "running",
+      startedAtMs,
+      completedAtMs,
+      runKey,
+    },
+  );
   const isStreaming = sectionState === "running";
   const title = isStreaming ? "Compacting context" : "Context compacted";
   const previewText =
@@ -2407,10 +2491,7 @@ const ContextCompactionSection = memo(function ContextCompactionSection({
           <div
             className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
           >
-            <FiArchive
-              className="min-w-4"
-              size={14}
-            />
+            <FiArchive className="min-w-4" size={14} />
           </div>
           <div className="flex min-w-0 flex-col gap-0 px-2 py-1">
             <div className="flex min-w-0 items-center gap-2 text-[11px] font-semibold text-setta-500 dark:text-setta-300">
@@ -2449,7 +2530,7 @@ const ContextCompactionSection = memo(function ContextCompactionSection({
             </div>
           </div>
         </Accordion.Trigger>
-        <Accordion.Content className="overflow-hidden border-t border-setta-200/60 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/60">
+        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/70">
           <div className="px-2 py-1">
             <MarkdownContent
               content={displayText}
@@ -2485,7 +2566,9 @@ function ToolCallAccordionStatus({ runState }: { runState: ToolCallRunState }) {
   );
 }
 
-function resolveDiffLineClassName(kind: "add" | "del" | "hunk" | "file" | "meta" | "context"): string {
+function resolveDiffLineClassName(
+  kind: "add" | "del" | "hunk" | "file" | "meta" | "context",
+): string {
   if (kind === "add") {
     return "bg-emerald-500/12 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200";
   }
@@ -2616,9 +2699,7 @@ const ActionItem = memo(function ActionItem({
         className="w-full border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
         data-chat-action-item="true"
       >
-        <Accordion.Trigger
-          className={TOOL_ROW_TRIGGER_CLASS}
-        >
+        <Accordion.Trigger className={TOOL_ROW_TRIGGER_CLASS}>
           <div
             className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
             data-chat-action-item-rail="true"
@@ -2710,9 +2791,7 @@ const ToolCallItem = memo(function ToolCallItem({
         className="w-full border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
         data-chat-tool-call-item="true"
       >
-        <Accordion.Trigger
-          className={TOOL_ROW_TRIGGER_CLASS}
-        >
+        <Accordion.Trigger className={TOOL_ROW_TRIGGER_CLASS}>
           <div
             className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
             data-chat-tool-call-item-rail="true"
@@ -2780,12 +2859,14 @@ const ActionSection = memo(function ActionSection({
   completedAtMs: number | null;
   runKey: string;
 }) {
-  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration({
-    active: sectionState === "running",
-    startedAtMs,
-    completedAtMs,
-    runKey,
-  });
+  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration(
+    {
+      active: sectionState === "running",
+      startedAtMs,
+      completedAtMs,
+      runKey,
+    },
+  );
   return (
     <Accordion.Root type="single" collapsible className="w-full">
       <Accordion.Item
@@ -2833,7 +2914,7 @@ const ActionSection = memo(function ActionSection({
             </div>
           </div>
         </Accordion.Trigger>
-        <Accordion.Content className="overflow-hidden border-t border-setta-200/60 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/60">
+        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/70">
           <div className="flex w-full flex-col">{children}</div>
         </Accordion.Content>
       </Accordion.Item>
@@ -3070,12 +3151,14 @@ const ToolCallSection = memo(function ToolCallSection({
   completedAtMs: number | null;
   runKey: string;
 }) {
-  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration({
-    active: sectionState === "running",
-    startedAtMs,
-    completedAtMs,
-    runKey,
-  });
+  const { elapsedSeconds, elapsedMs, hasKnownDuration } = useRunElapsedDuration(
+    {
+      active: sectionState === "running",
+      startedAtMs,
+      completedAtMs,
+      runKey,
+    },
+  );
   const title = "Tool calls";
   return (
     <Accordion.Root type="single" collapsible className="w-full">
@@ -3124,7 +3207,7 @@ const ToolCallSection = memo(function ToolCallSection({
             </div>
           </div>
         </Accordion.Trigger>
-        <Accordion.Content className="overflow-hidden border-t border-setta-200/60 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/60">
+        <Accordion.Content className="overflow-hidden border-t border-setta-200/70 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/70">
           <div className="flex w-full flex-col">{children}</div>
         </Accordion.Content>
       </Accordion.Item>
@@ -3360,11 +3443,7 @@ function AssistantMessageGroup({
   );
 }
 
-function LLMChatBubble({
-  children,
-}: {
-  children: ReactNode;
-}) {
+function LLMChatBubble({ children }: { children: ReactNode }) {
   return (
     <div className="w-fit max-w-full">
       <div
@@ -3480,7 +3559,7 @@ function ChatMessageActions({
 
   return (
     <div
-      className="pointer-events-none inline-flex items-center gap-1 rounded-md border border-setta-200/90 bg-setta-100/95 px-1 py-0.5 text-setta-500 shadow-sm opacity-0 transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 dark:border-setta-700/90 dark:bg-setta-925/95 dark:text-setta-300"
+      className="pointer-events-none inline-flex items-center gap-1 rounded-md border border-setta-200/90 bg-setta-100/95 px-1 py-0.5 text-setta-500 opacity-0 shadow-sm transition-opacity group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 dark:border-setta-700/90 dark:bg-setta-925/95 dark:text-setta-300"
       data-chat-message-actions="true"
     >
       <button
@@ -3716,30 +3795,25 @@ const ChatMessage = memo(function ChatMessage({
     assistantContent.length === 0 ? 0 : IDLE_SPINNER_DELAY_MS;
   const toolCalls = isAssistant ? message.tool_calls ?? [] : [];
   const { thinkingItems, displayItems } = useMemo(() => {
-    const nextThinkingItems: ThinkingContentItem[] = [];
-    const nextDisplayItems: Array<{
-      item: ChatContentItem;
-      fullIndex: number;
-    }> = [];
     if (!isAssistant) {
       return {
-        thinkingItems: nextThinkingItems,
-        displayItems: nextDisplayItems,
+        thinkingItems: [] as ThinkingContentItem[],
+        displayItems: [] as AssistantDisplayItem[],
       };
     }
-    for (let index = 0; index < message.content.length; index += 1) {
-      const item = message.content[index];
-      if (isThinkingContentItem(item)) {
-        nextThinkingItems.push(item);
-        continue;
-      }
-      nextDisplayItems.push({ item, fullIndex: index });
-    }
-    return {
-      thinkingItems: nextThinkingItems,
-      displayItems: nextDisplayItems,
-    };
+    return partitionAssistantContent(message.content);
   }, [isAssistant, message.content]);
+  const thinkingEntries = useMemo<ThinkingRenderEntry[]>(
+    () =>
+      thinkingItems.map((item, itemIndex) => ({
+        item,
+        messageId: message.id,
+        itemIndex,
+        isStreaming,
+        wasInterrupted: interrupted,
+      })),
+    [interrupted, isStreaming, message.id, thinkingItems],
+  );
   const showAssistantSpinner = useIdleStreamSpinner(
     isAssistant && isStreaming,
     activityKey,
@@ -3762,7 +3836,7 @@ const ChatMessage = memo(function ChatMessage({
     const showTypingIndicator = showAssistantSpinner;
     const hasBubbleContent = attachments.length > 0 || displayItems.length > 0;
     const shouldRenderBubble = hasBubbleContent;
-    const hasThinkingContent = thinkingItems.length > 0;
+    const hasThinkingContent = thinkingEntries.length > 0;
     const hasCompactionContent = compactionEntries.length > 0;
     const hasActionContent = actionEntries.length > 0;
     const hasToolCallContent = toolEntries.length > 0;
@@ -3771,10 +3845,7 @@ const ChatMessage = memo(function ChatMessage({
       hasCompactionContent ||
       hasActionContent ||
       hasToolCallContent;
-    if (
-      !shouldRenderBubble &&
-      !hasActivityContent
-    ) {
+    if (!shouldRenderBubble && !hasActivityContent) {
       if (showTypingIndicator) {
         return (
           <AssistantMessageGroup messageId={message.id}>
@@ -3801,10 +3872,8 @@ const ChatMessage = memo(function ChatMessage({
               {hasThinkingContent ? (
                 <AssistantReasoningCard>
                   <AssistantThinkingSection
-                    thinkingItems={thinkingItems}
-                    isStreaming={isStreaming}
-                    wasInterrupted={interrupted}
-                    messageId={message.id}
+                    entries={thinkingEntries}
+                    runKey={`${message.id}-thinking-list`}
                   />
                 </AssistantReasoningCard>
               ) : null}
@@ -3863,7 +3932,7 @@ const ChatMessage = memo(function ChatMessage({
           visible={
             showTypingIndicator &&
             lastTextIndex === -1 &&
-            thinkingItems.length === 0
+            thinkingEntries.length === 0
           }
         />
       </AssistantMessageGroup>
@@ -3961,14 +4030,10 @@ function resolveQuestionAnswers(
   return null;
 }
 
-function isToolCallOnlyAssistantMessage(
+function isAssistantActivityOnlyMessage(
   message: BaseChatMessageUnion,
 ): message is AssistantChatMessage {
   if (message.role !== ChatRoleEnum.assistant) {
-    return false;
-  }
-  const toolCalls = message.tool_calls ?? [];
-  if (toolCalls.length === 0) {
     return false;
   }
   const attachments =
@@ -3978,7 +4043,14 @@ function isToolCallOnlyAssistantMessage(
   if (attachments.length > 0) {
     return false;
   }
-  return message.content.length === 0;
+  const { thinkingItems, displayItems } = partitionAssistantContent(
+    message.content,
+  );
+  if (displayItems.length > 0) {
+    return false;
+  }
+  const toolCalls = message.tool_calls ?? [];
+  return thinkingItems.length > 0 || toolCalls.length > 0;
 }
 
 function ChatMessages({
@@ -4124,19 +4196,43 @@ function ChatMessages({
   let index = 0;
   while (index < messages.length) {
     const message = messages[index];
-    if (isToolCallOnlyAssistantMessage(message)) {
+    if (isAssistantActivityOnlyMessage(message)) {
       const groupedToolCalls: ToolCallRenderEntry[] = [];
       const groupedMessages: AssistantChatMessage[] = [];
+      const groupedThinkingEntries: ThinkingRenderEntry[] = [];
       const firstMessageId = message.id;
       let groupEnd = index;
       while (groupEnd < messages.length) {
         const nextMessage = messages[groupEnd];
-        if (!isToolCallOnlyAssistantMessage(nextMessage)) {
+        if (!isAssistantActivityOnlyMessage(nextMessage)) {
           break;
         }
         groupedMessages.push(nextMessage);
         const isStreamingMessage =
           waitingForResponse && nextMessage.id === streamingMessageId;
+        const wasInterrupted = Boolean(
+          interruptedAssistantMessageIds?.[nextMessage.id],
+        );
+        const { thinkingItems: nextThinkingItems } = partitionAssistantContent(
+          nextMessage.content,
+        );
+        for (
+          let thinkingIndex = 0;
+          thinkingIndex < nextThinkingItems.length;
+          thinkingIndex += 1
+        ) {
+          const item = nextThinkingItems[thinkingIndex];
+          if (!item) {
+            continue;
+          }
+          groupedThinkingEntries.push({
+            item,
+            messageId: nextMessage.id,
+            itemIndex: thinkingIndex,
+            isStreaming: isStreamingMessage,
+            wasInterrupted,
+          });
+        }
         const toolCalls = nextMessage.tool_calls ?? [];
         for (const toolCall of toolCalls) {
           groupedToolCalls.push({
@@ -4149,18 +4245,31 @@ function ChatMessages({
       const { toolEntries, actionEntries, compactionEntries } =
         partitionToolCallEntries(groupedToolCalls, toolResultsById);
       const hasActivityContent =
+        groupedThinkingEntries.length > 0 ||
         compactionEntries.length > 0 ||
         actionEntries.length > 0 ||
         toolEntries.length > 0;
+      const groupedThinkingItems = groupedThinkingEntries.map(
+        ({ item }) => item,
+      );
+      const isStreamingThinking = groupedThinkingEntries.some(
+        ({ isStreaming }) => isStreaming,
+      );
       const latestActivityLabel = resolveLatestActivityPreviewLabel({
-        thinkingItems: [],
-        isStreamingThinking: false,
+        thinkingItems: groupedThinkingItems,
+        isStreamingThinking,
         compactionEntries,
         actionEntries,
         toolEntries,
         toolResultsById,
         toolCallArguments,
       });
+      const thinkingRunKey =
+        groupedThinkingEntries
+          .map(
+            ({ messageId, itemIndex }) => `${messageId}-thinking-${itemIndex}`,
+          )
+          .join("|") || `${firstMessageId}-thinking-list`;
       const handleGroupedCopy = () => {
         const text = groupedMessages
           .map((groupedMessage) =>
@@ -4174,7 +4283,10 @@ function ChatMessages({
           .join("\n\n")
           .trim();
         if (text.length === 0) {
-          addTemporaryNotification("Nothing to copy for this message.", "warning");
+          addTemporaryNotification(
+            "Nothing to copy for this message.",
+            "warning",
+          );
           return;
         }
         void navigator.clipboard
@@ -4206,6 +4318,14 @@ function ChatMessages({
           {hasActivityContent ? (
             <AssistantReasoningCard>
               <AssistantActivitySection latestLabel={latestActivityLabel}>
+                {groupedThinkingEntries.length > 0 ? (
+                  <AssistantReasoningCard>
+                    <AssistantThinkingSection
+                      entries={groupedThinkingEntries}
+                      runKey={thinkingRunKey}
+                    />
+                  </AssistantReasoningCard>
+                ) : null}
                 {compactionEntries.length > 0 ? (
                   <AssistantReasoningCard>
                     <ContextCompactionSection
