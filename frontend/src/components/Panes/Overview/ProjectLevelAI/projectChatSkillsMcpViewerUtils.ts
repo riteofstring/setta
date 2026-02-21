@@ -3,8 +3,6 @@ import {
   type AppGenSkillEntry,
 } from "utils/generatedTypes";
 
-const MCP_TOOL_NAME_SEPARATOR = "__";
-
 export function filterSkills(
   skills: AppGenSkillEntry[],
   query: string,
@@ -73,6 +71,21 @@ export type McpServerStatus = {
   quickInfo: string;
 };
 
+export type McpRuntimeServerState =
+  | "available"
+  | "connecting"
+  | "retrying"
+  | "unavailable"
+  | "disabled"
+  | "unknown";
+
+export type McpRuntimeServerStatus = {
+  state: McpRuntimeServerState;
+  quickInfo: string;
+  registeredToolCount: number;
+  issue: string | null;
+};
+
 type McpServersByConfigPath = {
   configPath: string | null;
   configLabel: string;
@@ -138,27 +151,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) &&
-    value.every((entry) => typeof entry === "string" && entry.length > 0)
-  );
-}
-
-function extractToolNamesFromStructuredContent(
+function extractRuntimeStatusEntriesFromStructuredContent(
   value: unknown,
-): string[] | null {
+): unknown[] | null {
   if (!isRecord(value)) {
     return null;
   }
-  const tools = value.tools;
-  if (!isStringArray(tools)) {
+  const servers = value.servers;
+  if (!Array.isArray(servers)) {
     return null;
   }
-  return tools;
+  return servers;
 }
 
-function extractToolNamesFromContent(value: unknown): string[] | null {
+function extractRuntimeStatusEntriesFromContent(value: unknown): unknown[] | null {
   if (!Array.isArray(value)) {
     return null;
   }
@@ -172,9 +178,9 @@ function extractToolNamesFromContent(value: unknown): string[] | null {
     }
     try {
       const parsed = JSON.parse(text);
-      const tools = extractToolNamesFromStructuredContent(parsed);
-      if (tools) {
-        return tools;
+      const statusEntries = extractRuntimeStatusEntriesFromStructuredContent(parsed);
+      if (statusEntries) {
+        return statusEntries;
       }
     } catch {
       continue;
@@ -183,54 +189,99 @@ function extractToolNamesFromContent(value: unknown): string[] | null {
   return null;
 }
 
-function extractToolNamesFromCallResult(
+function extractRuntimeStatusEntriesFromCallResult(
   callResult: Record<string, unknown>,
-): string[] {
+): unknown[] | null {
   return (
-    extractToolNamesFromStructuredContent(callResult.structuredContent) ??
-    extractToolNamesFromContent(callResult.content) ??
-    []
+    extractRuntimeStatusEntriesFromStructuredContent(callResult.structuredContent) ??
+    extractRuntimeStatusEntriesFromContent(callResult.content) ??
+    null
   );
 }
 
-export function parseRegisteredMcpToolCounts(
-  callResult: Record<string, unknown>,
-): Record<string, number> {
-  const toolNames = extractToolNamesFromCallResult(callResult);
-  const toolCountsByServerId: Record<string, number> = {};
-  for (const toolName of toolNames) {
-    const separatorIndex = toolName.indexOf(MCP_TOOL_NAME_SEPARATOR);
-    if (separatorIndex <= 0) {
-      continue;
-    }
-    const serverId = toolName.slice(0, separatorIndex);
-    toolCountsByServerId[serverId] =
-      (toolCountsByServerId[serverId] ?? 0) + 1;
+function normalizeRuntimeServerState(value: unknown): McpRuntimeServerState {
+  if (typeof value !== "string") {
+    return "unknown";
   }
-  return toolCountsByServerId;
+  switch (value) {
+    case "available":
+    case "connecting":
+    case "retrying":
+    case "unavailable":
+    case "disabled":
+    case "unknown":
+      return value;
+    default:
+      return "unknown";
+  }
 }
 
-export function hasNamespacedMcpToolNames(
+function parseRuntimeServerStatusEntry(
+  value: unknown,
+): [string, McpRuntimeServerStatus] | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const serverIdRaw = value.serverId;
+  if (typeof serverIdRaw !== "string" || serverIdRaw.trim().length === 0) {
+    return null;
+  }
+  const quickInfoRaw = value.quickInfo;
+  const issueRaw = value.issue;
+  const registeredToolCountRaw = value.registeredToolCount;
+  const registeredToolCount =
+    typeof registeredToolCountRaw === "number" &&
+    Number.isFinite(registeredToolCountRaw) &&
+    registeredToolCountRaw >= 0
+      ? registeredToolCountRaw
+      : 0;
+  const issue = typeof issueRaw === "string" && issueRaw.trim().length > 0 ? issueRaw : null;
+  const fallbackQuickInfo =
+    issue ?? "Status unknown: runtime MCP status did not include details.";
+  const quickInfo =
+    typeof quickInfoRaw === "string" && quickInfoRaw.trim().length > 0
+      ? quickInfoRaw
+      : fallbackQuickInfo;
+  return [
+    serverIdRaw,
+    {
+      state: normalizeRuntimeServerState(value.state),
+      quickInfo,
+      registeredToolCount,
+      issue,
+    },
+  ];
+}
+
+export function parseMcpServerRuntimeStatuses(
   callResult: Record<string, unknown>,
-): boolean {
-  const toolNames = extractToolNamesFromCallResult(callResult);
-  return toolNames.some((toolName) => {
-    return toolName.indexOf(MCP_TOOL_NAME_SEPARATOR) > 0;
-  });
+): Record<string, McpRuntimeServerStatus> | null {
+  const rawEntries = extractRuntimeStatusEntriesFromCallResult(callResult);
+  if (!rawEntries) {
+    return null;
+  }
+  const statuses: Record<string, McpRuntimeServerStatus> = {};
+  for (const rawEntry of rawEntries) {
+    const parsedEntry = parseRuntimeServerStatusEntry(rawEntry);
+    if (!parsedEntry) {
+      return null;
+    }
+    const [serverId, status] = parsedEntry;
+    statuses[serverId] = status;
+  }
+  return statuses;
 }
 
 export function resolveMcpServerStatus({
   serverId,
   endpoint,
-  runtimeToolCountsByServerId,
-  runtimeSupportsServerMapping,
+  runtimeStatusByServerId,
   runtimeStatusLoading,
   runtimeStatusError,
 }: {
   serverId: string;
   endpoint: string;
-  runtimeToolCountsByServerId: Record<string, number> | null;
-  runtimeSupportsServerMapping: boolean | null;
+  runtimeStatusByServerId: Record<string, McpRuntimeServerStatus> | null;
   runtimeStatusLoading: boolean;
   runtimeStatusError: string | null;
 }): McpServerStatus {
@@ -253,30 +304,40 @@ export function resolveMcpServerStatus({
       quickInfo: `Status unknown: ${runtimeStatusError}`,
     };
   }
-  if (!runtimeToolCountsByServerId) {
+  if (!runtimeStatusByServerId) {
     return {
       color: "yellow",
       quickInfo:
-        "Status unknown: MCP runtime registration data is not available.",
+        "Status unknown: MCP runtime status data is not available.",
     };
   }
-  if (runtimeSupportsServerMapping === false) {
+  const runtimeStatus = runtimeStatusByServerId[serverId];
+  if (!runtimeStatus) {
     return {
       color: "yellow",
       quickInfo:
-        "Status unknown: runtime MCP tool list does not expose server IDs in this mode.",
+        "Status unknown: server is configured but not reported by MCP runtime status.",
     };
   }
-  const registeredToolCount = runtimeToolCountsByServerId[serverId] ?? 0;
-  if (registeredToolCount > 0) {
+  if (runtimeStatus.state === "available") {
     return {
       color: "green",
-      quickInfo: `Available: registered with ${registeredToolCount} MCP tool${registeredToolCount === 1 ? "" : "s"}.`,
+      quickInfo: runtimeStatus.quickInfo,
+    };
+  }
+  if (
+    runtimeStatus.state === "connecting" ||
+    runtimeStatus.state === "retrying" ||
+    runtimeStatus.state === "disabled" ||
+    runtimeStatus.state === "unknown"
+  ) {
+    return {
+      color: "yellow",
+      quickInfo: runtimeStatus.quickInfo,
     };
   }
   return {
     color: "red",
-    quickInfo:
-      "Unavailable: server is configured but no MCP tools are registered in the current runtime.",
+    quickInfo: runtimeStatus.quickInfo,
   };
 }

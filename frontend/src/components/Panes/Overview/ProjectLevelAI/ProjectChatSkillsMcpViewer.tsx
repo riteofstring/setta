@@ -19,8 +19,8 @@ import {
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
-  hasNamespacedMcpToolNames,
-  parseRegisteredMcpToolCounts,
+  type McpRuntimeServerStatus,
+  parseMcpServerRuntimeStatuses,
   resolveMcpServerStatus,
 } from "./projectChatSkillsMcpViewerUtils";
 
@@ -127,10 +127,9 @@ export function ProjectChatSkillsMcpViewer() {
   const [mcpRuntimeStatusError, setMcpRuntimeStatusError] = useState<
     string | null
   >(null);
-  const [mcpRuntimeSupportsServerMapping, setMcpRuntimeSupportsServerMapping] =
-    useState<boolean | null>(null);
-  const [mcpRuntimeToolCountsByServerId, setMcpRuntimeToolCountsByServerId] =
-    useState<Record<string, number> | null>(null);
+  const [mcpRuntimeStatusByServerId, setMcpRuntimeStatusByServerId] = useState<
+    Record<string, McpRuntimeServerStatus> | null
+  >(null);
   const [skillsRevision, setSkillsRevision] = useState(0);
   const skillsRefreshInFlight = useRef(false);
   const skillContentRequestSequence = useRef(0);
@@ -274,7 +273,7 @@ export function ProjectChatSkillsMcpViewer() {
       setMcpRuntimeStatusLoading(true);
       setMcpRuntimeStatusError(null);
       const res = await route_call_mcp_tool({
-        tool: "list_mcp_tools",
+        tool: "get_mcp_server_runtime_status",
         arguments: {},
       });
       if (cancelled) {
@@ -284,25 +283,33 @@ export function ProjectChatSkillsMcpViewer() {
         const detail = getErrorDetail(res.data);
         const resolvedError =
           res.status === 404
-            ? "MCP status endpoint is unavailable in this mode."
+            ? detail?.includes("Unknown tool: get_mcp_server_runtime_status")
+              ? "MCP runtime status tool is not loaded by the backend process yet. Restart Setta to apply the latest MCP status checks."
+              : "MCP status endpoint is unavailable in this mode."
             : (detail ?? "Failed to query MCP runtime registration.");
         setMcpRuntimeStatusError(resolvedError);
-        setMcpRuntimeSupportsServerMapping(null);
-        setMcpRuntimeToolCountsByServerId(null);
+        setMcpRuntimeStatusByServerId(null);
         setMcpRuntimeStatusLoading(false);
         return;
       }
       if (res.data.isError === true) {
         setMcpRuntimeStatusError(
-          "MCP runtime reported an error while listing tools.",
+          "MCP runtime reported an error while querying server status.",
         );
-        setMcpRuntimeSupportsServerMapping(null);
-        setMcpRuntimeToolCountsByServerId(null);
+        setMcpRuntimeStatusByServerId(null);
         setMcpRuntimeStatusLoading(false);
         return;
       }
-      setMcpRuntimeSupportsServerMapping(hasNamespacedMcpToolNames(res.data));
-      setMcpRuntimeToolCountsByServerId(parseRegisteredMcpToolCounts(res.data));
+      const runtimeStatuses = parseMcpServerRuntimeStatuses(res.data);
+      if (!runtimeStatuses) {
+        setMcpRuntimeStatusError(
+          "MCP runtime status response is malformed for this mode.",
+        );
+        setMcpRuntimeStatusByServerId(null);
+        setMcpRuntimeStatusLoading(false);
+        return;
+      }
+      setMcpRuntimeStatusByServerId(runtimeStatuses);
       setMcpRuntimeStatusLoading(false);
     }
     void loadMcpRuntimeStatus();
@@ -577,24 +584,13 @@ export function ProjectChatSkillsMcpViewer() {
                       Runtime status check unavailable: {mcpRuntimeStatusError}
                     </div>
                   ) : null}
-                  {!mcpRuntimeStatusError &&
-                  !mcpRuntimeStatusLoading &&
-                  mcpRuntimeSupportsServerMapping === false ? (
-                    <div className="mt-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] text-amber-700 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-                      Runtime status check limited: tool list does not expose
-                      per-server IDs in this mode.
-                    </div>
-                  ) : null}
                   <div className="mt-1 grid gap-1 px-1">
                     {group.servers.map((server) => {
                       const serverEndpointDisplay = `${server.transport} · ${server.endpoint}`;
                       const status = resolveMcpServerStatus({
                         serverId: server.serverId,
                         endpoint: server.endpoint,
-                        runtimeToolCountsByServerId:
-                          mcpRuntimeToolCountsByServerId,
-                        runtimeSupportsServerMapping:
-                          mcpRuntimeSupportsServerMapping,
+                        runtimeStatusByServerId: mcpRuntimeStatusByServerId,
                         runtimeStatusLoading: mcpRuntimeStatusLoading,
                         runtimeStatusError: mcpRuntimeStatusError,
                       });
