@@ -1,15 +1,8 @@
 from dataclasses import dataclass
 
-from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
 
-_BASE_REQUIRED_EXTERNAL_TOOLS: tuple[str, ...] = ("set_agentic_context",)
-
-
-def _required_external_tools(completion_guard_enabled: bool) -> tuple[str, ...]:
-    if completion_guard_enabled:
-        return (*_BASE_REQUIRED_EXTERNAL_TOOLS, REPORT_COMPLETION_STATUS_TOOL_NAME)
-    return _BASE_REQUIRED_EXTERNAL_TOOLS
+_REQUIRED_EXTERNAL_TOOLS: tuple[str, ...] = ("set_agentic_context",)
 
 
 @dataclass(frozen=True)
@@ -22,7 +15,6 @@ def build_external_tool_allowlist(
     tool_allowlist: list[str] | None,
     *,
     server_id: str = SETTA_MCP_SERVER_ID,
-    completion_guard_enabled: bool = True,
 ) -> tuple[ExternalToolAllowlist | None, str | None]:
     if not tool_allowlist:
         return None, None
@@ -55,7 +47,7 @@ def build_external_tool_allowlist(
         return ExternalToolAllowlist(allow_all=True, tool_names=()), None
     if not tool_names:
         return None, None
-    for tool_name in _required_external_tools(completion_guard_enabled):
+    for tool_name in _REQUIRED_EXTERNAL_TOOLS:
         tool_names.add(tool_name)
     return (
         ExternalToolAllowlist(

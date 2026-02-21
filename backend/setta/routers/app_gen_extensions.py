@@ -61,36 +61,25 @@ def _iter_skill_docs(root_path: Path):
 def list_app_gen_skills(workspace_root: Path) -> list[AppGenSkillEntry]:
     rows: list[AppGenSkillEntry] = []
     for root_id, label, root_path in iter_skill_roots(workspace_root):
-        try:
-            root_exists = root_path.exists()
-            root_is_dir = root_path.is_dir()
-        except OSError:
-            # Permission errors (for example /etc/codex/skills) should not
-            # break skills discovery for other readable roots.
+        if not root_path.exists() or not root_path.is_dir():
             continue
-        if not root_exists or not root_is_dir:
-            continue
-        try:
-            for skill_doc in _iter_skill_docs(root_path):
-                skill_dir = skill_doc.parent
-                try:
-                    relative = skill_dir.relative_to(root_path).as_posix()
-                except ValueError:
-                    continue
-                relative_path = relative if relative else "."
-                rows.append(
-                    AppGenSkillEntry(
-                        skillId=f"{root_id}::{relative_path}",
-                        name=skill_dir.name,
-                        rootLabel=label,
-                        rootPath=str(root_path),
-                        relativePath=relative_path,
-                        description=_extract_skill_description(skill_doc),
-                    )
+        for skill_doc in _iter_skill_docs(root_path):
+            skill_dir = skill_doc.parent
+            try:
+                relative = skill_dir.relative_to(root_path).as_posix()
+            except ValueError:
+                continue
+            relative_path = relative if relative else "."
+            rows.append(
+                AppGenSkillEntry(
+                    skillId=f"{root_id}::{relative_path}",
+                    name=skill_dir.name,
+                    rootLabel=label,
+                    rootPath=str(root_path),
+                    relativePath=relative_path,
+                    description=_extract_skill_description(skill_doc),
                 )
-        except OSError:
-            # If walking a root fails, keep other roots visible.
-            continue
+            )
     rows.sort(
         key=lambda row: (
             row.rootLabel.lower(),
@@ -122,11 +111,7 @@ def read_app_gen_skill_content(
     if not skill_dir.is_relative_to(root_path):
         raise ValueError("Invalid skill path.")
     skill_doc = skill_dir / "SKILL.md"
-    try:
-        skill_doc_exists = skill_doc.exists()
-    except OSError as exc:
-        raise ValueError(str(exc)) from exc
-    if not skill_doc_exists:
+    if not skill_doc.exists():
         raise KeyError(f"Missing SKILL.md for {raw_id}")
     try:
         original_size_bytes = skill_doc.stat().st_size

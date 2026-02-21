@@ -1,11 +1,9 @@
 import _ from "lodash";
 import { RxDragHandleDots2 } from "react-icons/rx";
-import {
-  persistActiveViewMode,
-  persistViewModeSortOrder,
-} from "state/actions/viewModes";
+import { persistViewModeSortOrder } from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
+import { route_set_active_view_mode } from "utils/generatedEndpoints";
 import { sortViewModes } from "utils/viewModeOrdering";
 import {
   useViewModeSortableItem,
@@ -61,7 +59,10 @@ export function ViewModeTabs() {
     if (!canEditVariants || modeId === activeViewModeId) {
       return;
     }
-    persistActiveViewMode(projectConfigId, modeId);
+    void route_set_active_view_mode({
+      projectConfigId,
+      activeViewModeId: modeId,
+    });
   };
 
   const handleReorder = (reorderedTabIds: Array<string>) => {

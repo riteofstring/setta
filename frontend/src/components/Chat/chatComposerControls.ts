@@ -370,8 +370,9 @@ export type ChatStarterPrompt = {
 };
 
 export const CREATE_PROJECT_STARTER_PROMPT = [
-  "Analyze this codebase and create a complete Setta project setup.",
-  "Create the core sections needed for this project and wire them correctly.",
+  "Assume this workspace already contains a real codebase and use it as the source of truth.",
+  "Before generating sections or code, ask me 8-12 concise clarifying questions about product goals, constraints, quality bar, environments, and rollout expectations.",
+  "After I answer, summarize the agreed direction, list open risks or assumptions, then create the core Setta sections and wire them correctly.",
   "Before claiming completion, run error checks and report pass/fail explicitly.",
 ].join(" ");
 
@@ -380,7 +381,7 @@ export const CHAT_STARTER_PROMPTS: ChatStarterPrompt[] = [
     id: "create-project",
     label: "Create Project",
     prompt: CREATE_PROJECT_STARTER_PROMPT,
-    requiresPython: true,
+    requiresPython: false,
   },
   {
     id: "summarize-codebase",
