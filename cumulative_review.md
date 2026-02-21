@@ -62,3 +62,25 @@
   - `pnpm -C frontend exec vitest run src/components/Panes/Overview/Overview.test.tsx src/utils/generatedTypes.taskBoardDefaults.test.ts` passed (`2 files, 8 tests`).
   - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-settings-agent-profiles.spec.ts frontend/tests/e2e/editor/task-board-generated-defaults.spec.ts` passed (`6 passed`).
   - Frontend eslint command remains blocked in this environment due missing package resolution for `@eslint/js` from `frontend/eslint.config.js`.
+
+## 2026-02-19 00:12:19 PST
+
+- Removed completion-guard keyword matching and switched to structured-only enforcement:
+  - `backend/setta/agentic/completion_guard.py` no longer uses regex/keyword completion-claim detection.
+  - Guard now evaluates user-visible assistant text against the latest `report_completion_status` payload only, while preserving backend `[Error] ...` messages.
+  - `backend/setta/mcp/system_prompt.md` now requires `report_completion_status` before any user-visible response, with `completionIntent=false` for non-completion turns.
+- Hardened completion report tool routing across multi-server MCP configurations:
+  - `backend/setta/llm/agent_runner.py` now globally filters non-Setta `*__report_completion_status` tool definitions during payload construction, including when no profile allowlist is present.
+- Fixed guardrails toggle save race behavior in Project AI settings:
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx` now tracks save request IDs and disables the completion-guard toggle while `/saveSettings` is in flight.
+- Added and updated regression coverage:
+  - `tests/agentic/test_completion_guard.py` and `tests/llm/test_agent_runner.py` now codify structured-only completion-guard behavior (no keyword inference).
+  - `tests/llm/test_agent_runner.py` now covers global filtering of non-Setta completion-status tools.
+  - `tests/agentic/test_external_agent_runner.py` now verifies user-visible external-runner responses are blocked when no report is present.
+  - `frontend/tests/e2e/overview/project-ai/project-ai-settings-agent-profiles.spec.ts` now asserts persisted toggle state relative to initial state, waits for `/api/saveSettings` success, and includes an in-flight disabled-state regression test.
+- Validation:
+  - `source activate.sh && pytest -q tests/agentic/test_completion_guard.py tests/llm/test_agent_runner.py tests/agentic/test_external_agent_runner.py` passed (`108 passed`).
+  - `source activate.sh && ruff check backend/setta/agentic/completion_guard.py tests/agentic/test_completion_guard.py tests/llm/test_agent_runner.py tests/agentic/test_external_agent_runner.py` passed.
+  - `source activate.sh && ruff check backend/setta/llm/agent_runner.py tests/llm/test_agent_runner.py` passed.
+  - `pnpm -C frontend exec prettier --check src/components/Panes/Overview/ProjectLevelAI/ProjectAISettings.tsx tests/e2e/overview/project-ai/project-ai-settings-agent-profiles.spec.ts` passed.
+  - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-ai-settings-agent-profiles.spec.ts` passed (`5 passed`).
