@@ -1384,7 +1384,7 @@ function LLMChatBubble({
   return (
     <div className="w-full">
       <div
-        className="relative flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg border border-transparent bg-white pb-2.5 pl-3 pr-2.5 pt-1.5 text-setta-800 dark:border-setta-700/45 dark:bg-setta-800 dark:text-setta-50"
+        className="relative flex min-h-[24px] w-full min-w-[24px] max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-b-lg rounded-tr-lg border border-transparent bg-white pb-2 pl-3 pr-2.5 pt-1 text-setta-800 dark:border-setta-700/45 dark:bg-setta-875 dark:text-setta-50"
         data-chat-assistant-bubble="true"
       >
         {children}
@@ -1414,7 +1414,7 @@ function UserChatBubble({
         data-message-id={messageId}
       >
         <div
-          className="relative flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-700/70 bg-blue-700 pb-2.5 pl-3 pr-2.5 pt-1.5 text-white dark:border-blue-800/80 dark:bg-blue-950"
+          className="relative flex w-fit max-w-full flex-shrink cursor-text flex-col gap-1.5 rounded-t-lg rounded-bl-lg border border-blue-700/70 bg-blue-700 pb-2 pl-3 pr-2.5 pt-1 text-white dark:border-blue-800/80 dark:bg-blue-950"
           data-chat-user-bubble="true"
           style={
             typeof bubbleWidthPx === "number"
@@ -1448,7 +1448,7 @@ function SystemChatBubble({
         data-message-id={messageId}
       >
         <div
-          className="relative flex max-w-full cursor-text flex-col gap-1.5 rounded-md border border-setta-200 bg-setta-50 px-2.5 pb-2 pt-1 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300"
+          className="relative flex max-w-full cursor-text flex-col gap-1.5 rounded-md border border-setta-200 bg-setta-50 px-2.5 pb-1.5 pt-0.5 text-xs text-setta-600 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-300"
           data-chat-system-bubble="true"
         >
           {children}
