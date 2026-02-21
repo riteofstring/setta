@@ -162,10 +162,15 @@ _REPORT_COMPLETION_STATUS_TOOL_NAME = build_namespaced_tool_name(
     SETTA_MCP_SERVER_ID,
     REPORT_COMPLETION_STATUS_TOOL_NAME,
 )
-_COMPLETION_GUARD_TOOL_UNAVAILABLE_MESSAGE = (
-    "Completion guard is temporarily bypassed because "
-    "`setta__report_completion_status` is not available in this run's tool payload."
+_COMPLETION_GUARD_TOOL_REQUIRED_MESSAGE = (
+    "Completion guard is enabled, but `setta__report_completion_status` is "
+    "not available in this run's tool payload. Ensure the Setta MCP server and "
+    "tool allowlist include this tool."
 )
+
+
+class CompletionGuardToolUnavailableError(RuntimeError):
+    pass
 
 
 def _required_internal_tool_names(completion_guard_enabled: bool) -> tuple[str, ...]:
@@ -425,7 +430,6 @@ class AgentRunner:
             )
         usage_summary: dict[str, int] | None = None
         cost_value: float | None = None
-        completion_guard_tool_unavailable_notified = False
         try:
             while True:
                 payload = self._build_llm_request_payload(
@@ -437,44 +441,6 @@ class AgentRunner:
                     agentic_scope=context.agentic_scope,
                     completion_guard_enabled=context.completion_guard_enabled,
                 )
-                turn_completion_guard_enabled = (
-                    self._resolve_turn_completion_guard_enabled(
-                        completion_guard_enabled=context.completion_guard_enabled,
-                        payload=payload,
-                    )
-                )
-                if (
-                    context.completion_guard_enabled
-                    and not turn_completion_guard_enabled
-                ):
-                    if not completion_guard_tool_unavailable_notified:
-                        await self.websocket_msg_handler.log_and_broadcast_backend_log_event(
-                            _COMPLETION_GUARD_TOOL_UNAVAILABLE_MESSAGE,
-                            severity=SettaBackendLogEventSeverity.warning,
-                            project_config_id=context.project_config_id,
-                            logger=logger,
-                            context={"run_id": str(run.id)},
-                            share_session_id=self.share_session_id,
-                        )
-                        await self.websocket_msg_handler.broadcast_notification(
-                            SettaNotification(
-                                projectConfigId=context.project_config_id,
-                                type=SettaNotificationType.warning,
-                                message=_COMPLETION_GUARD_TOOL_UNAVAILABLE_MESSAGE,
-                                temporary=True,
-                            ),
-                            share_session_id=self.share_session_id,
-                        )
-                        completion_guard_tool_unavailable_notified = True
-                    payload = self._build_llm_request_payload(
-                        llm_config=context.llm_config,
-                        messages=messages,
-                        thinking=context.thinking,
-                        system_prompt=context.system_prompt,
-                        allowlist=context.allowlist,
-                        agentic_scope=context.agentic_scope,
-                        completion_guard_enabled=False,
-                    )
                 assistant_message = AssistantChatMessage(content=[])
                 tool_call_state = ManagedToolCallState()
                 tool_call_accumulator = ManagedToolCallAccumulator(
@@ -496,6 +462,12 @@ class AgentRunner:
                         ],
                         context,
                     )
+                    if context.completion_guard_enabled and not self._payload_has_completion_report_tool(
+                        payload
+                    ):
+                        raise CompletionGuardToolUnavailableError(
+                            _COMPLETION_GUARD_TOOL_REQUIRED_MESSAGE
+                        )
                     stream_result = await litellm.acompletion(**payload, stream=True)
                     if not isinstance(stream_result, CustomStreamWrapper):
                         raise TypeError(
@@ -547,12 +519,12 @@ class AgentRunner:
                     tool_results = await self._execute_tool_calls(
                         context,
                         parsed_tool_calls,
-                        completion_guard_enabled=turn_completion_guard_enabled,
+                        completion_guard_enabled=context.completion_guard_enabled,
                     )
                     self._apply_completion_guard(
                         messages,
                         assistant_message,
-                        completion_guard_enabled=turn_completion_guard_enabled,
+                        completion_guard_enabled=context.completion_guard_enabled,
                         same_turn_tool_results=tool_results,
                     )
                     if assistant_message.tool_calls:
@@ -647,7 +619,11 @@ class AgentRunner:
                         self._record_event(run, "run_cancelled", {})
                     raise
                 except Exception as exc:
-                    user_facing_message = get_user_facing_llm_error_message(exc)
+                    user_facing_message = (
+                        str(exc).strip()
+                        if isinstance(exc, CompletionGuardToolUnavailableError)
+                        else get_user_facing_llm_error_message(exc)
+                    )
                     chat_error_text = (
                         user_facing_message
                         if user_facing_message
@@ -1820,8 +1796,6 @@ class AgentRunner:
         *,
         completion_guard_enabled: bool = True,
     ) -> bool:
-        if allowlist is None:
-            return True
         normalized_tool_name = (
             tool_name[len("mcp__") :] if tool_name.startswith("mcp__") else tool_name
         )
@@ -1834,6 +1808,8 @@ class AgentRunner:
             )
         ):
             return False
+        if allowlist is None:
+            return True
         if normalized_tool_name in allowlist.tool_names:
             return True
         if base_name in allowlist.tool_basenames:

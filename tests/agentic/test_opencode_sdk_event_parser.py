@@ -402,3 +402,41 @@ class TestOpenCodeSdkEventParser:
         assert tool_result_indexes
         assert finalized_indexes
         assert tool_result_indexes[0] < finalized_indexes[0]
+
+    def test_tool_result_normalizes_opencode_setta_tool_name(self) -> None:
+        parser = _OpenCodeSdkEventParser()
+        events = parser.handle(
+            {
+                "id": "msg-8",
+                "tool_call_id": "tool-report-8",
+                "tool_name": "setta_report_completion_status",
+                "result": {"completionIntent": False, "requiresVerification": False},
+            }
+        )
+        tool_results = [
+            event.stream_chunk
+            for event in events
+            if isinstance(event.stream_chunk, ToolResultEvent)
+        ]
+        assert len(tool_results) == 1
+        assert tool_results[0].result.tool_name == "setta__report_completion_status"
+
+    def test_tool_call_delta_normalizes_opencode_setta_tool_name(self) -> None:
+        parser = _OpenCodeSdkEventParser()
+        events = parser.handle(
+            {
+                "id": "msg-9",
+                "tool_call": {
+                    "id": "tool-report-9",
+                    "name": "setta_report_completion_status",
+                    "arguments": "{}",
+                },
+            }
+        )
+        tool_calls = [
+            event.stream_chunk
+            for event in events
+            if isinstance(event.stream_chunk, ToolCallDeltaEvent)
+        ]
+        assert len(tool_calls) == 1
+        assert tool_calls[0].tool_name == "setta__report_completion_status"

@@ -120,3 +120,37 @@
   - `tests/start/test_dev_script_wiring_aireset.py` now includes an end-to-end regression using real `ai.sh` wiring under `aireset.sh`.
 - Validation:
   - `source activate.sh && pytest tests/start/test_dev_script_wiring_run_dev_instance.py tests/start/test_dev_script_wiring_ai.py tests/start/test_dev_script_wiring_aireset.py` passed (`33 passed`).
+
+## 2026-02-19 09:34:03 PST
+
+- Fixed completion-guard settings resolution so remapped settings slices are honored:
+  - `backend/setta/agentic/completion_guard.py` now loads settings through `SettingsFile(..., allow_write=False)` instead of reading raw `setta-settings.json`, so `backend.completionGuardEnabled` follows settings-project path mapping.
+- Fixed completion-report tool-name canonicalization across managed and OpenCode paths:
+  - Added canonical MCP tool normalization in `backend/setta/mcp/namespacing.py`.
+  - `backend/setta/agentic/completion_report.py` now accepts canonical Setta namespaced tools after normalization, including OpenCode single-underscore Setta form (`setta_report_completion_status`).
+  - `backend/setta/agentic/external_adapters/opencode_sdk.py` now normalizes emitted tool names for both tool deltas and tool results.
+  - `backend/setta/agentic/external_agent_runner.py` now reuses shared normalization for stream/tool follow handling.
+- Removed managed-runner fail-open completion guard behavior:
+  - `backend/setta/llm/agent_runner.py` no longer bypasses guard when report tool is absent.
+  - Guard now fails closed with actionable run error text if `setta__report_completion_status` is missing while guard is enabled.
+  - Tool execution filtering now denies non-Setta `report_completion_status` even when `allowlist is None`.
+- Fixed TaskBoard explicit-empty settings defaults:
+  - `backend/setta/types/helpers_lvl2.py` now treats explicitly set empty `settings.taskBoardSectionDefault.columns = []` as intentional and does not re-inject Todo/Doing/Done defaults.
+- Removed duplicated port-selection logic:
+  - Added shared helper `scripts/lib/setta_port_selection.sh`.
+  - `scripts/ai.sh` and `scripts/run-dev-instance.sh` now source and use the shared offset/port helpers.
+- Added/updated regression coverage:
+  - `tests/agentic/test_completion_report.py`
+  - `tests/agentic/test_completion_guard.py`
+  - `tests/agentic/test_opencode_sdk_event_parser.py`
+  - `tests/agentic/test_external_agent_runner.py`
+  - `tests/llm/test_agent_runner.py`
+  - `tests/types/test_section_defaults.py`
+  - `tests/start/dev_script_wiring_helpers.py`
+- Validation:
+  - `source activate.sh && pytest tests/agentic/test_completion_report.py tests/agentic/test_completion_guard.py tests/agentic/test_opencode_sdk_event_parser.py tests/types/test_section_defaults.py` passed (`42 passed`).
+  - `source activate.sh && pytest tests/llm/test_agent_runner.py` passed (`34 passed`).
+  - `source activate.sh && pytest tests/agentic/test_external_agent_runner.py` passed (`65 passed`).
+  - `source activate.sh && pytest tests/start/test_dev_script_wiring_ai.py tests/start/test_dev_script_wiring_run_dev_instance.py tests/start/test_dev_script_wiring_aireset.py` passed (`33 passed`).
+  - `source activate.sh && pytest tests/start/test_dev_script_wiring_structure.py` passed (`12 passed`).
+  - `source activate.sh && ruff check ...` on all touched Python files passed.

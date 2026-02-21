@@ -112,3 +112,23 @@ def test_create_top_level_task_board_respects_explicit_empty_columns_override() 
         TaskBoardSectionImpl,
     )
     assert task_board_impl.columns == []
+
+
+def test_create_top_level_task_board_respects_explicit_empty_columns_settings_default() -> None:
+    settings = SettingsState.model_validate(
+        {"taskBoardSectionDefault": {"columns": []}}
+    )
+    project_state = ProjectStateSingleConfig(projectConfig=ProjectConfig(name="test"))
+    section_id = create_top_level_section(
+        settings,
+        project_state,
+        SectionType.TaskBoard,
+        Position(),
+    )
+    task_board_impl = get_curr_effective_section_impl_with_type_guard(
+        project_state,
+        section_id,
+        TaskBoardSectionImpl,
+    )
+    assert "columns" in settings.taskBoardSectionDefault.model_fields_set
+    assert task_board_impl.columns == []

@@ -78,7 +78,11 @@ from setta.llm.chat_toolkit.section_sync import apply_stream_delta
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.agentic_context_headers import build_agentic_context_headers
 from setta.mcp.client import MultiMCPClient
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
+from setta.mcp.namespacing import (
+    SETTA_MCP_SERVER_ID,
+    normalize_mcp_tool_name,
+    split_namespaced_tool_name,
+)
 from setta.mcp.tool_metadata import FollowIdType
 from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
@@ -1847,19 +1851,14 @@ class ExternalAgentRunner:
     def _normalize_tool_name(tool_name: str | None) -> str | None:
         if not tool_name:
             return None
-        normalized = tool_name.strip()
-        if not normalized:
+        raw_name = tool_name.strip()
+        if not raw_name:
             return None
-        has_mcp_prefix = normalized.startswith("mcp__")
-        if has_mcp_prefix:
-            normalized = normalized[len("mcp__") :]
-        if not has_mcp_prefix and normalized.lower() == "question":
+        normalized = normalize_mcp_tool_name(raw_name)
+        if normalized is None:
+            return None
+        if not raw_name.startswith("mcp__") and normalized.lower() == "question":
             return _ASK_USER_QUESTION_TOOL_NAME
-        setta_prefix = f"{SETTA_MCP_SERVER_ID}_"
-        if normalized.startswith(setta_prefix) and not normalized.startswith(
-            f"{SETTA_MCP_SERVER_ID}__"
-        ):
-            normalized = f"{SETTA_MCP_SERVER_ID}__{normalized[len(setta_prefix) :]}"
         return normalized
 
     def _normalize_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolCall]:

@@ -18,6 +18,7 @@ from setta.agentic.external_adapters.stream_utils import (
 )
 from setta.agentic.node_runtime import resolve_node_command
 from setta.database.utils import create_new_id
+from setta.mcp.namespacing import normalize_mcp_tool_name
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -555,7 +556,10 @@ class _OpenCodeSdkEventParser:
                 )
             )
         tool_call_id = part.get("callID")
-        tool_name = part.get("tool")
+        tool_name = None
+        raw_tool_name = part.get("tool")
+        if isinstance(raw_tool_name, str):
+            tool_name = normalize_mcp_tool_name(raw_tool_name)
         if isinstance(tool_call_id, str) and tool_call_id:
             state = part.get("state")
             if not isinstance(state, dict):
@@ -992,12 +996,12 @@ def _extract_tool_name(payload: dict[str, Any]) -> str | None:
     for key in ("tool_name", "toolName", "name"):
         raw = payload.get(key)
         if isinstance(raw, str) and raw:
-            return raw
+            return normalize_mcp_tool_name(raw)
     function = payload.get("function")
     if isinstance(function, dict):
         raw = function.get("name")
         if isinstance(raw, str) and raw:
-            return raw
+            return normalize_mcp_tool_name(raw)
     return None
 
 

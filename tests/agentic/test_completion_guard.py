@@ -6,6 +6,7 @@ from setta.agentic.completion_guard import (
     load_completion_guard_enabled,
 )
 from setta.database.db_objs import DBE
+from setta.project_state.settings_project import create_settings_project_state
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -14,6 +15,12 @@ from setta.types.chat_messages import (
     ToolChatMessage,
     UserChatMessage,
 )
+from setta.types.generated.settings_state import SettingsState
+from setta.types.helpers_lvl1 import (
+    get_curr_effective_section_impl,
+    get_curr_section_variant,
+)
+from setta.types.section_impls import DictSectionImpl
 
 
 def _text_message(text: str) -> MessageTextContent:
@@ -349,6 +356,26 @@ def test_completion_guard_accepts_direct_result_payload_and_mcp_prefix() -> None
     assert _assistant_text(assistant_message) == "Task A is done."
 
 
+def test_completion_guard_accepts_opencode_setta_single_underscore_tool_name() -> None:
+    prior_messages = [
+        _user_message("Implement task A."),
+        _completion_report_tool_message(
+            completion_intent=True,
+            requires_verification=True,
+            check_results=[
+                {"checkName": "pytest", "required": True, "status": "passed"},
+            ],
+            tool_name="setta_report_completion_status",
+        ),
+    ]
+    assistant_message = _assistant_message("Task A is done.")
+
+    replacement = apply_completion_guard(prior_messages, assistant_message)
+
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Task A is done."
+
+
 def test_completion_guard_blocks_when_completion_report_payload_is_malformed() -> None:
     prior_messages = [
         _user_message("Implement task A."),
@@ -381,6 +408,36 @@ def test_load_completion_guard_enabled_reads_backend_toggle(tmp_path) -> None:
                 "completionGuardEnabled": False,
             }
         },
+    )
+
+    enabled = load_completion_guard_enabled(dbe)
+
+    assert enabled is False
+
+
+def test_load_completion_guard_enabled_reads_remapped_backend_slice(tmp_path) -> None:
+    dbe = DBE(tmp_path / "setta_files")
+    dbe.write_json(dbe.settings, SettingsState().model_dump(mode="json"))
+
+    settings_project = create_settings_project_state(dbe.settings)
+    remapped_settings_path = tmp_path / "backend-settings.json"
+    backend_section_id = None
+    for section_id in settings_project.sections:
+        impl = get_curr_effective_section_impl(settings_project, section_id)
+        if not isinstance(impl, DictSectionImpl):
+            continue
+        if impl.jsonSourceKeys != ["backend"]:
+            continue
+        backend_section_id = section_id
+        break
+    assert backend_section_id is not None
+
+    backend_variant = get_curr_section_variant(settings_project, backend_section_id)
+    backend_variant.name = str(remapped_settings_path)
+    dbe.write_settings_project(settings_project)
+    dbe.write_json(
+        remapped_settings_path,
+        {"backend": {"completionGuardEnabled": False}},
     )
 
     enabled = load_completion_guard_enabled(dbe)

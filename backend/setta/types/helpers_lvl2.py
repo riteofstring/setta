@@ -509,8 +509,19 @@ def create_default_task_board_columns() -> list[TaskBoardColumn]:
 
 def _task_board_columns_explicitly_overridden(
     impl_overrides: BaseSectionImplArgsUnion | None,
+    *,
+    settings: SettingsState | None = None,
 ) -> bool:
     if impl_overrides is None:
+        if settings is None:
+            return False
+        settings_fields_set = getattr(
+            settings.taskBoardSectionDefault,
+            "model_fields_set",
+            None,
+        )
+        if isinstance(settings_fields_set, set):
+            return "columns" in settings_fields_set
         return False
     if isinstance(impl_overrides, dict):
         return "columns" in impl_overrides
@@ -536,7 +547,10 @@ def create_section(
     if (
         isinstance(impl, TaskBoardSectionImpl)
         and len(impl.columns) == 0
-        and not _task_board_columns_explicitly_overridden(impl_overrides)
+        and not _task_board_columns_explicitly_overridden(
+            impl_overrides,
+            settings=settings,
+        )
     ):
         impl.columns = create_default_task_board_columns()
     impl.size = normalize_section_size(settings, impl.type, impl.id, impl.size)

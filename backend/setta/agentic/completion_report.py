@@ -2,7 +2,11 @@ from enum import Enum
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
+from setta.mcp.namespacing import (
+    SETTA_MCP_SERVER_ID,
+    normalize_mcp_tool_name,
+    split_namespaced_tool_name,
+)
 
 REPORT_COMPLETION_STATUS_TOOL_NAME = "report_completion_status"
 
@@ -132,13 +136,9 @@ def coerce_completion_status_report(
 
 
 def is_report_completion_status_tool(tool_name: str | None) -> bool:
-    if not isinstance(tool_name, str):
+    normalized = normalize_mcp_tool_name(tool_name)
+    if normalized is None:
         return False
-    normalized = tool_name.strip()
-    if not normalized:
-        return False
-    if normalized.startswith("mcp__"):
-        normalized = normalized[len("mcp__") :]
     server_id, tool_basename = split_namespaced_tool_name(normalized)
     if tool_basename != REPORT_COMPLETION_STATUS_TOOL_NAME:
         return False

@@ -240,6 +240,42 @@ class TestAgentRunner:
                 "other__report_completion_status", allowlist
             )
 
+    def test_allowlist_none_still_blocks_non_setta_completion_status_when_guard_enabled(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            runner = _build_runner(dbe, config)
+
+            assert runner._is_tool_allowed(
+                "setta__report_completion_status",
+                None,
+                completion_guard_enabled=True,
+            )
+            assert not runner._is_tool_allowed(
+                "other__report_completion_status",
+                None,
+                completion_guard_enabled=True,
+            )
+            assert runner._is_tool_allowed(
+                "other__report_completion_status",
+                None,
+                completion_guard_enabled=False,
+            )
+
     def test_tool_definitions_keep_setta_report_tool_when_allowlist_narrows_server_ids(
         self,
     ) -> None:
@@ -1254,6 +1290,57 @@ class TestAgentRunner:
             assert "projectConfigId" in snapshot_payload
             assert "projectState" in snapshot_payload
             assert "temporaryIdMap" in snapshot_payload
+
+    @pytest.mark.asyncio
+    async def test_run_agent_fails_closed_when_completion_guard_tool_is_missing(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe, [ProjectConfig()])
+            config = AllLLMConfigs(
+                configs={
+                    "primary": LLMConfig(
+                        id="primary",
+                        model="gpt-4o-mini",
+                        provider="openai",
+                        api_key_env="OPENAI_API_KEY",
+                        mcpServerIds=[],
+                    )
+                },
+                mcpServers={},
+            )
+            runner = _build_runner(dbe, config)
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
+            context = runner._build_context(
+                profile,
+                inputs={"allowUnscoped": True},
+                emit_stream=False,
+                emit_ai_follow=False,
+            )
+
+            await runner._run_agent(context)
+
+            assert context.run.status == AgentRunStatus.failed
+            outputs = context.run.outputs or {}
+            messages = outputs.get("messages")
+            assert isinstance(messages, list)
+            assistant_messages = [
+                message
+                for message in messages
+                if isinstance(message, dict) and message.get("role") == "assistant"
+            ]
+            assert assistant_messages
+            assistant_content = assistant_messages[-1].get("content")
+            assert isinstance(assistant_content, list)
+            text_block = assistant_content[0]
+            assert isinstance(text_block, dict)
+            text = text_block.get("text")
+            assert isinstance(text, str)
+            assert "Completion guard is enabled" in text
+            assert "report_completion_status" in text
 
 
 class TestAgentRunnerSubAgent:

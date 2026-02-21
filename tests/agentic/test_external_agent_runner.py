@@ -2142,7 +2142,7 @@ class TestExternalAgentRunnerQuestion:
                 "id": "assistant-1",
                 "text": "Task A is done.",
                 "tool_call_id": "tool-report",
-                "tool_name": "setta__report_completion_status",
+                "tool_name": "setta_report_completion_status",
                 "result": {
                     "structuredContent": {
                         "completionIntent": True,

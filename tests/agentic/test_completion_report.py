@@ -37,5 +37,7 @@ def test_coerce_completion_status_report_builds_report_for_valid_payload() -> No
 def test_report_completion_status_tool_requires_setta_namespace() -> None:
     assert is_report_completion_status_tool("setta__report_completion_status")
     assert is_report_completion_status_tool("mcp__setta__report_completion_status")
+    assert is_report_completion_status_tool("setta_report_completion_status")
+    assert is_report_completion_status_tool("mcp__setta_report_completion_status")
     assert not is_report_completion_status_tool("report_completion_status")
     assert not is_report_completion_status_tool("other__report_completion_status")

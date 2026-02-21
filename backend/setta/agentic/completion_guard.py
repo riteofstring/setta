@@ -7,6 +7,7 @@ from setta.agentic.completion_report import (
     is_report_completion_status_tool,
 )
 from setta.database.db_objs import DBE
+from setta.database.settings_file import SettingsFile
 from setta.types.chat_messages import AssistantChatMessage, MessageTextContent
 from setta.types.generated.settings_state import SettingsState
 
@@ -19,6 +20,11 @@ FAILED_CHECKS_MESSAGE = (
     "I cannot mark this complete because required error checks are failing. "
     "I need to report failing checks and fixes before completion."
 )
+
+
+class _NoopFrontendSender:
+    async def broadcast_settings(self, _settings: SettingsState) -> None:
+        return None
 
 
 def apply_completion_guard(
@@ -66,10 +72,8 @@ def is_completion_guard_enabled(settings: SettingsState) -> bool:
 
 
 def load_completion_guard_enabled(dbe: DBE) -> bool:
-    payload = dbe.read_json(dbe.settings)
-    if not isinstance(payload, dict):
-        raise TypeError("setta-settings.json must contain a JSON object at the root.")
-    settings = SettingsState.model_validate(payload)
+    settings_file = SettingsFile(dbe, _NoopFrontendSender(), allow_write=False)
+    settings = settings_file.settings
     return is_completion_guard_enabled(settings)
 
 
