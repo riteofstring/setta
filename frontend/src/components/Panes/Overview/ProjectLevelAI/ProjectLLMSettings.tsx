@@ -2,6 +2,7 @@ import * as Accordion from "@radix-ui/react-accordion";
 import { PasswordInput } from "components/Params/ParamUIs/PasswordInput";
 import { useState } from "react";
 import { HiChevronDown } from "react-icons/hi2";
+import { MdAdd } from "react-icons/md";
 import { useAIStore } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { route_set_llm_api_keys } from "utils/generatedEndpoints";
@@ -111,72 +112,6 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
 
   return (
     <div className={wrapperClassName}>
-      {apiKeyEntries.length === 0 ? (
-        <div className="rounded-md border border-dashed border-setta-200/70 px-3 py-4 text-xs text-setta-500 dark:border-setta-800 dark:text-setta-400">
-          No API keys configured yet.
-        </div>
-      ) : (
-        <Accordion.Root type="multiple" className="overflow-hidden rounded-md">
-          {apiKeyEntries.map((entry) => (
-            <Accordion.Item
-              key={entry.envKey}
-              value={entry.envKey}
-              className="border-b border-setta-200/70 last:border-b-0 dark:border-setta-800/70"
-            >
-              <Accordion.Header>
-                <Accordion.Trigger className="group flex w-full items-center justify-between gap-2 px-1.5 py-2 text-left transition-colors hover:bg-setta-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/60 [&[data-state=open]_.project-llm-settings-api-key-chevron]:rotate-180">
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold text-setta-700 dark:text-setta-200">
-                      {entry.envKey}
-                    </span>
-                    <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-setta-500 dark:text-setta-400">
-                      {apiKeys[entry.envKey] ? "Set" : "Unset"}
-                    </span>
-                  </span>
-                  <HiChevronDown
-                    size={16}
-                    className="project-llm-settings-api-key-chevron shrink-0 text-setta-400 transition-transform duration-150 dark:text-setta-500"
-                  />
-                </Accordion.Trigger>
-              </Accordion.Header>
-              <Accordion.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-                <div className="grid gap-2 px-1.5 pb-2">
-                  {entry.configLabels.length > 0 ? (
-                    <p className="text-[11px] text-setta-500 dark:text-setta-400">
-                      Used by: {entry.configLabels.join(", ")}
-                    </p>
-                  ) : null}
-                  <div className="grid gap-2 @container @[32rem]:grid-cols-[1fr,auto]">
-                    <div className="flex flex-col gap-1">
-                      <label
-                        htmlFor={`api-key-${entry.envKey}`}
-                        className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400"
-                      >
-                        API Key
-                      </label>
-                      <IsolatedInput
-                        apiKeyName={entry.envKey}
-                        inputId={`api-key-${entry.envKey}`}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      className={`${API_KEY_BUTTON_CLASS_NAME} self-end`}
-                      disabled={!apiKeys[entry.envKey]}
-                      onClick={() => handleClearApiKey(entry.envKey)}
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-              </Accordion.Content>
-            </Accordion.Item>
-          ))}
-        </Accordion.Root>
-      )}
-
-      <hr className="border-setta-200/70 dark:border-setta-800/70" />
-
       <div className="flex flex-col gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400">
           Add API Key
@@ -233,10 +168,11 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
           <button
             type="button"
             data-testid="project-llm-settings-add-api-key"
-            className={`${API_KEY_BUTTON_CLASS_NAME} self-end`}
+            className={`${API_KEY_BUTTON_CLASS_NAME} inline-flex items-center justify-center gap-1.5 self-end`}
             onClick={handleAddApiKey}
           >
-            Add
+            <MdAdd size={14} aria-hidden="true" />
+            <span className="text-center">Add</span>
           </button>
         </div>
         {newApiKeyError ? (
@@ -245,6 +181,74 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
           </p>
         ) : null}
       </div>
+
+      <hr className="border-setta-200/70 dark:border-setta-800/70" />
+
+      {apiKeyEntries.length === 0 ? (
+        <div className="rounded-md border border-dashed border-setta-200/70 px-3 py-4 text-xs text-setta-500 dark:border-setta-800 dark:text-setta-400">
+          No API keys configured yet.
+        </div>
+      ) : (
+        <Accordion.Root type="multiple" className="rounded-md">
+          {apiKeyEntries.map((entry) => (
+            <Accordion.Item
+              key={entry.envKey}
+              value={entry.envKey}
+              className="border-b border-setta-200/70 last:border-b-0 dark:border-setta-800/70"
+            >
+              <Accordion.Header>
+                <Accordion.Trigger className="group flex w-full items-center justify-between gap-2 pl-1.5 pr-2.5 py-2 text-left transition-colors hover:bg-setta-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 dark:hover:bg-setta-850/60 [&[data-state=open]_.project-llm-settings-api-key-chevron]:rotate-180">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-xs font-semibold text-setta-700 dark:text-setta-200">
+                      {entry.envKey}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-setta-500 dark:text-setta-400">
+                      {apiKeys[entry.envKey] ? "Set" : "Unset"}
+                    </span>
+                  </span>
+                  <span className="flex h-5 w-5 flex-none items-center justify-center">
+                    <HiChevronDown
+                      size={16}
+                      className="project-llm-settings-api-key-chevron text-setta-400 transition-transform duration-150 dark:text-setta-500"
+                    />
+                  </span>
+                </Accordion.Trigger>
+              </Accordion.Header>
+              <Accordion.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+                <div className="grid gap-2 px-1.5 pb-2">
+                  {entry.configLabels.length > 0 ? (
+                    <p className="text-[11px] text-setta-500 dark:text-setta-400">
+                      Used by: {entry.configLabels.join(", ")}
+                    </p>
+                  ) : null}
+                  <div className="grid gap-2 @container @[32rem]:grid-cols-[1fr,auto]">
+                    <div className="flex flex-col gap-1">
+                      <label
+                        htmlFor={`api-key-${entry.envKey}`}
+                        className="text-[11px] font-semibold uppercase tracking-wide text-setta-500 dark:text-setta-400"
+                      >
+                        API Key
+                      </label>
+                      <IsolatedInput
+                        apiKeyName={entry.envKey}
+                        inputId={`api-key-${entry.envKey}`}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      className={`${API_KEY_BUTTON_CLASS_NAME} self-end`}
+                      disabled={!apiKeys[entry.envKey]}
+                      onClick={() => handleClearApiKey(entry.envKey)}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              </Accordion.Content>
+            </Accordion.Item>
+          ))}
+        </Accordion.Root>
+      )}
     </div>
   );
 }
