@@ -7,6 +7,7 @@ import {
   getActiveViewModeTopLevelSections,
 } from "state/actions/sectionInfos";
 import {
+  PendingOperationKindEnum,
   useMisc,
   useNodeInternals,
   useProjectState,
@@ -158,6 +159,7 @@ export function persistActiveViewMode(
     apply: (state) => {
       applyActiveViewMode(state, activeViewModeId);
     },
+    kind: PendingOperationKindEnum.ActiveViewMode,
     send: (frontendOpId) =>
       route_set_active_view_mode({
         projectConfigId,

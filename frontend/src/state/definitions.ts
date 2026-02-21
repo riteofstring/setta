@@ -262,10 +262,19 @@ export const useAllProjectMetadata = createWithEqualityFn(
   })),
 );
 
+export const PendingOperationKindEnum = {
+  Generic: "generic",
+  ActiveViewMode: "active_view_mode",
+} as const;
+
+export type PendingOperationKind =
+  (typeof PendingOperationKindEnum)[keyof typeof PendingOperationKindEnum];
+
 export type PendingOperation = {
   opId: string;
   apply: (x: ZustandProjectState) => void;
   acknowledged: boolean;
+  kind?: PendingOperationKind;
 };
 
 type ZustandPendingOperations = {

@@ -116,3 +116,29 @@ Notes:
 
 Trace observation:
 - Focused `Core -> All Settings` trace still returned no forced-reflow/DOM-size insights after this change.
+
+## 2026-02-20 - Run 6 (after backend active-view-mode ack node-map short-circuit)
+- Change set:
+  - Added pending-op kind tagging for optimistic operations (`PendingOperationKindEnum`).
+  - Tagged `persistActiveViewMode` optimistic ops as `active_view_mode`.
+  - Added frontend reconcile guard in `processProjectStateUpdateFromBackend`:
+    - if backend update only completes active-view-mode optimistic ops and node-map inputs are unchanged,
+      skip `createNodesMapFromProjectConfigChildren(...)` + `useNodeInternals.setState(...)`.
+
+| Switch target | Duration (ms) | Node count |
+| --- | ---: | ---: |
+| Core | 564.0 | 5 |
+| Section Defaults Structure and Code | 324.0 | 9 |
+| Section Defaults Content and Media | 570.4 | 10 |
+| Param Defaults | 364.0 | 13 |
+| All Settings | 1316.0 | 42 |
+
+## Delta summary (Run 6 vs Run 5)
+- Core: -48.2 ms
+- Section Defaults Structure and Code: -7.1 ms
+- Section Defaults Content and Media: -4.3 ms
+- Param Defaults: -5.2 ms
+- All Settings: -61.4 ms
+
+Trace observation:
+- Focused `Core -> All Settings` trace continued to show no forced-reflow/DOM-size insight entries.
