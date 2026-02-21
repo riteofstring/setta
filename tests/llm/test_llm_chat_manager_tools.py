@@ -593,7 +593,6 @@ class TestToolDispatch:
                     chat_id=chat_id,
                     section_id=None,
                 ),
-                setta_tool_approval_policy=None,
             )
             if execute_action is None:
                 raise AssertionError("Expected tool execution action")

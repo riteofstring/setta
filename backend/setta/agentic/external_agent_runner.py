@@ -74,7 +74,6 @@ from setta.llm.chat_toolkit.section_sync import apply_stream_delta
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.agentic_context_headers import build_agentic_context_headers
 from setta.mcp.client import MultiMCPClient
-from setta.mcp.tool_approval_policy import resolve_setta_mcp_tool_approval_policy
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
 from setta.mcp.tool_metadata import FollowIdType
 from setta.mcp.utils import convert_canonical_ids_to_temporary
@@ -556,28 +555,11 @@ class ExternalAgentRunner:
             profile=profile,
             payload_inputs=payload_inputs,
         )
-        permission_mode: str | None = None
-        raw_permission_mode = payload_inputs.get("permissionMode")
-        if raw_permission_mode is not None:
-            if not isinstance(raw_permission_mode, str):
-                raise TypeError("permissionMode must be a string")
-            permission_mode = raw_permission_mode
-        setta_tool_approval_policy = resolve_setta_mcp_tool_approval_policy(
-            permission_mode=permission_mode,
-            external_tool_type=effective_config.toolType,
-            external_approval_policy=effective_config.approvalPolicy,
-            has_approval_channel=False,
-        )
         agentic_headers = build_agentic_context_headers(
             project_config_id=project_config_id,
             chat_id=chat_id,
             section_id=section_id,
             allow_unscoped=allow_unscoped,
-            setta_tool_approval_policy=(
-                None
-                if setta_tool_approval_policy is None
-                else setta_tool_approval_policy.value
-            ),
         )
         system_prompt = self._build_system_prompt(profile, project_config_id)
         raw_system_prompt = payload_inputs.pop("systemPrompt", None)
