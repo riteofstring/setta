@@ -1133,7 +1133,7 @@ const ToolCallSection = memo(function ToolCallSection({
   latestToolLabel: string;
   sectionState: ToolCallSectionState;
 }) {
-  const title = `Tool calls (${toolCount})`;
+  const title = "Tool calls";
   return (
     <Accordion.Root type="single" collapsible className="w-full">
       <Accordion.Item
@@ -1153,8 +1153,17 @@ const ToolCallSection = memo(function ToolCallSection({
           </div>
           <div className="flex min-w-0 items-start gap-2 px-2 py-1">
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[11px] font-semibold text-setta-500 dark:text-setta-200">
-                {title}
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate text-[11px] font-semibold text-setta-500 dark:text-setta-200">
+                  {title}
+                </span>
+                <span
+                  data-chat-tool-call-count-badge="true"
+                  className="inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full border border-setta-300/80 bg-setta-100 px-1.5 py-[1px] text-[10px] font-semibold leading-none text-setta-700 dark:border-setta-600/80 dark:bg-setta-800 dark:text-setta-200"
+                  title={`${toolCount} tool calls`}
+                >
+                  {toolCount}
+                </span>
               </div>
               <div className="truncate text-[10px] text-setta-400 dark:text-setta-400/90">
                 {latestToolLabel}

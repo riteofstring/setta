@@ -217,7 +217,9 @@ describe("ChatMessages tool call status", () => {
     const sectionCount = (markup.match(/data-chat-tool-call-section="true"/g) ?? [])
       .length;
     expect(sectionCount).toBe(1);
-    expect(markup).toContain("Tool calls (2)");
+    expect(markup).toContain("Tool calls");
+    expect(markup).toContain('data-chat-tool-call-count-badge="true"');
+    expect(markup).toContain(">2<");
     expect(markup).toContain('data-chat-assistant-tool-call-card="true"');
     expect(markup).toContain('data-chat-tool-call-section-rail="true"');
     expect(markup).toContain('data-chat-assistant-bubble="true"');
@@ -269,7 +271,9 @@ describe("ChatMessages tool call status", () => {
     const sectionCount = (markup.match(/data-chat-tool-call-section="true"/g) ?? [])
       .length;
     expect(sectionCount).toBe(1);
-    expect(markup).toContain("Tool calls (2)");
+    expect(markup).toContain("Tool calls");
+    expect(markup).toContain('data-chat-tool-call-count-badge="true"');
+    expect(markup).toContain(">2<");
     expect(markup).not.toContain('data-chat-assistant-bubble="true"');
     expect(markup).toContain(
       "group flex w-full max-w-[min(88%,800px)] flex-col items-start gap-2",

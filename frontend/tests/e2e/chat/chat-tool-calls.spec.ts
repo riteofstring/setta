@@ -76,7 +76,10 @@ test.describe.serial("chat tool calls", () => {
         .locator('[data-chat-tool-call-section="true"]')
         .first();
       await expect(toolSection).toBeVisible();
-      await expect(toolSection).toContainText("Tool calls (2)");
+      await expect(toolSection).toContainText("Tool calls");
+      await expect(
+        toolSection.locator('[data-chat-tool-call-count-badge="true"]'),
+      ).toHaveText("2");
       await expect(toolSection).toContainText("Stopped Mid-Tool Call");
 
       // Tool-call-only runs should not render a speech bubble.
@@ -85,7 +88,7 @@ test.describe.serial("chat tool calls", () => {
       // Interrupted tool calls should not show a running spinner state.
       await expect(toolSection.locator(".gg-spinner")).toHaveCount(0);
 
-      await toolSection.getByText("Tool calls (2)").click();
+      await toolSection.getByText("Tool calls").click();
 
       const toolItems = toolSection.locator('[data-chat-tool-call-item="true"]');
       await expect(toolItems).toHaveCount(2);
