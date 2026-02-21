@@ -297,12 +297,10 @@ test.describe.serial("chat composer controls", () => {
         sectionId,
         managed: true,
         engineConfigId: managedEngineId,
-        transcriptionProfileId: null,
         agentProfileId: null,
         thinking: false,
         permissionMode: "minimal",
         searchEnabled: true,
-        dictationMode: "auto",
       });
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
@@ -578,12 +576,10 @@ test.describe.serial("chat composer controls", () => {
         sectionId,
         managed: true,
         engineConfigId: null,
-        transcriptionProfileId: null,
         agentProfileId: null,
         thinking: false,
         permissionMode: "minimal",
         searchEnabled: true,
-        dictationMode: "auto",
       });
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
@@ -630,12 +626,10 @@ test.describe.serial("chat composer controls", () => {
         sectionId,
         managed: true,
         engineConfigId: null,
-        transcriptionProfileId: null,
         agentProfileId: null,
         thinking: false,
         permissionMode: "minimal",
         searchEnabled: true,
-        dictationMode: "auto",
       });
 
       const section = findSectionByName(page, sectionName);
@@ -708,12 +702,10 @@ test.describe.serial("chat composer controls", () => {
         sectionId,
         managed: true,
         engineConfigId: null,
-        transcriptionProfileId: null,
         agentProfileId: null,
         thinking: false,
         permissionMode: "minimal",
         searchEnabled: true,
-        dictationMode: "auto",
       });
 
       const section = findSectionByName(page, sectionName);

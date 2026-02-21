@@ -6,12 +6,9 @@ import {
   getSettaBadgeRefreshFolderPaths,
   isEditableFileBrowserTarget,
   isOwnedFileBrowserLoadingPath,
-  shouldCheckRootWorkspaceInitialization,
-  shouldLoadRootWorkspaceInitializationMetadata,
   shouldRefreshMovedExpandedFolder,
   shouldRefreshRootAfterFileBrowserTransfer,
   shouldRefreshSettaBadgeDataOnToggleChange,
-  shouldShowSettaInitializedFolderIcon,
   shouldSkipFileBrowserTransfer,
   sortChildPaths,
   type FileNode,
@@ -338,78 +335,6 @@ describe("shouldRefreshSettaBadgeDataOnToggleChange", () => {
       shouldRefreshSettaBadgeDataOnToggleChange({
         previousIncludeSettaInitializedFolders: true,
         nextIncludeSettaInitializedFolders: true,
-      }),
-    ).toBe(false);
-  });
-});
-
-describe("shouldShowSettaInitializedFolderIcon", () => {
-  it("shows the Setta icon for initialized folders", () => {
-    expect(
-      shouldShowSettaInitializedFolderIcon({
-        isFolder: true,
-        isSettaInitialized: true,
-      }),
-    ).toBe(true);
-    expect(
-      shouldShowSettaInitializedFolderIcon({
-        isFolder: true,
-        isSettaInitialized: false,
-      }),
-    ).toBe(false);
-    expect(
-      shouldShowSettaInitializedFolderIcon({
-        isFolder: false,
-        isSettaInitialized: false,
-      }),
-    ).toBe(false);
-  });
-});
-
-describe("shouldCheckRootWorkspaceInitialization", () => {
-  it("checks initialization only for the active root", () => {
-    expect(
-      shouldCheckRootWorkspaceInitialization({
-        folderPath: "/workspace",
-        rootPath: "/workspace",
-      }),
-    ).toBe(true);
-    expect(
-      shouldCheckRootWorkspaceInitialization({
-        folderPath: "/workspace/child",
-        rootPath: "/workspace",
-      }),
-    ).toBe(false);
-    expect(
-      shouldCheckRootWorkspaceInitialization({
-        folderPath: "/workspace",
-        rootPath: null,
-      }),
-    ).toBe(false);
-  });
-});
-
-describe("shouldLoadRootWorkspaceInitializationMetadata", () => {
-  it("requires both Setta metadata mode and root folder context", () => {
-    expect(
-      shouldLoadRootWorkspaceInitializationMetadata({
-        includeSettaInitializedFolders: false,
-        folderPath: "/workspace",
-        rootPath: "/workspace",
-      }),
-    ).toBe(false);
-    expect(
-      shouldLoadRootWorkspaceInitializationMetadata({
-        includeSettaInitializedFolders: true,
-        folderPath: "/workspace",
-        rootPath: "/workspace",
-      }),
-    ).toBe(true);
-    expect(
-      shouldLoadRootWorkspaceInitializationMetadata({
-        includeSettaInitializedFolders: true,
-        folderPath: "/workspace/child",
-        rootPath: "/workspace",
       }),
     ).toBe(false);
   });

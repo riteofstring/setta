@@ -2,10 +2,7 @@ import { CompletionContext } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
 import { route_get_folder_contents } from "utils/generatedEndpoints";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  createDynamicFolderPathCompletionSource,
-  createFolderPathCompletionSource,
-} from "./folderPathCompletions";
+import { createFolderPathCompletionSource } from "./folderPathCompletions";
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_get_folder_contents: vi.fn(),
@@ -53,7 +50,6 @@ describe("createFolderPathCompletionSource", () => {
       folderPath: "/root",
       ignorePatterns: null,
       maxEntries: null,
-      allowOutsideWorkspaceRoot: false,
       missingFolderBehavior: "empty",
     });
     expect(result?.options.map((option) => option.label)).toEqual([
@@ -83,61 +79,6 @@ describe("createFolderPathCompletionSource", () => {
     expect(mockedGetFolderContents).not.toHaveBeenCalled();
   });
 
-  it("supports absolute completions outside the root when enabled", async () => {
-    mockedGetFolderContents.mockResolvedValue({
-      data: [{ name: "projects", type: "folder", fullPath: "/Users/projects" }],
-      status: 200,
-      hasResponse: true,
-    });
-
-    const source = createFolderPathCompletionSource({
-      rootPath: "/root/project",
-      allowOutsideWorkspaceRoot: true,
-    });
-    if (!source) {
-      throw new Error("Missing completion source.");
-    }
-
-    const result = await source(buildContext("/Users/p"));
-    expect(mockedGetFolderContents).toHaveBeenCalledWith({
-      folderPath: "/Users",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: true,
-      missingFolderBehavior: "empty",
-    });
-    expect(result?.options.map((option) => option.label)).toEqual(["projects"]);
-  });
-
-  it("supports outside-root Windows absolute completions when enabled", async () => {
-    mockedGetFolderContents.mockResolvedValue({
-      data: [
-        { name: "projects", type: "folder", fullPath: "C:/Users/projects" },
-      ],
-      status: 200,
-      hasResponse: true,
-    });
-
-    const source = createFolderPathCompletionSource({
-      rootPath: "C:\\workspace\\repo",
-      allowOutsideWorkspaceRoot: true,
-      pathSeparator: "\\",
-    });
-    if (!source) {
-      throw new Error("Missing completion source.");
-    }
-
-    const result = await source(buildContext("C:\\Users\\p"));
-    expect(mockedGetFolderContents).toHaveBeenCalledWith({
-      folderPath: "C:/Users",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: true,
-      missingFolderBehavior: "empty",
-    });
-    expect(result?.options[0].apply).toBe("projects\\");
-  });
-
   it("uses backslashes when completing Windows-style paths", async () => {
     mockedGetFolderContents.mockResolvedValue({
       data: [{ name: "src", type: "folder", fullPath: "C:\\repo\\src" }],
@@ -155,78 +96,5 @@ describe("createFolderPathCompletionSource", () => {
 
     const result = await source(buildContext("C:\\repo\\s"));
     expect(result?.options[0].apply).toBe("src\\");
-  });
-});
-
-describe("createDynamicFolderPathCompletionSource", () => {
-  beforeEach(() => {
-    mockedGetFolderContents.mockReset();
-  });
-
-  it("invalidates cache when allowOutsideWorkspaceRoot changes", async () => {
-    mockedGetFolderContents
-      .mockResolvedValueOnce({
-        data: [{ name: "alpha", type: "folder", fullPath: "/root/alpha" }],
-        status: 200,
-        hasResponse: true,
-      })
-      .mockResolvedValueOnce({
-        data: [{ name: "beta", type: "folder", fullPath: "/root/beta" }],
-        status: 200,
-        hasResponse: true,
-      });
-
-    const options = {
-      rootPath: "/root",
-      allowOutsideWorkspaceRoot: false,
-    };
-    const source = createDynamicFolderPathCompletionSource(() => options);
-
-    const first = await source(buildContext("/root/a"));
-    expect(first?.options.map((option) => option.label)).toEqual(["alpha"]);
-    expect(mockedGetFolderContents).toHaveBeenNthCalledWith(1, {
-      folderPath: "/root",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: false,
-      missingFolderBehavior: "empty",
-    });
-
-    options.allowOutsideWorkspaceRoot = true;
-    const second = await source(buildContext("/root/a"));
-    expect(second?.options.map((option) => option.label)).toEqual(["beta"]);
-    expect(mockedGetFolderContents).toHaveBeenNthCalledWith(2, {
-      folderPath: "/root",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: true,
-      missingFolderBehavior: "empty",
-    });
-  });
-
-  it("supports outside-root Windows absolute completions", async () => {
-    mockedGetFolderContents.mockResolvedValue({
-      data: [
-        { name: "projects", type: "folder", fullPath: "C:/Users/projects" },
-      ],
-      status: 200,
-      hasResponse: true,
-    });
-
-    const source = createDynamicFolderPathCompletionSource(() => ({
-      rootPath: "/workspace/project",
-      allowOutsideWorkspaceRoot: true,
-      pathSeparator: "\\",
-    }));
-
-    const result = await source(buildContext("C:\\Users\\p"));
-    expect(mockedGetFolderContents).toHaveBeenCalledWith({
-      folderPath: "C:/Users",
-      ignorePatterns: null,
-      maxEntries: null,
-      allowOutsideWorkspaceRoot: true,
-      missingFolderBehavior: "empty",
-    });
-    expect(result?.options[0].apply).toBe("projects\\");
   });
 });
