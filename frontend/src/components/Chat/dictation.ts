@@ -51,8 +51,11 @@ export function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor 
   return null;
 }
 
-export function isDictationAvailable(hasEnvironmentSupport: boolean): boolean {
-  return hasEnvironmentSupport;
+export function isDictationAvailable(
+  enabledByProvider: boolean,
+  hasEnvironmentSupport: boolean,
+): boolean {
+  return enabledByProvider && hasEnvironmentSupport;
 }
 
 export function insertTextAtSelection(

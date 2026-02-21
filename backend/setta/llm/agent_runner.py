@@ -95,6 +95,7 @@ from setta.mcp.namespacing import (
     build_namespaced_tool_name,
     split_namespaced_tool_name,
 )
+from setta.mcp.tool_approval_policy import resolve_setta_mcp_tool_approval_policy
 from setta.mcp.tool_metadata import FollowIdType, SettaToolType
 from setta.types.agentic import (
     AgentProfile,
@@ -175,6 +176,7 @@ class AgentRunContext:
     allowlist: ToolAllowlist | None
     agentic_scope: AgenticScope
     agentic_context: AgenticContext
+    setta_tool_approval_policy: str | None
     context_payload: AgenticContextPayload | None
     emit_stream: bool
     emit_ai_follow: bool
@@ -232,10 +234,6 @@ class AgentRunner:
     @property
     def disabled(self) -> bool:
         return False
-
-    @property
-    def raw_env_vars(self) -> dict[str, str]:
-        return dict(self._raw_env_vars)
 
     def update_config(self, config: AllLLMConfigs) -> None:
         self.config = config
@@ -748,6 +746,7 @@ class AgentRunner:
             ),
             share_session_id=self.share_session_id,
             agentic_context=context.agentic_context,
+            setta_tool_approval_policy=context.setta_tool_approval_policy,
         )
         if execute_action is not None:
             tool_results = await self._apply_actions([execute_action], context)
@@ -846,6 +845,12 @@ class AgentRunner:
                 raise TypeError("thinking must be a boolean")
             thinking = raw_thinking
         payload_inputs = dict(inputs or {})
+        permission_mode: str | None = None
+        raw_permission_mode = payload_inputs.get("permissionMode")
+        if raw_permission_mode is not None:
+            if not isinstance(raw_permission_mode, str):
+                raise TypeError("permissionMode must be a string")
+            permission_mode = raw_permission_mode
         engine_config_id, llm_config = self._resolve_engine_llm_config(profile)
         if "engineConfigId" in payload_inputs:
             raw_engine_config_id = payload_inputs["engineConfigId"]
@@ -883,6 +888,10 @@ class AgentRunner:
             section_id=section_id,
             allow_unscoped=allow_unscoped,
         )
+        setta_tool_approval_policy = resolve_setta_mcp_tool_approval_policy(
+            permission_mode=permission_mode,
+            has_approval_channel=False,
+        )
         return AgentRunContext(
             run=run,
             profile=profile,
@@ -897,6 +906,11 @@ class AgentRunner:
             allowlist=allowlist,
             agentic_scope=agentic_scope,
             agentic_context=agentic_context,
+            setta_tool_approval_policy=(
+                None
+                if setta_tool_approval_policy is None
+                else setta_tool_approval_policy.value
+            ),
             context_payload=None,
             emit_stream=emit_stream,
             emit_ai_follow=emit_ai_follow,

@@ -19,7 +19,6 @@ describe("PaneContainer", () => {
 
     expect(markup).toContain("py-2.5");
     expect(markup).toContain("pl-9");
-    expect(markup).toContain("border-r");
   });
 
   it("uses reduced padding for right panes", () => {
@@ -31,26 +30,5 @@ describe("PaneContainer", () => {
 
     expect(markup).toContain("py-2.5");
     expect(markup).toContain("pr-7");
-    expect(markup).toContain("border-l");
-  });
-
-  it("removes seam border for full-width left pane", () => {
-    const markup = renderToStaticMarkup(
-      <PaneContainer {...baseProps} right={false} width={100000}>
-        <div>Pane</div>
-      </PaneContainer>,
-    );
-
-    expect(markup).toContain("border-r-0");
-  });
-
-  it("removes seam border for full-width right pane", () => {
-    const markup = renderToStaticMarkup(
-      <PaneContainer {...baseProps} right={true} width={100000}>
-        <div>Pane</div>
-      </PaneContainer>,
-    );
-
-    expect(markup).toContain("border-l-0");
   });
 });

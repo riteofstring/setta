@@ -97,18 +97,18 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
 
   const textAreaClassName = useMemo(() => {
     const base =
-      "w-full resize-none border-0 bg-transparent py-1.5 pl-3 pr-2 text-[13px] leading-5 text-white outline-none placeholder:text-white/70 [field-sizing:content]";
+      "w-full resize-none rounded-md border border-blue-200/60 bg-white/90 py-2 pl-10 pr-3 text-sm text-setta-900 outline-none focus-visible:ring-2 focus-visible:ring-blue-200 dark:border-blue-500/40 dark:bg-setta-900/70 dark:text-setta-100";
     const dragClass = isDragActive
-      ? "rounded-md ring-2 ring-white/40"
+      ? "ring-2 ring-blue-200/80 dark:ring-blue-400/50"
       : "";
     if (isDisabled) {
       return `${base} ${dragClass} cursor-not-allowed opacity-60`;
     }
-    return `${base} ${dragClass} cursor-text`;
+    return `${base} ${dragClass} cursor-auto`;
   }, [isDisabled, isDragActive]);
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-full min-w-0 flex-col gap-2">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       <div
         className="flex min-w-0 flex-1 flex-col"
         onDragEnter={handleDragEnter}
@@ -116,7 +116,7 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <div className="group relative w-full">
+        <div className="relative w-full">
           <input
             ref={fileInputRef}
             type="file"
@@ -125,57 +125,52 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
             onChange={handleFileInputChange}
             disabled={attachmentInputDisabled}
           />
-          <div
-            data-chat-editor-side-rail="true"
-            className="absolute -left-7 top-1.5 z-10 flex flex-col items-center gap-1"
-          >
-            <DropdownMenu.Root modal={false}>
-              <DropdownMenu.Trigger asChild>
-                <button
-                  type="button"
-                  aria-label="Attachment options"
-                  className={`inline-flex h-5 w-5 items-center justify-center rounded-md border border-transparent text-white/80 transition-colors hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 ${
-                    attachmentInputDisabled
-                      ? "cursor-not-allowed opacity-40 hover:bg-transparent"
-                      : "cursor-pointer"
-                  }`}
+          <DropdownMenu.Root modal={false}>
+            <DropdownMenu.Trigger asChild>
+              <button
+                type="button"
+                aria-label="Attachment options"
+                className={`absolute left-2 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 ${
+                  attachmentInputDisabled
+                    ? "cursor-not-allowed opacity-40 hover:bg-transparent"
+                    : "cursor-pointer"
+                }`}
+                disabled={attachmentInputDisabled}
+              >
+                <IoAdd />
+              </button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                align="start"
+                sideOffset={8}
+                className="z-30 flex min-w-[170px] flex-col gap-1 rounded-lg border border-setta-200 bg-white p-2 text-xs font-semibold text-setta-600 shadow-xl dark:border-setta-700/70 dark:bg-setta-900 dark:text-setta-200"
+              >
+                <DropdownMenu.Label className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
+                  {attachmentCountLabel}
+                </DropdownMenu.Label>
+                <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
+                <DropdownMenu.Item
+                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-setta-100 hover:text-setta-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:hover:bg-setta-800 dark:hover:text-white"
+                  onSelect={() => fileInputRef.current?.click()}
                   disabled={attachmentInputDisabled}
                 >
-                  <IoAdd />
-                </button>
-              </DropdownMenu.Trigger>
-              <DropdownMenu.Portal>
-                <DropdownMenu.Content
-                  align="start"
-                  sideOffset={8}
-                  className="z-30 flex min-w-[170px] flex-col gap-1 rounded-lg border border-setta-200 bg-white p-2 text-xs font-semibold text-setta-600 shadow-xl dark:border-setta-700/70 dark:bg-setta-900 dark:text-setta-200"
-                >
-                  <DropdownMenu.Label className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 dark:text-setta-500">
-                    {attachmentCountLabel}
-                  </DropdownMenu.Label>
-                  <DropdownMenu.Separator className="my-1 h-px bg-setta-100 dark:bg-setta-700/60" />
+                  <IoAttach />
+                  Attach
+                </DropdownMenu.Item>
+                {!isDeploymentMode ? (
                   <DropdownMenu.Item
                     className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-setta-100 hover:text-setta-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:hover:bg-setta-800 dark:hover:text-white"
-                    onSelect={() => fileInputRef.current?.click()}
+                    onSelect={handlePickFromProject}
                     disabled={attachmentInputDisabled}
                   >
-                    <IoAttach />
-                    Attach
+                    <IoFolderOpen />
+                    Project
                   </DropdownMenu.Item>
-                  {!isDeploymentMode ? (
-                    <DropdownMenu.Item
-                      className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-setta-100 hover:text-setta-900 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40 dark:hover:bg-setta-800 dark:hover:text-white"
-                      onSelect={handlePickFromProject}
-                      disabled={attachmentInputDisabled}
-                    >
-                      <IoFolderOpen />
-                      Project
-                    </DropdownMenu.Item>
-                  ) : null}
-                </DropdownMenu.Content>
-              </DropdownMenu.Portal>
-            </DropdownMenu.Root>
-          </div>
+                ) : null}
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
           <textarea
             aria-label="Edit message"
             value={value}
@@ -183,7 +178,7 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
             placeholder="Edit message..."
             className={textAreaClassName}
             disabled={isDisabled}
-            rows={1}
+            rows={3}
           />
         </div>
         <div className="flex flex-wrap items-center gap-2 pt-1">

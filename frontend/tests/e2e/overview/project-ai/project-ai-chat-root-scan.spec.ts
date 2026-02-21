@@ -102,7 +102,7 @@ test("project chat skips workspace root scan when returning to an existing chat"
   }
 });
 
-test("project chat keeps create-project starter visible when a new root scan cannot resolve python signals", async ({
+test("project chat clears python starter visibility when a new root scan cannot resolve python signals", async ({
   page,
 }) => {
   await setOverviewTab(page, "ProjectAIChat");
@@ -195,14 +195,14 @@ test("project chat keeps create-project starter visible when a new root scan can
 
     useSecondWorkspaceRoot = true;
     await overviewPane.getByRole("button", { name: "New Chat" }).click();
-    await expect(createProjectButton).toBeVisible();
+    await expect(createProjectButton).toHaveCount(0);
   } finally {
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
   }
 });
 
-test("project chat still revalidates root scans when root path stays the same", async ({
+test("project chat revalidates python starter visibility when root path stays the same", async ({
   page,
 }) => {
   await setOverviewTab(page, "ProjectAIChat");
@@ -211,7 +211,6 @@ test("project chat still revalidates root scans when root path stays the same", 
   const engineCleanup = await ensureManagedChatEngine(page);
 
   let hasPythonMarkers = true;
-  let getFolderContentsCalls = 0;
   await page.route("**/api/getFileBrowserRoot", async (route) => {
     await route.fulfill({
       status: 200,
@@ -224,7 +223,6 @@ test("project chat still revalidates root scans when root path stays the same", 
     });
   });
   await page.route("**/api/getFolderContents", async (route) => {
-    getFolderContentsCalls += 1;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -255,9 +253,8 @@ test("project chat still revalidates root scans when root path stays the same", 
 
     hasPythonMarkers = false;
     await expect
-      .poll(() => getFolderContentsCalls, { timeout: 20000 })
-      .toBeGreaterThanOrEqual(2);
-    await expect(createProjectButton).toBeVisible();
+      .poll(async () => createProjectButton.count(), { timeout: 20000 })
+      .toBe(0);
   } finally {
     await engineCleanup();
     await cleanupIsolatedProject(page, projectContext);
@@ -414,7 +411,7 @@ test("project chat immediately rescans after in-flight scan when root identity c
     expect(Date.now() - releaseStartedAt).toBeLessThan(3000);
     await expect(
       overviewPane.getByRole("button", { name: /^Create Project$/ }),
-    ).toBeVisible();
+    ).toHaveCount(0);
   } finally {
     if (releaseFirstScan) {
       releaseFirstScan();
@@ -546,15 +543,14 @@ test("project chat recovers root polling after a transient getFileBrowserRoot fa
   }
 });
 
-test("project chat keeps create-project starter visible when switching projects before the next root scan resolves", async ({
+test("project chat clears python-gated starters immediately when switching projects before the next root scan resolves", async ({
   page,
 }) => {
   await setOverviewTab(page, "ProjectAIChat");
   await ensureAppReady(page);
   const engineCleanup = await ensureManagedChatEngine(page);
-  let firstProjectContext: Awaited<
-    ReturnType<typeof openIsolatedProject>
-  > | null = null;
+  let firstProjectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
+    null;
   let secondProjectContext: Awaited<
     ReturnType<typeof openIsolatedProject>
   > | null = null;
@@ -624,14 +620,16 @@ test("project chat keeps create-project starter visible when switching projects 
 
     activeRootPath = "/tmp/workspace-switch-b";
     secondProjectContext = await openIsolatedProject(page);
-    await expect.poll(() => secondScanStarted, { timeout: 5000 }).toBe(true);
-    await expect(createProjectButton).toBeVisible();
+    await expect
+      .poll(() => secondScanStarted, { timeout: 5000 })
+      .toBe(true);
+    await expect(createProjectButton).toHaveCount(0);
 
     if (!releaseSecondScan) {
       throw new Error("Second root scan did not block as expected.");
     }
     releaseSecondScan();
-    await expect(createProjectButton).toBeVisible();
+    await expect(createProjectButton).toHaveCount(0);
   } finally {
     if (releaseSecondScan) {
       releaseSecondScan();

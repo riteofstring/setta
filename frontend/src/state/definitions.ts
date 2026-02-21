@@ -687,7 +687,6 @@ type ZustandAIStore = {
   apiKeysInitialLoadComplete: boolean;
   apiKeysLoadError: string | null;
   activeChatId: string | null | undefined;
-  projectChatSelectedEngineId: string | null;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
   viewHistory: boolean;
@@ -718,7 +717,6 @@ type ZustandAIStore = {
   engineConfigsLoadError: string | null;
   engineConfigsLoading: boolean;
   pendingProjectChatPrompt: string | null;
-  projectChatDictationMode: "auto" | "browser" | "provider";
 };
 
 export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
@@ -731,7 +729,6 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         apiKeysInitialLoadComplete: false,
         apiKeysLoadError: null,
         activeChatId: undefined,
-        projectChatSelectedEngineId: null,
         chatDetails: {},
         pendingChatDetails: null,
         viewHistory: false,
@@ -762,14 +759,11 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         engineConfigsLoadError: null,
         engineConfigsLoading: false,
         pendingProjectChatPrompt: null,
-        projectChatDictationMode: "auto",
       }),
       {
         name: "setta_ai_data",
         partialize: (state) => ({
           viewHistory: state.viewHistory,
-          projectChatDictationMode: state.projectChatDictationMode,
-          projectChatSelectedEngineId: state.projectChatSelectedEngineId,
         }),
         storage: getPersistStorage(),
       },

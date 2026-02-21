@@ -31,6 +31,7 @@ from mcp.server.streamable_http import (
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.shared.message import ServerMessageMetadata, SessionMessage
 from mcp.types import (
+    CallToolResult,
     DEFAULT_NEGOTIATED_VERSION,
     INTERNAL_ERROR,
     INVALID_PARAMS,
@@ -39,6 +40,7 @@ from mcp.types import (
     JSONRPCMessage,
     JSONRPCRequest,
     JSONRPCResponse,
+    TextContent,
 )
 from pydantic import ValidationError
 from sse_starlette import EventSourceResponse
@@ -63,9 +65,15 @@ from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
+    AGENTIC_CONTEXT_SETTA_TOOL_APPROVAL_POLICY_HEADER,
 )
 from setta.mcp.id_path_utils import collect_ai_follow_ids_from_paths
-from setta.mcp.tool_metadata import SettaToolType
+from setta.mcp.tool_approval_policy import (
+    SettaMCPToolApprovalPolicy,
+    normalize_setta_mcp_tool_approval_policy,
+    policy_allows_destructive_tools,
+)
+from setta.mcp.tool_metadata import SettaToolType, ToolApprovalLevel
 from setta.mcp.tool_registry import register_setta_tool
 from setta.mcp.tool_setup import SETTA_INIT_MCP_TOOLS, SETTA_MCP_TOOLS
 from setta.mcp.utils import (
@@ -92,7 +100,6 @@ AGENTIC_SCOPE_CACHE_MAX_ENTRIES_PER_SESSION = 32
 # intentionally small because missing context otherwise represents a fail-open risk.
 MCP_UNSCOPED_TOOL_NAMES: set[str] = {
     "getInstalledPythonPackages",
-    "get_mcp_server_runtime_status",
     "getProjectConfigNamesAndIds",
     "get_setta_docs",
     "list_mcp_tools",
@@ -124,6 +131,34 @@ def _parse_meta_id(value: Any) -> ID | None:
             return None
         return ID(normalized)
     raise TypeError("Agentic context ids must be strings")
+
+
+def _build_tool_approval_blocked_tool_result(
+    *,
+    tool_name: str,
+    policy: SettaMCPToolApprovalPolicy,
+    approval_level: ToolApprovalLevel,
+) -> CallToolResult:
+    reason = "approval_required"
+    if policy == SettaMCPToolApprovalPolicy.deny_destructive_without_approval_channel:
+        reason = "approval_channel_unavailable"
+    message = (
+        f"Tool '{tool_name}' blocked by Setta MCP approval policy "
+        f"('{policy.value}') because approvalLevel='{approval_level}'. "
+        "Re-run in yolo mode to allow this call."
+    )
+    return CallToolResult(
+        content=[TextContent(type="text", text=message)],
+        structuredContent={
+            "error": "ApprovalRequired",
+            "message": message,
+            "toolName": tool_name,
+            "approvalLevel": approval_level,
+            "policy": policy.value,
+            "reason": reason,
+        },
+        isError=True,
+    )
 
 
 def _move_catch_all_route_to_end(app: FastAPI) -> None:
@@ -857,6 +892,27 @@ class SettaFastMCP(FastMCP):
             raise TypeError("shareSessionId must be a string")
         return raw or None
 
+    def _resolve_setta_tool_approval_policy(
+        self,
+        ctx: Context,
+    ) -> SettaMCPToolApprovalPolicy | None:
+        meta = ctx.request_context.meta
+        if meta is not None:
+            payload = meta.model_dump()
+            raw = payload.get("settaToolApprovalPolicy")
+            if raw is not None:
+                if not isinstance(raw, str):
+                    raise TypeError("settaToolApprovalPolicy must be a string")
+                return normalize_setta_mcp_tool_approval_policy(raw)
+        request = ctx.request_context.request
+        if request is not None and hasattr(request, "headers"):
+            raw_header = request.headers.get(
+                AGENTIC_CONTEXT_SETTA_TOOL_APPROVAL_POLICY_HEADER
+            )
+            if raw_header is not None:
+                return normalize_setta_mcp_tool_approval_policy(raw_header)
+        return None
+
     def setta_id_transformer(self, func):
         is_async = inspect.iscoroutinefunction(func)
 
@@ -870,6 +926,11 @@ class SettaFastMCP(FastMCP):
             tool_name = func.__name__
             tool = self._tool_manager.get_tool(tool_name)
             annotations = tool.annotations if tool else None
+            approval_level: ToolApprovalLevel = "none"
+            if annotations is not None:
+                raw_approval_level = getattr(annotations, "approvalLevel", "none")
+                if raw_approval_level in {"none", "destructive"}:
+                    approval_level = raw_approval_level
             allow_unscoped_tool = tool_name in MCP_UNSCOPED_TOOL_NAMES
 
             def _finalize_result(result: Any) -> Any:
@@ -893,6 +954,11 @@ class SettaFastMCP(FastMCP):
                     has_request_context = False
                 if has_request_context:
                     agentic_context = self._resolve_agentic_context(ctx)
+            setta_tool_approval_policy: SettaMCPToolApprovalPolicy | None = None
+            if ctx is not None and has_request_context:
+                setta_tool_approval_policy = self._resolve_setta_tool_approval_policy(
+                    ctx
+                )
 
             if (
                 tool_name != "set_agentic_context"
@@ -969,6 +1035,23 @@ class SettaFastMCP(FastMCP):
                         missing_edges=[],
                     )
                     return _finalize_result(result)
+            if (
+                tool_name != "set_agentic_context"
+                and approval_level == "destructive"
+                and setta_tool_approval_policy is not None
+                and not policy_allows_destructive_tools(setta_tool_approval_policy)
+            ):
+                logger.warning(
+                    "Blocked MCP tool %s by Setta approval policy '%s'.",
+                    tool_name,
+                    setta_tool_approval_policy.value,
+                )
+                result = _build_tool_approval_blocked_tool_result(
+                    tool_name=tool_name,
+                    policy=setta_tool_approval_policy,
+                    approval_level=approval_level,
+                )
+                return _finalize_result(result)
             kwargs = convert_temporary_ids_to_canonical(
                 kwargs, self.temporary_to_canonical
             )
