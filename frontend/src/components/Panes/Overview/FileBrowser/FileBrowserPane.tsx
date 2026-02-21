@@ -1,5 +1,5 @@
-import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import SettaSLogo from "assets/icons/s-logo-only-og.svg?react";
+import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";

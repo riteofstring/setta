@@ -122,10 +122,7 @@ export function createFolderPathCompletionSource(
     const absoluteCandidate = dirPart || separator;
     const targetFolder =
       (options.allowOutsideWorkspaceRoot && isAbsoluteBrowserPath(textBefore)
-        ? resolvePathWithinRoot(
-            normalizeBrowserPath(absoluteCandidate),
-            "/",
-          )
+        ? resolvePathWithinRoot(normalizeBrowserPath(absoluteCandidate), "/")
         : null) ?? resolvePathWithinRoot(dirPart || "", options.rootPath);
     if (!targetFolder) {
       return null;
@@ -231,10 +228,7 @@ export function createDynamicFolderPathCompletionSource(
     const absoluteCandidate = dirPart || separator;
     const targetFolder =
       (options.allowOutsideWorkspaceRoot && isAbsoluteBrowserPath(textBefore)
-        ? resolvePathWithinRoot(
-            normalizeBrowserPath(absoluteCandidate),
-            "/",
-          )
+        ? resolvePathWithinRoot(normalizeBrowserPath(absoluteCandidate), "/")
         : null) ?? resolvePathWithinRoot(dirPart || "", options.rootPath);
     if (!targetFolder) {
       return null;

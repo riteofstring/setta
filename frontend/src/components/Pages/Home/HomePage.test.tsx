@@ -5,8 +5,8 @@ import {
   getProjectTopLevelSectionCount,
   partitionProjectsByFavoriteStatus,
   shouldApplyHomeFileBrowserPath,
-  shouldUseCompactHomeLayout,
   shouldOpenProjectOnListRowSpace,
+  shouldUseCompactHomeLayout,
 } from "./HomePage";
 
 describe("HomePage", () => {

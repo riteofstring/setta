@@ -1,6 +1,6 @@
+import { HomePageSearchBar } from "components/AppHeader/SearchBar/HomePageSearch";
 import { FileBrowserPane } from "components/Panes/Overview/FileBrowser/FileBrowserPane";
 import { ProjectConfigThumbnailSurface } from "components/ProjectConfigs/ProjectConfigThumbnailSurface";
-import { HomePageSearchBar } from "components/AppHeader/SearchBar/HomePageSearch";
 import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
 import { createDynamicFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import { GridWrapper } from "components/Utils/GridWrapper";
@@ -19,8 +19,8 @@ import {
   IoStarOutline,
 } from "react-icons/io5";
 import { LuPenLine } from "react-icons/lu";
-import { Link, useNavigate } from "react-router-dom";
 import { TbFolder, TbListDetails } from "react-icons/tb";
+import { Link, useNavigate } from "react-router-dom";
 import {
   setHomeProjectGalleryViewMode,
   toggleFavoriteProjectConfig,
@@ -70,7 +70,9 @@ const HOME_INSET_PANE_CONTENT_CLASS =
   "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden px-2";
 const HOME_COMPACT_LAYOUT_BREAKPOINT_PX = 1100;
 
-export function shouldUseCompactHomeLayout(winWidth: number | undefined): boolean {
+export function shouldUseCompactHomeLayout(
+  winWidth: number | undefined,
+): boolean {
   if (typeof winWidth === "number") {
     return winWidth < HOME_COMPACT_LAYOUT_BREAKPOINT_PX;
   }
@@ -446,7 +448,10 @@ function HomeWorkspaceLayout({
       <GridWrapper gridStyles="bg-setta-100 dark:bg-setta-dark">
         <main
           className="relative z-0 flex h-full min-h-0 min-w-0 flex-col overflow-hidden border-x border-setta-200 bg-white dark:border-setta-800 dark:bg-setta-950"
-          style={{ paddingLeft: middleInsetLeft, paddingRight: middleInsetRight }}
+          style={{
+            paddingLeft: middleInsetLeft,
+            paddingRight: middleInsetRight,
+          }}
           onKeyDown={onEscapeClearSelectedProjects}
           data-testid="home-file-manager-layout"
         >
@@ -547,7 +552,7 @@ function HomeLeftIconRail({
       <button
         type="button"
         data-testid="home-left-rail-workspace-toggle"
-        className={`flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500 ${getHomeRailButtonColor(
+        className={`focus-visible:ring-light-blue-500 flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 ${getHomeRailButtonColor(
           workspacePaneVisible,
         )}`}
         onClick={toggleHomeWorkspacePaneVisibility}
@@ -560,7 +565,7 @@ function HomeLeftIconRail({
           to={SETTINGS_ROUTER_PATH}
           state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}
           data-testid="home-left-rail-settings-link"
-          className={`mt-auto mb-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500 ${getHomeRailButtonColor(
+          className={`focus-visible:ring-light-blue-500 mb-1 mt-auto inline-flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 ${getHomeRailButtonColor(
             false,
           )}`}
           aria-label="Open settings"
@@ -589,7 +594,7 @@ function HomeRightIconRail({
       <button
         type="button"
         data-testid="home-right-rail-selected-project-toggle"
-        className={`flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-light-blue-500 ${getHomeRailButtonColor(
+        className={`focus-visible:ring-light-blue-500 flex h-8 w-8 cursor-pointer items-center justify-center focus-visible:border-transparent focus-visible:outline-none focus-visible:ring-2 ${getHomeRailButtonColor(
           selectedProjectPaneVisible,
         )}`}
         onClick={toggleHomeSelectedProjectPaneVisibility}
@@ -786,7 +791,10 @@ function HomeProjectGallery({
 
   if (totalProjectsCount === 0) {
     return (
-      <section className={gallerySurfaceClassName} data-testid="home-project-gallery">
+      <section
+        className={gallerySurfaceClassName}
+        data-testid="home-project-gallery"
+      >
         <div className="grid flex-1 place-items-center">
           <div className="text-center">
             <LuPenLine className="mx-auto h-16 w-16 text-setta-300 dark:text-setta-600/70" />
@@ -802,7 +810,10 @@ function HomeProjectGallery({
   const inSelectionMode = selectionEnabled && selectedProjects.length > 0;
 
   return (
-    <section className={gallerySurfaceClassName} data-testid="home-project-gallery">
+    <section
+      className={gallerySurfaceClassName}
+      data-testid="home-project-gallery"
+    >
       <div className={galleryHeaderClassName}>
         <h2 className="text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
           Projects
@@ -1501,7 +1512,10 @@ function SelectedProjectDetails({
 
   if (!project) {
     return (
-      <aside className={containerClassName} data-testid="home-selected-project-details">
+      <aside
+        className={containerClassName}
+        data-testid="home-selected-project-details"
+      >
         {!hideTitle && (
           <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
             Selected Project
@@ -1517,7 +1531,10 @@ function SelectedProjectDetails({
   const projectPath = resolveProjectPath(project.name, isDeploymentMode);
 
   return (
-    <aside className={containerClassName} data-testid="home-selected-project-details">
+    <aside
+      className={containerClassName}
+      data-testid="home-selected-project-details"
+    >
       {!hideTitle && (
         <h2 className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-setta-400">
           Selected Project

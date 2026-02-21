@@ -961,12 +961,8 @@ export const useLocalStorage = createWithEqualityFn(
           ...currentState,
           ...persisted,
         };
-        delete (
-          merged as Record<string, unknown>
-        ).homePageLeftColumnWidth;
-        delete (
-          merged as Record<string, unknown>
-        ).homePageRightColumnWidth;
+        delete (merged as Record<string, unknown>).homePageLeftColumnWidth;
+        delete (merged as Record<string, unknown>).homePageRightColumnWidth;
 
         if (persisted.colorMode === undefined) {
           merged.colorMode = merged.darkMode ? "dark" : "light";
