@@ -811,6 +811,7 @@ function HomeProjectGallery({
 
         <ProjectGallerySection
           title={getHomeProjectConfigsSectionTitle(favoriteProjects.length > 0)}
+          className={favoriteProjects.length > 0 ? "pt-2" : ""}
         >
           {galleryViewMode === "thumbnails" ? (
             <ProjectGridItems
@@ -855,13 +856,15 @@ function ProjectGallerySection({
   title,
   children,
   dataTestId,
+  className = "",
 }: {
   title: string;
   children: React.ReactNode;
   dataTestId?: string;
+  className?: string;
 }) {
   return (
-    <section className="mb-2 last:mb-0" data-testid={dataTestId}>
+    <section className={`mb-2 last:mb-0 ${className}`} data-testid={dataTestId}>
       <h3 className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-setta-400">
         {title}
       </h3>
