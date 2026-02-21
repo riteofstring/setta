@@ -120,13 +120,13 @@ unavailable, empty, or fail to respond and the host provides built-in tools (for
 - It returns entries with `name`, `description`, and `category` (or tool references when tool search is enabled); always use the tool name when calling a tool.
 
 ## Completion Reporting Contract
-- Before sending a final completion response, call `report_completion_status`.
+- Before sending any user-visible response, call `report_completion_status`.
 - Always provide:
   - `completionIntent` (`true` when claiming task completion; otherwise `false`)
   - `requiresVerification` (`true` when error checks are required)
   - `checkResults` entries with `checkName`, `required`, `status` (`passed` | `failed` | `not_run`), and optional `details`/`source`.
 - If verification is required and checks were not run, report `status: "not_run"` for the required checks.
-- Do not call `report_completion_status` for informational or clarifying responses that do not claim completion.
+- For informational or clarifying responses, set `completionIntent` to `false`.
 
 ## Don't-do list
 - No direct file edits, no writing to `setta_files`, no editing `setta_gen.py`.

@@ -1984,7 +1984,7 @@ class TestExternalAgentRunnerQuestion:
             assert state.section_id == ID("section-1")
             assert state.approval_id is None
 
-    async def test_message_finalized_blocks_completion_text_without_report(self) -> None:
+    async def test_message_finalized_blocks_user_visible_text_without_report(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
             project_config = _write_project_state(dbe)
@@ -2023,7 +2023,7 @@ class TestExternalAgentRunnerQuestion:
                 MessageFinalizedEvent(
                     message=AssistantChatMessage(
                         id="assistant-1",
-                        content=[MessageTextContent(text="Done. Everything is ready.")],
+                        content=[MessageTextContent(text="I need one clarification.")],
                     )
                 ),
             )

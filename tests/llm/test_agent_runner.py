@@ -291,6 +291,22 @@ class TestAgentRunner:
 
         assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
 
+    def test_completion_guard_blocks_non_completion_text_when_report_missing(self) -> None:
+        prior_messages = [
+            UserChatMessage(content=[MessageTextContent(text="Investigate bug B.")])
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="I need one clarification.")]
+        )
+
+        AgentRunner._apply_completion_guard(
+            prior_messages,
+            assistant_message,
+            completion_guard_enabled=True,
+        )
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
     def test_completion_guard_allows_when_disabled(self) -> None:
         prior_messages = [
             UserChatMessage(content=[MessageTextContent(text="Implement task A.")])
@@ -375,7 +391,7 @@ class TestAgentRunner:
             ),
         ]
         assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="I need one clarification.")]
+            content=[MessageTextContent(text="Task A is done.")]
         )
 
         AgentRunner._apply_completion_guard(
@@ -384,7 +400,7 @@ class TestAgentRunner:
             completion_guard_enabled=True,
         )
 
-        assert assistant_message.content[0].text == "I need one clarification."
+        assert assistant_message.content[0].text == "Task A is done."
 
     def test_completion_guard_uses_same_turn_tool_results(self) -> None:
         prior_messages = [

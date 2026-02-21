@@ -1,6 +1,5 @@
 from setta.agentic.completion_guard import (
     FAILED_CHECKS_MESSAGE,
-    INCONSISTENT_COMPLETION_INTENT_MESSAGE,
     MISSING_CHECKS_MESSAGE,
     apply_completion_guard,
     load_completion_guard_enabled,
@@ -83,15 +82,15 @@ def test_completion_guard_blocks_completion_claim_when_report_is_missing() -> No
     assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
 
 
-def test_completion_guard_keeps_non_completion_text_when_report_is_missing() -> None:
-    # Clarification messages should remain unchanged even without a report payload.
+def test_completion_guard_blocks_non_completion_text_when_report_is_missing() -> None:
+    # The guard is structured-only and requires a report for every user-visible response.
     prior_messages = [_user_message("Implement task A.")]
     assistant_message = _assistant_message("I need one clarification before I continue.")
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
-    assert replacement is None
-    assert _assistant_text(assistant_message) == "I need one clarification before I continue."
+    assert replacement == MISSING_CHECKS_MESSAGE
+    assert _assistant_text(assistant_message) == MISSING_CHECKS_MESSAGE
 
 
 def test_completion_guard_keeps_error_text_when_report_is_missing() -> None:
@@ -198,8 +197,8 @@ def test_completion_guard_allows_when_report_says_not_completion_intent() -> Non
     assert _assistant_text(assistant_message) == "I need one clarification."
 
 
-def test_completion_guard_blocks_when_report_intent_is_false() -> None:
-    # Completion claims require a completion-intent report in the active task scope.
+def test_completion_guard_allows_when_report_intent_is_false() -> None:
+    # Structured completionIntent drives behavior without inspecting response keywords.
     prior_messages = [
         _user_message("Implement task A."),
         _completion_report_tool_message(
@@ -211,8 +210,8 @@ def test_completion_guard_blocks_when_report_intent_is_false() -> None:
 
     replacement = apply_completion_guard(prior_messages, assistant_message)
 
-    assert replacement == INCONSISTENT_COMPLETION_INTENT_MESSAGE
-    assert _assistant_text(assistant_message) == INCONSISTENT_COMPLETION_INTENT_MESSAGE
+    assert replacement is None
+    assert _assistant_text(assistant_message) == "Task A is done."
 
 
 def test_completion_guard_allows_when_verification_not_required() -> None:

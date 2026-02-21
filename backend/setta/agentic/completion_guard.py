@@ -1,4 +1,3 @@
-import re
 from typing import Any
 
 from setta.agentic.completion_report import (
@@ -15,22 +14,9 @@ MISSING_CHECKS_MESSAGE = (
     "I cannot mark this complete yet. I need a structured completion report "
     "that includes explicit error-check pass/fail results."
 )
-INCONSISTENT_COMPLETION_INTENT_MESSAGE = (
-    "I cannot mark this complete yet. The latest completion report does not "
-    "mark this response as a completion claim."
-)
 FAILED_CHECKS_MESSAGE = (
     "I cannot mark this complete because required error checks are failing. "
     "I need to report failing checks and fixes before completion."
-)
-_COMPLETION_KEYWORD_PATTERN = re.compile(
-    r"\b(done|complete|completed|finished|ready)\b",
-    re.IGNORECASE,
-)
-_NON_COMPLETION_CLAIM_PATTERN = re.compile(
-    r"\b(not|isn't|isnt|aren't|arent|can't|cant|cannot|unable|still)\b"
-    r".{0,40}\b(done|complete|completed|finished|ready)\b",
-    re.IGNORECASE,
 )
 
 
@@ -44,10 +30,12 @@ def apply_completion_guard(
     if not completion_guard_enabled:
         return None
     assistant_text = _extract_assistant_text(assistant_message)
-    if not _is_completion_claim(assistant_text):
-        return None
     has_user_visible_text = bool(assistant_text.strip())
     if assistant_message.tool_calls and not has_user_visible_text:
+        return None
+    if not has_user_visible_text:
+        return None
+    if _is_backend_error_text(assistant_text):
         return None
     report_search_messages = list(prior_messages)
     if same_turn_tool_results:
@@ -60,11 +48,7 @@ def apply_completion_guard(
         _replace_assistant_text(assistant_message, MISSING_CHECKS_MESSAGE)
         return MISSING_CHECKS_MESSAGE
     if not report.completionIntent:
-        _replace_assistant_text(
-            assistant_message,
-            INCONSISTENT_COMPLETION_INTENT_MESSAGE,
-        )
-        return INCONSISTENT_COMPLETION_INTENT_MESSAGE
+        return None
     if not report.requiresVerification:
         return None
     if report.verificationStatus == VerificationStatus.passed:
@@ -145,13 +129,8 @@ def _extract_assistant_text(message: AssistantChatMessage) -> str:
     return "\n".join(text_blocks)
 
 
-def _is_completion_claim(text: str) -> bool:
-    normalized = " ".join(text.split()).strip()
-    if not normalized:
-        return False
-    if _NON_COMPLETION_CLAIM_PATTERN.search(normalized):
-        return False
-    return _COMPLETION_KEYWORD_PATTERN.search(normalized) is not None
+def _is_backend_error_text(text: str) -> bool:
+    return text.strip().lower().startswith("[error]")
 
 
 def _replace_assistant_text(
