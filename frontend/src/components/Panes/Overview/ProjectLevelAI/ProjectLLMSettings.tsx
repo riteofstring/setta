@@ -68,7 +68,7 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
     allLLMConfigs: state.allLLMConfigs,
     apiKeys: state.apiKeys,
   }));
-  const [newApiKeyName, setNewApiKeyName] = useState("");
+  const [newApiKeyName, setNewApiKeyName] = useState("OPENAI_API_KEY");
   const [newApiKeyValue, setNewApiKeyValue] = useState("");
   const [newApiKeyError, setNewApiKeyError] = useState<string | null>(null);
   const apiKeyEntries = buildApiKeyEntries(allLLMConfigs, apiKeys);
@@ -99,7 +99,7 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
     }
     const nextApiKeys = { ...apiKeys, [envKey]: newApiKeyValue };
     persistApiKeys(nextApiKeys, { [envKey]: newApiKeyValue });
-    setNewApiKeyName("");
+    setNewApiKeyName("OPENAI_API_KEY");
     setNewApiKeyValue("");
     setNewApiKeyError(null);
   };
