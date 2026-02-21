@@ -1272,6 +1272,252 @@ test("project chat shows controlled feedback when browser dictation start throws
   }
 });
 
+test("chat section streams provider dictation in scriptable mode", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "SpeechRecognition", {
+      value: undefined,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitSpeechRecognition", {
+      value: undefined,
+      configurable: true,
+    });
+
+    type MockAudioProcessEvent = {
+      inputBuffer: { getChannelData: (channel: number) => Float32Array };
+    };
+    type MockScriptProcessorNode = {
+      onaudioprocess: ((event: MockAudioProcessEvent) => void) | null;
+      connect: () => void;
+      disconnect: () => void;
+      __intervalId: ReturnType<typeof setInterval> | null;
+    };
+
+    class MockAudioContext {
+      sampleRate = 24_000;
+      destination = {};
+      private _processors: MockScriptProcessorNode[] = [];
+
+      async resume() {}
+
+      async close() {
+        for (const processor of this._processors) {
+          if (processor.__intervalId !== null) {
+            clearInterval(processor.__intervalId);
+            processor.__intervalId = null;
+          }
+        }
+      }
+
+      createMediaStreamSource(_stream: unknown) {
+        return {
+          connect: () => undefined,
+          disconnect: () => undefined,
+        };
+      }
+
+      createGain() {
+        return {
+          gain: { value: 1 },
+          connect: () => undefined,
+          disconnect: () => undefined,
+        };
+      }
+
+      createScriptProcessor() {
+        const processor: MockScriptProcessorNode = {
+          onaudioprocess: null,
+          __intervalId: null,
+          connect: () => {
+            if (processor.__intervalId !== null) {
+              return;
+            }
+            processor.__intervalId = setInterval(() => {
+              if (typeof processor.onaudioprocess !== "function") {
+                return;
+              }
+              const channelData = new Float32Array(4096);
+              channelData.fill(0.2);
+              processor.onaudioprocess({
+                inputBuffer: {
+                  getChannelData: () => channelData,
+                },
+              });
+            }, 40);
+          },
+          disconnect: () => {
+            if (processor.__intervalId !== null) {
+              clearInterval(processor.__intervalId);
+              processor.__intervalId = null;
+            }
+          },
+        };
+        this._processors.push(processor);
+        return processor;
+      }
+    }
+
+    Object.defineProperty(window, "AudioContext", {
+      value: MockAudioContext,
+      configurable: true,
+    });
+    Object.defineProperty(window, "webkitAudioContext", {
+      value: MockAudioContext,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "mediaDevices", {
+      value: {
+        getUserMedia: () =>
+          Promise.resolve({
+            getTracks: () => [{ stop: () => undefined }],
+          }),
+      },
+      configurable: true,
+    });
+  });
+
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const engineCleanup = await ensureManagedChatEngine(page);
+  let transcriptionProfileId: string | null = null;
+  let appendCallCount = 0;
+  await page.route(
+    `${BACKEND_ORIGIN}/api/startTranscriptionSession`,
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          sessionId: "session-scriptable-provider-1",
+          resolvedTransportMode: "file",
+          chunkMs: 0,
+        }),
+      });
+    },
+  );
+  await page.route(
+    `${BACKEND_ORIGIN}/api/appendTranscriptionAudio`,
+    async (route) => {
+      appendCallCount += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          appendText: `scriptable-stream-${appendCallCount}`,
+          fullText: `scriptable-stream-${appendCallCount}`,
+          isFinal: false,
+        }),
+      });
+    },
+  );
+  await page.route(
+    `${BACKEND_ORIGIN}/api/stopTranscriptionSession`,
+    async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          appendText: "",
+          fullText: `scriptable-stream-${appendCallCount}`,
+          isFinal: true,
+        }),
+      });
+    },
+  );
+
+  try {
+    const llmConfigResponse = await page.request.get(
+      `${BACKEND_ORIGIN}/api/llm/config`,
+    );
+    if (!llmConfigResponse.ok()) {
+      throw new Error("Failed to load LLM config for scriptable dictation test.");
+    }
+    const llmConfigPayload = (await llmConfigResponse.json()) as {
+      default_config_id?: string | null;
+      configs?: Record<string, unknown>;
+    };
+    const transcriptionConfigId =
+      typeof llmConfigPayload.default_config_id === "string" &&
+      llmConfigPayload.default_config_id.length > 0
+        ? llmConfigPayload.default_config_id
+        : Object.keys(llmConfigPayload.configs ?? {})[0] ?? null;
+    if (!transcriptionConfigId) {
+      throw new Error("Missing transcription config id for scriptable dictation.");
+    }
+    const createdProfile = await postBackend<{ id: string }>(
+      page,
+      "/createTranscriptionProfile",
+      {
+        name: `Scriptable Dictation ${Date.now()}`,
+        transcriptionLlmConfigId: transcriptionConfigId,
+        transportMode: "file",
+        chunkMs: 1200,
+        language: null,
+      },
+    );
+    if (!createdProfile?.id) {
+      throw new Error("Failed to create transcription profile.");
+    }
+    transcriptionProfileId = createdProfile.id;
+
+    const { sectionId, sectionName } = await createChatSection(
+      page,
+      projectContext.projectConfigId,
+      "__pw_scriptable_provider_dictation__",
+    );
+    await postBackend(page, "/setChatSectionSettings", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId,
+      managed: false,
+      engineConfigId: null,
+      transcriptionProfileId,
+      agentProfileId: null,
+      thinking: false,
+      permissionMode: "minimal",
+      searchEnabled: true,
+      dictationMode: "provider",
+    });
+
+    await page.reload();
+    await page.waitForSelector(".react-flow__pane");
+
+    const section = findSectionByName(page, sectionName);
+    await expect(section).toBeVisible();
+
+    const micButton = section.getByRole("button", { name: "Mic" });
+    await expect(micButton).toBeVisible();
+    await micButton.click();
+    await expect
+      .poll(() => appendCallCount, { timeout: 10000 })
+      .toBeGreaterThanOrEqual(1);
+    await expect(section.locator("textarea")).toHaveValue(
+      /scriptable-stream-/,
+      {
+        timeout: 10000,
+      },
+    );
+
+    const stopButton = section.getByRole("button", { name: "Stop Mic" });
+    await expect(stopButton).toBeVisible();
+    await stopButton.click();
+    await expect(section.getByRole("button", { name: "Mic" })).toBeVisible();
+  } finally {
+    if (transcriptionProfileId) {
+      try {
+        await postBackend(page, "/deleteTranscriptionProfile", {
+          profileId: transcriptionProfileId,
+        });
+      } catch {
+        // Best-effort cleanup for test-created transcription profiles.
+      }
+    }
+    await engineCleanup();
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("chat section stops browser dictation when composer becomes disabled", async ({
   page,
 }) => {

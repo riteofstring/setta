@@ -49,3 +49,24 @@
   - removed stale dictation helpers from the legacy MediaRecorder path
 - Verification:
   - added/updated frontend unit tests, backend route tests, and Playwright dictation coverage (batching, append failure behavior, startup re-entry guard); targeted suites passed.
+
+## 2026-02-19 01:15:32 PST
+
+- Implemented and verified the consolidated review fixes, excluding generated type churn and without backward-compatibility shims.
+- Backend updates:
+  - added a shared model-aware realtime capability predicate and reused it in profile validation/session startup
+  - added a per-session cumulative file-mode PCM cap (`SETTA_TRANSCRIPTION_FILE_SESSION_MAX_BYTES`, default 25MB) and mapped over-limit appends to HTTP `413`
+  - closed the TTL prune race by marking append operations in-flight and skipping in-flight sessions during expiry pruning
+  - validated transcription profile create `chunkMs` at the request boundary (`200..10000`)
+  - added `supportsRealtimeTranscription` on transcription profiles and returned/broadcast capability-enriched profiles
+  - removed the unused transcription profile get-by-id route surface
+- Frontend updates:
+  - switched provider dictation realtime gating to backend-computed `supportsRealtimeTranscription`
+  - wired provider transcription session handlers into scriptable chat so provider dictation works outside managed chat
+  - enabled transcription-profile preconfiguration by allowing LLM config selection without present API keys in settings flow
+  - reduced provider dictation hot-path allocation churn (chunk-queue dequeue strategy and lower-overhead base64 concatenation path)
+- Tests and verification:
+  - backend: `49 passed` across `tests/llm/test_transcription_sessions.py`, `tests/routers/test_agentic_routes.py`, `tests/routers/test_ai_agent_run_chats.py`
+  - frontend unit: `33 passed` across dictation-related Vitest suites
+  - Playwright: `10 passed` in `frontend/tests/e2e/chat/chat-dictation-fallback.spec.ts`
+  - CDP visual check completed for Project AI Settings transcription profile UI and chat dictation surfaces.

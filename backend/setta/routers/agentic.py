@@ -37,6 +37,7 @@ from setta.agentic.store import (
     save_prompt_template,
     save_transcription_profiles,
 )
+from setta.llm.transcription_capabilities import supports_realtime_transcription
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.routers.dependencies import RuntimeContextFromRequest
@@ -216,16 +217,12 @@ class CreateTranscriptionProfileRequest(BaseModel):
     name: str
     transcriptionLlmConfigId: str
     transportMode: TranscriptionTransportMode
-    chunkMs: int
+    chunkMs: int = Field(ge=200, le=10_000)
     language: str | None = None
 
 
 class UpdateTranscriptionProfileRequest(BaseModel):
     profile: TranscriptionProfile
-
-
-class GetTranscriptionProfileRequest(BaseModel):
-    profileId: ID
 
 
 class DeleteTranscriptionProfileRequest(BaseModel):
@@ -261,13 +258,47 @@ def _require_valid_transcription_llm_config_id(
     return normalized_config_id, llm_config
 
 
-def _supports_realtime_transcription(llm_config: LLMConfig) -> bool:
-    provider = (llm_config.provider or "").strip().lower()
-    if provider == "openai":
-        return True
-    if provider:
+def _resolve_transcription_profile_realtime_support(
+    ctx: RuntimeContextFromRequest,
+    *,
+    profile: TranscriptionProfile,
+) -> bool:
+    transcription_llm_config_id = profile.transcriptionLlmConfigId.strip()
+    if not transcription_llm_config_id:
         return False
-    return llm_config.base_url is None
+    try:
+        llm_config = ctx.state.agent_runner.config.resolve_config(
+            transcription_llm_config_id
+        )
+    except ValueError:
+        return False
+    return supports_realtime_transcription(llm_config)
+
+
+def _attach_transcription_profile_capabilities(
+    ctx: RuntimeContextFromRequest,
+    *,
+    profile: TranscriptionProfile,
+) -> TranscriptionProfile:
+    return profile.model_copy(
+        update={
+            "supportsRealtimeTranscription": _resolve_transcription_profile_realtime_support(
+                ctx,
+                profile=profile,
+            )
+        }
+    )
+
+
+def _attach_transcription_profiles_capabilities(
+    ctx: RuntimeContextFromRequest,
+    *,
+    profiles: list[TranscriptionProfile],
+) -> list[TranscriptionProfile]:
+    return [
+        _attach_transcription_profile_capabilities(ctx, profile=profile)
+        for profile in profiles
+    ]
 
 
 def _require_valid_transcription_transport_mode(
@@ -276,7 +307,7 @@ def _require_valid_transcription_transport_mode(
 ) -> None:
     if transport_mode != TranscriptionTransportMode.realtime:
         return
-    if _supports_realtime_transcription(llm_config):
+    if supports_realtime_transcription(llm_config):
         return
     raise HTTPException(
         status_code=400,
@@ -926,20 +957,8 @@ async def route_get_transcription_profiles(
     ctx: RuntimeContextFromRequest,
 ) -> list[TranscriptionProfile]:
     await ctx.enforce_llm_allowed()
-    return load_transcription_profiles(ctx.state.dbe)
-
-
-@router.post(Route.GET_TRANSCRIPTION_PROFILE)
-async def route_get_transcription_profile(
-    x: GetTranscriptionProfileRequest,
-    ctx: RuntimeContextFromRequest,
-) -> TranscriptionProfile:
-    await ctx.enforce_llm_allowed()
     profiles = load_transcription_profiles(ctx.state.dbe)
-    for profile in profiles:
-        if profile.id == x.profileId:
-            return profile
-    raise HTTPException(status_code=404, detail="Transcription profile not found")
+    return _attach_transcription_profiles_capabilities(ctx, profiles=profiles)
 
 
 @router.post(Route.CREATE_TRANSCRIPTION_PROFILE)
@@ -959,14 +978,19 @@ async def route_create_transcription_profile(
         transcriptionLlmConfigId=transcription_llm_config_id,
         transportMode=x.transportMode,
         chunkMs=x.chunkMs,
+        supportsRealtimeTranscription=supports_realtime_transcription(llm_config),
         language=x.language,
     )
     profiles.append(profile)
+    profiles = _attach_transcription_profiles_capabilities(ctx, profiles=profiles)
     save_transcription_profiles(ctx.state.dbe, profiles)
     await ctx.state.wmh_frontend_sender.broadcast_transcription_profiles_update(
         profiles
     )
-    return profile
+    for saved_profile in profiles:
+        if saved_profile.id == profile.id:
+            return saved_profile
+    raise RuntimeError("Created transcription profile missing from saved profiles.")
 
 
 @router.post(Route.UPDATE_TRANSCRIPTION_PROFILE)
@@ -984,16 +1008,30 @@ async def route_update_transcription_profile(
     _require_valid_transcription_transport_mode(x.profile.transportMode, llm_config)
     profiles = load_transcription_profiles(ctx.state.dbe)
     next_profile = x.profile.model_copy(
-        update={"transcriptionLlmConfigId": transcription_llm_config_id}
+        update={
+            "transcriptionLlmConfigId": transcription_llm_config_id,
+            "supportsRealtimeTranscription": supports_realtime_transcription(
+                llm_config
+            ),
+        }
     )
     for idx, profile in enumerate(profiles):
         if profile.id == next_profile.id:
             profiles[idx] = next_profile
+            profiles = _attach_transcription_profiles_capabilities(
+                ctx,
+                profiles=profiles,
+            )
             save_transcription_profiles(ctx.state.dbe, profiles)
             await ctx.state.wmh_frontend_sender.broadcast_transcription_profiles_update(
                 profiles
             )
-            return next_profile
+            for saved_profile in profiles:
+                if saved_profile.id == next_profile.id:
+                    return saved_profile
+            raise RuntimeError(
+                "Updated transcription profile missing from saved profiles."
+            )
     raise HTTPException(status_code=404, detail="Transcription profile not found")
 
 

@@ -27,6 +27,7 @@ from setta.agentic.transcription_profile_resolver import (
     resolve_transcription_profile,
 )
 from setta.database.utils import create_new_id
+from setta.llm.transcription_sessions import TranscriptionAudioLimitExceededError
 from setta.llm.user_facing_errors import get_user_facing_llm_error_message
 from setta.logging.project_id_route import require_project_context
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
@@ -968,6 +969,11 @@ async def route_append_transcription_audio(
         )
     except KeyError as exc:
         _raise_transcription_key_error(exc)
+    except TranscriptionAudioLimitExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=_build_audio_payload_too_large_detail(exc.max_bytes),
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

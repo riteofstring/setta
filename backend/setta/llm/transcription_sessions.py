@@ -11,9 +11,11 @@ from openai import AsyncOpenAI
 from setta.agentic.transcription_profile_resolver import ResolvedTranscriptionProfile
 from setta.database.utils import create_new_id
 from setta.llm.transcription import transcribe_audio_with_llm
+from setta.llm.transcription_capabilities import supports_realtime_transcription
 from setta.types.agentic import TranscriptionTransportMode
 from setta.types.id import ID
 from setta.types.llm_config import AllLLMConfigs, LLMConfig
+from setta.utils.constants import C
 
 
 @dataclass(slots=True)
@@ -21,6 +23,14 @@ class TranscriptDeltaResult:
     append_text: str
     full_text: str
     is_final: bool
+
+
+class TranscriptionAudioLimitExceededError(ValueError):
+    def __init__(self, *, max_bytes: int) -> None:
+        self.max_bytes = max_bytes
+        super().__init__(
+            "File-mode transcription session exceeded buffered audio size limit."
+        )
 
 
 class BaseTranscriptionEngine:
@@ -72,11 +82,13 @@ class FileTranscriptionEngine(BaseTranscriptionEngine):
         llm_config: LLMConfig,
         api_keys: dict[str, str],
         language: str | None,
+        max_pending_pcm_bytes: int,
     ) -> None:
         self._config = config
         self._llm_config = llm_config
         self._api_keys = api_keys
         self._language = language
+        self._max_pending_pcm_bytes = max_pending_pcm_bytes
         self._pending_pcm = bytearray()
         self._full_text = ""
         self._sample_rate_hz: int | None = None
@@ -109,6 +121,11 @@ class FileTranscriptionEngine(BaseTranscriptionEngine):
                     "channels cannot change within a transcription session."
                 )
 
+            next_pending_size = len(self._pending_pcm) + len(audio_pcm16)
+            if next_pending_size > self._max_pending_pcm_bytes:
+                raise TranscriptionAudioLimitExceededError(
+                    max_bytes=self._max_pending_pcm_bytes
+                )
             self._pending_pcm.extend(audio_pcm16)
             append_accumulator = ""
             return TranscriptDeltaResult(
@@ -314,6 +331,7 @@ class _ActiveTranscriptionSession:
     scope_id: str
     engine: BaseTranscriptionEngine
     last_activity_monotonic: float
+    in_flight_operations: int = 0
 
 
 class TranscriptionSessionManager:
@@ -340,7 +358,7 @@ class TranscriptionSessionManager:
 
         language = language_override if language_override else profile.language
         transport_mode = profile.transportMode
-        supports_realtime = _supports_openai_realtime(llm_config)
+        supports_realtime = supports_realtime_transcription(llm_config)
 
         if (
             transport_mode == TranscriptionTransportMode.realtime
@@ -419,16 +437,21 @@ class TranscriptionSessionManager:
         sample_rate_hz: int,
         channels: int,
     ) -> TranscriptDeltaResult:
-        session = await self._get_active_session(
+        session = await self._mark_append_in_flight(
             scope_id=scope_id, session_id=session_id
         )
-        result = await session.engine.append_audio(
-            audio_pcm16=audio_pcm16,
-            sample_rate_hz=sample_rate_hz,
-            channels=channels,
-        )
-        session.last_activity_monotonic = time.monotonic()
-        return result
+        try:
+            return await session.engine.append_audio(
+                audio_pcm16=audio_pcm16,
+                sample_rate_hz=sample_rate_hz,
+                channels=channels,
+            )
+        finally:
+            await self._mark_append_complete(
+                scope_id=scope_id,
+                session_id=session_id,
+                session=session,
+            )
 
     async def stop_session(
         self,
@@ -455,20 +478,42 @@ class TranscriptionSessionManager:
         )
         await session.engine.close()
 
-    async def _get_active_session(
+    async def _mark_append_in_flight(
         self,
         *,
         scope_id: str,
         session_id: ID,
     ) -> _ActiveTranscriptionSession:
-        await self._close_expired_sessions(time.monotonic())
+        now = time.monotonic()
+        await self._close_expired_sessions(now)
         async with self._lock:
             session = self._sessions.get(session_id)
             if session is None:
                 raise KeyError(f"Transcription session {session_id} not found")
             if session.scope_id != scope_id:
                 raise KeyError(f"Transcription session {session_id} not found")
+            session.last_activity_monotonic = now
+            session.in_flight_operations += 1
             return session
+
+    async def _mark_append_complete(
+        self,
+        *,
+        scope_id: str,
+        session_id: ID,
+        session: _ActiveTranscriptionSession,
+    ) -> None:
+        async with self._lock:
+            active_session = self._sessions.get(session_id)
+            if active_session is None:
+                return
+            if active_session is not session:
+                return
+            if active_session.scope_id != scope_id:
+                return
+            active_session.last_activity_monotonic = time.monotonic()
+            if active_session.in_flight_operations > 0:
+                active_session.in_flight_operations -= 1
 
     async def _pop_active_session(
         self,
@@ -490,6 +535,8 @@ class TranscriptionSessionManager:
         async with self._lock:
             for session_id in list(self._sessions.keys()):
                 session = self._sessions[session_id]
+                if session.in_flight_operations > 0:
+                    continue
                 if now - session.last_activity_monotonic <= self._session_ttl_seconds:
                     continue
                 expired.append(self._sessions.pop(session_id))
@@ -507,21 +554,16 @@ def _build_file_engine(
     api_keys: dict[str, str],
     language: str | None,
 ) -> FileTranscriptionEngine:
+    max_pending_pcm_bytes = C.TRANSCRIPTION_FILE_SESSION_MAX_BYTES
+    if max_pending_pcm_bytes <= 0:
+        max_pending_pcm_bytes = 25 * 1024 * 1024
     return FileTranscriptionEngine(
         config=config,
         llm_config=llm_config,
         api_keys=api_keys,
         language=language,
+        max_pending_pcm_bytes=max_pending_pcm_bytes,
     )
-
-
-def _supports_openai_realtime(llm_config: LLMConfig) -> bool:
-    provider = (llm_config.provider or "").strip().lower()
-    if provider == "openai":
-        return True
-    if provider:
-        return False
-    return llm_config.base_url is None
 
 
 def _is_realtime_fallback_error(exc: Exception) -> bool:

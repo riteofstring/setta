@@ -115,7 +115,6 @@ class Route(str, Enum):
     UPDATE_ENGINE_CONFIG = "/updateEngineConfig"
     DELETE_ENGINE_CONFIG = "/deleteEngineConfig"
     GET_TRANSCRIPTION_PROFILES = "/getTranscriptionProfiles"
-    GET_TRANSCRIPTION_PROFILE = "/getTranscriptionProfile"
     CREATE_TRANSCRIPTION_PROFILE = "/createTranscriptionProfile"
     UPDATE_TRANSCRIPTION_PROFILE = "/updateTranscriptionProfile"
     DELETE_TRANSCRIPTION_PROFILE = "/deleteTranscriptionProfile"

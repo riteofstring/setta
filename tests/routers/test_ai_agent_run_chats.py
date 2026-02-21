@@ -23,7 +23,10 @@ from setta.agentic.store import (
 )
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
-from setta.llm.transcription_sessions import TranscriptionSessionManager
+from setta.llm.transcription_sessions import (
+    TranscriptionAudioLimitExceededError,
+    TranscriptionSessionManager,
+)
 from setta.mcp.client import MultiMCPClient
 from setta.routers.ai import (
     AppendTranscriptionAudioRequest,
@@ -1022,6 +1025,53 @@ class TestAgentRunChatRoutes:
             assert file_payload[0] == "dictation-window.wav"
             assert file_payload[2] == "audio/wav"
 
+    async def test_append_transcription_audio_maps_session_size_cap_to_413(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            _seed_transcription_profile(
+                dbe,
+                ID("transcription-primary"),
+                "primary",
+            )
+
+            async def _raise_size_limit(**_kwargs):
+                raise TranscriptionAudioLimitExceededError(max_bytes=1024)
+
+            monkeypatch.setattr(
+                state.transcription_session_manager,
+                "append_audio",
+                _raise_size_limit,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_append_transcription_audio(
+                        AppendTranscriptionAudioRequest(
+                            sessionId=ID("session-1"),
+                            audioPcm16Base64=base64.b64encode(b"\x00\x00").decode(
+                                "ascii"
+                            ),
+                            sampleRateHz=24_000,
+                            channels=1,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 413
+            assert (
+                exc.value.detail
+                == "Audio payload is too large. Maximum size is 1024 bytes."
+            )
+
     async def test_start_transcription_session_auto_falls_back_to_file(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -1254,6 +1304,62 @@ class TestAgentRunChatRoutes:
                 )
             )
             runner.update_api_keys({"ANTHROPIC_API_KEY": "test-key"})
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_start_transcription_session(
+                        StartTranscriptionSessionRequest(
+                            transcriptionProfileId=transcription_profile_id,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 400
+            assert (
+                exc.value.detail
+                == "Realtime transcription is unavailable for this provider/model."
+            )
+
+    async def test_start_transcription_session_rejects_realtime_on_openai_file_model(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            transcription_profile_id = ID("transcription-primary")
+            save_transcription_profiles(
+                dbe,
+                [
+                    TranscriptionProfile(
+                        id=transcription_profile_id,
+                        name="Realtime OpenAI Whisper",
+                        transcriptionLlmConfigId="openai-transcribe",
+                        transportMode=TranscriptionTransportMode.realtime,
+                        chunkMs=1200,
+                        language=None,
+                    )
+                ],
+            )
+            runner.update_config(
+                AllLLMConfigs(
+                    configs={
+                        "openai-transcribe": LLMConfig(
+                            id="openai-transcribe",
+                            model="whisper-1",
+                            provider="openai",
+                            api_key_env="OPENAI_API_KEY",
+                            mcpServerIds=[],
+                        ),
+                    },
+                    mcpServers={},
+                )
+            )
+            runner.update_api_keys({"OPENAI_API_KEY": "test-key"})
 
             with runtime_context(state) as ctx:
                 with pytest.raises(HTTPException) as exc:

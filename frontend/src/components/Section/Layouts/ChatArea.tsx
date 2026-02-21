@@ -364,6 +364,21 @@ function ScriptableChatArea({
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = getCurrProjectConfigId();
   const [draftInputText, setDraftInputText] = useState<string | null>(null);
+  const {
+    onProviderTranscriptionSessionStart:
+      handleProviderTranscriptionSessionStart,
+    onProviderTranscriptionSessionAppend:
+      handleProviderTranscriptionSessionAppend,
+    onProviderTranscriptionSessionStop: handleProviderTranscriptionSessionStop,
+    onProviderTranscriptionSessionCancel:
+      handleProviderTranscriptionSessionCancel,
+  } = useProviderTranscriptionSessionHandlers({
+    transcriptionProfileId,
+    suppressStartNotification: dictationMode === "auto",
+  });
+  const providerDictationAvailable = Boolean(transcriptionProfileId);
+  const providerDictationUnavailableReason =
+    "Provider dictation requires a transcription profile.";
 
   const handleInputChange = useCallback(
     (value: string) => {
@@ -907,6 +922,22 @@ function ScriptableChatArea({
             search: false,
           }}
           dictationMode={dictationMode}
+          dictationEnabledByProvider={providerDictationAvailable}
+          providerDictationUnavailableMessage={
+            providerDictationUnavailableReason
+          }
+          onProviderTranscriptionSessionStart={
+            handleProviderTranscriptionSessionStart
+          }
+          onProviderTranscriptionSessionAppend={
+            handleProviderTranscriptionSessionAppend
+          }
+          onProviderTranscriptionSessionStop={
+            handleProviderTranscriptionSessionStop
+          }
+          onProviderTranscriptionSessionCancel={
+            handleProviderTranscriptionSessionCancel
+          }
         />
       </div>
     </div>

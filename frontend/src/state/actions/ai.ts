@@ -162,12 +162,12 @@ function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
     return "";
   }
   const CHUNK_SIZE = 0x8000;
-  let binary = "";
+  const binaryChunks: string[] = [];
   for (let index = 0; index < bytes.length; index += CHUNK_SIZE) {
     const chunk = bytes.subarray(index, index + CHUNK_SIZE);
-    binary += String.fromCharCode(...chunk);
+    binaryChunks.push(String.fromCharCode(...chunk));
   }
-  return btoa(binary);
+  return btoa(binaryChunks.join(""));
 }
 
 export async function startTranscriptionSession(

@@ -43,6 +43,7 @@ class TranscriptionProfile(BaseModel, extra="forbid"):
     transcriptionLlmConfigId: str
     transportMode: TranscriptionTransportMode
     chunkMs: int = Field(ge=200, le=10_000)
+    supportsRealtimeTranscription: bool = False
     language: str | None = None
 
     @field_validator("language", mode="before")

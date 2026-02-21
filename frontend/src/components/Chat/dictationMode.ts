@@ -2,7 +2,6 @@ import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReduce
 import type {
   APIKeys,
   AllLLMConfigs,
-  LLMConfig,
   TranscriptionProfile,
 } from "utils/generatedTypes";
 
@@ -16,19 +15,6 @@ export const DICTATION_MODE_ITEMS: AllItemsType<string> = [
     ],
   },
 ];
-
-export function supportsProviderRealtimeTranscription(
-  llmConfig: LLMConfig,
-): boolean {
-  const provider = (llmConfig.provider ?? "").trim().toLowerCase();
-  if (provider === "openai") {
-    return true;
-  }
-  if (provider) {
-    return false;
-  }
-  return llmConfig.base_url === null;
-}
 
 export function resolveProviderDictationAvailability({
   selectedTranscriptionProfile,
@@ -78,7 +64,7 @@ export function resolveProviderDictationAvailability({
   }
   if (
     selectedTranscriptionProfile.transportMode === "realtime" &&
-    !supportsProviderRealtimeTranscription(llmConfig)
+    !selectedTranscriptionProfile.supportsRealtimeTranscription
   ) {
     return {
       providerDictationAvailable: false,

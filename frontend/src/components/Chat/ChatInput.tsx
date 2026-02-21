@@ -70,13 +70,6 @@ type ProviderTranscriptionSessionStart = {
   chunkMs: number;
 };
 
-function concatInt16(a: Int16Array, b: Int16Array): Int16Array {
-  const merged = new Int16Array(a.length + b.length);
-  merged.set(a, 0);
-  merged.set(b, a.length);
-  return merged;
-}
-
 function resampleFloat32ToMonoPcm16(
   input: Float32Array,
   inputSampleRateHz: number,
@@ -111,6 +104,34 @@ function int16ToArrayBuffer(samples: Int16Array): ArrayBuffer {
     samples.byteLength,
   );
   return view.slice().buffer;
+}
+
+function dequeueInt16Samples(
+  pendingChunks: Int16Array[],
+  sampleCount: number,
+): Int16Array {
+  if (sampleCount <= 0) {
+    return new Int16Array(0);
+  }
+  const output = new Int16Array(sampleCount);
+  let outputOffset = 0;
+  while (outputOffset < sampleCount && pendingChunks.length > 0) {
+    const currentChunk = pendingChunks[0];
+    if (!currentChunk) {
+      break;
+    }
+    const remaining = sampleCount - outputOffset;
+    if (currentChunk.length <= remaining) {
+      output.set(currentChunk, outputOffset);
+      outputOffset += currentChunk.length;
+      pendingChunks.shift();
+      continue;
+    }
+    output.set(currentChunk.subarray(0, remaining), outputOffset);
+    pendingChunks[0] = currentChunk.subarray(remaining);
+    outputOffset += remaining;
+  }
+  return output;
 }
 
 export function areSlashSuggestionsPortalStylesEqual(
@@ -306,7 +327,8 @@ export const ChatInput = memo(function ChatInput({
   const providerSourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const providerProcessorNodeRef = useRef<ScriptProcessorNode | null>(null);
   const providerStreamRef = useRef<MediaStream | null>(null);
-  const providerPcmPendingRef = useRef<Int16Array>(new Int16Array(0));
+  const providerPcmPendingChunksRef = useRef<Int16Array[]>([]);
+  const providerPcmPendingSamplesRef = useRef(0);
   const providerPcmQueueRef = useRef<ArrayBuffer[]>([]);
   const providerTranscriptionInFlightRef = useRef(false);
   const providerStartInFlightRef = useRef(false);
@@ -314,8 +336,7 @@ export const ChatInput = memo(function ChatInput({
   const providerStopRequestedRef = useRef(false);
   const providerHasTranscriptRef = useRef(false);
   const providerBackendSessionIdRef = useRef<string | null>(null);
-  const providerResolvedTransportModeRef = useRef<"file" | "realtime">("file");
-  const providerChunkMsRef = useRef(PROVIDER_DEFAULT_CHUNK_MS);
+  const providerChunkSamplesRef = useRef(PROVIDER_FILE_BATCH_SAMPLES);
   const providerSessionRef = useRef(0);
   const dictationSourceRef = useRef<"browser" | "provider" | null>(null);
   const isDisabled = disabled;
@@ -800,14 +821,14 @@ export const ChatInput = memo(function ChatInput({
 
   const resetProviderCaptureSession = useCallback(() => {
     providerStartAttemptRef.current += 1;
-    providerPcmPendingRef.current = new Int16Array(0);
+    providerPcmPendingChunksRef.current = [];
+    providerPcmPendingSamplesRef.current = 0;
     providerPcmQueueRef.current = [];
     providerTranscriptionInFlightRef.current = false;
     providerStopRequestedRef.current = false;
     providerHasTranscriptRef.current = false;
     providerBackendSessionIdRef.current = null;
-    providerResolvedTransportModeRef.current = "file";
-    providerChunkMsRef.current = PROVIDER_DEFAULT_CHUNK_MS;
+    providerChunkSamplesRef.current = PROVIDER_FILE_BATCH_SAMPLES;
     providerSessionRef.current += 1;
     dictationSourceRef.current = null;
   }, []);
@@ -988,10 +1009,13 @@ export const ChatInput = memo(function ChatInput({
     }
     providerStopRequestedRef.current = true;
     dictationSourceRef.current = null;
-    const pending = providerPcmPendingRef.current;
-    if (pending.length > 0) {
-      providerPcmQueueRef.current.push(int16ToArrayBuffer(pending));
-      providerPcmPendingRef.current = new Int16Array(0);
+    if (providerPcmPendingSamplesRef.current > 0) {
+      const pendingSamples = dequeueInt16Samples(
+        providerPcmPendingChunksRef.current,
+        providerPcmPendingSamplesRef.current,
+      );
+      providerPcmPendingSamplesRef.current = 0;
+      providerPcmQueueRef.current.push(int16ToArrayBuffer(pendingSamples));
     }
     teardownProviderAudioCapture();
     setDictationState("transcribing");
@@ -1171,13 +1195,16 @@ export const ChatInput = memo(function ChatInput({
       const sessionId = providerSessionRef.current + 1;
       providerSessionRef.current = sessionId;
       providerBackendSessionIdRef.current = backendSessionId;
-      providerResolvedTransportModeRef.current =
-        startedSession.resolvedTransportMode;
-      providerChunkMsRef.current =
+      const chunkMs =
         startedSession.resolvedTransportMode === "realtime"
           ? Math.max(200, startedSession.chunkMs || PROVIDER_DEFAULT_CHUNK_MS)
-          : PROVIDER_DEFAULT_CHUNK_MS;
-      providerPcmPendingRef.current = new Int16Array(0);
+          : PROVIDER_FILE_BATCH_MS;
+      providerChunkSamplesRef.current = Math.max(
+        1,
+        Math.floor((chunkMs * PROVIDER_TARGET_SAMPLE_RATE_HZ) / 1000),
+      );
+      providerPcmPendingChunksRef.current = [];
+      providerPcmPendingSamplesRef.current = 0;
       providerPcmQueueRef.current = [];
       providerTranscriptionInFlightRef.current = false;
       providerStopRequestedRef.current = false;
@@ -1224,30 +1251,17 @@ export const ChatInput = memo(function ChatInput({
         if (pcmChunk.length === 0) {
           return;
         }
-        providerPcmPendingRef.current = concatInt16(
-          providerPcmPendingRef.current,
-          pcmChunk,
-        );
-        const chunkSamples =
-          providerResolvedTransportModeRef.current === "realtime"
-            ? Math.max(
-                1,
-                Math.floor(
-                  (providerChunkMsRef.current *
-                    PROVIDER_TARGET_SAMPLE_RATE_HZ) /
-                    1000,
-                ),
-              )
-            : PROVIDER_FILE_BATCH_SAMPLES;
+        providerPcmPendingChunksRef.current.push(pcmChunk);
+        providerPcmPendingSamplesRef.current += pcmChunk.length;
+        const chunkSamples = providerChunkSamplesRef.current;
         let enqueued = false;
-        while (providerPcmPendingRef.current.length >= chunkSamples) {
-          const nextSamples = providerPcmPendingRef.current.slice(
-            0,
+        while (providerPcmPendingSamplesRef.current >= chunkSamples) {
+          const nextSamples = dequeueInt16Samples(
+            providerPcmPendingChunksRef.current,
             chunkSamples,
           );
           providerPcmQueueRef.current.push(int16ToArrayBuffer(nextSamples));
-          providerPcmPendingRef.current =
-            providerPcmPendingRef.current.slice(chunkSamples);
+          providerPcmPendingSamplesRef.current -= chunkSamples;
           enqueued = true;
         }
         if (enqueued) {

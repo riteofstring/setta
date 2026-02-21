@@ -673,12 +673,6 @@ export async function route_get_transcription_profiles(): Promise<
   return await get("/getTranscriptionProfiles");
 }
 
-export async function route_get_transcription_profile(
-  x: gt.GetTranscriptionProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
-  return await post("/getTranscriptionProfile", x);
-}
-
 export async function route_create_transcription_profile(
   x: gt.CreateTranscriptionProfileRequestInput,
 ): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {

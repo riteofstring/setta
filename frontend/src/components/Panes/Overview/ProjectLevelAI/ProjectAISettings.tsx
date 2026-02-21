@@ -718,7 +718,10 @@ function TranscriptionProfilesManager({ canEdit }: { canEdit: boolean }) {
     [],
   );
   const configGroups = useMemo(
-    () => buildLLMConfigGroups(allLLMConfigs, apiKeys),
+    () =>
+      buildLLMConfigGroups(allLLMConfigs, apiKeys, {
+        includeConfigsWithoutApiKey: true,
+      }),
     [allLLMConfigs, apiKeys],
   );
   const firstConfigId = useMemo(() => {
