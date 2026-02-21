@@ -117,6 +117,26 @@ function formatCompactTokenCount(value: number): string {
   return `${value}`;
 }
 
+type StopEscapeKeyEventLike = {
+  key: string;
+  shiftKey: boolean;
+  altKey: boolean;
+  metaKey: boolean;
+  ctrlKey: boolean;
+};
+
+export function isStopEscapeKey(
+  event: StopEscapeKeyEventLike,
+): boolean {
+  return (
+    event.key === "Escape" &&
+    !event.shiftKey &&
+    !event.altKey &&
+    !event.metaKey &&
+    !event.ctrlKey
+  );
+}
+
 type ChatInputProps = {
   placeholderText: string | undefined;
   waitingForResponse: boolean;
@@ -330,6 +350,21 @@ export const ChatInput = memo(function ChatInput({
       await submitMessage(inputValue, attachments);
     },
     [attachments, inputValue, submitMessage],
+  );
+
+  const handleFormKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLFormElement>) => {
+      if (!isStopEscapeKey(event) || !waitingForResponse || !onStop) {
+        return;
+      }
+      if (event.defaultPrevented) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      void onStop();
+    },
+    [onStop, waitingForResponse],
   );
 
   const slashSuggestions = useMemo(
@@ -1115,7 +1150,11 @@ export const ChatInput = memo(function ChatInput({
   );
 
   return (
-    <form onSubmit={handleSubmit} className="flex justify-center">
+    <form
+      onSubmit={handleSubmit}
+      onKeyDown={handleFormKeyDown}
+      className="flex justify-center"
+    >
       <div className="flex w-full gap-1">
         <div
           className="flex min-w-0 flex-1 flex-col"

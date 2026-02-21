@@ -455,25 +455,131 @@ function formatElapsedDuration(totalSeconds: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function useElapsedSeconds(active: boolean): number {
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const startedAtRef = useRef<number>(Date.now());
+function parseIsoTimestampMs(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return parsed;
+}
+
+function useRunElapsedDuration({
+  active,
+  startedAtMs,
+  completedAtMs,
+  runKey,
+}: {
+  active: boolean;
+  startedAtMs?: number | null;
+  completedAtMs?: number | null;
+  runKey?: string;
+}): { elapsedSeconds: number; hasKnownDuration: boolean } {
+  const [, setTick] = useState(0);
+  const localStartMsRef = useRef<number | null>(null);
+  const finalizedEndMsRef = useRef<number | null>(null);
+  const hasBeenActiveRef = useRef(false);
+  const previousRunKeyRef = useRef<string | null>(runKey ?? null);
+
+  useEffect(() => {
+    const nextRunKey = runKey ?? null;
+    if (previousRunKeyRef.current === nextRunKey) {
+      return;
+    }
+    previousRunKeyRef.current = nextRunKey;
+    localStartMsRef.current = null;
+    finalizedEndMsRef.current = null;
+    hasBeenActiveRef.current = false;
+    setTick(0);
+  }, [runKey]);
+
+  useEffect(() => {
+    if (typeof startedAtMs !== "number" || !Number.isFinite(startedAtMs)) {
+      return;
+    }
+    if (
+      localStartMsRef.current === null ||
+      startedAtMs < localStartMsRef.current
+    ) {
+      localStartMsRef.current = startedAtMs;
+      setTick((current) => current + 1);
+    }
+  }, [startedAtMs]);
 
   useEffect(() => {
     if (!active) {
-      setElapsedSeconds(0);
-      return;
+      return undefined;
     }
-    startedAtRef.current = Date.now();
-    setElapsedSeconds(0);
+    hasBeenActiveRef.current = true;
+    if (localStartMsRef.current === null) {
+      localStartMsRef.current =
+        typeof startedAtMs === "number" && Number.isFinite(startedAtMs)
+          ? startedAtMs
+          : Date.now();
+    }
+    finalizedEndMsRef.current = null;
+    setTick((current) => current + 1);
     const timer = window.setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startedAtRef.current) / 1000);
-      setElapsedSeconds(elapsed);
+      setTick((current) => current + 1);
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [active]);
+  }, [active, startedAtMs]);
 
-  return elapsedSeconds;
+  useEffect(() => {
+    if (active) {
+      return;
+    }
+    const normalizedCompletedAtMs =
+      typeof completedAtMs === "number" && Number.isFinite(completedAtMs)
+        ? completedAtMs
+        : null;
+    if (normalizedCompletedAtMs !== null) {
+      finalizedEndMsRef.current = normalizedCompletedAtMs;
+      setTick((current) => current + 1);
+      return;
+    }
+    if (hasBeenActiveRef.current && finalizedEndMsRef.current === null) {
+      finalizedEndMsRef.current = Date.now();
+      setTick((current) => current + 1);
+    }
+  }, [active, completedAtMs]);
+
+  const normalizedStartedAtMs =
+    typeof startedAtMs === "number" && Number.isFinite(startedAtMs)
+      ? startedAtMs
+      : null;
+  const startMs =
+    normalizedStartedAtMs ??
+    localStartMsRef.current ??
+    (active ? Date.now() : null);
+  if (startMs === null) {
+    return { elapsedSeconds: 0, hasKnownDuration: false };
+  }
+  if (active) {
+    const elapsedSeconds = Math.floor((Date.now() - startMs) / 1000);
+    return {
+      elapsedSeconds: Math.max(0, elapsedSeconds),
+      hasKnownDuration: true,
+    };
+  }
+  const normalizedCompletedAtMs =
+    typeof completedAtMs === "number" && Number.isFinite(completedAtMs)
+      ? completedAtMs
+      : null;
+  const endMs = normalizedCompletedAtMs ?? finalizedEndMsRef.current;
+  if (endMs === null) {
+    if (!hasBeenActiveRef.current) {
+      return { elapsedSeconds: 0, hasKnownDuration: false };
+    }
+    return { elapsedSeconds: 0, hasKnownDuration: true };
+  }
+  const elapsedSeconds = Math.floor((endMs - startMs) / 1000);
+  return {
+    elapsedSeconds: Math.max(0, elapsedSeconds),
+    hasKnownDuration: true,
+  };
 }
 
 function ChatImage({
@@ -1093,7 +1199,20 @@ const ThinkingBox = memo(function ThinkingBox({
   const previewRef = useRef<HTMLDivElement | null>(null);
   const summaryText = summary?.trim() ?? "";
   const title = summaryText || (streaming ? "Working..." : "Reasoning");
-  const elapsedSeconds = useElapsedSeconds(streaming);
+  const thinkingRunState: ToolCallSectionState = streaming
+    ? "running"
+    : signature
+      ? "complete"
+      : "stopped";
+  const { elapsedSeconds, hasKnownDuration } = useRunElapsedDuration({
+    active: streaming,
+  });
+  const thinkingStatusLabel =
+    thinkingRunState === "running"
+      ? "Working"
+      : thinkingRunState === "complete"
+        ? "Complete"
+        : "Stopped";
 
   useEffect(() => {
     if (streaming && previewRef.current) {
@@ -1125,12 +1244,17 @@ const ThinkingBox = memo(function ThinkingBox({
           <div className="relative my-1 mr-1 flex min-w-0 max-w-full flex-col gap-0">
             <div className="flex items-center justify-between gap-2 px-0.5 text-[11px] font-semibold text-setta-500 dark:text-setta-300">
               <div className="truncate">{title}</div>
-              {streaming ? (
+              {hasKnownDuration ? (
                 <span
                   data-chat-thinking-timer="true"
-                  className="shrink-0 font-mono text-[10px] text-setta-400 dark:text-setta-400/90"
+                  data-chat-thinking-status="true"
+                  className={`shrink-0 font-mono text-[10px] ${
+                    thinkingRunState === "stopped"
+                      ? "text-amber-700 dark:text-amber-200"
+                      : "text-setta-400 dark:text-setta-400/90"
+                  }`}
                 >
-                  {formatElapsedDuration(elapsedSeconds)}
+                  {thinkingStatusLabel} {formatElapsedDuration(elapsedSeconds)}
                 </span>
               ) : null}
             </div>
@@ -1173,7 +1297,27 @@ const ContextCompactionSection = memo(function ContextCompactionSection({
     toolResultsById,
     toolCallArguments,
   );
-  const isStreaming = entries.some((entry) => entry.isStreaming);
+  const compactionStates = entries.map(({ toolCall, isStreaming }) =>
+    resolveToolCallRunState(
+      toolResultsById[toolCall.id]
+        ? !toolResultsById[toolCall.id].is_error
+        : undefined,
+      isStreaming,
+    ),
+  );
+  const sectionState = resolveToolCallSectionState(compactionStates);
+  const { startedAtMs, completedAtMs } = resolveToolSectionTimingAnchors(
+    entries,
+    toolResultsById,
+  );
+  const runKey = entries.map((entry) => entry.toolCall.id).join("|");
+  const { elapsedSeconds, hasKnownDuration } = useRunElapsedDuration({
+    active: sectionState === "running",
+    startedAtMs,
+    completedAtMs,
+    runKey,
+  });
+  const isStreaming = sectionState === "running";
   const title = isStreaming ? "Compacting context" : "Context compacted";
   const previewText =
     summaryText ||
@@ -1197,11 +1341,21 @@ const ContextCompactionSection = memo(function ContextCompactionSection({
             />
           </div>
           <div className="relative my-1 mr-1 flex min-w-0 max-w-full flex-col gap-0">
-            <div className="flex items-center gap-2 px-0.5 text-[11px] font-semibold text-setta-500 dark:text-setta-300">
-              <span className="truncate">{title}</span>
-              <span className="inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full border border-setta-300/80 bg-setta-100 px-1.5 py-[1px] text-[10px] font-semibold leading-none text-setta-700 dark:border-setta-600/80 dark:bg-setta-800 dark:text-setta-200">
-                {entries.length}
+            <div className="flex items-center justify-between gap-2 px-0.5 text-[11px] font-semibold text-setta-500 dark:text-setta-300">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate">{title}</span>
+                <span className="inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full border border-setta-300/80 bg-setta-100 px-1.5 py-[1px] text-[10px] font-semibold leading-none text-setta-700 dark:border-setta-600/80 dark:bg-setta-800 dark:text-setta-200">
+                  {entries.length}
+                </span>
               </span>
+              <ToolCallSectionStatus
+                sectionState={sectionState}
+                elapsedSeconds={elapsedSeconds}
+                hasKnownDuration={hasKnownDuration}
+                runningLabel="Working"
+                completeLabel="Complete"
+                stoppedLabel="Stopped"
+              />
             </div>
             <div
               className="top-bottom-fade h-11 overflow-y-auto break-words px-0.5 text-[11px] text-setta-300 dark:text-setta-500"
@@ -1428,12 +1582,24 @@ const ActionSection = memo(function ActionSection({
   actionCount,
   latestActionLabel,
   sectionState,
+  startedAtMs,
+  completedAtMs,
+  runKey,
 }: {
   children: ReactNode;
   actionCount: number;
   latestActionLabel: string;
   sectionState: ToolCallSectionState;
+  startedAtMs: number | null;
+  completedAtMs: number | null;
+  runKey: string;
 }) {
+  const { elapsedSeconds, hasKnownDuration } = useRunElapsedDuration({
+    active: sectionState === "running",
+    startedAtMs,
+    completedAtMs,
+    runKey,
+  });
   return (
     <Accordion.Root type="single" collapsible className="w-full">
       <Accordion.Item
@@ -1470,7 +1636,11 @@ const ActionSection = memo(function ActionSection({
               </div>
             </div>
             <div className="ml-auto shrink-0 self-center">
-              <ToolCallSectionStatus sectionState={sectionState} />
+              <ToolCallSectionStatus
+                sectionState={sectionState}
+                elapsedSeconds={elapsedSeconds}
+                hasKnownDuration={hasKnownDuration}
+              />
             </div>
           </div>
         </Accordion.Trigger>
@@ -1527,12 +1697,20 @@ const AssistantActionSection = memo(function AssistantActionSection({
 
   const sectionState = resolveToolCallSectionState(actionStates);
   const latestActionLabel = actionLabels.at(-1) ?? "Action activity";
+  const { startedAtMs, completedAtMs } = resolveToolSectionTimingAnchors(
+    entries,
+    toolResultsById,
+  );
+  const runKey = entries.map((entry) => entry.toolCall.id).join("|");
 
   return (
     <ActionSection
       actionCount={entries.length}
       latestActionLabel={latestActionLabel}
       sectionState={sectionState}
+      startedAtMs={startedAtMs}
+      completedAtMs={completedAtMs}
+      runKey={runKey}
     >
       {rows}
     </ActionSection>
@@ -1570,16 +1748,68 @@ function resolveToolCallSectionState(
   return "complete";
 }
 
+type ToolSectionTimingAnchors = {
+  startedAtMs: number | null;
+  completedAtMs: number | null;
+};
+
+function resolveToolSectionTimingAnchors(
+  entries: ToolCallRenderEntry[],
+  toolResultsById: Record<string, ToolChatMessage>,
+): ToolSectionTimingAnchors {
+  let startedAtMs: number | null = null;
+  let completedAtMs: number | null = null;
+  for (const entry of entries) {
+    const toolResult = toolResultsById[entry.toolCall.id];
+    const entryStartedAtMs = parseIsoTimestampMs(toolResult?.started_at);
+    if (entryStartedAtMs !== null) {
+      startedAtMs =
+        startedAtMs === null
+          ? entryStartedAtMs
+          : Math.min(startedAtMs, entryStartedAtMs);
+    }
+    const entryCompletedAtMs = parseIsoTimestampMs(toolResult?.completed_at);
+    if (entryCompletedAtMs !== null) {
+      completedAtMs =
+        completedAtMs === null
+          ? entryCompletedAtMs
+          : Math.max(completedAtMs, entryCompletedAtMs);
+    }
+  }
+  return { startedAtMs, completedAtMs };
+}
+
 function ToolCallSectionStatus({
   sectionState,
+  elapsedSeconds,
+  hasKnownDuration,
+  runningLabel = "Working",
+  completeLabel = "Complete",
+  stoppedLabel = "Stopped Mid-Tool Call",
 }: {
   sectionState: ToolCallSectionState;
+  elapsedSeconds: number;
+  hasKnownDuration: boolean;
+  runningLabel?: string;
+  completeLabel?: string;
+  stoppedLabel?: string;
 }) {
+  const durationLabel = hasKnownDuration
+    ? formatElapsedDuration(elapsedSeconds)
+    : null;
   if (sectionState === "complete") {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300">
         <IoMdCheckmark className="text-[11px]" />
-        Complete
+        {completeLabel}
+        {durationLabel ? (
+          <span
+            data-chat-run-timer="true"
+            className="font-mono text-[10px] normal-case tracking-normal text-setta-400 dark:text-setta-400/90"
+          >
+            {durationLabel}
+          </span>
+        ) : null}
       </span>
     );
   }
@@ -1587,14 +1817,30 @@ function ToolCallSectionStatus({
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-amber-600 dark:text-amber-300">
         <MdErrorOutline className="text-[11px]" />
-        Stopped Mid-Tool Call
+        {stoppedLabel}
+        {durationLabel ? (
+          <span
+            data-chat-run-timer="true"
+            className="font-mono text-[10px] normal-case tracking-normal text-amber-700 dark:text-amber-200"
+          >
+            {durationLabel}
+          </span>
+        ) : null}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-500 dark:text-setta-300">
       <i className="gg-spinner !scale-75" />
-      Working
+      {runningLabel}
+      {durationLabel ? (
+        <span
+          data-chat-run-timer="true"
+          className="font-mono text-[10px] normal-case tracking-normal text-setta-400 dark:text-setta-400/90"
+        >
+          {durationLabel}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -1604,12 +1850,24 @@ const ToolCallSection = memo(function ToolCallSection({
   toolCount,
   latestToolLabel,
   sectionState,
+  startedAtMs,
+  completedAtMs,
+  runKey,
 }: {
   children: ReactNode;
   toolCount: number;
   latestToolLabel: string;
   sectionState: ToolCallSectionState;
+  startedAtMs: number | null;
+  completedAtMs: number | null;
+  runKey: string;
 }) {
+  const { elapsedSeconds, hasKnownDuration } = useRunElapsedDuration({
+    active: sectionState === "running",
+    startedAtMs,
+    completedAtMs,
+    runKey,
+  });
   const title = "Tool calls";
   return (
     <Accordion.Root type="single" collapsible className="w-full">
@@ -1647,7 +1905,11 @@ const ToolCallSection = memo(function ToolCallSection({
               </div>
             </div>
             <div className="ml-auto shrink-0 self-center">
-              <ToolCallSectionStatus sectionState={sectionState} />
+              <ToolCallSectionStatus
+                sectionState={sectionState}
+                elapsedSeconds={elapsedSeconds}
+                hasKnownDuration={hasKnownDuration}
+              />
             </div>
           </div>
         </Accordion.Trigger>
@@ -1744,12 +2006,20 @@ const AssistantToolCallSection = memo(function AssistantToolCallSection({
   const sectionState = resolveToolCallSectionState(toolCallStates);
   const latestToolLabel =
     toolLabels.length > 0 ? toolLabels[toolLabels.length - 1] : "Tool activity";
+  const { startedAtMs, completedAtMs } = resolveToolSectionTimingAnchors(
+    entries,
+    toolResultsById,
+  );
+  const runKey = entries.map((entry) => entry.toolCall.id).join("|");
 
   return (
     <ToolCallSection
       toolCount={entries.length}
       latestToolLabel={latestToolLabel}
       sectionState={sectionState}
+      startedAtMs={startedAtMs}
+      completedAtMs={completedAtMs}
+      runKey={runKey}
     >
       {rows}
     </ToolCallSection>

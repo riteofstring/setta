@@ -244,6 +244,84 @@ describe("ChatMessages tool call status", () => {
     expect(markup).not.toContain("px-0.5 pb-0.5");
   });
 
+  it("shows elapsed timers while tool and action sections are running", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-running-sections",
+        role: ChatRoleEnum.assistant,
+        content: [createMessageTextContent({ text: "Executing..." })],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "running-action-1",
+            type: "function",
+            function: {
+              name: "command_execution",
+              arguments: { command: "ls -la" },
+            },
+          },
+          {
+            id: "running-tool-1",
+            type: "function",
+            function: {
+              name: "setta__list_files",
+              arguments: { scope: "repo" },
+            },
+          },
+        ],
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={true} />,
+    );
+
+    expect(markup).toContain("Working");
+    expect(markup).toContain('data-chat-run-timer="true"');
+    expect(markup).toContain("00:00");
+  });
+
+  it("shows finalized elapsed time for completed tool sections", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-finished-tool-section",
+        role: ChatRoleEnum.assistant,
+        content: [createMessageTextContent({ text: "Done." })],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "finished-tool-1",
+            type: "function",
+            function: {
+              name: "setta__list_files",
+              arguments: { scope: "repo" },
+            },
+          },
+        ],
+      },
+      {
+        id: "tool-result-finished-1",
+        role: ChatRoleEnum.tool,
+        tool_call_id: "finished-tool-1",
+        tool_name: "setta__list_files",
+        arguments: { scope: "repo" },
+        result: { files: ["A.ts", "B.ts"] },
+        content: [],
+        is_error: false,
+        started_at: "2026-01-01T00:00:00Z",
+        completed_at: "2026-01-01T00:00:05Z",
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("Complete");
+    expect(markup).toContain('data-chat-run-timer="true"');
+    expect(markup).toContain("00:05");
+  });
+
   it("groups consecutive tool-only assistant messages into a single tool-call section", () => {
     const messages: BaseChatMessageUnion[] = [
       {
@@ -377,6 +455,8 @@ describe("ChatMessages tool call status", () => {
     expect(markup).toContain(
       "Summary: earlier file reads and edit intents were compacted.",
     );
+    expect(markup).toContain('data-chat-run-timer="true"');
+    expect(markup).toContain("00:01");
     expect(markup).not.toContain('data-chat-tool-call-section="true"');
   });
 });

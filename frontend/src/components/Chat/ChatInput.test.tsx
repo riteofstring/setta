@@ -4,7 +4,11 @@ import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { areSlashSuggestionsPortalStylesEqual, ChatInput } from "./ChatInput";
+import {
+  areSlashSuggestionsPortalStylesEqual,
+  ChatInput,
+  isStopEscapeKey,
+} from "./ChatInput";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
   return {
@@ -335,5 +339,52 @@ describe("areSlashSuggestionsPortalStylesEqual", () => {
     };
 
     expect(areSlashSuggestionsPortalStylesEqual(first, second)).toBe(false);
+  });
+});
+
+describe("isStopEscapeKey", () => {
+  it("returns true for Escape without modifiers", () => {
+    expect(
+      isStopEscapeKey({
+        key: "Escape",
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false when Escape includes modifiers", () => {
+    expect(
+      isStopEscapeKey({
+        key: "Escape",
+        shiftKey: true,
+        altKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      }),
+    ).toBe(false);
+    expect(
+      isStopEscapeKey({
+        key: "Escape",
+        shiftKey: false,
+        altKey: false,
+        metaKey: true,
+        ctrlKey: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false for non-Escape keys", () => {
+    expect(
+      isStopEscapeKey({
+        key: "Enter",
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        ctrlKey: false,
+      }),
+    ).toBe(false);
   });
 });
