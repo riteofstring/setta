@@ -26,6 +26,22 @@ async function expectHasEllipsisTruncation(locator: Locator): Promise<void> {
   expect(styleInfo.scrollWidth).toBeGreaterThan(styleInfo.clientWidth);
 }
 
+async function expectVerticallyResizablePane(locator: Locator): Promise<void> {
+  await expect(locator).toBeVisible();
+  const styleInfo = await locator.evaluate((node) => {
+    const element = node as HTMLElement;
+    const style = window.getComputedStyle(element);
+    return {
+      resize: style.resize,
+      overflowY: style.overflowY,
+      minHeight: style.minHeight,
+    };
+  });
+  expect(styleInfo.resize).toBe("vertical");
+  expect(["auto", "scroll"]).toContain(styleInfo.overflowY);
+  expect(styleInfo.minHeight).not.toBe("0px");
+}
+
 async function openSkillsMcpViewer(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Project AI Settings" }).click();
   await page.getByRole("button", { name: "Open Skills/MCP" }).click();
@@ -107,6 +123,22 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
 
   await openSkillsMcpViewer(page);
 
+  await expect(page.getByTestId("skills-mcp-accordion-mcp")).toBeVisible();
+  await expect(page.getByTestId("skills-mcp-accordion-skills")).toBeVisible();
+  await expect(
+    page.getByTestId("skills-mcp-accordion-slash-commands"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^MCP Servers$/ }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: /^Skills$/ })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await expect(
+    page.getByRole("button", { name: /^Slash Commands$/ }),
+  ).toHaveAttribute("aria-expanded", "true");
+
   await expect(page.getByText(/^Skills$/)).toBeVisible();
   await expect(page.getByText("/workspace/skills")).toBeVisible();
   await expect(page.getByText("/home/.codex/skills")).toBeVisible();
@@ -156,6 +188,19 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   const slashCommandRows = page.getByTestId("skills-mcp-slash-command");
   await expect(slashCommandRows.first()).toBeVisible();
   await expect(slashCommandRows).toContainText(["/new", "/resume", "/model"]);
+  await expectVerticallyResizablePane(
+    page.getByTestId("skills-mcp-slash-list-pane"),
+  );
+  await expect(page.getByLabel("Agent native commands")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Save Cached List" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Clear Draft" })).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByText("Agent-native slash commands apply to external agents."),
+  ).toBeVisible();
 
   await closeSkillsMcpViewer(page);
   await expect(page.getByText(/^Skills$/)).toHaveCount(0);
