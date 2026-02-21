@@ -107,6 +107,8 @@ export const EngineTypeEnum = {
   external_agent: "external_agent",
 } as const;
 
+export type EngineType = ObjectValues<typeof EngineTypeEnum>;
+
 export const AgenticEdgeContextModeEnum = {
   reference_only: "reference_only",
   inline_text: "inline_text",
@@ -359,6 +361,10 @@ export const ExternalAgentToolTypeEnum = {
   plugin: "plugin",
 } as const;
 
+export type ExternalAgentToolType = ObjectValues<
+  typeof ExternalAgentToolTypeEnum
+>;
+
 export const ExternalAgentWorkingDirStrategyEnum = {
   project_root: "project_root",
   temp_dir: "temp_dir",
@@ -432,6 +438,19 @@ export const TextBlockFormatEnum = {
 } as const;
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
+
+const MCPServerRuntimeStateEnum = {
+  connected: "connected",
+  connecting: "connecting",
+  retrying: "retrying",
+  error: "error",
+  disabled: "disabled",
+  unknown: "unknown",
+} as const;
+
+export type MCPServerRuntimeState = ObjectValues<
+  typeof MCPServerRuntimeStateEnum
+>;
 
 const SettaBackendLogEventSeverityEnum = {
   critical: "critical",
@@ -512,6 +531,7 @@ export const RouteEnum = {
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   GET_SERVER_MODE: "/serverMode",
   GET_SETTA_HOME_INFO: "/settaHomeInfo",
+  GET_MCP_SERVER_RUNTIME_STATUS: "/mcpServerRuntimeStatus",
   PLUGINS_RUNTIME: "/plugins/runtime",
   PLUGINS_INSTALL: "/plugins/install",
   PLUGINS_UNINSTALL: "/plugins/uninstall",
@@ -7968,6 +7988,47 @@ export type ListenerCoverageRequestInput = z.input<
   typeof ListenerCoverageRequestSchema
 >;
 
+const GetMCPServerRuntimeStatusRequestSchema = z.object({
+  chatId: z.union([IDSchema, z.null()]).default(null),
+  engineConfigId: z.union([IDSchema, z.null()]).default(null),
+});
+
+export type GetMCPServerRuntimeStatusRequestInput = z.input<
+  typeof GetMCPServerRuntimeStatusRequestSchema
+>;
+
+const MCPServerRuntimeStatusSchema = z.object({
+  serverId: z.string(),
+  source: z.string().default("setta_mcp" as const),
+  transport: z.string(),
+  endpoint: z.string(),
+  state: z
+    .enum(MCPServerRuntimeStateEnum)
+    .default(MCPServerRuntimeStateEnum.unknown),
+  lastAttemptAt: z.union([z.iso.datetime(), z.null()]).default(null),
+  lastConnectedAt: z.union([z.iso.datetime(), z.null()]).default(null),
+  lastFailureAt: z.union([z.iso.datetime(), z.null()]).default(null),
+  consecutiveFailures: z.int().default(0),
+  lastError: z.union([z.string(), z.null()]).default(null),
+  missingEnvVar: z.union([z.string(), z.null()]).default(null),
+  toolCount: z.int().default(0),
+});
+
+export type MCPServerRuntimeStatus = z.infer<
+  typeof MCPServerRuntimeStatusSchema
+>;
+
+const MCPServerRuntimeStatusResponseSchema = z.object({
+  llmConfigPath: z.string(),
+  activeSettaFilesLocation: z.union([z.string(), z.null()]),
+  servers: z.array(MCPServerRuntimeStatusSchema).default([]),
+  externalServers: z.array(MCPServerRuntimeStatusSchema).default([]),
+});
+
+export type MCPServerRuntimeStatusResponse = z.infer<
+  typeof MCPServerRuntimeStatusResponseSchema
+>;
+
 const ServerModeResponseSchema = z.object({
   mode: z.literal(["ide", "share", "app"]),
 });
@@ -11143,7 +11204,7 @@ export type RevealPathInOsFileExplorerRequestInput = z.input<
 const SettaHomeInfoResponseSchema = z.object({
   settaHome: z.string(),
   globalSettaFilesBase: z.string(),
-  activeSettaFilesLocation: z.string(),
+  activeSettaFilesLocation: z.union([z.string(), z.null()]),
   llmConfigPath: z.string(),
 });
 
