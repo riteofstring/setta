@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Route } from "@playwright/test";
 import {
+  allowExpectedApiError,
   cleanupIsolatedProject,
   openIsolatedProject,
   postBackend,
@@ -15,6 +16,9 @@ test.describe.serial("project ai settings accordion layout", () => {
     try {
       const llmKeysTrigger = page.getByTestId(
         "project-ai-settings-accordion-llm-api-keys",
+      );
+      const guardrailsTrigger = page.getByTestId(
+        "project-ai-settings-accordion-guardrails",
       );
       const agentProfilesTrigger = page.getByTestId(
         "project-ai-settings-accordion-agent-profiles",
@@ -45,6 +49,7 @@ test.describe.serial("project ai settings accordion layout", () => {
         "aria-expanded",
         "true",
       );
+      await expect(guardrailsTrigger).toHaveAttribute("aria-expanded", "false");
       await expect(promptTemplatesTrigger).toHaveAttribute(
         "aria-expanded",
         "false",
@@ -78,6 +83,7 @@ test.describe.serial("project ai settings accordion layout", () => {
       const clippingMetrics = await page.evaluate(() => {
         const itemIds = [
           "project-ai-settings-accordion-llm-api-keys-item",
+          "project-ai-settings-accordion-guardrails-item",
           "project-ai-settings-accordion-agent-profiles-item",
           "project-ai-settings-accordion-prompt-templates-item",
           "project-ai-settings-accordion-external-agents-item",
@@ -105,6 +111,9 @@ test.describe.serial("project ai settings accordion layout", () => {
       await expect(
         page.getByTestId("project-ai-settings-accordion-prompt-templates"),
       ).toHaveAttribute("aria-expanded", "true");
+      await expect(
+        page.getByTestId("project-ai-settings-accordion-guardrails"),
+      ).toHaveAttribute("aria-expanded", "false");
       await expect(
         page.getByTestId("project-ai-settings-accordion-agent-profiles"),
       ).toHaveAttribute("aria-expanded", "false");
@@ -244,6 +253,101 @@ test.describe.serial("project ai settings accordion layout", () => {
       await llmTitlesToggle.scrollIntoViewIfNeeded();
       await expect(llmTitlesToggle).toBeVisible();
       await expect(llmTitlesToggle).not.toBeChecked();
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("guardrails completion toggle persists", async ({ page }) => {
+    await setOverviewTab(page, "ProjectAISettings");
+    const projectContext = await openIsolatedProject(page);
+    try {
+      const guardrailsTrigger = page.getByTestId(
+        "project-ai-settings-accordion-guardrails",
+      );
+      if ((await guardrailsTrigger.getAttribute("aria-expanded")) !== "true") {
+        await guardrailsTrigger.click();
+      }
+
+      const completionGuardToggle = page.getByTestId(
+        "project-ai-settings-completion-guard-toggle",
+      );
+      await expect(completionGuardToggle).toBeVisible();
+      const initiallyChecked = await completionGuardToggle.isChecked();
+      await completionGuardToggle.click();
+      await expect(completionGuardToggle).not.toBeChecked();
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      const reloadedGuardrailsTrigger = page.getByTestId(
+        "project-ai-settings-accordion-guardrails",
+      );
+      if (
+        (await reloadedGuardrailsTrigger.getAttribute("aria-expanded")) !==
+        "true"
+      ) {
+        await reloadedGuardrailsTrigger.click();
+      }
+      const reloadedToggle = page.getByTestId(
+        "project-ai-settings-completion-guard-toggle",
+      );
+      await expect(reloadedToggle).not.toBeChecked();
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("guardrails completion toggle rolls back when save fails", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAISettings");
+    const projectContext = await openIsolatedProject(page);
+    try {
+      const guardrailsTrigger = page.getByTestId(
+        "project-ai-settings-accordion-guardrails",
+      );
+      if ((await guardrailsTrigger.getAttribute("aria-expanded")) !== "true") {
+        await guardrailsTrigger.click();
+      }
+
+      const completionGuardToggle = page.getByTestId(
+        "project-ai-settings-completion-guard-toggle",
+      );
+      await expect(completionGuardToggle).toBeVisible();
+      const initiallyChecked = await completionGuardToggle.isChecked();
+
+      allowExpectedApiError(page, {
+        path: "/api/saveSettings",
+        statuses: [500],
+        method: "POST",
+      });
+      let shouldFailSave = true;
+      const failSaveSettings = async (route: Route) => {
+        if (!shouldFailSave) {
+          await route.continue();
+          return;
+        }
+        shouldFailSave = false;
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "saveSettings failed in test" }),
+        });
+      };
+      await page.route("**/api/saveSettings", failSaveSettings);
+      const saveResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/saveSettings") &&
+          response.request().method() === "POST",
+      );
+      await completionGuardToggle.click();
+      const saveResponse = await saveResponsePromise;
+      expect(saveResponse.status()).toBe(500);
+      if (initiallyChecked) {
+        await expect(completionGuardToggle).toBeChecked();
+      } else {
+        await expect(completionGuardToggle).not.toBeChecked();
+      }
+      await page.unroute("**/api/saveSettings", failSaveSettings);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
