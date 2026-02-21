@@ -32,7 +32,7 @@ test.describe.serial("chat tool calls", () => {
             {
               id: "tool-msg-1",
               role: "assistant",
-              content: [{ type: "text", text: "Tool section density check" }],
+              content: [],
               attachments: [],
               tool_calls: [
                 {
@@ -43,6 +43,14 @@ test.describe.serial("chat tool calls", () => {
                     arguments: { target: "frontend" },
                   },
                 },
+              ],
+            },
+            {
+              id: "tool-msg-2",
+              role: "assistant",
+              content: [],
+              attachments: [],
+              tool_calls: [
                 {
                   id: "tool-call-2",
                   type: "function",
@@ -60,32 +68,37 @@ test.describe.serial("chat tool calls", () => {
         },
       });
 
-      const messageGroup = getMessageGroup(section, "Tool section density check");
-      await expect(messageGroup).toBeVisible();
+      const toolCard = section.locator('[data-chat-assistant-tool-call-card="true"]');
+      await expect(toolCard).toHaveCount(1);
 
-      const toolSection = messageGroup
+      const toolSection = toolCard
+        .first()
         .locator('[data-chat-tool-call-section="true"]')
         .first();
       await expect(toolSection).toBeVisible();
       await expect(toolSection).toContainText("Tool calls (2)");
       await expect(toolSection).toContainText("Stopped Mid-Tool Call");
 
+      // Tool-call-only runs should not render a speech bubble.
+      await expect(section.locator('[data-chat-assistant-bubble="true"]')).toHaveCount(0);
+
       // Interrupted tool calls should not show a running spinner state.
-      await expect(messageGroup.locator(".gg-spinner")).toHaveCount(0);
+      await expect(toolSection.locator(".gg-spinner")).toHaveCount(0);
 
-      await messageGroup.getByText("Tool calls (2)").click();
+      await toolSection.getByText("Tool calls (2)").click();
 
-      const toolItems = messageGroup.locator('[data-chat-tool-call-item="true"]');
+      const toolItems = toolSection.locator('[data-chat-tool-call-item="true"]');
       await expect(toolItems).toHaveCount(2);
 
       // Keep tool call rows close to full width with compact vertical height.
-      const rowGeometry = await messageGroup.evaluate((group) => {
-        const bubble = group.querySelector('[data-chat-assistant-bubble="true"]');
-        const firstItem = group.querySelector('[data-chat-tool-call-item="true"]');
-        if (!bubble || !firstItem) {
+      const rowGeometry = await toolSection.evaluate((toolSectionElement) => {
+        const firstItem = toolSectionElement.querySelector(
+          '[data-chat-tool-call-item="true"]',
+        );
+        if (!firstItem) {
           return null;
         }
-        const bubbleRect = bubble.getBoundingClientRect();
+        const bubbleRect = toolSectionElement.getBoundingClientRect();
         const firstItemRect = firstItem.getBoundingClientRect();
         return {
           widthCoverage: firstItemRect.width / bubbleRect.width,
@@ -98,19 +111,15 @@ test.describe.serial("chat tool calls", () => {
       if (!rowGeometry) {
         throw new Error("Missing tool call row geometry.");
       }
-      expect(rowGeometry.widthCoverage).toBeGreaterThan(0.78);
+      expect(rowGeometry.widthCoverage).toBeGreaterThan(0.9);
       expect(rowGeometry.leftGap).toBeGreaterThanOrEqual(0);
-      expect(rowGeometry.leftGap).toBeLessThanOrEqual(20);
+      expect(rowGeometry.leftGap).toBeLessThanOrEqual(12);
       expect(rowGeometry.rowHeight).toBeLessThanOrEqual(42);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
 });
-
-function getMessageGroup(container: Locator, text: string): Locator {
-  return container.locator("div.group").filter({ hasText: text }).first();
-}
 
 function findSectionByName(page: Page, name: string): Locator {
   return page

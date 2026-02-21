@@ -218,6 +218,55 @@ describe("ChatMessages tool call status", () => {
       .length;
     expect(sectionCount).toBe(1);
     expect(markup).toContain("Tool calls (2)");
+    expect(markup).toContain('data-chat-assistant-tool-call-card="true"');
+    expect(markup).toContain('data-chat-assistant-bubble="true"');
+  });
+
+  it("groups consecutive tool-only assistant messages into a single tool-call section", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-tool-only-1",
+        role: ChatRoleEnum.assistant,
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "tool-only-1",
+            type: "function",
+            function: {
+              name: "setta__first_tool",
+              arguments: { one: 1 },
+            },
+          },
+        ],
+      },
+      {
+        id: "m-tool-only-2",
+        role: ChatRoleEnum.assistant,
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "tool-only-2",
+            type: "function",
+            function: {
+              name: "setta__second_tool",
+              arguments: { two: 2 },
+            },
+          },
+        ],
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    const sectionCount = (markup.match(/data-chat-tool-call-section="true"/g) ?? [])
+      .length;
+    expect(sectionCount).toBe(1);
+    expect(markup).toContain("Tool calls (2)");
+    expect(markup).not.toContain('data-chat-assistant-bubble="true"');
   });
 });
 

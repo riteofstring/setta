@@ -82,6 +82,10 @@ type AssistantChatMessage = Extract<
 type ChatContentItem = AssistantChatMessage["content"][number];
 
 type ToolResultValue = ToolChatMessage["result"] | string;
+type ToolCallRenderEntry = {
+  toolCall: ToolCall;
+  isStreaming: boolean;
+};
 
 type ToolCallContext = {
   todoPayloadById: Record<string, TodoListPayload>;
@@ -1011,14 +1015,7 @@ const ToolCallItem = memo(function ToolCallItem({
     <Accordion.Root type="single" collapsible className="w-full">
       <Accordion.Item value="details" data-chat-tool-call-item="true">
         <Accordion.Trigger className="relative flex w-full cursor-pointer items-center justify-between overflow-hidden rounded-md border border-setta-200/70 bg-white/70 transition-colors hover:bg-white dark:border-setta-700/70 dark:bg-setta-900/70 dark:hover:bg-setta-900">
-          <div className="px-1.5 py-1">
-            <PiWrenchFill
-              size={13}
-              className="min-w-6 text-setta-200 dark:text-setta-400"
-            />
-          </div>
-
-          <div className="min-w-0 flex-1 truncate break-words pr-1 font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200">
+          <div className="min-w-0 flex-1 truncate break-words pl-2 pr-1 font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200">
             {name}
           </div>
           <ToolCallAccordionStatus runState={runState} />
@@ -1154,6 +1151,103 @@ const ToolCallSection = memo(function ToolCallSection({
   );
 });
 
+const AssistantToolCallSection = memo(function AssistantToolCallSection({
+  entries,
+  toolResultsById,
+  toolCallArguments,
+  toolCallContext,
+}: {
+  entries: ToolCallRenderEntry[];
+  toolResultsById: Record<string, ToolChatMessage>;
+  toolCallArguments: Record<string, string>;
+  toolCallContext: ToolCallContext;
+}) {
+  const toolCallStates: ToolCallRunState[] = [];
+  const toolLabels: string[] = [];
+  const rows = entries.map(({ toolCall, isStreaming }) => {
+    const toolResult = toolResultsById[toolCall.id];
+    const rawToolName =
+      toolResult?.tool_name ||
+      toolCall.function?.name ||
+      `Tool call ${toolCall.id}`;
+    const runState = resolveToolCallRunState(
+      toolResult ? !toolResult.is_error : undefined,
+      isStreaming,
+    );
+    toolCallStates.push(runState);
+    toolLabels.push(rawToolName);
+
+    const questionPayload = toolCallContext.questionPayloadById[toolCall.id];
+    if (questionPayload) {
+      const resolvedAnswers = resolveQuestionAnswers(questionPayload, toolResult);
+      return (
+        <div key={toolCall.id} className="w-full">
+          <QuestionCard
+            toolCallId={toolCall.id}
+            payload={questionPayload}
+            resolvedAnswers={resolvedAnswers}
+          />
+        </div>
+      );
+    }
+    const todoPayload = toolCallContext.todoPayloadById[toolCall.id];
+    if (todoPayload) {
+      const summaryOnly = toolCallContext.latestTodoCallId !== toolCall.id;
+      return (
+        <div key={toolCall.id} className="w-full">
+          <TodoListCard todos={todoPayload.todos} summaryOnly={summaryOnly} />
+        </div>
+      );
+    }
+    const approvalPayload = toolCallContext.approvalPayloadById[toolCall.id];
+    if (approvalPayload) {
+      return (
+        <div key={toolCall.id} className="w-full">
+          <ApprovalCard
+            toolCallId={toolCall.id}
+            toolName={approvalPayload.toolName ?? null}
+            toolType={approvalPayload.toolType ?? null}
+            input={approvalPayload.input}
+            toolResult={toolResult}
+            isStreaming={isStreaming}
+          />
+        </div>
+      );
+    }
+    const argsFromAssistant = toolCall.function?.arguments;
+    const pendingArgs = toolCallArguments?.[toolCall.id];
+    let argsToDisplay = pendingArgs;
+    if (toolResult?.arguments && Object.keys(toolResult.arguments).length > 0) {
+      argsToDisplay = toolResult.arguments;
+    } else if (argsFromAssistant && Object.keys(argsFromAssistant).length > 0) {
+      argsToDisplay = argsFromAssistant;
+    }
+    return (
+      <ToolCallItem
+        key={toolCall.id}
+        name={rawToolName}
+        args={argsToDisplay}
+        result={formatToolResult(toolResult)}
+        runState={runState}
+      />
+    );
+  });
+
+  const sectionState = resolveToolCallSectionState(toolCallStates);
+  const latestToolLabel =
+    toolLabels.length > 0 ? toolLabels[toolLabels.length - 1] : "Tool activity";
+
+  return (
+    <ToolCallSection
+      toolCount={entries.length}
+      latestToolLabel={latestToolLabel}
+      sectionState={sectionState}
+    >
+      {rows}
+    </ToolCallSection>
+  );
+});
+
 function AssistantErrorCallout({ content }: { content: string }) {
   const displayText = stripAssistantErrorPrefix(content);
   return (
@@ -1225,6 +1319,14 @@ function AssistantReasoningCard({ children }: { children: ReactNode }) {
       >
         {children}
       </div>
+    </div>
+  );
+}
+
+function AssistantToolCallCard({ children }: { children: ReactNode }) {
+  return (
+    <div className="my-2 w-full" data-chat-assistant-tool-call-card="true">
+      {children}
     </div>
   );
 }
@@ -1630,14 +1732,17 @@ const ChatMessage = memo(function ChatMessage({
 
   if (message.role === ChatRoleEnum.assistant) {
     const showTypingIndicator = showAssistantSpinner;
-    const hasBubbleContent =
-      attachments.length > 0 || displayItems.length > 0 || toolCalls.length > 0;
+    const hasBubbleContent = attachments.length > 0 || displayItems.length > 0;
     const shouldRenderBubble =
-      hasBubbleContent || showTypingIndicator || isStreaming;
+      hasBubbleContent || showTypingIndicator || (isStreaming && toolCalls.length === 0);
     const hasThinkingContent = thinkingItems.length > 0;
-    if (!shouldRenderBubble && !hasThinkingContent) {
+    if (!shouldRenderBubble && !hasThinkingContent && toolCalls.length === 0) {
       return null;
     }
+    const toolCallEntries: ToolCallRenderEntry[] = toolCalls.map((toolCall) => ({
+      toolCall,
+      isStreaming,
+    }));
     return (
       <AssistantMessageGroup messageId={message.id}>
         {thinkingItems.map((item, idx) => (
@@ -1677,116 +1782,20 @@ const ChatMessage = memo(function ChatMessage({
                 aria-hidden="true"
               />
             ) : null}
-            {toolCalls.length > 0 ? (
-              (() => {
-                const toolCallStates: ToolCallRunState[] = [];
-                const toolLabels: string[] = [];
-                const rows = toolCalls.map((toolCall: ToolCall) => {
-                  const toolResult = toolResultsById[toolCall.id];
-                  const rawToolName =
-                    toolResult?.tool_name ||
-                    toolCall.function?.name ||
-                    `Tool call ${toolCall.id}`;
-                  const runState = resolveToolCallRunState(
-                    toolResult ? !toolResult.is_error : undefined,
-                    isStreaming,
-                  );
-                  toolCallStates.push(runState);
-                  toolLabels.push(rawToolName);
-
-                  const questionPayload =
-                    toolCallContext.questionPayloadById[toolCall.id];
-                  if (questionPayload) {
-                    const resolvedAnswers = resolveQuestionAnswers(
-                      questionPayload,
-                      toolResult,
-                    );
-                    return (
-                      <div key={toolCall.id} className="w-full">
-                        <QuestionCard
-                          toolCallId={toolCall.id}
-                          payload={questionPayload}
-                          resolvedAnswers={resolvedAnswers}
-                        />
-                      </div>
-                    );
-                  }
-                  const todoPayload =
-                    toolCallContext.todoPayloadById[toolCall.id];
-                  if (todoPayload) {
-                    const summaryOnly =
-                      toolCallContext.latestTodoCallId !== toolCall.id;
-                    return (
-                      <div key={toolCall.id} className="w-full">
-                        <TodoListCard
-                          todos={todoPayload.todos}
-                          summaryOnly={summaryOnly}
-                        />
-                      </div>
-                    );
-                  }
-                  const approvalPayload =
-                    toolCallContext.approvalPayloadById[toolCall.id];
-                  if (approvalPayload) {
-                    return (
-                      <div key={toolCall.id} className="w-full">
-                        <ApprovalCard
-                          toolCallId={toolCall.id}
-                          toolName={approvalPayload.toolName ?? null}
-                          toolType={approvalPayload.toolType ?? null}
-                          input={approvalPayload.input}
-                          toolResult={toolResult}
-                          isStreaming={isStreaming}
-                        />
-                      </div>
-                    );
-                  }
-                  const argsFromAssistant = toolCall.function?.arguments;
-                  const pendingArgs = toolCallArguments?.[toolCall.id];
-                  let argsToDisplay = pendingArgs;
-                  if (
-                    toolResult?.arguments &&
-                    Object.keys(toolResult.arguments).length > 0
-                  ) {
-                    argsToDisplay = toolResult.arguments;
-                  } else if (
-                    argsFromAssistant &&
-                    Object.keys(argsFromAssistant).length > 0
-                  ) {
-                    argsToDisplay = argsFromAssistant;
-                  }
-                  return (
-                    <ToolCallItem
-                      key={toolCall.id}
-                      name={rawToolName}
-                      args={argsToDisplay}
-                      result={formatToolResult(toolResult)}
-                      runState={runState}
-                    />
-                  );
-                });
-
-                const sectionState = resolveToolCallSectionState(toolCallStates);
-                const latestToolLabel =
-                  toolLabels.length > 0
-                    ? toolLabels[toolLabels.length - 1]
-                    : "Tool activity";
-
-                return (
-                  <ToolCallSection
-                    toolCount={toolCalls.length}
-                    latestToolLabel={latestToolLabel}
-                    sectionState={sectionState}
-                  >
-                    {rows}
-                  </ToolCallSection>
-                );
-              })()
-            ) : null}
           </LLMChatBubble>
         ) : (
-          actionBar
+          toolCalls.length === 0 ? actionBar : null
         )}
+        {toolCalls.length > 0 ? (
+          <AssistantToolCallCard>
+            <AssistantToolCallSection
+              entries={toolCallEntries}
+              toolResultsById={toolResultsById}
+              toolCallArguments={toolCallArguments}
+              toolCallContext={toolCallContext}
+            />
+          </AssistantToolCallCard>
+        ) : null}
       </AssistantMessageGroup>
     );
   }
@@ -1880,6 +1889,26 @@ function resolveQuestionAnswers(
     return payload.answers;
   }
   return null;
+}
+
+function isToolCallOnlyAssistantMessage(
+  message: BaseChatMessageUnion,
+): message is AssistantChatMessage {
+  if (message.role !== ChatRoleEnum.assistant) {
+    return false;
+  }
+  const toolCalls = message.tool_calls ?? [];
+  if (toolCalls.length === 0) {
+    return false;
+  }
+  const attachments =
+    "attachments" in message && Array.isArray(message.attachments)
+      ? message.attachments
+      : [];
+  if (attachments.length > 0) {
+    return false;
+  }
+  return message.content.length === 0;
 }
 
 function ChatMessages({
@@ -2020,7 +2049,47 @@ function ChatMessages({
   if (waitingForResponse && lastMessage?.role === ChatRoleEnum.assistant) {
     streamingMessageId = lastMessage.id;
   }
-  for (const message of messages) {
+  let index = 0;
+  while (index < messages.length) {
+    const message = messages[index];
+    if (isToolCallOnlyAssistantMessage(message)) {
+      const groupedToolCalls: ToolCallRenderEntry[] = [];
+      const firstMessageId = message.id;
+      let groupEnd = index;
+      while (groupEnd < messages.length) {
+        const nextMessage = messages[groupEnd];
+        if (!isToolCallOnlyAssistantMessage(nextMessage)) {
+          break;
+        }
+        const isStreamingMessage =
+          waitingForResponse && nextMessage.id === streamingMessageId;
+        const toolCalls = nextMessage.tool_calls ?? [];
+        for (const toolCall of toolCalls) {
+          groupedToolCalls.push({
+            toolCall,
+            isStreaming: isStreamingMessage,
+          });
+        }
+        groupEnd += 1;
+      }
+      output.push(
+        <AssistantMessageGroup
+          key={`tool-call-group-${firstMessageId}`}
+          messageId={firstMessageId}
+        >
+          <AssistantToolCallCard>
+            <AssistantToolCallSection
+              entries={groupedToolCalls}
+              toolResultsById={toolResultsById}
+              toolCallArguments={toolCallArguments}
+              toolCallContext={toolCallContext}
+            />
+          </AssistantToolCallCard>
+        </AssistantMessageGroup>,
+      );
+      index = groupEnd;
+      continue;
+    }
     const isStreamingMessage =
       waitingForResponse &&
       message.role === ChatRoleEnum.assistant &&
@@ -2082,6 +2151,7 @@ function ChatMessages({
         onBranchSwitch={onBranchSwitch}
       />,
     );
+    index += 1;
   }
 
   if (waitingForResponse && lastMessage?.role !== ChatRoleEnum.assistant) {
