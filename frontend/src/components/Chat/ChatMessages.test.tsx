@@ -10,7 +10,7 @@ import {
   type SharePolicy,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ChatMessageList } from "./ChatMessages";
+import { ChatMessageList, buildCopyTextForMessage } from "./ChatMessages";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
   return createSharePolicy(overrides);
@@ -176,5 +176,93 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(bubbleIndex).toBeGreaterThan(-1);
     expect(reasoningIndex).toBeLessThan(bubbleIndex);
     expect(markup).toContain("border-setta-100");
+  });
+
+  it("does not render an empty assistant bubble when message only has reasoning", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-only",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "Evaluating options.",
+            summary: "Reasoning",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain('data-chat-assistant-reasoning-card="true"');
+    expect(markup).not.toContain('data-chat-assistant-bubble="true"');
+  });
+
+  it("does not render fully empty assistant messages after streaming completes", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-empty-assistant",
+        role: ChatRoleEnum.assistant,
+        content: [],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).not.toContain("m-empty-assistant");
+    expect(markup).not.toContain('data-chat-assistant-bubble="true"');
+  });
+});
+
+describe("buildCopyTextForMessage", () => {
+  it("includes tool call details when assistant content is empty", () => {
+    const message: BaseChatMessageUnion = {
+      id: "assistant-tool-copy",
+      role: ChatRoleEnum.assistant,
+      content: [],
+      attachments: [],
+      tool_calls: [
+        {
+          id: "tool-copy-1",
+          type: "function",
+          function: {
+            name: "mcp__figma-desktop__get_design_context",
+            arguments: { nodeId: "1:2" },
+          },
+        },
+      ],
+    };
+    const text = buildCopyTextForMessage({
+      message,
+      toolCallArguments: {},
+      toolResultsById: {
+        "tool-copy-1": {
+          role: ChatRoleEnum.tool,
+          tool_call_id: "tool-copy-1",
+          tool_name: "mcp__figma-desktop__get_design_context",
+          arguments: { nodeId: "1:2" },
+          result: { ok: true },
+          content: [],
+          is_error: false,
+          started_at: "2026-01-01T00:00:00Z",
+          completed_at: null,
+          id: "tool-result-1",
+        },
+      },
+    });
+
+    expect(text).toContain("mcp__figma-desktop__get_design_context");
+    expect(text).toContain("Arguments:");
+    expect(text).toContain('"nodeId": "1:2"');
+    expect(text).toContain("Result:");
+    expect(text).toContain('"ok": true');
   });
 });

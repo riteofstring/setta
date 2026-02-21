@@ -1332,6 +1332,60 @@ function getPlainTextFromMessage(message: BaseChatMessageUnion): string {
   return output.join("\n\n").trim();
 }
 
+export function buildCopyTextForMessage({
+  message,
+  toolResultsById,
+  toolCallArguments,
+}: {
+  message: BaseChatMessageUnion;
+  toolResultsById: Record<string, ToolChatMessage>;
+  toolCallArguments: Record<string, string>;
+}): string {
+  const output: string[] = [];
+  const plainText = getPlainTextFromMessage(message);
+  if (plainText.length > 0) {
+    output.push(plainText);
+  }
+  if (message.role !== ChatRoleEnum.assistant) {
+    return output.join("\n\n").trim();
+  }
+  const toolCalls = message.tool_calls ?? [];
+  for (const toolCall of toolCalls) {
+    const toolResult = toolResultsById[toolCall.id];
+    const toolName =
+      toolResult?.tool_name ||
+      toolCall.function?.name ||
+      `Tool call ${toolCall.id}`;
+    const lines: string[] = [toolName];
+    const argsFromResult = toolResult?.arguments;
+    const argsFromMessage = toolCall.function?.arguments;
+    const pendingArgs = toolCallArguments[toolCall.id];
+    let args: unknown = null;
+    if (argsFromResult && Object.keys(argsFromResult).length > 0) {
+      args = argsFromResult;
+    } else if (argsFromMessage && Object.keys(argsFromMessage).length > 0) {
+      args = argsFromMessage;
+    } else if (pendingArgs && pendingArgs.trim().length > 0) {
+      args = pendingArgs;
+    }
+    if (args) {
+      lines.push(`Arguments:\n${formatToolArgs(args)}`);
+    }
+    const result = formatToolResult(toolResult);
+    if (result !== undefined) {
+      if (typeof result === "string" && result.trim().length > 0) {
+        lines.push(`Result:\n${result}`);
+      } else if (typeof result === "number" || typeof result === "boolean") {
+        lines.push(`Result:\n${String(result)}`);
+      } else if (result && typeof result === "object") {
+        lines.push(`Result:\n${formatToolArgs(result)}`);
+      }
+    }
+    output.push(lines.join("\n"));
+  }
+  return output.join("\n\n").trim();
+}
+
 const ChatMessage = memo(function ChatMessage({
   message,
   toolResultsById,
@@ -1380,11 +1434,25 @@ const ChatMessage = memo(function ChatMessage({
   const showEdit = isUser && canEdit;
   const editDisabled = Boolean(editDisabledReason);
   const handleCopy = useCallback(() => {
-    const text = getPlainTextFromMessage(message);
-    void navigator.clipboard.writeText(text).then(() => {
-      addTemporaryNotification("Copied message.");
+    const text = buildCopyTextForMessage({
+      message,
+      toolResultsById,
+      toolCallArguments,
     });
-  }, [message]);
+    if (text.length === 0) {
+      addTemporaryNotification("Nothing to copy for this message.", "warning");
+      return;
+    }
+    void navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        addTemporaryNotification("Copied message.");
+      })
+      .catch((error) => {
+        console.error("Failed to copy message:", error);
+        addTemporaryNotification("Failed to copy message.", "error");
+      });
+  }, [message, toolCallArguments, toolResultsById]);
   const actionBar = !isEditing ? (
     <ChatMessageActions
       alignment={actionAlignment}
@@ -1443,6 +1511,14 @@ const ChatMessage = memo(function ChatMessage({
 
   if (message.role === ChatRoleEnum.assistant) {
     const showTypingIndicator = showAssistantSpinner;
+    const hasBubbleContent =
+      attachments.length > 0 || displayItems.length > 0 || toolCalls.length > 0;
+    const shouldRenderBubble =
+      hasBubbleContent || showTypingIndicator || isStreaming;
+    const hasThinkingContent = thinkingItems.length > 0;
+    if (!shouldRenderBubble && !hasThinkingContent) {
+      return null;
+    }
     return (
       <AssistantMessageGroup messageId={message.id}>
         {thinkingItems.map((item, idx) => (
@@ -1455,112 +1531,116 @@ const ChatMessage = memo(function ChatMessage({
             />
           </AssistantReasoningCard>
         ))}
-        <LLMChatBubble actions={actionBar}>
-          <ChatAttachmentList
-            attachments={attachments}
-            isUser={false}
-            attachmentUrlMap={attachmentUrlMap}
-            requestAttachmentUrls={requestAttachmentUrls}
-          />
-          {displayItems.map(({ item, fullIndex }) => {
-            return (
-              <StreamItem
-                key={fullIndex}
-                item={item}
-                isStreaming={isStreaming}
-                showTypingIndicator={
-                  showTypingIndicator && fullIndex === lastTextIndex
-                }
-              />
-            );
-          })}
-          {showTypingIndicator && lastTextIndex === -1 ? (
-            <span
-              className="chat-typing-inline"
-              data-typing="true"
-              aria-hidden="true"
+        {shouldRenderBubble ? (
+          <LLMChatBubble actions={actionBar}>
+            <ChatAttachmentList
+              attachments={attachments}
+              isUser={false}
+              attachmentUrlMap={attachmentUrlMap}
+              requestAttachmentUrls={requestAttachmentUrls}
             />
-          ) : null}
-          {toolCalls.length > 0 ? (
-            <div className="flex flex-col gap-1">
-              {toolCalls.map((toolCall: ToolCall) => {
-                const toolResult = toolResultsById[toolCall.id];
-                const questionPayload =
-                  toolCallContext.questionPayloadById[toolCall.id];
-                if (questionPayload) {
-                  const resolvedAnswers = resolveQuestionAnswers(
-                    questionPayload,
-                    toolResult,
-                  );
+            {displayItems.map(({ item, fullIndex }) => {
+              return (
+                <StreamItem
+                  key={fullIndex}
+                  item={item}
+                  isStreaming={isStreaming}
+                  showTypingIndicator={
+                    showTypingIndicator && fullIndex === lastTextIndex
+                  }
+                />
+              );
+            })}
+            {showTypingIndicator && lastTextIndex === -1 ? (
+              <span
+                className="chat-typing-inline"
+                data-typing="true"
+                aria-hidden="true"
+              />
+            ) : null}
+            {toolCalls.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                {toolCalls.map((toolCall: ToolCall) => {
+                  const toolResult = toolResultsById[toolCall.id];
+                  const questionPayload =
+                    toolCallContext.questionPayloadById[toolCall.id];
+                  if (questionPayload) {
+                    const resolvedAnswers = resolveQuestionAnswers(
+                      questionPayload,
+                      toolResult,
+                    );
+                    return (
+                      <QuestionCard
+                        key={toolCall.id}
+                        toolCallId={toolCall.id}
+                        payload={questionPayload}
+                        resolvedAnswers={resolvedAnswers}
+                      />
+                    );
+                  }
+                  const todoPayload =
+                    toolCallContext.todoPayloadById[toolCall.id];
+                  if (todoPayload) {
+                    const summaryOnly =
+                      toolCallContext.latestTodoCallId !== toolCall.id;
+                    return (
+                      <TodoListCard
+                        key={toolCall.id}
+                        todos={todoPayload.todos}
+                        summaryOnly={summaryOnly}
+                      />
+                    );
+                  }
+                  const approvalPayload =
+                    toolCallContext.approvalPayloadById[toolCall.id];
+                  if (approvalPayload) {
+                    return (
+                      <ApprovalCard
+                        key={toolCall.id}
+                        toolCallId={toolCall.id}
+                        toolName={approvalPayload.toolName ?? null}
+                        toolType={approvalPayload.toolType ?? null}
+                        input={approvalPayload.input}
+                        toolResult={toolResult}
+                        isStreaming={isStreaming}
+                      />
+                    );
+                  }
+                  const argsFromAssistant = toolCall.function?.arguments;
+                  const pendingArgs = toolCallArguments?.[toolCall.id];
+                  let argsToDisplay = pendingArgs;
+                  if (
+                    toolResult?.arguments &&
+                    Object.keys(toolResult.arguments).length > 0
+                  ) {
+                    argsToDisplay = toolResult.arguments;
+                  } else if (
+                    argsFromAssistant &&
+                    Object.keys(argsFromAssistant).length > 0
+                  ) {
+                    argsToDisplay = argsFromAssistant;
+                  }
+                  const rawToolName =
+                    toolResult?.tool_name ||
+                    toolCall.function?.name ||
+                    `Tool call ${toolCall.id}`;
                   return (
-                    <QuestionCard
+                    <ToolCallItem
                       key={toolCall.id}
-                      toolCallId={toolCall.id}
-                      payload={questionPayload}
-                      resolvedAnswers={resolvedAnswers}
-                    />
-                  );
-                }
-                const todoPayload =
-                  toolCallContext.todoPayloadById[toolCall.id];
-                if (todoPayload) {
-                  const summaryOnly =
-                    toolCallContext.latestTodoCallId !== toolCall.id;
-                  return (
-                    <TodoListCard
-                      key={toolCall.id}
-                      todos={todoPayload.todos}
-                      summaryOnly={summaryOnly}
-                    />
-                  );
-                }
-                const approvalPayload =
-                  toolCallContext.approvalPayloadById[toolCall.id];
-                if (approvalPayload) {
-                  return (
-                    <ApprovalCard
-                      key={toolCall.id}
-                      toolCallId={toolCall.id}
-                      toolName={approvalPayload.toolName ?? null}
-                      toolType={approvalPayload.toolType ?? null}
-                      input={approvalPayload.input}
-                      toolResult={toolResult}
+                      name={rawToolName}
+                      args={argsToDisplay}
+                      result={formatToolResult(toolResult)}
+                      success={toolResult ? !toolResult.is_error : undefined}
                       isStreaming={isStreaming}
                     />
                   );
-                }
-                const argsFromAssistant = toolCall.function?.arguments;
-                const pendingArgs = toolCallArguments?.[toolCall.id];
-                let argsToDisplay = pendingArgs;
-                if (
-                  toolResult?.arguments &&
-                  Object.keys(toolResult.arguments).length > 0
-                ) {
-                  argsToDisplay = toolResult.arguments;
-                } else if (
-                  argsFromAssistant &&
-                  Object.keys(argsFromAssistant).length > 0
-                ) {
-                  argsToDisplay = argsFromAssistant;
-                }
-                const rawToolName =
-                  toolResult?.tool_name ||
-                  toolCall.function?.name ||
-                  `Tool call ${toolCall.id}`;
-                return (
-                  <ToolCallItem
-                    key={toolCall.id}
-                    name={rawToolName}
-                    args={argsToDisplay}
-                    result={formatToolResult(toolResult)}
-                    success={toolResult ? !toolResult.is_error : undefined}
-                    isStreaming={isStreaming}
-                  />
-                );
-              })}
-            </div>
-          ) : null}
-        </LLMChatBubble>
+                })}
+              </div>
+            ) : null}
+          </LLMChatBubble>
+        ) : (
+          actionBar
+        )}
       </AssistantMessageGroup>
     );
   }
