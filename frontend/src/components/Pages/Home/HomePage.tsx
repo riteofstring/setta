@@ -1376,10 +1376,10 @@ function ProjectListItem({
       {selectionEnabled && (
         <button
           type="button"
-          className={`inline-flex h-4 w-4 items-center justify-center rounded-full ${
+          className={`inline-flex h-4 w-4 items-center justify-center rounded-full border transition-colors ${
             isSelected
-              ? "bg-blue-500 text-white"
-              : "bg-setta-200 text-transparent"
+              ? "border-blue-500 bg-blue-500 text-white"
+              : "border-setta-300/70 bg-transparent text-transparent dark:border-setta-600/80"
           }`}
           onClick={(event) => {
             event.preventDefault();
