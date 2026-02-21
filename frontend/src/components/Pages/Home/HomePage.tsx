@@ -559,10 +559,12 @@ function HomeFileBrowserColumn() {
     rootPath: string | null;
     pathSeparator?: string;
     ignorePatterns?: string[] | null;
+    allowOutsideWorkspaceRoot?: boolean;
   }>({ rootPath: null });
   completionOptionsRef.current.rootPath = rootPath;
   completionOptionsRef.current.pathSeparator = pathSeparator;
   completionOptionsRef.current.ignorePatterns = ignorePatterns;
+  completionOptionsRef.current.allowOutsideWorkspaceRoot = true;
   const completionSource = useMemo(
     () =>
       createDynamicFolderPathCompletionSource(
@@ -669,6 +671,7 @@ function HomeFileBrowserColumn() {
         <FileBrowserPane
           useFileBrowserStateHook={useHomeFileBrowserState}
           includeSettaInitializedFolders
+          allowOutsideWorkspaceRoot
           metaPaddingClassName={HOME_FILE_BROWSER_META_INSET_CLASS}
           listInsetLeft={HOME_FILE_BROWSER_LIST_INSET_LEFT}
         />

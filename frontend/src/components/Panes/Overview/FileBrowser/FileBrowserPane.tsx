@@ -498,6 +498,7 @@ type FileBrowserPaneProps = {
   useFileBrowserStateHook?: typeof useFileBrowserState;
   showFilter?: boolean;
   includeSettaInitializedFolders?: boolean;
+  allowOutsideWorkspaceRoot?: boolean;
   metaPaddingClassName?: string;
   listInsetLeft?: number;
   columnWidthConfig?: {
@@ -513,6 +514,7 @@ export function FileBrowserPane({
   useFileBrowserStateHook,
   showFilter = true,
   includeSettaInitializedFolders = false,
+  allowOutsideWorkspaceRoot = false,
   metaPaddingClassName,
   listInsetLeft = 0,
   columnWidthConfig,
@@ -675,8 +677,9 @@ export function FileBrowserPane({
           maxEntries: MAX_ENTRIES,
           includeMtime: true,
           includeSettaInitialized: true,
+          allowOutsideWorkspaceRoot,
           missingFolderBehavior: "empty",
-        });
+        } as Parameters<typeof route_get_folder_contents>[0]);
         if (rootRequestIdRef.current !== activeRootRequestId) {
           return null;
         }
@@ -726,7 +729,8 @@ export function FileBrowserPane({
           ) {
             const initializationRes = await route_check_workspace_initialized({
               folderPath,
-            });
+              allowOutsideWorkspaceRoot,
+            } as Parameters<typeof route_check_workspace_initialized>[0]);
             if (rootRequestIdRef.current !== activeRootRequestId) {
               return null;
             }
@@ -772,7 +776,7 @@ export function FileBrowserPane({
         clearLoadingPathForRequest();
       }
     },
-    [fileBrowserState, ignorePatterns],
+    [allowOutsideWorkspaceRoot, fileBrowserState, ignorePatterns],
   );
 
   const applyRootPath = useCallback(
