@@ -279,6 +279,90 @@ describe("ChatMessages tool call status", () => {
       "group flex w-full max-w-[min(88%,800px)] flex-col items-start gap-2",
     );
   });
+
+  it("renders command and file operations in an actions section separate from tool calls", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-action-mix",
+        role: ChatRoleEnum.assistant,
+        content: [createMessageTextContent({ text: "Applying updates..." })],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "action-tool-1",
+            type: "function",
+            function: {
+              name: "command_execution",
+              arguments: { command: "rg --files" },
+            },
+          },
+          {
+            id: "regular-tool-1",
+            type: "function",
+            function: {
+              name: "setta__create_app",
+              arguments: { prompt: "Create app" },
+            },
+          },
+        ],
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain('data-chat-action-section="true"');
+    expect(markup).toContain('data-chat-action-count-badge="true"');
+    expect(markup).toContain("Actions");
+    expect(markup).toContain("rg --files");
+    expect(markup).toContain('data-chat-tool-call-section="true"');
+    expect(markup).toContain("Tool calls");
+  });
+
+  it("renders compacted context summaries in a dedicated reasoning-like section", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-compaction-1",
+        role: ChatRoleEnum.assistant,
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "compact-tool-1",
+            type: "function",
+            function: {
+              name: "compacted",
+              arguments: { note: "Compacted earlier messages" },
+            },
+          },
+        ],
+      },
+      {
+        id: "m-compaction-result-1",
+        role: ChatRoleEnum.tool,
+        tool_call_id: "compact-tool-1",
+        tool_name: "compacted",
+        arguments: {},
+        result: "Summary: earlier file reads and edit intents were compacted.",
+        content: [],
+        is_error: false,
+        started_at: "2026-01-01T00:00:00Z",
+        completed_at: "2026-01-01T00:00:01Z",
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain('data-chat-context-compaction-section="true"');
+    expect(markup).toContain("Context compacted");
+    expect(markup).toContain(
+      "Summary: earlier file reads and edit intents were compacted.",
+    );
+    expect(markup).not.toContain('data-chat-tool-call-section="true"');
+  });
 });
 
 describe("ChatMessages assistant reasoning layout", () => {
@@ -366,6 +450,30 @@ describe("ChatMessages assistant reasoning layout", () => {
 
     expect(markup).toContain('data-chat-assistant-reasoning-card="true"');
     expect(markup).not.toContain('data-chat-assistant-bubble="true"');
+  });
+
+  it("shows a thinking timer when a reasoning block is actively streaming", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-streaming",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "Reviewing the code paths before making edits.",
+            summary: "Reviewing code paths",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={true} />,
+    );
+
+    expect(markup).toContain('data-chat-thinking-timer="true"');
+    expect(markup).toContain("00:00");
   });
 
   it("does not render fully empty assistant messages after streaming completes", () => {

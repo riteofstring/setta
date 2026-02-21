@@ -87,6 +87,8 @@ type ToolCallRenderEntry = {
   isStreaming: boolean;
 };
 
+type ToolCallDisplayKind = "tool" | "action" | "compaction";
+
 type ToolCallContext = {
   todoPayloadById: Record<string, TodoListPayload>;
   questionPayloadById: Record<string, AskUserQuestionPayload>;
@@ -103,6 +105,16 @@ const ASSISTANT_REASONING_BORDER_CLASS =
 const TOOL_CALL_RAIL_GRID_CLASS = "grid-cols-[1.75rem_minmax(0,1fr)]";
 const TOOL_CALL_RAIL_BACKGROUND_CLASS =
   "bg-setta-100/75 dark:bg-setta-800/75";
+const CONTEXT_COMPACTION_TOOL_NAME = "compacted";
+const ACTION_TOOL_NAMES = new Set<string>([
+  "command_execution",
+  "file_change",
+  "webSearch",
+  "imageView",
+  "collabToolCall",
+  "enteredReviewMode",
+  "exitedReviewMode",
+]);
 
 type AttachmentUrlEntry = {
   url: string;
@@ -182,6 +194,167 @@ function formatToolArgs(args: unknown) {
   } catch {
     return String(args);
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function extractNonEmptyStringArg(args: unknown, key: string): string | null {
+  if (!isRecord(args)) {
+    return null;
+  }
+  const value = args[key];
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function resolveToolDisplayName(
+  entry: ToolCallRenderEntry,
+  toolResultsById: Record<string, ToolChatMessage>,
+): string | null {
+  const toolResult = toolResultsById[entry.toolCall.id];
+  const fromResult = normalizeToolName(toolResult?.tool_name);
+  if (fromResult) {
+    return fromResult;
+  }
+  return normalizeToolName(entry.toolCall.function?.name);
+}
+
+function resolveToolRawName(
+  entry: ToolCallRenderEntry,
+  toolResultsById: Record<string, ToolChatMessage>,
+): string {
+  const toolResult = toolResultsById[entry.toolCall.id];
+  if (typeof toolResult?.tool_name === "string" && toolResult.tool_name.trim()) {
+    return toolResult.tool_name.trim();
+  }
+  if (
+    typeof entry.toolCall.function?.name === "string" &&
+    entry.toolCall.function.name.trim()
+  ) {
+    return entry.toolCall.function.name.trim();
+  }
+  return "";
+}
+
+function resolveToolCallDisplayKind(
+  entry: ToolCallRenderEntry,
+  toolResultsById: Record<string, ToolChatMessage>,
+): ToolCallDisplayKind {
+  const normalizedName = resolveToolDisplayName(entry, toolResultsById);
+  if (normalizedName === CONTEXT_COMPACTION_TOOL_NAME) {
+    return "compaction";
+  }
+  if (normalizedName && ACTION_TOOL_NAMES.has(normalizedName)) {
+    return "action";
+  }
+  const rawName = resolveToolRawName(entry, toolResultsById);
+  if (rawName.startsWith("mcp__")) {
+    return "action";
+  }
+  return "tool";
+}
+
+function partitionToolCallEntries(
+  entries: ToolCallRenderEntry[],
+  toolResultsById: Record<string, ToolChatMessage>,
+): {
+  toolEntries: ToolCallRenderEntry[];
+  actionEntries: ToolCallRenderEntry[];
+  compactionEntries: ToolCallRenderEntry[];
+} {
+  const toolEntries: ToolCallRenderEntry[] = [];
+  const actionEntries: ToolCallRenderEntry[] = [];
+  const compactionEntries: ToolCallRenderEntry[] = [];
+  for (const entry of entries) {
+    const kind = resolveToolCallDisplayKind(entry, toolResultsById);
+    if (kind === "compaction") {
+      compactionEntries.push(entry);
+      continue;
+    }
+    if (kind === "action") {
+      actionEntries.push(entry);
+      continue;
+    }
+    toolEntries.push(entry);
+  }
+  return {
+    toolEntries,
+    actionEntries,
+    compactionEntries,
+  };
+}
+
+function resolveActionLabel(name: string, args: unknown): string {
+  const normalized = normalizeToolName(name) ?? name;
+  if (normalized === "command_execution") {
+    const command = extractNonEmptyStringArg(args, "command");
+    if (command) {
+      return command;
+    }
+    return "Run command";
+  }
+  if (normalized === "file_change") {
+    const path =
+      extractNonEmptyStringArg(args, "path") ??
+      extractNonEmptyStringArg(args, "filePath");
+    if (path) {
+      return `Edit ${path}`;
+    }
+    return "Edit file";
+  }
+  if (name.startsWith("mcp__")) {
+    return `MCP ${name.slice("mcp__".length)}`;
+  }
+  return normalized || "Action";
+}
+
+function resolveToolResultDisplay(result: ToolResultValue | undefined): string | null {
+  if (typeof result === "string") {
+    const trimmed = result.trim();
+    if (trimmed.length > 0) {
+      return result;
+    }
+    return null;
+  }
+  if (typeof result === "number" || typeof result === "boolean") {
+    return String(result);
+  }
+  if (result && typeof result === "object") {
+    return formatToolArgs(result);
+  }
+  return null;
+}
+
+function resolveCompactionSummaryText(
+  entries: ToolCallRenderEntry[],
+  toolResultsById: Record<string, ToolChatMessage>,
+  toolCallArguments: Record<string, string>,
+): string | null {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    const entry = entries[index];
+    if (!entry) {
+      continue;
+    }
+    const toolResult = toolResultsById[entry.toolCall.id];
+    const resultDisplay = resolveToolResultDisplay(formatToolResult(toolResult));
+    if (resultDisplay) {
+      return resultDisplay;
+    }
+    const argsFromMessage = entry.toolCall.function?.arguments;
+    const pendingArgs = toolCallArguments?.[entry.toolCall.id];
+    if (isRecord(argsFromMessage) && Object.keys(argsFromMessage).length > 0) {
+      return formatToolArgs(argsFromMessage);
+    }
+    if (pendingArgs && pendingArgs.trim().length > 0) {
+      return pendingArgs;
+    }
+  }
+  return null;
 }
 
 type StreamActivitySummary = {
@@ -273,6 +446,34 @@ function useIdleStreamSpinner(
   }, [activityKey, delayMs, shouldTrack]);
 
   return showSpinner;
+}
+
+function formatElapsedDuration(totalSeconds: number): string {
+  const normalized = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(normalized / 60);
+  const seconds = normalized % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function useElapsedSeconds(active: boolean): number {
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const startedAtRef = useRef<number>(Date.now());
+
+  useEffect(() => {
+    if (!active) {
+      setElapsedSeconds(0);
+      return;
+    }
+    startedAtRef.current = Date.now();
+    setElapsedSeconds(0);
+    const timer = window.setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startedAtRef.current) / 1000);
+      setElapsedSeconds(elapsed);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [active]);
+
+  return elapsedSeconds;
 }
 
 function ChatImage({
@@ -891,7 +1092,8 @@ const ThinkingBox = memo(function ThinkingBox({
   const displayText = useTypewriterEffect(content, streaming, 5);
   const previewRef = useRef<HTMLDivElement | null>(null);
   const summaryText = summary?.trim() ?? "";
-  const title = summaryText || (streaming ? "Thinking..." : "Reasoning");
+  const title = summaryText || (streaming ? "Working..." : "Reasoning");
+  const elapsedSeconds = useElapsedSeconds(streaming);
 
   useEffect(() => {
     if (streaming && previewRef.current) {
@@ -921,8 +1123,16 @@ const ThinkingBox = memo(function ThinkingBox({
           </div>
 
           <div className="relative my-1 mr-1 flex min-w-0 max-w-full flex-col gap-0">
-            <div className="px-0.5 text-[11px] font-semibold text-setta-500 dark:text-setta-300">
+            <div className="flex items-center justify-between gap-2 px-0.5 text-[11px] font-semibold text-setta-500 dark:text-setta-300">
               <div className="truncate">{title}</div>
+              {streaming ? (
+                <span
+                  data-chat-thinking-timer="true"
+                  className="shrink-0 font-mono text-[10px] text-setta-400 dark:text-setta-400/90"
+                >
+                  {formatElapsedDuration(elapsedSeconds)}
+                </span>
+              ) : null}
             </div>
             <div
               ref={previewRef}
@@ -940,6 +1150,74 @@ const ThinkingBox = memo(function ThinkingBox({
           <MarkdownContent
             content={content}
             className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-2xl prose-h1:leading-none prose-p:text-sm prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words"
+            role={ChatRoleEnum.assistant}
+            isStreaming={isStreaming}
+          />
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
+  );
+});
+
+const ContextCompactionSection = memo(function ContextCompactionSection({
+  entries,
+  toolResultsById,
+  toolCallArguments,
+}: {
+  entries: ToolCallRenderEntry[];
+  toolResultsById: Record<string, ToolChatMessage>;
+  toolCallArguments: Record<string, string>;
+}) {
+  const summaryText = resolveCompactionSummaryText(
+    entries,
+    toolResultsById,
+    toolCallArguments,
+  );
+  const isStreaming = entries.some((entry) => entry.isStreaming);
+  const title = isStreaming ? "Compacting context" : "Context compacted";
+  const previewText =
+    summaryText ||
+    (isStreaming
+      ? "Building compact context summary..."
+      : "Compaction completed.");
+  const displayText = previewText.trim();
+
+  return (
+    <Accordion.Root type="single" collapsible className="w-full">
+      <Accordion.Item
+        value="compaction-details"
+        className="w-full"
+        data-chat-context-compaction-section="true"
+      >
+        <Accordion.Trigger className="relative flex max-w-full cursor-pointer overflow-hidden">
+          <div className="flex min-w-[30px] items-center px-1 py-1">
+            <FiArchive
+              className="min-w-6 text-setta-300 dark:text-setta-400"
+              size={14}
+            />
+          </div>
+          <div className="relative my-1 mr-1 flex min-w-0 max-w-full flex-col gap-0">
+            <div className="flex items-center gap-2 px-0.5 text-[11px] font-semibold text-setta-500 dark:text-setta-300">
+              <span className="truncate">{title}</span>
+              <span className="inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full border border-setta-300/80 bg-setta-100 px-1.5 py-[1px] text-[10px] font-semibold leading-none text-setta-700 dark:border-setta-600/80 dark:bg-setta-800 dark:text-setta-200">
+                {entries.length}
+              </span>
+            </div>
+            <div
+              className="top-bottom-fade h-11 overflow-y-auto break-words px-0.5 text-[11px] text-setta-300 dark:text-setta-500"
+              style={{
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+              }}
+            >
+              {displayText}
+            </div>
+          </div>
+        </Accordion.Trigger>
+        <Accordion.Content className="mt-0 overflow-hidden px-0.5 py-0.5 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+          <MarkdownContent
+            content={displayText}
+            className="prose prose-sm dark:prose-invert prose-headings:tracking-tighter prose-headings:text-setta-600 prose-h1:text-xl prose-h1:leading-tight prose-p:my-1 prose-p:text-[13px] prose-code:before:hidden prose-code:after:hidden dark:prose-headings:text-setta-300 [&_*]:break-words"
             role={ChatRoleEnum.assistant}
             isStreaming={isStreaming}
           />
@@ -973,6 +1251,89 @@ function ToolCallAccordionStatus({
     <i className="gg-spinner !scale-75 text-setta-400 dark:text-setta-300/70" />
   );
 }
+
+const ActionItem = memo(function ActionItem({
+  name,
+  args,
+  result,
+  runState,
+}: {
+  name: string;
+  args: unknown;
+  result: ToolResultValue | undefined;
+  runState: ToolCallRunState;
+}) {
+  const actionLabel = resolveActionLabel(name, args);
+  const resultDisplay = (() => {
+    const resolved = resolveToolResultDisplay(result);
+    if (resolved) {
+      return resolved;
+    }
+    if (runState === "failed") {
+      return "Action failed";
+    }
+    if (runState === "success") {
+      return "Action completed successfully";
+    }
+    if (runState === "stopped") {
+      return "Action stopped before completion.";
+    }
+    return null;
+  })();
+
+  return (
+    <Accordion.Root type="single" collapsible className="w-full">
+      <Accordion.Item
+        value="details"
+        className="w-full border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
+        data-chat-action-item="true"
+      >
+        <Accordion.Trigger
+          className={`grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} text-left transition-colors hover:bg-white/45 dark:hover:bg-setta-900/70`}
+        >
+          <div
+            className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
+            data-chat-action-item-rail="true"
+            title={`Action state: ${runState}`}
+            aria-label={`Action state: ${runState}`}
+          >
+            <ToolCallAccordionStatus runState={runState} />
+          </div>
+          <div className="min-w-0 px-2 py-1">
+            <div className="truncate break-words font-mono text-[11px] font-semibold text-setta-500 dark:text-setta-200">
+              {actionLabel}
+            </div>
+            <div className="truncate text-[10px] text-setta-400 dark:text-setta-400/90">
+              {name}
+            </div>
+          </div>
+        </Accordion.Trigger>
+        <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+          {args !== null && args !== undefined ? (
+            <div className="border-t border-setta-200/70 bg-setta-200/35 px-2 py-1 text-xs dark:border-setta-700/70 dark:bg-setta-860">
+              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
+                Input
+              </h3>
+              <pre className="m-0 cursor-auto whitespace-pre-wrap break-words font-mono text-[11px] text-setta-600 dark:text-setta-200">
+                {formatToolArgs(args)}
+              </pre>
+            </div>
+          ) : null}
+          {resultDisplay ? (
+            <div className="border-t border-setta-200/70 bg-setta-200 px-2 py-1 dark:border-setta-700/70 dark:bg-setta-900">
+              <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
+                Output
+              </h3>
+              <pre className="m-0 cursor-auto whitespace-pre-wrap break-words font-mono text-[11px] text-setta-600 dark:text-setta-200">
+                {resultDisplay}
+              </pre>
+            </div>
+          ) : null}
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
+  );
+});
 
 const ToolCallItem = memo(function ToolCallItem({
   name,
@@ -1036,7 +1397,7 @@ const ToolCallItem = memo(function ToolCallItem({
         </Accordion.Trigger>
 
         <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-          {args && (
+          {args !== null && args !== undefined ? (
             <div className="border-t border-setta-200/70 bg-setta-200/35 px-2 py-1 text-xs dark:border-setta-700/70 dark:bg-setta-860">
               <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
                 Arguments
@@ -1045,7 +1406,7 @@ const ToolCallItem = memo(function ToolCallItem({
                 {formatToolArgs(args)}
               </pre>
             </div>
-          )}
+          ) : null}
           {resultDisplay && (
             <div className="border-t border-setta-200/70 bg-setta-200 px-2 py-1 dark:border-setta-700/70 dark:bg-setta-900">
               <h3 className="!mt-0 text-[10px] font-bold uppercase tracking-[0.14em] text-setta-600 dark:text-setta-300">
@@ -1059,6 +1420,122 @@ const ToolCallItem = memo(function ToolCallItem({
         </Accordion.Content>
       </Accordion.Item>
     </Accordion.Root>
+  );
+});
+
+const ActionSection = memo(function ActionSection({
+  children,
+  actionCount,
+  latestActionLabel,
+  sectionState,
+}: {
+  children: ReactNode;
+  actionCount: number;
+  latestActionLabel: string;
+  sectionState: ToolCallSectionState;
+}) {
+  return (
+    <Accordion.Root type="single" collapsible className="w-full">
+      <Accordion.Item
+        value="action-details"
+        className="w-full overflow-hidden rounded-md border border-setta-200/70 bg-setta-50/70 dark:border-setta-700/60 dark:bg-setta-900/45"
+        data-chat-action-section="true"
+        data-chat-action-section-state={sectionState}
+      >
+        <Accordion.Trigger
+          className={`grid w-full cursor-pointer ${TOOL_CALL_RAIL_GRID_CLASS} text-left transition-colors hover:bg-white/60 dark:hover:bg-setta-900/80`}
+        >
+          <div
+            className={`flex h-full items-center justify-center text-setta-400 dark:text-setta-300 ${TOOL_CALL_RAIL_BACKGROUND_CLASS}`}
+            data-chat-action-section-rail="true"
+          >
+            <FiFileText size={12} className="min-w-4" />
+          </div>
+          <div className="flex min-w-0 items-start gap-2 px-2 py-1">
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate text-[11px] font-semibold text-setta-500 dark:text-setta-200">
+                  Actions
+                </span>
+                <span
+                  data-chat-action-count-badge="true"
+                  className="inline-flex min-w-[1.25rem] shrink-0 items-center justify-center rounded-full border border-setta-300/80 bg-setta-100 px-1.5 py-[1px] text-[10px] font-semibold leading-none text-setta-700 dark:border-setta-600/80 dark:bg-setta-800 dark:text-setta-200"
+                  title={`${actionCount} actions`}
+                >
+                  {actionCount}
+                </span>
+              </div>
+              <div className="truncate text-[10px] text-setta-400 dark:text-setta-400/90">
+                {latestActionLabel}
+              </div>
+            </div>
+            <div className="ml-auto shrink-0 self-center">
+              <ToolCallSectionStatus sectionState={sectionState} />
+            </div>
+          </div>
+        </Accordion.Trigger>
+        <Accordion.Content className="overflow-hidden border-t border-setta-200/60 data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown dark:border-setta-700/60">
+          <div className="flex w-full flex-col">{children}</div>
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion.Root>
+  );
+});
+
+const AssistantActionSection = memo(function AssistantActionSection({
+  entries,
+  toolResultsById,
+  toolCallArguments,
+}: {
+  entries: ToolCallRenderEntry[];
+  toolResultsById: Record<string, ToolChatMessage>;
+  toolCallArguments: Record<string, string>;
+}) {
+  const actionStates: ToolCallRunState[] = [];
+  const actionLabels: string[] = [];
+  const rows = entries.map(({ toolCall, isStreaming }) => {
+    const toolResult = toolResultsById[toolCall.id];
+    const rawToolName =
+      toolResult?.tool_name ||
+      toolCall.function?.name ||
+      `Action ${toolCall.id}`;
+    const runState = resolveToolCallRunState(
+      toolResult ? !toolResult.is_error : undefined,
+      isStreaming,
+    );
+    actionStates.push(runState);
+    const argsFromResult = toolResult?.arguments;
+    const argsFromAssistant = toolCall.function?.arguments;
+    const pendingArgs = toolCallArguments?.[toolCall.id];
+    let argsToDisplay: unknown = pendingArgs;
+    if (argsFromResult && Object.keys(argsFromResult).length > 0) {
+      argsToDisplay = argsFromResult;
+    } else if (argsFromAssistant && Object.keys(argsFromAssistant).length > 0) {
+      argsToDisplay = argsFromAssistant;
+    }
+    actionLabels.push(resolveActionLabel(rawToolName, argsToDisplay));
+    return (
+      <ActionItem
+        key={toolCall.id}
+        name={rawToolName}
+        args={argsToDisplay}
+        result={formatToolResult(toolResult)}
+        runState={runState}
+      />
+    );
+  });
+
+  const sectionState = resolveToolCallSectionState(actionStates);
+  const latestActionLabel = actionLabels.at(-1) ?? "Action activity";
+
+  return (
+    <ActionSection
+      actionCount={entries.length}
+      latestActionLabel={latestActionLabel}
+      sectionState={sectionState}
+    >
+      {rows}
+    </ActionSection>
   );
 });
 
@@ -1762,6 +2239,18 @@ const ChatMessage = memo(function ChatMessage({
     activityKey,
     spinnerDelayMs,
   );
+  const toolCallEntries = useMemo<ToolCallRenderEntry[]>(
+    () =>
+      toolCalls.map((toolCall) => ({
+        toolCall,
+        isStreaming,
+      })),
+    [isStreaming, toolCalls],
+  );
+  const { toolEntries, actionEntries, compactionEntries } = useMemo(
+    () => partitionToolCallEntries(toolCallEntries, toolResultsById),
+    [toolCallEntries, toolResultsById],
+  );
 
   if (message.role === ChatRoleEnum.assistant) {
     const showTypingIndicator = showAssistantSpinner;
@@ -1769,14 +2258,23 @@ const ChatMessage = memo(function ChatMessage({
     const shouldRenderBubble =
       hasBubbleContent || showTypingIndicator || (isStreaming && toolCalls.length === 0);
     const hasThinkingContent = thinkingItems.length > 0;
-    const lockGroupToBubbleMaxWidth = hasThinkingContent || toolCalls.length > 0;
-    if (!shouldRenderBubble && !hasThinkingContent && toolCalls.length === 0) {
+    const hasCompactionContent = compactionEntries.length > 0;
+    const hasActionContent = actionEntries.length > 0;
+    const hasToolCallContent = toolEntries.length > 0;
+    const lockGroupToBubbleMaxWidth =
+      hasThinkingContent ||
+      hasCompactionContent ||
+      hasActionContent ||
+      hasToolCallContent;
+    if (
+      !shouldRenderBubble &&
+      !hasThinkingContent &&
+      !hasCompactionContent &&
+      !hasActionContent &&
+      !hasToolCallContent
+    ) {
       return null;
     }
-    const toolCallEntries: ToolCallRenderEntry[] = toolCalls.map((toolCall) => ({
-      toolCall,
-      isStreaming,
-    }));
     return (
       <AssistantMessageGroup
         messageId={message.id}
@@ -1792,6 +2290,15 @@ const ChatMessage = memo(function ChatMessage({
             />
           </AssistantReasoningCard>
         ))}
+        {compactionEntries.length > 0 ? (
+          <AssistantReasoningCard>
+            <ContextCompactionSection
+              entries={compactionEntries}
+              toolResultsById={toolResultsById}
+              toolCallArguments={toolCallArguments}
+            />
+          </AssistantReasoningCard>
+        ) : null}
         {shouldRenderBubble ? (
           <LLMChatBubble actions={actionBar}>
             <ChatAttachmentList
@@ -1821,12 +2328,21 @@ const ChatMessage = memo(function ChatMessage({
             ) : null}
           </LLMChatBubble>
         ) : (
-          toolCalls.length === 0 ? actionBar : null
+          !hasActionContent && !hasToolCallContent ? actionBar : null
         )}
-        {toolCalls.length > 0 ? (
+        {actionEntries.length > 0 ? (
+          <AssistantToolCallCard>
+            <AssistantActionSection
+              entries={actionEntries}
+              toolResultsById={toolResultsById}
+              toolCallArguments={toolCallArguments}
+            />
+          </AssistantToolCallCard>
+        ) : null}
+        {toolEntries.length > 0 ? (
           <AssistantToolCallCard>
             <AssistantToolCallSection
-              entries={toolCallEntries}
+              entries={toolEntries}
               toolResultsById={toolResultsById}
               toolCallArguments={toolCallArguments}
               toolCallContext={toolCallContext}
@@ -2109,20 +2625,42 @@ function ChatMessages({
         }
         groupEnd += 1;
       }
+      const { toolEntries, actionEntries, compactionEntries } =
+        partitionToolCallEntries(groupedToolCalls, toolResultsById);
       output.push(
         <AssistantMessageGroup
           key={`tool-call-group-${firstMessageId}`}
           messageId={firstMessageId}
           fixedWidth
         >
-          <AssistantToolCallCard>
-            <AssistantToolCallSection
-              entries={groupedToolCalls}
-              toolResultsById={toolResultsById}
-              toolCallArguments={toolCallArguments}
-              toolCallContext={toolCallContext}
-            />
-          </AssistantToolCallCard>
+          {compactionEntries.length > 0 ? (
+            <AssistantReasoningCard>
+              <ContextCompactionSection
+                entries={compactionEntries}
+                toolResultsById={toolResultsById}
+                toolCallArguments={toolCallArguments}
+              />
+            </AssistantReasoningCard>
+          ) : null}
+          {actionEntries.length > 0 ? (
+            <AssistantToolCallCard>
+              <AssistantActionSection
+                entries={actionEntries}
+                toolResultsById={toolResultsById}
+                toolCallArguments={toolCallArguments}
+              />
+            </AssistantToolCallCard>
+          ) : null}
+          {toolEntries.length > 0 ? (
+            <AssistantToolCallCard>
+              <AssistantToolCallSection
+                entries={toolEntries}
+                toolResultsById={toolResultsById}
+                toolCallArguments={toolCallArguments}
+                toolCallContext={toolCallContext}
+              />
+            </AssistantToolCallCard>
+          ) : null}
         </AssistantMessageGroup>,
       );
       index = groupEnd;
