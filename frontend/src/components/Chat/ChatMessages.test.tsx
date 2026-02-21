@@ -242,6 +242,7 @@ describe("ChatMessages tool call status", () => {
     expect(sectionCount).toBe(1);
     expect(markup).toContain("Tool calls");
     expect(markup).toContain('data-chat-tool-call-count-badge="true"');
+    expect(markup).toContain('data-chat-tool-call-section-chevron="true"');
     expect(markup).toContain(">2<");
     expect(markup).toContain('data-chat-assistant-tool-call-card="true"');
     expect(markup).toContain('data-chat-tool-call-section-rail="true"');
@@ -324,7 +325,7 @@ describe("ChatMessages tool call status", () => {
       <ChatMessageList messages={messages} waitingForResponse={false} />,
     );
 
-    expect(markup).toContain("Complete");
+    expect(markup).toContain('data-chat-run-complete-icon="true"');
     expect(markup).toContain('data-chat-run-timer="true"');
     expect(markup).toContain("00:05");
   });
@@ -415,6 +416,7 @@ describe("ChatMessages tool call status", () => {
 
     expect(markup).toContain('data-chat-action-section="true"');
     expect(markup).toContain('data-chat-action-count-badge="true"');
+    expect(markup).toContain('data-chat-action-section-chevron="true"');
     expect(markup).toContain("Actions");
     expect(markup).toContain("rg --files");
     expect(markup).toContain('data-chat-tool-call-section="true"');
@@ -458,6 +460,7 @@ describe("ChatMessages tool call status", () => {
     );
 
     expect(markup).toContain('data-chat-context-compaction-section="true"');
+    expect(markup).toContain('data-chat-context-compaction-chevron="true"');
     expect(markup).toContain("Context compacted");
     expect(markup).toContain(
       "Summary: earlier file reads and edit intents were compacted.",
@@ -588,7 +591,8 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(reasoningIndex).toBeGreaterThan(-1);
     expect(bubbleIndex).toBeGreaterThan(-1);
     expect(reasoningIndex).toBeLessThan(bubbleIndex);
-    expect(markup).toContain("border-setta-100");
+    expect(markup).toContain('data-chat-thinking-section="true"');
+    expect(markup).toContain("rounded-md border border-setta-200/70");
     expect(markup).toContain(
       "group flex w-full max-w-[min(90%,820px)] flex-col items-start gap-2",
     );
@@ -642,6 +646,30 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).toContain("00:00");
   });
 
+  it("shows a checkmark-only status for completed reasoning sections", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-complete-status",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "Reasoning content that can be expanded.",
+            summary: "Reasoning summary",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain('data-chat-thinking-complete-icon="true"');
+    expect(markup).not.toContain(">Complete<");
+  });
+
   it("does not duplicate summary text into preview when thinking body is empty", () => {
     const summary = "Evaluating workspace navigator priority";
     const messages: BaseChatMessageUnion[] = [
@@ -664,6 +692,269 @@ describe("ChatMessages assistant reasoning layout", () => {
     );
 
     expect(countOccurrences(markup, summary)).toBe(1);
+    expect(markup).not.toContain("top-bottom-fade");
+  });
+
+  it("renders non-expandable thinking summaries without pointer affordance", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-summary-non-expandable",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "",
+            summary: "Short summary",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain('data-chat-thinking-trigger="true"');
+    expect(markup).toContain('data-chat-thinking-expandable="false"');
+    expect(markup).toContain("cursor-default");
+    expect(markup).not.toContain('data-chat-thinking-chevron="true"');
+    expect(markup).not.toContain('data-chat-thinking-summary-expanded="true"');
+  });
+
+  it("renders a chevron affordance when reasoning details can expand", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-expandable-chevron",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "Analyzing dependency graph before writing output.",
+            summary: "Reviewing approach",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain('data-chat-thinking-expandable="true"');
+    expect(markup).toContain('data-chat-thinking-chevron="true"');
+  });
+
+  it("uses a summary placeholder in collapsed view when summary is unavailable", () => {
+    const thinking = "Comparing candidate implementations for chat rendering.";
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-thinking-only",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking,
+            summary: "",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("Summary unavailable. Expand to view full reasoning.");
+    expect(markup).not.toContain("top-bottom-fade");
+  });
+
+  it("renders collapsed reasoning summaries as markdown inline", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-markdown-summary",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "Detailed reasoning body that should stay in expanded content.",
+            summary: "**Confirming no slash commands**",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("<strong>Confirming no slash commands</strong>");
+    expect(markup).not.toContain("**Confirming no slash commands**");
+  });
+
+  it("shows only the first summary line in collapsed view when detailed thinking exists", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-summary-first-line-only",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "Detailed reasoning body that should only be visible when expanded.",
+            summary:
+              "**Confirming no slash commands**\nI don't support slash commands; I'll ask what specific functionality or help is needed instead.",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("<strong>Confirming no slash commands</strong>");
+    expect(markup).not.toContain(
+      "I don't support slash commands; I'll ask what specific functionality or help is needed instead.",
+    );
+  });
+
+  it("shows only the first summary line in collapsed view for summary-only reasoning", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-summary-only-first-line",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: "",
+            summary:
+              "**Confirming no slash commands**\nI don't support slash commands; I'll ask what specific functionality or help is needed instead.",
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("<strong>Confirming no slash commands</strong>");
+    expect(markup).not.toContain(
+      "I don't support slash commands; I'll ask what specific functionality or help is needed instead.",
+    );
+    expect(markup).toContain('data-chat-thinking-expandable="true"');
+  });
+
+  it("does not show full reasoning text in collapsed summary when summary mirrors thinking text", () => {
+    const mirroredText =
+      "**Confirming no slash commands** I don't support slash commands.";
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-reasoning-mirrored-summary",
+        role: ChatRoleEnum.assistant,
+        content: [
+          createMessageThinkingContent({
+            thinking: mirroredText,
+            summary: mirroredText,
+          }),
+        ],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain("Summary unavailable. Expand to view full reasoning.");
+    expect(markup).not.toContain("**Confirming no slash commands**");
+  });
+
+  it("shows <1s for completed sections when elapsed time is sub-second", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-finished-sub-second",
+        role: ChatRoleEnum.assistant,
+        content: [createMessageTextContent({ text: "Done quickly." })],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "finished-tool-sub-second",
+            type: "function",
+            function: {
+              name: "setta__quick_call",
+              arguments: {},
+            },
+          },
+        ],
+      },
+      {
+        id: "tool-result-sub-second",
+        role: ChatRoleEnum.tool,
+        tool_call_id: "finished-tool-sub-second",
+        tool_name: "setta__quick_call",
+        arguments: {},
+        result: { ok: true },
+        content: [],
+        is_error: false,
+        started_at: "2026-01-01T00:00:00.000Z",
+        completed_at: "2026-01-01T00:00:00.400Z",
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain('data-chat-run-complete-icon="true"');
+    expect(markup).toContain("&lt;1s");
+  });
+
+  it("shows <1s when completed timestamps round to the same second", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-finished-rounded-zero",
+        role: ChatRoleEnum.assistant,
+        content: [createMessageTextContent({ text: "Done." })],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "finished-tool-rounded-zero",
+            type: "function",
+            function: {
+              name: "setta__rounded_call",
+              arguments: {},
+            },
+          },
+        ],
+      },
+      {
+        id: "tool-result-rounded-zero",
+        role: ChatRoleEnum.tool,
+        tool_call_id: "finished-tool-rounded-zero",
+        tool_name: "setta__rounded_call",
+        arguments: {},
+        result: { ok: true },
+        content: [],
+        is_error: false,
+        started_at: "2026-01-01T00:00:00Z",
+        completed_at: "2026-01-01T00:00:00Z",
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain('data-chat-run-complete-icon="true"');
+    expect(markup).toContain("&lt;1s");
+    expect(markup).not.toContain(">Complete<");
   });
 
   it("does not inject a typing marker class inside assistant bubbles", () => {
@@ -728,7 +1019,7 @@ describe("ChatMessages assistant reasoning layout", () => {
     expect(markup).not.toContain('data-chat-assistant-bubble="true"');
   });
 
-  it("positions actions half outside bubble edges with a contrast backdrop", () => {
+  it("anchors actions outside bubble sides with hover-only visibility", () => {
     const messages: BaseChatMessageUnion[] = [
       {
         id: "m-user-actions",
@@ -757,16 +1048,65 @@ describe("ChatMessages assistant reasoning layout", () => {
       />,
     );
 
-    expect(markup).not.toContain("pb-6");
-    expect(markup).toContain("pb-2");
     expect(markup).toContain("pt-1");
-    expect(markup).not.toContain("bg-setta-50/85");
-    expect(markup).toContain("absolute bottom-0 right-2 translate-y-1/2");
-    expect(markup).toContain("absolute bottom-0 left-2 translate-y-1/2");
+    expect(markup).toContain(
+      'data-chat-actions-anchor="left"',
+    );
+    expect(markup).toContain(
+      'data-chat-actions-anchor="right"',
+    );
+    expect(markup).toContain("absolute right-full top-1/2");
+    expect(markup).toContain("absolute left-full top-1/2");
+    expect(markup).toContain(
+      "pointer-events-none inline-flex items-center gap-1",
+    );
+    expect(markup).toContain("group-hover:opacity-100");
     expect(markup).toContain(
       "rounded-md border border-setta-200/90 bg-setta-100/95",
     );
     expect(markup).toContain("dark:bg-setta-925/95");
+  });
+
+  it("keeps assistant actions available when message only has tool-call sections", () => {
+    const messages: BaseChatMessageUnion[] = [
+      {
+        id: "m-assistant-tool-only",
+        role: ChatRoleEnum.assistant,
+        content: [],
+        attachments: [],
+        tool_calls: [
+          {
+            id: "tool-only-1",
+            type: "function",
+            function: {
+              name: "mcp__workspace__read_file",
+              arguments: {
+                path: "README.md",
+              },
+            },
+          },
+        ],
+      },
+      {
+        id: "m-tool-result-1",
+        role: ChatRoleEnum.tool,
+        tool_call_id: "tool-only-1",
+        tool_name: "mcp__workspace__read_file",
+        arguments: {
+          path: "README.md",
+        },
+        result: "ok",
+        is_error: false,
+      },
+    ];
+
+    const markup = renderToStaticMarkup(
+      <ChatMessageList messages={messages} waitingForResponse={false} />,
+    );
+
+    expect(markup).toContain('data-chat-assistant-tool-call-card="true"');
+    expect(markup).toContain('data-chat-actions-anchor="right"');
+    expect(markup).toContain('data-chat-message-actions="true"');
   });
 });
 
