@@ -154,6 +154,7 @@ test.describe.serial("chat composer controls", () => {
       const createProjectButton = overviewPane.getByRole("button", {
         name: /^Create Project$/,
       });
+      await expect(createProjectButton).toBeVisible();
       const summarizeCodebaseButton = overviewPane.getByRole("button", {
         name: /^Summarize Codebase$/,
       });
@@ -162,11 +163,11 @@ test.describe.serial("chat composer controls", () => {
         name: /^Plan Next Steps$/,
       });
       await expect(planNextStepsButton).toBeVisible();
-      const quickActionButtons: Locator[] = [summarizeCodebaseButton];
-      if (await createProjectButton.isVisible()) {
-        quickActionButtons.unshift(createProjectButton);
-      }
-      quickActionButtons.push(planNextStepsButton);
+      const quickActionButtons: Locator[] = [
+        createProjectButton,
+        summarizeCodebaseButton,
+        planNextStepsButton,
+      ];
       await expectButtonsStackedVertically(quickActionButtons);
 
       const firstButtonClass =
@@ -199,7 +200,9 @@ test.describe.serial("chat composer controls", () => {
         inputBox.y + 2,
       );
 
-      const submitButton = overviewPane.locator('button[type="submit"]').first();
+      const submitButton = overviewPane
+        .locator('button[type="submit"]')
+        .first();
       await input.fill("/res");
       await submitButton.click();
       await expect
@@ -239,6 +242,60 @@ test.describe.serial("chat composer controls", () => {
       await input.fill("/search off");
       await input.press("Enter");
       await expect(searchButton).toHaveAttribute("aria-pressed", "false");
+    } finally {
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("project chat collapses nav labels when pane width drops below 500px", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+
+    try {
+      await page.reload();
+      await page.waitForSelector(".react-flow__pane");
+
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+      const returnToChatButton = overviewPane
+        .getByRole("button", { name: /^Return to chat$/ })
+        .first();
+      if (await returnToChatButton.isVisible()) {
+        await returnToChatButton.click();
+      }
+
+      const followButton = overviewPane.getByRole("menuitem", {
+        name: "Follow AI",
+      });
+      await expect(followButton).toBeVisible();
+      const followVisibleLabel = followButton.getByTestId(
+        "follow-ai-visible-label",
+      );
+      const historyVisibleLabel = overviewPane
+        .getByRole("button", { name: "View History" })
+        .locator("span", { hasText: /^History$/ })
+        .first();
+      const skillsVisibleLabel = overviewPane
+        .getByRole("button", { name: "View Skills and MCP" })
+        .locator("span", { hasText: /^Skills\/MCP$/ })
+        .first();
+
+      await setProjectChatPaneWidth(page, 700);
+      await expect(followVisibleLabel).toBeVisible();
+      await expect(historyVisibleLabel).toBeVisible();
+      await expect(skillsVisibleLabel).toBeVisible();
+
+      await setProjectChatPaneWidth(page, 460);
+      await expect(followVisibleLabel).toBeHidden();
+      await expect(historyVisibleLabel).toBeHidden();
+      await expect(skillsVisibleLabel).toBeHidden();
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
@@ -297,12 +354,10 @@ test.describe.serial("chat composer controls", () => {
         sectionId,
         managed: true,
         engineConfigId: managedEngineId,
-        transcriptionProfileId: null,
         agentProfileId: null,
         thinking: false,
         permissionMode: "minimal",
         searchEnabled: true,
-        dictationMode: "auto",
       });
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
@@ -578,12 +633,10 @@ test.describe.serial("chat composer controls", () => {
         sectionId,
         managed: true,
         engineConfigId: null,
-        transcriptionProfileId: null,
         agentProfileId: null,
         thinking: false,
         permissionMode: "minimal",
         searchEnabled: true,
-        dictationMode: "auto",
       });
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
@@ -630,12 +683,10 @@ test.describe.serial("chat composer controls", () => {
         sectionId,
         managed: true,
         engineConfigId: null,
-        transcriptionProfileId: null,
         agentProfileId: null,
         thinking: false,
         permissionMode: "minimal",
         searchEnabled: true,
-        dictationMode: "auto",
       });
 
       const section = findSectionByName(page, sectionName);
@@ -708,12 +759,10 @@ test.describe.serial("chat composer controls", () => {
         sectionId,
         managed: true,
         engineConfigId: null,
-        transcriptionProfileId: null,
         agentProfileId: null,
         thinking: false,
         permissionMode: "minimal",
         searchEnabled: true,
-        dictationMode: "auto",
       });
 
       const section = findSectionByName(page, sectionName);
@@ -763,4 +812,29 @@ async function expectButtonsStackedVertically(
     expect(box.y).toBeGreaterThan(previousBottom - 1);
     previousBottom = box.y + box.height;
   }
+}
+
+async function setProjectChatPaneWidth(
+  page: Page,
+  widthPx: number,
+): Promise<void> {
+  const didSet = await page.evaluate((width) => {
+    const heading = Array.from(document.querySelectorAll("h2")).find((el) =>
+      (el.textContent ?? "").trim().toLowerCase().includes("project ai chat"),
+    );
+    if (!heading) {
+      return false;
+    }
+    const paneAside = heading.parentElement?.parentElement as HTMLElement | null;
+    if (!paneAside) {
+      return false;
+    }
+    const widthValue = `${width}px`;
+    paneAside.style.width = widthValue;
+    paneAside.style.minWidth = widthValue;
+    paneAside.style.maxWidth = widthValue;
+    paneAside.style.flexBasis = widthValue;
+    return true;
+  }, widthPx);
+  expect(didSet).toBe(true);
 }

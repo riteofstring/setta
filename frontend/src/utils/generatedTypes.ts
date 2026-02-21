@@ -107,14 +107,6 @@ export const EngineTypeEnum = {
   external_agent: "external_agent",
 } as const;
 
-export type EngineType = ObjectValues<typeof EngineTypeEnum>;
-
-export const TranscriptionTransportModeEnum = {
-  auto: "auto",
-  file: "file",
-  realtime: "realtime",
-} as const;
-
 export const AgenticEdgeContextModeEnum = {
   reference_only: "reference_only",
   inline_text: "inline_text",
@@ -367,10 +359,6 @@ export const ExternalAgentToolTypeEnum = {
   plugin: "plugin",
 } as const;
 
-export type ExternalAgentToolType = ObjectValues<
-  typeof ExternalAgentToolTypeEnum
->;
-
 export const ExternalAgentWorkingDirStrategyEnum = {
   project_root: "project_root",
   temp_dir: "temp_dir",
@@ -384,14 +372,6 @@ export const BrowserAreaViewModeEnum = {
 } as const;
 
 export type BrowserAreaViewMode = ObjectValues<typeof BrowserAreaViewModeEnum>;
-
-const ChatDictationModeEnum = {
-  auto: "auto",
-  browser: "browser",
-  provider: "provider",
-} as const;
-
-export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
 
 export const ChatPermissionModeEnum = {
   minimal: "minimal",
@@ -452,19 +432,6 @@ export const TextBlockFormatEnum = {
 } as const;
 
 const SectionSizeModeEnum = { auto: "auto" } as const;
-
-const MCPServerRuntimeStateEnum = {
-  connected: "connected",
-  connecting: "connecting",
-  retrying: "retrying",
-  error: "error",
-  disabled: "disabled",
-  unknown: "unknown",
-} as const;
-
-export type MCPServerRuntimeState = ObjectValues<
-  typeof MCPServerRuntimeStateEnum
->;
 
 const SettaBackendLogEventSeverityEnum = {
   critical: "critical",
@@ -545,7 +512,6 @@ export const RouteEnum = {
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   GET_SERVER_MODE: "/serverMode",
   GET_SETTA_HOME_INFO: "/settaHomeInfo",
-  GET_MCP_SERVER_RUNTIME_STATUS: "/mcpServerRuntimeStatus",
   PLUGINS_RUNTIME: "/plugins/runtime",
   PLUGINS_INSTALL: "/plugins/install",
   PLUGINS_UNINSTALL: "/plugins/uninstall",
@@ -589,7 +555,6 @@ export const RouteEnum = {
   CREATE_FILE: "/createFile",
   DELETE_JSON_SOURCE_FILE_AND_VARIANT: "/deleteJsonSourceFileAndVariant",
   CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
-  CHECK_WORKSPACE_INITIALIZED: "/checkWorkspaceInitialized",
   LOAD_ARTIFACT_FROM_DISK: "/loadArtifactFromDisk",
   GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
   GET_ATTACHMENT_DOWNLOAD_URLS: "/getAttachmentDownloadUrls",
@@ -598,10 +563,7 @@ export const RouteEnum = {
   GET_NOTIFICATIONS: "/getNotifications",
   DELETE_NOTIFICATION: "/deleteNotification",
   GET_LLM_RESPONSE: "/getLLMResponse",
-  START_TRANSCRIPTION_SESSION: "/startTranscriptionSession",
-  APPEND_TRANSCRIPTION_AUDIO: "/appendTranscriptionAudio",
-  STOP_TRANSCRIPTION_SESSION: "/stopTranscriptionSession",
-  CANCEL_TRANSCRIPTION_SESSION: "/cancelTranscriptionSession",
+  TRANSCRIBE_CHAT_AUDIO: "/transcribeChatAudio",
   GET_LISTENER_COVERAGE: "/getListenerCoverage",
   LLM_CONFIG: "/llm/config",
   LLM_API_KEYS: "/llm/apiKeys",
@@ -639,10 +601,6 @@ export const RouteEnum = {
   CREATE_ENGINE_CONFIG: "/createEngineConfig",
   UPDATE_ENGINE_CONFIG: "/updateEngineConfig",
   DELETE_ENGINE_CONFIG: "/deleteEngineConfig",
-  GET_TRANSCRIPTION_PROFILES: "/getTranscriptionProfiles",
-  CREATE_TRANSCRIPTION_PROFILE: "/createTranscriptionProfile",
-  UPDATE_TRANSCRIPTION_PROFILE: "/updateTranscriptionProfile",
-  DELETE_TRANSCRIPTION_PROFILE: "/deleteTranscriptionProfile",
   STOP_EXTERNAL_AGENT_RUN: "/stopExternalAgentRun",
   RESPOND_EXTERNAL_AGENT_APPROVAL: "/respondExternalAgentApproval",
   RESPOND_EXTERNAL_AGENT_QUESTION: "/respondExternalAgentQuestion",
@@ -956,7 +914,6 @@ export const WebsocketMsgTypeForFrontendEnum = {
   PromptTemplatesUpdated: "PromptTemplatesUpdated",
   ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
   EngineConfigsUpdated: "EngineConfigsUpdated",
-  TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
 } as const;
 
 const SaveConflictStrategyEnum = {
@@ -971,7 +928,7 @@ const BrushStrokeSchema = z.object({
   lineCap: z.enum(DrawAreaBrushShapeEnum),
   points: z
     .array(z.union([z.tuple([z.number(), z.number()]), z.literal("BREAK")]))
-    .default(() => []),
+    .default([]),
   globalCompositeOperation: z
     .literal([
       "color",
@@ -1062,7 +1019,7 @@ const BrushStrokeWithTransformSchema = z.object({
   lineCap: z.enum(DrawAreaBrushShapeEnum),
   points: z
     .array(z.union([z.tuple([z.number(), z.number()]), z.literal("BREAK")]))
-    .default(() => []),
+    .default([]),
   globalCompositeOperation: z
     .literal([
       "color",
@@ -1118,7 +1075,7 @@ const DrawAreaLayerItemTransformSchema = z.object({
       z.number(),
     ])
     .default([1, 0, 0, 1, 0, 0]),
-  eraserStrokes: z.array(BrushStrokeWithTransformSchema).default(() => []),
+  eraserStrokes: z.array(BrushStrokeWithTransformSchema).default([]),
 });
 
 type DrawAreaLayerItemTransform = z.infer<
@@ -1266,8 +1223,8 @@ const SystemChatMessageSchema = z.object({
         MessageThinkingContentSchema,
       ]),
     )
-    .default(() => []),
-  attachments: z.array(ChatFileAttachmentSchema).default(() => []),
+    .default([]),
+  attachments: z.array(ChatFileAttachmentSchema).default([]),
 });
 
 const ToolCallFunctionSchema = z.object({
@@ -1294,8 +1251,8 @@ const AssistantChatMessageSchema = z.object({
         MessageThinkingContentSchema,
       ]),
     )
-    .default(() => []),
-  attachments: z.array(ChatFileAttachmentSchema).default(() => []),
+    .default([]),
+  attachments: z.array(ChatFileAttachmentSchema).default([]),
   tool_calls: z.union([z.array(ToolCallSchema), z.null()]).default(null),
 });
 
@@ -1318,8 +1275,8 @@ const UserChatMessageSchema = z.object({
         MessageThinkingContentSchema,
       ]),
     )
-    .default(() => []),
-  attachments: z.array(ChatFileAttachmentSchema).default(() => []),
+    .default([]),
+  attachments: z.array(ChatFileAttachmentSchema).default([]),
 });
 
 const AnnotationsSchema = z.object({
@@ -1406,7 +1363,7 @@ const ToolChatMessageSchema = z.object({
         ToolReferenceContentSchema,
       ]),
     )
-    .default(() => []),
+    .default([]),
   is_error: z.boolean().default(false),
   started_at: z.iso.datetime().default(get_now_timestamp),
   completed_at: z.union([z.iso.datetime(), z.null()]).default(null),
@@ -1525,7 +1482,7 @@ export type MessageFinalizedEvent = z.infer<typeof MessageFinalizedEventSchema>;
 const LineChartSettingsSchema = z.object({
   type: z.literal("line").default(ChartTypeEnum.line),
   xAxisColumn: z.union([z.string(), z.null()]).default(null),
-  secondYAxisColumns: z.array(z.string()).default(() => []),
+  secondYAxisColumns: z.array(z.string()).default([]),
   xAxisLog: z.boolean().default(false),
   y1AxisLog: z.boolean().default(false),
   y2AxisLog: z.boolean().default(false),
@@ -1583,7 +1540,7 @@ const ChatSectionBranchSchema = z.object({
         ToolChatMessageSchema,
       ]),
     )
-    .default(() => []),
+    .default([]),
   createdAt: z.int().default(0),
   parentBranchId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),
@@ -1627,7 +1584,7 @@ export function createTaskBoardColumn(
 
 const CodeSectionDiagnosticsIgnoreStateSchema = z.object({
   muted: z.boolean().default(false),
-  suppressedCodes: z.array(z.union([z.string(), z.int()])).default(() => []),
+  suppressedCodes: z.array(z.union([z.string(), z.int()])).default([]),
 });
 
 type CodeSectionDiagnosticsIgnoreState = z.infer<
@@ -1676,7 +1633,7 @@ export function createDrawAreaLayerItem(
 
 const DrawAreaLayerSchema = z.object({
   name: z.string().default(generate_memorable_string),
-  elements: z.array(DrawAreaLayerItemSchema).default(() => []),
+  elements: z.array(DrawAreaLayerItemSchema).default([]),
   visible: z.boolean().default(true),
   layerOpacity: z.number().default(1),
 });
@@ -1750,13 +1707,9 @@ const TaskBoardTaskSchema = z.object({
   recurrence: z
     .enum(TaskBoardTaskRecurrenceEnum)
     .default(TaskBoardTaskRecurrenceEnum.none),
-  recurrenceDays: z
-    .array(z.enum(TaskBoardRecurringWeekdayEnum))
-    .default(() => []),
-  recurrenceMonths: z
-    .array(z.enum(TaskBoardRecurringMonthEnum))
-    .default(() => []),
-  recurrenceYears: z.array(z.int()).default(() => []),
+  recurrenceDays: z.array(z.enum(TaskBoardRecurringWeekdayEnum)).default([]),
+  recurrenceMonths: z.array(z.enum(TaskBoardRecurringMonthEnum)).default([]),
+  recurrenceYears: z.array(z.int()).default([]),
   sortIndex: z.int().default(0),
 });
 
@@ -1814,7 +1767,6 @@ const SharedModifierSchema = z.object({
   density: z.enum(SpreadsheetGridDensityEnum).optional(),
   description: z.string().optional(),
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreStateSchema.optional(),
-  dictationMode: z.enum(ChatDictationModeEnum).optional(),
   drawThrottleDelay: z.int().optional(),
   edgeInputParams: z.array(IDSchema).optional(),
   edgeOutputPorts: z.array(EdgePortSchema).optional(),
@@ -1905,7 +1857,6 @@ const SharedModifierSchema = z.object({
   timeDisplayTransparent: z.boolean().optional(),
   toolCallArguments: z.record(z.string(), z.string()).optional(),
   topLevelParamId: z.union([IDSchema, z.null()]).optional(),
-  transcriptionProfileId: z.union([IDSchema, z.null()]).optional(),
   typeAnnotation: z.string().optional(),
   typesColumnWidth: z.union([z.number(), z.null()]).optional(),
   uiType: z.enum(TextParamInputUITypeEnum).optional(),
@@ -1933,7 +1884,7 @@ const CoreSchema = z.object({
   id: IDSchema.default(create_new_id),
   name: z.string().default(generate_memorable_string),
   displayName: z.string().default("" as const),
-  variants: z.array(IDSchema).default(() => []),
+  variants: z.array(IDSchema).default([]),
   defaultVariant: z.union([IDSchema, z.null()]).default(null),
   sharedModifier: SharedModifierSchema.default(createSharedModifier),
   unsharedKeys: z
@@ -1982,7 +1933,6 @@ const CoreSchema = z.object({
         "density",
         "description",
         "diagnosticsIgnoreState",
-        "dictationMode",
         "drawThrottleDelay",
         "edgeInputParams",
         "edgeOutputPorts",
@@ -2062,7 +2012,6 @@ const CoreSchema = z.object({
         "timeDisplayTransparent",
         "toolCallArguments",
         "topLevelParamId",
-        "transcriptionProfileId",
         "type",
         "typeAnnotation",
         "typesColumnWidth",
@@ -2110,13 +2059,13 @@ const CallableSectionImplSchema = z.object({
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  pinnedParams: z.array(IDSchema).default(() => []),
-  selectedParams: z.array(IDSchema).default(() => []),
+  pinnedParams: z.array(IDSchema).default([]),
+  selectedParams: z.array(IDSchema).default([]),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
-  edgeInputParams: z.array(IDSchema).default(() => []),
-  edgeOutputPorts: z.array(EdgePortSchema).default(() => []),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   callable: z.union([IDSchema, z.null()]).default(null),
   hideParams: z.boolean().default(false),
 });
@@ -2150,16 +2099,16 @@ const DictSectionImplSchema = z.object({
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  pinnedParams: z.array(IDSchema).default(() => []),
-  selectedParams: z.array(IDSchema).default(() => []),
+  pinnedParams: z.array(IDSchema).default([]),
+  selectedParams: z.array(IDSchema).default([]),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
-  edgeInputParams: z.array(IDSchema).default(() => []),
-  edgeOutputPorts: z.array(EdgePortSchema).default(() => []),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
   isJsonSource: z.boolean().default(false),
-  jsonSourceKeys: z.array(z.string()).default(() => []),
+  jsonSourceKeys: z.array(z.string()).default([]),
   jsonSourceMissing: z.boolean().default(false),
 });
 
@@ -2187,7 +2136,7 @@ const ListRootSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  children: z.array(IDSchema).default(() => []),
+  children: z.array(IDSchema).default([]),
   defaultChildSectionType: z
     .enum(SectionTypeEnum)
     .default(SectionTypeEnum.Callable),
@@ -2218,7 +2167,7 @@ const GroupSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  children: z.array(IDSchema).default(() => []),
+  children: z.array(IDSchema).default([]),
   isHorizontalOrientation: z.boolean().default(false),
   overflowMode: z.boolean().default(false),
   defaultChildSectionType: z
@@ -2290,7 +2239,7 @@ const DrawSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  layers: z.array(DrawAreaLayerSchema).default(() => []),
+  layers: z.array(DrawAreaLayerSchema).default([]),
   renderedImagePath: z.union([z.string(), z.null()]).default(null),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
@@ -2302,7 +2251,7 @@ const DrawSectionImplSchema = z.object({
   eraserBrushSize: z.int().default(16),
   drawThrottleDelay: z.int().default(0),
   canvasMode: z.enum(DrawAreaModeEnum).default(DrawAreaModeEnum.draw),
-  colorChoices: z.array(ColorPickerChoiceSchema).default(() => []),
+  colorChoices: z.array(ColorPickerChoiceSchema).default([]),
 });
 
 type DrawSectionImpl = z.infer<typeof DrawSectionImplSchema>;
@@ -2362,7 +2311,7 @@ const PromptSectionImplSchema = z.object({
   format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
   inputs: z.record(z.string(), z.string()).default({}),
   renderedText: z.string().default("" as const),
-  missingVariables: z.array(z.string()).default(() => []),
+  missingVariables: z.array(z.string()).default([]),
   renderError: z.union([z.string(), z.null()]).default(null),
 });
 
@@ -2430,16 +2379,16 @@ const GlobalVariablesSectionImplSchema = z.object({
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  pinnedParams: z.array(IDSchema).default(() => []),
-  selectedParams: z.array(IDSchema).default(() => []),
+  pinnedParams: z.array(IDSchema).default([]),
+  selectedParams: z.array(IDSchema).default([]),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
-  edgeInputParams: z.array(IDSchema).default(() => []),
-  edgeOutputPorts: z.array(EdgePortSchema).default(() => []),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
   isJsonSource: z.boolean().default(false),
-  jsonSourceKeys: z.array(z.string()).default(() => []),
+  jsonSourceKeys: z.array(z.string()).default([]),
   jsonSourceMissing: z.boolean().default(false),
 });
 
@@ -2462,7 +2411,7 @@ const CodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  children: z.array(IDSchema).default(() => []),
+  children: z.array(IDSchema).default([]),
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).default(null),
@@ -2498,7 +2447,7 @@ const GenPythonCodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  children: z.array(IDSchema).default(() => []),
+  children: z.array(IDSchema).default([]),
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).default(null),
@@ -2523,7 +2472,7 @@ const GenPythonMetadataSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  children: z.array(IDSchema).default(() => []),
+  children: z.array(IDSchema).default([]),
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).default(null),
@@ -2599,7 +2548,6 @@ const ChatSectionImplSchema = z.object({
   isPreset: z.boolean().default(false),
   managed: z.boolean().default(false),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
-  transcriptionProfileId: z.union([IDSchema, z.null()]).default(null),
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
@@ -2607,9 +2555,6 @@ const ChatSectionImplSchema = z.object({
     .enum(ChatPermissionModeEnum)
     .default(ChatPermissionModeEnum.minimal),
   searchEnabled: z.boolean().default(true),
-  dictationMode: z
-    .enum(ChatDictationModeEnum)
-    .default(ChatDictationModeEnum.auto),
   messages: z
     .array(
       z.union([
@@ -2619,7 +2564,7 @@ const ChatSectionImplSchema = z.object({
         ToolChatMessageSchema,
       ]),
     )
-    .default(() => []),
+    .default([]),
   inputText: z.string().default("" as const),
   waitingForResponse: z.boolean().default(false),
   toolCallArguments: z.record(z.string(), z.string()).default({}),
@@ -2660,7 +2605,7 @@ const BrowserSectionImplSchema = z.object({
   viewMode: z
     .enum(BrowserAreaViewModeEnum)
     .default(BrowserAreaViewModeEnum.list),
-  savedSearches: z.array(BrowserSavedSearchSchema).default(() => []),
+  savedSearches: z.array(BrowserSavedSearchSchema).default([]),
 });
 
 type BrowserSectionImpl = z.infer<typeof BrowserSectionImplSchema>;
@@ -2706,8 +2651,25 @@ const TaskBoardSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
-  columns: z.array(TaskBoardColumnSchema).default(() => []),
-  tasks: z.array(TaskBoardTaskSchema).default(() => []),
+  columns: z.array(TaskBoardColumnSchema).default(() => [
+    createTaskBoardColumn({
+      id: "b82b660e-6479-4e06-8bb3-759a0ed16fc2" as const,
+      name: "Todo" as const,
+    }),
+    createTaskBoardColumn({
+      id: "67795cdb-d80a-4842-854c-d535ab397a62" as const,
+      name: "Doing" as const,
+      color: "#a855f7" as const,
+      sortIndex: 1,
+    }),
+    createTaskBoardColumn({
+      id: "f82b50cc-61dd-47f8-9f78-fb666c8a0eb5" as const,
+      name: "Done" as const,
+      color: "#10b981" as const,
+      sortIndex: 2,
+    }),
+  ]),
+  tasks: z.array(TaskBoardTaskSchema).default([]),
 });
 
 type TaskBoardSectionImpl = z.infer<typeof TaskBoardSectionImplSchema>;
@@ -2776,7 +2738,7 @@ const CodeCallableCodeObjImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
-  children: z.array(IDSchema).default(() => []),
+  children: z.array(IDSchema).default([]),
 });
 
 type CodeCallableCodeObjImpl = z.infer<typeof CodeCallableCodeObjImplSchema>;
@@ -2994,7 +2956,7 @@ const ColorPickerParamCodeObjImplSchema = z.object({
   typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("#ff0000" as const),
-  colorChoices: z.array(ColorPickerChoiceSchema).default(() => []),
+  colorChoices: z.array(ColorPickerChoiceSchema).default([]),
 });
 
 export type ColorPickerParamCodeObjImpl = z.infer<
@@ -3015,7 +2977,7 @@ const DropdownParamCodeObjImplSchema = z.object({
   typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
-  choices: z.array(z.string()).default(() => []),
+  choices: z.array(z.string()).default([]),
 });
 
 export type DropdownParamCodeObjImpl = z.infer<
@@ -3088,7 +3050,7 @@ const NestedParamCodeObjImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
-  children: z.array(IDSchema).default(() => []),
+  children: z.array(IDSchema).default([]),
   coreNameType: z.enum(ParamNameTypeEnum).default(ParamNameTypeEnum.TEXT),
   coreNameEditable: z.boolean().default(false),
   passingStyle: z
@@ -4083,13 +4045,11 @@ const ChatSectionImplArgsSchema = z.object({
   isPreset: z.boolean().optional(),
   managed: z.boolean().optional(),
   engineConfigId: z.union([IDSchema, z.null()]).optional(),
-  transcriptionProfileId: z.union([IDSchema, z.null()]).optional(),
   agentProfileId: z.union([IDSchema, z.null()]).optional(),
   chatId: z.union([IDSchema, z.null()]).optional(),
   thinking: z.boolean().optional(),
   permissionMode: z.enum(ChatPermissionModeEnum).optional(),
   searchEnabled: z.boolean().optional(),
-  dictationMode: z.enum(ChatDictationModeEnum).optional(),
   messages: z
     .array(
       z.union([
@@ -4388,7 +4348,7 @@ const WebsocketMsgLLMStreamingResponseSchema = z.object({
 });
 
 const SettaSectionTypeErrorsSchema = z.object({
-  callable: z.array(z.string()).default(() => []),
+  callable: z.array(z.string()).default([]),
   params: z.record(IDSchema, z.array(z.string())).default({}),
 });
 
@@ -4435,7 +4395,7 @@ const SettaLspDiagnosticsPayloadSchema = z.object({
   codeSections: z
     .record(IDSchema, z.array(SettaLspDiagnosticSchema))
     .default({}),
-  unmappedGenCode: z.array(SettaLspDiagnosticSchema).default(() => []),
+  unmappedGenCode: z.array(SettaLspDiagnosticSchema).default([]),
 });
 
 export type SettaLspDiagnosticsPayload = z.infer<
@@ -4458,7 +4418,7 @@ const WebsocketMsgLSPDiagnosticsSchema = z.object({
 
 const SettaProjectNameValidationErrorsSchema = z.object({
   projectConfigId: IDSchema,
-  projectErrors: z.array(z.string()).default(() => []),
+  projectErrors: z.array(z.string()).default([]),
   sectionErrors: z.record(IDSchema, z.array(z.string())).default({}),
   paramErrors: z.record(IDSchema, z.array(z.string())).default({}),
 });
@@ -4608,7 +4568,7 @@ const SectionCodegenPolicySchema = z.object({
       CodeObjTypeEnum.ButtonParam,
       CodeObjTypeEnum.DropzoneParam,
     ]),
-  exclude: z.array(IDSchema).default(() => []),
+  exclude: z.array(IDSchema).default([]),
   typePolicies: z
     .record(z.enum(SectionTypeEnum), SectionTypeCodegenPolicySchema)
     .default(() => ({
@@ -4818,7 +4778,7 @@ const WatchCodeRegistryEntrySchema = z.object({
   signatureHash: z.string(),
   bodyHash: z.string(),
   sourcePath: z.string(),
-  sectionIds: z.array(IDSchema).default(() => []),
+  sectionIds: z.array(IDSchema).default([]),
   sectionsCount: z.int().default(0),
 });
 
@@ -4846,12 +4806,12 @@ const ProjectConfigSchema = z.object({
   entryCodeBlockId: z.union([IDSchema, z.null()]).default(null),
   topLevelSections: z.record(IDSchema, TopLevelSectionLayoutSchema).default({}),
   sectionVariantMap: z.record(IDSchema, IDSchema).default({}),
-  activeIds: z.array(IDSchema).default(() => []),
-  edges: z.array(EdgeSchema).default(() => []),
-  agenticEdges: z.array(AgenticEdgeSchema).default(() => []),
+  activeIds: z.array(IDSchema).default([]),
+  edges: z.array(EdgeSchema).default([]),
+  agenticEdges: z.array(AgenticEdgeSchema).default([]),
   watchCodeEnabled: z.boolean().default(false),
-  watchCodeFolders: z.array(WatchCodeFolderSchema).default(() => []),
-  watchCodeFiles: z.array(z.string()).default(() => []),
+  watchCodeFolders: z.array(WatchCodeFolderSchema).default([]),
+  watchCodeFiles: z.array(z.string()).default([]),
   watchCodeRegistry: z
     .record(z.string(), WatchCodeRegistryEntrySchema)
     .default({}),
@@ -4884,7 +4844,7 @@ export function createSingletonSections(
 
 const ShownParamIdDetailsSchema = z.object({
   requiredParamIdsToPaths: z.record(IDSchema, z.array(IDSchema)).default({}),
-  topLevelParamIds: z.array(IDSchema).default(() => []),
+  topLevelParamIds: z.array(IDSchema).default([]),
 });
 
 type ShownParamIdDetails = z.infer<typeof ShownParamIdDetailsSchema>;
@@ -4964,7 +4924,7 @@ const ProjectStateSingleConfigSchema = z.object({
     .record(IDSchema, z.union([IDSchema, z.null()]))
     .default({}),
   shownParamIds: z.record(IDSchema, ShownParamIdsSchema).default({}),
-  requiredDecodedImages: z.array(z.string()).default(() => []),
+  requiredDecodedImages: z.array(z.string()).default([]),
   genCodeBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
 });
 
@@ -5159,7 +5119,6 @@ const SettingsBackendSchema = z.object({
   runSnapshotMode: z
     .enum(RunSnapshotModeEnum)
     .default(RunSnapshotModeEnum.ephemeral),
-  completionGuardEnabled: z.boolean().default(true),
 });
 
 type SettingsBackend = z.infer<typeof SettingsBackendSchema>;
@@ -5580,7 +5539,7 @@ const UserDefaultBrowserSectionImplSchema = z.object({
   viewMode: z
     .enum(BrowserAreaViewModeEnum)
     .default(BrowserAreaViewModeEnum.list),
-  savedSearches: z.array(BrowserSavedSearchSchema).default(() => []),
+  savedSearches: z.array(BrowserSavedSearchSchema).default([]),
 });
 
 type UserDefaultBrowserSectionImpl = z.infer<
@@ -5605,8 +5564,8 @@ const UserDefaultCallableSectionImplSchema = z.object({
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  edgeInputParams: z.array(IDSchema).default(() => []),
-  edgeOutputPorts: z.array(EdgePortSchema).default(() => []),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   hideParams: z.boolean().default(false),
 });
 
@@ -5655,7 +5614,6 @@ const UserDefaultChatSectionImplSchema = z.object({
   positionAndSizeLocked: z.boolean().default(false),
   managed: z.boolean().default(false),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
-  transcriptionProfileId: z.union([IDSchema, z.null()]).default(null),
   agentProfileId: z.union([IDSchema, z.null()]).default(null),
   chatId: z.union([IDSchema, z.null()]).default(null),
   thinking: z.boolean().default(true),
@@ -5663,9 +5621,6 @@ const UserDefaultChatSectionImplSchema = z.object({
     .enum(ChatPermissionModeEnum)
     .default(ChatPermissionModeEnum.minimal),
   searchEnabled: z.boolean().default(true),
-  dictationMode: z
-    .enum(ChatDictationModeEnum)
-    .default(ChatDictationModeEnum.auto),
   messages: z
     .array(
       z.union([
@@ -5675,7 +5630,7 @@ const UserDefaultChatSectionImplSchema = z.object({
         ToolChatMessageSchema,
       ]),
     )
-    .default(() => []),
+    .default([]),
   inputText: z.string().default("" as const),
   waitingForResponse: z.boolean().default(false),
   toolCallArguments: z.record(z.string(), z.string()).default({}),
@@ -5734,10 +5689,10 @@ const UserDefaultDictSectionImplSchema = z.object({
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  edgeInputParams: z.array(IDSchema).default(() => []),
-  edgeOutputPorts: z.array(EdgePortSchema).default(() => []),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
-  jsonSourceKeys: z.array(z.string()).default(() => []),
+  jsonSourceKeys: z.array(z.string()).default([]),
 });
 
 type UserDefaultDictSectionImpl = z.infer<
@@ -5760,7 +5715,7 @@ const UserDefaultDrawSectionImplSchema = z.object({
   aspectRatio: z.union([z.boolean(), z.number()]).default(false),
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
-  layers: z.array(DrawAreaLayerSchema).default(() => []),
+  layers: z.array(DrawAreaLayerSchema).default([]),
   renderedImagePath: z.union([z.string(), z.null()]).default(null),
   activeLayerIdx: z.int().default(0),
   brushColor: z.string().default("#ff0000" as const),
@@ -5772,7 +5727,7 @@ const UserDefaultDrawSectionImplSchema = z.object({
   eraserBrushSize: z.int().default(16),
   drawThrottleDelay: z.int().default(0),
   canvasMode: z.enum(DrawAreaModeEnum).default(DrawAreaModeEnum.draw),
-  colorChoices: z.array(ColorPickerChoiceSchema).default(() => []),
+  colorChoices: z.array(ColorPickerChoiceSchema).default([]),
 });
 
 type UserDefaultDrawSectionImpl = z.infer<
@@ -5843,10 +5798,10 @@ const UserDefaultGlobalVariablesSectionImplSchema = z.object({
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  edgeInputParams: z.array(IDSchema).default(() => []),
-  edgeOutputPorts: z.array(EdgePortSchema).default(() => []),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   isJsonSource: z.boolean().default(false),
-  jsonSourceKeys: z.array(z.string()).default(() => []),
+  jsonSourceKeys: z.array(z.string()).default([]),
 });
 
 type UserDefaultGlobalVariablesSectionImpl = z.infer<
@@ -6008,7 +5963,7 @@ const UserDefaultPromptSectionImplSchema = z.object({
   format: z.enum(PromptFormatEnum).default(PromptFormatEnum.Jinja),
   inputs: z.record(z.string(), z.string()).default({}),
   renderedText: z.string().default("" as const),
-  missingVariables: z.array(z.string()).default(() => []),
+  missingVariables: z.array(z.string()).default([]),
   renderError: z.union([z.string(), z.null()]).default(null),
 });
 
@@ -6084,8 +6039,25 @@ const UserDefaultTaskBoardSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   viewMode: z.enum(TaskBoardViewModeEnum).default(TaskBoardViewModeEnum.kanban),
-  columns: z.union([z.array(TaskBoardColumnSchema), z.null()]).default(null),
-  tasks: z.array(TaskBoardTaskSchema).default(() => []),
+  columns: z.array(TaskBoardColumnSchema).default(() => [
+    createTaskBoardColumn({
+      id: "885a1622-5b8b-4725-ac09-e8b1b6b71e06" as const,
+      name: "Todo" as const,
+    }),
+    createTaskBoardColumn({
+      id: "196a95f6-ce33-43fc-b526-9ab1ab322f36" as const,
+      name: "Doing" as const,
+      color: "#a855f7" as const,
+      sortIndex: 1,
+    }),
+    createTaskBoardColumn({
+      id: "f5163822-0c56-47c5-abed-09bb4e43e229" as const,
+      name: "Done" as const,
+      color: "#10b981" as const,
+      sortIndex: 2,
+    }),
+  ]),
+  tasks: z.array(TaskBoardTaskSchema).default([]),
 });
 
 type UserDefaultTaskBoardSectionImpl = z.infer<
@@ -6211,7 +6183,7 @@ const UserDefaultColorPickerParamCodeObjImplSchema = z.object({
   typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("#ff0000" as const),
-  colorChoices: z.array(ColorPickerChoiceSchema).default(() => []),
+  colorChoices: z.array(ColorPickerChoiceSchema).default([]),
 });
 
 type UserDefaultColorPickerParamCodeObjImpl = z.infer<
@@ -6261,7 +6233,7 @@ const UserDefaultDropdownParamCodeObjImplSchema = z.object({
   typeAnnotation: z.string().default("" as const),
   defaultVal: z.string().default("" as const),
   value: z.string().default("" as const),
-  choices: z.array(z.string()).default(() => []),
+  choices: z.array(z.string()).default([]),
 });
 
 type UserDefaultDropdownParamCodeObjImpl = z.infer<
@@ -6696,7 +6668,7 @@ const MCPServerConfigSchema = z.object({
   transport: z.literal(["sse", "streamable_http", "stdio"]),
   url: z.union([z.string(), z.null()]).default(null),
   command: z.union([z.string(), z.null()]).default(null),
-  args: z.array(z.string()).default(() => []),
+  args: z.array(z.string()).default([]),
   env: z.union([z.record(z.string(), z.string()), z.null()]).default(null),
   cwd: z.union([z.string(), z.null()]).default(null),
   encoding: z.string().default("utf-8" as const),
@@ -6708,7 +6680,7 @@ const MCPServerConfigSchema = z.object({
 const AllLLMConfigsSchema = z.object({
   configs: z.record(z.string(), LLMConfigSchema).default({}),
   mcpServers: z.record(z.string(), MCPServerConfigSchema).default({}),
-  defaultMcpServerIds: z.array(z.string()).default(() => []),
+  defaultMcpServerIds: z.array(z.string()).default([]),
   default_config_id: z.union([z.string(), z.null()]).default(null),
 });
 
@@ -6740,7 +6712,7 @@ const AgentProfileSchema = z.object({
   enableBackgroundSummaryFill: z.boolean().default(false),
   enableLlmChatTitles: z.boolean().default(false),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
-  toolAllowlist: z.array(z.string()).default(() => []),
+  toolAllowlist: z.array(z.string()).default([]),
   memoryScope: z.union([z.string(), z.null()]).default(null),
 });
 
@@ -6783,9 +6755,9 @@ const WebsocketMsgPromptTemplatesUpdatedSchema = z.object({
 });
 
 const ClaudeSettingsPermissionsSchema = z.object({
-  allow: z.array(z.string()).default(() => []),
-  ask: z.array(z.string()).default(() => []),
-  deny: z.array(z.string()).default(() => []),
+  allow: z.array(z.string()).default([]),
+  ask: z.array(z.string()).default([]),
+  deny: z.array(z.string()).default([]),
 });
 
 const ClaudeSettingsManagedSchema = z.object({
@@ -6846,7 +6818,7 @@ const ExternalAgentConfigSchema = z.object({
   settingsManagedBlock: z
     .union([ExternalAgentSettingsManagedBlockSchema, z.null()])
     .default(null),
-  envVarWhitelist: z.array(z.string()).default(() => []),
+  envVarWhitelist: z.array(z.string()).default([]),
   workingDirStrategy: z
     .enum(ExternalAgentWorkingDirStrategyEnum)
     .default(ExternalAgentWorkingDirStrategyEnum.project_root),
@@ -6891,12 +6863,6 @@ const EngineConfigSchema = z.object({
 
 export type EngineConfig = z.infer<typeof EngineConfigSchema>;
 
-export function createEngineConfig(
-  options: Partial<EngineConfig> = {},
-): EngineConfig {
-  return EngineConfigSchema.parse(options);
-}
-
 const EngineConfigListSchema = z.object({
   configs: z.array(EngineConfigSchema),
 });
@@ -6907,30 +6873,6 @@ const WebsocketMsgEngineConfigsUpdatedSchema = z.object({
   messageType: z
     .literal("EngineConfigsUpdated")
     .default(WebsocketMsgTypeForFrontendEnum.EngineConfigsUpdated),
-});
-
-const TranscriptionProfileSchema = z.object({
-  id: IDSchema.default(create_new_id),
-  name: z.string(),
-  transcriptionLlmConfigId: z.string(),
-  transportMode: z.enum(TranscriptionTransportModeEnum),
-  chunkMs: z.int(),
-  supportsRealtimeTranscription: z.boolean().default(false),
-  language: z.union([z.string(), z.null()]).default(null),
-});
-
-export type TranscriptionProfile = z.infer<typeof TranscriptionProfileSchema>;
-
-const TranscriptionProfileListSchema = z.object({
-  profiles: z.array(TranscriptionProfileSchema),
-});
-
-const WebsocketMsgTranscriptionProfilesUpdatedSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: TranscriptionProfileListSchema,
-  messageType: z
-    .literal("TranscriptionProfilesUpdated")
-    .default(WebsocketMsgTypeForFrontendEnum.TranscriptionProfilesUpdated),
 });
 
 const AIFollowToolArgumentsUpdateContentSchema = z.object({
@@ -6989,7 +6931,6 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgPromptTemplatesUpdatedSchema,
   WebsocketMsgExternalAgentConfigsUpdatedSchema,
   WebsocketMsgEngineConfigsUpdatedSchema,
-  WebsocketMsgTranscriptionProfilesUpdatedSchema,
   WebsocketMsgAIFollowToolArgumentsUpdateSchema,
   WebsocketMsgAIFollowToolResultUpdateSchema,
 ]);
@@ -7239,9 +7180,9 @@ const AgentRunSchema = z.object({
   finishedAt: z.union([z.iso.datetime(), z.null()]).default(null),
   inputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
   outputs: z.union([z.record(z.string(), z.any()), z.null()]).default(null),
-  toolCalls: z.array(z.record(z.string(), z.any())).default(() => []),
+  toolCalls: z.array(z.record(z.string(), z.any())).default([]),
   cost: z.union([z.number(), z.null()]).default(null),
-  events: z.array(RunEventSchema).default(() => []),
+  events: z.array(RunEventSchema).default([]),
 });
 
 export type AgentRun = z.infer<typeof AgentRunSchema>;
@@ -7272,12 +7213,12 @@ const RunChainSpecSchema = z.object({
 
 const AgenticSummaryCacheStatusSchema = z.object({
   maxSummariesPerRun: z.int(),
-  summarySectionIds: z.array(IDSchema).default(() => []),
-  cachedSectionIds: z.array(IDSchema).default(() => []),
-  missingSectionIds: z.array(IDSchema).default(() => []),
-  emptySourceSectionIds: z.array(IDSchema).default(() => []),
-  consideredSectionIds: z.array(IDSchema).default(() => []),
-  wouldAttemptSectionIds: z.array(IDSchema).default(() => []),
+  summarySectionIds: z.array(IDSchema).default([]),
+  cachedSectionIds: z.array(IDSchema).default([]),
+  missingSectionIds: z.array(IDSchema).default([]),
+  emptySourceSectionIds: z.array(IDSchema).default([]),
+  consideredSectionIds: z.array(IDSchema).default([]),
+  wouldAttemptSectionIds: z.array(IDSchema).default([]),
 });
 
 export type AgenticSummaryCacheStatus = z.infer<
@@ -7296,7 +7237,7 @@ const AppDefinitionSchema = z.object({
   appSpecVersion: z.string().default("v1" as const),
   catalogId: z.string().default("setta.app.default" as const),
   appSpecPath: z.union([z.string(), z.null()]).default(null),
-  routes: z.array(AppRouteSchema).default(() => []),
+  routes: z.array(AppRouteSchema).default([]),
   dataBindings: z
     .record(
       z.string(),
@@ -7354,7 +7295,7 @@ const AppDefinitionSchema = z.object({
         z.null(),
       ]),
     )
-    .default(() => []),
+    .default([]),
 });
 
 export type AppDefinition = z.infer<typeof AppDefinitionSchema>;
@@ -7625,7 +7566,7 @@ const BaseParentCodeObjImplSchema = z.object({
   name: z.string().default(generate_memorable_string),
   description: z.string().default("" as const),
   isPreset: z.boolean().default(false),
-  children: z.array(IDSchema).default(() => []),
+  children: z.array(IDSchema).default([]),
 });
 
 type BaseParentCodeObjImpl = z.infer<typeof BaseParentCodeObjImplSchema>;
@@ -7650,8 +7591,8 @@ const BaseSectionImplSchema = z.object({
 type BaseSectionImpl = z.infer<typeof BaseSectionImplSchema>;
 
 const ExternalAgentEnvVarStatusSchema = z.object({
-  present: z.array(z.string()).default(() => []),
-  missing: z.array(z.string()).default(() => []),
+  present: z.array(z.string()).default([]),
+  missing: z.array(z.string()).default([]),
 });
 
 type ExternalAgentEnvVarStatus = z.infer<
@@ -7671,7 +7612,7 @@ const ExternalAgentPreflightStatusSchema = z.object({
   runMode: z.enum(ExternalAgentRunModeEnum),
   supported: z.boolean(),
   available: z.boolean(),
-  issues: z.array(z.string()).default(() => []),
+  issues: z.array(z.string()).default([]),
   nodePath: z.union([z.string(), z.null()]).default(null),
   nodeVersion: z.union([z.string(), z.null()]).default(null),
   sdkVersion: z.union([z.string(), z.null()]).default(null),
@@ -7721,7 +7662,7 @@ const BaseCodeSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  children: z.array(IDSchema).default(() => []),
+  children: z.array(IDSchema).default([]),
   code: z.string().default("" as const),
   codeFileBinding: z.union([CodeFileBindingSchema, z.null()]).default(null),
   attachedTerminalSectionId: z.union([IDSchema, z.null()]).default(null),
@@ -7749,16 +7690,16 @@ const BaseDictSectionImplSchema = z.object({
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  pinnedParams: z.array(IDSchema).default(() => []),
-  selectedParams: z.array(IDSchema).default(() => []),
+  pinnedParams: z.array(IDSchema).default([]),
+  selectedParams: z.array(IDSchema).default([]),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
-  edgeInputParams: z.array(IDSchema).default(() => []),
-  edgeOutputPorts: z.array(EdgePortSchema).default(() => []),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
   topLevelParamId: z.union([IDSchema, z.null()]).default(null),
   isJsonSource: z.boolean().default(false),
-  jsonSourceKeys: z.array(z.string()).default(() => []),
+  jsonSourceKeys: z.array(z.string()).default([]),
   jsonSourceMissing: z.boolean().default(false),
 });
 
@@ -7779,7 +7720,7 @@ const BaseParentSectionImplSchema = z.object({
   isMinimized: z.boolean().default(false),
   positionAndSizeLocked: z.boolean().default(false),
   isPreset: z.boolean().default(false),
-  children: z.array(IDSchema).default(() => []),
+  children: z.array(IDSchema).default([]),
 });
 
 type BaseParentSectionImpl = z.infer<typeof BaseParentSectionImplSchema>;
@@ -7804,13 +7745,13 @@ const BaseSectionWithParamsImplSchema = z.object({
   paramFilter: z.string().default("" as const),
   columnWidth: z.union([z.number(), z.null()]).default(null),
   configLanguage: z.enum(ConfigLanguageEnum).default(ConfigLanguageEnum.python),
-  pinnedParams: z.array(IDSchema).default(() => []),
-  selectedParams: z.array(IDSchema).default(() => []),
+  pinnedParams: z.array(IDSchema).default([]),
+  selectedParams: z.array(IDSchema).default([]),
   ignoreTypeErrors: TypeErrorIgnoreStateSchema.default(
     createTypeErrorIgnoreState,
   ),
-  edgeInputParams: z.array(IDSchema).default(() => []),
-  edgeOutputPorts: z.array(EdgePortSchema).default(() => []),
+  edgeInputParams: z.array(IDSchema).default([]),
+  edgeOutputPorts: z.array(EdgePortSchema).default([]),
 });
 
 export type BaseSectionWithParamsImpl = z.infer<
@@ -7923,7 +7864,7 @@ const GitCommitSchema = z.object({
   authorEmail: z.string(),
   authorTimeMs: z.int(),
   subject: z.string(),
-  decorations: z.array(z.string()).default(() => []),
+  decorations: z.array(z.string()).default([]),
 });
 
 export type GitCommit = z.infer<typeof GitCommitSchema>;
@@ -7992,7 +7933,7 @@ const ChatSectionStateSchema = z.object({
         ToolChatMessageSchema,
       ]),
     )
-    .default(() => []),
+    .default([]),
   inputText: z.string().default("" as const),
   waitingForResponse: z.boolean().default(false),
   toolCallArguments: z.record(z.string(), z.string()).default({}),
@@ -8024,47 +7965,6 @@ const ListenerCoverageRequestSchema = z.object({
 
 export type ListenerCoverageRequestInput = z.input<
   typeof ListenerCoverageRequestSchema
->;
-
-const GetMCPServerRuntimeStatusRequestSchema = z.object({
-  chatId: z.union([IDSchema, z.null()]).default(null),
-  engineConfigId: z.union([IDSchema, z.null()]).default(null),
-});
-
-export type GetMCPServerRuntimeStatusRequestInput = z.input<
-  typeof GetMCPServerRuntimeStatusRequestSchema
->;
-
-const MCPServerRuntimeStatusSchema = z.object({
-  serverId: z.string(),
-  source: z.string().default("setta_mcp" as const),
-  transport: z.string(),
-  endpoint: z.string(),
-  state: z
-    .enum(MCPServerRuntimeStateEnum)
-    .default(MCPServerRuntimeStateEnum.unknown),
-  lastAttemptAt: z.union([z.iso.datetime(), z.null()]).default(null),
-  lastConnectedAt: z.union([z.iso.datetime(), z.null()]).default(null),
-  lastFailureAt: z.union([z.iso.datetime(), z.null()]).default(null),
-  consecutiveFailures: z.int().default(0),
-  lastError: z.union([z.string(), z.null()]).default(null),
-  missingEnvVar: z.union([z.string(), z.null()]).default(null),
-  toolCount: z.int().default(0),
-});
-
-export type MCPServerRuntimeStatus = z.infer<
-  typeof MCPServerRuntimeStatusSchema
->;
-
-const MCPServerRuntimeStatusResponseSchema = z.object({
-  llmConfigPath: z.string(),
-  activeSettaFilesLocation: z.union([z.string(), z.null()]),
-  servers: z.array(MCPServerRuntimeStatusSchema).default(() => []),
-  externalServers: z.array(MCPServerRuntimeStatusSchema).default(() => []),
-});
-
-export type MCPServerRuntimeStatusResponse = z.infer<
-  typeof MCPServerRuntimeStatusResponseSchema
 >;
 
 const ServerModeResponseSchema = z.object({
@@ -8117,7 +8017,7 @@ const CreateAgentProfileRequestSchema = z.object({
   enableBackgroundSummaryFill: z.boolean().default(false),
   enableLlmChatTitles: z.boolean().default(false),
   engineConfigId: z.union([IDSchema, z.null()]).default(null),
-  toolAllowlist: z.array(z.string()).default(() => []),
+  toolAllowlist: z.array(z.string()).default([]),
   memoryScope: z.union([z.string(), z.null()]).default(null),
 });
 
@@ -8159,7 +8059,7 @@ const CreateExternalAgentConfigRequestSchema = z.object({
   settingsManagedBlock: z
     .union([ExternalAgentSettingsManagedBlockSchema, z.null()])
     .default(null),
-  envVarWhitelist: z.array(z.string()).default(() => []),
+  envVarWhitelist: z.array(z.string()).default([]),
   workingDirStrategy: z
     .enum(ExternalAgentWorkingDirStrategyEnum)
     .default(ExternalAgentWorkingDirStrategyEnum.project_root),
@@ -8181,18 +8081,6 @@ const CreatePromptTemplateRequestSchema = z.object({
 
 export type CreatePromptTemplateRequestInput = z.input<
   typeof CreatePromptTemplateRequestSchema
->;
-
-const CreateTranscriptionProfileRequestSchema = z.object({
-  name: z.string(),
-  transcriptionLlmConfigId: z.string(),
-  transportMode: z.enum(TranscriptionTransportModeEnum),
-  chunkMs: z.int(),
-  language: z.union([z.string(), z.null()]).default(null),
-});
-
-export type CreateTranscriptionProfileRequestInput = z.input<
-  typeof CreateTranscriptionProfileRequestSchema
 >;
 
 const DeleteAgentProfileRequestSchema = z.object({
@@ -8225,14 +8113,6 @@ const DeletePromptTemplateRequestSchema = z.object({
 
 export type DeletePromptTemplateRequestInput = z.input<
   typeof DeletePromptTemplateRequestSchema
->;
-
-const DeleteTranscriptionProfileRequestSchema = z.object({
-  profileId: IDSchema,
-});
-
-export type DeleteTranscriptionProfileRequestInput = z.input<
-  typeof DeleteTranscriptionProfileRequestSchema
 >;
 
 const GetAgentProfileRequestSchema = z.object({
@@ -8286,10 +8166,10 @@ const PluginRegisteredExternalAgentAdapterSchema = z.object({
   adapterId: z.string(),
   pluginId: z.string(),
   name: z.string(),
-  runModes: z.array(z.string()).default(() => []),
+  runModes: z.array(z.string()).default([]),
   command: z.string(),
-  args: z.array(z.string()).default(() => []),
-  envVarWhitelist: z.array(z.string()).default(() => []),
+  args: z.array(z.string()).default([]),
+  envVarWhitelist: z.array(z.string()).default([]),
   defaultModel: z.union([z.string(), z.null()]).default(null),
 });
 
@@ -8383,41 +8263,6 @@ const UpdatePromptTemplateRequestSchema = z.object({
 
 export type UpdatePromptTemplateRequestInput = z.input<
   typeof UpdatePromptTemplateRequestSchema
->;
-
-const UpdateTranscriptionProfileRequestSchema = z.object({
-  profile: TranscriptionProfileSchema,
-});
-
-export type UpdateTranscriptionProfileRequestInput = z.input<
-  typeof UpdateTranscriptionProfileRequestSchema
->;
-
-const AppendTranscriptionAudioRequestSchema = z.object({
-  sessionId: IDSchema,
-  audioPcm16Base64: z.string(),
-  sampleRateHz: z.int(),
-  channels: z.int().default(1),
-});
-
-export type AppendTranscriptionAudioRequestInput = z.input<
-  typeof AppendTranscriptionAudioRequestSchema
->;
-
-const CancelTranscriptionSessionRequestSchema = z.object({
-  sessionId: IDSchema,
-});
-
-export type CancelTranscriptionSessionRequestInput = z.input<
-  typeof CancelTranscriptionSessionRequestSchema
->;
-
-const CancelTranscriptionSessionResponseSchema = z.object({
-  ok: z.boolean().default(true),
-});
-
-export type CancelTranscriptionSessionResponse = z.infer<
-  typeof CancelTranscriptionSessionResponseSchema
 >;
 
 const GetAIFollowSnapshotRequestSchema = z.object({
@@ -8518,47 +8363,18 @@ export type GetLLMResponseRequestInput = z.input<
   typeof GetLLMResponseRequestSchema
 >;
 
-const StartTranscriptionSessionRequestSchema = z.object({
-  transcriptionProfileId: IDSchema,
-  language: z.union([z.string(), z.null()]).default(null),
-});
-
-export type StartTranscriptionSessionRequestInput = z.input<
-  typeof StartTranscriptionSessionRequestSchema
->;
-
-const StartTranscriptionSessionResponseSchema = z.object({
-  sessionId: IDSchema,
-  resolvedTransportMode: z.literal(["file", "realtime"]),
-  chunkMs: z.int(),
-});
-
-export type StartTranscriptionSessionResponse = z.infer<
-  typeof StartTranscriptionSessionResponseSchema
->;
-
 const StopLLMChatRequestSchema = z.object({
   chatId: IDSchema,
 });
 
 export type StopLLMChatRequestInput = z.input<typeof StopLLMChatRequestSchema>;
 
-const StopTranscriptionSessionRequestSchema = z.object({
-  sessionId: IDSchema,
+const TranscribeChatAudioResponseSchema = z.object({
+  text: z.string(),
 });
 
-export type StopTranscriptionSessionRequestInput = z.input<
-  typeof StopTranscriptionSessionRequestSchema
->;
-
-const TranscriptionSessionDeltaResponseSchema = z.object({
-  appendText: z.string(),
-  fullText: z.string(),
-  isFinal: z.boolean(),
-});
-
-export type TranscriptionSessionDeltaResponse = z.infer<
-  typeof TranscriptionSessionDeltaResponseSchema
+export type TranscribeChatAudioResponse = z.infer<
+  typeof TranscribeChatAudioResponseSchema
 >;
 
 const AppPolicyOverridesSchema = z.object({
@@ -8666,15 +8482,6 @@ export type CheckIfFileExistsRequestsInput = z.input<
   typeof CheckIfFileExistsRequestsSchema
 >;
 
-const CheckWorkspaceInitializedRequestSchema = z.object({
-  folderPath: z.string(),
-  allowOutsideWorkspaceRoot: z.boolean().default(false),
-});
-
-export type CheckWorkspaceInitializedRequestInput = z.input<
-  typeof CheckWorkspaceInitializedRequestSchema
->;
-
 const DeleteArtifactRequestItemSchema = z.object({
   id: z.string(),
   type: z.enum(ArtifactTypeEnum),
@@ -8757,7 +8564,6 @@ export type GetFileBrowserRootResponse = z.infer<
 
 const GetFolderContentsRequestSchema = z.object({
   folderPath: z.string(),
-  allowOutsideWorkspaceRoot: z.boolean().default(false),
   includeMtime: z.boolean().default(false),
   includeSize: z.boolean().default(false),
   includeHidden: z.boolean().default(false),
@@ -9067,7 +8873,7 @@ const PluginInstallResponseSchema = z.object({
   sourcePath: z.string(),
   canonicalSourceKey: z.string(),
   sourceDigestSha256: z.union([z.string(), z.null()]).default(null),
-  requestedCapabilities: z.array(z.string()).default(() => []),
+  requestedCapabilities: z.array(z.string()).default([]),
   trustStatus: z.enum(PluginSourceTrustStatusEnum),
   trustWarning: z.string(),
   components: z.array(z.string()),
@@ -9245,7 +9051,7 @@ const PluginRegisteredLanguageServerSchema = z.object({
   name: z.string(),
   language: z.string(),
   command: z.string(),
-  args: z.array(z.string()).default(() => []),
+  args: z.array(z.string()).default([]),
   settingsKey: z.union([z.string(), z.null()]).default(null),
 });
 
@@ -9282,13 +9088,13 @@ const PluginStatusEntrySchema = z.object({
   blockedCapabilities: z.array(PluginBlockedCapabilitySchema),
   registeredLanguageServers: z
     .array(PluginRegisteredLanguageServerSchema)
-    .default(() => []),
+    .default([]),
   registeredExternalAgentAdapters: z
     .array(PluginRegisteredExternalAgentAdapterSchema)
-    .default(() => []),
+    .default([]),
   registeredCodegenTargets: z
     .array(PluginRegisteredCodegenTargetSchema)
-    .default(() => []),
+    .default([]),
   enablementSource: z
     .union([z.enum(PluginEnablementSourceEnum), z.null()])
     .default(null),
@@ -10126,7 +9932,7 @@ const SignatureHelpStatusEnum = {
 
 const SetCallableResponseSchema = z.object({
   callableId: z.union([IDSchema, z.null()]).default(null),
-  childCodeObjs: z.array(SetCallableChildCodeObjSchema).default(() => []),
+  childCodeObjs: z.array(SetCallableChildCodeObjSchema).default([]),
   lspStatus: z.enum(SignatureHelpStatusEnum),
 });
 
@@ -10183,12 +9989,10 @@ const SetChatSectionSettingsRequestSchema = z.object({
   sectionId: IDSchema,
   managed: z.boolean(),
   engineConfigId: z.union([IDSchema, z.null()]),
-  transcriptionProfileId: z.union([IDSchema, z.null()]),
   agentProfileId: z.union([IDSchema, z.null()]),
   thinking: z.boolean(),
   permissionMode: z.enum(ChatPermissionModeEnum),
   searchEnabled: z.boolean(),
-  dictationMode: z.enum(ChatDictationModeEnum),
 });
 
 export type SetChatSectionSettingsRequestInput = z.input<
@@ -11080,8 +10884,8 @@ export type ValidateAppDefinitionRequestInput = z.input<
 >;
 
 const ValidateAppDefinitionResponseSchema = z.object({
-  errors: z.array(AppValidationIssueSchema).default(() => []),
-  warnings: z.array(AppValidationIssueSchema).default(() => []),
+  errors: z.array(AppValidationIssueSchema).default([]),
+  warnings: z.array(AppValidationIssueSchema).default([]),
   capabilities: AppCapabilitiesSchema,
 });
 
@@ -11328,7 +11132,7 @@ export type RevealPathInOsFileExplorerRequestInput = z.input<
 const SettaHomeInfoResponseSchema = z.object({
   settaHome: z.string(),
   globalSettaFilesBase: z.string(),
-  activeSettaFilesLocation: z.union([z.string(), z.null()]),
+  activeSettaFilesLocation: z.string(),
   llmConfigPath: z.string(),
 });
 

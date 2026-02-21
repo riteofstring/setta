@@ -2,8 +2,6 @@ import asyncio
 from pathlib import Path
 
 import pytest
-from claude_agent_sdk import SystemMessage
-from claude_agent_sdk.types import StreamEvent
 
 from setta.agentic.external_adapters.base import (
     ExternalAgentRunContext,
@@ -11,8 +9,6 @@ from setta.agentic.external_adapters.base import (
 )
 from setta.agentic.external_adapters.claude_sdk import (
     ClaudeSdkAdapter,
-    _QUEUE_KIND_DONE,
-    _QUEUE_KIND_MESSAGE,
     _ClaudeSdkEventParser,
     _PendingApproval,
     _build_options,
@@ -526,73 +522,6 @@ class TestClaudeSdkAdapterParser:
 
         assert payload.get("preset") == "claude_code"
         assert payload.get("append") == "Use Setta conventions."
-
-    @pytest.mark.asyncio
-    async def test_stream_events_keeps_system_message_after_partial_stream(self) -> None:
-        adapter = ClaudeSdkAdapter()
-        run = AgentRun(id=ID("run-stream-system"))
-        context = ExternalAgentRunContext(
-            run=run,
-            config=ExternalAgentConfig(
-                id=ID("config-stream-system"),
-                name="Claude SDK",
-                toolType=ExternalAgentToolType.claude_code,
-                runMode=ExternalAgentRunMode.sdk,
-            ),
-            profile=None,
-            project_config_id=ID("project-1"),
-            chat_id=ID("chat-1"),
-            section_id=None,
-            inputs={"runType": "external_agent", "allowUnscoped": True},
-            system_prompt="System prompt",
-            working_dir=Path("."),
-            env={},
-        )
-        queue: asyncio.Queue[tuple[str, object]] = asyncio.Queue()
-        handle = ExternalAgentRunHandle(run_id=run.id, metadata={"queue": queue})
-
-        # Regresses the ordering bug where SystemMessage payloads were dropped once
-        # any StreamEvent had already marked the run as partial-streaming.
-        await queue.put(
-            (
-                _QUEUE_KIND_MESSAGE,
-                StreamEvent(
-                    uuid="stream-1",
-                    session_id="session-1",
-                    event={
-                        "type": "message_start",
-                        "message": {"id": "msg-1", "content": []},
-                    },
-                ),
-            )
-        )
-        await queue.put(
-            (
-                _QUEUE_KIND_MESSAGE,
-                SystemMessage(
-                    subtype="mcp_status",
-                    data={
-                        "mcp_servers": [
-                            {
-                                "serverId": "filesystem",
-                                "status": "failed",
-                                "error": "spawn failed",
-                            }
-                        ]
-                    },
-                ),
-            )
-        )
-        await queue.put((_QUEUE_KIND_DONE, None))
-
-        events = [event async for event in adapter.stream_events(handle, context)]
-
-        assert any(event.stream_chunk is not None for event in events)
-        system_raw_events = [
-            event.raw for event in events if isinstance(event.raw, dict)
-        ]
-        assert len(system_raw_events) >= 1
-        assert any(raw.get("type") == "system_message" for raw in system_raw_events)
 
 
 class TestClaudeSdkAdapterToolResponse:

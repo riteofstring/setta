@@ -293,12 +293,6 @@ def _check_node(command_path: str | None) -> tuple[str | None, str | None, str |
     if not node_path:
         return None, None, f"Node executable not found ({node_command})"
     result, issue = _run_cli([node_path, "--version"])
-    if issue and issue.startswith("Timed out running "):
-        # Some hosts sporadically stall process launch; retry once with a longer timeout.
-        result, issue = _run_cli(
-            [node_path, "--version"],
-            timeout=_DEFAULT_CLI_TIMEOUT_SECONDS * 2,
-        )
     if issue:
         return node_path, None, issue
     if result is None:

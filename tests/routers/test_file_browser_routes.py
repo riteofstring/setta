@@ -14,7 +14,6 @@ from setta.binary import BinaryStore
 from setta.database.db_objs import DBE
 from setta.lsp.managers import stop_file_watcher, stop_lsps
 from setta.routers.artifact import (
-    CheckWorkspaceInitializedRequest,
     DEFAULT_FILE_BROWSER_MAX_FILE_CONTENT_BYTES,
     DeleteArtifactRequestItem,
     DeleteArtifactsRequest,
@@ -32,7 +31,6 @@ from setta.routers.artifact import (
     route_get_file_browser_root,
     route_get_folder_contents,
     route_import_files_to_artifacts,
-    route_check_workspace_initialized,
     route_transfer_file_browser_entry,
     route_update_artifacts,
     route_write_file_browser_file_content,
@@ -50,7 +48,7 @@ from setta.types.share_deployment import (
 from setta.types.artifact import ArtifactType, FileArtifact
 from setta.types.binary_content import BinaryContentRef
 from setta.utils.constants import C
-from setta.utils.paths import build_files_root_from_base, get_setta_paths
+from setta.utils.paths import get_setta_paths
 from tests.utils.runtime_context import runtime_context
 from tests.utils.manager_fixture import _seed_minimal_setta_files
 from tests.utils.setta_paths import temporary_setta_paths
@@ -627,108 +625,27 @@ class TestFileBrowserRoutes:
         state = await self._build_state()
         with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
             root_path = Path(tmpdir)
-            initialized_local = root_path / "initialized-local-folder"
-            initialized_local.mkdir()
-            (initialized_local / "setta_files").mkdir()
-            initialized_local_dev = root_path / "initialized-local-dev-folder"
-            initialized_local_dev.mkdir()
-            (initialized_local_dev / "setta_files_dev").mkdir()
-            initialized_global = root_path / "initialized-global-folder"
-            initialized_global.mkdir()
+            initialized = root_path / "initialized-folder"
+            initialized.mkdir()
+            (initialized / "setta_files").mkdir()
             plain = root_path / "plain-folder"
             plain.mkdir()
-            with TemporaryDirectory() as setta_home_tmpdir:
-                setta_home = Path(setta_home_tmpdir) / ".setta"
-                setta_home.mkdir(parents=True, exist_ok=True)
-                global_setta_files_base = setta_home / "setta_files"
-                global_setta_files_base.mkdir(parents=True, exist_ok=True)
-                build_files_root_from_base(
-                    global_setta_files_base,
-                    initialized_global,
-                ).mkdir(parents=True, exist_ok=True)
-                with temporary_setta_paths(setta_home=setta_home):
-                    with runtime_context(state) as runtime_ctx:
-                        items = route_get_folder_contents(
-                            GetFolderContentsRequest(
-                                folderPath=str(root_path),
-                                includeSettaInitialized=True,
-                            ),
-                            runtime_ctx,
-                        )
+            with runtime_context(state) as runtime_ctx:
+                items = route_get_folder_contents(
+                    GetFolderContentsRequest(
+                        folderPath=str(root_path),
+                        includeSettaInitialized=True,
+                    ),
+                    runtime_ctx,
+                )
 
         flags_by_name = {
             item["name"]: item.get("isSettaInitialized", False)
             for item in items
             if item["type"] == "folder"
         }
-        assert flags_by_name["initialized-local-folder"] is True
-        assert flags_by_name["initialized-local-dev-folder"] is True
-        assert flags_by_name["initialized-global-folder"] is True
+        assert flags_by_name["initialized-folder"] is True
         assert flags_by_name["plain-folder"] is False
-
-    async def test_check_workspace_initialized_handles_local_and_global(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        with TemporaryDirectory(dir=str(get_setta_paths().workspace_root)) as tmpdir:
-            root_path = Path(tmpdir)
-            initialized_local = root_path / "initialized-local-folder"
-            initialized_local.mkdir()
-            (initialized_local / "setta_files").mkdir()
-            initialized_local_dev = root_path / "initialized-local-dev-folder"
-            initialized_local_dev.mkdir()
-            (initialized_local_dev / "setta_files_dev").mkdir()
-            initialized_global = root_path / "initialized-global-folder"
-            initialized_global.mkdir()
-            plain = root_path / "plain-folder"
-            plain.mkdir()
-            with TemporaryDirectory() as setta_home_tmpdir:
-                setta_home = Path(setta_home_tmpdir) / ".setta"
-                setta_home.mkdir(parents=True, exist_ok=True)
-                global_setta_files_base = setta_home / "setta_files"
-                global_setta_files_base.mkdir(parents=True, exist_ok=True)
-                build_files_root_from_base(
-                    global_setta_files_base,
-                    initialized_global,
-                ).mkdir(parents=True, exist_ok=True)
-                with temporary_setta_paths(setta_home=setta_home):
-                    with runtime_context(state) as runtime_ctx:
-                        assert (
-                            route_check_workspace_initialized(
-                                CheckWorkspaceInitializedRequest(
-                                    folderPath=str(initialized_local)
-                                ),
-                                runtime_ctx,
-                            )
-                            is True
-                        )
-                        assert (
-                            route_check_workspace_initialized(
-                                CheckWorkspaceInitializedRequest(
-                                    folderPath=str(initialized_global)
-                                ),
-                                runtime_ctx,
-                            )
-                            is True
-                        )
-                        assert (
-                            route_check_workspace_initialized(
-                                CheckWorkspaceInitializedRequest(
-                                    folderPath=str(initialized_local_dev)
-                                ),
-                                runtime_ctx,
-                            )
-                            is True
-                        )
-                        assert (
-                            route_check_workspace_initialized(
-                                CheckWorkspaceInitializedRequest(
-                                    folderPath=str(plain)
-                                ),
-                                runtime_ctx,
-                            )
-                            is False
-                        )
 
     async def test_get_folder_contents_omits_setta_initialized_flag_by_default(
         self,
@@ -762,56 +679,6 @@ class TestFileBrowserRoutes:
                         runtime_ctx,
                     )
         assert ctx.value.status_code == 403
-
-    async def test_get_folder_contents_allows_outside_cwd_when_enabled(self) -> None:
-        state = await self._build_state()
-        with TemporaryDirectory() as tmpdir:
-            outside_root = Path(tmpdir)
-            (outside_root / "outside-folder").mkdir(parents=True, exist_ok=True)
-            (outside_root / "outside-file.txt").write_text("outside", encoding="utf-8")
-            with runtime_context(state) as runtime_ctx:
-                items = route_get_folder_contents(
-                    GetFolderContentsRequest(
-                        folderPath=tmpdir,
-                        allowOutsideWorkspaceRoot=True,
-                    ),
-                    runtime_ctx,
-                )
-        names = {item["name"] for item in items}
-        assert "outside-folder" in names
-        assert "outside-file.txt" in names
-
-    async def test_check_workspace_initialized_blocks_outside_cwd_by_default(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        with TemporaryDirectory() as tmpdir:
-            with runtime_context(state) as runtime_ctx:
-                with pytest.raises(HTTPException) as ctx:
-                    route_check_workspace_initialized(
-                        CheckWorkspaceInitializedRequest(folderPath=tmpdir),
-                        runtime_ctx,
-                    )
-        assert ctx.value.status_code == 403
-
-    async def test_check_workspace_initialized_allows_outside_cwd_when_enabled(
-        self,
-    ) -> None:
-        state = await self._build_state()
-        with TemporaryDirectory() as tmpdir:
-            outside_root = Path(tmpdir)
-            (outside_root / "setta_files").mkdir(parents=True, exist_ok=True)
-            with runtime_context(state) as runtime_ctx:
-                assert (
-                    route_check_workspace_initialized(
-                        CheckWorkspaceInitializedRequest(
-                            folderPath=tmpdir,
-                            allowOutsideWorkspaceRoot=True,
-                        ),
-                        runtime_ctx,
-                    )
-                    is True
-                )
 
     async def test_get_folder_contents_errors(self) -> None:
         state = await self._build_state()

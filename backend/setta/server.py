@@ -118,18 +118,6 @@ async def lifespan(app: FastAPI):
     finally:
         if browser_task is not None:
             await browser_task
-        stop_transcription_cleanup = getattr(
-            app.state.setta,
-            "stop_transcription_session_cleanup_loop",
-            None,
-        )
-        if callable(stop_transcription_cleanup):
-            try:
-                await stop_transcription_cleanup()
-            except Exception:
-                logger.exception(
-                    "Transcription session cleanup loop shutdown failed during lifespan teardown."
-                )
         try:
             app.state.setta.plugin_manager.shutdown_backend_plugins()
         except Exception:

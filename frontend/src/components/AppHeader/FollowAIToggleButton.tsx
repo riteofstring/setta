@@ -116,8 +116,14 @@ export function FollowAIToggleButton() {
     <NavbarMenuDropdown
       trigger={
         <span className="inline-flex items-center gap-1">
-          <RiFocus2Line />
-          Follow AI
+          <RiFocus2Line size={15} aria-hidden="true" />
+          <span
+            className="hidden @[31.25rem]:block"
+            data-testid="follow-ai-visible-label"
+          >
+            Follow AI
+          </span>
+          <span className="sr-only @[31.25rem]:hidden">Follow AI</span>
         </span>
       }
       triggerClassName={`nodrag relative inline-flex h-full cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold transition-colors focus-visible:ring-2 active:!bg-transparent active:text-setta-500 dark:hover:bg-transparent active:dark:text-setta-300 ${stateClasses}`}
