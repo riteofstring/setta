@@ -142,3 +142,36 @@ Trace observation:
 
 Trace observation:
 - Focused `Core -> All Settings` trace continued to show no forced-reflow/DOM-size insight entries.
+
+## 2026-02-20 - Root-cause observations (why large view switches stay expensive)
+- Live `All Settings` DOM snapshot (CDP evaluate script):
+  - `reactFlowNodes`: `42`
+  - `sectionHeaders`: `42`
+  - `paramRows`: `697`
+  - `kwargsControls`: `42`
+  - `handles`: `84`
+  - total DOM elements: `9711`
+- Dominant bottleneck is frontend rendering/measurement scale, not backend handler latency:
+  - backend `setActiveViewMode` handlers typically complete around ~170ms in logs, while end-to-end tab switch remains ~1.3s-1.5s.
+
+Observed root causes:
+1. Large one-shot mount workload in `All Settings`:
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` mounts full area trees for every visible section via `AreaSwitch`.
+- This produces a high immediate main-thread burst when many sections become visible at once.
+
+2. Repeated synchronous layout measurement across many section subtrees:
+- `frontend/src/components/Section/Header/SectionHeader.tsx` uses `getComputedStyle` + `offsetHeight` + `ResizeObserver` per section header.
+- `frontend/src/components/Section/SectionParts/KwargsControls.tsx` runs similar measurement logic for each args controls row.
+- `frontend/src/components/Section/SectionParts/Search.tsx` measures search height and computes handle offsets, including `getBoundingClientRect` fallback logic.
+
+3. Param-area observer/measurement fan-out:
+- `frontend/src/components/Params/GroupContainer.tsx` uses `MutationObserver` and `ResizeObserver`, queries `[data-param-row]` elements, and iterates row heights for min-height calculation.
+- With hundreds of param rows, this scales poorly during large view switches.
+
+4. High volume of per-item global-store derivation work:
+- `frontend/src/components/Section/Container/SectionContainer.tsx` derives multiple values per section from project state (`getCurrEffectiveSectionImpl`, view-mode visibility, active membership, codegen checks).
+- `frontend/src/components/Params/ParamContainer.tsx` computes display metadata per param row using store selectors.
+
+5. Expensive deep comparison usage in hot render paths:
+- `_.isEqual` is used in several high-frequency selectors/memo boundaries (for example in `SectionContainer`, `ContainerWrappers`, and `ParamContainer`).
+- At large tree sizes, deep equality checks add non-trivial CPU overhead.
