@@ -6,6 +6,7 @@ from setta.types.agentic import (
     AgentRun,
     AgentRunStatus,
     EngineConfig,
+    TranscriptionProfile,
 )
 from setta.types.external_agents import ExternalAgentConfig
 from setta.types.id import ID
@@ -43,6 +44,16 @@ def save_engine_configs(dbe: DBE, configs: list[EngineConfig]) -> None:
     dbe.write_engine_configs(payload)
 
 
+def load_transcription_profiles(dbe: DBE) -> list[TranscriptionProfile]:
+    payload = dbe.read_transcription_profiles()
+    return [TranscriptionProfile.model_validate(entry) for entry in payload]
+
+
+def save_transcription_profiles(dbe: DBE, profiles: list[TranscriptionProfile]) -> None:
+    payload = [profile.model_dump(mode="json") for profile in profiles]
+    dbe.write_transcription_profiles(payload)
+
+
 def get_external_agent_config_index(
     configs: list[ExternalAgentConfig],
     config_id: ID,
@@ -70,6 +81,22 @@ def require_engine_config(dbe: DBE, config_id: ID) -> EngineConfig:
     configs = load_engine_configs(dbe)
     config_idx = get_engine_config_index(configs, config_id)
     return configs[config_idx]
+
+
+def get_transcription_profile_index(
+    profiles: list[TranscriptionProfile],
+    profile_id: ID,
+) -> int:
+    for idx, profile in enumerate(profiles):
+        if profile.id == profile_id:
+            return idx
+    raise KeyError(f"Transcription profile {profile_id} not found")
+
+
+def require_transcription_profile(dbe: DBE, profile_id: ID) -> TranscriptionProfile:
+    profiles = load_transcription_profiles(dbe)
+    profile_idx = get_transcription_profile_index(profiles, profile_id)
+    return profiles[profile_idx]
 
 
 def get_agent_profile_index(profiles: list[AgentProfile], profile_id: ID) -> int:

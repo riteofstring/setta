@@ -1,6 +1,7 @@
 import type { Completion, CompletionSource } from "@codemirror/autocomplete";
 import {
   isAbsoluteBrowserPath,
+  normalizeBrowserPath,
   resolvePathWithinRoot,
 } from "utils/browserPaths";
 import { res200 } from "utils/endpointUtils";
@@ -12,7 +13,11 @@ type FolderPathCompletionOptions = {
   pathSeparator?: string;
   ignorePatterns?: string[] | null;
   maxEntries?: number;
+  allowOutsideWorkspaceRoot?: boolean;
 };
+
+const WINDOWS_DRIVE_ROOT_REGEX = /^[A-Za-z]:$/;
+const WINDOWS_DRIVE_ABSOLUTE_REGEX = /^[A-Za-z]:\//;
 
 function resolveSeparator(text: string, fallback: string): string {
   const lastSlash = text.lastIndexOf("/");
@@ -42,19 +47,34 @@ function splitPathInput(text: string, fallbackSeparator: string) {
   };
 }
 
+function resolveAbsoluteCompletionFolder(absoluteCandidate: string) {
+  let normalizedCandidate = normalizeBrowserPath(absoluteCandidate);
+  if (WINDOWS_DRIVE_ROOT_REGEX.test(normalizedCandidate)) {
+    normalizedCandidate = `${normalizedCandidate}/`;
+  }
+  if (WINDOWS_DRIVE_ABSOLUTE_REGEX.test(normalizedCandidate)) {
+    const driveRoot = `${normalizedCandidate.slice(0, 2)}/`;
+    return resolvePathWithinRoot(normalizedCandidate, driveRoot);
+  }
+  return resolvePathWithinRoot(normalizedCandidate, "/");
+}
+
 async function loadFolderEntries({
   folderPath,
   ignorePatterns,
   maxEntries,
+  allowOutsideWorkspaceRoot,
 }: {
   folderPath: string;
   ignorePatterns: string[] | null | undefined;
   maxEntries: number | undefined;
+  allowOutsideWorkspaceRoot: boolean | undefined;
 }): Promise<FolderContentItem[]> {
   const res = await route_get_folder_contents({
     folderPath,
     ignorePatterns: ignorePatterns ?? null,
     maxEntries: maxEntries ?? null,
+    allowOutsideWorkspaceRoot: allowOutsideWorkspaceRoot ?? false,
     missingFolderBehavior: "empty",
   });
   if (!res200(res)) {
@@ -87,6 +107,7 @@ export function createFolderPathCompletionSource(
       folderPath,
       ignorePatterns: options.ignorePatterns,
       maxEntries: options.maxEntries,
+      allowOutsideWorkspaceRoot: options.allowOutsideWorkspaceRoot,
     }).then((entries) => {
       inflight.delete(folderPath);
       cache.set(folderPath, entries);
@@ -103,7 +124,8 @@ export function createFolderPathCompletionSource(
     }
     if (
       isAbsoluteBrowserPath(textBefore) &&
-      !resolvePathWithinRoot(textBefore, options.rootPath)
+      !resolvePathWithinRoot(textBefore, options.rootPath) &&
+      !options.allowOutsideWorkspaceRoot
     ) {
       return null;
     }
@@ -112,7 +134,11 @@ export function createFolderPathCompletionSource(
       textBefore,
       fallbackSeparator,
     );
-    const targetFolder = resolvePathWithinRoot(dirPart || "", options.rootPath);
+    const absoluteCandidate = dirPart || separator;
+    const targetFolder =
+      (options.allowOutsideWorkspaceRoot && isAbsoluteBrowserPath(textBefore)
+        ? resolveAbsoluteCompletionFolder(absoluteCandidate)
+        : null) ?? resolvePathWithinRoot(dirPart || "", options.rootPath);
     if (!targetFolder) {
       return null;
     }
@@ -154,7 +180,7 @@ export function createDynamicFolderPathCompletionSource(
 
   const getCacheKey = (options: FolderPathCompletionOptions) => {
     const ignoreKey = (options.ignorePatterns ?? []).join("\n");
-    return `${options.rootPath ?? ""}||${options.pathSeparator ?? ""}||${ignoreKey}||${options.maxEntries ?? ""}`;
+    return `${options.rootPath ?? ""}||${options.pathSeparator ?? ""}||${ignoreKey}||${options.maxEntries ?? ""}||${options.allowOutsideWorkspaceRoot === true}`;
   };
 
   const getEntries = (
@@ -173,6 +199,7 @@ export function createDynamicFolderPathCompletionSource(
       folderPath,
       ignorePatterns: options.ignorePatterns,
       maxEntries: options.maxEntries,
+      allowOutsideWorkspaceRoot: options.allowOutsideWorkspaceRoot,
     }).then((entries) => {
       inflight.delete(folderPath);
       cache.set(folderPath, entries);
@@ -203,7 +230,8 @@ export function createDynamicFolderPathCompletionSource(
     }
     if (
       isAbsoluteBrowserPath(textBefore) &&
-      !resolvePathWithinRoot(textBefore, options.rootPath)
+      !resolvePathWithinRoot(textBefore, options.rootPath) &&
+      !options.allowOutsideWorkspaceRoot
     ) {
       return null;
     }
@@ -212,7 +240,11 @@ export function createDynamicFolderPathCompletionSource(
       textBefore,
       fallbackSeparator,
     );
-    const targetFolder = resolvePathWithinRoot(dirPart || "", options.rootPath);
+    const absoluteCandidate = dirPart || separator;
+    const targetFolder =
+      (options.allowOutsideWorkspaceRoot && isAbsoluteBrowserPath(textBefore)
+        ? resolveAbsoluteCompletionFolder(absoluteCandidate)
+        : null) ?? resolvePathWithinRoot(dirPart || "", options.rootPath);
     if (!targetFolder) {
       return null;
     }
