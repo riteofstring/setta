@@ -143,7 +143,7 @@ export function buildProjectChatHydrationCacheKey({
   return `${normalizedChatId}:${resolvedRunType}`;
 }
 
-export type ProjectChatHydrationRetryStatus =
+type ProjectChatHydrationRetryStatus =
   | "in_flight"
   | "succeeded"
   | "failed"

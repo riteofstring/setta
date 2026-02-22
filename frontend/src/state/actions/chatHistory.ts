@@ -11,7 +11,7 @@ export type ChatHistoryCompatibility = {
   runType: ChatRunType;
   engineConfigId: string | null;
 };
-export type ChatRunProvenance = {
+type ChatRunProvenance = {
   runType: ChatRunType;
   engineConfigId: string | null;
 };
