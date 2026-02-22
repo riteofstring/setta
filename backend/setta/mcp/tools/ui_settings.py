@@ -691,29 +691,8 @@ async def _reveal_settings(
     )
     share_session_id = _resolve_share_session_id(ctx)
     preferred_frontend_websocket_id = _resolve_frontend_websocket_id(ctx)
-    if (
-        share_session_id is not None
-        and preferred_frontend_websocket_id is not None
-    ):
-        return RevealUISettingResult(
-            requestId=request_id,
-            projectConfigId=project_config_id,
-            durationMs=bounded_duration_ms,
-            emittedRevealCount=0,
-            statuses=[
-                RevealUISettingStatus(
-                    settingId=setting_id,
-                    status="failed",
-                    error=UISettingToolError(
-                        code="mutation_failed",
-                        message=(
-                            "Share-scoped reveal requests cannot provide "
-                            "frontendWebsocketId. Routing affinity is server-managed."
-                        ),
-                    ),
-                )
-            ],
-        )
+    if share_session_id is not None:
+        preferred_frontend_websocket_id = None
     frontend_sender = ctx.fastmcp.state.wmh_frontend_sender
     available_frontend_websocket_ids = (
         frontend_sender.list_frontend_websocket_ids_for_ui_setting_reveal(
@@ -721,7 +700,8 @@ async def _reveal_settings(
         )
     )
     if (
-        preferred_frontend_websocket_id is None
+        share_session_id is None
+        and preferred_frontend_websocket_id is None
         and len(available_frontend_websocket_ids) > 1
     ):
         return RevealUISettingResult(

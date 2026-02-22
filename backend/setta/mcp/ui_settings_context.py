@@ -140,6 +140,8 @@ def resolve_share_session_id_from_ctx(ctx: Context) -> str | None:
 
 
 def resolve_frontend_websocket_id_from_ctx(ctx: Context) -> str | None:
+    if resolve_share_session_id_from_ctx(ctx) is not None:
+        return None
     agentic_context = _resolve_agentic_context(ctx)
     if agentic_context is not None:
         normalized_frontend_websocket_id = _normalize_non_empty_string(

@@ -107,12 +107,13 @@ class ToolRunner:
             meta["sectionId"] = (
                 str(self._section_id) if self._section_id is not None else None
             )
-            meta["frontendWebsocketId"] = (
-                self._frontend_websocket_id
-                if isinstance(self._frontend_websocket_id, str)
-                and self._frontend_websocket_id.strip() != ""
-                else None
-            )
+            if self._share_session_id is None:
+                meta["frontendWebsocketId"] = (
+                    self._frontend_websocket_id
+                    if isinstance(self._frontend_websocket_id, str)
+                    and self._frontend_websocket_id.strip() != ""
+                    else None
+                )
         return meta or None
 
     def _build_error_message(

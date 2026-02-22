@@ -20,8 +20,6 @@ from setta.plugins.models import (
 )
 from setta.project_state.project_manager_types import (
     GetAppDefinitionRequest,
-    SetAppDefinitionRequest,
-    SetProjectConfigCodegenTargetsRequest,
     SetShowParamDisplayNamesRequest,
     SetWatchCodeEnabledRequest,
     SetWatchCodeInputsRequest,
@@ -31,8 +29,6 @@ from setta.types.chat_messages import JSONValue
 from setta.types.id import ID
 from setta.types.project_config import (
     ProjectCodegenLanguage,
-    ProjectCodegenPluginTarget,
-    ProjectCodegenPythonTarget,
     WatchCodeFolder,
     project_config_has_codegen_language,
 )
@@ -55,12 +51,6 @@ PLUGIN_SETTING_ID_PREFIX = "plugin::"
 PLUGIN_UI_SETTINGS_SCHEMA_KEY = "x-setta-ui-settings"
 PLUGIN_RUNTIME_OPERATIONAL_STATES = frozenset({"active", "pending_restart"})
 _JS_ENCODE_URI_COMPONENT_SAFE_CHARS = "-_.!~*'()"
-_DEFAULT_MINIMAL_APP_SPEC: dict[str, JSONValue] = {
-    "key": "root",
-    "type": "Stack",
-    "props": {},
-    "children": [],
-}
 _REQUIRED_CORE_REVEAL_ACTIVATION_STEP_BY_SETTING_ID: dict[str, tuple[str, str]] = {
     "core.project_ai_settings.llm_api_keys": (
         "project_ai_settings_accordion_item",
@@ -1134,14 +1124,16 @@ def _build_plugin_write_value(
             validate_ui_setting_value(value_schema, observed_old_value)
 
         try:
-            old_value, new_value = plugin_manager.compare_and_write_plugin_config_path_value(
-                plugin_id=plugin_id,
-                setting_id=setting_id,
-                config_path=config_path,
-                default_value=default_value,
-                value=value,
-                expected_old_value=expected_old_value,
-                validate_old_value=_validate_old_value,
+            old_value, new_value = (
+                plugin_manager.compare_and_write_plugin_config_path_value(
+                    plugin_id=plugin_id,
+                    setting_id=setting_id,
+                    config_path=config_path,
+                    default_value=default_value,
+                    value=value,
+                    expected_old_value=expected_old_value,
+                    validate_old_value=_validate_old_value,
+                )
             )
         except PluginManagerError as exc:
             raise _convert_plugin_manager_error_for_ui_setting(
@@ -1208,14 +1200,16 @@ def _build_plugin_backend_write_value(
             plugin_id=plugin_id,
         )
         try:
-            old_value, new_value = plugin_manager.compare_and_write_backend_ui_setting_value(
-                plugin_id=plugin_id,
-                setting_id=setting_id,
-                read_handler_id=read_handler_id,
-                write_handler_id=write_handler_id,
-                project_config_id=project_config_id,
-                value=value,
-                expected_old_value=expected_old_value,
+            old_value, new_value = (
+                plugin_manager.compare_and_write_backend_ui_setting_value(
+                    plugin_id=plugin_id,
+                    setting_id=setting_id,
+                    read_handler_id=read_handler_id,
+                    write_handler_id=write_handler_id,
+                    project_config_id=project_config_id,
+                    value=value,
+                    expected_old_value=expected_old_value,
+                )
             )
         except PluginManagerError as exc:
             raise _convert_plugin_manager_error_for_ui_setting(
@@ -1804,9 +1798,7 @@ async def _write_watch_code_folders(
                 watchCodeFiles=[],
             ),
             expected_old_value=(
-                expected_old_value
-                if isinstance(expected_old_value, list)
-                else None
+                expected_old_value if isinstance(expected_old_value, list) else None
             ),
         )
     except UISettingExpectedOldValueMismatchError as exc:
@@ -1841,9 +1833,7 @@ async def _write_watch_code_files(
                 watchCodeFiles=list(value),
             ),
             expected_old_value=(
-                expected_old_value
-                if isinstance(expected_old_value, list)
-                else None
+                expected_old_value if isinstance(expected_old_value, list) else None
             ),
         )
     except UISettingExpectedOldValueMismatchError as exc:
@@ -1963,52 +1953,21 @@ async def _write_python_codegen_enabled(
         raise UISettingValidationError(
             "invalid_value_type", "Expected a boolean value."
         )
-    old_value = _read_python_codegen_enabled(ctx, project_config_id)
-    _assert_expected_old_value_matches(
-        setting_id="core.run_instructions.python_codegen_enabled",
-        expected_old_value=expected_old_value,
-        observed_old_value=old_value,
-    )
     manager = _get_project_manager(ctx, project_config_id)
-    project_state = manager.get_single_config_state(project_config_id)
-    plugin_targets: list[ProjectCodegenPluginTarget] = []
-    python_target: ProjectCodegenPythonTarget | None = None
-    for target in project_state.projectConfig.codegenTargets:
-        if target.language == ProjectCodegenLanguage.python:
-            if not isinstance(target, ProjectCodegenPythonTarget):
-                raise UISettingValidationError(
-                    "mutation_failed",
-                    "Project config has invalid python codegen target type.",
-                )
-            python_target = target
-            continue
-        if not isinstance(target, ProjectCodegenPluginTarget):
-            raise UISettingValidationError(
-                "mutation_failed",
-                f"Project config has invalid plugin codegen target type: {target.language}.",
-            )
-        plugin_targets.append(target)
-    next_targets: list[ProjectCodegenPluginTarget | ProjectCodegenPythonTarget]
-    if value:
-        next_targets = [
-            *plugin_targets,
-            python_target
-            if python_target is not None
-            else ProjectCodegenPythonTarget(),
-        ]
-    else:
-        next_targets = plugin_targets
-    await manager.set_project_config_codegen_targets(
-        SetProjectConfigCodegenTargetsRequest(
-            projectConfigId=project_config_id,
-            codegenTargets=next_targets,
+    try:
+        old_value, new_value = await manager.compare_and_set_python_codegen_enabled(
+            project_config_id,
+            value,
+            expected_old_value=(
+                expected_old_value if isinstance(expected_old_value, bool) else None
+            ),
         )
-    )
-    new_value = _read_python_codegen_enabled(ctx, project_config_id)
+    except UISettingExpectedOldValueMismatchError as exc:
+        raise UISettingValidationError("mutation_failed", str(exc)) from exc
     return UISettingMutationResult(
         oldValue=old_value,
         newValue=new_value,
-        normalizedValue=value,
+        normalizedValue=new_value,
         changed=old_value != new_value,
     )
 
@@ -2050,31 +2009,6 @@ async def _get_app_definition(ctx: "Context", project_config_id: ID) -> AppDefin
     return current.appDefinition or AppDefinition()
 
 
-async def _set_app_definition_field(
-    ctx: "Context",
-    project_config_id: ID,
-    *,
-    app_spec_version: str | None = None,
-    catalog_id: str | None = None,
-    app_spec_path: str | None = None,
-    theme: dict[str, JSONValue] | None = None,
-) -> None:
-    manager = _get_project_manager(ctx, project_config_id)
-    current = await manager.get_app_definition(GetAppDefinitionRequest())
-    app_spec = current.appSpec
-    if not isinstance(app_spec, dict):
-        app_spec = deepcopy(_DEFAULT_MINIMAL_APP_SPEC)
-    await manager.set_app_definition(
-        SetAppDefinitionRequest(
-            appSpec=app_spec,
-            appSpecVersion=app_spec_version,
-            catalogId=catalog_id,
-            appSpecPath=app_spec_path,
-            theme=theme,
-        )
-    )
-
-
 async def _read_app_catalog_id(ctx: "Context", project_config_id: ID) -> JSONValue:
     definition = await _get_app_definition(ctx, project_config_id)
     return definition.catalogId
@@ -2091,18 +2025,16 @@ async def _write_app_catalog_id(
             "invalid_value_type",
             "Expected a non-empty string value.",
         )
-    old_value = await _read_app_catalog_id(ctx, project_config_id)
-    _assert_expected_old_value_matches(
-        setting_id="core.app.catalog_id",
-        expected_old_value=expected_old_value,
-        observed_old_value=old_value,
-    )
-    await _set_app_definition_field(
-        ctx,
-        project_config_id,
-        catalog_id=value.strip(),
-    )
-    new_value = await _read_app_catalog_id(ctx, project_config_id)
+    manager = _get_project_manager(ctx, project_config_id)
+    try:
+        old_value, new_value = await manager.compare_and_set_app_definition_catalog_id(
+            catalog_id=value.strip(),
+            expected_old_value=(
+                expected_old_value if isinstance(expected_old_value, str) else None
+            ),
+        )
+    except UISettingExpectedOldValueMismatchError as exc:
+        raise UISettingValidationError("mutation_failed", str(exc)) from exc
     return UISettingMutationResult(
         oldValue=old_value,
         newValue=new_value,
@@ -2127,18 +2059,19 @@ async def _write_app_spec_version(
             "invalid_value_type",
             "Expected a non-empty string value.",
         )
-    old_value = await _read_app_spec_version(ctx, project_config_id)
-    _assert_expected_old_value_matches(
-        setting_id="core.app.spec_version",
-        expected_old_value=expected_old_value,
-        observed_old_value=old_value,
-    )
-    await _set_app_definition_field(
-        ctx,
-        project_config_id,
-        app_spec_version=value.strip(),
-    )
-    new_value = await _read_app_spec_version(ctx, project_config_id)
+    manager = _get_project_manager(ctx, project_config_id)
+    try:
+        (
+            old_value,
+            new_value,
+        ) = await manager.compare_and_set_app_definition_spec_version(
+            app_spec_version=value.strip(),
+            expected_old_value=(
+                expected_old_value if isinstance(expected_old_value, str) else None
+            ),
+        )
+    except UISettingExpectedOldValueMismatchError as exc:
+        raise UISettingValidationError("mutation_failed", str(exc)) from exc
     return UISettingMutationResult(
         oldValue=old_value,
         newValue=new_value,
@@ -2165,18 +2098,16 @@ async def _write_app_spec_path(
             "invalid_value_type",
             "Expected a non-empty string value.",
         )
-    old_value = await _read_app_spec_path(ctx, project_config_id)
-    _assert_expected_old_value_matches(
-        setting_id="core.app.spec_path",
-        expected_old_value=expected_old_value,
-        observed_old_value=old_value,
-    )
-    await _set_app_definition_field(
-        ctx,
-        project_config_id,
-        app_spec_path=value.strip(),
-    )
-    new_value = await _read_app_spec_path(ctx, project_config_id)
+    manager = _get_project_manager(ctx, project_config_id)
+    try:
+        old_value, new_value = await manager.compare_and_set_app_definition_spec_path(
+            app_spec_path=value.strip(),
+            expected_old_value=(
+                expected_old_value if isinstance(expected_old_value, str) else None
+            ),
+        )
+    except UISettingExpectedOldValueMismatchError as exc:
+        raise UISettingValidationError("mutation_failed", str(exc)) from exc
     return UISettingMutationResult(
         oldValue=old_value,
         newValue=new_value,
@@ -2206,25 +2137,16 @@ async def _write_app_theme_mode(
             "invalid_value_range_or_enum",
             "Theme mode must be one of: auto, dark, light.",
         )
-    old_value = await _read_app_theme_mode(ctx, project_config_id)
-    _assert_expected_old_value_matches(
-        setting_id="core.app.theme_mode",
-        expected_old_value=expected_old_value,
-        observed_old_value=old_value,
-    )
-    definition = await _get_app_definition(ctx, project_config_id)
-    theme_payload: dict[str, JSONValue]
-    if isinstance(definition.theme, dict):
-        theme_payload = dict(definition.theme)
-    else:
-        theme_payload = {}
-    theme_payload["mode"] = value
-    await _set_app_definition_field(
-        ctx,
-        project_config_id,
-        theme=theme_payload,
-    )
-    new_value = await _read_app_theme_mode(ctx, project_config_id)
+    manager = _get_project_manager(ctx, project_config_id)
+    try:
+        old_value, new_value = await manager.compare_and_set_app_definition_theme_mode(
+            theme_mode=value,
+            expected_old_value=(
+                expected_old_value if isinstance(expected_old_value, str) else None
+            ),
+        )
+    except UISettingExpectedOldValueMismatchError as exc:
+        raise UISettingValidationError("mutation_failed", str(exc)) from exc
     return UISettingMutationResult(
         oldValue=old_value,
         newValue=new_value,

@@ -278,10 +278,37 @@ def test_resolve_frontend_websocket_id_matrix(
     )
     ctx = _build_ctx(request_meta=request_meta, agentic_context=agentic_context)
 
-    assert (
-        resolve_frontend_websocket_id_from_ctx(ctx)
-        == expected_frontend_websocket_id
+    assert resolve_frontend_websocket_id_from_ctx(ctx) == expected_frontend_websocket_id
+
+
+@pytest.mark.parametrize(
+    ("agentic_frontend_websocket_id", "meta_frontend_websocket_id"),
+    [
+        ("frontend-agentic", "frontend-meta"),
+        ("   ", "frontend-meta"),
+        (None, "frontend-meta"),
+    ],
+)
+def test_resolve_frontend_websocket_id_ignores_affinity_in_share_scope(
+    agentic_frontend_websocket_id: str | None,
+    meta_frontend_websocket_id: str | None,
+) -> None:
+    """Share-scoped reveal routing must ignore caller-provided frontend affinity."""
+
+    request_meta: dict[str, object] = {"shareSessionId": "share-meta"}
+    if meta_frontend_websocket_id is not None:
+        request_meta["frontendWebsocketId"] = meta_frontend_websocket_id
+    agentic_context = _build_agentic_context(
+        project_config_id="project-agentic",
+        frontend_websocket_id=agentic_frontend_websocket_id,
     )
+    ctx = _build_ctx(
+        request_meta=request_meta,
+        agentic_context=agentic_context,
+        share_session_resolver=lambda _ctx: "share-resolved",
+    )
+
+    assert resolve_frontend_websocket_id_from_ctx(ctx) is None
 
 
 @pytest.mark.parametrize(

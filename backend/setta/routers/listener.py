@@ -146,6 +146,9 @@ async def route_run_mcp_tools(
     if project_config_id is None:
         raise KeyError(f"Chat {x.chatId} missing project config id")
     server_ids = ctx.state.agent_runner.config.resolve_mcp_server_ids(chat.llmConfig)
+    frontend_websocket_id = x.frontendWebsocketId
+    if ctx.share_session_id is not None:
+        frontend_websocket_id = None
     runner = ToolRunner(
         ctx.state.mcp_client,
         allowed_server_ids=set(server_ids),
@@ -153,7 +156,7 @@ async def route_run_mcp_tools(
         project_config_id=project_config_id,
         chat_id=x.chatId,
         section_id=x.sectionId,
-        frontend_websocket_id=x.frontendWebsocketId,
+        frontend_websocket_id=frontend_websocket_id,
     )
     return await runner.run(x.toolCalls)
 

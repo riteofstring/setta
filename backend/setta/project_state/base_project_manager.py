@@ -394,6 +394,7 @@ from setta.types.project_config import (
     Position,
     ProjectCodegenLanguage,
     ProjectCodegenPluginTarget,
+    ProjectCodegenPythonTarget,
     ProjectCodegenTarget,
     ProjectConfig,
     TopLevelSectionLayout,
@@ -471,6 +472,12 @@ def _assert_ui_setting_expected_old_value_matches(
 
 HISTORY_COALESCE_WINDOW_TEXT_S = 0.75
 HISTORY_COALESCE_WINDOW_DRAG_S = 0.3
+_DEFAULT_MINIMAL_APP_SPEC: dict[str, JSONValue] = {
+    "key": "root",
+    "type": "Stack",
+    "props": {},
+    "children": [],
+}
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -2255,14 +2262,29 @@ class BaseProjectManager(ABC):
         """Update the codegen targets for a project configuration."""
         self.add_new_history_entry()
         project_state = self.get_single_config_state(x.projectConfigId)
+        self._apply_project_config_codegen_targets(
+            project_state=project_state,
+            codegen_targets=x.codegenTargets,
+        )
+        await self.update_and_broadcast_project_state(
+            project_state,
+            validate_name_rules=False,
+        )
+
+    def _apply_project_config_codegen_targets(
+        self,
+        *,
+        project_state: ProjectStateSingleConfig,
+        codegen_targets: list[ProjectCodegenTarget],
+    ) -> None:
         seen_languages: set[str] = set()
-        for target in x.codegenTargets:
+        for target in codegen_targets:
             if target.language in seen_languages:
                 raise ValueError(
                     f"Duplicate codegen target language: {target.language}"
                 )
             seen_languages.add(target.language)
-        self._resolve_plugin_codegen_targets(x.codegenTargets)
+        self._resolve_plugin_codegen_targets(codegen_targets)
         prev_python_target = get_python_codegen_target(project_state.projectConfig)
         prev_python_enabled = project_config_has_codegen_language(
             project_state.projectConfig,
@@ -2271,7 +2293,7 @@ class BaseProjectManager(ABC):
         prev_metadata_enabled = bool(
             prev_python_target and prev_python_target.generateMetadata
         )
-        project_state.projectConfig.codegenTargets = x.codegenTargets
+        project_state.projectConfig.codegenTargets = codegen_targets
         next_python_target = get_python_codegen_target(project_state.projectConfig)
         next_python_enabled = project_config_has_codegen_language(
             project_state.projectConfig,
@@ -2323,10 +2345,65 @@ class BaseProjectManager(ABC):
                     SectionType.GenPythonMetadata,
                     Position(),
                 )
+
+    @enqueue_method
+    async def compare_and_set_python_codegen_enabled(
+        self,
+        project_config_id: ID,
+        enabled: bool,
+        *,
+        expected_old_value: bool | None = None,
+    ) -> tuple[bool, bool]:
+        project_state = self.get_single_config_state(project_config_id)
+        old_value = project_config_has_codegen_language(
+            project_state.projectConfig,
+            ProjectCodegenLanguage.python,
+        )
+        _assert_ui_setting_expected_old_value_matches(
+            setting_id="core.run_instructions.python_codegen_enabled",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+        )
+        plugin_targets: list[ProjectCodegenPluginTarget] = []
+        python_target: ProjectCodegenPythonTarget | None = None
+        for target in project_state.projectConfig.codegenTargets:
+            if target.language == ProjectCodegenLanguage.python:
+                if not isinstance(target, ProjectCodegenPythonTarget):
+                    raise ValueError(
+                        "Project config has invalid python codegen target type."
+                    )
+                python_target = target
+                continue
+            if not isinstance(target, ProjectCodegenPluginTarget):
+                raise ValueError(
+                    "Project config has invalid plugin codegen target type: "
+                    f"{target.language}."
+                )
+            plugin_targets.append(target)
+        next_targets: list[ProjectCodegenTarget]
+        if enabled:
+            next_targets = [
+                *plugin_targets,
+                python_target
+                if python_target is not None
+                else ProjectCodegenPythonTarget(),
+            ]
+        else:
+            next_targets = list(plugin_targets)
+        self.add_new_history_entry()
+        self._apply_project_config_codegen_targets(
+            project_state=project_state,
+            codegen_targets=next_targets,
+        )
         await self.update_and_broadcast_project_state(
             project_state,
             validate_name_rules=False,
         )
+        new_value = project_config_has_codegen_language(
+            project_state.projectConfig,
+            ProjectCodegenLanguage.python,
+        )
+        return old_value, new_value
 
     @enqueue_method(require_serialization=False)
     @project_state_tool(access_type="structural")
@@ -2450,6 +2527,183 @@ class BaseProjectManager(ABC):
             appSpec=merged,
             appDefinition=app_definition,
         )
+
+    @staticmethod
+    def _resolve_app_spec_path_or_default(app_definition: AppDefinition) -> str:
+        if (
+            isinstance(app_definition.appSpecPath, str)
+            and app_definition.appSpecPath.strip() != ""
+        ):
+            return app_definition.appSpecPath
+        return default_app_spec_path()
+
+    @staticmethod
+    def _resolve_app_theme_mode(app_definition: AppDefinition) -> str:
+        theme = app_definition.theme
+        if isinstance(theme, dict):
+            mode = theme.get("mode")
+            if mode in {"auto", "dark", "light"}:
+                return mode
+        return "auto"
+
+    def _resolve_current_app_spec_for_metadata_update(
+        self,
+        *,
+        app_definition: AppDefinition,
+    ) -> tuple[str, JSONValue]:
+        target_path = self._resolve_app_spec_path_or_default(app_definition)
+        normalized_path = normalize_app_spec_path(self.dbe, target_path)
+        current_app_spec = read_app_spec(self.dbe, normalized_path)
+        if current_app_spec is None:
+            current_app_spec = copy.deepcopy(_DEFAULT_MINIMAL_APP_SPEC)
+        return normalized_path, current_app_spec
+
+    async def _commit_app_definition_metadata_update(
+        self,
+        *,
+        updated_definition: AppDefinition,
+        app_spec: JSONValue,
+        app_spec_path: str,
+    ) -> None:
+        project_state = self._get_default_project_state()
+        validate_app_theme_or_raise(updated_definition.theme)
+        validate_app_action_definitions(updated_definition.actions)
+        validate_app_spec(
+            app_spec,
+            catalog_id=updated_definition.catalogId,
+            action_definitions=updated_definition.actions,
+            data_bindings=updated_definition.dataBindings,
+        )
+        self.project_state_backend = self.project_state_backend.model_copy(
+            update={"appDefinition": updated_definition}
+        )
+        write_app_spec(self.dbe, app_spec_path, app_spec)
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+
+    @enqueue_method
+    async def compare_and_set_app_definition_catalog_id(
+        self,
+        *,
+        catalog_id: str,
+        expected_old_value: str | None = None,
+    ) -> tuple[str, str]:
+        app_definition = self.project_state_backend.appDefinition or AppDefinition()
+        old_value = app_definition.catalogId
+        _assert_ui_setting_expected_old_value_matches(
+            setting_id="core.app.catalog_id",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+        )
+        normalized_path, current_app_spec = (
+            self._resolve_current_app_spec_for_metadata_update(
+                app_definition=app_definition
+            )
+        )
+        updated_definition = app_definition.model_copy(
+            update={"appSpecPath": normalized_path, "catalogId": catalog_id}
+        )
+        self.add_new_history_entry()
+        await self._commit_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=current_app_spec,
+            app_spec_path=normalized_path,
+        )
+        return old_value, updated_definition.catalogId
+
+    @enqueue_method
+    async def compare_and_set_app_definition_spec_version(
+        self,
+        *,
+        app_spec_version: str,
+        expected_old_value: str | None = None,
+    ) -> tuple[str, str]:
+        app_definition = self.project_state_backend.appDefinition or AppDefinition()
+        old_value = app_definition.appSpecVersion
+        _assert_ui_setting_expected_old_value_matches(
+            setting_id="core.app.spec_version",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+        )
+        normalized_path, current_app_spec = (
+            self._resolve_current_app_spec_for_metadata_update(
+                app_definition=app_definition
+            )
+        )
+        updated_definition = app_definition.model_copy(
+            update={"appSpecPath": normalized_path, "appSpecVersion": app_spec_version}
+        )
+        self.add_new_history_entry()
+        await self._commit_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=current_app_spec,
+            app_spec_path=normalized_path,
+        )
+        return old_value, updated_definition.appSpecVersion
+
+    @enqueue_method
+    async def compare_and_set_app_definition_spec_path(
+        self,
+        *,
+        app_spec_path: str,
+        expected_old_value: str | None = None,
+    ) -> tuple[str, str]:
+        app_definition = self.project_state_backend.appDefinition or AppDefinition()
+        old_value = self._resolve_app_spec_path_or_default(app_definition)
+        _assert_ui_setting_expected_old_value_matches(
+            setting_id="core.app.spec_path",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+        )
+        _, current_app_spec = self._resolve_current_app_spec_for_metadata_update(
+            app_definition=app_definition
+        )
+        normalized_path = normalize_app_spec_path(self.dbe, app_spec_path)
+        updated_definition = app_definition.model_copy(
+            update={"appSpecPath": normalized_path}
+        )
+        self.add_new_history_entry()
+        await self._commit_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=current_app_spec,
+            app_spec_path=normalized_path,
+        )
+        return old_value, normalized_path
+
+    @enqueue_method
+    async def compare_and_set_app_definition_theme_mode(
+        self,
+        *,
+        theme_mode: str,
+        expected_old_value: str | None = None,
+    ) -> tuple[str, str]:
+        app_definition = self.project_state_backend.appDefinition or AppDefinition()
+        old_value = self._resolve_app_theme_mode(app_definition)
+        _assert_ui_setting_expected_old_value_matches(
+            setting_id="core.app.theme_mode",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+        )
+        normalized_path, current_app_spec = (
+            self._resolve_current_app_spec_for_metadata_update(
+                app_definition=app_definition
+            )
+        )
+        theme_payload: dict[str, JSONValue]
+        if isinstance(app_definition.theme, dict):
+            theme_payload = dict(app_definition.theme)
+        else:
+            theme_payload = {}
+        theme_payload["mode"] = theme_mode
+        updated_definition = app_definition.model_copy(
+            update={"appSpecPath": normalized_path, "theme": theme_payload}
+        )
+        self.add_new_history_entry()
+        await self._commit_app_definition_metadata_update(
+            updated_definition=updated_definition,
+            app_spec=current_app_spec,
+            app_spec_path=normalized_path,
+        )
+        return old_value, self._resolve_app_theme_mode(updated_definition)
 
     @enqueue_method
     @project_state_tool(access_type="structural")

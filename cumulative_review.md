@@ -367,3 +367,25 @@
 6. UX after: stale writes are rejected inside serialized mutation boundaries before state changes.
 7. DX before: plugin config corruption at root could surface later as harder-to-diagnose mutation failures.
 8. DX after: invalid persisted root structure fails fast with explicit invariant diagnostics, preserving existing persisted data.
+
+## 2026-02-25 19:30:07 PST
+
+### Consolidated Findings
+1. Share-scoped reveal routing was internally contradictory: ingress propagated `frontendWebsocketId` while reveal rejected share+frontend affinity.
+2. Stale-write preconditions for core settings (`python_codegen_enabled`, `core.app.*`) were still non-atomic across read/check/write boundaries.
+3. Share-scoped agentic/meta paths still carried caller-controlled frontend affinity, creating mode-specific routing drift.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Added manager-level atomic compare-and-set APIs for `core.run_instructions.python_codegen_enabled` and app metadata fields (`catalog_id`, `spec_version`, `spec_path`, `theme_mode`) so stale-check and mutation execute in one serialized boundary.
+2. Refactored UI-setting registry writers for those settings to use only the new manager compare-and-set APIs.
+3. Made share-scoped routing server-authoritative by resolving `frontendWebsocketId` to `None` whenever a share session is active and by removing share-scope reveal self-rejection.
+4. Dropped share-scoped frontend affinity at ingress/meta boundaries (AI route, listener route, toolkit runner, and managed action executor).
+5. Added/updated backend unit+integration tests and Playwright E2E coverage for atomic stale-precondition failures/no-clobber and share-scoped reveal success when affinity metadata is present.
+
+### UX/DX Before and After
+1. UX before: valid share-mode reveal calls could fail with `cannot provide frontendWebsocketId`.
+2. UX after: share-scoped reveals are routed via server-managed session context and complete deterministically.
+3. UX before: concurrent writes to core app/codegen settings could overwrite fresher state while returning success.
+4. UX after: stale writes fail at commit boundary and do not clobber newer updates.
+5. DX before: split precondition/mutation logic across layers made concurrency behavior difficult to reason about.
+6. DX after: one compare-and-set boundary per setting class and one share-routing contract simplify debugging and retry logic.

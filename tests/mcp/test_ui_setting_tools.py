@@ -27,6 +27,7 @@ from setta.project_state.project_manager_types import (
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.plugins.manager import PluginManager
 from setta.plugins.models import PluginRuntimeState, PluginScope
+from setta.types.app_definition import AppDefinition
 from setta.types.id import ID
 from setta.types.section_impls import SectionType
 from setta.ui_settings.reveal_result_hub import (
@@ -116,10 +117,7 @@ class _RecordingFrontendSender:
             )
         if resolved_target_websocket_id is None:
             return None
-        if (
-            resolved_target_websocket_id
-            in self.undeliverable_target_websocket_ids
-        ):
+        if resolved_target_websocket_id in self.undeliverable_target_websocket_ids:
             return None
         self.resolved_target_websocket_ids.append(resolved_target_websocket_id)
         self.reveal_messages.append((content, share_session_id))
@@ -261,7 +259,9 @@ class _ShareScopedDefaultProjectManagerSwitcher:
         self.calls.append((project_identifier, share_session_id))
         if share_session_id != self._required_share_session_id:
             raise KeyError("Missing share session id")
-        expected_project_id = self._share_manager.project_state_backend.defaultProjectConfigId
+        expected_project_id = (
+            self._share_manager.project_state_backend.defaultProjectConfigId
+        )
         if project_identifier != expected_project_id:
             raise KeyError(f"Unexpected project identifier: {project_identifier}")
         return self._share_manager
@@ -532,16 +532,16 @@ async def test_set_ui_setting_value_rejects_writer_old_value_drift(
         projectConfigId=ID("project-1"),
         ctx=Context(
             fastmcp=SimpleNamespace(
-                state=SimpleNamespace(project_manager_switcher=SimpleNamespace(main=None))
+                state=SimpleNamespace(
+                    project_manager_switcher=SimpleNamespace(main=None)
+                )
             )
         ),
     )
 
     assert result.error is not None
     assert result.error.code == "mutation_failed"
-    assert "changed since pre-write validation" in (
-        result.error.message
-    )
+    assert "changed since pre-write validation" in (result.error.message)
     assert observed_expected_old_value is False
     assert state["write_count"] == 0
     assert state["current"] is True
@@ -623,7 +623,9 @@ async def test_set_ui_setting_value_rejects_writer_missing_expected_old_value_be
         projectConfigId=ID("project-1"),
         ctx=Context(
             fastmcp=SimpleNamespace(
-                state=SimpleNamespace(project_manager_switcher=SimpleNamespace(main=None))
+                state=SimpleNamespace(
+                    project_manager_switcher=SimpleNamespace(main=None)
+                )
             )
         ),
     )
@@ -1699,7 +1701,9 @@ async def test_ui_setting_tools_reject_project_argument_mismatching_agentic_cont
 
 
 @pytest.mark.asyncio
-async def test_ui_setting_tools_reject_project_argument_mismatch_in_share_mode() -> None:
+async def test_ui_setting_tools_reject_project_argument_mismatch_in_share_mode() -> (
+    None
+):
     async with (
         real_project_manager() as project_fixture,
         real_settings_manager() as settings_fixture,
@@ -1760,7 +1764,9 @@ async def test_ui_setting_tools_reject_project_argument_mismatch_in_share_mode()
 
 
 @pytest.mark.asyncio
-async def test_ui_setting_tools_pass_share_session_id_to_project_manager_lookup() -> None:
+async def test_ui_setting_tools_pass_share_session_id_to_project_manager_lookup() -> (
+    None
+):
     async with (
         real_project_manager() as project_fixture,
         real_settings_manager() as settings_fixture,
@@ -1896,7 +1902,9 @@ async def test_ui_setting_tools_share_scope_without_project_id_uses_share_defaul
         share_default_project_id = ID(
             share_manager.project_state_backend.defaultProjectConfigId
         )
-        main_default_project_id = ID(main_manager.project_state_backend.defaultProjectConfigId)
+        main_default_project_id = ID(
+            main_manager.project_state_backend.defaultProjectConfigId
+        )
         if share_default_project_id == main_default_project_id:
             existing_project_config_ids = set(
                 share_manager.project_state_backend.projectConfigs.keys()
@@ -1943,7 +1951,7 @@ async def test_ui_setting_tools_share_scope_without_project_id_uses_share_defaul
 
 
 @pytest.mark.asyncio
-async def test_reveal_ui_setting_share_scope_rejects_caller_supplied_frontend_websocket_id() -> (
+async def test_reveal_ui_setting_share_scope_ignores_caller_supplied_frontend_websocket_id() -> (
     None
 ):
     async with (
@@ -1985,12 +1993,74 @@ async def test_reveal_ui_setting_share_scope_rejects_caller_supplied_frontend_we
             projectConfigId=project_config_id,
             ctx=ctx,
         )
-        assert result.emittedRevealCount == 0
-        assert result.statuses[0].status == "failed"
-        assert result.statuses[0].error is not None
-        assert result.statuses[0].error.code == "mutation_failed"
-        assert "cannot provide frontendWebsocketId" in result.statuses[0].error.message
-        assert frontend_sender.reveal_messages == []
+        assert result.emittedRevealCount == 1
+        assert result.statuses[0].status == "revealed"
+        assert frontend_sender.resolved_target_websocket_ids[-1] == "frontend-a"
+        assert frontend_sender.reveal_messages
+        _, reveal_share_session_id = frontend_sender.reveal_messages[-1]
+        assert reveal_share_session_id == required_share_session_id
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_reveal_after_set_share_scope_ignores_caller_supplied_frontend_websocket_id() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = [
+            "frontend-a",
+            "frontend-b",
+        ]
+        frontend_sender.reveal_target_websocket_id = "frontend-a"
+        manager = project_fixture.manager
+        settings_manager = settings_fixture.manager
+        required_share_session_id = "share-session-test"
+        strict_switcher = _ShareSessionStrictProjectManagerSwitcher(
+            ProjectManagerSwitcher(
+                main_manager=manager,
+                settings_manager=settings_manager,
+            ),
+            required_share_session_id=required_share_session_id,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_manager,
+            frontend_sender=frontend_sender,
+            project_manager_switcher=strict_switcher,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "shareSessionId": required_share_session_id,
+                "frontendWebsocketId": "frontend-b",
+            },
+            resolved_share_session_id=required_share_session_id,
+        )
+        current_value_result = await get_ui_setting_value(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert current_value_result.error is None
+        assert isinstance(current_value_result.value, bool)
+
+        set_result = await set_ui_setting_value(
+            settingId="core.watch_code.enabled",
+            value=not current_value_result.value,
+            revealAfterSet=True,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is None
+        assert set_result.reveal is not None
+        assert set_result.reveal.emittedRevealCount == 1
+        assert set_result.reveal.statuses[0].status == "revealed"
+        assert frontend_sender.resolved_target_websocket_ids[-1] == "frontend-a"
+        assert frontend_sender.reveal_messages
+        _, reveal_share_session_id = frontend_sender.reveal_messages[-1]
+        assert reveal_share_session_id == required_share_session_id
 
 
 @pytest.mark.asyncio
@@ -2807,6 +2877,343 @@ async def test_set_ui_setting_value_core_project_name_rejects_stale_precondition
         assert "changed since pre-write validation" in result.error.message
         updated_state = manager.get_single_config_state(project_config_id)
         assert updated_state.projectConfig.name == concurrent_name
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_core_python_codegen_enabled_rejects_stale_precondition_without_clobber(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        manager = project_fixture.manager
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        current_value_result = await get_ui_setting_value(
+            settingId="core.run_instructions.python_codegen_enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert current_value_result.error is None
+        assert isinstance(current_value_result.value, bool)
+        old_value = bool(current_value_result.value)
+        concurrent_value = not old_value
+        original_compare = manager.compare_and_set_python_codegen_enabled
+
+        async def _simulate_concurrent_python_codegen_write(
+            target_project_config_id: ID,
+            enabled: bool,
+            *,
+            expected_old_value: bool | None = None,
+        ) -> tuple[bool, bool]:
+            await original_compare(
+                target_project_config_id,
+                concurrent_value,
+                expected_old_value=None,
+            )
+            return await original_compare(
+                target_project_config_id,
+                enabled,
+                expected_old_value=expected_old_value,
+            )
+
+        monkeypatch.setattr(
+            manager,
+            "compare_and_set_python_codegen_enabled",
+            _simulate_concurrent_python_codegen_write,
+        )
+
+        result = await set_ui_setting_value(
+            settingId="core.run_instructions.python_codegen_enabled",
+            value=old_value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.error is not None
+        assert result.error.code == "mutation_failed"
+        assert "changed since pre-write validation" in result.error.message
+        updated_value_result = await get_ui_setting_value(
+            settingId="core.run_instructions.python_codegen_enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert updated_value_result.error is None
+        assert updated_value_result.value == concurrent_value
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_core_app_catalog_id_rejects_stale_precondition_without_clobber(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        manager = project_fixture.manager
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        current_value_result = await get_ui_setting_value(
+            settingId="core.app.catalog_id",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert current_value_result.error is None
+        assert isinstance(current_value_result.value, str)
+        old_value = current_value_result.value
+        concurrent_value = "setta.app.concurrent"
+        if concurrent_value == old_value:
+            concurrent_value = "setta.app.concurrent.alt"
+        original_compare = manager.compare_and_set_app_definition_catalog_id
+
+        async def _simulate_concurrent_app_catalog_write(
+            *,
+            catalog_id: str,
+            expected_old_value: str | None = None,
+        ) -> tuple[str, str]:
+            app_definition = (
+                manager.project_state_backend.appDefinition or AppDefinition()
+            )
+            manager.project_state_backend = manager.project_state_backend.model_copy(
+                update={
+                    "appDefinition": app_definition.model_copy(
+                        update={"catalogId": concurrent_value}
+                    )
+                }
+            )
+            return await original_compare(
+                catalog_id=catalog_id,
+                expected_old_value=expected_old_value,
+            )
+
+        monkeypatch.setattr(
+            manager,
+            "compare_and_set_app_definition_catalog_id",
+            _simulate_concurrent_app_catalog_write,
+        )
+
+        result = await set_ui_setting_value(
+            settingId="core.app.catalog_id",
+            value=old_value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.error is not None
+        assert result.error.code == "mutation_failed"
+        assert "changed since pre-write validation" in result.error.message
+        updated_value_result = await get_ui_setting_value(
+            settingId="core.app.catalog_id",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert updated_value_result.error is None
+        assert updated_value_result.value == concurrent_value
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_core_app_spec_version_rejects_stale_precondition_without_clobber(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        manager = project_fixture.manager
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        current_value_result = await get_ui_setting_value(
+            settingId="core.app.spec_version",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert current_value_result.error is None
+        assert isinstance(current_value_result.value, str)
+        old_value = current_value_result.value
+        concurrent_value = "v2"
+        if concurrent_value == old_value:
+            concurrent_value = "v3"
+        original_compare = manager.compare_and_set_app_definition_spec_version
+
+        async def _simulate_concurrent_app_spec_version_write(
+            *,
+            app_spec_version: str,
+            expected_old_value: str | None = None,
+        ) -> tuple[str, str]:
+            await original_compare(
+                app_spec_version=concurrent_value,
+                expected_old_value=None,
+            )
+            return await original_compare(
+                app_spec_version=app_spec_version,
+                expected_old_value=expected_old_value,
+            )
+
+        monkeypatch.setattr(
+            manager,
+            "compare_and_set_app_definition_spec_version",
+            _simulate_concurrent_app_spec_version_write,
+        )
+
+        result = await set_ui_setting_value(
+            settingId="core.app.spec_version",
+            value=old_value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.error is not None
+        assert result.error.code == "mutation_failed"
+        assert "changed since pre-write validation" in result.error.message
+        updated_value_result = await get_ui_setting_value(
+            settingId="core.app.spec_version",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert updated_value_result.error is None
+        assert updated_value_result.value == concurrent_value
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_core_app_spec_path_rejects_stale_precondition_without_clobber(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        manager = project_fixture.manager
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        current_value_result = await get_ui_setting_value(
+            settingId="core.app.spec_path",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert current_value_result.error is None
+        assert isinstance(current_value_result.value, str)
+        old_value = current_value_result.value
+        concurrent_value = "app_specs/concurrent-app-spec.json"
+        if concurrent_value == old_value:
+            concurrent_value = "app_specs/concurrent-app-spec-2.json"
+        original_compare = manager.compare_and_set_app_definition_spec_path
+
+        async def _simulate_concurrent_app_spec_path_write(
+            *,
+            app_spec_path: str,
+            expected_old_value: str | None = None,
+        ) -> tuple[str, str]:
+            await original_compare(
+                app_spec_path=concurrent_value,
+                expected_old_value=None,
+            )
+            return await original_compare(
+                app_spec_path=app_spec_path,
+                expected_old_value=expected_old_value,
+            )
+
+        monkeypatch.setattr(
+            manager,
+            "compare_and_set_app_definition_spec_path",
+            _simulate_concurrent_app_spec_path_write,
+        )
+
+        result = await set_ui_setting_value(
+            settingId="core.app.spec_path",
+            value=old_value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.error is not None
+        assert result.error.code == "mutation_failed"
+        assert "changed since pre-write validation" in result.error.message
+        updated_value_result = await get_ui_setting_value(
+            settingId="core.app.spec_path",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert updated_value_result.error is None
+        assert updated_value_result.value == concurrent_value
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_core_app_theme_mode_rejects_stale_precondition_without_clobber(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        manager = project_fixture.manager
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        current_value_result = await get_ui_setting_value(
+            settingId="core.app.theme_mode",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert current_value_result.error is None
+        assert isinstance(current_value_result.value, str)
+        old_value = current_value_result.value
+        concurrent_value = "dark" if old_value != "dark" else "light"
+        original_compare = manager.compare_and_set_app_definition_theme_mode
+
+        async def _simulate_concurrent_app_theme_mode_write(
+            *,
+            theme_mode: str,
+            expected_old_value: str | None = None,
+        ) -> tuple[str, str]:
+            await original_compare(theme_mode=concurrent_value, expected_old_value=None)
+            return await original_compare(
+                theme_mode=theme_mode,
+                expected_old_value=expected_old_value,
+            )
+
+        monkeypatch.setattr(
+            manager,
+            "compare_and_set_app_definition_theme_mode",
+            _simulate_concurrent_app_theme_mode_write,
+        )
+
+        result = await set_ui_setting_value(
+            settingId="core.app.theme_mode",
+            value=old_value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.error is not None
+        assert result.error.code == "mutation_failed"
+        assert "changed since pre-write validation" in result.error.message
+        updated_value_result = await get_ui_setting_value(
+            settingId="core.app.theme_mode",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert updated_value_result.error is None
+        assert updated_value_result.value == concurrent_value
 
 
 @pytest.mark.asyncio

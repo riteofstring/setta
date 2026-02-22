@@ -124,3 +124,58 @@ class TestToolRunner:
                 "frontendWebsocketId": "frontend-1",
             }
         ]
+
+    async def test_runner_omits_frontend_websocket_id_meta_for_share_scoped_setta_tools(
+        self,
+    ) -> None:
+        tool_name = build_namespaced_tool_name(SETTA_MCP_SERVER_ID, "alpha_tool")
+        accumulator = ToolCallAccumulator()
+        accumulator.apply_delta(
+            tool_call_id="call-1",
+            arguments_delta="{}",
+            tool_name=tool_name,
+        )
+        tool_calls = accumulator.finalize()
+
+        mcp_client = MultiMCPClient({})
+        mcp_client.routing[tool_name] = (SETTA_MCP_SERVER_ID, "alpha_tool")
+        captured_meta: list[dict[str, str | None] | None] = []
+
+        async def _fake_call_tool(
+            name: str,
+            arguments: dict[str, object],
+            meta: dict[str, str | None] | None = None,
+        ) -> CallToolResult:
+            assert name == tool_name
+            assert arguments == {}
+            captured_meta.append(meta)
+            return CallToolResult(
+                content=[TextContent(type="text", text="ok")],
+                structuredContent={"ok": True},
+                isError=False,
+            )
+
+        setattr(mcp_client, "call_tool", _fake_call_tool)
+        runner = ToolRunner(
+            mcp_client,
+            allowed_server_ids={SETTA_MCP_SERVER_ID},
+            share_session_id="share-session-1",
+            project_config_id=ID("project-1"),
+            chat_id=ID("chat-1"),
+            section_id=ID("section-1"),
+            frontend_websocket_id="frontend-1",
+            strict=True,
+        )
+
+        results = await runner.run(tool_calls)
+
+        assert len(results) == 1
+        assert not results[0].is_error
+        assert captured_meta == [
+            {
+                "shareSessionId": "share-session-1",
+                "projectConfigId": "project-1",
+                "chatId": "chat-1",
+                "sectionId": "section-1",
+            }
+        ]

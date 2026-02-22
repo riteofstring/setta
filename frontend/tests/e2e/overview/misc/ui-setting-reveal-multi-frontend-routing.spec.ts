@@ -39,18 +39,23 @@ async function callMcpTool<TStructured>(
   tool: string,
   argumentsPayload: Record<string, unknown>,
   frontendWebsocketId: string,
+  shareSessionId?: string,
 ): Promise<TStructured> {
+  const agenticContext: Record<string, unknown> = {
+    projectConfigId,
+    frontendWebsocketId,
+    allowUnscoped: true,
+  };
+  if (typeof shareSessionId === "string" && shareSessionId.trim() !== "") {
+    agenticContext.shareSessionId = shareSessionId;
+  }
   const rawResponse = await page.request.post(
     `${BACKEND_ORIGIN}/__setta__/tools/call`,
     {
       data: {
         tool,
         arguments: argumentsPayload,
-        agenticContext: {
-          projectConfigId,
-          frontendWebsocketId,
-          allowUnscoped: true,
-        },
+        agenticContext,
       },
       timeout: 15000,
     },
@@ -258,5 +263,65 @@ test("reveal_ui_setting fails fast when frontend websocket id is unavailable", a
     );
   } finally {
     await cleanupIsolatedProject(page, projectContext.projectConfigId);
+  }
+});
+
+test("reveal_ui_setting accepts share-scoped calls that include frontend affinity metadata", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  await installFrontendIdentityCapture(page);
+  const projectContext = await openIsolatedProject(page);
+  const revealHighlightsOne = page.locator(
+    ".setta-ui-setting-reveal-highlight",
+  );
+  const pageOneUrl = page.url();
+  const frontendIdOne = await waitForFrontendIdentity(page);
+
+  const secondPage = await page.context().newPage();
+  await setOverviewTab(secondPage, "Overview");
+  await installFrontendIdentityCapture(secondPage);
+  await secondPage.goto(pageOneUrl, { waitUntil: "domcontentloaded" });
+  const revealHighlightsTwo = secondPage.locator(
+    ".setta-ui-setting-reveal-highlight",
+  );
+  await waitForFrontendIdentity(secondPage);
+
+  try {
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        durationMs: 1200,
+      },
+      frontendIdOne,
+      "share-session-e2e",
+    );
+    expect(revealResult.emittedRevealCount).toBe(1);
+    expect(revealResult.statuses[0]?.status).toBe("revealed");
+
+    await expect
+      .poll(async () => {
+        const firstCount = await revealHighlightsOne.count();
+        const secondCount = await revealHighlightsTwo.count();
+        return firstCount + secondCount;
+      })
+      .toBeGreaterThan(0);
+
+    await expect
+      .poll(
+        async () => {
+          const firstCount = await revealHighlightsOne.count();
+          const secondCount = await revealHighlightsTwo.count();
+          return firstCount + secondCount;
+        },
+        { timeout: 5000 },
+      )
+      .toBe(0);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext.projectConfigId);
+    await secondPage.close();
   }
 });
