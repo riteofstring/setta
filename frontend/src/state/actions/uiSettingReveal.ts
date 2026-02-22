@@ -21,9 +21,11 @@ const FIND_TARGET_INTERVAL_MS = 50;
 const HIGHLIGHT_CLASS_NAME = "setta-ui-setting-reveal-highlight";
 
 const highlightTimeoutByElement = new WeakMap<HTMLElement, number>();
-const uiEditorTabNameValues = new Set<string>(Object.values(UIEditorTabNameEnum));
+const uiEditorTabNameValues = new Set<string>(
+  Object.values(UIEditorTabNameEnum),
+);
 
-export type UISettingRevealResultStatus = {
+type UISettingRevealResultStatus = {
   settingId: string;
   status: "revealed" | "failed";
   errorCode: string | null;
@@ -121,7 +123,9 @@ async function revealSingleSetting({
   };
 }
 
-function openPaneForRevealTarget(target: UISettingRevealTarget): OpenPaneResult {
+function openPaneForRevealTarget(
+  target: UISettingRevealTarget,
+): OpenPaneResult {
   if (target.side === "left") {
     const overviewTab = target.overviewTabKey;
     if (typeof overviewTab !== "string" || !isOverviewTabKey(overviewTab)) {
@@ -198,7 +202,8 @@ function getActiveSectionType(): string | null {
   if (activeSectionId === null) {
     return null;
   }
-  const variantId = projectState.projectConfig.sectionVariantMap[activeSectionId];
+  const variantId =
+    projectState.projectConfig.sectionVariantMap[activeSectionId];
   if (!variantId) {
     return null;
   }
@@ -248,7 +253,9 @@ function findSettingAnchor(
   root: ParentNode,
   anchorId: string,
 ): HTMLElement | null {
-  const candidates = root.querySelectorAll<HTMLElement>("[data-setting-anchor]");
+  const candidates = root.querySelectorAll<HTMLElement>(
+    "[data-setting-anchor]",
+  );
   for (const candidate of candidates) {
     if (candidate.dataset.settingAnchor === anchorId) {
       return candidate;
