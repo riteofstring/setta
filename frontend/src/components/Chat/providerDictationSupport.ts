@@ -14,15 +14,6 @@ const PROVIDER_DICTATION_MODEL_PATTERNS = [
   /\bstt\b/u,
 ];
 
-const PROVIDER_DICTATION_UNSUPPORTED_ERROR_PATTERNS = [
-  /unsupported[^.]*transcri/u,
-  /transcri[^.]*not supported/u,
-  /does not support[^.]*transcri/u,
-  /unsupported[^.]*audio/u,
-  /audio[^.]*not supported/u,
-  /model[^.]*not[^.]*audio/u,
-];
-
 function readConfiguredTranscriptionModel(llmConfig: LLMConfig): string | null {
   const otherParams = llmConfig.other_params;
   if (
@@ -82,27 +73,4 @@ export function isProviderDictationLikelySupported(
 ): boolean {
   const modelName = resolveProviderDictationModel(llmConfig);
   return isLikelyProviderDictationModel(modelName);
-}
-
-export function isProviderDictationUnsupportedError(error: unknown): boolean {
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-        ? error
-        : String(error ?? "");
-  const normalized = message.trim().toLowerCase();
-  if (normalized.length === 0) {
-    return false;
-  }
-  if (
-    !normalized.includes("transcri") &&
-    !normalized.includes("audio") &&
-    !normalized.includes("speech")
-  ) {
-    return false;
-  }
-  return PROVIDER_DICTATION_UNSUPPORTED_ERROR_PATTERNS.some((pattern) =>
-    pattern.test(normalized),
-  );
 }

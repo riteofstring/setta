@@ -35,7 +35,7 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
+import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_append_transcription_audio,
   route_cancel_transcription_session,
@@ -128,6 +128,7 @@ import {
   UpdateTranscriptionProfileRequestInput,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
+import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { buildEditedMessageHistory } from "./chatBranches";
@@ -174,7 +175,7 @@ function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
 export async function startTranscriptionSession(
   transcriptionProfileId: string,
   language: string | null = null,
-  options: { suppressNotification?: boolean } = {},
+  options: TranscriptionRequestOptions = {},
 ): Promise<StartTranscriptionSessionResponse | null> {
   if (!transcriptionProfileId) {
     return null;
@@ -184,11 +185,7 @@ export async function startTranscriptionSession(
     language,
   });
   if (!res200(res)) {
-    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
-    if (!options.suppressNotification) {
-      addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-    }
-    return null;
+    return handleTranscriptionEndpointError(res.data, res.status, options);
   }
   return res.data;
 }
@@ -198,6 +195,7 @@ export async function appendTranscriptionAudio(
   audioPcm16: ArrayBuffer,
   sampleRateHz: number,
   channels: number,
+  options: TranscriptionRequestOptions = {},
 ): Promise<TranscriptionSessionDeltaResponse | null> {
   if (!sessionId || audioPcm16.byteLength === 0) {
     return null;
@@ -209,24 +207,21 @@ export async function appendTranscriptionAudio(
     channels,
   });
   if (!res200(res)) {
-    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-    return null;
+    return handleTranscriptionEndpointError(res.data, res.status, options);
   }
   return res.data;
 }
 
 export async function stopTranscriptionSession(
   sessionId: string,
+  options: TranscriptionRequestOptions = {},
 ): Promise<TranscriptionSessionDeltaResponse | null> {
   if (!sessionId) {
     return null;
   }
   const res = await route_stop_transcription_session({ sessionId });
   if (!res200(res)) {
-    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-    return null;
+    return handleTranscriptionEndpointError(res.data, res.status, options);
   }
   return res.data;
 }
@@ -246,6 +241,33 @@ type DictationPcmPayload = {
   sampleRateHz: number;
   channels: number;
 };
+
+type TranscriptionRequestOptions = {
+  suppressNotification?: boolean;
+  throwOnError?: boolean;
+};
+
+function handleTranscriptionEndpointError(
+  responseData: unknown,
+  responseStatus: number | undefined,
+  options: TranscriptionRequestOptions,
+): null {
+  const detail =
+    getErrorDetail(responseData) ?? "Provider transcription failed.";
+  const errorCode = getErrorCode(responseData);
+  const error = new ProviderTranscriptionError({
+    message: detail,
+    code: errorCode,
+    status: responseStatus,
+  });
+  if (!options.suppressNotification) {
+    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+  }
+  if (options.throwOnError) {
+    throw error;
+  }
+  return null;
+}
 
 function float32ToInt16(input: Float32Array): Int16Array {
   const output = new Int16Array(input.length);
@@ -318,23 +340,43 @@ export async function transcribeChatAudioWithProfile(
     null,
     {
       suppressNotification: true,
+      throwOnError: true,
     },
   );
   if (!session) {
     return null;
   }
   const sessionId = session.sessionId;
-  const appendDelta = await appendTranscriptionAudio(
-    sessionId,
-    pcmPayload.audioPcm16,
-    pcmPayload.sampleRateHz,
-    pcmPayload.channels,
-  );
+  let appendDelta: TranscriptionSessionDeltaResponse | null = null;
+  try {
+    appendDelta = await appendTranscriptionAudio(
+      sessionId,
+      pcmPayload.audioPcm16,
+      pcmPayload.sampleRateHz,
+      pcmPayload.channels,
+      {
+        suppressNotification: true,
+        throwOnError: true,
+      },
+    );
+  } catch (error) {
+    await cancelTranscriptionSession(sessionId);
+    throw error;
+  }
   if (!appendDelta) {
     await cancelTranscriptionSession(sessionId);
     return null;
   }
-  const stopDelta = await stopTranscriptionSession(sessionId);
+  let stopDelta: TranscriptionSessionDeltaResponse | null = null;
+  try {
+    stopDelta = await stopTranscriptionSession(sessionId, {
+      suppressNotification: true,
+      throwOnError: true,
+    });
+  } catch (error) {
+    await cancelTranscriptionSession(sessionId);
+    throw error;
+  }
   if (!stopDelta) {
     await cancelTranscriptionSession(sessionId);
     return null;

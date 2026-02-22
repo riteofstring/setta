@@ -7,6 +7,7 @@ import pytest
 import pytest_asyncio
 
 from setta.lsp.managers import stop_file_watcher, stop_lsps
+from setta.llm.api_keys import read_managed_api_keys
 from setta.routers.llm import (
     UpdateAPIKeysRequest,
     route_get_llm_api_keys,
@@ -82,8 +83,8 @@ async def state_env(tmp_path: Path) -> AsyncIterator[SettaFastAPIState]:
 async def test_llm_api_keys_routes_return_unreferenced_keys(
     state_env: SettaFastAPIState,
 ) -> None:
-    # Arbitrary keys should persist and round-trip through the route even when no
-    # configured provider references them.
+    # Arbitrary keys should persist and round-trip through the managed key store
+    # even when no configured provider references them.
     with runtime_context(state_env) as runtime_ctx:
         response = await route_set_llm_api_keys(
             UpdateAPIKeysRequest(apiKeys={"UNSCOPED_CUSTOM_KEY": "custom-secret"}),
@@ -93,6 +94,7 @@ async def test_llm_api_keys_routes_return_unreferenced_keys(
 
     assert response["UNSCOPED_CUSTOM_KEY"] == "custom-secret"
     assert keys_from_get["UNSCOPED_CUSTOM_KEY"] == "custom-secret"
+    assert read_managed_api_keys(state_env.dbe)["UNSCOPED_CUSTOM_KEY"] == "custom-secret"
 
     # Runtime provider execution still uses the filtered key map.
     assert state_env.agent_runner.api_keys == {}
@@ -116,3 +118,49 @@ async def test_llm_api_keys_routes_remove_key_on_empty_value(
 
     assert "UNSCOPED_CUSTOM_KEY" not in response
     assert "UNSCOPED_CUSTOM_KEY" not in keys_from_get
+
+
+@pytest.mark.asyncio
+async def test_llm_api_keys_routes_do_not_expose_unrelated_dotenv_entries(
+    state_env: SettaFastAPIState,
+) -> None:
+    state_env.dbe.write_dot_env(
+        {
+            "OPENAI_API_KEY": "dotenv-openai-secret",
+            "UNRELATED_SECRET": "do-not-expose",
+        }
+    )
+    state_env.dbe.reload_dot_env()
+    with runtime_context(state_env) as runtime_ctx:
+        await route_set_llm_api_keys(
+            UpdateAPIKeysRequest(apiKeys={"OPENAI_API_KEY": "managed-secret"}),
+            runtime_ctx,
+        )
+        keys_from_get = await route_get_llm_api_keys(runtime_ctx)
+
+    assert keys_from_get == {"OPENAI_API_KEY": "managed-secret"}
+    assert "UNRELATED_SECRET" not in keys_from_get
+    assert state_env.dbe.read_dot_env()["UNRELATED_SECRET"] == "do-not-expose"
+
+
+@pytest.mark.asyncio
+async def test_llm_api_key_watcher_uses_managed_store_not_dotenv(
+    state_env: SettaFastAPIState,
+) -> None:
+    state_env.dbe.write_dot_env(
+        {
+            "OPENAI_API_KEY": "dotenv-openai-secret",
+            "UNRELATED_SECRET": "do-not-expose",
+        }
+    )
+    state_env.dbe.reload_dot_env()
+    with runtime_context(state_env) as runtime_ctx:
+        await route_set_llm_api_keys(
+            UpdateAPIKeysRequest(apiKeys={"OPENAI_API_KEY": "managed-secret"}),
+            runtime_ctx,
+        )
+
+    await state_env.llm_api_key_watcher._reload_from_disk()
+
+    assert state_env.agent_runner.raw_env_vars == {"OPENAI_API_KEY": "managed-secret"}
+    assert "UNRELATED_SECRET" not in state_env.agent_runner.raw_env_vars

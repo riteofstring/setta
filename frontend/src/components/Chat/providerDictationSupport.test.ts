@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   isLikelyProviderDictationModel,
   isProviderDictationLikelySupported,
-  isProviderDictationUnsupportedError,
   resolveProviderDictationModel,
 } from "./providerDictationSupport";
 
@@ -63,23 +62,5 @@ describe("providerDictationSupport", () => {
 
     expect(isProviderDictationLikelySupported(unsupportedConfig)).toBe(false);
     expect(isProviderDictationLikelySupported(supportedConfig)).toBe(true);
-  });
-
-  it("flags unsupported transcription provider errors", () => {
-    expect(
-      isProviderDictationUnsupportedError(
-        new Error("Model does not support audio transcription."),
-      ),
-    ).toBe(true);
-    expect(
-      isProviderDictationUnsupportedError(
-        "Unsupported transcription model for this provider.",
-      ),
-    ).toBe(true);
-    expect(
-      isProviderDictationUnsupportedError(
-        "Provider transcription failed due to timeout.",
-      ),
-    ).toBe(false);
   });
 });

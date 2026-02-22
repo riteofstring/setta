@@ -10,6 +10,7 @@ from pydantic import ValidationError
 import pytest
 
 import setta.routers.ai as ai_module
+from setta.agentic.context_usage import ResolvedChatContextUsage
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
 from setta.agentic.external_agent_preflight import ExternalAgentPreflightStatus
 from setta.agentic.external_agent_runner import ExternalAgentRunner
@@ -133,6 +134,17 @@ def _seed_transcription_profile(
     save_transcription_profiles(dbe, [profile])
 
 
+def _assert_transcription_http_error(
+    exc: HTTPException,
+    *,
+    message: str,
+    error_code: str,
+) -> None:
+    assert isinstance(exc.detail, dict)
+    assert exc.detail.get("message") == message
+    assert exc.detail.get("errorCode") == error_code
+
+
 def _build_share_deployment_root(
     tmpdir: str,
     project_config_name: str,
@@ -184,6 +196,7 @@ def _build_run(
     input_messages: list[UserChatMessage | AssistantChatMessage],
     output_messages: list[UserChatMessage | AssistantChatMessage] | None = None,
     usage: dict[str, int] | None = None,
+    metadata: dict[str, object] | None = None,
 ) -> AgentRun:
     inputs = {
         "runType": LLM_CHAT_RUN_TYPE,
@@ -199,6 +212,8 @@ def _build_run(
         }
         if usage is not None:
             outputs["usage"] = usage
+        if metadata is not None:
+            outputs["metadata"] = metadata
     return AgentRun(
         status=status,
         startedAt=started_at,
@@ -479,6 +494,7 @@ class TestAgentRunChatRoutes:
                 input_messages=[user_message],
                 output_messages=[user_message, assistant_message],
                 usage={"promptTokens": 42, "completionTokens": 7, "totalTokens": 49},
+                metadata={"model": "gpt-4o-mini", "provider": "openai"},
             )
             save_agent_run(dbe, run)
 
@@ -496,6 +512,85 @@ class TestAgentRunChatRoutes:
             assert response.contextUsage.estimated is False
             assert response.contextUsage.contextWindowTokens is not None
             assert response.contextUsage.contextWindowTokens > 0
+
+    async def test_get_llm_chat_context_uses_run_metadata_not_live_config(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        captured: dict[str, str | None] = {"model": None, "provider": None}
+
+        def _capture_internal_context_usage(
+            _run: AgentRun,
+            *,
+            model: str | None,
+            provider: str | None = None,
+        ) -> ResolvedChatContextUsage:
+            captured["model"] = model
+            captured["provider"] = provider
+            return ResolvedChatContextUsage(
+                context_window_tokens=123,
+                context_used_tokens=42,
+                estimated=False,
+            )
+
+        monkeypatch.setattr(
+            ai_module,
+            "resolve_internal_run_context_usage",
+            _capture_internal_context_usage,
+        )
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            chat_id = ID("chat-context-source-metadata")
+            project_config_id = ID("project-context-source-metadata")
+            user_message = UserChatMessage(
+                content=[MessageTextContent(text="Hello usage")],
+            )
+            run = _build_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 3, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message],
+                metadata={"model": "gpt-4o-mini", "provider": "openai"},
+            )
+            save_agent_run(dbe, run)
+            runner.update_config(
+                AllLLMConfigs(
+                    configs={
+                        "primary": LLMConfig(
+                            id="primary",
+                            model="claude-3-7-sonnet",
+                            provider="anthropic",
+                            api_key_env="ANTHROPIC_API_KEY",
+                            mcpServerIds=[],
+                        )
+                    },
+                    mcpServers={},
+                )
+            )
+
+            with runtime_context(state) as ctx:
+                response = await route_get_llm_chat(
+                    GetLLMChatRequest(
+                        chatId=chat_id,
+                        projectConfigId=project_config_id,
+                    ),
+                    ctx,
+                )
+
+            assert response.contextUsage is not None
+            assert response.contextUsage.contextWindowTokens == 123
+            assert captured == {"model": "gpt-4o-mini", "provider": "openai"}
 
     async def test_external_engine_rejects_llm_chat_id(
         self,
@@ -1312,9 +1407,10 @@ class TestAgentRunChatRoutes:
                     )
 
             assert exc.value.status_code == 413
-            assert (
-                exc.value.detail
-                == "Audio payload is too large. Maximum size is 1024 bytes."
+            _assert_transcription_http_error(
+                exc.value,
+                message="Audio payload is too large. Maximum size is 1024 bytes.",
+                error_code="audio_payload_too_large",
             )
 
     async def test_start_transcription_session_auto_falls_back_to_file(
@@ -1440,9 +1536,10 @@ class TestAgentRunChatRoutes:
                     )
 
             assert exc.value.status_code == 400
-            assert (
-                exc.value.detail
-                == "Missing API key for 'OPENAI_API_KEY'. Configure it in LLM API Keys."
+            _assert_transcription_http_error(
+                exc.value,
+                message="Missing API key for 'OPENAI_API_KEY'. Configure it in LLM API Keys.",
+                error_code="missing_api_key",
             )
 
     async def test_start_transcription_session_missing_profile_returns_404(
@@ -1467,7 +1564,11 @@ class TestAgentRunChatRoutes:
                     )
 
             assert exc.value.status_code == 404
-            assert exc.value.detail == "Transcription profile missing-profile not found"
+            _assert_transcription_http_error(
+                exc.value,
+                message="Transcription profile missing-profile not found",
+                error_code="profile_not_found",
+            )
 
     async def test_transcription_session_scope_mismatch_does_not_remove_owner_session(
         self,
@@ -1560,9 +1661,10 @@ class TestAgentRunChatRoutes:
                     )
 
             assert exc.value.status_code == 400
-            assert (
-                exc.value.detail
-                == "Realtime transcription is unavailable for this provider/model."
+            _assert_transcription_http_error(
+                exc.value,
+                message="Realtime transcription is unavailable for this provider/model.",
+                error_code="unsupported_model",
             )
 
     async def test_start_transcription_session_rejects_realtime_on_openai_file_model(
@@ -1616,9 +1718,10 @@ class TestAgentRunChatRoutes:
                     )
 
             assert exc.value.status_code == 400
-            assert (
-                exc.value.detail
-                == "Realtime transcription is unavailable for this provider/model."
+            _assert_transcription_http_error(
+                exc.value,
+                message="Realtime transcription is unavailable for this provider/model.",
+                error_code="unsupported_model",
             )
 
     async def test_transcription_session_cancel_is_idempotent(self) -> None:
@@ -1868,6 +1971,7 @@ class TestAgentRunChatRoutes:
                 status=AgentRunStatus.completed,
                 input_messages=[user_message],
                 output_messages=[user_message, assistant_message],
+                metadata={"toolType": "codex", "model": "gpt-5-codex"},
             )
             save_agent_run(dbe, run)
 
@@ -1885,6 +1989,90 @@ class TestAgentRunChatRoutes:
             assert response.contextUsage.contextUsedTokens is None
             assert response.contextUsage.contextWindowTokens is not None
             assert response.contextUsage.contextWindowTokens > 0
+
+    async def test_get_external_agent_chat_context_uses_run_metadata_not_live_config(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        captured_models: list[str | None] = []
+
+        def _capture_external_context_usage(
+            _run: AgentRun,
+            *,
+            model: str | None,
+        ) -> ResolvedChatContextUsage:
+            captured_models.append(model)
+            return ResolvedChatContextUsage(
+                context_window_tokens=456,
+                context_used_tokens=99,
+                estimated=False,
+            )
+
+        monkeypatch.setattr(
+            ai_module,
+            "resolve_external_run_context_usage",
+            _capture_external_context_usage,
+        )
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            external_config = ExternalAgentConfig(
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                defaultModel="gpt-5-live-config",
+            )
+            engine_config_id = ID("engine-external-context-source")
+            save_external_agent_configs(dbe, [external_config])
+            save_engine_configs(
+                dbe,
+                [
+                    EngineConfig(
+                        id=engine_config_id,
+                        name="External Engine",
+                        engineType=EngineType.external_agent,
+                        externalAgentConfigId=external_config.id,
+                    )
+                ],
+            )
+            chat_id = ID("external-context-chat-source")
+            project_config_id = ID("external-context-project-source")
+            user_message = UserChatMessage(
+                content=[MessageTextContent(text="Hello external usage")],
+            )
+            assistant_message = AssistantChatMessage(
+                id="assistant-context-source",
+                content=[MessageTextContent(text="Hi usage")],
+            )
+            run = _build_external_run(
+                chat_id=chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 8, tzinfo=timezone.utc),
+                status=AgentRunStatus.completed,
+                input_messages=[user_message],
+                output_messages=[user_message, assistant_message],
+                metadata={"toolType": "codex", "model": "gpt-5-runtime-snapshot"},
+            )
+            save_agent_run(dbe, run)
+
+            with runtime_context(state) as ctx:
+                response = await route_get_external_agent_chat(
+                    GetExternalAgentChatRequest(
+                        chatId=chat_id,
+                        projectConfigId=project_config_id,
+                    ),
+                    ctx,
+                )
+
+            assert response.contextUsage is not None
+            assert response.contextUsage.contextWindowTokens == 456
+            assert captured_models == ["gpt-5-runtime-snapshot"]
 
     async def test_get_external_agent_chat_context_usage_from_usage_payload(
         self,

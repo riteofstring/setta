@@ -46,7 +46,7 @@ describe("undo actions", () => {
     });
   });
 
-  it("undoes local thread storage deletions before backend undo", () => {
+  it("routes undo to backend even when local thread deletions exist", () => {
     const groupId = createProjectChatThreadGroup("project-a", "Backend");
     if (!groupId) {
       throw new Error("Expected thread group id.");
@@ -57,17 +57,20 @@ describe("undo actions", () => {
 
     undoProjectState();
 
-    expect(routeUndoMock).not.toHaveBeenCalled();
+    expect(routeUndoMock).toHaveBeenCalledWith({
+      steps: 1,
+      projectConfigId: "project-a",
+    });
     const groups =
       useLocalStorage.getState().projectChatThreadGroupsByProjectConfigId[
         "project-a"
       ] ?? [];
-    expect(groups.map((group) => group.id)).toEqual([groupId]);
+    expect(groups.map((group) => group.id)).toEqual([]);
     expect(
       useLocalStorage.getState().projectChatThreadAssignmentsByProjectConfigId[
         "project-a"
       ]?.["chat-1"],
-    ).toBe(groupId);
+    ).toBeUndefined();
   });
 
   it("routes redo through backend endpoint", () => {

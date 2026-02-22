@@ -164,6 +164,38 @@ describe("resolveProjectChatRuntimeActivityCounts", () => {
       activeSubagents: 0,
     });
   });
+
+  it("does not infer activity from unknown tool-name suffixes", () => {
+    const counts = resolveProjectChatRuntimeActivityCounts({
+      waitingForResponse: true,
+      messages: [
+        createAssistantChatMessage({
+          id: "assistant-streaming",
+          tool_calls: [
+            createToolCall({
+              id: "tool-custom-command",
+              function: createToolCallFunction({
+                name: "custom_namespace__command_execution",
+                arguments: {},
+              }),
+            }),
+            createToolCall({
+              id: "tool-custom-subagent",
+              function: createToolCallFunction({
+                name: "custom_namespace__run_sub_agent",
+                arguments: {},
+              }),
+            }),
+          ],
+        }),
+      ],
+    });
+
+    expect(counts).toEqual({
+      activeBackgroundTerminals: 0,
+      activeSubagents: 0,
+    });
+  });
 });
 
 describe("buildProjectChatSubmittedMessageHistory", () => {

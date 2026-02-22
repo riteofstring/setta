@@ -28,6 +28,7 @@ import {
 import { addTemporaryNotification } from "state/actions/notifications";
 import { formatBytes } from "utils/attachments";
 import { ChatFileAttachment } from "utils/generatedTypes";
+import { isProviderTranscriptionUnsupportedModelError } from "utils/transcriptionErrors";
 import {
   CHAT_SLASH_COMMANDS,
   type ChatPermissionModeValue,
@@ -46,7 +47,6 @@ import {
   mapDictationError,
   pickProviderRecorderMimeType,
 } from "./dictation";
-import { isProviderDictationUnsupportedError } from "./providerDictationSupport";
 import { useChatAttachmentManager } from "./useChatAttachmentManager";
 
 const SLASH_SUGGESTIONS_MAX_HEIGHT_PX = 208;
@@ -1749,7 +1749,7 @@ export const ChatInput = memo(function ChatInput({
               setDictationFeedback(null);
             } catch (error) {
               if (
-                isProviderDictationUnsupportedError(error) &&
+                isProviderTranscriptionUnsupportedModelError(error) &&
                 maybeFallbackToBrowserDictation(allowBrowserFallback)
               ) {
                 return;

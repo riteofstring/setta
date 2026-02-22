@@ -33,6 +33,7 @@ import {
   MdChevronLeft,
   MdChevronRight,
   MdPushPin,
+  MdRestore,
 } from "react-icons/md";
 import { RiChatNewFill } from "react-icons/ri";
 import { RxDragHandleDots2 } from "react-icons/rx";
@@ -56,6 +57,7 @@ import {
   toggleProjectChatThreadGroupCollapsed,
   toggleProjectChatThreadGroupPinned,
   toggleProjectChatThreadPinned,
+  undoLastProjectChatThreadStorageMutation,
 } from "state/actions/projectChatThreads";
 import {
   useAIStore,
@@ -1052,6 +1054,9 @@ export function ProjectChatHistory({
     },
     [onSelectedGroupChange, projectConfigId, selectedGroupId],
   );
+  const handleRestoreDeletedThreadOrGroup = useCallback(() => {
+    undoLastProjectChatThreadStorageMutation(projectConfigId);
+  }, [projectConfigId]);
 
   const panelClasses = inline
     ? "flex h-full min-h-0 w-full min-w-0 flex-col border-r border-setta-200 bg-setta-50 dark:border-setta-800 dark:bg-setta-900/40"
@@ -1081,6 +1086,15 @@ export function ProjectChatHistory({
           : "Show the per-thread engine badge labels.",
       }),
     [showThreadAgentBadges],
+  );
+  const restoreThreadMutationTooltipHandlers = useMemo(
+    () =>
+      getFloatingBoxHandlers({
+        title: "Restore last thread delete",
+        content:
+          "Restore the most recently deleted thread or thread group in this project.",
+      }),
+    [],
   );
   const threadsToolbar = (
     <div
@@ -1159,6 +1173,16 @@ export function ProjectChatHistory({
         {...agentBadgeToggleTooltipHandlers}
       >
         <MdCategory size={12} />
+      </button>
+      <button
+        type="button"
+        className="nodrag relative inline-flex h-full shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+        onClick={handleRestoreDeletedThreadOrGroup}
+        data-testid="project-chat-thread-restore-last-delete-button"
+        {...restoreThreadMutationTooltipHandlers}
+      >
+        <MdRestore size={14} />
+        Restore Delete
       </button>
       <button
         type="button"

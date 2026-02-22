@@ -134,16 +134,31 @@ const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS: ProjectChatRuntimeActivityCoun
     activeBackgroundTerminals: 0,
     activeSubagents: 0,
   };
-const ACTIVE_TERMINAL_TOOL_SUFFIX = "command_execution";
-const ACTIVE_SUBAGENT_TOOL_SUFFIXES = new Set<string>([
+const ACTIVE_BACKGROUND_TERMINAL_TOOL_IDS = new Set<string>([
+  "command_execution",
+]);
+const ACTIVE_SUBAGENT_TOOL_IDS = new Set<string>([
+  "setta__run_agent_profile",
+  "setta__run_sub_agent",
   "run_agent_profile",
   "run_sub_agent",
 ]);
 
-function resolveToolNameSuffix(name: string): string {
-  const segments = name.split("__");
-  const suffix = segments[segments.length - 1];
-  return suffix ?? name;
+function resolveToolRuntimeCategory(
+  toolName: string,
+): "background_terminal" | "subagent" | null {
+  const normalizedToolName = normalizeToolName(toolName);
+  if (!normalizedToolName) {
+    return null;
+  }
+  const lowerCaseToolName = normalizedToolName.toLowerCase();
+  if (ACTIVE_BACKGROUND_TERMINAL_TOOL_IDS.has(lowerCaseToolName)) {
+    return "background_terminal";
+  }
+  if (ACTIVE_SUBAGENT_TOOL_IDS.has(lowerCaseToolName)) {
+    return "subagent";
+  }
+  return null;
 }
 
 function resolveStreamingAssistantMessage(
@@ -190,18 +205,15 @@ export function resolveProjectChatRuntimeActivityCounts({
     if (completedToolCallIds.has(toolCall.id)) {
       continue;
     }
-    const normalizedToolName = normalizeToolName(toolCall.function?.name);
-    if (!normalizedToolName) {
+    const category = resolveToolRuntimeCategory(toolCall.function?.name ?? "");
+    if (!category) {
       continue;
     }
-    const resolvedSuffix = resolveToolNameSuffix(
-      normalizedToolName.toLowerCase(),
-    );
-    if (resolvedSuffix === ACTIVE_TERMINAL_TOOL_SUFFIX) {
+    if (category === "background_terminal") {
       activeBackgroundTerminals += 1;
       continue;
     }
-    if (ACTIVE_SUBAGENT_TOOL_SUFFIXES.has(resolvedSuffix)) {
+    if (category === "subagent") {
       activeSubagents += 1;
     }
   }

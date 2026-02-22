@@ -1,6 +1,7 @@
 """Helpers for persisting the LLM configuration file."""
 
 import json
+import logging
 import os
 import tomllib
 from pathlib import Path
@@ -14,9 +15,12 @@ from setta.utils import constants
 from setta.utils.generate_memorable_string import generate_memorable_available_string
 from setta.utils.network import format_host_for_url
 
+logger = logging.getLogger(__name__)
+
 
 def load_llm_config(dbe: DBE, *, allow_write: bool = True) -> AllLLMConfigs:
     raw = dbe.read_llm_config()
+    seeded_from_example: AllLLMConfigs | None = None
     if not raw or raw == {"configs": {}, "default_config_id": None}:
         example = dbe.read_llm_config_example()
         if example:
@@ -24,8 +28,11 @@ def load_llm_config(dbe: DBE, *, allow_write: bool = True) -> AllLLMConfigs:
             config = _ensure_setta_mcp_server_url(config)
             if allow_write:
                 save_llm_config(config, dbe)
+            seeded_from_example = config
     if raw:
         config = AllLLMConfigs.model_validate(raw)
+    elif seeded_from_example is not None:
+        config = seeded_from_example
     else:
         config = _build_default_llm_config()
         config = _ensure_setta_mcp_server_url(config)
@@ -192,21 +199,56 @@ def _parse_codex_mcp_servers(
         server_id = raw_server_id.strip()
         if not server_id or server_id == SETTA_MCP_SERVER_ID or "__" in server_id:
             continue
-        server_config = _parse_codex_mcp_server_entry(raw_entry)
+        try:
+            server_config = _parse_codex_mcp_server_entry(
+                raw_entry,
+                server_id=server_id,
+            )
+        except ValueError as exc:
+            logger.warning(
+                "Skipping Codex MCP server '%s': %s",
+                server_id,
+                exc,
+            )
+            continue
         if server_config is None:
             continue
         parsed[server_id] = server_config
     return parsed
 
 
-def _parse_codex_mcp_server_entry(raw_entry: Any) -> MCPServerConfig | None:
+def _parse_codex_mcp_server_entry(
+    raw_entry: Any,
+    *,
+    server_id: str,
+) -> MCPServerConfig | None:
     if not isinstance(raw_entry, dict):
         return None
+    supported_fields = {
+        "transport",
+        "url",
+        "command",
+        "args",
+        "env",
+        "cwd",
+        "encoding",
+        "encoding_error_handler",
+        "http_headers",
+        "headers",
+    }
+    unknown_fields = sorted(set(raw_entry.keys()) - supported_fields)
+    if unknown_fields:
+        raise ValueError(
+            f"server '{server_id}' has unsupported fields: "
+            + ", ".join(str(field) for field in unknown_fields)
+        )
 
     raw_transport = raw_entry.get("transport")
     transport = ""
     if isinstance(raw_transport, str):
         transport = raw_transport.strip().lower()
+    if transport and transport not in {"stdio", "sse", "streamable_http"}:
+        raise ValueError(f"server '{server_id}' has unsupported transport '{transport}'")
 
     raw_command = raw_entry.get("command")
     command: str | None = None
@@ -222,7 +264,34 @@ def _parse_codex_mcp_server_entry(raw_entry: Any) -> MCPServerConfig | None:
         if normalized_url:
             url = normalized_url
 
+    if command is not None and url is not None:
+        raise ValueError(f"server '{server_id}' cannot declare both command and url")
+
+    http_headers: dict[str, str] | None = None
+    raw_http_headers = raw_entry.get("http_headers")
+    if raw_http_headers is None:
+        raw_http_headers = raw_entry.get("headers")
+    if raw_http_headers is not None:
+        if not isinstance(raw_http_headers, dict):
+            raise ValueError(f"server '{server_id}' http_headers must be an object")
+        normalized_headers: dict[str, str] = {}
+        for header_name, header_value in raw_http_headers.items():
+            if not isinstance(header_name, str) or not isinstance(header_value, str):
+                raise ValueError(
+                    f"server '{server_id}' http_headers values must be string key/value pairs"
+                )
+            normalized_name = header_name.strip()
+            if not normalized_name:
+                continue
+            normalized_headers[normalized_name] = header_value
+        if normalized_headers:
+            http_headers = normalized_headers
+
     if command is not None:
+        if http_headers is not None:
+            raise ValueError(
+                f"server '{server_id}' stdio transport cannot define http_headers"
+            )
         args: list[str] = []
         raw_args = raw_entry.get("args")
         if isinstance(raw_args, list):
@@ -281,6 +350,7 @@ def _parse_codex_mcp_server_entry(raw_entry: Any) -> MCPServerConfig | None:
             return MCPServerConfig(
                 transport=resolved_transport,
                 url=url,
+                http_headers=http_headers,
             )
         except ValueError:
             return None

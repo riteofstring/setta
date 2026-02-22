@@ -1,6 +1,7 @@
 import base64
 import binascii
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Literal
 
 from fastapi import HTTPException, status
@@ -248,54 +249,22 @@ def _extract_external_tool_type(value: object) -> ExternalAgentToolType | None:
         return None
 
 
-def _resolve_external_model_from_config(
-    external_config: ExternalAgentConfig,
-) -> str | None:
-    managed = external_config.settingsManagedBlock
-    if (
-        external_config.toolType == ExternalAgentToolType.codex
-        and managed is not None
-        and managed.codex is not None
-        and managed.codex.model
-    ):
-        return managed.codex.model
-    if (
-        external_config.toolType == ExternalAgentToolType.opencode
-        and managed is not None
-        and managed.opencode is not None
-        and managed.opencode.model
-    ):
-        return managed.opencode.model
-    return external_config.defaultModel
-
-
 def _resolve_external_context_source(
     run: AgentRun,
-    ctx: RuntimeContextFromRequest,
 ) -> tuple[ExternalAgentToolType | None, str | None]:
     metadata = _extract_run_output_metadata(run)
     metadata_tool_type = _extract_external_tool_type(metadata.get("toolType"))
     metadata_model = _normalize_optional_string(metadata.get("model"))
-    engine_config_id = get_run_engine_config_id(run)
-    if not engine_config_id:
-        return metadata_tool_type, metadata_model
-    try:
-        resolved = resolve_engine_config(
-            ctx.state.dbe,
-            ctx.state.agent_runner.config,
-            engine_config_id,
-        )
-    except (KeyError, ValueError):
-        return metadata_tool_type, metadata_model
-    if resolved.engine_config.engineType != EngineType.external_agent:
-        return metadata_tool_type, metadata_model
-    external_config = resolved.external_agent_config
-    if external_config is None:
-        return metadata_tool_type, metadata_model
-    resolved_model = _normalize_optional_string(
-        _resolve_external_model_from_config(external_config)
-    )
-    return external_config.toolType, resolved_model or metadata_model
+    return metadata_tool_type, metadata_model
+
+
+def _resolve_internal_context_source(
+    run: AgentRun,
+) -> tuple[str | None, str | None]:
+    metadata = _extract_run_output_metadata(run)
+    model = _normalize_optional_string(metadata.get("model"))
+    provider = _normalize_optional_string(metadata.get("provider"))
+    return model, provider
 
 
 def _ensure_external_chat_id_compatible(
@@ -676,6 +645,21 @@ class TranscriptionSessionDeltaResponse(BaseModel):
     isFinal: bool
 
 
+class TranscriptionErrorCode(str, Enum):
+    unsupported_model = "unsupported_model"
+    missing_api_key = "missing_api_key"
+    profile_not_found = "profile_not_found"
+    session_not_found = "session_not_found"
+    invalid_request = "invalid_request"
+    audio_payload_too_large = "audio_payload_too_large"
+    provider_failure = "provider_failure"
+
+
+class TranscriptionErrorDetail(BaseModel):
+    message: str
+    errorCode: TranscriptionErrorCode
+
+
 class ChatContextUsage(BaseModel):
     contextWindowTokens: int | None = None
     contextUsedTokens: int | None = None
@@ -718,37 +702,65 @@ def _normalize_transcription_language(value: str | None) -> str | None:
     return stripped
 
 
+def _raise_transcription_http_error(
+    *,
+    status_code: int,
+    message: str,
+    error_code: TranscriptionErrorCode,
+) -> None:
+    raise HTTPException(
+        status_code=status_code,
+        detail=TranscriptionErrorDetail(
+            message=message,
+            errorCode=error_code,
+        ).model_dump(mode="json"),
+    )
+
+
 def _decode_pcm16_payload(audio_pcm16_base64: str) -> bytes:
     stripped_payload = audio_pcm16_base64.strip()
     if not stripped_payload:
-        raise HTTPException(status_code=400, detail="Audio payload is empty.")
+        _raise_transcription_http_error(
+            status_code=400,
+            message="Audio payload is empty.",
+            error_code=TranscriptionErrorCode.invalid_request,
+        )
     estimated_decoded_bytes = (len(stripped_payload) * 3) // 4
     if stripped_payload.endswith("=="):
         estimated_decoded_bytes -= 2
     elif stripped_payload.endswith("="):
         estimated_decoded_bytes -= 1
     if estimated_decoded_bytes > _TRANSCRIPTION_PCM_MAX_BYTES:
-        raise HTTPException(
+        _raise_transcription_http_error(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=_build_audio_payload_too_large_detail(_TRANSCRIPTION_PCM_MAX_BYTES),
+            message=_build_audio_payload_too_large_detail(_TRANSCRIPTION_PCM_MAX_BYTES),
+            error_code=TranscriptionErrorCode.audio_payload_too_large,
         )
     try:
         decoded = base64.b64decode(stripped_payload, validate=True)
-    except binascii.Error as exc:
-        raise HTTPException(
-            status_code=400, detail="Audio payload is not valid base64."
-        ) from exc
+    except binascii.Error:
+        _raise_transcription_http_error(
+            status_code=400,
+            message="Audio payload is not valid base64.",
+            error_code=TranscriptionErrorCode.invalid_request,
+        )
     if not decoded:
-        raise HTTPException(status_code=400, detail="Audio payload is empty.")
+        _raise_transcription_http_error(
+            status_code=400,
+            message="Audio payload is empty.",
+            error_code=TranscriptionErrorCode.invalid_request,
+        )
     if len(decoded) > _TRANSCRIPTION_PCM_MAX_BYTES:
-        raise HTTPException(
+        _raise_transcription_http_error(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=_build_audio_payload_too_large_detail(_TRANSCRIPTION_PCM_MAX_BYTES),
+            message=_build_audio_payload_too_large_detail(_TRANSCRIPTION_PCM_MAX_BYTES),
+            error_code=TranscriptionErrorCode.audio_payload_too_large,
         )
     if len(decoded) % 2 != 0:
-        raise HTTPException(
+        _raise_transcription_http_error(
             status_code=400,
-            detail="Audio payload must be PCM16 with an even byte length.",
+            message="Audio payload must be PCM16 with an even byte length.",
+            error_code=TranscriptionErrorCode.invalid_request,
         )
     return decoded
 
@@ -760,10 +772,30 @@ def _raise_transcription_key_error(exc: KeyError) -> None:
         else "Transcription session error."
     )
     if "Transcription profile" in detail and "not found" in detail:
-        raise HTTPException(status_code=404, detail=detail) from exc
+        _raise_transcription_http_error(
+            status_code=404,
+            message=detail,
+            error_code=TranscriptionErrorCode.profile_not_found,
+        )
     if "Transcription session" in detail and "not found" in detail:
-        raise HTTPException(status_code=404, detail=detail) from exc
-    raise HTTPException(status_code=400, detail=detail) from exc
+        _raise_transcription_http_error(
+            status_code=404,
+            message=detail,
+            error_code=TranscriptionErrorCode.session_not_found,
+        )
+    _raise_transcription_http_error(
+        status_code=400,
+        message=detail,
+        error_code=TranscriptionErrorCode.invalid_request,
+    )
+
+
+def _resolve_transcription_value_error_code(
+    detail: str,
+) -> TranscriptionErrorCode:
+    if detail == "Realtime transcription is unavailable for this provider/model.":
+        return TranscriptionErrorCode.unsupported_model
+    return TranscriptionErrorCode.invalid_request
 
 
 @router.post(Route.GET_LLM_RESPONSE)
@@ -1072,14 +1104,27 @@ async def route_start_transcription_session(
             if exc.args and isinstance(exc.args[0], str)
             else "Missing API key for transcription."
         )
-        raise HTTPException(status_code=400, detail=detail) from exc
+        _raise_transcription_http_error(
+            status_code=400,
+            message=detail,
+            error_code=TranscriptionErrorCode.missing_api_key,
+        )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        detail = str(exc)
+        _raise_transcription_http_error(
+            status_code=400,
+            message=detail,
+            error_code=_resolve_transcription_value_error_code(detail),
+        )
     except Exception as exc:
         detail = (
             get_user_facing_llm_error_message(exc) or "Provider transcription failed."
         )
-        raise HTTPException(status_code=502, detail=detail) from exc
+        _raise_transcription_http_error(
+            status_code=502,
+            message=detail,
+            error_code=TranscriptionErrorCode.provider_failure,
+        )
     resolved_mode_literal: Literal["file", "realtime"] = (
         "realtime" if resolved_transport_mode == "realtime" else "file"
     )
@@ -1114,17 +1159,26 @@ async def route_append_transcription_audio(
     except KeyError as exc:
         _raise_transcription_key_error(exc)
     except TranscriptionAudioLimitExceededError as exc:
-        raise HTTPException(
+        _raise_transcription_http_error(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=_build_audio_payload_too_large_detail(exc.max_bytes),
-        ) from exc
+            message=_build_audio_payload_too_large_detail(exc.max_bytes),
+            error_code=TranscriptionErrorCode.audio_payload_too_large,
+        )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _raise_transcription_http_error(
+            status_code=400,
+            message=str(exc),
+            error_code=TranscriptionErrorCode.invalid_request,
+        )
     except Exception as exc:
         detail = (
             get_user_facing_llm_error_message(exc) or "Provider transcription failed."
         )
-        raise HTTPException(status_code=502, detail=detail) from exc
+        _raise_transcription_http_error(
+            status_code=502,
+            message=detail,
+            error_code=TranscriptionErrorCode.provider_failure,
+        )
     return _to_transcription_delta_response(
         append_text=result.append_text,
         full_text=result.full_text,
@@ -1146,12 +1200,20 @@ async def route_stop_transcription_session(
     except KeyError as exc:
         _raise_transcription_key_error(exc)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        _raise_transcription_http_error(
+            status_code=400,
+            message=str(exc),
+            error_code=TranscriptionErrorCode.invalid_request,
+        )
     except Exception as exc:
         detail = (
             get_user_facing_llm_error_message(exc) or "Provider transcription failed."
         )
-        raise HTTPException(status_code=502, detail=detail) from exc
+        _raise_transcription_http_error(
+            status_code=502,
+            message=detail,
+            error_code=TranscriptionErrorCode.provider_failure,
+        )
     return _to_transcription_delta_response(
         append_text=result.append_text,
         full_text=result.full_text,
@@ -1219,10 +1281,11 @@ async def route_get_llm_chat(
         raise HTTPException(status_code=500, detail="Chat engine is not internal")
     if resolved.llm_config is None:
         raise HTTPException(status_code=500, detail="Chat LLM config not found")
+    context_model, context_provider = _resolve_internal_context_source(latest_run)
     context_usage = resolve_internal_run_context_usage(
         latest_run,
-        model=resolved.llm_config.model,
-        provider=resolved.llm_config.provider,
+        model=context_model,
+        provider=context_provider,
     )
     return GetLLMChatRequestResponse(
         messages=state.messages,
@@ -1253,10 +1316,7 @@ async def route_get_external_agent_chat(
             live_state = runner.get_live_chat_state(latest_run.id)
             if live_state is not None:
                 state = live_state
-    _external_tool_type, external_model = _resolve_external_context_source(
-        latest_run,
-        ctx,
-    )
+    _external_tool_type, external_model = _resolve_external_context_source(latest_run)
     context_usage = resolve_external_run_context_usage(
         latest_run,
         model=external_model,
