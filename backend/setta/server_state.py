@@ -202,18 +202,14 @@ class SettaFastAPIState:
         *,
         share_mode: bool = False,
         app_mode: bool = False,
-        launcher_mode: bool = False,
         share_deployment_root: Path | None = None,
         enable_mcp_connections: bool = True,
         enable_language_server: bool = True,
     ):
         if share_mode and app_mode:
             raise ValueError("Server cannot enable both share_mode and app_mode.")
-        if launcher_mode and (share_mode or app_mode):
-            raise ValueError("Launcher mode cannot be combined with deployment modes.")
         self.app_mode = app_mode
         self.share_mode = share_mode
-        self.launcher_mode = launcher_mode
         self.deployment_mode = share_mode or app_mode
         # Register runtime state on the app before startup work begins so backend
         # plugin register-time host calls can resolve app.state.setta.
@@ -357,12 +353,7 @@ class SettaFastAPIState:
         if self.app_mode:
             mode_label = "app"
         else:
-            if self.share_mode:
-                mode_label = "share"
-            elif self.launcher_mode:
-                mode_label = "launcher"
-            else:
-                mode_label = "backend"
+            mode_label = "share" if self.share_mode else "backend"
         self.init_status.record(f"Booting {mode_label} services")
         if C.BACKEND_INIT_DELAY_SECONDS > 0:
             self.init_status.record(
@@ -804,8 +795,6 @@ class SettaFastAPIState:
             return "app"
         if self.share_mode:
             return "share"
-        if self.launcher_mode:
-            return "launcher"
         return "ide"
 
     def _defer_attr(self, name: str) -> _T:

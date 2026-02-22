@@ -6,10 +6,6 @@ from pydantic import BaseModel
 
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
 from setta.launch import LaunchError, launch_workspace_session
-from setta.launcher_metadata import (
-    LauncherMetadataError,
-    update_launcher_last_used_workspace_if_installed,
-)
 from setta.routers.dependencies import require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_common import normalize_optional_argument
@@ -162,15 +158,6 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
             ok=False,
             error=LaunchErrorPayload(code="BadRequest", message=str(exc)),
         )
-
-    try:
-        update_launcher_last_used_workspace_if_installed(
-            setta_home=result.paths.setta_home,
-            workspace_root=result.paths.workspace_root,
-        )
-    except (LauncherMetadataError, OSError):
-        # Workspace launches should continue even if launcher metadata is malformed.
-        pass
 
     secret = result.registry.load_secret(result.session)
     token = BOOTSTRAP_TOKEN_MANAGER.mint(result.session.id, secret)
