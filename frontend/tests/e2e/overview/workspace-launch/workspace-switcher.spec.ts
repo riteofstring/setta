@@ -361,13 +361,9 @@ test("workspace launch URL handoff overrides stale sessionStorage", async ({
     );
     return buildWorkspaceLaunchIntentHash({
       launchIntentToken: "fresh-intent-token",
-      returnUrl: window.location.href,
       requestedAt: 222,
     });
   });
-  if (!hash) {
-    throw new Error("Failed to encode pending workspace launch handoff hash.");
-  }
 
   await page.route("**/api/launch", async (route) => {
     await route.fulfill({
@@ -396,6 +392,38 @@ test("workspace launch URL handoff overrides stale sessionStorage", async ({
   >;
   expect(requestBody.launchIntentToken).toBe("fresh-intent-token");
   expect(page.url()).not.toContain("plt=");
+});
+
+test("workspace launch ignores forged plr hash values on error back-navigation", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  await page.route("**/api/launch", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: false,
+        error: { message: "Intentional failure for forged plr test." },
+      }),
+    });
+  });
+
+  const nextUrl = new URL(page.url());
+  nextUrl.pathname = "/launching";
+  nextUrl.hash =
+    "plt=fresh-intent-token&plr=aHR0cHM6Ly9ldmlsLmV4YW1wbGUvcGhpc2g&pla=222";
+  await page.goto(nextUrl.toString(), { waitUntil: "domcontentloaded" });
+
+  await expect(
+    page.getByText("Intentional failure for forged plr test."),
+  ).toBeVisible();
+  await expect(page).not.toHaveURL(/evil\.example/);
+
+  await page.getByRole("button", { name: "Back to Switcher" }).click();
+  await expect(page).toHaveURL(/\/home(?:\?|#|$)/);
+  await expect(page).not.toHaveURL(/evil\.example/);
 });
 
 test("workspace launch blocks legacy forged hash payloads", async ({ page }) => {

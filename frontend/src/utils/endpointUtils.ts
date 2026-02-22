@@ -49,6 +49,7 @@ export const ENDPOINT_ORIGIN_POLICY: Readonly<
   Record<string, EndpointOriginPolicy>
 > = Object.freeze({
   [RouteEnum.LAUNCH]: "launcher",
+  [RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT]: "launcher",
   [RouteEnum.GET_SETTA_HOME_INFO]: "launcher",
   [RouteEnum.GET_LAUNCHER_APP_MODE]: "launcher",
   [RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES]: "launcher",

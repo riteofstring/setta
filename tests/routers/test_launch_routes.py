@@ -17,7 +17,7 @@ from setta.launcher_metadata import LauncherMetadataError
 from setta.routers.launch import (
     CreateWorkspaceLaunchIntentRequest,
     LaunchRequest,
-    _WORKSPACE_LAUNCH_INTENTS,
+    _WORKSPACE_LAUNCH_INTENT_STORE,
     normalize_setta_files_location_for_launch,
     route_create_workspace_launch_intent,
     route_launch,
@@ -94,7 +94,7 @@ class TestLaunchRoutes:
     def test_launch_intent_roundtrip_uses_server_stored_request(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _WORKSPACE_LAUNCH_INTENTS.clear()
+        _WORKSPACE_LAUNCH_INTENT_STORE.clear()
         captured: dict[str, object] = {}
 
         def fake_launch_workspace_session(**kwargs):
@@ -131,14 +131,18 @@ class TestLaunchRoutes:
         assert response.ok is False
         assert response.error is not None
         assert response.error.code == "Captured"
+        assert response.returnUrl == "http://localhost/home"
         assert captured["workspace_root"] == "/tmp/workspace"
         assert captured["setta_files_location"] == "global"
-        assert create_response.launchIntentToken not in _WORKSPACE_LAUNCH_INTENTS
+        assert create_response.launchIntentToken is not None
+        assert not _WORKSPACE_LAUNCH_INTENT_STORE.contains(
+            create_response.launchIntentToken
+        )
 
     def test_launch_intent_rejects_tampered_token(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _WORKSPACE_LAUNCH_INTENTS.clear()
+        _WORKSPACE_LAUNCH_INTENT_STORE.clear()
         monkeypatch.setattr(
             "setta.routers.launch.load_current_session_secret",
             lambda: (SimpleNamespace(id="session-1"), b"secret"),
@@ -167,7 +171,7 @@ class TestLaunchRoutes:
     def test_launch_intent_rejects_replay(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _WORKSPACE_LAUNCH_INTENTS.clear()
+        _WORKSPACE_LAUNCH_INTENT_STORE.clear()
 
         def fake_launch_workspace_session(**_kwargs):
             raise LaunchError("Captured", "intentional capture")
@@ -206,7 +210,7 @@ class TestLaunchRoutes:
     def test_launch_intent_rejects_expired_token(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _WORKSPACE_LAUNCH_INTENTS.clear()
+        _WORKSPACE_LAUNCH_INTENT_STORE.clear()
         monkeypatch.setattr(
             "setta.routers.launch.load_current_session_secret",
             lambda: (SimpleNamespace(id="session-1"), b"secret"),
@@ -224,6 +228,70 @@ class TestLaunchRoutes:
         assert response.error is not None
         assert response.error.code == "InvalidLaunchIntent"
         assert "expired" in response.error.message
+
+    def test_create_launch_intent_rejects_disallowed_return_url_origin(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _WORKSPACE_LAUNCH_INTENT_STORE.clear()
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(
+            deployment_mode=False,
+            launcher_mode=False,
+            share_mode=False,
+            app_mode=False,
+        )
+        app.include_router(launch_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app, base_url="http://launcher.example") as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}",
+                json={
+                    "launchRequest": {"workspaceRoot": "/tmp/workspace"},
+                    "returnUrl": "https://evil.example/phish",
+                },
+            )
+
+        response.raise_for_status()
+        payload = response.json()
+        assert payload["ok"] is False
+        assert payload["error"]["code"] == "BadRequest"
+        assert "origin is not allowed" in payload["error"]["message"]
+
+    def test_create_launch_intent_allows_origin_header_return_url(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _WORKSPACE_LAUNCH_INTENT_STORE.clear()
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        app = FastAPI()
+        app.state.setta = SimpleNamespace(
+            deployment_mode=False,
+            launcher_mode=False,
+            share_mode=False,
+            app_mode=False,
+        )
+        app.include_router(launch_router, prefix=Route.PREFIX.value)
+
+        with TestClient(app, base_url="http://launcher.example") as client:
+            response = client.post(
+                f"{Route.PREFIX.value}{Route.CREATE_WORKSPACE_LAUNCH_INTENT.value}",
+                headers={"origin": "http://backend.example"},
+                json={
+                    "launchRequest": {"workspaceRoot": "/tmp/workspace"},
+                    "returnUrl": "http://backend.example/home",
+                },
+            )
+
+        response.raise_for_status()
+        payload = response.json()
+        assert payload["ok"] is True
+        assert payload["launchIntentToken"]
 
     def test_launch_and_launcher_home_share_setta_files_location_resolution(
         self,

@@ -1,7 +1,7 @@
 import os
 import time
-from dataclasses import dataclass
 from typing import Literal
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import Depends, Request
 from pydantic import BaseModel
@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER, LAUNCH_INTENT_TOKEN_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.launch import LaunchError, launch_workspace_session
+from setta.launch_intent_store import WorkspaceLaunchIntentStore
 from setta.launcher_metadata import (
     LauncherMetadataError,
     update_launcher_last_used_workspace_if_installed,
@@ -63,6 +64,7 @@ class LaunchSessionInfo(BaseModel):
 class LaunchResponse(BaseModel):
     ok: bool
     bootstrapUrlFragment: str | None = None
+    returnUrl: str | None = None
     workspaceRoot: str | None = None
     settaFilesLocation: Literal["local", "global"] | None = None
     settaFilesRoot: str | None = None
@@ -88,19 +90,14 @@ class CreateWorkspaceLaunchIntentResponse(BaseModel):
     error: LaunchErrorPayload | None = None
 
 
-@dataclass(frozen=True)
-class _StoredWorkspaceLaunchIntent:
-    session_id: str
-    launch_request_payload: dict[str, object]
-    exp: int
-
-
-_WORKSPACE_LAUNCH_INTENTS: dict[str, _StoredWorkspaceLaunchIntent] = {}
+SAFE_LAUNCH_RETURN_PATH = "/home"
+_WORKSPACE_LAUNCH_INTENT_STORE = WorkspaceLaunchIntentStore()
 
 
 @router.post(Route.CREATE_WORKSPACE_LAUNCH_INTENT)
 def route_create_workspace_launch_intent(
     x: CreateWorkspaceLaunchIntentRequest,
+    request: Request = None,  # type: ignore[assignment]
 ) -> CreateWorkspaceLaunchIntentResponse:
     if x.launchRequest.launchIntentToken is not None:
         return CreateWorkspaceLaunchIntentResponse(
@@ -128,12 +125,23 @@ def route_create_workspace_launch_intent(
             ok=False,
             error=LaunchErrorPayload(code="BadRequest", message=str(exc)),
         )
+    try:
+        return_url = _validate_and_normalize_return_url(
+            return_url=x.returnUrl,
+            request=request,
+        )
+    except ValueError as exc:
+        return CreateWorkspaceLaunchIntentResponse(
+            ok=False,
+            error=LaunchErrorPayload(code="BadRequest", message=str(exc)),
+        )
     requested_at = int(time.time() * 1000)
     token, exp = LAUNCH_INTENT_TOKEN_MANAGER.mint(session_metadata.id, secret)
     _store_workspace_launch_intent(
         token=token,
         session_id=session_metadata.id,
         launch_request_payload=launch_request_payload,
+        return_url=return_url,
         exp=exp,
     )
     return CreateWorkspaceLaunchIntentResponse(
@@ -148,15 +156,13 @@ def route_launch(
     x: LaunchRequest,
     request: Request = None,  # type: ignore[assignment]
 ) -> LaunchResponse:
-    request_origin: str | None = None
-    if request is not None:
-        request_origin = normalize_launcher_origin(
-            f"{request.url.scheme}://{request.url.netloc}"
-        )
+    request_origin = _resolve_request_origin(request)
+    return_url = _build_safe_launch_return_url(request_origin=request_origin)
     if x.launchIntentToken is not None:
         if _launch_request_has_inline_overrides(x):
             return LaunchResponse(
                 ok=False,
+                returnUrl=return_url,
                 error=LaunchErrorPayload(
                     code="BadRequest",
                     message=(
@@ -168,13 +174,14 @@ def route_launch(
         if session_info is None:
             return LaunchResponse(
                 ok=False,
+                returnUrl=return_url,
                 error=LaunchErrorPayload(
                     code="Unauthorized", message="Missing session."
                 ),
             )
         session_metadata, secret = session_info
         try:
-            x = _consume_workspace_launch_intent(
+            x, return_url = _consume_workspace_launch_intent(
                 token=x.launchIntentToken,
                 session_id=session_metadata.id,
                 secret=secret,
@@ -182,6 +189,7 @@ def route_launch(
         except ValueError as exc:
             return LaunchResponse(
                 ok=False,
+                returnUrl=return_url,
                 error=LaunchErrorPayload(code="InvalidLaunchIntent", message=str(exc)),
             )
     try:
@@ -227,6 +235,7 @@ def route_launch(
             return LaunchResponse(
                 ok=True,
                 bootstrapUrlFragment=remote_bootstrap_url,
+                returnUrl=return_url,
                 workspaceRoot=resolved_workspace_root,
                 settaFilesLocation=remote.setta_files_location,
                 settaFilesRoot=remote.setta_files_root,
@@ -276,11 +285,13 @@ def route_launch(
     except LaunchError as exc:
         return LaunchResponse(
             ok=False,
+            returnUrl=return_url,
             error=LaunchErrorPayload(code=exc.code, message=str(exc)),
         )
     except ValueError as exc:
         return LaunchResponse(
             ok=False,
+            returnUrl=return_url,
             error=LaunchErrorPayload(code="BadRequest", message=str(exc)),
         )
 
@@ -321,6 +332,7 @@ def route_launch(
     return LaunchResponse(
         ok=True,
         bootstrapUrlFragment=bootstrap_url_fragment,
+        returnUrl=return_url,
         workspaceRoot=str(result.paths.workspace_root),
         settaFilesLocation=result.paths.setta_files_location,
         settaFilesRoot=str(result.paths.setta_files_root),
@@ -345,13 +357,16 @@ def _store_workspace_launch_intent(
     token: str,
     session_id: str,
     launch_request_payload: dict[str, object],
+    return_url: str,
     exp: int,
 ) -> None:
-    _prune_workspace_launch_intents(now=int(time.time()))
-    _WORKSPACE_LAUNCH_INTENTS[token] = _StoredWorkspaceLaunchIntent(
+    _WORKSPACE_LAUNCH_INTENT_STORE.create(
+        token=token,
         session_id=session_id,
         launch_request_payload=launch_request_payload,
+        return_url=return_url,
         exp=exp,
+        now=int(time.time()),
     )
 
 
@@ -360,26 +375,70 @@ def _consume_workspace_launch_intent(
     token: str,
     session_id: str,
     secret: bytes,
-) -> LaunchRequest:
+) -> tuple[LaunchRequest, str]:
     payload = LAUNCH_INTENT_TOKEN_MANAGER.consume(token, secret)
     if payload.sessionId != session_id:
         raise ValueError("Launch intent token is bound to a different session.")
-    _prune_workspace_launch_intents(now=int(time.time()))
-    stored = _WORKSPACE_LAUNCH_INTENTS.pop(token, None)
-    if stored is None:
-        raise ValueError("Launch intent token is missing or already consumed.")
-    if stored.exp <= int(time.time()):
-        raise ValueError("Launch intent token has expired.")
-    if stored.session_id != session_id:
-        raise ValueError("Launch intent token is bound to a different session.")
-    return LaunchRequest.model_validate(stored.launch_request_payload)
+    stored = _WORKSPACE_LAUNCH_INTENT_STORE.consume_once(
+        token=token,
+        session_id=session_id,
+        now=int(time.time()),
+    )
+    return LaunchRequest.model_validate(
+        stored.launch_request_payload
+    ), stored.return_url
 
 
-def _prune_workspace_launch_intents(*, now: int) -> None:
-    expired_tokens = [
-        token
-        for token, stored in _WORKSPACE_LAUNCH_INTENTS.items()
-        if stored.exp <= now
-    ]
-    for token in expired_tokens:
-        _WORKSPACE_LAUNCH_INTENTS.pop(token, None)
+def _resolve_request_origin(request: Request | None) -> str | None:
+    if request is None:
+        return None
+    return normalize_launcher_origin(f"{request.url.scheme}://{request.url.netloc}")
+
+
+def _build_safe_launch_return_url(*, request_origin: str | None) -> str:
+    if request_origin is None:
+        return SAFE_LAUNCH_RETURN_PATH
+    return f"{request_origin}{SAFE_LAUNCH_RETURN_PATH}"
+
+
+def _validate_and_normalize_return_url(
+    *,
+    return_url: str,
+    request: Request | None,
+) -> str:
+    trimmed_return_url = return_url.strip()
+    if not trimmed_return_url:
+        raise ValueError("returnUrl must not be blank.")
+    parsed = urlsplit(trimmed_return_url)
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("returnUrl must use http or https.")
+    if parsed.username or parsed.password:
+        raise ValueError("returnUrl must not include credentials.")
+    if not parsed.netloc:
+        raise ValueError("returnUrl must include an origin.")
+
+    normalized_origin = normalize_launcher_origin(f"{parsed.scheme}://{parsed.netloc}")
+    if normalized_origin is None:
+        raise ValueError("returnUrl origin is invalid.")
+
+    request_origin = _resolve_request_origin(request)
+    if request_origin is not None:
+        allowed_origins = {request_origin}
+        if request is not None:
+            origin_header = normalize_launcher_origin(request.headers.get("origin"))
+            if origin_header is not None:
+                allowed_origins.add(origin_header)
+        if normalized_origin not in allowed_origins:
+            raise ValueError("returnUrl origin is not allowed.")
+
+    normalized_origin_parts = urlsplit(normalized_origin)
+    normalized_path = parsed.path if parsed.path else "/"
+    return urlunsplit(
+        (
+            normalized_origin_parts.scheme,
+            normalized_origin_parts.netloc,
+            normalized_path,
+            parsed.query,
+            parsed.fragment,
+        )
+    )

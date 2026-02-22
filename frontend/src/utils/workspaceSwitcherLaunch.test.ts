@@ -102,17 +102,13 @@ describe("workspaceSwitcherLaunch", () => {
   it("can consume pending launch intent from the URL hash", () => {
     const hash = buildWorkspaceLaunchIntentHash({
       launchIntentToken: "intent-token",
-      returnUrl: "http://localhost/project",
       requestedAt: 456,
     });
-    if (!hash) {
-      throw new Error("Failed to encode pending launch intent.");
-    }
     windowStub.location.hash = `#${hash}`;
 
     const pending = readPendingWorkspaceLaunch();
     expect(pending?.request.launchIntentToken).toBe("intent-token");
-    expect(pending?.returnUrl).toBe("http://localhost/project");
+    expect(pending?.returnUrl).toBe("http://localhost/home");
     expect(pending?.requestedAt).toBe(456);
     expect(windowStub.location.hash).not.toContain("plt=");
     expect(windowStub.location.href).not.toContain("plt=");
@@ -127,12 +123,8 @@ describe("workspaceSwitcherLaunch", () => {
 
     const hash = buildWorkspaceLaunchIntentHash({
       launchIntentToken: "fresh-intent-token",
-      returnUrl: "http://localhost/project",
       requestedAt: 456,
     });
-    if (!hash) {
-      throw new Error("Failed to encode pending launch intent.");
-    }
     windowStub.location.hash = `#${hash}`;
 
     const pending = readPendingWorkspaceLaunch();
@@ -166,12 +158,8 @@ describe("workspaceSwitcherLaunch", () => {
   it("cleans the URL hash even when history state is not cloneable", () => {
     const hash = buildWorkspaceLaunchIntentHash({
       launchIntentToken: "intent-token",
-      returnUrl: "http://localhost/project",
       requestedAt: 456,
     });
-    if (!hash) {
-      throw new Error("Failed to encode pending launch intent.");
-    }
     windowStub.location.hash = `#${hash}`;
 
     windowStub.history.state = { from: "test" };
@@ -213,6 +201,16 @@ describe("workspaceSwitcherLaunch", () => {
     const pending = readPendingWorkspaceLaunch();
     expect(pending).toBeNull();
     expect(windowStub.location.hash).not.toContain("pl=");
+  });
+
+  it("ignores forged plr hash params and uses the safe default return URL", () => {
+    windowStub.location.hash =
+      "#plt=intent-token&plr=aHR0cHM6Ly9ldmlsLmV4YW1wbGU&pla=123";
+
+    const pending = readPendingWorkspaceLaunch();
+    expect(pending?.request.launchIntentToken).toBe("intent-token");
+    expect(pending?.returnUrl).toBe("http://localhost/home");
+    expect(windowStub.location.hash).not.toContain("plr=");
   });
 
   it("consumes the open-switcher request from the URL", () => {

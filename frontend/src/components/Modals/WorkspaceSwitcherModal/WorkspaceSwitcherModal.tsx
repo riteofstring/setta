@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
 import { C_ADDRESSES } from "utils/c_addresses";
-import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
+import {
+  HOME_ROUTER_PATH,
+  WORKSPACE_LAUNCH_ROUTER_PATH,
+} from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import {
   route_create_workspace_launch_intent,
@@ -156,7 +159,10 @@ export function WorkspaceSwitcherModal() {
     ) {
       const launchIntentRequest: CreateWorkspaceLaunchIntentRequestInput = {
         launchRequest: request,
-        returnUrl: pendingLaunch.returnUrl,
+        returnUrl: new URL(
+          HOME_ROUTER_PATH,
+          C_ADDRESSES.LAUNCHER_ORIGIN,
+        ).toString(),
       };
       const launchIntentResponse =
         await route_create_workspace_launch_intent(launchIntentRequest);
@@ -175,14 +181,8 @@ export function WorkspaceSwitcherModal() {
       }
       const hash = buildWorkspaceLaunchIntentHash({
         launchIntentToken: launchIntentResponse.data.launchIntentToken,
-        returnUrl: pendingLaunch.returnUrl,
         requestedAt: launchIntentResponse.data.requestedAt ?? Date.now(),
       });
-      if (!hash) {
-        setIsLaunching(false);
-        setError("Failed to encode launch intent.");
-        return;
-      }
       const url = new URL(
         WORKSPACE_LAUNCH_ROUTER_PATH,
         C_ADDRESSES.LAUNCHER_ORIGIN,

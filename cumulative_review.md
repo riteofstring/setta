@@ -88,3 +88,12 @@
 - Aligned status/stop mode contracts (`status --connect-info` IDE default; `status --list-sessions` unfiltered default; `stop` explicit mode resolution) and updated CLI docs accordingly.
 - Refactored release workflow publishing into a single final gated asset-publish job and hardened launcher smoke cleanup/assertions with explicit launcher-mode stop/session checks.
 - Added and updated backend pytest, frontend Vitest, and Playwright coverage for the above contracts; targeted backend/Vitest suites passed and targeted Playwright specs passed.
+
+## 2026-02-25 22:45:04 PST
+
+- Replaced mutable global launch-intent tracking with a synchronized `WorkspaceLaunchIntentStore` abstraction and switched launch routes to atomic create/consume semantics with explicit prune behavior.
+- Bound workspace launch `returnUrl` to server-owned intent state, validated/canonicalized it at intent creation, and returned canonical `returnUrl` in `/launch` responses for deterministic back-navigation.
+- Removed unsigned `plr` trust from launcher hash handoff (token + requested-at only), kept cleanup of legacy hash params, and tightened launch-page return navigation to allowed Setta origins with safe `/home` fallback.
+- Fixed endpoint origin policy drift by routing `createWorkspaceLaunchIntent` to launcher origin alongside `/launch`.
+- Enforced full-runtime policy consistency by moving `llm` and `agentic` routers onto `SettaFullRuntimeAPIRouter`, ensuring launcher mode fails fast with deterministic `403` instead of deferred-runtime `500`s.
+- Added/updated backend unit and integration tests, frontend Vitest coverage, and Playwright workspace-launch coverage for intent-store concurrency, return-url validation, hash tampering, endpoint routing, and launcher-mode runtime guards.

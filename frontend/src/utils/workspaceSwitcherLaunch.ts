@@ -1,4 +1,4 @@
-import { decodeBase64Url, encodeBase64Url } from "utils/base64Url";
+import { HOME_ROUTER_PATH } from "utils/constants";
 import type { LaunchRequestInput } from "utils/generatedTypes";
 import { safeSessionStorage } from "utils/storage";
 
@@ -44,36 +44,6 @@ function parsePendingWorkspaceLaunch(
   };
 }
 
-function encodeReturnUrlForHash(returnUrl: string): string | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  try {
-    const encoder = new TextEncoder();
-    return encodeBase64Url(encoder.encode(returnUrl));
-  } catch (error) {
-    console.warn("Failed to encode workspace launch return URL", error);
-    return null;
-  }
-}
-
-function decodeReturnUrlFromHash(raw: string | null): string | null {
-  if (!raw) {
-    return null;
-  }
-  try {
-    const bytes = decodeBase64Url(raw);
-    const decoded = new TextDecoder().decode(bytes).trim();
-    if (!decoded) {
-      return null;
-    }
-    return decoded;
-  } catch (error) {
-    console.warn("Failed to decode workspace launch return URL", error);
-    return null;
-  }
-}
-
 function parseRequestedAt(raw: string | null): number {
   if (!raw) {
     return Date.now();
@@ -90,6 +60,17 @@ function cleanPendingWorkspaceLaunchParams(params: URLSearchParams): void {
   params.delete(PENDING_LAUNCH_RETURN_URL_HASH_KEY);
   params.delete(PENDING_LAUNCH_REQUESTED_AT_HASH_KEY);
   params.delete(LEGACY_PENDING_LAUNCH_HASH_KEY);
+}
+
+function getDefaultLaunchReturnUrl(): string {
+  if (typeof window === "undefined") {
+    return HOME_ROUTER_PATH;
+  }
+  try {
+    return new URL(HOME_ROUTER_PATH, window.location.href).toString();
+  } catch {
+    return HOME_ROUTER_PATH;
+  }
 }
 
 function replaceCurrentUrlHash(params: URLSearchParams): void {
@@ -121,20 +102,13 @@ function replaceCurrentUrlHash(params: URLSearchParams): void {
 
 export function buildWorkspaceLaunchIntentHash({
   launchIntentToken,
-  returnUrl,
   requestedAt,
 }: {
   launchIntentToken: string;
-  returnUrl: string;
   requestedAt: number;
-}): string | null {
-  const encodedReturnUrl = encodeReturnUrlForHash(returnUrl);
-  if (!encodedReturnUrl) {
-    return null;
-  }
+}): string {
   const params = new URLSearchParams();
   params.set(PENDING_LAUNCH_INTENT_HASH_KEY, launchIntentToken);
-  params.set(PENDING_LAUNCH_RETURN_URL_HASH_KEY, encodedReturnUrl);
   params.set(PENDING_LAUNCH_REQUESTED_AT_HASH_KEY, String(requestedAt));
   return params.toString();
 }
@@ -167,10 +141,7 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
       request: {
         launchIntentToken,
       } as LaunchRequestInput,
-      returnUrl:
-        decodeReturnUrlFromHash(
-          params.get(PENDING_LAUNCH_RETURN_URL_HASH_KEY),
-        ) ?? window.location.href,
+      returnUrl: getDefaultLaunchReturnUrl(),
       requestedAt: parseRequestedAt(
         params.get(PENDING_LAUNCH_REQUESTED_AT_HASH_KEY),
       ),

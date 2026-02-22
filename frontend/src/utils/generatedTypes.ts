@@ -8988,6 +8988,7 @@ const LaunchSessionInfoSchema = z.object({
 const LaunchResponseSchema = z.object({
   ok: z.boolean(),
   bootstrapUrlFragment: z.union([z.string(), z.null()]).default(null),
+  returnUrl: z.union([z.string(), z.null()]).default(null),
   workspaceRoot: z.union([z.string(), z.null()]).default(null),
   settaFilesLocation: z
     .union([z.literal(["local", "global"]), z.null()])
@@ -11660,20 +11661,6 @@ const RunCodeRequestSchema = z.object({
 });
 
 export type RunCodeRequestInput = z.input<typeof RunCodeRequestSchema>;
-
-const _StoredWorkspaceLaunchIntentSchema = z.object({
-  session_id: z.string(),
-  launch_request_payload: z.record(z.string(), z.any()),
-  exp: z.int(),
-});
-
-type _StoredWorkspaceLaunchIntent = z.infer<
-  typeof _StoredWorkspaceLaunchIntentSchema
->;
-
-type _StoredWorkspaceLaunchIntentInput = z.input<
-  typeof _StoredWorkspaceLaunchIntentSchema
->;
 
 const CodeMirrorCompletionSchema = z.object({
   label: z.string(),

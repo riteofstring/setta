@@ -124,6 +124,18 @@ describe("endpointUtils URL routing", () => {
     );
   });
 
+  it("routes createWorkspaceLaunchIntent via launcher origin", async () => {
+    await post(RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT, {
+      launchRequest: { workspaceRoot: "/tmp/workspace" },
+      returnUrl: "http://localhost/home",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.CREATE_WORKSPACE_LAUNCH_INTENT}`,
+    );
+  });
+
   it("serializes launcher recent-workspaces query params", async () => {
     // The launcher recent-workspaces endpoint accepts `setta_home` as a query param.
     await get(RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES, {
