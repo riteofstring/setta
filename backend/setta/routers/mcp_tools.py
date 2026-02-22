@@ -35,6 +35,7 @@ class MCPToolCallAgenticContext(BaseModel):
     projectConfigId: ID
     chatId: ID | None = None
     sectionId: ID | None = None
+    frontendWebsocketId: str | None = None
     allowUnscoped: bool = False
     shareSessionId: str | None = None
 
@@ -90,12 +91,40 @@ async def route_call_mcp_tool(
             status_code=status.HTTP_409_CONFLICT,
             detail=exc.error.model_dump(by_alias=True, exclude_none=True),
         ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": "InvalidToolArguments",
+                "message": str(exc),
+            },
+        ) from exc
     except ToolError as exc:
         cause = exc.__cause__
         if isinstance(cause, ValidationError):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=cause.errors(),
+            ) from exc
+        if isinstance(cause, ValueError):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error": "InvalidToolArguments",
+                    "message": str(cause),
+                },
+            ) from exc
+        message = str(exc)
+        if (
+            "projectConfigId argument" in message
+            and "agentic context projectConfigId" in message
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error": "InvalidToolArguments",
+                    "message": message,
+                },
             ) from exc
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
