@@ -377,3 +377,64 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
     await cleanupIsolatedProject(page, projectContext);
   }
 });
+
+test("core UI-setting tools normalize whitespace-padded setting ids", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  const paddedSettingId = `  ${WATCH_CODE_ENABLED_SETTING_ID}\t`;
+
+  try {
+    const initialGetResult = await callMcpTool<GetUISettingValueResult>(
+      page,
+      projectContext.projectConfigId,
+      "get_ui_setting_value",
+      {
+        settingId: paddedSettingId,
+      },
+    );
+    expect(initialGetResult.error).toBeNull();
+    if (typeof initialGetResult.value !== "boolean") {
+      throw new Error(
+        `Expected boolean value for ${WATCH_CODE_ENABLED_SETTING_ID}, got: ${JSON.stringify(initialGetResult)}`,
+      );
+    }
+    const nextValue = !initialGetResult.value;
+
+    const setResult = await callMcpTool<SetUISettingValueResult>(
+      page,
+      projectContext.projectConfigId,
+      "set_ui_setting_value",
+      {
+        settingId: paddedSettingId,
+        value: nextValue,
+      },
+    );
+    expect(setResult.error).toBeNull();
+    expect(setResult.newValue).toBe(nextValue);
+
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: paddedSettingId,
+        durationMs: 8000,
+      },
+    );
+    expect(revealResult.emittedRevealCount).toBe(1);
+    expect(revealResult.statuses[0]?.status).toBe("revealed");
+    expect(revealResult.statuses[0]?.error).toBeNull();
+
+    const settingAnchor = page.locator(
+      '[data-setting-anchor="core.watch_code.enabled"]',
+    );
+    await expect(settingAnchor).toBeVisible();
+    await expect(settingAnchor).toHaveClass(
+      /setta-ui-setting-reveal-highlight/,
+    );
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});

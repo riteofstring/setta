@@ -186,3 +186,126 @@ def test_core_entries_include_required_reveal_activation_metadata() -> None:
             step.type == expected_step_type and step.itemValue == expected_item_value
             for step in activation_steps
         )
+
+
+@pytest.mark.asyncio
+async def test_plugin_write_value_validates_old_value_before_write() -> None:
+    class PluginManagerState:
+        def __init__(self) -> None:
+            self.write_invocation_count = 0
+            self.runtime_response = SimpleNamespace(
+                status=SimpleNamespace(
+                    plugins=[
+                        SimpleNamespace(
+                            pluginId="plugin-a",
+                            state=SimpleNamespace(value="active"),
+                        )
+                    ]
+                ),
+                list=SimpleNamespace(
+                    plugins=[
+                        SimpleNamespace(
+                            pluginId="plugin-a",
+                            config=SimpleNamespace(
+                                currentConfig={"enabled": "invalid-old-value"}
+                            ),
+                        )
+                    ]
+                ),
+            )
+
+        def get_runtime_response(self):
+            return self.runtime_response
+
+        def write_plugin_config(self, *, plugin_id: str, config: dict[str, object]) -> None:
+            assert plugin_id == "plugin-a"
+            self.write_invocation_count += 1
+            self.runtime_response.list.plugins[0].config.currentConfig = config
+
+    plugin_manager = PluginManagerState()
+    ctx = SimpleNamespace(
+        fastmcp=SimpleNamespace(state=SimpleNamespace(plugin_manager=plugin_manager))
+    )
+    write_value = ui_settings_registry._build_plugin_write_value(
+        plugin_id="plugin-a",
+        config_path=["enabled"],
+        default_value=False,
+        value_schema=UISettingValueSchema(type="boolean"),
+    )
+
+    with pytest.raises(ui_settings_registry.UISettingValidationError) as exc:
+        await write_value(ctx, ID("project-1"), True)
+    assert exc.value.code == "invalid_value_type"
+    assert plugin_manager.write_invocation_count == 0
+    assert (
+        plugin_manager.runtime_response.list.plugins[0].config.currentConfig["enabled"]
+        == "invalid-old-value"
+    )
+
+
+@pytest.mark.asyncio
+async def test_plugin_backend_write_value_validates_old_value_before_write() -> None:
+    class PluginManagerState:
+        def __init__(self) -> None:
+            self.backend_write_invocation_count = 0
+            self.backend_enabled: object = "invalid-old-value"
+            self.runtime_response = SimpleNamespace(
+                status=SimpleNamespace(
+                    plugins=[
+                        SimpleNamespace(
+                            pluginId="plugin-a",
+                            state=SimpleNamespace(value="active"),
+                        )
+                    ]
+                ),
+                list=SimpleNamespace(
+                    plugins=[SimpleNamespace(pluginId="plugin-a")],
+                ),
+            )
+
+        def get_runtime_response(self):
+            return self.runtime_response
+
+        def read_backend_ui_setting_value(
+            self,
+            *,
+            plugin_id: str,
+            read_handler_id: str,
+            project_config_id: ID,
+        ) -> object:
+            assert plugin_id == "plugin-a"
+            assert read_handler_id == "read-enabled"
+            assert project_config_id == ID("project-1")
+            return self.backend_enabled
+
+        def write_backend_ui_setting_value(
+            self,
+            *,
+            plugin_id: str,
+            write_handler_id: str,
+            project_config_id: ID,
+            value: object,
+        ) -> None:
+            assert plugin_id == "plugin-a"
+            assert write_handler_id == "write-enabled"
+            assert project_config_id == ID("project-1")
+            self.backend_write_invocation_count += 1
+            self.backend_enabled = value
+
+    plugin_manager = PluginManagerState()
+    ctx = SimpleNamespace(
+        fastmcp=SimpleNamespace(state=SimpleNamespace(plugin_manager=plugin_manager))
+    )
+    write_value = ui_settings_registry._build_plugin_backend_write_value(
+        plugin_id="plugin-a",
+        read_handler_id="read-enabled",
+        write_handler_id="write-enabled",
+        plugin_manager=plugin_manager,
+        value_schema=UISettingValueSchema(type="boolean"),
+    )
+
+    with pytest.raises(ui_settings_registry.UISettingValidationError) as exc:
+        await write_value(ctx, ID("project-1"), True)
+    assert exc.value.code == "invalid_value_type"
+    assert plugin_manager.backend_write_invocation_count == 0
+    assert plugin_manager.backend_enabled == "invalid-old-value"

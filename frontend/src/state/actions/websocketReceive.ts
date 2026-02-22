@@ -491,15 +491,31 @@ function receiveMessage(message: string) {
   }
 }
 
-async function handleUISettingRevealMessage(
-  content: UISettingRevealContent,
-): Promise<void> {
+async function handleUISettingRevealMessage(content: unknown): Promise<void> {
+  const fallbackProjectConfigId = getCurrProjectConfigId();
+  const projectConfigId = resolveRevealProjectConfigId(
+    content,
+    fallbackProjectConfigId,
+  );
+  const requestId = resolveRevealRequestId(content);
   let statuses: Array<{
     settingId: string;
     status: "revealed" | "failed";
     errorCode: string | null;
     errorMessage: string | null;
   }> = [];
+  if (!isValidUISettingRevealContent(content)) {
+    statuses = buildMalformedRevealStatuses(
+      content,
+      "Invalid UISettingReveal payload.",
+    );
+    sendUISettingRevealResult({
+      projectConfigId,
+      requestId,
+      statuses,
+    });
+    return;
+  }
   try {
     const revealStatuses = await receiveUISettingReveal(content);
     statuses = Array.isArray(revealStatuses) ? revealStatuses : [];
@@ -516,16 +532,212 @@ async function handleUISettingRevealMessage(
       errorMessage: normalizedMessage,
     }));
   }
+  sendUISettingRevealResult({
+    projectConfigId: content.projectConfigId,
+    requestId: content.requestId,
+    statuses,
+  });
+}
+
+function sendUISettingRevealResult({
+  projectConfigId,
+  requestId,
+  statuses,
+}: {
+  projectConfigId: string;
+  requestId: string;
+  statuses: Array<{
+    settingId: string;
+    status: "revealed" | "failed";
+    errorCode: string | null;
+    errorMessage: string | null;
+  }>;
+}): void {
   const revealResultMessage: WebsocketMsgUISettingRevealResult = {
     id: null,
     messageType: WebsocketMsgTypeForBackendEnum.UISettingRevealResult,
     content: {
-      projectConfigId: content.projectConfigId,
-      requestId: content.requestId,
+      projectConfigId,
+      requestId,
       statuses,
     },
   };
   sendMessage(revealResultMessage);
+}
+
+function resolveRevealProjectConfigId(
+  content: unknown,
+  fallbackProjectConfigId: string,
+): string {
+  const fallbackNormalizedId =
+    typeof fallbackProjectConfigId === "string" &&
+    fallbackProjectConfigId.trim() !== ""
+      ? fallbackProjectConfigId
+      : NULL_PROJECT_CONFIG_ID;
+  if (!isRecord(content)) {
+    return fallbackNormalizedId;
+  }
+  const candidateProjectConfigId = content.projectConfigId;
+  if (
+    typeof candidateProjectConfigId === "string" &&
+    candidateProjectConfigId.trim() !== ""
+  ) {
+    return candidateProjectConfigId;
+  }
+  return fallbackNormalizedId;
+}
+
+function resolveRevealRequestId(content: unknown): string {
+  if (isRecord(content)) {
+    const candidateRequestId = content.requestId;
+    if (
+      typeof candidateRequestId === "string" &&
+      candidateRequestId.trim() !== ""
+    ) {
+      return candidateRequestId;
+    }
+  }
+  return createNewId();
+}
+
+function buildMalformedRevealStatuses(
+  content: unknown,
+  errorMessage: string,
+): Array<{
+  settingId: string;
+  status: "revealed" | "failed";
+  errorCode: string | null;
+  errorMessage: string | null;
+}> {
+  const settingIds = extractRevealSettingIds(content);
+  return settingIds.map((settingId) => ({
+    settingId,
+    status: "failed",
+    errorCode: "mutation_failed",
+    errorMessage,
+  }));
+}
+
+function extractRevealSettingIds(content: unknown): string[] {
+  if (!isRecord(content)) {
+    return [];
+  }
+  if (!Array.isArray(content.reveals)) {
+    return [];
+  }
+  const ids: string[] = [];
+  for (const reveal of content.reveals) {
+    if (!isRecord(reveal)) {
+      continue;
+    }
+    if (
+      typeof reveal.settingId !== "string" ||
+      reveal.settingId.trim() === ""
+    ) {
+      continue;
+    }
+    ids.push(reveal.settingId);
+  }
+  return ids;
+}
+
+function isValidUISettingRevealContent(
+  content: unknown,
+): content is UISettingRevealContent {
+  if (!isRecord(content)) {
+    return false;
+  }
+  if (
+    typeof content.projectConfigId !== "string" ||
+    content.projectConfigId.trim() === ""
+  ) {
+    return false;
+  }
+  if (
+    typeof content.requestId !== "string" ||
+    content.requestId.trim() === ""
+  ) {
+    return false;
+  }
+  if (content.chatId !== null && typeof content.chatId !== "string") {
+    return false;
+  }
+  if (!Number.isFinite(content.durationMs)) {
+    return false;
+  }
+  if (!Array.isArray(content.reveals)) {
+    return false;
+  }
+  return content.reveals.every((reveal) =>
+    isValidUISettingRevealTarget(reveal),
+  );
+}
+
+function isValidUISettingRevealTarget(reveal: unknown): boolean {
+  if (!isRecord(reveal)) {
+    return false;
+  }
+  if (typeof reveal.settingId !== "string" || reveal.settingId.trim() === "") {
+    return false;
+  }
+  if (reveal.side !== "left" && reveal.side !== "right") {
+    return false;
+  }
+  if (
+    reveal.overviewTabKey !== null &&
+    typeof reveal.overviewTabKey !== "string"
+  ) {
+    return false;
+  }
+  if (
+    reveal.uiEditorTabName !== null &&
+    typeof reveal.uiEditorTabName !== "string"
+  ) {
+    return false;
+  }
+  if (reveal.pluginId !== null && typeof reveal.pluginId !== "string") {
+    return false;
+  }
+  if (reveal.paneId !== null && typeof reveal.paneId !== "string") {
+    return false;
+  }
+  if (
+    reveal.strategy !== "dom_anchor" &&
+    reveal.strategy !== "plugin_handler"
+  ) {
+    return false;
+  }
+  if (reveal.anchorId !== null && typeof reveal.anchorId !== "string") {
+    return false;
+  }
+  if (
+    reveal.pluginRevealKey !== null &&
+    typeof reveal.pluginRevealKey !== "string"
+  ) {
+    return false;
+  }
+  if (!Array.isArray(reveal.revealActivationSteps)) {
+    return false;
+  }
+  for (const step of reveal.revealActivationSteps) {
+    if (!isRecord(step)) {
+      return false;
+    }
+    if (
+      step.type !== "project_ai_settings_accordion_item" &&
+      step.type !== "run_instructions_accordion_item"
+    ) {
+      return false;
+    }
+    if (typeof step.itemValue !== "string") {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function sendCurrentAddress(currentAddress: string) {

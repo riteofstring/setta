@@ -114,3 +114,34 @@
 6. UX after: set+reveal uses request context deterministically and succeeds when valid section context is present.
 7. DX before: generated contract mismatch required local casts and made payload shape less trustworthy.
 8. DX after: reveal payload shape is represented directly in generated types, reducing workaround code and drift risk.
+
+## 2026-02-25 12:13:40 PST
+
+### Consolidated Findings
+1. UI-setting tool boundaries had inconsistent canonicalization for `settingId`, so whitespace-equivalent IDs behaved differently across reveal/get/set.
+2. Some write paths could mutate persisted plugin state before validating pre-write runtime schema invariants.
+3. Frontend reveal timing semantics were not strictly request-bounded (batch processing and plugin handler waits could overrun requested budget).
+4. Right-pane reveal preconditions were incomplete; unsupported section-type/tab combinations degraded into timeout-like failures instead of immediate contract errors.
+5. Websocket reveal handling did not harden malformed payload paths enough to guarantee deterministic `UISettingRevealResult` acknowledgement behavior.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Added shared `_normalize_setting_id(...)` and applied it uniformly to reveal/get/set entrypoints.
+2. Enforced pre-write invariant validation in set paths by validating old value before write, then validating new value after write.
+3. Updated plugin config and backend plugin write builders to validate old value against `valueSchema` before any write operation.
+4. Switched frontend reveal to a request-level monotonic deadline budget with per-target remaining-time enforcement and bounded plugin handler execution.
+5. Added fail-fast right-pane compatibility validation for section-type/tab support before attempting anchor polling.
+6. Scoped reveal activation-step state writes strictly to request `projectConfigId` (no ambient active-project override).
+7. Hardened websocket reveal message handling with runtime payload/target guards and guaranteed ACK emission for malformed payloads.
+8. Added/updated backend unit+integration tests, frontend Vitest tests, and Playwright E2E coverage for these behaviors.
+
+### UX/DX Before and After
+1. UX before: whitespace-padded IDs could fail on get/set while reveal succeeded.
+2. UX after: whitespace-equivalent IDs resolve consistently across all UI-setting tools.
+3. UX before: a failed set could still partially mutate state when stored old values were already invalid.
+4. UX after: failed invariant checks are side-effect free; successful responses align with persisted state changes.
+5. UX before: reveal timing could appear nondeterministic in plugin-heavy or multi-target flows.
+6. UX after: reveal succeeds/fails within one explicit request deadline with predictable timeout behavior.
+7. UX before: unsupported right-pane tabs produced delayed, non-actionable failures.
+8. UX after: incompatible tab/section-type combinations fail immediately with explicit error context.
+9. DX before: malformed reveal payloads could obscure root cause behind timeout symptoms.
+10. DX after: malformed payloads produce deterministic failed ACKs, improving observability and debugging.

@@ -1,9 +1,19 @@
-import { usePluginRuntimeStore } from "plugins/runtime";
-import { useLocalStorage } from "state/definitions";
+import {
+  invokePluginSettingRevealHandler,
+  usePluginRuntimeStore,
+} from "plugins/runtime";
+import { useLocalStorage, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import type {
+  SectionType,
   UISettingRevealContent,
   UISettingRevealTarget,
+} from "utils/generatedTypes";
+import {
+  createCodeSectionImpl,
+  createUserDefaultCodeSectionImpl,
+  createVariant,
+  SectionTypeEnum,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -106,6 +116,36 @@ function createFakePaneRoot(
   } as unknown as HTMLElement;
 }
 
+function setActiveSectionType(sectionType: SectionType): void {
+  const sectionId = "section-active";
+  const variantId = "variant-active";
+  const implId = "impl-active";
+  useProjectState.setState((state) => {
+    state.projectConfig.id = "project-active";
+    state.projectConfig.activeIds = [sectionId];
+    state.projectConfig.sectionVariantMap = {
+      ...state.projectConfig.sectionVariantMap,
+      [sectionId]: variantId,
+    };
+    state.sectionVariants[variantId] = createVariant({
+      id: variantId,
+      impl: implId,
+      nonPresetImpls: [implId],
+      name: "active-variant",
+    });
+    if (sectionType === SectionTypeEnum.Code) {
+      state.sectionImpls[implId] = createCodeSectionImpl(
+        createUserDefaultCodeSectionImpl(),
+        {
+          id: implId,
+        },
+      );
+      return;
+    }
+    throw new Error(`Unsupported section type in test helper: ${sectionType}`);
+  });
+}
+
 describe("receiveUISettingReveal", () => {
   beforeEach(async () => {
     vi.useFakeTimers();
@@ -131,13 +171,12 @@ describe("receiveUISettingReveal", () => {
     docRef.document = {
       querySelector: vi.fn(() => null),
     };
-    const pluginRuntimeModule = await import("plugins/runtime");
-    vi.mocked(
-      pluginRuntimeModule.invokePluginSettingRevealHandler,
-    ).mockImplementation(async (args: { pluginId: string }) => ({
-      ok: false,
-      message: `Plugin ${args.pluginId} has no setting reveal handlers.`,
-    }));
+    vi.mocked(invokePluginSettingRevealHandler).mockImplementation(
+      async (args: { pluginId: string }) => ({
+        ok: false,
+        message: `Plugin ${args.pluginId} has no setting reveal handlers.`,
+      }),
+    );
   });
 
   afterEach(() => {
@@ -372,6 +411,88 @@ describe("receiveUISettingReveal", () => {
     ).toContain("run-instructions-codegen-targets");
   });
 
+  it("targets reveal activation writes to the request projectConfigId even when active project differs", async () => {
+    const anchorId = "core.run_instructions.python_codegen_enabled";
+    const anchor = createFakeAnchor(anchorId);
+    const paneRoot = createFakePaneRoot(anchor, anchorId);
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
+          return paneRoot;
+        }
+        return null;
+      }),
+    };
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-active";
+    });
+
+    const statuses = await receiveUISettingReveal(
+      createRevealContent({
+        projectConfigId: "project-request",
+        reveals: [
+          createRevealTarget({
+            settingId: anchorId,
+            overviewTabKey: "RunInstructions",
+            anchorId,
+            revealActivationSteps: [
+              {
+                type: "run_instructions_accordion_item",
+                itemValue: "run-instructions-codegen-targets",
+              },
+            ],
+          }),
+        ],
+      }),
+    );
+
+    expect(statuses[0]?.status).toBe("revealed");
+    const state = useLocalStorage.getState();
+    expect(
+      state.runInstructionsAccordionOpenValuesByProjectConfigId[
+        "project-request"
+      ],
+    ).toContain("run-instructions-codegen-targets");
+    expect(
+      state.runInstructionsAccordionOpenValuesByProjectConfigId[
+        "project-active"
+      ],
+    ).toBeUndefined();
+  });
+
+  it("fails fast when right-pane tab is unsupported for the active section type", async () => {
+    setActiveSectionType(SectionTypeEnum.Code);
+
+    const statuses = await receiveUISettingReveal(
+      createRevealContent({
+        reveals: [
+          createRevealTarget({
+            settingId: "core.project.show_param_display_names",
+            side: "right",
+            overviewTabKey: null,
+            uiEditorTabName: "QuickInfoConfig",
+            anchorId: "core.project.show_param_display_names",
+          }),
+        ],
+      }),
+    );
+
+    expect(statuses).toEqual([
+      {
+        settingId: "core.project.show_param_display_names",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage: "Section type Code does not support tab QuickInfoConfig.",
+      },
+    ]);
+    expect(useLocalStorage.getState().uiEditorVis).toBe(false);
+  });
+
   it("retries plugin reveal until the plugin tab becomes available", async () => {
     window.setTimeout(() => {
       usePluginRuntimeStore.setState({
@@ -524,6 +645,51 @@ describe("receiveUISettingReveal", () => {
       errorCode: "mutation_failed",
       errorMessage:
         "Plugin plugin-a has no setting reveal handlers. No fallback anchorId is available.",
+    });
+  });
+
+  it("enforces one reveal deadline across all targets in a batch", async () => {
+    const paneRoot = {
+      querySelector: vi.fn(() => null),
+    } as unknown as HTMLElement;
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
+          return paneRoot;
+        }
+        return null;
+      }),
+    };
+
+    const statusesPromise = receiveUISettingReveal(
+      createRevealContent({
+        durationMs: 100,
+        reveals: [
+          createRevealTarget({
+            settingId: "core.watch_code.enabled",
+          }),
+          createRevealTarget({
+            settingId: "core.project.name",
+            anchorId: "core.project.name",
+          }),
+        ],
+      }),
+    );
+    await vi.runAllTimersAsync();
+    const statuses = await statusesPromise;
+
+    expect(statuses[0]?.status).toBe("failed");
+    expect(statuses[1]).toEqual({
+      settingId: "core.project.name",
+      status: "failed",
+      errorCode: "mutation_failed",
+      errorMessage:
+        "Reveal deadline exceeded before processing core.project.name.",
     });
   });
 });

@@ -148,9 +148,7 @@ async def reveal_ui_setting(
         ctx=ctx,
         project_config_id=projectConfigId,
     )
-    normalized_setting_id = settingId.strip()
-    if normalized_setting_id == "":
-        raise ValueError("settingId must not be empty.")
+    normalized_setting_id = _normalize_setting_id(settingId)
     resolved_section_id_to_activate = _resolve_section_id_for_reveal(
         ctx=ctx,
         explicit_section_id=sectionIdToActivate,
@@ -183,6 +181,7 @@ async def get_ui_setting_value(
 ) -> GetUISettingValueResult:
     """Read the current value for a canonical UI setting ID."""
 
+    normalized_setting_id = _normalize_setting_id(settingId)
     project_config_id = _resolve_project_config_id(
         ctx=ctx,
         project_config_id=projectConfigId,
@@ -191,12 +190,12 @@ async def get_ui_setting_value(
         ctx=ctx,
         project_config_id=project_config_id,
     )
-    runtime_entry = registry.get(settingId)
+    runtime_entry = registry.get(normalized_setting_id)
     if runtime_entry is None:
         return GetUISettingValueResult(
             error=_resolve_missing_setting_error(
                 ctx=ctx,
-                setting_id=settingId,
+                setting_id=normalized_setting_id,
                 registry=registry,
             )
         )
@@ -204,7 +203,7 @@ async def get_ui_setting_value(
     try:
         value = await _call_maybe_async(runtime_entry.readValue(ctx, project_config_id))
         _validate_runtime_value_against_schema(
-            setting_id=settingId,
+            setting_id=normalized_setting_id,
             schema=runtime_entry.metadata.valueSchema,
             value=value,
             operation="read",
@@ -219,7 +218,7 @@ async def get_ui_setting_value(
             setting=_build_result_summary(runtime_entry.metadata),
             error=UISettingToolError(
                 code="mutation_failed",
-                message=f"Failed to read {settingId}: {exc}",
+                message=f"Failed to read {normalized_setting_id}: {exc}",
             ),
         )
     return GetUISettingValueResult(
@@ -250,6 +249,7 @@ async def set_ui_setting_value(
 ) -> SetUISettingValueResult:
     """Set a canonical UI setting ID to a validated value."""
 
+    normalized_setting_id = _normalize_setting_id(settingId)
     project_config_id = _resolve_project_config_id(
         ctx=ctx,
         project_config_id=projectConfigId,
@@ -258,12 +258,12 @@ async def set_ui_setting_value(
         ctx=ctx,
         project_config_id=project_config_id,
     )
-    runtime_entry = registry.get(settingId)
+    runtime_entry = registry.get(normalized_setting_id)
     if runtime_entry is None:
         return SetUISettingValueResult(
             error=_resolve_missing_setting_error(
                 ctx=ctx,
-                setting_id=settingId,
+                setting_id=normalized_setting_id,
                 registry=registry,
             )
         )
@@ -272,7 +272,7 @@ async def set_ui_setting_value(
             setting=_build_result_summary(runtime_entry.metadata),
             error=UISettingToolError(
                 code="setting_read_only",
-                message=f"Setting {settingId} is read-only.",
+                message=f"Setting {normalized_setting_id} is read-only.",
             ),
         )
 
@@ -287,17 +287,20 @@ async def set_ui_setting_value(
         )
 
     try:
+        current_value = await _call_maybe_async(
+            runtime_entry.readValue(ctx, project_config_id)
+        )
+        _validate_runtime_value_against_schema(
+            setting_id=normalized_setting_id,
+            schema=runtime_entry.metadata.valueSchema,
+            value=current_value,
+            operation="pre-write oldValue read",
+        )
         mutation_result = await _call_maybe_async(
             runtime_entry.writeValue(ctx, project_config_id, normalized_value)
         )
         _validate_runtime_value_against_schema(
-            setting_id=settingId,
-            schema=runtime_entry.metadata.valueSchema,
-            value=mutation_result.oldValue,
-            operation="post-write oldValue read",
-        )
-        _validate_runtime_value_against_schema(
-            setting_id=settingId,
+            setting_id=normalized_setting_id,
             schema=runtime_entry.metadata.valueSchema,
             value=mutation_result.newValue,
             operation="post-write newValue read",
@@ -312,7 +315,7 @@ async def set_ui_setting_value(
             setting=_build_result_summary(runtime_entry.metadata),
             error=UISettingToolError(
                 code="mutation_failed",
-                message=f"Failed to set {settingId}: {exc}",
+                message=f"Failed to set {normalized_setting_id}: {exc}",
             ),
         )
 
@@ -325,7 +328,7 @@ async def set_ui_setting_value(
         reveal_result = await _reveal_settings(
             ctx=ctx,
             project_config_id=project_config_id,
-            setting_id=settingId,
+            setting_id=normalized_setting_id,
             section_id_to_activate=resolved_section_id_to_activate,
             duration_ms=durationMs,
             runtime_entry=runtime_entry,
@@ -362,6 +365,13 @@ def _build_result_summary(entry: UISettingEntry) -> UISettingResultSummary:
         location=entry.location,
         valueSchema=entry.valueSchema,
     )
+
+
+def _normalize_setting_id(setting_id: str) -> str:
+    normalized_setting_id = setting_id.strip()
+    if normalized_setting_id == "":
+        raise ValueError("settingId must not be empty.")
+    return normalized_setting_id
 
 
 def _validate_runtime_value_against_schema(

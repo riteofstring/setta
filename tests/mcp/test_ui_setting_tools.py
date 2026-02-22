@@ -319,6 +319,110 @@ async def test_set_ui_setting_value_returns_structured_validation_error() -> Non
 
 
 @pytest.mark.asyncio
+async def test_ui_setting_tools_normalize_setting_id_whitespace() -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        padded_setting_id = "  core.watch_code.enabled\t"
+
+        initial_get_result = await get_ui_setting_value(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert initial_get_result.error is None
+        assert isinstance(initial_get_result.value, bool)
+        original_value = initial_get_result.value
+        target_value = not original_value
+
+        padded_get_result = await get_ui_setting_value(
+            settingId=padded_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert padded_get_result.error is None
+        assert padded_get_result.value == original_value
+
+        padded_set_result = await set_ui_setting_value(
+            settingId=padded_setting_id,
+            value=target_value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert padded_set_result.error is None
+        assert padded_set_result.newValue == target_value
+
+        padded_reveal_result = await reveal_ui_setting(
+            settingId=padded_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert padded_reveal_result.emittedRevealCount == 1
+        assert padded_reveal_result.statuses[0].status == "revealed"
+
+        revert_result = await set_ui_setting_value(
+            settingId="core.watch_code.enabled",
+            value=original_value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert revert_result.error is None
+        assert revert_result.newValue == original_value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool_name", ["reveal", "get", "set"])
+async def test_ui_setting_tools_reject_whitespace_only_setting_id(
+    tool_name: str,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        with pytest.raises(ValueError, match="settingId must not be empty."):
+            if tool_name == "reveal":
+                await reveal_ui_setting(
+                    settingId=" \t ",
+                    projectConfigId=project_config_id,
+                    ctx=ctx,
+                )
+            elif tool_name == "get":
+                await get_ui_setting_value(
+                    settingId=" \t ",
+                    projectConfigId=project_config_id,
+                    ctx=ctx,
+                )
+            elif tool_name == "set":
+                await set_ui_setting_value(
+                    settingId=" \t ",
+                    value=True,
+                    projectConfigId=project_config_id,
+                    ctx=ctx,
+                )
+            else:
+                raise ValueError(f"Unsupported tool in parameterized test: {tool_name}")
+
+
+@pytest.mark.asyncio
 async def test_project_ai_settings_are_discoverable_revealable_and_read_only() -> None:
     async with (
         real_project_manager() as project_fixture,
@@ -1231,6 +1335,87 @@ async def test_plugin_ui_setting_flow_from_config_schema_metadata(
             target.overviewTabKey == "PluginPane:setta-fixture-full:full-settings-pane"
         )
         assert frontend_sender.reveal_messages
+
+
+@pytest.mark.asyncio
+async def test_plugin_backend_set_fails_before_write_when_existing_value_is_invalid(
+    tmp_path: Path,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        (plugin_root / "backend" / "entrypoint.py").write_text(
+            "_STATE = {'enabled': 'invalid-before-write'}\n\n"
+            "def _read_backend_enabled(*, project_config_id: str):\n"
+            "    return _STATE['enabled']\n\n"
+            "def _write_backend_enabled(*, project_config_id: str, value):\n"
+            "    _STATE['enabled'] = bool(value)\n"
+            "    return {'ok': True, 'projectConfigId': project_config_id}\n\n"
+            "def register(plugin):\n"
+            "    plugin.register_ui_setting(\n"
+            "        {\n"
+            "            'id': 'backend_enabled',\n"
+            "            'title': 'Backend Enabled',\n"
+            "            'description': 'Enable backend-provided fixture behavior.',\n"
+            "            'paneId': 'full-settings-pane',\n"
+            "            'revealKey': 'full-settings',\n"
+            "            'synonyms': ['backend enabled'],\n"
+            "            'mutability': 'writable',\n"
+            "            'valueSchema': {'type': 'boolean'},\n"
+            "            'read': _read_backend_enabled,\n"
+            "            'write': _write_backend_enabled,\n"
+            "        }\n"
+            "    )\n",
+            encoding="utf-8",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+        plugin_manager.load_backend_plugins(app=FastAPI())
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::backend_enabled"
+
+        try:
+            set_result = await set_ui_setting_value(
+                settingId=plugin_setting_id,
+                value=True,
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+            assert set_result.error is not None
+            assert set_result.error.code == "invalid_value_type"
+            assert (
+                "pre-write oldValue read returned an invalid value"
+                in set_result.error.message
+            )
+
+            get_result = await get_ui_setting_value(
+                settingId=plugin_setting_id,
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+            assert get_result.error is not None
+            assert get_result.error.code == "invalid_value_type"
+        finally:
+            plugin_manager.shutdown_backend_plugins()
 
 
 @pytest.mark.asyncio

@@ -4,18 +4,16 @@ import {
   invokePluginSettingRevealHandler,
   usePluginRuntimeStore,
 } from "plugins/runtime";
+import { useLocalStorage, useProjectState } from "state/definitions";
 import {
-  NULL_PROJECT_CONFIG_ID,
-  useLocalStorage,
-  useProjectState,
-} from "state/definitions";
-import {
+  REQUIRED_UI_EDITOR_TABS,
+  UIEditorTabNameEnum,
   isOverviewTabKey,
   type OverviewTabKey,
   type UIEditorTabName,
-  UIEditorTabNameEnum,
 } from "utils/constants";
 import type {
+  SectionType,
   UISettingRevealContent,
   UISettingRevealTarget,
 } from "utils/generatedTypes";
@@ -55,12 +53,18 @@ export async function receiveUISettingReveal(
   content: UISettingRevealContent,
 ): Promise<Array<UISettingRevealResultStatus>> {
   const durationMs = normalizeDurationMs(content.durationMs);
+  const deadlineMs = Date.now() + durationMs;
   const statuses: Array<UISettingRevealResultStatus> = [];
   for (const revealTarget of content.reveals) {
+    const remainingMs = deadlineMs - Date.now();
+    if (remainingMs <= 0) {
+      statuses.push(buildRevealDeadlineExceededStatus(revealTarget.settingId));
+      continue;
+    }
     statuses.push(
       await revealSingleSetting({
         target: revealTarget,
-        durationMs,
+        durationMs: remainingMs,
         fallbackProjectConfigId: content.projectConfigId,
       }),
     );
@@ -77,6 +81,7 @@ async function revealSingleSetting({
   durationMs: number;
   fallbackProjectConfigId: string;
 }): Promise<UISettingRevealResultStatus> {
+  const deadlineMs = Date.now() + durationMs;
   const opened = openPaneForRevealTarget(target);
   if (!opened.ok) {
     return {
@@ -95,7 +100,7 @@ async function revealSingleSetting({
   if (target.strategy === "plugin_handler") {
     const pluginRevealResult = await revealWithPluginHandler(
       target,
-      durationMs,
+      deadlineMs,
     );
     if (pluginRevealResult.ok) {
       return {
@@ -119,10 +124,21 @@ async function revealSingleSetting({
     };
   }
 
+  const remainingMsForAnchor = deadlineMs - Date.now();
+  if (remainingMsForAnchor <= 0) {
+    return {
+      settingId: target.settingId,
+      status: "failed",
+      errorCode: "mutation_failed",
+      errorMessage: pluginRevealErrorMessage
+        ? `${pluginRevealErrorMessage} Reveal deadline exceeded before fallback anchor lookup.`
+        : `Reveal deadline exceeded before locating anchor for ${target.settingId}.`,
+    };
+  }
   const anchorElement = await waitForAnchorElement({
     side: target.side,
     anchorId: target.anchorId,
-    durationMs,
+    deadlineMs,
   });
   if (!anchorElement) {
     return {
@@ -180,11 +196,19 @@ function openPaneForRevealTarget(
         "Right-pane reveal requires an active section. Provide sectionIdToActivate.",
     };
   }
+  const requestedTab = uiEditorTabName as UIEditorTabName;
+  const requiredTabs = REQUIRED_UI_EDITOR_TABS[sectionType];
+  if (!requiredTabs.includes(requestedTab)) {
+    return {
+      ok: false,
+      errorMessage: `Section type ${sectionType} does not support tab ${requestedTab}.`,
+    };
+  }
   useLocalStorage.setState((state) => ({
     uiEditorVis: true,
     uiEditorTab: {
       ...state.uiEditorTab,
-      [sectionType]: uiEditorTabName as UIEditorTabName,
+      [sectionType]: requestedTab,
     },
   }));
   return { ok: true };
@@ -192,7 +216,7 @@ function openPaneForRevealTarget(
 
 async function revealWithPluginHandler(
   target: UISettingRevealTarget,
-  durationMs: number,
+  deadlineMs: number,
 ): Promise<PluginRevealResult> {
   if (!target.pluginId || !target.pluginRevealKey) {
     return {
@@ -200,36 +224,35 @@ async function revealWithPluginHandler(
       errorMessage: null,
     };
   }
-  const deadlineMs = Date.now() + durationMs;
   let latestErrorMessage: string | null = null;
   while (Date.now() <= deadlineMs) {
+    const remainingMs = deadlineMs - Date.now();
+    if (remainingMs <= 0) {
+      break;
+    }
     const tabExists = usePluginRuntimeStore
       .getState()
       .sortedPaneTabs.some((tab) => tab.tabKey === target.overviewTabKey);
     if (tabExists) {
-      try {
-        const result = await invokePluginSettingRevealHandler({
-          pluginId: target.pluginId,
-          revealKey: target.pluginRevealKey,
-          settingId: target.settingId,
-          paneId: target.paneId ?? null,
-          durationMs,
-        });
-        if (result.ok) {
-          return {
-            ok: true,
-            errorMessage: null,
-          };
-        }
-        latestErrorMessage = result.message ?? "Plugin reveal handler failed.";
-      } catch {
-        latestErrorMessage = "Plugin reveal handler failed.";
+      const handlerResult = await invokePluginRevealHandlerWithinDeadline({
+        target,
+        durationMs: remainingMs,
+      });
+      if (handlerResult.ok) {
+        return {
+          ok: true,
+          errorMessage: null,
+        };
+      }
+      latestErrorMessage = handlerResult.message;
+      if (handlerResult.timedOut) {
+        break;
       }
     }
     if (Date.now() >= deadlineMs) {
       break;
     }
-    await sleep(FIND_TARGET_INTERVAL_MS);
+    await sleep(Math.min(FIND_TARGET_INTERVAL_MS, deadlineMs - Date.now()));
   }
   if (latestErrorMessage === null) {
     latestErrorMessage = `Plugin pane for ${target.settingId} did not become available before reveal timeout.`;
@@ -323,15 +346,11 @@ function applyRevealActivationSteps({
 function resolveProjectConfigIdForActivation(
   fallbackProjectConfigId: string,
 ): string {
-  const activeProjectConfigId = useProjectState.getState().projectConfig.id;
-  if (
-    typeof activeProjectConfigId === "string" &&
-    activeProjectConfigId.trim() !== "" &&
-    activeProjectConfigId !== NULL_PROJECT_CONFIG_ID
-  ) {
-    return activeProjectConfigId;
+  const normalizedProjectConfigId = fallbackProjectConfigId.trim();
+  if (normalizedProjectConfigId === "") {
+    throw new Error("UI setting reveal content is missing projectConfigId.");
   }
-  return fallbackProjectConfigId;
+  return normalizedProjectConfigId;
 }
 
 function areStringArraysEqual(
@@ -344,7 +363,7 @@ function areStringArraysEqual(
   return left.every((value, index) => value === right[index]);
 }
 
-function getActiveSectionType(): string | null {
+function getActiveSectionType(): SectionType | null {
   const projectState = useProjectState.getState();
   const activeSectionId = projectState.projectConfig.activeIds[0] ?? null;
   if (activeSectionId === null) {
@@ -369,13 +388,12 @@ function getActiveSectionType(): string | null {
 async function waitForAnchorElement({
   side,
   anchorId,
-  durationMs,
+  deadlineMs,
 }: {
   side: "left" | "right";
   anchorId: string;
-  durationMs: number;
+  deadlineMs: number;
 }): Promise<HTMLElement | null> {
-  const deadlineMs = Date.now() + durationMs;
   while (Date.now() <= deadlineMs) {
     const paneRoot = getPaneRoot(side);
     if (paneRoot) {
@@ -390,6 +408,66 @@ async function waitForAnchorElement({
     await sleep(FIND_TARGET_INTERVAL_MS);
   }
   return null;
+}
+
+function buildRevealDeadlineExceededStatus(
+  settingId: string,
+): UISettingRevealResultStatus {
+  return {
+    settingId,
+    status: "failed",
+    errorCode: "mutation_failed",
+    errorMessage: `Reveal deadline exceeded before processing ${settingId}.`,
+  };
+}
+
+async function invokePluginRevealHandlerWithinDeadline({
+  target,
+  durationMs,
+}: {
+  target: UISettingRevealTarget;
+  durationMs: number;
+}): Promise<{
+  ok: boolean;
+  timedOut: boolean;
+  message: string;
+}> {
+  let timeoutId: number | null = null;
+  const timeoutPromise = new Promise<{
+    ok: boolean;
+    timedOut: boolean;
+    message: string;
+  }>((resolve) => {
+    timeoutId = window.setTimeout(() => {
+      resolve({
+        ok: false,
+        timedOut: true,
+        message: `Plugin reveal handler timed out for ${target.settingId}.`,
+      });
+    }, durationMs);
+  });
+  const handlerPromise = invokePluginSettingRevealHandler({
+    pluginId: target.pluginId ?? "",
+    revealKey: target.pluginRevealKey ?? "",
+    settingId: target.settingId,
+    paneId: target.paneId ?? null,
+    durationMs,
+  })
+    .then((result) => ({
+      ok: result.ok,
+      timedOut: false,
+      message: result.message ?? "Plugin reveal handler failed.",
+    }))
+    .catch(() => ({
+      ok: false,
+      timedOut: false,
+      message: "Plugin reveal handler failed.",
+    }));
+  const result = await Promise.race([handlerPromise, timeoutPromise]);
+  if (timeoutId !== null) {
+    window.clearTimeout(timeoutId);
+  }
+  return result;
 }
 
 function getPaneRoot(side: "left" | "right"): HTMLElement | null {

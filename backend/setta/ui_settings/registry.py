@@ -914,6 +914,7 @@ def _build_plugin_runtime_entry(
             plugin_id=plugin_id,
             config_path=definition.configPath,
             default_value=definition.defaultValue,
+            value_schema=definition.valueSchema,
         )
     )
     return UISettingRuntimeEntry(
@@ -969,6 +970,7 @@ def _build_backend_plugin_runtime_entry(
             read_handler_id=registration.readHandlerId,
             write_handler_id=registration.writeHandlerId,
             plugin_manager=plugin_manager,
+            value_schema=value_schema,
         )
     )
     return UISettingRuntimeEntry(
@@ -1028,6 +1030,7 @@ def _build_plugin_write_value(
     plugin_id: str,
     config_path: list[str],
     default_value: JSONValue,
+    value_schema: UISettingValueSchema,
 ):
     async def _write_plugin_value(
         ctx: "Context",
@@ -1044,6 +1047,7 @@ def _build_plugin_write_value(
             config_path=config_path,
             default_value=default_value,
         )
+        validate_ui_setting_value(value_schema, old_value)
         next_config = _write_plugin_config_path_value(
             config=old_config,
             config_path=config_path,
@@ -1108,6 +1112,7 @@ def _build_plugin_backend_write_value(
     read_handler_id: str,
     write_handler_id: str,
     plugin_manager,
+    value_schema: UISettingValueSchema,
 ):
     async def _write_plugin_backend_value(
         ctx: "Context",
@@ -1124,6 +1129,7 @@ def _build_plugin_backend_write_value(
                 read_handler_id=read_handler_id,
                 project_config_id=project_config_id,
             )
+            validate_ui_setting_value(value_schema, old_value)
             plugin_manager.write_backend_ui_setting_value(
                 plugin_id=plugin_id,
                 write_handler_id=write_handler_id,
