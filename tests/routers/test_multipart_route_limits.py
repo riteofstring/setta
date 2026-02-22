@@ -1,3 +1,4 @@
+import base64
 from contextlib import ExitStack
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -6,16 +7,12 @@ from fastapi import FastAPI, HTTPException
 from httpx import ASGITransport, AsyncClient
 import pytest
 import pytest_asyncio
-from starlette.requests import Request
 
-from setta.agentic.store import save_engine_configs
+from setta.llm.transcription_sessions import TranscriptDeltaResult
 from setta.lsp.managers import stop_file_watcher, stop_lsps
 from setta.routers.ai import router as ai_router
 from setta.routers.binary import router as binary_router
 from setta.server_state import SettaFastAPIState
-from setta.types.agentic import EngineConfig, EngineType
-from setta.types.id import ID
-from setta.types.llm_config import AllLLMConfigs, LLMConfig
 from setta.types.routes import Route
 from setta.utils.constants import C
 from tests.utils.manager_fixture import _seed_minimal_setta_files
@@ -95,71 +92,62 @@ class TestMultipartRouteLimits:
         assert response.status_code == 200
         assert response.json()["byteLength"] == len(payload)
 
-    async def test_transcribe_chat_audio_accepts_payload_above_starlette_default_part_size(
+    async def test_append_transcription_audio_accepts_large_json_audio_payload(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        # Dictation uploads should also respect Setta's configured limit, not the parser default.
         self.app.include_router(ai_router, prefix=Route.PREFIX.value)
-        engine_config_id = ID("engine-primary")
-        save_engine_configs(
-            self.state.dbe,
-            [
-                EngineConfig(
-                    id=engine_config_id,
-                    name="Primary Engine",
-                    engineType=EngineType.setta_llm,
-                    settaLlmConfigId="primary",
-                )
-            ],
-        )
-        self.state.agent_runner.update_config(
-            AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=[],
-                    )
-                },
-                mcpServers={},
-            )
-        )
-        self.state.agent_runner.update_api_keys({"OPENAI_API_KEY": "test-key"})
-        captured_audio: dict[str, bytes] = {}
+        payload = b"a" * (2 * 1024 * 1024)
+        captured: dict[str, bytes] = {}
 
-        async def _fake_transcribe_audio_with_llm(
+        async def _fake_append_audio(
             *,
-            audio_bytes: bytes,
-            **_kwargs,
-        ) -> str:
-            captured_audio["bytes"] = audio_bytes
-            return "hello from provider"
+            scope_id: str,
+            session_id: str,
+            audio_pcm16: bytes,
+            sample_rate_hz: int,
+            channels: int,
+        ) -> TranscriptDeltaResult:
+            captured["scope_id"] = scope_id.encode("utf-8")
+            captured["session_id"] = session_id.encode("utf-8")
+            captured["audio_pcm16"] = audio_pcm16
+            captured["sample_rate_hz"] = str(sample_rate_hz).encode("utf-8")
+            captured["channels"] = str(channels).encode("utf-8")
+            return TranscriptDeltaResult(
+                append_text="hello",
+                full_text="hello",
+                is_final=False,
+            )
 
         monkeypatch.setattr(
-            "setta.routers.ai.transcribe_audio_with_llm",
-            _fake_transcribe_audio_with_llm,
+            self.state.transcription_session_manager,
+            "append_audio",
+            _fake_append_audio,
         )
 
-        payload = b"a" * (2 * 1024 * 1024)
         transport = ASGITransport(app=self.app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             response = await client.post(
-                f"{Route.PREFIX.value}{Route.TRANSCRIBE_CHAT_AUDIO.value}",
-                data={"engineConfigId": str(engine_config_id)},
-                files={"file": ("voice.webm", payload, "audio/webm")},
+                f"{Route.PREFIX.value}{Route.APPEND_TRANSCRIPTION_AUDIO.value}",
+                json={
+                    "sessionId": "session-1",
+                    "audioPcm16Base64": base64.b64encode(payload).decode("ascii"),
+                    "sampleRateHz": 24_000,
+                    "channels": 1,
+                },
             )
 
         assert response.status_code == 200
-        assert response.json() == {"text": "hello from provider"}
-        assert len(captured_audio["bytes"]) == len(payload)
+        assert response.json() == {
+            "appendText": "hello",
+            "fullText": "hello",
+            "isFinal": False,
+        }
+        assert len(captured["audio_pcm16"]) == len(payload)
 
-    async def test_transcribe_chat_audio_openapi_declares_multipart_request_body(
+    async def test_append_transcription_audio_openapi_declares_json_request_body(
         self,
     ) -> None:
-        # OpenAPI must describe multipart fields so generated clients and docs stay aligned.
         self.app.include_router(ai_router, prefix=Route.PREFIX.value)
         transport = ASGITransport(app=self.app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -167,56 +155,36 @@ class TestMultipartRouteLimits:
 
         assert response.status_code == 200
         payload = response.json()
-        path_key = f"{Route.PREFIX.value}{Route.TRANSCRIBE_CHAT_AUDIO.value}"
+        path_key = f"{Route.PREFIX.value}{Route.APPEND_TRANSCRIPTION_AUDIO.value}"
         assert path_key in payload["paths"]
         post_operation = payload["paths"][path_key]["post"]
         request_body = post_operation.get("requestBody")
         assert isinstance(request_body, dict)
         content = request_body.get("content")
         assert isinstance(content, dict)
-        multipart_content = content.get("multipart/form-data")
-        assert isinstance(multipart_content, dict)
-        schema = multipart_content.get("schema")
-        assert isinstance(schema, dict)
-        required_fields = schema.get("required")
-        assert required_fields == ["engineConfigId", "file"]
-        properties = schema.get("properties")
-        assert isinstance(properties, dict)
-        assert properties["engineConfigId"]["type"] == "string"
-        assert properties["file"]["type"] == "string"
-        assert properties["file"]["format"] == "binary"
-        assert properties["language"]["type"] == "string"
+        assert "application/json" in content
+        assert "multipart/form-data" not in content
 
-    async def test_transcribe_chat_audio_rejects_unauthorized_requests_before_parsing_multipart(
+    async def test_append_transcription_audio_rejects_unauthorized_before_decode(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        # Authorization must run before any multipart parser work for this endpoint.
         self.app.include_router(ai_router, prefix=Route.PREFIX.value)
-        form_called = False
+        decode_called = False
 
         async def _reject_llm(_ctx) -> None:
             raise HTTPException(status_code=403, detail="LLM disabled")
 
-        async def _fail_if_form_is_parsed(
-            _request: Request,
-            *,
-            max_files: int | float = 1000,
-            max_fields: int | float = 1000,
-            max_part_size: int = 1024 * 1024,
-        ):
-            nonlocal form_called
-            form_called = True
-            raise AssertionError(
-                "multipart parser should not run before auth "
-                f"(max_files={max_files}, max_fields={max_fields}, max_part_size={max_part_size})"
-            )
+        def _fail_decode(_payload: str) -> bytes:
+            nonlocal decode_called
+            decode_called = True
+            raise AssertionError("decode should not run before auth")
 
         monkeypatch.setattr(
             "setta.runtime.context.RuntimeContext.enforce_llm_allowed",
             _reject_llm,
         )
-        monkeypatch.setattr("starlette.requests.Request.form", _fail_if_form_is_parsed)
+        monkeypatch.setattr("setta.routers.ai._decode_pcm16_payload", _fail_decode)
 
         transport = ASGITransport(app=self.app)
         async with AsyncClient(
@@ -224,11 +192,51 @@ class TestMultipartRouteLimits:
             base_url="http://test",
         ) as client:
             response = await client.post(
-                f"{Route.PREFIX.value}{Route.TRANSCRIBE_CHAT_AUDIO.value}",
-                data={"engineConfigId": "engine-primary"},
-                files={"file": ("voice.webm", b"hello", "audio/webm")},
+                f"{Route.PREFIX.value}{Route.APPEND_TRANSCRIPTION_AUDIO.value}",
+                json={
+                    "sessionId": "session-1",
+                    "audioPcm16Base64": "this-is-not-base64",
+                    "sampleRateHz": 24_000,
+                    "channels": 1,
+                },
             )
 
         assert response.status_code == 403
         assert response.json() == {"detail": "LLM disabled"}
-        assert form_called is False
+        assert decode_called is False
+
+    async def test_append_transcription_audio_rejects_oversized_payload_before_decode(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        self.app.include_router(ai_router, prefix=Route.PREFIX.value)
+        decode_called = False
+
+        def _fail_decode(*_args, **_kwargs):
+            nonlocal decode_called
+            decode_called = True
+            raise AssertionError("decode should not run for oversized payloads")
+
+        monkeypatch.setattr("setta.routers.ai.base64.b64decode", _fail_decode)
+
+        max_bytes = (
+            C.REALTIME_BINARY_MAX_BYTES
+            if C.REALTIME_BINARY_MAX_BYTES > 0
+            else 10 * 1024 * 1024
+        )
+        encoded_length = ((max_bytes + 3) // 3) * 4
+
+        transport = ASGITransport(app=self.app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.post(
+                f"{Route.PREFIX.value}{Route.APPEND_TRANSCRIPTION_AUDIO.value}",
+                json={
+                    "sessionId": "session-oversized",
+                    "audioPcm16Base64": "A" * encoded_length,
+                    "sampleRateHz": 24_000,
+                    "channels": 1,
+                },
+            )
+
+        assert response.status_code == 413
+        assert decode_called is False

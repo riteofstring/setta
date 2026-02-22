@@ -90,3 +90,31 @@ Key points:
   the MCP server entry so tool calls are scope-enforced.
 - Attachments: sent as `file` parts with `mime`, `url`, and optional filename
   (from `attachmentUrls`)
+
+## Skill loading semantics (official docs)
+
+Checked on 2026-02-19.
+
+- OpenCode documents skills as a native `skill` tool:
+  - "Skills are loaded on-demand via the native `skill` tool"
+  - "The agent loads a skill by calling the tool: `skill({ name: \"...\" })`"
+  - Tools reference also lists built-in `skill` as loading a `SKILL.md` file
+    into the conversation.
+- Codex app-server documents skill invocation through turn input conventions:
+  - Invoke by putting `$<skill-name>` in the text input.
+  - Recommended to include an additional `input` item with `type: "skill"`
+    plus `name`/`path`.
+  - App-server exposes explicit skill management RPC methods:
+    `skills/list` and `skills/config/write`.
+- Implication for Setta "Active skill" inference:
+  - OpenCode: inferring activity from observed `skill` tool invocations is
+    directly grounded in official docs.
+  - Codex: docs do not guarantee a runtime tool-call event named `skill`; the
+    primary documented mechanism is `$<skill-name>` + `type: "skill"` input
+    items on `turn/start`. Treat tool-name-based active inference as heuristic.
+
+References:
+- https://opencode.ai/docs/skills
+- https://opencode.ai/docs/tools
+- https://developers.openai.com/codex/app-server
+- https://developers.openai.com/api/docs/guides/tools-skills

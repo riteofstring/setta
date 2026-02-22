@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp.types import TextContent
+from pydantic import ValidationError
 
 from setta.agentic.agentic_context_payload_builder import (
     build_agentic_context_payload_with_temporary_ids,
@@ -26,7 +27,11 @@ from setta.agentic.chat_view import (
     get_run_project_config_id,
     is_external_agent_run,
 )
-from setta.agentic.completion_guard import apply_completion_guard
+from setta.agentic.completion_guard import (
+    apply_completion_guard,
+    load_completion_guard_enabled,
+)
+from setta.agentic.completion_report import REPORT_COMPLETION_STATUS_TOOL_NAME
 from setta.agentic.external_adapters.base import (
     ExternalAgentAdapter,
     ExternalAgentRunContext,
@@ -74,7 +79,11 @@ from setta.llm.chat_toolkit.section_sync import apply_stream_delta
 from setta.logging.tasks import spawn_background_task
 from setta.mcp.agentic_context_headers import build_agentic_context_headers
 from setta.mcp.client import MultiMCPClient
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID, split_namespaced_tool_name
+from setta.mcp.namespacing import (
+    SETTA_MCP_SERVER_ID,
+    normalize_mcp_tool_name,
+    split_namespaced_tool_name,
+)
 from setta.mcp.tool_metadata import FollowIdType
 from setta.mcp.utils import convert_canonical_ids_to_temporary
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
@@ -101,6 +110,7 @@ from setta.types.helpers_lvl3 import (
     convert_backend_to_single_config,
 )
 from setta.types.id import ID
+from setta.types.mcp_runtime_status import MCPServerRuntimeState, MCPServerRuntimeStatus
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.routes import Route
 from setta.types.section_impls import ChatSectionState
@@ -124,6 +134,8 @@ _CLAUDE_MCP_CONFIG_NAME = ".mcp.json"
 _APPROVAL_REQUEST_EVENT_TYPE = "approval_request"
 _APPROVAL_TOOL_NAME = "setta.approval"
 _ASK_USER_QUESTION_TOOL_NAME = "AskUserQuestion"
+_EXTERNAL_MCP_STATUS_SOURCE = "external_runtime"
+_EXTERNAL_MCP_STATUS_SNAPSHOT_KEY = "externalMcpServerRuntimeStatuses"
 _SUMMARY_EVENT_TYPES = {
     "run_started",
     "run_completed",
@@ -134,7 +146,6 @@ _SUMMARY_EVENT_TYPES = {
     "question_response",
     "tool_result",
 }
-_USAGE_SUMMARY_METADATA_KEY = "usage_summary"
 
 
 @dataclass(frozen=True)
@@ -200,6 +211,9 @@ class ExternalAgentRunner:
         self._chat_states: dict[ID, ChatSectionState] = {}
         self._tool_call_buffers: dict[ID, dict[str, str]] = {}
         self._tool_call_names: dict[ID, dict[str, str]] = {}
+        self._external_mcp_statuses_by_run_id: dict[
+            ID, dict[str, MCPServerRuntimeStatus]
+        ] = {}
         self._ai_follow_state: dict[tuple[ID, ID], dict[FollowIdType, list[ID]]] = {}
         self._pending_approvals: dict[str, ExternalAgentApprovalState] = {}
         self._pending_questions: dict[str, ExternalAgentQuestionState] = {}
@@ -240,6 +254,32 @@ class ExternalAgentRunner:
         if state is None:
             return None
         return state.model_copy(deep=True)
+
+    def get_mcp_server_runtime_statuses(
+        self,
+        *,
+        chat_id: ID | None,
+        engine_config_id: ID | None,
+    ) -> list[MCPServerRuntimeStatus]:
+        if chat_id is None or engine_config_id is None:
+            return []
+        run_id = chat_id
+        run = self._runs.get(run_id) or load_agent_run(self.dbe, run_id)
+        if run is None:
+            return []
+        if self._get_run_engine_config_id(run) != engine_config_id:
+            return []
+        statuses = self._external_mcp_statuses_by_run_id.get(run_id)
+        if statuses is not None:
+            return [
+                status.model_copy(deep=True)
+                for _, status in sorted(statuses.items(), key=lambda item: item[0])
+            ]
+        persisted = self._load_external_mcp_status_snapshot(
+            run.outputs,
+            run_id=run_id,
+        )
+        return [status.model_copy(deep=True) for status in persisted]
 
     def start_run(
         self,
@@ -290,6 +330,7 @@ class ExternalAgentRunner:
             self._chat_states.pop(run_id, None)
             self._tool_call_buffers.pop(run_id, None)
             self._tool_call_names.pop(run_id, None)
+            self._external_mcp_statuses_by_run_id.pop(run_id, None)
             self._clear_pending_approvals(run_id)
             self._clear_pending_questions(run_id)
 
@@ -357,18 +398,23 @@ class ExternalAgentRunner:
             self._run_state[run.id] = ExternalAgentRunState(
                 handle=handle, adapter=current_adapter
             )
+            self._seed_external_mcp_statuses_from_handle(
+                context,
+                run_id=run.id,
+                handle=handle,
+            )
             async for event in current_adapter.stream_events(handle, context):
-                self._observe_usage_summary(
-                    context.config.toolType,
-                    handle,
-                    event.raw,
+                self._capture_external_mcp_statuses_from_raw(
+                    context,
+                    run_id=run.id,
+                    raw_payload=event.raw,
                 )
                 if self._is_approval_request(event.raw):
                     await self._handle_approval_request(context, run, event.raw)
                     continue
                 if event.stream_chunk is not None:
                     chunk = self._prepare_stream_chunk_for_delivery(
-                        run, event.stream_chunk
+                        context, run, event.stream_chunk
                     )
                     await self.websocket_msg_handler.send_streaming_response(
                         context.chat_id,
@@ -383,6 +429,7 @@ class ExternalAgentRunner:
             if return_code not in (None, 0):
                 raise RuntimeError(f"External agent exited with code {return_code}")
             self._persist_outputs_from_state(run, context.config)
+            self._persist_external_mcp_status_snapshot(run.id, run=run, save=False)
             run.status = AgentRunStatus.completed
             run.finishedAt = get_now_timestamp()
             save_agent_run(self.dbe, run)
@@ -395,6 +442,7 @@ class ExternalAgentRunner:
             if not was_cancelled:
                 run.status = AgentRunStatus.cancelled
                 run.finishedAt = get_now_timestamp()
+            self._persist_external_mcp_status_snapshot(run.id, run=run, save=False)
             save_agent_run(self.dbe, run)
             if not was_cancelled:
                 self._record_event(run, "run_cancelled", {})
@@ -425,6 +473,7 @@ class ExternalAgentRunner:
             )
             run.status = AgentRunStatus.failed
             run.finishedAt = get_now_timestamp()
+            self._persist_external_mcp_status_snapshot(run.id, run=run, save=False)
             save_agent_run(self.dbe, run)
             self._record_event(run, "run_failed", error_payload)
         finally:
@@ -561,13 +610,18 @@ class ExternalAgentRunner:
             profile=profile,
             payload_inputs=payload_inputs,
         )
+        completion_guard_enabled = load_completion_guard_enabled(self.dbe)
         agentic_headers = build_agentic_context_headers(
             project_config_id=project_config_id,
             chat_id=chat_id,
             section_id=section_id,
             allow_unscoped=allow_unscoped,
         )
-        system_prompt = self._build_system_prompt(profile, project_config_id)
+        system_prompt = self._build_system_prompt(
+            profile,
+            project_config_id,
+            completion_guard_enabled=completion_guard_enabled,
+        )
         raw_system_prompt = payload_inputs.pop("systemPrompt", None)
         if isinstance(raw_system_prompt, str) and raw_system_prompt.strip():
             merged_system_prompt = raw_system_prompt.strip()
@@ -631,6 +685,7 @@ class ExternalAgentRunner:
             agentic_headers=agentic_headers,
             system_prompt=system_prompt,
             working_dir=working_dir,
+            completion_guard_enabled=completion_guard_enabled,
         )
         runtime_inputs = dict(payload_inputs)
         runtime_inputs.update(attachment_payload)
@@ -647,6 +702,7 @@ class ExternalAgentRunner:
             env=env,
             agentic_context_section_ids=agentic_context_section_ids,
             cleanup_paths=tuple(cleanup_paths),
+            completion_guard_enabled=completion_guard_enabled,
         ), is_new
 
     def _build_attachment_payload(
@@ -830,79 +886,11 @@ class ExternalAgentRunner:
                 session_id = run_state.handle.session_id
         thread_id = self._extract_output_string(previous.outputs, "threadId")
         if config.toolType == ExternalAgentToolType.codex:
-            if thread_id and self._can_resume_codex_thread(
-                payload_inputs, config, previous
-            ):
+            if thread_id:
                 payload_inputs["threadId"] = thread_id
             return
         if session_id:
             payload_inputs["sessionId"] = session_id
-
-    @classmethod
-    def _can_resume_codex_thread(
-        cls,
-        payload_inputs: dict[str, Any],
-        config: ExternalAgentConfig,
-        previous: AgentRun,
-    ) -> bool:
-        for policy_key in ("sandboxPolicy",):
-            current_value = cls._resolve_current_codex_policy_value(
-                payload_inputs,
-                config,
-                policy_key,
-            )
-            previous_value = cls._resolve_previous_codex_policy_value(
-                previous,
-                policy_key,
-            )
-            if current_value != previous_value:
-                return False
-        return True
-
-    @classmethod
-    def _resolve_current_codex_policy_value(
-        cls,
-        payload_inputs: dict[str, Any],
-        config: ExternalAgentConfig,
-        policy_key: str,
-    ) -> str | None:
-        input_value = cls._normalize_optional_string(payload_inputs.get(policy_key))
-        if input_value is not None:
-            return input_value
-        if policy_key == "approvalPolicy":
-            return cls._normalize_optional_string(config.approvalPolicy)
-        if policy_key == "sandboxPolicy":
-            return cls._normalize_optional_string(config.sandboxPolicy)
-        return None
-
-    @classmethod
-    def _resolve_previous_codex_policy_value(
-        cls,
-        previous: AgentRun,
-        policy_key: str,
-    ) -> str | None:
-        if previous.inputs:
-            input_value = cls._normalize_optional_string(
-                previous.inputs.get(policy_key)
-            )
-            if input_value is not None:
-                return input_value
-        raw_outputs = previous.outputs
-        if not isinstance(raw_outputs, dict):
-            return None
-        raw_metadata = raw_outputs.get("metadata")
-        if not isinstance(raw_metadata, dict):
-            return None
-        return cls._normalize_optional_string(raw_metadata.get(policy_key))
-
-    @staticmethod
-    def _normalize_optional_string(value: Any) -> str | None:
-        if not isinstance(value, str):
-            return None
-        stripped = value.strip()
-        if not stripped:
-            return None
-        return stripped
 
     @staticmethod
     def _get_run_engine_config_id(run: AgentRun) -> ID | None:
@@ -930,269 +918,6 @@ class ExternalAgentRunner:
         if isinstance(raw, str) and raw:
             return raw
         return None
-
-    def _observe_usage_summary(
-        self,
-        tool_type: ExternalAgentToolType,
-        handle: ExternalAgentRunHandle,
-        payload: dict[str, Any],
-    ) -> None:
-        incoming = self._extract_usage_summary_from_event(tool_type, payload)
-        if incoming is None:
-            return
-        existing = handle.metadata.get(_USAGE_SUMMARY_METADATA_KEY)
-        if isinstance(existing, dict):
-            merged = self._merge_usage_summary(existing, incoming)
-        else:
-            merged = incoming
-        handle.metadata[_USAGE_SUMMARY_METADATA_KEY] = merged
-
-    def _extract_usage_summary_from_event(
-        self,
-        tool_type: ExternalAgentToolType,
-        payload: dict[str, Any],
-    ) -> dict[str, int] | None:
-        if tool_type == ExternalAgentToolType.codex:
-            return self._extract_codex_usage_from_event(payload)
-        if tool_type == ExternalAgentToolType.claude_code:
-            return self._extract_claude_usage_from_event(payload)
-        if tool_type == ExternalAgentToolType.opencode:
-            return self._extract_opencode_usage_from_event(payload)
-        return None
-
-    def _extract_codex_usage_from_event(
-        self,
-        payload: dict[str, Any],
-    ) -> dict[str, int] | None:
-        method = payload.get("method")
-        if method == "thread/tokenUsage/updated":
-            params = payload.get("params")
-            if not isinstance(params, dict):
-                return None
-            token_usage = params.get("tokenUsage")
-            if not isinstance(token_usage, dict):
-                return None
-            breakdown = token_usage.get("last")
-            if not isinstance(breakdown, dict):
-                breakdown = token_usage.get("total")
-            usage = self._build_usage_summary_from_mapping(
-                breakdown,
-                prompt_key="inputTokens",
-                completion_key="outputTokens",
-                total_key="totalTokens",
-                cached_input_key="cachedInputTokens",
-                reasoning_output_key="reasoningOutputTokens",
-            )
-            if usage is None:
-                return None
-            context_window_tokens = self._extract_non_negative_int(
-                token_usage.get("modelContextWindow")
-            )
-            if context_window_tokens is not None and context_window_tokens > 0:
-                usage["contextWindowTokens"] = context_window_tokens
-            return usage
-        raw_type = payload.get("type")
-        if raw_type != "token_count":
-            return None
-        info = payload.get("info")
-        if not isinstance(info, dict):
-            return None
-        breakdown = info.get("last_token_usage")
-        if not isinstance(breakdown, dict):
-            breakdown = info.get("total_token_usage")
-        usage = self._build_usage_summary_from_mapping(
-            breakdown,
-            prompt_key="input_tokens",
-            completion_key="output_tokens",
-            total_key="total_tokens",
-            cached_input_key="cached_input_tokens",
-            reasoning_output_key="reasoning_output_tokens",
-        )
-        if usage is None:
-            return None
-        context_window_tokens = self._extract_non_negative_int(
-            info.get("model_context_window")
-        )
-        if context_window_tokens is not None and context_window_tokens > 0:
-            usage["contextWindowTokens"] = context_window_tokens
-        return usage
-
-    def _extract_claude_usage_from_event(
-        self,
-        payload: dict[str, Any],
-    ) -> dict[str, int] | None:
-        raw_type = payload.get("type")
-        if raw_type != "result_message":
-            return None
-        usage_payload = payload.get("usage")
-        usage = self._build_usage_summary_from_mapping(
-            usage_payload,
-            prompt_key="input_tokens",
-            completion_key="output_tokens",
-            total_key="total_tokens",
-            cached_input_key="cache_read_input_tokens",
-        )
-        if usage is None:
-            return None
-        cache_write_tokens = self._extract_non_negative_int(
-            usage_payload.get("cache_creation_input_tokens")
-            if isinstance(usage_payload, dict)
-            else None
-        )
-        if cache_write_tokens is not None:
-            usage["cacheWriteInputTokens"] = cache_write_tokens
-        return usage
-
-    def _extract_opencode_usage_from_event(
-        self,
-        payload: dict[str, Any],
-    ) -> dict[str, int] | None:
-        raw_type = payload.get("type")
-        if raw_type == "message.updated":
-            properties = payload.get("properties")
-            if not isinstance(properties, dict):
-                return None
-            info = properties.get("info")
-            if not isinstance(info, dict):
-                return None
-            role = info.get("role")
-            if role != "assistant":
-                return None
-            return self._build_usage_summary_from_mapping(
-                info.get("tokens"),
-                prompt_key="input",
-                completion_key="output",
-                total_key=None,
-                cached_input_path=("cache", "read"),
-                reasoning_output_key="reasoning",
-            )
-        if raw_type != "message.part.updated":
-            return None
-        properties = payload.get("properties")
-        if not isinstance(properties, dict):
-            return None
-        part = properties.get("part")
-        if not isinstance(part, dict):
-            return None
-        if part.get("type") != "step-finish":
-            return None
-        return self._build_usage_summary_from_mapping(
-            part.get("tokens"),
-            prompt_key="input",
-            completion_key="output",
-            total_key=None,
-            cached_input_path=("cache", "read"),
-            reasoning_output_key="reasoning",
-        )
-
-    @classmethod
-    def _build_usage_summary_from_mapping(
-        cls,
-        payload: Any,
-        *,
-        prompt_key: str,
-        completion_key: str,
-        total_key: str | None,
-        cached_input_key: str | None = None,
-        reasoning_output_key: str | None = None,
-        cached_input_path: tuple[str, str] | None = None,
-    ) -> dict[str, int] | None:
-        if not isinstance(payload, dict):
-            return None
-        usage: dict[str, int] = {}
-        prompt_tokens = cls._extract_non_negative_int(payload.get(prompt_key))
-        completion_tokens = cls._extract_non_negative_int(payload.get(completion_key))
-        if prompt_tokens is not None:
-            usage["promptTokens"] = prompt_tokens
-            usage["inputTokens"] = prompt_tokens
-        if completion_tokens is not None:
-            usage["completionTokens"] = completion_tokens
-            usage["outputTokens"] = completion_tokens
-        if total_key is not None:
-            total_tokens = cls._extract_non_negative_int(payload.get(total_key))
-        else:
-            total_tokens = None
-        if (
-            total_tokens is None
-            and prompt_tokens is not None
-            and completion_tokens is not None
-        ):
-            total_tokens = prompt_tokens + completion_tokens
-        if total_tokens is not None:
-            usage["totalTokens"] = total_tokens
-        if cached_input_key is not None:
-            cached_tokens = cls._extract_non_negative_int(payload.get(cached_input_key))
-            if cached_tokens is not None:
-                usage["cachedInputTokens"] = cached_tokens
-        if cached_input_path is not None:
-            root_value = payload.get(cached_input_path[0])
-            if isinstance(root_value, dict):
-                cached_tokens = cls._extract_non_negative_int(
-                    root_value.get(cached_input_path[1])
-                )
-                if cached_tokens is not None:
-                    usage["cachedInputTokens"] = cached_tokens
-        if reasoning_output_key is not None:
-            reasoning_tokens = cls._extract_non_negative_int(
-                payload.get(reasoning_output_key)
-            )
-            if reasoning_tokens is not None:
-                usage["reasoningOutputTokens"] = reasoning_tokens
-        if not usage:
-            return None
-        return usage
-
-    @staticmethod
-    def _extract_non_negative_int(value: Any) -> int | None:
-        if isinstance(value, bool):
-            return None
-        if isinstance(value, int):
-            return value if value >= 0 else None
-        if isinstance(value, float):
-            parsed = int(value)
-            return parsed if parsed >= 0 else None
-        if isinstance(value, str):
-            stripped = value.strip()
-            if not stripped:
-                return None
-            try:
-                parsed = int(stripped)
-            except ValueError:
-                return None
-            return parsed if parsed >= 0 else None
-        return None
-
-    @classmethod
-    def _merge_usage_summary(
-        cls,
-        current: dict[str, Any],
-        incoming: dict[str, int],
-    ) -> dict[str, int]:
-        merged: dict[str, int] = {}
-        for key, value in current.items():
-            parsed = cls._extract_non_negative_int(value)
-            if parsed is None:
-                continue
-            merged[key] = parsed
-        for key, value in incoming.items():
-            existing = merged.get(key)
-            if existing is None or value >= existing:
-                merged[key] = value
-        prompt_tokens = merged.get("promptTokens") or merged.get("inputTokens")
-        completion_tokens = merged.get("completionTokens") or merged.get("outputTokens")
-        if prompt_tokens is not None:
-            merged["promptTokens"] = prompt_tokens
-            merged["inputTokens"] = prompt_tokens
-        if completion_tokens is not None:
-            merged["completionTokens"] = completion_tokens
-            merged["outputTokens"] = completion_tokens
-        if (
-            "totalTokens" not in merged
-            and prompt_tokens is not None
-            and completion_tokens is not None
-        ):
-            merged["totalTokens"] = prompt_tokens + completion_tokens
-        return merged
 
     def _init_chat_state(self, run: AgentRun) -> None:
         self._chat_states[run.id] = build_chat_state_from_run(run)
@@ -1222,47 +947,6 @@ class ExternalAgentRunner:
             state = self._ensure_chat_state(run)
         outputs = run.outputs or {}
         outputs.update(build_run_outputs(state.messages))
-        run_state = self._run_state.get(run.id)
-        agent_native_slash_commands: list[str] | None = None
-        agent_native_slash_commands_status: str | None = None
-        agent_native_slash_commands_status_detail: str | None = None
-        if run_state is not None:
-            usage_summary = run_state.handle.metadata.get(_USAGE_SUMMARY_METADATA_KEY)
-            if isinstance(usage_summary, dict):
-                normalized_usage = self._merge_usage_summary({}, usage_summary)
-                if normalized_usage:
-                    outputs["usage"] = normalized_usage
-            raw_native_commands = run_state.handle.metadata.get(
-                "agentNativeSlashCommands"
-            )
-            if isinstance(raw_native_commands, list):
-                normalized_native_commands: list[str] = []
-                seen_native_commands: set[str] = set()
-                for raw_command in raw_native_commands:
-                    if not isinstance(raw_command, str):
-                        continue
-                    command = raw_command.strip()
-                    if not command:
-                        continue
-                    if command in seen_native_commands:
-                        continue
-                    seen_native_commands.add(command)
-                    normalized_native_commands.append(command)
-                agent_native_slash_commands = normalized_native_commands
-            raw_native_status = run_state.handle.metadata.get(
-                "agentNativeSlashCommandsStatus"
-            )
-            if isinstance(raw_native_status, str):
-                normalized_status = raw_native_status.strip()
-                if normalized_status:
-                    agent_native_slash_commands_status = normalized_status
-            raw_native_status_detail = run_state.handle.metadata.get(
-                "agentNativeSlashCommandsStatusDetail"
-            )
-            if isinstance(raw_native_status_detail, str):
-                normalized_status_detail = raw_native_status_detail.strip()
-                if normalized_status_detail:
-                    agent_native_slash_commands_status_detail = normalized_status_detail
         metadata: dict[str, Any] = {}
         existing_metadata = outputs.get("metadata")
         if isinstance(existing_metadata, dict):
@@ -1320,16 +1004,6 @@ class ExternalAgentRunner:
                 resolved_paths["opencode"] = str(opencode_path)
             if resolved_paths:
                 metadata["settingsPaths"] = resolved_paths
-        if agent_native_slash_commands is not None:
-            metadata["agentNativeSlashCommands"] = agent_native_slash_commands
-        if agent_native_slash_commands_status is not None:
-            metadata["agentNativeSlashCommandsStatus"] = (
-                agent_native_slash_commands_status
-            )
-        if agent_native_slash_commands_status_detail is not None:
-            metadata["agentNativeSlashCommandsStatusDetail"] = (
-                agent_native_slash_commands_status_detail
-            )
         if metadata:
             outputs["metadata"] = metadata
         title_result = build_deterministic_chat_title(state.messages)
@@ -1341,6 +1015,7 @@ class ExternalAgentRunner:
             outputs["nameSource"] = "deterministic"
         elif "nameSource" not in outputs:
             outputs["nameSource"] = "reused"
+        run_state = self._run_state.get(run.id)
         if run_state is not None:
             handle = run_state.handle
             if handle.external_title:
@@ -1355,13 +1030,18 @@ class ExternalAgentRunner:
         save_agent_run(self.dbe, run)
 
     def _build_system_prompt(
-        self, profile: AgentProfile | None, project_config_id: ID
+        self,
+        profile: AgentProfile | None,
+        project_config_id: ID,
+        *,
+        completion_guard_enabled: bool = True,
     ) -> str:
         base_prompt = build_agent_system_prompt(
             base_prompt=self._system_prompt,
             profile=profile,
             project_config_id=project_config_id,
             dbe=self.dbe,
+            completion_guard_enabled=completion_guard_enabled,
         )
         return base_prompt
 
@@ -1409,12 +1089,15 @@ class ExternalAgentRunner:
     @staticmethod
     def _resolve_external_tool_allowlist(
         profile: AgentProfile | None,
+        *,
+        completion_guard_enabled: bool = True,
     ) -> ExternalToolAllowlist | None:
         if profile is None:
             return None
         allowlist, error = build_external_tool_allowlist(
             profile.toolAllowlist,
             server_id=_MCP_SERVER_NAME,
+            completion_guard_enabled=completion_guard_enabled,
         )
         if error:
             raise ValueError(error)
@@ -1431,8 +1114,12 @@ class ExternalAgentRunner:
         agentic_headers: dict[str, str] | None = None,
         system_prompt: str,
         working_dir: Path | None = None,
+        completion_guard_enabled: bool = True,
     ) -> None:
-        allowlist = self._resolve_external_tool_allowlist(profile)
+        allowlist = self._resolve_external_tool_allowlist(
+            profile,
+            completion_guard_enabled=completion_guard_enabled,
+        )
         chat_id = None
         raw_chat_id = payload_inputs.get("chatId")
         if isinstance(raw_chat_id, str) and raw_chat_id.strip():
@@ -1458,7 +1145,10 @@ class ExternalAgentRunner:
                 payload_inputs["mcpConfig"] = str(config_path)
                 cleanup_paths.append(config_path.parent)
             write_claude_settings_file(config, project_root=self.dbe.path.parent)
-            allowed_tools = self._build_claude_allowed_tools(profile)
+            allowed_tools = self._build_claude_allowed_tools(
+                profile,
+                completion_guard_enabled=completion_guard_enabled,
+            )
             if allowed_tools:
                 payload_inputs["allowedTools"] = allowed_tools
             return
@@ -1590,6 +1280,8 @@ class ExternalAgentRunner:
     @staticmethod
     def _build_claude_allowed_tools(
         profile: AgentProfile | None,
+        *,
+        completion_guard_enabled: bool = True,
     ) -> list[str] | None:
         if profile is None or not profile.toolAllowlist:
             return None
@@ -1607,9 +1299,14 @@ class ExternalAgentRunner:
                     tools.append(f"mcp__{server_id}__{tool_name}")
                     continue
             tools.append(normalized)
-        required_tool = f"mcp__{SETTA_MCP_SERVER_ID}__set_agentic_context"
-        if required_tool not in tools:
-            tools.append(required_tool)
+        required_tools = [f"mcp__{SETTA_MCP_SERVER_ID}__set_agentic_context"]
+        if completion_guard_enabled:
+            required_tools.append(
+                f"mcp__{SETTA_MCP_SERVER_ID}__{REPORT_COMPLETION_STATUS_TOOL_NAME}"
+            )
+        for required_tool in required_tools:
+            if required_tool not in tools:
+                tools.append(required_tool)
         return tools or None
 
     def _resolve_working_dir(self, config: ExternalAgentConfig) -> Path:
@@ -1697,6 +1394,281 @@ class ExternalAgentRunner:
         run.outputs = outputs
         save_agent_run(self.dbe, run)
 
+    def _seed_external_mcp_statuses_from_handle(
+        self,
+        context: ExternalAgentRunContext,
+        *,
+        run_id: ID,
+        handle: ExternalAgentRunHandle,
+    ) -> None:
+        status_entries: list[MCPServerRuntimeStatus] = []
+        payload = handle.metadata.get("mcp_server_status_payload")
+        if isinstance(payload, dict | list):
+            status_entries.extend(
+                self._build_external_statuses_from_payload(
+                    payload=payload,
+                    provider=context.config.toolType.value,
+                )
+            )
+        if context.config.toolType == ExternalAgentToolType.claude_code:
+            status_entries.extend(
+                self._build_unknown_statuses_from_claude_mcp_config(context.inputs)
+            )
+        if context.config.toolType == ExternalAgentToolType.opencode:
+            status_entries.extend(
+                self._build_unknown_statuses_from_opencode_config_path(context.env)
+            )
+            if context.config.runMode == ExternalAgentRunMode.sdk:
+                status_entries.append(
+                    self._build_unknown_status_entry(
+                        server_id=SETTA_MCP_SERVER_ID,
+                        transport="sse",
+                        endpoint=self._build_setta_mcp_url(),
+                    )
+                )
+        if (
+            context.config.toolType == ExternalAgentToolType.codex
+            and len(status_entries) == 0
+        ):
+            status_entries.append(
+                self._build_unknown_status_entry(
+                    server_id=SETTA_MCP_SERVER_ID,
+                    transport="streamable_http",
+                    endpoint=self._build_setta_mcp_streamable_url(),
+                )
+            )
+        self._upsert_external_mcp_statuses(run_id, status_entries)
+
+    def _capture_external_mcp_statuses_from_raw(
+        self,
+        context: ExternalAgentRunContext,
+        *,
+        run_id: ID,
+        raw_payload: dict[str, Any],
+    ) -> None:
+        if context.config.toolType not in {
+            ExternalAgentToolType.claude_code,
+            ExternalAgentToolType.codex,
+        }:
+            return
+        status_entries = self._build_external_statuses_from_payload(
+            payload=raw_payload,
+            provider=context.config.toolType.value,
+        )
+        self._upsert_external_mcp_statuses(run_id, status_entries)
+
+    def _upsert_external_mcp_statuses(
+        self,
+        run_id: ID,
+        statuses: list[MCPServerRuntimeStatus],
+    ) -> None:
+        if len(statuses) == 0:
+            return
+        if run_id not in self._external_mcp_statuses_by_run_id:
+            self._external_mcp_statuses_by_run_id[run_id] = {}
+        destination = self._external_mcp_statuses_by_run_id[run_id]
+        for status in statuses:
+            existing = destination.get(status.serverId)
+            if (
+                existing is not None
+                and existing.state != MCPServerRuntimeState.unknown
+                and status.state == MCPServerRuntimeState.unknown
+            ):
+                continue
+            destination[status.serverId] = status
+
+    def _persist_external_mcp_status_snapshot(
+        self,
+        run_id: ID,
+        *,
+        run: AgentRun | None = None,
+        save: bool = True,
+    ) -> None:
+        statuses = self._external_mcp_statuses_by_run_id.get(run_id)
+        if statuses is None:
+            return
+        target_run = run or self._runs.get(run_id) or load_agent_run(self.dbe, run_id)
+        if target_run is None:
+            return
+        outputs = target_run.outputs or {}
+        outputs[_EXTERNAL_MCP_STATUS_SNAPSHOT_KEY] = [
+            status.model_dump(mode="json")
+            for _, status in sorted(statuses.items(), key=lambda item: item[0])
+        ]
+        target_run.outputs = outputs
+        if save:
+            save_agent_run(self.dbe, target_run)
+
+    @staticmethod
+    def _load_external_mcp_status_snapshot(
+        outputs: dict[str, Any] | None,
+        *,
+        run_id: ID | None = None,
+    ) -> list[MCPServerRuntimeStatus]:
+        if not outputs:
+            return []
+        raw_snapshot = outputs.get(_EXTERNAL_MCP_STATUS_SNAPSHOT_KEY)
+        if not isinstance(raw_snapshot, list):
+            return []
+        statuses: list[MCPServerRuntimeStatus] = []
+        invalid_row_count = 0
+        first_error_message: str | None = None
+        for raw_status in raw_snapshot:
+            if not isinstance(raw_status, dict):
+                continue
+            try:
+                statuses.append(MCPServerRuntimeStatus.model_validate(raw_status))
+            except ValidationError as exc:
+                invalid_row_count += 1
+                if first_error_message is None:
+                    first_error_message = str(exc).splitlines()[0]
+        if invalid_row_count > 0:
+            logger.warning(
+                "Ignored %s invalid persisted external MCP runtime status row(s) for run_id=%s. first_error=%s",
+                invalid_row_count,
+                str(run_id) if run_id is not None else "(unknown)",
+                first_error_message or "(validation error)",
+            )
+        return statuses
+
+    def _build_unknown_statuses_from_claude_mcp_config(
+        self,
+        inputs: dict[str, Any] | None,
+    ) -> list[MCPServerRuntimeStatus]:
+        if inputs is None:
+            return []
+        raw_path = inputs.get("mcpConfig")
+        if not isinstance(raw_path, str) or raw_path.strip() == "":
+            return []
+        try:
+            payload = json.loads(Path(raw_path).read_text(encoding="utf-8"))
+        except (OSError, ValueError, UnicodeError):
+            return []
+        if not isinstance(payload, dict):
+            return []
+        raw_servers = payload.get("mcpServers")
+        if not isinstance(raw_servers, dict):
+            raw_servers = payload.get("mcp_servers")
+        if not isinstance(raw_servers, dict):
+            return []
+        statuses: list[MCPServerRuntimeStatus] = []
+        for server_id, entry in raw_servers.items():
+            if not isinstance(server_id, str) or server_id.strip() == "":
+                continue
+            entry_record = entry if isinstance(entry, dict) else {}
+            transport = _extract_transport(entry_record)
+            endpoint = _extract_endpoint(entry_record)
+            statuses.append(
+                self._build_unknown_status_entry(
+                    server_id=server_id,
+                    transport=transport,
+                    endpoint=endpoint,
+                )
+            )
+        return statuses
+
+    def _build_unknown_statuses_from_opencode_config_path(
+        self,
+        env: dict[str, str],
+    ) -> list[MCPServerRuntimeStatus]:
+        raw_path = env.get("OPENCODE_CONFIG")
+        if raw_path is None or raw_path.strip() == "":
+            return []
+        try:
+            payload = json.loads(Path(raw_path).read_text(encoding="utf-8"))
+        except (OSError, ValueError, UnicodeError):
+            return []
+        if not isinstance(payload, dict):
+            return []
+        raw_servers = payload.get("mcp")
+        if not isinstance(raw_servers, dict):
+            return []
+        statuses: list[MCPServerRuntimeStatus] = []
+        for server_id, entry in raw_servers.items():
+            if not isinstance(server_id, str) or server_id.strip() == "":
+                continue
+            entry_record = entry if isinstance(entry, dict) else {}
+            statuses.append(
+                self._build_unknown_status_entry(
+                    server_id=server_id,
+                    transport=_extract_transport(entry_record),
+                    endpoint=_extract_endpoint(entry_record),
+                )
+            )
+        return statuses
+
+    def _build_unknown_status_entry(
+        self,
+        *,
+        server_id: str,
+        transport: str,
+        endpoint: str,
+    ) -> MCPServerRuntimeStatus:
+        return MCPServerRuntimeStatus(
+            serverId=server_id,
+            source=_EXTERNAL_MCP_STATUS_SOURCE,
+            transport=transport,
+            endpoint=endpoint,
+            state=MCPServerRuntimeState.unknown,
+        )
+
+    def _build_external_statuses_from_payload(
+        self,
+        *,
+        payload: dict[str, Any] | list[Any],
+        provider: str,
+    ) -> list[MCPServerRuntimeStatus]:
+        allow_generic_server_containers = provider in {
+            ExternalAgentToolType.codex.value,
+            ExternalAgentToolType.opencode.value,
+        }
+        status_payloads = _extract_status_payloads(
+            payload,
+            allow_generic_server_containers=allow_generic_server_containers,
+        )
+        if len(status_payloads) == 0:
+            return []
+        now = get_now_timestamp()
+        statuses: list[MCPServerRuntimeStatus] = []
+        for raw_status in status_payloads:
+            server_id = _extract_server_id(raw_status)
+            if server_id is None:
+                continue
+            state = _resolve_mcp_runtime_state(raw_status)
+            tool_count = _extract_tool_count(raw_status)
+            status = MCPServerRuntimeStatus(
+                serverId=server_id,
+                source=_EXTERNAL_MCP_STATUS_SOURCE,
+                transport=_extract_transport(raw_status),
+                endpoint=_extract_endpoint(raw_status),
+                state=state,
+                lastAttemptAt=now,
+                lastConnectedAt=now
+                if state == MCPServerRuntimeState.connected
+                else None,
+                lastFailureAt=(
+                    now
+                    if state
+                    in (MCPServerRuntimeState.error, MCPServerRuntimeState.retrying)
+                    else None
+                ),
+                consecutiveFailures=1
+                if state
+                in (MCPServerRuntimeState.error, MCPServerRuntimeState.retrying)
+                else 0,
+                lastError=_extract_error_message(raw_status),
+                toolCount=tool_count,
+            )
+            if (
+                status.state == MCPServerRuntimeState.unknown
+                and status.lastError is not None
+            ):
+                status.state = MCPServerRuntimeState.error
+                status.lastFailureAt = now
+                status.consecutiveFailures = 1
+            statuses.append(status)
+        return statuses
+
     async def _handle_stream_chunk(
         self,
         context: ExternalAgentRunContext,
@@ -1706,7 +1678,7 @@ class ExternalAgentRunner:
         prepared: bool = False,
     ) -> None:
         if not prepared:
-            chunk = self._prepare_stream_chunk_for_delivery(run, chunk)
+            chunk = self._prepare_stream_chunk_for_delivery(context, run, chunk)
         state = self._apply_stream_chunk_to_state(run, chunk)
         if isinstance(chunk, ToolCallDeltaEvent):
             self._store_tool_call_delta(run.id, chunk)
@@ -1764,13 +1736,19 @@ class ExternalAgentRunner:
             )
             self._persist_outputs_from_state(run, context.config, state)
 
-    def _prepare_stream_chunk_for_delivery(self, run: AgentRun, chunk: Any) -> Any:
+    def _prepare_stream_chunk_for_delivery(
+        self, context: ExternalAgentRunContext, run: AgentRun, chunk: Any
+    ) -> Any:
         if not isinstance(chunk, MessageFinalizedEvent):
             return chunk
         if not isinstance(chunk.message, AssistantChatMessage):
             return chunk
         prior_messages = list(self._ensure_chat_state(run).messages)
-        apply_completion_guard(prior_messages, chunk.message)
+        apply_completion_guard(
+            prior_messages,
+            chunk.message,
+            completion_guard_enabled=context.completion_guard_enabled,
+        )
         return chunk
 
     def _store_tool_call_delta(self, run_id: ID, chunk: ToolCallDeltaEvent) -> None:
@@ -2195,19 +2173,14 @@ class ExternalAgentRunner:
     def _normalize_tool_name(tool_name: str | None) -> str | None:
         if not tool_name:
             return None
-        normalized = tool_name.strip()
-        if not normalized:
+        raw_name = tool_name.strip()
+        if not raw_name:
             return None
-        has_mcp_prefix = normalized.startswith("mcp__")
-        if has_mcp_prefix:
-            normalized = normalized[len("mcp__") :]
-        if not has_mcp_prefix and normalized.lower() == "question":
+        normalized = normalize_mcp_tool_name(raw_name)
+        if normalized is None:
+            return None
+        if not raw_name.startswith("mcp__") and normalized.lower() == "question":
             return _ASK_USER_QUESTION_TOOL_NAME
-        setta_prefix = f"{SETTA_MCP_SERVER_ID}_"
-        if normalized.startswith(setta_prefix) and not normalized.startswith(
-            f"{SETTA_MCP_SERVER_ID}__"
-        ):
-            normalized = f"{SETTA_MCP_SERVER_ID}__{normalized[len(setta_prefix) :]}"
         return normalized
 
     def _normalize_tool_calls(self, tool_calls: list[ToolCall]) -> list[ToolCall]:
@@ -2227,6 +2200,259 @@ class ExternalAgentRunner:
             else:
                 normalized_calls.append(call)
         return normalized_calls
+
+
+def _extract_status_payloads(
+    payload: dict[str, Any] | list[Any],
+    *,
+    allow_generic_server_containers: bool = False,
+) -> list[dict[str, Any]]:
+    return _extract_status_payloads_from_container(
+        payload,
+        is_mcp_container=isinstance(payload, list),
+        allow_generic_server_containers=allow_generic_server_containers,
+    )
+
+
+def _extract_status_payloads_from_container(
+    payload: dict[str, Any] | list[Any],
+    *,
+    is_mcp_container: bool,
+    allow_generic_server_containers: bool,
+) -> list[dict[str, Any]]:
+    container: dict[str, Any] | list[Any] | None
+    if isinstance(payload, dict):
+        container = payload
+        for key in ("result", "message", "event", "stream_event", "data"):
+            nested = container.get(key)
+            if isinstance(nested, dict | list):
+                nested_payloads = _extract_status_payloads_from_container(
+                    nested,
+                    is_mcp_container=is_mcp_container,
+                    allow_generic_server_containers=allow_generic_server_containers,
+                )
+                if len(nested_payloads) > 0:
+                    return nested_payloads
+        for key in ("mcp_servers", "mcpServers"):
+            nested = container.get(key)
+            if isinstance(nested, dict | list):
+                return _extract_status_payloads_from_container(
+                    nested,
+                    is_mcp_container=True,
+                    allow_generic_server_containers=allow_generic_server_containers,
+                )
+        if allow_generic_server_containers:
+            nested = container.get("servers")
+            if isinstance(nested, dict | list):
+                return _extract_status_payloads_from_container(
+                    nested,
+                    is_mcp_container=True,
+                    allow_generic_server_containers=allow_generic_server_containers,
+                )
+    else:
+        container = payload
+    if isinstance(container, list):
+        rows: list[dict[str, Any]] = []
+        for row in container:
+            if not isinstance(row, dict):
+                continue
+            normalized_row = dict(row)
+            if is_mcp_container and "serverId" not in normalized_row:
+                if isinstance(row.get("id"), str):
+                    normalized_row["serverId"] = row["id"]
+                elif isinstance(row.get("name"), str):
+                    normalized_row["serverId"] = row["name"]
+            if _looks_like_status_entry(
+                normalized_row,
+                is_mcp_container=is_mcp_container,
+            ):
+                rows.append(normalized_row)
+        return rows
+    if not isinstance(container, dict):
+        return []
+    if _looks_like_status_entry(
+        container,
+        is_mcp_container=is_mcp_container,
+    ):
+        normalized_container = dict(container)
+        if is_mcp_container and "serverId" not in normalized_container:
+            fallback_server_id = _extract_server_id(
+                normalized_container,
+                allow_fallback_id=True,
+            )
+            if fallback_server_id is not None:
+                normalized_container["serverId"] = fallback_server_id
+        if _extract_server_id(normalized_container) is not None:
+            return [normalized_container]
+    should_parse_dict_as_server_map = is_mcp_container
+    if not should_parse_dict_as_server_map:
+        return []
+    rows: list[dict[str, Any]] = []
+    for server_id, row in container.items():
+        if not isinstance(server_id, str):
+            continue
+        if not isinstance(row, dict):
+            continue
+        normalized_row = dict(row)
+        normalized_row.setdefault("serverId", server_id)
+        if _looks_like_status_entry(
+            normalized_row,
+            is_mcp_container=True,
+        ):
+            rows.append(normalized_row)
+    return rows
+
+
+def _looks_like_status_entry(
+    row: dict[str, Any],
+    *,
+    is_mcp_container: bool = False,
+) -> bool:
+    status_keys = {
+        "status",
+        "state",
+        "connected",
+        "enabled",
+        "transport",
+        "url",
+        "command",
+        "endpoint",
+        "error",
+        "lastError",
+        "toolCount",
+        "tool_count",
+        "tools",
+        "missingEnvVar",
+        "missing_env_var",
+    }
+    if not any(key in row for key in status_keys):
+        return False
+    return (
+        _extract_server_id(
+            row,
+            allow_fallback_id=is_mcp_container,
+        )
+        is not None
+    )
+
+
+def _extract_server_id(
+    row: dict[str, Any],
+    *,
+    allow_fallback_id: bool = False,
+) -> str | None:
+    for key in ("serverId", "server", "server_name"):
+        value = row.get(key)
+        if isinstance(value, str) and value.strip() != "":
+            return value
+    if allow_fallback_id:
+        for key in ("id", "name"):
+            value = row.get(key)
+            if isinstance(value, str) and value.strip() != "":
+                return value
+    return None
+
+
+def _extract_transport(row: dict[str, Any]) -> str:
+    for key in ("transport", "type", "protocol"):
+        value = row.get(key)
+        if isinstance(value, str) and value.strip() != "":
+            return value
+    return "unknown"
+
+
+def _extract_endpoint(row: dict[str, Any]) -> str:
+    for key in ("url", "endpoint", "address", "command"):
+        value = row.get(key)
+        if isinstance(value, str) and value.strip() != "":
+            return value
+    return "(no endpoint)"
+
+
+def _extract_error_from_value(value: Any) -> str | None:
+    if isinstance(value, str) and value.strip() != "":
+        return value
+    if not isinstance(value, dict):
+        return None
+    for key in ("message", "error", "lastError", "detail"):
+        nested_value = value.get(key)
+        if isinstance(nested_value, str) and nested_value.strip() != "":
+            return nested_value
+    for nested_value in value.values():
+        nested_error = _extract_error_from_value(nested_value)
+        if nested_error is not None:
+            return nested_error
+    return None
+
+
+def _extract_error_message(row: dict[str, Any]) -> str | None:
+    for key in ("lastError", "error"):
+        error_message = _extract_error_from_value(row.get(key))
+        if error_message is not None:
+            return error_message
+    return None
+
+
+def _extract_tool_count(row: dict[str, Any]) -> int:
+    for key in ("toolCount", "tool_count"):
+        value = row.get(key)
+        if isinstance(value, int):
+            return max(value, 0)
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.isdigit():
+                return max(int(stripped), 0)
+    tools = row.get("tools")
+    if isinstance(tools, list):
+        return len(tools)
+    return 0
+
+
+def _resolve_mcp_runtime_state(row: dict[str, Any]) -> MCPServerRuntimeState:
+    enabled = row.get("enabled")
+    if enabled is False:
+        return MCPServerRuntimeState.disabled
+    connected = row.get("connected")
+    if connected is True:
+        return MCPServerRuntimeState.connected
+    status_state = _resolve_mcp_status_state_value(row)
+    if status_state is not None:
+        return status_state
+    if connected is False:
+        error_message = _extract_error_message(row)
+        if error_message is not None:
+            return MCPServerRuntimeState.error
+        return MCPServerRuntimeState.unknown
+    return MCPServerRuntimeState.unknown
+
+
+def _resolve_mcp_status_state_value(
+    row: dict[str, Any],
+) -> MCPServerRuntimeState | None:
+    raw_status = row.get("state")
+    if not isinstance(raw_status, str):
+        raw_status = row.get("status")
+    if not isinstance(raw_status, str):
+        return None
+    normalized = raw_status.strip().lower()
+    if normalized in {"connected", "ready", "ok", "online", "active"}:
+        return MCPServerRuntimeState.connected
+    if normalized in {"connecting", "initializing", "starting", "loading"}:
+        return MCPServerRuntimeState.connecting
+    if normalized in {"retrying", "reconnecting", "backoff"}:
+        return MCPServerRuntimeState.retrying
+    if normalized in {
+        "error",
+        "failed",
+        "failure",
+        "disconnected",
+        "unavailable",
+        "offline",
+    }:
+        return MCPServerRuntimeState.error
+    if normalized in {"disabled"}:
+        return MCPServerRuntimeState.disabled
+    return None
 
 
 def _format_question_answers(answers: dict[str, str]) -> str:

@@ -17,9 +17,7 @@ from setta.utils.network import format_host_for_url
 
 def load_llm_config(dbe: DBE, *, allow_write: bool = True) -> AllLLMConfigs:
     raw = dbe.read_llm_config()
-    if constants.IS_DEV_MODE and (
-        not raw or raw == {"configs": {}, "default_config_id": None}
-    ):
+    if not raw or raw == {"configs": {}, "default_config_id": None}:
         example = dbe.read_llm_config_example()
         if example:
             config = AllLLMConfigs.model_validate(example)
