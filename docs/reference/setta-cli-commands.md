@@ -419,6 +419,10 @@ Desktop distribution defaults:
 - Convenience installer entrypoints:
   - macOS/Linux shell: `./scripts/install_desktop_launcher.sh`
   - Windows PowerShell: `./scripts/install_desktop_launcher.ps1`
+- OS launcher artifact scripts:
+  - macOS app bundle: `./scripts/install_macos_launcher.sh` / `./scripts/uninstall_macos_launcher.sh`
+  - Windows shortcuts: `./scripts/install_windows_launcher.ps1` / `./scripts/uninstall_windows_launcher.ps1`
+  - Linux desktop entry: `./scripts/install_linux_launcher.sh` / `./scripts/uninstall_linux_launcher.sh`
 
 Advanced `pip install` path remains supported.
 When binding launcher metadata from a specific virtual environment, invoke
