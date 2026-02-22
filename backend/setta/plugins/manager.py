@@ -1268,6 +1268,19 @@ class PluginManager:
             )
 
         state_file = self._load_plugins_state()
+        plugin_config_key = self._plugin_config_key(
+            plugin_id=entry.plugin_id,
+            scope=entry.scope,
+        )
+        raw_config = state_file.pluginConfigById.get(plugin_config_key)
+        if raw_config is not None and not isinstance(raw_config, dict):
+            raise PluginManagerError(
+                "PLUGIN_CONFIG_INVALID",
+                (
+                    f"Plugin {plugin_id} config path {'.'.join(config_path)} "
+                    "contains a non-object node at <root>."
+                ),
+            )
         current_config = self._read_plugin_config(
             plugins_state=state_file,
             plugin_id=entry.plugin_id,
@@ -1300,9 +1313,7 @@ class PluginManager:
             plugin_id=plugin_id,
         )
         self._validate_plugin_config(entry, next_config)
-        state_file.pluginConfigById[
-            self._plugin_config_key(plugin_id=entry.plugin_id, scope=entry.scope)
-        ] = next_config
+        state_file.pluginConfigById[plugin_config_key] = next_config
         self._save_plugins_state(state_file)
         self.rescan()
 

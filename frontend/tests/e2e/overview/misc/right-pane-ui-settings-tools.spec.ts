@@ -255,6 +255,75 @@ test("right-pane reveal_ui_setting activates section from sectionIdToActivate", 
   }
 });
 
+test("right-pane reveal_ui_setting keeps activeIds unchanged when reveal fails after activation", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  const sectionId = await createCallableSection(
+    page,
+    projectContext.projectConfigId,
+  );
+  const sectionName = `right-pane-timeout-${Date.now()}`;
+
+  try {
+    await postBackend(page, "/setSectionName", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId,
+      name: sectionName,
+    });
+    await postBackend(page, "/setActiveIds", {
+      projectConfigId: projectContext.projectConfigId,
+      activeIds: [],
+    });
+    const seedResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: RIGHT_PANE_SETTING_ID,
+      },
+    );
+    if (typeof seedResult.projectConfigId !== "string") {
+      throw new Error(
+        `Expected temporary projectConfigId in seed result: ${JSON.stringify(seedResult)}`,
+      );
+    }
+    const temporarySectionId = await resolveTemporarySectionIdFromSummary(
+      page,
+      projectContext.projectConfigId,
+      seedResult.projectConfigId,
+      sectionName,
+    );
+
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: RIGHT_PANE_SETTING_ID,
+        sectionIdToActivate: temporarySectionId,
+        durationMs: 1,
+      },
+    );
+    expect(revealResult.emittedRevealCount).toBe(0);
+    expect(revealResult.statuses[0]?.status).toBe("failed");
+
+    const latestProjectState = await postBackend<{
+      projectState?: {
+        projectConfig?: { activeIds?: string[] };
+      };
+    }>(page, "/getLatestProjectState", {
+      projectConfigId: projectContext.projectConfigId,
+    });
+    expect(latestProjectState?.projectState?.projectConfig?.activeIds).toEqual(
+      [],
+    );
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
 test("right-pane reveal_ui_setting rejects incompatible sectionIdToActivate without mutating activeIds", async ({
   page,
 }) => {

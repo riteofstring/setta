@@ -342,3 +342,28 @@
 6. UX after: caller mistakes consistently return actionable `422 InvalidToolArguments`.
 7. DX before: conflict and error telemetry mixed caller errors and server faults, and reveal failures were harder to reason about.
 8. DX after: atomic write invariants and clear 4xx/5xx boundaries improve observability, retries, and triage.
+
+## 2026-02-25 18:49:58 PST
+
+### Consolidated Findings
+1. Right-pane `reveal_ui_setting` still had non-timeout failure paths that could leave temporary `activeIds` mutations applied after reveal failure.
+2. Share-scoped UI-setting resolution still fell back to main-manager defaults when `projectConfigId` was omitted, risking cross-scope target selection.
+3. Core UI-setting stale-write checks were still split between read-time and write-time paths, leaving race windows for clobbering newer values.
+4. Persisted plugin config roots that were non-object values could still flow into path writes and attempted rewrites instead of fail-fast invariant errors.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Added reveal activation rollback for all non-success outcomes (dispatch-undeliverable, timeout, missing frontend status, and frontend failed status) and enforced share-scope routing affinity by rejecting caller-supplied `frontendWebsocketId`.
+2. Updated share-scoped context resolution so omitted `projectConfigId` resolves from the share session manager default project, with fail-fast `KeyError` when absent.
+3. Added serialized manager-level compare-and-set APIs for core settings (`watch_code.enabled`, `watch_code.folders`, `watch_code.files`, `project.name`, `project.show_param_display_names`) and routed registry writers through those atomic mutation boundaries.
+4. Added strict plugin config root validation in config-path compare-and-write to reject non-object persisted roots before mutation/persistence.
+5. Added backend matrix/integration tests and Playwright reveal regression coverage for these paths, plus shared UI-setting mismatch error plumbing to avoid import cycles.
+
+### UX/DX Before and After
+1. UX before: reveal failures could still leave section focus changed in some failure classes.
+2. UX after: reveal failure paths restore prior `activeIds`, so failed reveal attempts are side-effect free for focus state.
+3. UX before: share-scoped calls without explicit project id could read/write/reveal against the wrong default project.
+4. UX after: share-scoped calls consistently bind to the share session default project or fail explicitly when missing.
+5. UX before: concurrent writes to core settings could pass stale checks and still overwrite fresher values.
+6. UX after: stale writes are rejected inside serialized mutation boundaries before state changes.
+7. DX before: plugin config corruption at root could surface later as harder-to-diagnose mutation failures.
+8. DX after: invalid persisted root structure fails fast with explicit invariant diagnostics, preserving existing persisted data.

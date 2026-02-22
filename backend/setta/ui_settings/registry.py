@@ -36,6 +36,7 @@ from setta.types.project_config import (
     WatchCodeFolder,
     project_config_has_codegen_language,
 )
+from setta.ui_settings.errors import UISettingExpectedOldValueMismatchError
 from setta.ui_settings.models import (
     UISettingEntry,
     UISettingHighlight,
@@ -1740,20 +1741,19 @@ async def _write_watch_code_enabled(
         raise UISettingValidationError(
             "invalid_value_type", "Expected a boolean value."
         )
-    old_value = _read_watch_code_enabled(ctx, project_config_id)
-    _assert_expected_old_value_matches(
-        setting_id="core.watch_code.enabled",
-        expected_old_value=expected_old_value,
-        observed_old_value=old_value,
-    )
     manager = _get_project_manager(ctx, project_config_id)
-    await manager.set_watch_code_enabled(
-        SetWatchCodeEnabledRequest(
-            projectConfigId=project_config_id,
-            enabled=value,
+    try:
+        old_value, new_value = await manager.compare_and_set_watch_code_enabled(
+            SetWatchCodeEnabledRequest(
+                projectConfigId=project_config_id,
+                enabled=value,
+            ),
+            expected_old_value=(
+                expected_old_value if isinstance(expected_old_value, bool) else None
+            ),
         )
-    )
-    new_value = _read_watch_code_enabled(ctx, project_config_id)
+    except UISettingExpectedOldValueMismatchError as exc:
+        raise UISettingValidationError("mutation_failed", str(exc)) from exc
     return UISettingMutationResult(
         oldValue=old_value,
         newValue=new_value,
@@ -1795,22 +1795,22 @@ async def _write_watch_code_folders(
     if not isinstance(value, list):
         raise UISettingValidationError("invalid_value_type", "Expected an array value.")
     folders = [WatchCodeFolder.model_validate(entry) for entry in value]
-    old_value = _read_watch_code_folders(ctx, project_config_id)
-    _assert_expected_old_value_matches(
-        setting_id="core.watch_code.folders",
-        expected_old_value=expected_old_value,
-        observed_old_value=old_value,
-    )
     manager = _get_project_manager(ctx, project_config_id)
-    project_state = manager.get_single_config_state(project_config_id)
-    await manager.set_watch_code_inputs(
-        SetWatchCodeInputsRequest(
-            projectConfigId=project_config_id,
-            watchCodeFolders=folders,
-            watchCodeFiles=list(project_state.projectConfig.watchCodeFiles),
+    try:
+        old_value, new_value = await manager.compare_and_set_watch_code_folders(
+            SetWatchCodeInputsRequest(
+                projectConfigId=project_config_id,
+                watchCodeFolders=folders,
+                watchCodeFiles=[],
+            ),
+            expected_old_value=(
+                expected_old_value
+                if isinstance(expected_old_value, list)
+                else None
+            ),
         )
-    )
-    new_value = _read_watch_code_folders(ctx, project_config_id)
+    except UISettingExpectedOldValueMismatchError as exc:
+        raise UISettingValidationError("mutation_failed", str(exc)) from exc
     return UISettingMutationResult(
         oldValue=old_value,
         newValue=new_value,
@@ -1832,22 +1832,22 @@ async def _write_watch_code_files(
             "invalid_value_type",
             "Expected an array of strings.",
         )
-    old_value = _read_watch_code_files(ctx, project_config_id)
-    _assert_expected_old_value_matches(
-        setting_id="core.watch_code.files",
-        expected_old_value=expected_old_value,
-        observed_old_value=old_value,
-    )
     manager = _get_project_manager(ctx, project_config_id)
-    project_state = manager.get_single_config_state(project_config_id)
-    await manager.set_watch_code_inputs(
-        SetWatchCodeInputsRequest(
-            projectConfigId=project_config_id,
-            watchCodeFolders=list(project_state.projectConfig.watchCodeFolders),
-            watchCodeFiles=list(value),
+    try:
+        old_value, new_value = await manager.compare_and_set_watch_code_files(
+            SetWatchCodeInputsRequest(
+                projectConfigId=project_config_id,
+                watchCodeFolders=[],
+                watchCodeFiles=list(value),
+            ),
+            expected_old_value=(
+                expected_old_value
+                if isinstance(expected_old_value, list)
+                else None
+            ),
         )
-    )
-    new_value = _read_watch_code_files(ctx, project_config_id)
+    except UISettingExpectedOldValueMismatchError as exc:
+        raise UISettingValidationError("mutation_failed", str(exc)) from exc
     return UISettingMutationResult(
         oldValue=old_value,
         newValue=new_value,
@@ -1925,15 +1925,17 @@ async def _write_project_name(
             "invalid_value_range_or_enum",
             "Project name must not be empty.",
         )
-    old_value = _read_project_name(ctx, project_config_id)
-    _assert_expected_old_value_matches(
-        setting_id="core.project.name",
-        expected_old_value=expected_old_value,
-        observed_old_value=old_value,
-    )
     manager = _get_project_manager(ctx, project_config_id)
-    await manager.set_project_config_name(project_config_id, normalized_name)
-    new_value = _read_project_name(ctx, project_config_id)
+    try:
+        old_value, new_value = await manager.compare_and_set_project_config_name(
+            project_config_id,
+            normalized_name,
+            expected_old_value=(
+                expected_old_value if isinstance(expected_old_value, str) else None
+            ),
+        )
+    except UISettingExpectedOldValueMismatchError as exc:
+        raise UISettingValidationError("mutation_failed", str(exc)) from exc
     return UISettingMutationResult(
         oldValue=old_value,
         newValue=new_value,
@@ -2021,20 +2023,19 @@ async def _write_show_param_display_names(
         raise UISettingValidationError(
             "invalid_value_type", "Expected a boolean value."
         )
-    old_value = _read_show_param_display_names(ctx, project_config_id)
-    _assert_expected_old_value_matches(
-        setting_id="core.project.show_param_display_names",
-        expected_old_value=expected_old_value,
-        observed_old_value=old_value,
-    )
     manager = _get_project_manager(ctx, project_config_id)
-    await manager.set_show_param_display_names(
-        SetShowParamDisplayNamesRequest(
-            projectConfigId=project_config_id,
-            showParamDisplayNames=value,
+    try:
+        old_value, new_value = await manager.compare_and_set_show_param_display_names(
+            SetShowParamDisplayNamesRequest(
+                projectConfigId=project_config_id,
+                showParamDisplayNames=value,
+            ),
+            expected_old_value=(
+                expected_old_value if isinstance(expected_old_value, bool) else None
+            ),
         )
-    )
-    new_value = _read_show_param_display_names(ctx, project_config_id)
+    except UISettingExpectedOldValueMismatchError as exc:
+        raise UISettingValidationError("mutation_failed", str(exc)) from exc
     return UISettingMutationResult(
         oldValue=old_value,
         newValue=new_value,

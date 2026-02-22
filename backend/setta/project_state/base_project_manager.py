@@ -442,6 +442,7 @@ from setta.utils.name_validation import (
 )
 from setta.utils.paths import get_setta_paths, normalize_workspace_path
 from setta.utils.utils import build_project_sections_dir
+from setta.ui_settings.errors import UISettingExpectedOldValueMismatchError
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 
@@ -449,6 +450,24 @@ if TYPE_CHECKING:
     from setta.plugins.manager import PluginManager
 
 logger = logging.getLogger(__name__)
+
+
+def _assert_ui_setting_expected_old_value_matches(
+    *,
+    setting_id: str,
+    expected_old_value: object | None,
+    observed_old_value: object,
+) -> None:
+    if expected_old_value is None:
+        return
+    if expected_old_value == observed_old_value:
+        return
+    raise UISettingExpectedOldValueMismatchError(
+        setting_id=setting_id,
+        expected_old_value=expected_old_value,
+        observed_old_value=observed_old_value,
+    )
+
 
 HISTORY_COALESCE_WINDOW_TEXT_S = 0.75
 HISTORY_COALESCE_WINDOW_DRAG_S = 0.3
@@ -2442,6 +2461,25 @@ class BaseProjectManager(ABC):
 
     @enqueue_method
     @project_state_tool(access_type="structural")
+    async def compare_and_set_show_param_display_names(
+        self,
+        x: SetShowParamDisplayNamesRequest,
+        *,
+        expected_old_value: bool | None = None,
+    ) -> tuple[bool, bool]:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        old_value = project_state.projectConfig.showParamDisplayNames
+        _assert_ui_setting_expected_old_value_matches(
+            setting_id="core.project.show_param_display_names",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+        )
+        project_state.projectConfig.showParamDisplayNames = x.showParamDisplayNames
+        await self._update_and_broadcast_project_state_no_name_validation(project_state)
+        return old_value, project_state.projectConfig.showParamDisplayNames
+
+    @enqueue_method
+    @project_state_tool(access_type="structural")
     async def set_watch_code_enabled(self, x: SetWatchCodeEnabledRequest):
         """Enable or disable watch code mode for the project."""
         project_state = self.get_single_config_state(x.projectConfigId)
@@ -2450,6 +2488,27 @@ class BaseProjectManager(ABC):
         if x.enabled and not previous_enabled:
             self.watch_code_manager.baseline_on_enable(project_state)
         await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(access_type="structural")
+    async def compare_and_set_watch_code_enabled(
+        self,
+        x: SetWatchCodeEnabledRequest,
+        *,
+        expected_old_value: bool | None = None,
+    ) -> tuple[bool, bool]:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        old_value = project_state.projectConfig.watchCodeEnabled
+        _assert_ui_setting_expected_old_value_matches(
+            setting_id="core.watch_code.enabled",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
+        )
+        project_state.projectConfig.watchCodeEnabled = x.enabled
+        if x.enabled and not old_value:
+            self.watch_code_manager.baseline_on_enable(project_state)
+        await self.update_and_broadcast_project_state(project_state)
+        return old_value, project_state.projectConfig.watchCodeEnabled
 
     @enqueue_method
     @project_state_tool(access_type="structural")
@@ -2468,6 +2527,71 @@ class BaseProjectManager(ABC):
                 project_state, previous_snapshot
             )
         await self.update_and_broadcast_project_state(project_state)
+
+    @enqueue_method
+    @project_state_tool(access_type="structural")
+    async def compare_and_set_watch_code_folders(
+        self,
+        x: SetWatchCodeInputsRequest,
+        *,
+        expected_old_value: list[dict[str, object]] | None = None,
+    ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        old_folders = [
+            {
+                "path": folder.path,
+                "recursive": folder.recursive,
+            }
+            for folder in project_state.projectConfig.watchCodeFolders
+        ]
+        _assert_ui_setting_expected_old_value_matches(
+            setting_id="core.watch_code.folders",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_folders,
+        )
+        previous_snapshot = build_watch_code_snapshot(project_state)
+        project_state.projectConfig.watchCodeFolders = normalize_watch_code_folders(
+            x.watchCodeFolders
+        )
+        if project_state.projectConfig.watchCodeEnabled:
+            self.watch_code_manager.baseline_for_new_inputs(
+                project_state, previous_snapshot
+            )
+        await self.update_and_broadcast_project_state(project_state)
+        new_folders = [
+            {
+                "path": folder.path,
+                "recursive": folder.recursive,
+            }
+            for folder in project_state.projectConfig.watchCodeFolders
+        ]
+        return old_folders, new_folders
+
+    @enqueue_method
+    @project_state_tool(access_type="structural")
+    async def compare_and_set_watch_code_files(
+        self,
+        x: SetWatchCodeInputsRequest,
+        *,
+        expected_old_value: list[str] | None = None,
+    ) -> tuple[list[str], list[str]]:
+        project_state = self.get_single_config_state(x.projectConfigId)
+        old_files = list(project_state.projectConfig.watchCodeFiles)
+        _assert_ui_setting_expected_old_value_matches(
+            setting_id="core.watch_code.files",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_files,
+        )
+        previous_snapshot = build_watch_code_snapshot(project_state)
+        project_state.projectConfig.watchCodeFiles = normalize_watch_code_files(
+            x.watchCodeFiles
+        )
+        if project_state.projectConfig.watchCodeEnabled:
+            self.watch_code_manager.baseline_for_new_inputs(
+                project_state, previous_snapshot
+            )
+        await self.update_and_broadcast_project_state(project_state)
+        return old_files, list(project_state.projectConfig.watchCodeFiles)
 
     @enqueue_method
     async def apply_watch_code_file_update(
@@ -3745,6 +3869,34 @@ class BaseProjectManager(ABC):
             self._plugin_codegen_output_root_by_project_config[projectConfigId] = (
                 self._plugin_codegen_output_root(new_name)
             )
+
+    @enqueue_method
+    async def compare_and_set_project_config_name(
+        self,
+        projectConfigId: ID,
+        newName: str,
+        *,
+        expected_old_value: str | None = None,
+    ) -> tuple[str, str]:
+        old_name = self.project_state_backend.projectConfigs[projectConfigId].name
+        _assert_ui_setting_expected_old_value_matches(
+            setting_id="core.project.name",
+            expected_old_value=expected_old_value,
+            observed_old_value=old_name,
+        )
+        previous_output_root = self._plugin_codegen_output_root_by_project_config.get(
+            projectConfigId,
+            self._plugin_codegen_output_root(old_name),
+        )
+        set_project_config_name(self.project_state_backend, projectConfigId, newName)
+        new_name = self.project_state_backend.projectConfigs[projectConfigId].name
+        if previous_output_root.exists() and old_name != new_name:
+            shutil.rmtree(previous_output_root)
+        if projectConfigId in self._plugin_codegen_output_root_by_project_config:
+            self._plugin_codegen_output_root_by_project_config[projectConfigId] = (
+                self._plugin_codegen_output_root(new_name)
+            )
+        return old_name, new_name
 
     @enqueue_method
     async def delete_section_variant_or_ask(self, x: DeleteSectionVariantOrAskRequest):

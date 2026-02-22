@@ -9366,6 +9366,44 @@ def test_plugin_config_path_compare_and_write_enforces_precondition_and_preserve
     assert plugin_entry.config.currentConfig["label"] == "updated"
 
 
+def test_plugin_config_path_compare_and_write_rejects_non_object_root_without_rewrite(
+    tmp_path: Path,
+) -> None:
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="full",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    manager.write_plugin_config(
+        plugin_id="setta-fixture-full",
+        config={"enabled": False, "label": "unset"},
+    )
+    plugins_state = manager._load_plugins_state()
+    config_key = manager._plugin_config_key(
+        plugin_id="setta-fixture-full",
+        scope=PluginScope.workspace,
+    )
+    plugins_state.pluginConfigById[config_key] = "invalid-root"
+    manager._save_plugins_state(plugins_state)
+
+    with pytest.raises(PluginManagerError) as invalid_root_error:
+        manager.compare_and_write_plugin_config_path_value(
+            plugin_id="setta-fixture-full",
+            setting_id="plugin::setta-fixture-full::enabled",
+            config_path=["enabled"],
+            default_value=False,
+            value=True,
+            expected_old_value=False,
+        )
+    assert invalid_root_error.value.code == "PLUGIN_CONFIG_INVALID"
+    assert "non-object node at <root>" in invalid_root_error.value.message
+
+    reloaded_plugins_state = manager._load_plugins_state()
+    assert reloaded_plugins_state.pluginConfigById[config_key] == "invalid-root"
+
+
 def test_backend_ui_setting_registration_rejects_invalid_value_schema(
     tmp_path: Path,
 ) -> None:

@@ -72,12 +72,41 @@ def resolve_project_config_id_from_ctx(
     )
     if normalized_meta_project_config_id is not None:
         return ID(normalized_meta_project_config_id)
+    share_session_id = resolve_share_session_id_from_ctx(ctx)
+    if share_session_id is not None:
+        return _resolve_share_scoped_default_project_config_id(
+            ctx=ctx,
+            share_session_id=share_session_id,
+        )
     manager = ctx.fastmcp.state.project_manager_switcher.main
     if manager is None:
         raise KeyError("Missing main project manager.")
     default_project_config_id = manager.project_state_backend.defaultProjectConfigId
     if default_project_config_id is None:
         raise KeyError("No default project config id is available.")
+    return default_project_config_id
+
+
+def _resolve_share_scoped_default_project_config_id(
+    *,
+    ctx: Context,
+    share_session_id: str,
+) -> ID:
+    project_manager_switcher = ctx.fastmcp.state.project_manager_switcher
+    get_for_session = getattr(project_manager_switcher, "get_for_session", None)
+    if callable(get_for_session):
+        manager = get_for_session(share_session_id)
+    else:
+        manager = project_manager_switcher.get(
+            ID("__share_session_default_project__"),
+            share_session_id=share_session_id,
+        )
+    default_project_config_id = manager.project_state_backend.defaultProjectConfigId
+    if default_project_config_id is None:
+        raise KeyError(
+            "No default project config id is available for share session "
+            f"{share_session_id}."
+        )
     return default_project_config_id
 
 

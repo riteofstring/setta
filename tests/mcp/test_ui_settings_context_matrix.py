@@ -17,13 +17,20 @@ from setta.types.id import ID
 
 
 class _RecordingProjectManagerSwitcher:
-    def __init__(self, *, default_project_config_id: str = "default-project") -> None:
+    def __init__(
+        self,
+        *,
+        default_project_config_id: str = "default-project",
+        share_default_project_config_id: str | None = "share-default-project",
+    ) -> None:
         self.main = SimpleNamespace(
             project_state_backend=SimpleNamespace(
                 defaultProjectConfigId=default_project_config_id
             )
         )
+        self._share_default_project_config_id = share_default_project_config_id
         self.calls: list[tuple[ID, str | None]] = []
+        self.get_for_session_calls: list[str] = []
 
     def get(
         self,
@@ -36,6 +43,14 @@ class _RecordingProjectManagerSwitcher:
             "projectIdentifier": project_identifier,
             "shareSessionId": share_session_id,
         }
+
+    def get_for_session(self, share_session_id: str):
+        self.get_for_session_calls.append(share_session_id)
+        return SimpleNamespace(
+            project_state_backend=SimpleNamespace(
+                defaultProjectConfigId=self._share_default_project_config_id
+            )
+        )
 
 
 def _build_ctx(
@@ -353,3 +368,49 @@ def test_resolve_project_manager_from_ctx_falls_back_to_meta_share_session_id() 
     assert resolved_manager["projectIdentifier"] == ID("project-a")
     assert resolved_manager["shareSessionId"] == "share-meta"
     assert switcher.calls == [(ID("project-a"), "share-meta")]
+
+
+def test_resolve_project_config_id_uses_share_session_default_when_project_is_omitted() -> (
+    None
+):
+    switcher = _RecordingProjectManagerSwitcher(
+        default_project_config_id="main-default",
+        share_default_project_config_id="share-default",
+    )
+    ctx = _build_ctx(
+        request_meta={"shareSessionId": "share-meta"},
+        share_session_resolver=lambda _ctx: "share-resolved",
+        project_manager_switcher=switcher,
+    )
+
+    resolved_project_config_id = resolve_project_config_id_from_ctx(
+        ctx=ctx,
+        project_config_id=None,
+    )
+
+    assert resolved_project_config_id == ID("share-default")
+    assert switcher.get_for_session_calls == ["share-resolved"]
+    assert switcher.calls == []
+
+
+def test_resolve_project_config_id_share_scope_without_default_project_fails_fast() -> (
+    None
+):
+    switcher = _RecordingProjectManagerSwitcher(
+        default_project_config_id="main-default",
+        share_default_project_config_id=None,
+    )
+    ctx = _build_ctx(
+        request_meta={"shareSessionId": "share-meta"},
+        share_session_resolver=lambda _ctx: "share-resolved",
+        project_manager_switcher=switcher,
+    )
+
+    with pytest.raises(
+        KeyError,
+        match="No default project config id is available for share session",
+    ):
+        resolve_project_config_id_from_ctx(
+            ctx=ctx,
+            project_config_id=None,
+        )

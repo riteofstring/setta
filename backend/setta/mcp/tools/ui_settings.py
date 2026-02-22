@@ -691,6 +691,29 @@ async def _reveal_settings(
     )
     share_session_id = _resolve_share_session_id(ctx)
     preferred_frontend_websocket_id = _resolve_frontend_websocket_id(ctx)
+    if (
+        share_session_id is not None
+        and preferred_frontend_websocket_id is not None
+    ):
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=0,
+            statuses=[
+                RevealUISettingStatus(
+                    settingId=setting_id,
+                    status="failed",
+                    error=UISettingToolError(
+                        code="mutation_failed",
+                        message=(
+                            "Share-scoped reveal requests cannot provide "
+                            "frontendWebsocketId. Routing affinity is server-managed."
+                        ),
+                    ),
+                )
+            ],
+        )
     frontend_sender = ctx.fastmcp.state.wmh_frontend_sender
     available_frontend_websocket_ids = (
         frontend_sender.list_frontend_websocket_ids_for_ui_setting_reveal(
@@ -779,6 +802,16 @@ async def _reveal_settings(
                     )
                 ],
             )
+
+    async def _rollback_pending_section_activation() -> None:
+        if previous_active_ids_for_rollback is None:
+            return
+        await _set_active_ids_for_reveal(
+            manager=manager,
+            project_config_id=project_config_id,
+            active_ids=previous_active_ids_for_rollback,
+        )
+
     reveal_result_hub = ctx.fastmcp.state.ui_setting_reveal_result_hub
     reveal_result_hub.register_request(
         request_id,
@@ -797,12 +830,7 @@ async def _reveal_settings(
     )
     if delivered_websocket_id is None:
         reveal_result_hub.cancel_request(request_id)
-        if previous_active_ids_for_rollback is not None:
-            await _set_active_ids_for_reveal(
-                manager=manager,
-                project_config_id=project_config_id,
-                active_ids=previous_active_ids_for_rollback,
-            )
+        await _rollback_pending_section_activation()
         dispatch_failure_message = (
             "Selected frontend websocket became unavailable before reveal dispatch: "
             f"{target_websocket_id}"
@@ -834,6 +862,7 @@ async def _reveal_settings(
         timeout_seconds=_resolve_frontend_reveal_timeout_seconds(bounded_duration_ms),
     )
     if frontend_reveal_result is None:
+        await _rollback_pending_section_activation()
         return RevealUISettingResult(
             requestId=request_id,
             projectConfigId=project_config_id,
@@ -859,6 +888,7 @@ async def _reveal_settings(
         setting_id=setting_id,
     )
     if frontend_status is None:
+        await _rollback_pending_section_activation()
         return RevealUISettingResult(
             requestId=request_id,
             projectConfigId=project_config_id,
@@ -894,6 +924,7 @@ async def _reveal_settings(
             ],
         )
 
+    await _rollback_pending_section_activation()
     return RevealUISettingResult(
         requestId=request_id,
         projectConfigId=project_config_id,
