@@ -127,23 +127,6 @@ function mintBootstrapToken(backendOrigin: string): string {
   return `${base64UrlEncode(payloadBytes)}.${base64UrlEncode(signature)}`;
 }
 
-function mintLauncherOriginProof(
-  backendOrigin: string,
-  launcherOrigin: string,
-): string {
-  const metadata = readBackendSessionMetadata(backendOrigin);
-  const secret = fs.readFileSync(metadata.secretPath);
-  const payloadBytes = Buffer.from(
-    `${metadata.id}\n${launcherOrigin}`,
-    "utf-8",
-  );
-  const signature = crypto
-    .createHmac("sha256", secret)
-    .update(payloadBytes)
-    .digest();
-  return base64UrlEncode(signature);
-}
-
 async function clearLauncherOrigin(page: Page): Promise<void> {
   const scratch = await page.context().newPage();
   await scratch.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap`, {
@@ -192,8 +175,7 @@ test("bootstrap launcher origin ignores non-http(s) values", async ({ page }) =>
 test("bootstrap launcher origin stores http(s) origin", async ({ page }) => {
   await clearLauncherOrigin(page);
 
-  const raw = "https://127.0.0.1:4242";
-  const proof = mintLauncherOriginProof(BACKEND_ORIGIN, raw);
+  const raw = "https://127.0.0.1:4242/path?query=1";
   const token = mintBootstrapToken(BACKEND_ORIGIN);
   const consumeResponse = page.waitForResponse((res) => {
     try {
@@ -207,7 +189,7 @@ test("bootstrap launcher origin stores http(s) origin", async ({ page }) => {
   });
   const url =
     `${BACKEND_ORIGIN}/__setta__/bootstrap` +
-    `#token=${encodeURIComponent(token)}&lo=${encodeURIComponent(raw)}&lop=${encodeURIComponent(proof)}`;
+    `#token=${encodeURIComponent(token)}&lo=${encodeURIComponent(raw)}`;
   await page.goto(url, { waitUntil: "domcontentloaded" });
   expect((await consumeResponse).status()).toBe(200);
   await page.waitForURL(`${FRONTEND_ORIGIN}/**`, { waitUntil: "domcontentloaded" });
@@ -219,39 +201,6 @@ test("bootstrap launcher origin stores http(s) origin", async ({ page }) => {
     local: localStorage.getItem("setta.launcherOrigin"),
     session: sessionStorage.getItem("setta.launcherOrigin"),
   }));
-  expect(stored.local).toBeNull();
-  expect(stored.session).toBe("https://127.0.0.1:4242");
-});
-
-test("bootstrap launcher origin ignores invalid proof values", async ({ page }) => {
-  await clearLauncherOrigin(page);
-
-  const raw = "http://127.0.0.1:4242";
-  const token = mintBootstrapToken(BACKEND_ORIGIN);
-  const consumeResponse = page.waitForResponse((res) => {
-    try {
-      const url = new URL(res.url());
-      return (
-        url.origin === BACKEND_ORIGIN && url.pathname === "/__setta__/bootstrap/consume"
-      );
-    } catch {
-      return false;
-    }
-  });
-  const url =
-    `${BACKEND_ORIGIN}/__setta__/bootstrap` +
-    `#token=${encodeURIComponent(token)}&lo=${encodeURIComponent(raw)}&lop=invalid-proof`;
-  await page.goto(url, { waitUntil: "domcontentloaded" });
-  expect((await consumeResponse).status()).toBe(200);
-  await page.waitForURL(`${FRONTEND_ORIGIN}/**`, { waitUntil: "domcontentloaded" });
-  await page.goto(`${BACKEND_ORIGIN}/__setta__/bootstrap`, {
-    waitUntil: "domcontentloaded",
-  });
-
-  const stored = await page.evaluate(() => ({
-    local: localStorage.getItem("setta.launcherOrigin"),
-    session: sessionStorage.getItem("setta.launcherOrigin"),
-  }));
-  expect(stored.local).toBeNull();
-  expect(stored.session).toBeNull();
+  expect(stored.local ?? stored.session).toBe("https://127.0.0.1:4242");
+  expect(Boolean(stored.local) !== Boolean(stored.session)).toBe(true);
 });

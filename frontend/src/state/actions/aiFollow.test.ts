@@ -4,6 +4,20 @@ import { AgenticEdgeKindEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { receiveAgenticScopeViolationEdges } from "./aiFollow";
 
+describe("useAIFollow defaults", () => {
+  beforeEach(() => {
+    resetProjectStores();
+  });
+
+  afterEach(() => {
+    resetProjectStores();
+  });
+
+  it("defaults follow mode to off", () => {
+    expect(useAIFollow.getState().mode).toBe("off");
+  });
+});
+
 describe("receiveAgenticScopeViolationEdges", () => {
   beforeEach(() => {
     resetProjectStores();

@@ -185,7 +185,6 @@ def start_backend(
         runtime_root=str(paths.runtime_root),
         setta_home=str(paths.setta_home),
         profile=paths.profile_name,
-        server_mode="ide",
     )
     previous_session_id = os.environ.get(SESSION_ID_ENV_VAR)
     os.environ[SESSION_ID_ENV_VAR] = session.id
