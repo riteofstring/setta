@@ -69,7 +69,6 @@ def status_env(tmp_path):
         runtime_root: str | None = str(resolved_paths.runtime_root),
         setta_home: str | None = str(resolved_paths.setta_home),
         profile: str | None = resolved_paths.profile_name,
-        server_mode: str = "ide",
     ) -> SessionMetadata:
         return registry.create_session(
             workspace_path=workspace,
@@ -82,7 +81,6 @@ def status_env(tmp_path):
             runtime_root=runtime_root,
             setta_home=setta_home,
             profile=profile,
-            server_mode=server_mode,
         )
 
     env = SimpleNamespace(
@@ -171,7 +169,6 @@ def test_status_connect_info_json_emits_payload(status_env) -> None:
 
     session = payload["session"]
     assert session["port"] == 61234
-    assert session["serverMode"] == "ide"
     assert session["workspacePath"] == str(status_env.workspace.resolve())
     assert payload["bootstrapUrlPlain"] == "http://127.0.0.1:61234/__setta__/bootstrap"
     assert payload["bootstrapUrlFragment"].startswith(
@@ -342,46 +339,6 @@ def test_status_list_sessions_json_emits_payload(status_env) -> None:
     assert ports == {first.port, second.port}
     for session in sessions:
         assert session["workspacePath"] == str(status_env.workspace.resolve())
-        assert session["serverMode"] == "ide"
-
-
-def test_status_list_sessions_json_filters_by_server_mode(status_env) -> None:
-    status_env.create_session(port=61234, server_mode="ide")
-    status_env.create_session(port=61235, server_mode="launcher")
-    runner = CliRunner()
-
-    result = runner.invoke(
-        status,
-        ["--list-sessions", "--json", "--server-mode", "ide"],
-    )
-
-    assert result.exit_code == 0, result.output
-    payload = _decode_connect_info(result.output)
-    sessions = payload["sessions"]
-    assert len(sessions) == 1
-    assert sessions[0]["port"] == 61234
-    assert sessions[0]["serverMode"] == "ide"
-
-
-def test_status_connect_info_latest_filters_by_server_mode(status_env) -> None:
-    now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-    status_env.create_session(port=61234, started_at=now, server_mode="ide")
-    status_env.create_session(
-        port=61235,
-        started_at=now + timedelta(minutes=1),
-        server_mode="launcher",
-    )
-    runner = CliRunner()
-
-    result = runner.invoke(
-        status,
-        ["--connect-info", "--json", "--latest", "--server-mode", "ide"],
-    )
-
-    assert result.exit_code == 0, result.output
-    payload = _decode_connect_info(result.output)
-    assert payload["session"]["port"] == 61234
-    assert payload["session"]["serverMode"] == "ide"
 
 
 def test_status_list_sessions_requires_json(status_env) -> None:

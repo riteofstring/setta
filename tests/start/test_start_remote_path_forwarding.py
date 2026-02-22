@@ -20,7 +20,6 @@ def test_connect_forwards_profile_without_local_profile_validation(monkeypatch) 
         port=61234,
         pid=111,
         started_at=datetime.fromisoformat("2025-01-01T00:00:00"),
-        server_mode="ide",
     )
 
     monkeypatch.setattr(start, "_build_remote_setta_path_args", fake_build_remote_setta_path_args)
@@ -76,7 +75,6 @@ def test_stop_forwards_profile_without_local_profile_validation(monkeypatch) -> 
         port=61234,
         pid=222,
         started_at=datetime.fromisoformat("2025-01-01T00:00:00"),
-        server_mode="ide",
     )
 
     def fake_delete_remote_session(*args, **_kwargs) -> None:

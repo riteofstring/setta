@@ -35,45 +35,78 @@ export function getErrorDetail(value: unknown): string | null {
   }
   if (typeof value === "object") {
     const record = value as Record<string, unknown>;
+    const message = record.message;
+    if (typeof message === "string") {
+      return message;
+    }
     const detail = record.detail;
     if (typeof detail === "string") {
       return detail;
+    }
+    if (detail && typeof detail === "object") {
+      const nested = detail as Record<string, unknown>;
+      const nestedMessage = nested.message;
+      if (typeof nestedMessage === "string") {
+        return nestedMessage;
+      }
+      const nestedDetail = nested.detail;
+      if (typeof nestedDetail === "string") {
+        return nestedDetail;
+      }
     }
   }
   return null;
 }
 
-const LAUNCHER_ROUTES = new Set<string>([
-  RouteEnum.LAUNCH,
-  RouteEnum.GET_LAUNCHER_APP_MODE,
-  RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES,
-  RouteEnum.ADD_LAUNCHER_RECENT_WORKSPACE,
-  RouteEnum.REMOVE_LAUNCHER_RECENT_WORKSPACE,
-  RouteEnum.PIN_LAUNCHER_RECENT_WORKSPACE,
-  RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS,
-  RouteEnum.LIST_LAUNCHER_DIRECTORY,
-  RouteEnum.OPEN_LAUNCHER_WORKSPACE,
-]);
-
-function stripQueryAndHash(address: string): string {
-  const hashIndex = address.indexOf("#");
-  let withoutHash = address;
-  if (hashIndex >= 0) {
-    withoutHash = address.slice(0, hashIndex);
+export function getErrorCode(value: unknown): string | null {
+  if (!value) {
+    return null;
   }
-  const queryIndex = withoutHash.indexOf("?");
-  if (queryIndex >= 0) {
-    return withoutHash.slice(0, queryIndex);
+  if (value instanceof Uint8Array) {
+    const decoded = new TextDecoder().decode(value).trim();
+    if (decoded.length === 0) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(decoded) as unknown;
+      return getErrorCode(parsed);
+    } catch {
+      return null;
+    }
   }
-  return withoutHash;
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const errorCode = record.errorCode;
+    if (typeof errorCode === "string" && errorCode.trim().length > 0) {
+      return errorCode;
+    }
+    const detail = record.detail;
+    if (detail && typeof detail === "object") {
+      const nested = detail as Record<string, unknown>;
+      const nestedErrorCode = nested.errorCode;
+      if (
+        typeof nestedErrorCode === "string" &&
+        nestedErrorCode.trim().length > 0
+      ) {
+        return nestedErrorCode;
+      }
+    }
+  }
+  return null;
 }
 
 function resolveBackendUrl(address: string): string {
-  const normalizedAddress = stripQueryAndHash(address);
-  if (normalizedAddress.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
+  if (address.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
     return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
   }
-  if (LAUNCHER_ROUTES.has(normalizedAddress)) {
+  if (address === RouteEnum.TOOLS_CALL) {
+    return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
+  }
+  if (
+    address === RouteEnum.LAUNCH ||
+    address === RouteEnum.GET_SETTA_HOME_INFO ||
+    address === RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER
+  ) {
     return `${C_ADDRESSES.LAUNCHER}${address}`;
   }
   return `${C_ADDRESSES.BACKEND}${address}`;
@@ -119,7 +152,7 @@ async function parseBinaryResponse(
 
 export function replaceAddressParams(
   address: string,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
+  addressParams?: Record<string, string | number | boolean>,
 ): string {
   if (!addressParams) return address;
 
@@ -131,47 +164,11 @@ export function replaceAddressParams(
   return output;
 }
 
-function buildAddressWithParams(
-  address: string,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
-): string {
-  if (!addressParams) {
-    return address;
-  }
-
-  const pathParamMatches = Array.from(address.matchAll(/\{([^}]+)\}/g));
-  const pathParamKeys = new Set(pathParamMatches.map((match) => match[1]));
-  const pathParams: Record<
-    string,
-    string | number | boolean | null | undefined
-  > = {};
-  const queryParams = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(addressParams)) {
-    if (pathParamKeys.has(key)) {
-      pathParams[key] = value;
-      continue;
-    }
-    if (value === null || value === undefined) {
-      continue;
-    }
-    queryParams.append(key, String(value));
-  }
-
-  const pathAddress = replaceAddressParams(address, pathParams);
-  const encodedQuery = queryParams.toString();
-  if (encodedQuery.length === 0) {
-    return pathAddress;
-  }
-  const joiner = pathAddress.includes("?") ? "&" : "?";
-  return `${pathAddress}${joiner}${encodedQuery}`;
-}
-
 export async function get<T>(
   address: string,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
+  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<T>> {
-  const fullAddress = buildAddressWithParams(address, addressParams);
+  const fullAddress = replaceAddressParams(address, addressParams);
   try {
     const shareHeaders = buildShareSessionHeaders();
     const response = await fetch(resolveBackendUrl(fullAddress), {
@@ -191,9 +188,9 @@ export async function get<T>(
 
 export async function getBinary(
   address: string,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
+  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<Uint8Array>> {
-  const fullAddress = buildAddressWithParams(address, addressParams);
+  const fullAddress = replaceAddressParams(address, addressParams);
   try {
     const shareHeaders = buildShareSessionHeaders();
     const response = await fetch(resolveBackendUrl(fullAddress), {
@@ -215,9 +212,9 @@ export async function getBinary(
 export async function post<T>(
   address: string,
   body: unknown | null = null,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
+  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<T>> {
-  const fullAddress = buildAddressWithParams(address, addressParams);
+  const fullAddress = replaceAddressParams(address, addressParams);
   try {
     const shareHeaders = buildShareSessionHeaders();
     const isFormData = body instanceof FormData;

@@ -67,6 +67,7 @@ from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.database.db_objs import DBE
+from setta.llm.api_keys import read_managed_api_keys
 from setta.llm.chat_toolkit.managed.ai_follow import (
     build_tool_call_follow_ids,
     canonicalize_ai_follow_ids_by_type,
@@ -919,6 +920,32 @@ class ExternalAgentRunner:
             return raw
         return None
 
+    @classmethod
+    def _resolve_runtime_model(
+        cls,
+        config: ExternalAgentConfig,
+        inputs: dict[str, Any] | None,
+    ) -> str | None:
+        explicit_model = cls._extract_input_string(inputs, "model")
+        if explicit_model:
+            return explicit_model
+        managed = config.settingsManagedBlock
+        if (
+            config.toolType == ExternalAgentToolType.codex
+            and managed is not None
+            and managed.codex is not None
+            and managed.codex.model
+        ):
+            return managed.codex.model
+        if (
+            config.toolType == ExternalAgentToolType.opencode
+            and managed is not None
+            and managed.opencode is not None
+            and managed.opencode.model
+        ):
+            return managed.opencode.model
+        return config.defaultModel
+
     def _init_chat_state(self, run: AgentRun) -> None:
         self._chat_states[run.id] = build_chat_state_from_run(run)
 
@@ -964,8 +991,9 @@ class ExternalAgentRunner:
             metadata["externalAgentConfigId"] = str(config.id)
             metadata["toolType"] = config.toolType.value
             metadata["runMode"] = config.runMode.value
-            if config.defaultModel:
-                metadata["model"] = config.defaultModel
+            runtime_model = self._resolve_runtime_model(config, run.inputs)
+            if runtime_model:
+                metadata["model"] = runtime_model
             if config.approvalPolicy:
                 metadata["approvalPolicy"] = config.approvalPolicy
             if config.sandboxPolicy:
@@ -1343,11 +1371,14 @@ class ExternalAgentRunner:
         if not allowed:
             return env
         dot_env = self.dbe.read_dot_env()
+        managed_api_keys = read_managed_api_keys(self.dbe)
         for key in allowed:
             if key in os.environ:
                 env[key] = os.environ[key]
             if key in dot_env:
                 env[key] = dot_env[key]
+            if key in managed_api_keys:
+                env[key] = managed_api_keys[key]
         return env
 
     def _cleanup_context(self, context: ExternalAgentRunContext) -> None:
