@@ -9,11 +9,13 @@ describe("endpointUtils URL routing", () => {
 
   beforeEach(() => {
     vi.stubGlobal("fetch", fetchMock);
-    fetchMock.mockResolvedValue(
-      new Response("{}", {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      }),
+    fetchMock.mockImplementation(() =>
+      Promise.resolve(
+        new Response("{}", {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
     );
   });
 
@@ -37,6 +39,31 @@ describe("endpointUtils URL routing", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.LAUNCHER}${RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER}`,
+    );
+  });
+
+  it("routes launcherStatus via launcher origin", async () => {
+    await get(RouteEnum.GET_LAUNCHER_STATUS);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_STATUS}`,
+    );
+  });
+
+  it("routes launcher repair/update/remove via launcher origin", async () => {
+    await post(RouteEnum.REPAIR_LAUNCHER, {});
+    await post(RouteEnum.UPDATE_LAUNCHER, { packageSpec: "setta" });
+    await post(RouteEnum.REMOVE_LAUNCHER, {});
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.REPAIR_LAUNCHER}`,
+    );
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.UPDATE_LAUNCHER}`,
+    );
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.REMOVE_LAUNCHER}`,
     );
   });
 

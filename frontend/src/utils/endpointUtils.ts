@@ -50,7 +50,12 @@ function resolveBackendUrl(address: string): string {
   if (
     address === RouteEnum.LAUNCH ||
     address === RouteEnum.GET_SETTA_HOME_INFO ||
-    address === RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER
+    address === RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER ||
+    address === RouteEnum.GET_LAUNCHER_STATUS ||
+    address === RouteEnum.SETUP_LAUNCHER ||
+    address === RouteEnum.REPAIR_LAUNCHER ||
+    address === RouteEnum.REMOVE_LAUNCHER ||
+    address === RouteEnum.UPDATE_LAUNCHER
   ) {
     return `${C_ADDRESSES.LAUNCHER}${address}`;
   }
