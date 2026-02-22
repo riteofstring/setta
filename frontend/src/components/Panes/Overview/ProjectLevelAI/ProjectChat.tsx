@@ -37,6 +37,7 @@ import { RiChatHistoryLine } from "react-icons/ri";
 import { saveLLMConfig, updateEngineConfig } from "state/actions/ai";
 import {
   buildChatHistoryEntries,
+  buildChatProvenanceByChatId,
   type ChatHistoryCompatibility,
 } from "state/actions/chatHistory";
 import { addPersistentNotification } from "state/actions/notifications";
@@ -511,13 +512,13 @@ export function ProjectChat() {
     return entriesById;
   }, [chatHistoryEntries]);
   const chatEngineConfigByChatId = useMemo(() => {
-    const entries = buildChatHistoryEntries(agentRuns, {
+    const provenanceByChatId = buildChatProvenanceByChatId(agentRuns, {
       unscopedOnly: true,
       compatibility: null,
     });
     const nextByChatId = new Map<string, string | null>();
-    for (const entry of entries) {
-      nextByChatId.set(entry.chatId, entry.engineConfigId);
+    for (const [runChatId, provenance] of provenanceByChatId.entries()) {
+      nextByChatId.set(runChatId, provenance.engineConfigId);
     }
     return nextByChatId;
   }, [agentRuns]);

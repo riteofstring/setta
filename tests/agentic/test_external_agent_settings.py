@@ -280,6 +280,76 @@ args = ["pencil-mcp.js"]
                 mcp_servers.get("setta", {}).get("url") == "http://localhost:8000/mcp"
             )
 
+    def test_build_codex_settings_file_keeps_user_removed_imported_servers_removed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            codex_home = Path(tmpdir) / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.figma-desktop]
+command = "figma"
+args = ["mcp"]
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            config = ExternalAgentConfig(
+                id="codex-removed-server",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt=None,
+            )
+            output_path = output_dir / "config.toml"
+            initial_payload = tomllib.loads(output_path.read_text(encoding="utf-8"))
+            initial_marker = initial_payload.get("codexMcpImportedAt")
+            assert isinstance(initial_marker, str)
+            mcp_servers = initial_payload.get("mcp_servers")
+            assert isinstance(mcp_servers, dict)
+            if not isinstance(mcp_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert "figma-desktop" in mcp_servers
+
+            # Simulate user removal by leaving only setta and preserving the import marker.
+            output_path.write_text(
+                f'codexMcpImportedAt = "{initial_marker}"\n'
+                "[mcp_servers.setta]\n"
+                'url = "http://localhost:8000/mcp"\n',
+                encoding="utf-8",
+            )
+
+            build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt=None,
+            )
+
+            output_payload = tomllib.loads(output_path.read_text(encoding="utf-8"))
+            output_mcp_servers = output_payload.get("mcp_servers")
+            assert isinstance(output_mcp_servers, dict)
+            if not isinstance(output_mcp_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert "figma-desktop" not in output_mcp_servers
+            assert (
+                output_mcp_servers.get("setta", {}).get("url")
+                == "http://localhost:8000/mcp"
+            )
+
     def test_build_codex_settings_file_does_not_override_existing_non_setta_servers(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

@@ -88,3 +88,35 @@
 - Backend targeted pytest set (`tests/llm/test_config.py`): 24 passed.
 - Playwright targeted checks (`project-ai-chat-hydration-provenance.spec.ts`): 2 passed.
 - CDP visual verification: context-unavailable badge rendering confirmed in project chat composer.
+
+## 2026-02-25 20:19:53 PST
+
+### Consolidated Findings
+- Chat provenance for hydration/engine correction was derived from history projection that excludes branch chats.
+- Hydration retry state used per-key status plus a global timer, allowing `retry_scheduled` keys to get stranded after timer cancellation.
+- Internal stop could mark messages interrupted even when backend stop was a no-op.
+- External-agent Codex MCP bootstrap could re-import previously removed servers.
+- Managed API key parsing accepted falsy non-object payloads as valid empty state.
+- Thread/group delete tooltips still referenced Cmd/Ctrl+Z despite restore moving to explicit `Restore Delete`.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Added canonical chat provenance indexing from `agentRuns` (including branches) and used it for engine provenance and hydration route selection.
+- Replaced hydration retry gating with per-cache-key retry state/timer ownership, including explicit re-hydration eligibility after cancellation.
+- Updated stop API to return authoritative outcome metadata (`alreadyStopped`, `stoppedRunId`, `stoppedMessageId`) and reconciled frontend interruption state from response semantics.
+- Added durable external-agent Codex MCP import marker (`codexMcpImportedAt`) so one-time bootstrap does not resurrect user-removed servers.
+- Made managed key parser fail closed for non-object JSON payloads by validating all present payload roots as objects.
+- Updated delete recovery copy to point users to `Restore Delete` and removed stale keyboard-undo guidance.
+
+### UX/DX Before -> After
+- Provenance routing: hidden-branch filtering could change runtime hydration behavior -> runtime provenance is now sourced from canonical run metadata, independent of history visibility.
+- Hydration retries: chat switches could strand selected threads in non-hydrated state -> retries are deterministic per hydration key and recover after cancellation/switching.
+- Stop state trust: interruption badges could persist after no-op stop -> interruption labels now reflect backend-confirmed stop outcomes only.
+- MCP bootstrap intent: removed servers could silently reappear -> user removals remain authoritative across rebuilds.
+- Secret-store robustness: malformed falsy payloads could masquerade as empty valid state -> invalid payloads now fail loudly and avoid silent state wipe behavior.
+- Recovery affordance clarity: users were told to use Cmd/Ctrl+Z for thread restore -> UI now consistently points to explicit `Restore Delete`.
+
+### Verification
+- Frontend targeted Vitest set: 50 passed.
+- Backend targeted pytest set: 9 passed.
+- Playwright targeted checks (`project-ai-chat-hydration-provenance.spec.ts`, `project-ai-chat-restore.spec.ts`): 4 passed.
+- CDP visual verification: `Restore Delete` visible in Project AI chat threads panel and no `Cmd/Ctrl+Z` recovery text present.

@@ -692,8 +692,25 @@ class StopLLMChatRequest(BaseModel):
     chatId: ID
 
 
+class StopLLMChatResponse(BaseModel):
+    alreadyStopped: bool
+    stoppedRunId: ID | None = None
+    stoppedMessageId: ID | None = None
+
+
 class GetAIFollowSnapshotRequest(BaseModel):
     projectConfigId: ID
+
+
+def _resolve_latest_assistant_message_id_from_run(run: AgentRun) -> ID | None:
+    state = build_chat_state_from_run(run)
+    for message in reversed(state.messages):
+        if message.role != "assistant":
+            continue
+        raw_message_id = getattr(message, "id", None)
+        if isinstance(raw_message_id, str) and raw_message_id:
+            return ID(raw_message_id)
+    return None
 
 
 def _normalize_transcription_language(value: str | None) -> str | None:
@@ -1250,15 +1267,21 @@ async def route_cancel_transcription_session(
 async def route_stop_llm_chat(
     x: StopLLMChatRequest,
     ctx: RuntimeContextFromRequest,
-) -> None:
+) -> StopLLMChatResponse:
     await ctx.enforce_llm_allowed()
     runs = _get_llm_chat_runs(dbe=ctx.state.dbe, chat_id=x.chatId)
     running_runs = [run for run in runs if run.status == AgentRunStatus.running]
     latest_run = _select_latest_run(running_runs)
     if latest_run is None:
-        return None
-    await ctx.state.agent_runner.stop_run(latest_run.id)
-    return None
+        return StopLLMChatResponse(alreadyStopped=True)
+    stopped_run = await ctx.state.agent_runner.stop_run(latest_run.id)
+    if stopped_run.status != AgentRunStatus.cancelled:
+        return StopLLMChatResponse(alreadyStopped=True)
+    return StopLLMChatResponse(
+        alreadyStopped=False,
+        stoppedRunId=stopped_run.id,
+        stoppedMessageId=_resolve_latest_assistant_message_id_from_run(stopped_run),
+    )
 
 
 @router.post(Route.GET_LLM_CHAT)

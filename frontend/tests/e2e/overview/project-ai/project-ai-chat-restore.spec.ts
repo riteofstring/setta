@@ -31,7 +31,9 @@ test("project ai threads restore deleted thread and group via explicit restore a
   }>;
   const firstConfig = engineConfigs[0];
   if (!firstConfig) {
-    throw new Error("Expected at least one engine config for restore flow test.");
+    throw new Error(
+      "Expected at least one engine config for restore flow test.",
+    );
   }
 
   await page.route("**/api/getAgentRuns", async (route) => {
@@ -147,18 +149,26 @@ test("project ai threads restore deleted thread and group via explicit restore a
 
     const restoreThreadEntry = threadEntries.first();
     await restoreThreadEntry.hover();
-    await restoreThreadEntry
-      .getByTestId("project-chat-thread-delete-button")
-      .click();
+    const deleteThreadButton = restoreThreadEntry.getByTestId(
+      "project-chat-thread-delete-button",
+    );
+    await deleteThreadButton.hover();
+    await expect(page.getByText("Press Cmd/Ctrl+Z to undo.")).toHaveCount(0);
+    await deleteThreadButton.click();
     await expect(threadEntries).toHaveCount(initialThreadCount - 1);
 
     await restoreButton.click();
     await expect(threadEntries).toHaveCount(initialThreadCount);
 
-    await restoreGroupRow.getByTestId("project-chat-thread-group-select").hover();
     await restoreGroupRow
-      .getByTestId("project-chat-thread-group-delete-button")
-      .click();
+      .getByTestId("project-chat-thread-group-select")
+      .hover();
+    const deleteGroupButton = restoreGroupRow.getByTestId(
+      "project-chat-thread-group-delete-button",
+    );
+    await deleteGroupButton.hover();
+    await expect(page.getByText("Press Cmd/Ctrl+Z to undo.")).toHaveCount(0);
+    await deleteGroupButton.click();
     await expect(
       threadsPanel
         .getByTestId("project-chat-thread-group-row")

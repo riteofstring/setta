@@ -5,7 +5,10 @@ import {
   createMessageTextContent,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { buildChatHistoryEntries } from "./chatHistory";
+import {
+  buildChatHistoryEntries,
+  buildChatProvenanceByChatId,
+} from "./chatHistory";
 
 function buildRun({
   chatId,
@@ -236,5 +239,56 @@ describe("chatHistory", () => {
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.chatId).toBe("chat-match");
+  });
+
+  it("includes branch chats in canonical provenance resolution", () => {
+    const runs = [
+      buildRun({ chatId: "root", messageText: "Root message" }),
+      buildRun({
+        chatId: "branch",
+        messageText: "Branch message",
+        branchParentChatId: "root",
+        branchFromMessageId: "msg-root",
+        runType: "external_agent",
+        engineConfigId: "external-engine",
+      }),
+    ];
+
+    const provenanceByChatId = buildChatProvenanceByChatId(runs);
+
+    expect(provenanceByChatId.get("root")).toEqual({
+      runType: "llm_chat",
+      engineConfigId: null,
+    });
+    expect(provenanceByChatId.get("branch")).toEqual({
+      runType: "external_agent",
+      engineConfigId: "external-engine",
+    });
+  });
+
+  it("uses the latest run metadata for canonical provenance", () => {
+    const runs = [
+      buildRun({
+        chatId: "chat-latest",
+        messageText: "Original run",
+        startedAt: "2024-01-01T00:00:00Z",
+        runType: "llm_chat",
+        engineConfigId: "engine-a",
+      }),
+      buildRun({
+        chatId: "chat-latest",
+        messageText: "Newest run",
+        startedAt: "2024-01-02T00:00:00Z",
+        runType: "external_agent",
+        engineConfigId: "engine-b",
+      }),
+    ];
+
+    const provenanceByChatId = buildChatProvenanceByChatId(runs);
+
+    expect(provenanceByChatId.get("chat-latest")).toEqual({
+      runType: "external_agent",
+      engineConfigId: "engine-b",
+    });
   });
 });

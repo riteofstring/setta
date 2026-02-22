@@ -15,7 +15,7 @@ def llm_api_keys_path(dbe: DBE) -> Path:
 
 def read_managed_api_keys(dbe: DBE) -> APIKeys:
     payload = dbe.read_json(llm_api_keys_path(dbe))
-    if not payload:
+    if payload is None:
         return {}
     if not isinstance(payload, dict):
         raise ValueError("Managed API key store must contain an object.")

@@ -94,6 +94,15 @@ type ThreadPinDomain = "pinned" | "unpinned";
 const PINNED_THREAD_DOMAIN: ThreadPinDomain = "pinned";
 const UNPINNED_THREAD_DOMAIN: ThreadPinDomain = "unpinned";
 
+export function getProjectChatDeleteRecoveryTooltipContent(
+  target: "thread" | "group",
+): string {
+  if (target === "group") {
+    return "Delete this group and move its chats to Ungrouped. Use Restore Delete in the toolbar to undo.";
+  }
+  return "Remove this chat from history. Use Restore Delete in the toolbar to undo.";
+}
+
 type ThreadGroup = {
   id: string;
   name: string;
@@ -1563,8 +1572,7 @@ function ThreadGroupFolder({
   });
   const groupDeleteTooltipHandlers = getFloatingBoxHandlers({
     title: "Delete thread group",
-    content:
-      "Delete this group and move its chats to Ungrouped. Press Cmd/Ctrl+Z to undo.",
+    content: getProjectChatDeleteRecoveryTooltipContent("group"),
   });
   const newChatTooltipHandlers = getFloatingBoxHandlers({
     title: "New chat",
@@ -2166,7 +2174,7 @@ function ThreadEntryLine({
     ? null
     : getFloatingBoxHandlers({
         title: "Delete chat",
-        content: "Remove this chat from history. Press Cmd/Ctrl+Z to undo.",
+        content: getProjectChatDeleteRecoveryTooltipContent("thread"),
       });
   const workingIndicatorTooltipHandlers = showWorkingIndicator
     ? getFloatingBoxHandlers({

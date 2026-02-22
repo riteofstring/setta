@@ -2378,17 +2378,40 @@ class TestAgentRunChatRoutes:
             save_agent_run(dbe, running_run)
 
             with runtime_context(state) as ctx:
-                await route_stop_llm_chat(
+                response = await route_stop_llm_chat(
                     StopLLMChatRequest(chatId=running_chat_id),
                     ctx,
                 )
 
+            assert response.alreadyStopped is False
+            assert response.stoppedRunId == running_run.id
+            assert response.stoppedMessageId is None
             stopped = load_agent_run(dbe, running_run.id)
             assert stopped is not None
             if stopped is None:
                 return
             assert stopped.status == AgentRunStatus.cancelled
             assert stopped.finishedAt is not None
+
+    async def test_stop_llm_chat_reports_already_stopped_when_no_running_run(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+
+            with runtime_context(state) as ctx:
+                response = await route_stop_llm_chat(
+                    StopLLMChatRequest(chatId=ID("missing-chat")),
+                    ctx,
+                )
+
+            assert response.alreadyStopped is True
+            assert response.stoppedRunId is None
+            assert response.stoppedMessageId is None
 
     def test_branch_messages_replace_and_truncate(self) -> None:
         first = UserChatMessage(

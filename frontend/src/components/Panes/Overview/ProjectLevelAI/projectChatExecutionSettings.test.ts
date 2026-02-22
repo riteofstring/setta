@@ -18,6 +18,7 @@ import {
   resolveProjectChatHydrationRunType,
   resolveProjectChatRuntimeActivityCounts,
   resolveWorkspaceRootPollDelayMs,
+  shouldSkipProjectChatHydration,
 } from "./ProjectChatCore";
 
 describe("getDefaultProjectChatPermissionMode", () => {
@@ -104,6 +105,48 @@ describe("buildProjectChatHydrationCacheKey", () => {
         hydrationRunType: "llm_chat",
       }),
     ).toBeNull();
+  });
+});
+
+describe("shouldSkipProjectChatHydration", () => {
+  it("skips when hydration is in flight or succeeded", () => {
+    expect(
+      shouldSkipProjectChatHydration({
+        status: "in_flight",
+        hasLiveRetryTimer: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSkipProjectChatHydration({
+        status: "succeeded",
+        hasLiveRetryTimer: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("only skips retry_scheduled when a live retry timer exists", () => {
+    expect(
+      shouldSkipProjectChatHydration({
+        status: "retry_scheduled",
+        hasLiveRetryTimer: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSkipProjectChatHydration({
+        status: "retry_scheduled",
+        hasLiveRetryTimer: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("allows hydration when there is no prior status or previous failure", () => {
+    expect(shouldSkipProjectChatHydration(null)).toBe(false);
+    expect(
+      shouldSkipProjectChatHydration({
+        status: "failed",
+        hasLiveRetryTimer: false,
+      }),
+    ).toBe(false);
   });
 });
 

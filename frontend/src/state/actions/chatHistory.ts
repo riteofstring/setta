@@ -11,6 +11,10 @@ export type ChatHistoryCompatibility = {
   runType: ChatRunType;
   engineConfigId: string | null;
 };
+export type ChatRunProvenance = {
+  runType: ChatRunType;
+  engineConfigId: string | null;
+};
 
 type ChatHistoryEntry = {
   chatId: string;
@@ -38,44 +42,66 @@ export function buildChatHistoryEntries(
   runs: Array<AgentRun>,
   options: BuildChatHistoryEntriesOptions = {},
 ): Array<ChatHistoryEntry> {
+  const grouped = collectChatRunSummaries(runs, options, false);
+
+  const entries: Array<ChatHistoryEntry> = [];
+  for (const [runChatId, summary] of grouped.entries()) {
+    entries.push({
+      chatId: runChatId,
+      label: deriveChatLabel(summary.latestRun, runChatId),
+      nameSource: deriveChatNameSource(summary.latestRun),
+      lastUpdatedMs: summary.lastUpdatedMs,
+      waitingForResponse: summary.waitingForResponse,
+      runType: getRunType(summary.latestRun),
+      engineConfigId: getRunInputString(summary.latestRun, "engineConfigId"),
+    });
+  }
+  return entries;
+}
+
+export function buildChatProvenanceByChatId(
+  runs: Array<AgentRun>,
+  options: BuildChatHistoryEntriesOptions = {},
+): Map<string, ChatRunProvenance> {
+  const grouped = collectChatRunSummaries(runs, options, true);
+  const provenance = new Map<string, ChatRunProvenance>();
+  for (const [runChatId, summary] of grouped.entries()) {
+    const runType = getRunType(summary.latestRun);
+    if (!runType) {
+      continue;
+    }
+    provenance.set(runChatId, {
+      runType,
+      engineConfigId: getRunInputString(summary.latestRun, "engineConfigId"),
+    });
+  }
+  return provenance;
+}
+
+function collectChatRunSummaries(
+  runs: Array<AgentRun>,
+  options: BuildChatHistoryEntriesOptions,
+  includeBranchChats: boolean,
+): Map<string, ChatRunSummary> {
   const sectionId = normalizeRunSectionId(options.sectionId ?? null);
   const unscopedOnly = options.unscopedOnly === true;
   const compatibility = options.compatibility ?? null;
-  const branchChatIds = new Set<string>();
-  for (const run of runs) {
-    if (!isChatRun(run)) {
-      continue;
-    }
-    if (!isRunCompatibleWithHistoryFilter(run, compatibility)) {
-      continue;
-    }
-    if (unscopedOnly && getRunSectionId(run) !== null) {
-      continue;
-    }
-    if (sectionId && getRunSectionId(run) !== sectionId) {
-      continue;
-    }
-    if (!isBranchRun(run)) {
-      continue;
-    }
-    const runChatId = getRunChatId(run);
-    if (runChatId) {
-      branchChatIds.add(runChatId);
-    }
-  }
-
+  const branchChatIds = includeBranchChats
+    ? new Set<string>()
+    : collectBranchChatIds(runs, {
+        sectionId,
+        unscopedOnly,
+        compatibility,
+      });
   const grouped = new Map<string, ChatRunSummary>();
   for (const run of runs) {
-    if (!isChatRun(run)) {
-      continue;
-    }
-    if (!isRunCompatibleWithHistoryFilter(run, compatibility)) {
-      continue;
-    }
-    if (unscopedOnly && getRunSectionId(run) !== null) {
-      continue;
-    }
-    if (sectionId && getRunSectionId(run) !== sectionId) {
+    if (
+      !shouldCollectRunForChatSummary(run, {
+        sectionId,
+        unscopedOnly,
+        compatibility,
+      })
+    ) {
       continue;
     }
     const runChatId = getRunChatId(run);
@@ -112,20 +138,54 @@ export function buildChatHistoryEntries(
       });
     }
   }
+  return grouped;
+}
 
-  const entries: Array<ChatHistoryEntry> = [];
-  for (const [runChatId, summary] of grouped.entries()) {
-    entries.push({
-      chatId: runChatId,
-      label: deriveChatLabel(summary.latestRun, runChatId),
-      nameSource: deriveChatNameSource(summary.latestRun),
-      lastUpdatedMs: summary.lastUpdatedMs,
-      waitingForResponse: summary.waitingForResponse,
-      runType: getRunType(summary.latestRun),
-      engineConfigId: getRunInputString(summary.latestRun, "engineConfigId"),
-    });
+function shouldCollectRunForChatSummary(
+  run: AgentRun,
+  options: {
+    sectionId: string | null;
+    unscopedOnly: boolean;
+    compatibility: ChatHistoryCompatibility | null;
+  },
+): boolean {
+  if (!isChatRun(run)) {
+    return false;
   }
-  return entries;
+  if (!isRunCompatibleWithHistoryFilter(run, options.compatibility)) {
+    return false;
+  }
+  if (options.unscopedOnly && getRunSectionId(run) !== null) {
+    return false;
+  }
+  if (options.sectionId && getRunSectionId(run) !== options.sectionId) {
+    return false;
+  }
+  return true;
+}
+
+function collectBranchChatIds(
+  runs: Array<AgentRun>,
+  options: {
+    sectionId: string | null;
+    unscopedOnly: boolean;
+    compatibility: ChatHistoryCompatibility | null;
+  },
+): Set<string> {
+  const branchChatIds = new Set<string>();
+  for (const run of runs) {
+    if (!shouldCollectRunForChatSummary(run, options)) {
+      continue;
+    }
+    if (!isBranchRun(run)) {
+      continue;
+    }
+    const runChatId = getRunChatId(run);
+    if (runChatId) {
+      branchChatIds.add(runChatId);
+    }
+  }
+  return branchChatIds;
 }
 
 function normalizeRunSectionId(value: string | null): string | null {

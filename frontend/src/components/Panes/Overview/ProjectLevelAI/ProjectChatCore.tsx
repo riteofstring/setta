@@ -44,6 +44,7 @@ import {
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
   buildChatHistoryEntries,
+  buildChatProvenanceByChatId,
   type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
@@ -140,6 +141,27 @@ export function buildProjectChatHydrationCacheKey({
   }
   const resolvedRunType = hydrationRunType ?? "llm_chat";
   return `${normalizedChatId}:${resolvedRunType}`;
+}
+
+export type ProjectChatHydrationRetryStatus =
+  | "in_flight"
+  | "succeeded"
+  | "failed"
+  | "retry_scheduled";
+
+export function shouldSkipProjectChatHydration(
+  state: {
+    status: ProjectChatHydrationRetryStatus;
+    hasLiveRetryTimer: boolean;
+  } | null,
+): boolean {
+  if (!state) {
+    return false;
+  }
+  if (state.status === "in_flight" || state.status === "succeeded") {
+    return true;
+  }
+  return state.status === "retry_scheduled" && state.hasLiveRetryTimer;
 }
 
 type ProjectChatContextUsage = ReturnType<
@@ -902,15 +924,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
   const chatRunTypeByChatId = useMemo(() => {
     const runTypeByChatId = new Map<string, ChatRunType>();
-    const entries = buildChatHistoryEntries(agentRuns, {
+    const provenanceByChatId = buildChatProvenanceByChatId(agentRuns, {
       unscopedOnly: true,
       compatibility: null,
     });
-    for (const entry of entries) {
-      if (!entry.runType) {
-        continue;
-      }
-      runTypeByChatId.set(entry.chatId, entry.runType);
+    for (const [runChatId, provenance] of provenanceByChatId.entries()) {
+      runTypeByChatId.set(runChatId, provenance.runType);
     }
     return runTypeByChatId;
   }, [agentRuns]);
@@ -995,11 +1014,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
   const lastChatIdRef = useRef<string | null>(null);
   const hydrationStatusByKeyRef = useRef<
-    Record<string, "in_flight" | "succeeded" | "failed" | "retry_scheduled">
+    Record<
+      string,
+      {
+        status: ProjectChatHydrationRetryStatus;
+        timerId: ReturnType<typeof setTimeout> | null;
+        attempt: number;
+      }
+    >
   >({});
-  const hydrationRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
   const createProjectStarterPrompt = useMemo(
     () => buildCreateProjectStarterPrompt(hasPythonInWorkspaceRoot),
     [hasPythonInWorkspaceRoot],
@@ -1033,18 +1056,29 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
   }, [chatId]);
 
-  const clearHydrationRetryTimer = useCallback(() => {
-    if (hydrationRetryTimerRef.current !== null) {
-      globalThis.clearTimeout(hydrationRetryTimerRef.current);
-      hydrationRetryTimerRef.current = null;
+  const clearHydrationRetryTimer = useCallback((cacheKey: string) => {
+    const state = hydrationStatusByKeyRef.current[cacheKey];
+    if (!state || state.timerId === null) {
+      return;
+    }
+    globalThis.clearTimeout(state.timerId);
+    state.timerId = null;
+    if (state.status === "retry_scheduled") {
+      state.status = "failed";
     }
   }, []);
 
+  const clearAllHydrationRetryTimers = useCallback(() => {
+    for (const cacheKey of Object.keys(hydrationStatusByKeyRef.current)) {
+      clearHydrationRetryTimer(cacheKey);
+    }
+  }, [clearHydrationRetryTimer]);
+
   useEffect(() => {
     return () => {
-      clearHydrationRetryTimer();
+      clearAllHydrationRetryTimers();
     };
-  }, [clearHydrationRetryTimer]);
+  }, [clearAllHydrationRetryTimers]);
 
   useEffect(() => {
     if (!pendingPrompt) {
@@ -1068,17 +1102,32 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (!cacheKey) {
       return;
     }
-    const status = hydrationStatusByKeyRef.current[cacheKey];
+    const retryState = hydrationStatusByKeyRef.current[cacheKey];
     if (
-      status === "in_flight" ||
-      status === "succeeded" ||
-      status === "retry_scheduled"
+      shouldSkipProjectChatHydration(
+        retryState
+          ? {
+              status: retryState.status,
+              hasLiveRetryTimer: retryState.timerId !== null,
+            }
+          : null,
+      )
     ) {
       return;
     }
+    if (retryState && retryState.status === "retry_scheduled") {
+      retryState.status = "failed";
+    }
     let cancelled = false;
     const hydrateChat = async () => {
-      hydrationStatusByKeyRef.current[cacheKey] = "in_flight";
+      const state =
+        hydrationStatusByKeyRef.current[cacheKey] ??
+        (hydrationStatusByKeyRef.current[cacheKey] = {
+          status: "failed",
+          timerId: null,
+          attempt: 0,
+        });
+      state.status = "in_flight";
       const hydrated =
         hydrationRunType === "external_agent"
           ? await getExternalAgentChat(chatId, null)
@@ -1087,26 +1136,33 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         return;
       }
       if (hydrated) {
-        hydrationStatusByKeyRef.current[cacheKey] = "succeeded";
-        clearHydrationRetryTimer();
+        state.status = "succeeded";
+        clearHydrationRetryTimer(cacheKey);
         return;
       }
-      hydrationStatusByKeyRef.current[cacheKey] = "failed";
-      clearHydrationRetryTimer();
-      hydrationStatusByKeyRef.current[cacheKey] = "retry_scheduled";
-      hydrationRetryTimerRef.current = globalThis.setTimeout(() => {
+      clearHydrationRetryTimer(cacheKey);
+      state.status = "retry_scheduled";
+      state.attempt += 1;
+      state.timerId = globalThis.setTimeout(() => {
         if (cancelled) {
           return;
         }
-        hydrationStatusByKeyRef.current[cacheKey] = "failed";
+        const retryStateForKey = hydrationStatusByKeyRef.current[cacheKey];
+        if (!retryStateForKey) {
+          return;
+        }
+        retryStateForKey.timerId = null;
+        retryStateForKey.status = "failed";
         void hydrateChat();
       }, 1000);
     };
     void hydrateChat();
     return () => {
       cancelled = true;
-      if (hydrationStatusByKeyRef.current[cacheKey] === "in_flight") {
-        hydrationStatusByKeyRef.current[cacheKey] = "failed";
+      clearHydrationRetryTimer(cacheKey);
+      const state = hydrationStatusByKeyRef.current[cacheKey];
+      if (state?.status === "in_flight") {
+        state.status = "failed";
       }
     };
   }, [chatId, clearHydrationRetryTimer, hydrationRunType, waitingForResponse]);

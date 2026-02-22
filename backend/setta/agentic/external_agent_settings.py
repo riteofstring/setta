@@ -2,6 +2,7 @@ import json
 import tomllib
 from copy import deepcopy
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +24,7 @@ _CLAUDE_SETTINGS_PROJECT = "settings.json"
 _CLAUDE_SETTINGS_LOCAL = "settings.local.json"
 _CODEX_CONFIG_NAME = "config.toml"
 _OPENCODE_CONFIG_NAME = "opencode.json"
+_CODEX_MCP_IMPORTED_AT_KEY = "codexMcpImportedAt"
 
 
 @dataclass(frozen=True)
@@ -474,19 +476,30 @@ def _bootstrap_codex_mcp_servers_from_user_config(
 ) -> None:
     if config.settingsMode == ExternalAgentSettingsMode.explicit_path:
         return
+    if _get_codex_mcp_imported_at(payload):
+        payload["mcp_servers"] = _resolve_raw_codex_mcp_servers(payload)
+        return
     existing_servers = _resolve_raw_codex_mcp_servers(payload)
-    if _has_non_setta_mcp_server(existing_servers):
-        payload["mcp_servers"] = existing_servers
-        return
-    imported_servers = load_codex_mcp_server_payloads_from_config()
-    if not imported_servers:
-        payload["mcp_servers"] = existing_servers
-        return
-    for server_id, server_config in imported_servers.items():
-        if server_id in existing_servers:
-            continue
-        existing_servers[server_id] = server_config
+    if not _has_non_setta_mcp_server(existing_servers):
+        imported_servers = load_codex_mcp_server_payloads_from_config()
+        for server_id, server_config in imported_servers.items():
+            if server_id in existing_servers:
+                continue
+            existing_servers[server_id] = server_config
     payload["mcp_servers"] = existing_servers
+    payload[_CODEX_MCP_IMPORTED_AT_KEY] = (
+        datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    )
+
+
+def _get_codex_mcp_imported_at(payload: dict[str, Any]) -> str | None:
+    raw_marker = payload.get(_CODEX_MCP_IMPORTED_AT_KEY)
+    if not isinstance(raw_marker, str):
+        return None
+    marker = raw_marker.strip()
+    if not marker:
+        return None
+    return marker
 
 
 def _resolve_raw_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:

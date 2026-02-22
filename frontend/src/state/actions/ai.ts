@@ -1240,6 +1240,39 @@ async function stopExternalChatResponse({
   return false;
 }
 
+function reconcileStoppedLLMChatOutcome({
+  chatId,
+  localSnapshot,
+  stopOutcome,
+}: {
+  chatId: string;
+  localSnapshot: StopChatResponseSnapshot;
+  stopOutcome:
+    | {
+        alreadyStopped: boolean;
+        stoppedMessageId: string | null;
+      }
+    | null
+    | undefined;
+}): void {
+  if (!stopOutcome) {
+    return;
+  }
+  if (stopOutcome.alreadyStopped) {
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+    return;
+  }
+  const stoppedMessageId = stopOutcome.stoppedMessageId?.trim() ?? "";
+  if (!stoppedMessageId) {
+    return;
+  }
+  if (localSnapshot.stopEligibleAssistantMessageId === stoppedMessageId) {
+    return;
+  }
+  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
+  markInterruptedAssistantMessage(chatId, stoppedMessageId);
+}
+
 export async function stopProjectChatResponse(
   chatId: string | null | undefined,
   isExternalEngine: boolean,
@@ -1260,6 +1293,11 @@ export async function stopProjectChatResponse(
 
   const response = await route_stop_llm_chat({ chatId });
   if (res200(response)) {
+    reconcileStoppedLLMChatOutcome({
+      chatId,
+      localSnapshot,
+      stopOutcome: response.data,
+    });
     return true;
   }
   const hydrated = await getLLMChat(chatId);
@@ -1295,6 +1333,11 @@ export async function stopManagedSectionChatResponse(
   }
   const response = await route_stop_llm_chat({ chatId });
   if (res200(response)) {
+    reconcileStoppedLLMChatOutcome({
+      chatId,
+      localSnapshot,
+      stopOutcome: response.data,
+    });
     return true;
   }
   const hydrated = await getLLMChat(chatId, sectionId);
