@@ -3227,7 +3227,7 @@ async function createNewProjectConfig(
   page: Page,
 ): Promise<{ projectConfigId: string; projectConfigName: string }> {
   await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByRole("button", { name: "New Config" }).click();
   await page.waitForSelector(READY_SELECTOR);
 
   const projectConfigName = getProjectConfigName(page.url(), PROJECT_URL);

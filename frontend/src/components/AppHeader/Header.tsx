@@ -1,10 +1,11 @@
 import { useRef } from "react";
 import { useProjectLoading, useShareSession } from "state/definitions";
-import { PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
+import { HOME_ROUTER_PATH, PROJECT_CONFIG_ROUTER_PATH } from "utils/constants";
 import { useTabScope } from "utils/focusManager";
 import { Notification } from "./Notification";
 import { PluginRestartBanner } from "./PluginRestartBanner";
 import { ProjectNav } from "./ProjectNav";
+import { HomePageSearchBar } from "./SearchBar/HomePageSearch";
 import { ProjectPageSearchBar } from "./SearchBar/ProjectPageSearch";
 import { SiteLogo } from "./SiteLogo";
 import { WorktreeHint } from "./WorktreeHint";
@@ -50,8 +51,12 @@ export function HeaderContainer({ path }: { path: string }) {
 }
 
 function SearchSwitch({ path }: { path: string }) {
-  if (path === PROJECT_CONFIG_ROUTER_PATH) {
-    return <ProjectPageSearchBar />;
+  switch (path) {
+    case HOME_ROUTER_PATH:
+      return <HomePageSearchBar />;
+    case PROJECT_CONFIG_ROUTER_PATH:
+      return <ProjectPageSearchBar />;
+    default:
+      return null;
   }
-  return null;
 }

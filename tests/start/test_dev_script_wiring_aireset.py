@@ -2,11 +2,8 @@ from pathlib import Path
 
 from tests.start.dev_script_wiring_helpers import (
     build_aireset_sandbox,
-    parse_env_snapshot,
-    repo_root,
     run_script,
     script_env,
-    write_stub_executable,
 )
 
 
@@ -211,88 +208,3 @@ def test_aireset_rejects_force_and_yes(tmp_path: Path) -> None:
     assert result.returncode != 0
     combined = f"{result.stdout}{result.stderr}"
     assert "Unsupported argument for aireset.sh: --force" in combined
-
-
-def test_aireset_auto_frontend_port_excludes_fixed_backend_port(tmp_path: Path) -> None:
-    sandbox_root = build_aireset_sandbox(tmp_path)
-    root = repo_root()
-
-    # Replace the wiring stub with the real ai entrypoints for end-to-end port checks.
-    ai_wrapper = sandbox_root / "ai.sh"
-    ai_wrapper.write_text((root / "ai.sh").read_text(encoding="utf-8"), encoding="utf-8")
-    ai_wrapper.chmod(0o755)
-    ai_runner = sandbox_root / "scripts" / "ai.sh"
-    ai_runner.write_text(
-        (root / "scripts" / "ai.sh").read_text(encoding="utf-8"),
-        encoding="utf-8",
-    )
-    ai_runner.chmod(0o755)
-
-    # Ensure ai.sh can proceed without invoking real browser tooling.
-    write_stub_executable(
-        sandbox_root / "scripts" / "start-browser-mcp.sh",
-        """#!/usr/bin/env bash
-set -euo pipefail
-exit 0
-""",
-    )
-    write_stub_executable(
-        sandbox_root / "scripts" / "stop-browser-mcp.sh",
-        """#!/usr/bin/env bash
-set -euo pipefail
-exit 0
-""",
-    )
-
-    activate = sandbox_root / ".venv" / "bin" / "activate"
-    activate.parent.mkdir(parents=True, exist_ok=True)
-    activate.write_text("export VIRTUAL_ENV='sandbox-venv'\n", encoding="utf-8")
-    (sandbox_root / "frontend" / "node_modules").mkdir(parents=True, exist_ok=True)
-
-    stub_dir = tmp_path / "bin"
-    stub_dir.mkdir(parents=True, exist_ok=True)
-    capture_cmd = tmp_path / "pnpm_cmd.txt"
-    capture_env = tmp_path / "pnpm_env.txt"
-    write_stub_executable(
-        stub_dir / "pnpm",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-echo "$*" > "{capture_cmd}"
-env | sort > "{capture_env}"
-""",
-    )
-    # Keep all ports free so we can assert only exclude logic drives the next pick.
-    write_stub_executable(
-        stub_dir / "lsof",
-        """#!/usr/bin/env bash
-set -euo pipefail
-exit 1
-""",
-    )
-
-    home_dir = tmp_path / "home"
-    home_dir.mkdir(parents=True, exist_ok=True)
-
-    baseline_result = run_script(
-        ["bash", str(sandbox_root / "aireset.sh")],
-        cwd=sandbox_root,
-        env=script_env(stub_dir, home_dir),
-    )
-    assert baseline_result.returncode == 0, baseline_result.stderr
-    baseline_env = parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
-    default_frontend_port = baseline_env["SETTA_DEV_FRONTEND_PORT"]
-
-    env = script_env(stub_dir, home_dir)
-    env["SETTA_PORT"] = default_frontend_port
-    result = run_script(
-        ["bash", str(sandbox_root / "aireset.sh")],
-        cwd=sandbox_root,
-        env=env,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert capture_cmd.read_text(encoding="utf-8").strip() == "start"
-    captured_env = parse_env_snapshot(capture_env.read_text(encoding="utf-8"))
-    assert captured_env.get("SETTA_PORT") == default_frontend_port
-    assert captured_env.get("SETTA_DEV_FRONTEND_PORT") != default_frontend_port
-    assert int(captured_env["SETTA_DEV_FRONTEND_PORT"]) == int(default_frontend_port) + 1

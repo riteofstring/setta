@@ -163,12 +163,6 @@ export async function route_check_if_file_exists(
   return await post("/checkIfFileExists", x);
 }
 
-export async function route_check_workspace_initialized(
-  x: gt.CheckWorkspaceInitializedRequestInput,
-): Promise<ResponseDataAndStatus<boolean>> {
-  return await post("/checkWorkspaceInitialized", x);
-}
-
 export async function route_get_file_browser_root(): Promise<
   ResponseDataAndStatus<gt.GetFileBrowserRootResponse>
 > {
@@ -383,54 +377,6 @@ export async function route_launch(
   return await post("/launch", x);
 }
 
-export async function route_get_launcher_app_mode(): Promise<
-  ResponseDataAndStatus<gt.LauncherAppModeResponse>
-> {
-  return await get("/launcherAppMode");
-}
-
-export async function route_get_launcher_recent_workspaces(
-  setta_home: string | null,
-): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
-  return await get("/launcherRecentWorkspaces", { setta_home });
-}
-
-export async function route_add_launcher_recent_workspace(
-  x: gt.LauncherRecentWorkspaceRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
-  return await post("/addLauncherRecentWorkspace", x);
-}
-
-export async function route_remove_launcher_recent_workspace(
-  x: gt.LauncherRecentWorkspaceRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
-  return await post("/removeLauncherRecentWorkspace", x);
-}
-
-export async function route_pin_launcher_recent_workspace(
-  x: gt.PinLauncherRecentWorkspaceRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
-  return await post("/pinLauncherRecentWorkspace", x);
-}
-
-export async function route_get_launcher_filesystem_roots(): Promise<
-  ResponseDataAndStatus<gt.LauncherFilesystemRootsResponse>
-> {
-  return await get("/launcherFilesystemRoots");
-}
-
-export async function route_list_launcher_directory(
-  x: gt.LauncherListDirectoryRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherListDirectoryResponse>> {
-  return await post("/listLauncherDirectory", x);
-}
-
-export async function route_open_launcher_workspace(
-  x: gt.LauncherOpenWorkspaceRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherOpenWorkspaceResponse>> {
-  return await post("/openLauncherWorkspace", x);
-}
-
 export async function route_restart_language_server(): Promise<
   ResponseDataAndStatus<null>
 > {
@@ -473,28 +419,10 @@ export async function route_get_llm_response(
   return await post("/getLLMResponse", x);
 }
 
-export async function route_start_transcription_session(
-  x: gt.StartTranscriptionSessionRequestInput,
-): Promise<ResponseDataAndStatus<gt.StartTranscriptionSessionResponse>> {
-  return await post("/startTranscriptionSession", x);
-}
-
-export async function route_append_transcription_audio(
-  x: gt.AppendTranscriptionAudioRequestInput,
-): Promise<ResponseDataAndStatus<gt.TranscriptionSessionDeltaResponse>> {
-  return await post("/appendTranscriptionAudio", x);
-}
-
-export async function route_stop_transcription_session(
-  x: gt.StopTranscriptionSessionRequestInput,
-): Promise<ResponseDataAndStatus<gt.TranscriptionSessionDeltaResponse>> {
-  return await post("/stopTranscriptionSession", x);
-}
-
-export async function route_cancel_transcription_session(
-  x: gt.CancelTranscriptionSessionRequestInput,
-): Promise<ResponseDataAndStatus<gt.CancelTranscriptionSessionResponse>> {
-  return await post("/cancelTranscriptionSession", x);
+export async function route_transcribe_chat_audio(
+  form: FormData,
+): Promise<ResponseDataAndStatus<gt.TranscribeChatAudioResponse>> {
+  return await post("/transcribeChatAudio", form);
 }
 
 export async function route_stop_llm_chat(
@@ -719,30 +647,6 @@ export async function route_delete_engine_config(
   x: gt.DeleteEngineConfigRequestInput,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post("/deleteEngineConfig", x);
-}
-
-export async function route_get_transcription_profiles(): Promise<
-  ResponseDataAndStatus<Array<gt.TranscriptionProfile>>
-> {
-  return await get("/getTranscriptionProfiles");
-}
-
-export async function route_create_transcription_profile(
-  x: gt.CreateTranscriptionProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
-  return await post("/createTranscriptionProfile", x);
-}
-
-export async function route_update_transcription_profile(
-  x: gt.UpdateTranscriptionProfileRequestInput,
-): Promise<ResponseDataAndStatus<gt.TranscriptionProfile>> {
-  return await post("/updateTranscriptionProfile", x);
-}
-
-export async function route_delete_transcription_profile(
-  x: gt.DeleteTranscriptionProfileRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
-  return await post("/deleteTranscriptionProfile", x);
 }
 
 export async function route_stream_app_spec(
@@ -1659,42 +1563,6 @@ export async function route_get_setta_home_info(): Promise<
   ResponseDataAndStatus<gt.SettaHomeInfoResponse>
 > {
   return await get("/settaHomeInfo");
-}
-
-export async function route_get_launcher_status(): Promise<
-  ResponseDataAndStatus<gt.LauncherStatusResponse>
-> {
-  return await get("/launcherStatus");
-}
-
-export async function route_setup_launcher(
-  x: gt.SetupLauncherRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
-  return await post("/setupLauncher", x);
-}
-
-export async function route_repair_launcher(
-  x: gt.LauncherRequestBaseInput,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
-  return await post("/repairLauncher", x);
-}
-
-export async function route_remove_launcher(
-  x: gt.LauncherRequestBaseInput,
-): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
-  return await post("/removeLauncher", x);
-}
-
-export async function route_update_launcher(
-  x: gt.UpdateLauncherRequestInput,
-): Promise<ResponseDataAndStatus<gt.LauncherUpdateResponse>> {
-  return await post("/updateLauncher", x);
-}
-
-export async function route_get_mcp_server_runtime_status(
-  x: gt.GetMCPServerRuntimeStatusRequestInput,
-): Promise<ResponseDataAndStatus<gt.MCPServerRuntimeStatusResponse>> {
-  return await post("/mcpServerRuntimeStatus", x);
 }
 
 export async function route_reveal_path_in_os_file_explorer(

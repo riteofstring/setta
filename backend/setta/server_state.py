@@ -14,7 +14,6 @@ from setta.agentic.external_agent_watcher import ExternalAgentConfigWatcher
 from setta.agentic.profile_watcher import AgentProfileWatcher
 from setta.agentic.prompt_watcher import PromptTemplateWatcher
 from setta.agentic.run_chain import RunChainRunner
-from setta.agentic.transcription_profile_watcher import TranscriptionProfileWatcher
 from setta.database.db_objs import DBE
 from setta.database.settings_file import SettingsFile
 from setta.file_watchers.specific_file_watcher import (
@@ -25,7 +24,6 @@ from setta.llm.config import load_llm_config
 from setta.llm.config_watcher import LLMConfigWatcher
 from setta.llm.dotenv_watcher import DotEnvWatcher
 from setta.llm.example_config import seed_llm_config_example_file
-from setta.llm.transcription_sessions import TranscriptionSessionManager
 from setta.logging.tasks import spawn_background_task
 from setta.lsp.managers import (
     LSPReaders,
@@ -51,7 +49,7 @@ from setta.share.listener_runtime import ShareListenerRuntime
 from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
 from setta.types.settings_state import RunSnapshotMode
-from setta.utils.constants import C
+from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.env_vars import RUNTIME_ROOT_ENV
 from setta.utils.init_status import BackendInitializationStatus
 from setta.utils.paths import (
@@ -81,7 +79,6 @@ DEFAULT_SHARE_RUN_TTL_SECONDS = 60 * 30
 DEFAULT_SHARE_RUN_CLEANUP_INTERVAL_SECONDS = 60 * 5
 DEFAULT_SHARE_SESSION_TTL_SECONDS = 60 * 30
 DEFAULT_SHARE_SESSION_CLEANUP_INTERVAL_SECONDS = 60 * 5
-DEFAULT_TRANSCRIPTION_SESSION_CLEANUP_INTERVAL_SECONDS = 60
 
 
 def cleanup_share_run_output(
@@ -166,16 +163,6 @@ async def run_share_session_cleanup_loop(
         await asyncio.sleep(interval_seconds)
 
 
-async def run_transcription_session_cleanup_loop(
-    transcription_session_manager: TranscriptionSessionManager,
-    *,
-    interval_seconds: int = DEFAULT_TRANSCRIPTION_SESSION_CLEANUP_INTERVAL_SECONDS,
-) -> None:
-    while True:
-        await transcription_session_manager.prune_expired_sessions()
-        await asyncio.sleep(interval_seconds)
-
-
 class _UninitializedAttribute:
     __slots__ = ("name",)
 
@@ -202,18 +189,14 @@ class SettaFastAPIState:
         *,
         share_mode: bool = False,
         app_mode: bool = False,
-        launcher_mode: bool = False,
         share_deployment_root: Path | None = None,
         enable_mcp_connections: bool = True,
         enable_language_server: bool = True,
     ):
         if share_mode and app_mode:
             raise ValueError("Server cannot enable both share_mode and app_mode.")
-        if launcher_mode and (share_mode or app_mode):
-            raise ValueError("Launcher mode cannot be combined with deployment modes.")
         self.app_mode = app_mode
         self.share_mode = share_mode
-        self.launcher_mode = launcher_mode
         self.deployment_mode = share_mode or app_mode
         # Register runtime state on the app before startup work begins so backend
         # plugin register-time host calls can resolve app.state.setta.
@@ -274,7 +257,8 @@ class SettaFastAPIState:
         )
         if not self.deployment_mode:
             seed_llm_config_example_file(self.dbe)
-            seed_agentic_config_files(self.dbe)
+            if IS_DEV_MODE:
+                seed_agentic_config_files(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(
             self.websocket_manager,
             # share_mode enables per-viewer session scoping in deployment mode (share or app).
@@ -294,8 +278,6 @@ class SettaFastAPIState:
             self.settings_file = SettingsFile(self.dbe, self.wmh_frontend_sender)
             self.terminals = Terminals(self.wmh_frontend_sender, self.settings_file)
         self.wmh_cli_sender = WMHCLISender(self.websocket_manager)
-        self.transcription_session_manager = TranscriptionSessionManager()
-        self.transcription_session_cleanup_task: asyncio.Task[None] | None = None
 
         self.lsps: LSPServers | None = self._defer_attr("lsps")
         self.lsp_writers: LSPWriters | None = self._defer_attr("lsp_writers")
@@ -345,9 +327,6 @@ class SettaFastAPIState:
         self.engine_config_watcher: EngineConfigWatcher = self._defer_attr(
             "engine_config_watcher"
         )
-        self.transcription_profile_watcher: TranscriptionProfileWatcher = (
-            self._defer_attr("transcription_profile_watcher")
-        )
         self.external_agent_runner: ExternalAgentRunner = self._defer_attr(
             "external_agent_runner"
         )
@@ -357,12 +336,7 @@ class SettaFastAPIState:
         if self.app_mode:
             mode_label = "app"
         else:
-            if self.share_mode:
-                mode_label = "share"
-            elif self.launcher_mode:
-                mode_label = "launcher"
-            else:
-                mode_label = "backend"
+            mode_label = "share" if self.share_mode else "backend"
         self.init_status.record(f"Booting {mode_label} services")
         if C.BACKEND_INIT_DELAY_SECONDS > 0:
             self.init_status.record(
@@ -549,12 +523,6 @@ class SettaFastAPIState:
                 self.dbe,
             )
             self.engine_config_watcher.start()
-            self.transcription_profile_watcher = TranscriptionProfileWatcher(
-                self.specific_file_watcher,
-                self.wmh_frontend_sender,
-                self.dbe,
-            )
-            self.transcription_profile_watcher.start()
             self.external_agent_runner = ExternalAgentRunner(
                 self.dbe,
                 self.wmh_frontend_sender,
@@ -586,13 +554,11 @@ class SettaFastAPIState:
                 await start_lsps(self.lsps, self.lsp_readers, self.lsp_writers)
             if self.specific_file_watcher:
                 self.specific_file_watcher.start()
-            self._start_transcription_session_cleanup_loop()
 
             self._ready_event.set()
             self.init_status.record("Backend ready")
             self.init_status.mark_ready()
         except Exception as exc:
-            await self.stop_transcription_session_cleanup_loop()
             try:
                 self.plugin_manager.shutdown_backend_plugins()
             except Exception:
@@ -721,7 +687,6 @@ class SettaFastAPIState:
         self.plugin_manager.load_backend_plugins(app=app)
         if self.specific_file_watcher:
             self.specific_file_watcher.start()
-        self._start_transcription_session_cleanup_loop()
         self._ready_event.set()
         self.init_status.record(
             "App backend ready" if self.app_mode else "Share backend ready"
@@ -731,29 +696,6 @@ class SettaFastAPIState:
     async def wait_until_ready(self) -> None:
         await self._initialization_task
         await self._ready_event.wait()
-
-    def _start_transcription_session_cleanup_loop(self) -> None:
-        if self.transcription_session_cleanup_task is not None:
-            return
-        self.transcription_session_cleanup_task = spawn_background_task(
-            run_transcription_session_cleanup_loop(
-                self.transcription_session_manager,
-                interval_seconds=DEFAULT_TRANSCRIPTION_SESSION_CLEANUP_INTERVAL_SECONDS,
-            ),
-            label="transcription-session-cleanup",
-            extra_values={"mode": self._resolve_server_mode()},
-        )
-
-    async def stop_transcription_session_cleanup_loop(self) -> None:
-        task = self.transcription_session_cleanup_task
-        if task is None:
-            return
-        self.transcription_session_cleanup_task = None
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            return
 
     def _resolve_deployment_root(
         self, deployment_mode: bool, deployment_root: Path | None
@@ -804,8 +746,6 @@ class SettaFastAPIState:
             return "app"
         if self.share_mode:
             return "share"
-        if self.launcher_mode:
-            return "launcher"
         return "ide"
 
     def _defer_attr(self, name: str) -> _T:
