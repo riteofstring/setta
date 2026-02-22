@@ -54,19 +54,17 @@ function ProjectNameOnly() {
 
   return (
     <>
-      <div data-setting-anchor="core.project.name">
-        <Editable
-          titleProps={{
-            editing: `${editing} text-xl text-setta-900 dark:text-setta-50 font-bold ${errorClassName}`,
-            notEditing: `${notEditing} text-xl text-setta-900 dark:text-setta-50 font-bold ${errorClassName}`,
-          }}
-          value={localName}
-          onChange={onChange}
-          onBlur={onBlur}
-          onKeyDown={onKeyDown}
-          blurTriggeredByEscapeKey={blurTriggeredByEscapeKey}
-        />
-      </div>
+      <Editable
+        titleProps={{
+          editing: `${editing} text-xl text-setta-900 dark:text-setta-50 font-bold ${errorClassName}`,
+          notEditing: `${notEditing} text-xl text-setta-900 dark:text-setta-50 font-bold ${errorClassName}`,
+        }}
+        value={localName}
+        onChange={onChange}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        blurTriggeredByEscapeKey={blurTriggeredByEscapeKey}
+      />
       {errorMessage && (
         <p className="mt-1 text-xs text-red-500">{errorMessage}</p>
       )}

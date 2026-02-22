@@ -63,7 +63,6 @@ from setta.plugins.models import (
     PluginRegisteredCodegenTarget,
     PluginRegisteredExternalAgentAdapter,
     PluginRegisteredLanguageServer,
-    PluginRegisteredUISetting,
     PluginRestartCapability,
     PluginRollbackResponse,
     PluginRuntimeResponse,
@@ -97,7 +96,6 @@ from setta.types.section_impls import (
     code_language_to_string,
     normalize_code_language,
 )
-from setta.ui_settings.models import UISettingValueSchema
 from setta.utils.command_paths import is_path_like_command
 
 if TYPE_CHECKING:
@@ -118,6 +116,7 @@ _PLUGIN_MOUNT_SEGMENT_PATTERN = re.compile(r"^[A-Za-z0-9._~-]+$")
 
 _MODE_ALLOWED_CAPABILITIES = {
     "ide": PLUGIN_CAPABILITIES_SET,
+    "launcher": PLUGIN_CAPABILITIES_SET,
     "share": frozenset(
         {
             "registerSectionKinds",
@@ -296,8 +295,6 @@ class _BackendRegistrationSnapshot:
     backend_language_server_by_language: dict[CodeLanguageKey, RegisteredLanguageServer]
     backend_codegen_targets: dict[str, list[PluginRegisteredCodegenTarget]]
     backend_codegen_target_by_id: dict[str, RegisteredBackendCodegenTarget]
-    backend_ui_settings: dict[str, list[PluginRegisteredUISetting]]
-    backend_ui_setting_by_id: dict[str, PluginRegisteredUISetting]
     setta_mcp_tools: list[Callable[..., Any]]
 
 
@@ -392,7 +389,7 @@ class PluginManager:
         workspace_root: Path,
         setta_files_root: Path,
         setta_home: Path,
-        server_mode: Literal["ide", "share", "app"],
+        server_mode: Literal["ide", "share", "app", "launcher"],
         setta_version: str,
         github_base_url: str | None = None,
         restart_command: str | None = None,
@@ -491,8 +488,6 @@ class PluginManager:
         self._backend_codegen_target_by_id: dict[
             str, RegisteredBackendCodegenTarget
         ] = {}
-        self._backend_ui_settings: dict[str, list[PluginRegisteredUISetting]] = {}
-        self._backend_ui_setting_by_id: dict[str, PluginRegisteredUISetting] = {}
         self._install_target_reservations: set[Path] = set()
         self._discovered_plugins: list[DiscoveredPlugin] = []
         self._active_plugin_by_id: dict[str, DiscoveredPlugin] = {}
@@ -634,8 +629,6 @@ class PluginManager:
         self._backend_language_server_by_language = {}
         self._backend_codegen_targets = {}
         self._backend_codegen_target_by_id = {}
-        self._backend_ui_settings = {}
-        self._backend_ui_setting_by_id = {}
         self._mark_backend_registration_state_changed()
 
     def _mark_backend_registration_state_changed(self) -> None:
@@ -960,10 +953,10 @@ class PluginManager:
         return entry.plugin_id in self._backend_loaded_plugin_ids
 
     def _should_redact_source_details(self) -> bool:
-        return self.server_mode != "ide"
+        return self.server_mode in {"share", "app"}
 
     def _should_redact_config_details(self) -> bool:
-        return self.server_mode != "ide"
+        return self.server_mode in {"share", "app"}
 
     def _build_redacted_config_descriptor(
         self, entry: DiscoveredPlugin
@@ -1115,123 +1108,6 @@ class PluginManager:
                 )
             )
         return sorted(registrations, key=lambda registration: registration.targetId)
-
-    def get_backend_ui_settings(
-        self,
-        *,
-        plugin_id: str | None = None,
-    ) -> list[PluginRegisteredUISetting]:
-        if plugin_id is not None:
-            registrations = self._backend_ui_settings.get(plugin_id, [])
-            return [
-                registration.model_copy(deep=True) for registration in registrations
-            ]
-        output: list[PluginRegisteredUISetting] = []
-        for registrations in self._backend_ui_settings.values():
-            output.extend(
-                registration.model_copy(deep=True) for registration in registrations
-            )
-        output.sort(
-            key=lambda registration: (
-                registration.pluginId,
-                registration.localSettingId,
-            )
-        )
-        return output
-
-    @_mutation_locked
-    def read_backend_ui_setting_value(
-        self,
-        *,
-        plugin_id: str,
-        read_handler_id: str,
-        project_config_id: str,
-    ) -> Any:
-        response_payload = self._invoke_backend_ui_setting_handler(
-            plugin_id=plugin_id,
-            handler_id=read_handler_id,
-            operation="read",
-            project_config_id=project_config_id,
-            value=None,
-        )
-        if not isinstance(response_payload, dict) or "value" not in response_payload:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                (
-                    "Plugin backend ui setting read returned an invalid payload for "
-                    f"{plugin_id}:{read_handler_id}."
-                ),
-            )
-        return response_payload["value"]
-
-    @_mutation_locked
-    def write_backend_ui_setting_value(
-        self,
-        *,
-        plugin_id: str,
-        write_handler_id: str,
-        project_config_id: str,
-        value: Any,
-    ) -> None:
-        self._invoke_backend_ui_setting_handler(
-            plugin_id=plugin_id,
-            handler_id=write_handler_id,
-            operation="write",
-            project_config_id=project_config_id,
-            value=value,
-        )
-
-    def _invoke_backend_ui_setting_handler(
-        self,
-        *,
-        plugin_id: str,
-        handler_id: str,
-        operation: Literal["read", "write"],
-        project_config_id: str,
-        value: Any,
-    ) -> Any:
-        normalized_handler_id = handler_id.strip()
-        if normalized_handler_id == "":
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                f"Plugin UI setting handler id is required for {plugin_id}.",
-            )
-        process = self._backend_worker_processes.get(plugin_id)
-        if process is None or process.poll() is not None:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                (
-                    "Backend worker unavailable for plugin "
-                    f"{plugin_id} while running ui setting {operation}."
-                ),
-            )
-        entry = self._active_plugin_by_id.get(plugin_id)
-        if entry is None:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-                (
-                    "Backend worker context missing plugin entry for "
-                    f"{plugin_id} while running ui setting {operation}."
-                ),
-            )
-        params: dict[str, Any] = {
-            "handlerId": normalized_handler_id,
-            "operation": operation,
-            "projectConfigId": project_config_id,
-        }
-        if operation == "write":
-            params["value"] = value
-        return self._call_backend_worker_method(
-            process=process,
-            plugin_id=plugin_id,
-            request_id=self._next_backend_worker_request_id(plugin_id),
-            method="plugin.invoke_ui_setting_handler",
-            timeout_seconds=self._backend_operation_timeout_seconds,
-            timeout_code="PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR",
-            entry=entry,
-            app=self._backend_app,
-            params=params,
-        )
 
     def has_backend_codegen_target(self, target_id: str) -> bool:
         normalized_target_id = target_id.strip()
@@ -1397,7 +1273,7 @@ class PluginManager:
         return route_response.get("body")
 
     def get_restart_capability(self) -> PluginRestartCapability:
-        if self.server_mode != "ide":
+        if self.server_mode in {"share", "app"}:
             return PluginRestartCapability(
                 mode="manual",
                 command=self._restart_command,
@@ -1864,11 +1740,6 @@ class PluginManager:
                 entry=entry,
                 params=params_payload,
             )
-        if method == "host.register_ui_setting":
-            return self._register_backend_ui_setting_from_worker_request(
-                entry=entry,
-                params=params_payload,
-            )
         if method == "host.read_project_state":
             if app is None:
                 raise PluginManagerError(
@@ -2149,11 +2020,6 @@ class PluginManager:
                 for plugin_id, registrations in self._backend_codegen_targets.items()
             },
             backend_codegen_target_by_id=dict(self._backend_codegen_target_by_id),
-            backend_ui_settings={
-                plugin_id: list(registrations)
-                for plugin_id, registrations in self._backend_ui_settings.items()
-            },
-            backend_ui_setting_by_id=dict(self._backend_ui_setting_by_id),
             setta_mcp_tools=list(SETTA_MCP_TOOLS),
         )
 
@@ -2196,11 +2062,6 @@ class PluginManager:
             for plugin_id, registrations in snapshot.backend_codegen_targets.items()
         }
         self._backend_codegen_target_by_id = dict(snapshot.backend_codegen_target_by_id)
-        self._backend_ui_settings = {
-            plugin_id: list(registrations)
-            for plugin_id, registrations in snapshot.backend_ui_settings.items()
-        }
-        self._backend_ui_setting_by_id = dict(snapshot.backend_ui_setting_by_id)
         SETTA_MCP_TOOLS[:] = list(snapshot.setta_mcp_tools)
         self._mark_backend_registration_state_changed()
 
@@ -3429,18 +3290,6 @@ class PluginManager:
         )
         return {"ok": True}
 
-    def _register_backend_ui_setting_from_worker_request(
-        self,
-        *,
-        entry: DiscoveredPlugin,
-        params: dict[str, Any],
-    ) -> dict[str, Any]:
-        self._register_backend_ui_setting(
-            entry=entry,
-            setting=params.get("setting"),
-        )
-        return {"ok": True}
-
     def _require_effective_capability(
         self,
         entry: DiscoveredPlugin,
@@ -4078,274 +3927,6 @@ class PluginManager:
         )
         self._backend_codegen_target_by_id[registration.target_id] = registration
         self._mark_backend_registration_state_changed()
-
-    def _register_backend_ui_setting(
-        self,
-        *,
-        entry: DiscoveredPlugin,
-        setting: Any,
-    ) -> None:
-        self._require_effective_capability(
-            entry,
-            "registerPane",
-            api_name="register_ui_setting",
-        )
-        registration = self._build_backend_ui_setting_registration(
-            entry=entry,
-            setting=setting,
-        )
-        registration_key = self._build_backend_ui_setting_registry_key(
-            plugin_id=registration.pluginId,
-            local_setting_id=registration.localSettingId,
-        )
-        existing = self._backend_ui_setting_by_id.get(registration_key)
-        if existing is not None:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    "Duplicate backend ui setting registration for "
-                    f"{registration_key}. Existing plugin: {existing.pluginId}."
-                ),
-            )
-        if entry.plugin_id not in self._backend_ui_settings:
-            self._backend_ui_settings[entry.plugin_id] = []
-        self._backend_ui_settings[entry.plugin_id].append(registration)
-        self._backend_ui_setting_by_id[registration_key] = registration
-        self._mark_backend_registration_state_changed()
-
-    def _build_backend_ui_setting_registration(
-        self,
-        *,
-        entry: DiscoveredPlugin,
-        setting: Any,
-    ) -> PluginRegisteredUISetting:
-        if not isinstance(setting, dict):
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    "Plugin ui setting registration must be an object with "
-                    "id/title/description/paneId/revealKey/valueSchema/readHandlerId fields."
-                ),
-            )
-        allowed_keys = {
-            "id",
-            "title",
-            "description",
-            "paneId",
-            "revealKey",
-            "synonyms",
-            "mutability",
-            "valueSchema",
-            "readHandlerId",
-            "writeHandlerId",
-        }
-        unknown_keys = sorted(set(setting.keys()) - allowed_keys)
-        if unknown_keys:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    "Plugin ui setting registration has unsupported keys: "
-                    f"{', '.join(unknown_keys)}"
-                ),
-            )
-        raw_local_setting_id = setting.get("id")
-        if not isinstance(raw_local_setting_id, str):
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration missing string id.",
-            )
-        local_setting_id = raw_local_setting_id.strip()
-        if local_setting_id == "":
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration id cannot be empty.",
-            )
-        if "::" in local_setting_id:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration id cannot contain '::'.",
-            )
-        raw_title = setting.get("title")
-        if not isinstance(raw_title, str):
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration missing string title.",
-            )
-        title = raw_title.strip()
-        if title == "":
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration title cannot be empty.",
-            )
-        raw_description = setting.get("description")
-        if not isinstance(raw_description, str):
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration missing string description.",
-            )
-        description = raw_description.strip()
-        if description == "":
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration description cannot be empty.",
-            )
-        raw_pane_id = setting.get("paneId")
-        if not isinstance(raw_pane_id, str):
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration missing string paneId.",
-            )
-        pane_id = raw_pane_id.strip()
-        if pane_id == "":
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration paneId cannot be empty.",
-            )
-        raw_reveal_key = setting.get("revealKey")
-        if not isinstance(raw_reveal_key, str):
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration missing string revealKey.",
-            )
-        reveal_key = raw_reveal_key.strip()
-        if reveal_key == "":
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration revealKey cannot be empty.",
-            )
-        raw_synonyms = setting.get("synonyms")
-        synonyms: list[str] = []
-        if raw_synonyms is not None:
-            if not isinstance(raw_synonyms, list):
-                raise PluginManagerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    "Plugin ui setting registration synonyms must be a string array.",
-                )
-            for index, raw_synonym in enumerate(raw_synonyms):
-                if not isinstance(raw_synonym, str):
-                    raise PluginManagerError(
-                        "PLUGIN_BACKEND_REGISTER_FAILED",
-                        (
-                            "Plugin ui setting registration synonyms must be strings. "
-                            f"Invalid entry index={index}."
-                        ),
-                    )
-                synonym = raw_synonym.strip()
-                if synonym == "":
-                    raise PluginManagerError(
-                        "PLUGIN_BACKEND_REGISTER_FAILED",
-                        (
-                            "Plugin ui setting registration synonyms cannot contain "
-                            "empty strings."
-                        ),
-                    )
-                synonyms.append(synonym)
-
-        mutability = setting.get("mutability")
-        if mutability is None:
-            normalized_mutability: Literal["readOnly", "writable"] = "writable"
-        elif mutability in {"readOnly", "writable"}:
-            normalized_mutability = mutability
-        else:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    "Plugin ui setting registration mutability must be "
-                    "readOnly or writable."
-                ),
-            )
-
-        raw_value_schema = setting.get("valueSchema")
-        if not isinstance(raw_value_schema, dict):
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration missing object valueSchema.",
-            )
-        try:
-            value_schema_payload = json.loads(json.dumps(raw_value_schema))
-        except TypeError as exc:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration valueSchema must be JSON serializable.",
-            ) from exc
-        if not isinstance(value_schema_payload, dict):
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration valueSchema must be an object.",
-            )
-        try:
-            UISettingValueSchema.model_validate(value_schema_payload)
-        except ValidationError as exc:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (f"Plugin ui setting registration valueSchema is invalid: {exc}"),
-            ) from exc
-
-        raw_read_handler_id = setting.get("readHandlerId")
-        if not isinstance(raw_read_handler_id, str):
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration missing string readHandlerId.",
-            )
-        read_handler_id = raw_read_handler_id.strip()
-        if read_handler_id == "":
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                "Plugin ui setting registration readHandlerId cannot be empty.",
-            )
-        raw_write_handler_id = setting.get("writeHandlerId")
-        write_handler_id: str | None = None
-        if raw_write_handler_id is not None:
-            if not isinstance(raw_write_handler_id, str):
-                raise PluginManagerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    "Plugin ui setting registration writeHandlerId must be a string.",
-                )
-            normalized_write_handler_id = raw_write_handler_id.strip()
-            if normalized_write_handler_id == "":
-                raise PluginManagerError(
-                    "PLUGIN_BACKEND_REGISTER_FAILED",
-                    "Plugin ui setting registration writeHandlerId cannot be empty.",
-                )
-            write_handler_id = normalized_write_handler_id
-        if normalized_mutability == "readOnly" and write_handler_id is not None:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    "Plugin ui setting registration cannot set writeHandlerId "
-                    "when mutability=readOnly."
-                ),
-            )
-        if normalized_mutability == "writable" and write_handler_id is None:
-            raise PluginManagerError(
-                "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    "Plugin ui setting registration requires writeHandlerId "
-                    "when mutability=writable."
-                ),
-            )
-
-        return PluginRegisteredUISetting(
-            localSettingId=local_setting_id,
-            pluginId=entry.plugin_id,
-            title=title,
-            description=description,
-            synonyms=synonyms,
-            paneId=pane_id,
-            revealKey=reveal_key,
-            mutability=normalized_mutability,
-            valueSchema=value_schema_payload,
-            readHandlerId=read_handler_id,
-            writeHandlerId=write_handler_id,
-        )
-
-    def _build_backend_ui_setting_registry_key(
-        self,
-        *,
-        plugin_id: str,
-        local_setting_id: str,
-    ) -> str:
-        return f"{plugin_id}::{local_setting_id}"
 
     def _build_backend_codegen_target_registration(
         self,

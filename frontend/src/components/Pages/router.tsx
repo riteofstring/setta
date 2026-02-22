@@ -2,6 +2,7 @@ import { HeaderContainer } from "components/AppHeader/Header";
 import { ModalContainer } from "components/Modals/ModalContainer";
 import { AppShell } from "components/Pages/AppShell";
 import { HomePage } from "components/Pages/Home/HomePage";
+import { LauncherHomePage } from "components/Pages/Launcher/LauncherHomePage";
 import { WorkspaceLaunchPage } from "components/Pages/Launch/WorkspaceLaunchPage";
 import { LoadingSpinner } from "components/Pages/LoadingSpinner";
 import { NotFound } from "components/Pages/NotFound/NotFound";
@@ -95,11 +96,12 @@ function ShareIndexRedirect() {
 
 type ModeWrapperProps = {
   ide: ReactNode;
-  share: ReactNode;
-  app: ReactNode;
+  share?: ReactNode;
+  app?: ReactNode;
+  launcher?: ReactNode;
 };
 
-function ModeWrapper({ ide, share, app }: ModeWrapperProps) {
+function ModeWrapper({ ide, share, app, launcher }: ModeWrapperProps) {
   const { mode, modeResolved, modeError } = useServerMode((x) => x);
 
   useEffect(() => {
@@ -158,10 +160,13 @@ function ModeWrapper({ ide, share, app }: ModeWrapperProps) {
   }
 
   if (mode === "share") {
-    return share;
+    return share ?? ide;
   }
   if (mode === "app") {
-    return app;
+    return app ?? ide;
+  }
+  if (mode === "launcher") {
+    return launcher ?? ide;
   }
   return ide;
 }
@@ -198,6 +203,17 @@ const ideWorkspaceLaunchRouteElement = (
   <GlobalWrapper>
     <WorkspaceLaunchPage />
   </GlobalWrapper>
+);
+
+const launcherHomeRouteElement = (
+  <AppShell isLoading={false} loadingContent={null}>
+    <ModalContainer>
+      <HeaderContainer path={HOME_ROUTER_PATH} />
+      <GridContainer>
+        <LauncherHomePage />
+      </GridContainer>
+    </ModalContainer>
+  </AppShell>
 );
 
 const shareProjectRouteElement = (
@@ -281,6 +297,7 @@ const indexRoute = {
       ide={ideIndexRouteElement}
       share={shareIndexRouteElement}
       app={appRouteElement}
+      launcher={launcherHomeRouteElement}
     />
   ),
 };
@@ -292,6 +309,7 @@ const homeRoute = {
       ide={ideHomeRouteElement}
       share={shareHomeRouteElement}
       app={appRouteElement}
+      launcher={launcherHomeRouteElement}
     />
   ),
 };
@@ -303,6 +321,7 @@ const projectRoute = {
       ide={ideProjectRouteElement}
       share={shareProjectRouteElement}
       app={appRouteElement}
+      launcher={<Navigate to={HOME_ROUTER_PATH} replace />}
     />
   ),
 };
@@ -314,6 +333,7 @@ const viewModeRoute = {
       ide={ideProjectRouteElement}
       share={shareProjectRouteElement}
       app={appRouteElement}
+      launcher={<Navigate to={HOME_ROUTER_PATH} replace />}
     />
   ),
 };
@@ -325,6 +345,7 @@ const catchAllRoute = {
       ide={ideNotFoundRouteElement}
       share={shareNotFoundRouteElement}
       app={appRouteElement}
+      launcher={launcherHomeRouteElement}
     />
   ),
 };
@@ -335,6 +356,7 @@ const workspaceLaunchRoute = {
     <ModeWrapper
       ide={ideWorkspaceLaunchRouteElement}
       share={<Navigate to={HOME_ROUTER_PATH} replace />}
+      launcher={<Navigate to={HOME_ROUTER_PATH} replace />}
     />
   ),
 };
