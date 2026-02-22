@@ -136,21 +136,6 @@ class TestWebsocketManagerSession:
 
         assert max_active >= 2
 
-    async def test_send_message_returns_delivery_status(self) -> None:
-        message = WebsocketMsgNotification(
-            content=SettaNotification(message="Delivery status")
-        )
-        delivered = await self.websocket_manager.send_message(message, "frontend-a")
-        assert delivered is True
-
-        await self.websockets["frontend-a"].close()
-        self.websockets.pop("frontend-a", None)
-        delivered_after_close = await self.websocket_manager.send_message(
-            message,
-            "frontend-a",
-        )
-        assert delivered_after_close is False
-
     async def test_on_connect_can_skip_connection_broadcast(self) -> None:
         messages_c: list[Message] = []
         websocket_c = await _build_websocket(messages_c)

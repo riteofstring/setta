@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { C_ADDRESSES } from "./c_addresses";
-import { get, getBinary, getErrorDetail, post } from "./endpointUtils";
+import {
+  get,
+  getBinary,
+  getErrorCode,
+  getErrorDetail,
+  post,
+} from "./endpointUtils";
 import { RouteEnum } from "./generatedTypes";
 
 describe("endpointUtils URL routing", () => {
@@ -37,6 +43,17 @@ describe("endpointUtils URL routing", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.LAUNCHER}${RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER}`,
+    );
+  });
+
+  it("routes tools call via backend origin without /api prefix", async () => {
+    await post(RouteEnum.TOOLS_CALL, {
+      tool: "list_mcp_tools",
+      arguments: {},
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.BACKEND_ORIGIN}${RouteEnum.TOOLS_CALL}`,
     );
   });
 
@@ -87,5 +104,32 @@ describe("endpointUtils URL routing", () => {
     );
 
     expect(getErrorDetail(binaryJson)).toBe("Permission denied.");
+  });
+
+  it("extracts nested detail and error code payloads", () => {
+    const payload = {
+      detail: {
+        message: "Realtime transcription is unavailable for this provider/model.",
+        errorCode: "unsupported_model",
+      },
+    };
+
+    expect(getErrorDetail(payload)).toBe(
+      "Realtime transcription is unavailable for this provider/model.",
+    );
+    expect(getErrorCode(payload)).toBe("unsupported_model");
+  });
+
+  it("extracts error codes from binary JSON payloads", () => {
+    const binaryJson = new TextEncoder().encode(
+      JSON.stringify({
+        detail: {
+          message: "Missing API key.",
+          errorCode: "missing_api_key",
+        },
+      }),
+    );
+
+    expect(getErrorCode(binaryJson)).toBe("missing_api_key");
   });
 });

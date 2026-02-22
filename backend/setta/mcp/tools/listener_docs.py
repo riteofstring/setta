@@ -3,7 +3,6 @@ from pathlib import Path
 from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
-from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.tool_setup import setta_init_tool
 
 _DOC_SOURCES = {
@@ -93,8 +92,8 @@ def _resolve_doc_relative_path(doc_id: str, docs_root: Path) -> Path:
     if candidate.suffix == "":
         candidate = candidate.with_suffix(".md")
     if candidate.is_absolute():
-        raise InvalidToolArgumentsError(f"Doc id must be a relative path: {doc_id}")
+        raise ValueError(f"Doc id must be a relative path: {doc_id}")
     resolved = (docs_root / candidate).resolve()
     if docs_root not in resolved.parents:
-        raise InvalidToolArgumentsError(f"Doc id must resolve under docs/: {doc_id}")
+        raise ValueError(f"Doc id must resolve under docs/: {doc_id}")
     return resolved.relative_to(docs_root)
