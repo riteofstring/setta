@@ -43,7 +43,6 @@ import {
   buildSharePath,
   CLOSED_PANE_WIDTH,
   CODEMIRROR_TOOLTIP_PARENT_ID,
-  PaneNameEnum,
   PAGE_LOAD_TYPES,
   pathRelativeToProject,
   SETTA_POPOVER_PORTAL_PARENT_ID,
@@ -53,8 +52,8 @@ import { router_set_as_default_project } from "utils/generatedEndpoints";
 import { ProjectConfig } from "utils/generatedTypes";
 import { LoadingSpinner } from "../LoadingSpinner";
 
-const HOME_WORKSPACE_PANE_NAME = PaneNameEnum.homeWorkspace;
-const HOME_SELECTED_PROJECT_PANE_NAME = PaneNameEnum.homeSelectedProject;
+const HOME_WORKSPACE_PANE_NAME = "homeWorkspacePane";
+const HOME_SELECTED_PROJECT_PANE_NAME = "homeSelectedProjectPane";
 const HOME_MIN_PANE_WIDTH = 260;
 const HOME_PROJECT_CARD_GRID_TEMPLATE_COLUMNS =
   "repeat(auto-fill, minmax(10.5rem, 14rem))";

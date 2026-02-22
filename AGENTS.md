@@ -35,7 +35,6 @@
 - In typescript, avoid nested ternary statements. Annotate function arguments with expected types so that types and truthiness of argument attributes can be inferred.
 - Avoid "any" types, unless absolutely necessary.
 - Do not use no-op assignments like `_ = var` to silence unused parameters; remove unused args.
-- Default all dropdown/selection UIs to the shared combobox system (`IdNameCombobox`/Combobox). Use non-combobox selectors only with a clear documented reason.
 
 ## UI Style Consistency
 
@@ -140,13 +139,6 @@ Never import annotations from **future**.
 
 Do not add try/except and try/catch blocks unless absolutely necessary.
 Avoid being overly cautious about everything. I don't want endless safety checks everywhere.
-
-## Robustness requirements
-
-Solutions must not rely on fake estimates or brittle keyword matching when a standardized, source-of-truth pathway exists.
-Prefer robust pathways (provider/runtime metadata, typed APIs, deterministic parsing, or explicit protocol fields) over heuristics.
-If a robust solution is not currently possible, do not silently implement a heuristic fallback. Explicitly state that a robust solution is unavailable, explain why, and provide clear implementation options with tradeoffs.
-Heuristic fallbacks (including keyword matching or estimates) may be suggested as options, but must not be implemented without explicit user approval.
 
 ## Python type annotations
 
