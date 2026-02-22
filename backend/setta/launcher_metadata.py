@@ -187,12 +187,36 @@ def launcher_target_validation_error(
             f"Configured launcher target is missing: {executable_path}. "
             "Re-run `setta launcher setup`."
         )
-    if executable_path.is_dir():
+    if not executable_path.is_file():
         return (
             f"Configured launcher target is not an executable file: {executable_path}. "
             "Re-run `setta launcher setup`."
         )
+    if not _is_launcher_target_invokable(executable_path):
+        return (
+            f"Configured launcher target is not executable: {executable_path}. "
+            "Re-run `setta launcher setup`."
+        )
     return None
+
+
+def _is_launcher_target_invokable(executable_path: Path) -> bool:
+    if os.name == "nt":
+        return _has_windows_executable_extension(executable_path)
+    return os.access(executable_path, os.X_OK)
+
+
+def _has_windows_executable_extension(executable_path: Path) -> bool:
+    raw_extensions = os.environ.get("PATHEXT")
+    if raw_extensions:
+        executable_extensions = {
+            extension.lower()
+            for extension in raw_extensions.split(";")
+            if extension.strip()
+        }
+    else:
+        executable_extensions = {".exe", ".bat", ".cmd", ".com", ".ps1"}
+    return executable_path.suffix.lower() in executable_extensions
 
 
 def _parse_launcher_metadata(

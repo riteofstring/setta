@@ -321,6 +321,8 @@ def _fetch_remote_sessions(
     workspace: str,
     setta_command: str,
     setta_files_args: str,
+    *,
+    server_mode: str | None = None,
 ) -> list[RemoteSessionSummary]:
     try:
         return ssh_common.fetch_remote_sessions(
@@ -331,6 +333,7 @@ def _fetch_remote_sessions(
             setta_command,
             setta_files_args,
             ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
+            server_mode=server_mode,
         )
     except LaunchError as exc:
         raise click.ClickException(str(exc)) from exc
@@ -356,6 +359,7 @@ def _fetch_remote_connect_info(
             workspace,
             setta_command,
             setta_files_args,
+            server_mode="ide",
         )
         if not sessions:
             raise click.ClickException("No matching Setta sessions found.")
@@ -444,6 +448,7 @@ def _wait_for_remote_session(
     runtime_root: str | None = None,
     timeout_seconds: float = 30.0,
     verbose: bool = False,
+    server_mode: str | None = None,
 ) -> RemoteSessionSummary:
     try:
         sessions = ssh_common.wait_for_remote_sessions(
@@ -458,6 +463,7 @@ def _wait_for_remote_session(
             setta_files_location=setta_files_location,
             setta_files_root=setta_files_root,
             runtime_root=runtime_root,
+            server_mode=server_mode,
         )
     except LaunchError as exc:
         if exc.code == "RemoteLaunchTimeout":
@@ -1044,6 +1050,7 @@ def _format_session_payload(session: SessionMetadata) -> dict[str, Any]:
         "port": session.port,
         "pid": session.pid,
         "startedAt": session.startedAt.isoformat(),
+        "serverMode": session.serverMode,
     }
 
 
@@ -2423,6 +2430,12 @@ def app(
 @click.option("--session", "session_id", default=None)
 @click.option("--latest", is_flag=True)
 @click.option(
+    "--server-mode",
+    type=click.Choice(["ide", "launcher"], case_sensitive=False),
+    default=None,
+    help="Filter sessions by server mode for --list-sessions/--connect-info.",
+)
+@click.option(
     "--launcher-origin",
     default=None,
     help="Optional launcher origin to bind and sign in connect-info JSON output.",
@@ -2437,6 +2450,7 @@ def status(
     workspace: Path | None,
     session_id: str | None,
     latest: bool,
+    server_mode: str | None,
     launcher_origin: str | None,
 ) -> None:
     if session_id and latest:
@@ -2475,6 +2489,10 @@ def status(
             sessions = registry.load_sessions()
         else:
             sessions = registry.find_sessions_by_workspace(resolved_workspace)
+        if server_mode is not None:
+            sessions = [
+                session for session in sessions if session.serverMode == server_mode
+            ]
         payload = {
             "sessions": [
                 {
@@ -2485,6 +2503,7 @@ def status(
                     "port": session.port,
                     "pid": session.pid,
                     "startedAt": session.startedAt.isoformat(),
+                    "serverMode": session.serverMode,
                 }
                 for session in sessions
             ]
@@ -2503,6 +2522,8 @@ def status(
             sessions = registry.find_sessions_by_workspace(
                 resolved_workspace, prune_stale=False
             )
+    if server_mode is not None:
+        sessions = [session for session in sessions if session.serverMode == server_mode]
 
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
@@ -3029,6 +3050,7 @@ def connect(
         remote_workspace,
         setta_command,
         setta_path_args,
+        server_mode="ide",
     )
     if verbose:
         click.echo(f"Remote sessions found: {len(sessions)}")
@@ -3071,6 +3093,7 @@ def connect(
                         remote_workspace,
                         setta_command,
                         setta_path_args,
+                        server_mode="ide",
                     )
                     if not sessions:
                         break
@@ -3118,6 +3141,7 @@ def connect(
                 setta_files_root=setta_files_root,
                 runtime_root=runtime_root,
                 verbose=verbose,
+                server_mode="ide",
             )
         except click.ClickException as exc:
             if start_timed_out and str(exc).strip() == (

@@ -148,6 +148,7 @@ def connect_remote_workspace_session(
         setta_command,
         setta_files_args,
         ssh_prefix=ssh_prefix,
+        server_mode="ide",
     )
     started_new = False
     start_timed_out = False
@@ -184,6 +185,7 @@ def connect_remote_workspace_session(
                 setta_files_location=trimmed_location,
                 setta_files_root=trimmed_setta_files_root,
                 runtime_root=runtime_root,
+                server_mode="ide",
             )
         except LaunchError as exc:
             if start_timed_out and exc.code == "RemoteLaunchTimeout":

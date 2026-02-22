@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import setta.launcher_metadata as launcher_metadata
 from setta.launcher_metadata import (
     LAUNCHER_METADATA_SCHEMA_VERSION,
     LauncherMetadataError,
@@ -66,6 +67,38 @@ def test_launcher_target_validation_reports_missing_executable(
     error_message = launcher_target_validation_error(metadata)
     assert error_message is not None
     assert "missing" in error_message
+
+
+def test_launcher_target_validation_reports_non_executable_file(
+    tmp_path: Path,
+) -> None:
+    target_executable = tmp_path / "python"
+    target_executable.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    target_executable.chmod(0o644)
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target_executable), "-m", "setta"],
+        channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="validation-token-no-exec",
+        setta_version="1.2.3",
+        open_mode="browser",
+    )
+
+    error_message = launcher_target_validation_error(metadata)
+    assert error_message is not None
+    assert "not executable" in error_message
+
+
+def test_windows_executable_extension_check_uses_pathext(monkeypatch) -> None:
+    monkeypatch.setenv("PATHEXT", ".EXE;.CMD")
+    assert (
+        launcher_metadata._has_windows_executable_extension(Path("/tmp/setta-tool.EXE"))
+        is True
+    )
+    assert (
+        launcher_metadata._has_windows_executable_extension(Path("/tmp/setta-tool.py"))
+        is False
+    )
 
 
 def test_update_launcher_last_used_workspace_if_installed(tmp_path: Path) -> None:

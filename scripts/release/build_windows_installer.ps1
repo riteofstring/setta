@@ -12,6 +12,18 @@ function Fail([string]$Message) {
   exit 1
 }
 
+function Invoke-NativeOrFail(
+  [string]$ToolName,
+  [string]$CommandPath,
+  [string[]]$Arguments
+) {
+  & $CommandPath @Arguments
+  if ($LASTEXITCODE -ne 0) {
+    $argString = ($Arguments | ForEach-Object { "`"$_`"" }) -join " "
+    Fail "$ToolName failed with exit code $LASTEXITCODE. Command: `"$CommandPath`" $argString"
+  }
+}
+
 if ($env:SETTA_DESKTOP_INSTALLER_VERSION) {
   $Version = $env:SETTA_DESKTOP_INSTALLER_VERSION
 }
@@ -118,7 +130,10 @@ setta launcher remove --json @Args
     "$wixobjPath"
     "$wxsPath"
   )
-  & $candle.Source @candleArgs
+  Invoke-NativeOrFail `
+    -ToolName "candle" `
+    -CommandPath $candle.Source `
+    -Arguments $candleArgs
 
   $msiPath = Join-Path $outputPath ("SettaDesktop-$Version.msi")
   $lightArgs = @(
@@ -127,7 +142,10 @@ setta launcher remove --json @Args
     "$msiPath"
     "$wixobjPath"
   )
-  & $light.Source @lightArgs
+  Invoke-NativeOrFail `
+    -ToolName "light" `
+    -CommandPath $light.Source `
+    -Arguments $lightArgs
 
   if (
     $env:SETTA_WINDOWS_SIGNTOOL_PATH -and
@@ -147,7 +165,10 @@ setta launcher remove --json @Args
       "sha256"
       "$msiPath"
     )
-    & $env:SETTA_WINDOWS_SIGNTOOL_PATH sign @signArgs
+    Invoke-NativeOrFail `
+      -ToolName "signtool" `
+      -CommandPath $env:SETTA_WINDOWS_SIGNTOOL_PATH `
+      -Arguments (@("sign") + $signArgs)
   }
 
   $hashPath = "$msiPath.sha256"

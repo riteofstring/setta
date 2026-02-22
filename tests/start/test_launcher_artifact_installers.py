@@ -179,6 +179,45 @@ def test_install_linux_artifacts_escapes_exec_argument_for_spaced_wrapper_path(
     assert f'Exec="{escaped_wrapper}" %F' in desktop_entry
 
 
+@pytest.mark.parametrize(
+    "app_name",
+    [
+        "Setta\nInjected",
+        "Setta\rInjected",
+        "Setta\x1fInjected",
+    ],
+)
+def test_install_linux_artifacts_rejects_control_characters_in_app_name(
+    tmp_path: Path,
+    monkeypatch,
+    app_name: str,
+) -> None:
+    monkeypatch.setattr(
+        "setta.launcher_artifacts.linux._refresh_desktop_database",
+        lambda _applications_dir: None,
+    )
+    applications_dir = tmp_path / "applications"
+    wrapper_path = tmp_path / "launcher" / "setta-launcher"
+
+    context = LauncherArtifactContext(
+        target_command=["/tmp/python", "-m", "setta"],
+        channel="linux-script",
+        existing_managed_artifacts={},
+        options={
+            "applications_dir": str(applications_dir),
+            "desktop_entry_name": "setta.desktop",
+            "wrapper_path": str(wrapper_path),
+            "app_name": app_name,
+        },
+    )
+
+    with pytest.raises(LauncherArtifactError) as excinfo:
+        install_linux_artifacts(context=context)
+
+    assert "app_name" in str(excinfo.value)
+    assert not wrapper_path.exists()
+
+
 def test_install_linux_artifacts_rejects_path_like_desktop_entry_name(
     tmp_path: Path,
     monkeypatch,

@@ -49,3 +49,13 @@
 - Eliminated release installer version drift by deriving installer version once in CI from tag/input and propagating it to macOS/Windows jobs, plus adding release-mode script guards that fail when installer version is missing/invalid.
 - Removed launch-test contract fragility by updating `_wait_for_session` tests to the keyword-only invocation contract, introducing a shared localhost-bind capability gate helper, and adding behavior-level timeout/termination coverage through `launch_workspace_session`.
 - Added/updated backend pytest, frontend Vitest, and Playwright coverage for setup intent, recents pruning, launcher-mode init boundaries, release workflow/script contracts, and launcher rerun payload semantics; targeted suites passed.
+
+## 2026-02-25 18:22:01 PST
+
+- Enforced fail-fast native command execution for Windows installer build steps by introducing a shared PowerShell native-invocation wrapper that hard-fails on non-zero exit for WiX compile/link and optional signing.
+- Removed macOS launcher wrapper dependency on local Python interpreters for path/JSON handling by replacing inline Python parsing with shell-native path canonicalization and explicit JSON success-contract checks.
+- Tightened launcher target validation to require true invokability (existing regular file plus platform-specific executable checks: POSIX execute bit and Windows executable extension policy).
+- Hardened Linux desktop artifact generation against field injection by centralizing desktop-entry text sanitization and rejecting control-character payloads for `app_name`.
+- Split IDE route-mode guarantees with an explicit full-IDE-runtime guard and applied it to IDE-runtime endpoints that can dereference uninitialized launcher-mode subsystems (`/loadAllProjectMetadata`, `/mcpServerRuntimeStatus`).
+- Made session mode a first-class connect contract by emitting `serverMode` in status/list/connect payloads, validating it in remote parsers, and enforcing IDE-only session selection in local/SSH connect/stop workflows.
+- Added/updated backend pytest coverage for all above invariants (scripts, metadata/artifacts, mode guards, session contracts) and validated with targeted backend suite runs plus Ruff checks; all targeted tests passed.

@@ -19,7 +19,11 @@ from setta.launcher_setup import (
     setup_launcher_installation,
     update_launcher_installation,
 )
-from setta.routers.dependencies import AppStateFromRequest, require_ide_mode
+from setta.routers.dependencies import (
+    AppStateFromRequest,
+    require_full_ide_runtime,
+    require_ide_mode,
+)
 from setta.routers.launcher_scope import resolve_launcher_setta_home
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.mcp_runtime_status import (
@@ -303,7 +307,7 @@ def route_update_launcher(
 
 @router.post(
     Route.GET_MCP_SERVER_RUNTIME_STATUS,
-    dependencies=[Depends(require_ide_mode)],
+    dependencies=[Depends(require_full_ide_runtime)],
 )
 def route_get_mcp_server_runtime_status(
     x: GetMCPServerRuntimeStatusRequest,

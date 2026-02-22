@@ -25,17 +25,70 @@ resolve_abs_path() {
     echo "Missing path value." >&2
     return 1
   fi
-  python3 - "${raw_path}" <<'PY'
-import os
-import sys
-from pathlib import Path
 
-raw = sys.argv[1].strip()
-if not raw:
-    print("Missing path value.", file=sys.stderr)
-    raise SystemExit(1)
-print(str(Path(os.path.expandvars(os.path.expanduser(raw))).resolve(strict=False)))
-PY
+  local expanded_path="${raw_path}"
+  if [[ "${expanded_path}" == "~" ]]; then
+    expanded_path="${HOME}"
+  elif [[ "${expanded_path}" == "~/"* ]]; then
+    expanded_path="${HOME}/${expanded_path#~/}"
+  fi
+
+  local absolute_path="${expanded_path}"
+  if [[ "${absolute_path}" != /* ]]; then
+    absolute_path="$(pwd)/${absolute_path}"
+  fi
+
+  if [[ -e "${absolute_path}" ]]; then
+    if [[ -d "${absolute_path}" ]]; then
+      (
+        cd "${absolute_path}"
+        pwd -P
+      )
+      return
+    fi
+    local existing_parent
+    existing_parent="$(dirname "${absolute_path}")"
+    local existing_leaf
+    existing_leaf="$(basename "${absolute_path}")"
+    (
+      cd "${existing_parent}"
+      printf '%s/%s\n' "$(pwd -P)" "${existing_leaf}"
+    )
+    return
+  fi
+
+  local probe="${absolute_path}"
+  local suffix=""
+  while [[ ! -e "${probe}" ]]; do
+    local parent
+    parent="$(dirname "${probe}")"
+    local leaf
+    leaf="$(basename "${probe}")"
+    suffix="/${leaf}${suffix}"
+    if [[ "${parent}" == "${probe}" ]]; then
+      break
+    fi
+    probe="${parent}"
+  done
+  if [[ ! -e "${probe}" ]]; then
+    echo "Could not resolve path: ${raw_path}" >&2
+    return 1
+  fi
+  if [[ -d "${probe}" ]]; then
+    (
+      cd "${probe}"
+      printf '%s%s\n' "$(pwd -P)" "${suffix}"
+    )
+    return
+  fi
+  local probe_parent
+  probe_parent="$(dirname "${probe}")"
+  local probe_leaf
+  probe_leaf="$(basename "${probe}")"
+  (
+    cd "${probe_parent}"
+    printf '%s/%s%s\n' "$(pwd -P)" "${probe_leaf}" "${suffix}"
+  )
 }
 
 setta_bin=""
@@ -194,25 +247,9 @@ fi
 
 install_json="$("${launcher_setup_cmd[@]}")"
 
-python3 - "${install_json}" <<'PY'
-import json
-import shlex
-import sys
+if ! grep -Eq '"ok"[[:space:]]*:[[:space:]]*true' <<<"${install_json}"; then
+  echo "setta launcher setup did not return a successful JSON payload." >&2
+  exit 1
+fi
 
-payload = json.loads(sys.argv[1])
-if not isinstance(payload, dict) or payload.get("ok") is not True:
-    raise SystemExit("setta launcher setup did not return a successful JSON payload.")
-metadata_path = payload.get("metadataPath")
-target_command = payload.get("targetCommand")
-managed_artifacts = payload.get("managedArtifacts")
-if not isinstance(metadata_path, str) or not metadata_path.strip():
-    raise SystemExit("launcher setup payload is missing metadataPath.")
-if not isinstance(target_command, list) or not target_command:
-    raise SystemExit("launcher setup payload is missing targetCommand.")
-print(f"Launcher metadata written: {metadata_path}")
-print(f"Bound launcher target: {shlex.join(target_command)}")
-if isinstance(managed_artifacts, dict):
-    app_path = managed_artifacts.get("macosApp")
-    if isinstance(app_path, str) and app_path.strip():
-        print(f"Managed macOS app: {app_path}")
-PY
+echo "${install_json}"

@@ -99,9 +99,10 @@ def install_linux_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
     wrapper_path = planned_artifacts["linuxWrapper"]
     applications_dir = desktop_entry_path.parent
 
-    app_name = context.options.get("app_name", "Setta").strip()
-    if not app_name:
-        raise LauncherArtifactError("Artifact option `app_name` must be non-empty.")
+    app_name = _sanitize_desktop_entry_text_value(
+        raw_value=context.options.get("app_name", "Setta"),
+        option_key="app_name",
+    )
 
     icon_path_raw = context.options.get("icon_path")
     icon_path: Path | None = None
@@ -253,6 +254,21 @@ def _escape_desktop_exec_argument(raw_value: str) -> str:
     escaped = escaped.replace("`", "\\`")
     escaped = escaped.replace("%", "%%")
     return f'"{escaped}"'
+
+
+def _sanitize_desktop_entry_text_value(*, raw_value: object, option_key: str) -> str:
+    if not isinstance(raw_value, str):
+        raise LauncherArtifactError(f"Artifact option `{option_key}` must be a string.")
+    normalized = raw_value.strip()
+    if not normalized:
+        raise LauncherArtifactError(
+            f"Artifact option `{option_key}` must be non-empty."
+        )
+    if any(ord(char) < 0x20 or ord(char) == 0x7F for char in normalized):
+        raise LauncherArtifactError(
+            f"Artifact option `{option_key}` must not contain control characters."
+        )
+    return normalized
 
 
 def _refresh_desktop_database(applications_dir: Path) -> None:

@@ -135,15 +135,18 @@ def test_install_desktop_launcher_powershell_script_contains_phase2_contract() -
     assert "--json" in script_content
 
 
-def test_build_windows_installer_script_uses_powershell_splatting() -> None:
+def test_build_windows_installer_script_uses_fail_fast_native_wrapper() -> None:
     script_path = _repo_root() / "scripts" / "release" / "build_windows_installer.ps1"
     script_content = script_path.read_text(encoding="utf-8")
 
-    assert "& $candle.Source @candleArgs" in script_content
-    assert "& $light.Source @lightArgs" in script_content
-    assert "& $env:SETTA_WINDOWS_SIGNTOOL_PATH sign @signArgs" in script_content
-    assert "& $candle.Source \\" not in script_content
-    assert "& $light.Source \\" not in script_content
+    assert "function Invoke-NativeOrFail" in script_content
+    assert "& $CommandPath @Arguments" in script_content
+    assert "if ($LASTEXITCODE -ne 0)" in script_content
+    assert '-ToolName "candle"' in script_content
+    assert '-ToolName "light"' in script_content
+    assert '-ToolName "signtool"' in script_content
+    assert "& $candle.Source @candleArgs" not in script_content
+    assert "& $light.Source @lightArgs" not in script_content
 
 
 def test_release_workflow_uses_single_installer_version_source() -> None:
