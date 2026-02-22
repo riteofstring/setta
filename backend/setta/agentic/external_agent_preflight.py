@@ -10,7 +10,6 @@ from pathlib import Path
 
 from setta.agentic.node_runtime import resolve_node_command
 from setta.database.db_objs import DBE
-from setta.llm.api_keys import read_managed_api_keys
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.types.external_agents import (
     ExternalAgentConfig,
@@ -276,18 +275,11 @@ def _build_env_status(dbe: DBE, whitelist: list[str]) -> ExternalAgentEnvVarStat
     if not normalized:
         return ExternalAgentEnvVarStatus()
     dot_env = dbe.read_dot_env()
-    managed_api_keys = read_managed_api_keys(dbe)
     present = sorted(
-        name
-        for name in normalized
-        if name in os.environ or name in dot_env or name in managed_api_keys
+        name for name in normalized if name in os.environ or name in dot_env
     )
     missing = sorted(
-        name
-        for name in normalized
-        if name not in os.environ
-        and name not in dot_env
-        and name not in managed_api_keys
+        name for name in normalized if name not in os.environ and name not in dot_env
     )
     return ExternalAgentEnvVarStatus(present=present, missing=missing)
 

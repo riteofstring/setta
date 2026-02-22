@@ -3,6 +3,7 @@ import {
   SCOPE_VIOLATION_TIMEOUT_MS,
 } from "state/actions/aiFollow";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { getFrontendWebsocketAffinityId } from "state/actions/frontendWebsocketAffinity";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -35,7 +36,7 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
-import { getErrorCode, getErrorDetail, res200 } from "utils/endpointUtils";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_append_transcription_audio,
   route_cancel_transcription_session,
@@ -63,7 +64,6 @@ import {
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
-  route_set_llm_config,
   route_start_transcription_session,
   route_stop_external_agent_run,
   route_stop_llm_chat,
@@ -128,7 +128,6 @@ import {
   UpdateTranscriptionProfileRequestInput,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
-import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { buildEditedMessageHistory } from "./chatBranches";
@@ -141,7 +140,6 @@ const scopeViolationToastTimeouts = new Map<
 let llmConfigLoadPromise: Promise<void> | null = null;
 let llmApiKeysLoadPromise: Promise<void> | null = null;
 let agentRunsLoadPromise: Promise<void> | null = null;
-const stopEligibleAssistantMessageIdByChatId = new Map<string, string>();
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
@@ -176,7 +174,7 @@ function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
 export async function startTranscriptionSession(
   transcriptionProfileId: string,
   language: string | null = null,
-  options: TranscriptionRequestOptions = {},
+  options: { suppressNotification?: boolean } = {},
 ): Promise<StartTranscriptionSessionResponse | null> {
   if (!transcriptionProfileId) {
     return null;
@@ -186,7 +184,11 @@ export async function startTranscriptionSession(
     language,
   });
   if (!res200(res)) {
-    return handleTranscriptionEndpointError(res.data, res.status, options);
+    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
+    if (!options.suppressNotification) {
+      addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    }
+    return null;
   }
   return res.data;
 }
@@ -196,7 +198,6 @@ export async function appendTranscriptionAudio(
   audioPcm16: ArrayBuffer,
   sampleRateHz: number,
   channels: number,
-  options: TranscriptionRequestOptions = {},
 ): Promise<TranscriptionSessionDeltaResponse | null> {
   if (!sessionId || audioPcm16.byteLength === 0) {
     return null;
@@ -208,21 +209,24 @@ export async function appendTranscriptionAudio(
     channels,
   });
   if (!res200(res)) {
-    return handleTranscriptionEndpointError(res.data, res.status, options);
+    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
+    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    return null;
   }
   return res.data;
 }
 
 export async function stopTranscriptionSession(
   sessionId: string,
-  options: TranscriptionRequestOptions = {},
 ): Promise<TranscriptionSessionDeltaResponse | null> {
   if (!sessionId) {
     return null;
   }
   const res = await route_stop_transcription_session({ sessionId });
   if (!res200(res)) {
-    return handleTranscriptionEndpointError(res.data, res.status, options);
+    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
+    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    return null;
   }
   return res.data;
 }
@@ -235,159 +239,6 @@ export async function cancelTranscriptionSession(
   }
   const res = await route_cancel_transcription_session({ sessionId });
   return res200(res);
-}
-
-type DictationPcmPayload = {
-  audioPcm16: ArrayBuffer;
-  sampleRateHz: number;
-  channels: number;
-};
-
-type TranscriptionRequestOptions = {
-  suppressNotification?: boolean;
-  throwOnError?: boolean;
-};
-
-function handleTranscriptionEndpointError(
-  responseData: unknown,
-  responseStatus: number | undefined,
-  options: TranscriptionRequestOptions,
-): null {
-  const detail =
-    getErrorDetail(responseData) ?? "Provider transcription failed.";
-  const errorCode = getErrorCode(responseData);
-  const error = new ProviderTranscriptionError({
-    message: detail,
-    code: errorCode,
-    status: responseStatus,
-  });
-  if (!options.suppressNotification) {
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-  }
-  if (options.throwOnError) {
-    throw error;
-  }
-  return null;
-}
-
-function float32ToInt16(input: Float32Array): Int16Array {
-  const output = new Int16Array(input.length);
-  for (let index = 0; index < input.length; index += 1) {
-    const sample = Math.max(-1, Math.min(1, input[index] ?? 0));
-    output[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-  }
-  return output;
-}
-
-async function decodeDictationBlobToPcm16(
-  audioBlob: Blob,
-): Promise<DictationPcmPayload | null> {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  const withWebkitAudioContext = window as typeof window & {
-    webkitAudioContext?: typeof AudioContext;
-  };
-  const AudioContextCtor =
-    window.AudioContext ?? withWebkitAudioContext.webkitAudioContext;
-  if (!AudioContextCtor) {
-    return null;
-  }
-  const audioContext = new AudioContextCtor();
-  try {
-    const audioBuffer = await audioBlob.arrayBuffer();
-    const decodedBuffer = await audioContext.decodeAudioData(
-      audioBuffer.slice(0),
-    );
-    const channelCount = Math.max(decodedBuffer.numberOfChannels, 1);
-    const sampleCount = decodedBuffer.length;
-    const mono = new Float32Array(sampleCount);
-    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
-      const channelData = decodedBuffer.getChannelData(channelIndex);
-      for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
-        mono[sampleIndex] += (channelData[sampleIndex] ?? 0) / channelCount;
-      }
-    }
-    const pcm16 = float32ToInt16(mono);
-    return {
-      audioPcm16: pcm16.buffer,
-      sampleRateHz: decodedBuffer.sampleRate,
-      channels: 1,
-    };
-  } catch {
-    return null;
-  } finally {
-    void audioContext.close();
-  }
-}
-
-export async function transcribeChatAudioWithProfile(
-  transcriptionProfileId: string,
-  audioBlob: Blob,
-): Promise<string | null> {
-  if (!transcriptionProfileId || audioBlob.size === 0) {
-    return null;
-  }
-  const pcmPayload = await decodeDictationBlobToPcm16(audioBlob);
-  if (!pcmPayload) {
-    addTemporaryNotification(
-      "Provider dictation is not available in this browser.",
-      SettaNotificationTypeEnum.warning,
-    );
-    return null;
-  }
-  const session = await startTranscriptionSession(
-    transcriptionProfileId,
-    null,
-    {
-      suppressNotification: true,
-      throwOnError: true,
-    },
-  );
-  if (!session) {
-    return null;
-  }
-  const sessionId = session.sessionId;
-  let appendDelta: TranscriptionSessionDeltaResponse | null = null;
-  try {
-    appendDelta = await appendTranscriptionAudio(
-      sessionId,
-      pcmPayload.audioPcm16,
-      pcmPayload.sampleRateHz,
-      pcmPayload.channels,
-      {
-        suppressNotification: true,
-        throwOnError: true,
-      },
-    );
-  } catch (error) {
-    await cancelTranscriptionSession(sessionId);
-    throw error;
-  }
-  if (!appendDelta) {
-    await cancelTranscriptionSession(sessionId);
-    return null;
-  }
-  let stopDelta: TranscriptionSessionDeltaResponse | null = null;
-  try {
-    stopDelta = await stopTranscriptionSession(sessionId, {
-      suppressNotification: true,
-      throwOnError: true,
-    });
-  } catch (error) {
-    await cancelTranscriptionSession(sessionId);
-    throw error;
-  }
-  if (!stopDelta) {
-    await cancelTranscriptionSession(sessionId);
-    return null;
-  }
-  const fullText = stopDelta.fullText.trim();
-  if (fullText) {
-    return fullText;
-  }
-  const appendText = `${appendDelta.appendText}${stopDelta.appendText}`.trim();
-  return appendText || null;
 }
 
 export async function loadLLMConfig() {
@@ -411,21 +262,6 @@ export async function loadLLMConfig() {
   } finally {
     llmConfigLoadPromise = null;
   }
-}
-
-export async function saveLLMConfig(
-  config: AllLLMConfigs,
-): Promise<AllLLMConfigs | null> {
-  const res = await route_set_llm_config(config);
-  if (!res200(res)) {
-    useAIStore.setState({
-      allLLMConfigsInitialLoadComplete: true,
-      allLLMConfigsLoadError: "Failed to save LLM config",
-    });
-    return null;
-  }
-  receiveLLMConfigUpdate(res.data);
-  return res.data;
 }
 
 export async function loadLLMApiKeys() {
@@ -960,142 +796,13 @@ export function getDefaultChatDetails(): ChatDetails {
     toolCallArguments: {},
     waitingForResponse: false,
     llmConfig: null,
-    contextUsage: null,
   };
 }
 
 type StopChatResponseSnapshot = {
   waitingForResponse: boolean;
   toolCallArguments: Record<string, string>;
-  interruptedAssistantMessageIdsByChat: Record<string, true>;
-  stopEligibleAssistantMessageId: string | null;
 };
-
-function setStopEligibleAssistantMessageId(chatId: string, messageId: string) {
-  const normalizedChatId = chatId.trim();
-  const normalizedMessageId = messageId.trim();
-  if (!normalizedChatId || !normalizedMessageId) {
-    return;
-  }
-  stopEligibleAssistantMessageIdByChatId.set(
-    normalizedChatId,
-    normalizedMessageId,
-  );
-}
-
-function clearStopEligibleAssistantMessageId(chatId: string) {
-  const normalizedChatId = chatId.trim();
-  if (!normalizedChatId) {
-    return;
-  }
-  stopEligibleAssistantMessageIdByChatId.delete(normalizedChatId);
-}
-
-function markInterruptedAssistantMessage(chatId: string, messageId: string) {
-  useAIStore.setState((state) => {
-    const existingByChat =
-      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
-    if (existingByChat[messageId]) {
-      return state;
-    }
-    return {
-      interruptedAssistantMessageIdsByChatId: {
-        ...state.interruptedAssistantMessageIdsByChatId,
-        [chatId]: {
-          ...existingByChat,
-          [messageId]: true,
-        },
-      },
-    };
-  });
-}
-
-function clearInterruptedAssistantMessages(
-  chatId: string,
-  messageIds: Array<string | null | undefined>,
-) {
-  const normalizedIds = messageIds.filter(
-    (messageId): messageId is string => typeof messageId === "string",
-  );
-  if (normalizedIds.length === 0) {
-    return;
-  }
-  useAIStore.setState((state) => {
-    const existingByChat =
-      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
-    let changed = false;
-    const nextByChat = { ...existingByChat };
-    for (const messageId of normalizedIds) {
-      if (nextByChat[messageId]) {
-        changed = true;
-        delete nextByChat[messageId];
-      }
-    }
-    if (!changed) {
-      return state;
-    }
-    if (Object.keys(nextByChat).length === 0) {
-      const nextByChatId = {
-        ...state.interruptedAssistantMessageIdsByChatId,
-      };
-      delete nextByChatId[chatId];
-      return {
-        interruptedAssistantMessageIdsByChatId: nextByChatId,
-      };
-    }
-    return {
-      interruptedAssistantMessageIdsByChatId: {
-        ...state.interruptedAssistantMessageIdsByChatId,
-        [chatId]: nextByChat,
-      },
-    };
-  });
-}
-
-function interruptedMessageMapEquals(
-  left: Record<string, true>,
-  right: Record<string, true>,
-): boolean {
-  const leftKeys = Object.keys(left);
-  const rightKeys = Object.keys(right);
-  if (leftKeys.length !== rightKeys.length) {
-    return false;
-  }
-  for (const key of leftKeys) {
-    if (!right[key]) {
-      return false;
-    }
-  }
-  return true;
-}
-
-function restoreInterruptedAssistantMessageSnapshot(
-  chatId: string | null | undefined,
-  snapshot: StopChatResponseSnapshot,
-) {
-  if (typeof chatId !== "string") {
-    return;
-  }
-  useAIStore.setState((state) => {
-    const currentByChat =
-      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
-    const snapshotByChat = snapshot.interruptedAssistantMessageIdsByChat;
-    if (interruptedMessageMapEquals(currentByChat, snapshotByChat)) {
-      return state;
-    }
-    const nextByChatId = {
-      ...state.interruptedAssistantMessageIdsByChatId,
-    };
-    if (Object.keys(snapshotByChat).length === 0) {
-      delete nextByChatId[chatId];
-    } else {
-      nextByChatId[chatId] = { ...snapshotByChat };
-    }
-    return {
-      interruptedAssistantMessageIdsByChatId: nextByChatId,
-    };
-  });
-}
 
 function getStopChatResponseSnapshot(
   chatId: string | null | undefined,
@@ -1105,20 +812,9 @@ function getStopChatResponseSnapshot(
     typeof chatId === "string"
       ? state.chatDetails[chatId] ?? getDefaultChatDetails()
       : state.pendingChatDetails ?? getDefaultChatDetails();
-  const interruptedAssistantMessageIdsByChat =
-    typeof chatId === "string"
-      ? {
-          ...(state.interruptedAssistantMessageIdsByChatId[chatId] ?? {}),
-        }
-      : {};
   return {
     waitingForResponse: currentDetails.waitingForResponse,
     toolCallArguments: { ...currentDetails.toolCallArguments },
-    interruptedAssistantMessageIdsByChat,
-    stopEligibleAssistantMessageId:
-      typeof chatId === "string"
-        ? stopEligibleAssistantMessageIdByChatId.get(chatId) ?? null
-        : null,
   };
 }
 
@@ -1148,15 +844,6 @@ function stopChatResponseLocally(
   });
   if (typeof chatId === "string") {
     updateChatDetails(chatId, stopDetails);
-    if (
-      snapshot.waitingForResponse &&
-      snapshot.stopEligibleAssistantMessageId
-    ) {
-      markInterruptedAssistantMessage(
-        chatId,
-        snapshot.stopEligibleAssistantMessageId,
-      );
-    }
   } else {
     updatePendingChatDetails(stopDetails);
   }
@@ -1212,10 +899,8 @@ async function stopExternalChatResponse({
   if (!runId) {
     const refreshState = await refreshChatAndResolveWaiting();
     if (refreshState.hydrated && !refreshState.waitingForResponse) {
-      restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
       return true;
     }
-    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
     if (!refreshState.hydrated) {
       restoreStoppedChatResponseLocally(chatId, localSnapshot);
     }
@@ -1229,10 +914,8 @@ async function stopExternalChatResponse({
   }
   const refreshState = await refreshChatAndResolveWaiting();
   if (refreshState.hydrated && !refreshState.waitingForResponse) {
-    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
     return true;
   }
-  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
   if (!refreshState.hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot);
   }
@@ -1263,7 +946,6 @@ export async function stopProjectChatResponse(
     return true;
   }
   const hydrated = await getLLMChat(chatId);
-  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
   if (!hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot);
   }
@@ -1298,7 +980,6 @@ export async function stopManagedSectionChatResponse(
     return true;
   }
   const hydrated = await getLLMChat(chatId, sectionId);
-  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
   if (!hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot);
   }
@@ -1410,7 +1091,7 @@ export async function getLLMChat(
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res200(res)) {
-    const { messages, waitingForResponse, llmConfig, contextUsage } = res.data;
+    const { messages, waitingForResponse, llmConfig } = res.data;
     useAIStore.setState((state) => {
       const existingDetails = state.chatDetails[chatId];
       const preserveWaitingForResponse = isChatStreamActive(chatId);
@@ -1431,7 +1112,6 @@ export async function getLLMChat(
             messages: nextMessages,
             waitingForResponse: nextWaitingForResponse,
             llmConfig: llmConfig,
-            contextUsage: contextUsage ?? null,
           },
         },
       };
@@ -1450,9 +1130,6 @@ export async function getLLMChat(
         reason: "hydrate-llm-chat",
       });
     }
-    if (!waitingForResponse) {
-      clearStopEligibleAssistantMessageId(chatId);
-    }
     return true;
   }
   return false;
@@ -1468,8 +1145,7 @@ export async function getExternalAgentChat(
     projectConfigId,
   });
   if (res200(res)) {
-    const { messages, waitingForResponse, toolCallArguments, contextUsage } =
-      res.data;
+    const { messages, waitingForResponse, toolCallArguments } = res.data;
     useAIStore.setState((state) => {
       const existingDetails = state.chatDetails[chatId];
       const preserveWaitingForResponse = isChatStreamActive(chatId);
@@ -1491,7 +1167,6 @@ export async function getExternalAgentChat(
             waitingForResponse: nextWaitingForResponse,
             toolCallArguments,
             llmConfig: null,
-            contextUsage: contextUsage ?? null,
           },
         },
       };
@@ -1511,9 +1186,6 @@ export async function getExternalAgentChat(
         nextState,
         reason: "hydrate-external-chat",
       });
-    }
-    if (!waitingForResponse) {
-      clearStopEligibleAssistantMessageId(chatId);
     }
     return true;
   }
@@ -1560,6 +1232,7 @@ export async function submitMessage(
 
   try {
     const projectConfigId = getCurrProjectConfigId();
+    const frontendWebsocketId = getFrontendWebsocketAffinityId();
     const appGenerationMode = appGeneration?.mode ?? null;
     const appSpecStreamingEnabledForSubmit =
       appGenerationMode === null
@@ -1578,6 +1251,7 @@ export async function submitMessage(
         appGeneration?.referenceImageNotes ?? null,
       projectConfigId,
       sectionId: options.sectionId ?? null,
+      frontendWebsocketId,
       allowUnscoped: options.sectionId == null,
       permissionMode: resolvedExecutionSettings.permissionMode,
       searchEnabled: resolvedExecutionSettings.searchEnabled,
@@ -1696,6 +1370,7 @@ export async function submitEditedMessage({
   }
 
   try {
+    const frontendWebsocketId = getFrontendWebsocketAffinityId();
     const res = await route_get_llm_response({
       message: editedMessage,
       thinking,
@@ -1704,6 +1379,7 @@ export async function submitEditedMessage({
       agentProfileId: agentProfileId ?? null,
       projectConfigId,
       sectionId: sectionId ?? null,
+      frontendWebsocketId,
       allowUnscoped: sectionId == null,
       branchParentChatId: parentChatId,
       branchFromMessageId: messageId,
@@ -1980,6 +1656,12 @@ function shouldIgnoreResponsePlaceholderChunk(
   if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
     return isResponsePlaceholderId(chunk.message.id);
   }
+  if (
+    chunk.type === StreamingEventTypeEnum.DELTA ||
+    chunk.type === StreamingEventTypeEnum.MESSAGE_STOP
+  ) {
+    return isResponsePlaceholderId(chunk.message_id);
+  }
   return false;
 }
 
@@ -2138,10 +1820,6 @@ export function persistChatSectionState({
 }
 
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
-  if (chunk.message.role === ChatRoleEnum.assistant) {
-    setStopEligibleAssistantMessageId(chatId, chunk.message.id);
-    clearInterruptedAssistantMessages(chatId, [chunk.message.id]);
-  }
   updateChatDetails(chatId, (details) => ({
     ...details,
     messages: upsertMessage(details.messages, chunk.message),
@@ -2292,7 +1970,6 @@ function handleToolResult(
 }
 
 function handleMessageStop(chatId: string) {
-  clearStopEligibleAssistantMessageId(chatId);
   updateChatDetails(chatId, (details) => ({
     ...details,
     waitingForResponse: false,
@@ -2305,74 +1982,20 @@ function handleMessageFinalized(
   chunk: MessageFinalizedEvent,
   projectConfigId: string,
 ) {
-  let resolvedTargetId: string | null = chunk.message.id;
+  const targetId = chunk.message.id;
   updateChatDetails(chatId, (details) => {
-    const { message: messageToUpsert, targetId } =
-      chunk.message.role === ChatRoleEnum.assistant
-        ? resolveFinalizedAssistantMessageUpdate(
-            details.messages,
-            chunk.message as AssistantChatMessage,
-          )
-        : {
-            message: chunk.message,
-            targetId: chunk.message.id,
-          };
-    resolvedTargetId = targetId;
     return {
       ...details,
-      messages: upsertMessage(details.messages, messageToUpsert, targetId),
+      messages: upsertMessage(details.messages, chunk.message, targetId),
       waitingForResponse: false,
       toolCallArguments: {},
     };
   });
-  if (chunk.message.role === ChatRoleEnum.assistant) {
-    clearStopEligibleAssistantMessageId(chatId);
-    clearInterruptedAssistantMessages(chatId, [
-      resolvedTargetId,
-      chunk.message.id,
-    ]);
-  }
   const toolCallIds: string[] =
     chunk.message.role === "assistant"
       ? chunk.message.tool_calls?.map((toolCall) => toolCall.id) ?? []
       : [];
   clearToolArgumentPreviewByToolCallIds(projectConfigId, toolCallIds);
-}
-
-function resolveFinalizedAssistantMessageUpdate(
-  messages: Array<BaseChatMessageUnion>,
-  message: AssistantChatMessage,
-): { message: AssistantChatMessage; targetId: string } {
-  const existingAssistant = findAssistantMessageForFinalizedUpdate(
-    messages,
-    message,
-  );
-  const targetId = existingAssistant?.id ?? message.id;
-  return {
-    message: mergeFinalizedAssistantMessage(message, existingAssistant),
-    targetId,
-  };
-}
-
-function findAssistantMessageForFinalizedUpdate(
-  messages: Array<BaseChatMessageUnion>,
-  message: AssistantChatMessage,
-): AssistantChatMessage | null {
-  const sameId = messages.find((entry) => entry.id === message.id);
-  if (sameId?.role === ChatRoleEnum.assistant) {
-    return sameId;
-  }
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const candidate = messages[index];
-    if (candidate.role !== ChatRoleEnum.assistant) {
-      continue;
-    }
-    if (!isResponsePlaceholderId(candidate.id)) {
-      continue;
-    }
-    return candidate;
-  }
-  return null;
 }
 
 function handleToolArgumentPreviewDelta(
@@ -2854,9 +2477,6 @@ function applyOptimisticUserMessage(
   chatId: string | null,
   userMessage: BaseChatMessageUnion,
 ) {
-  if (typeof chatId === "string") {
-    clearStopEligibleAssistantMessageId(chatId);
-  }
   const updater = (details: ChatDetails) => ({
     ...details,
     messages: [...details.messages, userMessage],
@@ -3158,17 +2778,14 @@ function applyStreamDeltaToChatSectionState(
       };
     }
     case StreamingEventTypeEnum.MESSAGE_FINALIZED: {
-      const { message: messageToUpsert, targetId } =
+      const messageToUpsert =
         chunk.message.role === ChatRoleEnum.assistant
-          ? resolveFinalizedAssistantMessageUpdate(
+          ? mergeFinalizedAssistantMessage(
               messages,
               chunk.message as AssistantChatMessage,
             )
-          : {
-              message: chunk.message,
-              targetId: chunk.message.id,
-            };
-      messages = upsertMessage(messages, messageToUpsert, targetId);
+          : chunk.message;
+      messages = upsertMessage(messages, messageToUpsert);
       waitingForResponse = false;
       toolCallArguments = {};
       const nextBranches = syncActiveBranchMessages(messages);
@@ -3197,38 +2814,23 @@ function applyStreamDeltaToChatSectionState(
 }
 
 function mergeFinalizedAssistantMessage(
+  messages: Array<BaseChatMessageUnion>,
   message: AssistantChatMessage,
-  existingAssistant: AssistantChatMessage | null,
 ): AssistantChatMessage {
-  if (!existingAssistant) {
+  if (message.content.length > 0) {
     return message;
   }
-  const hasFinalizedContent = message.content.length > 0;
-  const mergedContent = hasFinalizedContent
-    ? message.content
-    : existingAssistant.content;
-  const finalizedToolCalls = message.tool_calls ?? [];
-  const existingToolCalls = existingAssistant.tool_calls ?? [];
-  const mergedToolCalls =
-    finalizedToolCalls.length > 0 ? finalizedToolCalls : existingToolCalls;
-  const finalizedAttachments = message.attachments ?? [];
-  const existingAttachments = existingAssistant.attachments ?? [];
-  const mergedAttachments =
-    finalizedAttachments.length > 0
-      ? finalizedAttachments
-      : existingAttachments;
-  if (
-    mergedContent === message.content &&
-    mergedToolCalls === message.tool_calls &&
-    mergedAttachments === message.attachments
-  ) {
+  const existing = messages.find((entry) => entry.id === message.id);
+  if (!existing || existing.role !== ChatRoleEnum.assistant) {
+    return message;
+  }
+  const existingContent = existing.content ?? [];
+  if (existingContent.length === 0) {
     return message;
   }
   return {
     ...message,
-    content: mergedContent,
-    tool_calls: mergedToolCalls,
-    attachments: mergedAttachments,
+    content: [...existingContent],
   };
 }
 

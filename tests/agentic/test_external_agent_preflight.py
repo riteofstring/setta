@@ -15,7 +15,6 @@ from setta.agentic.external_agent_preflight import (
     build_external_agent_preflight_status,
 )
 from setta.database.db_objs import DBE
-from setta.llm.api_keys import write_managed_api_keys
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.types.external_agents import (
     ExternalAgentConfig,
@@ -71,29 +70,6 @@ class TestExternalAgentPreflight:
             previous_missing = os.environ.pop(key_missing, None)
             try:
                 dbe.write_dot_env({key_present: "yes"})
-                config = self._build_config(
-                    run_mode=ExternalAgentRunMode.app_server,
-                    command_path="definitely_not_a_codex_executable",
-                    env_vars=[key_present, key_missing],
-                )
-                status = build_external_agent_preflight_status(dbe, config)
-
-                assert status.envVars.present == [key_present]
-                assert status.envVars.missing == [key_missing]
-            finally:
-                _restore_env_var(key_present, previous_present)
-                _restore_env_var(key_missing, previous_missing)
-
-    def test_env_var_status_reads_managed_api_keys(self) -> None:
-        with _temp_cwd() as tmp:
-            dbe = DBE(tmp / "setta_files")
-            key_present = "SETTA_TEST_ENV_PRESENT"
-            key_missing = "SETTA_TEST_ENV_MISSING"
-
-            previous_present = os.environ.pop(key_present, None)
-            previous_missing = os.environ.pop(key_missing, None)
-            try:
-                write_managed_api_keys(dbe, {key_present: "yes"})
                 config = self._build_config(
                     run_mode=ExternalAgentRunMode.app_server,
                     command_path="definitely_not_a_codex_executable",

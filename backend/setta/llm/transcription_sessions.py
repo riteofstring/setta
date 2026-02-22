@@ -4,7 +4,7 @@ import io
 import time
 import wave
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
 from openai import AsyncOpenAI
 
@@ -30,28 +30,6 @@ class TranscriptionAudioLimitExceededError(ValueError):
         self.max_bytes = max_bytes
         super().__init__(
             "File-mode transcription session exceeded buffered audio size limit."
-        )
-
-
-type TranscriptionSessionErrorCode = Literal["invalid_request", "unsupported_model"]
-
-
-class TranscriptionSessionError(ValueError):
-    def __init__(
-        self,
-        message: str,
-        *,
-        error_code: TranscriptionSessionErrorCode = "invalid_request",
-    ) -> None:
-        self.error_code = error_code
-        super().__init__(message)
-
-
-class UnsupportedTranscriptionModelError(TranscriptionSessionError):
-    def __init__(self) -> None:
-        super().__init__(
-            "Realtime transcription is unavailable for this provider/model.",
-            error_code="unsupported_model",
         )
 
 
@@ -386,7 +364,9 @@ class TranscriptionSessionManager:
             transport_mode == TranscriptionTransportMode.realtime
             and not supports_realtime
         ):
-            raise UnsupportedTranscriptionModelError()
+            raise ValueError(
+                "Realtime transcription is unavailable for this provider/model."
+            )
 
         resolved_transport_mode = "file"
         engine: BaseTranscriptionEngine
