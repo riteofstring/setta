@@ -1,4 +1,10 @@
 import {
+  ChatInput,
+  type ChatSlashCommand,
+  type ChatSlashCommandResult,
+} from "components/Chat/ChatInput";
+import { ChatMessageList } from "components/Chat/ChatMessages";
+import {
   CHAT_STARTER_PROMPTS,
   buildChatSlashCommands,
   createManagedExecutionControlHandlers,
@@ -8,16 +14,7 @@ import {
   type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
-import {
-  ChatInput,
-  type ChatSlashCommand,
-  type ChatSlashCommandResult,
-} from "components/Chat/ChatInput";
-import { ChatMessageList } from "components/Chat/ChatMessages";
-import {
-  estimateChatHistoryTokens,
-  resolveEstimatedContextWindowTokens,
-} from "components/Chat/contextWindow";
+import { useProviderTranscriptionSessionHandlers } from "components/Chat/useProviderTranscriptionSessionHandlers";
 import {
   Dispatch,
   SetStateAction,
@@ -28,10 +25,8 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  getRunInputString,
-  getRunLastUpdatedMs,
-} from "state/actions/agentRunUtils";
+import { TbLayoutDashboard } from "react-icons/tb";
+import { getRunInputString } from "state/actions/agentRunUtils";
 import {
   clearPendingChatDetails,
   finalizePendingChatDetails,
@@ -43,7 +38,6 @@ import {
   stopProjectChatResponse,
   submitEditedMessage,
   submitMessage,
-  transcribeChatAudioWithProfile,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
@@ -53,28 +47,19 @@ import {
 } from "state/actions/chatHistory";
 import { useAIStore, useProjectState } from "state/definitions";
 import { useChatBranchIndex } from "state/hooks/useChatBranchIndex";
-import {
-  hasPendingToolInteraction,
-  normalizeToolName,
-} from "utils/claudeTools";
-import {
-  buildSearchableTextForMessage,
-  matchesConversationSearchText,
-  tokenizeConversationSearchQuery,
-} from "utils/conversationSearch";
+import { hasPendingToolInteraction } from "utils/claudeTools";
 import {
   route_get_file_browser_root,
   route_get_folder_contents,
 } from "utils/generatedEndpoints";
 import {
   AgentRun,
-  BaseChatMessageUnion,
+  ChatDictationMode,
   ChatFileAttachment,
-  ChatRoleEnum,
   EngineTypeEnum,
 } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
-import { buildCreateProjectStarterPrompt } from "./projectChatStarterPrompts";
+import { buildDesignFirstFigmaStarterPrompt } from "./projectChatStarterPrompts";
 import {
   getCachedWorkspacePythonSignal,
   hasPythonSignalsInRoot,
@@ -122,105 +107,6 @@ export function resolveWorkspaceRootPollDelayMs(
     return WORKSPACE_ROOT_BACKOFF_POLL_MS;
   }
   return WORKSPACE_ROOT_FAST_POLL_MS;
-}
-
-type ProjectChatRuntimeActivityCounts = {
-  activeBackgroundTerminals: number;
-  activeSubagents: number;
-};
-
-const EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS: ProjectChatRuntimeActivityCounts =
-  {
-    activeBackgroundTerminals: 0,
-    activeSubagents: 0,
-  };
-const ACTIVE_BACKGROUND_TERMINAL_TOOL_IDS = new Set<string>([
-  "command_execution",
-]);
-const ACTIVE_SUBAGENT_TOOL_IDS = new Set<string>([
-  "setta__run_agent_profile",
-  "setta__run_sub_agent",
-  "run_agent_profile",
-  "run_sub_agent",
-]);
-
-function resolveToolRuntimeCategory(
-  toolName: string,
-): "background_terminal" | "subagent" | null {
-  const normalizedToolName = normalizeToolName(toolName);
-  if (!normalizedToolName) {
-    return null;
-  }
-  const lowerCaseToolName = normalizedToolName.toLowerCase();
-  if (ACTIVE_BACKGROUND_TERMINAL_TOOL_IDS.has(lowerCaseToolName)) {
-    return "background_terminal";
-  }
-  if (ACTIVE_SUBAGENT_TOOL_IDS.has(lowerCaseToolName)) {
-    return "subagent";
-  }
-  return null;
-}
-
-function resolveStreamingAssistantMessage(
-  messages: Array<BaseChatMessageUnion>,
-): Extract<BaseChatMessageUnion, { role: ChatRoleEnum.assistant }> | null {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message?.role === ChatRoleEnum.assistant) {
-      return message;
-    }
-  }
-  return null;
-}
-
-export function resolveProjectChatRuntimeActivityCounts({
-  messages,
-  waitingForResponse,
-}: {
-  messages: Array<BaseChatMessageUnion>;
-  waitingForResponse: boolean;
-}): ProjectChatRuntimeActivityCounts {
-  if (!waitingForResponse) {
-    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS;
-  }
-  const streamingAssistantMessage = resolveStreamingAssistantMessage(messages);
-  if (!streamingAssistantMessage) {
-    return EMPTY_PROJECT_CHAT_RUNTIME_ACTIVITY_COUNTS;
-  }
-  const completedToolCallIds = new Set<string>();
-  for (const message of messages) {
-    if (message.role !== ChatRoleEnum.tool) {
-      continue;
-    }
-    const toolCallId = message.tool_call_id;
-    if (!toolCallId) {
-      continue;
-    }
-    completedToolCallIds.add(toolCallId);
-  }
-  let activeBackgroundTerminals = 0;
-  let activeSubagents = 0;
-  const toolCalls = streamingAssistantMessage.tool_calls ?? [];
-  for (const toolCall of toolCalls) {
-    if (completedToolCallIds.has(toolCall.id)) {
-      continue;
-    }
-    const category = resolveToolRuntimeCategory(toolCall.function?.name ?? "");
-    if (!category) {
-      continue;
-    }
-    if (category === "background_terminal") {
-      activeBackgroundTerminals += 1;
-      continue;
-    }
-    if (category === "subagent") {
-      activeSubagents += 1;
-    }
-  }
-  return {
-    activeBackgroundTerminals,
-    activeSubagents,
-  };
 }
 
 function useWorkspaceRootIdentity(
@@ -481,222 +367,30 @@ function toSortedProjectHistoryEntries(
   }).sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs);
 }
 
-type LatestRunByChat = {
-  run: AgentRun;
-  lastUpdatedMs: number;
-};
-
-function isProjectChatRunType(runType: string | null): boolean {
-  return (
-    runType === "llm_chat" ||
-    runType === "external_agent" ||
-    runType === "scriptable_chat"
-  );
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function getRunMessages(run: AgentRun): Array<BaseChatMessageUnion> {
-  const outputs = isRecord(run.outputs) ? run.outputs : null;
-  const outputMessages = outputs ? outputs.messages : null;
-  if (Array.isArray(outputMessages)) {
-    return outputMessages as Array<BaseChatMessageUnion>;
-  }
-  const inputs = isRecord(run.inputs) ? run.inputs : null;
-  const inputMessages = inputs ? inputs.messages : null;
-  if (Array.isArray(inputMessages)) {
-    return inputMessages as Array<BaseChatMessageUnion>;
-  }
-  return [];
-}
-
-function extractUserPromptText(message: BaseChatMessageUnion): string | null {
-  if (message.role !== ChatRoleEnum.user) {
-    return null;
-  }
-  if (!Array.isArray(message.content)) {
-    return null;
-  }
-  const textParts: string[] = [];
-  for (const block of message.content) {
-    if (!isRecord(block)) {
-      continue;
-    }
-    if (block.type !== "text") {
-      continue;
-    }
-    const text = block.text;
-    if (typeof text !== "string") {
-      continue;
-    }
-    const trimmed = text.trim();
-    if (!trimmed) {
-      continue;
-    }
-    textParts.push(trimmed);
-  }
-  if (textParts.length === 0) {
-    return null;
-  }
-  return textParts.join("\n");
-}
-
-function getMessageAttachments(
-  message: BaseChatMessageUnion,
-): Array<ChatFileAttachment> {
-  if ("attachments" in message && Array.isArray(message.attachments)) {
-    return message.attachments;
-  }
-  return [];
-}
-
-function findBranchSourceUserMessage(
-  messages: Array<BaseChatMessageUnion>,
-  assistantMessageId: string,
-): BaseChatMessageUnion | null {
-  const assistantIndex = messages.findIndex(
-    (message) =>
-      message.id === assistantMessageId &&
-      message.role === ChatRoleEnum.assistant,
-  );
-  if (assistantIndex < 0) {
-    return null;
-  }
-  for (let index = assistantIndex - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (!message || message.role !== ChatRoleEnum.user) {
-      continue;
-    }
-    return message;
-  }
-  return null;
-}
-
-function collectUserPrompts(
-  messages: Array<BaseChatMessageUnion>,
-): Array<string> {
-  const prompts: string[] = [];
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (!message) {
-      continue;
-    }
-    const prompt = extractUserPromptText(message);
-    if (!prompt) {
-      continue;
-    }
-    prompts.push(prompt);
-  }
-  return prompts;
-}
-
-function filterProjectConversationMessagesBySearch({
-  messages,
-  normalizedSearchTerms,
-}: {
-  messages: Array<BaseChatMessageUnion>;
-  normalizedSearchTerms: Array<string>;
-}): Array<BaseChatMessageUnion> {
-  if (normalizedSearchTerms.length === 0) {
-    return messages;
-  }
-  return messages.filter((message) =>
-    matchesConversationSearchText(
-      buildSearchableTextForMessage(message),
-      normalizedSearchTerms,
-    ),
-  );
-}
-
-function appendUniquePrompts(
-  prompts: Array<string>,
-  seen: Set<string>,
-  incoming: Array<string>,
-): void {
-  for (const prompt of incoming) {
-    const trimmed = prompt.trim();
-    if (!trimmed) {
-      continue;
-    }
-    if (seen.has(trimmed)) {
-      continue;
-    }
-    seen.add(trimmed);
-    prompts.push(trimmed);
-  }
-}
-
-export function buildProjectChatSubmittedMessageHistory({
-  runs,
-  projectConfigId,
-  activeMessages,
-}: {
-  runs: Array<AgentRun>;
-  projectConfigId: string;
-  activeMessages: Array<BaseChatMessageUnion>;
-}): Array<string> {
-  const scopedRuns = runs.filter(
-    (run) => getRunInputString(run, "projectConfigId") === projectConfigId,
-  );
-  const fallbackRuns = runs.filter(
-    (run) => getRunInputString(run, "projectConfigId") === null,
-  );
-  const candidateRuns = scopedRuns.length > 0 ? scopedRuns : fallbackRuns;
-  const latestRunByChatId = new Map<string, LatestRunByChat>();
-
-  for (const run of candidateRuns) {
-    const runType = getRunInputString(run, "runType");
-    if (!isProjectChatRunType(runType)) {
-      continue;
-    }
-    if (getRunInputString(run, "sectionId") !== null) {
-      continue;
-    }
-    const runChatId = getRunInputString(run, "chatId");
-    if (!runChatId) {
-      continue;
-    }
-    const lastUpdatedMs = getRunLastUpdatedMs(run);
-    const existing = latestRunByChatId.get(runChatId);
-    if (!existing || lastUpdatedMs > existing.lastUpdatedMs) {
-      latestRunByChatId.set(runChatId, { run, lastUpdatedMs });
-    }
-  }
-
-  const sortedRuns = [...latestRunByChatId.values()]
-    .sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs)
-    .map((entry) => entry.run);
-  const prompts: string[] = [];
-  const seenPrompts = new Set<string>();
-
-  appendUniquePrompts(prompts, seenPrompts, collectUserPrompts(activeMessages));
-  for (const run of sortedRuns) {
-    appendUniquePrompts(
-      prompts,
-      seenPrompts,
-      collectUserPrompts(getRunMessages(run)),
-    );
-  }
-
-  return prompts;
-}
-
 function EmptyChatState({
   starterPrompts,
   disabled,
   onStarterPrompt,
+  onDesignFirstPrompt,
 }: {
   starterPrompts: ChatStarterPrompt[];
   disabled: boolean;
   onStarterPrompt: (prompt: string) => void;
+  onDesignFirstPrompt: () => void;
 }) {
   const starterButtonClassName =
-    "cursor-pointer rounded-md border border-setta-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100";
+    "rounded-md border border-setta-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100";
 
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto p-3">
+      <button
+        type="button"
+        className="flex cursor-pointer items-center gap-1 rounded-md border border-solid border-setta-200/50 px-3 py-2 text-xs font-semibold text-setta-600 transition-colors hover:bg-white hover:text-setta-800 disabled:cursor-not-allowed disabled:opacity-50 dark:border-setta-700 dark:text-setta-500 dark:hover:bg-setta-850 hover:dark:text-setta-50"
+        onClick={onDesignFirstPrompt}
+        disabled={disabled}
+      >
+        <TbLayoutDashboard /> Create Project UI (Design First)
+      </button>
       {starterPrompts.map((starterPrompt) => (
         <button
           key={starterPrompt.id}
@@ -715,8 +409,6 @@ function EmptyChatState({
 export const ProjectChatCore = memo(function ProjectChatCore({
   chatId,
   placeholderText,
-  conversationFilterText,
-  activeConversationSearchMatchMessageId = null,
   thinking,
   engineConfigId,
   engineType,
@@ -726,18 +418,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   transcriptionProfileId,
   dictationMode,
   providerDictationAvailable,
-  providerDictationLikelySupported,
-  contextEstimateModel,
+  providerDictationUnavailableReason,
   setChatId,
-  onDraftThreadStart,
-  onDraftThreadSettled,
-  onThinkingChange,
   onPermissionModeChange,
 }: {
   chatId: string | null | undefined;
   placeholderText: string;
-  conversationFilterText: string;
-  activeConversationSearchMatchMessageId?: string | null;
   thinking: boolean;
   engineConfigId: string | null;
   engineType: EngineTypeEnum | null;
@@ -745,36 +431,26 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   externalEngineAvailable: boolean;
   noLLMConfigsAvailable: boolean;
   transcriptionProfileId: string | null;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
   providerDictationAvailable: boolean;
-  providerDictationLikelySupported: boolean;
-  contextEstimateModel: string | null;
+  providerDictationUnavailableReason: string;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
-  onDraftThreadStart?: () => void;
-  onDraftThreadSettled?: (
-    nextChatId: string | null,
-    succeeded: boolean,
-  ) => void;
-  onThinkingChange?: (nextThinking: boolean) => void;
   onPermissionModeChange?: (
     nextPermissionMode: ChatPermissionModeValue,
   ) => void;
 }) {
-  const {
-    messages,
-    toolCallArguments,
-    waitingForResponse,
-    contextUsage,
-    llmConfig,
-  } = useAIStore((state) => {
-    if (chatId === null) {
-      return state.pendingChatDetails ?? getDefaultChatDetails();
-    }
-    if (typeof chatId !== "string") {
-      return getDefaultChatDetails();
-    }
-    return state.chatDetails[chatId] ?? getDefaultChatDetails();
-  }, shallow);
+  const { messages, toolCallArguments, waitingForResponse } = useAIStore(
+    (state) => {
+      if (chatId === null) {
+        return state.pendingChatDetails ?? getDefaultChatDetails();
+      }
+      if (typeof chatId !== "string") {
+        return getDefaultChatDetails();
+      }
+      return state.chatDetails[chatId] ?? getDefaultChatDetails();
+    },
+    shallow,
+  );
   const branchIndex = useChatBranchIndex(typeof chatId === "string");
   const branchInfoByMessage = useMemo(() => {
     if (typeof chatId !== "string") {
@@ -787,16 +463,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     });
   }, [branchIndex, chatId, messages]);
   const pendingPrompt = useAIStore((state) => state.pendingProjectChatPrompt);
-  const agentRuns = useAIStore((state) => state.agentRuns);
-  const agentRunsInitialLoadComplete = useAIStore(
-    (state) => state.agentRunsInitialLoadComplete,
-  );
-  const interruptedAssistantMessageIds = useAIStore((state) => {
-    if (typeof chatId !== "string") {
-      return {};
-    }
-    return state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
-  }, shallow);
   const [draftMessage, setDraftMessage] = useState("");
   const [executionSettings, setExecutionSettings] =
     useState<ChatExecutionSettings>(() => ({
@@ -804,35 +470,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       searchEnabled: true,
     }));
   const showEmptyState = typeof chatId === "undefined";
-  const normalizedConversationSearchTerms = useMemo(
-    () => tokenizeConversationSearchQuery(conversationFilterText),
-    [conversationFilterText],
-  );
-  const filteredConversationMessages = useMemo(
-    () =>
-      filterProjectConversationMessagesBySearch({
-        messages,
-        normalizedSearchTerms: normalizedConversationSearchTerms,
-      }),
-    [messages, normalizedConversationSearchTerms],
-  );
-  const hasVisibleConversationMatches = useMemo(
-    () =>
-      filteredConversationMessages.some(
-        (message) => message.role !== ChatRoleEnum.tool,
-      ),
-    [filteredConversationMessages],
-  );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
-  const submittedMessageHistory = useMemo(
-    () =>
-      buildProjectChatSubmittedMessageHistory({
-        runs: agentRuns,
-        projectConfigId,
-        activeMessages: messages,
-      }),
-    [agentRuns, messages, projectConfigId],
-  );
   const workspaceRootIdentity = useWorkspaceRootIdentity(
     showEmptyState,
     projectConfigId,
@@ -842,47 +480,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     workspaceRootIdentity,
   );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
-  const backendContextWindowTokens = useMemo(() => {
-    const backendWindow = contextUsage?.contextWindowTokens;
-    if (typeof backendWindow === "number" && Number.isFinite(backendWindow)) {
-      return Math.max(0, Math.floor(backendWindow));
-    }
-    return null;
-  }, [contextUsage?.contextWindowTokens]);
-  const backendContextUsedTokens = useMemo(() => {
-    const backendUsed = contextUsage?.contextUsedTokens;
-    if (typeof backendUsed === "number" && Number.isFinite(backendUsed)) {
-      return Math.max(0, Math.floor(backendUsed));
-    }
-    return null;
-  }, [contextUsage?.contextUsedTokens]);
-  const resolvedContextModel = useMemo(() => {
-    const llmModel = llmConfig?.model?.trim();
-    if (llmModel) {
-      return llmModel;
-    }
-    const fallbackModel = contextEstimateModel?.trim();
-    if (fallbackModel) {
-      return fallbackModel;
-    }
-    return null;
-  }, [contextEstimateModel, llmConfig?.model]);
-  const estimatedContextWindowTokens = useMemo(
-    () => resolveEstimatedContextWindowTokens(resolvedContextModel),
-    [resolvedContextModel],
-  );
-  const estimatedContextUsedTokens = useMemo(
-    () => estimateChatHistoryTokens(messages),
-    [messages],
-  );
-  const contextWindowTokens =
-    backendContextWindowTokens ?? estimatedContextWindowTokens;
-  const contextUsedTokens =
-    backendContextUsedTokens ?? estimatedContextUsedTokens;
-  const contextUsageIsEstimated =
-    Boolean(contextUsage?.estimated) ||
-    backendContextWindowTokens === null ||
-    backendContextUsedTokens === null;
   const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
     const runType = resolveProjectChatRunType(engineType);
     if (!runType) {
@@ -928,7 +525,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     Boolean(engineConfigId) &&
     (isExternalEngine ? externalEngineAvailable : hasLLMConfig);
   const showPermissionExecutionControl = canConfigureExecutionSettings;
-  const showSearchExecutionControl = false;
+  const showSearchExecutionControl =
+    canConfigureExecutionSettings && !isExternalEngine;
   const slashCommands = useMemo(
     () =>
       buildChatSlashCommands({
@@ -940,32 +538,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
   const lastFetchedChatIdRef = useRef<string | null>(null);
   const lastChatIdRef = useRef<string | null>(null);
-  const createProjectStarterPrompt = useMemo(
-    () => buildCreateProjectStarterPrompt(hasPythonInWorkspaceRoot),
-    [hasPythonInWorkspaceRoot],
-  );
   const visibleStarterPrompts = useMemo(
     () =>
       CHAT_STARTER_PROMPTS.filter(
         (starterPrompt) =>
           !starterPrompt.requiresPython || hasPythonInWorkspaceRoot,
-      ).map((starterPrompt) => {
-        if (starterPrompt.id !== "create-project") {
-          return starterPrompt;
-        }
-        return {
-          ...starterPrompt,
-          prompt: createProjectStarterPrompt,
-        };
-      }),
-    [createProjectStarterPrompt, hasPythonInWorkspaceRoot],
+      ),
+    [hasPythonInWorkspaceRoot],
   );
-
-  useEffect(() => {
-    if (!agentRunsInitialLoadComplete) {
-      void loadAgentRuns();
-    }
-  }, [agentRunsInitialLoadComplete]);
 
   useEffect(() => {
     if (typeof chatId === "string") {
@@ -1000,14 +580,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   }, [chatId, isExternalEngine, waitingForResponse]);
 
   const handleNewChatStart = useCallback(() => {
-    onDraftThreadStart?.();
     initializePendingChatDetails();
     setChatId(null);
-  }, [onDraftThreadStart, setChatId]);
+  }, [setChatId]);
 
   const handleNewChatSettled = useCallback(
     (newChatId: string | null, succeeded: boolean) => {
-      onDraftThreadSettled?.(newChatId, succeeded);
       if (!succeeded || !newChatId) {
         clearPendingChatDetails();
         setChatId((currentChatId) => {
@@ -1020,7 +598,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       }
       finalizePendingChatDetails(newChatId);
     },
-    [onDraftThreadSettled, setChatId],
+    [setChatId],
   );
 
   const executionControlHandlers = useMemo(
@@ -1196,63 +774,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     [chatId, setChatId],
   );
 
-  const handleRedoMessage = useCallback(
-    async (assistantMessageId: string) => {
-      const resolvedChatId =
-        typeof chatId === "string" ? chatId : lastChatIdRef.current;
-      if (!resolvedChatId || waitingForResponse) {
-        return false;
-      }
-      if (!engineConfigId) {
-        return false;
-      }
-      if (!isExternalEngine && !hasLLMConfig) {
-        return false;
-      }
-      if (isExternalEngine && !externalEngineAvailable) {
-        return false;
-      }
-      const sourceUserMessage = findBranchSourceUserMessage(
-        messages,
-        assistantMessageId,
-      );
-      if (!sourceUserMessage) {
-        return false;
-      }
-      const sourceText = extractUserPromptText(sourceUserMessage) ?? "";
-      const sourceAttachments = getMessageAttachments(sourceUserMessage);
-      const nextChatId = await submitEditedMessage({
-        parentChatId: resolvedChatId,
-        messages,
-        messageId: sourceUserMessage.id,
-        message: sourceText,
-        attachments: sourceAttachments,
-        thinking,
-        engineConfigId,
-        isExternalEngine,
-        agentProfileId: null,
-        sectionId: null,
-        executionSettings: {
-          permissionMode: executionSettings.permissionMode,
-          searchEnabled: executionSettings.searchEnabled,
-        },
-      });
-      return Boolean(nextChatId);
-    },
-    [
-      chatId,
-      engineConfigId,
-      executionSettings.permissionMode,
-      executionSettings.searchEnabled,
-      externalEngineAvailable,
-      hasLLMConfig,
-      isExternalEngine,
-      messages,
-      thinking,
-      waitingForResponse,
-    ],
-  );
-
   const isDisabled =
     !engineConfigId ||
     (!isExternalEngine && !hasLLMConfig) ||
@@ -1278,125 +799,91 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     () => !waitingForResponse && hasPendingToolInteraction(messages),
     [messages, waitingForResponse],
   );
-  const runtimeActivityCounts = useMemo(
-    () =>
-      resolveProjectChatRuntimeActivityCounts({
-        messages,
-        waitingForResponse,
-      }),
-    [messages, waitingForResponse],
-  );
-  const showThinkingExecutionControl =
-    engineType === EngineTypeEnum.setta_llm ||
-    engineType === EngineTypeEnum.external_agent;
   const executionControls = useMemo(
     () => ({
-      thinkingEnabled: thinking,
-      onThinkingEnabledChange: showThinkingExecutionControl
-        ? onThinkingChange
-        : undefined,
       permissionMode: executionSettings.permissionMode,
       searchEnabled: executionSettings.searchEnabled,
       onPermissionModeChange: executionControlHandlers.onPermissionModeChange,
       onSearchEnabledChange: executionControlHandlers.onSearchEnabledChange,
     }),
     [
-      thinking,
-      onThinkingChange,
-      showThinkingExecutionControl,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
       executionControlHandlers.onPermissionModeChange,
       executionControlHandlers.onSearchEnabledChange,
     ],
   );
-  const handleProviderDictationTranscribe = useCallback(
-    async (audioBlob: Blob) => {
-      if (isExternalEngine || !transcriptionProfileId) {
-        return null;
-      }
-      return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
-    },
-    [isExternalEngine, transcriptionProfileId],
-  );
-  const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
-  const showConversationSearchEmptyState =
-    normalizedConversationSearchTerms.length > 0 &&
-    !hasVisibleConversationMatches &&
-    !waitingForResponse;
+  const handleDesignFirstPrompt = useCallback(() => {
+    const starterPrompt = buildDesignFirstFigmaStarterPrompt();
+    setDraftMessage((current) => (current.trim() ? current : starterPrompt));
+  }, []);
+  const {
+    onProviderTranscriptionSessionStart:
+      handleProviderTranscriptionSessionStart,
+    onProviderTranscriptionSessionAppend:
+      handleProviderTranscriptionSessionAppend,
+    onProviderTranscriptionSessionStop: handleProviderTranscriptionSessionStop,
+    onProviderTranscriptionSessionCancel:
+      handleProviderTranscriptionSessionCancel,
+  } = useProviderTranscriptionSessionHandlers({
+    transcriptionProfileId,
+    suppressStartNotification: dictationMode === "auto",
+  });
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <>
       {showEmptyState ? (
-        <div
-          className={`${chatWidthShellClassName} flex min-h-0 flex-1 flex-col`}
-          data-chat-width-shell="true"
-        >
-          <EmptyChatState
-            starterPrompts={visibleStarterPrompts}
-            disabled={isDisabled}
-            onStarterPrompt={(prompt) => {
-              void handleSubmit(prompt, []);
-            }}
-          />
-        </div>
-      ) : showConversationSearchEmptyState ? (
-        <div
-          className={`${chatWidthShellClassName} flex min-h-0 flex-1 items-center justify-center`}
-          data-chat-width-shell="true"
-        >
-          <p className="text-xs text-setta-500 dark:text-setta-400">
-            No messages match this filter.
-          </p>
-        </div>
+        <EmptyChatState
+          starterPrompts={visibleStarterPrompts}
+          disabled={isDisabled}
+          onStarterPrompt={(prompt) => {
+            void handleSubmit(prompt, []);
+          }}
+          onDesignFirstPrompt={handleDesignFirstPrompt}
+        />
       ) : (
         <ChatMessageList
-          messages={filteredConversationMessages}
-          allMessagesForToolResults={messages}
+          messages={messages}
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}
-          interruptedAssistantMessageIds={interruptedAssistantMessageIds}
-          activeSearchMessageId={activeConversationSearchMatchMessageId}
           editDisabledReason={editDisabledReason}
-          onRedoMessage={handleRedoMessage}
           onEditMessage={handleEditMessage}
           onBranchSwitch={handleBranchSwitch}
           branchInfoByMessage={branchInfoByMessage}
-          contentClassName={chatWidthShellClassName}
         />
       )}
-      <div className={chatWidthShellClassName} data-chat-width-shell="true">
-        <ChatInput
-          placeholderText={placeholderText}
-          waitingForResponse={waitingForResponse}
-          submitDisabled={submitDisabled}
-          disabled={isDisabled}
-          value={draftMessage}
-          onChange={setDraftMessage}
-          onSubmit={handleSubmit}
-          onStop={handleStop}
-          slashCommands={slashCommands}
-          onSlashCommand={handleSlashCommand}
-          executionControls={executionControls}
-          executionControlVisibility={{
-            permissionMode: showPermissionExecutionControl,
-            search: showSearchExecutionControl,
-          }}
-          dictationMode={dictationMode}
-          dictationEnabledByProvider={providerDictationAvailable}
-          providerDictationLikelySupported={providerDictationLikelySupported}
-          contextWindowTokens={contextWindowTokens}
-          contextUsedTokens={contextUsedTokens}
-          contextUsageIsEstimated={contextUsageIsEstimated}
-          submittedMessageHistory={submittedMessageHistory}
-          runtimeActivityCounts={runtimeActivityCounts}
-          onProviderDictationTranscribe={
-            isExternalEngine || !providerDictationAvailable
-              ? undefined
-              : handleProviderDictationTranscribe
-          }
-        />
-      </div>
-    </div>
+      <ChatInput
+        placeholderText={placeholderText}
+        waitingForResponse={waitingForResponse}
+        submitDisabled={submitDisabled}
+        disabled={isDisabled}
+        value={draftMessage}
+        onChange={setDraftMessage}
+        onSubmit={handleSubmit}
+        onStop={handleStop}
+        slashCommands={slashCommands}
+        onSlashCommand={handleSlashCommand}
+        executionControls={executionControls}
+        executionControlVisibility={{
+          permissionMode: showPermissionExecutionControl,
+          search: showSearchExecutionControl,
+        }}
+        dictationMode={dictationMode}
+        dictationEnabledByProvider={providerDictationAvailable}
+        providerDictationUnavailableMessage={providerDictationUnavailableReason}
+        onProviderTranscriptionSessionStart={
+          handleProviderTranscriptionSessionStart
+        }
+        onProviderTranscriptionSessionAppend={
+          handleProviderTranscriptionSessionAppend
+        }
+        onProviderTranscriptionSessionStop={
+          handleProviderTranscriptionSessionStop
+        }
+        onProviderTranscriptionSessionCancel={
+          handleProviderTranscriptionSessionCancel
+        }
+      />
+    </>
   );
 });

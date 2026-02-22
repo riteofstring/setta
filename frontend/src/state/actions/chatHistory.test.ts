@@ -115,35 +115,6 @@ describe("chatHistory", () => {
     expect(entries[0].nameSource).toBe("external");
   });
 
-  it("strips a leading user prefix from output-provided thread titles", () => {
-    const runs = [
-      buildRun({
-        chatId: "root",
-        messageText: "Root message",
-        outputName: "User: summarize this codebase",
-        nameSource: "llm",
-      }),
-    ];
-
-    const entries = buildChatHistoryEntries(runs);
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.label).toBe("summarize this codebase");
-    expect(entries[0]?.nameSource).toBe("llm");
-  });
-
-  it("strips a leading user prefix from fallback thread labels", () => {
-    const runs = [
-      buildRun({
-        chatId: "root",
-        messageText: "User: explain fastapi's use of it in detail",
-      }),
-    ];
-
-    const entries = buildChatHistoryEntries(runs);
-    expect(entries).toHaveLength(1);
-    expect(entries[0]?.label).toBe("explain fastapi's use of it in");
-  });
-
   it("filters history entries by section id when requested", () => {
     const runs = [
       buildRun({

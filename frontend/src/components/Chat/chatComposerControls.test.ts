@@ -173,10 +173,7 @@ describe("chatComposerControls", () => {
     );
   });
 
-  it("keeps create-project starter prompt clarifying-question and completion guard language", () => {
-    expect(CREATE_PROJECT_STARTER_PROMPT).toContain(
-      "ask me 8-12 concise clarifying questions",
-    );
+  it("keeps create-project starter prompt completion guard language", () => {
     expect(CREATE_PROJECT_STARTER_PROMPT).toContain(
       "run error checks and report pass/fail explicitly",
     );

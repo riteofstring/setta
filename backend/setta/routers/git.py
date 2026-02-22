@@ -39,7 +39,6 @@ _MAX_LOG_COUNT = 5000
 _MAX_LOG_PAGE_SIZE = 500
 
 _DECORATION_SEP = "\x1d"
-_DECORATE_ATOM_PREFIX = "%(decorate:prefix=,suffix=,separator="
 _LOG_METADATA_FIELD_COUNT = 7
 _COMMIT_METADATA_FIELD_COUNT = 10
 
@@ -618,121 +617,6 @@ def _probe_history_beyond_cap(repo_root: Path, *, all_refs: bool, rev: str) -> b
     )
 
 
-def _normalize_short_ref_name(full_ref_name: str) -> str | None:
-    if full_ref_name.startswith("refs/heads/"):
-        short_name = full_ref_name.removeprefix("refs/heads/").strip()
-        return short_name or None
-    if full_ref_name.startswith("refs/remotes/"):
-        short_name = full_ref_name.removeprefix("refs/remotes/").strip()
-        return short_name or None
-    if full_ref_name.startswith("refs/tags/"):
-        short_name = full_ref_name.removeprefix("refs/tags/").strip()
-        return short_name or None
-    return None
-
-
-def _build_ref_decoration_label(full_ref_name: str, symref_target: str) -> str | None:
-    if full_ref_name.startswith("refs/tags/"):
-        short_tag_name = _normalize_short_ref_name(full_ref_name)
-        if not short_tag_name:
-            return None
-        return f"tag: {short_tag_name}"
-
-    short_name = _normalize_short_ref_name(full_ref_name)
-    if not short_name:
-        return None
-
-    if symref_target:
-        target_short_name = _normalize_short_ref_name(symref_target)
-        if target_short_name:
-            return f"{short_name} -> {target_short_name}"
-    return short_name
-
-
-def _is_unexpanded_decorate_atom(decoration: str) -> bool:
-    return decoration.strip().startswith(_DECORATE_ATOM_PREFIX)
-
-
-def _resolve_head_commit_hash(repo_root: Path) -> str | None:
-    head_result = run_git(
-        ["rev-parse", "--verify", "--quiet", "HEAD"],
-        cwd=repo_root,
-        timeout_s=1.5,
-        max_stdout_bytes=256,
-        max_stderr_bytes=4096,
-    )
-    if head_result.timed_out or head_result.returncode != 0:
-        return None
-    head_hash = head_result.stdout.strip()
-    if not head_hash:
-        return None
-    return head_hash
-
-
-def _load_commit_decorations_from_refs(
-    repo_root: Path,
-    *,
-    commit_hashes: set[str],
-    head_branch: str | None,
-) -> dict[str, list[str]]:
-    if not commit_hashes:
-        return {}
-
-    result = run_git(
-        [
-            "for-each-ref",
-            "--format=%(objectname)%00%(*objectname)%00%(refname)%00%(symref)%00",
-            "refs/heads",
-            "refs/remotes",
-            "refs/tags",
-        ],
-        cwd=repo_root,
-        timeout_s=_LOG_TIMEOUT_S,
-        max_stdout_bytes=_MAX_LOG_BYTES,
-        max_stderr_bytes=200_000,
-    )
-    if result.timed_out or result.returncode != 0:
-        return {}
-
-    decorations_by_hash: dict[str, list[str]] = {}
-    for line in result.stdout.splitlines():
-        if not line:
-            continue
-        fields = line.split("\0")
-        if len(fields) < 4:
-            continue
-        object_hash = fields[0].strip()
-        peeled_hash = fields[1].strip()
-        full_ref_name = fields[2].strip()
-        symref_target = fields[3].strip()
-
-        target_hash = peeled_hash or object_hash
-        if target_hash not in commit_hashes:
-            continue
-        decoration_label = _build_ref_decoration_label(full_ref_name, symref_target)
-        if not decoration_label:
-            continue
-
-        existing = decorations_by_hash.get(target_hash)
-        if existing is None:
-            decorations_by_hash[target_hash] = [decoration_label]
-            continue
-        if decoration_label not in existing:
-            existing.append(decoration_label)
-
-    if head_branch:
-        head_hash = _resolve_head_commit_hash(repo_root)
-        if head_hash and head_hash in commit_hashes:
-            head_decoration = f"HEAD -> {head_branch}"
-            existing = decorations_by_hash.get(head_hash)
-            if existing is None:
-                decorations_by_hash[head_hash] = [head_decoration]
-            elif head_decoration not in existing:
-                existing.insert(0, head_decoration)
-
-    return decorations_by_hash
-
-
 @router.post(Route.GET_GIT_STATUS)
 def route_get_git_status(
     ctx: RuntimeContextFromRequest,
@@ -1104,30 +988,6 @@ def route_get_git_log(
     if has_more and not commits:
         # Prevent infinite pagination loops when output is truncated before a full record.
         has_more = False
-
-    has_unexpanded_decorate_atoms = any(
-        _is_unexpanded_decorate_atom(decoration)
-        for commit in commits
-        for decoration in commit.decorations
-    )
-    if has_unexpanded_decorate_atoms:
-        commit_hashes = {commit.hash for commit in commits}
-        fallback_decorations_by_hash = _load_commit_decorations_from_refs(
-            repo_root,
-            commit_hashes=commit_hashes,
-            head_branch=head_branch,
-        )
-        if fallback_decorations_by_hash:
-            for commit in commits:
-                commit.decorations = fallback_decorations_by_hash.get(commit.hash, [])
-        else:
-            for commit in commits:
-                commit.decorations = [
-                    decoration
-                    for decoration in commit.decorations
-                    if not _is_unexpanded_decorate_atom(decoration)
-                    and decoration != ")"
-                ]
 
     is_capped = False
     at_cap_boundary = offset + len(commits) >= _MAX_LOG_COUNT
