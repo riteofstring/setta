@@ -84,7 +84,6 @@
 - Python uses `uv` + `.venv` (`pyproject.toml` requires Python 3.12+). `init_env.sh` runs `uv sync --all-extras` and activates the venv.
 - `dev_install.sh` is the one-stop local setup (runs `init_env.sh`, installs frontend deps, installs agent sidecars, then cleans). Source it if you want the venv to stay active: `. ./dev_install.sh`.
 - `frontend/backendStart.sh` acts as the bridge to the Python server; keep custom flags documented in the script header when extending it.
-- Regenerate TypeScript bindings or templates via `pnpm generate` whenever editing files under `frontend/generation/`.
 - Clean stale artifacts using `cleanup.sh` before packaging or publishing to avoid shipping stray build outputs.
 - Node is pinned in `scripts/node_version.txt` (used by `scripts/bundle_node_runtime.sh` during builds); keep local Node compatible.
 
@@ -95,7 +94,7 @@
 
 ## Endpoints
 
-Endpoint functions on the backend and frontend always have the exact same name. On the frontend, always use route functions from generatedEndpoints. If a function exists on the backend but not on the frontend, run the generation workflow in Generation & Cleanup (typically `pnpm generate`) to sync endpoint function definitions.
+Endpoint functions on the backend and frontend always have the exact same name. On the frontend, always use route functions from generatedEndpoints. If a function exists on the backend but not on the frontend, run the generation workflow in Generation & Cleanup to sync endpoint definitions.
 
 ## Pydantic
 
@@ -103,7 +102,7 @@ Never use the `alias` feature in pydantic. Camel case is fine for pydantic attri
 
 ## Environment
 
-Whenever you run `pnpm generate`, `format_code`, or any python-related tooling, make sure to first run `activate.sh` to activate the correct python environment. For generation specifically, run from the repo root with `source activate.sh && cd frontend && pnpm generate`.
+Whenever you run `format_code` or any python-related tooling, make sure to first run `activate.sh` to activate the correct python environment.
 
 To run backend-only tests: `./scripts/run_backend_tests.sh` (uses pytest).
 
