@@ -282,6 +282,12 @@ describe("openWebSocket", () => {
               strategy: "dom_anchor",
               anchorId: "core.watch_code.enabled",
               pluginRevealKey: null,
+              revealActivationSteps: [
+                {
+                  type: "run_instructions_accordion_item",
+                  itemValue: "run-instructions-codegen-targets",
+                },
+              ],
             },
           ],
         },
@@ -290,6 +296,21 @@ describe("openWebSocket", () => {
     await Promise.resolve();
 
     expect(receiveUISettingReveal).toHaveBeenCalledTimes(1);
+    expect(receiveUISettingReveal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reveals: [
+          expect.objectContaining({
+            settingId: "core.watch_code.enabled",
+            revealActivationSteps: [
+              {
+                type: "run_instructions_accordion_item",
+                itemValue: "run-instructions-codegen-targets",
+              },
+            ],
+          }),
+        ],
+      }),
+    );
     const revealResultPayload = socket.send.mock.calls
       .map((call) => call[0])
       .filter((payload): payload is string => typeof payload === "string")

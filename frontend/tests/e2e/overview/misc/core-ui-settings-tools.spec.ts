@@ -8,11 +8,16 @@ import {
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const WATCH_CODE_ENABLED_SETTING_ID = "core.watch_code.enabled";
+const PROJECT_AI_LLM_API_KEYS_SETTING_ID =
+  "core.project_ai_settings.llm_api_keys";
+const PROJECT_AI_AGENT_PROFILES_SETTING_ID =
+  "core.project_ai_settings.agent_profiles";
 const PROJECT_AI_PROMPT_TEMPLATES_SETTING_ID =
   "core.project_ai_settings.prompt_templates";
 const PROJECT_AI_EXTERNAL_AGENTS_SETTING_ID =
   "core.project_ai_settings.external_agents";
-const PYTHON_CODEGEN_SETTING_ID = "core.run_instructions.python_codegen_enabled";
+const PYTHON_CODEGEN_SETTING_ID =
+  "core.run_instructions.python_codegen_enabled";
 
 type ToolError = {
   code: string;
@@ -229,15 +234,91 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
     const projectAiPromptTemplatesContent = page.getByTestId(
       "project-ai-settings-accordion-prompt-templates-content",
     );
+    const projectAiLlmApiKeysContent = page.getByTestId(
+      "project-ai-settings-accordion-llm-api-keys-content",
+    );
+    const projectAiAgentProfilesContent = page.getByTestId(
+      "project-ai-settings-accordion-agent-profiles-content",
+    );
     const projectAiExternalAgentsContent = page.getByTestId(
       "project-ai-settings-accordion-external-agents-content",
     );
     const runInstructionsCodegenTargetsContent = page.getByTestId(
       "run-instructions-accordion-codegen-targets-content",
     );
+    const llmApiKeysAccordionTrigger = page.getByTestId(
+      "project-ai-settings-accordion-llm-api-keys",
+    );
+    const agentProfilesAccordionTrigger = page.getByTestId(
+      "project-ai-settings-accordion-agent-profiles",
+    );
     await expect(projectAiPromptTemplatesContent).toHaveCount(0);
     await expect(projectAiExternalAgentsContent).toHaveCount(0);
     await expect(runInstructionsCodegenTargetsContent).toHaveCount(0);
+
+    const llmApiKeysInitialReveal = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: PROJECT_AI_LLM_API_KEYS_SETTING_ID,
+        durationMs: 8000,
+      },
+    );
+    expect(llmApiKeysInitialReveal.emittedRevealCount).toBe(1);
+    expect(llmApiKeysInitialReveal.statuses[0]?.status).toBe("revealed");
+    await expect(projectAiLlmApiKeysContent).toBeVisible();
+    await llmApiKeysAccordionTrigger.click();
+    await expect(projectAiLlmApiKeysContent).toHaveCount(0);
+    const llmApiKeysReveal = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: PROJECT_AI_LLM_API_KEYS_SETTING_ID,
+        durationMs: 8000,
+      },
+    );
+    expect(llmApiKeysReveal.emittedRevealCount).toBe(1);
+    expect(llmApiKeysReveal.statuses[0]?.status).toBe("revealed");
+    await expect(projectAiLlmApiKeysContent).toBeVisible();
+    await expect(
+      page.locator(
+        '[data-setting-anchor="core.project_ai_settings.llm_api_keys"]',
+      ),
+    ).toBeVisible();
+
+    const agentProfilesInitialReveal = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: PROJECT_AI_AGENT_PROFILES_SETTING_ID,
+        durationMs: 8000,
+      },
+    );
+    expect(agentProfilesInitialReveal.emittedRevealCount).toBe(1);
+    expect(agentProfilesInitialReveal.statuses[0]?.status).toBe("revealed");
+    await expect(projectAiAgentProfilesContent).toBeVisible();
+    await agentProfilesAccordionTrigger.click();
+    await expect(projectAiAgentProfilesContent).toHaveCount(0);
+    const agentProfilesReveal = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: PROJECT_AI_AGENT_PROFILES_SETTING_ID,
+        durationMs: 8000,
+      },
+    );
+    expect(agentProfilesReveal.emittedRevealCount).toBe(1);
+    expect(agentProfilesReveal.statuses[0]?.status).toBe("revealed");
+    await expect(projectAiAgentProfilesContent).toBeVisible();
+    await expect(
+      page.locator(
+        '[data-setting-anchor="core.project_ai_settings.agent_profiles"]',
+      ),
+    ).toBeVisible();
 
     const promptTemplatesReveal = await callMcpTool<RevealUISettingResult>(
       page,
@@ -288,9 +369,10 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
     expect(pythonCodegenReveal.statuses[0]?.status).toBe("revealed");
     await expect(runInstructionsCodegenTargetsContent).toBeVisible();
     await expect(
-      page.locator('[data-setting-anchor="core.run_instructions.python_codegen_enabled"]'),
+      page.locator(
+        '[data-setting-anchor="core.run_instructions.python_codegen_enabled"]',
+      ),
     ).toBeVisible();
-
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

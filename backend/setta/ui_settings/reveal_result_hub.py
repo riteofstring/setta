@@ -3,8 +3,10 @@ from dataclasses import dataclass
 
 from setta.types.websocket import (
     UISettingRevealResultContent,
-    UISettingRevealResultStatus as _UISettingRevealResultStatus,
     WebsocketMsgUISettingRevealResult,
+)
+from setta.types.websocket import (
+    UISettingRevealResultStatus as _UISettingRevealResultStatus,
 )
 
 

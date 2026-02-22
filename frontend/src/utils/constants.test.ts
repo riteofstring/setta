@@ -22,9 +22,7 @@ describe("plugin overview tab key helpers", () => {
       "plugin!~*'() /",
       "pane!~*'() :?",
     );
-    expect(tabKey).toBe(
-      "PluginPane:plugin!~*'()%20%2F:pane!~*'()%20%3A%3F",
-    );
+    expect(tabKey).toBe("PluginPane:plugin!~*'()%20%2F:pane!~*'()%20%3A%3F");
   });
 
   it("returns null for non-plugin tab keys and malformed values", () => {

@@ -1,6 +1,6 @@
+import logging
 from copy import deepcopy
 from dataclasses import dataclass
-import logging
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
 
@@ -53,6 +53,28 @@ _DEFAULT_MINIMAL_APP_SPEC: dict[str, JSONValue] = {
     "props": {},
     "children": [],
 }
+_REQUIRED_CORE_REVEAL_ACTIVATION_STEP_BY_SETTING_ID: dict[str, tuple[str, str]] = {
+    "core.project_ai_settings.llm_api_keys": (
+        "project_ai_settings_accordion_item",
+        "project-ai-settings-llm-api-keys",
+    ),
+    "core.project_ai_settings.agent_profiles": (
+        "project_ai_settings_accordion_item",
+        "project-ai-settings-agent-profiles",
+    ),
+    "core.project_ai_settings.prompt_templates": (
+        "project_ai_settings_accordion_item",
+        "project-ai-settings-prompt-templates",
+    ),
+    "core.project_ai_settings.external_agents": (
+        "project_ai_settings_accordion_item",
+        "project-ai-settings-external-agents",
+    ),
+    "core.run_instructions.python_codegen_enabled": (
+        "run_instructions_accordion_item",
+        "run-instructions-codegen-targets",
+    ),
+}
 logger = logging.getLogger(__name__)
 
 
@@ -74,6 +96,14 @@ class _PluginUISettingDefinition:
     mutability: Literal["readOnly", "writable"]
     valueSchema: UISettingValueSchema
     defaultValue: JSONValue
+
+
+@dataclass(frozen=True, slots=True)
+class _PluginUISettingContribution:
+    source: Literal["schema", "backend"]
+    localSettingId: str
+    definition: _PluginUISettingDefinition | None = None
+    registration: PluginRegisteredUISetting | None = None
 
 
 def build_plugin_setting_id(*, plugin_id: str, local_setting_id: str) -> str:
@@ -146,7 +176,10 @@ def build_ui_settings_registry(
 ) -> UISettingRegistry:
     entries_by_id: dict[str, UISettingRuntimeEntry] = {}
     for entry in _build_core_entries():
-        entries_by_id[entry.metadata.settingId] = entry
+        setting_id = entry.metadata.settingId
+        if setting_id in entries_by_id:
+            raise ValueError(f"Duplicate core UI setting id: {setting_id}")
+        entries_by_id[setting_id] = entry
     plugin_entries, plugin_errors = _build_plugin_entries(
         ctx=ctx,
         project_config_id=project_config_id,
@@ -154,7 +187,23 @@ def build_ui_settings_registry(
     for entry in plugin_entries:
         setting_id = entry.metadata.settingId
         if setting_id in entries_by_id:
-            raise ValueError(f"Duplicate UI setting id: {setting_id}")
+            plugin_id = entry.metadata.pluginId
+            if plugin_id is None:
+                raise ValueError(f"Duplicate UI setting id: {setting_id}")
+            parsed_setting_id = parse_plugin_setting_id(setting_id)
+            local_setting_id = (
+                parsed_setting_id[1] if parsed_setting_id is not None else setting_id
+            )
+            _record_plugin_ui_setting_error(
+                plugin_errors,
+                plugin_id=plugin_id,
+                message=_build_plugin_duplicate_ui_setting_message(
+                    plugin_id=plugin_id,
+                    local_setting_id=local_setting_id,
+                    sources={"registry_merge"},
+                ),
+            )
+            continue
         entries_by_id[setting_id] = entry
     return UISettingRegistry(
         entriesById=entries_by_id,
@@ -292,7 +341,7 @@ def _score_setting_entry(
 
 
 def _build_core_entries() -> list[UISettingRuntimeEntry]:
-    return [
+    entries = [
         UISettingRuntimeEntry(
             metadata=UISettingEntry(
                 settingId="core.watch_code.enabled",
@@ -398,6 +447,12 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
                 source="core",
                 mutability="readOnly",
                 valueSchema=UISettingValueSchema(type="integer", minimum=0),
+                revealActivationSteps=[
+                    UISettingRevealActivationStep(
+                        type="project_ai_settings_accordion_item",
+                        itemValue="project-ai-settings-llm-api-keys",
+                    )
+                ],
             ),
             readValue=_read_project_ai_llm_api_keys_count,
         ),
@@ -422,6 +477,12 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
                 source="core",
                 mutability="readOnly",
                 valueSchema=UISettingValueSchema(type="integer", minimum=0),
+                revealActivationSteps=[
+                    UISettingRevealActivationStep(
+                        type="project_ai_settings_accordion_item",
+                        itemValue="project-ai-settings-agent-profiles",
+                    )
+                ],
             ),
             readValue=_read_project_ai_agent_profiles_count,
         ),
@@ -626,6 +687,8 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
             writeValue=_write_app_theme_mode,
         ),
     ]
+    _validate_core_reveal_activation_steps(entries)
+    return entries
 
 
 def _build_plugin_entries(
@@ -649,6 +712,9 @@ def _build_plugin_entries(
             continue
         if "registerPane" not in plugin.effectiveCapabilities:
             continue
+        contributions_by_local_setting_id: dict[
+            str, list[_PluginUISettingContribution]
+        ] = {}
         schema_json = plugin.config.schemaJson
         if isinstance(schema_json, dict):
             try:
@@ -664,21 +730,69 @@ def _build_plugin_entries(
                 )
                 definitions = []
             for definition in definitions:
-                entries.append(
-                    _build_plugin_runtime_entry(
-                        plugin_id=plugin.pluginId,
+                _append_plugin_ui_setting_contribution(
+                    contributions_by_local_setting_id,
+                    _PluginUISettingContribution(
+                        source="schema",
+                        localSettingId=definition.localSettingId,
                         definition=definition,
-                    )
+                    ),
                 )
         backend_registrations = plugin_manager.get_backend_ui_settings(
             plugin_id=plugin.pluginId,
         )
         for registration in backend_registrations:
+            _append_plugin_ui_setting_contribution(
+                contributions_by_local_setting_id,
+                _PluginUISettingContribution(
+                    source="backend",
+                    localSettingId=registration.localSettingId,
+                    registration=registration,
+                ),
+            )
+
+        for local_setting_id, contributions in sorted(
+            contributions_by_local_setting_id.items()
+        ):
+            if len(contributions) > 1:
+                _record_plugin_ui_setting_error(
+                    plugin_errors_by_plugin_id,
+                    plugin_id=plugin.pluginId,
+                    message=_build_plugin_duplicate_ui_setting_message(
+                        plugin_id=plugin.pluginId,
+                        local_setting_id=local_setting_id,
+                        sources={contribution.source for contribution in contributions},
+                    ),
+                )
+                continue
+            contribution = contributions[0]
             try:
+                if contribution.source == "schema":
+                    if contribution.definition is None:
+                        raise ValueError(
+                            (
+                                "Missing schema definition payload for plugin "
+                                f"{plugin.pluginId} setting {local_setting_id}."
+                            )
+                        )
+                    entries.append(
+                        _build_plugin_runtime_entry(
+                            plugin_id=plugin.pluginId,
+                            definition=contribution.definition,
+                        )
+                    )
+                    continue
+                if contribution.registration is None:
+                    raise ValueError(
+                        (
+                            "Missing backend registration payload for plugin "
+                            f"{plugin.pluginId} setting {local_setting_id}."
+                        )
+                    )
                 entries.append(
                     _build_backend_plugin_runtime_entry(
                         plugin_id=plugin.pluginId,
-                        registration=registration,
+                        registration=contribution.registration,
                         plugin_manager=plugin_manager,
                     )
                 )
@@ -689,6 +803,45 @@ def _build_plugin_entries(
                     message=str(exc),
                 )
     return entries, plugin_errors_by_plugin_id
+
+
+def _append_plugin_ui_setting_contribution(
+    contributions_by_local_setting_id: dict[str, list[_PluginUISettingContribution]],
+    contribution: _PluginUISettingContribution,
+) -> None:
+    local_setting_id = contribution.localSettingId
+    if local_setting_id not in contributions_by_local_setting_id:
+        contributions_by_local_setting_id[local_setting_id] = [contribution]
+        return
+    contributions_by_local_setting_id[local_setting_id].append(contribution)
+
+
+def _build_plugin_duplicate_ui_setting_message(
+    *,
+    plugin_id: str,
+    local_setting_id: str,
+    sources: set[str],
+) -> str:
+    normalized_sources = sorted(sources)
+    if normalized_sources == ["backend", "schema"]:
+        return (
+            f"Plugin {plugin_id} duplicated ui settingId: {local_setting_id} "
+            "(declared in both schema and backend registration)."
+        )
+    if normalized_sources == ["backend"]:
+        return (
+            f"Plugin {plugin_id} duplicated ui settingId: {local_setting_id} "
+            "(multiple backend registrations)."
+        )
+    if normalized_sources == ["schema"]:
+        return (
+            f"Plugin {plugin_id} duplicated ui settingId: {local_setting_id} "
+            "(multiple schema entries)."
+        )
+    return (
+        f"Plugin {plugin_id} duplicated ui settingId: {local_setting_id} "
+        f"(sources={', '.join(normalized_sources)})."
+    )
 
 
 def _record_plugin_ui_setting_error(
@@ -709,6 +862,35 @@ def _record_plugin_ui_setting_error(
     if message in existing:
         return
     plugin_errors_by_plugin_id[plugin_id] = f"{existing}; {message}"
+
+
+def _validate_core_reveal_activation_steps(
+    entries: list[UISettingRuntimeEntry],
+) -> None:
+    entries_by_setting_id = {
+        entry.metadata.settingId: entry
+        for entry in entries
+        if entry.metadata.source == "core"
+    }
+    for setting_id, (
+        expected_step_type,
+        expected_item_value,
+    ) in _REQUIRED_CORE_REVEAL_ACTIVATION_STEP_BY_SETTING_ID.items():
+        if setting_id not in entries_by_setting_id:
+            raise ValueError(f"Missing core UI setting metadata for {setting_id}.")
+        entry = entries_by_setting_id[setting_id]
+        has_expected_step = any(
+            step.type == expected_step_type and step.itemValue == expected_item_value
+            for step in entry.metadata.revealActivationSteps
+        )
+        if has_expected_step:
+            continue
+        raise ValueError(
+            (
+                "Missing required revealActivationSteps metadata for "
+                f"{setting_id}: expected ({expected_step_type}, {expected_item_value})."
+            )
+        )
 
 
 def _build_plugin_runtime_entry(

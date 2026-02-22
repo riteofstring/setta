@@ -17,6 +17,8 @@ from setta.types.chat_messages import JSONValue
 from setta.types.id import ID
 from setta.types.websocket import (
     UISettingRevealActivationStep as WebsocketUISettingRevealActivationStep,
+)
+from setta.types.websocket import (
     UISettingRevealContent,
     UISettingRevealTarget,
 )
@@ -149,11 +151,15 @@ async def reveal_ui_setting(
     normalized_setting_id = settingId.strip()
     if normalized_setting_id == "":
         raise ValueError("settingId must not be empty.")
+    resolved_section_id_to_activate = _resolve_section_id_for_reveal(
+        ctx=ctx,
+        explicit_section_id=sectionIdToActivate,
+    )
     return await _reveal_settings(
         ctx=ctx,
         project_config_id=project_config_id,
         setting_id=normalized_setting_id,
-        section_id_to_activate=sectionIdToActivate,
+        section_id_to_activate=resolved_section_id_to_activate,
         duration_ms=durationMs,
     )
 
@@ -312,11 +318,15 @@ async def set_ui_setting_value(
 
     reveal_result: RevealUISettingResult | None = None
     if revealAfterSet:
+        resolved_section_id_to_activate = _resolve_section_id_for_reveal(
+            ctx=ctx,
+            explicit_section_id=None,
+        )
         reveal_result = await _reveal_settings(
             ctx=ctx,
             project_config_id=project_config_id,
             setting_id=settingId,
-            section_id_to_activate=None,
+            section_id_to_activate=resolved_section_id_to_activate,
             duration_ms=durationMs,
             runtime_entry=runtime_entry,
         )
@@ -430,6 +440,24 @@ def _resolve_frontend_websocket_id(ctx: Context) -> str | None:
     ):
         return raw_frontend_websocket_id.strip()
     return None
+
+
+def _resolve_section_id_from_request_meta(ctx: Context) -> ID | None:
+    meta = _resolve_request_meta(ctx)
+    raw_section_id = meta.get("sectionId")
+    if isinstance(raw_section_id, str) and raw_section_id.strip() != "":
+        return ID(raw_section_id.strip())
+    return None
+
+
+def _resolve_section_id_for_reveal(
+    *,
+    ctx: Context,
+    explicit_section_id: ID | None,
+) -> ID | None:
+    if explicit_section_id is not None:
+        return explicit_section_id
+    return _resolve_section_id_from_request_meta(ctx)
 
 
 def _resolve_missing_setting_error(
@@ -587,9 +615,7 @@ async def _reveal_settings(
         anchorId=resolved_runtime_entry.metadata.highlight.anchorId,
         pluginRevealKey=resolved_runtime_entry.metadata.highlight.pluginRevealKey,
         revealActivationSteps=[
-            WebsocketUISettingRevealActivationStep.model_validate(
-                step.model_dump()
-            )
+            WebsocketUISettingRevealActivationStep.model_validate(step.model_dump())
             for step in resolved_runtime_entry.metadata.revealActivationSteps
         ],
     )
@@ -603,7 +629,9 @@ async def _reveal_settings(
         )
     )
     if target_websocket_id is None:
-        no_frontend_message = "No connected frontend is available for UI setting reveal."
+        no_frontend_message = (
+            "No connected frontend is available for UI setting reveal."
+        )
         if preferred_frontend_websocket_id is not None:
             no_frontend_message = (
                 "Requested frontend websocket id is unavailable for UI setting reveal: "

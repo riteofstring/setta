@@ -6996,6 +6996,14 @@ const WebsocketMsgAIFollowToolResultUpdateSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate),
 });
 
+const UISettingRevealActivationStepSchema = z.object({
+  type: z.literal([
+    "project_ai_settings_accordion_item",
+    "run_instructions_accordion_item",
+  ]),
+  itemValue: z.string(),
+});
+
 const UISettingRevealTargetSchema = z.object({
   settingId: z.string(),
   side: z.literal(["left", "right"]),
@@ -7006,6 +7014,9 @@ const UISettingRevealTargetSchema = z.object({
   strategy: z.literal(["dom_anchor", "plugin_handler"]),
   anchorId: z.union([z.string(), z.null()]).default(null),
   pluginRevealKey: z.union([z.string(), z.null()]).default(null),
+  revealActivationSteps: z
+    .array(UISettingRevealActivationStepSchema)
+    .default(() => []),
 });
 
 export type UISettingRevealTarget = z.infer<typeof UISettingRevealTargetSchema>;

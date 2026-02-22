@@ -8,9 +8,8 @@ import type {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("plugins/runtime", async () => {
-  const actual = await vi.importActual<typeof import("plugins/runtime")>(
-    "plugins/runtime",
-  );
+  const actual =
+    await vi.importActual<typeof import("plugins/runtime")>("plugins/runtime");
   return {
     ...actual,
     invokePluginSettingRevealHandler: vi.fn(
@@ -24,20 +23,9 @@ vi.mock("plugins/runtime", async () => {
 
 import { receiveUISettingReveal } from "./uiSettingReveal";
 
-type UISettingRevealActivationStep = {
-  type:
-    | "project_ai_settings_accordion_item"
-    | "run_instructions_accordion_item";
-  itemValue: string;
-};
-
-type UISettingRevealTargetWithActivationSteps = UISettingRevealTarget & {
-  revealActivationSteps?: Array<UISettingRevealActivationStep> | null;
-};
-
 function createRevealTarget(
-  overrides: Partial<UISettingRevealTargetWithActivationSteps>,
-): UISettingRevealTargetWithActivationSteps {
+  overrides: Partial<UISettingRevealTarget>,
+): UISettingRevealTarget {
   return {
     settingId: "core.watch_code.enabled",
     side: "left",

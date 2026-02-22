@@ -89,3 +89,28 @@
 10. UX after: reveal waits for the full requested deadline.
 11. DX before: multi-frontend reveal attribution and plugin failure triage were ambiguous.
 12. DX after: deterministic websocket targeting and structured plugin/validation errors simplify debugging and automation.
+
+## 2026-02-25 11:21:35 PST
+
+### Consolidated Findings
+1. Cross-source plugin UI-setting collisions (schema + backend registration) could still crash global registry build instead of isolating plugin faults.
+2. Project AI reveal determinism was incomplete because `llm_api_keys` and `agent_profiles` lacked activation metadata for collapsed accordion state.
+3. `set_ui_setting_value(..., revealAfterSet=True)` dropped section context and could fail right-pane reveal even when request metadata had `sectionId`.
+4. Backend/frontend reveal contract drift persisted because generated frontend types omitted `revealActivationSteps`, forcing cast-based shadow typing.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Added canonical plugin contribution indexing by `localSettingId` across schema/backend sources and isolated collisions into plugin-scoped errors instead of global registry failure.
+2. Added required `revealActivationSteps` metadata for Project AI `llm_api_keys` and `agent_profiles` and added registry validation for required core activation-step coverage.
+3. Added shared section-context resolution and wired `set_ui_setting_value(..., revealAfterSet=True)` to pass resolved section context into reveal flow.
+4. Regenerated frontend websocket contract types so `UISettingRevealTarget` includes `revealActivationSteps`; removed frontend cast-based workaround typing.
+5. Added/updated backend unit+integration tests, frontend unit/integration tests, and Playwright coverage for collision isolation, reveal metadata, and reveal context behavior.
+
+### UX/DX Before and After
+1. UX before: one plugin contribution collision could make UI-setting tools unavailable globally.
+2. UX after: only conflicting plugin contributions are isolated while core and healthy plugin settings remain available.
+3. UX before: revealing some Project AI settings depended on current accordion state.
+4. UX after: reveal consistently expands the required accordion item first.
+5. UX before: set+reveal could report reveal failure for right-pane settings despite available request context.
+6. UX after: set+reveal uses request context deterministically and succeeds when valid section context is present.
+7. DX before: generated contract mismatch required local casts and made payload shape less trustworthy.
+8. DX after: reveal payload shape is represented directly in generated types, reducing workaround code and drift risk.

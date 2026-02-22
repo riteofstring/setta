@@ -1,9 +1,5 @@
-import {
-  normalizeProjectAISettingsAccordionOpenValues,
-} from "components/Panes/Overview/ProjectLevelAI/projectAISettingsAccordionState";
-import {
-  normalizeRunInstructionsAccordionOpenValues,
-} from "components/Panes/Overview/runInstructionsAccordionState";
+import { normalizeProjectAISettingsAccordionOpenValues } from "components/Panes/Overview/ProjectLevelAI/projectAISettingsAccordionState";
+import { normalizeRunInstructionsAccordionOpenValues } from "components/Panes/Overview/runInstructionsAccordionState";
 import {
   invokePluginSettingRevealHandler,
   usePluginRuntimeStore,
@@ -55,17 +51,6 @@ type PluginRevealResult = {
   errorMessage: string | null;
 };
 
-type UISettingRevealActivationStep = {
-  type:
-    | "project_ai_settings_accordion_item"
-    | "run_instructions_accordion_item";
-  itemValue: string;
-};
-
-type UISettingRevealTargetWithActivationSteps = UISettingRevealTarget & {
-  revealActivationSteps?: Array<UISettingRevealActivationStep> | null;
-};
-
 export async function receiveUISettingReveal(
   content: UISettingRevealContent,
 ): Promise<Array<UISettingRevealResultStatus>> {
@@ -102,7 +87,7 @@ async function revealSingleSetting({
     };
   }
   applyRevealActivationSteps({
-    target: target as UISettingRevealTargetWithActivationSteps,
+    target,
     fallbackProjectConfigId,
   });
 
@@ -259,7 +244,7 @@ function applyRevealActivationSteps({
   target,
   fallbackProjectConfigId,
 }: {
-  target: UISettingRevealTargetWithActivationSteps;
+  target: UISettingRevealTarget;
   fallbackProjectConfigId: string;
 }): void {
   const activationSteps = target.revealActivationSteps;
@@ -283,9 +268,11 @@ function applyRevealActivationSteps({
 
     for (const step of activationSteps) {
       if (step.type === "run_instructions_accordion_item") {
-        const normalizedOpenValues = normalizeRunInstructionsAccordionOpenValues(
-          [...nextRunInstructionsOpenValues, step.itemValue],
-        );
+        const normalizedOpenValues =
+          normalizeRunInstructionsAccordionOpenValues([
+            ...nextRunInstructionsOpenValues,
+            step.itemValue,
+          ]);
         if (
           !areStringArraysEqual(
             normalizedOpenValues,
@@ -303,7 +290,9 @@ function applyRevealActivationSteps({
             ...nextProjectAiOpenValues,
             step.itemValue,
           ]);
-        if (!areStringArraysEqual(normalizedOpenValues, nextProjectAiOpenValues)) {
+        if (
+          !areStringArraysEqual(normalizedOpenValues, nextProjectAiOpenValues)
+        ) {
           nextProjectAiOpenValues = normalizedOpenValues;
           projectAiChanged = true;
         }

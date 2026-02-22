@@ -84,7 +84,6 @@ from setta.plugins.models import (
     normalize_scope,
     scope_label,
 )
-from setta.ui_settings.models import UISettingValueSchema
 from setta.types.external_agents import ExternalAgentRunMode
 from setta.types.helpers_lvl3 import (
     build_project_state_summary,
@@ -98,6 +97,7 @@ from setta.types.section_impls import (
     code_language_to_string,
     normalize_code_language,
 )
+from setta.ui_settings.models import UISettingValueSchema
 from setta.utils.command_paths import is_path_like_command
 
 if TYPE_CHECKING:
@@ -4278,10 +4278,7 @@ class PluginManager:
         except ValidationError as exc:
             raise PluginManagerError(
                 "PLUGIN_BACKEND_REGISTER_FAILED",
-                (
-                    "Plugin ui setting registration valueSchema is invalid: "
-                    f"{exc}"
-                ),
+                (f"Plugin ui setting registration valueSchema is invalid: {exc}"),
             ) from exc
 
         raw_read_handler_id = setting.get("readHandlerId")
