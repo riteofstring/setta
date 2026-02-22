@@ -115,6 +115,8 @@ class C:
     SHARE_DEPLOYMENT_ROOT: Path | None = None
     APP_MODE = False
     APP_DEPLOYMENT_ROOT: Path | None = None
+    _raw_server_mode = (os.environ.get("SETTA_SERVER_MODE") or "").strip().lower()
+    LAUNCHER_MODE = _raw_server_mode == "launcher"
 
     _raw_auth_cookie_name = os.environ.get("SETTA_AUTH_COOKIE_NAME")
     AUTH_COOKIE_NAME = normalize_cookie_name(
@@ -152,6 +154,12 @@ class C:
     )
     REALTIME_BINARY_MAX_BYTES = int(
         os.environ.get("SETTA_REALTIME_BINARY_MAX_BYTES", str(10 * 1024 * 1024)) or 0
+    )
+    TRANSCRIPTION_FILE_SESSION_MAX_BYTES = int(
+        os.environ.get(
+            "SETTA_TRANSCRIPTION_FILE_SESSION_MAX_BYTES", str(25 * 1024 * 1024)
+        )
+        or 0
     )
 
     # Allowed artifact types

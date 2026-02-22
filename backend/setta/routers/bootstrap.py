@@ -318,6 +318,7 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
         const redirectUrl = "__SETTA_REDIRECT_URL__";
         const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";
         const launcherOriginKey = "setta.launcherOrigin";
+        const openWorkspaceSwitcherOnLoadKey = "setta.openWorkspaceSwitcherOnLoad";
         const launcherOriginStorage = __SETTA_LAUNCHER_ORIGIN_STORAGE__;
         const maxHandoffLength = 8192;
         const form = document.getElementById("bootstrap-form");
@@ -412,6 +413,22 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 		          }
 		        }
 
+	        function hydrateOpenWorkspaceSwitcherFromHash() {
+	          try {
+	            const raw = hashParams.get("osw");
+	            if (!raw) {
+	              return;
+	            }
+	            const normalized = raw.trim().toLowerCase();
+	            if (normalized !== "1" && normalized !== "true") {
+	              return;
+	            }
+	            sessionStorage.setItem(openWorkspaceSwitcherOnLoadKey, "1");
+	          } catch {
+	            /* ignore */
+	          }
+	        }
+
         function readTokenFromUrl() {
           const hashToken = hashParams.get("token");
           if (hashToken) {
@@ -433,6 +450,7 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
           }
           hydrateWorkspaceHistoryFromHash();
           hydrateLauncherOriginFromHash();
+          hydrateOpenWorkspaceSwitcherFromHash();
           history.replaceState({}, "", "/__setta__/bootstrap");
           window.location.assign(redirectUrl);
         }

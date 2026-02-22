@@ -38,6 +38,7 @@ from setta.types.prompt import PromptFormat
 from setta.types.section_impls import (
     BrowserAreaViewMode,
     BrowserSavedSearch,
+    ChatDictationMode,
     ChatPermissionMode,
     ChatSectionState,
     CodeFileAccessMode,
@@ -1123,10 +1124,12 @@ class SetSpreadsheetSectionSettingsRequest(ProjectManagerRequestWithSection):
 class SetChatSectionSettingsRequest(ProjectManagerRequestWithSection):
     managed: bool
     engineConfigId: ID | None
+    transcriptionProfileId: ID | None
     agentProfileId: ID | None
     thinking: bool
     permissionMode: ChatPermissionMode
     searchEnabled: bool
+    dictationMode: ChatDictationMode
 
 
 class SetChatSectionStateRequest(ProjectManagerRequestWithSection):

@@ -31,6 +31,36 @@ class EngineConfigList(BaseModel, extra="forbid"):
     configs: list[EngineConfig]
 
 
+class TranscriptionTransportMode(str, Enum):
+    auto = "auto"
+    file = "file"
+    realtime = "realtime"
+
+
+class TranscriptionProfile(BaseModel, extra="forbid"):
+    id: ID = Field(default_factory=create_new_id)
+    name: str
+    transcriptionLlmConfigId: str
+    transportMode: TranscriptionTransportMode
+    chunkMs: int = Field(ge=200, le=10_000)
+    supportsRealtimeTranscription: bool = False
+    language: str | None = None
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def parse_language(cls, value: Any) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("language must be a string or null")
+        stripped = value.strip()
+        return stripped or None
+
+
+class TranscriptionProfileList(BaseModel, extra="forbid"):
+    profiles: list[TranscriptionProfile]
+
+
 class AgentProfile(BaseModel, extra="forbid"):
     id: ID = Field(default_factory=create_new_id)
     name: str

@@ -40,6 +40,7 @@ from setta.routers import (
     code_info_router,
     git_router,
     launch_router,
+    launcher_home_router,
     listener_router,
     llm_router,
     lsp_router,
@@ -83,7 +84,7 @@ async def lifespan(app: FastAPI):
             share_deployment_root=deployment_root,
         )
     else:
-        app.state.setta = SettaFastAPIState(app)
+        app.state.setta = SettaFastAPIState(app, launcher_mode=C.LAUNCHER_MODE)
 
     if not IS_DEV_MODE:
         # Mount the 'frontend/dist' directory at '/static'
@@ -118,6 +119,18 @@ async def lifespan(app: FastAPI):
     finally:
         if browser_task is not None:
             await browser_task
+        stop_transcription_cleanup = getattr(
+            app.state.setta,
+            "stop_transcription_session_cleanup_loop",
+            None,
+        )
+        if callable(stop_transcription_cleanup):
+            try:
+                await stop_transcription_cleanup()
+            except Exception:
+                logger.exception(
+                    "Transcription session cleanup loop shutdown failed during lifespan teardown."
+                )
         try:
             app.state.setta.plugin_manager.shutdown_backend_plugins()
         except Exception:
@@ -174,6 +187,7 @@ app.include_router(attachments_router, **http_router_kwargs)
 app.include_router(binary_router, **http_router_kwargs)
 app.include_router(listener_router, **http_router_kwargs)
 app.include_router(launch_router, **http_router_kwargs)
+app.include_router(launcher_home_router, **http_router_kwargs)
 app.include_router(lsp_router, **http_router_kwargs)
 app.include_router(llm_router, **http_router_kwargs)
 app.include_router(ai_router, **http_router_kwargs)

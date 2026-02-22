@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 from typing import Any, AsyncIterator
 
+from mcp.shared._httpx_utils import create_mcp_http_client
 from mcp.types import TextContent
 
 from setta.agentic.external_adapters.base import (
@@ -18,6 +19,7 @@ from setta.agentic.external_adapters.stream_utils import (
 )
 from setta.agentic.node_runtime import resolve_node_command
 from setta.database.utils import create_new_id
+from setta.mcp.namespacing import normalize_mcp_tool_name
 from setta.types.chat_messages import (
     AssistantChatMessage,
     MessageTextContent,
@@ -46,6 +48,7 @@ from setta.utils.timestamps import get_now_timestamp
 
 _SIDECAR_PATH = Path(__file__).resolve().parent / "sidecars" / "opencode_sdk_runner.mjs"
 _OPENCODE_STDERR_MAX_LINES = 200
+_MCP_STATUS_HTTP_TIMEOUT_SECONDS = 1.0
 
 
 class OpenCodeSdkAdapter(ExternalAgentAdapter):
@@ -72,6 +75,10 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
             process=process,
             metadata={"stderr_lines": stderr_lines},
         )
+        if context.config.runMode == ExternalAgentRunMode.server:
+            mcp_payload = await self._fetch_mcp_server_status_payload(context)
+            if mcp_payload is not None:
+                handle.metadata["mcp_server_status_payload"] = mcp_payload
         if process.stdin is not None:
             payload = {
                 "prompt": prompt,
@@ -96,6 +103,29 @@ class OpenCodeSdkAdapter(ExternalAgentAdapter):
             process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
             await process.stdin.drain()
         return handle
+
+    @staticmethod
+    async def _fetch_mcp_server_status_payload(
+        context: ExternalAgentRunContext,
+    ) -> dict[str, Any] | list[Any] | None:
+        base_url = context.config.baseUrl
+        if base_url is None or base_url.strip() == "":
+            return None
+        normalized_base_url = base_url.rstrip("/")
+        status_url = f"{normalized_base_url}/mcp"
+        try:
+            async with create_mcp_http_client() as client:
+                response = await asyncio.wait_for(
+                    client.get(status_url),
+                    timeout=_MCP_STATUS_HTTP_TIMEOUT_SECONDS,
+                )
+                response.raise_for_status()
+                payload = response.json()
+        except Exception:
+            return None
+        if isinstance(payload, dict | list):
+            return payload
+        return None
 
     async def stream_events(
         self, handle: ExternalAgentRunHandle, _context: ExternalAgentRunContext
@@ -265,11 +295,17 @@ class _OpenCodeSdkEventParser:
         if isinstance(event_type, str):
             normalized = event_type.strip().lower()
             if normalized == "message.part.updated":
-                return self._handle_part_updated(payload)
+                return self._ensure_message_finalized_events_last(
+                    self._handle_part_updated(payload)
+                )
             if normalized == "message.updated":
-                return self._handle_message_updated(payload)
+                return self._ensure_message_finalized_events_last(
+                    self._handle_message_updated(payload)
+                )
             if normalized == "assistant_message":
-                return self._handle_assistant_message(payload)
+                return self._ensure_message_finalized_events_last(
+                    self._handle_assistant_message(payload)
+                )
 
         events: list[ExternalAgentStreamEvent] = []
         text = _extract_text(payload)
@@ -316,7 +352,7 @@ class _OpenCodeSdkEventParser:
             events.extend(tool_events)
 
         if events:
-            return events
+            return self._ensure_message_finalized_events_last(events)
         return [ExternalAgentStreamEvent(raw=payload)]
 
     def _handle_part_updated(
@@ -549,7 +585,10 @@ class _OpenCodeSdkEventParser:
                 )
             )
         tool_call_id = part.get("callID")
-        tool_name = part.get("tool")
+        tool_name = None
+        raw_tool_name = part.get("tool")
+        if isinstance(raw_tool_name, str):
+            tool_name = normalize_mcp_tool_name(raw_tool_name)
         if isinstance(tool_call_id, str) and tool_call_id:
             state = part.get("state")
             if not isinstance(state, dict):
@@ -631,6 +670,21 @@ class _OpenCodeSdkEventParser:
         self._messages[message.id] = message
         self._last_message_id = message.id
         return message, True
+
+    @staticmethod
+    def _ensure_message_finalized_events_last(
+        events: list[ExternalAgentStreamEvent],
+    ) -> list[ExternalAgentStreamEvent]:
+        non_finalized_events: list[ExternalAgentStreamEvent] = []
+        finalized_events: list[ExternalAgentStreamEvent] = []
+        for event in events:
+            if isinstance(event.stream_chunk, MessageFinalizedEvent):
+                finalized_events.append(event)
+                continue
+            non_finalized_events.append(event)
+        if not finalized_events:
+            return events
+        return non_finalized_events + finalized_events
 
     def _register_tool_call(
         self,
@@ -971,12 +1025,12 @@ def _extract_tool_name(payload: dict[str, Any]) -> str | None:
     for key in ("tool_name", "toolName", "name"):
         raw = payload.get(key)
         if isinstance(raw, str) and raw:
-            return raw
+            return normalize_mcp_tool_name(raw)
     function = payload.get("function")
     if isinstance(function, dict):
         raw = function.get("name")
         if isinstance(raw, str) and raw:
-            return raw
+            return normalize_mcp_tool_name(raw)
     return None
 
 

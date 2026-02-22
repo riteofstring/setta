@@ -160,6 +160,17 @@ describe("Overview rail offsets", () => {
     expect(style).toContain("bottom:36px");
   });
 
+  it("renders the settings shortcut link in the overview icon rail", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <Overview />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain('data-testid="overview-left-rail-settings-link"');
+    expect(markup).toContain('aria-label="Open settings"');
+  });
+
   it("renders the View Modes pane content when the view modes tab is selected", () => {
     const viewId = "view-1";
     const projectConfig = createProjectConfig({

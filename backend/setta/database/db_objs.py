@@ -54,6 +54,7 @@ class DBE:
         self.llm_config_example = self.path / "llm_config.example.json"
         self.external_agents = self.path / "external_agents.json"
         self.engine_configs = self.path / "engine_configs.json"
+        self.transcription_profiles = self.path / "transcription_profiles.json"
         self.agent_profiles = self.path / "agent_profiles.json"
         self.agent_runs = self.path / "agent_runs"
         self.agent_run_index = self.path / "agent_run_index.json"
@@ -323,6 +324,19 @@ class DBE:
 
     def write_engine_configs(self, payload: list[dict]) -> None:
         self.write_json(self.engine_configs, payload)
+
+    def read_transcription_profiles(self) -> list[dict]:
+        payload = self.read_json(self.transcription_profiles)
+        if not payload:
+            return []
+        if not isinstance(payload, list):
+            raise ValueError(
+                "transcription_profiles.json must contain a list of profiles"
+            )
+        return payload
+
+    def write_transcription_profiles(self, payload: list[dict]) -> None:
+        self.write_json(self.transcription_profiles, payload)
 
     def read_agent_run_index(self) -> dict[str, Any]:
         payload = self.read_json(self.agent_run_index)

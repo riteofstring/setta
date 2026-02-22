@@ -40,6 +40,7 @@ export class C {
   static EDGE_OUTPUT_BASE_LABEL = "value";
   static GEN_CODE_SEPARATOR_NEWLINES = 2;
   static HOST = "127.0.0.1";
+  static LAUNCHER_MODE = false;
   static LLM_TEXT = "text";
   static LLM_THINKING = "thinking";
   static MCP_HIDDEN_FIELD_SCHEMA_KEY = "settaMcpHidden";
@@ -55,6 +56,7 @@ export class C {
   static SETTINGS_PROJECT_NAME = "settings";
   static SHARE_DEPLOYMENT_ROOT = null;
   static SHARE_MODE = false;
+  static TRANSCRIPTION_FILE_SESSION_MAX_BYTES = 26214400;
   static WS_RUN_CODE = "runCode";
   static WS_TERMINAL_RESIZE = "terminalResize";
 }

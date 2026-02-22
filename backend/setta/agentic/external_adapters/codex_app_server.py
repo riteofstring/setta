@@ -4,7 +4,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterator, Literal
+from typing import Any, AsyncIterator
 
 from mcp.types import TextContent
 
@@ -73,6 +73,7 @@ _COMMAND_EXECUTION_TOOL_NAME = "command_execution"
 _FILE_CHANGE_TOOL_NAME = "file_change"
 _MAX_CLI_STDERR_LINES = 200
 _REQUEST_TIMEOUT_SECONDS = 15.0
+_MCP_STATUS_REQUEST_TIMEOUT_SECONDS = 1.0
 
 
 @dataclass
@@ -130,11 +131,6 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
         handle.metadata["stderr_lines"] = state.stderr_lines
         handle.metadata["process_state"] = state
         handle.metadata["run_id"] = str(context.run.id)
-        handle.metadata["agentNativeSlashCommands"] = []
-        handle.metadata["agentNativeSlashCommandsStatus"] = "not_supported"
-        handle.metadata["agentNativeSlashCommandsStatusDetail"] = (
-            "Codex app-server mode does not expose slash command definitions."
-        )
         if state.thread_id:
             handle.thread_id = state.thread_id
         try:
@@ -161,6 +157,7 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
 
             turn_params = _build_turn_params(context, prompt, thread_id)
             await self._send_request(state, "turn/start", turn_params)
+            await self._maybe_capture_mcp_server_status(state, handle)
             return handle
         except Exception:
             state.lock.release()
@@ -555,8 +552,34 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
         except asyncio.TimeoutError:
             return None
 
+    async def _maybe_capture_mcp_server_status(
+        self,
+        state: _CodexAppServerState,
+        handle: ExternalAgentRunHandle,
+    ) -> None:
+        try:
+            mcp_status_payload = await self._send_request(
+                state,
+                "mcpServerStatus/list",
+                {},
+                timeout_seconds=_MCP_STATUS_REQUEST_TIMEOUT_SECONDS,
+            )
+        except Exception as exc:
+            logger.debug(
+                "Codex MCP status request failed (run_id=%s): %s",
+                handle.run_id,
+                exc,
+            )
+            return
+        handle.metadata["mcp_server_status_payload"] = mcp_status_payload
+
     async def _send_request(
-        self, state: _CodexAppServerState, method: str, params: dict[str, Any] | None
+        self,
+        state: _CodexAppServerState,
+        method: str,
+        params: dict[str, Any] | None,
+        *,
+        timeout_seconds: float = _REQUEST_TIMEOUT_SECONDS,
     ) -> dict[str, Any]:
         process = state.process
         if process.stdin is None:
@@ -571,14 +594,14 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
         process.stdin.write((json.dumps(payload) + "\n").encode("utf-8"))
         await process.stdin.drain()
         try:
-            response = await asyncio.wait_for(future, timeout=_REQUEST_TIMEOUT_SECONDS)
+            response = await asyncio.wait_for(future, timeout=timeout_seconds)
         except asyncio.TimeoutError as exc:
             state.pending_requests.pop(request_id, None)
             if not future.done():
                 future.cancel()
             raise RuntimeError(
                 "Codex app-server request timed out "
-                f"(method={method}, timeout={_REQUEST_TIMEOUT_SECONDS}s)"
+                f"(method={method}, timeout={timeout_seconds}s)"
             ) from exc
         if "error" in response:
             raise RuntimeError(
@@ -700,8 +723,6 @@ class _CodexAppServerEventParser:
         if not isinstance(item, dict):
             return []
         item_type = _extract_item_type(item)
-        if _is_reasoning_item_type(item_type):
-            return self._handle_reasoning_item_update({"item": item}, item)
         if item_type == "function_call":
             return self._handle_function_call_item(payload, item)
         if item_type == "function_call_output":
@@ -1374,12 +1395,20 @@ class _CodexAppServerEventParser:
         if _is_response_message_id(message_id):
             return [ExternalAgentStreamEvent(raw=payload)]
         content = item.get("content")
-        segments = _extract_message_content_segments(content)
-        if not segments:
+        text_parts: list[str] = []
+        if isinstance(content, list):
+            for entry in content:
+                if isinstance(entry, dict):
+                    text = entry.get("text")
+                    if isinstance(text, str) and text:
+                        text_parts.append(text)
+        if not text_parts:
             return [ExternalAgentStreamEvent(raw=payload)]
         message, is_new = self._get_or_create_message(
             {"id": message_id, "params": {"itemId": message_id}}
         )
+        delta_text = "".join(text_parts)
+        index = _append_message_text(message, delta_text)
         events: list[ExternalAgentStreamEvent] = []
         if is_new:
             self._assistant_message_open = True
@@ -1390,48 +1419,20 @@ class _CodexAppServerEventParser:
                 )
             )
         events.extend(self._flush_pending_tool_calls(message.id))
-        for segment in segments:
-            if segment.kind == "text":
-                index = _append_message_text(message, segment.text)
-                events.append(
-                    ExternalAgentStreamEvent(
-                        raw=payload,
-                        stream_chunk=MessageDeltaEvent(
-                            message_id=message.id,
-                            content=[
-                                MessageTextDelta(
-                                    index=index if index is not None else 0,
-                                    text=segment.text,
-                                )
-                            ],
-                        ),
-                    )
-                )
-                continue
-            index = _append_message_thinking(
-                message,
-                segment.text,
-                segment.summary,
-                append_summary=False,
+        events.append(
+            ExternalAgentStreamEvent(
+                raw=payload,
+                stream_chunk=MessageDeltaEvent(
+                    message_id=message.id,
+                    content=[
+                        MessageTextDelta(
+                            index=index if index is not None else 0,
+                            text=delta_text,
+                        )
+                    ],
+                ),
             )
-            if index is None:
-                continue
-            events.append(
-                ExternalAgentStreamEvent(
-                    raw=payload,
-                    stream_chunk=MessageDeltaEvent(
-                        message_id=message.id,
-                        content=[
-                            MessageThinkingDelta(
-                                index=index if index is not None else 0,
-                                thinking=segment.text,
-                                summary=segment.summary,
-                                signature=None,
-                            )
-                        ],
-                    ),
-                )
-            )
+        )
         events.append(
             ExternalAgentStreamEvent(
                 raw=payload,
@@ -2117,16 +2118,10 @@ def _stringify_reasoning_parts(parts: Any) -> str:
 
 
 def _extract_reasoning_summary(item: dict[str, Any]) -> str:
-    for key in (
-        "summary",
-        "summaryText",
-        "summary_text",
-        "reasoning_summary",
-        "thinking_summary",
-    ):
-        if key in item:
-            return _stringify_reasoning_parts(item.get(key))
-    return ""
+    summary = item.get("summary")
+    if summary is None:
+        summary = item.get("text")
+    return _stringify_reasoning_parts(summary)
 
 
 def _extract_reasoning_content(item: dict[str, Any]) -> str:
@@ -2145,53 +2140,6 @@ def _extract_reasoning_delta_text(payload: dict[str, Any]) -> str:
     item = _extract_item_payload(payload)
     if item is not None:
         return _stringify_reasoning_parts(item.get("delta") or item.get("text"))
-    return ""
-
-
-@dataclass
-class _MessageContentSegment:
-    kind: Literal["text", "thinking"]
-    text: str
-    summary: str | None = None
-
-
-def _extract_message_content_segments(content: Any) -> list[_MessageContentSegment]:
-    if not isinstance(content, list):
-        return []
-    segments: list[_MessageContentSegment] = []
-    for entry in content:
-        if not isinstance(entry, dict):
-            continue
-        entry_type = entry.get("type")
-        if entry_type == "reasoning":
-            summary = _extract_reasoning_summary(entry)
-            thinking = _extract_reasoning_content(entry)
-            if summary or thinking:
-                segments.append(
-                    _MessageContentSegment(
-                        kind="thinking",
-                        text=thinking,
-                        summary=summary or None,
-                    )
-                )
-            continue
-        text_value = _extract_message_content_text(entry)
-        if text_value:
-            segments.append(_MessageContentSegment(kind="text", text=text_value))
-    return segments
-
-
-def _extract_message_content_text(entry: dict[str, Any]) -> str:
-    text = entry.get("text")
-    if isinstance(text, str) and text:
-        return text
-    if isinstance(text, list):
-        return _stringify_reasoning_parts(text)
-    if isinstance(text, dict):
-        return _stringify_reasoning_parts(text)
-    content = entry.get("content")
-    if content is not None:
-        return _stringify_reasoning_parts(content)
     return ""
 
 

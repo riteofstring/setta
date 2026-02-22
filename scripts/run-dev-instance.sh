@@ -24,6 +24,7 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 ROOT_DIR=$(cd "${SCRIPT_DIR}/.." && pwd)
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
 . "${SCRIPT_DIR}/lib/setta_path_flags.sh"
+. "${SCRIPT_DIR}/lib/setta_port_selection.sh"
 
 if [ -z "${INSTANCE_NAME}" ]; then
   INSTANCE_NAME=$(basename "${WORKTREE_ROOT}")
@@ -35,53 +36,21 @@ else
   DEFAULT_SETTA_HOME=".setta-development"
 fi
 DEFAULT_DEV_SETTA_FILES_ROOT="${WORKTREE_ROOT}/setta_files_dev"
-
-INSTANCE_KEY="${INSTANCE_NAME}"
-case "${INSTANCE_KEY}" in
-  setta.*)
-    INSTANCE_KEY="${INSTANCE_KEY#setta.}"
-    ;;
-esac
-SUFFIX_SEGMENT="${INSTANCE_KEY}"
-case "${SUFFIX_SEGMENT}" in
-  *-*) SUFFIX_SEGMENT="${SUFFIX_SEGMENT##*-}" ;;
-esac
-case "${SUFFIX_SEGMENT}" in
-  *_*) SUFFIX_SEGMENT="${SUFFIX_SEGMENT##*_}" ;;
-esac
-case "${SUFFIX_SEGMENT}" in
-  *.*) SUFFIX_SEGMENT="${SUFFIX_SEGMENT##*.}" ;;
-esac
-
-# Derive a stable port offset from trailing digits or a single-letter suffix.
-INSTANCE_OFFSET="${INSTANCE_KEY##*[!0-9]}"
-if [ -z "${INSTANCE_OFFSET}" ] && [ "${#SUFFIX_SEGMENT}" -eq 1 ]; then
-  case "${SUFFIX_SEGMENT}" in
-    [a-z])
-      INSTANCE_OFFSET=$(( $(printf '%d' "'${SUFFIX_SEGMENT}") - 97 ))
-      ;;
-    [A-Z])
-      INSTANCE_OFFSET=$(( $(printf '%d' "'${SUFFIX_SEGMENT}") - 65 ))
-      ;;
-  esac
-fi
-if [ -z "${INSTANCE_OFFSET}" ] && [ -n "${INSTANCE_KEY}" ]; then
-  if command -v cksum >/dev/null 2>&1; then
-    CKSUM_OUTPUT=$(printf "%s" "${INSTANCE_KEY}" | cksum)
-    CKSUM_VALUE=${CKSUM_OUTPUT%% *}
-    if [ -n "${CKSUM_VALUE}" ]; then
-      INSTANCE_OFFSET=$(( CKSUM_VALUE % 100 ))
-    fi
-  fi
-fi
-INSTANCE_OFFSET="${INSTANCE_OFFSET:-0}"
-
+INSTANCE_OFFSET="$(setta_instance_offset "${INSTANCE_NAME}")"
 DEFAULT_BACKEND_PORT=$((8000 + INSTANCE_OFFSET))
 DEFAULT_FRONTEND_PORT=$((3000 + INSTANCE_OFFSET))
 
 SETTA_HOST="${SETTA_HOST:-127.0.0.1}"
-SETTA_PORT="${SETTA_PORT:-${DEFAULT_BACKEND_PORT}}"
-SETTA_DEV_FRONTEND_PORT="${SETTA_DEV_FRONTEND_PORT:-${DEFAULT_FRONTEND_PORT}}"
+SETTA_PORT="${SETTA_PORT:-}"
+SETTA_DEV_FRONTEND_PORT="${SETTA_DEV_FRONTEND_PORT:-}"
+SETTA_PORT_WAS_SET=0
+if [ -n "${SETTA_PORT}" ]; then
+  SETTA_PORT_WAS_SET=1
+fi
+SETTA_DEV_FRONTEND_PORT_WAS_SET=0
+if [ -n "${SETTA_DEV_FRONTEND_PORT}" ]; then
+  SETTA_DEV_FRONTEND_PORT_WAS_SET=1
+fi
 RUN_MODE="start"
 setta_path_flags_init "${DEFAULT_SETTA_HOME}" "${DEFAULT_DEV_SETTA_FILES_ROOT}"
 setta_path_flags_seed_from_env
@@ -96,11 +65,13 @@ while [ "$#" -gt 0 ]; do
     --backend-port)
       setta_require_option_value "$1" "$#" "${2-}"
       SETTA_PORT="$2"
+      SETTA_PORT_WAS_SET=1
       shift 2
       ;;
     --frontend-port)
       setta_require_option_value "$1" "$#" "${2-}"
       SETTA_DEV_FRONTEND_PORT="$2"
+      SETTA_DEV_FRONTEND_PORT_WAS_SET=1
       shift 2
       ;;
     --mode)
@@ -120,6 +91,48 @@ while [ "$#" -gt 0 ]; do
 done
 
 setta_path_flags_validate
+
+if [ "${SETTA_PORT_WAS_SET}" -eq 0 ] && [ "${SETTA_DEV_FRONTEND_PORT_WAS_SET}" -eq 0 ]; then
+  PICKED_OFFSET="$(setta_pick_free_offset "${INSTANCE_OFFSET}" || true)"
+  if [ -z "${PICKED_OFFSET:-}" ]; then
+    echo "Unable to find a free backend/frontend port offset starting at ${INSTANCE_OFFSET}." >&2
+    exit 1
+  fi
+  if [ "${PICKED_OFFSET}" != "${INSTANCE_OFFSET}" ]; then
+    echo "Default dev ports are in use; using offset ${PICKED_OFFSET} (backend $((8000 + PICKED_OFFSET)), frontend $((3000 + PICKED_OFFSET)))." >&2
+    INSTANCE_OFFSET="${PICKED_OFFSET}"
+    DEFAULT_BACKEND_PORT=$((8000 + INSTANCE_OFFSET))
+    DEFAULT_FRONTEND_PORT=$((3000 + INSTANCE_OFFSET))
+  fi
+fi
+
+if [ "${SETTA_PORT_WAS_SET}" -eq 0 ]; then
+  SETTA_PORT="$(
+    setta_pick_free_port_from \
+      "${DEFAULT_BACKEND_PORT}" \
+      200 \
+      "${SETTA_DEV_FRONTEND_PORT:-}" \
+      || true
+  )"
+  if [ -z "${SETTA_PORT:-}" ]; then
+    echo "Unable to find a free backend port starting at ${DEFAULT_BACKEND_PORT}." >&2
+    exit 1
+  fi
+fi
+
+if [ "${SETTA_DEV_FRONTEND_PORT_WAS_SET}" -eq 0 ]; then
+  SETTA_DEV_FRONTEND_PORT="$(
+    setta_pick_free_port_from \
+      "${DEFAULT_FRONTEND_PORT}" \
+      200 \
+      "${SETTA_PORT}" \
+      || true
+  )"
+  if [ -z "${SETTA_DEV_FRONTEND_PORT:-}" ]; then
+    echo "Unable to find a free frontend port starting at ${DEFAULT_FRONTEND_PORT}." >&2
+    exit 1
+  fi
+fi
 
 export SETTA_HOST
 export SETTA_PORT
