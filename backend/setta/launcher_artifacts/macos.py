@@ -1,3 +1,4 @@
+import plistlib
 import shlex
 import shutil
 from pathlib import Path
@@ -48,35 +49,23 @@ def install_macos_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
         channel_literal=channel_literal,
     )
 
-    icon_plist_block = ""
+    info_plist_payload: dict[str, str] = {
+        "CFBundleDisplayName": "Setta",
+        "CFBundleExecutable": "setta-launcher",
+        "CFBundleIdentifier": "dev.setta.desktop",
+        "CFBundleName": "Setta",
+        "CFBundlePackageType": "APPL",
+        "CFBundleShortVersionString": "1.0",
+        "CFBundleVersion": "1",
+        "LSMinimumSystemVersion": "11.0",
+    }
     if icon_file_name is not None:
-        icon_plist_block = (
-            f"  <key>CFBundleIconFile</key>\n  <string>{icon_file_name}</string>\n"
-        )
-
-    info_plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleDisplayName</key>
-  <string>Setta</string>
-  <key>CFBundleExecutable</key>
-  <string>setta-launcher</string>
-  <key>CFBundleIdentifier</key>
-  <string>dev.setta.desktop</string>
-  <key>CFBundleName</key>
-  <string>Setta</string>
-{icon_plist_block}  <key>CFBundlePackageType</key>
-  <string>APPL</string>
-  <key>CFBundleShortVersionString</key>
-  <string>1.0</string>
-  <key>CFBundleVersion</key>
-  <string>1</string>
-  <key>LSMinimumSystemVersion</key>
-  <string>11.0</string>
-</dict>
-</plist>
-"""
+        info_plist_payload["CFBundleIconFile"] = icon_file_name
+    info_plist_content = plistlib.dumps(
+        info_plist_payload,
+        fmt=plistlib.FMT_XML,
+        sort_keys=False,
+    ).decode("utf-8")
 
     write_text_file(
         path=launcher_binary_path, content=launcher_content, executable=True
@@ -99,10 +88,22 @@ def _copy_optional_icns_icon(
         raise LauncherArtifactError(
             "Artifact option `icon_path` must point to a .icns file."
         )
+    icon_file_name = _sanitize_info_plist_text_value(
+        raw_value=resolved_source.name,
+        option_key="icon_path",
+    )
     destination_dir.mkdir(parents=True, exist_ok=True)
-    destination_path = destination_dir / resolved_source.name
+    destination_path = destination_dir / icon_file_name
     shutil.copyfile(resolved_source, destination_path)
-    return resolved_source.name
+    return icon_file_name
+
+
+def _sanitize_info_plist_text_value(*, raw_value: str, option_key: str) -> str:
+    if any(ord(char) < 0x20 or ord(char) == 0x7F for char in raw_value):
+        raise LauncherArtifactError(
+            f"Artifact option `{option_key}` must not contain control characters."
+        )
+    return raw_value
 
 
 def _build_launcher_script(

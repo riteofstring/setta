@@ -59,3 +59,12 @@
 - Split IDE route-mode guarantees with an explicit full-IDE-runtime guard and applied it to IDE-runtime endpoints that can dereference uninitialized launcher-mode subsystems (`/loadAllProjectMetadata`, `/mcpServerRuntimeStatus`).
 - Made session mode a first-class connect contract by emitting `serverMode` in status/list/connect payloads, validating it in remote parsers, and enforcing IDE-only session selection in local/SSH connect/stop workflows.
 - Added/updated backend pytest coverage for all above invariants (scripts, metadata/artifacts, mode guards, session contracts) and validated with targeted backend suite runs plus Ruff checks; all targeted tests passed.
+
+## 2026-02-25 18:58:55 PST
+
+- Replaced hand-built macOS `Info.plist` string interpolation with `plistlib` serialization and added icon filename control-character validation so launcher metadata remains parseable for XML metacharacter filenames.
+- Hardened Linux desktop-entry rendering by validating `icon_path` through the shared desktop-entry text sanitizer, preventing newline/control-character line injection into generated `.desktop` files.
+- Enforced explicit full-IDE-runtime guards on settings load/save routes so launcher mode now fails fast with deterministic `403` contracts instead of deferred-attribute runtime crashes.
+- Split launcher `/launching` route composition from IDE wrappers by introducing launcher-safe workspace-launch route kind resolution and rendering launcher handoff without `GlobalWrapper` bootstrap dependencies.
+- Centralized frontend endpoint-origin policy into an exported contract/resolver and aligned generated-endpoint tests so `/launcherStatus` is asserted against backend origin under distinct backend/launcher base URLs.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for plist/desktop artifact sanitization, launcher mode settings guards, launcher `/launching` no-`/loadSettings` behavior, and endpoint-origin contract consistency; targeted runs passed.

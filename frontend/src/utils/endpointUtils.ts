@@ -8,6 +8,8 @@ export type ResponseDataAndStatus<T> = {
   hasResponse: boolean;
 };
 
+export type EndpointOriginPolicy = "backend" | "launcher" | "backend-origin";
+
 export function res200<T>(
   res: ResponseDataAndStatus<T>,
 ): res is ResponseDataAndStatus<T> & { data: T; status: number } {
@@ -43,17 +45,19 @@ export function getErrorDetail(value: unknown): string | null {
   return null;
 }
 
-const LAUNCHER_ROUTES = new Set<string>([
-  RouteEnum.LAUNCH,
-  RouteEnum.GET_LAUNCHER_APP_MODE,
-  RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES,
-  RouteEnum.ADD_LAUNCHER_RECENT_WORKSPACE,
-  RouteEnum.REMOVE_LAUNCHER_RECENT_WORKSPACE,
-  RouteEnum.PIN_LAUNCHER_RECENT_WORKSPACE,
-  RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS,
-  RouteEnum.LIST_LAUNCHER_DIRECTORY,
-  RouteEnum.OPEN_LAUNCHER_WORKSPACE,
-]);
+export const ENDPOINT_ORIGIN_POLICY: Readonly<
+  Record<string, EndpointOriginPolicy>
+> = Object.freeze({
+  [RouteEnum.LAUNCH]: "launcher",
+  [RouteEnum.GET_LAUNCHER_APP_MODE]: "launcher",
+  [RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES]: "launcher",
+  [RouteEnum.ADD_LAUNCHER_RECENT_WORKSPACE]: "launcher",
+  [RouteEnum.REMOVE_LAUNCHER_RECENT_WORKSPACE]: "launcher",
+  [RouteEnum.PIN_LAUNCHER_RECENT_WORKSPACE]: "launcher",
+  [RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS]: "launcher",
+  [RouteEnum.LIST_LAUNCHER_DIRECTORY]: "launcher",
+  [RouteEnum.OPEN_LAUNCHER_WORKSPACE]: "launcher",
+});
 
 function stripQueryAndHash(address: string): string {
   const hashIndex = address.indexOf("#");
@@ -68,12 +72,24 @@ function stripQueryAndHash(address: string): string {
   return withoutHash;
 }
 
-function resolveBackendUrl(address: string): string {
+export function resolveEndpointOrigin(address: string): EndpointOriginPolicy {
   const normalizedAddress = stripQueryAndHash(address);
   if (normalizedAddress.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
+    return "backend-origin";
+  }
+  const routePolicy = ENDPOINT_ORIGIN_POLICY[normalizedAddress];
+  if (routePolicy === "launcher") {
+    return "launcher";
+  }
+  return "backend";
+}
+
+function resolveBackendUrl(address: string): string {
+  const originPolicy = resolveEndpointOrigin(address);
+  if (originPolicy === "backend-origin") {
     return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
   }
-  if (LAUNCHER_ROUTES.has(normalizedAddress)) {
+  if (originPolicy === "launcher") {
     return `${C_ADDRESSES.LAUNCHER}${address}`;
   }
   return `${C_ADDRESSES.BACKEND}${address}`;

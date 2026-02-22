@@ -105,11 +105,17 @@ def install_linux_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
     )
 
     icon_path_raw = context.options.get("icon_path")
-    icon_path: Path | None = None
+    icon_path: str | None = None
     if icon_path_raw is not None:
-        icon_path = Path(icon_path_raw).expanduser().resolve(strict=False)
-        if not icon_path.exists() or not icon_path.is_file():
-            raise LauncherArtifactError(f"Icon file does not exist: {icon_path}")
+        resolved_icon_path = Path(icon_path_raw).expanduser().resolve(strict=False)
+        if not resolved_icon_path.exists() or not resolved_icon_path.is_file():
+            raise LauncherArtifactError(
+                f"Icon file does not exist: {resolved_icon_path}"
+            )
+        icon_path = _sanitize_desktop_entry_text_value(
+            raw_value=str(resolved_icon_path),
+            option_key="icon_path",
+        )
 
     create_desktop_shortcut = "linuxDesktopShortcut" in planned_artifacts
     desktop_shortcut_path = planned_artifacts.get("linuxDesktopShortcut")
@@ -223,7 +229,7 @@ def _build_desktop_entry(
     *,
     app_name: str,
     wrapper_path: Path,
-    icon_path: Path | None,
+    icon_path: str | None,
 ) -> str:
     escaped_wrapper = _escape_desktop_exec_argument(str(wrapper_path))
     icon_line = ""

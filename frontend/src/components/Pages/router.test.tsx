@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveModeElementForServerMode } from "./modeRouteResolver";
-import { modeSupportsWorkspaceLaunch } from "./workspaceLaunchModePolicy";
+import {
+  modeSupportsWorkspaceLaunch,
+  resolveWorkspaceLaunchRouteKind,
+} from "./workspaceLaunchModePolicy";
 
 describe("resolveModeElementForServerMode", () => {
   const modeRoutes = {
@@ -41,5 +44,13 @@ describe("resolveModeElementForServerMode", () => {
     expect(modeSupportsWorkspaceLaunch("launcher")).toBe(true);
     expect(modeSupportsWorkspaceLaunch("share")).toBe(false);
     expect(modeSupportsWorkspaceLaunch("app")).toBe(false);
+  });
+
+  it("resolves launcher /launching to launcher-only route kind", () => {
+    // This keeps launcher mode from inheriting IDE-only wrappers.
+    expect(resolveWorkspaceLaunchRouteKind("ide")).toBe("ide");
+    expect(resolveWorkspaceLaunchRouteKind("launcher")).toBe("launcher");
+    expect(resolveWorkspaceLaunchRouteKind("share")).toBe("blocked");
+    expect(resolveWorkspaceLaunchRouteKind("app")).toBe("blocked");
   });
 });

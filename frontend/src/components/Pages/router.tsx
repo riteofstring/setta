@@ -30,7 +30,10 @@ import {
   resolveModeElementForServerMode,
   type ModeRouteElements,
 } from "./modeRouteResolver";
-import { modeSupportsWorkspaceLaunch } from "./workspaceLaunchModePolicy";
+import {
+  resolveWorkspaceLaunchRouteKind,
+  type WorkspaceLaunchRouteKind,
+} from "./workspaceLaunchModePolicy";
 import { MainContainer } from "./Project/MainContainer";
 
 const LazyAppWrapper = lazy(async () => {
@@ -201,6 +204,12 @@ const ideWorkspaceLaunchRouteElement = (
   </GlobalWrapper>
 );
 
+const launcherWorkspaceLaunchRouteElement = (
+  <AppShell isLoading={false} loadingContent={null}>
+    <WorkspaceLaunchPage />
+  </AppShell>
+);
+
 const launcherHomeRouteElement = (
   <AppShell isLoading={false} loadingContent={null}>
     <ModalContainer>
@@ -350,13 +359,19 @@ const workspaceLaunchBlockedRouteElement = (
   <Navigate to={HOME_ROUTER_PATH} replace />
 );
 
+const workspaceLaunchRouteElementsByKind: Record<
+  WorkspaceLaunchRouteKind,
+  ReactNode
+> = {
+  ide: ideWorkspaceLaunchRouteElement,
+  launcher: launcherWorkspaceLaunchRouteElement,
+  blocked: workspaceLaunchBlockedRouteElement,
+};
+
 function resolveWorkspaceLaunchRouteElement(
   mode: "ide" | "share" | "app" | "launcher",
 ) {
-  if (modeSupportsWorkspaceLaunch(mode)) {
-    return ideWorkspaceLaunchRouteElement;
-  }
-  return workspaceLaunchBlockedRouteElement;
+  return workspaceLaunchRouteElementsByKind[resolveWorkspaceLaunchRouteKind(mode)];
 }
 
 const workspaceLaunchRouteElements: ModeRouteElements = {

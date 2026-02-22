@@ -480,6 +480,17 @@ test("launcher mode resolves /launching handoff payloads", async ({ page }) => {
   await installLauncherHomeMocks(page);
 
   const capturedLaunchRequests: Array<Record<string, unknown>> = [];
+  let loadSettingsRequests = 0;
+  await page.route(`${BACKEND_ORIGIN}/api/loadSettings`, async (route) => {
+    loadSettingsRequests += 1;
+    await route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({
+        detail: "loadSettings should not run during launcher handoff.",
+      }),
+    });
+  });
   await page.route(`${BACKEND_ORIGIN}/api/launch`, async (route, request) => {
     const body = request.postDataJSON();
     if (body && typeof body === "object" && !Array.isArray(body)) {
@@ -528,6 +539,7 @@ test("launcher mode resolves /launching handoff payloads", async ({ page }) => {
   await expect(
     page.getByText("Intentional launcher handoff failure."),
   ).toBeVisible();
+  expect(loadSettingsRequests).toBe(0);
   expect(page.url()).not.toContain("pl=");
 });
 

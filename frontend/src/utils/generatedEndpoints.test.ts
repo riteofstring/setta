@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { C_ADDRESSES } from "./c_addresses";
+import { resolveEndpointOrigin } from "./endpointUtils";
 import {
   route_get_launcher_recent_workspaces,
   route_get_launcher_status,
@@ -23,6 +24,7 @@ describe("generatedEndpoints launcher recent-workspaces", () => {
 
   afterEach(() => {
     fetchMock.mockReset();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -63,24 +65,40 @@ describe("generatedEndpoints launcher status", () => {
 
   afterEach(() => {
     fetchMock.mockReset();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("transmits setta_home query when provided", async () => {
+  it("transmits setta_home query via backend origin when provided", async () => {
+    // Distinct origins make routing mismatches obvious in this assertion.
+    vi.spyOn(C_ADDRESSES, "BACKEND", "get").mockReturnValue(
+      "http://backend.example/api",
+    );
+    vi.spyOn(C_ADDRESSES, "LAUNCHER", "get").mockReturnValue(
+      "http://launcher.example/api",
+    );
+    expect(resolveEndpointOrigin("/launcherStatus")).toBe("backend");
+
     await route_get_launcher_status("/tmp/launcher-home");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}/launcherStatus?setta_home=%2Ftmp%2Flauncher-home`,
+      "http://backend.example/api/launcherStatus?setta_home=%2Ftmp%2Flauncher-home",
     );
   });
 
-  it("omits setta_home query when null", async () => {
+  it("omits setta_home query and still uses backend origin when null", async () => {
+    vi.spyOn(C_ADDRESSES, "BACKEND", "get").mockReturnValue(
+      "http://backend.example/api",
+    );
+    vi.spyOn(C_ADDRESSES, "LAUNCHER", "get").mockReturnValue(
+      "http://launcher.example/api",
+    );
+    expect(resolveEndpointOrigin("/launcherStatus")).toBe("backend");
+
     await route_get_launcher_status(null);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}/launcherStatus`,
-    );
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://backend.example/api/launcherStatus");
   });
 });

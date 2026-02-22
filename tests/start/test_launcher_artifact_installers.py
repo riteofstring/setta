@@ -1,3 +1,4 @@
+import plistlib
 from pathlib import Path
 
 import pytest
@@ -57,6 +58,47 @@ def test_install_macos_artifacts_copies_optional_icon(tmp_path: Path) -> None:
     assert "Setta.icns" in info_plist
 
 
+def test_install_macos_artifacts_writes_parseable_plist_for_xml_icon_names(
+    tmp_path: Path,
+) -> None:
+    app_path = tmp_path / "Applications" / "Setta.app"
+    icon_path = tmp_path / "bad&name.icns"
+    icon_path.write_text("icon", encoding="utf-8")
+
+    context = LauncherArtifactContext(
+        target_command=["/tmp/python", "-m", "setta"],
+        channel="manual",
+        existing_managed_artifacts={},
+        options={"app_path": str(app_path), "icon_path": str(icon_path)},
+    )
+
+    install_macos_artifacts(context=context)
+
+    info_plist_path = app_path / "Contents" / "Info.plist"
+    parsed_plist = plistlib.loads(info_plist_path.read_bytes())
+    assert parsed_plist["CFBundleIconFile"] == "bad&name.icns"
+
+
+def test_install_macos_artifacts_rejects_control_characters_in_icon_name(
+    tmp_path: Path,
+) -> None:
+    app_path = tmp_path / "Applications" / "Setta.app"
+    icon_path = tmp_path / "bad\nname.icns"
+    icon_path.write_text("icon", encoding="utf-8")
+
+    context = LauncherArtifactContext(
+        target_command=["/tmp/python", "-m", "setta"],
+        channel="manual",
+        existing_managed_artifacts={},
+        options={"app_path": str(app_path), "icon_path": str(icon_path)},
+    )
+
+    with pytest.raises(LauncherArtifactError) as excinfo:
+        install_macos_artifacts(context=context)
+
+    assert "icon_path" in str(excinfo.value)
+
+
 def test_install_linux_artifacts_writes_wrapper_entry_and_shortcut(
     tmp_path: Path,
     monkeypatch,
@@ -105,7 +147,10 @@ def test_install_linux_artifacts_writes_wrapper_entry_and_shortcut(
     assert "launcher repair" in wrapper_script
     assert "linux-script" in wrapper_script
     assert "Name=Setta Test" in desktop_entry
-    assert f"Icon={icon_path.resolve(strict=False)}" in desktop_entry
+    icon_lines = [
+        line for line in desktop_entry.splitlines() if line.startswith("Icon=")
+    ]
+    assert icon_lines == [f"Icon={icon_path.resolve(strict=False)}"]
 
 
 def test_install_linux_artifacts_does_not_delete_existing_shortcut_when_disabled(
@@ -215,6 +260,38 @@ def test_install_linux_artifacts_rejects_control_characters_in_app_name(
         install_linux_artifacts(context=context)
 
     assert "app_name" in str(excinfo.value)
+    assert not wrapper_path.exists()
+
+
+def test_install_linux_artifacts_rejects_control_characters_in_icon_path(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "setta.launcher_artifacts.linux._refresh_desktop_database",
+        lambda _applications_dir: None,
+    )
+    applications_dir = tmp_path / "applications"
+    wrapper_path = tmp_path / "launcher" / "setta-launcher"
+    icon_path = tmp_path / "bad\nXDG-OPEN=1.png"
+    icon_path.write_text("png", encoding="utf-8")
+
+    context = LauncherArtifactContext(
+        target_command=["/tmp/python", "-m", "setta"],
+        channel="linux-script",
+        existing_managed_artifacts={},
+        options={
+            "applications_dir": str(applications_dir),
+            "desktop_entry_name": "setta.desktop",
+            "wrapper_path": str(wrapper_path),
+            "icon_path": str(icon_path),
+        },
+    )
+
+    with pytest.raises(LauncherArtifactError) as excinfo:
+        install_linux_artifacts(context=context)
+
+    assert "icon_path" in str(excinfo.value)
     assert not wrapper_path.exists()
 
 

@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { C_ADDRESSES } from "./c_addresses";
-import { get, getBinary, getErrorDetail, post } from "./endpointUtils";
+import {
+  ENDPOINT_ORIGIN_POLICY,
+  get,
+  getBinary,
+  getErrorDetail,
+  post,
+  resolveEndpointOrigin,
+} from "./endpointUtils";
 import { RouteEnum } from "./generatedTypes";
 
 describe("endpointUtils URL routing", () => {
@@ -94,6 +101,16 @@ describe("endpointUtils URL routing", () => {
     expect(fetchMock.mock.calls[4]?.[0]).toBe(
       `${C_ADDRESSES.LAUNCHER}${RouteEnum.OPEN_LAUNCHER_WORKSPACE}`,
     );
+  });
+
+  it("keeps a single endpoint-origin policy contract", () => {
+    // Contract test: every launcher-marked route resolves to launcher origin.
+    for (const [route, origin] of Object.entries(ENDPOINT_ORIGIN_POLICY)) {
+      if (origin === "launcher") {
+        expect(resolveEndpointOrigin(route)).toBe("launcher");
+      }
+    }
+    expect(resolveEndpointOrigin(RouteEnum.GET_LAUNCHER_STATUS)).toBe("backend");
   });
 
   it("routes launch endpoint via launcher origin", async () => {
