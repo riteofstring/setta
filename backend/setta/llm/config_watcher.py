@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
+from setta.llm.api_keys import read_managed_api_keys
 from setta.llm.config import load_llm_config
 from setta.types.notifications import SettaBackendLogEventSeverity
 from setta.types.specific_file_watcher import FileWatcherCoreUpdate
@@ -74,5 +75,5 @@ class LLMConfigWatcher:
             self.agent_runner.config
         )
         await self.websocket_msg_handler.broadcast_llm_api_keys_update(
-            self.agent_runner.api_keys
+            read_managed_api_keys(self.dbe)
         )

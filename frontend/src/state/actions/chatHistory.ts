@@ -206,14 +206,32 @@ function isBranchRun(run: AgentRun): boolean {
 function deriveChatLabel(run: AgentRun, chatId: string): string {
   const outputName = getRunOutputString(run, "name");
   if (outputName) {
-    return outputName;
+    const normalizedOutputName = normalizeChatLabelText(outputName);
+    if (normalizedOutputName) {
+      return normalizedOutputName;
+    }
   }
   const messages = getRunMessages(run);
   const firstText = extractFirstMessageText(messages);
   if (firstText) {
-    return firstText.slice(0, 30);
+    const normalizedFirstText = normalizeChatLabelText(firstText);
+    if (normalizedFirstText) {
+      return normalizedFirstText.slice(0, 30);
+    }
   }
   return `Chat ${chatId.slice(0, 8)}`;
+}
+
+function normalizeChatLabelText(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return "";
+  }
+  const withoutUserPrefix = trimmed.replace(/^User:\s*/iu, "");
+  if (withoutUserPrefix.trim().length > 0) {
+    return withoutUserPrefix.trim();
+  }
+  return trimmed;
 }
 
 function getRunOutputString(run: AgentRun, key: string): string | null {

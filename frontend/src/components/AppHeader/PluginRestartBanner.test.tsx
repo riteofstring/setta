@@ -28,7 +28,7 @@ let restartCapability: Record<string, unknown> | null = {
   command: null,
   reason: null,
 };
-let runtimeServerMode: "ide" | "share" | "app" | "launcher" | null = "ide";
+let runtimeServerMode: "ide" | "share" | "app" | null = "ide";
 let isDeploymentMode = false;
 
 const addTemporaryNotificationMock = vi.fn();
@@ -41,7 +41,7 @@ const usePluginRuntimeStoreMock = vi.fn(
   (
     selector?: (state: {
       restartCapability: unknown;
-      serverMode: "ide" | "share" | "app" | "launcher" | null;
+      serverMode: "ide" | "share" | "app" | null;
     }) => unknown,
   ) => {
     const state = { restartCapability, serverMode: runtimeServerMode };

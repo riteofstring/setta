@@ -21,9 +21,10 @@ from setta.file_watchers.specific_file_watcher import (
     SpecificFileWatcher,
 )
 from setta.llm.agent_runner import AgentRunner
+from setta.llm.api_keys import read_managed_api_keys
 from setta.llm.config import load_llm_config
 from setta.llm.config_watcher import LLMConfigWatcher
-from setta.llm.dotenv_watcher import DotEnvWatcher
+from setta.llm.dotenv_watcher import LLMApiKeyWatcher
 from setta.llm.example_config import seed_llm_config_example_file
 from setta.llm.transcription_sessions import TranscriptionSessionManager
 from setta.logging.tasks import spawn_background_task
@@ -202,18 +203,14 @@ class SettaFastAPIState:
         *,
         share_mode: bool = False,
         app_mode: bool = False,
-        launcher_mode: bool = False,
         share_deployment_root: Path | None = None,
         enable_mcp_connections: bool = True,
         enable_language_server: bool = True,
     ):
         if share_mode and app_mode:
             raise ValueError("Server cannot enable both share_mode and app_mode.")
-        if launcher_mode and (share_mode or app_mode):
-            raise ValueError("Launcher mode cannot be combined with deployment modes.")
         self.app_mode = app_mode
         self.share_mode = share_mode
-        self.launcher_mode = launcher_mode
         self.deployment_mode = share_mode or app_mode
         # Register runtime state on the app before startup work begins so backend
         # plugin register-time host calls can resolve app.state.setta.
@@ -272,7 +269,7 @@ class SettaFastAPIState:
             setta_version=__version__,
             auto_rescan=False,
         )
-        if not self.deployment_mode and not self.launcher_mode:
+        if not self.deployment_mode:
             seed_llm_config_example_file(self.dbe)
             seed_agentic_config_files(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(
@@ -287,7 +284,7 @@ class SettaFastAPIState:
             None if self.deployment_mode else self.dbe,
         )
         self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
-        if self.deployment_mode or self.launcher_mode:
+        if self.deployment_mode:
             self.settings_file = self._defer_attr("settings_file")
             self.terminals = self._defer_attr("terminals")
         else:
@@ -329,7 +326,9 @@ class SettaFastAPIState:
         self.mcp_server: SettaFastMCP = self._defer_attr("mcp_server")
         self.mcp_client: MultiMCPClient = self._defer_attr("mcp_client")
         self.agent_runner: AgentRunner = self._defer_attr("agent_runner")
-        self.dotenv_watcher: DotEnvWatcher = self._defer_attr("dotenv_watcher")
+        self.llm_api_key_watcher: LLMApiKeyWatcher = self._defer_attr(
+            "llm_api_key_watcher"
+        )
         self.llm_config_watcher: LLMConfigWatcher = self._defer_attr(
             "llm_config_watcher"
         )
@@ -357,12 +356,7 @@ class SettaFastAPIState:
         if self.app_mode:
             mode_label = "app"
         else:
-            if self.share_mode:
-                mode_label = "share"
-            elif self.launcher_mode:
-                mode_label = "launcher"
-            else:
-                mode_label = "backend"
+            mode_label = "share" if self.share_mode else "backend"
         self.init_status.record(f"Booting {mode_label} services")
         if C.BACKEND_INIT_DELAY_SECONDS > 0:
             self.init_status.record(
@@ -384,9 +378,6 @@ class SettaFastAPIState:
         try:
             if self.deployment_mode:
                 await self._initialize_deployment_async(app)
-                return
-            if self.launcher_mode:
-                await self._initialize_launcher_async()
                 return
             from setta.project_state.project_manager_switcher import (
                 ProjectManagerSwitcher,
@@ -513,14 +504,14 @@ class SettaFastAPIState:
                 share_mode=self.deployment_mode,
             )
             self.agent_runner.update_config(llm_config)
-            self.agent_runner.update_api_keys(self.dbe.read_dot_env())
-            self.dotenv_watcher = DotEnvWatcher(
+            self.agent_runner.update_api_keys(read_managed_api_keys(self.dbe))
+            self.llm_api_key_watcher = LLMApiKeyWatcher(
                 self.specific_file_watcher,
                 self.agent_runner,
                 self.wmh_frontend_sender,
                 self.dbe,
             )
-            self.dotenv_watcher.start()
+            self.llm_api_key_watcher.start()
             self.llm_config_watcher = LLMConfigWatcher(
                 self.specific_file_watcher,
                 self.agent_runner,
@@ -617,13 +608,6 @@ class SettaFastAPIState:
             self.init_status.record("Backend initialization failed")
             self.init_status.mark_error(str(exc))
             raise
-
-    async def _initialize_launcher_async(self) -> None:
-        self.init_status.record("Preparing launcher runtime")
-        await self._maybe_delay()
-        self._ready_event.set()
-        self.init_status.record("Launcher backend ready")
-        self.init_status.mark_ready()
 
     async def _initialize_deployment_async(self, app) -> None:
         from setta.websockets.msg_handlers.frontend_receiver import (
@@ -814,8 +798,6 @@ class SettaFastAPIState:
             return "app"
         if self.share_mode:
             return "share"
-        if self.launcher_mode:
-            return "launcher"
         return "ide"
 
     def _defer_attr(self, name: str) -> _T:
