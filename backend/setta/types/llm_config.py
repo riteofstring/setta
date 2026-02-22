@@ -11,7 +11,6 @@ class MCPServerConfig(BaseModel):
     command: str | None = None
     args: list[str] = Field(default_factory=list)
     env: dict[str, str] | None = None
-    http_headers: dict[str, str] | None = None
     cwd: str | None = None
     encoding: str = "utf-8"
     encoding_error_handler: Literal["strict", "ignore", "replace"] = "strict"
@@ -38,8 +37,6 @@ class MCPServerConfig(BaseModel):
                 raise ValueError("MCP stdio transport requires a command")
             if normalized_url:
                 raise ValueError("MCP stdio transport cannot declare a url")
-            if self.http_headers:
-                raise ValueError("MCP stdio transport cannot declare http_headers")
         return self
 
 
@@ -74,7 +71,6 @@ class AllLLMConfigs(BaseModel):
     mcpServers: dict[str, MCPServerConfig] = Field(default_factory=dict)
     defaultMcpServerIds: list[str] = Field(default_factory=list)
     default_config_id: str | None = None
-    codexMcpImportedAt: str | None = None
 
     model_config = ConfigDict(extra="forbid")
 
