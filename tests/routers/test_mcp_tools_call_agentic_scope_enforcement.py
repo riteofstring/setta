@@ -3,6 +3,7 @@ import json
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from mcp.server.fastmcp.exceptions import ToolError
 
 from setta.database.db_objs import DBE
 from setta.mcp.agentic_context_headers import (
@@ -393,3 +394,191 @@ async def test_tools_call_enforces_scope_with_agentic_context_body(tmp_path) -> 
     assert {entry["sectionId"] for entry in summary["sections"]} == allowed_ids
     assert set(summary["projectConfig"]["sectionVariantMap"].keys()) == allowed_ids
     assert str(canonical_to_temporary[blocked_section_id]) not in summary["parentSectionMap"]
+
+
+@pytest.mark.asyncio
+async def test_tools_call_rejects_ui_setting_project_argument_mismatch(tmp_path) -> (
+    None
+):
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+
+    mismatched_project_config_id = ID("project-mismatch")
+    temporary_to_canonical, canonical_to_temporary = dbe.read_temporary_id_map()
+    _ = convert_canonical_ids_to_temporary(
+        [
+            project_config_id,
+            mismatched_project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+            ID("chat-1"),
+        ],
+        canonical_to_temporary,
+        temporary_to_canonical,
+    )
+    dbe.write_temporary_id_map(canonical_to_temporary)
+    tmp_project_id = canonical_to_temporary[project_config_id]
+    tmp_mismatched_project_id = canonical_to_temporary[mismatched_project_config_id]
+    tmp_chat_id = canonical_to_temporary[ID("chat-1")]
+    tmp_chat_section_id = canonical_to_temporary[chat_section_id]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "share_mode": False,
+            "deployment_mode": False,
+            "wait_until_ready": _noop_wait_until_ready,
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+    state.mcp_server = mcp_server
+    app.state.setta = state
+    app.include_router(mcp_tools_router)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "get_ui_setting_value",
+                "arguments": {
+                    "settingId": "core.watch_code.enabled",
+                    "projectConfigId": str(tmp_mismatched_project_id),
+                },
+                "agenticContext": {
+                    "projectConfigId": str(tmp_project_id),
+                    "chatId": str(tmp_chat_id),
+                    "sectionId": str(tmp_chat_section_id),
+                    "allowUnscoped": True,
+                },
+            },
+        )
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["detail"]["error"] == "InvalidToolArguments"
+    assert "projectConfigId argument" in payload["detail"]["message"]
+    assert "does not match agentic context projectConfigId" in payload["detail"][
+        "message"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_tools_call_returns_500_for_internal_tool_value_error(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+
+    temporary_to_canonical, canonical_to_temporary = dbe.read_temporary_id_map()
+    _ = convert_canonical_ids_to_temporary(
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+        ],
+        canonical_to_temporary,
+        temporary_to_canonical,
+    )
+    dbe.write_temporary_id_map(canonical_to_temporary)
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "share_mode": False,
+            "deployment_mode": False,
+            "wait_until_ready": _noop_wait_until_ready,
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+    state.mcp_server = mcp_server
+    app.state.setta = state
+    app.include_router(mcp_tools_router)
+
+    class _InternalFailureTool:
+        async def run(
+            self,
+            _arguments,
+            *,
+            context,  # noqa: ARG002
+            convert_result,  # noqa: ARG002
+        ):
+            try:
+                raise ValueError("internal invariant failure")
+            except ValueError as exc:
+                raise ToolError("internal tool failure") from exc
+
+    original_get_tool = state.mcp_server.get_tool
+
+    def _patched_get_tool(name: str):
+        if name == "internal_value_error_tool":
+            return _InternalFailureTool()
+        return original_get_tool(name)
+
+    monkeypatch.setattr(state.mcp_server, "get_tool", _patched_get_tool)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "internal_value_error_tool",
+                "arguments": {},
+            },
+        )
+
+    assert response.status_code == 500
+    payload = response.json()
+    assert payload["detail"]["error"] == "ToolError"
+    assert "internal tool failure" in payload["detail"]["message"]
