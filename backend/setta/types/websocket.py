@@ -61,6 +61,7 @@ class WebsocketMsgTypeForFrontend(str, Enum):
     LLMApiKeysUpdated = "LLMApiKeysUpdated"
     AIFollowToolArgumentsUpdate = "AIFollowToolArgumentsUpdate"
     AIFollowToolResultUpdate = "AIFollowToolResultUpdate"
+    UISettingReveal = "UISettingReveal"
     AgentProfilesUpdated = "AgentProfilesUpdated"
     PromptTemplatesUpdated = "PromptTemplatesUpdated"
     ExternalAgentConfigsUpdated = "ExternalAgentConfigsUpdated"
@@ -72,6 +73,7 @@ class WebsocketMsgTypeForBackend(str, Enum):
     CurrentAddressUpdate = "CurrentAddressUpdate"
     RealtimeUIChange = "RealtimeUIChange"
     RealtimeDependencyEvent = "RealtimeDependencyEvent"
+    UISettingRevealResult = "UISettingRevealResult"
 
 
 class WebsocketMsgTypeForPythonScript(str, Enum):
@@ -294,6 +296,53 @@ class WebsocketMsgAIFollowToolResultUpdate(FrontendWebsocketMsg):
     content: AIFollowToolResultUpdateContent
     messageType: Literal[WebsocketMsgTypeForFrontend.AIFollowToolResultUpdate] = (
         WebsocketMsgTypeForFrontend.AIFollowToolResultUpdate
+    )
+
+
+class UISettingRevealTarget(BaseModel):
+    settingId: str
+    side: Literal["left", "right"]
+    overviewTabKey: str | None = None
+    uiEditorTabName: str | None = None
+    pluginId: str | None = None
+    paneId: str | None = None
+    strategy: Literal["dom_anchor", "plugin_handler"]
+    anchorId: str | None = None
+    pluginRevealKey: str | None = None
+
+
+class UISettingRevealContent(BaseModel):
+    projectConfigId: ID
+    chatId: ID | None = None
+    reveals: list[UISettingRevealTarget]
+    durationMs: int = 3000
+    requestId: str
+
+
+class WebsocketMsgUISettingReveal(FrontendWebsocketMsg):
+    content: UISettingRevealContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.UISettingReveal] = (
+        WebsocketMsgTypeForFrontend.UISettingReveal
+    )
+
+
+class UISettingRevealResultStatus(BaseModel):
+    settingId: str
+    status: Literal["revealed", "failed"]
+    errorCode: str | None = None
+    errorMessage: str | None = None
+
+
+class UISettingRevealResultContent(BaseModel):
+    projectConfigId: ID
+    requestId: str
+    statuses: list[UISettingRevealResultStatus]
+
+
+class WebsocketMsgUISettingRevealResult(BackendWebsocketMsg):
+    content: UISettingRevealResultContent
+    messageType: Literal[WebsocketMsgTypeForBackend.UISettingRevealResult] = (
+        WebsocketMsgTypeForBackend.UISettingRevealResult
     )
 
 

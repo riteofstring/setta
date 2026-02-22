@@ -208,67 +208,6 @@ test("workspace switcher allows selecting setta files location", async ({
   await modal.getByRole("button", { name: "Cancel" }).click();
 });
 
-test("workspace switcher can update Setta from launcher controls", async ({
-  page,
-}) => {
-  await ensureAppReady(page);
-
-  await page.route("**/api/launcherStatus", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ok: true,
-        installed: true,
-        channel: "uv-tool",
-        updateCapability: "in_app",
-        updateGuidance: null,
-        targetCommand: ["/tmp/venv/bin/python", "-m", "setta"],
-        managedArtifacts: {},
-        existingManagedArtifacts: [],
-        missingManagedArtifacts: [],
-      }),
-    });
-  });
-  await page.route("**/api/updateLauncher", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        ok: true,
-        installed: true,
-        channel: "uv-tool",
-        updateCapability: "in_app",
-        updateGuidance: null,
-        targetCommand: ["/tmp/venv/bin/python", "-m", "setta"],
-        managedArtifacts: {},
-        existingManagedArtifacts: [],
-        missingManagedArtifacts: [],
-        fromVersion: "1.0.0",
-        toVersion: "1.1.0",
-      }),
-    });
-  });
-
-  await page.getByRole("menuitem", { name: "Project" }).click();
-  await page.getByRole("menuitem", { name: "Switch Workspace" }).click();
-
-  const modal = page.getByRole("dialog");
-  await expect(modal.getByText("Desktop Launcher")).toBeVisible();
-  const updateButton = modal.getByRole("button", { name: "Update Setta" });
-  await expect(updateButton).toBeEnabled();
-
-  const updateRequest = page.waitForRequest((req) => {
-    const url = new URL(req.url());
-    return req.method() === "POST" && url.pathname === "/api/updateLauncher";
-  });
-  await updateButton.click();
-
-  const request = await updateRequest;
-  expect(request.postDataJSON()).toEqual({});
-  await expect(modal.getByText("Setta updated: 1.0.0 -> 1.1.0")).toBeVisible();
-});
-
 test("workspace switcher shows launcher global path when backend origin is overridden", async ({
   page,
 }) => {

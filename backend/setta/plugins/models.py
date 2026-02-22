@@ -186,6 +186,22 @@ class PluginRegisteredCodegenTarget(BaseModel):
     defaultFileName: str
 
 
+class PluginRegisteredUISetting(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    localSettingId: str
+    pluginId: str
+    title: str
+    description: str
+    synonyms: list[str] = Field(default_factory=list)
+    paneId: str
+    revealKey: str
+    mutability: Literal["readOnly", "writable"]
+    valueSchema: dict[str, Any]
+    readHandlerId: str
+    writeHandlerId: str | None = None
+
+
 class PluginRestartCapability(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -243,7 +259,7 @@ class PluginListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schemaVersion: int = PLUGIN_LIST_SCHEMA_VERSION
-    serverMode: Literal["ide", "share", "app", "launcher"]
+    serverMode: Literal["ide", "share", "app"]
     restartCapability: PluginRestartCapability
     plugins: list[PluginListEntry]
 
@@ -285,7 +301,7 @@ class PluginStatusResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schemaVersion: int = PLUGIN_STATUS_SCHEMA_VERSION
-    serverMode: Literal["ide", "share", "app", "launcher"]
+    serverMode: Literal["ide", "share", "app"]
     restartCapability: PluginRestartCapability
     plugins: list[PluginStatusEntry]
 
@@ -363,7 +379,7 @@ class PluginsRescanResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schemaVersion: int = 1
-    serverMode: Literal["ide", "share", "app", "launcher"]
+    serverMode: Literal["ide", "share", "app"]
     installedPlugins: int
     activePlugins: int
 
