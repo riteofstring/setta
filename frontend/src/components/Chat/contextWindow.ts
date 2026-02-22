@@ -79,9 +79,7 @@ function estimateContentEntryTokens(entry: unknown): number {
   return estimateTokenCountFromUnknown(entry);
 }
 
-export function estimateChatMessageTokens(
-  message: BaseChatMessageUnion,
-): number {
+function estimateChatMessageTokens(message: BaseChatMessageUnion): number {
   let total = PER_MESSAGE_OVERHEAD_TOKENS;
   total += estimateTokenCountFromText(message.role);
 

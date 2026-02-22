@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createAllLLMConfigs,
+  createEngineConfig,
+  createExternalAgentPreflightStatus,
+  createLLMConfig,
+} from "utils/generatedTypes";
+import {
   buildSlashCommandsByEngine,
   filterSkills,
   groupMcpServersByConfigPath,
@@ -8,12 +14,6 @@ import {
   parseMcpServerRuntimeStatuses,
   resolveMcpServerStatus,
 } from "./projectChatSkillsMcpViewerUtils";
-import {
-  createAllLLMConfigs,
-  createEngineConfig,
-  createExternalAgentPreflightStatus,
-  createLLMConfig,
-} from "utils/generatedTypes";
 
 describe("projectChatSkillsMcpViewerUtils", () => {
   it("filters skills by name/path/root/description", () => {

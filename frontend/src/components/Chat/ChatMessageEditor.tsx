@@ -132,7 +132,10 @@ export const ChatMessageEditor = memo(function ChatMessageEditor({
   }, [isDisabled, isDragActive]);
 
   return (
-    <form onSubmit={handleSubmit} className="flex w-full min-w-0 flex-col gap-1">
+    <form
+      onSubmit={handleSubmit}
+      className="flex w-full min-w-0 flex-col gap-1"
+    >
       <div
         className="flex min-w-0 flex-1 flex-col"
         onDragEnter={handleDragEnter}

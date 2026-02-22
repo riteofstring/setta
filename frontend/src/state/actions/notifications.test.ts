@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useNotifications, useProjectState } from "state/definitions";
 import { SettaNotificationTypeEnum } from "utils/generatedTypes";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addPersistentNotification,
   addTemporaryNotification,

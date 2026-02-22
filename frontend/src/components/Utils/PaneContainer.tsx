@@ -1,16 +1,16 @@
+import {
+  getPaneMaxWidthForViewport,
+  getPaneMinimumWidth,
+  normalizePaneWidthForViewportChange,
+  setPaneWidthWithLayout,
+  togglePaneFullWidth,
+} from "components/Panes/paneLayout";
 import { Resizable } from "re-resizable";
 import { useEffect, useRef } from "react";
 import { RiExpandDiagonalLine } from "react-icons/ri";
 import { useWindowSize } from "state/hooks/utils";
 import { CLOSED_PANE_WIDTH, PaneName } from "utils/constants";
 import { clamp } from "utils/utils";
-import {
-  getPaneMaxWidthForViewport,
-  getPaneMinimumWidth,
-  normalizePaneWidthForViewportChange,
-  togglePaneFullWidth,
-  setPaneWidthWithLayout,
-} from "components/Panes/paneLayout";
 
 const FULL_WIDTH_BORDER_EPSILON = 2;
 
@@ -50,7 +50,8 @@ export function PaneContainer({
       previousViewportWidthRef.current = viewportWidth;
       return;
     }
-    const previousViewportWidth = previousViewportWidthRef.current ?? viewportWidth;
+    const previousViewportWidth =
+      previousViewportWidthRef.current ?? viewportWidth;
     previousViewportWidthRef.current = viewportWidth;
     const normalizedWidth = normalizePaneWidthForViewportChange({
       paneName,
@@ -59,7 +60,10 @@ export function PaneContainer({
       previousViewportWidth,
     });
     if (normalizedWidth !== width) {
-      const { previous, next } = setPaneWidthWithLayout(paneName, normalizedWidth);
+      const { previous, next } = setPaneWidthWithLayout(
+        paneName,
+        normalizedWidth,
+      );
       if (onResizeStop) {
         const widthDiff =
           paneName === "overview"
@@ -99,7 +103,9 @@ export function PaneContainer({
     ? `justify-self-end left-auto pr-7 ${seamBorderClass}`
     : `justify-self-start right-auto pl-9 ${seamBorderClass}`;
   const paddingClasses = paddingClassName ?? "py-2.5";
-  const fullscreenButtonPositionClass = right ? "left-2 top-2" : "right-2 top-2";
+  const fullscreenButtonPositionClass = right
+    ? "left-2 top-2"
+    : "right-2 top-2";
 
   function onExpandToFullWidth() {
     const { previous, next } = togglePaneFullWidth(paneName);

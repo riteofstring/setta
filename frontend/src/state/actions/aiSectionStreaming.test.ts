@@ -4,13 +4,13 @@ import {
 } from "state/actions/sectionInfos";
 import { resetProjectStores } from "state/utils";
 import {
-  createMessageThinkingContent,
   ChatRoleEnum,
   SectionTypeEnum,
   StreamingEventTypeEnum,
   createChatSectionImpl,
   createCore,
   createMessageTextContent,
+  createMessageThinkingContent,
   createProjectConfig,
   createUserDefaultChatSectionImpl,
   createVariant,

@@ -7,12 +7,12 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import {
+  EngineTypeEnum,
   type APIKeys,
   type AllLLMConfigs,
   type AppGenSkillEntry,
   type EngineConfig,
   type ExternalAgentPreflightStatus,
-  EngineTypeEnum,
 } from "utils/generatedTypes";
 
 export function filterSkills(
@@ -76,14 +76,14 @@ type McpServerListEntry = {
   endpoint: string;
 };
 
-export type McpServerStatusColor = "green" | "yellow" | "red";
+type McpServerStatusColor = "green" | "yellow" | "red";
 
-export type McpServerStatus = {
+type McpServerStatus = {
   color: McpServerStatusColor;
   quickInfo: string;
 };
 
-export type McpRuntimeServerState =
+type McpRuntimeServerState =
   | "available"
   | "connecting"
   | "retrying"
@@ -98,7 +98,7 @@ export type McpRuntimeServerStatus = {
   issue: string | null;
 };
 
-export type SlashCommandsByEngine = {
+type SlashCommandsByEngine = {
   engineId: string;
   engineName: string;
   engineType: EngineConfig["engineType"];
@@ -183,7 +183,9 @@ function extractRuntimeStatusEntriesFromStructuredContent(
   return servers;
 }
 
-function extractRuntimeStatusEntriesFromContent(value: unknown): unknown[] | null {
+function extractRuntimeStatusEntriesFromContent(
+  value: unknown,
+): unknown[] | null {
   if (!Array.isArray(value)) {
     return null;
   }
@@ -197,7 +199,8 @@ function extractRuntimeStatusEntriesFromContent(value: unknown): unknown[] | nul
     }
     try {
       const parsed = JSON.parse(text);
-      const statusEntries = extractRuntimeStatusEntriesFromStructuredContent(parsed);
+      const statusEntries =
+        extractRuntimeStatusEntriesFromStructuredContent(parsed);
       if (statusEntries) {
         return statusEntries;
       }
@@ -212,7 +215,9 @@ function extractRuntimeStatusEntriesFromCallResult(
   callResult: Record<string, unknown>,
 ): unknown[] | null {
   return (
-    extractRuntimeStatusEntriesFromStructuredContent(callResult.structuredContent) ??
+    extractRuntimeStatusEntriesFromStructuredContent(
+      callResult.structuredContent,
+    ) ??
     extractRuntimeStatusEntriesFromContent(callResult.content) ??
     null
   );
@@ -254,7 +259,10 @@ function parseRuntimeServerStatusEntry(
     registeredToolCountRaw >= 0
       ? registeredToolCountRaw
       : 0;
-  const issue = typeof issueRaw === "string" && issueRaw.trim().length > 0 ? issueRaw : null;
+  const issue =
+    typeof issueRaw === "string" && issueRaw.trim().length > 0
+      ? issueRaw
+      : null;
   const fallbackQuickInfo =
     issue ?? "Status unknown: runtime MCP status did not include details.";
   const quickInfo =
@@ -326,8 +334,7 @@ export function resolveMcpServerStatus({
   if (!runtimeStatusByServerId) {
     return {
       color: "yellow",
-      quickInfo:
-        "Status unknown: MCP runtime status data is not available.",
+      quickInfo: "Status unknown: MCP runtime status data is not available.",
     };
   }
   const runtimeStatus = runtimeStatusByServerId[serverId];
@@ -407,8 +414,7 @@ export function buildSlashCommandsByEngine({
     const externalEngineStatus =
       isExternalEngine && externalAgentHealthInitialLoadComplete
         ? externalAgentHealth.find(
-            (status) =>
-              status.configId === engineConfig.externalAgentConfigId,
+            (status) => status.configId === engineConfig.externalAgentConfigId,
           ) ?? null
         : null;
     const externalEngineAvailable = isExternalEngine

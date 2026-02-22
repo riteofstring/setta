@@ -1,6 +1,5 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
-import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { type ChatPermissionModeValue } from "components/Chat/chatComposerControls";
 import {
   buildEngineGroups,
@@ -16,6 +15,7 @@ import {
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { isProviderDictationLikelySupported } from "components/Chat/providerDictationSupport";
+import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";

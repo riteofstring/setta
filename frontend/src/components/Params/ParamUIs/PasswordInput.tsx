@@ -42,7 +42,7 @@ export function PasswordInput({
         type="button"
         onClick={togglePasswordVisibility}
         aria-label={showPassword ? "Hide password" : "Show password"}
-        className={`absolute inset-y-0 right-0 grid w-8 place-items-center cursor-pointer text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300 ${toggleClassName ?? ""}`}
+        className={`absolute inset-y-0 right-0 grid w-8 cursor-pointer place-items-center text-setta-400 hover:text-setta-600 dark:text-setta-500 dark:hover:text-setta-300 ${toggleClassName ?? ""}`}
         tabIndex={-1}
       >
         {!showPassword ? <BiHide /> : <BiShow />}

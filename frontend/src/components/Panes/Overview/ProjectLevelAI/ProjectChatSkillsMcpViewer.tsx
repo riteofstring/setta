@@ -912,7 +912,7 @@ export function ProjectChatSkillsMcpViewer() {
               />
             </Accordion.Trigger>
           </Accordion.Header>
-          <Accordion.Content className="data-[state=closed]:overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:overflow-visible data-[state=open]:animate-slideDown">
+          <Accordion.Content className="data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown data-[state=closed]:overflow-hidden data-[state=open]:overflow-visible">
             <section className="grid min-w-0 gap-2 px-2">
               <VerticalResizablePane
                 defaultHeightPx={180}
@@ -1018,7 +1018,7 @@ export function ProjectChatSkillsMcpViewer() {
               />
             </Accordion.Trigger>
           </Accordion.Header>
-          <Accordion.Content className="data-[state=closed]:overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:overflow-visible data-[state=open]:animate-slideDown">
+          <Accordion.Content className="data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown data-[state=closed]:overflow-hidden data-[state=open]:overflow-visible">
             <section className="grid min-w-0 gap-2 px-2 pb-2">
               <div className="grid gap-2">
                 <div className="flex min-w-0 items-center justify-end">
@@ -1191,7 +1191,7 @@ export function ProjectChatSkillsMcpViewer() {
               />
             </Accordion.Trigger>
           </Accordion.Header>
-          <Accordion.Content className="data-[state=closed]:overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:overflow-visible data-[state=open]:animate-slideDown">
+          <Accordion.Content className="data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown data-[state=closed]:overflow-hidden data-[state=open]:overflow-visible">
             <section className="grid min-w-0 gap-2 px-2 pb-2">
               {!engineConfigsInitialLoadComplete ? (
                 <div className="rounded-md bg-white/70 p-2 text-[11px] text-setta-500 dark:bg-setta-950/40 dark:text-setta-400">

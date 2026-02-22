@@ -53,7 +53,10 @@ export const useTypewriterEffect = (
       );
       const charsToReveal = Math.min(rawCharsToReveal, dynamicMaxCharsPerFrame);
       carryCharsRef.current -= charsToReveal;
-      const nextLength = Math.min(targetLength, displayedLength + charsToReveal);
+      const nextLength = Math.min(
+        targetLength,
+        displayedLength + charsToReveal,
+      );
       if (nextLength !== displayedLength) {
         displayedLengthRef.current = nextLength;
         const nextText = targetText.substring(0, nextLength);

@@ -179,7 +179,9 @@ describe("buildProjectChatSubmittedMessageHistory", () => {
         }),
         createUserChatMessage({
           id: "active-newest",
-          content: [createMessageTextContent({ text: "Draft in current chat" })],
+          content: [
+            createMessageTextContent({ text: "Draft in current chat" }),
+          ],
         }),
       ],
       runs: [
@@ -285,7 +287,9 @@ describe("buildProjectChatSubmittedMessageHistory", () => {
           outputs: {
             messages: [
               createUserChatMessage({
-                content: [createMessageTextContent({ text: "Fallback prompt" })],
+                content: [
+                  createMessageTextContent({ text: "Fallback prompt" }),
+                ],
               }),
             ],
           },
@@ -318,7 +322,9 @@ describe("buildProjectChatSubmittedMessageHistory", () => {
           outputs: {
             messages: [
               createUserChatMessage({
-                content: [createMessageTextContent({ text: "Repeated prompt" })],
+                content: [
+                  createMessageTextContent({ text: "Repeated prompt" }),
+                ],
               }),
               createUserChatMessage({
                 content: [createMessageTextContent({ text: "Unique prompt" })],

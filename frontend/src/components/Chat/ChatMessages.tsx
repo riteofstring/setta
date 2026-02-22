@@ -1,10 +1,10 @@
 import * as Accordion from "@radix-ui/react-accordion";
 import * as Dialog from "@radix-ui/react-dialog";
+import { GitDiffCodeMirror } from "components/Git/GitDiffCodeMirror";
 import {
   CodeBlock,
   MarkdownCodePre,
 } from "components/Section/Layouts/TextBlock";
-import { GitDiffCodeMirror } from "components/Git/GitDiffCodeMirror";
 import { DummyCodeMirror } from "components/Utils/CodeMirror/DummyCodeMirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import {
@@ -14,8 +14,8 @@ import {
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
   ReactNode,
+  type PointerEvent as ReactPointerEvent,
   Ref,
   memo,
   useCallback,
@@ -644,7 +644,7 @@ function resolveToolResultDisplay(
 }
 
 type StructuredOutputKind = "plain" | "code" | "diff";
-export type StructuredOutputPayload = {
+type StructuredOutputPayload = {
   text: string;
   kind: StructuredOutputKind;
   language: CodeLanguage | null;
@@ -652,7 +652,7 @@ export type StructuredOutputPayload = {
   pathHint: string | null;
 };
 
-export type StructuredOutputPart = "input" | "output";
+type StructuredOutputPart = "input" | "output";
 
 function resolveCodeLanguageFromMimeType(mimeType: string | null): {
   language: CodeLanguage | null;
@@ -2808,8 +2808,11 @@ const ThinkingBox = memo(function ThinkingBox({
     hasThinkingText ||
     isSummaryTitleTruncated ||
     (!hasThinkingText && summaryHasAdditionalLines);
-  const [accordionValue, setAccordionValue] = useState<string | undefined>(() =>
-    hasExpandableContent && defaultOpen ? ACTIVITY_ROW_DETAILS_VALUE : undefined,
+  const [accordionValue, setAccordionValue] = useState<string | undefined>(
+    () =>
+      hasExpandableContent && defaultOpen
+        ? ACTIVITY_ROW_DETAILS_VALUE
+        : undefined,
   );
   const expandedContent = hasThinkingText ? content : summaryText;
   const thinkingRunState: ToolCallSectionState = streaming
@@ -3454,8 +3457,8 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
     sectionState === "stopped"
       ? "font-mono text-[10px] text-amber-700 dark:text-amber-200"
       : "font-mono text-[10px] text-setta-400 dark:text-setta-400/90";
-  const [accordionValue, setAccordionValue] = useState<string | undefined>(() =>
-    defaultOpen ? ASSISTANT_ACTIVITY_DETAILS_VALUE : undefined,
+  const [accordionValue, setAccordionValue] = useState<string | undefined>(
+    () => (defaultOpen ? ASSISTANT_ACTIVITY_DETAILS_VALUE : undefined),
   );
   const [openAllSignal, setOpenAllSignal] = useState(0);
   const [closeAllSignal, setCloseAllSignal] = useState(0);
@@ -3536,92 +3539,92 @@ const AssistantActivitySection = memo(function AssistantActivitySection({
             onKeyDown={handleActivityTriggerKeyDown}
             onClick={handleActivityTriggerClick}
           >
-          <div className="w-full @container">
-            <div className="flex w-full min-w-0 items-center gap-2 @[20rem]:h-8">
-              <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 @[20rem]:flex-nowrap">
-                  <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-400 dark:text-setta-500">
-                    <span>Activity</span>
-                    <span
-                      data-chat-assistant-activity-count-badge="true"
-                      className={ACTIVITY_COUNT_BADGE_CLASS}
-                      title={`${itemCount} activity items`}
-                    >
-                      <AnimatedCountBadgeValue
-                        value={itemCount}
-                        animateOnChange={sectionState === "running"}
-                      />
-                    </span>
-                  </span>
-                  <div
-                    data-chat-assistant-activity-latest="true"
-                    data-chat-assistant-activity-latest-scrambling={
-                      preview.shouldScrambleTitle ? "true" : "false"
-                    }
-                    className="min-w-0 basis-full truncate text-[11px] text-setta-500 @[20rem]:flex-1 @[20rem]:basis-auto dark:text-setta-300 [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
-                  >
-                    {preview.shouldScrambleTitle ? (
-                      displayLabel
-                    ) : (
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        components={{
-                          p: ({ children }) => <span>{children}</span>,
-                          a: ({ children }) => <span>{children}</span>,
-                        }}
+            <div className="w-full @container">
+              <div className="flex w-full min-w-0 items-center gap-2 @[20rem]:h-8">
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 @[20rem]:flex-nowrap">
+                    <span className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-setta-400 dark:text-setta-500">
+                      <span>Activity</span>
+                      <span
+                        data-chat-assistant-activity-count-badge="true"
+                        className={ACTIVITY_COUNT_BADGE_CLASS}
+                        title={`${itemCount} activity items`}
                       >
-                        {displayLabel}
-                      </ReactMarkdown>
-                    )}
+                        <AnimatedCountBadgeValue
+                          value={itemCount}
+                          animateOnChange={sectionState === "running"}
+                        />
+                      </span>
+                    </span>
+                    <div
+                      data-chat-assistant-activity-latest="true"
+                      data-chat-assistant-activity-latest-scrambling={
+                        preview.shouldScrambleTitle ? "true" : "false"
+                      }
+                      className="min-w-0 basis-full truncate text-[11px] text-setta-500 @[20rem]:flex-1 @[20rem]:basis-auto dark:text-setta-300 [&_code]:rounded [&_code]:bg-setta-100/80 [&_code]:px-0.5 [&_code]:font-mono [&_code]:text-[10px] dark:[&_code]:bg-setta-800/80 [&_p]:m-0 [&_p]:inline"
+                    >
+                      {preview.shouldScrambleTitle ? (
+                        displayLabel
+                      ) : (
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            p: ({ children }) => <span>{children}</span>,
+                            a: ({ children }) => <span>{children}</span>,
+                          }}
+                        >
+                          {displayLabel}
+                        </ReactMarkdown>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="ml-auto inline-flex shrink-0 items-center gap-1 self-start @[20rem]:self-center">
-                <button
-                  type="button"
-                  onPointerDown={handleOpenAllPointerDown}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    if (allChildrenExpanded) {
-                      setCloseAllSignal((prev) => prev + 1);
-                      setAllChildrenExpanded(false);
-                      return;
-                    }
-                    setAccordionValue(ASSISTANT_ACTIVITY_DETAILS_VALUE);
-                    setOpenAllSignal((prev) => prev + 1);
-                    setAllChildrenExpanded(true);
-                  }}
-                  className="inline-flex h-5 cursor-pointer items-center rounded border border-setta-300/80 bg-setta-100/85 px-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-setta-600 opacity-0 pointer-events-none transition-colors transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto hover:bg-setta-200/90 dark:border-setta-600/80 dark:bg-setta-800/90 dark:text-setta-200 dark:hover:bg-setta-700"
-                  data-chat-assistant-activity-open-all-button="true"
-                  title={openAllButtonTitle}
-                >
-                  {openAllButtonLabel}
-                </button>
-                {durationLabel ? (
-                  <span
-                    data-chat-assistant-activity-total-timer="true"
-                    data-chat-assistant-activity-total-state={sectionState}
-                    className={durationClassName}
+                <div className="ml-auto inline-flex shrink-0 items-center gap-1 self-start @[20rem]:self-center">
+                  <button
+                    type="button"
+                    onPointerDown={handleOpenAllPointerDown}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (allChildrenExpanded) {
+                        setCloseAllSignal((prev) => prev + 1);
+                        setAllChildrenExpanded(false);
+                        return;
+                      }
+                      setAccordionValue(ASSISTANT_ACTIVITY_DETAILS_VALUE);
+                      setOpenAllSignal((prev) => prev + 1);
+                      setAllChildrenExpanded(true);
+                    }}
+                    className="pointer-events-none inline-flex h-5 cursor-pointer items-center rounded border border-setta-300/80 bg-setta-100/85 px-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-setta-600 opacity-0 transition-colors transition-opacity hover:bg-setta-200/90 focus-visible:pointer-events-auto focus-visible:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100 group-hover:pointer-events-auto group-hover:opacity-100 dark:border-setta-600/80 dark:bg-setta-800/90 dark:text-setta-200 dark:hover:bg-setta-700"
+                    data-chat-assistant-activity-open-all-button="true"
+                    title={openAllButtonTitle}
                   >
-                    {durationLabel}
-                  </span>
-                ) : null}
-                <MdKeyboardArrowDown
-                  data-chat-assistant-activity-chevron="true"
-                  className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
-                />
+                    {openAllButtonLabel}
+                  </button>
+                  {durationLabel ? (
+                    <span
+                      data-chat-assistant-activity-total-timer="true"
+                      data-chat-assistant-activity-total-state={sectionState}
+                      className={durationClassName}
+                    >
+                      {durationLabel}
+                    </span>
+                  ) : null}
+                  <MdKeyboardArrowDown
+                    data-chat-assistant-activity-chevron="true"
+                    className="chat-accordion-chevron mt-[1px] shrink-0 text-[16px] text-setta-400 transition-transform dark:text-setta-300/90"
+                  />
+                </div>
               </div>
+              {showThoughtScroll ? (
+                <div>
+                  <ActivityThoughtPreview
+                    text={preview.thoughtText ?? ""}
+                    animate={shouldAnimateThoughtScroll}
+                  />
+                </div>
+              ) : null}
             </div>
-            {showThoughtScroll ? (
-              <div>
-                <ActivityThoughtPreview
-                  text={preview.thoughtText ?? ""}
-                  animate={shouldAnimateThoughtScroll}
-                />
-              </div>
-            ) : null}
-          </div>
           </div>
         </Accordion.Trigger>
         <Accordion.Content
@@ -3881,7 +3884,10 @@ const StructuredOutputViewport = memo(function StructuredOutputViewport({
   }, []);
 
   const beginResize = useCallback(
-    (edge: StructuredOutputResizeEdge, event: ReactPointerEvent<HTMLDivElement>) => {
+    (
+      edge: StructuredOutputResizeEdge,
+      event: ReactPointerEvent<HTMLDivElement>,
+    ) => {
       event.preventDefault();
       event.stopPropagation();
       const contentElement = contentRef.current;
@@ -3949,8 +3955,7 @@ const StructuredOutputViewport = memo(function StructuredOutputViewport({
               Math.abs(topShiftPx) > 0.5 &&
               Math.abs(topDeltaPerScrollPixel) > 0.01
             ) {
-              scrollContainer.scrollTop +=
-                -topShiftPx / topDeltaPerScrollPixel;
+              scrollContainer.scrollTop += -topShiftPx / topDeltaPerScrollPixel;
             }
           });
         }
@@ -4183,8 +4188,8 @@ const ActionItem = memo(function ActionItem({
     runState === "failed" || runState === "stopped"
       ? "font-mono text-[10px] text-amber-700 dark:text-amber-200"
       : "font-mono text-[10px] text-setta-400 dark:text-setta-400/90";
-  const [accordionValue, setAccordionValue] = useState<string | undefined>(() =>
-    defaultOpen ? ACTIVITY_ROW_DETAILS_VALUE : undefined,
+  const [accordionValue, setAccordionValue] = useState<string | undefined>(
+    () => (defaultOpen ? ACTIVITY_ROW_DETAILS_VALUE : undefined),
   );
 
   useEffect(() => {
@@ -4368,8 +4373,8 @@ const ToolCallItem = memo(function ToolCallItem({
     runState === "failed" || runState === "stopped"
       ? "font-mono text-[10px] text-amber-700 dark:text-amber-200"
       : "font-mono text-[10px] text-setta-400 dark:text-setta-400/90";
-  const [accordionValue, setAccordionValue] = useState<string | undefined>(() =>
-    defaultOpen ? ACTIVITY_ROW_DETAILS_VALUE : undefined,
+  const [accordionValue, setAccordionValue] = useState<string | undefined>(
+    () => (defaultOpen ? ACTIVITY_ROW_DETAILS_VALUE : undefined),
   );
 
   useEffect(() => {
@@ -6241,9 +6246,7 @@ function ChatMessages({
                         showItemCopyButtons={showItemCopyButtons}
                         defaultChildrenOpen={childAccordionControl.defaultOpen}
                         openAllSignal={childAccordionControl.expandAllSignal}
-                        closeAllSignal={
-                          childAccordionControl.collapseAllSignal
-                        }
+                        closeAllSignal={childAccordionControl.collapseAllSignal}
                       />
                     </AssistantToolCallCard>
                   )}

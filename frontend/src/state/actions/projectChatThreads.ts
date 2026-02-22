@@ -524,8 +524,7 @@ export function reorderProjectChatThreads(
   }
   const normalizedOrderedThreadIds = normalizeThreadIds(orderedThreadIds);
   useLocalStorage.setState((state) => {
-    const threadOrderByProject =
-      state.projectChatThreadOrderByProjectConfigId;
+    const threadOrderByProject = state.projectChatThreadOrderByProjectConfigId;
     const existingOrder = normalizeThreadIds(
       threadOrderByProject[resolvedProjectConfigId] ?? [],
     );
@@ -597,7 +596,9 @@ export function deleteProjectChatThreadGroup(
     useLocalStorage.getState().projectChatThreadGroupsByProjectConfigId[
       resolvedProjectConfigId
     ] ?? [];
-  const groupExists = existingGroups.some((group) => group.id === resolvedGroupId);
+  const groupExists = existingGroups.some(
+    (group) => group.id === resolvedGroupId,
+  );
   if (!groupExists) {
     return false;
   }
@@ -655,8 +656,7 @@ export function deleteProjectChatThread(
   );
   let didDelete = false;
   useLocalStorage.setState((state) => {
-    const trashedByProject =
-      state.trashedProjectChatThreadIdsByProjectConfigId;
+    const trashedByProject = state.trashedProjectChatThreadIdsByProjectConfigId;
     const currentTrashed = normalizeThreadIds(
       trashedByProject[resolvedProjectConfigId] ?? [],
     );

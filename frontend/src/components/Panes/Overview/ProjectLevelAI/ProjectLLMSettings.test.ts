@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { type AllLLMConfigs } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
 import { buildApiKeyEntries } from "./ProjectLLMSettings";
 
 function buildConfig({

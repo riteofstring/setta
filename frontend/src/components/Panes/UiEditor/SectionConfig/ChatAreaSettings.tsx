@@ -103,12 +103,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
       _.isEqual,
     );
 
-  const {
-    apiKeys,
-    allLLMConfigs,
-    agentProfiles,
-    engineConfigs,
-  } = useAIStore(
+  const { apiKeys, allLLMConfigs, agentProfiles, engineConfigs } = useAIStore(
     (state) => ({
       apiKeys: state.apiKeys,
       allLLMConfigs: state.allLLMConfigs,

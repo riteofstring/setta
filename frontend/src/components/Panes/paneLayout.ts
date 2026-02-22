@@ -17,7 +17,7 @@ const lastNonFullPaneWidthByName: Record<PaneName, number | null> = {
   [PaneNameEnum.uiEditor]: null,
 };
 
-export const PANE_MIN_WIDTH_BY_NAME: Record<PaneName, number> = {
+const PANE_MIN_WIDTH_BY_NAME: Record<PaneName, number> = {
   [PaneNameEnum.overview]: 250,
   [PaneNameEnum.uiEditor]: 425,
 };
@@ -383,9 +383,10 @@ function applyAndSetState(
   return { previous, next };
 }
 
-export function togglePaneVisibility(
-  paneName: PaneName,
-): { previous: PaneLayoutState; next: PaneLayoutState } {
+export function togglePaneVisibility(paneName: PaneName): {
+  previous: PaneLayoutState;
+  next: PaneLayoutState;
+} {
   return applyAndSetState((state, viewportWidth) => {
     togglePaneVisibilityWithLayout(state, paneName, viewportWidth);
   });
@@ -400,17 +401,19 @@ export function setPaneWidthWithLayout(
   });
 }
 
-export function setPaneFullWidth(
-  paneName: PaneName,
-): { previous: PaneLayoutState; next: PaneLayoutState } {
+export function setPaneFullWidth(paneName: PaneName): {
+  previous: PaneLayoutState;
+  next: PaneLayoutState;
+} {
   return applyAndSetState((state, viewportWidth) => {
     setPaneToFullWidth(state, paneName, viewportWidth);
   });
 }
 
-export function togglePaneFullWidth(
-  paneName: PaneName,
-): { previous: PaneLayoutState; next: PaneLayoutState } {
+export function togglePaneFullWidth(paneName: PaneName): {
+  previous: PaneLayoutState;
+  next: PaneLayoutState;
+} {
   return applyAndSetState((state, viewportWidth) => {
     togglePaneFullWidthWithLayout(state, paneName, viewportWidth);
   });

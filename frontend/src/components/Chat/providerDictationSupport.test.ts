@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { LLMConfig } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
 import {
   isLikelyProviderDictationModel,
   isProviderDictationLikelySupported,

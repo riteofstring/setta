@@ -322,7 +322,6 @@ describe("ChatMessages structured tool output rendering", () => {
     expect(payload?.language).toBe("yaml");
     expect(payload?.text).toContain("name: setta");
   });
-
 });
 
 describe("ChatMessages tool call status", () => {

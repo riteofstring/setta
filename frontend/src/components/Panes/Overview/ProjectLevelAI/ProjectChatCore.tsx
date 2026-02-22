@@ -580,7 +580,7 @@ function collectUserPrompts(
   return prompts;
 }
 
-export function filterProjectConversationMessagesBySearch({
+function filterProjectConversationMessagesBySearch({
   messages,
   normalizedSearchTerms,
 }: {

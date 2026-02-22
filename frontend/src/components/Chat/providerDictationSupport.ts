@@ -23,9 +23,7 @@ const PROVIDER_DICTATION_UNSUPPORTED_ERROR_PATTERNS = [
   /model[^.]*not[^.]*audio/u,
 ];
 
-function readConfiguredTranscriptionModel(
-  llmConfig: LLMConfig,
-): string | null {
+function readConfiguredTranscriptionModel(llmConfig: LLMConfig): string | null {
   const otherParams = llmConfig.other_params;
   if (
     !otherParams ||
