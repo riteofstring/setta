@@ -145,10 +145,7 @@ export function WatchCodePane() {
       </header>
       <hr className="border-setta-200/70 dark:border-setta-800" />
 
-      <div
-        className="flex flex-col gap-2"
-        data-setting-anchor="core.watch_code.folders"
-      >
+      <div className="flex flex-col gap-2">
         <div className="flex w-full flex-wrap items-center gap-2 @container">
           <h3 className="min-w-[7rem] flex-1 text-xs font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
             Watch Folders
@@ -223,10 +220,7 @@ export function WatchCodePane() {
         )}
       </div>
 
-      <div
-        className="flex flex-col gap-2"
-        data-setting-anchor="core.watch_code.files"
-      >
+      <div className="flex flex-col gap-2">
         <div className="flex w-full flex-wrap items-center gap-2 @container">
           <h3 className="min-w-[6rem] flex-1 text-xs font-bold uppercase tracking-tight text-setta-400 dark:text-setta-500">
             Watch Files

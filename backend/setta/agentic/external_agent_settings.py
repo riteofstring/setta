@@ -1,11 +1,14 @@
 import json
 import tomllib
+from copy import deepcopy
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from setta.agentic.external_tool_allowlist import ExternalToolAllowlist
 from setta.database.db_objs import DBE
+from setta.mcp.codex_config import load_codex_mcp_server_payloads_from_config
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.external_agents import (
     ClaudeSettingsManaged,
@@ -21,6 +24,7 @@ _CLAUDE_SETTINGS_PROJECT = "settings.json"
 _CLAUDE_SETTINGS_LOCAL = "settings.local.json"
 _CODEX_CONFIG_NAME = "config.toml"
 _OPENCODE_CONFIG_NAME = "opencode.json"
+_CODEX_MCP_IMPORTED_AT_KEY = "codexMcpImportedAt"
 
 
 @dataclass(frozen=True)
@@ -138,6 +142,7 @@ def build_codex_settings_file(
     payload: dict[str, Any] = {}
     if base_path is not None and base_path.exists():
         payload = _load_toml(base_path)
+    _bootstrap_codex_mcp_servers_from_user_config(payload, config)
     _set_codex_mcp_server(payload, mcp_url, auth_headers, agentic_headers)
     if _allow_managed_settings_update(config, base_path):
         _apply_codex_managed_settings(payload, config, allowlist)
@@ -463,6 +468,68 @@ def _set_codex_mcp_server(
         server_entry["http_headers"] = http_headers
     mcp_servers[SETTA_MCP_SERVER_ID] = server_entry
     payload["mcp_servers"] = mcp_servers
+
+
+def _bootstrap_codex_mcp_servers_from_user_config(
+    payload: dict[str, Any],
+    config: ExternalAgentConfig,
+) -> None:
+    if config.settingsMode == ExternalAgentSettingsMode.explicit_path:
+        return
+    if _get_codex_mcp_imported_at(payload):
+        payload["mcp_servers"] = _resolve_raw_codex_mcp_servers(payload)
+        return
+    existing_servers = _resolve_raw_codex_mcp_servers(payload)
+    if not _has_non_setta_mcp_server(existing_servers):
+        imported_servers = load_codex_mcp_server_payloads_from_config()
+        for server_id, server_config in imported_servers.items():
+            if server_id in existing_servers:
+                continue
+            existing_servers[server_id] = server_config
+    payload["mcp_servers"] = existing_servers
+    payload[_CODEX_MCP_IMPORTED_AT_KEY] = (
+        datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    )
+
+
+def _get_codex_mcp_imported_at(payload: dict[str, Any]) -> str | None:
+    raw_marker = payload.get(_CODEX_MCP_IMPORTED_AT_KEY)
+    if not isinstance(raw_marker, str):
+        return None
+    marker = raw_marker.strip()
+    if not marker:
+        return None
+    return marker
+
+
+def _resolve_raw_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    snake_case = payload.get("mcp_servers")
+    if isinstance(snake_case, dict):
+        for server_id, raw_entry in snake_case.items():
+            if not isinstance(server_id, str):
+                continue
+            if not isinstance(raw_entry, dict):
+                continue
+            merged[server_id] = deepcopy(raw_entry)
+    camel_case = payload.get("mcpServers")
+    if isinstance(camel_case, dict):
+        for server_id, raw_entry in camel_case.items():
+            if not isinstance(server_id, str):
+                continue
+            if not isinstance(raw_entry, dict):
+                continue
+            if server_id in merged:
+                continue
+            merged[server_id] = deepcopy(raw_entry)
+    return merged
+
+
+def _has_non_setta_mcp_server(mcp_servers: dict[str, Any]) -> bool:
+    for server_id in mcp_servers.keys():
+        if server_id != SETTA_MCP_SERVER_ID:
+            return True
+    return False
 
 
 def _set_opencode_mcp_server(

@@ -5,6 +5,7 @@ import {
   route_stop_transcription_session,
 } from "utils/generatedEndpoints";
 import { SettaNotificationTypeEnum } from "utils/generatedTypes";
+import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   appendTranscriptionAudio,
@@ -177,6 +178,33 @@ describe("transcription session actions", () => {
     });
 
     expect(response).toBeNull();
+    expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+  });
+
+  it("throws a structured error when requested", async () => {
+    mockedRouteStartTranscriptionSession.mockResolvedValue({
+      status: 400,
+      hasResponse: true,
+      data: {
+        detail: {
+          message:
+            "Realtime transcription is unavailable for this provider/model.",
+          errorCode: "unsupported_model",
+        },
+      },
+    });
+
+    await expect(
+      startTranscriptionSession("transcription-1", null, {
+        suppressNotification: true,
+        throwOnError: true,
+      }),
+    ).rejects.toMatchObject<ProviderTranscriptionError>({
+      name: "ProviderTranscriptionError",
+      message: "Realtime transcription is unavailable for this provider/model.",
+      code: "unsupported_model",
+      status: 400,
+    });
     expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
   });
 });
