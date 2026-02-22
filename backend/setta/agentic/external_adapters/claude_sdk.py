@@ -230,16 +230,16 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
                     yield event
                 continue
 
-            if isinstance(message, ResultMessage):
-                raw_payload = _build_result_message_payload(message)
+            if isinstance(message, SystemMessage):
+                raw_payload = _build_raw_sdk_message_payload(message)
                 if raw_payload is not None:
                     yield ExternalAgentStreamEvent(raw=raw_payload)
                 continue
 
-            if isinstance(message, SystemMessage):
+            if saw_partial:
                 continue
 
-            if saw_partial:
+            if isinstance(message, ResultMessage):
                 continue
 
         handle.return_code = 0
@@ -594,21 +594,22 @@ def _build_stream_event_payload(message: StreamEvent) -> dict[str, Any] | None:
     return {"type": "stream_event", "event": event_payload}
 
 
-def _build_result_message_payload(message: ResultMessage) -> dict[str, Any] | None:
-    usage_payload = message.usage if isinstance(message.usage, dict) else None
-    if usage_payload is None:
+def _build_raw_sdk_message_payload(message: Any) -> dict[str, Any] | None:
+    payload: dict[str, Any] | None
+    if hasattr(message, "model_dump"):
+        dumped = message.model_dump()
+        payload = dumped if isinstance(dumped, dict) else None
+    elif hasattr(message, "dict"):
+        dumped = message.dict()
+        payload = dumped if isinstance(dumped, dict) else None
+    elif hasattr(message, "__dict__"):
+        dumped = message.__dict__
+        payload = dumped if isinstance(dumped, dict) else None
+    else:
+        payload = None
+    if payload is None:
         return None
-    payload: dict[str, Any] = {
-        "type": "result_message",
-        "subtype": message.subtype,
-        "sessionId": message.session_id,
-        "usage": usage_payload,
-    }
-    if message.total_cost_usd is not None:
-        payload["totalCostUsd"] = message.total_cost_usd
-    if message.result is not None:
-        payload["result"] = message.result
-    return payload
+    return {"type": "system_message", "message": payload}
 
 
 def _maybe_set_session_id(
