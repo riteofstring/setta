@@ -67,7 +67,7 @@ const DEFAULT_THEME_MODE: AppThemeMode = "auto";
 const STREAMING_TOGGLE_ROOT_CLASSES =
   "nodrag relative inline-flex h-2.5 w-7 min-w-7 cursor-pointer items-center rounded-full p-[0.2rem] [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black focus-visible:ring-2 disabled:pointer-events-none bg-setta-400 data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700";
 const STREAMING_TOGGLE_THUMB_CLASSES =
-  "block h-2.5 w-2.5 rounded-full transition-all will-change-transform data-[state='checked']:translate-x-4 bg-white dark:bg-setta-800";
+  "block h-2.5 w-2.5 rounded-full transition-transform data-[state='checked']:translate-x-4 bg-white dark:bg-setta-800";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);

@@ -237,16 +237,16 @@ function RealParamSwitch(props: ParamSwitchProps) {
     ? "!bg-[color:var(--setta-section-style-outline)] !text-[color:var(--setta-section-style-text)] [&_*]:!text-[color:var(--setta-section-style-text)] active:!bg-[color:var(--setta-section-style-border)]"
     : "active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white";
   const bg = paramIsSelected
-    ? `transition-colors rounded-sm ${selectedBgClassName}`
-    : "transition-colors rounded-sm";
+    ? `rounded-sm ${selectedBgClassName}`
+    : "rounded-sm";
 
   let border = "";
   if (hasError) {
-    border = "bg-red-200 dark:bg-red-800/30";
+    border = "bg-red-200 dark:bg-red-900";
   } else if (isFocusedSearchResult) {
-    border = "outline outline-4 outline-green-500 dark:outline-green-500/80";
+    border = "outline outline-2 outline-green-500 dark:outline-green-500";
   } else if (isSearchResult) {
-    border = "outline outline-4 outline-blue-500 dark:outline-cyan-300/80";
+    border = "outline outline-2 outline-blue-500 dark:outline-cyan-300";
   }
 
   return (

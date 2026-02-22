@@ -105,3 +105,84 @@ CDP same-scenario measurement (160-frame scripted viewport sweep):
 
 Additional artifact:
 - `perf/artifacts/frontend/2026-02-21-settings-all-settings-dom-flattening-v1.png`
+
+## Follow-up (DOM Flattening + Highlight Range Merge, same day)
+
+Additional behavior-preserving pass (steps 1-4):
+- removed `ParamNameInput` underline span and moved key-input underline/focus/error border styling onto dummy/real CodeMirror roots.
+- simplified nested child wrapper layout in `ParamContainer` from nested grid wrapper to lighter flex wrapper while keeping connector + hover UX.
+- reduced row paint complexity by removing always-on row color transitions and using less expensive row hover/outline treatment.
+- merged adjacent same-class highlight segments in `DummyCodeMirror` before creating spans.
+
+Verification rerun:
+- Vitest targeted suites (including new `DummyCodeMirror` merge tests): pass.
+- Playwright:
+  - `frontend/tests/e2e/settings/settings-all-settings-pan-perf.spec.ts` pass
+  - `frontend/tests/e2e/params/params-section-scroll.spec.ts` pass
+
+CDP same-scenario measurement (`All Settings`, 160-frame scripted viewport sweep, no throttling):
+- Previous reference (latest earlier run in this file): avg `20.38ms`, p95 `23.30ms`.
+- Run 1: avg `19.94ms` (`50.15 FPS`), p95 `25.00ms` (`40.00 FPS`).
+- Run 2: avg `19.83ms` (`50.42 FPS`), p95 `24.60ms` (`40.65 FPS`).
+- Run 3: avg `19.97ms` (`50.07 FPS`), p95 `24.70ms` (`40.49 FPS`).
+- Aggregate of these 3 runs:
+  - avg frame time: `19.92ms` (`50.20 FPS`)
+  - p95 frame time (median of run p95s): `24.70ms` (`40.49 FPS`)
+
+Observed density snapshot during this rerun:
+- `totalSectionCount: 42`
+- `totalParamRowCount: 697`
+- `visibleSectionCount: 36`
+- `visibleParamRowCount: 636`
+- `totalDomNodes: 7,942`
+
+Additional artifacts:
+- `perf/artifacts/frontend/2026-02-21-settings-all-settings-dom-flattening-v2.png`
+- `perf/artifacts/frontend/2026-02-21-settings-all-settings-dom-flattening-v2.trace.json`
+
+## Follow-up (Switch Thumb Compositing Cleanup, 2026-02-22)
+
+Targeted optimization:
+- removed persistent `will-change-transform` from switch-thumb classes and narrowed transitions from `transition-all` to `transition-transform` across:
+  - `frontend/src/components/Params/ParamUIs/SwitchInput.tsx`
+  - `frontend/src/components/Panes/Overview/RunInstructions.tsx`
+  - `frontend/src/components/Panes/Overview/ProjectConfigs.tsx`
+  - `frontend/src/components/Panes/Overview/App/AppConfigPane.tsx`
+  - `frontend/src/components/Panes/UiEditor/QuickInfoConfig/QuickInfoConfig.tsx`
+
+Why:
+- CDP what-if experiment showed large gain when switch thumb `will-change` was disabled in dense settings pan (from ~`20.14ms` to ~`14.86ms` avg in a controlled temporary toggle run).
+
+Verification rerun:
+- Vitest:
+  - `frontend/src/components/Params/ParamUIs/SwitchInput.test.tsx` pass (updated assertion for no `will-change-transform`).
+  - targeted Overview/App pane tests pass.
+- Playwright:
+  - `frontend/tests/e2e/settings/settings-all-settings-pan-perf.spec.ts` pass
+  - `frontend/tests/e2e/params/params-section-scroll.spec.ts` pass
+
+CDP same-scenario measurement (`All Settings`, dense viewport, 160-frame scripted sweep, no throttling):
+- Density snapshot:
+  - `totalSectionCount: 42`
+  - `totalParamRowCount: 697`
+  - `visibleSectionCount: 36`
+  - `visibleParamRowCount: 636`
+- Switch density:
+  - `button[role='switch']`: `119`
+  - switch thumbs with computed `will-change: transform`: `0`
+- Runs:
+  - Run 1: avg `14.95ms` (`66.89 FPS`), p95 `16.70ms` (`59.88 FPS`)
+  - Run 2: avg `15.53ms` (`64.38 FPS`), p95 `16.70ms` (`59.88 FPS`)
+  - Run 3: avg `15.44ms` (`64.76 FPS`), p95 `16.70ms` (`59.88 FPS`)
+- Aggregate:
+  - avg frame time: `15.31ms` (`65.32 FPS`)
+  - median p95 frame time: `16.70ms` (`59.88 FPS`)
+
+Comparison against previous latest reference in this file:
+- Previous aggregate avg: `19.92ms`
+- New aggregate avg: `15.31ms`
+- Improvement: `-4.61ms` (~`23.1%` faster average frame time)
+
+Additional artifacts:
+- `perf/artifacts/frontend/2026-02-22-settings-all-settings-switch-thumb-will-change-removal-v1.png`
+- `perf/artifacts/frontend/2026-02-22-settings-all-settings-switch-thumb-will-change-removal-v1.trace.json`

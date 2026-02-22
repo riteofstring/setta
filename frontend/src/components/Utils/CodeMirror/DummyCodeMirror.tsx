@@ -1,7 +1,7 @@
-import React from "react";
 import { RangeSetBuilder, Text } from "@codemirror/state";
 import { Decoration } from "@codemirror/view";
 import { highlightTree } from "@lezer/highlight";
+import React from "react";
 import { getCodeMirrorLanguageParser } from "./codeMirrorLanguages";
 
 const lineWrapStyle = {
@@ -27,6 +27,12 @@ type HighlightedCodeOutput = {
 
 type HighlightParser = {
   parse: (value: string) => Parameters<typeof highlightTree>[0];
+};
+
+type HighlightLineSegment = {
+  from: number;
+  to: number;
+  className: string;
 };
 
 const highlightedOutputCache = new Map<string, HighlightedCodeOutput>();
@@ -86,37 +92,43 @@ function buildHighlightedCodeOutput({
   // just the code content. MUST be array of lines
   const text = Text.of(code.split("\n"));
   const renderedLineDivs: React.ReactNode[] = [];
-  let pos = 0;
-  let isJustLineBreak = false;
-
   const cursor = decorationRangeSet.iter();
 
   for (let i = 1; i <= text.lines; i++) {
     const line = text.line(i);
-    isJustLineBreak = true;
-    pos = line.from;
-
+    const lineSegments: Array<HighlightLineSegment> = [];
     const currLineDivs: React.ReactNode[] = [];
 
     while (cursor.value && cursor.from < line.to) {
-      isJustLineBreak = false;
-      if (cursor.from > pos) {
-        currLineDivs.push(text.sliceString(pos, cursor.from));
+      const segmentTo = Math.min(line.to, cursor.to);
+      if (segmentTo > cursor.from) {
+        lineSegments.push({
+          from: cursor.from,
+          to: segmentTo,
+          className: String(cursor.value.spec.class ?? ""),
+        });
       }
-
-      const className = cursor.value.spec.class;
-
-      currLineDivs.push(
-        <span key={`line-${i}-${cursor.from}`} className={className}>
-          {text.sliceString(cursor.from, Math.min(line.to, cursor.to))}
-        </span>,
-      );
-      pos = cursor.to;
       cursor.next();
     }
-    currLineDivs.push(text.sliceString(pos, line.to));
-    if (isJustLineBreak) {
+
+    const mergedLineSegments = mergeAdjacentLineSegments(lineSegments);
+    if (mergedLineSegments.length === 0) {
+      currLineDivs.push(text.sliceString(line.from, line.to));
       currLineDivs.push(<br key={`br-${i}`} />);
+    } else {
+      let pos = line.from;
+      for (const segment of mergedLineSegments) {
+        if (segment.from > pos) {
+          currLineDivs.push(text.sliceString(pos, segment.from));
+        }
+        currLineDivs.push(
+          <span key={`line-${i}-${segment.from}`} className={segment.className}>
+            {text.sliceString(segment.from, segment.to)}
+          </span>,
+        );
+        pos = segment.to;
+      }
+      currLineDivs.push(text.sliceString(pos, line.to));
     }
     renderedLineDivs.push(
       <div key={`line-${i}`} className="cm-line">
@@ -129,6 +141,31 @@ function buildHighlightedCodeOutput({
     outputDivs: renderedLineDivs,
     scopeClassName: String(theme[0]?.[0]?.value || ""),
   };
+}
+
+function mergeAdjacentLineSegments(
+  lineSegments: Array<HighlightLineSegment>,
+): Array<HighlightLineSegment> {
+  if (lineSegments.length < 2) {
+    return lineSegments;
+  }
+  const merged: Array<HighlightLineSegment> = [];
+  let current = lineSegments[0];
+  for (let index = 1; index < lineSegments.length; index += 1) {
+    const next = lineSegments[index];
+    if (current.className === next.className && current.to === next.from) {
+      current = {
+        from: current.from,
+        to: next.to,
+        className: current.className,
+      };
+      continue;
+    }
+    merged.push(current);
+    current = next;
+  }
+  merged.push(current);
+  return merged;
 }
 
 export function clearDummyCodeMirrorHighlightCache() {
@@ -244,7 +281,8 @@ function HighlightedCode({
   style,
 }) {
   const parser = React.useMemo(
-    () => getCodeMirrorLanguageParser(language, false) as HighlightParser | null,
+    () =>
+      getCodeMirrorLanguageParser(language, false) as HighlightParser | null,
     [language],
   );
   const fallbackLines = React.useMemo(() => code.split("\n"), [code]);

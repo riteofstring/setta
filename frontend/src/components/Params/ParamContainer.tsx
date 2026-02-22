@@ -81,7 +81,7 @@ function _ParamContainer({
   const hasTempChild = renderChildren.some((childId) => isTempParam(childId));
   const paramHoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
-    : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
+    : "hover:bg-setta-100 hover:dark:bg-setta-800";
 
   return !isNestedParam ? (
     <article
@@ -112,7 +112,7 @@ function _ParamContainer({
         <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
       )}
       {hasTempChild && (
-        <div className="section-args-nested section-key-value relative grid gap-y-1 before:absolute before:bottom-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 dark:before:bg-setta-400/20">
+        <div className="section-key-value relative flex min-w-0 flex-col gap-y-1 pl-3 before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 dark:before:bg-setta-400/20">
           <GetParamSwitch
             sectionId={sectionId}
             paramIds={renderChildren}
@@ -144,7 +144,7 @@ function _ParamContainer({
       role={undefined}
     >
       {children}
-      <div className="section-args-nested section-key-value relative grid gap-y-1 before:absolute before:bottom-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 dark:before:bg-setta-400/20">
+      <div className="section-key-value relative flex min-w-0 flex-col gap-y-1 pl-3 before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 dark:before:bg-setta-400/20">
         <GetParamSwitch
           sectionId={sectionId}
           paramIds={renderChildren}
