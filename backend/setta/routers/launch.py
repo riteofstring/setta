@@ -1,17 +1,30 @@
 import os
+import time
+from dataclasses import dataclass
 from typing import Literal
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from pydantic import BaseModel
 
-from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
+from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER, LAUNCH_INTENT_TOKEN_MANAGER
+from setta.auth.session import load_current_session_secret
 from setta.launch import LaunchError, launch_workspace_session
+from setta.launcher_metadata import (
+    LauncherMetadataError,
+    update_launcher_last_used_workspace_if_installed,
+)
 from setta.routers.dependencies import require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_common import normalize_optional_argument
 from setta.ssh_connect import connect_remote_workspace_session
 from setta.types.routes import Route
 from setta.utils.env_vars import PROFILE_ENV
+from setta.utils.launch_request import normalize_setta_files_location_for_launch
+from setta.utils.launcher_origin_handoff import (
+    append_launcher_origin_handoff_to_bootstrap_url,
+    mint_launcher_origin_handoff_proof,
+    normalize_launcher_origin,
+)
 from setta.utils.network import build_bootstrap_urls
 from setta.utils.paths import get_setta_paths
 
@@ -19,6 +32,7 @@ router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
 
 
 class LaunchRequest(BaseModel):
+    launchIntentToken: str | None = None
     workspaceRoot: str | None = None
     profile: str | None = None
     settaHome: str | None = None
@@ -62,29 +76,126 @@ class LaunchResponse(BaseModel):
     error: LaunchErrorPayload | None = None
 
 
+class CreateWorkspaceLaunchIntentRequest(BaseModel):
+    launchRequest: LaunchRequest
+    returnUrl: str
+
+
+class CreateWorkspaceLaunchIntentResponse(BaseModel):
+    ok: bool
+    launchIntentToken: str | None = None
+    requestedAt: int | None = None
+    error: LaunchErrorPayload | None = None
+
+
+@dataclass(frozen=True)
+class _StoredWorkspaceLaunchIntent:
+    session_id: str
+    launch_request_payload: dict[str, object]
+    exp: int
+
+
+_WORKSPACE_LAUNCH_INTENTS: dict[str, _StoredWorkspaceLaunchIntent] = {}
+
+
+@router.post(Route.CREATE_WORKSPACE_LAUNCH_INTENT)
+def route_create_workspace_launch_intent(
+    x: CreateWorkspaceLaunchIntentRequest,
+) -> CreateWorkspaceLaunchIntentResponse:
+    if x.launchRequest.launchIntentToken is not None:
+        return CreateWorkspaceLaunchIntentResponse(
+            ok=False,
+            error=LaunchErrorPayload(
+                code="BadRequest",
+                message="launchIntentToken cannot be nested inside launchRequest.",
+            ),
+        )
+    session_info = load_current_session_secret()
+    if session_info is None:
+        return CreateWorkspaceLaunchIntentResponse(
+            ok=False,
+            error=LaunchErrorPayload(code="Unauthorized", message="Missing session."),
+        )
+    session_metadata, secret = session_info
+    launch_request_payload = x.launchRequest.model_dump(
+        exclude_unset=True,
+        exclude={"launchIntentToken"},
+    )
+    try:
+        LaunchRequest.model_validate(launch_request_payload)
+    except ValueError as exc:
+        return CreateWorkspaceLaunchIntentResponse(
+            ok=False,
+            error=LaunchErrorPayload(code="BadRequest", message=str(exc)),
+        )
+    requested_at = int(time.time() * 1000)
+    token, exp = LAUNCH_INTENT_TOKEN_MANAGER.mint(session_metadata.id, secret)
+    _store_workspace_launch_intent(
+        token=token,
+        session_id=session_metadata.id,
+        launch_request_payload=launch_request_payload,
+        exp=exp,
+    )
+    return CreateWorkspaceLaunchIntentResponse(
+        ok=True,
+        launchIntentToken=token,
+        requestedAt=requested_at,
+    )
+
+
 @router.post(Route.LAUNCH)
-def route_launch(x: LaunchRequest) -> LaunchResponse:
+def route_launch(
+    x: LaunchRequest,
+    request: Request = None,  # type: ignore[assignment]
+) -> LaunchResponse:
+    request_origin: str | None = None
+    if request is not None:
+        request_origin = normalize_launcher_origin(
+            f"{request.url.scheme}://{request.url.netloc}"
+        )
+    if x.launchIntentToken is not None:
+        if _launch_request_has_inline_overrides(x):
+            return LaunchResponse(
+                ok=False,
+                error=LaunchErrorPayload(
+                    code="BadRequest",
+                    message=(
+                        "launchIntentToken must be the only request field when provided."
+                    ),
+                ),
+            )
+        session_info = load_current_session_secret()
+        if session_info is None:
+            return LaunchResponse(
+                ok=False,
+                error=LaunchErrorPayload(
+                    code="Unauthorized", message="Missing session."
+                ),
+            )
+        session_metadata, secret = session_info
+        try:
+            x = _consume_workspace_launch_intent(
+                token=x.launchIntentToken,
+                session_id=session_metadata.id,
+                secret=secret,
+            )
+        except ValueError as exc:
+            return LaunchResponse(
+                ok=False,
+                error=LaunchErrorPayload(code="InvalidLaunchIntent", message=str(exc)),
+            )
     try:
         normalized_profile = normalize_optional_argument(x.profile)
         normalized_setta_home = normalize_optional_argument(x.settaHome)
         normalized_setta_files_root = normalize_optional_argument(x.settaFilesRoot)
         normalized_runtime_root = normalize_optional_argument(x.runtimeRoot)
 
-        if x.settaFilesLocation is not None:
-            if (
-                normalized_setta_files_root is not None
-                and x.settaFilesLocation == "auto"
-            ):
-                # Treat explicit "auto" as omitted when an explicit files root is set.
-                setta_files_location = None
-            else:
-                setta_files_location = x.settaFilesLocation
-        elif normalized_setta_files_root is not None or normalized_profile is not None:
-            # Preserve omission so explicit root/profile config can drive location/root selection.
-            setta_files_location = None
-        else:
-            # Keep API launches insulated from server-process SETTA_FILES_LOCATION env.
-            setta_files_location = "auto"
+        setta_files_location = normalize_setta_files_location_for_launch(
+            setta_files_location=x.settaFilesLocation,
+            setta_files_location_provided="settaFilesLocation" in x.model_fields_set,
+            setta_files_root=normalized_setta_files_root,
+            profile=normalized_profile,
+        )
         if x.sshTarget:
             remote = connect_remote_workspace_session(
                 ssh_target=x.sshTarget,
@@ -97,11 +208,25 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
                 ssh_args=x.sshArgs,
                 remote_cmd=x.remoteCmd,
                 local_port=x.localPort,
+                launcher_origin=request_origin,
             )
+            remote_bootstrap_url = remote.bootstrap_url_fragment
+            if remote.launcher_origin and remote.launcher_origin_proof:
+                normalized_remote_origin = normalize_launcher_origin(
+                    remote.launcher_origin
+                )
+                if normalized_remote_origin is not None:
+                    remote_bootstrap_url = (
+                        append_launcher_origin_handoff_to_bootstrap_url(
+                            bootstrap_url_fragment=remote_bootstrap_url,
+                            launcher_origin=normalized_remote_origin,
+                            proof=remote.launcher_origin_proof,
+                        )
+                    )
             resolved_workspace_root = remote.session.workspace_path_canonical
             return LaunchResponse(
                 ok=True,
-                bootstrapUrlFragment=remote.bootstrap_url_fragment,
+                bootstrapUrlFragment=remote_bootstrap_url,
                 workspaceRoot=resolved_workspace_root,
                 settaFilesLocation=remote.setta_files_location,
                 settaFilesRoot=remote.setta_files_root,
@@ -159,11 +284,31 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
             error=LaunchErrorPayload(code="BadRequest", message=str(exc)),
         )
 
+    try:
+        update_launcher_last_used_workspace_if_installed(
+            setta_home=result.paths.setta_home,
+            workspace_root=result.paths.workspace_root,
+        )
+    except (LauncherMetadataError, OSError):
+        # Workspace launches should continue even if launcher metadata is malformed.
+        pass
+
     secret = result.registry.load_secret(result.session)
     token = BOOTSTRAP_TOKEN_MANAGER.mint(result.session.id, secret)
     bootstrap_url_fragment, _ = build_bootstrap_urls(
         result.session.host, result.session.port, token
     )
+    if request_origin is not None:
+        launcher_origin_proof = mint_launcher_origin_handoff_proof(
+            session_id=result.session.id,
+            launcher_origin=request_origin,
+            secret=secret,
+        )
+        bootstrap_url_fragment = append_launcher_origin_handoff_to_bootstrap_url(
+            bootstrap_url_fragment=bootstrap_url_fragment,
+            launcher_origin=request_origin,
+            proof=launcher_origin_proof,
+        )
     session_info = LaunchSessionInfo(
         id=result.session.id,
         workspacePath=result.session.workspacePath,
@@ -186,3 +331,55 @@ def route_launch(x: LaunchRequest) -> LaunchResponse:
         startedNew=result.started_new,
         session=session_info,
     )
+
+
+def _launch_request_has_inline_overrides(x: LaunchRequest) -> bool:
+    for field_name in x.model_fields_set:
+        if field_name != "launchIntentToken":
+            return True
+    return False
+
+
+def _store_workspace_launch_intent(
+    *,
+    token: str,
+    session_id: str,
+    launch_request_payload: dict[str, object],
+    exp: int,
+) -> None:
+    _prune_workspace_launch_intents(now=int(time.time()))
+    _WORKSPACE_LAUNCH_INTENTS[token] = _StoredWorkspaceLaunchIntent(
+        session_id=session_id,
+        launch_request_payload=launch_request_payload,
+        exp=exp,
+    )
+
+
+def _consume_workspace_launch_intent(
+    *,
+    token: str,
+    session_id: str,
+    secret: bytes,
+) -> LaunchRequest:
+    payload = LAUNCH_INTENT_TOKEN_MANAGER.consume(token, secret)
+    if payload.sessionId != session_id:
+        raise ValueError("Launch intent token is bound to a different session.")
+    _prune_workspace_launch_intents(now=int(time.time()))
+    stored = _WORKSPACE_LAUNCH_INTENTS.pop(token, None)
+    if stored is None:
+        raise ValueError("Launch intent token is missing or already consumed.")
+    if stored.exp <= int(time.time()):
+        raise ValueError("Launch intent token has expired.")
+    if stored.session_id != session_id:
+        raise ValueError("Launch intent token is bound to a different session.")
+    return LaunchRequest.model_validate(stored.launch_request_payload)
+
+
+def _prune_workspace_launch_intents(*, now: int) -> None:
+    expired_tokens = [
+        token
+        for token, stored in _WORKSPACE_LAUNCH_INTENTS.items()
+        if stored.exp <= now
+    ]
+    for token in expired_tokens:
+        _WORKSPACE_LAUNCH_INTENTS.pop(token, None)
