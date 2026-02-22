@@ -90,12 +90,6 @@ jobs:
           name: macos-installer-assets
           path: dist/native-installers/macos/*
 
-      - name: Attach macOS installer assets to release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/native-installers/macos/*
-
   windows-installer:
     needs:
       - resolve_installer_version
@@ -119,11 +113,75 @@ jobs:
           name: windows-installer-assets
           path: dist/native-installers/windows/*
 
-      - name: Attach Windows installer assets to release
-        if: github.event_name == 'release'
+  macos-installer-smoke:
+    needs:
+      - macos-installer
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-installer-assets
+          path: dist/native-installers/macos
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Run macOS native installer smoke
+        run: |
+          pkg_path="$(find dist/native-installers/macos -maxdepth 1 -type f -name 'SettaDesktop-*.pkg' | head -n 1)"
+          if [[ -z "${pkg_path}" ]]; then
+            echo "No macOS installer package found for smoke test." >&2
+            exit 1
+          fi
+          ./scripts/release/smoke_test_native_installer_macos.sh --pkg "${pkg_path}"
+
+  windows-installer-smoke:
+    needs:
+      - windows-installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-installer-assets
+          path: dist/native-installers/windows
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Run Windows native installer smoke
+        shell: pwsh
+        run: |
+          $msiPath = Get-ChildItem -Path dist/native-installers/windows -Filter "SettaDesktop-*.msi" | Select-Object -First 1
+          if (-not $msiPath) {
+            throw "No Windows installer MSI found for smoke test."
+          }
+          ./scripts/release/smoke_test_native_installer_windows.ps1 -MsiPath $msiPath.FullName
+
+  attach-native-installers:
+    if: github.event_name == 'release'
+    needs:
+      - macos-installer-smoke
+      - windows-installer-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-installer-assets
+          path: dist/native-installers/macos
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-installer-assets
+          path: dist/native-installers/windows
+
+      - name: Attach native installer assets to release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/native-installers/windows/*
+          files: |
+            dist/native-installers/macos/*
+            dist/native-installers/windows/*
 
   launcher-smoke:
     runs-on: ubuntu-latest

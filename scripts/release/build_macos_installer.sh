@@ -6,7 +6,8 @@ usage() {
 Usage: ./scripts/release/build_macos_installer.sh [output-dir]
 
 Builds an unsigned (or optionally signed/notarized) macOS .pkg installer that
-installs desktop bootstrap commands under /usr/local/bin:
+installs desktop bootstrap commands under /usr/local/bin and runs bootstrap
+during postinstall:
 - setta-install-desktop
 - setta-remove-desktop
 
@@ -58,7 +59,8 @@ final_pkg_path="${output_dir}/${base_name}.pkg"
 mkdir -p "${output_dir}"
 
 payload_root="$(mktemp -d)"
-trap 'rm -rf "${payload_root}"' EXIT
+installer_scripts_root="$(mktemp -d)"
+trap 'rm -rf "${payload_root}" "${installer_scripts_root}"' EXIT
 
 mkdir -p "${payload_root}/usr/local/bin"
 cp "scripts/install_desktop_launcher.sh" \
@@ -71,8 +73,33 @@ REMOVE
 chmod +x "${payload_root}/usr/local/bin/setta-install-desktop"
 chmod +x "${payload_root}/usr/local/bin/setta-remove-desktop"
 
+cat > "${installer_scripts_root}/postinstall" <<'POSTINSTALL'
+#!/usr/bin/env bash
+set -euo pipefail
+
+installer_bin="/usr/local/bin/setta-install-desktop"
+if [[ ! -x "${installer_bin}" ]]; then
+  echo "Missing bootstrap installer command: ${installer_bin}" >&2
+  exit 1
+fi
+
+bootstrap_cmd="${installer_bin} --channel native-installer --open-mode chrome-app"
+target_user="${SUDO_USER:-}"
+if [[ -z "${target_user}" || "${target_user}" == "root" ]]; then
+  target_user="$(/usr/bin/stat -f '%Su' /dev/console 2>/dev/null || true)"
+fi
+
+if [[ -n "${target_user}" && "${target_user}" != "root" && "${target_user}" != "loginwindow" ]]; then
+  /usr/bin/su - "${target_user}" -c "${bootstrap_cmd}"
+else
+  /bin/bash -lc "${bootstrap_cmd}"
+fi
+POSTINSTALL
+chmod +x "${installer_scripts_root}/postinstall"
+
 pkgbuild \
   --root "${payload_root}" \
+  --scripts "${installer_scripts_root}" \
   --identifier "${identifier}" \
   --version "${version}" \
   --install-location "/" \

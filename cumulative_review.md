@@ -68,3 +68,12 @@
 - Split launcher `/launching` route composition from IDE wrappers by introducing launcher-safe workspace-launch route kind resolution and rendering launcher handoff without `GlobalWrapper` bootstrap dependencies.
 - Centralized frontend endpoint-origin policy into an exported contract/resolver and aligned generated-endpoint tests so `/launcherStatus` is asserted against backend origin under distinct backend/launcher base URLs.
 - Added/updated backend pytest, frontend Vitest, and Playwright coverage for plist/desktop artifact sanitization, launcher mode settings guards, launcher `/launching` no-`/loadSettings` behavior, and endpoint-origin contract consistency; targeted runs passed.
+
+## 2026-02-25 20:08:27 PST
+
+- Centralized full-IDE-runtime API policy by adding dedicated full-runtime router classes and migrating runtime-dependent routers (`mcp_tools`, `lsp`, `app_spec_streaming`, `projects`) so launcher-mode requests fail fast with deterministic `403` contracts.
+- Made session mode an explicit destructive-action selector for `setta stop` by adding `--server-mode` (default `ide`) and enforcing mode filtering in both local workspace lookup and remote session fetch paths.
+- Defined a single native installer behavior contract: macOS `.pkg` and Windows `.msi` now execute launcher bootstrap during install (postinstall/custom action) instead of only shipping helper scripts.
+- Aligned release automation with installer contract by adding native-installer smoke jobs on macOS/Windows and gating release asset attachment on smoke success.
+- Updated native installer docs to reflect bootstrap-on-install behavior and required `uv` precondition.
+- Added/updated backend pytest coverage for full-runtime route policy, launcher-mode blocking, stop mode filtering, and installer/workflow contract assertions; targeted suites passed.

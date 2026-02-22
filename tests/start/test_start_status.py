@@ -490,6 +490,60 @@ def test_stop_uses_workspace_from_other_cwd(status_workspace_env) -> None:
     assert not session_dir.exists()
 
 
+def test_stop_defaults_to_ide_sessions_only(
+    status_env,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ide_session = status_env.create_session(port=61234, server_mode="ide")
+    launcher_session = status_env.create_session(port=61235, server_mode="launcher")
+    ide_session_dir = status_env.sessions_root / ide_session.id
+    launcher_session_dir = status_env.sessions_root / launcher_session.id
+    monkeypatch.setattr("setta.start._stop_session_process", lambda _pid: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        stop,
+        [
+            "--workspace",
+            str(status_env.workspace),
+            "--latest",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"Stopped session {ide_session.id}." in result.output
+    assert ide_session_dir.exists() is False
+    assert launcher_session_dir.exists() is True
+
+
+def test_stop_supports_launcher_server_mode_selection(
+    status_env,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ide_session = status_env.create_session(port=61234, server_mode="ide")
+    launcher_session = status_env.create_session(port=61235, server_mode="launcher")
+    ide_session_dir = status_env.sessions_root / ide_session.id
+    launcher_session_dir = status_env.sessions_root / launcher_session.id
+    monkeypatch.setattr("setta.start._stop_session_process", lambda _pid: None)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        stop,
+        [
+            "--workspace",
+            str(status_env.workspace),
+            "--latest",
+            "--server-mode",
+            "launcher",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"Stopped session {launcher_session.id}." in result.output
+    assert launcher_session_dir.exists() is False
+    assert ide_session_dir.exists() is True
+
+
 def test_stop_local_profile_uses_profile_runtime_sessions_root(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

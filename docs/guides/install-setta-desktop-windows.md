@@ -13,11 +13,15 @@ This guide is for end users who want Setta Desktop without cloning this reposito
 
 ## Native Installer Quickstart
 
-1. Download `SettaDesktop-<version>.msi` from the latest GitHub release.
-2. Install interactively by opening the `.msi`, or non-interactively:
+1. Install `uv` if it is not already installed (PowerShell):
+   - `irm https://astral.sh/uv/install.ps1 | iex`
+2. Download `SettaDesktop-<version>.msi` from the latest GitHub release.
+3. Install interactively by opening the `.msi`, or non-interactively:
    - `msiexec /i SettaDesktop-<version>.msi /qn /norestart`
-3. Verify:
+4. Verify:
    - `setta launcher status --json`
+
+The `.msi` runs desktop bootstrap during installation, so no extra bootstrap command is required after `msiexec /i`.
 
 ## Optional Launcher Mode
 

@@ -92,6 +92,17 @@ setta launcher remove --json @Args
     <Package InstallerVersion="500" Compressed="yes" InstallScope="perMachine" />
     <MajorUpgrade DowngradeErrorMessage="A newer Setta Desktop Bootstrap installer is already installed." />
     <MediaTemplate EmbedCab="yes" />
+    <CustomAction
+      Id="RunDesktopBootstrap"
+      Directory="SystemFolder"
+      ExeCommand='WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File "[INSTALLBIN]setta-install-desktop.ps1" -Channel native-installer -OpenMode chrome-app'
+      Execute="deferred"
+      Return="check"
+      Impersonate="yes" />
+
+    <InstallExecuteSequence>
+      <Custom Action="RunDesktopBootstrap" After="InstallFiles">NOT Installed</Custom>
+    </InstallExecuteSequence>
 
     <Feature Id="MainFeature" Title="Setta Desktop Bootstrap" Level="1">
       <ComponentGroupRef Id="ProductComponents" />

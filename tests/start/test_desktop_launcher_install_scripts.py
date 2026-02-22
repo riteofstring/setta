@@ -149,6 +149,25 @@ def test_build_windows_installer_script_uses_fail_fast_native_wrapper() -> None:
     assert "& $light.Source @lightArgs" not in script_content
 
 
+def test_macos_installer_script_runs_postinstall_bootstrap() -> None:
+    script_path = _repo_root() / "scripts" / "release" / "build_macos_installer.sh"
+    script_content = script_path.read_text(encoding="utf-8")
+
+    assert 'cat > "${installer_scripts_root}/postinstall"' in script_content
+    assert "--scripts \"${installer_scripts_root}\"" in script_content
+    assert "--channel native-installer --open-mode chrome-app" in script_content
+
+
+def test_windows_installer_script_runs_custom_action_bootstrap() -> None:
+    script_path = _repo_root() / "scripts" / "release" / "build_windows_installer.ps1"
+    script_content = script_path.read_text(encoding="utf-8")
+
+    assert 'Id="RunDesktopBootstrap"' in script_content
+    assert 'After="InstallFiles">NOT Installed</Custom>' in script_content
+    assert "setta-install-desktop.ps1" in script_content
+    assert "-Channel native-installer -OpenMode chrome-app" in script_content
+
+
 def test_release_workflow_uses_single_installer_version_source() -> None:
     workflow_path = (
         _repo_root() / ".github" / "workflows" / "release-desktop-launcher.yml"
@@ -165,6 +184,28 @@ def test_release_workflow_uses_single_installer_version_source() -> None:
         in workflow_content
     )
     assert 'SETTA_DESKTOP_INSTALLER_RELEASE_MODE: "1"' in workflow_content
+    assert "macos-installer-smoke:" in workflow_content
+    assert "windows-installer-smoke:" in workflow_content
+    assert "attach-native-installers:" in workflow_content
+    assert "./scripts/release/smoke_test_native_installer_macos.sh --pkg" in workflow_content
+    assert (
+        "./scripts/release/smoke_test_native_installer_windows.ps1 -MsiPath $msiPath.FullName"
+        in workflow_content
+    )
+
+
+def test_native_installer_smoke_scripts_assert_launcher_status() -> None:
+    macos_script = (
+        _repo_root() / "scripts" / "release" / "smoke_test_native_installer_macos.sh"
+    ).read_text(encoding="utf-8")
+    windows_script = (
+        _repo_root() / "scripts" / "release" / "smoke_test_native_installer_windows.ps1"
+    ).read_text(encoding="utf-8")
+
+    assert "sudo installer -pkg" in macos_script
+    assert "launcher status --json" in macos_script
+    assert "msiexec.exe" in windows_script
+    assert "launcher status --json" in windows_script
 
 
 def test_macos_installer_script_release_mode_requires_explicit_version() -> None:

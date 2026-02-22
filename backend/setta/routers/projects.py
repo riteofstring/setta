@@ -1,11 +1,10 @@
-from fastapi import Depends, HTTPException
+from fastapi import HTTPException
 from pydantic import BaseModel
 
 from setta.logging.project_id_route import require_project_context
 from setta.project_state.project_manager_types import SaveAsNewProjectConfigRequest
 from setta.routers.dependencies import ReadyAppStateFromRequest as AppStateFromRequest
-from setta.routers.dependencies import require_full_ide_runtime
-from setta.routers.setta_api_router import SettaProjectContextAPIRouter
+from setta.routers.setta_api_router import SettaProjectContextFullRuntimeAPIRouter
 from setta.types.helpers_lvl2 import ProjectNotFound
 from setta.types.id import ID
 from setta.types.notifications import (
@@ -16,7 +15,7 @@ from setta.types.project_state import AllProjectMetadata, ProjectStateSingleConf
 from setta.types.routes import Route
 from setta.utils.errors import InvalidProjectName
 
-router = SettaProjectContextAPIRouter(dependencies=[Depends(require_full_ide_runtime)])
+router = SettaProjectContextFullRuntimeAPIRouter()
 
 
 class ProjectLoadRequest(BaseModel):

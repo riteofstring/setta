@@ -10,7 +10,7 @@ import sys
 import webbrowser
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any, Callable, Literal, cast
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import click
@@ -110,8 +110,10 @@ _LAUNCHER_WORKSPACE_BEHAVIOR_CHOICES = (
     "last-used-or-prompt",
     "always-prompt",
 )
+_SESSION_SERVER_MODE_CHOICES = ("ide", "launcher")
 
 RemoteSessionSummary = ssh_common.RemoteSessionSummary
+SessionServerMode = Literal["ide", "launcher"]
 
 
 def _resolve_cli_paths(
@@ -322,7 +324,7 @@ def _fetch_remote_sessions(
     setta_command: str,
     setta_files_args: str,
     *,
-    server_mode: str | None = None,
+    server_mode: SessionServerMode | None = None,
 ) -> list[RemoteSessionSummary]:
     try:
         return ssh_common.fetch_remote_sessions(
@@ -448,7 +450,7 @@ def _wait_for_remote_session(
     runtime_root: str | None = None,
     timeout_seconds: float = 30.0,
     verbose: bool = False,
-    server_mode: str | None = None,
+    server_mode: SessionServerMode | None = None,
 ) -> RemoteSessionSummary:
     try:
         sessions = ssh_common.wait_for_remote_sessions(
@@ -2431,7 +2433,7 @@ def app(
 @click.option("--latest", is_flag=True)
 @click.option(
     "--server-mode",
-    type=click.Choice(["ide", "launcher"], case_sensitive=False),
+    type=click.Choice(_SESSION_SERVER_MODE_CHOICES, case_sensitive=False),
     default=None,
     help="Filter sessions by server mode for --list-sessions/--connect-info.",
 )
@@ -2450,7 +2452,7 @@ def status(
     workspace: Path | None,
     session_id: str | None,
     latest: bool,
-    server_mode: str | None,
+    server_mode: SessionServerMode | None,
     launcher_origin: str | None,
 ) -> None:
     if session_id and latest:
@@ -2900,6 +2902,13 @@ def api(
 @click.option("--session", "session_id", default=None)
 @click.option("--latest", is_flag=True)
 @click.option("--all", "stop_all", is_flag=True)
+@click.option(
+    "--server-mode",
+    type=click.Choice(_SESSION_SERVER_MODE_CHOICES, case_sensitive=False),
+    default="ide",
+    show_default=True,
+    help="Filter stop targets by session mode.",
+)
 @click.option("--ssh-args", default=None)
 @click.option("--remote-cmd", default=None)
 @click.pass_context
@@ -2910,6 +2919,7 @@ def stop(
     session_id: str | None,
     latest: bool,
     stop_all: bool,
+    server_mode: SessionServerMode,
     ssh_args: str | None,
     remote_cmd: str | None,
 ) -> None:
@@ -2932,7 +2942,10 @@ def stop(
             validate=False,
         )
         registry = SessionRegistry(sessions_root=resolved_paths.runtime_sessions_root)
-        sessions = registry.find_sessions_by_workspace(resolved_paths.workspace_root)
+        sessions = registry.find_sessions_by_workspace_and_mode(
+            resolved_paths.workspace_root,
+            server_mode,
+        )
         if not sessions:
             raise click.ClickException("No matching Setta sessions found.")
         targets = _select_local_stop_targets(sessions, session_id, latest, stop_all)
@@ -2965,6 +2978,7 @@ def stop(
         remote_workspace,
         setta_command,
         setta_path_args,
+        server_mode=server_mode,
     )
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
