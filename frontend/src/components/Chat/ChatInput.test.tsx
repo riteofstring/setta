@@ -8,8 +8,11 @@ import {
   areSlashSuggestionsPortalStylesEqual,
   ChatInput,
   cycleQueuedDraftSelection,
+  cycleSubmittedMessageHistorySelection,
   enqueueQueuedDraft,
+  isRestoreClearedDraftKey,
   isStopEscapeKey,
+  resolveEscapeComposerAction,
 } from "./ChatInput";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
@@ -184,6 +187,8 @@ describe("ChatInput composer controls", () => {
   it("renders execution controls when provided", () => {
     const markup = renderChatInput({
       executionControls: {
+        thinkingEnabled: true,
+        onThinkingEnabledChange: vi.fn(),
         permissionMode: "minimal",
         searchEnabled: true,
         onPermissionModeChange: vi.fn(),
@@ -191,9 +196,29 @@ describe("ChatInput composer controls", () => {
       },
     });
 
+    expect(markup).toContain('aria-label="Thinking"');
     expect(markup).toContain("minimal");
     expect(markup).toContain("Search");
     expect(markup).not.toContain("Skills");
+  });
+
+  it("renders the thinking control to the left of permissions", () => {
+    const markup = renderChatInput({
+      executionControls: {
+        thinkingEnabled: false,
+        onThinkingEnabledChange: vi.fn(),
+        permissionMode: "minimal",
+        searchEnabled: false,
+        onPermissionModeChange: vi.fn(),
+        onSearchEnabledChange: vi.fn(),
+      },
+    });
+
+    const thinkingIndex = markup.indexOf('aria-label="Thinking"');
+    const permissionIndex = markup.indexOf('aria-label="minimal permissions"');
+    expect(thinkingIndex).toBeGreaterThan(-1);
+    expect(permissionIndex).toBeGreaterThan(-1);
+    expect(thinkingIndex).toBeLessThan(permissionIndex);
   });
 
   it("renders a context-left badge when context limits are provided", () => {
@@ -204,8 +229,10 @@ describe("ChatInput composer controls", () => {
       onChange: vi.fn(),
     });
 
-    expect(markup).toContain("Context left 25%");
-    expect(markup).toContain("Show remaining context tokens");
+    expect(markup).toContain("context left");
+    expect(markup).toContain("context");
+    expect(markup).toContain("25%");
+    expect(markup).toContain('aria-label="context left 25%"');
   });
 
   it("renders estimated context label when usage is estimated", () => {
@@ -217,7 +244,9 @@ describe("ChatInput composer controls", () => {
       onChange: vi.fn(),
     });
 
-    expect(markup).toContain("est. context left 25%");
+    expect(markup).toContain("est. context left");
+    expect(markup).toContain("est. context");
+    expect(markup).toContain("25%");
   });
 
   it("does not render context badge when used tokens are unavailable", () => {
@@ -228,7 +257,7 @@ describe("ChatInput composer controls", () => {
       onChange: vi.fn(),
     });
 
-    expect(markup).not.toContain("Context left");
+    expect(markup).not.toContain("context left");
     expect(markup).not.toContain("est. context left");
   });
 
@@ -297,6 +326,34 @@ describe("ChatInput composer controls", () => {
 
     expect(markup).toContain("bottom-[calc(100%+4px)]");
     expect(markup).toContain("overflow-x-hidden");
+  });
+
+  it("renders runtime counters for active background terminals and subagents", () => {
+    const markup = renderChatInput({
+      runtimeActivityCounts: {
+        activeBackgroundTerminals: 3,
+        activeSubagents: 2,
+      },
+    });
+
+    expect(markup).toContain(
+      'data-chat-runtime-active-background-terminals="true"',
+    );
+    expect(markup).toContain('aria-label="3 background terminals active"');
+    expect(markup).toContain('data-chat-runtime-active-subagents="true"');
+    expect(markup).toContain('aria-label="2 subagents active"');
+  });
+
+  it("normalizes invalid runtime counter values to non-negative numbers", () => {
+    const markup = renderChatInput({
+      runtimeActivityCounts: {
+        activeBackgroundTerminals: -2,
+        activeSubagents: 1,
+      },
+    });
+
+    expect(markup).toContain('aria-label="0 background terminals active"');
+    expect(markup).toContain('aria-label="1 subagent active"');
   });
 });
 
@@ -391,6 +448,97 @@ describe("isStopEscapeKey", () => {
   });
 });
 
+describe("isRestoreClearedDraftKey", () => {
+  it("returns true for Command+Z without extra modifiers", () => {
+    expect(
+      isRestoreClearedDraftKey({
+        key: "z",
+        shiftKey: false,
+        altKey: false,
+        metaKey: true,
+        ctrlKey: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true for Control+Z without extra modifiers", () => {
+    expect(
+      isRestoreClearedDraftKey({
+        key: "Z",
+        shiftKey: false,
+        altKey: false,
+        metaKey: false,
+        ctrlKey: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false for unsupported combinations", () => {
+    expect(
+      isRestoreClearedDraftKey({
+        key: "z",
+        shiftKey: true,
+        altKey: false,
+        metaKey: true,
+        ctrlKey: false,
+      }),
+    ).toBe(false);
+    expect(
+      isRestoreClearedDraftKey({
+        key: "z",
+        shiftKey: false,
+        altKey: false,
+        metaKey: true,
+        ctrlKey: true,
+      }),
+    ).toBe(false);
+    expect(
+      isRestoreClearedDraftKey({
+        key: "x",
+        shiftKey: false,
+        altKey: false,
+        metaKey: true,
+        ctrlKey: false,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("resolveEscapeComposerAction", () => {
+  it("returns stop for the first escape while a response is running", () => {
+    expect(
+      resolveEscapeComposerAction({
+        waitingForResponse: true,
+        onStopAvailable: true,
+        stopRequestedForCurrentResponse: false,
+        hasComposerDraft: true,
+      }),
+    ).toBe("stop");
+  });
+
+  it("returns clear once stop has already been requested and a draft exists", () => {
+    expect(
+      resolveEscapeComposerAction({
+        waitingForResponse: true,
+        onStopAvailable: true,
+        stopRequestedForCurrentResponse: true,
+        hasComposerDraft: true,
+      }),
+    ).toBe("clear");
+  });
+
+  it("returns none when there is no running response and no draft", () => {
+    expect(
+      resolveEscapeComposerAction({
+        waitingForResponse: false,
+        onStopAvailable: true,
+        stopRequestedForCurrentResponse: false,
+        hasComposerDraft: false,
+      }),
+    ).toBe("none");
+  });
+});
+
 describe("queued draft helpers", () => {
   const draftA = {
     id: "queued-a",
@@ -427,5 +575,32 @@ describe("queued draft helpers", () => {
     expect(cycleQueuedDraftSelection(queue, "queued-a", "prev")).toBe(
       "queued-b",
     );
+  });
+});
+
+describe("submitted message history helpers", () => {
+  it("starts selection at the newest message when no selection exists", () => {
+    // Arrow history should always begin at the newest entry.
+    const history = ["Most recent", "Older", "Oldest"];
+    expect(cycleSubmittedMessageHistorySelection(history, null, "prev")).toBe(
+      0,
+    );
+    expect(cycleSubmittedMessageHistorySelection(history, null, "next")).toBe(
+      0,
+    );
+  });
+
+  it("cycles backward and forward through history entries", () => {
+    // Up/down traversal should wrap to keep cycling through available prompts.
+    const history = ["Most recent", "Older", "Oldest"];
+    expect(cycleSubmittedMessageHistorySelection(history, 0, "prev")).toBe(2);
+    expect(cycleSubmittedMessageHistorySelection(history, 2, "next")).toBe(0);
+    expect(cycleSubmittedMessageHistorySelection(history, 1, "prev")).toBe(0);
+    expect(cycleSubmittedMessageHistorySelection(history, 1, "next")).toBe(2);
+  });
+
+  it("returns null when history is empty", () => {
+    expect(cycleSubmittedMessageHistorySelection([], null, "prev")).toBeNull();
+    expect(cycleSubmittedMessageHistorySelection([], 0, "next")).toBeNull();
   });
 });

@@ -341,13 +341,13 @@ test.describe.serial("chat composer controls", () => {
       await input.press("Enter");
 
       const percentageBadge = section.getByRole("button", {
-        name: "est. context left 25%",
+        name: /^est\. context(?: left)? 25%$/i,
       });
       await expect(percentageBadge).toBeVisible();
       await percentageBadge.click();
       await expect(
         section.getByRole("button", {
-          name: "est. context left ~50",
+          name: /^est\. context(?: left)? ~50$/i,
         }),
       ).toBeVisible();
     } finally {
@@ -438,7 +438,7 @@ test.describe.serial("chat composer controls", () => {
       await expect(section.locator("textarea").first()).toBeVisible();
       await expect(
         section.getByRole("button", {
-          name: /^est\. context left/i,
+          name: /^est\. context(?: left)?/i,
         }),
       ).toBeVisible();
     } finally {
@@ -620,6 +620,153 @@ test.describe.serial("chat composer controls", () => {
       await expect(
         overviewPane.getByText("Unknown or unavailable command. Use /help."),
       ).toHaveCount(0);
+    } finally {
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("project chat ArrowUp cycles submitted prompts from prior conversations", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+
+    await page.route("**/api/getAgentRuns", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "run-history-newer",
+            profileId: null,
+            status: "completed",
+            startedAt: "2026-02-02T00:00:00Z",
+            finishedAt: "2026-02-02T00:00:01Z",
+            events: [],
+            inputs: {
+              runType: "llm_chat",
+              projectConfigId: projectContext.projectConfigId,
+              chatId: "history-chat-newer",
+              sectionId: null,
+              messages: [
+                {
+                  id: "history-user-1",
+                  role: "user",
+                  content: [{ type: "text", text: "History prompt older" }],
+                  attachments: [],
+                },
+                {
+                  id: "history-user-2",
+                  role: "user",
+                  content: [{ type: "text", text: "History prompt newest" }],
+                  attachments: [],
+                },
+              ],
+            },
+            outputs: {},
+          },
+          {
+            id: "run-history-older",
+            profileId: null,
+            status: "completed",
+            startedAt: "2026-02-01T00:00:00Z",
+            finishedAt: "2026-02-01T00:00:01Z",
+            events: [],
+            inputs: {
+              runType: "llm_chat",
+              projectConfigId: projectContext.projectConfigId,
+              chatId: "history-chat-older",
+              sectionId: null,
+              messages: [
+                {
+                  id: "history-user-3",
+                  role: "user",
+                  content: [{ type: "text", text: "History prompt oldest" }],
+                  attachments: [],
+                },
+              ],
+            },
+            outputs: {},
+          },
+        ]),
+      });
+    });
+
+    try {
+      await setOverviewTab(page, "ProjectAIChat");
+      await page.reload();
+      await page.waitForSelector(".react-flow__pane");
+
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+      await selectProjectAiEngine(page, "setta");
+
+      const input = overviewPane.getByPlaceholder("Type a message...");
+      await expect(input).toHaveValue("");
+
+      await input.press("ArrowUp");
+      await expect(input).toHaveValue("History prompt newest");
+      await input.press("ArrowUp");
+      await expect(input).toHaveValue("History prompt older");
+      await input.press("ArrowUp");
+      await expect(input).toHaveValue("History prompt oldest");
+      await input.press("ArrowDown");
+      await expect(input).toHaveValue("History prompt older");
+      await input.press("ArrowDown");
+      await expect(input).toHaveValue("History prompt newest");
+      await input.press("ArrowDown");
+      await expect(input).toHaveValue("");
+      await input.press("ArrowUp");
+      await expect(input).toHaveValue("History prompt newest");
+      await input.press("Escape");
+      await expect(input).toHaveValue("");
+    } finally {
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("project and section chat use a constrained content shell", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+
+    try {
+      await page.reload();
+      await page.waitForSelector(".react-flow__pane");
+
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+      await selectProjectAiEngine(page, "setta");
+
+      const projectShell = overviewPane
+        .locator('[data-chat-width-shell="true"]')
+        .first();
+      await expect(projectShell).toBeVisible();
+      await expect(projectShell).toHaveClass(/max-w-\[72rem\]/);
+
+      const { sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_chat_width_shell__",
+      );
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+
+      const sectionShell = section
+        .locator('[data-chat-width-shell="true"]')
+        .first();
+      await expect(sectionShell).toBeVisible();
+      await expect(sectionShell).toHaveClass(/max-w-\[72rem\]/);
     } finally {
       await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);

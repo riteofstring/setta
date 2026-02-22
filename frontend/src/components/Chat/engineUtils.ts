@@ -8,7 +8,7 @@ type IdNameItem = { id: string; name: string };
 
 type IdNameGroup = { group: string; items: Array<IdNameItem> };
 
-type ExternalEngineStatus = {
+export type ExternalEngineStatus = {
   status: "loading" | "missing" | "available" | "unavailable";
   issues: Array<string>;
   name: string | null;
@@ -89,6 +89,27 @@ export function getExternalEngineStatus(
     };
   }
   return { status: "available", issues, name: status.name ?? null };
+}
+
+export function getExternalEngineIssueMessage(
+  externalEngineStatus: ExternalEngineStatus | null,
+): string | null {
+  if (!externalEngineStatus) {
+    return null;
+  }
+  if (
+    externalEngineStatus.status === "available" ||
+    externalEngineStatus.status === "loading"
+  ) {
+    return null;
+  }
+  const unavailableLabel = externalEngineStatus.name
+    ? `External engine "${externalEngineStatus.name}" unavailable`
+    : "External engine unavailable";
+  if (externalEngineStatus.issues.length === 0) {
+    return unavailableLabel;
+  }
+  return `${unavailableLabel}: ${externalEngineStatus.issues.join("; ")}`;
 }
 
 export function getChatPlaceholderText(

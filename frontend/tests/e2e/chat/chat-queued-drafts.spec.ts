@@ -42,13 +42,24 @@ test.describe.serial("chat queued drafts", () => {
       await expect(
         section.locator('[data-chat-queued-draft="true"]'),
       ).toHaveCount(1);
+      await expect(
+        section.getByText("Queued. Sends after current response finishes."),
+      ).toHaveCount(0);
 
       await input.fill("Queued second");
       await input.press("Tab");
       const queuedDrafts = section.locator('[data-chat-queued-draft="true"]');
+      const queuedRails = section.locator(
+        '[data-chat-queued-draft-rail="true"]',
+      );
       await expect(queuedDrafts).toHaveCount(2);
+      await expect(queuedRails).toHaveCount(2);
       await expect(queuedDrafts.nth(0)).toContainText("Queued first");
       await expect(queuedDrafts.nth(1)).toContainText("Queued second");
+      await expect(queuedDrafts.nth(0)).toHaveClass(
+        /grid-cols-\[1\.75rem_minmax\(0,1fr\)\]/,
+      );
+      await expect(queuedDrafts.nth(0)).toContainText("Queued");
 
       await input.press("ArrowUp");
       await input.press("Enter");

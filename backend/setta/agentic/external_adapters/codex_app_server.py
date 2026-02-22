@@ -130,6 +130,11 @@ class CodexAppServerAdapter(ExternalAgentAdapter):
         handle.metadata["stderr_lines"] = state.stderr_lines
         handle.metadata["process_state"] = state
         handle.metadata["run_id"] = str(context.run.id)
+        handle.metadata["agentNativeSlashCommands"] = []
+        handle.metadata["agentNativeSlashCommandsStatus"] = "not_supported"
+        handle.metadata["agentNativeSlashCommandsStatusDetail"] = (
+            "Codex app-server mode does not expose slash command definitions."
+        )
         if state.thread_id:
             handle.thread_id = state.thread_id
         try:
@@ -2112,10 +2117,16 @@ def _stringify_reasoning_parts(parts: Any) -> str:
 
 
 def _extract_reasoning_summary(item: dict[str, Any]) -> str:
-    summary = item.get("summary")
-    if summary is None:
-        summary = item.get("text")
-    return _stringify_reasoning_parts(summary)
+    for key in (
+        "summary",
+        "summaryText",
+        "summary_text",
+        "reasoning_summary",
+        "thinking_summary",
+    ):
+        if key in item:
+            return _stringify_reasoning_parts(item.get(key))
+    return ""
 
 
 def _extract_reasoning_content(item: dict[str, Any]) -> str:

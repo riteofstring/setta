@@ -704,6 +704,30 @@ class TestCodexAppServerAdapterParser:
                 assert delta.summary == "Plan"
                 assert delta.thinking == "Analyze constraints."
 
+    def test_response_item_reasoning_does_not_fallback_summary_to_text(self) -> None:
+        parser = _CodexAppServerEventParser()
+        events = parser.handle(
+            {
+                "type": "response_item",
+                "payload": {
+                    "id": "reason-response-no-summary",
+                    "type": "reasoning",
+                    "text": [{"text": "This is body text, not summary."}],
+                    "content": [{"text": "Detailed reasoning content."}],
+                },
+            }
+        )
+
+        assert len(events) == 2
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
+        assert isinstance(events[1].stream_chunk, MessageDeltaEvent)
+        if isinstance(events[1].stream_chunk, MessageDeltaEvent):
+            delta = events[1].stream_chunk.content[0]
+            assert isinstance(delta, MessageThinkingDelta)
+            if isinstance(delta, MessageThinkingDelta):
+                assert delta.summary == ""
+                assert delta.thinking == "Detailed reasoning content."
+
     def test_response_item_message_with_reasoning_content_emits_thinking_and_text(
         self,
     ) -> None:

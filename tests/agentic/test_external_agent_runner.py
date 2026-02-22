@@ -45,6 +45,7 @@ from setta.types.chat_messages import (
     MessageTextContent,
     ToolCall,
     ToolCallFunction,
+    ToolChatMessage,
     UserChatMessage,
 )
 from setta.types.chat_stream_events import (
@@ -175,6 +176,7 @@ def _build_context_for_test(
 
 class TestExternalAgentRunnerStopRun:
     pytestmark = pytest.mark.asyncio
+
     async def test_stop_run_does_not_override_completed(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -262,13 +264,15 @@ class TestExternalAgentRunnerContext:
                 project_config.id
             )
             assert headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER) == str(context.chat_id)
-            assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(chat_section_id)
+            assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(
+                chat_section_id
+            )
 
     def test_context_injects_agentic_headers_for_codex(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
-            project_config, chat_section_id, _ = _write_project_state_with_agentic_context(
-                dbe
+            project_config, chat_section_id, _ = (
+                _write_project_state_with_agentic_context(dbe)
             )
             runner = _build_runner(dbe)
             engine_config_id = ID("engine-codex")
@@ -287,7 +291,9 @@ class TestExternalAgentRunnerContext:
             )
 
             codex_home = Path(str(context.env["CODEX_HOME"]))
-            payload = tomllib.loads((codex_home / "config.toml").read_text(encoding="utf-8"))
+            payload = tomllib.loads(
+                (codex_home / "config.toml").read_text(encoding="utf-8")
+            )
             mcp_servers = payload.get("mcp_servers")
             assert isinstance(mcp_servers, dict)
             setta_entry = mcp_servers.get(SETTA_MCP_SERVER_ID)
@@ -298,7 +304,9 @@ class TestExternalAgentRunnerContext:
                 project_config.id
             )
             assert headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER) == str(context.chat_id)
-            assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(chat_section_id)
+            assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(
+                chat_section_id
+            )
 
 
 async def _apply_claude_payloads(
@@ -469,6 +477,148 @@ class TestExternalAgentRunner:
             )
 
             assert context.inputs.get("threadId") == "thread-123"
+
+    def test_context_reuses_thread_when_only_codex_approval_policy_changes(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-codex-policy-change")
+            config = ExternalAgentConfig(
+                id="config-codex-policy-change",
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                approvalPolicy="on-failure",
+                sandboxPolicy="workspace-write",
+            )
+            previous = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-codex-policy-change",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                    "approvalPolicy": "on-request",
+                    "sandboxPolicy": "workspace-write",
+                },
+                run_id=ID("chat-codex-policy-change"),
+            )
+            previous.outputs = {
+                "threadId": "thread-stale",
+                "metadata": {
+                    "approvalPolicy": "on-request",
+                    "sandboxPolicy": "workspace-write",
+                },
+            }
+            save_agent_run(dbe, previous)
+
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=engine_config_id,
+                inputs={
+                    "chatId": "chat-codex-policy-change",
+                    "approvalPolicy": "never",
+                },
+            )
+
+            assert context.inputs.get("threadId") == "thread-stale"
+
+    def test_context_reuses_thread_when_codex_policy_matches(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-codex-policy-match")
+            config = ExternalAgentConfig(
+                id="config-codex-policy-match",
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                approvalPolicy="on-failure",
+                sandboxPolicy="workspace-write",
+            )
+            previous = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-codex-policy-match",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                    "approvalPolicy": "never",
+                    "sandboxPolicy": "workspace-write",
+                },
+                run_id=ID("chat-codex-policy-match"),
+            )
+            previous.outputs = {
+                "threadId": "thread-fresh",
+                "metadata": {
+                    "approvalPolicy": "never",
+                    "sandboxPolicy": "workspace-write",
+                },
+            }
+            save_agent_run(dbe, previous)
+
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=engine_config_id,
+                inputs={
+                    "chatId": "chat-codex-policy-match",
+                    "approvalPolicy": "never",
+                },
+            )
+
+            assert context.inputs.get("threadId") == "thread-fresh"
+
+    def test_context_skips_thread_reuse_when_codex_sandbox_policy_changes(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            project_config = _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            engine_config_id = ID("engine-codex-sandbox-change")
+            config = ExternalAgentConfig(
+                id="config-codex-sandbox-change",
+                name="Codex app-server",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+                approvalPolicy="never",
+                sandboxPolicy="workspace-write",
+            )
+            previous = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "chatId": "chat-codex-sandbox-change",
+                    "projectConfigId": str(project_config.id),
+                    "engineConfigId": str(engine_config_id),
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                    "approvalPolicy": "never",
+                    "sandboxPolicy": "read-only",
+                },
+                run_id=ID("chat-codex-sandbox-change"),
+            )
+            previous.outputs = {
+                "threadId": "thread-sandbox-old",
+                "metadata": {
+                    "approvalPolicy": "never",
+                    "sandboxPolicy": "read-only",
+                },
+            }
+            save_agent_run(dbe, previous)
+
+            context = _build_context_for_test(
+                runner,
+                config,
+                engine_config_id=engine_config_id,
+                inputs={"chatId": "chat-codex-sandbox-change"},
+            )
+
+            assert "threadId" not in context.inputs
 
     def test_context_inherits_session_id(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -664,6 +814,188 @@ class TestExternalAgentRunner:
             assert context.config.approvalPolicy == "bypassPermissions"
             assert config.approvalPolicy == "default"
 
+    def test_extract_codex_usage_from_thread_token_usage_event(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+
+            usage = runner._extract_codex_usage_from_event(
+                {
+                    "method": "thread/tokenUsage/updated",
+                    "params": {
+                        "threadId": "thread-1",
+                        "turnId": "turn-1",
+                        "tokenUsage": {
+                            "last": {
+                                "cachedInputTokens": 2,
+                                "inputTokens": 41,
+                                "outputTokens": 9,
+                                "reasoningOutputTokens": 3,
+                                "totalTokens": 50,
+                            },
+                            "total": {
+                                "cachedInputTokens": 4,
+                                "inputTokens": 82,
+                                "outputTokens": 18,
+                                "reasoningOutputTokens": 6,
+                                "totalTokens": 100,
+                            },
+                            "modelContextWindow": 200000,
+                        },
+                    },
+                }
+            )
+
+            assert usage is not None
+            assert usage["promptTokens"] == 41
+            assert usage["completionTokens"] == 9
+            assert usage["totalTokens"] == 50
+            assert usage["cachedInputTokens"] == 2
+            assert usage["reasoningOutputTokens"] == 3
+            assert usage["contextWindowTokens"] == 200000
+
+    def test_extract_claude_usage_from_result_message_event(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+
+            usage = runner._extract_claude_usage_from_event(
+                {
+                    "type": "result_message",
+                    "usage": {
+                        "input_tokens": 120,
+                        "output_tokens": 14,
+                        "total_tokens": 134,
+                        "cache_read_input_tokens": 8,
+                        "cache_creation_input_tokens": 5,
+                    },
+                }
+            )
+
+            assert usage is not None
+            assert usage["promptTokens"] == 120
+            assert usage["completionTokens"] == 14
+            assert usage["totalTokens"] == 134
+            assert usage["cachedInputTokens"] == 8
+            assert usage["cacheWriteInputTokens"] == 5
+
+    def test_extract_opencode_usage_from_message_updated_event(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+
+            usage = runner._extract_opencode_usage_from_event(
+                {
+                    "type": "message.updated",
+                    "properties": {
+                        "info": {
+                            "role": "assistant",
+                            "tokens": {
+                                "input": 63,
+                                "output": 11,
+                                "reasoning": 4,
+                                "cache": {"read": 7, "write": 2},
+                            },
+                        }
+                    },
+                }
+            )
+
+            assert usage is not None
+            assert usage["promptTokens"] == 63
+            assert usage["completionTokens"] == 11
+            assert usage["totalTokens"] == 74
+            assert usage["cachedInputTokens"] == 7
+            assert usage["reasoningOutputTokens"] == 4
+
+    def test_persist_outputs_from_state_includes_usage_summary(self) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                    "chatId": "chat-usage-persist",
+                    "projectConfigId": "project-usage-persist",
+                    "engineConfigId": "engine-usage-persist",
+                    "messages": [],
+                },
+            )
+            save_agent_run(dbe, run)
+            handle = ExternalAgentRunHandle(
+                run_id=run.id,
+                metadata={
+                    "usage_summary": {
+                        "promptTokens": 77,
+                        "completionTokens": 9,
+                        "totalTokens": 86,
+                    }
+                },
+            )
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=ClaudeSdkAdapter(),
+            )
+
+            runner._persist_outputs_from_state(run, config=None)
+
+            assert run.outputs is not None
+            usage = run.outputs.get("usage")
+            assert isinstance(usage, dict)
+            assert usage.get("promptTokens") == 77
+            assert usage.get("completionTokens") == 9
+            assert usage.get("totalTokens") == 86
+
+    def test_persist_outputs_from_state_includes_agent_native_command_metadata(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            _write_project_state(dbe)
+            runner = _build_runner(dbe)
+            run = create_agent_run(
+                profile_id=None,
+                inputs={
+                    "runType": EXTERNAL_AGENT_RUN_TYPE,
+                    "chatId": "chat-native-commands",
+                    "projectConfigId": "project-native-commands",
+                    "engineConfigId": "engine-native-commands",
+                    "messages": [],
+                },
+            )
+            save_agent_run(dbe, run)
+            handle = ExternalAgentRunHandle(
+                run_id=run.id,
+                metadata={
+                    "agentNativeSlashCommands": [],
+                    "agentNativeSlashCommandsStatus": "not_supported",
+                    "agentNativeSlashCommandsStatusDetail": (
+                        "Codex app-server mode does not expose slash command definitions."
+                    ),
+                },
+            )
+            runner._run_state[run.id] = ExternalAgentRunState(
+                handle=handle,
+                adapter=ClaudeSdkAdapter(),
+            )
+
+            runner._persist_outputs_from_state(run, config=None)
+
+            assert run.outputs is not None
+            metadata = run.outputs.get("metadata")
+            assert isinstance(metadata, dict)
+            assert metadata.get("agentNativeSlashCommands") == []
+            assert metadata.get("agentNativeSlashCommandsStatus") == "not_supported"
+            assert (
+                metadata.get("agentNativeSlashCommandsStatusDetail")
+                == "Codex app-server mode does not expose slash command definitions."
+            )
+
     def test_ai_follow_snapshot_normalizes(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -784,9 +1116,7 @@ class TestExternalAgentRunner:
                 content=[MessageTextContent(text="Hello")],
             )
             stream_chunks = [
-                MessageStartEvent(
-                    message=AssistantChatMessage(id="m1", content=[])
-                ),
+                MessageStartEvent(message=AssistantChatMessage(id="m1", content=[])),
                 MessageDeltaEvent(
                     message_id="m1",
                     content=[MessageTextDelta(index=0, text="Hello")],
@@ -832,9 +1162,7 @@ class TestExternalAgentRunner:
                 content=[MessageTextContent(text="Hello")],
             )
             stream_chunks = [
-                MessageStartEvent(
-                    message=AssistantChatMessage(id="m7", content=[])
-                ),
+                MessageStartEvent(message=AssistantChatMessage(id="m7", content=[])),
                 MessageDeltaEvent(
                     message_id="m7",
                     content=[MessageTextDelta(index=0, text="Hello")],
@@ -1237,8 +1565,10 @@ class TestExternalAgentRunner:
             assert config_path.exists()
             content = config_path.read_text(encoding="utf-8")
             assert "[mcp_servers.setta]" in content
-            assert f"url = \"{C.BACKEND}/mcp/streamable/\"" in content
-            expected_dir = dbe.path / "external_agent_settings" / "codex" / "codex-config"
+            assert f'url = "{C.BACKEND}/mcp/streamable/"' in content
+            expected_dir = (
+                dbe.path / "external_agent_settings" / "codex" / "codex-config"
+            )
             expected_runtime_dir = expected_dir / "sessions" / str(context.chat_id)
             # With agentic headers/session-scoped home we skip writing the base config.
             assert not (expected_dir / "config.toml").exists()
@@ -1546,6 +1876,7 @@ class TestExternalAgentRunnerPluginAdapter:
 
 class TestExternalAgentRunnerApproval:
     pytestmark = pytest.mark.asyncio
+
     async def test_approval_request_emits_tool_call(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1582,8 +1913,7 @@ class TestExternalAgentRunnerApproval:
             assert isinstance(tool_calls, list)
             assert tool_calls[0]["function"]["name"] == "setta.approval"
             assert (
-                tool_calls[0]["function"]["arguments"].get("approvalId")
-                == "approval-1"
+                tool_calls[0]["function"]["arguments"].get("approvalId") == "approval-1"
             )
 
     async def test_codex_approval_request_preserves_tool_metadata(self) -> None:
@@ -1702,6 +2032,7 @@ class TestExternalAgentRunnerApproval:
 
 class TestExternalAgentRunnerQuestion:
     pytestmark = pytest.mark.asyncio
+
     async def test_question_request_queues_claude_approval(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -1808,12 +2139,17 @@ class TestExternalAgentRunnerQuestion:
                             content=[
                                 MessageTextContent(
                                     text=(
-                                        "Create a new project and scaffold "
-                                        "everything."
+                                        "Create a new project and scaffold everything."
                                     )
                                 )
                             ],
-                        ).model_dump(mode="json")
+                        ).model_dump(mode="json"),
+                        ToolChatMessage(
+                            id="tool-1",
+                            tool_call_id="call-1",
+                            tool_name="shell_command",
+                            result={"ok": True},
+                        ).model_dump(mode="json"),
                     ],
                 },
             )
@@ -1825,9 +2161,7 @@ class TestExternalAgentRunnerQuestion:
                 MessageFinalizedEvent(
                     message=AssistantChatMessage(
                         id="assistant-1",
-                        content=[
-                            MessageTextContent(text="Done. Everything is ready.")
-                        ],
+                        content=[MessageTextContent(text="Done. Everything is ready.")],
                     )
                 ),
             )
@@ -1895,7 +2229,6 @@ class TestExternalAgentRunnerQuestion:
             state = runner._pending_questions["tool-1"]
             assert state.approval_id == "approval-1"
             assert runner._pending_question_approvals.get(run.id) is None
-
 
     async def test_question_approval_attaches_before_tool_call(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -2137,6 +2470,7 @@ class TestExternalAgentRunnerQuestion:
 
 class TestExternalAgentRunnerClaudeCapture:
     pytestmark = pytest.mark.asyncio
+
     async def test_streamed_text_persists_outputs(self) -> None:
         with TemporaryDirectory() as tmpdir:
             dbe = _build_dbe(tmpdir)
@@ -2347,7 +2681,7 @@ class TestExternalAgentRunnerClaudeCapture:
                             "index": 0,
                             "delta": {
                                 "type": "input_json_delta",
-                                "partial_json": "{\"command\": \"ls\"}",
+                                "partial_json": '{"command": "ls"}',
                             },
                         },
                     },

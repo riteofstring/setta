@@ -1,4 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import {
   type CSSProperties,
   ChangeEvent,
@@ -12,6 +13,8 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
+import { BiSolidBrain } from "react-icons/bi";
+import { FiCpu, FiTerminal } from "react-icons/fi";
 import { IoMdKey } from "react-icons/io";
 import {
   IoAdd,
@@ -22,6 +25,7 @@ import {
   IoSend,
   IoStop,
 } from "react-icons/io5";
+import { addTemporaryNotification } from "state/actions/notifications";
 import { formatBytes } from "utils/attachments";
 import { ChatFileAttachment } from "utils/generatedTypes";
 import {
@@ -38,6 +42,7 @@ import {
   getSpeechRecognitionConstructor,
   insertTextAtSelection,
   isDictationAvailable,
+  isNoSpeechDictationError,
   mapDictationError,
   pickProviderRecorderMimeType,
 } from "./dictation";
@@ -58,6 +63,17 @@ const SLASH_SUGGESTIONS_PORTAL_STYLE_KEYS = [
   "top",
   "bottom",
 ] as const;
+const DEFAULT_RUNTIME_ACTIVITY_COUNTS: ChatRuntimeActivityCounts = {
+  activeBackgroundTerminals: 0,
+  activeSubagents: 0,
+};
+
+function normalizeNonNegativeCount(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(value));
+}
 
 export function areSlashSuggestionsPortalStylesEqual(
   current: CSSProperties | null,
@@ -78,6 +94,8 @@ export function areSlashSuggestionsPortalStylesEqual(
 }
 
 type ChatExecutionControls = {
+  thinkingEnabled?: boolean;
+  onThinkingEnabledChange?: (next: boolean) => void;
   permissionMode: ChatPermissionModeValue;
   searchEnabled?: boolean;
   onPermissionModeChange: (next: ChatPermissionModeValue) => void;
@@ -85,8 +103,14 @@ type ChatExecutionControls = {
 };
 
 type ChatExecutionControlVisibility = {
+  thinking?: boolean;
   permissionMode?: boolean;
   search?: boolean;
+};
+
+type ChatRuntimeActivityCounts = {
+  activeBackgroundTerminals: number;
+  activeSubagents: number;
 };
 
 export type ChatSlashCommand = {
@@ -135,6 +159,51 @@ export function isStopEscapeKey(event: StopEscapeKeyEventLike): boolean {
   );
 }
 
+type RestoreClearedDraftKeyEventLike = {
+  key: string;
+  shiftKey: boolean;
+  altKey: boolean;
+  metaKey: boolean;
+  ctrlKey: boolean;
+};
+
+export function isRestoreClearedDraftKey(
+  event: RestoreClearedDraftKeyEventLike,
+): boolean {
+  const normalizedKey = event.key.toLowerCase();
+  if (normalizedKey !== "z") {
+    return false;
+  }
+  if (event.shiftKey || event.altKey) {
+    return false;
+  }
+  return (event.metaKey || event.ctrlKey) && !(event.metaKey && event.ctrlKey);
+}
+
+export function resolveEscapeComposerAction({
+  waitingForResponse,
+  onStopAvailable,
+  stopRequestedForCurrentResponse,
+  hasComposerDraft,
+}: {
+  waitingForResponse: boolean;
+  onStopAvailable: boolean;
+  stopRequestedForCurrentResponse: boolean;
+  hasComposerDraft: boolean;
+}): "stop" | "clear" | "none" {
+  if (
+    waitingForResponse &&
+    onStopAvailable &&
+    !stopRequestedForCurrentResponse
+  ) {
+    return "stop";
+  }
+  if (hasComposerDraft) {
+    return "clear";
+  }
+  return "none";
+}
+
 type QueuedChatDraft = {
   id: string;
   message: string;
@@ -170,6 +239,29 @@ export function cycleQueuedDraftSelection(
   return queue[prevIndex]?.id ?? null;
 }
 
+export function cycleSubmittedMessageHistorySelection(
+  history: string[],
+  selectedIndex: number | null,
+  direction: "next" | "prev",
+): number | null {
+  if (history.length === 0) {
+    return null;
+  }
+  if (
+    selectedIndex === null ||
+    selectedIndex < 0 ||
+    selectedIndex >= history.length
+  ) {
+    return 0;
+  }
+  if (direction === "next") {
+    const nextIndex = (selectedIndex + 1) % history.length;
+    return nextIndex;
+  }
+  const prevIndex = (selectedIndex - 1 + history.length) % history.length;
+  return prevIndex;
+}
+
 type ChatInputProps = {
   placeholderText: string | undefined;
   waitingForResponse: boolean;
@@ -196,6 +288,13 @@ type ChatInputProps = {
   contextWindowTokens?: number | null;
   contextUsedTokens?: number | null;
   contextUsageIsEstimated?: boolean;
+  submittedMessageHistory?: string[];
+  runtimeActivityCounts?: ChatRuntimeActivityCounts;
+};
+
+type EscClearedComposerDraft = {
+  message: string;
+  attachments: ChatFileAttachment[];
 };
 
 export const ChatInput = memo(function ChatInput({
@@ -222,6 +321,8 @@ export const ChatInput = memo(function ChatInput({
   contextWindowTokens = null,
   contextUsedTokens = null,
   contextUsageIsEstimated = false,
+  submittedMessageHistory = [],
+  runtimeActivityCounts = DEFAULT_RUNTIME_ACTIVITY_COUNTS,
 }: ChatInputProps) {
   const [internalValue, setInternalValue] = useState("");
   const [slashFeedback, setSlashFeedback] = useState<string | null>(null);
@@ -243,6 +344,9 @@ export const ChatInput = memo(function ChatInput({
   const [selectedQueuedDraftId, setSelectedQueuedDraftId] = useState<
     string | null
   >(null);
+  const [selectedSubmittedMessageIndex, setSelectedSubmittedMessageIndex] =
+    useState<number | null>(null);
+  const submittedHistoryDraftBeforeSelectionRef = useRef<string | null>(null);
   const isControlled = typeof value === "string" && Boolean(onChange);
   const inputValue = isControlled ? value : internalValue;
   const inputValueRef = useRef(inputValue);
@@ -255,6 +359,10 @@ export const ChatInput = memo(function ChatInput({
   const queuedDraftIdRef = useRef(0);
   const queuedDispatchInFlightRef = useRef(false);
   const blockedQueuedDraftIdRef = useRef<string | null>(null);
+  const stopRequestedForCurrentResponseRef = useRef(false);
+  const escClearedComposerDraftRef = useRef<EscClearedComposerDraft | null>(
+    null,
+  );
   const componentMountedRef = useRef(true);
   const isDisabled = disabled;
 
@@ -267,6 +375,12 @@ export const ChatInput = memo(function ChatInput({
       componentMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!waitingForResponse) {
+      stopRequestedForCurrentResponseRef.current = false;
+    }
+  }, [waitingForResponse]);
 
   const {
     attachments,
@@ -307,15 +421,39 @@ export const ChatInput = memo(function ChatInput({
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
+      escClearedComposerDraftRef.current = null;
+      if (selectedSubmittedMessageIndex !== null) {
+        setSelectedSubmittedMessageIndex(null);
+        submittedHistoryDraftBeforeSelectionRef.current = null;
+      }
       setInputValue(event.target.value);
       setSlashFeedback(null);
     },
-    [setInputValue],
+    [selectedSubmittedMessageIndex, setInputValue],
   );
 
   const clearInput = useCallback(() => {
+    setSelectedSubmittedMessageIndex(null);
+    submittedHistoryDraftBeforeSelectionRef.current = null;
     setInputValue("");
   }, [setInputValue]);
+
+  const submittedMessageHistoryEntries = useMemo(() => {
+    const seen = new Set<string>();
+    const entries: string[] = [];
+    for (const submittedMessage of submittedMessageHistory) {
+      const trimmed = submittedMessage.trim();
+      if (!trimmed) {
+        continue;
+      }
+      if (seen.has(trimmed)) {
+        continue;
+      }
+      seen.add(trimmed);
+      entries.push(trimmed);
+    }
+    return entries;
+  }, [submittedMessageHistory]);
 
   const getNextQueuedDraftId = useCallback(() => {
     queuedDraftIdRef.current += 1;
@@ -347,6 +485,7 @@ export const ChatInput = memo(function ChatInput({
         queuedAtMs: Date.now(),
       };
       blockedQueuedDraftIdRef.current = null;
+      escClearedComposerDraftRef.current = null;
       setQueuedDrafts((current) =>
         enqueueQueuedDraft(current, nextDraft, prioritize),
       );
@@ -355,6 +494,7 @@ export const ChatInput = memo(function ChatInput({
       clearInput();
       clearAttachments();
       if (interruptCurrentRun && onStop) {
+        stopRequestedForCurrentResponseRef.current = true;
         void onStop();
       }
       return true;
@@ -369,6 +509,7 @@ export const ChatInput = memo(function ChatInput({
         return;
       }
       blockedQueuedDraftIdRef.current = null;
+      escClearedComposerDraftRef.current = null;
       setQueuedDrafts((current) =>
         current.filter((item) => item.id !== draftId),
       );
@@ -409,6 +550,83 @@ export const ChatInput = memo(function ChatInput({
       setSelectedQueuedDraftId(queuedDrafts[0]?.id ?? null);
     }
   }, [queuedDrafts, selectedQueuedDraftId]);
+
+  useEffect(() => {
+    if (selectedSubmittedMessageIndex === null) {
+      return;
+    }
+    if (
+      submittedMessageHistoryEntries.length === 0 ||
+      selectedSubmittedMessageIndex >= submittedMessageHistoryEntries.length
+    ) {
+      setSelectedSubmittedMessageIndex(null);
+      submittedHistoryDraftBeforeSelectionRef.current = null;
+    }
+  }, [selectedSubmittedMessageIndex, submittedMessageHistoryEntries.length]);
+
+  const restoreDraftFromSubmittedHistorySelection = useCallback(() => {
+    const draftToRestore =
+      submittedHistoryDraftBeforeSelectionRef.current ?? "";
+    submittedHistoryDraftBeforeSelectionRef.current = null;
+    escClearedComposerDraftRef.current = null;
+    setSelectedSubmittedMessageIndex(null);
+    setInputValue(draftToRestore);
+    setSlashFeedback(null);
+    requestAnimationFrame(() => {
+      const node = textareaRef.current;
+      if (!node) {
+        return;
+      }
+      const end = draftToRestore.length;
+      node.focus();
+      node.setSelectionRange(end, end);
+    });
+  }, [setInputValue]);
+
+  const clearComposerByEscape = useCallback((): boolean => {
+    const currentMessage = inputValueRef.current;
+    const nextAttachments = attachments.map((attachment) => ({
+      ...attachment,
+    }));
+    const hasComposerDraft =
+      currentMessage.trim().length > 0 || nextAttachments.length > 0;
+    if (!hasComposerDraft) {
+      return false;
+    }
+    escClearedComposerDraftRef.current = {
+      message: currentMessage,
+      attachments: nextAttachments,
+    };
+    clearInput();
+    clearAttachments();
+    setSlashFeedback(null);
+    return true;
+  }, [attachments, clearAttachments, clearInput]);
+
+  const restoreEscClearedComposerDraft = useCallback((): boolean => {
+    const draft = escClearedComposerDraftRef.current;
+    if (!draft) {
+      return false;
+    }
+    escClearedComposerDraftRef.current = null;
+    setSelectedSubmittedMessageIndex(null);
+    submittedHistoryDraftBeforeSelectionRef.current = null;
+    setInputValue(draft.message);
+    replaceAttachments(
+      draft.attachments.map((attachment) => ({ ...attachment })),
+    );
+    setSlashFeedback("Restored cleared draft.");
+    requestAnimationFrame(() => {
+      const node = textareaRef.current;
+      if (!node) {
+        return;
+      }
+      const end = draft.message.length;
+      node.focus();
+      node.setSelectionRange(end, end);
+    });
+    return true;
+  }, [replaceAttachments, setInputValue]);
 
   const nextQueuedDraft = queuedDrafts[0] ?? null;
 
@@ -498,6 +716,7 @@ export const ChatInput = memo(function ChatInput({
       }
       setSlashFeedback(slashResult?.feedback ?? `Ran ${parsed.command}`);
       if (!slashResult?.keepInput) {
+        escClearedComposerDraftRef.current = null;
         clearInput();
         clearAttachments();
       }
@@ -539,6 +758,7 @@ export const ChatInput = memo(function ChatInput({
       }
       const result = await onSubmit(submittedValue, submittedAttachments);
       if (result === true) {
+        escClearedComposerDraftRef.current = null;
         clearInput();
         clearAttachments();
       }
@@ -565,14 +785,26 @@ export const ChatInput = memo(function ChatInput({
 
   const handleFormKeyDown = useCallback(
     (event: KeyboardEvent<HTMLFormElement>) => {
-      if (!isStopEscapeKey(event) || !waitingForResponse || !onStop) {
+      if (!isStopEscapeKey(event) || event.defaultPrevented) {
         return;
       }
-      if (event.defaultPrevented) {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest("textarea")) {
+        return;
+      }
+      const escapeAction = resolveEscapeComposerAction({
+        waitingForResponse,
+        onStopAvailable: Boolean(onStop),
+        stopRequestedForCurrentResponse:
+          stopRequestedForCurrentResponseRef.current,
+        hasComposerDraft: false,
+      });
+      if (escapeAction !== "stop" || !onStop) {
         return;
       }
       event.preventDefault();
       event.stopPropagation();
+      stopRequestedForCurrentResponseRef.current = true;
       void onStop();
     },
     [onStop, waitingForResponse],
@@ -792,6 +1024,45 @@ export const ChatInput = memo(function ChatInput({
         }
       }
 
+      if (isStopEscapeKey(event)) {
+        const hasComposerDraft =
+          inputValue.trim().length > 0 || attachments.length > 0;
+        const escapeAction = resolveEscapeComposerAction({
+          waitingForResponse,
+          onStopAvailable: Boolean(onStop),
+          stopRequestedForCurrentResponse:
+            stopRequestedForCurrentResponseRef.current,
+          hasComposerDraft,
+        });
+        if (escapeAction === "stop" && onStop) {
+          event.preventDefault();
+          event.stopPropagation();
+          stopRequestedForCurrentResponseRef.current = true;
+          void onStop();
+          return;
+        }
+        if (escapeAction === "clear") {
+          event.preventDefault();
+          event.stopPropagation();
+          clearComposerByEscape();
+          return;
+        }
+      }
+
+      if (
+        isRestoreClearedDraftKey(event) &&
+        !shouldShowSlashSuggestions &&
+        inputValue.trim().length === 0 &&
+        attachments.length === 0
+      ) {
+        if (!restoreEscClearedComposerDraft()) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+
       const hasComposerDraft =
         inputValue.trim().length > 0 || attachments.length > 0;
 
@@ -807,7 +1078,7 @@ export const ChatInput = memo(function ChatInput({
           draftAttachments: attachments,
           prioritize: false,
           interruptCurrentRun: false,
-          feedback: "Queued. Sends after current response finishes.",
+          feedback: "",
         });
         return;
       }
@@ -835,6 +1106,66 @@ export const ChatInput = memo(function ChatInput({
         }
       }
 
+      const canCycleSubmittedMessageHistory =
+        !shouldShowSlashSuggestions &&
+        queuedDrafts.length === 0 &&
+        attachments.length === 0 &&
+        submittedMessageHistoryEntries.length > 0 &&
+        (selectedSubmittedMessageIndex !== null || !hasComposerDraft);
+
+      if (
+        selectedSubmittedMessageIndex !== null &&
+        !waitingForResponse &&
+        event.key === "Escape" &&
+        !event.shiftKey &&
+        !event.altKey &&
+        !event.metaKey &&
+        !event.ctrlKey
+      ) {
+        event.preventDefault();
+        restoreDraftFromSubmittedHistorySelection();
+        return;
+      }
+
+      if (
+        canCycleSubmittedMessageHistory &&
+        (event.key === "ArrowUp" || event.key === "ArrowDown")
+      ) {
+        event.preventDefault();
+        if (event.key === "ArrowDown" && selectedSubmittedMessageIndex === 0) {
+          restoreDraftFromSubmittedHistorySelection();
+          return;
+        }
+        if (selectedSubmittedMessageIndex === null) {
+          submittedHistoryDraftBeforeSelectionRef.current = inputValue;
+        }
+        const nextSelectedIndex = cycleSubmittedMessageHistorySelection(
+          submittedMessageHistoryEntries,
+          selectedSubmittedMessageIndex,
+          event.key === "ArrowUp" ? "next" : "prev",
+        );
+        if (nextSelectedIndex === null) {
+          return;
+        }
+        const nextMessage = submittedMessageHistoryEntries[nextSelectedIndex];
+        if (typeof nextMessage !== "string") {
+          return;
+        }
+        setSelectedSubmittedMessageIndex(nextSelectedIndex);
+        setInputValue(nextMessage);
+        setSlashFeedback(null);
+        requestAnimationFrame(() => {
+          const node = textareaRef.current;
+          if (!node) {
+            return;
+          }
+          const end = nextMessage.length;
+          node.focus();
+          node.setSelectionRange(end, end);
+        });
+        return;
+      }
+
       if (event.key !== "Enter" || event.shiftKey || isSubmitDisabled) {
         return;
       }
@@ -849,15 +1180,23 @@ export const ChatInput = memo(function ChatInput({
       activeSlashIndex,
       applySlashSuggestion,
       attachments,
+      clearComposerByEscape,
       enqueueDraft,
       inputValue,
       isSubmitDisabled,
+      onStop,
       queuedDrafts,
+      restoreEscClearedComposerDraft,
       restoreQueuedDraftToComposer,
+      restoreDraftFromSubmittedHistorySelection,
+      selectedSubmittedMessageIndex,
       selectedQueuedDraftId,
+      setInputValue,
       shouldShowSlashSuggestions,
       slashSuggestions,
       slashSuggestions.length,
+      submittedMessageHistoryEntries,
+      waitingForResponse,
     ],
   );
 
@@ -918,12 +1257,18 @@ export const ChatInput = memo(function ChatInput({
   const showPermissionControl = Boolean(
     executionControls && executionControlVisibility.permissionMode !== false,
   );
+  const showThinkingControl = Boolean(
+    executionControls &&
+      executionControlVisibility.thinking !== false &&
+      typeof executionControls.onThinkingEnabledChange === "function",
+  );
   const showSearchControl = Boolean(
     executionControls &&
       executionControlVisibility.search !== false &&
       typeof executionControls.onSearchEnabledChange === "function",
   );
-  const showExecutionControls = showPermissionControl || showSearchControl;
+  const showExecutionControls =
+    showThinkingControl || showPermissionControl || showSearchControl;
   const permissionModeIconClassName = useMemo(() => {
     if (!executionControls) {
       return "text-setta-600 dark:text-setta-300";
@@ -936,6 +1281,12 @@ export const ChatInput = memo(function ChatInput({
     }
     return "text-setta-600 dark:text-setta-300";
   }, [executionControls?.permissionMode]);
+  const thinkingIconClassName = useMemo(() => {
+    if (!executionControls?.thinkingEnabled) {
+      return "text-setta-600 dark:text-setta-300";
+    }
+    return "text-blue-600 dark:text-blue-400";
+  }, [executionControls?.thinkingEnabled]);
   const normalizedContextWindowTokens = useMemo(() => {
     if (
       typeof contextWindowTokens !== "number" ||
@@ -981,30 +1332,145 @@ export const ChatInput = memo(function ChatInput({
     );
     return Math.max(0, Math.min(100, rawPercentage));
   }, [normalizedContextWindowTokens, remainingContextTokens]);
-  const contextRemainingLabel = useMemo(() => {
+  const contextRemainingValue = useMemo(() => {
     if (remainingContextTokens === null) {
       return null;
     }
-    const contextLabelPrefix = contextUsageIsEstimated
-      ? "est. context left"
-      : "Context left";
     if (contextBadgeMode === "tokens") {
-      return `${contextLabelPrefix} ~${formatCompactTokenCount(
-        remainingContextTokens,
-      )}`;
+      return `~${formatCompactTokenCount(remainingContextTokens)}`;
     }
     if (remainingContextPercentage === null) {
       return null;
     }
-    return `${contextLabelPrefix} ${remainingContextPercentage}%`;
-  }, [
-    contextBadgeMode,
-    contextUsageIsEstimated,
-    remainingContextPercentage,
-    remainingContextTokens,
-  ]);
-  const showContextBadge = contextRemainingLabel !== null;
-  const shouldShowComposerMetaRow = showExecutionControls || showContextBadge;
+    return `${remainingContextPercentage}%`;
+  }, [contextBadgeMode, remainingContextPercentage, remainingContextTokens]);
+  const contextLabelPrefixFull = contextUsageIsEstimated
+    ? "est. context left"
+    : "context left";
+  const contextLabelPrefixCompact = contextUsageIsEstimated
+    ? "est. context"
+    : "context";
+  const activeBackgroundTerminals = useMemo(
+    () =>
+      normalizeNonNegativeCount(
+        runtimeActivityCounts.activeBackgroundTerminals,
+      ),
+    [runtimeActivityCounts.activeBackgroundTerminals],
+  );
+  const activeSubagents = useMemo(
+    () => normalizeNonNegativeCount(runtimeActivityCounts.activeSubagents),
+    [runtimeActivityCounts.activeSubagents],
+  );
+  const showRuntimeActivityCounters =
+    canDictate || activeBackgroundTerminals > 0 || activeSubagents > 0;
+  const showContextBadge = contextRemainingValue !== null;
+  const shouldShowComposerMetaRow =
+    showExecutionControls || showContextBadge || showRuntimeActivityCounters;
+  const attachmentTooltipHandlers = useMemo(
+    () =>
+      getFloatingBoxHandlers({
+        title: "Attachments",
+        content: attachmentInputDisabled
+          ? "Attachments are currently unavailable."
+          : "Add files from your device or project.",
+      }),
+    [attachmentInputDisabled],
+  );
+  const submitTooltipHandlers = useMemo(() => {
+    if (waitingForResponse) {
+      return getFloatingBoxHandlers({
+        title: "Stop response",
+        content: "Interrupt the active response.",
+      });
+    }
+    if (isSubmitDisabled) {
+      return getFloatingBoxHandlers({
+        title: "Send",
+        content: "Enter a message to send.",
+      });
+    }
+    return getFloatingBoxHandlers({
+      title: "Send",
+      content: "Submit this message.",
+    });
+  }, [isSubmitDisabled, waitingForResponse]);
+  const thinkingTooltipHandlers = useMemo(() => {
+    if (!showThinkingControl || !executionControls) {
+      return null;
+    }
+    return getFloatingBoxHandlers({
+      title: "Thinking",
+      content: executionControls.thinkingEnabled
+        ? "Reasoning is enabled for new messages."
+        : "Reasoning is disabled for new messages.",
+    });
+  }, [executionControls, showThinkingControl]);
+  const permissionTooltipHandlers = useMemo(() => {
+    if (!executionControls || !showPermissionControl) {
+      return null;
+    }
+    const modeLabel = executionControls.permissionMode.replaceAll("_", " ");
+    return getFloatingBoxHandlers({
+      title: "Permissions",
+      content: `Current mode: ${modeLabel}`,
+    });
+  }, [executionControls, showPermissionControl]);
+  const dictationTooltipHandlers = useMemo(() => {
+    if (!canDictate) {
+      return null;
+    }
+    const label =
+      dictationState === "listening"
+        ? "Stop Mic"
+        : dictationState === "transcribing"
+          ? "Transcribing"
+          : "Mic";
+    return getFloatingBoxHandlers({
+      title: "Dictation",
+      content: label,
+    });
+  }, [canDictate, dictationState]);
+  const backgroundTerminalTooltipHandlers = useMemo(() => {
+    if (!showRuntimeActivityCounters) {
+      return null;
+    }
+    return getFloatingBoxHandlers({
+      title: "Background terminals",
+      content: `${activeBackgroundTerminals} active`,
+    });
+  }, [activeBackgroundTerminals, showRuntimeActivityCounters]);
+  const subagentTooltipHandlers = useMemo(() => {
+    if (!showRuntimeActivityCounters) {
+      return null;
+    }
+    return getFloatingBoxHandlers({
+      title: "Subagents",
+      content: `${activeSubagents} active`,
+    });
+  }, [activeSubagents, showRuntimeActivityCounters]);
+  const contextTooltipHandlers = useMemo(() => {
+    if (!showContextBadge) {
+      return null;
+    }
+    return getFloatingBoxHandlers({
+      title: "Context",
+      content:
+        contextBadgeMode === "tokens"
+          ? "Click to show remaining context percentage."
+          : "Click to show remaining context tokens.",
+    });
+  }, [contextBadgeMode, showContextBadge]);
+  const searchTooltipHandlers = useMemo(() => {
+    if (!showSearchControl || !executionControls) {
+      return null;
+    }
+    return getFloatingBoxHandlers({
+      title: "Search",
+      content: executionControls.searchEnabled
+        ? "Search is enabled for new messages."
+        : "Search is disabled for new messages.",
+    });
+  }, [executionControls, showSearchControl]);
   const handleContextBadgeToggle = useCallback(() => {
     setContextBadgeMode((current) =>
       current === "percentage" ? "tokens" : "percentage",
@@ -1130,8 +1596,14 @@ export const ChatInput = memo(function ChatInput({
       setDictationFeedback(null);
     };
     recognition.onerror = (event) => {
-      setDictationState("error");
-      setDictationFeedback(mapDictationError(event.error));
+      if (isNoSpeechDictationError(event.error)) {
+        setDictationState("idle");
+        setDictationFeedback(null);
+        addTemporaryNotification("No speech was detected.");
+      } else {
+        setDictationState("error");
+        setDictationFeedback(mapDictationError(event.error));
+      }
       recognitionRef.current = null;
       dictationSourceRef.current = null;
     };
@@ -1256,8 +1728,9 @@ export const ChatInput = memo(function ChatInput({
           }
           const blob = new Blob(chunks, { type: blobType });
           if (blob.size === 0) {
-            setDictationState("error");
-            setDictationFeedback("No speech was detected.");
+            setDictationState("idle");
+            setDictationFeedback(null);
+            addTemporaryNotification("No speech was detected.");
             return;
           }
           setDictationState("transcribing");
@@ -1410,7 +1883,7 @@ export const ChatInput = memo(function ChatInput({
     >
       <div className="flex w-full gap-1">
         <div
-          className="flex min-w-0 flex-1 flex-col"
+          className="flex min-w-0 flex-1 flex-col @container"
           onDragEnter={handleDragEnter}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
@@ -1429,14 +1902,21 @@ export const ChatInput = memo(function ChatInput({
                   attachmentCount === 1
                     ? "1 attachment"
                     : `${attachmentCount} attachments`;
+                const queuedDraftTooltipHandlers = getFloatingBoxHandlers({
+                  title: "Queued draft",
+                  content:
+                    previewText.length > 0
+                      ? previewText
+                      : "Queued attachment message",
+                });
                 return (
                   <button
                     key={draft.id}
                     type="button"
-                    className={`w-full rounded-md border px-2 py-1 text-left transition-colors ${
+                    className={`grid w-full grid-cols-[1.75rem_minmax(0,1fr)] overflow-hidden rounded-md border text-left transition-colors ${
                       isSelected
-                        ? "border-blue-500/80 bg-blue-50/80 text-blue-900 dark:border-blue-500/70 dark:bg-blue-900/35 dark:text-blue-100"
-                        : "border-setta-200/80 bg-setta-50/80 text-setta-700 hover:border-setta-300 hover:bg-setta-100 dark:border-setta-700/80 dark:bg-setta-900/65 dark:text-setta-200 dark:hover:border-setta-600 dark:hover:bg-setta-800/80"
+                        ? "border-blue-400/90 bg-blue-200 text-setta-950 dark:border-blue-700/80 dark:bg-blue-950 dark:text-white"
+                        : "border-blue-300/75 bg-blue-100/85 text-setta-900 hover:border-blue-400/80 hover:bg-blue-200/80 dark:border-blue-800/70 dark:bg-blue-950/70 dark:text-blue-100 dark:hover:border-blue-700 dark:hover:bg-blue-900/80"
                     }`}
                     data-chat-queued-draft="true"
                     data-selected={isSelected ? "true" : "false"}
@@ -1462,27 +1942,34 @@ export const ChatInput = memo(function ChatInput({
                         );
                       }
                     }}
-                    title={
-                      previewText.length > 0
-                        ? previewText
-                        : "Queued attachment message"
-                    }
+                    {...queuedDraftTooltipHandlers}
                   >
-                    <div className="flex min-w-0 items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.14em]">
-                      <span className="border-current/30 inline-flex h-4 min-w-4 items-center justify-center rounded-sm border px-1">
+                    <div
+                      className={`flex h-full items-center justify-center text-[10px] font-semibold ${
+                        isSelected
+                          ? "bg-blue-300/75 text-blue-900 dark:bg-blue-900/80 dark:text-blue-100"
+                          : "bg-blue-200/75 text-blue-900 dark:bg-blue-900/65 dark:text-blue-200"
+                      }`}
+                      data-chat-queued-draft-rail="true"
+                    >
+                      <span className="inline-flex h-4 min-w-4 items-center justify-center">
                         {index + 1}
                       </span>
-                      <span>Queued</span>
-                      {attachmentCount > 0 ? (
-                        <span className="truncate opacity-80">
-                          {attachmentLabel}
-                        </span>
-                      ) : null}
                     </div>
-                    <div className="mt-0.5 truncate text-[11px] font-medium">
-                      {previewText.length > 0
-                        ? previewText
-                        : "(Attachment message)"}
+                    <div className="min-w-0 px-2 py-1">
+                      <div className="flex min-w-0 items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.14em]">
+                        <span>Queued</span>
+                        {attachmentCount > 0 ? (
+                          <span className="truncate opacity-80">
+                            {attachmentLabel}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-0.5 truncate text-[11px] font-medium">
+                        {previewText.length > 0
+                          ? previewText
+                          : "(Attachment message)"}
+                      </div>
                     </div>
                   </button>
                 );
@@ -1509,6 +1996,7 @@ export const ChatInput = memo(function ChatInput({
                       : "cursor-pointer"
                   }`}
                   disabled={attachmentInputDisabled}
+                  {...attachmentTooltipHandlers}
                 >
                   <IoAdd />
                 </button>
@@ -1555,8 +2043,10 @@ export const ChatInput = memo(function ChatInput({
             />
             <button
               type="submit"
+              aria-label={waitingForResponse ? "Stop response" : "Send message"}
               disabled={isSubmitDisabled}
               className={`absolute right-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/60 ${buttonClassName} disabled:opacity-40`}
+              {...submitTooltipHandlers}
             >
               {buttonIcon}
             </button>
@@ -1603,8 +2093,25 @@ export const ChatInput = memo(function ChatInput({
             ) : null}
           </div>
           {shouldShowComposerMetaRow ? (
-            <div className="mb-0.5 flex items-center justify-between gap-2">
+            <div className="mb-0.5 flex items-center justify-between gap-2 [&_button]:cursor-pointer">
               <div className="flex min-w-0 flex-wrap items-center gap-1">
+                {showThinkingControl && executionControls ? (
+                  <button
+                    type="button"
+                    aria-label="Thinking"
+                    aria-pressed={Boolean(executionControls.thinkingEnabled)}
+                    disabled={isDisabled}
+                    className="inline-flex h-5 w-5 items-center justify-center rounded-md text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+                    onClick={() =>
+                      executionControls.onThinkingEnabledChange?.(
+                        !Boolean(executionControls.thinkingEnabled),
+                      )
+                    }
+                    {...(thinkingTooltipHandlers ?? {})}
+                  >
+                    <BiSolidBrain size={12} className={thinkingIconClassName} />
+                  </button>
+                ) : null}
                 {executionControls &&
                 executionControlVisibility.permissionMode !== false ? (
                   <DropdownMenu.Root modal={false}>
@@ -1613,11 +2120,8 @@ export const ChatInput = memo(function ChatInput({
                         type="button"
                         disabled={isDisabled}
                         aria-label={`${executionControls.permissionMode} permissions`}
-                        title={`Permissions: ${executionControls.permissionMode.replaceAll(
-                          "_",
-                          " ",
-                        )}`}
                         className="inline-flex h-5 w-5 items-center justify-center rounded-md text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+                        {...(permissionTooltipHandlers ?? {})}
                       >
                         <IoMdKey
                           size={12}
@@ -1669,13 +2173,6 @@ export const ChatInput = memo(function ChatInput({
                           ? "Transcribing"
                           : "Mic"
                     }
-                    title={
-                      dictationState === "listening"
-                        ? "Stop Mic"
-                        : dictationState === "transcribing"
-                          ? "Transcribing"
-                          : "Mic"
-                    }
                     aria-pressed={dictationState === "listening"}
                     disabled={isDisabled || dictationState === "transcribing"}
                     className={`inline-flex h-5 w-5 items-center justify-center rounded-md text-[11px] transition-colors ${
@@ -1684,6 +2181,7 @@ export const ChatInput = memo(function ChatInput({
                         : "text-setta-500 hover:bg-setta-100 hover:text-setta-700 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
                     } disabled:cursor-not-allowed disabled:opacity-60`}
                     onClick={handleDictationToggle}
+                    {...(dictationTooltipHandlers ?? {})}
                   >
                     <IoMic
                       size={11}
@@ -1694,6 +2192,32 @@ export const ChatInput = memo(function ChatInput({
                       }
                     />
                   </button>
+                ) : null}
+                {showRuntimeActivityCounters ? (
+                  <div className="inline-flex items-center gap-1">
+                    <span
+                      data-chat-runtime-active-background-terminals="true"
+                      className="inline-flex h-5 items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
+                      aria-label={`${activeBackgroundTerminals} background terminal${activeBackgroundTerminals === 1 ? "" : "s"} active`}
+                      {...(backgroundTerminalTooltipHandlers ?? {})}
+                    >
+                      <FiTerminal size={10} />
+                      <span className="font-mono leading-none">
+                        {activeBackgroundTerminals}
+                      </span>
+                    </span>
+                    <span
+                      data-chat-runtime-active-subagents="true"
+                      className="inline-flex h-5 items-center gap-1 rounded-md border border-setta-200 px-1.5 text-[10px] font-semibold text-setta-500 dark:border-setta-700 dark:text-setta-300"
+                      aria-label={`${activeSubagents} subagent${activeSubagents === 1 ? "" : "s"} active`}
+                      {...(subagentTooltipHandlers ?? {})}
+                    >
+                      <FiCpu size={10} />
+                      <span className="font-mono leading-none">
+                        {activeSubagents}
+                      </span>
+                    </span>
+                  </div>
                 ) : null}
                 {executionControls &&
                 executionControlVisibility.search !== false &&
@@ -1713,58 +2237,76 @@ export const ChatInput = memo(function ChatInput({
                         !Boolean(executionControls.searchEnabled),
                       )
                     }
+                    {...(searchTooltipHandlers ?? {})}
                   >
                     Search
                   </button>
                 ) : null}
               </div>
-              {contextRemainingLabel ? (
+              {contextRemainingValue ? (
                 <button
                   type="button"
-                  className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-600 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-300"
+                  className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-setta-400 transition-colors hover:bg-setta-100 hover:text-setta-600 dark:text-setta-500 dark:hover:bg-setta-800 dark:hover:text-setta-300"
+                  aria-label={`${contextLabelPrefixFull} ${contextRemainingValue}`}
                   onClick={handleContextBadgeToggle}
-                  title={
-                    contextBadgeMode === "tokens"
-                      ? "Show remaining context percentage"
-                      : "Show remaining context tokens"
-                  }
+                  {...(contextTooltipHandlers ?? {})}
                 >
-                  {contextRemainingLabel}
+                  <span className="hidden @[30rem]:inline" aria-hidden="true">
+                    {contextLabelPrefixFull}
+                  </span>
+                  <span className="@[30rem]:hidden" aria-hidden="true">
+                    {contextLabelPrefixCompact}
+                  </span>
+                  <span className="ml-1" aria-hidden="true">
+                    {contextRemainingValue}
+                  </span>
                 </button>
               ) : null}
             </div>
           ) : null}
           {attachments.length > 0 ? (
-            <div className="mb-0.5 flex flex-wrap gap-1.5">
-              {attachments.map((attachment) => (
-                <div
-                  key={attachment.id}
-                  className="flex items-center gap-1.5 rounded-md border border-setta-200 bg-white/80 px-2 py-0.5 text-xs text-setta-700 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-200"
-                >
-                  <span className="max-w-[200px] truncate">
-                    {attachment.name}
-                  </span>
-                  {attachment.size !== null && attachment.size !== undefined ? (
-                    <span className="text-[10px] text-setta-400">
-                      {formatBytes(attachment.size)}
-                    </span>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="rounded-full p-1 text-setta-400 transition-colors hover:text-red-500"
-                    onClick={() => handleRemoveAttachment(attachment)}
-                    disabled={attachmentActionsDisabled}
+            <div className="mb-0.5 flex flex-wrap gap-1.5 [&_button]:cursor-pointer">
+              {attachments.map((attachment) => {
+                const removeAttachmentTooltipHandlers = getFloatingBoxHandlers({
+                  title: "Remove attachment",
+                  content: attachment.name,
+                });
+                return (
+                  <div
+                    key={attachment.id}
+                    className="flex items-center gap-1.5 rounded-md border border-setta-200 bg-white/80 px-2 py-0.5 text-xs text-setta-700 dark:border-setta-800 dark:bg-setta-900/60 dark:text-setta-200"
                   >
-                    <IoClose />
-                  </button>
-                </div>
-              ))}
+                    <span className="max-w-[200px] truncate">
+                      {attachment.name}
+                    </span>
+                    {attachment.size !== null &&
+                    attachment.size !== undefined ? (
+                      <span className="text-[10px] text-setta-400">
+                        {formatBytes(attachment.size)}
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="rounded-full p-1 text-setta-400 transition-colors hover:text-red-500"
+                      onClick={() => handleRemoveAttachment(attachment)}
+                      disabled={attachmentActionsDisabled}
+                      {...removeAttachmentTooltipHandlers}
+                    >
+                      <IoClose />
+                    </button>
+                  </div>
+                );
+              })}
               {attachments.length > 1 ? (
                 <button
                   type="button"
                   className="rounded-full border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-setta-400 hover:border-setta-400 hover:text-setta-600 dark:border-setta-800 dark:text-setta-500 dark:hover:text-setta-200"
                   onClick={handleClearAttachments}
                   disabled={attachmentActionsDisabled}
+                  {...getFloatingBoxHandlers({
+                    title: "Clear attachments",
+                    content: "Remove all attachments from this draft.",
+                  })}
                 >
                   Clear all
                 </button>

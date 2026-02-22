@@ -31,6 +31,7 @@ _NON_CREATION_TASK_SWITCH_RE = re.compile(
         r"^\s*(?:can you|could you|would you|please)?\s*"
         r"(?:"
         r"explain|summari[sz]e|describe|review|debug|investigate|analy[sz]e|"
+        r"tell|show|give|answer|"
         r"fix|refactor|rename|optimi[sz]e|rewrite|improve|clean(?:\s+up)?|"
         r"document|test|profile|migrate|update|modify|implement|remove|delete|move"
         r")\b"
@@ -105,6 +106,8 @@ def apply_completion_guard(
     if creation_start_index is None:
         return None
     scoped_prior_messages = prior_messages[creation_start_index:]
+    if not _has_execution_activity(scoped_prior_messages):
+        return None
 
     verification_status = _resolve_verification_status(
         scoped_prior_messages,
@@ -228,6 +231,16 @@ def _resolve_text_verification_status(text: str) -> str | None:
     if latest_signal is None:
         return None
     return latest_signal[1]
+
+
+def _has_execution_activity(messages: list[Any]) -> bool:
+    for message in messages:
+        if _normalize_role(message) == "tool":
+            return True
+        tool_calls = getattr(message, "tool_calls", None)
+        if isinstance(tool_calls, list) and len(tool_calls) > 0:
+            return True
+    return False
 
 
 def _replace_assistant_text(

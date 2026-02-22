@@ -2,20 +2,32 @@ import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  clearProjectChatThreadStorageUndoStackForTests,
   createProjectChatThreadGroup,
+  deleteProjectChatThread,
+  deleteProjectChatThreadGroup,
   markProjectChatThreadViewed,
+  reorderProjectChatThreads,
+  renameProjectChatThreadGroup,
   reorderProjectChatThreadGroups,
   setProjectChatThreadGroupAssignment,
   toggleProjectChatThreadGroupCollapsed,
+  toggleProjectChatThreadGroupPinned,
+  toggleProjectChatThreadPinned,
+  undoLastProjectChatThreadStorageMutation,
 } from "./projectChatThreads";
 
 describe("project chat thread storage helpers", () => {
   beforeEach(() => {
     resetProjectStores();
+    clearProjectChatThreadStorageUndoStackForTests();
     useLocalStorage.setState({
       viewedProjectChatThreadIdsByProjectConfigId: {},
       projectChatThreadGroupsByProjectConfigId: {},
       projectChatThreadAssignmentsByProjectConfigId: {},
+      projectChatThreadOrderByProjectConfigId: {},
+      pinnedProjectChatThreadIdsByProjectConfigId: {},
+      trashedProjectChatThreadIdsByProjectConfigId: {},
     });
   });
 
@@ -131,5 +143,209 @@ describe("project chat thread storage helpers", () => {
         "project-a"
       ] ?? [];
     expect(groups.map((group) => group.id)).toEqual([betaId, alphaId]);
+  });
+
+  it("reorders thread ids and keeps omitted ids at the end", () => {
+    reorderProjectChatThreads("project-a", ["chat-3", "chat-1"]);
+    reorderProjectChatThreads("project-a", ["chat-2"]);
+    const order =
+      useLocalStorage.getState().projectChatThreadOrderByProjectConfigId[
+        "project-a"
+      ] ?? [];
+    expect(order).toEqual(["chat-2", "chat-3", "chat-1"]);
+  });
+
+  it("ignores duplicate thread ids during thread reorder", () => {
+    reorderProjectChatThreads("project-a", ["chat-1", "chat-2"]);
+    reorderProjectChatThreads("project-a", ["chat-2", "chat-2", "chat-1"]);
+    const order =
+      useLocalStorage.getState().projectChatThreadOrderByProjectConfigId[
+        "project-a"
+      ] ?? [];
+    expect(order).toEqual(["chat-2", "chat-1"]);
+  });
+
+  it("renames a thread group when the target id exists", () => {
+    const groupId = createProjectChatThreadGroup("project-a", "Backend");
+    if (!groupId) {
+      throw new Error("Expected thread group id.");
+    }
+
+    const renamed = renameProjectChatThreadGroup(
+      "project-a",
+      groupId,
+      "Backlog",
+    );
+    expect(renamed).toBe(true);
+    const groups =
+      useLocalStorage.getState().projectChatThreadGroupsByProjectConfigId[
+        "project-a"
+      ] ?? [];
+    expect(groups[0]?.name).toBe("Backlog");
+  });
+
+  it("allows renaming groups to duplicate titles", () => {
+    const alphaId = createProjectChatThreadGroup("project-a", "Alpha");
+    const betaId = createProjectChatThreadGroup("project-a", "Beta");
+    if (!alphaId || !betaId) {
+      throw new Error("Expected thread group ids.");
+    }
+
+    const renamed = renameProjectChatThreadGroup("project-a", betaId, "Alpha");
+    expect(renamed).toBe(true);
+    const groups =
+      useLocalStorage.getState().projectChatThreadGroupsByProjectConfigId[
+        "project-a"
+      ] ?? [];
+    expect(groups[1]?.name).toBe("Alpha");
+  });
+
+  it("toggles pinned state for project thread groups", () => {
+    const groupId = createProjectChatThreadGroup("project-a", "Pinned");
+    if (!groupId) {
+      throw new Error("Expected thread group id.");
+    }
+
+    toggleProjectChatThreadGroupPinned("project-a", groupId);
+    let groups =
+      useLocalStorage.getState().projectChatThreadGroupsByProjectConfigId[
+        "project-a"
+      ] ?? [];
+    expect(groups[0]?.pinned).toBe(true);
+
+    toggleProjectChatThreadGroupPinned("project-a", groupId);
+    groups =
+      useLocalStorage.getState().projectChatThreadGroupsByProjectConfigId[
+        "project-a"
+      ] ?? [];
+    expect(groups[0]?.pinned).toBe(false);
+  });
+
+  it("moves pinned groups above unpinned groups", () => {
+    const alphaId = createProjectChatThreadGroup("project-a", "Alpha");
+    const betaId = createProjectChatThreadGroup("project-a", "Beta");
+    if (!alphaId || !betaId) {
+      throw new Error("Expected thread group ids.");
+    }
+
+    toggleProjectChatThreadGroupPinned("project-a", betaId);
+    let groups =
+      useLocalStorage.getState().projectChatThreadGroupsByProjectConfigId[
+        "project-a"
+      ] ?? [];
+    expect(groups.map((group) => group.id)).toEqual([betaId, alphaId]);
+
+    toggleProjectChatThreadGroupPinned("project-a", betaId);
+    groups =
+      useLocalStorage.getState().projectChatThreadGroupsByProjectConfigId[
+        "project-a"
+      ] ?? [];
+    expect(groups.map((group) => group.id)).toEqual([betaId, alphaId]);
+  });
+
+  it("toggles pinned state for thread entries", () => {
+    toggleProjectChatThreadPinned("project-a", "chat-1");
+    let pinned =
+      useLocalStorage.getState().pinnedProjectChatThreadIdsByProjectConfigId[
+        "project-a"
+      ] ?? [];
+    expect(pinned).toEqual(["chat-1"]);
+
+    toggleProjectChatThreadPinned("project-a", "chat-1");
+    pinned =
+      useLocalStorage.getState().pinnedProjectChatThreadIdsByProjectConfigId[
+        "project-a"
+      ] ?? [];
+    expect(pinned).toEqual([]);
+  });
+
+  it("deletes a thread group and clears thread assignments for that group", () => {
+    const groupId = createProjectChatThreadGroup("project-a", "Backend");
+    if (!groupId) {
+      throw new Error("Expected thread group id.");
+    }
+    setProjectChatThreadGroupAssignment("project-a", "chat-1", groupId);
+    setProjectChatThreadGroupAssignment("project-a", "chat-2", groupId);
+
+    const deleted = deleteProjectChatThreadGroup("project-a", groupId);
+    expect(deleted).toBe(true);
+    const groups =
+      useLocalStorage.getState().projectChatThreadGroupsByProjectConfigId[
+        "project-a"
+      ] ?? [];
+    expect(groups).toHaveLength(0);
+    expect(
+      useLocalStorage.getState().projectChatThreadAssignmentsByProjectConfigId[
+        "project-a"
+      ],
+    ).toEqual({});
+  });
+
+  it("soft deletes a thread id and removes local pinned/viewed/order references", () => {
+    const groupId = createProjectChatThreadGroup("project-a", "Backend");
+    if (!groupId) {
+      throw new Error("Expected thread group id.");
+    }
+    markProjectChatThreadViewed("project-a", "chat-1");
+    toggleProjectChatThreadPinned("project-a", "chat-1");
+    reorderProjectChatThreads("project-a", ["chat-1", "chat-2"]);
+    setProjectChatThreadGroupAssignment("project-a", "chat-1", groupId);
+
+    const deleted = deleteProjectChatThread("project-a", "chat-1");
+    expect(deleted).toBe(true);
+    expect(
+      useLocalStorage.getState().trashedProjectChatThreadIdsByProjectConfigId[
+        "project-a"
+      ],
+    ).toEqual(["chat-1"]);
+    expect(
+      useLocalStorage.getState().viewedProjectChatThreadIdsByProjectConfigId[
+        "project-a"
+      ],
+    ).toEqual([]);
+    expect(
+      useLocalStorage.getState().pinnedProjectChatThreadIdsByProjectConfigId[
+        "project-a"
+      ],
+    ).toEqual([]);
+    expect(
+      useLocalStorage.getState().projectChatThreadOrderByProjectConfigId[
+        "project-a"
+      ],
+    ).toEqual(["chat-2"]);
+    expect(
+      useLocalStorage.getState().projectChatThreadAssignmentsByProjectConfigId[
+        "project-a"
+      ]?.["chat-1"],
+    ).toBeUndefined();
+  });
+
+  it("undoes the most recent thread storage mutation for the active project", () => {
+    const groupId = createProjectChatThreadGroup("project-a", "Backend");
+    if (!groupId) {
+      throw new Error("Expected thread group id.");
+    }
+    setProjectChatThreadGroupAssignment("project-a", "chat-1", groupId);
+    const deleted = deleteProjectChatThreadGroup("project-a", groupId);
+    expect(deleted).toBe(true);
+
+    const restored = undoLastProjectChatThreadStorageMutation("project-a");
+    expect(restored).toBe(true);
+
+    const groups =
+      useLocalStorage.getState().projectChatThreadGroupsByProjectConfigId[
+        "project-a"
+      ] ?? [];
+    expect(groups.map((group) => group.id)).toEqual([groupId]);
+    expect(
+      useLocalStorage.getState().projectChatThreadAssignmentsByProjectConfigId[
+        "project-a"
+      ]?.["chat-1"],
+    ).toBe(groupId);
+  });
+
+  it("returns false when there is no thread storage mutation to undo", () => {
+    const restored = undoLastProjectChatThreadStorageMutation("project-a");
+    expect(restored).toBe(false);
   });
 });

@@ -230,10 +230,16 @@ class ClaudeSdkAdapter(ExternalAgentAdapter):
                     yield event
                 continue
 
-            if saw_partial:
+            if isinstance(message, ResultMessage):
+                raw_payload = _build_result_message_payload(message)
+                if raw_payload is not None:
+                    yield ExternalAgentStreamEvent(raw=raw_payload)
                 continue
 
-            if isinstance(message, (SystemMessage, ResultMessage)):
+            if isinstance(message, SystemMessage):
+                continue
+
+            if saw_partial:
                 continue
 
         handle.return_code = 0
@@ -586,6 +592,23 @@ def _build_stream_event_payload(message: StreamEvent) -> dict[str, Any] | None:
     else:
         return None
     return {"type": "stream_event", "event": event_payload}
+
+
+def _build_result_message_payload(message: ResultMessage) -> dict[str, Any] | None:
+    usage_payload = message.usage if isinstance(message.usage, dict) else None
+    if usage_payload is None:
+        return None
+    payload: dict[str, Any] = {
+        "type": "result_message",
+        "subtype": message.subtype,
+        "sessionId": message.session_id,
+        "usage": usage_payload,
+    }
+    if message.total_cost_usd is not None:
+        payload["totalCostUsd"] = message.total_cost_usd
+    if message.result is not None:
+        payload["result"] = message.result
+    return payload
 
 
 def _maybe_set_session_id(

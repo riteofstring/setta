@@ -16,7 +16,12 @@ import {
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
+  estimateChatHistoryTokens,
+  resolveEstimatedContextWindowTokens,
+} from "components/Chat/contextWindow";
+import {
   getChatPlaceholderText,
+  getExternalEngineIssueMessage,
   getExternalEngineStatus,
 } from "components/Chat/engineUtils";
 import {
@@ -24,8 +29,8 @@ import {
   countLLMConfigs,
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
-import { isProviderDictationLikelySupported } from "components/Chat/providerDictationSupport";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
+import { isProviderDictationLikelySupported } from "components/Chat/providerDictationSupport";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
@@ -53,6 +58,7 @@ import {
   type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
+import { addPersistentNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -81,6 +87,7 @@ import {
   EngineTypeEnum,
   LiteralDependencyValue,
   SectionTypeEnum,
+  SettaNotificationTypeEnum,
   createMessageTextContent,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
@@ -247,6 +254,29 @@ function resolveManagedChatRunType(
   return null;
 }
 
+function resolveExternalAgentModelForContext(
+  defaultModel: string | null | undefined,
+  toolType: string | null | undefined,
+  settingsManagedBlock:
+    | {
+        codex: { model: string | null } | null;
+        opencode: { model: string | null } | null;
+      }
+    | null
+    | undefined,
+): string | null {
+  if (toolType === "codex" && settingsManagedBlock?.codex?.model?.trim()) {
+    return settingsManagedBlock.codex.model.trim();
+  }
+  if (
+    toolType === "opencode" &&
+    settingsManagedBlock?.opencode?.model?.trim()
+  ) {
+    return settingsManagedBlock.opencode.model.trim();
+  }
+  return defaultModel?.trim() ?? null;
+}
+
 export function ChatArea({ sectionId }: { sectionId: string }) {
   const {
     managed,
@@ -351,6 +381,7 @@ function ScriptableChatArea({
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = getCurrProjectConfigId();
   const [draftInputText, setDraftInputText] = useState<string | null>(null);
+  const contextWindowTokens = resolveEstimatedContextWindowTokens(null);
 
   const handleInputChange = useCallback(
     (value: string) => {
@@ -474,6 +505,11 @@ function ScriptableChatArea({
   const effectiveMessages = effectiveState.messages ?? [];
   const effectiveBranches = effectiveState.branches ?? {};
   const effectiveBranchId = effectiveState.activeBranchId ?? null;
+  const contextUsedTokens = useMemo(
+    () => estimateChatHistoryTokens(effectiveMessages),
+    [effectiveMessages],
+  );
+  const contextUsageIsEstimated = true;
 
   useEffect(() => {
     if (!branchState.didInitialize) {
@@ -840,7 +876,8 @@ function ScriptableChatArea({
     ],
   );
 
-  const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
+  const scrollClassName = isScrollable ? NO_WHEEL_CLASS_NAME : "";
+  const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
   const effectiveInputText =
     effectiveState.waitingForResponse && draftInputText !== null
       ? draftInputText
@@ -860,19 +897,25 @@ function ScriptableChatArea({
   );
 
   return (
-    <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
+    <div
+      className={`${NO_PAN_CLASS_NAME} section-main-full-w flex min-h-0 flex-1 flex-col`}
+    >
       <ChatMessageList
         messages={effectiveMessages}
         waitingForResponse={effectiveState.waitingForResponse}
         toolCallArguments={toolCallArguments}
         className={scrollClassName}
+        contentClassName={chatWidthShellClassName}
         scrollRef={ref}
         editDisabledReason={editDisabledReason}
         onEditMessage={handleEditMessage}
         onBranchSwitch={handleBranchSwitch}
         branchInfoByMessage={branchInfoByMessage}
       />
-      <div className="px-2.5 pb-1">
+      <div
+        className={`${chatWidthShellClassName} pb-1`}
+        data-chat-width-shell="true"
+      >
         <ChatInput
           placeholderText="Type a message..."
           waitingForResponse={effectiveState.waitingForResponse}
@@ -889,6 +932,9 @@ function ScriptableChatArea({
             permissionMode: true,
             search: false,
           }}
+          contextWindowTokens={contextWindowTokens}
+          contextUsedTokens={contextUsedTokens}
+          contextUsageIsEstimated={contextUsageIsEstimated}
         />
       </div>
     </div>
@@ -1111,23 +1157,27 @@ function ManagedChatArea({
   });
   const [showHistory, setShowHistory] = useState(false);
   const lastChatIdRef = useRef<string | null>(null);
+  const notifiedExternalEngineIssueRef = useRef<string | null>(null);
   useEffect(() => {
     if (typeof chatId === "string") {
       lastChatIdRef.current = chatId;
     }
   }, [chatId]);
-  const { messages, toolCallArguments, waitingForResponse } = useAIStore(
-    (state) => {
-      if (chatId === null) {
-        return state.pendingChatDetails ?? getDefaultChatDetails();
-      }
-      if (typeof chatId !== "string") {
-        return getDefaultChatDetails();
-      }
-      return state.chatDetails[chatId] ?? getDefaultChatDetails();
-    },
-    shallow,
-  );
+  const {
+    messages,
+    toolCallArguments,
+    waitingForResponse,
+    contextUsage,
+    llmConfig,
+  } = useAIStore((state) => {
+    if (chatId === null) {
+      return state.pendingChatDetails ?? getDefaultChatDetails();
+    }
+    if (typeof chatId !== "string") {
+      return getDefaultChatDetails();
+    }
+    return state.chatDetails[chatId] ?? getDefaultChatDetails();
+  }, shallow);
   const branchIndex = useChatBranchIndex(typeof chatId === "string");
   const branchInfoByMessage = useMemo(() => {
     if (typeof chatId !== "string") {
@@ -1139,6 +1189,12 @@ function ManagedChatArea({
       branchIndex,
     });
   }, [branchIndex, chatId, messages]);
+  const interruptedAssistantMessageIds = useAIStore((state) => {
+    if (typeof chatId !== "string") {
+      return {};
+    }
+    return state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
+  }, shallow);
 
   const {
     apiKeys,
@@ -1248,6 +1304,66 @@ function ManagedChatArea({
       ) ?? null
     );
   }, [externalAgentConfigs, selectedEngineConfig]);
+  const backendContextWindowTokens = useMemo(() => {
+    const backendWindow = contextUsage?.contextWindowTokens;
+    if (typeof backendWindow === "number" && Number.isFinite(backendWindow)) {
+      return Math.max(0, Math.floor(backendWindow));
+    }
+    return null;
+  }, [contextUsage?.contextWindowTokens]);
+  const backendContextUsedTokens = useMemo(() => {
+    const backendUsed = contextUsage?.contextUsedTokens;
+    if (typeof backendUsed === "number" && Number.isFinite(backendUsed)) {
+      return Math.max(0, Math.floor(backendUsed));
+    }
+    return null;
+  }, [contextUsage?.contextUsedTokens]);
+  const fallbackContextModel = useMemo(() => {
+    if (engineType === EngineTypeEnum.setta_llm) {
+      return selectedLLMConfig?.model ?? null;
+    }
+    if (engineType === EngineTypeEnum.external_agent) {
+      return resolveExternalAgentModelForContext(
+        externalAgentConfig?.defaultModel,
+        externalAgentConfig?.toolType,
+        externalAgentConfig?.settingsManagedBlock,
+      );
+    }
+    return null;
+  }, [
+    engineType,
+    externalAgentConfig?.defaultModel,
+    externalAgentConfig?.settingsManagedBlock,
+    externalAgentConfig?.toolType,
+    selectedLLMConfig?.model,
+  ]);
+  const resolvedContextModel = useMemo(() => {
+    const llmModel = llmConfig?.model?.trim();
+    if (llmModel) {
+      return llmModel;
+    }
+    const fallbackModel = fallbackContextModel?.trim();
+    if (fallbackModel) {
+      return fallbackModel;
+    }
+    return null;
+  }, [fallbackContextModel, llmConfig?.model]);
+  const estimatedContextWindowTokens = useMemo(
+    () => resolveEstimatedContextWindowTokens(resolvedContextModel),
+    [resolvedContextModel],
+  );
+  const estimatedContextUsedTokens = useMemo(
+    () => estimateChatHistoryTokens(messages),
+    [messages],
+  );
+  const contextWindowTokens =
+    backendContextWindowTokens ?? estimatedContextWindowTokens;
+  const contextUsedTokens =
+    backendContextUsedTokens ?? estimatedContextUsedTokens;
+  const contextUsageIsEstimated =
+    Boolean(contextUsage?.estimated) ||
+    backendContextWindowTokens === null ||
+    backendContextUsedTokens === null;
   const showPlanModeBadge = shouldShowPlanModeBadge({
     engineType,
     externalAgentToolType: externalAgentConfig?.toolType ?? null,
@@ -1261,35 +1377,25 @@ function ManagedChatArea({
     hasLLMConfig,
     noLLMConfigsAvailable: noConfigsAvailable,
   });
-  const externalStatusMessage = useMemo(() => {
-    if (!externalEngineStatus) {
-      return null;
+  const externalEngineIssueMessage = useMemo(
+    () => getExternalEngineIssueMessage(externalEngineStatus),
+    [externalEngineStatus],
+  );
+
+  useEffect(() => {
+    if (!externalEngineIssueMessage) {
+      notifiedExternalEngineIssueRef.current = null;
+      return;
     }
-    if (externalEngineStatus.status === "loading") {
-      return "Checking external engine status...";
+    if (notifiedExternalEngineIssueRef.current === externalEngineIssueMessage) {
+      return;
     }
-    if (externalEngineStatus.status === "available") {
-      return "External engine available";
-    }
-    if (externalEngineStatus.issues.length > 0) {
-      return `External engine unavailable: ${externalEngineStatus.issues.join(
-        "; ",
-      )}`;
-    }
-    return "External engine unavailable";
-  }, [externalEngineStatus]);
-  const externalStatusClassName = useMemo(() => {
-    if (!externalEngineStatus) {
-      return "";
-    }
-    if (externalEngineStatus.status === "available") {
-      return "text-emerald-600 dark:text-emerald-400";
-    }
-    if (externalEngineStatus.status === "loading") {
-      return "text-setta-500 dark:text-setta-400";
-    }
-    return "text-red-600 dark:text-red-400";
-  }, [externalEngineStatus]);
+    notifiedExternalEngineIssueRef.current = externalEngineIssueMessage;
+    addPersistentNotification(
+      externalEngineIssueMessage,
+      SettaNotificationTypeEnum.warning,
+    );
+  }, [externalEngineIssueMessage]);
 
   useEffect(() => {
     if (typeof chatId !== "string") {
@@ -1625,7 +1731,8 @@ function ManagedChatArea({
     ],
   );
 
-  const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
+  const scrollClassName = isScrollable ? NO_WHEEL_CLASS_NAME : "";
+  const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
   const isDisabled =
     !hasEngineConfig ||
     (!isExternalEngine && (!hasLLMConfig || noConfigsAvailable)) ||
@@ -1669,28 +1776,25 @@ function ManagedChatArea({
   );
 
   return (
-    <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
-      {externalStatusMessage || showPlanModeBadge ? (
-        <div className="flex items-center justify-between gap-2 px-4 pt-2">
-          {externalStatusMessage ? (
-            <p className={`text-xs ${externalStatusClassName}`}>
-              {externalStatusMessage}
-            </p>
-          ) : (
-            <span />
-          )}
-          {showPlanModeBadge ? <PlanModeBadge /> : null}
+    <div
+      className={`${NO_PAN_CLASS_NAME} section-main-full-w flex min-h-0 flex-1 flex-col`}
+    >
+      {showPlanModeBadge ? (
+        <div
+          className={`${chatWidthShellClassName} flex items-center justify-end gap-2 pt-2`}
+        >
+          <PlanModeBadge />
         </div>
       ) : null}
       {!hasAnyAgenticEdge ? (
-        <div className="px-4 pt-2">
+        <div className={`${chatWidthShellClassName} pt-2`}>
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200">
             No agentic edges. This chat has no project access. Add context/scope
             links or use Project Chat for full access.
           </div>
         </div>
       ) : !hasWriteScope ? (
-        <div className="px-4 pt-2">
+        <div className={`${chatWidthShellClassName} pt-2`}>
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200">
             No writable sections in scope. This chat cannot modify sections. Add
             a Chat → Section edge (Scope sections) or use Project Chat for full
@@ -1698,7 +1802,9 @@ function ManagedChatArea({
           </div>
         </div>
       ) : null}
-      <div className="flex items-center justify-end gap-2 px-4 pt-2">
+      <div
+        className={`${chatWidthShellClassName} flex items-center justify-end gap-2 pt-2`}
+      >
         <button
           type="button"
           className="rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
@@ -1715,18 +1821,25 @@ function ManagedChatArea({
         </button>
       </div>
       {showHistory ? (
-        <ManagedChatHistoryPanel
-          sectionId={sectionId}
-          activeChatId={chatId}
-          historyCompatibility={historyCompatibility}
-          onSelect={handleSelectHistoryChat}
-        />
+        <div
+          className={`${chatWidthShellClassName} min-h-0 flex-1`}
+          data-chat-width-shell="true"
+        >
+          <ManagedChatHistoryPanel
+            sectionId={sectionId}
+            activeChatId={chatId}
+            historyCompatibility={historyCompatibility}
+            onSelect={handleSelectHistoryChat}
+          />
+        </div>
       ) : (
         <ChatMessageList
           messages={messages}
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}
+          interruptedAssistantMessageIds={interruptedAssistantMessageIds}
           className={scrollClassName}
+          contentClassName={chatWidthShellClassName}
           scrollRef={ref}
           editDisabledReason={editDisabledReason}
           onEditMessage={handleEditMessage}
@@ -1734,7 +1847,10 @@ function ManagedChatArea({
           branchInfoByMessage={branchInfoByMessage}
         />
       )}
-      <div className="px-2.5 pb-1">
+      <div
+        className={`${chatWidthShellClassName} pb-1`}
+        data-chat-width-shell="true"
+      >
         <ChatInput
           placeholderText={placeholderText}
           waitingForResponse={waitingForResponse}
@@ -1752,6 +1868,9 @@ function ManagedChatArea({
           dictationMode="auto"
           dictationEnabledByProvider={hasEngineConfig}
           providerDictationLikelySupported={providerDictationLikelySupported}
+          contextWindowTokens={contextWindowTokens}
+          contextUsedTokens={contextUsedTokens}
+          contextUsageIsEstimated={contextUsageIsEstimated}
           onProviderDictationTranscribe={
             isExternalEngine ? undefined : handleProviderDictationTranscribe
           }

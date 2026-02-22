@@ -344,7 +344,9 @@ class MultiMCPClient:
     ) -> dict[str, MCPServerRuntimeStatusSnapshot]:
         status_by_server_id: dict[str, MCPServerRuntimeStatusSnapshot] = {}
         for server_id in sorted(self.server_configs.keys()):
-            status_by_server_id[server_id] = self._build_server_runtime_status(server_id)
+            status_by_server_id[server_id] = self._build_server_runtime_status(
+                server_id
+            )
         return status_by_server_id
 
     def init_tool_definitions_for_servers(

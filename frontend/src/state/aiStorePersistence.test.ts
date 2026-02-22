@@ -13,7 +13,11 @@ let useAIStore: typeof import("state/definitions").useAIStore;
 let memoryStorage: Storage;
 
 type PersistedAIStoreSlice = {
+  viewThreads?: boolean;
   viewHistory?: boolean;
+  projectChatThreadsExplicitlyClosedAtLargeWidth?: boolean;
+  projectChatActivityAccordionOpenByDefault?: boolean;
+  projectChatActivityChildrenOpenByDefault?: boolean;
   projectChatDictationMode?: "auto" | "browser" | "provider";
   projectChatSelectedEngineId?: string | null;
   [key: string]: unknown;
@@ -61,7 +65,10 @@ describe("useAIStore persistence", () => {
     // Engine selection should survive refresh via the persisted AI store slice.
     useAIStore.setState({
       activeChatId: "chat-not-persisted",
-      viewHistory: true,
+      viewThreads: true,
+      projectChatThreadsExplicitlyClosedAtLargeWidth: true,
+      projectChatActivityAccordionOpenByDefault: true,
+      projectChatActivityChildrenOpenByDefault: true,
       projectChatDictationMode: "provider",
       projectChatSelectedEngineId: "engine-codex",
     });
@@ -75,9 +82,31 @@ describe("useAIStore persistence", () => {
       state: PersistedAIStoreSlice;
     };
 
-    expect(parsed.state.viewHistory).toBe(true);
+    expect(parsed.state.viewThreads).toBe(true);
+    expect(parsed.state.projectChatThreadsExplicitlyClosedAtLargeWidth).toBe(
+      true,
+    );
+    expect(parsed.state.projectChatActivityAccordionOpenByDefault).toBe(true);
+    expect(parsed.state.projectChatActivityChildrenOpenByDefault).toBe(true);
     expect(parsed.state.projectChatDictationMode).toBe("provider");
     expect(parsed.state.projectChatSelectedEngineId).toBe("engine-codex");
     expect(parsed.state.activeChatId).toBeUndefined();
+  });
+
+  it("hydrates viewThreads from legacy persisted viewHistory", async () => {
+    memoryStorage.setItem(
+      "setta_ai_data",
+      JSON.stringify({
+        state: {
+          viewHistory: true,
+          projectChatDictationMode: "auto",
+        },
+        version: 0,
+      }),
+    );
+
+    await useAIStore.persist.rehydrate();
+    const state = useAIStore.getState();
+    expect(state.viewThreads).toBe(true);
   });
 });

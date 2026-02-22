@@ -76,6 +76,10 @@ def _seed_engine_config(dbe: DBE, engine_config_id: ID, llm_config_id: str) -> N
     save_engine_configs(dbe, [engine_config])
 
 
+def _tool_message(tool_call_id: str = "tool-1") -> ToolChatMessage:
+    return ToolChatMessage(tool_call_id=tool_call_id, tool_name="shell_command")
+
+
 class _StubAgentRunner(AgentRunner):
     async def _run_agent(self, context) -> None:
         if context.emit_stream or context.emit_ai_follow:
@@ -137,7 +141,8 @@ class TestAgentRunner:
                         text="Create a new project and scaffold all sections."
                     )
                 ],
-            )
+            ),
+            _tool_message(),
         ]
         assistant_message = AssistantChatMessage(
             content=[MessageTextContent(text="Done. Everything is complete.")]
@@ -147,11 +152,30 @@ class TestAgentRunner:
 
         assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
 
+    def test_completion_guard_requires_execution_activity(self) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="Create a new project and scaffold all sections."
+                    )
+                ],
+            )
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Everything is complete.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "Done. Everything is complete."
+
     def test_completion_guard_rewrites_done_claim_when_checks_failed(self) -> None:
         prior_messages = [
             UserChatMessage(
                 content=[MessageTextContent(text="Create a section from scratch.")]
             ),
+            _tool_message(),
             AssistantChatMessage(
                 content=[MessageTextContent(text="I ran checks and tests failed.")]
             ),
@@ -179,6 +203,7 @@ class TestAgentRunner:
                 ]
             ),
             UserChatMessage(content=[MessageTextContent(text="Python + FastAPI.")]),
+            _tool_message(),
         ]
         assistant_message = AssistantChatMessage(
             content=[MessageTextContent(text="Done. Ready to ship.")]
@@ -207,6 +232,7 @@ class TestAgentRunner:
                     MessageTextContent(text="How should we structure auth folders?")
                 ]
             ),
+            _tool_message(),
         ]
         assistant_message = AssistantChatMessage(
             content=[MessageTextContent(text="Done. Ready to ship.")]
@@ -226,6 +252,7 @@ class TestAgentRunner:
             UserChatMessage(
                 content=[MessageTextContent(text="Implement the remaining sections.")]
             ),
+            _tool_message(),
         ]
         assistant_message = AssistantChatMessage(
             content=[MessageTextContent(text="Done. Ready to ship.")]
@@ -262,8 +289,34 @@ class TestAgentRunner:
             UserChatMessage(
                 content=[MessageTextContent(text="Create a new project scaffold.")]
             ),
+            _tool_message(),
             UserChatMessage(
                 content=[MessageTextContent(text="What time is it in Tokyo?")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Ready to ship.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "Done. Ready to ship."
+
+    def test_completion_guard_closes_scope_for_tell_me_pivot(self) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a new project scaffold.")]
+            ),
+            _tool_message(),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="I ran tests and verification passed cleanly."
+                    )
+                ]
+            ),
+            UserChatMessage(
+                content=[MessageTextContent(text="Tell me the value of Setta.")]
             ),
         ]
         assistant_message = AssistantChatMessage(
@@ -279,6 +332,7 @@ class TestAgentRunner:
             UserChatMessage(
                 content=[MessageTextContent(text="Create a section from scratch.")]
             ),
+            _tool_message(),
             AssistantChatMessage(
                 content=[
                     MessageTextContent(text="Verification passed with no errors found.")
@@ -300,6 +354,7 @@ class TestAgentRunner:
             UserChatMessage(
                 content=[MessageTextContent(text="Create a section from scratch.")]
             ),
+            _tool_message(),
             AssistantChatMessage(
                 content=[
                     MessageTextContent(text="pytest: 5 passed, 0 failed in 1.2s")
@@ -329,6 +384,7 @@ class TestAgentRunner:
             UserChatMessage(
                 content=[MessageTextContent(text="What tests did you run?")]
             ),
+            _tool_message(),
         ]
         assistant_message = AssistantChatMessage(
             content=[MessageTextContent(text="All done.")]
@@ -345,6 +401,7 @@ class TestAgentRunner:
             UserChatMessage(
                 content=[MessageTextContent(text="Create a section from scratch.")]
             ),
+            _tool_message(),
             AssistantChatMessage(
                 content=[MessageTextContent(text="I ran checks and tests passed.")]
             ),
@@ -369,6 +426,7 @@ class TestAgentRunner:
             UserChatMessage(
                 content=[MessageTextContent(text="Create a section from scratch.")]
             ),
+            _tool_message(),
             AssistantChatMessage(
                 content=[MessageTextContent(text="I ran checks and tests passed.")]
             ),
@@ -391,6 +449,7 @@ class TestAgentRunner:
             UserChatMessage(
                 content=[MessageTextContent(text="Create a section from scratch.")]
             ),
+            _tool_message(),
             AssistantChatMessage(
                 content=[
                     MessageTextContent(text="Checks were not run yet, no failures.")

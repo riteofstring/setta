@@ -2,7 +2,15 @@ import * as Accordion from "@radix-ui/react-accordion";
 import CodeMirror from "@uiw/react-codemirror";
 import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Resizable } from "re-resizable";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { FiChevronDown } from "react-icons/fi";
 import { loadAgentRuns } from "state/actions/ai";
 import { addTemporaryNotification } from "state/actions/notifications";
@@ -64,6 +72,84 @@ const DEFAULT_AGENT_NATIVE_SLASH_COMMANDS_ENTRY: AgentNativeSlashCommandsEntry =
     status: "unknown",
     statusDetail: null,
   };
+const RESIZABLE_VERTICAL_HANDLE_HEIGHT_PX = 8;
+const RESIZABLE_VERTICAL_HANDLE_OFFSET_PX = 8;
+const RESIZABLE_VERTICAL_HANDLE_CLASS =
+  "flex h-full w-full cursor-row-resize items-center justify-center";
+const RESIZABLE_VERTICAL_HANDLE_BAR_CLASS =
+  "h-0.5 w-14 rounded-full bg-setta-300/80 transition-colors hover:bg-blue-500 dark:bg-setta-600/80 dark:hover:bg-blue-400";
+
+type VerticalResizablePaneProps = {
+  defaultHeightPx: number;
+  minHeightPx: number;
+  maxHeight: number | string;
+  contentClassName: string;
+  contentTestId?: string;
+  resizeHandleTestId?: string;
+  children: ReactNode;
+};
+
+function VerticalResizablePane({
+  defaultHeightPx,
+  minHeightPx,
+  maxHeight,
+  contentClassName,
+  contentTestId,
+  resizeHandleTestId,
+  children,
+}: VerticalResizablePaneProps) {
+  const [heightPx, setHeightPx] = useState(defaultHeightPx);
+  return (
+    <Resizable
+      className="min-w-0"
+      size={{ width: "100%", height: heightPx }}
+      minHeight={minHeightPx}
+      maxHeight={maxHeight}
+      enable={{
+        top: false,
+        right: false,
+        bottom: true,
+        left: false,
+        topRight: false,
+        bottomRight: false,
+        bottomLeft: false,
+        topLeft: false,
+      }}
+      handleComponent={{
+        bottom: (
+          <div
+            className={RESIZABLE_VERTICAL_HANDLE_CLASS}
+            data-testid={resizeHandleTestId}
+          >
+            <div
+              className={RESIZABLE_VERTICAL_HANDLE_BAR_CLASS}
+              aria-hidden="true"
+            />
+          </div>
+        ),
+      }}
+      handleStyles={{
+        bottom: {
+          bottom: `-${RESIZABLE_VERTICAL_HANDLE_OFFSET_PX}px`,
+          height: `${RESIZABLE_VERTICAL_HANDLE_HEIGHT_PX}px`,
+          left: "0px",
+          right: "0px",
+          width: "100%",
+        },
+      }}
+      onResize={(_event, _direction, elementRef) => {
+        setHeightPx(elementRef.offsetHeight);
+      }}
+      onResizeStop={(_event, _direction, elementRef) => {
+        setHeightPx(elementRef.offsetHeight);
+      }}
+    >
+      <div className={contentClassName} data-testid={contentTestId}>
+        {children}
+      </div>
+    </Resizable>
+  );
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -812,7 +898,7 @@ export function ProjectChatSkillsMcpViewer() {
       >
         <Accordion.Item
           value={MCP_SECTION_ACCORDION_VALUE}
-          className="overflow-hidden rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950/70"
+          className="overflow-visible rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950/70"
           data-testid="skills-mcp-accordion-mcp"
         >
           <Accordion.Header>
@@ -826,9 +912,15 @@ export function ProjectChatSkillsMcpViewer() {
               />
             </Accordion.Trigger>
           </Accordion.Header>
-          <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
-            <section className="grid min-w-0 gap-2 px-2 pb-2">
-              <div className="h-[180px] max-h-[60vh] min-h-[90px] min-w-0 resize-y overflow-auto rounded-md bg-white/70 p-2 text-[11px] dark:bg-setta-950/40">
+          <Accordion.Content className="data-[state=closed]:overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:overflow-visible data-[state=open]:animate-slideDown">
+            <section className="grid min-w-0 gap-2 px-2">
+              <VerticalResizablePane
+                defaultHeightPx={180}
+                minHeightPx={90}
+                maxHeight="60vh"
+                contentClassName="h-full min-w-0 overflow-auto rounded-md bg-white/70 p-2 text-[11px] dark:bg-setta-950/40"
+                resizeHandleTestId="skills-mcp-mcp-resize-handle"
+              >
                 {mcpServersLoading ? (
                   <div className="text-setta-500 dark:text-setta-400">
                     Loading MCP servers...
@@ -906,13 +998,13 @@ export function ProjectChatSkillsMcpViewer() {
                     </div>
                   ))
                 )}
-              </div>
+              </VerticalResizablePane>
             </section>
           </Accordion.Content>
         </Accordion.Item>
         <Accordion.Item
           value={SKILLS_SECTION_ACCORDION_VALUE}
-          className="overflow-hidden rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950/70"
+          className="overflow-visible rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950/70"
           data-testid="skills-mcp-accordion-skills"
         >
           <Accordion.Header>
@@ -926,7 +1018,7 @@ export function ProjectChatSkillsMcpViewer() {
               />
             </Accordion.Trigger>
           </Accordion.Header>
-          <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+          <Accordion.Content className="data-[state=closed]:overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:overflow-visible data-[state=open]:animate-slideDown">
             <section className="grid min-w-0 gap-2 px-2 pb-2">
               <div className="grid gap-2">
                 <div className="flex min-w-0 items-center justify-end">
@@ -952,7 +1044,13 @@ export function ProjectChatSkillsMcpViewer() {
                 </search>
               </div>
               <div className="grid min-w-0 gap-2">
-                <div className="h-[280px] max-h-[70vh] min-h-[140px] min-w-0 resize-y overflow-auto rounded-md bg-white/70 p-2 text-xs dark:bg-setta-950/40">
+                <VerticalResizablePane
+                  defaultHeightPx={280}
+                  minHeightPx={140}
+                  maxHeight="70vh"
+                  contentClassName="h-full min-w-0 overflow-auto rounded-md bg-white/70 p-2 text-xs dark:bg-setta-950/40"
+                  resizeHandleTestId="skills-mcp-skills-resize-handle"
+                >
                   {skillsError ? (
                     <div className="mb-2 rounded bg-amber-50 px-2 py-1 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
                       Skills unavailable ({skillsError}).
@@ -1016,7 +1114,7 @@ export function ProjectChatSkillsMcpViewer() {
                       </div>
                     ))
                   )}
-                </div>
+                </VerticalResizablePane>
                 <Accordion.Root
                   type="single"
                   collapsible
@@ -1079,7 +1177,7 @@ export function ProjectChatSkillsMcpViewer() {
         </Accordion.Item>
         <Accordion.Item
           value={SLASH_COMMANDS_SECTION_ACCORDION_VALUE}
-          className="overflow-hidden rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950/70"
+          className="overflow-visible rounded-lg border border-setta-200 bg-white/90 dark:border-setta-700 dark:bg-setta-950/70"
           data-testid="skills-mcp-accordion-slash-commands"
         >
           <Accordion.Header>
@@ -1093,7 +1191,7 @@ export function ProjectChatSkillsMcpViewer() {
               />
             </Accordion.Trigger>
           </Accordion.Header>
-          <Accordion.Content className="overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:animate-slideDown">
+          <Accordion.Content className="data-[state=closed]:overflow-hidden data-[state=closed]:animate-slideUp data-[state=open]:overflow-visible data-[state=open]:animate-slideDown">
             <section className="grid min-w-0 gap-2 px-2 pb-2">
               {!engineConfigsInitialLoadComplete ? (
                 <div className="rounded-md bg-white/70 p-2 text-[11px] text-setta-500 dark:bg-setta-950/40 dark:text-setta-400">
@@ -1136,9 +1234,13 @@ export function ProjectChatSkillsMcpViewer() {
                       );
                     })}
                   </div>
-                  <div
-                    className="h-[220px] max-h-[70vh] min-h-[120px] min-w-0 resize-y overflow-auto rounded-md bg-white/70 p-2 text-[11px] dark:bg-setta-950/40"
-                    data-testid="skills-mcp-slash-list-pane"
+                  <VerticalResizablePane
+                    defaultHeightPx={220}
+                    minHeightPx={120}
+                    maxHeight="70vh"
+                    contentClassName="h-full min-w-0 overflow-auto rounded-md bg-white/70 p-2 text-[11px] dark:bg-setta-950/40"
+                    contentTestId="skills-mcp-slash-list-pane"
+                    resizeHandleTestId="skills-mcp-slash-resize-handle"
                   >
                     <div className="grid min-w-0 gap-3">
                       <div className="grid min-w-0 gap-1">
@@ -1199,7 +1301,7 @@ export function ProjectChatSkillsMcpViewer() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </VerticalResizablePane>
                   <div className="text-[10px] text-setta-500 dark:text-setta-400">
                     Setta command availability is defined by this app. Native
                     agent command lists are sourced from external-agent run

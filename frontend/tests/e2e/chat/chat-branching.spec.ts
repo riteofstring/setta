@@ -10,6 +10,11 @@ import {
   stopLatestProjectChat,
 } from "../helpers";
 
+type EngineConfigSummary = {
+  id: string;
+  engineType: string;
+};
+
 test.describe.serial("chat branching", () => {
   test("project chat edit creates branch and switcher", async ({ page }) => {
     await setOverviewTab(page, "ProjectAIChat");
@@ -21,6 +26,25 @@ test.describe.serial("chat branching", () => {
     try {
       await page.reload();
       await page.waitForSelector(".react-flow__pane");
+
+      const backendOrigin =
+        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const managedEngineId =
+        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
+        null;
+      if (!managedEngineId) {
+        throw new Error("Missing managed LLM engine config.");
+      }
+      await page.evaluate(async (nextEngineId) => {
+        const { useAIStore } = await import("/src/state/definitions.ts");
+        useAIStore.setState({ projectChatSelectedEngineId: nextEngineId });
+      }, managedEngineId);
 
       const overviewPane = page.locator("#OverviewPane");
       await expect(
@@ -52,11 +76,11 @@ test.describe.serial("chat branching", () => {
       await reloadedPane.getByRole("button", { name: "Thinking" }).click();
 
       await reloadedPane
-        .getByRole("button", { name: "View History" })
+        .getByRole("button", { name: "View Threads" })
         .click();
 
       const historyEntry = reloadedPane
-        .locator("div.group\\/historyitem")
+        .locator("div.group\\/threaditem")
         .filter({ hasText: "Original message" })
         .first();
       await expect(historyEntry).toBeVisible();
@@ -178,6 +202,197 @@ test.describe.serial("chat branching", () => {
       await revertedGroup.hover();
       await expect(revertedGroup.getByText("1/2")).toBeVisible();
     } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("project chat redo regenerates from the source user message", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAIChat");
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    const rootChatId = "pw-redo-root-chat";
+    const branchChatId = "pw-redo-branch-chat";
+    const sourceUserMessageId = "pw-redo-user-message";
+    const rootMessages = [
+      {
+        id: sourceUserMessageId,
+        role: "user",
+        content: [{ type: "text", text: "Original message" }],
+        attachments: [],
+      },
+      {
+        id: "pw-redo-assistant-root",
+        role: "assistant",
+        content: [{ type: "text", text: "Initial assistant answer." }],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+    const branchMessages = [
+      {
+        id: sourceUserMessageId,
+        role: "user",
+        content: [{ type: "text", text: "Original message" }],
+        attachments: [],
+      },
+      {
+        id: "pw-redo-assistant-branch",
+        role: "assistant",
+        content: [{ type: "text", text: "Regenerated assistant answer." }],
+        attachments: [],
+        tool_calls: null,
+      },
+    ];
+    let sawRedoBranchRequest = false;
+
+    await page.route("**/api/getLLMResponse", async (route) => {
+      const payload = route.request().postDataJSON() as
+        | {
+            branchParentChatId?: string | null;
+            branchFromMessageId?: string | null;
+          }
+        | undefined;
+      if (
+        payload?.branchParentChatId === rootChatId &&
+        payload?.branchFromMessageId === sourceUserMessageId
+      ) {
+        sawRedoBranchRequest = true;
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(branchChatId),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(rootChatId),
+      });
+    });
+
+    await page.route("**/api/getLLMChat", async (route) => {
+      const payload = route.request().postDataJSON() as
+        | { chatId?: string }
+        | undefined;
+      const requestedChatId =
+        typeof payload?.chatId === "string" ? payload.chatId : null;
+      const responseBody =
+        requestedChatId === branchChatId
+          ? {
+              messages: branchMessages,
+              waitingForResponse: false,
+              llmConfig: {
+                id: "pw-redo-config",
+                model: "gpt-4o-mini",
+                provider: "openai",
+                api_key_env: null,
+                base_url: null,
+                other_params: null,
+                mcpServerIds: null,
+                temporary: false,
+              },
+              contextUsage: null,
+            }
+          : {
+              messages: rootMessages,
+              waitingForResponse: false,
+              llmConfig: {
+                id: "pw-redo-config",
+                model: "gpt-4o-mini",
+                provider: "openai",
+                api_key_env: null,
+                base_url: null,
+                other_params: null,
+                mcpServerIds: null,
+                temporary: false,
+              },
+              contextUsage: null,
+            };
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(responseBody),
+      });
+    });
+    await page.route("**/api/getExternalAgentChat", async (route) => {
+      const payload = route.request().postDataJSON() as
+        | { chatId?: string }
+        | undefined;
+      const requestedChatId =
+        typeof payload?.chatId === "string" ? payload.chatId : null;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages:
+            requestedChatId === branchChatId ? branchMessages : rootMessages,
+          waitingForResponse: false,
+          toolCallArguments: {},
+          contextUsage: null,
+        }),
+      });
+    });
+
+    await page.route("**/api/getAgentRuns", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    });
+
+    try {
+      await page.reload();
+      await page.waitForSelector(".react-flow__pane");
+
+      const overviewPane = page.locator("#OverviewPane");
+      await expect(
+        overviewPane.getByRole("heading", { name: "Project AI Chat" }),
+      ).toBeVisible();
+      await overviewPane.getByRole("button", { name: "Thinking" }).click();
+      await page.evaluate(
+        async ({ chatId, messages }) => {
+          const { useAIStore } = await import("/src/state/definitions.ts");
+          useAIStore.setState((state) => ({
+            activeChatId: chatId,
+            chatDetails: {
+              ...state.chatDetails,
+              [chatId]: {
+                messages,
+                toolCallArguments: {},
+                waitingForResponse: false,
+                llmConfig: null,
+                contextUsage: null,
+              },
+            },
+          }));
+        },
+        {
+          chatId: rootChatId,
+          messages: rootMessages,
+        },
+      );
+
+      const assistantGroup = getMessageGroup(overviewPane, "Initial assistant answer.");
+      await expect(assistantGroup).toBeVisible();
+      await assistantGroup.hover();
+      const redoButton = assistantGroup.getByRole("button", {
+        name: "Redo response",
+      });
+      await expect(redoButton).toBeVisible();
+      await expect(redoButton).toBeEnabled();
+      await redoButton.click();
+
+      await expect.poll(() => sawRedoBranchRequest).toBe(true);
+      await expect(
+        getMessageGroup(overviewPane, "Regenerated assistant answer."),
+      ).toBeVisible();
+    } finally {
+      await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
     }
   });

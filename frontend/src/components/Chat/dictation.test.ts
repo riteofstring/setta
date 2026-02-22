@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   insertTextAtSelection,
   isDictationAvailable,
+  isNoSpeechDictationError,
   mapDictationError,
   pickProviderRecorderMimeType,
 } from "./dictation";
@@ -38,6 +39,12 @@ describe("dictation helpers", () => {
     );
     expect(mapDictationError("no-speech")).toBe("No speech was detected.");
     expect(mapDictationError("unexpected")).toBe("Dictation failed.");
+  });
+
+  it("detects no-speech dictation errors", () => {
+    expect(isNoSpeechDictationError("no-speech")).toBe(true);
+    expect(isNoSpeechDictationError("audio-capture")).toBe(false);
+    expect(isNoSpeechDictationError(undefined)).toBe(false);
   });
 
   it("chooses the first supported provider recorder MIME type", () => {

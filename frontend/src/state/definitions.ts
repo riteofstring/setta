@@ -695,11 +695,11 @@ type ZustandAIStore = {
   projectChatSelectedEngineId: string | null;
   chatDetails: Record<string, ChatDetails>;
   pendingChatDetails: ChatDetails | null;
-  interruptedAssistantMessageIdsByChatId: Record<
-    string,
-    Record<string, true>
-  >;
+  interruptedAssistantMessageIdsByChatId: Record<string, Record<string, true>>;
   viewThreads: boolean;
+  projectChatThreadsExplicitlyClosedAtLargeWidth: boolean;
+  projectChatActivityAccordionOpenByDefault: boolean;
+  projectChatActivityChildrenOpenByDefault: boolean;
   allLLMConfigs: AllLLMConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
   allLLMConfigsLoadError: string | null;
@@ -745,6 +745,9 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         pendingChatDetails: null,
         interruptedAssistantMessageIdsByChatId: {},
         viewThreads: false,
+        projectChatThreadsExplicitlyClosedAtLargeWidth: false,
+        projectChatActivityAccordionOpenByDefault: false,
+        projectChatActivityChildrenOpenByDefault: false,
         allLLMConfigs: null,
         allLLMConfigsInitialLoadComplete: false,
         allLLMConfigsLoadError: null,
@@ -795,6 +798,12 @@ export const useAIStore = createWithEqualityFn<ZustandAIStore>()(
         },
         partialize: (state) => ({
           viewThreads: state.viewThreads,
+          projectChatThreadsExplicitlyClosedAtLargeWidth:
+            state.projectChatThreadsExplicitlyClosedAtLargeWidth,
+          projectChatActivityAccordionOpenByDefault:
+            state.projectChatActivityAccordionOpenByDefault,
+          projectChatActivityChildrenOpenByDefault:
+            state.projectChatActivityChildrenOpenByDefault,
           projectChatDictationMode: state.projectChatDictationMode,
           projectChatSelectedEngineId: state.projectChatSelectedEngineId,
         }),
@@ -942,12 +951,16 @@ type ZustandLocalStorage = {
       id: string;
       name: string;
       collapsed: boolean;
+      pinned?: boolean;
     }>
   >;
   projectChatThreadAssignmentsByProjectConfigId: Record<
     string,
     Record<string, string>
   >;
+  projectChatThreadOrderByProjectConfigId: Record<string, Array<string>>;
+  pinnedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
+  trashedProjectChatThreadIdsByProjectConfigId: Record<string, Array<string>>;
 };
 
 export const useLocalStorage = createWithEqualityFn(
@@ -992,6 +1005,9 @@ export const useLocalStorage = createWithEqualityFn(
       viewedProjectChatThreadIdsByProjectConfigId: {},
       projectChatThreadGroupsByProjectConfigId: {},
       projectChatThreadAssignmentsByProjectConfigId: {},
+      projectChatThreadOrderByProjectConfigId: {},
+      pinnedProjectChatThreadIdsByProjectConfigId: {},
+      trashedProjectChatThreadIdsByProjectConfigId: {},
     }),
     {
       name: "setta_data", // Same prefix as in your custom implementation
@@ -1049,6 +1065,29 @@ export const useLocalStorage = createWithEqualityFn(
           Array.isArray(merged.projectChatThreadAssignmentsByProjectConfigId)
         ) {
           merged.projectChatThreadAssignmentsByProjectConfigId = {};
+        }
+        if (
+          !merged.projectChatThreadOrderByProjectConfigId ||
+          typeof merged.projectChatThreadOrderByProjectConfigId !== "object" ||
+          Array.isArray(merged.projectChatThreadOrderByProjectConfigId)
+        ) {
+          merged.projectChatThreadOrderByProjectConfigId = {};
+        }
+        if (
+          !merged.pinnedProjectChatThreadIdsByProjectConfigId ||
+          typeof merged.pinnedProjectChatThreadIdsByProjectConfigId !==
+            "object" ||
+          Array.isArray(merged.pinnedProjectChatThreadIdsByProjectConfigId)
+        ) {
+          merged.pinnedProjectChatThreadIdsByProjectConfigId = {};
+        }
+        if (
+          !merged.trashedProjectChatThreadIdsByProjectConfigId ||
+          typeof merged.trashedProjectChatThreadIdsByProjectConfigId !==
+            "object" ||
+          Array.isArray(merged.trashedProjectChatThreadIdsByProjectConfigId)
+        ) {
+          merged.trashedProjectChatThreadIdsByProjectConfigId = {};
         }
 
         return merged;

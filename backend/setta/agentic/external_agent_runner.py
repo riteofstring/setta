@@ -134,6 +134,7 @@ _SUMMARY_EVENT_TYPES = {
     "question_response",
     "tool_result",
 }
+_USAGE_SUMMARY_METADATA_KEY = "usage_summary"
 
 
 @dataclass(frozen=True)
@@ -357,6 +358,11 @@ class ExternalAgentRunner:
                 handle=handle, adapter=current_adapter
             )
             async for event in current_adapter.stream_events(handle, context):
+                self._observe_usage_summary(
+                    context.config.toolType,
+                    handle,
+                    event.raw,
+                )
                 if self._is_approval_request(event.raw):
                     await self._handle_approval_request(context, run, event.raw)
                     continue
@@ -824,11 +830,79 @@ class ExternalAgentRunner:
                 session_id = run_state.handle.session_id
         thread_id = self._extract_output_string(previous.outputs, "threadId")
         if config.toolType == ExternalAgentToolType.codex:
-            if thread_id:
+            if thread_id and self._can_resume_codex_thread(
+                payload_inputs, config, previous
+            ):
                 payload_inputs["threadId"] = thread_id
             return
         if session_id:
             payload_inputs["sessionId"] = session_id
+
+    @classmethod
+    def _can_resume_codex_thread(
+        cls,
+        payload_inputs: dict[str, Any],
+        config: ExternalAgentConfig,
+        previous: AgentRun,
+    ) -> bool:
+        for policy_key in ("sandboxPolicy",):
+            current_value = cls._resolve_current_codex_policy_value(
+                payload_inputs,
+                config,
+                policy_key,
+            )
+            previous_value = cls._resolve_previous_codex_policy_value(
+                previous,
+                policy_key,
+            )
+            if current_value != previous_value:
+                return False
+        return True
+
+    @classmethod
+    def _resolve_current_codex_policy_value(
+        cls,
+        payload_inputs: dict[str, Any],
+        config: ExternalAgentConfig,
+        policy_key: str,
+    ) -> str | None:
+        input_value = cls._normalize_optional_string(payload_inputs.get(policy_key))
+        if input_value is not None:
+            return input_value
+        if policy_key == "approvalPolicy":
+            return cls._normalize_optional_string(config.approvalPolicy)
+        if policy_key == "sandboxPolicy":
+            return cls._normalize_optional_string(config.sandboxPolicy)
+        return None
+
+    @classmethod
+    def _resolve_previous_codex_policy_value(
+        cls,
+        previous: AgentRun,
+        policy_key: str,
+    ) -> str | None:
+        if previous.inputs:
+            input_value = cls._normalize_optional_string(
+                previous.inputs.get(policy_key)
+            )
+            if input_value is not None:
+                return input_value
+        raw_outputs = previous.outputs
+        if not isinstance(raw_outputs, dict):
+            return None
+        raw_metadata = raw_outputs.get("metadata")
+        if not isinstance(raw_metadata, dict):
+            return None
+        return cls._normalize_optional_string(raw_metadata.get(policy_key))
+
+    @staticmethod
+    def _normalize_optional_string(value: Any) -> str | None:
+        if not isinstance(value, str):
+            return None
+        stripped = value.strip()
+        if not stripped:
+            return None
+        return stripped
 
     @staticmethod
     def _get_run_engine_config_id(run: AgentRun) -> ID | None:
@@ -856,6 +930,269 @@ class ExternalAgentRunner:
         if isinstance(raw, str) and raw:
             return raw
         return None
+
+    def _observe_usage_summary(
+        self,
+        tool_type: ExternalAgentToolType,
+        handle: ExternalAgentRunHandle,
+        payload: dict[str, Any],
+    ) -> None:
+        incoming = self._extract_usage_summary_from_event(tool_type, payload)
+        if incoming is None:
+            return
+        existing = handle.metadata.get(_USAGE_SUMMARY_METADATA_KEY)
+        if isinstance(existing, dict):
+            merged = self._merge_usage_summary(existing, incoming)
+        else:
+            merged = incoming
+        handle.metadata[_USAGE_SUMMARY_METADATA_KEY] = merged
+
+    def _extract_usage_summary_from_event(
+        self,
+        tool_type: ExternalAgentToolType,
+        payload: dict[str, Any],
+    ) -> dict[str, int] | None:
+        if tool_type == ExternalAgentToolType.codex:
+            return self._extract_codex_usage_from_event(payload)
+        if tool_type == ExternalAgentToolType.claude_code:
+            return self._extract_claude_usage_from_event(payload)
+        if tool_type == ExternalAgentToolType.opencode:
+            return self._extract_opencode_usage_from_event(payload)
+        return None
+
+    def _extract_codex_usage_from_event(
+        self,
+        payload: dict[str, Any],
+    ) -> dict[str, int] | None:
+        method = payload.get("method")
+        if method == "thread/tokenUsage/updated":
+            params = payload.get("params")
+            if not isinstance(params, dict):
+                return None
+            token_usage = params.get("tokenUsage")
+            if not isinstance(token_usage, dict):
+                return None
+            breakdown = token_usage.get("last")
+            if not isinstance(breakdown, dict):
+                breakdown = token_usage.get("total")
+            usage = self._build_usage_summary_from_mapping(
+                breakdown,
+                prompt_key="inputTokens",
+                completion_key="outputTokens",
+                total_key="totalTokens",
+                cached_input_key="cachedInputTokens",
+                reasoning_output_key="reasoningOutputTokens",
+            )
+            if usage is None:
+                return None
+            context_window_tokens = self._extract_non_negative_int(
+                token_usage.get("modelContextWindow")
+            )
+            if context_window_tokens is not None and context_window_tokens > 0:
+                usage["contextWindowTokens"] = context_window_tokens
+            return usage
+        raw_type = payload.get("type")
+        if raw_type != "token_count":
+            return None
+        info = payload.get("info")
+        if not isinstance(info, dict):
+            return None
+        breakdown = info.get("last_token_usage")
+        if not isinstance(breakdown, dict):
+            breakdown = info.get("total_token_usage")
+        usage = self._build_usage_summary_from_mapping(
+            breakdown,
+            prompt_key="input_tokens",
+            completion_key="output_tokens",
+            total_key="total_tokens",
+            cached_input_key="cached_input_tokens",
+            reasoning_output_key="reasoning_output_tokens",
+        )
+        if usage is None:
+            return None
+        context_window_tokens = self._extract_non_negative_int(
+            info.get("model_context_window")
+        )
+        if context_window_tokens is not None and context_window_tokens > 0:
+            usage["contextWindowTokens"] = context_window_tokens
+        return usage
+
+    def _extract_claude_usage_from_event(
+        self,
+        payload: dict[str, Any],
+    ) -> dict[str, int] | None:
+        raw_type = payload.get("type")
+        if raw_type != "result_message":
+            return None
+        usage_payload = payload.get("usage")
+        usage = self._build_usage_summary_from_mapping(
+            usage_payload,
+            prompt_key="input_tokens",
+            completion_key="output_tokens",
+            total_key="total_tokens",
+            cached_input_key="cache_read_input_tokens",
+        )
+        if usage is None:
+            return None
+        cache_write_tokens = self._extract_non_negative_int(
+            usage_payload.get("cache_creation_input_tokens")
+            if isinstance(usage_payload, dict)
+            else None
+        )
+        if cache_write_tokens is not None:
+            usage["cacheWriteInputTokens"] = cache_write_tokens
+        return usage
+
+    def _extract_opencode_usage_from_event(
+        self,
+        payload: dict[str, Any],
+    ) -> dict[str, int] | None:
+        raw_type = payload.get("type")
+        if raw_type == "message.updated":
+            properties = payload.get("properties")
+            if not isinstance(properties, dict):
+                return None
+            info = properties.get("info")
+            if not isinstance(info, dict):
+                return None
+            role = info.get("role")
+            if role != "assistant":
+                return None
+            return self._build_usage_summary_from_mapping(
+                info.get("tokens"),
+                prompt_key="input",
+                completion_key="output",
+                total_key=None,
+                cached_input_path=("cache", "read"),
+                reasoning_output_key="reasoning",
+            )
+        if raw_type != "message.part.updated":
+            return None
+        properties = payload.get("properties")
+        if not isinstance(properties, dict):
+            return None
+        part = properties.get("part")
+        if not isinstance(part, dict):
+            return None
+        if part.get("type") != "step-finish":
+            return None
+        return self._build_usage_summary_from_mapping(
+            part.get("tokens"),
+            prompt_key="input",
+            completion_key="output",
+            total_key=None,
+            cached_input_path=("cache", "read"),
+            reasoning_output_key="reasoning",
+        )
+
+    @classmethod
+    def _build_usage_summary_from_mapping(
+        cls,
+        payload: Any,
+        *,
+        prompt_key: str,
+        completion_key: str,
+        total_key: str | None,
+        cached_input_key: str | None = None,
+        reasoning_output_key: str | None = None,
+        cached_input_path: tuple[str, str] | None = None,
+    ) -> dict[str, int] | None:
+        if not isinstance(payload, dict):
+            return None
+        usage: dict[str, int] = {}
+        prompt_tokens = cls._extract_non_negative_int(payload.get(prompt_key))
+        completion_tokens = cls._extract_non_negative_int(payload.get(completion_key))
+        if prompt_tokens is not None:
+            usage["promptTokens"] = prompt_tokens
+            usage["inputTokens"] = prompt_tokens
+        if completion_tokens is not None:
+            usage["completionTokens"] = completion_tokens
+            usage["outputTokens"] = completion_tokens
+        if total_key is not None:
+            total_tokens = cls._extract_non_negative_int(payload.get(total_key))
+        else:
+            total_tokens = None
+        if (
+            total_tokens is None
+            and prompt_tokens is not None
+            and completion_tokens is not None
+        ):
+            total_tokens = prompt_tokens + completion_tokens
+        if total_tokens is not None:
+            usage["totalTokens"] = total_tokens
+        if cached_input_key is not None:
+            cached_tokens = cls._extract_non_negative_int(payload.get(cached_input_key))
+            if cached_tokens is not None:
+                usage["cachedInputTokens"] = cached_tokens
+        if cached_input_path is not None:
+            root_value = payload.get(cached_input_path[0])
+            if isinstance(root_value, dict):
+                cached_tokens = cls._extract_non_negative_int(
+                    root_value.get(cached_input_path[1])
+                )
+                if cached_tokens is not None:
+                    usage["cachedInputTokens"] = cached_tokens
+        if reasoning_output_key is not None:
+            reasoning_tokens = cls._extract_non_negative_int(
+                payload.get(reasoning_output_key)
+            )
+            if reasoning_tokens is not None:
+                usage["reasoningOutputTokens"] = reasoning_tokens
+        if not usage:
+            return None
+        return usage
+
+    @staticmethod
+    def _extract_non_negative_int(value: Any) -> int | None:
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, int):
+            return value if value >= 0 else None
+        if isinstance(value, float):
+            parsed = int(value)
+            return parsed if parsed >= 0 else None
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return None
+            try:
+                parsed = int(stripped)
+            except ValueError:
+                return None
+            return parsed if parsed >= 0 else None
+        return None
+
+    @classmethod
+    def _merge_usage_summary(
+        cls,
+        current: dict[str, Any],
+        incoming: dict[str, int],
+    ) -> dict[str, int]:
+        merged: dict[str, int] = {}
+        for key, value in current.items():
+            parsed = cls._extract_non_negative_int(value)
+            if parsed is None:
+                continue
+            merged[key] = parsed
+        for key, value in incoming.items():
+            existing = merged.get(key)
+            if existing is None or value >= existing:
+                merged[key] = value
+        prompt_tokens = merged.get("promptTokens") or merged.get("inputTokens")
+        completion_tokens = merged.get("completionTokens") or merged.get("outputTokens")
+        if prompt_tokens is not None:
+            merged["promptTokens"] = prompt_tokens
+            merged["inputTokens"] = prompt_tokens
+        if completion_tokens is not None:
+            merged["completionTokens"] = completion_tokens
+            merged["outputTokens"] = completion_tokens
+        if (
+            "totalTokens" not in merged
+            and prompt_tokens is not None
+            and completion_tokens is not None
+        ):
+            merged["totalTokens"] = prompt_tokens + completion_tokens
+        return merged
 
     def _init_chat_state(self, run: AgentRun) -> None:
         self._chat_states[run.id] = build_chat_state_from_run(run)
@@ -885,6 +1222,47 @@ class ExternalAgentRunner:
             state = self._ensure_chat_state(run)
         outputs = run.outputs or {}
         outputs.update(build_run_outputs(state.messages))
+        run_state = self._run_state.get(run.id)
+        agent_native_slash_commands: list[str] | None = None
+        agent_native_slash_commands_status: str | None = None
+        agent_native_slash_commands_status_detail: str | None = None
+        if run_state is not None:
+            usage_summary = run_state.handle.metadata.get(_USAGE_SUMMARY_METADATA_KEY)
+            if isinstance(usage_summary, dict):
+                normalized_usage = self._merge_usage_summary({}, usage_summary)
+                if normalized_usage:
+                    outputs["usage"] = normalized_usage
+            raw_native_commands = run_state.handle.metadata.get(
+                "agentNativeSlashCommands"
+            )
+            if isinstance(raw_native_commands, list):
+                normalized_native_commands: list[str] = []
+                seen_native_commands: set[str] = set()
+                for raw_command in raw_native_commands:
+                    if not isinstance(raw_command, str):
+                        continue
+                    command = raw_command.strip()
+                    if not command:
+                        continue
+                    if command in seen_native_commands:
+                        continue
+                    seen_native_commands.add(command)
+                    normalized_native_commands.append(command)
+                agent_native_slash_commands = normalized_native_commands
+            raw_native_status = run_state.handle.metadata.get(
+                "agentNativeSlashCommandsStatus"
+            )
+            if isinstance(raw_native_status, str):
+                normalized_status = raw_native_status.strip()
+                if normalized_status:
+                    agent_native_slash_commands_status = normalized_status
+            raw_native_status_detail = run_state.handle.metadata.get(
+                "agentNativeSlashCommandsStatusDetail"
+            )
+            if isinstance(raw_native_status_detail, str):
+                normalized_status_detail = raw_native_status_detail.strip()
+                if normalized_status_detail:
+                    agent_native_slash_commands_status_detail = normalized_status_detail
         metadata: dict[str, Any] = {}
         existing_metadata = outputs.get("metadata")
         if isinstance(existing_metadata, dict):
@@ -942,6 +1320,16 @@ class ExternalAgentRunner:
                 resolved_paths["opencode"] = str(opencode_path)
             if resolved_paths:
                 metadata["settingsPaths"] = resolved_paths
+        if agent_native_slash_commands is not None:
+            metadata["agentNativeSlashCommands"] = agent_native_slash_commands
+        if agent_native_slash_commands_status is not None:
+            metadata["agentNativeSlashCommandsStatus"] = (
+                agent_native_slash_commands_status
+            )
+        if agent_native_slash_commands_status_detail is not None:
+            metadata["agentNativeSlashCommandsStatusDetail"] = (
+                agent_native_slash_commands_status_detail
+            )
         if metadata:
             outputs["metadata"] = metadata
         title_result = build_deterministic_chat_title(state.messages)
@@ -953,7 +1341,6 @@ class ExternalAgentRunner:
             outputs["nameSource"] = "deterministic"
         elif "nameSource" not in outputs:
             outputs["nameSource"] = "reused"
-        run_state = self._run_state.get(run.id)
         if run_state is not None:
             handle = run_state.handle
             if handle.external_title:

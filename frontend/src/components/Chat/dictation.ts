@@ -83,10 +83,16 @@ export function mapDictationError(errorCode: string | undefined): string {
   if (errorCode === "network") {
     return "Dictation failed due to a network error.";
   }
-  if (errorCode === "no-speech") {
+  if (isNoSpeechDictationError(errorCode)) {
     return "No speech was detected.";
   }
   return "Dictation failed.";
+}
+
+export function isNoSpeechDictationError(
+  errorCode: string | undefined,
+): boolean {
+  return errorCode === "no-speech";
 }
 
 export function pickProviderRecorderMimeType(

@@ -26,20 +26,26 @@ async function expectHasEllipsisTruncation(locator: Locator): Promise<void> {
   expect(styleInfo.scrollWidth).toBeGreaterThan(styleInfo.clientWidth);
 }
 
-async function expectVerticallyResizablePane(locator: Locator): Promise<void> {
+async function expectVerticallyResizablePane(
+  locator: Locator,
+  resizeHandle: Locator,
+): Promise<void> {
   await expect(locator).toBeVisible();
   const styleInfo = await locator.evaluate((node) => {
     const element = node as HTMLElement;
     const style = window.getComputedStyle(element);
     return {
-      resize: style.resize,
       overflowY: style.overflowY,
-      minHeight: style.minHeight,
+      height: element.getBoundingClientRect().height,
     };
   });
-  expect(styleInfo.resize).toBe("vertical");
   expect(["auto", "scroll"]).toContain(styleInfo.overflowY);
-  expect(styleInfo.minHeight).not.toBe("0px");
+  expect(styleInfo.height).toBeGreaterThan(0);
+  await expect(resizeHandle).toBeVisible();
+  const cursor = await resizeHandle.evaluate(
+    (node) => window.getComputedStyle(node as HTMLElement).cursor,
+  );
+  expect(cursor).toBe("row-resize");
 }
 
 async function openSkillsMcpViewer(page: Page): Promise<void> {
@@ -190,6 +196,7 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
   await expect(slashCommandRows).toContainText(["/new", "/resume", "/model"]);
   await expectVerticallyResizablePane(
     page.getByTestId("skills-mcp-slash-list-pane"),
+    page.getByTestId("skills-mcp-slash-resize-handle"),
   );
   await expect(page.getByLabel("Agent native commands")).toHaveCount(0);
   await expect(
@@ -204,6 +211,44 @@ test("project ai chat can open the skills and mcp viewer side view", async ({
 
   await closeSkillsMcpViewer(page);
   await expect(page.getByText(/^Skills$/)).toHaveCount(0);
+});
+
+test("skills/mcp view keeps inline threads visible when threads are open", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1200,
+    overviewTrueWidth: 1200,
+    viewThreads: true,
+  });
+  await ensureAppReady(page);
+
+  const overviewPane = page.locator("#OverviewPane");
+  const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+  await expect(threadsPanel).toBeVisible();
+  await expect(threadsPanel).toHaveAttribute("data-inline", "true");
+
+  await openSkillsMcpViewer(page);
+  await expect(threadsPanel).toBeVisible();
+  await expect(threadsPanel).toHaveAttribute("data-inline", "true");
+  const mcpAccordion = page.getByTestId("skills-mcp-accordion-mcp");
+  await expect(mcpAccordion).toBeVisible();
+  const shellInfo = await mcpAccordion.evaluate((element) => {
+    const shell = element.closest('[data-chat-width-shell="true"]');
+    if (!(shell instanceof HTMLElement)) {
+      return null;
+    }
+    const style = window.getComputedStyle(shell);
+    return {
+      maxWidth: style.maxWidth,
+      width: shell.getBoundingClientRect().width,
+    };
+  });
+  expect(shellInfo).not.toBeNull();
+  expect(shellInfo?.maxWidth).toBe("1152px");
+  expect(shellInfo?.width).toBeLessThanOrEqual(1152);
 });
 
 test("project ai chat truncates long skill and mcp rows in narrow panes", async ({
