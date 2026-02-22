@@ -16,7 +16,7 @@ import {
   type UpdateLauncherRequestInput,
 } from "utils/generatedTypes";
 
-export type LauncherActionState =
+type LauncherActionState =
   | "refresh"
   | "setup"
   | "repair"
@@ -24,7 +24,7 @@ export type LauncherActionState =
   | "update"
   | null;
 
-export type LauncherUpdateStage =
+type LauncherUpdateStage =
   | "idle"
   | "checking"
   | "downloading"
@@ -67,7 +67,8 @@ function detectOperatingSystem(
   userAgentOverride?: string | null,
 ): "macos" | "windows" | "linux" {
   const userAgent =
-    userAgentOverride ?? (typeof window !== "undefined" ? window.navigator.userAgent : "");
+    userAgentOverride ??
+    (typeof window !== "undefined" ? window.navigator.userAgent : "");
   const lowerCasedUserAgent = userAgent.toLowerCase();
   if (lowerCasedUserAgent.includes("mac")) {
     return "macos";
@@ -114,7 +115,8 @@ export function deriveLauncherControlsState({
   const canUpdateInApp =
     launcherInstalled && launcherStatus?.updateCapability === "in_app";
   const installerManagedChannel =
-    launcherInstalled && launcherStatus?.updateCapability === "installer_managed";
+    launcherInstalled &&
+    launcherStatus?.updateCapability === "installer_managed";
   const launcherActionsDisabled = launcherActionInFlight !== null;
 
   let launcherSetupButtonLabel = "Setup Desktop App";
@@ -328,7 +330,8 @@ export function DesktopLauncherSettingsSection() {
         setShowInstallerInstructions(true);
       }
       setLauncherActionError(
-        currentStatus.updateGuidance ?? "In-app launcher update is unavailable.",
+        currentStatus.updateGuidance ??
+          "In-app launcher update is unavailable.",
       );
       return;
     }
@@ -394,14 +397,15 @@ export function DesktopLauncherSettingsSection() {
       {launcherStatus && (
         <div className="grid gap-1 text-xs text-setta-600 dark:text-setta-300">
           <span>
-            Status: {" "}
+            Status:{" "}
             <span className="font-semibold">
               {launcherInstalled ? "installed" : "not installed"}
             </span>
           </span>
           {launcherStatus.channel && (
             <span>
-              Channel: <span className="font-semibold">{launcherStatus.channel}</span>
+              Channel:{" "}
+              <span className="font-semibold">{launcherStatus.channel}</span>
             </span>
           )}
           {launcherStatus.updateCapability && (
@@ -480,7 +484,9 @@ export function DesktopLauncherSettingsSection() {
             onClick={handleLauncherUpdate}
             disabled={launcherActionsDisabled}
           >
-            {launcherActionInFlight === "update" ? "Updating..." : "Update Setta"}
+            {launcherActionInFlight === "update"
+              ? "Updating..."
+              : "Update Setta"}
           </button>
         )}
         {installerManagedChannel && (

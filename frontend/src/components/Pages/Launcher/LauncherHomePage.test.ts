@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  joinLauncherPath,
-  normalizeNewProjectName,
-} from "./LauncherHomePage";
+import { joinLauncherPath, normalizeNewProjectName } from "./LauncherHomePage";
 
 describe("LauncherHomePage path helpers", () => {
   it("normalizes a new project name", () => {

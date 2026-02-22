@@ -1,7 +1,7 @@
 import json
 import os
-import shutil
 import secrets
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -18,8 +18,8 @@ from setta.launcher_artifacts import (
 )
 from setta.launcher_metadata import (
     LAUNCHER_WORKSPACE_BEHAVIOR,
-    LauncherInstallSource,
     LauncherInstallMetadata,
+    LauncherInstallSource,
     LauncherMetadataError,
     LauncherOpenMode,
     LauncherWorkspaceBehavior,
@@ -629,7 +629,9 @@ def _validate_managed_artifact_registry(
     return normalized
 
 
-def _validate_artifact_option_paths(*, options: dict[str, str], setta_home: Path) -> None:
+def _validate_artifact_option_paths(
+    *, options: dict[str, str], setta_home: Path
+) -> None:
     for option_key in _artifact_write_path_option_keys():
         raw_path = options.get(option_key)
         if raw_path is None:
@@ -712,11 +714,7 @@ def _trusted_artifact_roots(*, setta_home: Path) -> set[Path]:
         roots.add((local_app_data_root / "Setta").resolve(strict=False))
         roots.add(
             (
-                app_data_root
-                / "Microsoft"
-                / "Windows"
-                / "Start Menu"
-                / "Programs"
+                app_data_root / "Microsoft" / "Windows" / "Start Menu" / "Programs"
             ).resolve(strict=False)
         )
         roots.add((user_profile_root / "Desktop").resolve(strict=False))
@@ -774,7 +772,10 @@ def _artifact_ownership_marker_contents(
 def _artifact_ownership_marker_path(artifact_path: Path) -> Path:
     if artifact_path.is_dir() and not artifact_path.is_symlink():
         return artifact_path / _ARTIFACT_OWNERSHIP_MARKER_BASENAME
-    return artifact_path.parent / f".{artifact_path.name}{_ARTIFACT_OWNERSHIP_MARKER_BASENAME}"
+    return (
+        artifact_path.parent
+        / f".{artifact_path.name}{_ARTIFACT_OWNERSHIP_MARKER_BASENAME}"
+    )
 
 
 def _artifact_ownership_marker_error(

@@ -39,7 +39,7 @@ const usePluginListEntriesMock = vi.fn(() => []);
 const usePluginStatusEntriesMock = vi.fn(() => []);
 const usePluginRuntimeStoreMock = vi.fn(
   (
-      selector?: (state: {
+    selector?: (state: {
       restartCapability: unknown;
       serverMode: "ide" | "share" | "app" | "launcher" | null;
     }) => unknown,
