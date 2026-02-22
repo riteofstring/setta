@@ -48,7 +48,7 @@ function renderChatInput(
     <ChatInput
       placeholderText="Type a message..."
       waitingForResponse={false}
-      onSubmit={() => undefined}
+      onSubmit={() => false}
       {...overrides}
     />,
   );

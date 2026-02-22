@@ -675,6 +675,212 @@ args = ["server.js"]
                 for message in warning_messages
             )
 
+    def test_load_llm_config_with_invalid_codex_home_does_not_fallback_to_home(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                "[mcp_servers.invalid\n",
+                encoding="utf-8",
+            )
+            fallback_home = root / "fallback-home"
+            (fallback_home / ".codex").mkdir(parents=True, exist_ok=True)
+            (fallback_home / ".codex" / "config.toml").write_text(
+                """
+[mcp_servers.fallback-home-server]
+transport = "streamable_http"
+url = "http://127.0.0.1:9900/mcp"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            monkeypatch.setenv("HOME", str(fallback_home))
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        )
+                    }
+                ),
+                dbe,
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "fallback-home-server" not in loaded.mcpServers
+
+    def test_load_llm_config_rejects_mixed_type_codex_args_and_env(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.valid]
+command = "node"
+args = ["server.js"]
+
+[mcp_servers.invalid-args]
+command = "node"
+args = ["server.js", 123]
+
+[mcp_servers.invalid-env]
+command = "node"
+env = { GOOD = "1", BAD = 2 }
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            warning_messages: list[str] = []
+
+            def _capture_warning(
+                message: str, *args: object, **_kwargs: object
+            ) -> None:
+                if args:
+                    warning_messages.append(message % args)
+                    return
+                warning_messages.append(message)
+
+            monkeypatch.setattr(codex_config_module.logger, "warning", _capture_warning)
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        )
+                    }
+                ),
+                dbe,
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "valid" in loaded.mcpServers
+            assert "invalid-args" not in loaded.mcpServers
+            assert "invalid-env" not in loaded.mcpServers
+            assert any("args[1]" in message for message in warning_messages)
+            assert any("env.BAD" in message for message in warning_messages)
+
+    def test_load_llm_config_rejects_unsupported_encoding_error_handler(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.invalid-encoding]
+command = "node"
+encoding_error_handler = "surrogateescape"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            warning_messages: list[str] = []
+
+            def _capture_warning(
+                message: str, *args: object, **_kwargs: object
+            ) -> None:
+                if args:
+                    warning_messages.append(message % args)
+                    return
+                warning_messages.append(message)
+
+            monkeypatch.setattr(codex_config_module.logger, "warning", _capture_warning)
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        )
+                    }
+                ),
+                dbe,
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "invalid-encoding" not in loaded.mcpServers
+            assert any(
+                "encoding_error_handler" in message for message in warning_messages
+            )
+
+    def test_load_llm_config_rejects_conflicting_snake_and_camel_mcp_tables(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.alpha]
+command = "alpha"
+
+[mcpServers.alpha]
+command = "beta"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            warning_messages: list[str] = []
+
+            def _capture_warning(
+                message: str, *args: object, **_kwargs: object
+            ) -> None:
+                if args:
+                    warning_messages.append(message % args)
+                    return
+                warning_messages.append(message)
+
+            monkeypatch.setattr(codex_config_module.logger, "warning", _capture_warning)
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        )
+                    }
+                ),
+                dbe,
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "alpha" not in loaded.mcpServers
+            assert any(
+                "Both 'mcp_servers' and 'mcpServers' are present with conflicting values"
+                in message
+                for message in warning_messages
+            )
+
 
 class TestLLMConfigExampleSeeding:
     def test_seed_llm_config_example_file_writes_default_payload(self) -> None:

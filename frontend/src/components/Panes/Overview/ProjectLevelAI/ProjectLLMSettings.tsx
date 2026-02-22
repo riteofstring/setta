@@ -33,15 +33,13 @@ const IsolatedInput = ({ apiKeyName, inputId }: IsolatedInputProps) => {
       const nextApiKeys = { ...currentApiKeys };
       delete nextApiKeys[apiKeyName];
       useAIStore.setState({ apiKeys: nextApiKeys });
-      void route_set_llm_api_keys({ apiKeys: { [apiKeyName]: "" } });
+      void route_set_llm_api_keys({ apiKeys: nextApiKeys });
       return;
     }
     const nextApiKeys = { ...currentApiKeys };
     nextApiKeys[apiKeyName] = normalizedValue;
     useAIStore.setState({ apiKeys: nextApiKeys });
-    void route_set_llm_api_keys({
-      apiKeys: { [apiKeyName]: normalizedValue },
-    });
+    void route_set_llm_api_keys({ apiKeys: nextApiKeys });
   };
 
   const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
@@ -83,9 +81,9 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
     ? `setta-pane-scroll flex min-h-0 flex-col gap-3 text-setta-600 dark:text-setta-400 ${className}`
     : "setta-pane-scroll flex min-h-0 flex-col gap-3 text-setta-600 dark:text-setta-400";
 
-  const persistApiKeys = (nextApiKeys: APIKeys, patch: APIKeys) => {
+  const persistApiKeys = (nextApiKeys: APIKeys) => {
     useAIStore.setState({ apiKeys: nextApiKeys });
-    void route_set_llm_api_keys({ apiKeys: patch });
+    void route_set_llm_api_keys({ apiKeys: nextApiKeys });
   };
 
   const handleAddApiKey = () => {
@@ -106,7 +104,7 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
       return;
     }
     const nextApiKeys = { ...apiKeys, [envKey]: normalizedValue };
-    persistApiKeys(nextApiKeys, { [envKey]: normalizedValue });
+    persistApiKeys(nextApiKeys);
     setNewApiKeyName("OPENAI_API_KEY");
     setNewApiKeyValue("");
     setNewApiKeyError(null);
@@ -115,7 +113,7 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
   const handleClearApiKey = (envKey: string) => {
     const nextApiKeys = { ...apiKeys };
     delete nextApiKeys[envKey];
-    persistApiKeys(nextApiKeys, { [envKey]: "" });
+    persistApiKeys(nextApiKeys);
   };
 
   return (

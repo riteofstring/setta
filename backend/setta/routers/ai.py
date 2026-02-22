@@ -30,8 +30,8 @@ from setta.agentic.store import (
     require_agent_profile,
 )
 from setta.agentic.transcription_profile_resolver import (
-    resolve_transcription_profile,
     TranscriptionProfileNotFoundError,
+    resolve_transcription_profile,
 )
 from setta.database.utils import create_new_id
 from setta.llm.transcription_sessions import (
@@ -213,15 +213,6 @@ def _select_latest_run(runs: list[AgentRun]) -> AgentRun | None:
     return max(runs, key=get_run_sort_key)
 
 
-def _normalize_optional_string(value: object) -> str | None:
-    if not isinstance(value, str):
-        return None
-    normalized = value.strip()
-    if not normalized:
-        return None
-    return normalized
-
-
 def _to_chat_context_usage(
     usage: ResolvedChatContextUsage | None,
 ) -> "ChatContextUsage | None":
@@ -232,44 +223,6 @@ def _to_chat_context_usage(
         contextUsedTokens=usage.context_used_tokens,
         estimated=usage.estimated,
     )
-
-
-def _extract_run_output_metadata(run: AgentRun) -> dict[str, object]:
-    outputs = run.outputs
-    if not isinstance(outputs, dict):
-        return {}
-    metadata = outputs.get("metadata")
-    if not isinstance(metadata, dict):
-        return {}
-    return metadata
-
-
-def _extract_external_tool_type(value: object) -> ExternalAgentToolType | None:
-    normalized = _normalize_optional_string(value)
-    if normalized is None:
-        return None
-    try:
-        return ExternalAgentToolType(normalized)
-    except ValueError:
-        return None
-
-
-def _resolve_external_context_source(
-    run: AgentRun,
-) -> tuple[ExternalAgentToolType | None, str | None]:
-    metadata = _extract_run_output_metadata(run)
-    metadata_tool_type = _extract_external_tool_type(metadata.get("toolType"))
-    metadata_model = _normalize_optional_string(metadata.get("model"))
-    return metadata_tool_type, metadata_model
-
-
-def _resolve_internal_context_source(
-    run: AgentRun,
-) -> tuple[str | None, str | None]:
-    metadata = _extract_run_output_metadata(run)
-    model = _normalize_optional_string(metadata.get("model"))
-    provider = _normalize_optional_string(metadata.get("provider"))
-    return model, provider
 
 
 def _ensure_external_chat_id_compatible(
@@ -1323,20 +1276,24 @@ async def route_get_llm_chat(
             state = live_state
     engine_config_id = get_run_engine_config_id(latest_run)
     if not engine_config_id:
-        raise HTTPException(status_code=500, detail="Chat engine config not found")
+        raise HTTPException(
+            status_code=409,
+            detail="Chat engine config is no longer available.",
+        )
     resolved = resolve_engine_config(
         ctx.state.dbe, ctx.state.agent_runner.config, engine_config_id
     )
     if resolved.engine_config.engineType != EngineType.setta_llm:
-        raise HTTPException(status_code=500, detail="Chat engine is not internal")
+        raise HTTPException(
+            status_code=409,
+            detail="Chat engine mismatch; start a new chat.",
+        )
     if resolved.llm_config is None:
-        raise HTTPException(status_code=500, detail="Chat LLM config not found")
-    context_model, context_provider = _resolve_internal_context_source(latest_run)
-    context_usage = resolve_internal_run_context_usage(
-        latest_run,
-        model=context_model,
-        provider=context_provider,
-    )
+        raise HTTPException(
+            status_code=409,
+            detail="Chat LLM config is no longer available.",
+        )
+    context_usage = resolve_internal_run_context_usage(latest_run)
     return GetLLMChatRequestResponse(
         messages=state.messages,
         waitingForResponse=state.waitingForResponse,
@@ -1366,11 +1323,7 @@ async def route_get_external_agent_chat(
             live_state = runner.get_live_chat_state(latest_run.id)
             if live_state is not None:
                 state = live_state
-    _external_tool_type, external_model = _resolve_external_context_source(latest_run)
-    context_usage = resolve_external_run_context_usage(
-        latest_run,
-        model=external_model,
-    )
+    context_usage = resolve_external_run_context_usage(latest_run)
     return GetExternalAgentChatResponse(
         messages=state.messages,
         waitingForResponse=state.waitingForResponse,

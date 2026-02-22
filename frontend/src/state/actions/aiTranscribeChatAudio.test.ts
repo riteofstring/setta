@@ -10,8 +10,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   appendTranscriptionAudio,
   cancelTranscriptionSession,
-  resolveProviderTranscriptionChunkSampleCount,
   resampleMonoPcm16ToSampleRate,
+  resolveProviderTranscriptionChunkSampleCount,
   startTranscriptionSession,
   stopTranscriptionSession,
   transcribeChatAudioWithProfile,
@@ -235,10 +235,11 @@ describe("transcription session actions", () => {
     const originalWindow = withAudioContext.window;
     const testWindow =
       originalWindow ??
-      (({} as unknown) as typeof window & { AudioContext?: typeof AudioContext });
+      ({} as unknown as typeof window & { AudioContext?: typeof AudioContext });
     withAudioContext.window = testWindow;
     const originalAudioContext = testWindow.AudioContext;
-    testWindow.AudioContext = AudioContextMock as unknown as typeof AudioContext;
+    testWindow.AudioContext =
+      AudioContextMock as unknown as typeof AudioContext;
     mockedRouteStartTranscriptionSession.mockResolvedValue({
       status: 200,
       hasResponse: true,

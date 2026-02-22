@@ -281,6 +281,46 @@ args = ["pencil-mcp.js"]
                 mcp_servers.get("setta", {}).get("url") == "http://localhost:8000/mcp"
             )
 
+    def test_build_codex_settings_file_rejects_conflicting_snake_and_camel_mcp_keys(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            config = ExternalAgentConfig(
+                id="codex-conflicting-shapes",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            settings_path = resolve_codex_settings_path(dbe, config)
+            if settings_path is None:
+                raise AssertionError("Expected Codex settings path")
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+            settings_path.write_text(
+                """
+[mcp_servers.alpha]
+command = "alpha"
+
+[mcpServers.alpha]
+command = "beta"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            with pytest.raises(
+                ValueError,
+                match="Both 'mcp_servers' and 'mcpServers' are present with conflicting values",
+            ):
+                build_codex_settings_file(
+                    dbe,
+                    config,
+                    allowlist=None,
+                    mcp_url="http://localhost:8000/mcp",
+                    auth_headers=None,
+                    system_prompt=None,
+                )
+
     def test_build_codex_settings_file_keeps_user_removed_imported_servers_removed(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

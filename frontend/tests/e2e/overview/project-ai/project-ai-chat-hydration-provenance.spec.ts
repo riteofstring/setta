@@ -1,5 +1,6 @@
 import { expect, test, type Route } from "@playwright/test";
 import {
+  allowExpectedApiError,
   cleanupIsolatedProject,
   ensureAppReady,
   openIsolatedProject,
@@ -355,6 +356,110 @@ test("project ai retries hydration after switching threads cancels a scheduled r
     await expect(
       overviewPane.getByText("Retry chat hydrated after returning.").first(),
     ).toBeVisible();
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("project ai stops retrying hydration after terminal 404 failures", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1480, height: 920 });
+  await seedLocalStorage(page, {
+    overviewTab: "ProjectAIChat",
+    overviewVis: true,
+    overviewWidth: 1100,
+    overviewTrueWidth: 1100,
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  const terminalChatId = "pw-hydration-terminal-404";
+  let terminalHydrateCalls = 0;
+
+  await page.route("**/api/getAgentRuns", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "run-terminal-404",
+          profileId: null,
+          status: "completed",
+          startedAt: "2026-03-10T00:00:00Z",
+          finishedAt: "2026-03-10T00:00:01Z",
+          events: [],
+          inputs: {
+            runType: "external_agent",
+            projectConfigId: projectContext.projectConfigId,
+            chatId: terminalChatId,
+            engineConfigId: "engine-terminal-404",
+            messages: [
+              {
+                id: "terminal-user-1",
+                role: "user",
+                content: [{ type: "text", text: "Hydrate missing chat" }],
+                attachments: [],
+              },
+            ],
+          },
+          outputs: {
+            name: "Terminal hydration thread",
+            nameSource: "llm",
+          },
+          toolCalls: [],
+          cost: null,
+        },
+      ]),
+    });
+  });
+
+  await page.route("**/api/getExternalAgentChat", async (route) => {
+    const payload = route.request().postDataJSON() as
+      | { chatId?: string }
+      | undefined;
+    if (payload?.chatId === terminalChatId) {
+      terminalHydrateCalls += 1;
+    }
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Chat not found" }),
+    });
+  });
+
+  await page.route("**/api/getLLMChat", async (route) => {
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Chat not found" }),
+    });
+  });
+
+  try {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const overviewPane = page.locator("#OverviewPane");
+    const threadsPanel = overviewPane.getByTestId("project-chat-threads-panel");
+    await expect(threadsPanel).toBeVisible();
+
+    const threadEntry = threadsPanel
+      .getByTestId("project-chat-thread-entry")
+      .filter({ hasText: "Terminal hydration thread" })
+      .first();
+    await expect(threadEntry).toBeVisible();
+    allowExpectedApiError(page, {
+      path: "/api/getExternalAgentChat",
+      method: "POST",
+      statuses: [404],
+      count: 1,
+    });
+    await threadEntry.click();
+
+    await expect.poll(() => terminalHydrateCalls).toBe(1);
+    await page.waitForTimeout(3200);
+    expect(terminalHydrateCalls).toBe(1);
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

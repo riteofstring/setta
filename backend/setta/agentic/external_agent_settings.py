@@ -8,7 +8,10 @@ from typing import Any
 
 from setta.agentic.external_tool_allowlist import ExternalToolAllowlist
 from setta.database.db_objs import DBE
-from setta.mcp.codex_config import load_codex_mcp_server_payloads_from_config
+from setta.mcp.codex_config import (
+    load_codex_mcp_server_payloads_from_config,
+    resolve_raw_codex_mcp_servers,
+)
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.external_agents import (
     ClaudeSettingsManaged,
@@ -485,9 +488,9 @@ def _bootstrap_codex_mcp_servers_from_user_config(
     if config.settingsMode == ExternalAgentSettingsMode.explicit_path:
         return False
     if _get_codex_mcp_imported_at(payload):
-        payload["mcp_servers"] = _resolve_raw_codex_mcp_servers(payload)
+        payload["mcp_servers"] = _resolve_bootstrap_codex_mcp_servers(payload)
         return False
-    existing_servers = _resolve_raw_codex_mcp_servers(payload)
+    existing_servers = _resolve_bootstrap_codex_mcp_servers(payload)
     if not _has_non_setta_mcp_server(existing_servers):
         imported_servers = load_codex_mcp_server_payloads_from_config()
         for server_id, server_config in imported_servers.items():
@@ -511,27 +514,12 @@ def _get_codex_mcp_imported_at(payload: dict[str, Any]) -> str | None:
     return marker
 
 
-def _resolve_raw_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
-    merged: dict[str, Any] = {}
-    snake_case = payload.get("mcp_servers")
-    if isinstance(snake_case, dict):
-        for server_id, raw_entry in snake_case.items():
-            if not isinstance(server_id, str):
-                continue
-            if not isinstance(raw_entry, dict):
-                continue
-            merged[server_id] = deepcopy(raw_entry)
-    camel_case = payload.get("mcpServers")
-    if isinstance(camel_case, dict):
-        for server_id, raw_entry in camel_case.items():
-            if not isinstance(server_id, str):
-                continue
-            if not isinstance(raw_entry, dict):
-                continue
-            if server_id in merged:
-                continue
-            merged[server_id] = deepcopy(raw_entry)
-    return merged
+def _resolve_bootstrap_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        raw_servers = resolve_raw_codex_mcp_servers(payload)
+    except ValueError as exc:
+        raise ValueError(f"Invalid Codex MCP server config shape: {exc}") from exc
+    return deepcopy(raw_servers)
 
 
 def _has_non_setta_mcp_server(mcp_servers: dict[str, Any]) -> bool:

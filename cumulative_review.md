@@ -155,3 +155,30 @@
 - Frontend targeted Vitest set: 53 passed.
 - Playwright targeted checks (`chat-composer-controls.spec.ts`, context badge scenarios): 3 passed.
 - CDP visual verification: project chat composer renders `CONTEXT UNAVAILABLE` for missing telemetry.
+
+## 2026-02-25 22:45:31 PST
+
+### Consolidated Findings
+- Managed LLM API-key store corruption could break preflight/startup/watch flows and make repair difficult.
+- Codex MCP config loading and parsing still allowed ambiguous fallback/coercion paths under invalid config shapes.
+- External stop semantics and project-chat hydration retries could leave interruption state inconsistent and retry loops unbounded.
+- Context telemetry and composer submit contracts still had ambiguity when authoritative backend data/contracts were missing.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Added managed-key typed read status with explicit corruption reporting, made key writes canonical authoritative overwrites, and aligned frontend settings writes to full-key payloads.
+- Hardened Codex MCP loading/parsing with authoritative `CODEX_HOME` behavior, strict snake/camel table conflict handling, and strict nested args/env/encoding validation.
+- Reworked stop/hydration behavior to rely on confirmed backend cancellation outcomes, added typed hydration outcomes (`success`, `transient_failure`, `terminal_failure`), and bounded retries with capped exponential backoff.
+- Switched context usage resolution to persisted run payloads only and tightened `ChatInput` `onSubmit` to strict boolean semantics.
+
+### UX/DX Before -> After
+- Managed API key handling: corrupt store could cascade into unrelated failures -> corruption is isolated and explicitly actionable while repair/save remains available.
+- Codex MCP ingest: invalid or conflicting config shapes could degrade silently -> invalid shapes are rejected deterministically with explicit failure behavior.
+- Stop/hydration: interruption markers and retries could diverge from backend truth -> interruption state now follows confirmed stop outcomes and retry scheduling is bounded/terminal-aware.
+- Context/composer contract: UI could imply inferred telemetry and permissive submit behavior -> telemetry is authoritative-only and submit contract is explicit.
+
+### Verification
+- `pnpm gcf` (run from `frontend/`): completed successfully.
+- Frontend targeted Vitest set: 83 passed.
+- Backend targeted pytest set: 122 passed.
+- Playwright targeted checks (`project-ai-chat-hydration-provenance.spec.ts`): 4 passed.
+- CDP visual verification: Project AI chat pane and settings dialog rendered correctly with no console errors.

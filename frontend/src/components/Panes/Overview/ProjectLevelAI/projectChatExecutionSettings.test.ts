@@ -14,7 +14,10 @@ import {
   buildProjectChatHydrationCacheKey,
   buildProjectChatSubmittedMessageHistory,
   getDefaultProjectChatPermissionMode,
+  PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS,
   resolveProjectChatContextTelemetry,
+  resolveProjectChatHydrationRetryDecision,
+  resolveProjectChatHydrationRetryDelayMs,
   resolveProjectChatHydrationRunType,
   resolveProjectChatRuntimeActivityCounts,
   resolveWorkspaceRootPollDelayMs,
@@ -147,6 +150,77 @@ describe("shouldSkipProjectChatHydration", () => {
         hasLiveRetryTimer: false,
       }),
     ).toBe(false);
+  });
+
+  it("skips hydration permanently after terminal failures", () => {
+    expect(
+      shouldSkipProjectChatHydration({
+        status: "terminal_failure",
+        hasLiveRetryTimer: false,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("resolveProjectChatHydrationRetryDelayMs", () => {
+  it("uses exponential backoff from the base delay", () => {
+    expect(resolveProjectChatHydrationRetryDelayMs(1)).toBe(1000);
+    expect(resolveProjectChatHydrationRetryDelayMs(2)).toBe(2000);
+    expect(resolveProjectChatHydrationRetryDelayMs(3)).toBe(4000);
+  });
+
+  it("caps delay at the configured max", () => {
+    expect(resolveProjectChatHydrationRetryDelayMs(6)).toBe(30000);
+    expect(resolveProjectChatHydrationRetryDelayMs(10)).toBe(30000);
+  });
+});
+
+describe("resolveProjectChatHydrationRetryDecision", () => {
+  it("returns terminal failure for terminal outcomes", () => {
+    expect(
+      resolveProjectChatHydrationRetryDecision({
+        outcomeType: "terminal_failure",
+        attempt: 0,
+      }),
+    ).toEqual({
+      type: "terminal_failure",
+    });
+  });
+
+  it("schedules transient retries with incremented attempt metadata", () => {
+    expect(
+      resolveProjectChatHydrationRetryDecision({
+        outcomeType: "transient_failure",
+        attempt: 0,
+      }),
+    ).toEqual({
+      type: "transient_retry",
+      nextAttempt: 1,
+      delayMs: 1000,
+    });
+  });
+
+  it("stops retrying after the max-attempt guard", () => {
+    expect(
+      resolveProjectChatHydrationRetryDecision({
+        outcomeType: "transient_failure",
+        attempt: PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS,
+      }),
+    ).toEqual({
+      type: "transient_exhausted",
+      nextAttempt: PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS + 1,
+    });
+  });
+
+  it("returns success without retry metadata when hydration succeeds", () => {
+    expect(
+      resolveProjectChatHydrationRetryDecision({
+        outcomeType: "success",
+        attempt: 2,
+      }),
+    ).toEqual({
+      type: "success",
+    });
   });
 });
 

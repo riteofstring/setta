@@ -1,6 +1,7 @@
 import logging
 import os
 import tomllib
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -25,14 +26,26 @@ _SUPPORTED_FIELDS = {
 _SUPPORTED_ENCODING_ERROR_HANDLERS = {"strict", "ignore", "replace"}
 
 
+def resolve_codex_home_config_path() -> Path | None:
+    codex_home = os.environ.get("CODEX_HOME")
+    if not isinstance(codex_home, str):
+        return None
+    normalized_home = codex_home.strip()
+    if not normalized_home:
+        return None
+    return (Path(normalized_home).expanduser() / "config.toml").resolve(strict=False)
+
+
+def resolve_default_codex_config_path() -> Path:
+    return (Path.home() / ".codex" / "config.toml").resolve(strict=False)
+
+
 def iter_codex_config_paths() -> list[Path]:
     candidates: list[Path] = []
-    codex_home = os.environ.get("CODEX_HOME")
-    if isinstance(codex_home, str) and codex_home.strip():
-        candidates.append(
-            (Path(codex_home).expanduser() / "config.toml").resolve(strict=False)
-        )
-    candidates.append((Path.home() / ".codex" / "config.toml").resolve(strict=False))
+    codex_home_config_path = resolve_codex_home_config_path()
+    if codex_home_config_path is not None:
+        candidates.append(codex_home_config_path)
+    candidates.append(resolve_default_codex_config_path())
     unique_paths: list[Path] = []
     seen: set[Path] = set()
     for candidate in candidates:
@@ -43,39 +56,110 @@ def iter_codex_config_paths() -> list[Path]:
     return unique_paths
 
 
+def _resolve_raw_codex_mcp_servers_table(
+    payload: dict[str, Any],
+    *,
+    field_name: str,
+) -> dict[str, Any] | None:
+    if field_name not in payload:
+        return None
+    raw_servers = payload[field_name]
+    if not isinstance(raw_servers, dict):
+        raise ValueError(f"'{field_name}' must be an object")
+    return deepcopy(raw_servers)
+
+
 def resolve_raw_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
-    raw_servers = payload.get("mcp_servers")
-    if isinstance(raw_servers, dict):
-        return raw_servers
-    raw_servers = payload.get("mcpServers")
-    if isinstance(raw_servers, dict):
-        return raw_servers
-    return {}
+    snake_case_servers = _resolve_raw_codex_mcp_servers_table(
+        payload,
+        field_name="mcp_servers",
+    )
+    camel_case_servers = _resolve_raw_codex_mcp_servers_table(
+        payload,
+        field_name="mcpServers",
+    )
+    if snake_case_servers is None and camel_case_servers is None:
+        return {}
+    if snake_case_servers is not None and camel_case_servers is not None:
+        if snake_case_servers != camel_case_servers:
+            raise ValueError(
+                "Both 'mcp_servers' and 'mcpServers' are present with conflicting values"
+            )
+        return snake_case_servers
+    if snake_case_servers is not None:
+        return snake_case_servers
+    if camel_case_servers is None:
+        return {}
+    return camel_case_servers
 
 
 def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
+    codex_home_config_path = resolve_codex_home_config_path()
+    if codex_home_config_path is not None and codex_home_config_path.is_file():
+        loaded_from_codex_home = _load_codex_mcp_servers_from_path(
+            codex_home_config_path,
+            fail_closed=True,
+        )
+        if loaded_from_codex_home is None:
+            return {}
+        return loaded_from_codex_home
     for config_path in iter_codex_config_paths():
-        if not config_path.is_file():
+        if codex_home_config_path is not None and config_path == codex_home_config_path:
             continue
-        try:
-            raw_payload = config_path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        if not raw_payload.strip():
-            continue
-        try:
-            payload = tomllib.loads(raw_payload)
-        except tomllib.TOMLDecodeError:
-            continue
-        if not isinstance(payload, dict):
-            continue
-        raw_servers = resolve_raw_codex_mcp_servers(payload)
-        if not raw_servers:
-            continue
-        parsed = parse_codex_mcp_servers(raw_servers)
+        parsed = _load_codex_mcp_servers_from_path(config_path, fail_closed=False)
         if parsed:
             return parsed
     return {}
+
+
+def _load_codex_mcp_servers_from_path(
+    config_path: Path,
+    *,
+    fail_closed: bool,
+) -> dict[str, MCPServerConfig] | None:
+    if not config_path.is_file():
+        return None
+    try:
+        raw_payload = config_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        logger.warning(
+            "Failed to read Codex config at '%s': %s",
+            config_path,
+            exc,
+        )
+        return {} if fail_closed else None
+    if not raw_payload.strip():
+        return {} if fail_closed else None
+    try:
+        payload = tomllib.loads(raw_payload)
+    except tomllib.TOMLDecodeError as exc:
+        logger.warning(
+            "Failed to parse Codex config at '%s': %s",
+            config_path,
+            exc,
+        )
+        return {} if fail_closed else None
+    if not isinstance(payload, dict):
+        logger.warning(
+            "Skipping Codex config at '%s': root payload must be an object",
+            config_path,
+        )
+        return {} if fail_closed else None
+    try:
+        raw_servers = resolve_raw_codex_mcp_servers(payload)
+    except ValueError as exc:
+        logger.warning(
+            "Skipping Codex config at '%s': %s",
+            config_path,
+            exc,
+        )
+        return {} if fail_closed else None
+    if not raw_servers:
+        return {} if fail_closed else None
+    parsed = parse_codex_mcp_servers(raw_servers)
+    if parsed:
+        return parsed
+    return {} if fail_closed else None
 
 
 def load_codex_mcp_server_payloads_from_config() -> dict[str, dict[str, Any]]:
@@ -92,7 +176,9 @@ def parse_codex_mcp_servers(raw_servers: dict[str, Any]) -> dict[str, MCPServerC
         server_label = _format_server_label(raw_server_id)
         try:
             server_id = _validate_codex_server_id(raw_server_id)
-            server_config = _parse_codex_mcp_server_entry(raw_entry, server_id=server_id)
+            server_config = _parse_codex_mcp_server_entry(
+                raw_entry, server_id=server_id
+            )
         except ValueError as exc:
             logger.warning(
                 "Skipping Codex MCP server '%s': %s",
@@ -141,9 +227,7 @@ def _parse_codex_mcp_server_entry(
         elif url:
             resolved_transport = "streamable_http"
         else:
-            raise ValueError(
-                f"server '{server_id}' must declare either command or url"
-            )
+            raise ValueError(f"server '{server_id}' must declare either command or url")
 
     if resolved_transport == "stdio":
         if url is not None:
@@ -157,11 +241,14 @@ def _parse_codex_mcp_server_entry(
         return MCPServerConfig(
             transport="stdio",
             command=command,
-            args=_parse_args(raw_entry),
-            env=_parse_env(raw_entry),
+            args=_parse_args(raw_entry, server_id=server_id),
+            env=_parse_env(raw_entry, server_id=server_id),
             cwd=_normalize_nonempty_string(raw_entry.get("cwd")),
             encoding=_parse_encoding(raw_entry),
-            encoding_error_handler=_parse_encoding_error_handler(raw_entry),
+            encoding_error_handler=_parse_encoding_error_handler(
+                raw_entry,
+                server_id=server_id,
+            ),
         )
 
     if command is not None:
@@ -206,28 +293,48 @@ def _parse_http_headers(
     return normalized_headers
 
 
-def _parse_args(raw_entry: dict[str, Any]) -> list[str]:
+def _parse_args(raw_entry: dict[str, Any], *, server_id: str) -> list[str]:
     args: list[str] = []
     raw_args = raw_entry.get("args")
-    if isinstance(raw_args, list):
-        for item in raw_args:
-            if not isinstance(item, str):
-                continue
-            normalized_item = item.strip()
-            if normalized_item:
-                args.append(normalized_item)
+    if raw_args is None:
+        return args
+    if not isinstance(raw_args, list):
+        raise ValueError(f"server '{server_id}' args must be an array of strings")
+    for index, item in enumerate(raw_args):
+        if not isinstance(item, str):
+            raise ValueError(
+                f"server '{server_id}' has invalid args[{index}] value (expected string)"
+            )
+        normalized_item = item.strip()
+        if normalized_item:
+            args.append(normalized_item)
     return args
 
 
-def _parse_env(raw_entry: dict[str, Any]) -> dict[str, str] | None:
+def _parse_env(raw_entry: dict[str, Any], *, server_id: str) -> dict[str, str] | None:
     raw_env = raw_entry.get("env")
-    if not isinstance(raw_env, dict):
+    if raw_env is None:
         return None
-    normalized_env = {
-        key: value
-        for key, value in raw_env.items()
-        if isinstance(key, str) and isinstance(value, str)
-    }
+    if not isinstance(raw_env, dict):
+        raise ValueError(
+            f"server '{server_id}' env must be an object of string key/value pairs"
+        )
+    normalized_env: dict[str, str] = {}
+    for raw_env_key, raw_env_value in raw_env.items():
+        if not isinstance(raw_env_key, str):
+            raise ValueError(
+                f"server '{server_id}' has invalid env key {raw_env_key!r} "
+                "(expected string)"
+            )
+        if not isinstance(raw_env_value, str):
+            raise ValueError(
+                f"server '{server_id}' has invalid env.{raw_env_key} value "
+                "(expected string)"
+            )
+        normalized_key = raw_env_key.strip()
+        if not normalized_key:
+            raise ValueError(f"server '{server_id}' has an empty env key")
+        normalized_env[normalized_key] = raw_env_value
     if not normalized_env:
         return None
     return normalized_env
@@ -240,11 +347,23 @@ def _parse_encoding(raw_entry: dict[str, Any]) -> str:
     return encoding
 
 
-def _parse_encoding_error_handler(raw_entry: dict[str, Any]) -> str:
+def _parse_encoding_error_handler(raw_entry: dict[str, Any], *, server_id: str) -> str:
     raw_value = raw_entry.get("encoding_error_handler")
-    if isinstance(raw_value, str) and raw_value in _SUPPORTED_ENCODING_ERROR_HANDLERS:
-        return raw_value
-    return "strict"
+    if raw_value is None:
+        return "strict"
+    if not isinstance(raw_value, str):
+        raise ValueError(
+            f"server '{server_id}' encoding_error_handler must be a string"
+        )
+    normalized_value = raw_value.strip().lower()
+    if not normalized_value:
+        raise ValueError(f"server '{server_id}' encoding_error_handler cannot be empty")
+    if normalized_value not in _SUPPORTED_ENCODING_ERROR_HANDLERS:
+        raise ValueError(
+            f"server '{server_id}' has unsupported encoding_error_handler "
+            f"'{normalized_value}'"
+        )
+    return normalized_value
 
 
 def _normalize_nonempty_string(value: Any) -> str | None:

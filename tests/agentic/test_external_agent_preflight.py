@@ -15,7 +15,7 @@ from setta.agentic.external_agent_preflight import (
     build_external_agent_preflight_status,
 )
 from setta.database.db_objs import DBE
-from setta.llm.api_keys import write_managed_api_keys
+from setta.llm.api_keys import llm_api_keys_path, write_managed_api_keys
 from setta.plugins.models import PluginRegisteredExternalAgentAdapter
 from setta.types.external_agents import (
     ExternalAgentConfig,
@@ -106,6 +106,26 @@ class TestExternalAgentPreflight:
             finally:
                 _restore_env_var(key_present, previous_present)
                 _restore_env_var(key_missing, previous_missing)
+
+    def test_env_var_status_reports_corrupt_managed_api_key_store(self) -> None:
+        with _temp_cwd() as tmp:
+            dbe = DBE(tmp / "setta_files")
+            key_missing = "SETTA_TEST_ENV_MISSING"
+            dbe.write_json(llm_api_keys_path(dbe), [])
+            config = self._build_config(
+                run_mode=ExternalAgentRunMode.app_server,
+                command_path="definitely_not_a_codex_executable",
+                env_vars=[key_missing],
+            )
+
+            status = build_external_agent_preflight_status(dbe, config)
+
+            assert status.envVars.present == []
+            assert status.envVars.missing == [key_missing]
+            assert any(
+                "Managed LLM API key store is corrupt" in issue
+                for issue in status.issues
+            )
 
     def test_server_run_mode_marked_unsupported(self) -> None:
         with _temp_cwd() as tmp:
@@ -647,7 +667,7 @@ class TestExternalAgentPreflight:
                 )
                 preflight._store_preflight_cache(
                     config,
-                    status.envVars,
+                    preflight._EnvStatusResult(status=status.envVars),
                     status,
                     plugin_adapter_fingerprint=None,
                 )

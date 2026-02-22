@@ -36,14 +36,15 @@ import {
   clearPendingChatDetails,
   finalizePendingChatDetails,
   getDefaultChatDetails,
-  getExternalAgentChat,
-  getLLMChat,
+  getExternalAgentChatHydrationOutcome,
+  getLLMChatHydrationOutcome,
   initializePendingChatDetails,
   loadAgentRuns,
   stopProjectChatResponse,
   submitEditedMessage,
   submitMessage,
   transcribeChatAudioWithProfile,
+  type ChatHydrationOutcomeType,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
@@ -151,7 +152,64 @@ type ProjectChatHydrationRetryStatus =
   | "in_flight"
   | "succeeded"
   | "failed"
-  | "retry_scheduled";
+  | "retry_scheduled"
+  | "terminal_failure";
+
+const PROJECT_CHAT_HYDRATION_RETRY_BASE_DELAY_MS = 1000;
+const PROJECT_CHAT_HYDRATION_RETRY_MAX_DELAY_MS = 30000;
+export const PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS = 6;
+
+type ProjectChatHydrationRetryDecision =
+  | { type: "success" }
+  | { type: "terminal_failure" }
+  | {
+      type: "transient_retry";
+      nextAttempt: number;
+      delayMs: number;
+    }
+  | {
+      type: "transient_exhausted";
+      nextAttempt: number;
+    };
+
+export function resolveProjectChatHydrationRetryDelayMs(
+  attempt: number,
+): number {
+  const normalizedAttempt = Math.max(1, attempt);
+  const exponentialDelayMs =
+    PROJECT_CHAT_HYDRATION_RETRY_BASE_DELAY_MS * 2 ** (normalizedAttempt - 1);
+  return Math.min(
+    PROJECT_CHAT_HYDRATION_RETRY_MAX_DELAY_MS,
+    exponentialDelayMs,
+  );
+}
+
+export function resolveProjectChatHydrationRetryDecision({
+  outcomeType,
+  attempt,
+}: {
+  outcomeType: ChatHydrationOutcomeType;
+  attempt: number;
+}): ProjectChatHydrationRetryDecision {
+  if (outcomeType === "success") {
+    return { type: "success" };
+  }
+  if (outcomeType === "terminal_failure") {
+    return { type: "terminal_failure" };
+  }
+  const nextAttempt = attempt + 1;
+  if (nextAttempt > PROJECT_CHAT_HYDRATION_MAX_ATTEMPTS) {
+    return {
+      type: "transient_exhausted",
+      nextAttempt,
+    };
+  }
+  return {
+    type: "transient_retry",
+    nextAttempt,
+    delayMs: resolveProjectChatHydrationRetryDelayMs(nextAttempt),
+  };
+}
 
 export function shouldSkipProjectChatHydration(
   state: {
@@ -163,6 +221,9 @@ export function shouldSkipProjectChatHydration(
     return false;
   }
   if (state.status === "in_flight" || state.status === "succeeded") {
+    return true;
+  }
+  if (state.status === "terminal_failure") {
     return true;
   }
   return state.status === "retry_scheduled" && state.hasLiveRetryTimer;
@@ -1106,21 +1167,34 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           attempt: 0,
         });
       state.status = "in_flight";
-      const hydrated =
+      const hydrationOutcome =
         hydrationRunType === "external_agent"
-          ? await getExternalAgentChat(chatId, null)
-          : await getLLMChat(chatId);
+          ? await getExternalAgentChatHydrationOutcome(chatId, null)
+          : await getLLMChatHydrationOutcome(chatId);
       if (cancelled) {
         return;
       }
-      if (hydrated) {
+      const retryDecision = resolveProjectChatHydrationRetryDecision({
+        outcomeType: hydrationOutcome.outcome,
+        attempt: state.attempt,
+      });
+      if (retryDecision.type === "success") {
         state.status = "succeeded";
         clearHydrationRetryTimer(cacheKey);
         return;
       }
+      if (retryDecision.type === "terminal_failure") {
+        clearHydrationRetryTimer(cacheKey);
+        state.status = "terminal_failure";
+        return;
+      }
       clearHydrationRetryTimer(cacheKey);
+      state.attempt = retryDecision.nextAttempt;
+      if (retryDecision.type === "transient_exhausted") {
+        state.status = "failed";
+        return;
+      }
       state.status = "retry_scheduled";
-      state.attempt += 1;
       state.timerId = globalThis.setTimeout(() => {
         if (cancelled) {
           return;
@@ -1132,7 +1206,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         retryStateForKey.timerId = null;
         retryStateForKey.status = "failed";
         void hydrateChat();
-      }, 1000);
+      }, retryDecision.delayMs);
     };
     void hydrateChat();
     return () => {

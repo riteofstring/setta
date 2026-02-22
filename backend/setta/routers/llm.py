@@ -2,7 +2,6 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field
 
 from setta.llm.api_keys import (
-    apply_api_key_updates,
     read_managed_api_keys,
     write_managed_api_keys,
 )
@@ -58,9 +57,7 @@ async def route_set_llm_api_keys(
     await ctx.enforce_llm_allowed()
     ctx.require_ide_mode("Share mode does not allow updating LLM API keys.")
     try:
-        existing = read_managed_api_keys(ctx.state.dbe)
-        updated = apply_api_key_updates(existing, payload.apiKeys)
-        write_managed_api_keys(ctx.state.dbe, updated)
+        updated = write_managed_api_keys(ctx.state.dbe, payload.apiKeys)
         await ctx.state.wmh_frontend_sender.log_and_broadcast_backend_log_event(
             "Saved LLM API keys",
             severity=SettaBackendLogEventSeverity.info,

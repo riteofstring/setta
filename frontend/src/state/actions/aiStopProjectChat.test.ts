@@ -59,6 +59,7 @@ let useAIStore: typeof import("state/definitions").useAIStore;
 let useLocalStorage: typeof import("state/definitions").useLocalStorage;
 let stopProjectChatResponse: typeof import("state/actions/ai").stopProjectChatResponse;
 let stopManagedSectionChatResponse: typeof import("state/actions/ai").stopManagedSectionChatResponse;
+let getLLMChatHydrationOutcome: typeof import("state/actions/ai").getLLMChatHydrationOutcome;
 let getDefaultChatDetails: typeof import("state/actions/ai").getDefaultChatDetails;
 let receiveLLMResponseChunk: typeof import("state/actions/ai").receiveLLMResponseChunk;
 let memoryStorage: Storage;
@@ -90,6 +91,7 @@ describe("stopProjectChatResponse", () => {
     const ai = await import("state/actions/ai");
     stopProjectChatResponse = ai.stopProjectChatResponse;
     stopManagedSectionChatResponse = ai.stopManagedSectionChatResponse;
+    getLLMChatHydrationOutcome = ai.getLLMChatHydrationOutcome;
     getDefaultChatDetails = ai.getDefaultChatDetails;
     receiveLLMResponseChunk = ai.receiveLLMResponseChunk;
   });
@@ -111,6 +113,11 @@ describe("stopProjectChatResponse", () => {
       },
     });
     vi.clearAllMocks();
+    mockedRouteGetAgentRuns.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: [],
+    });
   });
 
   afterEach(() => {
@@ -561,6 +568,76 @@ describe("stopProjectChatResponse", () => {
     });
   });
 
+  it("does not keep interruption markers when external stop returns a non-cancelled run", async () => {
+    const chatId = "chat-stop-external-noop";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+          messages: [
+            createAssistantChatMessage({
+              id: "assistant-prior",
+              content: [createMessageTextContent({ text: "Prior response" })],
+            }),
+          ],
+        },
+      },
+      agentRunsInitialLoadComplete: true,
+      agentRuns: [
+        createAgentRun({
+          id: "run-external-noop",
+          status: AgentRunStatusEnum.running,
+          inputs: {
+            runType: "external_agent",
+            chatId,
+            projectConfigId: null,
+          },
+        }),
+      ],
+    });
+    receiveLLMResponseChunk({
+      chatId,
+      projectConfigId: "project-a",
+      chunk: {
+        type: StreamingEventTypeEnum.MESSAGE_START,
+        message: createAssistantChatMessage({
+          id: "assistant-current",
+          content: [createMessageTextContent({ text: "Streaming now" })],
+        }),
+      },
+    });
+    mockedRouteStopExternalAgentRun.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: createAgentRun({
+        id: "run-external-noop",
+        status: AgentRunStatusEnum.completed,
+      }),
+    });
+    mockedRouteGetExternalAgentChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        waitingForResponse: false,
+        toolCallArguments: {},
+      },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, true);
+
+    expect(stopped).toBe(true);
+    expect(mockedRouteGetExternalAgentChat).toHaveBeenCalledWith({
+      chatId,
+      projectConfigId: null,
+    });
+    expect(
+      useAIStore.getState().interruptedAssistantMessageIdsByChatId[chatId],
+    ).toBeUndefined();
+    expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
+  });
+
   it("refreshes runs and retries external stop when local run cache is stale", async () => {
     const chatId = "chat-stop-external-stale-refresh";
     useAIStore.setState({
@@ -591,7 +668,10 @@ describe("stopProjectChatResponse", () => {
     mockedRouteStopExternalAgentRun.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: null,
+      data: createAgentRun({
+        id: "run-refresh",
+        status: AgentRunStatusEnum.cancelled,
+      }),
     });
 
     const stopped = await stopProjectChatResponse(chatId, true);
@@ -778,6 +858,38 @@ describe("stopProjectChatResponse", () => {
     expect(details?.waitingForResponse).toBe(true);
     expect(details?.toolCallArguments).toEqual({
       "tool-call-3": '{"question":"proceed"}',
+    });
+  });
+
+  it("classifies 404 hydration failures as terminal outcomes", async () => {
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 404,
+      hasResponse: true,
+      data: { detail: "Chat not found" },
+    });
+
+    const outcome = await getLLMChatHydrationOutcome("chat-missing");
+
+    expect(outcome).toEqual({
+      outcome: "terminal_failure",
+      status: 404,
+      errorCode: null,
+    });
+  });
+
+  it("classifies 5xx hydration failures as transient outcomes", async () => {
+    mockedRouteGetLLMChat.mockResolvedValue({
+      status: 500,
+      hasResponse: true,
+      data: { detail: "Server error" },
+    });
+
+    const outcome = await getLLMChatHydrationOutcome("chat-transient-error");
+
+    expect(outcome).toEqual({
+      outcome: "transient_failure",
+      status: 500,
+      errorCode: null,
     });
   });
 });

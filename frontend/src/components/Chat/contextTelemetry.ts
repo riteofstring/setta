@@ -1,4 +1,4 @@
-export type ContextUsageTelemetrySource =
+type ContextUsageTelemetrySource =
   | {
       contextWindowTokens?: number | null;
       contextUsedTokens?: number | null;

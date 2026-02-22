@@ -1176,20 +1176,16 @@ function ManagedChatArea({
       lastChatIdRef.current = chatId;
     }
   }, [chatId]);
-  const {
-    messages,
-    toolCallArguments,
-    waitingForResponse,
-    contextUsage,
-  } = useAIStore((state) => {
-    if (chatId === null) {
-      return state.pendingChatDetails ?? getDefaultChatDetails();
-    }
-    if (typeof chatId !== "string") {
-      return getDefaultChatDetails();
-    }
-    return state.chatDetails[chatId] ?? getDefaultChatDetails();
-  }, shallow);
+  const { messages, toolCallArguments, waitingForResponse, contextUsage } =
+    useAIStore((state) => {
+      if (chatId === null) {
+        return state.pendingChatDetails ?? getDefaultChatDetails();
+      }
+      if (typeof chatId !== "string") {
+        return getDefaultChatDetails();
+      }
+      return state.chatDetails[chatId] ?? getDefaultChatDetails();
+    }, shallow);
   const branchIndex = useChatBranchIndex(typeof chatId === "string");
   const branchInfoByMessage = useMemo(() => {
     if (typeof chatId !== "string") {

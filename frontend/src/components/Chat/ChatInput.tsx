@@ -272,7 +272,7 @@ type ChatInputProps = {
   onSubmit: (
     message: string,
     attachments: ChatFileAttachment[],
-  ) => Promise<boolean | void> | boolean | void;
+  ) => Promise<boolean> | boolean;
   onStop?: () => Promise<void> | void;
   executionControls?: ChatExecutionControls;
   executionControlVisibility?: ChatExecutionControlVisibility;

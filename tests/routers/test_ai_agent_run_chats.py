@@ -514,24 +514,14 @@ class TestAgentRunChatRoutes:
 
             assert response.contextUsage is not None
             assert response.contextUsage.contextUsedTokens == 42
-            assert response.contextUsage.estimated is False
-            assert response.contextUsage.contextWindowTokens is not None
-            assert response.contextUsage.contextWindowTokens > 0
+            assert response.contextUsage.estimated is True
+            assert response.contextUsage.contextWindowTokens is None
 
     async def test_get_llm_chat_context_uses_run_metadata_not_live_config(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        captured: dict[str, str | None] = {"model": None, "provider": None}
-
-        def _capture_internal_context_usage(
-            _run: AgentRun,
-            *,
-            model: str | None,
-            provider: str | None = None,
-        ) -> ResolvedChatContextUsage:
-            captured["model"] = model
-            captured["provider"] = provider
+        def _capture_internal_context_usage(_run: AgentRun) -> ResolvedChatContextUsage:
             return ResolvedChatContextUsage(
                 context_window_tokens=123,
                 context_used_tokens=42,
@@ -595,7 +585,6 @@ class TestAgentRunChatRoutes:
 
             assert response.contextUsage is not None
             assert response.contextUsage.contextWindowTokens == 123
-            assert captured == {"model": "gpt-4o-mini", "provider": "openai"}
 
     async def test_external_engine_rejects_llm_chat_id(
         self,
@@ -2144,24 +2133,13 @@ class TestAgentRunChatRoutes:
                     ctx,
                 )
 
-            assert response.contextUsage is not None
-            assert response.contextUsage.estimated is False
-            assert response.contextUsage.contextUsedTokens is None
-            assert response.contextUsage.contextWindowTokens is not None
-            assert response.contextUsage.contextWindowTokens > 0
+            assert response.contextUsage is None
 
     async def test_get_external_agent_chat_context_uses_run_metadata_not_live_config(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        captured_models: list[str | None] = []
-
-        def _capture_external_context_usage(
-            _run: AgentRun,
-            *,
-            model: str | None,
-        ) -> ResolvedChatContextUsage:
-            captured_models.append(model)
+        def _capture_external_context_usage(_run: AgentRun) -> ResolvedChatContextUsage:
             return ResolvedChatContextUsage(
                 context_window_tokens=456,
                 context_used_tokens=99,
@@ -2232,7 +2210,6 @@ class TestAgentRunChatRoutes:
 
             assert response.contextUsage is not None
             assert response.contextUsage.contextWindowTokens == 456
-            assert captured_models == ["gpt-5-runtime-snapshot"]
 
     async def test_get_external_agent_chat_context_usage_from_usage_payload(
         self,
@@ -2295,8 +2272,9 @@ class TestAgentRunChatRoutes:
                 )
 
             assert response.contextUsage is not None
-            assert response.contextUsage.estimated is False
+            assert response.contextUsage.estimated is True
             assert response.contextUsage.contextUsedTokens == 99
+            assert response.contextUsage.contextWindowTokens is None
 
     async def test_get_external_agent_chat_missing_run(self) -> None:
         with TemporaryDirectory() as tmpdir:

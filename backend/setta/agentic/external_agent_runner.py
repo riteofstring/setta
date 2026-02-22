@@ -67,7 +67,7 @@ from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.database.db_objs import DBE
-from setta.llm.api_keys import read_managed_api_keys
+from setta.llm.api_keys import read_managed_api_keys_with_status
 from setta.llm.chat_toolkit.managed.ai_follow import (
     build_tool_call_follow_ids,
     canonicalize_ai_follow_ids_by_type,
@@ -1371,7 +1371,13 @@ class ExternalAgentRunner:
         if not allowed:
             return env
         dot_env = self.dbe.read_dot_env()
-        managed_api_keys = read_managed_api_keys(self.dbe)
+        managed_api_keys_result = read_managed_api_keys_with_status(self.dbe)
+        if managed_api_keys_result.corrupt:
+            logger.warning(
+                "Managed API key store is corrupt while building external agent env: %s",
+                managed_api_keys_result.error or "unknown parse error",
+            )
+        managed_api_keys = managed_api_keys_result.api_keys
         for key in allowed:
             if key in os.environ:
                 env[key] = os.environ[key]
