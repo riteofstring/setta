@@ -74,6 +74,64 @@ JSON
     assert "--open-mode chrome-app" in captured
 
 
+def test_install_macos_launcher_script_supports_optional_icns_icon(
+    tmp_path: Path,
+) -> None:
+    script_path = _repo_root() / "scripts" / "install_macos_launcher.sh"
+    app_path = tmp_path / "Applications" / "Setta.app"
+    args_capture_path = tmp_path / "setta-args.txt"
+    icon_path = tmp_path / "Setta.icns"
+    icon_path.write_text("icon", encoding="utf-8")
+
+    setta_stub = tmp_path / "bin" / "setta"
+    setta_stub.parent.mkdir(parents=True, exist_ok=True)
+    target_python = tmp_path / "tool-python"
+    target_python.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    target_python.chmod(0o755)
+    setta_stub.write_text(
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" >> "{args_capture_path}"
+cat <<'JSON'
+{{"ok":true,"targetCommand":["{target_python}","-m","setta"]}}
+JSON
+""",
+        encoding="utf-8",
+    )
+    setta_stub.chmod(0o755)
+
+    env = os.environ.copy()
+    env["HOME"] = str(tmp_path / "home")
+
+    result = subprocess.run(
+        [
+            "bash",
+            str(script_path),
+            "--setta-bin",
+            str(setta_stub),
+            "--app-path",
+            str(app_path),
+            "--icon-path",
+            str(icon_path),
+        ],
+        cwd=_repo_root(),
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+
+    installed_icon = app_path / "Contents" / "Resources" / "Setta.icns"
+    assert installed_icon.exists()
+    assert installed_icon.read_text(encoding="utf-8") == "icon"
+
+    info_plist = (app_path / "Contents" / "Info.plist").read_text(encoding="utf-8")
+    assert "<key>CFBundleIconFile</key>" in info_plist
+    assert "<string>Setta.icns</string>" in info_plist
+
+
 def test_uninstall_macos_launcher_script_removes_app_bundle(tmp_path: Path) -> None:
     script_path = _repo_root() / "scripts" / "uninstall_macos_launcher.sh"
     app_path = tmp_path / "Applications" / "Setta.app"

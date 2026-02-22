@@ -423,6 +423,7 @@ Desktop distribution defaults:
   - macOS app bundle: `./scripts/install_macos_launcher.sh` / `./scripts/uninstall_macos_launcher.sh`
   - Windows shortcuts: `./scripts/install_windows_launcher.ps1` / `./scripts/uninstall_windows_launcher.ps1`
   - Linux desktop entry: `./scripts/install_linux_launcher.sh` / `./scripts/uninstall_linux_launcher.sh`
+- macOS icon support: `./scripts/install_macos_launcher.sh --icon-path /path/to/Setta.icns`
 
 Advanced `pip install` path remains supported.
 When binding launcher metadata from a specific virtual environment, invoke

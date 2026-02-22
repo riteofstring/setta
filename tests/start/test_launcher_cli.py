@@ -204,6 +204,40 @@ def test_launcher_json_reports_missing_bound_target(
     assert payload["error"]["code"] == "LauncherTargetMissing"
 
 
+def test_launcher_json_reports_internal_error_for_unexpected_failures(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+
+    def fake_launch_workspace_session(**kwargs):
+        workspace = kwargs["workspace_root"]
+        return _fake_launch_result(
+            workspace_root=workspace,
+            setta_home=setta_home,
+        )
+
+    monkeypatch.setattr("setta.start.launch_workspace_session", fake_launch_workspace_session)
+    monkeypatch.setattr(
+        "setta.start.BOOTSTRAP_TOKEN_MANAGER.mint",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["launcher", "--json", "--workspace", str(workspace_root)],
+    )
+
+    assert result.exit_code == 1
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "InternalError"
+    assert payload["error"]["message"] == "Unexpected launcher failure. Check logs for details."
+
+
 def test_launcher_install_and_uninstall_roundtrip(tmp_path: Path) -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
     artifact_path = tmp_path / "Applications" / "Setta.app"

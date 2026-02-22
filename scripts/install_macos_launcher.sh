@@ -12,6 +12,7 @@ Options:
   --app-path PATH    App bundle destination (default: ~/Applications/Setta.app)
   --setta-bin PATH   Absolute or PATH-resolved Setta executable to bind.
                      Default: first "setta" on PATH
+  --icon-path PATH   Optional .icns file copied into Setta.app resources
   --open-mode MODE   Launcher default open mode: browser | chrome-app
                      Default: browser
   -h, --help         Show this help message.
@@ -39,6 +40,7 @@ PY
 
 app_path="${HOME}/Applications/Setta.app"
 setta_bin=""
+icon_path=""
 open_mode="browser"
 
 while [[ $# -gt 0 ]]; do
@@ -67,6 +69,19 @@ while [[ $# -gt 0 ]]; do
       ;;
     --setta-bin=*)
       setta_bin="${1#*=}"
+      shift
+      ;;
+    --icon-path)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --icon-path." >&2
+        usage
+        exit 1
+      fi
+      icon_path="$2"
+      shift 2
+      ;;
+    --icon-path=*)
+      icon_path="${1#*=}"
       shift
       ;;
     --open-mode)
@@ -119,6 +134,21 @@ app_macos_dir="${app_contents_dir}/MacOS"
 app_resources_dir="${app_contents_dir}/Resources"
 launcher_binary_path="${app_macos_dir}/setta-launcher"
 info_plist_path="${app_contents_dir}/Info.plist"
+icon_path_abs=""
+icon_file_name=""
+
+if [[ -n "${icon_path}" ]]; then
+  icon_path_abs="$(resolve_abs_path "${icon_path}")"
+  if [[ ! -f "${icon_path_abs}" ]]; then
+    echo "Icon file does not exist: ${icon_path_abs}" >&2
+    exit 1
+  fi
+  icon_file_name="$(basename "${icon_path_abs}")"
+  if [[ "${icon_file_name##*.}" != "icns" ]]; then
+    echo "--icon-path must point to a .icns file." >&2
+    exit 1
+  fi
+fi
 
 install_json="$(
   "${setta_bin_abs}" launcher install \
@@ -151,6 +181,11 @@ PY
 )"
 
 mkdir -p "${app_macos_dir}" "${app_resources_dir}"
+icon_plist_block=""
+if [[ -n "${icon_path_abs}" ]]; then
+  cp "${icon_path_abs}" "${app_resources_dir}/${icon_file_name}"
+  icon_plist_block=$'  <key>CFBundleIconFile</key>\n  <string>'"${icon_file_name}"'</string>'
+fi
 
 cat > "${launcher_binary_path}" <<EOF
 #!/usr/bin/env bash
@@ -196,7 +231,7 @@ exit \$?
 EOF
 chmod 755 "${launcher_binary_path}"
 
-cat > "${info_plist_path}" <<'EOF'
+cat > "${info_plist_path}" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -209,6 +244,7 @@ cat > "${info_plist_path}" <<'EOF'
   <string>dev.setta.desktop</string>
   <key>CFBundleName</key>
   <string>Setta</string>
+${icon_plist_block}
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
@@ -222,4 +258,7 @@ cat > "${info_plist_path}" <<'EOF'
 EOF
 
 echo "Installed macOS launcher: ${app_path_abs}"
+if [[ -n "${icon_path_abs}" ]]; then
+  echo "Installed macOS icon: ${app_resources_dir}/${icon_file_name}"
+fi
 echo "Launch with Finder, Launchpad, or Spotlight: Setta"

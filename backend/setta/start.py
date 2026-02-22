@@ -1770,24 +1770,8 @@ def launch(
     _emit_json_output(payload)
 
 
-@click.group(invoke_without_command=True)
-@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
-@click.option("-w", "--workspace", type=click.Path(path_type=Path))
-@click.option(
-    "--open-mode",
-    type=click.Choice(["browser", "chrome-app"], case_sensitive=False),
-    default=None,
-)
-@click.option("--no-open", is_flag=True, help="Skip opening browser or Chrome app")
-@click.option(
-    "--timeout",
-    type=float,
-    default=30.0,
-    show_default=True,
-    help="Seconds to wait for session startup.",
-)
-@click.pass_context
-def launcher(
+def _run_launcher_command(
+    *,
     ctx: click.Context,
     json_output: bool,
     workspace: Path | None,
@@ -1795,17 +1779,6 @@ def launcher(
     no_open: bool,
     timeout: float,
 ) -> None:
-    if ctx.invoked_subcommand is not None:
-        return
-
-    if timeout <= 0:
-        _emit_launcher_error_and_exit(
-            json_output=json_output,
-            code="BadRequest",
-            message="--timeout must be greater than 0.",
-            exit_code=2,
-        )
-
     ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
     group_workspace = ctx_obj.get("workspace")
     group_profile = ctx_obj.get("profile")
@@ -1991,6 +1964,61 @@ def launcher(
             click.echo("Workspace switcher will open after bootstrap.")
         return
     click.echo(f"Opened Setta ({actual_open_mode}) for workspace {result.paths.workspace_root}")
+
+
+@click.group(invoke_without_command=True)
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
+@click.option("-w", "--workspace", type=click.Path(path_type=Path))
+@click.option(
+    "--open-mode",
+    type=click.Choice(["browser", "chrome-app"], case_sensitive=False),
+    default=None,
+)
+@click.option("--no-open", is_flag=True, help="Skip opening browser or Chrome app")
+@click.option(
+    "--timeout",
+    type=float,
+    default=30.0,
+    show_default=True,
+    help="Seconds to wait for session startup.",
+)
+@click.pass_context
+def launcher(
+    ctx: click.Context,
+    json_output: bool,
+    workspace: Path | None,
+    open_mode: str | None,
+    no_open: bool,
+    timeout: float,
+) -> None:
+    if ctx.invoked_subcommand is not None:
+        return
+
+    if timeout <= 0:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code="BadRequest",
+            message="--timeout must be greater than 0.",
+            exit_code=2,
+        )
+
+    try:
+        _run_launcher_command(
+            ctx=ctx,
+            json_output=json_output,
+            workspace=workspace,
+            open_mode=open_mode,
+            no_open=no_open,
+            timeout=timeout,
+        )
+    except Exception:
+        logging.getLogger(__name__).exception("Unexpected launcher failure.")
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code="InternalError",
+            message="Unexpected launcher failure. Check logs for details.",
+            exit_code=1,
+        )
 
 
 @launcher.command(name="install")
