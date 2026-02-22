@@ -28,6 +28,7 @@ class LauncherInstallMetadata:
     openMode: LauncherOpenMode
     workspaceBehavior: LauncherWorkspaceBehavior
     lastUsedWorkspace: str | None
+    artifactOptions: dict[str, str]
     managedArtifacts: dict[str, str]
 
     def to_payload(self) -> dict[str, object]:
@@ -40,6 +41,7 @@ class LauncherInstallMetadata:
             "settaVersion": self.settaVersion,
             "openMode": self.openMode,
             "workspaceBehavior": self.workspaceBehavior,
+            "artifactOptions": self.artifactOptions,
             "managedArtifacts": self.managedArtifacts,
         }
         if self.lastUsedWorkspace is not None:
@@ -73,6 +75,7 @@ def build_launcher_install_metadata(
     open_mode: LauncherOpenMode,
     workspace_behavior: LauncherWorkspaceBehavior = LAUNCHER_WORKSPACE_BEHAVIOR,
     last_used_workspace: str | Path | None = None,
+    artifact_options: dict[str, str] | None = None,
     managed_artifacts: dict[str, str | Path] | None = None,
 ) -> LauncherInstallMetadata:
     normalized_command = _normalize_target_command(target_command)
@@ -85,6 +88,7 @@ def build_launcher_install_metadata(
     normalized_version = _normalize_required_string(setta_version, label="settaVersion")
     normalized_workspace_behavior = _normalize_workspace_behavior(workspace_behavior)
     normalized_last_used_workspace = _normalize_optional_workspace(last_used_workspace)
+    normalized_artifact_options = _normalize_artifact_options_map(artifact_options or {})
     normalized_artifacts = _normalize_managed_artifacts(managed_artifacts or {})
 
     return LauncherInstallMetadata(
@@ -97,6 +101,7 @@ def build_launcher_install_metadata(
         openMode=open_mode,
         workspaceBehavior=normalized_workspace_behavior,
         lastUsedWorkspace=normalized_last_used_workspace,
+        artifactOptions=normalized_artifact_options,
         managedArtifacts=normalized_artifacts,
     )
 
@@ -222,6 +227,9 @@ def _parse_launcher_metadata(
     managed_artifacts = _normalize_managed_artifacts(
         raw_payload.get("managedArtifacts")
     )
+    artifact_options = _normalize_artifact_options_map(
+        raw_payload.get("artifactOptions", {})
+    )
 
     return LauncherInstallMetadata(
         schemaVersion=LAUNCHER_METADATA_SCHEMA_VERSION,
@@ -233,6 +241,7 @@ def _parse_launcher_metadata(
         openMode=open_mode,
         workspaceBehavior=workspace_behavior,
         lastUsedWorkspace=last_used_workspace,
+        artifactOptions=artifact_options,
         managedArtifacts=managed_artifacts,
     )
 
@@ -339,4 +348,23 @@ def _normalize_managed_artifacts(raw_value: object) -> dict[str, str]:
         else:
             raise LauncherMetadataError("managedArtifacts values must be string paths.")
         normalized[name] = str(path_value.resolve(strict=False))
+    return normalized
+
+
+def _normalize_artifact_options_map(raw_value: object) -> dict[str, str]:
+    if not isinstance(raw_value, dict):
+        raise LauncherMetadataError("artifactOptions must be an object.")
+    normalized: dict[str, str] = {}
+    for raw_name, raw_option_value in raw_value.items():
+        if not isinstance(raw_name, str):
+            raise LauncherMetadataError("artifactOptions keys must be strings.")
+        option_name = raw_name.strip()
+        if not option_name:
+            raise LauncherMetadataError("artifactOptions keys must be non-empty.")
+        if not isinstance(raw_option_value, str):
+            raise LauncherMetadataError("artifactOptions values must be strings.")
+        option_value = raw_option_value.strip()
+        if not option_value:
+            raise LauncherMetadataError("artifactOptions values must be non-empty.")
+        normalized[option_name] = option_value
     return normalized

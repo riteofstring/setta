@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
-from fastapi import Body, Depends
+from fastapi import Body, Depends, Request
 from pydantic import BaseModel, Field
 
 from setta.auth.manager import BOOTSTRAP_TOKEN_MANAGER
@@ -29,6 +29,11 @@ from setta.routers.launcher_scope import resolve_launcher_setta_home
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_common import normalize_optional_argument
 from setta.types.routes import Route
+from setta.utils.launcher_origin_handoff import (
+    append_launcher_origin_handoff_to_bootstrap_url,
+    mint_launcher_origin_handoff_proof,
+    normalize_launcher_origin,
+)
 from setta.utils.network import build_bootstrap_urls
 
 router = SettaAPIRouter(
@@ -313,6 +318,7 @@ def route_list_launcher_directory(
 
 @router.post(Route.OPEN_LAUNCHER_WORKSPACE)
 def route_open_launcher_workspace(
+    request: Request,
     x: LauncherOpenWorkspaceRequest,
 ) -> LauncherOpenWorkspaceResponse:
     normalized_profile = normalize_optional_argument(x.profile)
@@ -429,6 +435,18 @@ def route_open_launcher_workspace(
         result.session.port,
         token,
     )
+    request_origin = normalize_launcher_origin(f"{request.url.scheme}://{request.url.netloc}")
+    if request_origin is not None:
+        launcher_origin_proof = mint_launcher_origin_handoff_proof(
+            session_id=result.session.id,
+            launcher_origin=request_origin,
+            secret=secret,
+        )
+        bootstrap_url_fragment = append_launcher_origin_handoff_to_bootstrap_url(
+            bootstrap_url_fragment=bootstrap_url_fragment,
+            launcher_origin=request_origin,
+            proof=launcher_origin_proof,
+        )
 
     return LauncherOpenWorkspaceResponse(
         ok=True,

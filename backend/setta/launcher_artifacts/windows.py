@@ -75,10 +75,6 @@ def install_windows_artifacts(*, context: LauncherArtifactContext) -> dict[str, 
     planned_artifacts = plan_windows_artifact_paths(context=context)
     wrapper_path = planned_artifacts["windowsWrapper"]
     start_menu_shortcut_path = planned_artifacts["windowsStartMenuShortcut"]
-    existing_desktop_shortcut = existing_artifact_path(
-        existing_managed_artifacts=context.existing_managed_artifacts,
-        key="windowsDesktopShortcut",
-    )
     create_desktop_shortcut = "windowsDesktopShortcut" in planned_artifacts
     desktop_shortcut_path = planned_artifacts.get("windowsDesktopShortcut")
 
@@ -100,8 +96,6 @@ def install_windows_artifacts(*, context: LauncherArtifactContext) -> dict[str, 
             target_path=wrapper_path,
         )
         artifacts["windowsDesktopShortcut"] = str(desktop_shortcut_path)
-    elif existing_desktop_shortcut is not None and existing_desktop_shortcut.exists():
-        existing_desktop_shortcut.unlink()
 
     return artifacts
 

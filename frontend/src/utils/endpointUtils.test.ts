@@ -25,46 +25,46 @@ describe("endpointUtils URL routing", () => {
     vi.unstubAllGlobals();
   });
 
-  it("routes settaHomeInfo via launcher origin", async () => {
+  it("routes settaHomeInfo via backend origin", async () => {
     await get(RouteEnum.GET_SETTA_HOME_INFO);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_SETTA_HOME_INFO}`,
+      `${C_ADDRESSES.BACKEND}${RouteEnum.GET_SETTA_HOME_INFO}`,
     );
   });
 
-  it("routes revealPathInOsFileExplorer via launcher origin", async () => {
+  it("routes revealPathInOsFileExplorer via backend origin", async () => {
     await post(RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER, {
       path: "/tmp/example",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER}`,
+      `${C_ADDRESSES.BACKEND}${RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER}`,
     );
   });
 
-  it("routes launcherStatus via launcher origin", async () => {
+  it("routes launcherStatus via backend origin", async () => {
     await get(RouteEnum.GET_LAUNCHER_STATUS);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_STATUS}`,
+      `${C_ADDRESSES.BACKEND}${RouteEnum.GET_LAUNCHER_STATUS}`,
     );
   });
 
-  it("routes launcher repair/update/remove via launcher origin", async () => {
+  it("routes launcher repair/update/remove via backend origin", async () => {
     await post(RouteEnum.REPAIR_LAUNCHER, {});
     await post(RouteEnum.UPDATE_LAUNCHER, { packageSpec: "setta" });
     await post(RouteEnum.REMOVE_LAUNCHER, {});
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.REPAIR_LAUNCHER}`,
+      `${C_ADDRESSES.BACKEND}${RouteEnum.REPAIR_LAUNCHER}`,
     );
     expect(fetchMock.mock.calls[1]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.UPDATE_LAUNCHER}`,
+      `${C_ADDRESSES.BACKEND}${RouteEnum.UPDATE_LAUNCHER}`,
     );
     expect(fetchMock.mock.calls[2]?.[0]).toBe(
-      `${C_ADDRESSES.LAUNCHER}${RouteEnum.REMOVE_LAUNCHER}`,
+      `${C_ADDRESSES.BACKEND}${RouteEnum.REMOVE_LAUNCHER}`,
     );
   });
 
@@ -96,6 +96,15 @@ describe("endpointUtils URL routing", () => {
     );
   });
 
+  it("routes launch endpoint via launcher origin", async () => {
+    await post(RouteEnum.LAUNCH, { workspaceRoot: "/tmp/workspace" });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.LAUNCH}`,
+    );
+  });
+
   it("serializes launcher recent-workspaces query params", async () => {
     // The launcher recent-workspaces endpoint accepts `setta_home` as a query param.
     await get(RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES, {
@@ -108,7 +117,7 @@ describe("endpointUtils URL routing", () => {
     );
   });
 
-  it("keeps launcher-origin routing for query-bearing launcher routes", async () => {
+  it("keeps backend routing for query-bearing launcher status route", async () => {
     vi.spyOn(C_ADDRESSES, "BACKEND", "get").mockReturnValue(
       "http://backend.example/api",
     );
@@ -125,7 +134,7 @@ describe("endpointUtils URL routing", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      "http://launcher.example/api/launcherStatus?setta_home=%2Ftmp%2Fscoped-home",
+      "http://backend.example/api/launcherStatus?setta_home=%2Ftmp%2Fscoped-home",
     );
   });
 

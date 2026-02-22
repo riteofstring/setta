@@ -79,6 +79,10 @@ from setta.utils.network import (
     format_host_for_ssh_tunnel,
     format_host_for_url,
 )
+from setta.utils.launcher_origin_handoff import (
+    mint_launcher_origin_handoff_proof,
+    normalize_launcher_origin,
+)
 from setta.utils.paths import (
     SettaFilesLocation,
     clear_setta_paths_cache,
@@ -772,29 +776,6 @@ def _emit_launcher_error_and_exit(
                 err=True,
             )
     raise SystemExit(exit_code)
-
-
-def _parse_launcher_managed_artifact_specs(
-    specs: tuple[str, ...],
-) -> dict[str, Path]:
-    parsed: dict[str, Path] = {}
-    for raw_spec in specs:
-        spec = raw_spec.strip()
-        if not spec:
-            raise click.ClickException("Managed artifact entries must be non-empty.")
-        if _LAUNCHER_METADATA_ARTIFACT_NAME_SEPARATOR not in spec:
-            raise click.ClickException(
-                "Managed artifact entries must use NAME=PATH format."
-            )
-        name, raw_path = spec.split(_LAUNCHER_METADATA_ARTIFACT_NAME_SEPARATOR, 1)
-        trimmed_name = name.strip()
-        if not trimmed_name:
-            raise click.ClickException("Managed artifact names must be non-empty.")
-        trimmed_path = raw_path.strip()
-        if not trimmed_path:
-            raise click.ClickException("Managed artifact paths must be non-empty.")
-        parsed[trimmed_name] = Path(trimmed_path).expanduser().resolve(strict=False)
-    return parsed
 
 
 def _parse_launcher_artifact_option_specs(
@@ -2078,20 +2059,8 @@ def _run_launcher_setup_subcommand(
     workspace_behavior: str | None,
     install_artifacts: bool,
     artifact_option_specs: tuple[str, ...],
-    managed_artifact_specs: tuple[str, ...],
 ) -> None:
     launcher_setta_home = _resolve_launcher_setta_home_from_context(ctx)
-    try:
-        parsed_artifacts = _parse_launcher_managed_artifact_specs(
-            managed_artifact_specs
-        )
-    except click.ClickException as exc:
-        _emit_launcher_error_and_exit(
-            json_output=json_output,
-            code="BadRequest",
-            message=str(exc),
-            exit_code=2,
-        )
 
     try:
         parsed_artifact_options = _parse_launcher_artifact_option_specs(
@@ -2127,7 +2096,6 @@ def _run_launcher_setup_subcommand(
             workspace_behavior=parsed_workspace_behavior,
             install_artifacts=install_artifacts,
             artifact_options=parsed_artifact_options,
-            managed_artifacts=parsed_artifacts,
         )
     except LauncherSetupError as exc:
         _emit_launcher_error_and_exit(
@@ -2191,12 +2159,6 @@ def _run_launcher_remove_subcommand(
     ),
 )
 @click.option(
-    "--managed-artifact",
-    "managed_artifact_specs",
-    multiple=True,
-    help="Artifact to manage, as NAME=PATH.",
-)
-@click.option(
     "--artifact-option",
     "artifact_option_specs",
     multiple=True,
@@ -2220,7 +2182,6 @@ def launcher_setup(
     workspace_behavior: str | None,
     artifact_option_specs: tuple[str, ...],
     no_install_artifacts: bool,
-    managed_artifact_specs: tuple[str, ...],
 ) -> None:
     _run_launcher_setup_subcommand(
         ctx=ctx,
@@ -2230,7 +2191,6 @@ def launcher_setup(
         workspace_behavior=workspace_behavior,
         install_artifacts=not no_install_artifacts,
         artifact_option_specs=artifact_option_specs,
-        managed_artifact_specs=managed_artifact_specs,
     )
 
 
@@ -2462,6 +2422,11 @@ def app(
 @click.option("-w", "--workspace", type=click.Path(path_type=Path))
 @click.option("--session", "session_id", default=None)
 @click.option("--latest", is_flag=True)
+@click.option(
+    "--launcher-origin",
+    default=None,
+    help="Optional launcher origin to bind and sign in connect-info JSON output.",
+)
 @click.pass_context
 def status(
     ctx: click.Context,
@@ -2472,6 +2437,7 @@ def status(
     workspace: Path | None,
     session_id: str | None,
     latest: bool,
+    launcher_origin: str | None,
 ) -> None:
     if session_id and latest:
         raise click.ClickException("Use either --session or --latest, not both.")
@@ -2558,6 +2524,20 @@ def status(
     bootstrap_url_fragment, bootstrap_url_plain = build_bootstrap_urls(
         session.host, session.port, token
     )
+    normalized_launcher_origin: str | None = None
+    if launcher_origin is not None:
+        normalized_launcher_origin = normalize_launcher_origin(launcher_origin)
+        if normalized_launcher_origin is None:
+            raise click.ClickException(
+                "--launcher-origin must be an absolute http(s) origin."
+            )
+    launcher_origin_proof: str | None = None
+    if normalized_launcher_origin is not None:
+        launcher_origin_proof = mint_launcher_origin_handoff_proof(
+            session_id=session.id,
+            launcher_origin=normalized_launcher_origin,
+            secret=secret,
+        )
     ssh_tunnel_command = _build_ssh_tunnel_command(session.host, session.port)
 
     if json_output:
@@ -2567,6 +2547,9 @@ def status(
             "bootstrapUrlPlain": bootstrap_url_plain,
             "sshTunnelCommand": ssh_tunnel_command,
         }
+        if normalized_launcher_origin is not None and launcher_origin_proof is not None:
+            payload["launcherOrigin"] = normalized_launcher_origin
+            payload["launcherOriginProof"] = launcher_origin_proof
         payload.update(_session_connect_info_paths_payload(session))
         _emit_connect_info_json(payload)
         return

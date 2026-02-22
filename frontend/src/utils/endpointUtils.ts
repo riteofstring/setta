@@ -45,13 +45,6 @@ export function getErrorDetail(value: unknown): string | null {
 
 const LAUNCHER_ROUTES = new Set<string>([
   RouteEnum.LAUNCH,
-  RouteEnum.GET_SETTA_HOME_INFO,
-  RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER,
-  RouteEnum.GET_LAUNCHER_STATUS,
-  RouteEnum.SETUP_LAUNCHER,
-  RouteEnum.REPAIR_LAUNCHER,
-  RouteEnum.REMOVE_LAUNCHER,
-  RouteEnum.UPDATE_LAUNCHER,
   RouteEnum.GET_LAUNCHER_APP_MODE,
   RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES,
   RouteEnum.ADD_LAUNCHER_RECENT_WORKSPACE,

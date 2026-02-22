@@ -199,6 +199,11 @@ def test_launch_reuses_existing_session(tmp_path: Path, monkeypatch) -> None:
         host="127.0.0.1",
         port=port,
         pid=os.getpid(),
+        setta_files_location="local",
+        setta_files_root=str(setta_files_root.resolve(strict=False)),
+        runtime_root=str((setta_files_root / "runtime").resolve(strict=False)),
+        setta_home=str(Path(os.environ["SETTA_HOME"]).resolve(strict=False)),
+        profile=None,
     )
 
     runner = CliRunner()
@@ -252,11 +257,17 @@ def test_launch_workspace_session_does_not_reuse_opposite_mode_session(
     port = existing_socket.getsockname()[1]
 
     registry = SessionRegistry(sessions_root=sessions_root)
+    setta_files_root = workspace / "setta_files"
     registry.create_session(
         workspace_path=workspace,
         host="127.0.0.1",
         port=port,
         pid=os.getpid(),
+        setta_files_location="local",
+        setta_files_root=str(setta_files_root.resolve(strict=False)),
+        runtime_root=str((setta_files_root / "runtime").resolve(strict=False)),
+        setta_home=str(Path(os.environ["SETTA_HOME"]).resolve(strict=False)),
+        profile=None,
         server_mode=existing_mode,
     )
 
@@ -278,6 +289,92 @@ def test_launch_workspace_session_does_not_reuse_opposite_mode_session(
         existing_socket.close()
 
     # If mode filtering regresses, this call incorrectly reuses the opposite mode.
+    assert excinfo.value.code == "LaunchFailed"
+
+
+@pytest.mark.parametrize(
+    "identity_mismatch_key",
+    [
+        "setta_home",
+        "profile",
+        "setta_files_root",
+        "setta_files_location",
+        "runtime_root",
+    ],
+)
+def test_launch_workspace_session_rejects_session_reuse_on_identity_mismatch(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    identity_mismatch_key: str,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    setta_files_root = workspace / "setta_files"
+    runtime_root = setta_files_root / "runtime"
+    sessions_root = runtime_root / "sessions"
+    sessions_root.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
+
+    existing_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    existing_socket.bind(("127.0.0.1", 0))
+    existing_socket.listen(1)
+    port = existing_socket.getsockname()[1]
+
+    existing_setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    existing_profile: str | None = None
+    existing_setta_files_root = setta_files_root.resolve(strict=False)
+    existing_setta_files_location: str | None = "local"
+    existing_runtime_root = runtime_root.resolve(strict=False)
+
+    if identity_mismatch_key == "setta_home":
+        existing_setta_home = (tmp_path / ".setta-alt").resolve(strict=False)
+    elif identity_mismatch_key == "profile":
+        existing_profile = "dev"
+    elif identity_mismatch_key == "setta_files_root":
+        existing_setta_files_root = (tmp_path / "other-setta-files").resolve(
+            strict=False
+        )
+    elif identity_mismatch_key == "setta_files_location":
+        existing_setta_files_location = "global"
+    elif identity_mismatch_key == "runtime_root":
+        existing_runtime_root = (tmp_path / "other-runtime").resolve(strict=False)
+    else:  # pragma: no cover
+        raise AssertionError(
+            f"Unexpected identity mismatch key: {identity_mismatch_key}"
+        )
+
+    registry = SessionRegistry(sessions_root=sessions_root)
+    registry.create_session(
+        workspace_path=workspace,
+        host="127.0.0.1",
+        port=port,
+        pid=os.getpid(),
+        setta_files_location=existing_setta_files_location,
+        setta_files_root=str(existing_setta_files_root),
+        runtime_root=str(existing_runtime_root),
+        setta_home=str(existing_setta_home),
+        profile=existing_profile,
+        server_mode="ide",
+    )
+
+    def fail_spawn(*_args, **_kwargs):
+        raise OSError("boom")
+
+    monkeypatch.setattr(subprocess, "Popen", fail_spawn)
+
+    try:
+        with pytest.raises(LaunchError) as excinfo:
+            launch_workspace_session(
+                workspace_root=workspace,
+                setta_files_location="local",
+                server_mode="ide",
+                timeout_seconds=1.0,
+                poll_interval_seconds=0.1,
+            )
+    finally:
+        existing_socket.close()
+
     assert excinfo.value.code == "LaunchFailed"
 
 
@@ -312,6 +409,11 @@ def test_launch_reuses_existing_session_with_global_state(
         host="127.0.0.1",
         port=port,
         pid=os.getpid(),
+        setta_files_location="global",
+        setta_files_root=str(global_root),
+        runtime_root=str((global_root / "runtime").resolve(strict=False)),
+        setta_home=str(setta_home),
+        profile=None,
     )
 
     runner = CliRunner()
@@ -744,6 +846,11 @@ def test_launch_reuses_existing_session_with_global_location_options(
         host="127.0.0.1",
         port=port,
         pid=os.getpid(),
+        setta_files_location="global",
+        setta_files_root=str(global_root),
+        runtime_root=str((global_root / "runtime").resolve(strict=False)),
+        setta_home=str(setta_home),
+        profile=None,
     )
 
     runner = CliRunner()
@@ -874,6 +981,11 @@ def test_launch_reuses_existing_session_with_explicit_setta_files_root(
         host="127.0.0.1",
         port=port,
         pid=os.getpid(),
+        setta_files_location=None,
+        setta_files_root=str(explicit_root.resolve(strict=False)),
+        runtime_root=str((explicit_root / "runtime").resolve(strict=False)),
+        setta_home=str(Path(os.environ["SETTA_HOME"]).resolve(strict=False)),
+        profile=None,
     )
 
     runner = CliRunner()

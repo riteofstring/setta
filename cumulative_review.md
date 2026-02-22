@@ -31,3 +31,12 @@
 - Removed duplicated launcher `setta_home` fallback logic by introducing shared backend scope resolution (`resolve_launcher_setta_home`) and wiring it through launcher-home plus launcher management/status routes.
 - Simplified launcher-home bootstrap by deleting the redundant `launcherAppMode` probe call and relying on global server-mode routing with direct launcher API initialization.
 - Updated backend and frontend regression coverage to lock the new contracts (launcher-only access, blank `setta_home` defaulting, and launcher-home e2e flows without the mode probe route).
+
+## 2026-02-25 17:19:57 PST
+
+- Hardened launch-session reuse by enforcing full runtime identity matching (`settaHome`, `profile`, `settaFilesLocation`/`settaFilesRoot`, `runtimeRoot`) for both reuse and post-spawn session discovery.
+- Reworked launcher setup into marker-verified, safer artifact reconciliation with cleanup on metadata-write failures, and persisted canonical `artifactOptions` so setup/repair/update replay platform customization deterministically.
+- Removed unsupported manual managed-artifact setup surface from backend request models, CLI options, and docs instead of preserving compatibility for rejected paths.
+- Added signed launcher-origin handoff (`lo` + `lop`) across launch and launcher-home bootstrap flows, validated server-side during bootstrap consume, and restricted frontend launcher-origin persistence to `sessionStorage`.
+- Tightened frontend endpoint-origin resolution by routing launcher-management/status/home-info/reveal-path traffic to backend origin while keeping launcher-home-specific endpoints plus `/launch` on launcher origin.
+- Expanded automated coverage with new and updated backend pytest, frontend Vitest, and Playwright tests for identity reuse, artifact lifecycle safety, launcher-origin proof validation, and routing/storage behavior; targeted suites passed.

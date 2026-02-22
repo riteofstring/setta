@@ -83,6 +83,9 @@ export function buildSetupLauncherRequest(
   if (workspaceBehavior) {
     request.workspaceBehavior = workspaceBehavior;
   }
+  if (launcherStatus.artifactOptions) {
+    request.artifactOptions = { ...launcherStatus.artifactOptions };
+  }
   return request;
 }
 

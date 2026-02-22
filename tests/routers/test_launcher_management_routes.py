@@ -102,7 +102,7 @@ def test_setup_and_remove_launcher_routes_roundtrip() -> None:
         assert remove_payload["installed"] is False
 
 
-def test_setup_launcher_route_rejects_manual_managed_artifacts(
+def test_setup_launcher_route_rejects_unknown_managed_artifacts_field(
     tmp_path: Path,
 ) -> None:
     app = _build_app()
@@ -118,10 +118,7 @@ def test_setup_launcher_route_rejects_manual_managed_artifacts(
             },
         )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["ok"] is False
-    assert payload["error"]["code"] == "BadRequest"
+    assert response.status_code == 422
 
 
 def test_setup_launcher_route_preserves_existing_identity_when_fields_omitted(
@@ -141,6 +138,7 @@ def test_setup_launcher_route_preserves_existing_identity_when_fields_omitted(
         setta_version="1.2.3",
         open_mode="browser",
         workspace_behavior="always_prompt",
+        artifact_options={"app_name": "Setta Custom"},
     )
     write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
 
@@ -159,6 +157,7 @@ def test_setup_launcher_route_preserves_existing_identity_when_fields_omitted(
     assert payload["channel"] == "uv-tool"
     assert payload["openMode"] == "browser"
     assert payload["workspaceBehavior"] == "always_prompt"
+    assert payload["artifactOptions"] == {"app_name": "Setta Custom"}
     assert payload["updateCapability"] == "in_app"
 
 

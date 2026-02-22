@@ -11490,6 +11490,7 @@ const LauncherStatusResponseSchema = z.object({
     .union([z.literal(["last_used_or_prompt", "always_prompt"]), z.null()])
     .default(null),
   lastUsedWorkspace: z.union([z.string(), z.null()]).default(null),
+  artifactOptions: z.record(z.string(), z.string()).default({}),
   managedArtifacts: z.record(z.string(), z.string()).default({}),
   existingManagedArtifacts: z.array(z.string()).default(() => []),
   missingManagedArtifacts: z.array(z.string()).default(() => []),
@@ -11531,6 +11532,7 @@ const LauncherUpdateResponseSchema = z.object({
     .union([z.literal(["last_used_or_prompt", "always_prompt"]), z.null()])
     .default(null),
   lastUsedWorkspace: z.union([z.string(), z.null()]).default(null),
+  artifactOptions: z.record(z.string(), z.string()).default({}),
   managedArtifacts: z.record(z.string(), z.string()).default({}),
   existingManagedArtifacts: z.array(z.string()).default(() => []),
   missingManagedArtifacts: z.array(z.string()).default(() => []),
@@ -11577,7 +11579,6 @@ const SetupLauncherRequestSchema = z.object({
     .default(null),
   installArtifacts: z.boolean().default(true),
   artifactOptions: z.record(z.string(), z.string()).default({}),
-  managedArtifacts: z.record(z.string(), z.string()).default({}),
 });
 
 export type SetupLauncherRequestInput = z.input<

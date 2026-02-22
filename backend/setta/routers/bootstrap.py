@@ -14,6 +14,10 @@ from setta.routers.dependencies import require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
+from setta.utils.launcher_origin_handoff import (
+    validate_launcher_origin_handoff_proof,
+    normalize_launcher_origin,
+)
 from setta.utils.network import format_host_for_url
 
 router = SettaAPIRouter(dependencies=[Depends(require_ide_mode)])
@@ -333,101 +337,90 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
         function setError(message) {
           errorEl.textContent = message || "";
         }
+        let hashParams;
+        try {
+          const hash = window.location.hash.startsWith("#")
+            ? window.location.hash.slice(1)
+            : window.location.hash;
+          hashParams = new URLSearchParams(hash || "");
+        } catch {
+          hashParams = new URLSearchParams();
+        }
 
-	        function isLocalHostname(hostname) {
-	          const normalized = String(hostname || "").trim().toLowerCase();
-	          return (
-	            normalized === "localhost" ||
-	            normalized === "127.0.0.1" ||
-	            normalized === "::1"
-	          );
-	        }
+        function hydrateWorkspaceHistoryFromHash() {
+          try {
+            const encoded = hashParams.get("wh");
+            if (!encoded) {
+              return;
+            }
+            const trimmed = encoded.trim();
+            if (!trimmed || trimmed.length > maxHandoffLength) {
+              return;
+            }
+            localStorage.setItem(workspaceHistoryHandoffKey, trimmed);
+          } catch {
+            /* ignore */
+          }
+        }
 
-	        function isAllowedLauncherOrigin(url) {
-	          if (!url || !url.hostname) {
-	            return false;
-	          }
-	          if (
-	            url.protocol !== "http:" &&
-	            url.protocol !== "https:"
-	          ) {
-	            return false;
-	          }
-	          const currentHostname = String(window.location.hostname || "")
-	            .trim()
-	            .toLowerCase();
-	          const nextHostname = String(url.hostname || "").trim().toLowerCase();
-	          if (!currentHostname || !nextHostname) {
-	            return false;
-	          }
-	          if (currentHostname === nextHostname) {
-	            return true;
-	          }
-	          return isLocalHostname(currentHostname) && isLocalHostname(nextHostname);
-	        }
+        function readLauncherOriginHandoffFromHash() {
+          try {
+            const rawOrigin = hashParams.get("lo");
+            const rawProof = hashParams.get("lop");
+            if (!rawOrigin || !rawProof) {
+              return null;
+            }
+            const normalizedOrigin = rawOrigin.trim();
+            const normalizedProof = rawProof.trim();
+            if (
+              !normalizedOrigin ||
+              !normalizedProof ||
+              normalizedOrigin.length > maxHandoffLength ||
+              normalizedProof.length > maxHandoffLength
+            ) {
+              return null;
+            }
+            return {
+              origin: normalizedOrigin,
+              proof: normalizedProof,
+            };
+          } catch {
+            return null;
+          }
+        }
 
-	        let hashParams;
-	        try {
-	          const hash = window.location.hash.startsWith("#")
-	            ? window.location.hash.slice(1)
-	            : window.location.hash;
-	          hashParams = new URLSearchParams(hash || "");
-	        } catch {
-	          hashParams = new URLSearchParams();
-	        }
+        function persistLauncherOrigin(launcherOrigin) {
+          try {
+            if (typeof launcherOrigin !== "string") {
+              launcherOriginStorage.removeItem(launcherOriginKey);
+              return;
+            }
+            const trimmed = launcherOrigin.trim();
+            if (!trimmed || trimmed.length > maxHandoffLength) {
+              launcherOriginStorage.removeItem(launcherOriginKey);
+              return;
+            }
+            launcherOriginStorage.setItem(launcherOriginKey, trimmed);
+          } catch {
+            /* ignore */
+          }
+        }
 
-	        function hydrateWorkspaceHistoryFromHash() {
-	          try {
-	            const encoded = hashParams.get("wh");
-	            if (!encoded) {
-	              return;
-	            }
-	            const trimmed = encoded.trim();
-	            if (!trimmed || trimmed.length > maxHandoffLength) {
-	              return;
-	            }
-	            localStorage.setItem(workspaceHistoryHandoffKey, trimmed);
-	          } catch {
-	            /* ignore */
-	          }
-	        }
-
-	        function hydrateLauncherOriginFromHash() {
-	          try {
-	            const raw = hashParams.get("lo");
-	            if (!raw) {
-	              return;
-	            }
-	            const trimmed = raw.trim();
-	            if (!trimmed || trimmed.length > maxHandoffLength) {
-	              return;
-		            }
-		            const url = new URL(trimmed);
-		            if (isAllowedLauncherOrigin(url)) {
-		              launcherOriginStorage.setItem(launcherOriginKey, url.origin);
-		            } else {
-		              launcherOriginStorage.removeItem(launcherOriginKey);
-		            }
-		          } catch {
-		            /* ignore */
-		          }
-		        }
-
-	        function hydrateOpenWorkspaceSwitcherFromHash() {
-	          try {
-	            const raw = hashParams.get("osw");
-	            if (!raw) {
-	              return;
-	            }
-	            const normalized = raw.trim().toLowerCase();
-	            if (normalized !== "1" && normalized !== "true") {
-	              return;
-	            }
-	            sessionStorage.setItem(openWorkspaceSwitcherOnLoadKey, "1");
-	          } catch {
-	            /* ignore */
-	          }
-	        }
+        function hydrateOpenWorkspaceSwitcherFromHash() {
+          try {
+            const raw = hashParams.get("osw");
+            if (!raw) {
+              return;
+            }
+            const normalized = raw.trim().toLowerCase();
+            if (normalized !== "1" && normalized !== "true") {
+              return;
+            }
+            sessionStorage.setItem(openWorkspaceSwitcherOnLoadKey, "1");
+          } catch {
+            /* ignore */
+          }
+        }
 
         function readTokenFromUrl() {
           const hashToken = hashParams.get("token");
@@ -440,16 +433,33 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
         async function consumeToken(token) {
           setError("");
           setStatus("Setting auth cookie...");
+          const launcherOriginHandoff = readLauncherOriginHandoffFromHash();
+          const consumeBody = { token: token };
+          if (launcherOriginHandoff) {
+            consumeBody.launcherOrigin = launcherOriginHandoff.origin;
+            consumeBody.launcherOriginProof = launcherOriginHandoff.proof;
+          }
           const response = await fetch("/__setta__/bootstrap/consume", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: token }),
+            body: JSON.stringify(consumeBody),
           });
           if (!response.ok) {
             throw new Error("Token rejected");
           }
+          let consumePayload = null;
+          try {
+            consumePayload = await response.json();
+          } catch {
+            consumePayload = null;
+          }
           hydrateWorkspaceHistoryFromHash();
-          hydrateLauncherOriginFromHash();
+          persistLauncherOrigin(
+            consumePayload &&
+              typeof consumePayload.launcherOrigin === "string"
+              ? consumePayload.launcherOrigin
+              : null,
+          );
           hydrateOpenWorkspaceSwitcherFromHash();
           history.replaceState({}, "", "/__setta__/bootstrap");
           window.location.assign(redirectUrl);
@@ -485,6 +495,8 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
 
 class BootstrapConsumeRequest(BaseModel):
     token: str | None = None
+    launcherOrigin: str | None = None
+    launcherOriginProof: str | None = None
 
 
 def _bearer_token_from_header(
@@ -543,7 +555,7 @@ def _bootstrap_redirect_url(request: Request) -> str:
 
 
 def _render_bootstrap_html(request: Request) -> str:
-    launcher_origin_storage = "sessionStorage" if IS_DEV_MODE else "localStorage"
+    launcher_origin_storage = "sessionStorage"
     return BOOTSTRAP_HTML_TEMPLATE.replace(
         "__SETTA_REDIRECT_URL__", _bootstrap_redirect_url(request)
     ).replace("__SETTA_LAUNCHER_ORIGIN_STORAGE__", launcher_origin_storage)
@@ -582,8 +594,25 @@ async def route_bootstrap_consume(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
 
+    trusted_launcher_origin: str | None = None
+    if payload is not None:
+        raw_launcher_origin = payload.launcherOrigin
+        raw_launcher_origin_proof = payload.launcherOriginProof
+        if raw_launcher_origin and raw_launcher_origin_proof:
+            normalized_launcher_origin = normalize_launcher_origin(raw_launcher_origin)
+            if normalized_launcher_origin is not None and validate_launcher_origin_handoff_proof(
+                session_id=session_metadata.id,
+                launcher_origin=normalized_launcher_origin,
+                proof=raw_launcher_origin_proof,
+                secret=secret,
+            ):
+                trusted_launcher_origin = normalized_launcher_origin
+
     auth_cookie = AUTH_COOKIE_MANAGER.mint(session_metadata.id, secret)
     set_auth_cookie(
         response, auth_cookie, session_id=session_metadata.id, request=request
     )
-    return {"status": "ok"}
+    response_payload: dict[str, str] = {"status": "ok"}
+    if trusted_launcher_origin is not None:
+        response_payload["launcherOrigin"] = trusted_launcher_origin
+    return response_payload

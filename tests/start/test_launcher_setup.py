@@ -70,25 +70,6 @@ def test_collect_launcher_status_reports_not_installed() -> None:
     assert status.update_guidance is not None
 
 
-def test_setup_launcher_installation_rejects_manual_managed_artifacts(
-    tmp_path: Path,
-) -> None:
-    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
-
-    with pytest.raises(LauncherSetupError) as excinfo:
-        setup_launcher_installation(
-            setta_home=setta_home,
-            channel="manual",
-            open_mode="browser",
-            workspace_behavior=None,
-            install_artifacts=False,
-            managed_artifacts={"manual": str(tmp_path / "artifact")},
-        )
-
-    assert excinfo.value.code == "BadRequest"
-    assert "Manual managed artifacts are not supported" in str(excinfo.value)
-
-
 def test_setup_launcher_installation_rejects_metadata_outside_trusted_roots(
     tmp_path: Path,
 ) -> None:
@@ -244,6 +225,190 @@ def test_setup_launcher_installation_wraps_same_file_install_errors(
     assert "source" in str(excinfo.value)
 
 
+def test_setup_launcher_installation_cleans_up_new_artifacts_when_metadata_write_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    artifact_key = _platform_artifact_key()
+    artifact_path = _artifact_path_for_key(
+        setta_home=setta_home,
+        artifact_key=artifact_key,
+        label="metadata-write-failure",
+    )
+
+    def fake_plan_current_platform_artifact_paths(*, context: object) -> dict[str, Path]:
+        assert context is not None
+        return {artifact_key: artifact_path}
+
+    def fake_install_current_platform_artifacts(*, context: object) -> dict[str, str]:
+        assert context is not None
+        _materialize_artifact(artifact_path, artifact_key=artifact_key)
+        return {artifact_key: str(artifact_path)}
+
+    monkeypatch.setattr(
+        "setta.launcher_setup.plan_current_platform_artifact_paths",
+        fake_plan_current_platform_artifact_paths,
+    )
+    monkeypatch.setattr(
+        "setta.launcher_setup.install_current_platform_artifacts",
+        fake_install_current_platform_artifacts,
+    )
+    monkeypatch.setattr(
+        "setta.launcher_setup.current_platform_artifact_keys",
+        lambda: {artifact_key},
+    )
+    monkeypatch.setattr(
+        "setta.launcher_setup.write_launcher_install_metadata",
+        lambda **_kwargs: (_ for _ in ()).throw(OSError("disk full")),
+    )
+
+    with pytest.raises(LauncherSetupError) as excinfo:
+        setup_launcher_installation(
+            setta_home=setta_home,
+            channel="manual",
+            open_mode="browser",
+            workspace_behavior=None,
+            install_artifacts=True,
+        )
+
+    assert excinfo.value.code == "LauncherMetadata"
+    assert not artifact_path.exists()
+    assert not _ownership_marker_path(artifact_path).exists()
+
+
+@pytest.mark.parametrize(
+    "artifact_key",
+    ["linuxDesktopShortcut", "windowsDesktopShortcut"],
+)
+def test_setup_launcher_installation_rejects_shortcut_removal_without_owned_marker(
+    monkeypatch: pytest.MonkeyPatch,
+    artifact_key: str,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    artifact_path = _artifact_path_for_key(
+        setta_home=setta_home,
+        artifact_key=artifact_key,
+        label="mismatched-shortcut",
+    )
+    _materialize_artifact(artifact_path, artifact_key=artifact_key)
+
+    metadata = build_launcher_install_metadata(
+        target_command=[str(Path(sys.executable).resolve(strict=False)), "-m", "setta"],
+        channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="expected-token",
+        setta_version="1.2.3",
+        open_mode="browser",
+        managed_artifacts={artifact_key: artifact_path},
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+    _write_ownership_marker(
+        artifact_key=artifact_key,
+        artifact_path=artifact_path,
+        ownership_token="different-token",
+    )
+
+    install_called = False
+
+    def fake_plan_current_platform_artifact_paths(*, context: object) -> dict[str, Path]:
+        assert context is not None
+        return {}
+
+    def fake_install_current_platform_artifacts(*, context: object) -> dict[str, str]:
+        nonlocal install_called
+        assert context is not None
+        install_called = True
+        return {}
+
+    monkeypatch.setattr(
+        "setta.launcher_setup.current_platform_artifact_keys",
+        lambda: {artifact_key},
+    )
+    monkeypatch.setattr(
+        "setta.launcher_setup.plan_current_platform_artifact_paths",
+        fake_plan_current_platform_artifact_paths,
+    )
+    monkeypatch.setattr(
+        "setta.launcher_setup.install_current_platform_artifacts",
+        fake_install_current_platform_artifacts,
+    )
+
+    with pytest.raises(LauncherSetupError) as excinfo:
+        setup_launcher_installation(
+            setta_home=setta_home,
+            channel="manual",
+            open_mode="browser",
+            workspace_behavior=None,
+            install_artifacts=True,
+        )
+
+    assert excinfo.value.code == "ArtifactRemovalFailed"
+    assert install_called is False
+    assert artifact_path.exists()
+
+
+@pytest.mark.parametrize(
+    "artifact_key",
+    ["linuxDesktopShortcut", "windowsDesktopShortcut"],
+)
+def test_setup_launcher_installation_removes_owned_shortcuts_when_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+    artifact_key: str,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    artifact_path = _artifact_path_for_key(
+        setta_home=setta_home,
+        artifact_key=artifact_key,
+        label="owned-shortcut",
+    )
+    _materialize_artifact(artifact_path, artifact_key=artifact_key)
+
+    ownership_token = "owned-shortcut-token"
+    metadata = build_launcher_install_metadata(
+        target_command=[str(Path(sys.executable).resolve(strict=False)), "-m", "setta"],
+        channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token=ownership_token,
+        setta_version="1.2.3",
+        open_mode="browser",
+        managed_artifacts={artifact_key: artifact_path},
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+    _write_ownership_marker(
+        artifact_key=artifact_key,
+        artifact_path=artifact_path,
+        ownership_token=ownership_token,
+    )
+
+    def fake_plan_current_platform_artifact_paths(*, context: object) -> dict[str, Path]:
+        assert context is not None
+        return {}
+
+    monkeypatch.setattr(
+        "setta.launcher_setup.current_platform_artifact_keys",
+        lambda: {artifact_key},
+    )
+    monkeypatch.setattr(
+        "setta.launcher_setup.plan_current_platform_artifact_paths",
+        fake_plan_current_platform_artifact_paths,
+    )
+    monkeypatch.setattr(
+        "setta.launcher_setup.install_current_platform_artifacts",
+        lambda **_kwargs: {},
+    )
+
+    setup_result = setup_launcher_installation(
+        setta_home=setta_home,
+        channel="manual",
+        open_mode="browser",
+        workspace_behavior=None,
+        install_artifacts=True,
+    )
+
+    assert artifact_key not in setup_result.metadata.managedArtifacts
+    assert not artifact_path.exists()
+
+
 def test_setup_launcher_installation_defaults_to_chrome_app_mode() -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
 
@@ -257,6 +422,32 @@ def test_setup_launcher_installation_defaults_to_chrome_app_mode() -> None:
 
     assert setup_result.metadata.openMode == "chrome-app"
     assert setup_result.metadata.installSource == "unsupported"
+
+
+def test_setup_launcher_installation_preserves_existing_artifact_options() -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    target = Path(sys.executable).resolve(strict=False)
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target), "-m", "setta"],
+        channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="preserve-artifact-options-token",
+        setta_version="1.2.3",
+        open_mode="browser",
+        artifact_options={"app_name": "Setta Custom"},
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    setup_result = setup_launcher_installation(
+        setta_home=setta_home,
+        channel=None,
+        open_mode=None,
+        workspace_behavior=None,
+        install_artifacts=False,
+        artifact_options={},
+    )
+
+    assert setup_result.metadata.artifactOptions == {"app_name": "Setta Custom"}
 
 
 def test_collect_launcher_status_treats_manual_channel_as_unsupported_update() -> None:
@@ -276,7 +467,10 @@ def test_collect_launcher_status_treats_manual_channel_as_unsupported_update() -
     assert status.update_capability == "unsupported"
 
 
-def test_repair_launcher_installation_rebinds_missing_target(tmp_path: Path) -> None:
+def test_repair_launcher_installation_rebinds_missing_target(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
     missing_target = tmp_path / "missing-python"
     metadata = build_launcher_install_metadata(
@@ -288,6 +482,12 @@ def test_repair_launcher_installation_rebinds_missing_target(tmp_path: Path) -> 
         open_mode="browser",
     )
     write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+    monkeypatch.setattr(
+        "setta.launcher_setup.install_current_platform_artifacts",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            AssertionError("Repair should not reinstall artifacts when none are managed.")
+        ),
+    )
 
     repair_result = repair_launcher_installation(setta_home=setta_home)
 
@@ -332,6 +532,7 @@ def test_repair_launcher_installation_preserves_preferences_and_rewrites_platfor
         open_mode="chrome-app",
         workspace_behavior="always_prompt",
         last_used_workspace=previous_workspace,
+        artifact_options={"app_name": "Setta Pro"},
         managed_artifacts={artifact_key: old_artifact},
     )
     write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
@@ -344,6 +545,7 @@ def test_repair_launcher_installation_preserves_preferences_and_rewrites_platfor
 
     def fake_install_current_platform_artifacts(*, context: object) -> dict[str, str]:
         assert context is not None
+        assert getattr(context, "options") == {"app_name": "Setta Pro"}
         _materialize_artifact(new_artifact, artifact_key=artifact_key)
         return {artifact_key: str(new_artifact)}
 
@@ -363,6 +565,7 @@ def test_repair_launcher_installation_preserves_preferences_and_rewrites_platfor
     assert repair_result.setup.metadata.lastUsedWorkspace == str(
         previous_workspace.resolve(strict=False)
     )
+    assert repair_result.setup.metadata.artifactOptions == {"app_name": "Setta Pro"}
     assert repair_result.setup.metadata.managedArtifacts[artifact_key] == str(
         new_artifact.resolve(strict=False)
     )
@@ -561,6 +764,7 @@ def test_update_launcher_installation_runs_uv_and_rebinds(
         artifact_ownership_token="uv-tool-token",
         setta_version="1.2.3",
         open_mode="browser",
+        artifact_options={"app_name": "Setta"},
     )
     write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
 
@@ -618,3 +822,6 @@ def test_update_launcher_installation_runs_uv_and_rebinds(
     assert "launcher" in calls[2]
     assert "setup" in calls[2]
     assert "--json" in calls[2]
+    assert "--no-install-artifacts" in calls[2]
+    assert "--artifact-option" in calls[2]
+    assert "app_name=Setta" in calls[2]

@@ -1,5 +1,6 @@
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import parse_qs, urlsplit
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -283,7 +284,11 @@ def test_open_launcher_workspace_returns_bootstrap_fragment(
     payload = response.json()
     assert payload["ok"] is True
     assert payload["workspaceRoot"] == str(workspace.resolve(strict=False))
-    assert payload["bootstrapUrlFragment"].endswith("#token=tok")
+    hash_params = parse_qs(urlsplit(payload["bootstrapUrlFragment"]).fragment)
+    assert hash_params.get("token") == ["tok"]
+    assert hash_params.get("lo") == ["http://testserver"]
+    assert len(hash_params.get("lop", [""])) == 1
+    assert hash_params["lop"][0]
     assert captured["server_mode"] == "ide"
     assert Path(str(captured["workspace_root"])).resolve(strict=False) == workspace.resolve(
         strict=False

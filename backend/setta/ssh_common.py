@@ -541,6 +541,7 @@ def fetch_remote_connect_info(
     *,
     session_id: str,
     ssh_prefix: list[str],
+    launcher_origin: str | None = None,
 ) -> dict[str, Any]:
     quoted_workspace = shlex.quote(workspace)
     root_prefix = f"{setta_files_args} " if setta_files_args else ""
@@ -548,6 +549,8 @@ def fetch_remote_connect_info(
         f"{root_prefix}status --connect-info --json --workspace {quoted_workspace}"
         f" --session {shlex.quote(session_id)}"
     )
+    if launcher_origin is not None:
+        args = f"{args} --launcher-origin {shlex.quote(launcher_origin)}"
     result = run_remote_setta_command(
         ssh_target,
         ssh_args,

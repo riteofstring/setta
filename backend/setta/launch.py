@@ -44,6 +44,32 @@ DEFAULT_EXISTING_SESSION_EXTENDED_GRACE_SECONDS = 10.0
 DEFAULT_EXISTING_SESSION_RECENT_SECONDS = 15.0
 
 
+def _resolve_optional_path(value: str | Path | None) -> Path | None:
+    if value is None:
+        return None
+    return Path(value).expanduser().resolve(strict=False)
+
+
+def _matches_optional_path(value: str | Path | None, expected: Path | None) -> bool:
+    resolved = _resolve_optional_path(value)
+    if resolved is None or expected is None:
+        return resolved is None and expected is None
+    return resolved == expected
+
+
+def _session_identity_matches_paths(
+    *, session: SessionMetadata, paths: SettaPaths
+) -> bool:
+    expected_setta_files_location: str | None = paths.setta_files_location
+    return (
+        session.profile == paths.profile_name
+        and session.settaFilesLocation == expected_setta_files_location
+        and _matches_optional_path(session.settaHome, paths.setta_home)
+        and _matches_optional_path(session.settaFilesRoot, paths.setta_files_root)
+        and _matches_optional_path(session.runtimeRoot, paths.runtime_root)
+    )
+
+
 class LaunchError(RuntimeError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
@@ -143,9 +169,14 @@ def launch_workspace_session(
         paths.workspace_root,
         server_mode=server_mode,
     )
-    if sessions:
-        sessions.sort(key=lambda entry: entry.startedAt, reverse=True)
-        for session in sessions:
+    matching_sessions = [
+        session
+        for session in sessions
+        if _session_identity_matches_paths(session=session, paths=paths)
+    ]
+    if matching_sessions:
+        matching_sessions.sort(key=lambda entry: entry.startedAt, reverse=True)
+        for session in matching_sessions:
             if _can_connect_to_session(session):
                 return LaunchResult(
                     session=session,
@@ -154,7 +185,7 @@ def launch_workspace_session(
                     started_new=False,
                 )
 
-        latest = sessions[0]
+        latest = matching_sessions[0]
         grace_deadline = time.monotonic() + _existing_session_grace_seconds(
             latest, timeout_seconds=timeout_seconds
         )
@@ -171,10 +202,11 @@ def launch_workspace_session(
     process = _start_setta_process(paths, server_mode=server_mode)
     session = _wait_for_session(
         registry,
-        paths.workspace_root,
-        server_mode,
-        process.process,
-        process.log_path,
+        paths=paths,
+        workspace_root=paths.workspace_root,
+        server_mode=server_mode,
+        process=process.process,
+        log_path=process.log_path,
         timeout_seconds=timeout_seconds,
         poll_interval_seconds=poll_interval_seconds,
     )
@@ -294,20 +326,25 @@ def _start_setta_process(
 
 def _wait_for_session(
     registry: SessionRegistry,
+    *,
+    paths: SettaPaths,
     workspace_root: Path,
     server_mode: Literal["ide", "launcher"],
     process: subprocess.Popen[str],
     log_path: Path,
-    *,
     timeout_seconds: float,
     poll_interval_seconds: float,
 ) -> SessionMetadata:
     deadline = time.monotonic() + timeout_seconds
     while True:
-        sessions = registry.find_sessions_by_workspace_and_mode(
-            workspace_root,
-            server_mode=server_mode,
-        )
+        sessions = [
+            session
+            for session in registry.find_sessions_by_workspace_and_mode(
+                workspace_root,
+                server_mode=server_mode,
+            )
+            if _session_identity_matches_paths(session=session, paths=paths)
+        ]
         if sessions:
             # A Setta session registers itself before uvicorn starts listening, so
             # ensure the backend port is reachable before returning a bootstrap URL.

@@ -374,7 +374,9 @@ def test_launcher_setup_status_and_remove_roundtrip() -> None:
     assert not resolve_launcher_metadata_path(setta_home=setta_home).exists()
 
 
-def test_launcher_setup_rejects_managed_artifact_override(tmp_path: Path) -> None:
+def test_launcher_setup_no_longer_accepts_managed_artifact_option(
+    tmp_path: Path,
+) -> None:
     runner = CliRunner()
     result = runner.invoke(
         cli,
@@ -389,9 +391,7 @@ def test_launcher_setup_rejects_managed_artifact_override(tmp_path: Path) -> Non
     )
 
     assert result.exit_code == 2
-    payload = json.loads(result.output)
-    assert payload["ok"] is False
-    assert payload["error"]["code"] == "BadRequest"
+    assert "No such option: --managed-artifact" in result.output
 
 
 def test_launcher_update_reports_not_installed() -> None:

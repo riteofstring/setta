@@ -106,6 +106,9 @@ describe("DesktopLauncherSettingsSection helpers", () => {
       channel: "uv-tool",
       openMode: "browser",
       workspaceBehavior: "always_prompt",
+      artifactOptions: {
+        app_name: "Setta",
+      },
     });
 
     const payload = buildSetupLauncherRequest("/tmp/setta-home", status);
@@ -115,6 +118,9 @@ describe("DesktopLauncherSettingsSection helpers", () => {
       channel: "uv-tool",
       openMode: "browser",
       workspaceBehavior: "always-prompt",
+      artifactOptions: {
+        app_name: "Setta",
+      },
     });
   });
 

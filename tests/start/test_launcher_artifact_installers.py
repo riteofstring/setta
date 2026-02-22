@@ -108,7 +108,7 @@ def test_install_linux_artifacts_writes_wrapper_entry_and_shortcut(
     assert f"Icon={icon_path.resolve(strict=False)}" in desktop_entry
 
 
-def test_install_linux_artifacts_removes_existing_shortcut_when_disabled(
+def test_install_linux_artifacts_does_not_delete_existing_shortcut_when_disabled(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -141,7 +141,7 @@ def test_install_linux_artifacts_removes_existing_shortcut_when_disabled(
     artifacts = install_linux_artifacts(context=context)
 
     assert "linuxDesktopShortcut" not in artifacts
-    assert not desktop_shortcut_path.exists()
+    assert desktop_shortcut_path.exists()
 
 
 def test_install_linux_artifacts_escapes_exec_argument_for_spaced_wrapper_path(
@@ -301,3 +301,47 @@ def test_install_windows_artifacts_rejects_path_like_app_name(
     assert "app_name" in str(excinfo.value)
     assert called_shortcut_creation is False
     assert not wrapper_path.exists()
+
+
+def test_install_windows_artifacts_keeps_existing_desktop_shortcut_when_disabled(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "LocalAppData"))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "AppData"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "UserProfile"))
+
+    wrapper_path = tmp_path / "wrapper" / "setta-launcher.cmd"
+    start_menu_shortcut_path = tmp_path / "start-menu" / "Setta Test.lnk"
+    existing_desktop_shortcut = tmp_path / "desktop" / "Setta Test.lnk"
+    existing_desktop_shortcut.parent.mkdir(parents=True, exist_ok=True)
+    existing_desktop_shortcut.write_text("shortcut", encoding="utf-8")
+
+    def fake_create_windows_shortcut(*, shortcut_path: Path, target_path: Path) -> None:
+        assert target_path == wrapper_path
+        shortcut_path.parent.mkdir(parents=True, exist_ok=True)
+        shortcut_path.write_text("shortcut", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "setta.launcher_artifacts.windows._create_windows_shortcut",
+        fake_create_windows_shortcut,
+    )
+
+    context = LauncherArtifactContext(
+        target_command=["C:\\Python\\python.exe", "-m", "setta"],
+        channel="windows-script",
+        existing_managed_artifacts={
+            "windowsDesktopShortcut": str(existing_desktop_shortcut),
+        },
+        options={
+            "app_name": "Setta Test",
+            "wrapper_path": str(wrapper_path),
+            "start_menu_shortcut_path": str(start_menu_shortcut_path),
+            "desktop_shortcut": "false",
+        },
+    )
+
+    artifacts = install_windows_artifacts(context=context)
+
+    assert "windowsDesktopShortcut" not in artifacts
+    assert existing_desktop_shortcut.exists()

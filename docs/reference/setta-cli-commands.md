@@ -470,7 +470,8 @@ Options:
 - `--channel NAME` install channel label (default: `manual`)
 - `--open-mode {browser,chrome-app}` default launcher mode (default: `chrome-app`)
 - `--workspace-behavior {last-used-or-prompt,always-prompt}` workspace fallback preference
-- `--managed-artifact NAME=PATH` records artifact paths to remove during uninstall
+- `--artifact-option NAME=VALUE` configures platform artifact generation (for example `app_name`, `icon_path`, `desktop_shortcut`)
+- `--no-install-artifacts` updates launcher metadata only, without writing platform artifacts
 - `--json` emits machine-readable payload
 
 The metadata stores:
@@ -479,6 +480,7 @@ The metadata stores:
 - channel + Setta version
 - open mode + workspace behavior
 - last used workspace
+- canonical artifact options
 - managed artifact paths
 
 ### `setta launcher status`

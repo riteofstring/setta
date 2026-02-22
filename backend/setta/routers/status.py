@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import Body, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from setta.launcher_metadata import LauncherOpenMode, LauncherWorkspaceBehavior
 from setta.launcher_setup import (
@@ -72,6 +72,7 @@ class LauncherStatusResponse(BaseModel):
     openMode: LauncherOpenMode | None = None
     workspaceBehavior: LauncherWorkspaceBehavior | None = None
     lastUsedWorkspace: str | None = None
+    artifactOptions: dict[str, str] = Field(default_factory=dict)
     managedArtifacts: dict[str, str] = Field(default_factory=dict)
     existingManagedArtifacts: list[str] = Field(default_factory=list)
     missingManagedArtifacts: list[str] = Field(default_factory=list)
@@ -93,12 +94,13 @@ class LauncherRequestBase(BaseModel):
 
 
 class SetupLauncherRequest(LauncherRequestBase):
+    model_config = ConfigDict(extra="forbid")
+
     channel: str = "manual"
     openMode: LauncherOpenMode = "chrome-app"
     workspaceBehavior: Literal["last-used-or-prompt", "always-prompt"] | None = None
     installArtifacts: bool = True
     artifactOptions: dict[str, str] = Field(default_factory=dict)
-    managedArtifacts: dict[str, str] = Field(default_factory=dict)
 
 
 class UpdateLauncherRequest(LauncherRequestBase):
@@ -237,9 +239,6 @@ def route_setup_launcher(x: SetupLauncherRequest) -> LauncherStatusResponse:
     artifact_options = (
         x.artifactOptions if "artifactOptions" in provided_fields else None
     )
-    managed_artifacts = (
-        x.managedArtifacts if "managedArtifacts" in provided_fields else None
-    )
     try:
         setup_launcher_installation(
             setta_home=setta_home,
@@ -248,7 +247,6 @@ def route_setup_launcher(x: SetupLauncherRequest) -> LauncherStatusResponse:
             workspace_behavior=workspace_behavior,
             install_artifacts=install_artifacts,
             artifact_options=artifact_options,
-            managed_artifacts=managed_artifacts,
         )
         status = collect_launcher_status(setta_home=setta_home)
     except LauncherSetupError as exc:

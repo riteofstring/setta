@@ -93,10 +93,6 @@ def plan_linux_artifact_paths(*, context: LauncherArtifactContext) -> dict[str, 
 
 
 def install_linux_artifacts(*, context: LauncherArtifactContext) -> dict[str, str]:
-    existing_shortcut = existing_artifact_path(
-        existing_managed_artifacts=context.existing_managed_artifacts,
-        key="linuxDesktopShortcut",
-    )
     planned_artifacts = plan_linux_artifact_paths(context=context)
 
     desktop_entry_path = planned_artifacts["linuxDesktopEntry"]
@@ -153,8 +149,6 @@ def install_linux_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
             | stat.S_IXOTH
         )
         artifacts["linuxDesktopShortcut"] = str(desktop_shortcut_path)
-    elif existing_shortcut is not None and existing_shortcut.exists():
-        existing_shortcut.unlink()
 
     _refresh_desktop_database(applications_dir)
     return artifacts

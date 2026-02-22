@@ -26,6 +26,7 @@ def test_launcher_metadata_roundtrip_preserves_fields(tmp_path: Path) -> None:
         setta_version="1.2.3",
         open_mode="browser",
         last_used_workspace=tmp_path / "workspace",
+        artifact_options={"app_name": "Setta"},
         managed_artifacts={"macosApp": tmp_path / "Applications" / "Setta.app"},
     )
     metadata_path = write_launcher_install_metadata(
@@ -44,6 +45,7 @@ def test_launcher_metadata_roundtrip_preserves_fields(tmp_path: Path) -> None:
     assert reloaded.settaVersion == "1.2.3"
     assert reloaded.openMode == "browser"
     assert reloaded.lastUsedWorkspace == str((tmp_path / "workspace").resolve(strict=False))
+    assert reloaded.artifactOptions == {"app_name": "Setta"}
     assert reloaded.managedArtifacts["macosApp"] == str(
         (tmp_path / "Applications" / "Setta.app").resolve(strict=False)
     )

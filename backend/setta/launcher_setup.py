@@ -63,6 +63,7 @@ class LauncherStatusSnapshot:
     open_mode: LauncherOpenMode | None
     workspace_behavior: LauncherWorkspaceBehavior | None
     last_used_workspace: str | None
+    artifact_options: dict[str, str]
     managed_artifacts: dict[str, str]
     existing_managed_artifacts: list[str]
     missing_managed_artifacts: list[str]
@@ -77,6 +78,7 @@ class LauncherStatusSnapshot:
             "settaHome": str(self.setta_home),
             "launcherDir": str(self.launcher_dir),
             "metadataPath": str(self.metadata_path),
+            "artifactOptions": self.artifact_options,
             "managedArtifacts": self.managed_artifacts,
             "existingManagedArtifacts": self.existing_managed_artifacts,
             "missingManagedArtifacts": self.missing_managed_artifacts,
@@ -120,6 +122,7 @@ class LauncherSetupResult:
             "channel": self.metadata.channel,
             "settaVersion": self.metadata.settaVersion,
             "lastUsedWorkspace": self.metadata.lastUsedWorkspace,
+            "artifactOptions": self.metadata.artifactOptions,
             "managedArtifacts": self.metadata.managedArtifacts,
             "settaHome": str(self.setta_home),
         }
@@ -201,6 +204,7 @@ def collect_launcher_status(*, setta_home: Path) -> LauncherStatusSnapshot:
             open_mode=None,
             workspace_behavior=None,
             last_used_workspace=None,
+            artifact_options={},
             managed_artifacts={},
             existing_managed_artifacts=[],
             missing_managed_artifacts=[],
@@ -244,6 +248,7 @@ def collect_launcher_status(*, setta_home: Path) -> LauncherStatusSnapshot:
         open_mode=metadata.openMode,
         workspace_behavior=metadata.workspaceBehavior,
         last_used_workspace=metadata.lastUsedWorkspace,
+        artifact_options=dict(metadata.artifactOptions),
         managed_artifacts=dict(normalized_managed_artifacts),
         existing_managed_artifacts=existing_artifacts,
         missing_managed_artifacts=missing_artifacts,
@@ -259,7 +264,6 @@ def setup_launcher_installation(
     channel: str | None,
     open_mode: LauncherOpenMode | None,
     workspace_behavior: LauncherWorkspaceBehavior | None,
-    managed_artifacts: dict[str, str | Path] | None = None,
     target_command: list[str] | None = None,
     install_artifacts: bool = True,
     artifact_options: dict[str, str] | None = None,
@@ -272,13 +276,6 @@ def setup_launcher_installation(
         )
     except LauncherMetadataError as exc:
         raise LauncherSetupError("LauncherMetadata", str(exc)) from exc
-
-    if managed_artifacts:
-        raise LauncherSetupError(
-            "BadRequest",
-            "Manual managed artifacts are not supported. "
-            "Setta manages launcher artifacts automatically.",
-        )
 
     resolved_channel: str
     if channel is not None:
@@ -312,31 +309,37 @@ def setup_launcher_installation(
         resolved_target_command = target_command
 
     install_source = _derive_install_source(resolved_channel)
-    normalized_artifact_options: dict[str, str] = {}
+    normalized_artifact_options: dict[str, str]
     if artifact_options:
         try:
             normalized_artifact_options = normalize_artifact_options(artifact_options)
         except LauncherArtifactError as exc:
             raise LauncherSetupError("BadRequest", str(exc)) from exc
+    elif existing_metadata is not None and existing_metadata.artifactOptions:
+        normalized_artifact_options = dict(existing_metadata.artifactOptions)
+    else:
+        normalized_artifact_options = {}
     _validate_artifact_option_paths(
         options=normalized_artifact_options,
         setta_home=resolved_setta_home,
     )
 
     merged_artifacts: dict[str, str] = {}
+    previous_managed_artifacts: dict[str, str] = {}
+    removal_candidates: dict[str, str] = {}
+    metadata_cleanup_candidates: dict[str, str] = {}
     ownership_token = (
         existing_metadata.artifactOwnershipToken
         if existing_metadata is not None
         else secrets.token_hex(16)
     )
     if existing_metadata is not None:
-        merged_artifacts.update(
-            _validate_managed_artifact_registry(
-                managed_artifacts=existing_metadata.managedArtifacts,
-                setta_home=resolved_setta_home,
-                error_code="LauncherMetadata",
-            )
+        previous_managed_artifacts = _validate_managed_artifact_registry(
+            managed_artifacts=existing_metadata.managedArtifacts,
+            setta_home=resolved_setta_home,
+            error_code="LauncherMetadata",
         )
+        merged_artifacts.update(previous_managed_artifacts)
 
     if install_artifacts:
         artifact_context = LauncherArtifactContext(
@@ -355,6 +358,23 @@ def setup_launcher_installation(
             artifact_paths=planned_artifact_paths,
             setta_home=resolved_setta_home,
         )
+        desired_artifacts = {
+            key: str(path.resolve(strict=False))
+            for key, path in planned_artifact_paths.items()
+        }
+        removal_candidates = _compute_replaced_or_removed_artifacts(
+            existing_managed_artifacts=previous_managed_artifacts,
+            desired_managed_artifacts=desired_artifacts,
+        )
+        removal_validation_errors = _validate_owned_artifacts_before_removal(
+            managed_artifacts=removal_candidates,
+            ownership_token=ownership_token,
+        )
+        if removal_validation_errors:
+            raise LauncherSetupError(
+                "ArtifactRemovalFailed",
+                "; ".join(removal_validation_errors),
+            )
         try:
             installed_artifacts = install_current_platform_artifacts(
                 context=artifact_context
@@ -366,10 +386,20 @@ def setup_launcher_installation(
             setta_home=resolved_setta_home,
             error_code="ArtifactInstallFailed",
         )
-        _write_artifact_ownership_markers(
-            managed_artifacts=merged_artifacts,
-            ownership_token=ownership_token,
+        metadata_cleanup_candidates = _compute_new_or_replaced_artifacts(
+            existing_managed_artifacts=previous_managed_artifacts,
+            next_managed_artifacts=merged_artifacts,
         )
+        try:
+            _write_artifact_ownership_markers(
+                managed_artifacts=merged_artifacts,
+                ownership_token=ownership_token,
+            )
+        except LauncherSetupError:
+            _cleanup_artifacts_after_failed_metadata_write(
+                managed_artifacts=metadata_cleanup_candidates
+            )
+            raise
 
     try:
         metadata = build_launcher_install_metadata(
@@ -383,6 +413,7 @@ def setup_launcher_installation(
             last_used_workspace=existing_metadata.lastUsedWorkspace
             if existing_metadata is not None
             else None,
+            artifact_options=normalized_artifact_options,
             managed_artifacts=merged_artifacts,
         )
         metadata_path = write_launcher_install_metadata(
@@ -390,7 +421,29 @@ def setup_launcher_installation(
             metadata=metadata,
         )
     except LauncherMetadataError as exc:
+        _cleanup_artifacts_after_failed_metadata_write(
+            managed_artifacts=metadata_cleanup_candidates
+        )
         raise LauncherSetupError("BadRequest", str(exc)) from exc
+    except OSError as exc:
+        _cleanup_artifacts_after_failed_metadata_write(
+            managed_artifacts=metadata_cleanup_candidates
+        )
+        raise LauncherSetupError(
+            "LauncherMetadata",
+            f"Failed to write launcher metadata: {exc}",
+        ) from exc
+
+    if removal_candidates:
+        removal_result = _remove_owned_artifacts(
+            managed_artifacts=removal_candidates,
+            ownership_token=ownership_token,
+        )
+        if removal_result.errors:
+            raise LauncherSetupError(
+                "ArtifactRemovalFailed",
+                "; ".join(removal_result.errors),
+            )
 
     return LauncherSetupResult(
         setta_home=resolved_setta_home,
@@ -417,8 +470,8 @@ def repair_launcher_installation(
         channel=metadata.channel,
         open_mode=metadata.openMode,
         workspace_behavior=metadata.workspaceBehavior,
-        install_artifacts=True,
-        artifact_options=None,
+        install_artifacts=bool(metadata.managedArtifacts),
+        artifact_options=dict(metadata.artifactOptions),
     )
     repaired_status = collect_launcher_status(setta_home=setta_home)
     return LauncherRepairResult(setup=setup_result, status=repaired_status)
@@ -436,7 +489,6 @@ def remove_launcher_installation(
 
     removed_paths: list[str] = []
     missing_paths: list[str] = []
-    removal_errors: list[str] = []
     normalized_artifacts: dict[str, str] = {}
     if metadata is not None:
         normalized_artifacts = _validate_managed_artifact_registry(
@@ -444,34 +496,17 @@ def remove_launcher_installation(
             setta_home=resolved_setta_home,
             error_code="LauncherMetadata",
         )
-        for name, path_string in normalized_artifacts.items():
-            path = Path(path_string).resolve(strict=False)
-            if not path.exists():
-                missing_paths.append(str(path))
-                continue
-            marker_error = _artifact_ownership_marker_error(
-                artifact_name=name,
-                artifact_path=path,
-                ownership_token=metadata.artifactOwnershipToken,
+        removal_result = _remove_owned_artifacts(
+            managed_artifacts=normalized_artifacts,
+            ownership_token=metadata.artifactOwnershipToken,
+        )
+        removed_paths.extend(removal_result.removed_paths)
+        missing_paths.extend(removal_result.missing_paths)
+        if removal_result.errors:
+            raise LauncherSetupError(
+                "ArtifactRemovalFailed",
+                "; ".join(removal_result.errors),
             )
-            if marker_error is not None:
-                removal_errors.append(marker_error)
-                continue
-            try:
-                if path.is_dir() and not path.is_symlink():
-                    shutil.rmtree(path)
-                else:
-                    path.unlink()
-                    marker_path = _artifact_ownership_marker_path(path)
-                    if marker_path.exists():
-                        marker_path.unlink()
-            except OSError as exc:
-                removal_errors.append(f"{path}: {exc}")
-                continue
-            removed_paths.append(str(path))
-
-    if removal_errors:
-        raise LauncherSetupError("ArtifactRemovalFailed", "; ".join(removal_errors))
 
     metadata_path = resolve_launcher_metadata_path(setta_home=resolved_setta_home)
     metadata_removed = remove_launcher_install_metadata(setta_home=resolved_setta_home)
@@ -564,6 +599,11 @@ def update_launcher_installation(
         "--workspace-behavior",
         workspace_behavior_cli,
     ]
+    if not metadata.managedArtifacts:
+        setup_cmd.append("--no-install-artifacts")
+    for option_key in sorted(metadata.artifactOptions):
+        option_value = metadata.artifactOptions[option_key]
+        setup_cmd.extend(["--artifact-option", f"{option_key}={option_value}"])
 
     setup_result = subprocess.run(
         setup_cmd,
@@ -691,6 +731,133 @@ def _validate_planned_artifact_paths(
             error_code="BadRequest",
             allow_root_match=False,
         )
+
+
+@dataclass(frozen=True)
+class _ArtifactRemovalResult:
+    removed_paths: list[str]
+    missing_paths: list[str]
+    errors: list[str]
+
+
+def _compute_replaced_or_removed_artifacts(
+    *,
+    existing_managed_artifacts: dict[str, str],
+    desired_managed_artifacts: dict[str, str],
+) -> dict[str, str]:
+    removed_or_replaced: dict[str, str] = {}
+    for key, existing_path in existing_managed_artifacts.items():
+        resolved_existing = str(Path(existing_path).resolve(strict=False))
+        desired_path = desired_managed_artifacts.get(key)
+        if desired_path is None:
+            removed_or_replaced[key] = resolved_existing
+            continue
+        resolved_desired = Path(desired_path).resolve(strict=False)
+        if Path(resolved_existing) != resolved_desired:
+            removed_or_replaced[key] = resolved_existing
+    return removed_or_replaced
+
+
+def _compute_new_or_replaced_artifacts(
+    *,
+    existing_managed_artifacts: dict[str, str],
+    next_managed_artifacts: dict[str, str],
+) -> dict[str, str]:
+    cleanup_targets: dict[str, str] = {}
+    for key, next_path in next_managed_artifacts.items():
+        resolved_next = Path(next_path).resolve(strict=False)
+        existing_path = existing_managed_artifacts.get(key)
+        if existing_path is None:
+            cleanup_targets[key] = str(resolved_next)
+            continue
+        resolved_existing = Path(existing_path).resolve(strict=False)
+        if resolved_existing != resolved_next:
+            cleanup_targets[key] = str(resolved_next)
+    return cleanup_targets
+
+
+def _validate_owned_artifacts_before_removal(
+    *,
+    managed_artifacts: dict[str, str],
+    ownership_token: str,
+) -> list[str]:
+    marker_errors: list[str] = []
+    for name, path_string in managed_artifacts.items():
+        artifact_path = Path(path_string).resolve(strict=False)
+        if not artifact_path.exists():
+            continue
+        marker_error = _artifact_ownership_marker_error(
+            artifact_name=name,
+            artifact_path=artifact_path,
+            ownership_token=ownership_token,
+        )
+        if marker_error is not None:
+            marker_errors.append(marker_error)
+    return marker_errors
+
+
+def _remove_owned_artifacts(
+    *,
+    managed_artifacts: dict[str, str],
+    ownership_token: str,
+) -> _ArtifactRemovalResult:
+    removed_paths: list[str] = []
+    missing_paths: list[str] = []
+    removal_errors: list[str] = []
+    for name, path_string in managed_artifacts.items():
+        artifact_path = Path(path_string).resolve(strict=False)
+        if not artifact_path.exists():
+            missing_paths.append(str(artifact_path))
+            continue
+        marker_error = _artifact_ownership_marker_error(
+            artifact_name=name,
+            artifact_path=artifact_path,
+            ownership_token=ownership_token,
+        )
+        if marker_error is not None:
+            removal_errors.append(marker_error)
+            continue
+        try:
+            _remove_artifact_and_marker(artifact_path)
+        except OSError as exc:
+            removal_errors.append(f"{artifact_path}: {exc}")
+            continue
+        removed_paths.append(str(artifact_path))
+    return _ArtifactRemovalResult(
+        removed_paths=removed_paths,
+        missing_paths=missing_paths,
+        errors=removal_errors,
+    )
+
+
+def _cleanup_artifacts_after_failed_metadata_write(
+    *,
+    managed_artifacts: dict[str, str],
+) -> None:
+    for path_string in managed_artifacts.values():
+        artifact_path = Path(path_string).resolve(strict=False)
+        if not artifact_path.exists():
+            marker_path = _artifact_ownership_marker_path(artifact_path)
+            try:
+                if marker_path.exists():
+                    marker_path.unlink()
+            except OSError:
+                pass
+            continue
+        try:
+            _remove_artifact_and_marker(artifact_path)
+        except OSError:
+            continue
+
+
+def _remove_artifact_and_marker(path: Path) -> None:
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path)
+        return
+    path.unlink()
+    marker_path = _artifact_ownership_marker_path(path)
+    if marker_path.exists():
+        marker_path.unlink()
 
 
 def _validate_unique_artifact_paths(
