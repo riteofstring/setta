@@ -76,6 +76,7 @@ class AllLLMConfigs(BaseModel):
     mcpServers: dict[str, MCPServerConfig] = Field(default_factory=dict)
     defaultMcpServerIds: list[str] = Field(default_factory=list)
     default_config_id: str | None = None
+    codexMcpImportedAt: str | None = None
 
     model_config = ConfigDict(extra="forbid")
 

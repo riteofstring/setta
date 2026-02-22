@@ -168,12 +168,14 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         quickInfo: "Connected",
         registeredToolCount: 8,
         issue: null,
+        missingEnvVar: null,
       },
       pencil: {
         state: "error",
         quickInfo: "Unavailable: command not found",
         registeredToolCount: 0,
         issue: "command not found",
+        missingEnvVar: null,
       },
     });
   });
@@ -204,6 +206,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         quickInfo: "Retrying connection",
         registeredToolCount: 0,
         issue: "timeout",
+        missingEnvVar: null,
       },
     });
   });
@@ -232,6 +235,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
           quickInfo: "Available: connected with 8 tools.",
           registeredToolCount: 8,
           issue: null,
+          missingEnvVar: null,
         },
       },
       runtimeStatusLoading: false,
@@ -252,6 +256,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
           quickInfo: "Unavailable: command not found",
           registeredToolCount: 0,
           issue: "command not found",
+          missingEnvVar: null,
         },
       },
       runtimeStatusLoading: false,
@@ -272,6 +277,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
           quickInfo: "Connecting...",
           registeredToolCount: 0,
           issue: null,
+          missingEnvVar: null,
         },
       },
       runtimeStatusLoading: false,
@@ -314,12 +320,14 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         serverId: "figma-desktop",
         state: "connected",
         lastError: null,
+        missingEnvVar: null,
         toolCount: 8,
       },
       {
         serverId: "broken-server",
         state: "error",
         lastError: "command not found",
+        missingEnvVar: "OPENAI_API_KEY",
         toolCount: 0,
       },
     ]);
@@ -327,15 +335,17 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(runtimeStatuses).toEqual({
       "figma-desktop": {
         state: "connected",
-        quickInfo: "Connected",
+        quickInfo: "Connected: 8 tools",
         registeredToolCount: 8,
         issue: null,
+        missingEnvVar: null,
       },
       "broken-server": {
         state: "error",
-        quickInfo: "command not found",
+        quickInfo: "Error: missing env var OPENAI_API_KEY | command not found | 0 tools",
         registeredToolCount: 0,
         issue: "command not found",
+        missingEnvVar: "OPENAI_API_KEY",
       },
     });
   });

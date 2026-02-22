@@ -390,11 +390,13 @@ args = ["--app", "desktop"]
                 == "/Applications/Pencil.app/Contents/Resources/app.asar.unpacked/out/mcp-server-darwin-arm64"
             )
             assert pencil.args == ["--app", "desktop"]
+            assert loaded.codexMcpImportedAt is not None
 
             persisted = dbe.read_llm_config()
             persisted_mcp = persisted.get("mcpServers", {})
             assert "figma-desktop" in persisted_mcp
             assert "pencil" in persisted_mcp
+            assert isinstance(persisted.get("codexMcpImportedAt"), str)
 
     def test_load_llm_config_does_not_override_existing_non_setta_servers(
         self,
@@ -436,6 +438,53 @@ url = "http://127.0.0.1:3845/mcp"
 
             assert "workspace-tools" in loaded.mcpServers
             assert "figma-desktop" not in loaded.mcpServers
+            assert loaded.codexMcpImportedAt is not None
+
+    def test_load_llm_config_does_not_reimport_codex_servers_after_user_removal(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.figma-desktop]
+transport = "streamable_http"
+url = "http://127.0.0.1:3845/mcp"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+            setta_server = MCPServerConfig(
+                transport="sse",
+                url="http://127.0.0.1:8000/mcp",
+            )
+            save_llm_config(
+                AllLLMConfigs(mcpServers={SETTA_MCP_SERVER_ID: setta_server}),
+                dbe,
+            )
+
+            initial = load_llm_config(dbe)
+            assert "figma-desktop" in initial.mcpServers
+            assert initial.codexMcpImportedAt is not None
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={SETTA_MCP_SERVER_ID: setta_server},
+                    codexMcpImportedAt=initial.codexMcpImportedAt,
+                ),
+                dbe,
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "figma-desktop" not in loaded.mcpServers
+            assert loaded.codexMcpImportedAt == initial.codexMcpImportedAt
 
     def test_load_llm_config_skips_codex_servers_with_unsupported_fields(
         self,

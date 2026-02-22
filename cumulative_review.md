@@ -53,3 +53,38 @@
 - Backend targeted pytest set: 84 passed.
 - Frontend targeted Vitest set: 49 passed.
 - Playwright targeted checks: updated Home pane behavior test passed; new chat hydration provenance test passed.
+
+## 2026-02-25 19:23:53 PST
+
+### Consolidated Findings
+- Interrupted-message flags in project chat were not run-scoped and stop rollback did not restore interruption state.
+- Context telemetry rendering still fell back to frontend heuristics when backend context usage was missing.
+- Hydration dedupe for selected project chat threads was not success-aware and ignored provenance endpoint changes.
+- MCP runtime-status mapping dropped actionable diagnostics (`missingEnvVar`, tool count details).
+- AI follow default mode regressed from opt-in to always-on.
+- API key mutation normalization in UI diverged from backend trim/empty canonicalization.
+- Codex MCP bootstrap could re-import previously removed servers on subsequent loads.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Made interruption marking run-scoped to current assistant `message_start`, added interruption snapshot restore on stop rollback paths, and cleared stop-eligible IDs on lifecycle boundaries.
+- Removed frontend context-usage heuristics from project chat telemetry and rendered explicit unavailable state when backend context data is incomplete.
+- Replaced one-shot hydration guard with success-aware `(chatId, runType)` cache status (`in_flight`, `succeeded`, `failed`, `retry_scheduled`) and retry behavior.
+- Extended MCP runtime-status frontend mapping to preserve `missingEnvVar` and include lossless diagnostic quick info (error/tool-count/env-var context).
+- Restored AI follow default mode to `off`.
+- Added API key value normalization (trim + empty handling) before optimistic update and persistence for add/edit flows.
+- Added one-time codex MCP bootstrap migration marker (`codexMcpImportedAt`) so post-bootstrap user removals remain authoritative.
+
+### UX/DX Before -> After
+- Stop/interrupt labels: prior completed assistant responses could be marked interrupted -> interruption labels now map to the actual current stopped run and rollback leaves no stale marks.
+- Context badge: estimated token/window values could be shown as if authoritative -> badge now shows backend-authored values or explicit `CONTEXT UNAVAILABLE`.
+- Thread hydration: transient hydrate failures or late provenance resolution could strand selected chats -> hydration retries and converges automatically per endpoint provenance.
+- MCP runtime diagnostics: status chips could hide missing-env/tool-count details -> UI now surfaces actionable diagnostics directly.
+- Follow behavior: viewport-follow could activate without explicit user intent -> follow remains opt-in by default.
+- API key saves: whitespace-only values could appear to save then disappear -> client behavior now matches backend canonicalization immediately.
+- Codex MCP lifecycle: removed imported servers could reappear after reload -> one-time import migration preserves user removals.
+
+### Verification
+- Frontend targeted Vitest set: 90 passed.
+- Backend targeted pytest set (`tests/llm/test_config.py`): 24 passed.
+- Playwright targeted checks (`project-ai-chat-hydration-provenance.spec.ts`): 2 passed.
+- CDP visual verification: context-unavailable badge rendering confirmed in project chat composer.

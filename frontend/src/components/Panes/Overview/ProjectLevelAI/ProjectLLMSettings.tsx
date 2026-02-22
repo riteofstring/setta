@@ -14,6 +14,10 @@ const API_KEY_INPUT_CLASS_NAME =
 const API_KEY_BUTTON_CLASS_NAME =
   "h-8 rounded-md border border-setta-200 bg-white px-3 text-xs font-semibold text-setta-600 transition-colors hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-200";
 
+export function normalizeApiKeyMutationValue(value: string): string {
+  return value.trim();
+}
+
 type IsolatedInputProps = {
   apiKeyName: string;
   inputId: string;
@@ -23,8 +27,9 @@ const IsolatedInput = ({ apiKeyName, inputId }: IsolatedInputProps) => {
   const initialValue = useAIStore((x) => x.apiKeys[apiKeyName] ?? "");
 
   const onSetValue = (v: string) => {
+    const normalizedValue = normalizeApiKeyMutationValue(v);
     const currentApiKeys = useAIStore.getState().apiKeys;
-    if (v.length === 0) {
+    if (normalizedValue.length === 0) {
       const nextApiKeys = { ...currentApiKeys };
       delete nextApiKeys[apiKeyName];
       useAIStore.setState({ apiKeys: nextApiKeys });
@@ -32,9 +37,11 @@ const IsolatedInput = ({ apiKeyName, inputId }: IsolatedInputProps) => {
       return;
     }
     const nextApiKeys = { ...currentApiKeys };
-    nextApiKeys[apiKeyName] = v;
+    nextApiKeys[apiKeyName] = normalizedValue;
     useAIStore.setState({ apiKeys: nextApiKeys });
-    void route_set_llm_api_keys({ apiKeys: { [apiKeyName]: v } });
+    void route_set_llm_api_keys({
+      apiKeys: { [apiKeyName]: normalizedValue },
+    });
   };
 
   const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
@@ -83,6 +90,7 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
 
   const handleAddApiKey = () => {
     const envKey = newApiKeyName.trim();
+    const normalizedValue = normalizeApiKeyMutationValue(newApiKeyValue);
     if (!envKey) {
       setNewApiKeyError("Key is required.");
       return;
@@ -93,12 +101,12 @@ export function ProjectLLMSettings({ className }: ProjectLLMSettingsProps) {
       );
       return;
     }
-    if (!newApiKeyValue) {
+    if (!normalizedValue) {
       setNewApiKeyError("Value is required.");
       return;
     }
-    const nextApiKeys = { ...apiKeys, [envKey]: newApiKeyValue };
-    persistApiKeys(nextApiKeys, { [envKey]: newApiKeyValue });
+    const nextApiKeys = { ...apiKeys, [envKey]: normalizedValue };
+    persistApiKeys(nextApiKeys, { [envKey]: normalizedValue });
     setNewApiKeyName("OPENAI_API_KEY");
     setNewApiKeyValue("");
     setNewApiKeyError(null);

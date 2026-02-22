@@ -288,6 +288,7 @@ type ChatInputProps = {
   contextWindowTokens?: number | null;
   contextUsedTokens?: number | null;
   contextUsageIsEstimated?: boolean;
+  contextUsageUnavailable?: boolean;
   submittedMessageHistory?: string[];
   runtimeActivityCounts?: ChatRuntimeActivityCounts;
 };
@@ -321,6 +322,7 @@ export const ChatInput = memo(function ChatInput({
   contextWindowTokens = null,
   contextUsedTokens = null,
   contextUsageIsEstimated = false,
+  contextUsageUnavailable = false,
   submittedMessageHistory = [],
   runtimeActivityCounts = DEFAULT_RUNTIME_ACTIVITY_COUNTS,
 }: ChatInputProps) {
@@ -1350,6 +1352,8 @@ export const ChatInput = memo(function ChatInput({
   const contextLabelPrefixCompact = contextUsageIsEstimated
     ? "est. context"
     : "context";
+  const showContextUnavailableBadge =
+    contextRemainingValue === null && contextUsageUnavailable;
   const activeBackgroundTerminals = useMemo(
     () =>
       normalizeNonNegativeCount(
@@ -1363,7 +1367,8 @@ export const ChatInput = memo(function ChatInput({
   );
   const showRuntimeActivityCounters =
     canDictate || activeBackgroundTerminals > 0 || activeSubagents > 0;
-  const showContextBadge = contextRemainingValue !== null;
+  const showContextBadge =
+    contextRemainingValue !== null || showContextUnavailableBadge;
   const shouldShowComposerMetaRow =
     showExecutionControls || showContextBadge || showRuntimeActivityCounters;
   const attachmentTooltipHandlers = useMemo(
@@ -1452,6 +1457,13 @@ export const ChatInput = memo(function ChatInput({
     if (!showContextBadge) {
       return null;
     }
+    if (showContextUnavailableBadge) {
+      return getFloatingBoxHandlers({
+        title: "Context unavailable",
+        content:
+          "Context usage telemetry is unavailable for this chat run.",
+      });
+    }
     return getFloatingBoxHandlers({
       title: "Context",
       content:
@@ -1459,7 +1471,7 @@ export const ChatInput = memo(function ChatInput({
           ? "Click to show remaining context percentage."
           : "Click to show remaining context tokens.",
     });
-  }, [contextBadgeMode, showContextBadge]);
+  }, [contextBadgeMode, showContextBadge, showContextUnavailableBadge]);
   const searchTooltipHandlers = useMemo(() => {
     if (!showSearchControl || !executionControls) {
       return null;
@@ -2261,6 +2273,14 @@ export const ChatInput = memo(function ChatInput({
                     {contextRemainingValue}
                   </span>
                 </button>
+              ) : showContextUnavailableBadge ? (
+                <span
+                  className="shrink-0 rounded px-1 py-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-amber-600 dark:text-amber-300"
+                  aria-label="context unavailable"
+                  {...(contextTooltipHandlers ?? {})}
+                >
+                  context unavailable
+                </span>
               ) : null}
             </div>
           ) : null}

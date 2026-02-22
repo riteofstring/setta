@@ -15,10 +15,6 @@ import {
 } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import {
-  estimateChatHistoryTokens,
-  resolveEstimatedContextWindowTokens,
-} from "components/Chat/contextWindow";
-import {
   Dispatch,
   SetStateAction,
   memo,
@@ -129,6 +125,57 @@ export function resolveProjectChatHydrationRunType({
     return selectedChatRunType;
   }
   return resolveProjectChatRunType(engineType);
+}
+
+export function buildProjectChatHydrationCacheKey({
+  chatId,
+  hydrationRunType,
+}: {
+  chatId: string | null | undefined;
+  hydrationRunType: ChatRunType | null;
+}): string | null {
+  const normalizedChatId = chatId?.trim() ?? "";
+  if (!normalizedChatId) {
+    return null;
+  }
+  const resolvedRunType = hydrationRunType ?? "llm_chat";
+  return `${normalizedChatId}:${resolvedRunType}`;
+}
+
+type ProjectChatContextUsage = ReturnType<
+  typeof getDefaultChatDetails
+>["contextUsage"];
+
+export type ProjectChatContextTelemetry = {
+  contextWindowTokens: number | null;
+  contextUsedTokens: number | null;
+  contextUsageIsEstimated: boolean;
+  contextUsageUnavailable: boolean;
+};
+
+function normalizeContextTokenCount(value: number | null | undefined): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  return Math.max(0, Math.floor(value));
+}
+
+export function resolveProjectChatContextTelemetry(
+  contextUsage: ProjectChatContextUsage,
+): ProjectChatContextTelemetry {
+  const contextWindowTokens = normalizeContextTokenCount(
+    contextUsage?.contextWindowTokens,
+  );
+  const contextUsedTokens = normalizeContextTokenCount(
+    contextUsage?.contextUsedTokens,
+  );
+  return {
+    contextWindowTokens,
+    contextUsedTokens,
+    contextUsageIsEstimated: Boolean(contextUsage?.estimated),
+    contextUsageUnavailable:
+      contextWindowTokens === null || contextUsedTokens === null,
+  };
 }
 
 export function resolveWorkspaceRootPollDelayMs(
@@ -743,7 +790,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   dictationMode,
   providerDictationAvailable,
   providerDictationLikelySupported,
-  contextEstimateModel,
   setChatId,
   onDraftThreadStart,
   onDraftThreadSettled,
@@ -764,7 +810,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   dictationMode: "auto" | "browser" | "provider";
   providerDictationAvailable: boolean;
   providerDictationLikelySupported: boolean;
-  contextEstimateModel: string | null;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
   onDraftThreadStart?: () => void;
   onDraftThreadSettled?: (
@@ -781,7 +826,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     toolCallArguments,
     waitingForResponse,
     contextUsage,
-    llmConfig,
   } = useAIStore((state) => {
     if (chatId === null) {
       return state.pendingChatDetails ?? getDefaultChatDetails();
@@ -887,47 +931,15 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       }),
     [chatId, engineType, selectedChatRunType],
   );
-  const backendContextWindowTokens = useMemo(() => {
-    const backendWindow = contextUsage?.contextWindowTokens;
-    if (typeof backendWindow === "number" && Number.isFinite(backendWindow)) {
-      return Math.max(0, Math.floor(backendWindow));
-    }
-    return null;
-  }, [contextUsage?.contextWindowTokens]);
-  const backendContextUsedTokens = useMemo(() => {
-    const backendUsed = contextUsage?.contextUsedTokens;
-    if (typeof backendUsed === "number" && Number.isFinite(backendUsed)) {
-      return Math.max(0, Math.floor(backendUsed));
-    }
-    return null;
-  }, [contextUsage?.contextUsedTokens]);
-  const resolvedContextModel = useMemo(() => {
-    const llmModel = llmConfig?.model?.trim();
-    if (llmModel) {
-      return llmModel;
-    }
-    const fallbackModel = contextEstimateModel?.trim();
-    if (fallbackModel) {
-      return fallbackModel;
-    }
-    return null;
-  }, [contextEstimateModel, llmConfig?.model]);
-  const estimatedContextWindowTokens = useMemo(
-    () => resolveEstimatedContextWindowTokens(resolvedContextModel),
-    [resolvedContextModel],
+  const {
+    contextWindowTokens,
+    contextUsedTokens,
+    contextUsageIsEstimated,
+    contextUsageUnavailable,
+  } = useMemo(
+    () => resolveProjectChatContextTelemetry(contextUsage),
+    [contextUsage],
   );
-  const estimatedContextUsedTokens = useMemo(
-    () => estimateChatHistoryTokens(messages),
-    [messages],
-  );
-  const contextWindowTokens =
-    backendContextWindowTokens ?? estimatedContextWindowTokens;
-  const contextUsedTokens =
-    backendContextUsedTokens ?? estimatedContextUsedTokens;
-  const contextUsageIsEstimated =
-    Boolean(contextUsage?.estimated) ||
-    backendContextWindowTokens === null ||
-    backendContextUsedTokens === null;
   const historyCompatibility = useMemo<ChatHistoryCompatibility | null>(() => {
     const runType = resolveProjectChatRunType(engineType);
     if (!runType) {
@@ -983,8 +995,13 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       }),
     [showPermissionExecutionControl, showSearchExecutionControl],
   );
-  const lastFetchedChatIdRef = useRef<string | null>(null);
   const lastChatIdRef = useRef<string | null>(null);
+  const hydrationStatusByKeyRef = useRef<
+    Record<string, "in_flight" | "succeeded" | "failed" | "retry_scheduled">
+  >({});
+  const hydrationRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const createProjectStarterPrompt = useMemo(
     () => buildCreateProjectStarterPrompt(hasPythonInWorkspaceRoot),
     [hasPythonInWorkspaceRoot],
@@ -1018,6 +1035,19 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     }
   }, [chatId]);
 
+  const clearHydrationRetryTimer = useCallback(() => {
+    if (hydrationRetryTimerRef.current !== null) {
+      globalThis.clearTimeout(hydrationRetryTimerRef.current);
+      hydrationRetryTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearHydrationRetryTimer();
+    };
+  }, [clearHydrationRetryTimer]);
+
   useEffect(() => {
     if (!pendingPrompt) {
       return;
@@ -1033,16 +1063,60 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     if (waitingForResponse) {
       return;
     }
-    if (lastFetchedChatIdRef.current === chatId) {
+    const cacheKey = buildProjectChatHydrationCacheKey({
+      chatId,
+      hydrationRunType,
+    });
+    if (!cacheKey) {
       return;
     }
-    lastFetchedChatIdRef.current = chatId;
-    if (hydrationRunType === "external_agent") {
-      getExternalAgentChat(chatId, null);
+    const status = hydrationStatusByKeyRef.current[cacheKey];
+    if (
+      status === "in_flight" ||
+      status === "succeeded" ||
+      status === "retry_scheduled"
+    ) {
       return;
     }
-    getLLMChat(chatId);
-  }, [chatId, hydrationRunType, waitingForResponse]);
+    let cancelled = false;
+    const hydrateChat = async () => {
+      hydrationStatusByKeyRef.current[cacheKey] = "in_flight";
+      const hydrated =
+        hydrationRunType === "external_agent"
+          ? await getExternalAgentChat(chatId, null)
+          : await getLLMChat(chatId);
+      if (cancelled) {
+        return;
+      }
+      if (hydrated) {
+        hydrationStatusByKeyRef.current[cacheKey] = "succeeded";
+        clearHydrationRetryTimer();
+        return;
+      }
+      hydrationStatusByKeyRef.current[cacheKey] = "failed";
+      clearHydrationRetryTimer();
+      hydrationStatusByKeyRef.current[cacheKey] = "retry_scheduled";
+      hydrationRetryTimerRef.current = globalThis.setTimeout(() => {
+        if (cancelled) {
+          return;
+        }
+        hydrationStatusByKeyRef.current[cacheKey] = "failed";
+        void hydrateChat();
+      }, 1000);
+    };
+    void hydrateChat();
+    return () => {
+      cancelled = true;
+      if (hydrationStatusByKeyRef.current[cacheKey] === "in_flight") {
+        hydrationStatusByKeyRef.current[cacheKey] = "failed";
+      }
+    };
+  }, [
+    chatId,
+    clearHydrationRetryTimer,
+    hydrationRunType,
+    waitingForResponse,
+  ]);
 
   const handleNewChatStart = useCallback(() => {
     onDraftThreadStart?.();
@@ -1433,6 +1507,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
+          contextUsageUnavailable={contextUsageUnavailable}
           submittedMessageHistory={submittedMessageHistory}
           runtimeActivityCounts={runtimeActivityCounts}
           onProviderDictationTranscribe={

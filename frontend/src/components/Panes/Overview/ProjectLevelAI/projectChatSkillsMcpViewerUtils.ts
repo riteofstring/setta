@@ -646,6 +646,7 @@ export type McpRuntimeServerStatus = {
   quickInfo: string;
   registeredToolCount: number;
   issue: string | null;
+  missingEnvVar: string | null;
 };
 
 type SlashCommandsByEngine = {
@@ -807,33 +808,45 @@ function normalizeRuntimeServerQuickInfo({
   state,
   quickInfo,
   issue,
+  missingEnvVar,
+  registeredToolCount,
 }: {
   state: McpRuntimeServerState;
   quickInfo: string | null;
   issue: string | null;
+  missingEnvVar: string | null;
+  registeredToolCount: number;
 }): string {
   if (quickInfo) {
     return quickInfo;
   }
-  if (issue) {
-    return issue;
+  const details: string[] = [];
+  if (missingEnvVar) {
+    details.push(`missing env var ${missingEnvVar}`);
   }
+  if (issue) {
+    details.push(issue);
+  }
+  details.push(
+    `${registeredToolCount} tool${registeredToolCount === 1 ? "" : "s"}`,
+  );
+  const detailSuffix = details.join(" | ");
   if (state === "connected") {
-    return "Connected";
+    return `Connected: ${detailSuffix}`;
   }
   if (state === "connecting") {
-    return "Connecting";
+    return `Connecting: ${detailSuffix}`;
   }
   if (state === "retrying") {
-    return "Retrying";
+    return `Retrying: ${detailSuffix}`;
   }
   if (state === "error") {
-    return "Error";
+    return `Error: ${detailSuffix}`;
   }
   if (state === "disabled") {
-    return "Disabled";
+    return `Disabled: ${detailSuffix}`;
   }
-  return "Unknown";
+  return `Unknown: ${detailSuffix}`;
 }
 
 function parseRuntimeServerStatusEntry(
@@ -859,6 +872,7 @@ function parseRuntimeServerStatusEntry(
     typeof issueRaw === "string" && issueRaw.trim().length > 0
       ? issueRaw
       : null;
+  const missingEnvVar = null;
   const state = normalizeRuntimeServerState(value.state);
   const quickInfo =
     typeof quickInfoRaw === "string" && quickInfoRaw.trim().length > 0
@@ -867,6 +881,8 @@ function parseRuntimeServerStatusEntry(
           state,
           quickInfo: null,
           issue,
+          missingEnvVar,
+          registeredToolCount,
         });
   return [
     serverIdRaw,
@@ -875,6 +891,7 @@ function parseRuntimeServerStatusEntry(
       quickInfo,
       registeredToolCount,
       issue,
+      missingEnvVar,
     },
   ];
 }
@@ -903,6 +920,7 @@ export function toRuntimeStatusByServerId(
     serverId: string;
     state: unknown;
     lastError?: string | null;
+    missingEnvVar?: string | null;
     toolCount?: number;
   }>,
 ): Record<string, McpRuntimeServerStatus> {
@@ -914,6 +932,7 @@ export function toRuntimeStatusByServerId(
     }
     const state = normalizeRuntimeServerState(runtimeStatus.state);
     const issue = runtimeStatus.lastError?.trim() || null;
+    const missingEnvVar = runtimeStatus.missingEnvVar?.trim() || null;
     const registeredToolCount =
       typeof runtimeStatus.toolCount === "number" &&
       Number.isFinite(runtimeStatus.toolCount) &&
@@ -926,9 +945,12 @@ export function toRuntimeStatusByServerId(
         state,
         quickInfo: null,
         issue,
+        missingEnvVar,
+        registeredToolCount,
       }),
       registeredToolCount,
       issue,
+      missingEnvVar,
     };
   }
   return statuses;

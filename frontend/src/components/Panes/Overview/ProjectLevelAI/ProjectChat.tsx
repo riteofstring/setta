@@ -57,7 +57,6 @@ import {
   ChatRoleEnum,
   EngineConfig,
   EngineTypeEnum,
-  ExternalAgentConfig,
   ExternalAgentPreflightStatus,
   SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
@@ -468,15 +467,6 @@ export function ProjectChat() {
     approvalPolicy: externalAgentConfig?.approvalPolicy ?? null,
     permissionMode: runtimePermissionMode,
   });
-  const activeModelForContextEstimate = useMemo(() => {
-    if (engineType === EngineTypeEnum.setta_llm) {
-      return selectedLLMConfig?.model ?? null;
-    }
-    if (engineType === EngineTypeEnum.external_agent) {
-      return resolveExternalAgentModelForContext(externalAgentConfig);
-    }
-    return null;
-  }, [engineType, externalAgentConfig, selectedLLMConfig?.model]);
   const placeholderText = getChatPlaceholderText({
     engineType,
     hasEngineConfig: Boolean(effectiveEngineConfig),
@@ -1395,7 +1385,6 @@ export function ProjectChat() {
                   providerDictationLikelySupported={
                     providerDictationLikelySupported
                   }
-                  contextEstimateModel={activeModelForContextEstimate}
                   setChatId={setChatId}
                   onDraftThreadStart={handleDraftThreadStart}
                   onDraftThreadSettled={handleDraftThreadSettled}
@@ -1450,7 +1439,6 @@ export function ProjectChat() {
               providerDictationLikelySupported={
                 providerDictationLikelySupported
               }
-              contextEstimateModel={activeModelForContextEstimate}
               setChatId={setChatId}
               onDraftThreadStart={handleDraftThreadStart}
               onDraftThreadSettled={handleDraftThreadSettled}
@@ -1544,28 +1532,6 @@ function isEngineUsable({
     return Boolean(status?.available && status.supported);
   }
   return false;
-}
-
-function resolveExternalAgentModelForContext(
-  externalAgentConfig: ExternalAgentConfig | null,
-): string | null {
-  if (!externalAgentConfig) {
-    return null;
-  }
-  const managed = externalAgentConfig.settingsManagedBlock;
-  if (
-    externalAgentConfig.toolType === "codex" &&
-    managed?.codex?.model?.trim()
-  ) {
-    return managed.codex.model.trim();
-  }
-  if (
-    externalAgentConfig.toolType === "opencode" &&
-    managed?.opencode?.model?.trim()
-  ) {
-    return managed.opencode.model.trim();
-  }
-  return externalAgentConfig.defaultModel?.trim() ?? null;
 }
 
 function ProjectAISettingsPopover({

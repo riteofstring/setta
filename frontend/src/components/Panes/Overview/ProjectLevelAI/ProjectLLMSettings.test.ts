@@ -1,6 +1,9 @@
 import { type AllLLMConfigs } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
-import { buildApiKeyEntries } from "./ProjectLLMSettings";
+import {
+  buildApiKeyEntries,
+  normalizeApiKeyMutationValue,
+} from "./ProjectLLMSettings";
 
 function buildConfig({
   id,
@@ -63,5 +66,17 @@ describe("buildApiKeyEntries", () => {
         configLabels: [],
       },
     ]);
+  });
+});
+
+describe("normalizeApiKeyMutationValue", () => {
+  it("trims values before persistence", () => {
+    expect(normalizeApiKeyMutationValue("  secret-value  ")).toBe(
+      "secret-value",
+    );
+  });
+
+  it("returns empty string for whitespace-only values", () => {
+    expect(normalizeApiKeyMutationValue("   \n\t  ")).toBe("");
   });
 });

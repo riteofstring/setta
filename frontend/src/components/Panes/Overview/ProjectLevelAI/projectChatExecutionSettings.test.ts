@@ -11,8 +11,10 @@ import {
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
+  buildProjectChatHydrationCacheKey,
   buildProjectChatSubmittedMessageHistory,
   getDefaultProjectChatPermissionMode,
+  resolveProjectChatContextTelemetry,
   resolveProjectChatHydrationRunType,
   resolveProjectChatRuntimeActivityCounts,
   resolveWorkspaceRootPollDelayMs,
@@ -76,6 +78,75 @@ describe("resolveProjectChatHydrationRunType", () => {
         engineType: null,
       }),
     ).toBeNull();
+  });
+});
+
+describe("buildProjectChatHydrationCacheKey", () => {
+  it("includes chat id and resolved run provenance", () => {
+    expect(
+      buildProjectChatHydrationCacheKey({
+        chatId: "chat-1",
+        hydrationRunType: "external_agent",
+      }),
+    ).toBe("chat-1:external_agent");
+    expect(
+      buildProjectChatHydrationCacheKey({
+        chatId: "chat-1",
+        hydrationRunType: null,
+      }),
+    ).toBe("chat-1:llm_chat");
+  });
+
+  it("returns null for missing chat id", () => {
+    expect(
+      buildProjectChatHydrationCacheKey({
+        chatId: null,
+        hydrationRunType: "llm_chat",
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("resolveProjectChatContextTelemetry", () => {
+  it("returns backend context values directly", () => {
+    const telemetry = resolveProjectChatContextTelemetry({
+      contextWindowTokens: 200,
+      contextUsedTokens: 150,
+      estimated: true,
+    });
+
+    expect(telemetry).toEqual({
+      contextWindowTokens: 200,
+      contextUsedTokens: 150,
+      contextUsageIsEstimated: true,
+      contextUsageUnavailable: false,
+    });
+  });
+
+  it("marks context usage unavailable without frontend estimates", () => {
+    const telemetry = resolveProjectChatContextTelemetry(null);
+
+    expect(telemetry).toEqual({
+      contextWindowTokens: null,
+      contextUsedTokens: null,
+      contextUsageIsEstimated: false,
+      contextUsageUnavailable: true,
+    });
+  });
+
+  it("marks context usage unavailable when backend omits either field", () => {
+    const telemetry = resolveProjectChatContextTelemetry({
+      contextWindowTokens: 4000,
+      contextUsedTokens: null,
+      estimated: false,
+    });
+
+    expect(telemetry).toEqual({
+      contextWindowTokens: 4000,
+      contextUsedTokens: null,
+      contextUsageIsEstimated: false,
+      contextUsageUnavailable: true,
+    });
   });
 });
 

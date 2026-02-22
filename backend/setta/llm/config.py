@@ -1,6 +1,7 @@
 """Helpers for persisting the LLM configuration file."""
 
 import json
+from datetime import UTC, datetime
 from typing import Any, Iterable
 
 from setta.database.db_objs import DBE
@@ -79,6 +80,7 @@ def _strip_temporary_configs(config: AllLLMConfigs) -> AllLLMConfigs:
         mcpServers=config.mcpServers,
         defaultMcpServerIds=config.defaultMcpServerIds,
         default_config_id=default_config_id,
+        codexMcpImportedAt=config.codexMcpImportedAt,
     )
 
 
@@ -115,21 +117,23 @@ def _bootstrap_codex_mcp_servers_if_needed(
     *,
     allow_write: bool,
 ) -> AllLLMConfigs:
-    if _has_non_setta_mcp_servers(config):
+    if config.codexMcpImportedAt:
         return config
     imported_servers = _load_codex_mcp_servers_from_config()
-    if not imported_servers:
-        return config
     merged_servers = dict(config.mcpServers)
-    added = 0
-    for server_id, server_config in imported_servers.items():
-        if server_id in merged_servers:
-            continue
-        merged_servers[server_id] = server_config
-        added += 1
-    if added == 0:
-        return config
-    updated = config.model_copy(update={"mcpServers": merged_servers})
+    if not _has_non_setta_mcp_servers(config):
+        for server_id, server_config in imported_servers.items():
+            if server_id in merged_servers:
+                continue
+            merged_servers[server_id] = server_config
+    updated = config.model_copy(
+        update={
+            "mcpServers": merged_servers,
+            "codexMcpImportedAt": datetime.now(UTC)
+            .isoformat()
+            .replace("+00:00", "Z"),
+        }
+    )
     if allow_write:
         save_llm_config(updated, dbe)
     return updated
@@ -172,6 +176,7 @@ def merge_chat_llm_configs(
         mcpServers=config.mcpServers,
         defaultMcpServerIds=config.defaultMcpServerIds,
         default_config_id=config.default_config_id,
+        codexMcpImportedAt=config.codexMcpImportedAt,
     )
 
 

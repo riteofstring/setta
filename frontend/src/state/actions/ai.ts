@@ -141,6 +141,7 @@ const scopeViolationToastTimeouts = new Map<
 let llmConfigLoadPromise: Promise<void> | null = null;
 let llmApiKeysLoadPromise: Promise<void> | null = null;
 let agentRunsLoadPromise: Promise<void> | null = null;
+const stopEligibleAssistantMessageIdByChatId = new Map<string, string>();
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
@@ -966,19 +967,28 @@ export function getDefaultChatDetails(): ChatDetails {
 type StopChatResponseSnapshot = {
   waitingForResponse: boolean;
   toolCallArguments: Record<string, string>;
-  latestAssistantMessageId: string | null;
+  interruptedAssistantMessageIdsByChat: Record<string, true>;
+  stopEligibleAssistantMessageId: string | null;
 };
 
-function findLatestAssistantMessageId(
-  messages: Array<BaseChatMessageUnion>,
-): string | null {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message.role === ChatRoleEnum.assistant) {
-      return message.id;
-    }
+function setStopEligibleAssistantMessageId(chatId: string, messageId: string) {
+  const normalizedChatId = chatId.trim();
+  const normalizedMessageId = messageId.trim();
+  if (!normalizedChatId || !normalizedMessageId) {
+    return;
   }
-  return null;
+  stopEligibleAssistantMessageIdByChatId.set(
+    normalizedChatId,
+    normalizedMessageId,
+  );
+}
+
+function clearStopEligibleAssistantMessageId(chatId: string) {
+  const normalizedChatId = chatId.trim();
+  if (!normalizedChatId) {
+    return;
+  }
+  stopEligibleAssistantMessageIdByChatId.delete(normalizedChatId);
 }
 
 function markInterruptedAssistantMessage(chatId: string, messageId: string) {
@@ -1042,6 +1052,51 @@ function clearInterruptedAssistantMessages(
   });
 }
 
+function interruptedMessageMapEquals(
+  left: Record<string, true>,
+  right: Record<string, true>,
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+  for (const key of leftKeys) {
+    if (!right[key]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function restoreInterruptedAssistantMessageSnapshot(
+  chatId: string | null | undefined,
+  snapshot: StopChatResponseSnapshot,
+) {
+  if (typeof chatId !== "string") {
+    return;
+  }
+  useAIStore.setState((state) => {
+    const currentByChat =
+      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
+    const snapshotByChat = snapshot.interruptedAssistantMessageIdsByChat;
+    if (interruptedMessageMapEquals(currentByChat, snapshotByChat)) {
+      return state;
+    }
+    const nextByChatId = {
+      ...state.interruptedAssistantMessageIdsByChatId,
+    };
+    if (Object.keys(snapshotByChat).length === 0) {
+      delete nextByChatId[chatId];
+    } else {
+      nextByChatId[chatId] = { ...snapshotByChat };
+    }
+    return {
+      interruptedAssistantMessageIdsByChatId: nextByChatId,
+    };
+  });
+}
+
 function getStopChatResponseSnapshot(
   chatId: string | null | undefined,
 ): StopChatResponseSnapshot {
@@ -1050,12 +1105,20 @@ function getStopChatResponseSnapshot(
     typeof chatId === "string"
       ? state.chatDetails[chatId] ?? getDefaultChatDetails()
       : state.pendingChatDetails ?? getDefaultChatDetails();
+  const interruptedAssistantMessageIdsByChat =
+    typeof chatId === "string"
+      ? {
+          ...(state.interruptedAssistantMessageIdsByChatId[chatId] ?? {}),
+        }
+      : {};
   return {
     waitingForResponse: currentDetails.waitingForResponse,
     toolCallArguments: { ...currentDetails.toolCallArguments },
-    latestAssistantMessageId: findLatestAssistantMessageId(
-      currentDetails.messages,
-    ),
+    interruptedAssistantMessageIdsByChat,
+    stopEligibleAssistantMessageId:
+      typeof chatId === "string"
+        ? stopEligibleAssistantMessageIdByChatId.get(chatId) ?? null
+        : null,
   };
 }
 
@@ -1085,10 +1148,10 @@ function stopChatResponseLocally(
   });
   if (typeof chatId === "string") {
     updateChatDetails(chatId, stopDetails);
-    if (snapshot.waitingForResponse && snapshot.latestAssistantMessageId) {
+    if (snapshot.waitingForResponse && snapshot.stopEligibleAssistantMessageId) {
       markInterruptedAssistantMessage(
         chatId,
-        snapshot.latestAssistantMessageId,
+        snapshot.stopEligibleAssistantMessageId,
       );
     }
   } else {
@@ -1146,8 +1209,10 @@ async function stopExternalChatResponse({
   if (!runId) {
     const refreshState = await refreshChatAndResolveWaiting();
     if (refreshState.hydrated && !refreshState.waitingForResponse) {
+      restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
       return true;
     }
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
     if (!refreshState.hydrated) {
       restoreStoppedChatResponseLocally(chatId, localSnapshot);
     }
@@ -1161,8 +1226,10 @@ async function stopExternalChatResponse({
   }
   const refreshState = await refreshChatAndResolveWaiting();
   if (refreshState.hydrated && !refreshState.waitingForResponse) {
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
     return true;
   }
+  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
   if (!refreshState.hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot);
   }
@@ -1193,6 +1260,7 @@ export async function stopProjectChatResponse(
     return true;
   }
   const hydrated = await getLLMChat(chatId);
+  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
   if (!hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot);
   }
@@ -1227,6 +1295,7 @@ export async function stopManagedSectionChatResponse(
     return true;
   }
   const hydrated = await getLLMChat(chatId, sectionId);
+  restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
   if (!hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot);
   }
@@ -1378,6 +1447,9 @@ export async function getLLMChat(
         reason: "hydrate-llm-chat",
       });
     }
+    if (!waitingForResponse) {
+      clearStopEligibleAssistantMessageId(chatId);
+    }
     return true;
   }
   return false;
@@ -1436,6 +1508,9 @@ export async function getExternalAgentChat(
         nextState,
         reason: "hydrate-external-chat",
       });
+    }
+    if (!waitingForResponse) {
+      clearStopEligibleAssistantMessageId(chatId);
     }
     return true;
   }
@@ -2061,6 +2136,7 @@ export function persistChatSectionState({
 
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
   if (chunk.message.role === ChatRoleEnum.assistant) {
+    setStopEligibleAssistantMessageId(chatId, chunk.message.id);
     clearInterruptedAssistantMessages(chatId, [chunk.message.id]);
   }
   updateChatDetails(chatId, (details) => ({
@@ -2213,6 +2289,7 @@ function handleToolResult(
 }
 
 function handleMessageStop(chatId: string) {
+  clearStopEligibleAssistantMessageId(chatId);
   updateChatDetails(chatId, (details) => ({
     ...details,
     waitingForResponse: false,
@@ -2246,6 +2323,7 @@ function handleMessageFinalized(
     };
   });
   if (chunk.message.role === ChatRoleEnum.assistant) {
+    clearStopEligibleAssistantMessageId(chatId);
     clearInterruptedAssistantMessages(chatId, [
       resolvedTargetId,
       chunk.message.id,
@@ -2773,6 +2851,9 @@ function applyOptimisticUserMessage(
   chatId: string | null,
   userMessage: BaseChatMessageUnion,
 ) {
+  if (typeof chatId === "string") {
+    clearStopEligibleAssistantMessageId(chatId);
+  }
   const updater = (details: ChatDetails) => ({
     ...details,
     messages: [...details.messages, userMessage],
