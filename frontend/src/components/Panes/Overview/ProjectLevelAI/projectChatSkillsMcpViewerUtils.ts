@@ -11,8 +11,10 @@ import {
   type APIKeys,
   type AllLLMConfigs,
   type AppGenSkillEntry,
+  type BaseChatMessageUnion,
   type EngineConfig,
   type ExternalAgentPreflightStatus,
+  ExternalAgentToolTypeEnum,
 } from "utils/generatedTypes";
 
 export function filterSkills(
@@ -31,6 +33,554 @@ export function filterSkills(
       skill.description.toLowerCase().includes(normalizedQuery)
     );
   });
+}
+
+type SkillActivityState = "active" | "inactive";
+
+type SkillStatus = {
+  isApplicable: boolean;
+  applicabilityReason: string;
+  activityState: SkillActivityState;
+  activitySource: string | null;
+};
+
+const CODEX_APPLICABLE_ROOT_IDS = [
+  "workspace_agents_skills",
+  "user_agents_skills",
+  "agents_home_skills",
+  "codex_home_skills",
+  "admin_codex_skills",
+];
+
+const CLAUDE_APPLICABLE_ROOT_IDS = [
+  "workspace_claude_skills",
+  "user_claude_skills",
+];
+
+const OPENCODE_APPLICABLE_ROOT_IDS = [
+  "workspace_opencode_skills",
+  "user_opencode_skills",
+];
+
+type SkillStatusContext = {
+  skills: AppGenSkillEntry[];
+  engineType: EngineConfig["engineType"] | null;
+  externalAgentToolType: string | null;
+  messages: BaseChatMessageUnion[] | null;
+};
+
+function getSkillRootId(skillId: string): string {
+  const separatorIndex = skillId.indexOf("::");
+  if (separatorIndex < 0) {
+    return "";
+  }
+  return skillId.slice(0, separatorIndex);
+}
+
+function getApplicableRootIds({
+  engineType,
+  externalAgentToolType,
+}: {
+  engineType: EngineConfig["engineType"] | null;
+  externalAgentToolType: string | null;
+}): string[] {
+  if (engineType !== EngineTypeEnum.external_agent) {
+    return [];
+  }
+  if (externalAgentToolType === ExternalAgentToolTypeEnum.codex) {
+    return CODEX_APPLICABLE_ROOT_IDS;
+  }
+  if (externalAgentToolType === ExternalAgentToolTypeEnum.claude_code) {
+    return CLAUDE_APPLICABLE_ROOT_IDS;
+  }
+  if (externalAgentToolType === ExternalAgentToolTypeEnum.opencode) {
+    return OPENCODE_APPLICABLE_ROOT_IDS;
+  }
+  return [];
+}
+
+function getEngineLabel({
+  engineType,
+  externalAgentToolType,
+}: {
+  engineType: EngineConfig["engineType"] | null;
+  externalAgentToolType: string | null;
+}): string {
+  if (engineType === EngineTypeEnum.setta_llm) {
+    return "Setta LLM";
+  }
+  if (engineType === EngineTypeEnum.external_agent) {
+    if (externalAgentToolType === ExternalAgentToolTypeEnum.codex) {
+      return "Codex";
+    }
+    if (externalAgentToolType === ExternalAgentToolTypeEnum.claude_code) {
+      return "Claude";
+    }
+    if (externalAgentToolType === ExternalAgentToolTypeEnum.opencode) {
+      return "OpenCode";
+    }
+    return "external agent";
+  }
+  return "selected engine";
+}
+
+function getArgumentsRecord(
+  argumentsValue: unknown,
+): Record<string, unknown> | null {
+  if (isRecord(argumentsValue)) {
+    return argumentsValue;
+  }
+  if (typeof argumentsValue !== "string" || !argumentsValue.trim()) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(argumentsValue);
+    if (!isRecord(parsed)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeSkillToken(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+const CODEX_SKILL_CONTEXT_VERBS = new Set<string>([
+  "activate",
+  "apply",
+  "call",
+  "execute",
+  "invoke",
+  "load",
+  "run",
+  "try",
+  "use",
+  "using",
+  "with",
+]);
+
+const CODEX_SKILL_LIST_CONNECTOR_WORDS = new Set<string>([
+  "and",
+  "or",
+  "plus",
+  "then",
+  "with",
+]);
+
+function isLikelyCodexSkillTokenContext(prefix: string): boolean {
+  const normalizedPrefix = prefix.replace(
+    /\$[A-Za-z0-9][A-Za-z0-9._/-]*/g,
+    " ",
+  );
+  const trimmedPrefix = normalizedPrefix.trimEnd();
+  if (!trimmedPrefix) {
+    return true;
+  }
+  if (/^[>*\-+0-9.)\s:;,\[\]{}!?'"`]+$/.test(trimmedPrefix)) {
+    return true;
+  }
+  const trailingWordMatch = trimmedPrefix
+    .toLowerCase()
+    .match(/([a-z]+)[^a-z]*$/);
+  if (!trailingWordMatch) {
+    return false;
+  }
+  const trailingWord = trailingWordMatch[1];
+  if (!trailingWord) {
+    return false;
+  }
+  return CODEX_SKILL_CONTEXT_VERBS.has(trailingWord);
+}
+
+function isLikelyCodexSkillListContinuation(segment: string): boolean {
+  const normalizedSegment = segment.trim().toLowerCase();
+  if (!normalizedSegment) {
+    return true;
+  }
+  const words = normalizedSegment.match(/[a-z]+/g) ?? [];
+  for (const word of words) {
+    if (!CODEX_SKILL_LIST_CONNECTOR_WORDS.has(word)) {
+      return false;
+    }
+  }
+  const nonWordCharacters = normalizedSegment.replace(/[a-z]+/g, "");
+  return /^[,/:()\[\]{}\-\s]*$/.test(nonWordCharacters);
+}
+
+function extractSkillTokensFromText(value: string): string[] {
+  const tokens: string[] = [];
+  const lines = value.split(/\r?\n/);
+  let inFencedCodeBlock = false;
+  for (const rawLine of lines) {
+    const trimmedLine = rawLine.trimStart();
+    if (trimmedLine.startsWith("```")) {
+      inFencedCodeBlock = !inFencedCodeBlock;
+      continue;
+    }
+    if (inFencedCodeBlock) {
+      continue;
+    }
+    const line = rawLine.replace(/`[^`\n]*`/g, " ");
+    const matches = Array.from(
+      line.matchAll(/(^|[^A-Za-z0-9_./-\\])\$([A-Za-z0-9][A-Za-z0-9._/-]*)/g),
+    );
+    let lastAcceptedTokenEndIndex: number | null = null;
+    for (const match of matches) {
+      const token = match[2];
+      const tokenPrefix = match[1];
+      const matchIndex = match.index;
+      if (!token || tokenPrefix === undefined || matchIndex === undefined) {
+        continue;
+      }
+      const tokenStartIndex = matchIndex + tokenPrefix.length;
+      const tokenEndIndex = tokenStartIndex + token.length + 1;
+      const prefix = line.slice(0, tokenStartIndex);
+      const hasPerTokenActivationContext =
+        isLikelyCodexSkillTokenContext(prefix);
+      let hasListContinuationContext = false;
+      if (lastAcceptedTokenEndIndex !== null) {
+        const continuationSegment = line.slice(
+          lastAcceptedTokenEndIndex,
+          tokenStartIndex,
+        );
+        hasListContinuationContext =
+          isLikelyCodexSkillListContinuation(continuationSegment);
+      }
+      if (!hasPerTokenActivationContext && !hasListContinuationContext) {
+        continue;
+      }
+      const normalizedToken = token.replace(/[.,:;!?]+$/g, "");
+      if (!normalizedToken) {
+        continue;
+      }
+      tokens.push(normalizedToken);
+      lastAcceptedTokenEndIndex = tokenEndIndex;
+    }
+  }
+  return tokens;
+}
+
+function getMessageTextBlocks(message: BaseChatMessageUnion): string[] {
+  const blocks: string[] = [];
+  for (const block of message.content) {
+    if (!isRecord(block)) {
+      continue;
+    }
+    if (block.type !== "text") {
+      continue;
+    }
+    if (typeof block.text !== "string" || !block.text.trim()) {
+      continue;
+    }
+    blocks.push(block.text);
+  }
+  return blocks;
+}
+
+function stripMcpToolNamespace(toolName: string): string {
+  if (!toolName.startsWith("mcp__")) {
+    return toolName;
+  }
+  const namespaceSeparatorIndex = toolName.indexOf("__", "mcp__".length);
+  if (namespaceSeparatorIndex < 0) {
+    return toolName;
+  }
+  return toolName.slice(namespaceSeparatorIndex + "__".length);
+}
+
+function extractSkillNameFromArguments(
+  argumentsValue: Record<string, unknown>,
+): string | null {
+  const candidateKeys = [
+    "name",
+    "skill",
+    "skill_name",
+    "skillName",
+    "skill_id",
+    "skillId",
+  ];
+  for (const key of candidateKeys) {
+    const raw = argumentsValue[key];
+    if (typeof raw === "string" && raw.trim()) {
+      return raw.trim();
+    }
+  }
+  const nestedKeys = ["input", "arguments", "args", "payload", "config"];
+  for (const key of nestedKeys) {
+    const raw = argumentsValue[key];
+    if (!isRecord(raw)) {
+      continue;
+    }
+    const nested = extractSkillNameFromArguments(raw);
+    if (nested) {
+      return nested;
+    }
+  }
+  return null;
+}
+
+function extractSkillNameFromInvocation({
+  toolName,
+  toolArguments,
+}: {
+  toolName: string | null;
+  toolArguments: unknown;
+}): string | null {
+  if (typeof toolName !== "string" || !toolName.trim()) {
+    return null;
+  }
+  const normalizedToolName = stripMcpToolNamespace(
+    toolName.trim().toLowerCase(),
+  );
+  if (normalizedToolName === "skills" || normalizedToolName === "skills/list") {
+    return null;
+  }
+  if (normalizedToolName === "skill") {
+    const argumentRecord = getArgumentsRecord(toolArguments);
+    if (!argumentRecord) {
+      return null;
+    }
+    return extractSkillNameFromArguments(argumentRecord);
+  }
+  if (normalizedToolName.startsWith("skill/")) {
+    const suffix = normalizedToolName.slice("skill/".length).trim();
+    return suffix || null;
+  }
+  return null;
+}
+
+function collectActiveSkillNames({
+  engineType,
+  externalAgentToolType,
+  messages,
+}: {
+  engineType: EngineConfig["engineType"] | null;
+  externalAgentToolType: string | null;
+  messages: BaseChatMessageUnion[] | null;
+}): Map<string, string> {
+  const activeByName = new Map<string, string>();
+  if (!messages || messages.length === 0) {
+    return activeByName;
+  }
+  if (engineType !== EngineTypeEnum.external_agent) {
+    return activeByName;
+  }
+  if (
+    externalAgentToolType !== ExternalAgentToolTypeEnum.codex &&
+    externalAgentToolType !== ExternalAgentToolTypeEnum.opencode
+  ) {
+    return activeByName;
+  }
+  if (externalAgentToolType === ExternalAgentToolTypeEnum.codex) {
+    for (const message of messages) {
+      if (message.role !== "user") {
+        continue;
+      }
+      const textBlocks = getMessageTextBlocks(message);
+      for (const text of textBlocks) {
+        const tokens = extractSkillTokensFromText(text);
+        for (const token of tokens) {
+          activeByName.set(normalizeSkillToken(token), "codex_skill_token");
+        }
+      }
+    }
+    return activeByName;
+  }
+  for (const message of messages) {
+    if (message.role === "assistant" && Array.isArray(message.tool_calls)) {
+      for (const toolCall of message.tool_calls) {
+        const skillName = extractSkillNameFromInvocation({
+          toolName: toolCall.function.name,
+          toolArguments: toolCall.function.arguments,
+        });
+        if (!skillName) {
+          continue;
+        }
+        activeByName.set(normalizeSkillToken(skillName), "opencode_skill_tool");
+      }
+      continue;
+    }
+    if (message.role !== "tool") {
+      continue;
+    }
+    const skillName = extractSkillNameFromInvocation({
+      toolName: message.tool_name,
+      toolArguments: message.arguments,
+    });
+    if (!skillName) {
+      continue;
+    }
+    activeByName.set(normalizeSkillToken(skillName), "opencode_skill_tool");
+  }
+  return activeByName;
+}
+
+function buildSkillIdentifierSet(skill: AppGenSkillEntry): Set<string> {
+  const identifiers = new Set<string>();
+  identifiers.add(normalizeSkillToken(skill.name));
+  const normalizedRelativePath = normalizeSkillToken(skill.relativePath);
+  identifiers.add(normalizedRelativePath);
+  const relativePathSegments = normalizedRelativePath.split("/");
+  const lastSegment = relativePathSegments[relativePathSegments.length - 1];
+  if (lastSegment) {
+    identifiers.add(lastSegment);
+  }
+  return identifiers;
+}
+
+function buildSkillIdentifierIndex(
+  skills: AppGenSkillEntry[],
+): Map<string, AppGenSkillEntry[]> {
+  const index = new Map<string, AppGenSkillEntry[]>();
+  for (const skill of skills) {
+    const identifiers = buildSkillIdentifierSet(skill);
+    for (const identifier of identifiers) {
+      const existing = index.get(identifier);
+      if (existing) {
+        existing.push(skill);
+        continue;
+      }
+      index.set(identifier, [skill]);
+    }
+  }
+  return index;
+}
+
+function compareSkillCandidates({
+  left,
+  right,
+  applicableRootPriority,
+}: {
+  left: AppGenSkillEntry;
+  right: AppGenSkillEntry;
+  applicableRootPriority: Map<string, number>;
+}): number {
+  const leftRootId = getSkillRootId(left.skillId);
+  const rightRootId = getSkillRootId(right.skillId);
+  const leftIsApplicable = applicableRootPriority.has(leftRootId);
+  const rightIsApplicable = applicableRootPriority.has(rightRootId);
+  if (leftIsApplicable !== rightIsApplicable) {
+    return leftIsApplicable ? -1 : 1;
+  }
+  const leftPriority =
+    applicableRootPriority.get(leftRootId) ?? Number.MAX_SAFE_INTEGER;
+  const rightPriority =
+    applicableRootPriority.get(rightRootId) ?? Number.MAX_SAFE_INTEGER;
+  if (leftPriority !== rightPriority) {
+    return leftPriority - rightPriority;
+  }
+  const leftRelativePathLength = left.relativePath.length;
+  const rightRelativePathLength = right.relativePath.length;
+  if (leftRelativePathLength !== rightRelativePathLength) {
+    return leftRelativePathLength - rightRelativePathLength;
+  }
+  return left.skillId.localeCompare(right.skillId);
+}
+
+function selectBestSkillCandidate({
+  candidates,
+  applicableRootPriority,
+}: {
+  candidates: AppGenSkillEntry[];
+  applicableRootPriority: Map<string, number>;
+}): AppGenSkillEntry | null {
+  let bestCandidate: AppGenSkillEntry | null = null;
+  for (const candidate of candidates) {
+    if (bestCandidate === null) {
+      bestCandidate = candidate;
+      continue;
+    }
+    if (
+      compareSkillCandidates({
+        left: candidate,
+        right: bestCandidate,
+        applicableRootPriority,
+      }) < 0
+    ) {
+      bestCandidate = candidate;
+    }
+  }
+  return bestCandidate;
+}
+
+function mapActiveSkillNamesToSkillIds({
+  skills,
+  activeSkillNames,
+  applicableRootIds,
+}: {
+  skills: AppGenSkillEntry[];
+  activeSkillNames: Map<string, string>;
+  applicableRootIds: string[];
+}): Map<string, string> {
+  const activeSkillSourcesBySkillId = new Map<string, string>();
+  if (activeSkillNames.size === 0) {
+    return activeSkillSourcesBySkillId;
+  }
+  const applicableRootPriority = new Map<string, number>();
+  for (const [index, rootId] of applicableRootIds.entries()) {
+    applicableRootPriority.set(rootId, index);
+  }
+  const skillIdentifierIndex = buildSkillIdentifierIndex(skills);
+  for (const [activeSkillName, source] of activeSkillNames.entries()) {
+    const candidates = skillIdentifierIndex.get(activeSkillName) ?? [];
+    if (candidates.length === 0) {
+      continue;
+    }
+    const bestCandidate = selectBestSkillCandidate({
+      candidates,
+      applicableRootPriority,
+    });
+    if (!bestCandidate) {
+      continue;
+    }
+    activeSkillSourcesBySkillId.set(bestCandidate.skillId, source);
+  }
+  return activeSkillSourcesBySkillId;
+}
+
+export function buildSkillStatusBySkillId({
+  skills,
+  engineType,
+  externalAgentToolType,
+  messages,
+}: SkillStatusContext): Record<string, SkillStatus> {
+  const statusesBySkillId: Record<string, SkillStatus> = {};
+  const applicableRootIds = getApplicableRootIds({
+    engineType,
+    externalAgentToolType,
+  });
+  const applicableRootIdSet = new Set(applicableRootIds);
+  const engineLabel = getEngineLabel({
+    engineType,
+    externalAgentToolType,
+  });
+  const activeSkillNames = collectActiveSkillNames({
+    engineType,
+    externalAgentToolType,
+    messages,
+  });
+  const activeSkillSourcesBySkillId = mapActiveSkillNamesToSkillIds({
+    skills,
+    activeSkillNames,
+    applicableRootIds,
+  });
+  for (const skill of skills) {
+    const rootId = getSkillRootId(skill.skillId);
+    const isApplicable = applicableRootIdSet.has(rootId);
+    const activeSource = activeSkillSourcesBySkillId.get(skill.skillId) ?? null;
+    statusesBySkillId[skill.skillId] = {
+      isApplicable,
+      applicabilityReason: isApplicable
+        ? `Applicable for ${engineLabel}.`
+        : `Not applicable for ${engineLabel}.`,
+      activityState: activeSource ? "active" : "inactive",
+      activitySource: activeSource,
+    };
+  }
+  return statusesBySkillId;
 }
 
 type SkillsByRootPath = {
@@ -84,10 +634,10 @@ type McpServerStatus = {
 };
 
 type McpRuntimeServerState =
-  | "available"
+  | "connected"
   | "connecting"
   | "retrying"
-  | "unavailable"
+  | "error"
   | "disabled"
   | "unknown";
 
@@ -137,33 +687,42 @@ export function groupMcpServersByConfigPath({
   mcpServers,
   mcpConfigPath,
   settaFilesLocation,
+  externalRuntimeServers = [],
 }: {
   mcpServers: AllLLMConfigs["mcpServers"] | undefined;
   mcpConfigPath: string | null;
   settaFilesLocation: string | null;
+  externalRuntimeServers?: Array<McpServerListEntry>;
 }): McpServersByConfigPath[] {
-  if (!mcpServers) {
-    return [];
+  const groups: McpServersByConfigPath[] = [];
+  if (mcpServers) {
+    const serverEntries = Object.entries(mcpServers)
+      .map(([serverId, config]) => {
+        return {
+          serverId,
+          transport: config.transport,
+          endpoint: resolveMcpServerEndpoint(config),
+        };
+      })
+      .sort((a, b) => a.serverId.localeCompare(b.serverId));
+    if (serverEntries.length > 0) {
+      groups.push({
+        configPath: mcpConfigPath,
+        configLabel: resolveMcpConfigLabel(settaFilesLocation),
+        servers: serverEntries,
+      });
+    }
   }
-  const serverEntries = Object.entries(mcpServers)
-    .map(([serverId, config]) => {
-      return {
-        serverId,
-        transport: config.transport,
-        endpoint: resolveMcpServerEndpoint(config),
-      };
-    })
-    .sort((a, b) => a.serverId.localeCompare(b.serverId));
-  if (serverEntries.length === 0) {
-    return [];
+  if (externalRuntimeServers.length > 0) {
+    groups.push({
+      configPath: null,
+      configLabel: "Active external runtime",
+      servers: [...externalRuntimeServers].sort((a, b) =>
+        a.serverId.localeCompare(b.serverId),
+      ),
+    });
   }
-  return [
-    {
-      configPath: mcpConfigPath,
-      configLabel: resolveMcpConfigLabel(settaFilesLocation),
-      servers: serverEntries,
-    },
-  ];
+  return groups;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -228,16 +787,53 @@ function normalizeRuntimeServerState(value: unknown): McpRuntimeServerState {
     return "unknown";
   }
   switch (value) {
-    case "available":
+    case "connected":
     case "connecting":
     case "retrying":
-    case "unavailable":
+    case "error":
     case "disabled":
     case "unknown":
       return value;
+    case "available":
+      return "connected";
+    case "unavailable":
+      return "error";
     default:
       return "unknown";
   }
+}
+
+function normalizeRuntimeServerQuickInfo({
+  state,
+  quickInfo,
+  issue,
+}: {
+  state: McpRuntimeServerState;
+  quickInfo: string | null;
+  issue: string | null;
+}): string {
+  if (quickInfo) {
+    return quickInfo;
+  }
+  if (issue) {
+    return issue;
+  }
+  if (state === "connected") {
+    return "Connected";
+  }
+  if (state === "connecting") {
+    return "Connecting";
+  }
+  if (state === "retrying") {
+    return "Retrying";
+  }
+  if (state === "error") {
+    return "Error";
+  }
+  if (state === "disabled") {
+    return "Disabled";
+  }
+  return "Unknown";
 }
 
 function parseRuntimeServerStatusEntry(
@@ -263,16 +859,19 @@ function parseRuntimeServerStatusEntry(
     typeof issueRaw === "string" && issueRaw.trim().length > 0
       ? issueRaw
       : null;
-  const fallbackQuickInfo =
-    issue ?? "Status unknown: runtime MCP status did not include details.";
+  const state = normalizeRuntimeServerState(value.state);
   const quickInfo =
     typeof quickInfoRaw === "string" && quickInfoRaw.trim().length > 0
       ? quickInfoRaw
-      : fallbackQuickInfo;
+      : normalizeRuntimeServerQuickInfo({
+          state,
+          quickInfo: null,
+          issue,
+        });
   return [
     serverIdRaw,
     {
-      state: normalizeRuntimeServerState(value.state),
+      state,
       quickInfo,
       registeredToolCount,
       issue,
@@ -295,6 +894,42 @@ export function parseMcpServerRuntimeStatuses(
     }
     const [serverId, status] = parsedEntry;
     statuses[serverId] = status;
+  }
+  return statuses;
+}
+
+export function toRuntimeStatusByServerId(
+  runtimeStatuses: Array<{
+    serverId: string;
+    state: unknown;
+    lastError?: string | null;
+    toolCount?: number;
+  }>,
+): Record<string, McpRuntimeServerStatus> {
+  const statuses: Record<string, McpRuntimeServerStatus> = {};
+  for (const runtimeStatus of runtimeStatuses) {
+    const serverId = runtimeStatus.serverId.trim();
+    if (!serverId) {
+      continue;
+    }
+    const state = normalizeRuntimeServerState(runtimeStatus.state);
+    const issue = runtimeStatus.lastError?.trim() || null;
+    const registeredToolCount =
+      typeof runtimeStatus.toolCount === "number" &&
+      Number.isFinite(runtimeStatus.toolCount) &&
+      runtimeStatus.toolCount >= 0
+        ? runtimeStatus.toolCount
+        : 0;
+    statuses[serverId] = {
+      state,
+      quickInfo: normalizeRuntimeServerQuickInfo({
+        state,
+        quickInfo: null,
+        issue,
+      }),
+      registeredToolCount,
+      issue,
+    };
   }
   return statuses;
 }
@@ -345,7 +980,7 @@ export function resolveMcpServerStatus({
         "Status unknown: server is configured but not reported by MCP runtime status.",
     };
   }
-  if (runtimeStatus.state === "available") {
+  if (runtimeStatus.state === "connected") {
     return {
       color: "green",
       quickInfo: runtimeStatus.quickInfo,

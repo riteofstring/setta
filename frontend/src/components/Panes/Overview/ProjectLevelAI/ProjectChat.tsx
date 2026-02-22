@@ -1,6 +1,7 @@
 import * as Menubar from "@radix-ui/react-menubar";
 import { FollowAIToggleButton } from "components/AppHeader/FollowAIToggleButton";
 import { type ChatPermissionModeValue } from "components/Chat/chatComposerControls";
+import { resolveProviderDictationAvailability } from "components/Chat/dictationMode";
 import {
   buildEngineGroups,
   getChatPlaceholderText,
@@ -14,7 +15,6 @@ import {
 } from "components/Chat/llmConfigUtils";
 import { PlanModeBadge } from "components/Chat/PlanModeBadge";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
-import { isProviderDictationLikelySupported } from "components/Chat/providerDictationSupport";
 import { SwitchInput } from "components/Params/ParamUIs/SwitchInput";
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import type { AllItemsType } from "components/Utils/Combobox/ComboboxStateReducer";
@@ -77,9 +77,11 @@ import { useHydrateLLMState } from "./useHydrateLLMState";
 
 type ProjectAISettingsPopoverProps = {
   engineGroups: ReturnType<typeof buildEngineGroups>;
+  transcriptionProfileGroups: AllItemsType<string>;
   availableConfigGroups: ReturnType<typeof buildLLMConfigGroups>;
   selectedEngineId: string | null;
   selectedLLMConfigId: string | null;
+  selectedTranscriptionProfileId: string | null;
   defaultLLMConfigId: string | null;
   engineType: EngineTypeEnum | null;
   noConfigsAvailable: boolean;
@@ -87,9 +89,11 @@ type ProjectAISettingsPopoverProps = {
   activityAccordionOpenByDefault: boolean;
   activityChildrenOpenByDefault: boolean;
   providerDictationLikelySupported: boolean;
+  providerDictationUnavailableReason: string;
   onOpenSkillsMcpViewer: () => void;
   onEngineChange: (value: string | null) => void;
   onLLMConfigChange: (value: string | null) => void;
+  onTranscriptionProfileChange: (value: string | null) => void;
   onPinDefaultModel: () => void;
   onDictationModeChange: (value: ProjectDictationMode) => void;
   onActivityAccordionOpenByDefaultChange: (value: boolean) => void;
@@ -240,7 +244,10 @@ export function ProjectChat() {
     externalAgentConfigs,
     engineConfigs,
     engineConfigsInitialLoadComplete,
+    transcriptionProfiles,
+    transcriptionProfilesInitialLoadComplete,
     projectChatDictationMode,
+    projectChatTranscriptionProfileId,
     projectChatSelectedEngineId,
     projectChatActivityAccordionOpenByDefault,
     projectChatActivityChildrenOpenByDefault,
@@ -259,7 +266,11 @@ export function ProjectChat() {
       externalAgentConfigs: x.externalAgentConfigs,
       engineConfigs: x.engineConfigs,
       engineConfigsInitialLoadComplete: x.engineConfigsInitialLoadComplete,
+      transcriptionProfiles: x.transcriptionProfiles,
+      transcriptionProfilesInitialLoadComplete:
+        x.transcriptionProfilesInitialLoadComplete,
       projectChatDictationMode: x.projectChatDictationMode,
+      projectChatTranscriptionProfileId: x.projectChatTranscriptionProfileId,
       projectChatSelectedEngineId: x.projectChatSelectedEngineId,
       projectChatActivityAccordionOpenByDefault:
         x.projectChatActivityAccordionOpenByDefault,
@@ -329,6 +340,18 @@ export function ProjectChat() {
     () => buildEngineGroups(engineConfigs),
     [engineConfigs],
   );
+  const transcriptionProfileGroups = useMemo<AllItemsType<string>>(
+    () => [
+      {
+        group: "Transcription Profiles",
+        items: transcriptionProfiles.map((profile) => ({
+          id: profile.id,
+          name: profile.name || profile.id,
+        })),
+      },
+    ],
+    [transcriptionProfiles],
+  );
   const preferredEngineId = useMemo(
     () =>
       findPreferredEngineId({
@@ -388,11 +411,28 @@ export function ProjectChat() {
     }
     return allLLMConfigs.configs[selectedLLMConfigId] ?? null;
   }, [allLLMConfigs, selectedLLMConfigId]);
+  const selectedTranscriptionProfile = useMemo(() => {
+    if (!projectChatTranscriptionProfileId) {
+      return null;
+    }
+    return (
+      transcriptionProfiles.find(
+        (profile) => profile.id === projectChatTranscriptionProfileId,
+      ) ?? null
+    );
+  }, [projectChatTranscriptionProfileId, transcriptionProfiles]);
+  const { providerDictationAvailable, providerDictationUnavailableReason } =
+    useMemo(
+      () =>
+        resolveProviderDictationAvailability({
+          selectedTranscriptionProfile,
+          allLLMConfigs,
+          apiKeys,
+        }),
+      [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
+    );
   const defaultLLMConfigId = allLLMConfigs?.default_config_id ?? null;
-  const providerDictationLikelySupported = useMemo(
-    () => isProviderDictationLikelySupported(selectedLLMConfig),
-    [selectedLLMConfig],
-  );
+  const providerDictationLikelySupported = providerDictationAvailable;
   const hasLLMConfig = Boolean(
     selectedLLMConfigId && availableConfigIds.has(selectedLLMConfigId),
   );
@@ -645,6 +685,12 @@ export function ProjectChat() {
       default_config_id: selectedLLMConfigId,
     });
   }, [allLLMConfigs, selectedLLMConfigId]);
+  const handleTranscriptionProfileChange = useCallback(
+    (value: string | null) => {
+      useAIStore.setState({ projectChatTranscriptionProfileId: value });
+    },
+    [],
+  );
   const handleDictationModeChange = useCallback(
     (value: ProjectDictationMode) => {
       useAIStore.setState({ projectChatDictationMode: value });
@@ -710,6 +756,33 @@ export function ProjectChat() {
     selectedEngineId,
     setSelectedEngineId,
   ]);
+  useEffect(() => {
+    if (!transcriptionProfilesInitialLoadComplete) {
+      return;
+    }
+    if (!projectChatTranscriptionProfileId) {
+      return;
+    }
+    const selectedProfile = transcriptionProfiles.find(
+      (profile) => profile.id === projectChatTranscriptionProfileId,
+    );
+    if (!selectedProfile) {
+      useAIStore.setState({ projectChatTranscriptionProfileId: null });
+    }
+  }, [
+    projectChatTranscriptionProfileId,
+    transcriptionProfiles,
+    transcriptionProfilesInitialLoadComplete,
+  ]);
+  useEffect(() => {
+    if (projectChatDictationMode !== "provider") {
+      return;
+    }
+    if (providerDictationAvailable) {
+      return;
+    }
+    useAIStore.setState({ projectChatDictationMode: "auto" });
+  }, [projectChatDictationMode, providerDictationAvailable]);
   useEffect(() => {
     setRuntimePermissionMode(getDefaultProjectChatPermissionMode(engineType));
   }, [engineType]);
@@ -1133,9 +1206,13 @@ export function ProjectChat() {
                       {showPlanModeBadge ? <PlanModeBadge /> : null}
                       <ProjectAISettingsPopover
                         engineGroups={engineGroups}
+                        transcriptionProfileGroups={transcriptionProfileGroups}
                         availableConfigGroups={availableConfigGroups}
                         selectedEngineId={effectiveEngineId}
                         selectedLLMConfigId={selectedLLMConfigId}
+                        selectedTranscriptionProfileId={
+                          projectChatTranscriptionProfileId
+                        }
                         defaultLLMConfigId={defaultLLMConfigId}
                         engineType={engineType}
                         noConfigsAvailable={noConfigsAvailable}
@@ -1149,11 +1226,17 @@ export function ProjectChat() {
                         providerDictationLikelySupported={
                           providerDictationLikelySupported
                         }
+                        providerDictationUnavailableReason={
+                          providerDictationUnavailableReason
+                        }
                         onOpenSkillsMcpViewer={() => {
                           setViewSkillsMcpViewer(true);
                         }}
                         onEngineChange={handleEngineChange}
                         onLLMConfigChange={handleLLMConfigChange}
+                        onTranscriptionProfileChange={
+                          handleTranscriptionProfileChange
+                        }
                         onPinDefaultModel={handlePinDefaultModel}
                         onDictationModeChange={handleDictationModeChange}
                         onActivityAccordionOpenByDefaultChange={
@@ -1286,7 +1369,12 @@ export function ProjectChat() {
                   className={`${PROJECT_CHAT_CONTENT_SHELL_CLASS} flex min-h-0 flex-1 flex-col`}
                   data-chat-width-shell="true"
                 >
-                  <ProjectChatSkillsMcpViewer />
+                  <ProjectChatSkillsMcpViewer
+                    chatId={chatId}
+                    engineConfigId={effectiveEngineId}
+                    engineType={engineType}
+                    externalAgentToolType={externalAgentConfig?.toolType ?? null}
+                  />
                 </div>
               ) : (
                 <ProjectChatCore
@@ -1299,7 +1387,9 @@ export function ProjectChat() {
                   hasLLMConfig={hasLLMConfig}
                   externalEngineAvailable={externalEngineAvailable}
                   noLLMConfigsAvailable={noConfigsAvailable}
+                  transcriptionProfileId={projectChatTranscriptionProfileId}
                   dictationMode={projectChatDictationMode}
+                  providerDictationAvailable={providerDictationAvailable}
                   providerDictationLikelySupported={
                     providerDictationLikelySupported
                   }
@@ -1321,7 +1411,12 @@ export function ProjectChat() {
             className={`${PROJECT_CHAT_CONTENT_SHELL_CLASS} flex min-h-0 flex-1 flex-col`}
             data-chat-width-shell="true"
           >
-            <ProjectChatSkillsMcpViewer />
+            <ProjectChatSkillsMcpViewer
+              chatId={chatId}
+              engineConfigId={effectiveEngineId}
+              engineType={engineType}
+              externalAgentToolType={externalAgentConfig?.toolType ?? null}
+            />
           </div>
         ) : viewThreads ? (
           <ProjectChatHistory
@@ -1347,7 +1442,9 @@ export function ProjectChat() {
               hasLLMConfig={hasLLMConfig}
               externalEngineAvailable={externalEngineAvailable}
               noLLMConfigsAvailable={noConfigsAvailable}
+              transcriptionProfileId={projectChatTranscriptionProfileId}
               dictationMode={projectChatDictationMode}
+              providerDictationAvailable={providerDictationAvailable}
               providerDictationLikelySupported={
                 providerDictationLikelySupported
               }
@@ -1471,9 +1568,11 @@ function resolveExternalAgentModelForContext(
 
 function ProjectAISettingsPopover({
   engineGroups,
+  transcriptionProfileGroups,
   availableConfigGroups,
   selectedEngineId,
   selectedLLMConfigId,
+  selectedTranscriptionProfileId,
   defaultLLMConfigId,
   engineType,
   noConfigsAvailable,
@@ -1481,9 +1580,11 @@ function ProjectAISettingsPopover({
   activityAccordionOpenByDefault,
   activityChildrenOpenByDefault,
   providerDictationLikelySupported,
+  providerDictationUnavailableReason,
   onOpenSkillsMcpViewer,
   onEngineChange,
   onLLMConfigChange,
+  onTranscriptionProfileChange,
   onPinDefaultModel,
   onDictationModeChange,
   onActivityAccordionOpenByDefaultChange,
@@ -1496,9 +1597,9 @@ function ProjectAISettingsPopover({
   const llmBg = selectedLLMConfigId
     ? ""
     : "bg-red-500 hover:bg-red-800 hover:dark:bg-red-900 dark:bg-red-950 !placeholder-white !border-red-500";
-  const providerModeAvailable = showLLMConfig;
+  const providerModeAvailable = providerDictationLikelySupported;
   const autoFallsBackToBrowser =
-    showLLMConfig && !providerDictationLikelySupported;
+    dictationMode === "auto" && !providerDictationLikelySupported;
   const selectedModelPinnedAsDefault =
     selectedLLMConfigId !== null && selectedLLMConfigId === defaultLLMConfigId;
   const dictationModeOptions = useMemo<AllItemsType<ProjectDictationMode>>(
@@ -1514,7 +1615,7 @@ function ProjectAISettingsPopover({
             id: "provider",
             name: providerModeAvailable
               ? "Always provider"
-              : "Always provider (requires LLM engine)",
+              : "Always provider (requires transcription profile)",
           },
           {
             id: "browser",
@@ -1616,6 +1717,20 @@ function ProjectAISettingsPopover({
           </div>
           <div className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
+              Transcription Profile
+            </span>
+            <IdNameCombobox
+              allItems={transcriptionProfileGroups}
+              value={selectedTranscriptionProfileId}
+              small={false}
+              onSelectedItemChange={onTranscriptionProfileChange}
+              placeholder="Select a transcription profile"
+              outerDivClasses="w-full"
+              selectedItemCanBeNull
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-setta-500 dark:text-setta-400">
               Microphone Source
             </span>
             <IdNameCombobox
@@ -1628,12 +1743,17 @@ function ProjectAISettingsPopover({
               inputDivId="project-ai-microphone-source"
             />
             <p className="text-[10px] text-setta-500 dark:text-setta-400">
-              Provider mode uses the current LLM Config.
+              Provider mode uses the selected transcription profile.
             </p>
-            {dictationMode === "auto" && autoFallsBackToBrowser ? (
+            {!providerModeAvailable ? (
               <p className="text-[10px] text-amber-700 dark:text-amber-300">
-                Auto currently prefers browser/OS because the selected model
-                does not appear transcription-capable.
+                {providerDictationUnavailableReason}
+              </p>
+            ) : null}
+            {autoFallsBackToBrowser ? (
+              <p className="text-[10px] text-amber-700 dark:text-amber-300">
+                Auto currently prefers browser/OS because provider dictation is
+                unavailable.
               </p>
             ) : null}
           </div>

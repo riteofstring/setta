@@ -30,7 +30,7 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
-import { isProviderDictationLikelySupported } from "components/Chat/providerDictationSupport";
+import { resolveProviderDictationAvailability } from "components/Chat/dictationMode";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
@@ -45,7 +45,7 @@ import {
   stopManagedSectionChatResponse,
   submitEditedMessage,
   submitMessage,
-  transcribeChatAudio,
+  transcribeChatAudioWithProfile,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
@@ -281,10 +281,12 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
   const {
     managed,
     engineConfigId,
+    transcriptionProfileId,
     agentProfileId,
     thinking,
     permissionMode,
     searchEnabled,
+    dictationMode,
     messages,
     inputText,
     waitingForResponse,
@@ -301,10 +303,12 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     return {
       managed: impl.managed,
       engineConfigId: impl.engineConfigId,
+      transcriptionProfileId: impl.transcriptionProfileId,
       agentProfileId: impl.agentProfileId,
       thinking: impl.thinking,
       permissionMode: impl.permissionMode,
       searchEnabled: impl.searchEnabled,
+      dictationMode: impl.dictationMode,
       messages: impl.messages,
       inputText: impl.inputText,
       waitingForResponse: impl.waitingForResponse,
@@ -320,10 +324,12 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       <ManagedChatArea
         sectionId={sectionId}
         engineConfigId={engineConfigId}
+        transcriptionProfileId={transcriptionProfileId}
         agentProfileId={agentProfileId}
         thinking={thinking}
         permissionMode={permissionMode}
         searchEnabled={searchEnabled}
+        dictationMode={dictationMode}
       />
     );
   }
@@ -332,6 +338,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
     <ScriptableChatArea
       sectionId={sectionId}
       engineConfigId={engineConfigId}
+      transcriptionProfileId={transcriptionProfileId}
       agentProfileId={agentProfileId}
       thinking={thinking}
       messages={messages}
@@ -343,6 +350,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
       isFrozen={isFrozen}
       permissionMode={permissionMode}
       searchEnabled={searchEnabled}
+      dictationMode={dictationMode}
     />
   );
 }
@@ -350,6 +358,7 @@ export function ChatArea({ sectionId }: { sectionId: string }) {
 type ScriptableChatAreaProps = {
   sectionId: string;
   engineConfigId: string | null;
+  transcriptionProfileId: string | null;
   agentProfileId: string | null;
   thinking: boolean;
   messages: Array<ChatSectionState["messages"][number]>;
@@ -361,11 +370,13 @@ type ScriptableChatAreaProps = {
   isFrozen: boolean;
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
+  dictationMode: "auto" | "browser" | "provider";
 };
 
 function ScriptableChatArea({
   sectionId,
   engineConfigId,
+  transcriptionProfileId,
   agentProfileId,
   thinking,
   messages,
@@ -377,6 +388,7 @@ function ScriptableChatArea({
   isFrozen,
   permissionMode,
   searchEnabled,
+  dictationMode,
 }: ScriptableChatAreaProps) {
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = getCurrProjectConfigId();
@@ -645,17 +657,21 @@ function ScriptableChatArea({
             sectionId,
             managed: false,
             engineConfigId,
+            transcriptionProfileId,
             agentProfileId,
             thinking,
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
+            dictationMode,
             frontendOpId,
           }),
       });
     },
     [
       agentProfileId,
+      dictationMode,
       engineConfigId,
+      transcriptionProfileId,
       permissionMode,
       projectConfigId,
       searchEnabled,
@@ -895,6 +911,16 @@ function ScriptableChatArea({
     }),
     [executionControlHandlers.onPermissionModeChange, permissionMode],
   );
+  const providerDictationAvailable = Boolean(transcriptionProfileId);
+  const handleProviderDictationTranscribe = useCallback(
+    async (audioBlob: Blob) => {
+      if (!transcriptionProfileId) {
+        return null;
+      }
+      return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
+    },
+    [transcriptionProfileId],
+  );
 
   return (
     <div
@@ -932,9 +958,17 @@ function ScriptableChatArea({
             permissionMode: true,
             search: false,
           }}
+          dictationMode={dictationMode}
+          dictationEnabledByProvider={providerDictationAvailable}
+          providerDictationLikelySupported={providerDictationAvailable}
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
+          onProviderDictationTranscribe={
+            providerDictationAvailable
+              ? handleProviderDictationTranscribe
+              : undefined
+          }
         />
       </div>
     </div>
@@ -1105,19 +1139,23 @@ function ManagedChatHistoryPanel({
 type ManagedChatAreaProps = {
   sectionId: string;
   engineConfigId: string | null;
+  transcriptionProfileId: string | null;
   agentProfileId: string | null;
   thinking: boolean;
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
+  dictationMode: "auto" | "browser" | "provider";
 };
 
 function ManagedChatArea({
   sectionId,
   engineConfigId,
+  transcriptionProfileId,
   agentProfileId,
   thinking,
   permissionMode,
   searchEnabled,
+  dictationMode,
 }: ManagedChatAreaProps) {
   useHydrateLLMState();
   useHydrateAgenticState();
@@ -1201,6 +1239,7 @@ function ManagedChatArea({
     allLLMConfigs,
     agentProfiles,
     engineConfigs,
+    transcriptionProfiles,
     externalAgentHealth,
     externalAgentHealthInitialLoadComplete,
     externalAgentConfigs,
@@ -1210,6 +1249,7 @@ function ManagedChatArea({
       allLLMConfigs: state.allLLMConfigs,
       agentProfiles: state.agentProfiles,
       engineConfigs: state.engineConfigs,
+      transcriptionProfiles: state.transcriptionProfiles,
       externalAgentHealth: state.externalAgentHealth,
       externalAgentHealthInitialLoadComplete:
         state.externalAgentHealthInitialLoadComplete,
@@ -1272,10 +1312,26 @@ function ManagedChatArea({
     }
     return allLLMConfigs.configs[selectedLLMConfigId] ?? null;
   }, [allLLMConfigs, selectedLLMConfigId]);
-  const providerDictationLikelySupported = useMemo(
-    () => isProviderDictationLikelySupported(selectedLLMConfig),
-    [selectedLLMConfig],
+  const selectedTranscriptionProfile = useMemo(() => {
+    if (!transcriptionProfileId) {
+      return null;
+    }
+    return (
+      transcriptionProfiles.find(
+        (profile) => profile.id === transcriptionProfileId,
+      ) ?? null
+    );
+  }, [transcriptionProfileId, transcriptionProfiles]);
+  const { providerDictationAvailable } = useMemo(
+    () =>
+      resolveProviderDictationAvailability({
+        selectedTranscriptionProfile,
+        allLLMConfigs,
+        apiKeys,
+      }),
+    [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
   );
+  const providerDictationLikelySupported = providerDictationAvailable;
   const hasEngineConfig = Boolean(selectedEngineConfig);
   const hasLLMConfig = Boolean(selectedLLMConfigId);
   const externalEngineStatus = useMemo(
@@ -1497,17 +1553,21 @@ function ManagedChatArea({
             sectionId,
             managed: true,
             engineConfigId,
+            transcriptionProfileId,
             agentProfileId,
             thinking,
             permissionMode: nextSettings.permissionMode,
             searchEnabled: nextSettings.searchEnabled,
+            dictationMode,
             frontendOpId,
           }),
       });
     },
     [
       agentProfileId,
+      dictationMode,
       engineConfigId,
+      transcriptionProfileId,
       permissionMode,
       projectConfigId,
       searchEnabled,
@@ -1767,12 +1827,12 @@ function ManagedChatArea({
   );
   const handleProviderDictationTranscribe = useCallback(
     async (audioBlob: Blob) => {
-      if (!effectiveEngineConfigId || isExternalEngine) {
+      if (isExternalEngine || !transcriptionProfileId) {
         return null;
       }
-      return transcribeChatAudio(effectiveEngineConfigId, audioBlob);
+      return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
     },
-    [effectiveEngineConfigId, isExternalEngine],
+    [isExternalEngine, transcriptionProfileId],
   );
 
   return (
@@ -1865,14 +1925,16 @@ function ManagedChatArea({
             permissionMode: showPermissionExecutionControl,
             search: false,
           }}
-          dictationMode="auto"
-          dictationEnabledByProvider={hasEngineConfig}
+          dictationMode={dictationMode}
+          dictationEnabledByProvider={providerDictationAvailable}
           providerDictationLikelySupported={providerDictationLikelySupported}
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
           onProviderDictationTranscribe={
-            isExternalEngine ? undefined : handleProviderDictationTranscribe
+            isExternalEngine || !providerDictationAvailable
+              ? undefined
+              : handleProviderDictationTranscribe
           }
         />
       </div>

@@ -43,7 +43,7 @@ import {
   stopProjectChatResponse,
   submitEditedMessage,
   submitMessage,
-  transcribeChatAudio,
+  transcribeChatAudioWithProfile,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
@@ -711,7 +711,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hasLLMConfig,
   externalEngineAvailable,
   noLLMConfigsAvailable,
+  transcriptionProfileId,
   dictationMode,
+  providerDictationAvailable,
   providerDictationLikelySupported,
   contextEstimateModel,
   setChatId,
@@ -730,7 +732,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hasLLMConfig: boolean;
   externalEngineAvailable: boolean;
   noLLMConfigsAvailable: boolean;
+  transcriptionProfileId: string | null;
   dictationMode: "auto" | "browser" | "provider";
+  providerDictationAvailable: boolean;
   providerDictationLikelySupported: boolean;
   contextEstimateModel: string | null;
   setChatId: Dispatch<SetStateAction<string | null | undefined>>;
@@ -1296,12 +1300,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   );
   const handleProviderDictationTranscribe = useCallback(
     async (audioBlob: Blob) => {
-      if (!engineConfigId || isExternalEngine) {
+      if (isExternalEngine || !transcriptionProfileId) {
         return null;
       }
-      return transcribeChatAudio(engineConfigId, audioBlob);
+      return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
     },
-    [engineConfigId, isExternalEngine],
+    [isExternalEngine, transcriptionProfileId],
   );
   const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
   const showConversationSearchEmptyState =
@@ -1367,7 +1371,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
             search: showSearchExecutionControl,
           }}
           dictationMode={dictationMode}
-          dictationEnabledByProvider={Boolean(engineConfigId)}
+          dictationEnabledByProvider={providerDictationAvailable}
           providerDictationLikelySupported={providerDictationLikelySupported}
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
@@ -1375,7 +1379,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           submittedMessageHistory={submittedMessageHistory}
           runtimeActivityCounts={runtimeActivityCounts}
           onProviderDictationTranscribe={
-            isExternalEngine ? undefined : handleProviderDictationTranscribe
+            isExternalEngine || !providerDictationAvailable
+              ? undefined
+              : handleProviderDictationTranscribe
           }
         />
       </div>

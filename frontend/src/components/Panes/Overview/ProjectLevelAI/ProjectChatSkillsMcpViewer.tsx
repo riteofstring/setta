@@ -17,21 +17,26 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import { useAIStore } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  route_call_mcp_tool,
   route_get_app_gen_skill_content,
   route_get_app_gen_skills,
-  route_get_setta_home_info,
+  route_get_mcp_server_runtime_status,
   route_reveal_path_in_os_file_explorer,
 } from "utils/generatedEndpoints";
-import { type AgentRun, type AppGenSkillEntry } from "utils/generatedTypes";
 import {
+  type AgentRun,
+  type AppGenSkillEntry,
+  type BaseChatMessageUnion,
+  type EngineConfig,
+} from "utils/generatedTypes";
+import {
+  buildSkillStatusBySkillId,
   buildSlashCommandsByEngine,
   filterSkills,
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
   type McpRuntimeServerStatus,
-  parseMcpServerRuntimeStatuses,
   resolveMcpServerStatus,
+  toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
 
 type PathGroupHeaderProps = {
@@ -39,6 +44,13 @@ type PathGroupHeaderProps = {
   path: string | null;
   onCopyPath: (path: string | null) => void;
   onRevealPath: (path: string | null) => void;
+};
+
+type ProjectChatSkillsMcpViewerProps = {
+  chatId: string | null | undefined;
+  engineConfigId: string | null;
+  engineType: EngineConfig["engineType"] | null;
+  externalAgentToolType: string | null;
 };
 
 const SKILL_MARKDOWN_VIEWER_STORAGE_KEY =
@@ -419,7 +431,22 @@ function PathGroupHeader({
   );
 }
 
-export function ProjectChatSkillsMcpViewer() {
+export function ProjectChatSkillsMcpViewer({
+  chatId,
+  engineConfigId,
+  engineType,
+  externalAgentToolType,
+}: ProjectChatSkillsMcpViewerProps) {
+  const chatMessages = useAIStore((state): BaseChatMessageUnion[] | null => {
+    if (!chatId) {
+      return null;
+    }
+    const details = state.chatDetails[chatId];
+    if (!details) {
+      return null;
+    }
+    return details.messages;
+  });
   const apiKeys = useAIStore((state) => state.apiKeys);
   const engineConfigs = useAIStore((state) => state.engineConfigs);
   const engineConfigsInitialLoadComplete = useAIStore(
@@ -464,13 +491,19 @@ export function ProjectChatSkillsMcpViewer() {
   const [settaFilesLocation, setSettaFilesLocation] = useState<string | null>(
     null,
   );
-  const [mcpConfigInfoLoading, setMcpConfigInfoLoading] = useState(true);
   const [mcpRuntimeStatusLoading, setMcpRuntimeStatusLoading] = useState(true);
   const [mcpRuntimeStatusError, setMcpRuntimeStatusError] = useState<
     string | null
   >(null);
   const [mcpRuntimeStatusByServerId, setMcpRuntimeStatusByServerId] =
     useState<Record<string, McpRuntimeServerStatus> | null>(null);
+  const [externalRuntimeServers, setExternalRuntimeServers] = useState<
+    Array<{
+      serverId: string;
+      transport: string;
+      endpoint: string;
+    }>
+  >([]);
   const [selectedSlashEngineId, setSelectedSlashEngineId] = useState<
     string | null
   >(null);
@@ -603,23 +636,6 @@ export function ProjectChatSkillsMcpViewer() {
   }, [isSkillMarkdownViewerOpen, selectedSkillId, skillsRevision]);
 
   useEffect(() => {
-    async function loadMcpConfigPath() {
-      setMcpConfigInfoLoading(true);
-      const res = await route_get_setta_home_info();
-      if (!res200(res)) {
-        setMcpConfigPath(null);
-        setSettaFilesLocation(null);
-        setMcpConfigInfoLoading(false);
-        return;
-      }
-      setMcpConfigPath(res.data.llmConfigPath);
-      setSettaFilesLocation(res.data.activeSettaFilesLocation);
-      setMcpConfigInfoLoading(false);
-    }
-    void loadMcpConfigPath();
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
     async function loadMcpRuntimeStatus() {
       if (!allLLMConfigsInitialLoadComplete) {
@@ -627,51 +643,51 @@ export function ProjectChatSkillsMcpViewer() {
       }
       setMcpRuntimeStatusLoading(true);
       setMcpRuntimeStatusError(null);
-      const res = await route_call_mcp_tool({
-        tool: "get_mcp_server_runtime_status",
-        arguments: {},
+      const res = await route_get_mcp_server_runtime_status({
+        chatId: chatId ?? null,
+        engineConfigId: engineConfigId ?? null,
       });
       if (cancelled) {
         return;
       }
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
-        const resolvedError =
-          res.status === 404
-            ? detail?.includes("Unknown tool: get_mcp_server_runtime_status")
-              ? "MCP runtime status tool is not loaded by the backend process yet. Restart Setta to apply the latest MCP status checks."
-              : "MCP status endpoint is unavailable in this mode."
-            : detail ?? "Failed to query MCP runtime registration.";
-        setMcpRuntimeStatusError(resolvedError);
+        setMcpRuntimeStatusError(detail ?? "Failed to load MCP runtime status.");
         setMcpRuntimeStatusByServerId(null);
+        setExternalRuntimeServers([]);
+        setMcpConfigPath(null);
+        setSettaFilesLocation(null);
         setMcpRuntimeStatusLoading(false);
         return;
       }
-      if (res.data.isError === true) {
-        setMcpRuntimeStatusError(
-          "MCP runtime reported an error while querying server status.",
-        );
-        setMcpRuntimeStatusByServerId(null);
-        setMcpRuntimeStatusLoading(false);
-        return;
-      }
-      const runtimeStatuses = parseMcpServerRuntimeStatuses(res.data);
-      if (!runtimeStatuses) {
-        setMcpRuntimeStatusError(
-          "MCP runtime status response is malformed for this mode.",
-        );
-        setMcpRuntimeStatusByServerId(null);
-        setMcpRuntimeStatusLoading(false);
-        return;
-      }
-      setMcpRuntimeStatusByServerId(runtimeStatuses);
+      const settaStatuses = res.data.servers;
+      const externalStatuses = res.data.externalServers;
+      const runtimeStatusesByServerId = toRuntimeStatusByServerId([
+        ...settaStatuses,
+        ...externalStatuses,
+      ]);
+      setMcpRuntimeStatusByServerId(runtimeStatusesByServerId);
+      setExternalRuntimeServers(
+        externalStatuses.map((status) => ({
+          serverId: status.serverId,
+          transport: status.transport,
+          endpoint: status.endpoint,
+        })),
+      );
+      setMcpConfigPath(res.data.llmConfigPath);
+      setSettaFilesLocation(res.data.activeSettaFilesLocation);
       setMcpRuntimeStatusLoading(false);
     }
     void loadMcpRuntimeStatus();
     return () => {
       cancelled = true;
     };
-  }, [allLLMConfigs?.mcpServers, allLLMConfigsInitialLoadComplete]);
+  }, [
+    allLLMConfigsInitialLoadComplete,
+    chatId,
+    engineConfigId,
+    allLLMConfigs?.mcpServers,
+  ]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -732,6 +748,14 @@ export function ProjectChatSkillsMcpViewer() {
   const filteredSkills = useMemo(() => {
     return filterSkills(skills, skillFilter);
   }, [skillFilter, skills]);
+  const skillStatusBySkillId = useMemo(() => {
+    return buildSkillStatusBySkillId({
+      skills,
+      engineType,
+      externalAgentToolType,
+      messages: chatMessages,
+    });
+  }, [chatMessages, engineType, externalAgentToolType, skills]);
   const groupedSkills = useMemo(() => {
     return groupSkillsByRootPath(filteredSkills);
   }, [filteredSkills]);
@@ -741,8 +765,14 @@ export function ProjectChatSkillsMcpViewer() {
       mcpServers: allLLMConfigs?.mcpServers,
       mcpConfigPath,
       settaFilesLocation,
+      externalRuntimeServers,
     });
-  }, [allLLMConfigs?.mcpServers, mcpConfigPath, settaFilesLocation]);
+  }, [
+    allLLMConfigs?.mcpServers,
+    externalRuntimeServers,
+    mcpConfigPath,
+    settaFilesLocation,
+  ]);
   const slashCommandsByEngine = useMemo(() => {
     return buildSlashCommandsByEngine({
       engineConfigs,
@@ -841,7 +871,7 @@ export function ProjectChatSkillsMcpViewer() {
   }, []);
 
   const mcpServersLoading =
-    !allLLMConfigsInitialLoadComplete || mcpConfigInfoLoading;
+    !allLLMConfigsInitialLoadComplete || mcpRuntimeStatusLoading;
   const showSkillsLoadingState = skillsLoading && skills.length === 0;
   const skillPreviewContent =
     skillContentLoading || (skillsLoading && !selectedSkillId)
@@ -932,7 +962,7 @@ export function ProjectChatSkillsMcpViewer() {
                 ) : (
                   mcpServerGroups.map((group, groupIndex) => (
                     <div
-                      key={group.configPath ?? "unavailable"}
+                      key={`${group.configLabel}:${group.configPath ?? "unavailable"}`}
                       className={groupIndex === 0 ? "" : "pt-2"}
                     >
                       <PathGroupHeader
@@ -1081,6 +1111,9 @@ export function ProjectChatSkillsMcpViewer() {
                         <div className="mt-1 grid gap-1 border-t border-setta-200/80 px-1 pt-1 dark:border-setta-800">
                           {group.skills.map((skill) => {
                             const selected = skill.skillId === selectedSkillId;
+                            const status = skillStatusBySkillId[skill.skillId];
+                            const isApplicable = status?.isApplicable ?? false;
+                            const isActive = status?.activityState === "active";
                             return (
                               <button
                                 key={skill.skillId}
@@ -1107,6 +1140,30 @@ export function ProjectChatSkillsMcpViewer() {
                                 >
                                   {skill.relativePath}
                                 </span>
+                                {isApplicable || isActive ? (
+                                  <span className="mt-0.5 flex w-full min-w-0 items-center gap-1 text-[10px] font-semibold">
+                                    {isApplicable ? (
+                                      <span
+                                        className="rounded border border-emerald-300 bg-emerald-50 px-1 py-[1px] text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                                        title={status.applicabilityReason}
+                                      >
+                                        Applicable
+                                      </span>
+                                    ) : null}
+                                    {isActive ? (
+                                      <span
+                                        className="rounded border border-blue-300 bg-blue-50 px-1 py-[1px] text-blue-700 dark:border-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                                        title={
+                                          status.activitySource
+                                            ? `Detected from ${status.activitySource}`
+                                            : "Skill invocation observed."
+                                        }
+                                      >
+                                        Active
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                ) : null}
                               </button>
                             );
                           })}

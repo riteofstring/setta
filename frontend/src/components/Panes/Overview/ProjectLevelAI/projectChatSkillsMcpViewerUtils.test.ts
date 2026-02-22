@@ -13,6 +13,7 @@ import {
   groupSkillsByRootPath,
   parseMcpServerRuntimeStatuses,
   resolveMcpServerStatus,
+  toRuntimeStatusByServerId,
 } from "./projectChatSkillsMcpViewerUtils";
 
 describe("projectChatSkillsMcpViewerUtils", () => {
@@ -114,7 +115,32 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(groups[0]?.configLabel).toBe("Active custom setta_files root");
   });
 
-  it("parses per-server MCP runtime statuses from structured content", () => {
+  it("appends external runtime servers as a separate group", () => {
+    const groups = groupMcpServersByConfigPath({
+      mcpServers: {
+        figma: {
+          transport: "streamable_http",
+          url: "http://127.0.0.1:3845/mcp",
+        },
+      },
+      mcpConfigPath: "/tmp/workspace/setta_files_dev/llm_config.json",
+      settaFilesLocation: "custom",
+      externalRuntimeServers: [
+        {
+          serverId: "codex-remote",
+          transport: "sse",
+          endpoint: "http://127.0.0.1:9999/mcp",
+        },
+      ],
+    });
+
+    expect(groups).toHaveLength(2);
+    expect(groups[0]?.configLabel).toBe("Active custom setta_files root");
+    expect(groups[1]?.configLabel).toBe("Active external runtime");
+    expect(groups[1]?.servers[0]?.serverId).toBe("codex-remote");
+  });
+
+  it("normalizes legacy per-server MCP runtime statuses from structured content", () => {
     const statuses = parseMcpServerRuntimeStatuses({
       structuredContent: {
         servers: [
@@ -138,13 +164,13 @@ describe("projectChatSkillsMcpViewerUtils", () => {
 
     expect(statuses).toEqual({
       "figma-desktop": {
-        state: "available",
+        state: "connected",
         quickInfo: "Connected",
         registeredToolCount: 8,
         issue: null,
       },
       pencil: {
-        state: "unavailable",
+        state: "error",
         quickInfo: "Unavailable: command not found",
         registeredToolCount: 0,
         issue: "command not found",
@@ -196,13 +222,13 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(statuses).toBeNull();
   });
 
-  it("marks runtime available servers as available", () => {
+  it("marks runtime connected servers as available", () => {
     const status = resolveMcpServerStatus({
       serverId: "figma-desktop",
       endpoint: "http://127.0.0.1:3845/mcp",
       runtimeStatusByServerId: {
         "figma-desktop": {
-          state: "available",
+          state: "connected",
           quickInfo: "Available: connected with 8 tools.",
           registeredToolCount: 8,
           issue: null,
@@ -216,13 +242,13 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(status.quickInfo).toContain("connected with 8 tools");
   });
 
-  it("marks runtime unavailable servers as unavailable", () => {
+  it("marks runtime error servers as unavailable", () => {
     const status = resolveMcpServerStatus({
       serverId: "pencil",
       endpoint: "/Applications/Pencil.app/Contents/Resources/app.asar",
       runtimeStatusByServerId: {
         pencil: {
-          state: "unavailable",
+          state: "error",
           quickInfo: "Unavailable: command not found",
           registeredToolCount: 0,
           issue: "command not found",
@@ -280,6 +306,38 @@ describe("projectChatSkillsMcpViewerUtils", () => {
 
     expect(status.color).toBe("yellow");
     expect(status.quickInfo).toContain("not reported");
+  });
+
+  it("maps typed runtime status arrays to runtime status lookup maps", () => {
+    const runtimeStatuses = toRuntimeStatusByServerId([
+      {
+        serverId: "figma-desktop",
+        state: "connected",
+        lastError: null,
+        toolCount: 8,
+      },
+      {
+        serverId: "broken-server",
+        state: "error",
+        lastError: "command not found",
+        toolCount: 0,
+      },
+    ]);
+
+    expect(runtimeStatuses).toEqual({
+      "figma-desktop": {
+        state: "connected",
+        quickInfo: "Connected",
+        registeredToolCount: 8,
+        issue: null,
+      },
+      "broken-server": {
+        state: "error",
+        quickInfo: "command not found",
+        registeredToolCount: 0,
+        issue: "command not found",
+      },
+    });
   });
 
   it("builds slash commands by engine using setta/external availability", () => {
