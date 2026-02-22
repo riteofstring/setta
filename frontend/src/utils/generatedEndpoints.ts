@@ -451,7 +451,7 @@ export async function route_cancel_transcription_session(
 
 export async function route_stop_llm_chat(
   x: gt.StopLLMChatRequestInput,
-): Promise<ResponseDataAndStatus<gt.StopLLMChatResponse>> {
+): Promise<ResponseDataAndStatus<null>> {
   return await post("/stopLLMChat", x);
 }
 
