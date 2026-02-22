@@ -25,9 +25,9 @@ class InstalledPythonPackageList(BaseModel):
 class MCPServerRuntimeStatusEntry(BaseModel):
     serverId: str
     state: str
-    quickInfo: str
-    registeredToolCount: int
-    issue: str | None = None
+    toolCount: int
+    lastError: str | None = None
+    missingEnvVar: str | None = None
 
 
 class MCPServerRuntimeStatusList(BaseModel):
@@ -92,15 +92,15 @@ def getProjectConfigNamesAndIds(ctx: Context):
 def get_mcp_server_runtime_status(ctx: Context) -> MCPServerRuntimeStatusList:
     """Return runtime MCP connection status for every configured MCP server."""
 
-    statuses = ctx.fastmcp.state.mcp_client.get_server_runtime_status_snapshot()
+    statuses = ctx.fastmcp.state.mcp_client.get_server_runtime_statuses()
     entries = [
         MCPServerRuntimeStatusEntry(
-            serverId=server_id,
+            serverId=status.serverId,
             state=status.state,
-            quickInfo=status.quick_info,
-            registeredToolCount=status.registered_tool_count,
-            issue=status.issue,
+            toolCount=status.toolCount,
+            lastError=status.lastError,
+            missingEnvVar=status.missingEnvVar,
         )
-        for server_id, status in statuses.items()
+        for status in statuses
     ]
     return MCPServerRuntimeStatusList(servers=entries)

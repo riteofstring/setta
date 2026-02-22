@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 import pytest
-import setta.llm.config as llm_config_module
+import setta.mcp.codex_config as codex_config_module
 from setta.database.db_objs import DBE
 from setta.llm.config import load_llm_config, merge_chat_llm_configs, save_llm_config
 from setta.llm.example_config import seed_llm_config_example_file
@@ -272,7 +272,9 @@ class TestLLMConfigPersistence:
             payload = dbe.read_llm_config_example()
             assert "secondary" in payload["configs"]
 
-    def test_load_llm_config_uses_example_when_not_in_dev_mode(self, monkeypatch) -> None:
+    def test_load_llm_config_uses_example_when_not_in_dev_mode(
+        self, monkeypatch
+    ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             dbe = DBE(Path(temp_dir))
             seed_llm_config_example_file(dbe)
@@ -287,6 +289,49 @@ class TestLLMConfigPersistence:
             persisted = dbe.read_llm_config()
             assert "claude-sonnet" in persisted.get("configs", {})
             assert "openai-whisper-1" in persisted.get("configs", {})
+
+    def test_load_llm_config_uses_seeded_example_payload_in_same_call(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+            dbe.write_llm_config({"configs": {}, "default_config_id": None})
+            dbe.write_llm_config_example(
+                {
+                    "configs": {
+                        "seeded": {
+                            "model": "gpt-4.1-mini",
+                            "provider": "openai",
+                        }
+                    },
+                    "default_config_id": "seeded",
+                }
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "seeded" in loaded.configs
+            assert loaded.default_config_id == "seeded"
+
+    def test_load_llm_config_uses_seeded_example_payload_when_allow_write_disabled(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+            dbe.write_llm_config({"configs": {}, "default_config_id": None})
+            dbe.write_llm_config_example(
+                {
+                    "configs": {
+                        "seeded-no-write": {
+                            "model": "gpt-4.1-mini",
+                            "provider": "openai",
+                        }
+                    },
+                }
+            )
+
+            loaded = load_llm_config(dbe, allow_write=False)
+
+            assert "seeded-no-write" in loaded.configs
+            assert dbe.read_llm_config() == {"configs": {}, "default_config_id": None}
 
 
 class TestCodexMcpBootstrap:
@@ -418,13 +463,15 @@ auth_token = "token-value"
             monkeypatch.setenv("CODEX_HOME", str(codex_home))
             warning_messages: list[str] = []
 
-            def _capture_warning(message: str, *args: object, **_kwargs: object) -> None:
+            def _capture_warning(
+                message: str, *args: object, **_kwargs: object
+            ) -> None:
                 if args:
                     warning_messages.append(message % args)
                     return
                 warning_messages.append(message)
 
-            monkeypatch.setattr(llm_config_module.logger, "warning", _capture_warning)
+            monkeypatch.setattr(codex_config_module.logger, "warning", _capture_warning)
 
             save_llm_config(
                 AllLLMConfigs(
@@ -444,6 +491,72 @@ auth_token = "token-value"
             assert "unsupported-auth" not in loaded.mcpServers
             assert any(
                 "Skipping Codex MCP server 'unsupported-auth'" in message
+                for message in warning_messages
+            )
+
+    def test_load_llm_config_skips_codex_servers_with_conflicting_transport_shape(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.valid-http]
+transport = "streamable_http"
+url = "http://127.0.0.1:3845/mcp"
+
+[mcp_servers.conflict-stdio-url]
+transport = "stdio"
+url = "http://127.0.0.1:9000/mcp"
+
+[mcp_servers.conflict-sse-command]
+transport = "sse"
+command = "node"
+args = ["server.js"]
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            warning_messages: list[str] = []
+
+            def _capture_warning(
+                message: str, *args: object, **_kwargs: object
+            ) -> None:
+                if args:
+                    warning_messages.append(message % args)
+                    return
+                warning_messages.append(message)
+
+            monkeypatch.setattr(codex_config_module.logger, "warning", _capture_warning)
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        )
+                    }
+                ),
+                dbe,
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "valid-http" in loaded.mcpServers
+            assert "conflict-stdio-url" not in loaded.mcpServers
+            assert "conflict-sse-command" not in loaded.mcpServers
+            assert any(
+                "Skipping Codex MCP server 'conflict-stdio-url'" in message
+                for message in warning_messages
+            )
+            assert any(
+                "Skipping Codex MCP server 'conflict-sse-command'" in message
                 for message in warning_messages
             )
 

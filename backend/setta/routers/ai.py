@@ -33,7 +33,10 @@ from setta.agentic.transcription_profile_resolver import (
     resolve_transcription_profile,
 )
 from setta.database.utils import create_new_id
-from setta.llm.transcription_sessions import TranscriptionAudioLimitExceededError
+from setta.llm.transcription_sessions import (
+    TranscriptionAudioLimitExceededError,
+    TranscriptionSessionError,
+)
 from setta.llm.user_facing_errors import get_user_facing_llm_error_message
 from setta.logging.project_id_route import require_project_context
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
@@ -49,7 +52,7 @@ from setta.types.agentic import (
     AgentRunStatus,
     EngineType,
 )
-from setta.types.external_agents import ExternalAgentConfig, ExternalAgentToolType
+from setta.types.external_agents import ExternalAgentToolType
 from setta.types.generated.chat_messages import (
     BaseChatMessageTypeAdapter,
     BaseChatMessageUnion,
@@ -790,10 +793,10 @@ def _raise_transcription_key_error(exc: KeyError) -> None:
     )
 
 
-def _resolve_transcription_value_error_code(
-    detail: str,
+def _resolve_transcription_session_error_code(
+    exc: TranscriptionSessionError,
 ) -> TranscriptionErrorCode:
-    if detail == "Realtime transcription is unavailable for this provider/model.":
+    if exc.error_code == "unsupported_model":
         return TranscriptionErrorCode.unsupported_model
     return TranscriptionErrorCode.invalid_request
 
@@ -1109,12 +1112,18 @@ async def route_start_transcription_session(
             message=detail,
             error_code=TranscriptionErrorCode.missing_api_key,
         )
+    except TranscriptionSessionError as exc:
+        _raise_transcription_http_error(
+            status_code=400,
+            message=str(exc),
+            error_code=_resolve_transcription_session_error_code(exc),
+        )
     except ValueError as exc:
         detail = str(exc)
         _raise_transcription_http_error(
             status_code=400,
             message=detail,
-            error_code=_resolve_transcription_value_error_code(detail),
+            error_code=TranscriptionErrorCode.invalid_request,
         )
     except Exception as exc:
         detail = (

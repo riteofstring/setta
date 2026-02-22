@@ -1,5 +1,4 @@
 import json
-import os
 import tomllib
 from copy import deepcopy
 from dataclasses import dataclass
@@ -8,6 +7,7 @@ from typing import Any
 
 from setta.agentic.external_tool_allowlist import ExternalToolAllowlist
 from setta.database.db_objs import DBE
+from setta.mcp.codex_config import load_codex_mcp_server_payloads_from_config
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.external_agents import (
     ClaudeSettingsManaged,
@@ -478,7 +478,7 @@ def _bootstrap_codex_mcp_servers_from_user_config(
     if _has_non_setta_mcp_server(existing_servers):
         payload["mcp_servers"] = existing_servers
         return
-    imported_servers = _load_non_setta_codex_mcp_servers_from_user_config()
+    imported_servers = load_codex_mcp_server_payloads_from_config()
     if not imported_servers:
         payload["mcp_servers"] = existing_servers
         return
@@ -510,65 +510,6 @@ def _resolve_raw_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
                 continue
             merged[server_id] = deepcopy(raw_entry)
     return merged
-
-
-def _load_non_setta_codex_mcp_servers_from_user_config() -> dict[str, dict[str, Any]]:
-    for config_path in _iter_codex_config_paths():
-        if not config_path.is_file():
-            continue
-        try:
-            raw_payload = config_path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        if not raw_payload.strip():
-            continue
-        try:
-            payload = tomllib.loads(raw_payload)
-        except tomllib.TOMLDecodeError:
-            continue
-        if not isinstance(payload, dict):
-            continue
-        raw_servers = _resolve_raw_codex_mcp_servers(payload)
-        if not raw_servers:
-            continue
-        parsed = _filter_non_setta_raw_mcp_servers(raw_servers)
-        if parsed:
-            return parsed
-    return {}
-
-
-def _iter_codex_config_paths() -> list[Path]:
-    candidates: list[Path] = []
-    codex_home = os.environ.get("CODEX_HOME")
-    if isinstance(codex_home, str) and codex_home.strip():
-        candidates.append(
-            (Path(codex_home).expanduser() / "config.toml").resolve(strict=False)
-        )
-    candidates.append((Path.home() / ".codex" / "config.toml").resolve(strict=False))
-    unique_candidates: list[Path] = []
-    seen: set[Path] = set()
-    for candidate in candidates:
-        if candidate in seen:
-            continue
-        seen.add(candidate)
-        unique_candidates.append(candidate)
-    return unique_candidates
-
-
-def _filter_non_setta_raw_mcp_servers(
-    raw_servers: dict[str, Any],
-) -> dict[str, dict[str, Any]]:
-    parsed: dict[str, dict[str, Any]] = {}
-    for raw_server_id, raw_server_entry in raw_servers.items():
-        if not isinstance(raw_server_id, str):
-            continue
-        server_id = raw_server_id.strip()
-        if not server_id or server_id == SETTA_MCP_SERVER_ID or "__" in server_id:
-            continue
-        if not isinstance(raw_server_entry, dict):
-            continue
-        parsed[server_id] = deepcopy(raw_server_entry)
-    return parsed
 
 
 def _has_non_setta_mcp_server(mcp_servers: dict[str, Any]) -> bool:

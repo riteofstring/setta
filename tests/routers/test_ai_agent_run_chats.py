@@ -26,6 +26,7 @@ from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.llm.transcription_sessions import (
     TranscriptionAudioLimitExceededError,
+    TranscriptionSessionError,
     TranscriptionSessionManager,
 )
 from setta.mcp.client import MultiMCPClient
@@ -1721,6 +1722,76 @@ class TestAgentRunChatRoutes:
             _assert_transcription_http_error(
                 exc.value,
                 message="Realtime transcription is unavailable for this provider/model.",
+                error_code="unsupported_model",
+            )
+
+    async def test_start_transcription_session_maps_typed_unsupported_model_code(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            transcription_profile_id = ID("transcription-primary")
+            save_transcription_profiles(
+                dbe,
+                [
+                    TranscriptionProfile(
+                        id=transcription_profile_id,
+                        name="Typed Error Mapping",
+                        transcriptionLlmConfigId="openai-transcribe",
+                        transportMode=TranscriptionTransportMode.realtime,
+                        chunkMs=1200,
+                        language=None,
+                    )
+                ],
+            )
+            runner.update_config(
+                AllLLMConfigs(
+                    configs={
+                        "openai-transcribe": LLMConfig(
+                            id="openai-transcribe",
+                            model="gpt-4o-mini-transcribe",
+                            provider="openai",
+                            api_key_env="OPENAI_API_KEY",
+                            mcpServerIds=[],
+                        ),
+                    },
+                    mcpServers={},
+                )
+            )
+            runner.update_api_keys({"OPENAI_API_KEY": "test-key"})
+
+            async def _raise_typed_unsupported_model(*_args, **_kwargs):
+                raise TranscriptionSessionError(
+                    "Provider rejected realtime session setup.",
+                    error_code="unsupported_model",
+                )
+
+            monkeypatch.setattr(
+                state.transcription_session_manager,
+                "start_session",
+                _raise_typed_unsupported_model,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_start_transcription_session(
+                        StartTranscriptionSessionRequest(
+                            transcriptionProfileId=transcription_profile_id,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 400
+            _assert_transcription_http_error(
+                exc.value,
+                message="Provider rejected realtime session setup.",
                 error_code="unsupported_model",
             )
 

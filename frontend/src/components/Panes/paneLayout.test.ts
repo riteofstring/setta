@@ -152,4 +152,45 @@ describe("pane layout helpers", () => {
 
     expect(normalizedWidth).toBe(getPaneMaxWidthForViewport(nextViewportWidth));
   });
+
+  it("supports home pane ids with paired layout behavior", () => {
+    setViewportWidth(1200);
+    useLocalStorage.setState({
+      homeWorkspacePaneVis: true,
+      homeWorkspacePaneWidth: 1040,
+      homeWorkspacePaneTrueWidth: 1040,
+      homeSelectedProjectPaneVis: false,
+      homeSelectedProjectPaneWidth: 280,
+      homeSelectedProjectPaneTrueWidth: CLOSED_PANE_WIDTH,
+    });
+
+    togglePaneVisibility(PaneNameEnum.homeSelectedProject);
+
+    const state = useLocalStorage.getState();
+    expect(state.homeSelectedProjectPaneVis).toBe(true);
+    expect(state.homeSelectedProjectPaneTrueWidth).toBe(280);
+    expect(state.homeWorkspacePaneVis).toBe(true);
+    expect(state.homeWorkspacePaneTrueWidth).toBe(920);
+  });
+
+  it("closes a full-width home pane when opening the opposite home pane", () => {
+    setViewportWidth(1200);
+    const fullWidth = getPaneMaxWidthForViewport(1200);
+    useLocalStorage.setState({
+      homeWorkspacePaneVis: true,
+      homeWorkspacePaneWidth: fullWidth,
+      homeWorkspacePaneTrueWidth: fullWidth,
+      homeSelectedProjectPaneVis: false,
+      homeSelectedProjectPaneWidth: 280,
+      homeSelectedProjectPaneTrueWidth: CLOSED_PANE_WIDTH,
+    });
+
+    togglePaneVisibility(PaneNameEnum.homeSelectedProject);
+
+    const state = useLocalStorage.getState();
+    expect(state.homeWorkspacePaneVis).toBe(false);
+    expect(state.homeWorkspacePaneTrueWidth).toBe(CLOSED_PANE_WIDTH);
+    expect(state.homeSelectedProjectPaneVis).toBe(true);
+    expect(state.homeSelectedProjectPaneTrueWidth).toBe(280);
+  });
 });

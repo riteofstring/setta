@@ -100,6 +100,39 @@ test("home page renders pane rails and toggles side panes", async ({
     page.getByTestId("home-file-browser-column").first(),
   ).toBeVisible();
 
+  const persistedHomePaneState = await page.evaluate(() => {
+    const raw = window.localStorage.getItem("setta_data");
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as {
+      state?: {
+        homeWorkspacePaneVis?: unknown;
+        homeWorkspacePaneWidth?: unknown;
+        homeWorkspacePaneTrueWidth?: unknown;
+        homeSelectedProjectPaneVis?: unknown;
+        homeSelectedProjectPaneWidth?: unknown;
+        homeSelectedProjectPaneTrueWidth?: unknown;
+      };
+    };
+    return parsed.state ?? null;
+  });
+  expect(persistedHomePaneState).not.toBeNull();
+  expect(typeof persistedHomePaneState?.homeWorkspacePaneVis).toBe("boolean");
+  expect(typeof persistedHomePaneState?.homeWorkspacePaneWidth).toBe("number");
+  expect(typeof persistedHomePaneState?.homeWorkspacePaneTrueWidth).toBe(
+    "number",
+  );
+  expect(typeof persistedHomePaneState?.homeSelectedProjectPaneVis).toBe(
+    "boolean",
+  );
+  expect(typeof persistedHomePaneState?.homeSelectedProjectPaneWidth).toBe(
+    "number",
+  );
+  expect(
+    typeof persistedHomePaneState?.homeSelectedProjectPaneTrueWidth,
+  ).toBe("number");
+
   const firstCard = page.getByTestId("home-project-card").first();
   await expect(firstCard).toBeVisible();
   const firstCardBox = await firstCard.boundingBox();

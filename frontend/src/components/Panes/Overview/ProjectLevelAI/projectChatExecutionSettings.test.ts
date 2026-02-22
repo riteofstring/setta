@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildProjectChatSubmittedMessageHistory,
   getDefaultProjectChatPermissionMode,
+  resolveProjectChatHydrationRunType,
   resolveProjectChatRuntimeActivityCounts,
   resolveWorkspaceRootPollDelayMs,
 } from "./ProjectChatCore";
@@ -43,6 +44,38 @@ describe("resolveWorkspaceRootPollDelayMs", () => {
   it("backs off polling once the root is stable", () => {
     expect(resolveWorkspaceRootPollDelayMs(2)).toBe(30000);
     expect(resolveWorkspaceRootPollDelayMs(5)).toBe(30000);
+  });
+});
+
+describe("resolveProjectChatHydrationRunType", () => {
+  it("uses selected chat run type when a chat is selected", () => {
+    expect(
+      resolveProjectChatHydrationRunType({
+        chatId: "chat-1",
+        selectedChatRunType: "external_agent",
+        engineType: EngineTypeEnum.setta_llm,
+      }),
+    ).toBe("external_agent");
+  });
+
+  it("falls back to selected engine run type when chat provenance is missing", () => {
+    expect(
+      resolveProjectChatHydrationRunType({
+        chatId: "chat-1",
+        selectedChatRunType: null,
+        engineType: EngineTypeEnum.setta_llm,
+      }),
+    ).toBe("llm_chat");
+  });
+
+  it("returns null when no chat and no engine type are selected", () => {
+    expect(
+      resolveProjectChatHydrationRunType({
+        chatId: undefined,
+        selectedChatRunType: null,
+        engineType: null,
+      }),
+    ).toBeNull();
   });
 });
 

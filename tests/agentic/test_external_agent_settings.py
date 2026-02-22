@@ -11,6 +11,8 @@ from setta.agentic.external_agent_settings import (
     write_claude_settings_file,
 )
 from setta.database.db_objs import DBE
+from setta.llm.config import load_llm_config, save_llm_config
+from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.types.external_agents import (
     ClaudeSettingsManaged,
     ClaudeSettingsPermissions,
@@ -20,6 +22,7 @@ from setta.types.external_agents import (
     ExternalAgentToolType,
     ExternalAgentRunMode,
 )
+from setta.types.llm_config import AllLLMConfigs, MCPServerConfig
 
 
 def _build_dbe(tmpdir: str) -> DBE:
@@ -273,7 +276,9 @@ args = ["pencil-mcp.js"]
                 assert figma_server.get("command") == "figma"
             if isinstance(pencil_server, dict):
                 assert pencil_server.get("command") == "node"
-            assert mcp_servers.get("setta", {}).get("url") == "http://localhost:8000/mcp"
+            assert (
+                mcp_servers.get("setta", {}).get("url") == "http://localhost:8000/mcp"
+            )
 
     def test_build_codex_settings_file_does_not_override_existing_non_setta_servers(
         self, monkeypatch: pytest.MonkeyPatch
@@ -390,7 +395,93 @@ command = "figma"
             if not isinstance(mcp_servers, dict):
                 raise AssertionError("Expected mcp_servers table")
             assert "figma-desktop" not in mcp_servers
-            assert mcp_servers.get("setta", {}).get("url") == "http://localhost:8000/mcp"
+            assert (
+                mcp_servers.get("setta", {}).get("url") == "http://localhost:8000/mcp"
+            )
+
+    def test_codex_user_server_bootstrap_matches_llm_loader_server_set(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            codex_home = Path(tmpdir) / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.valid-http]
+transport = "streamable_http"
+url = "http://127.0.0.1:3845/mcp"
+
+[mcp_servers.invalid-conflict]
+transport = "stdio"
+url = "http://127.0.0.1:9000/mcp"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            fallback_home = Path(tmpdir) / "fake-home"
+            (fallback_home / ".codex").mkdir(parents=True, exist_ok=True)
+            (fallback_home / ".codex" / "config.toml").write_text(
+                """
+[mcp_servers.fallback-home-server]
+transport = "streamable_http"
+url = "http://127.0.0.1:9900/mcp"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("HOME", str(fallback_home))
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        )
+                    }
+                ),
+                dbe,
+            )
+            loaded_llm = load_llm_config(dbe)
+
+            config = ExternalAgentConfig(
+                id="codex-parity",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt=None,
+            )
+            output_payload = tomllib.loads(
+                (output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            output_mcp_servers = output_payload.get("mcp_servers")
+            assert isinstance(output_mcp_servers, dict)
+            if not isinstance(output_mcp_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+
+            llm_server_ids = {
+                server_id
+                for server_id in loaded_llm.mcpServers.keys()
+                if server_id != SETTA_MCP_SERVER_ID
+            }
+            codex_server_ids = {
+                str(server_id)
+                for server_id in output_mcp_servers.keys()
+                if server_id != SETTA_MCP_SERVER_ID
+            }
+
+            assert llm_server_ids == {"valid-http"}
+            assert codex_server_ids == {"valid-http"}
 
     def test_build_opencode_settings_file_explicit_path_read_only(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -427,10 +518,7 @@ command = "figma"
             mcp = output_payload.get("mcp")
             assert isinstance(mcp, dict)
             if isinstance(mcp, dict):
-                assert (
-                    mcp.get("setta", {}).get("url")
-                    == "http://localhost:8000/mcp"
-                )
+                assert mcp.get("setta", {}).get("url") == "http://localhost:8000/mcp"
                 assert mcp.get("other", {}).get("url") == "http://example.com"
             assert base_path.read_text(encoding="utf-8") == original
 

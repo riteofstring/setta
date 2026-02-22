@@ -1,6 +1,7 @@
 import {
   getPaneMaxWidthForViewport,
   getPaneMinimumWidth,
+  getPaneTrueWidthFromLayoutState,
   normalizePaneWidthForViewportChange,
   setPaneWidthWithLayout,
   togglePaneFullWidth,
@@ -13,6 +14,21 @@ import { CLOSED_PANE_WIDTH, PaneName } from "utils/constants";
 import { clamp } from "utils/utils";
 
 const FULL_WIDTH_BORDER_EPSILON = 2;
+
+function getPaneWidthDiff({
+  paneName,
+  previous,
+  next,
+}: {
+  paneName: PaneName;
+  previous: Parameters<typeof getPaneTrueWidthFromLayoutState>[0];
+  next: Parameters<typeof getPaneTrueWidthFromLayoutState>[0];
+}): number {
+  return (
+    getPaneTrueWidthFromLayoutState(next, paneName) -
+    getPaneTrueWidthFromLayoutState(previous, paneName)
+  );
+}
 
 export function PaneContainer({
   paneName,
@@ -65,11 +81,13 @@ export function PaneContainer({
         normalizedWidth,
       );
       if (onResizeStop) {
-        const widthDiff =
-          paneName === "overview"
-            ? next.overviewTrueWidth - previous.overviewTrueWidth
-            : next.uiEditorTrueWidth - previous.uiEditorTrueWidth;
-        onResizeStop(widthDiff);
+        onResizeStop(
+          getPaneWidthDiff({
+            paneName,
+            previous,
+            next,
+          }),
+        );
       }
     }
   }, [maxWidth, minWidth, onResizeStop, paneName, viewportWidth, vis, width]);
@@ -81,11 +99,13 @@ export function PaneContainer({
     }
     const { previous, next } = setPaneWidthWithLayout(paneName, requestedWidth);
     if (onResizeStop) {
-      const widthDiff =
-        paneName === "overview"
-          ? next.overviewTrueWidth - previous.overviewTrueWidth
-          : next.uiEditorTrueWidth - previous.uiEditorTrueWidth;
-      onResizeStop(widthDiff);
+      onResizeStop(
+        getPaneWidthDiff({
+          paneName,
+          previous,
+          next,
+        }),
+      );
     }
   }
 
@@ -110,11 +130,13 @@ export function PaneContainer({
   function onExpandToFullWidth() {
     const { previous, next } = togglePaneFullWidth(paneName);
     if (onResizeStop) {
-      const widthDiff =
-        paneName === "overview"
-          ? next.overviewTrueWidth - previous.overviewTrueWidth
-          : next.uiEditorTrueWidth - previous.uiEditorTrueWidth;
-      onResizeStop(widthDiff);
+      onResizeStop(
+        getPaneWidthDiff({
+          paneName,
+          previous,
+          next,
+        }),
+      );
     }
   }
 

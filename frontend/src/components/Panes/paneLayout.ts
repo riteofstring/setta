@@ -2,24 +2,41 @@ import { useLocalStorage } from "state/definitions";
 import { CLOSED_PANE_WIDTH, PaneName, PaneNameEnum } from "utils/constants";
 import { clamp } from "utils/utils";
 
-type PaneLayoutState = {
+export type PaneLayoutState = {
   overviewVis: boolean;
   overviewWidth: number;
   overviewTrueWidth: number;
   uiEditorVis: boolean;
   uiEditorWidth: number;
   uiEditorTrueWidth: number;
+  homeWorkspacePaneVis: boolean;
+  homeWorkspacePaneWidth: number;
+  homeWorkspacePaneTrueWidth: number;
+  homeSelectedProjectPaneVis: boolean;
+  homeSelectedProjectPaneWidth: number;
+  homeSelectedProjectPaneTrueWidth: number;
 };
 
 const PANE_FULL_WIDTH_EPSILON_PX = 2;
 const lastNonFullPaneWidthByName: Record<PaneName, number | null> = {
   [PaneNameEnum.overview]: null,
   [PaneNameEnum.uiEditor]: null,
+  [PaneNameEnum.homeWorkspace]: null,
+  [PaneNameEnum.homeSelectedProject]: null,
 };
 
 const PANE_MIN_WIDTH_BY_NAME: Record<PaneName, number> = {
   [PaneNameEnum.overview]: 250,
   [PaneNameEnum.uiEditor]: 425,
+  [PaneNameEnum.homeWorkspace]: 260,
+  [PaneNameEnum.homeSelectedProject]: 260,
+};
+
+const OPPOSITE_PANE_BY_NAME: Record<PaneName, PaneName> = {
+  [PaneNameEnum.overview]: PaneNameEnum.uiEditor,
+  [PaneNameEnum.uiEditor]: PaneNameEnum.overview,
+  [PaneNameEnum.homeWorkspace]: PaneNameEnum.homeSelectedProject,
+  [PaneNameEnum.homeSelectedProject]: PaneNameEnum.homeWorkspace,
 };
 
 function getViewportWidth(): number {
@@ -39,6 +56,12 @@ function getStateSnapshot(
     uiEditorVis: state.uiEditorVis,
     uiEditorWidth: state.uiEditorWidth,
     uiEditorTrueWidth: state.uiEditorTrueWidth,
+    homeWorkspacePaneVis: state.homeWorkspacePaneVis,
+    homeWorkspacePaneWidth: state.homeWorkspacePaneWidth,
+    homeWorkspacePaneTrueWidth: state.homeWorkspacePaneTrueWidth,
+    homeSelectedProjectPaneVis: state.homeSelectedProjectPaneVis,
+    homeSelectedProjectPaneWidth: state.homeSelectedProjectPaneWidth,
+    homeSelectedProjectPaneTrueWidth: state.homeSelectedProjectPaneTrueWidth,
   };
 }
 
@@ -46,10 +69,16 @@ function getPaneVisibility(
   state: PaneLayoutState,
   paneName: PaneName,
 ): boolean {
-  if (paneName === PaneNameEnum.overview) {
-    return state.overviewVis;
+  if (paneName === PaneNameEnum.uiEditor) {
+    return state.uiEditorVis;
   }
-  return state.uiEditorVis;
+  if (paneName === PaneNameEnum.homeWorkspace) {
+    return state.homeWorkspacePaneVis;
+  }
+  if (paneName === PaneNameEnum.homeSelectedProject) {
+    return state.homeSelectedProjectPaneVis;
+  }
+  return state.overviewVis;
 }
 
 function setPaneVisibility(
@@ -57,18 +86,32 @@ function setPaneVisibility(
   paneName: PaneName,
   visible: boolean,
 ) {
-  if (paneName === PaneNameEnum.overview) {
-    state.overviewVis = visible;
-  } else {
+  if (paneName === PaneNameEnum.uiEditor) {
     state.uiEditorVis = visible;
+    return;
   }
+  if (paneName === PaneNameEnum.homeWorkspace) {
+    state.homeWorkspacePaneVis = visible;
+    return;
+  }
+  if (paneName === PaneNameEnum.homeSelectedProject) {
+    state.homeSelectedProjectPaneVis = visible;
+    return;
+  }
+  state.overviewVis = visible;
 }
 
 function getPaneWidth(state: PaneLayoutState, paneName: PaneName): number {
-  if (paneName === PaneNameEnum.overview) {
-    return state.overviewWidth;
+  if (paneName === PaneNameEnum.uiEditor) {
+    return state.uiEditorWidth;
   }
-  return state.uiEditorWidth;
+  if (paneName === PaneNameEnum.homeWorkspace) {
+    return state.homeWorkspacePaneWidth;
+  }
+  if (paneName === PaneNameEnum.homeSelectedProject) {
+    return state.homeSelectedProjectPaneWidth;
+  }
+  return state.overviewWidth;
 }
 
 function setPaneWidthValue(
@@ -76,11 +119,19 @@ function setPaneWidthValue(
   paneName: PaneName,
   width: number,
 ) {
-  if (paneName === PaneNameEnum.overview) {
-    state.overviewWidth = width;
-  } else {
+  if (paneName === PaneNameEnum.uiEditor) {
     state.uiEditorWidth = width;
+    return;
   }
+  if (paneName === PaneNameEnum.homeWorkspace) {
+    state.homeWorkspacePaneWidth = width;
+    return;
+  }
+  if (paneName === PaneNameEnum.homeSelectedProject) {
+    state.homeSelectedProjectPaneWidth = width;
+    return;
+  }
+  state.overviewWidth = width;
 }
 
 function setPaneTrueWidth(
@@ -88,18 +139,43 @@ function setPaneTrueWidth(
   paneName: PaneName,
   trueWidth: number,
 ) {
-  if (paneName === PaneNameEnum.overview) {
-    state.overviewTrueWidth = trueWidth;
-  } else {
+  if (paneName === PaneNameEnum.uiEditor) {
     state.uiEditorTrueWidth = trueWidth;
+    return;
   }
+  if (paneName === PaneNameEnum.homeWorkspace) {
+    state.homeWorkspacePaneTrueWidth = trueWidth;
+    return;
+  }
+  if (paneName === PaneNameEnum.homeSelectedProject) {
+    state.homeSelectedProjectPaneTrueWidth = trueWidth;
+    return;
+  }
+  state.overviewTrueWidth = trueWidth;
+}
+
+function getPaneTrueWidth(state: PaneLayoutState, paneName: PaneName): number {
+  if (paneName === PaneNameEnum.uiEditor) {
+    return state.uiEditorTrueWidth;
+  }
+  if (paneName === PaneNameEnum.homeWorkspace) {
+    return state.homeWorkspacePaneTrueWidth;
+  }
+  if (paneName === PaneNameEnum.homeSelectedProject) {
+    return state.homeSelectedProjectPaneTrueWidth;
+  }
+  return state.overviewTrueWidth;
+}
+
+export function getPaneTrueWidthFromLayoutState(
+  state: PaneLayoutState,
+  paneName: PaneName,
+): number {
+  return getPaneTrueWidth(state, paneName);
 }
 
 function getOppositePaneName(paneName: PaneName): PaneName {
-  if (paneName === PaneNameEnum.overview) {
-    return PaneNameEnum.uiEditor;
-  }
-  return PaneNameEnum.overview;
+  return OPPOSITE_PANE_BY_NAME[paneName];
 }
 
 export function getPaneMinimumWidth(paneName: PaneName): number {
@@ -157,10 +233,11 @@ export function normalizePaneWidthForViewportChange({
   return clampPaneWidth(paneName, width, viewportWidth);
 }
 
-function canFitBothOpen(viewportWidth: number): boolean {
+function canFitBothOpen(paneName: PaneName, viewportWidth: number): boolean {
+  const oppositePaneName = getOppositePaneName(paneName);
   return (
-    getPaneMinWidthForViewport(PaneNameEnum.overview, viewportWidth) +
-      getPaneMinWidthForViewport(PaneNameEnum.uiEditor, viewportWidth) <=
+    getPaneMinWidthForViewport(paneName, viewportWidth) +
+      getPaneMinWidthForViewport(oppositePaneName, viewportWidth) <=
     viewportWidth
   );
 }
@@ -202,7 +279,7 @@ function openPaneWithLayout(
     return;
   }
 
-  if (!canFitBothOpen(viewportWidth)) {
+  if (!canFitBothOpen(paneName, viewportWidth)) {
     closePane(state, oppositePaneName);
     openPaneAtWidth(state, paneName, targetWidth, viewportWidth);
     return;
@@ -258,7 +335,7 @@ function resizePaneWithLayout(
   if (!getPaneVisibility(state, oppositePaneName)) {
     return;
   }
-  if (!canFitBothOpen(viewportWidth)) {
+  if (!canFitBothOpen(paneName, viewportWidth)) {
     closePane(state, oppositePaneName);
     return;
   }
@@ -422,4 +499,6 @@ export function togglePaneFullWidth(paneName: PaneName): {
 export function resetPaneLayoutTransientStateForTests() {
   lastNonFullPaneWidthByName[PaneNameEnum.overview] = null;
   lastNonFullPaneWidthByName[PaneNameEnum.uiEditor] = null;
+  lastNonFullPaneWidthByName[PaneNameEnum.homeWorkspace] = null;
+  lastNonFullPaneWidthByName[PaneNameEnum.homeSelectedProject] = null;
 }

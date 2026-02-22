@@ -115,6 +115,22 @@ function resolveProjectChatRunType(
   return null;
 }
 
+export function resolveProjectChatHydrationRunType({
+  chatId,
+  selectedChatRunType,
+  engineType,
+}: {
+  chatId: string | null | undefined;
+  selectedChatRunType: ChatRunType | null;
+  engineType: EngineTypeEnum | null;
+}): ChatRunType | null {
+  const normalizedChatId = chatId?.trim() ?? "";
+  if (normalizedChatId && selectedChatRunType) {
+    return selectedChatRunType;
+  }
+  return resolveProjectChatRunType(engineType);
+}
+
 export function resolveWorkspaceRootPollDelayMs(
   stablePollCount: number,
 ): number {
@@ -842,6 +858,35 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     workspaceRootIdentity,
   );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const chatRunTypeByChatId = useMemo(() => {
+    const runTypeByChatId = new Map<string, ChatRunType>();
+    const entries = buildChatHistoryEntries(agentRuns, {
+      unscopedOnly: true,
+      compatibility: null,
+    });
+    for (const entry of entries) {
+      if (!entry.runType) {
+        continue;
+      }
+      runTypeByChatId.set(entry.chatId, entry.runType);
+    }
+    return runTypeByChatId;
+  }, [agentRuns]);
+  const selectedChatRunType = useMemo(() => {
+    if (typeof chatId !== "string") {
+      return null;
+    }
+    return chatRunTypeByChatId.get(chatId) ?? null;
+  }, [chatId, chatRunTypeByChatId]);
+  const hydrationRunType = useMemo(
+    () =>
+      resolveProjectChatHydrationRunType({
+        chatId,
+        selectedChatRunType,
+        engineType,
+      }),
+    [chatId, engineType, selectedChatRunType],
+  );
   const backendContextWindowTokens = useMemo(() => {
     const backendWindow = contextUsage?.contextWindowTokens;
     if (typeof backendWindow === "number" && Number.isFinite(backendWindow)) {
@@ -992,12 +1037,12 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       return;
     }
     lastFetchedChatIdRef.current = chatId;
-    if (isExternalEngine) {
+    if (hydrationRunType === "external_agent") {
       getExternalAgentChat(chatId, null);
       return;
     }
     getLLMChat(chatId);
-  }, [chatId, isExternalEngine, waitingForResponse]);
+  }, [chatId, hydrationRunType, waitingForResponse]);
 
   const handleNewChatStart = useCallback(() => {
     onDraftThreadStart?.();
