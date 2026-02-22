@@ -110,7 +110,9 @@ describe("endpointUtils URL routing", () => {
         expect(resolveEndpointOrigin(route)).toBe("launcher");
       }
     }
-    expect(resolveEndpointOrigin(RouteEnum.GET_LAUNCHER_STATUS)).toBe("backend");
+    expect(resolveEndpointOrigin(RouteEnum.GET_LAUNCHER_STATUS)).toBe(
+      "backend",
+    );
   });
 
   it("routes launch endpoint via launcher origin", async () => {

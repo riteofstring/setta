@@ -30,11 +30,11 @@ import {
   resolveModeElementForServerMode,
   type ModeRouteElements,
 } from "./modeRouteResolver";
+import { MainContainer } from "./Project/MainContainer";
 import {
   resolveWorkspaceLaunchRouteKind,
   type WorkspaceLaunchRouteKind,
 } from "./workspaceLaunchModePolicy";
-import { MainContainer } from "./Project/MainContainer";
 
 const LazyAppWrapper = lazy(async () => {
   const mod = await import("components/Pages/App/AppWrapper");
@@ -371,7 +371,9 @@ const workspaceLaunchRouteElementsByKind: Record<
 function resolveWorkspaceLaunchRouteElement(
   mode: "ide" | "share" | "app" | "launcher",
 ) {
-  return workspaceLaunchRouteElementsByKind[resolveWorkspaceLaunchRouteKind(mode)];
+  return workspaceLaunchRouteElementsByKind[
+    resolveWorkspaceLaunchRouteKind(mode)
+  ];
 }
 
 const workspaceLaunchRouteElements: ModeRouteElements = {

@@ -99,6 +99,8 @@ describe("generatedEndpoints launcher status", () => {
     await route_get_launcher_status(null);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://backend.example/api/launcherStatus");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "http://backend.example/api/launcherStatus",
+    );
   });
 });

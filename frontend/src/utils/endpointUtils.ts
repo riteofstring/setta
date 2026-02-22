@@ -8,7 +8,7 @@ export type ResponseDataAndStatus<T> = {
   hasResponse: boolean;
 };
 
-export type EndpointOriginPolicy = "backend" | "launcher" | "backend-origin";
+type EndpointOriginPolicy = "backend" | "launcher" | "backend-origin";
 
 export function res200<T>(
   res: ResponseDataAndStatus<T>,

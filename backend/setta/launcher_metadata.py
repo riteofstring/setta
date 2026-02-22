@@ -88,7 +88,9 @@ def build_launcher_install_metadata(
     normalized_version = _normalize_required_string(setta_version, label="settaVersion")
     normalized_workspace_behavior = _normalize_workspace_behavior(workspace_behavior)
     normalized_last_used_workspace = _normalize_optional_workspace(last_used_workspace)
-    normalized_artifact_options = _normalize_artifact_options_map(artifact_options or {})
+    normalized_artifact_options = _normalize_artifact_options_map(
+        artifact_options or {}
+    )
     normalized_artifacts = _normalize_managed_artifacts(managed_artifacts or {})
 
     return LauncherInstallMetadata(

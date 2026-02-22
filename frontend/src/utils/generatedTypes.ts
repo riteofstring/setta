@@ -8915,6 +8915,8 @@ export type GetAttachmentDownloadUrlsRequestInput = z.input<
 
 const BootstrapConsumeRequestSchema = z.object({
   token: z.union([z.string(), z.null()]).default(null),
+  launcherOrigin: z.union([z.string(), z.null()]).default(null),
+  launcherOriginProof: z.union([z.string(), z.null()]).default(null),
 });
 
 export type BootstrapConsumeRequestInput = z.input<

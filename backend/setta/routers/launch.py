@@ -122,10 +122,12 @@ def route_launch(
                     remote.launcher_origin
                 )
                 if normalized_remote_origin is not None:
-                    remote_bootstrap_url = append_launcher_origin_handoff_to_bootstrap_url(
-                        bootstrap_url_fragment=remote_bootstrap_url,
-                        launcher_origin=normalized_remote_origin,
-                        proof=remote.launcher_origin_proof,
+                    remote_bootstrap_url = (
+                        append_launcher_origin_handoff_to_bootstrap_url(
+                            bootstrap_url_fragment=remote_bootstrap_url,
+                            launcher_origin=normalized_remote_origin,
+                            proof=remote.launcher_origin_proof,
+                        )
                     )
             resolved_workspace_root = remote.session.workspace_path_canonical
             return LaunchResponse(

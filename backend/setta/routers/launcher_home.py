@@ -325,9 +325,7 @@ def route_open_launcher_workspace(
     normalized_setta_home = normalize_optional_argument(x.settaHome)
     normalized_setta_files_root = normalize_optional_argument(x.settaFilesRoot)
     normalized_runtime_root = normalize_optional_argument(x.runtimeRoot)
-    resolved_setta_home = resolve_launcher_setta_home(
-        setta_home=normalized_setta_home
-    )
+    resolved_setta_home = resolve_launcher_setta_home(setta_home=normalized_setta_home)
 
     if x.createIfMissing and _contains_dot_segments(raw_path=x.workspaceRoot):
         return LauncherOpenWorkspaceResponse(
@@ -435,7 +433,9 @@ def route_open_launcher_workspace(
         result.session.port,
         token,
     )
-    request_origin = normalize_launcher_origin(f"{request.url.scheme}://{request.url.netloc}")
+    request_origin = normalize_launcher_origin(
+        f"{request.url.scheme}://{request.url.netloc}"
+    )
     if request_origin is not None:
         launcher_origin_proof = mint_launcher_origin_handoff_proof(
             session_id=result.session.id,

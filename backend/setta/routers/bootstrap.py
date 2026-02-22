@@ -15,8 +15,8 @@ from setta.routers.setta_api_router import SettaAPIRouter
 from setta.types.routes import Route
 from setta.utils.constants import IS_DEV_MODE, C
 from setta.utils.launcher_origin_handoff import (
-    validate_launcher_origin_handoff_proof,
     normalize_launcher_origin,
+    validate_launcher_origin_handoff_proof,
 )
 from setta.utils.network import format_host_for_url
 
@@ -600,11 +600,14 @@ async def route_bootstrap_consume(
         raw_launcher_origin_proof = payload.launcherOriginProof
         if raw_launcher_origin and raw_launcher_origin_proof:
             normalized_launcher_origin = normalize_launcher_origin(raw_launcher_origin)
-            if normalized_launcher_origin is not None and validate_launcher_origin_handoff_proof(
-                session_id=session_metadata.id,
-                launcher_origin=normalized_launcher_origin,
-                proof=raw_launcher_origin_proof,
-                secret=secret,
+            if (
+                normalized_launcher_origin is not None
+                and validate_launcher_origin_handoff_proof(
+                    session_id=session_metadata.id,
+                    launcher_origin=normalized_launcher_origin,
+                    proof=raw_launcher_origin_proof,
+                    secret=secret,
+                )
             ):
                 trusted_launcher_origin = normalized_launcher_origin
 

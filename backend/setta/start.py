@@ -74,14 +74,14 @@ from setta.utils.env_vars import (
     SETTA_HOME_ENV,
     WORKSPACE_ROOT_ENV,
 )
+from setta.utils.launcher_origin_handoff import (
+    mint_launcher_origin_handoff_proof,
+    normalize_launcher_origin,
+)
 from setta.utils.network import (
     build_bootstrap_urls,
     format_host_for_ssh_tunnel,
     format_host_for_url,
-)
-from setta.utils.launcher_origin_handoff import (
-    mint_launcher_origin_handoff_proof,
-    normalize_launcher_origin,
 )
 from setta.utils.paths import (
     SettaFilesLocation,
@@ -2523,7 +2523,9 @@ def status(
                 resolved_workspace, prune_stale=False
             )
     if server_mode is not None:
-        sessions = [session for session in sessions if session.serverMode == server_mode]
+        sessions = [
+            session for session in sessions if session.serverMode == server_mode
+        ]
 
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
