@@ -718,6 +718,94 @@ url = "http://127.0.0.1:9900/mcp"
 
             assert "fallback-home-server" not in loaded.mcpServers
 
+    def test_load_llm_config_with_missing_codex_home_file_does_not_fallback_to_home(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            fallback_home = root / "fallback-home"
+            (fallback_home / ".codex").mkdir(parents=True, exist_ok=True)
+            (fallback_home / ".codex" / "config.toml").write_text(
+                """
+[mcp_servers.fallback-home-server]
+transport = "streamable_http"
+url = "http://127.0.0.1:9900/mcp"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            monkeypatch.setenv("HOME", str(fallback_home))
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        )
+                    }
+                ),
+                dbe,
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "fallback-home-server" not in loaded.mcpServers
+
+    def test_load_llm_config_retries_bootstrap_after_codex_parse_failure_is_fixed(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            codex_config_path = codex_home / "config.toml"
+            codex_config_path.write_text(
+                "[mcp_servers.invalid\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        )
+                    }
+                ),
+                dbe,
+            )
+
+            initial = load_llm_config(dbe)
+
+            assert "figma-desktop" not in initial.mcpServers
+            assert initial.codexMcpImportedAt is None
+            persisted_initial = dbe.read_llm_config()
+            assert persisted_initial.get("codexMcpImportedAt") is None
+
+            codex_config_path.write_text(
+                """
+[mcp_servers.figma-desktop]
+transport = "streamable_http"
+url = "http://127.0.0.1:3845/mcp"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "figma-desktop" in loaded.mcpServers
+            assert isinstance(loaded.codexMcpImportedAt, str)
+
     def test_load_llm_config_rejects_mixed_type_codex_args_and_env(
         self,
         monkeypatch: pytest.MonkeyPatch,

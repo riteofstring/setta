@@ -182,3 +182,36 @@
 - Backend targeted pytest set: 122 passed.
 - Playwright targeted checks (`project-ai-chat-hydration-provenance.spec.ts`): 4 passed.
 - CDP visual verification: Project AI chat pane and settings dialog rendered correctly with no console errors.
+
+## 2026-02-25 23:15:30 PST
+
+### Consolidated Findings
+- Codex MCP import/write paths still allowed non-canonical table shape persistence and non-authoritative fallback behavior.
+- Bootstrap completion markers could be written on failed/empty imports, preventing deterministic retry after source config repair.
+- Managed API-key corruption handling was incomplete for malformed JSON payloads.
+- Context usage telemetry parsing could raise on non-finite numbers and break chat hydration.
+- Stop reconciliation could leave stale optimistic interruption markers when backend returned a successful stop without `stoppedMessageId`.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Made `CODEX_HOME` authoritative for Codex MCP config resolution and removed fallback-to-home behavior when env is set.
+- Canonicalized Codex settings persistence to `mcp_servers` and removed dual-key persistence paths.
+- Gated Codex bootstrap marker writes on successful non-Setta import presence and preserved retryability after failed reads/parses.
+- Centralized managed API-key parse handling in typed status reads and mapped malformed JSON/empty payload to explicit corrupt status.
+- Hardened context usage parsing to ignore non-finite numeric values (`NaN`, `Inf`, `-Inf`) without raising.
+- Reconciled stop interruption state to restore optimistic snapshot when backend omits `stoppedMessageId` on successful stop.
+
+### UX/DX Before -> After
+- Codex config resolution: env-scoped runs could still import from fallback home -> env-scoped resolution is deterministic to one root.
+- Codex config persistence: repeated writes could introduce snake/camel MCP table conflicts -> writes are idempotent and canonical.
+- Bootstrap migration: transient source parse errors could permanently suppress import -> fixed source now re-imports automatically.
+- API key corruption path: malformed managed-key JSON could throw through startup/preflight/watchers -> corruption is explicit and recoverable through normal save flow.
+- Chat telemetry: malformed/non-finite usage fields could produce hydration failures -> telemetry degrades to unavailable/partial without breaking chat load.
+- Stop badge consistency: successful stop without message id could keep stale interruption labels -> interruption labels now match backend-confirmed outcome semantics.
+
+### Verification
+- `pnpm -C frontend gcf`: completed successfully.
+- Backend targeted pytest set: `137 passed` (`tests/llm/test_api_keys.py`, `tests/llm/test_config.py`, `tests/agentic/test_external_agent_settings.py`, `tests/agentic/test_external_agent_preflight.py`, `tests/agentic/test_context_usage.py`, `tests/routers/test_ai_agent_run_chats.py`, `tests/routers/test_llm_api_key_routes.py`).
+- Additional backend reruns after API-key empty-payload hardening: `14 passed` and `24 passed`.
+- Frontend targeted Vitest: `20 passed` (`src/state/actions/aiStopProjectChat.test.ts`).
+- Playwright targeted regression: `1 passed` (`frontend/tests/e2e/chat/chat-stop-reconciliation.spec.ts`).
+- CDP visual verification: stop-response reconciliation confirmed in Project AI chat with backend response `{ alreadyStopped: false, stoppedMessageId: null }`.

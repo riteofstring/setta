@@ -321,6 +321,67 @@ command = "beta"
                     system_prompt=None,
                 )
 
+    def test_build_codex_settings_file_canonicalizes_camel_only_mcp_tables_and_is_idempotent(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            config = ExternalAgentConfig(
+                id="codex-camel-shape",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            settings_path = resolve_codex_settings_path(dbe, config)
+            if settings_path is None:
+                raise AssertionError("Expected Codex settings path")
+            settings_path.parent.mkdir(parents=True, exist_ok=True)
+            settings_path.write_text(
+                """
+[mcpServers.figma-desktop]
+command = "figma"
+args = ["mcp"]
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt=None,
+            )
+            first_payload = tomllib.loads(
+                (output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            assert "mcpServers" not in first_payload
+            first_servers = first_payload.get("mcp_servers")
+            assert isinstance(first_servers, dict)
+            if not isinstance(first_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert "figma-desktop" in first_servers
+
+            second_output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt=None,
+            )
+            second_payload = tomllib.loads(
+                (second_output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            assert "mcpServers" not in second_payload
+            second_servers = second_payload.get("mcp_servers")
+            assert isinstance(second_servers, dict)
+            if not isinstance(second_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert "figma-desktop" in second_servers
+
     def test_build_codex_settings_file_keeps_user_removed_imported_servers_removed(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -390,6 +451,73 @@ args = ["mcp"]
                 output_mcp_servers.get("setta", {}).get("url")
                 == "http://localhost:8000/mcp"
             )
+
+    def test_build_codex_settings_file_retries_bootstrap_after_codex_parse_failure_is_fixed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            codex_home = Path(tmpdir) / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            codex_config_path = codex_home / "config.toml"
+            codex_config_path.write_text(
+                "[mcp_servers.invalid\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            config = ExternalAgentConfig(
+                id="codex-bootstrap-retry",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt=None,
+            )
+            initial_payload = tomllib.loads(
+                (output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            assert initial_payload.get("codexMcpImportedAt") is None
+            initial_servers = initial_payload.get("mcp_servers")
+            assert isinstance(initial_servers, dict)
+            if not isinstance(initial_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert "figma-desktop" not in initial_servers
+
+            codex_config_path.write_text(
+                """
+[mcp_servers.figma-desktop]
+command = "figma"
+args = ["mcp"]
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+
+            second_output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt=None,
+            )
+            second_payload = tomllib.loads(
+                (second_output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            marker = second_payload.get("codexMcpImportedAt")
+            assert isinstance(marker, str)
+            second_servers = second_payload.get("mcp_servers")
+            assert isinstance(second_servers, dict)
+            if not isinstance(second_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert "figma-desktop" in second_servers
 
     def test_build_codex_settings_file_runtime_output_persists_bootstrap_to_canonical_config(
         self, monkeypatch: pytest.MonkeyPatch
@@ -722,6 +850,52 @@ url = "http://127.0.0.1:9900/mcp"
 
             assert llm_server_ids == {"valid-http"}
             assert codex_server_ids == {"valid-http"}
+
+    def test_build_codex_settings_file_with_missing_codex_home_file_does_not_fallback_to_home(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            codex_home = Path(tmpdir) / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            fallback_home = Path(tmpdir) / "fake-home"
+            (fallback_home / ".codex").mkdir(parents=True, exist_ok=True)
+            (fallback_home / ".codex" / "config.toml").write_text(
+                """
+[mcp_servers.fallback-home-server]
+transport = "streamable_http"
+url = "http://127.0.0.1:9900/mcp"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            monkeypatch.setenv("HOME", str(fallback_home))
+            config = ExternalAgentConfig(
+                id="codex-missing-home-file",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp",
+                auth_headers=None,
+                system_prompt=None,
+            )
+
+            output_payload = tomllib.loads(
+                (output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            mcp_servers = output_payload.get("mcp_servers")
+            assert isinstance(mcp_servers, dict)
+            if not isinstance(mcp_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert "fallback-home-server" not in mcp_servers
 
     def test_build_opencode_settings_file_explicit_path_read_only(self) -> None:
         with TemporaryDirectory() as tmpdir:

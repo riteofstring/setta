@@ -145,8 +145,13 @@ def build_codex_settings_file(
     payload: dict[str, Any] = {}
     if base_path is not None and base_path.exists():
         payload = _load_toml(base_path)
+    mcp_shape_canonicalized = _canonicalize_codex_mcp_servers_payload(payload)
     bootstrap_applied = _bootstrap_codex_mcp_servers_from_user_config(payload, config)
-    if output_dir is not None and bootstrap_applied:
+    if (
+        output_dir is not None
+        and config.settingsMode != ExternalAgentSettingsMode.explicit_path
+        and (bootstrap_applied or mcp_shape_canonicalized)
+    ):
         settings_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             settings_path.write_text(_dump_toml(payload), encoding="utf-8")
@@ -488,7 +493,7 @@ def _bootstrap_codex_mcp_servers_from_user_config(
     if config.settingsMode == ExternalAgentSettingsMode.explicit_path:
         return False
     if _get_codex_mcp_imported_at(payload):
-        payload["mcp_servers"] = _resolve_bootstrap_codex_mcp_servers(payload)
+        _canonicalize_codex_mcp_servers_payload(payload)
         return False
     existing_servers = _resolve_bootstrap_codex_mcp_servers(payload)
     if not _has_non_setta_mcp_server(existing_servers):
@@ -497,7 +502,10 @@ def _bootstrap_codex_mcp_servers_from_user_config(
             if server_id in existing_servers:
                 continue
             existing_servers[server_id] = server_config
+    payload.pop("mcpServers", None)
     payload["mcp_servers"] = existing_servers
+    if not _has_non_setta_mcp_server(existing_servers):
+        return False
     payload[_CODEX_MCP_IMPORTED_AT_KEY] = (
         datetime.now(UTC).isoformat().replace("+00:00", "Z")
     )
@@ -520,6 +528,24 @@ def _resolve_bootstrap_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, A
     except ValueError as exc:
         raise ValueError(f"Invalid Codex MCP server config shape: {exc}") from exc
     return deepcopy(raw_servers)
+
+
+def _canonicalize_codex_mcp_servers_payload(payload: dict[str, Any]) -> bool:
+    has_snake_key = "mcp_servers" in payload
+    has_camel_key = "mcpServers" in payload
+    if not has_snake_key and not has_camel_key:
+        return False
+    canonical_servers = _resolve_bootstrap_codex_mcp_servers(payload)
+    existing_snake_value = payload.get("mcp_servers")
+    changed = has_camel_key
+    if not isinstance(existing_snake_value, dict):
+        changed = True
+    elif existing_snake_value != canonical_servers:
+        changed = True
+    payload.pop("mcp_servers", None)
+    payload.pop("mcpServers", None)
+    payload["mcp_servers"] = canonical_servers
+    return changed
 
 
 def _has_non_setta_mcp_server(mcp_servers: dict[str, Any]) -> bool:

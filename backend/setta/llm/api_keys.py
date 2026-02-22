@@ -1,5 +1,6 @@
 """Shared helpers for persisting and filtering LLM API keys."""
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -38,9 +39,31 @@ def _normalize_managed_api_keys_payload(payload: object) -> APIKeys:
 
 
 def read_managed_api_keys_with_status(dbe: DBE) -> ManagedAPIKeysReadResult:
-    payload = dbe.read_json(llm_api_keys_path(dbe))
-    if payload is None:
+    path = llm_api_keys_path(dbe)
+    try:
+        raw_payload = dbe.read(path)
+    except OSError as exc:
+        return ManagedAPIKeysReadResult(
+            api_keys={},
+            corrupt=True,
+            error=f"Failed to read managed API key store: {exc}",
+        )
+    if raw_payload is None:
         return ManagedAPIKeysReadResult(api_keys={}, corrupt=False)
+    if not raw_payload.strip():
+        return ManagedAPIKeysReadResult(
+            api_keys={},
+            corrupt=True,
+            error="Managed API key store is not valid JSON: empty payload",
+        )
+    try:
+        payload = json.loads(raw_payload)
+    except (TypeError, ValueError) as exc:
+        return ManagedAPIKeysReadResult(
+            api_keys={},
+            corrupt=True,
+            error=f"Managed API key store is not valid JSON: {exc}",
+        )
     try:
         normalized = _normalize_managed_api_keys_payload(payload)
     except ValueError as exc:

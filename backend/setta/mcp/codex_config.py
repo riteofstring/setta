@@ -95,7 +95,7 @@ def resolve_raw_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
 
 def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
     codex_home_config_path = resolve_codex_home_config_path()
-    if codex_home_config_path is not None and codex_home_config_path.is_file():
+    if codex_home_config_path is not None:
         loaded_from_codex_home = _load_codex_mcp_servers_from_path(
             codex_home_config_path,
             fail_closed=True,
@@ -103,12 +103,12 @@ def load_codex_mcp_servers_from_config() -> dict[str, MCPServerConfig]:
         if loaded_from_codex_home is None:
             return {}
         return loaded_from_codex_home
-    for config_path in iter_codex_config_paths():
-        if codex_home_config_path is not None and config_path == codex_home_config_path:
-            continue
-        parsed = _load_codex_mcp_servers_from_path(config_path, fail_closed=False)
-        if parsed:
-            return parsed
+    parsed = _load_codex_mcp_servers_from_path(
+        resolve_default_codex_config_path(),
+        fail_closed=False,
+    )
+    if parsed:
+        return parsed
     return {}
 
 

@@ -55,3 +55,36 @@ def test_context_usage_does_not_infer_context_window_from_runtime_model_metadata
     assert usage.context_used_tokens == 11
     assert usage.context_window_tokens is None
     assert usage.estimated is True
+
+
+def test_context_usage_ignores_non_finite_usage_scalars() -> None:
+    # Non-finite usage telemetry should be ignored instead of raising.
+    run = _build_run_with_usage(
+        {
+            "promptTokens": float("nan"),
+            "inputTokens": 17,
+            "contextWindowTokens": float("inf"),
+        }
+    )
+
+    usage = resolve_internal_run_context_usage(run)
+
+    assert usage is not None
+    assert usage.context_used_tokens == 17
+    assert usage.context_window_tokens is None
+    assert usage.estimated is True
+
+
+def test_external_context_usage_returns_none_when_only_non_finite_values_present() -> None:
+    # If all usage values are non-finite, context telemetry should be unavailable.
+    run = _build_run_with_usage(
+        {
+            "promptTokens": float("nan"),
+            "completionTokens": float("inf"),
+            "contextWindowTokens": float("-inf"),
+        }
+    )
+
+    usage = resolve_external_run_context_usage(run)
+
+    assert usage is None

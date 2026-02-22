@@ -1434,6 +1434,7 @@ function reconcileStoppedLLMChatOutcome({
   }
   const stoppedMessageId = stopOutcome.stoppedMessageId?.trim() ?? "";
   if (!stoppedMessageId) {
+    restoreInterruptedAssistantMessageSnapshot(chatId, localSnapshot);
     return;
   }
   const localStoppedMessageId =

@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -38,6 +39,8 @@ def _extract_non_negative_int(value: Any) -> int | None:
     if isinstance(value, int):
         return value if value >= 0 else None
     if isinstance(value, float):
+        if not math.isfinite(value):
+            return None
         parsed = int(value)
         return parsed if parsed >= 0 else None
     if isinstance(value, str):
