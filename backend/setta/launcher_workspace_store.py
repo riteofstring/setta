@@ -1,12 +1,16 @@
 import json
 import os
+import secrets
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Callable, Iterator, TextIO
 
 from setta.launcher_metadata import resolve_launcher_dir
 
 _RECENT_WORKSPACES_FILE_NAME = "recent-workspaces.json"
+_RECENT_WORKSPACES_LOCK_FILE_NAME = ".recent-workspaces.lock"
 _MAX_RECENT_WORKSPACES = 50
 
 
@@ -35,8 +39,17 @@ def resolve_recent_workspaces_path(*, setta_home: Path) -> Path:
     return (launcher_dir / _RECENT_WORKSPACES_FILE_NAME).resolve(strict=False)
 
 
+def resolve_recent_workspaces_lock_path(*, setta_home: Path) -> Path:
+    launcher_dir = resolve_launcher_dir(setta_home=setta_home)
+    return (launcher_dir / _RECENT_WORKSPACES_LOCK_FILE_NAME).resolve(strict=False)
+
+
 def load_recent_workspaces(*, setta_home: Path) -> list[LauncherWorkspaceEntry]:
     path = resolve_recent_workspaces_path(setta_home=setta_home)
+    return _load_recent_workspaces_from_path(path)
+
+
+def _load_recent_workspaces_from_path(path: Path) -> list[LauncherWorkspaceEntry]:
     if not path.exists():
         return []
     try:
@@ -61,15 +74,13 @@ def write_recent_workspaces(
     entries: list[LauncherWorkspaceEntry],
 ) -> Path:
     path = resolve_recent_workspaces_path(setta_home=setta_home)
-    payload = [entry.to_payload() for entry in _sort_and_limit_entries(entries)]
+    lock_path = resolve_recent_workspaces_lock_path(setta_home=setta_home)
+    sorted_entries = _sort_and_limit_entries(entries)
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    except OSError as exc:
-        raise LauncherWorkspaceStoreError(
-            "LauncherWorkspaceStore",
-            f"Failed writing launcher recent-workspaces file: {path}: {exc}",
-        ) from exc
+        with _acquire_recent_workspaces_lock(lock_path):
+            _write_recent_workspaces_atomic(path=path, entries=sorted_entries)
+    except LauncherWorkspaceStoreError:
+        raise
     return path
 
 
@@ -80,32 +91,37 @@ def upsert_recent_workspace(
     pinned: bool | None = None,
     last_used_at: int | None = None,
 ) -> list[LauncherWorkspaceEntry]:
-    entries = load_recent_workspaces(setta_home=setta_home)
     normalized_workspace_root = workspace_root.expanduser().resolve(strict=False)
     next_timestamp = _normalize_timestamp(last_used_at)
 
-    existing_by_path: dict[str, LauncherWorkspaceEntry] = {
-        str(entry.workspace_root): entry for entry in entries
-    }
-    key = str(normalized_workspace_root)
-    previous = existing_by_path.get(key)
-    if previous is None:
-        next_entry = LauncherWorkspaceEntry(
-            workspace_root=normalized_workspace_root,
-            pinned=bool(pinned) if pinned is not None else False,
-            last_used_at=next_timestamp,
-        )
-    else:
-        next_entry = LauncherWorkspaceEntry(
-            workspace_root=normalized_workspace_root,
-            pinned=previous.pinned if pinned is None else bool(pinned),
-            last_used_at=max(previous.last_used_at, next_timestamp),
-        )
+    def apply_update(
+        entries: list[LauncherWorkspaceEntry],
+    ) -> list[LauncherWorkspaceEntry]:
+        existing_by_path: dict[str, LauncherWorkspaceEntry] = {
+            str(entry.workspace_root): entry for entry in entries
+        }
+        key = str(normalized_workspace_root)
+        previous = existing_by_path.get(key)
+        if previous is None:
+            next_entry = LauncherWorkspaceEntry(
+                workspace_root=normalized_workspace_root,
+                pinned=bool(pinned) if pinned is not None else False,
+                last_used_at=next_timestamp,
+            )
+        else:
+            next_entry = LauncherWorkspaceEntry(
+                workspace_root=normalized_workspace_root,
+                pinned=previous.pinned if pinned is None else bool(pinned),
+                last_used_at=max(previous.last_used_at, next_timestamp),
+            )
 
-    existing_by_path[key] = next_entry
-    sorted_entries = _sort_and_limit_entries(list(existing_by_path.values()))
-    write_recent_workspaces(setta_home=setta_home, entries=sorted_entries)
-    return sorted_entries
+        existing_by_path[key] = next_entry
+        return list(existing_by_path.values())
+
+    return _update_recent_workspaces(
+        setta_home=setta_home,
+        apply_update=apply_update,
+    )
 
 
 def remove_recent_workspace(
@@ -113,14 +129,21 @@ def remove_recent_workspace(
     setta_home: Path,
     workspace_root: Path,
 ) -> list[LauncherWorkspaceEntry]:
-    entries = load_recent_workspaces(setta_home=setta_home)
     normalized_workspace_root = workspace_root.expanduser().resolve(strict=False)
-    filtered = [
-        entry for entry in entries if entry.workspace_root != normalized_workspace_root
-    ]
-    sorted_entries = _sort_and_limit_entries(filtered)
-    write_recent_workspaces(setta_home=setta_home, entries=sorted_entries)
-    return sorted_entries
+
+    def apply_update(
+        entries: list[LauncherWorkspaceEntry],
+    ) -> list[LauncherWorkspaceEntry]:
+        return [
+            entry
+            for entry in entries
+            if entry.workspace_root != normalized_workspace_root
+        ]
+
+    return _update_recent_workspaces(
+        setta_home=setta_home,
+        apply_update=apply_update,
+    )
 
 
 def set_recent_workspace_pinned(
@@ -129,36 +152,40 @@ def set_recent_workspace_pinned(
     workspace_root: Path,
     pinned: bool,
 ) -> list[LauncherWorkspaceEntry]:
-    entries = load_recent_workspaces(setta_home=setta_home)
     normalized_workspace_root = workspace_root.expanduser().resolve(strict=False)
 
-    next_entries: list[LauncherWorkspaceEntry] = []
-    found = False
-    for entry in entries:
-        if entry.workspace_root == normalized_workspace_root:
-            found = True
+    def apply_update(
+        entries: list[LauncherWorkspaceEntry],
+    ) -> list[LauncherWorkspaceEntry]:
+        next_entries: list[LauncherWorkspaceEntry] = []
+        found = False
+        for entry in entries:
+            if entry.workspace_root == normalized_workspace_root:
+                found = True
+                next_entries.append(
+                    LauncherWorkspaceEntry(
+                        workspace_root=entry.workspace_root,
+                        pinned=bool(pinned),
+                        last_used_at=entry.last_used_at,
+                    )
+                )
+            else:
+                next_entries.append(entry)
+
+        if not found:
             next_entries.append(
                 LauncherWorkspaceEntry(
-                    workspace_root=entry.workspace_root,
+                    workspace_root=normalized_workspace_root,
                     pinned=bool(pinned),
-                    last_used_at=entry.last_used_at,
+                    last_used_at=_normalize_timestamp(None),
                 )
             )
-        else:
-            next_entries.append(entry)
+        return next_entries
 
-    if not found:
-        next_entries.append(
-            LauncherWorkspaceEntry(
-                workspace_root=normalized_workspace_root,
-                pinned=bool(pinned),
-                last_used_at=_normalize_timestamp(None),
-            )
-        )
-
-    sorted_entries = _sort_and_limit_entries(next_entries)
-    write_recent_workspaces(setta_home=setta_home, entries=sorted_entries)
-    return sorted_entries
+    return _update_recent_workspaces(
+        setta_home=setta_home,
+        apply_update=apply_update,
+    )
 
 
 def launcher_allowed_roots() -> list[Path]:
@@ -282,3 +309,93 @@ def _is_path_within_roots(*, path: Path, roots: list[Path]) -> bool:
         if path.is_relative_to(root):
             return True
     return False
+
+
+def _update_recent_workspaces(
+    *,
+    setta_home: Path,
+    apply_update: Callable[[list[LauncherWorkspaceEntry]], list[LauncherWorkspaceEntry]],
+) -> list[LauncherWorkspaceEntry]:
+    path = resolve_recent_workspaces_path(setta_home=setta_home)
+    lock_path = resolve_recent_workspaces_lock_path(setta_home=setta_home)
+    with _acquire_recent_workspaces_lock(lock_path):
+        entries = _load_recent_workspaces_from_path(path)
+        next_entries = _sort_and_limit_entries(apply_update(entries))
+        _write_recent_workspaces_atomic(path=path, entries=next_entries)
+        return next_entries
+
+
+def _write_recent_workspaces_atomic(
+    *,
+    path: Path,
+    entries: list[LauncherWorkspaceEntry],
+) -> None:
+    payload = [entry.to_payload() for entry in entries]
+    encoded_payload = json.dumps(payload, indent=2, sort_keys=True)
+    temporary_path = (
+        path.parent
+        / f".{path.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp"
+    ).resolve(strict=False)
+
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path.write_text(encoded_payload, encoding="utf-8")
+        os.replace(temporary_path, path)
+    except OSError as exc:
+        raise LauncherWorkspaceStoreError(
+            "LauncherWorkspaceStore",
+            f"Failed writing launcher recent-workspaces file: {path}: {exc}",
+        ) from exc
+    finally:
+        if temporary_path.exists():
+            try:
+                temporary_path.unlink()
+            except OSError:
+                pass
+
+
+@contextmanager
+def _acquire_recent_workspaces_lock(lock_path: Path) -> Iterator[None]:
+    try:
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        with lock_path.open("a+", encoding="utf-8") as lock_file:
+            _lock_file(lock_file)
+            try:
+                yield
+            finally:
+                _unlock_file(lock_file)
+    except OSError as exc:
+        raise LauncherWorkspaceStoreError(
+            "LauncherWorkspaceStore",
+            f"Failed acquiring launcher recent-workspaces lock: {lock_path}: {exc}",
+        ) from exc
+
+
+def _lock_file(lock_file: TextIO) -> None:
+    if os.name == "nt":
+        import msvcrt
+
+        lock_file.seek(0, os.SEEK_END)
+        if lock_file.tell() == 0:
+            lock_file.write("0")
+            lock_file.flush()
+        lock_file.seek(0)
+        msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+        return
+
+    import fcntl
+
+    fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+
+
+def _unlock_file(lock_file: TextIO) -> None:
+    if os.name == "nt":
+        import msvcrt
+
+        lock_file.seek(0)
+        msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+        return
+
+    import fcntl
+
+    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)

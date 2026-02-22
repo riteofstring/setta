@@ -34,6 +34,22 @@ def test_launcher_status_route_reports_not_installed() -> None:
     assert payload["updateCapability"] == "unsupported"
 
 
+def test_launcher_status_route_honors_setta_home_query(tmp_path: Path) -> None:
+    app = _build_app()
+    scoped_setta_home = (tmp_path / "scoped-setta-home").resolve(strict=False)
+
+    with TestClient(app) as client:
+        response = client.get(
+            f"{Route.PREFIX.value}{Route.GET_LAUNCHER_STATUS.value}",
+            params={"setta_home": str(scoped_setta_home)},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert payload["settaHome"] == str(scoped_setta_home)
+
+
 def test_setup_and_remove_launcher_routes_roundtrip() -> None:
     app = _build_app()
 

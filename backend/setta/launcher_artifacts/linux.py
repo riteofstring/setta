@@ -12,6 +12,7 @@ from setta.launcher_artifacts.common import (
     resolve_path_option_with_existing,
     shell_array_literal,
     shell_command,
+    validate_file_name_component,
     write_text_file,
 )
 
@@ -22,7 +23,7 @@ MANAGED_ARTIFACT_KEYS = (
 )
 
 
-def install_linux_artifacts(*, context: LauncherArtifactContext) -> dict[str, str]:
+def plan_linux_artifact_paths(*, context: LauncherArtifactContext) -> dict[str, Path]:
     existing_desktop_entry = existing_artifact_path(
         existing_managed_artifacts=context.existing_managed_artifacts,
         key="linuxDesktopEntry",
@@ -44,17 +45,16 @@ def install_linux_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
             strict=False
         )
 
-    desktop_entry_name = context.options.get("desktop_entry_name")
-    if desktop_entry_name is None:
+    desktop_entry_name_option = context.options.get("desktop_entry_name")
+    if desktop_entry_name_option is None:
         if existing_desktop_entry is not None:
-            desktop_entry_name = existing_desktop_entry.name
+            desktop_entry_name_option = existing_desktop_entry.name
         else:
-            desktop_entry_name = "setta.desktop"
-    desktop_entry_name = desktop_entry_name.strip()
-    if not desktop_entry_name:
-        raise LauncherArtifactError(
-            "Artifact option `desktop_entry_name` must be non-empty."
-        )
+            desktop_entry_name_option = "setta.desktop"
+    desktop_entry_name = validate_file_name_component(
+        option_key="desktop_entry_name",
+        raw_value=desktop_entry_name_option,
+    )
     desktop_entry_path = (applications_dir / desktop_entry_name).resolve(strict=False)
 
     wrapper_path = resolve_path_option_with_existing(
@@ -70,17 +70,6 @@ def install_linux_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
         / "setta-launcher",
     )
 
-    app_name = context.options.get("app_name", "Setta").strip()
-    if not app_name:
-        raise LauncherArtifactError("Artifact option `app_name` must be non-empty.")
-
-    icon_path_raw = context.options.get("icon_path")
-    icon_path: Path | None = None
-    if icon_path_raw is not None:
-        icon_path = Path(icon_path_raw).expanduser().resolve(strict=False)
-        if not icon_path.exists() or not icon_path.is_file():
-            raise LauncherArtifactError(f"Icon file does not exist: {icon_path}")
-
     create_desktop_shortcut = parse_bool_option(
         options=context.options,
         key="desktop_shortcut",
@@ -93,6 +82,40 @@ def install_linux_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
         existing_key="linuxDesktopShortcut",
         default_path=Path.home() / "Desktop" / desktop_entry_name,
     )
+
+    planned_artifacts: dict[str, Path] = {
+        "linuxDesktopEntry": desktop_entry_path,
+        "linuxWrapper": wrapper_path,
+    }
+    if create_desktop_shortcut:
+        planned_artifacts["linuxDesktopShortcut"] = desktop_shortcut_path
+    return planned_artifacts
+
+
+def install_linux_artifacts(*, context: LauncherArtifactContext) -> dict[str, str]:
+    existing_shortcut = existing_artifact_path(
+        existing_managed_artifacts=context.existing_managed_artifacts,
+        key="linuxDesktopShortcut",
+    )
+    planned_artifacts = plan_linux_artifact_paths(context=context)
+
+    desktop_entry_path = planned_artifacts["linuxDesktopEntry"]
+    wrapper_path = planned_artifacts["linuxWrapper"]
+    applications_dir = desktop_entry_path.parent
+
+    app_name = context.options.get("app_name", "Setta").strip()
+    if not app_name:
+        raise LauncherArtifactError("Artifact option `app_name` must be non-empty.")
+
+    icon_path_raw = context.options.get("icon_path")
+    icon_path: Path | None = None
+    if icon_path_raw is not None:
+        icon_path = Path(icon_path_raw).expanduser().resolve(strict=False)
+        if not icon_path.exists() or not icon_path.is_file():
+            raise LauncherArtifactError(f"Icon file does not exist: {icon_path}")
+
+    create_desktop_shortcut = "linuxDesktopShortcut" in planned_artifacts
+    desktop_shortcut_path = planned_artifacts.get("linuxDesktopShortcut")
 
     target_array_literal = shell_array_literal(context.target_command)
     target_command_shell = shell_command(context.target_command)
@@ -117,7 +140,7 @@ def install_linux_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
         "linuxDesktopEntry": str(desktop_entry_path),
         "linuxWrapper": str(wrapper_path),
     }
-    if create_desktop_shortcut:
+    if create_desktop_shortcut and desktop_shortcut_path is not None:
         desktop_shortcut_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(desktop_entry_path, desktop_shortcut_path)
         desktop_shortcut_path.chmod(
@@ -207,7 +230,7 @@ def _build_desktop_entry(
     wrapper_path: Path,
     icon_path: Path | None,
 ) -> str:
-    quoted_wrapper = shlex.quote(str(wrapper_path))
+    escaped_wrapper = _escape_desktop_exec_argument(str(wrapper_path))
     icon_line = ""
     if icon_path is not None:
         icon_line = f"Icon={icon_path}\n"
@@ -217,12 +240,25 @@ def _build_desktop_entry(
         "Version=1.0\n"
         f"Name={app_name}\n"
         "Comment=Launch Setta\n"
-        f"Exec={quoted_wrapper} %F\n"
+        f"Exec={escaped_wrapper} %F\n"
         f"{icon_line}"
         "Terminal=false\n"
         "Categories=Development;IDE;\n"
         "StartupNotify=true\n"
     )
+
+
+def _escape_desktop_exec_argument(raw_value: str) -> str:
+    if "\n" in raw_value or "\r" in raw_value:
+        raise LauncherArtifactError(
+            "Launcher wrapper path must not contain newline characters."
+        )
+    escaped = raw_value.replace("\\", "\\\\")
+    escaped = escaped.replace('"', '\\"')
+    escaped = escaped.replace("$", "\\$")
+    escaped = escaped.replace("`", "\\`")
+    escaped = escaped.replace("%", "%%")
+    return f'"{escaped}"'
 
 
 def _refresh_desktop_database(applications_dir: Path) -> None:

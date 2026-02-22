@@ -14,7 +14,7 @@ from setta.launcher_artifacts.common import (
 MANAGED_ARTIFACT_KEYS = ("macosApp",)
 
 
-def install_macos_artifacts(*, context: LauncherArtifactContext) -> dict[str, str]:
+def plan_macos_artifact_paths(*, context: LauncherArtifactContext) -> dict[str, Path]:
     app_path = resolve_path_option_with_existing(
         options=context.options,
         option_key="app_path",
@@ -22,6 +22,12 @@ def install_macos_artifacts(*, context: LauncherArtifactContext) -> dict[str, st
         existing_key="macosApp",
         default_path=Path.home() / "Applications" / "Setta.app",
     )
+    return {"macosApp": app_path}
+
+
+def install_macos_artifacts(*, context: LauncherArtifactContext) -> dict[str, str]:
+    planned_artifacts = plan_macos_artifact_paths(context=context)
+    app_path = planned_artifacts["macosApp"]
     app_contents_dir = app_path / "Contents"
     app_macos_dir = app_contents_dir / "MacOS"
     app_resources_dir = app_contents_dir / "Resources"

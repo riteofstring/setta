@@ -26,6 +26,10 @@ import {
 } from "utils/constants";
 import type { ProjectConfig } from "utils/generatedTypes";
 import { GlobalWrapper, IndexRouteComponent } from "./GlobalWrapper";
+import {
+  resolveModeElementForServerMode,
+  type ModeRouteElements,
+} from "./modeRouteResolver";
 import { MainContainer } from "./Project/MainContainer";
 
 const LazyAppWrapper = lazy(async () => {
@@ -94,12 +98,7 @@ function ShareIndexRedirect() {
   return <Navigate to={defaultProjectConfigName} replace />;
 }
 
-type ModeWrapperProps = {
-  ide: ReactNode;
-  share?: ReactNode;
-  app?: ReactNode;
-  launcher?: ReactNode;
-};
+type ModeWrapperProps = ModeRouteElements;
 
 function ModeWrapper({ ide, share, app, launcher }: ModeWrapperProps) {
   const { mode, modeResolved, modeError } = useServerMode((x) => x);
@@ -159,16 +158,12 @@ function ModeWrapper({ ide, share, app, launcher }: ModeWrapperProps) {
     );
   }
 
-  if (mode === "share") {
-    return share ?? ide;
-  }
-  if (mode === "app") {
-    return app ?? ide;
-  }
-  if (mode === "launcher") {
-    return launcher ?? ide;
-  }
-  return ide;
+  return resolveModeElementForServerMode(mode, {
+    ide,
+    share,
+    app,
+    launcher,
+  });
 }
 
 const ideHomeRouteElement = (
@@ -356,6 +351,7 @@ const workspaceLaunchRoute = {
     <ModeWrapper
       ide={ideWorkspaceLaunchRouteElement}
       share={<Navigate to={HOME_ROUTER_PATH} replace />}
+      app={<Navigate to={HOME_ROUTER_PATH} replace />}
       launcher={<Navigate to={HOME_ROUTER_PATH} replace />}
     />
   ),

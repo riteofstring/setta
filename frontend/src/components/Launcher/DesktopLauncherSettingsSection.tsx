@@ -40,9 +40,27 @@ type LauncherControlsState = {
   launcherSetupButtonLabel: string;
 };
 
-const DEFAULT_LAUNCHER_REQUEST: LauncherRequestBaseInput = {};
-const DEFAULT_SETUP_LAUNCHER_REQUEST: SetupLauncherRequestInput = {};
-const DEFAULT_UPDATE_LAUNCHER_REQUEST: UpdateLauncherRequestInput = {};
+type DesktopLauncherSettingsSectionProps = {
+  settaHome?: string | null;
+};
+
+function buildLauncherRequestBase(
+  settaHome: string | null,
+): LauncherRequestBaseInput {
+  return { settaHome };
+}
+
+function buildSetupLauncherRequest(
+  settaHome: string | null,
+): SetupLauncherRequestInput {
+  return { settaHome };
+}
+
+function buildUpdateLauncherRequest(
+  settaHome: string | null,
+): UpdateLauncherRequestInput {
+  return { settaHome };
+}
 
 function resolveLauncherErrorMessage(
   payload: LauncherStatusResponse | LauncherUpdateResponse | null | undefined,
@@ -156,7 +174,9 @@ export function resolveUpdateProgressLabel(
   return null;
 }
 
-export function DesktopLauncherSettingsSection() {
+export function DesktopLauncherSettingsSection({
+  settaHome = null,
+}: DesktopLauncherSettingsSectionProps) {
   const [launcherStatus, setLauncherStatus] =
     useState<LauncherStatusResponse | null>(null);
   const [launcherStatusError, setLauncherStatusError] = useState<string | null>(
@@ -180,7 +200,7 @@ export function DesktopLauncherSettingsSection() {
   );
 
   async function fetchLauncherStatus(): Promise<LauncherStatusResponse | null> {
-    const response = await route_get_launcher_status();
+    const response = await route_get_launcher_status(settaHome);
     if (!res200(response) || !response.data) {
       return null;
     }
@@ -231,7 +251,9 @@ export function DesktopLauncherSettingsSection() {
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
-    const response = await route_setup_launcher(DEFAULT_SETUP_LAUNCHER_REQUEST);
+    const response = await route_setup_launcher(
+      buildSetupLauncherRequest(settaHome),
+    );
     setLauncherActionInFlight(null);
     if (!res200(response) || !response.data) {
       setLauncherActionError("Launcher setup request failed.");
@@ -254,7 +276,9 @@ export function DesktopLauncherSettingsSection() {
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
-    const response = await route_repair_launcher(DEFAULT_LAUNCHER_REQUEST);
+    const response = await route_repair_launcher(
+      buildLauncherRequestBase(settaHome),
+    );
     setLauncherActionInFlight(null);
     if (!res200(response) || !response.data) {
       setLauncherActionError("Launcher repair request failed.");
@@ -277,7 +301,9 @@ export function DesktopLauncherSettingsSection() {
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
-    const response = await route_remove_launcher(DEFAULT_LAUNCHER_REQUEST);
+    const response = await route_remove_launcher(
+      buildLauncherRequestBase(settaHome),
+    );
     setLauncherActionInFlight(null);
     if (!res200(response) || !response.data) {
       setLauncherActionError("Launcher removal request failed.");
@@ -338,7 +364,7 @@ export function DesktopLauncherSettingsSection() {
 
     setUpdateStage("downloading");
     const response = await route_update_launcher(
-      DEFAULT_UPDATE_LAUNCHER_REQUEST as UpdateLauncherRequestInput,
+      buildUpdateLauncherRequest(settaHome),
     );
     if (!res200(response) || !response.data) {
       setUpdateStage("failed");

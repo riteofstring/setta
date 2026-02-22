@@ -21,6 +21,7 @@ describe("endpointUtils URL routing", () => {
 
   afterEach(() => {
     fetchMock.mockReset();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
@@ -104,6 +105,27 @@ describe("endpointUtils URL routing", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
       `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES}?setta_home=%2Ftmp%2Fsetta-home`,
+    );
+  });
+
+  it("keeps launcher-origin routing for query-bearing launcher routes", async () => {
+    vi.spyOn(C_ADDRESSES, "BACKEND", "get").mockReturnValue(
+      "http://backend.example/api",
+    );
+    vi.spyOn(C_ADDRESSES, "LAUNCHER", "get").mockReturnValue(
+      "http://launcher.example/api",
+    );
+    vi.spyOn(C_ADDRESSES, "BACKEND_ORIGIN", "get").mockReturnValue(
+      "http://backend-origin.example",
+    );
+
+    await get(RouteEnum.GET_LAUNCHER_STATUS, {
+      setta_home: "/tmp/scoped-home",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      "http://launcher.example/api/launcherStatus?setta_home=%2Ftmp%2Fscoped-home",
     );
   });
 

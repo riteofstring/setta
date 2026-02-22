@@ -67,23 +67,27 @@ function resolveBootstrapUrl(bootstrapUrlFragment: string): string {
   );
 }
 
-function resolveLauncherSettaHomeQueryParam(): string | null {
+type LauncherContext = {
+  settaHome: string | null;
+};
+
+function resolveLauncherContextFromQueryParam(): LauncherContext {
   const searchParams = new URL(window.location.href).searchParams;
   const rawSettaHome = searchParams.get("setta_home");
   if (rawSettaHome === null) {
-    return null;
+    return { settaHome: null };
   }
   const normalizedSettaHome = rawSettaHome.trim();
   if (!normalizedSettaHome) {
-    return null;
+    return { settaHome: null };
   }
-  return normalizedSettaHome;
+  return { settaHome: normalizedSettaHome };
 }
 
 type RecentActionInFlight = "refresh" | "pin" | "remove" | "open" | null;
 
 export function LauncherHomePage() {
-  const launcherSettaHome = useMemo(resolveLauncherSettaHomeQueryParam, []);
+  const launcherContext = useMemo(resolveLauncherContextFromQueryParam, []);
   const [launcherModeVerified, setLauncherModeVerified] = useState(false);
   const [launcherModeError, setLauncherModeError] = useState<string | null>(
     null,
@@ -130,8 +134,9 @@ export function LauncherHomePage() {
   }
 
   async function loadRecentWorkspaces() {
-    const response =
-      await route_get_launcher_recent_workspaces(launcherSettaHome);
+    const response = await route_get_launcher_recent_workspaces(
+      launcherContext.settaHome,
+    );
     if (!res200(response) || !response.data) {
       setRecentWorkspacesError("Failed to load recent workspaces.");
       return;
@@ -216,6 +221,7 @@ export function LauncherHomePage() {
       workspaceRoot,
       createIfMissing,
       settaFilesLocation: "auto",
+      settaHome: launcherContext.settaHome,
     });
 
     if (!res200(response) || !response.data) {
@@ -249,6 +255,7 @@ export function LauncherHomePage() {
     const response = await route_pin_launcher_recent_workspace({
       workspaceRoot: entry.workspaceRoot,
       pinned: !entry.pinned,
+      settaHome: launcherContext.settaHome,
     });
     setRecentActionInFlight(null);
 
@@ -267,6 +274,7 @@ export function LauncherHomePage() {
     setRecentActionInFlight("remove");
     const response = await route_remove_launcher_recent_workspace({
       workspaceRoot: entry.workspaceRoot,
+      settaHome: launcherContext.settaHome,
     });
     setRecentActionInFlight(null);
 
@@ -616,7 +624,7 @@ export function LauncherHomePage() {
         )}
       </section>
 
-      <DesktopLauncherSettingsSection />
+      <DesktopLauncherSettingsSection settaHome={launcherContext.settaHome} />
     </main>
   );
 }

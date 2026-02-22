@@ -15,6 +15,7 @@ from setta.launcher_artifacts import (
     current_platform_artifact_keys,
     install_current_platform_artifacts,
     normalize_artifact_options,
+    plan_current_platform_artifact_paths,
 )
 from setta.launcher_metadata import (
     LAUNCHER_WORKSPACE_BEHAVIOR,
@@ -328,14 +329,25 @@ def setup_launcher_installation(
         )
 
     if install_artifacts:
+        artifact_context = LauncherArtifactContext(
+            target_command=resolved_target_command,
+            channel=channel,
+            existing_managed_artifacts=merged_artifacts,
+            options=normalized_artifact_options,
+        )
+        try:
+            planned_artifact_paths = plan_current_platform_artifact_paths(
+                context=artifact_context
+            )
+        except LauncherArtifactError as exc:
+            raise LauncherSetupError("BadRequest", str(exc)) from exc
+        _validate_planned_artifact_paths(
+            artifact_paths=planned_artifact_paths,
+            setta_home=resolved_setta_home,
+        )
         try:
             installed_artifacts = install_current_platform_artifacts(
-                context=LauncherArtifactContext(
-                    target_command=resolved_target_command,
-                    channel=channel,
-                    existing_managed_artifacts=merged_artifacts,
-                    options=normalized_artifact_options,
-                )
+                context=artifact_context
             )
         except LauncherArtifactError as exc:
             raise LauncherSetupError("ArtifactInstallFailed", str(exc)) from exc
@@ -643,6 +655,20 @@ def _validate_artifact_option_paths(
             setta_home=setta_home,
             error_code="BadRequest",
             allow_root_match=allow_root_match,
+        )
+
+
+def _validate_planned_artifact_paths(
+    *,
+    artifact_paths: dict[str, Path],
+    setta_home: Path,
+) -> None:
+    for path in artifact_paths.values():
+        _validate_path_within_trusted_roots(
+            path=path.resolve(strict=False),
+            setta_home=setta_home,
+            error_code="BadRequest",
+            allow_root_match=False,
         )
 
 

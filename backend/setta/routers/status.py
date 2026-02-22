@@ -207,10 +207,10 @@ def route_get_setta_home_info() -> SettaHomeInfoResponse:
 
 
 @router.get(Route.GET_LAUNCHER_STATUS, dependencies=[Depends(require_ide_mode)])
-def route_get_launcher_status() -> LauncherStatusResponse:
-    setta_home = _resolve_launcher_setta_home(setta_home=None)
+def route_get_launcher_status(setta_home: str | None = None) -> LauncherStatusResponse:
+    resolved_setta_home = _resolve_launcher_setta_home(setta_home=setta_home)
     try:
-        status = collect_launcher_status(setta_home=setta_home)
+        status = collect_launcher_status(setta_home=resolved_setta_home)
     except LauncherSetupError as exc:
         return _launcher_error_response(exc)
     return _launcher_status_response(status)

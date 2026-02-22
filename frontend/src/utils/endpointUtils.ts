@@ -43,28 +43,44 @@ export function getErrorDetail(value: unknown): string | null {
   return null;
 }
 
+const LAUNCHER_ROUTES = new Set<string>([
+  RouteEnum.LAUNCH,
+  RouteEnum.GET_SETTA_HOME_INFO,
+  RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER,
+  RouteEnum.GET_LAUNCHER_STATUS,
+  RouteEnum.SETUP_LAUNCHER,
+  RouteEnum.REPAIR_LAUNCHER,
+  RouteEnum.REMOVE_LAUNCHER,
+  RouteEnum.UPDATE_LAUNCHER,
+  RouteEnum.GET_LAUNCHER_APP_MODE,
+  RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES,
+  RouteEnum.ADD_LAUNCHER_RECENT_WORKSPACE,
+  RouteEnum.REMOVE_LAUNCHER_RECENT_WORKSPACE,
+  RouteEnum.PIN_LAUNCHER_RECENT_WORKSPACE,
+  RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS,
+  RouteEnum.LIST_LAUNCHER_DIRECTORY,
+  RouteEnum.OPEN_LAUNCHER_WORKSPACE,
+]);
+
+function stripQueryAndHash(address: string): string {
+  const hashIndex = address.indexOf("#");
+  let withoutHash = address;
+  if (hashIndex >= 0) {
+    withoutHash = address.slice(0, hashIndex);
+  }
+  const queryIndex = withoutHash.indexOf("?");
+  if (queryIndex >= 0) {
+    return withoutHash.slice(0, queryIndex);
+  }
+  return withoutHash;
+}
+
 function resolveBackendUrl(address: string): string {
-  if (address.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
+  const normalizedAddress = stripQueryAndHash(address);
+  if (normalizedAddress.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
     return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
   }
-  if (
-    address === RouteEnum.LAUNCH ||
-    address === RouteEnum.GET_SETTA_HOME_INFO ||
-    address === RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER ||
-    address === RouteEnum.GET_LAUNCHER_STATUS ||
-    address === RouteEnum.SETUP_LAUNCHER ||
-    address === RouteEnum.REPAIR_LAUNCHER ||
-    address === RouteEnum.REMOVE_LAUNCHER ||
-    address === RouteEnum.UPDATE_LAUNCHER ||
-    address === RouteEnum.GET_LAUNCHER_APP_MODE ||
-    address === RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES ||
-    address === RouteEnum.ADD_LAUNCHER_RECENT_WORKSPACE ||
-    address === RouteEnum.REMOVE_LAUNCHER_RECENT_WORKSPACE ||
-    address === RouteEnum.PIN_LAUNCHER_RECENT_WORKSPACE ||
-    address === RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS ||
-    address === RouteEnum.LIST_LAUNCHER_DIRECTORY ||
-    address === RouteEnum.OPEN_LAUNCHER_WORKSPACE
-  ) {
+  if (LAUNCHER_ROUTES.has(normalizedAddress)) {
     return `${C_ADDRESSES.LAUNCHER}${address}`;
   }
   return `${C_ADDRESSES.BACKEND}${address}`;

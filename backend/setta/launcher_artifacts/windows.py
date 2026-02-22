@@ -9,6 +9,7 @@ from setta.launcher_artifacts.common import (
     existing_artifact_path,
     parse_bool_option,
     resolve_path_option_with_existing,
+    validate_file_name_component,
     write_text_file,
 )
 
@@ -19,11 +20,14 @@ MANAGED_ARTIFACT_KEYS = (
 )
 
 
-def install_windows_artifacts(*, context: LauncherArtifactContext) -> dict[str, str]:
-    app_name = context.options.get("app_name", "Setta").strip()
-    if not app_name:
-        raise LauncherArtifactError("Artifact option `app_name` must be non-empty.")
-
+def plan_windows_artifact_paths(
+    *,
+    context: LauncherArtifactContext,
+) -> dict[str, Path]:
+    app_name = validate_file_name_component(
+        option_key="app_name",
+        raw_value=context.options.get("app_name", "Setta"),
+    )
     local_app_data = _resolve_local_app_data()
     programs_dir = _resolve_programs_dir()
     desktop_dir = _resolve_desktop_dir()
@@ -58,6 +62,25 @@ def install_windows_artifacts(*, context: LauncherArtifactContext) -> dict[str, 
         existing_key="windowsDesktopShortcut",
         default_path=desktop_dir / f"{app_name}.lnk",
     )
+    planned_artifacts: dict[str, Path] = {
+        "windowsWrapper": wrapper_path,
+        "windowsStartMenuShortcut": start_menu_shortcut_path,
+    }
+    if create_desktop_shortcut:
+        planned_artifacts["windowsDesktopShortcut"] = desktop_shortcut_path
+    return planned_artifacts
+
+
+def install_windows_artifacts(*, context: LauncherArtifactContext) -> dict[str, str]:
+    planned_artifacts = plan_windows_artifact_paths(context=context)
+    wrapper_path = planned_artifacts["windowsWrapper"]
+    start_menu_shortcut_path = planned_artifacts["windowsStartMenuShortcut"]
+    existing_desktop_shortcut = existing_artifact_path(
+        existing_managed_artifacts=context.existing_managed_artifacts,
+        key="windowsDesktopShortcut",
+    )
+    create_desktop_shortcut = "windowsDesktopShortcut" in planned_artifacts
+    desktop_shortcut_path = planned_artifacts.get("windowsDesktopShortcut")
 
     wrapper_content = _build_windows_wrapper(target_command=context.target_command)
     write_text_file(path=wrapper_path, content=wrapper_content, executable=False)
@@ -71,7 +94,7 @@ def install_windows_artifacts(*, context: LauncherArtifactContext) -> dict[str, 
         "windowsStartMenuShortcut": str(start_menu_shortcut_path),
     }
 
-    if create_desktop_shortcut:
+    if create_desktop_shortcut and desktop_shortcut_path is not None:
         _create_windows_shortcut(
             shortcut_path=desktop_shortcut_path,
             target_path=wrapper_path,

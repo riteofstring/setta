@@ -65,6 +65,24 @@ def install_current_platform_artifacts(
     return install_linux_artifacts(context=context)
 
 
+def plan_current_platform_artifact_paths(
+    *,
+    context: LauncherArtifactContext,
+) -> dict[str, Path]:
+    platform = current_platform()
+    if platform == "macos":
+        from setta.launcher_artifacts.macos import plan_macos_artifact_paths
+
+        return plan_macos_artifact_paths(context=context)
+    if platform == "windows":
+        from setta.launcher_artifacts.windows import plan_windows_artifact_paths
+
+        return plan_windows_artifact_paths(context=context)
+    from setta.launcher_artifacts.linux import plan_linux_artifact_paths
+
+    return plan_linux_artifact_paths(context=context)
+
+
 def current_platform_artifact_keys() -> set[str]:
     platform = current_platform()
     if platform == "macos":
@@ -143,6 +161,28 @@ def shell_command(parts: list[str]) -> str:
 
 def shell_array_literal(parts: list[str]) -> str:
     return " ".join(shlex.quote(part) for part in parts)
+
+
+def validate_file_name_component(*, option_key: str, raw_value: str) -> str:
+    normalized_value = raw_value.strip()
+    if not normalized_value:
+        raise LauncherArtifactError(
+            f"Artifact option `{option_key}` must be non-empty."
+        )
+    if normalized_value in {".", ".."}:
+        raise LauncherArtifactError(
+            f"Artifact option `{option_key}` must not contain parent/self references."
+        )
+    if "/" in normalized_value or "\\" in normalized_value:
+        raise LauncherArtifactError(
+            f"Artifact option `{option_key}` must be a file name, not a path."
+        )
+    path_candidate = Path(normalized_value)
+    if path_candidate.name != normalized_value:
+        raise LauncherArtifactError(
+            f"Artifact option `{option_key}` must be a file name, not a path."
+        )
+    return normalized_value
 
 
 def write_text_file(*, path: Path, content: str, executable: bool = False) -> None:

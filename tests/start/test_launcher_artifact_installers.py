@@ -1,6 +1,9 @@
 from pathlib import Path
 
+import pytest
+
 from setta.launcher_artifacts import LauncherArtifactContext
+from setta.launcher_artifacts.common import LauncherArtifactError
 from setta.launcher_artifacts.linux import install_linux_artifacts
 from setta.launcher_artifacts.macos import install_macos_artifacts
 from setta.launcher_artifacts.windows import install_windows_artifacts
@@ -141,6 +144,70 @@ def test_install_linux_artifacts_removes_existing_shortcut_when_disabled(
     assert not desktop_shortcut_path.exists()
 
 
+def test_install_linux_artifacts_escapes_exec_argument_for_spaced_wrapper_path(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "setta.launcher_artifacts.linux._refresh_desktop_database",
+        lambda _applications_dir: None,
+    )
+    applications_dir = tmp_path / "applications"
+    wrapper_path = tmp_path / "launcher bin" / "setta launcher%test"
+
+    context = LauncherArtifactContext(
+        target_command=["/tmp/python", "-m", "setta"],
+        channel="linux-script",
+        existing_managed_artifacts={},
+        options={
+            "applications_dir": str(applications_dir),
+            "desktop_entry_name": "setta.desktop",
+            "wrapper_path": str(wrapper_path),
+        },
+    )
+
+    install_linux_artifacts(context=context)
+    desktop_entry_path = applications_dir / "setta.desktop"
+    desktop_entry = desktop_entry_path.read_text(encoding="utf-8")
+
+    resolved_wrapper = str(wrapper_path.resolve(strict=False))
+    escaped_wrapper = resolved_wrapper.replace("\\", "\\\\")
+    escaped_wrapper = escaped_wrapper.replace('"', '\\"')
+    escaped_wrapper = escaped_wrapper.replace("$", "\\$")
+    escaped_wrapper = escaped_wrapper.replace("`", "\\`")
+    escaped_wrapper = escaped_wrapper.replace("%", "%%")
+    assert f'Exec="{escaped_wrapper}" %F' in desktop_entry
+
+
+def test_install_linux_artifacts_rejects_path_like_desktop_entry_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "setta.launcher_artifacts.linux._refresh_desktop_database",
+        lambda _applications_dir: None,
+    )
+    applications_dir = tmp_path / "applications"
+    wrapper_path = tmp_path / "launcher" / "setta-launcher"
+
+    context = LauncherArtifactContext(
+        target_command=["/tmp/python", "-m", "setta"],
+        channel="linux-script",
+        existing_managed_artifacts={},
+        options={
+            "applications_dir": str(applications_dir),
+            "desktop_entry_name": "../setta.desktop",
+            "wrapper_path": str(wrapper_path),
+        },
+    )
+
+    with pytest.raises(LauncherArtifactError) as excinfo:
+        install_linux_artifacts(context=context)
+
+    assert "desktop_entry_name" in str(excinfo.value)
+    assert not wrapper_path.exists()
+
+
 def test_install_windows_artifacts_writes_wrapper_and_shortcuts(
     tmp_path: Path,
     monkeypatch,
@@ -194,3 +261,43 @@ def test_install_windows_artifacts_writes_wrapper_and_shortcuts(
         (start_menu_shortcut_path, wrapper_path),
         (desktop_shortcut_path, wrapper_path),
     ]
+
+
+def test_install_windows_artifacts_rejects_path_like_app_name(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "LocalAppData"))
+    monkeypatch.setenv("APPDATA", str(tmp_path / "AppData"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "UserProfile"))
+    wrapper_path = tmp_path / "wrapper" / "setta-launcher.cmd"
+
+    called_shortcut_creation = False
+
+    def fail_if_shortcut_created(*, shortcut_path: Path, target_path: Path) -> None:
+        nonlocal called_shortcut_creation
+        assert shortcut_path is not None
+        assert target_path is not None
+        called_shortcut_creation = True
+
+    monkeypatch.setattr(
+        "setta.launcher_artifacts.windows._create_windows_shortcut",
+        fail_if_shortcut_created,
+    )
+
+    context = LauncherArtifactContext(
+        target_command=["C:\\Python\\python.exe", "-m", "setta"],
+        channel="windows-script",
+        existing_managed_artifacts={},
+        options={
+            "app_name": "..\\Setta Test",
+            "wrapper_path": str(wrapper_path),
+        },
+    )
+
+    with pytest.raises(LauncherArtifactError) as excinfo:
+        install_windows_artifacts(context=context)
+
+    assert "app_name" in str(excinfo.value)
+    assert called_shortcut_creation is False
+    assert not wrapper_path.exists()

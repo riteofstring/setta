@@ -1661,10 +1661,10 @@ export async function route_get_setta_home_info(): Promise<
   return await get("/settaHomeInfo");
 }
 
-export async function route_get_launcher_status(): Promise<
-  ResponseDataAndStatus<gt.LauncherStatusResponse>
-> {
-  return await get("/launcherStatus");
+export async function route_get_launcher_status(
+  setta_home: string | null = null,
+): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+  return await get("/launcherStatus", { setta_home });
 }
 
 export async function route_setup_launcher(

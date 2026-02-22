@@ -118,6 +118,47 @@ def test_setup_launcher_installation_rejects_metadata_outside_trusted_roots(
     assert excinfo.value.code == "LauncherMetadata"
 
 
+def test_setup_launcher_installation_validates_planned_paths_before_install(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    outside_artifact = (tmp_path / "outside" / "artifact").resolve(strict=False)
+    install_called = False
+
+    def fake_plan_current_platform_artifact_paths(*, context: object) -> dict[str, Path]:
+        assert context is not None
+        return {"plannedArtifact": outside_artifact}
+
+    def fake_install_current_platform_artifacts(*, context: object) -> dict[str, str]:
+        nonlocal install_called
+        assert context is not None
+        install_called = True
+        return {}
+
+    monkeypatch.setattr(
+        "setta.launcher_setup.plan_current_platform_artifact_paths",
+        fake_plan_current_platform_artifact_paths,
+    )
+    monkeypatch.setattr(
+        "setta.launcher_setup.install_current_platform_artifacts",
+        fake_install_current_platform_artifacts,
+    )
+
+    with pytest.raises(LauncherSetupError) as excinfo:
+        setup_launcher_installation(
+            setta_home=setta_home,
+            channel="manual",
+            open_mode="browser",
+            workspace_behavior=None,
+            install_artifacts=True,
+        )
+
+    assert excinfo.value.code == "BadRequest"
+    assert "outside trusted roots" in str(excinfo.value)
+    assert install_called is False
+
+
 def test_setup_launcher_installation_defaults_to_chrome_app_mode() -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
 
