@@ -235,9 +235,13 @@ export function ProjectAISettings() {
         description: "Manage API keys for built-in LLM engines.",
         triggerTestId: "project-ai-settings-accordion-llm-api-keys",
         content: isDeploymentMode ? (
-          <ShareModeNotice />
+          <div data-setting-anchor="core.project_ai_settings.llm_api_keys">
+            <ShareModeNotice />
+          </div>
         ) : (
-          <ProjectLLMSettings className="pb-2" />
+          <div data-setting-anchor="core.project_ai_settings.llm_api_keys">
+            <ProjectLLMSettings className="pb-2" />
+          </div>
         ),
       },
       {
@@ -252,7 +256,11 @@ export function ProjectAISettings() {
         title: "Agent Profiles",
         description: "Create reusable agent personas and tool allowlists.",
         triggerTestId: "project-ai-settings-accordion-agent-profiles",
-        content: <AgentProfilesManager canEdit={canEdit} />,
+        content: (
+          <div data-setting-anchor="core.project_ai_settings.agent_profiles">
+            <AgentProfilesManager canEdit={canEdit} />
+          </div>
+        ),
       },
       {
         value: "project-ai-settings-transcription-profiles",
@@ -267,14 +275,22 @@ export function ProjectAISettings() {
         title: "Prompt Templates",
         description: "Store reusable prompt assets for Prompt sections.",
         triggerTestId: "project-ai-settings-accordion-prompt-templates",
-        content: <PromptTemplatesManager canEdit={canEdit} />,
+        content: (
+          <div data-setting-anchor="core.project_ai_settings.prompt_templates">
+            <PromptTemplatesManager canEdit={canEdit} />
+          </div>
+        ),
       },
       {
         value: "project-ai-settings-external-agents",
         title: "External Agents",
         description: "Configure Claude Code, Codex, or OpenCode adapters.",
         triggerTestId: "project-ai-settings-accordion-external-agents",
-        content: <ExternalAgentConfigsManager canEdit={canEdit} />,
+        content: (
+          <div data-setting-anchor="core.project_ai_settings.external_agents">
+            <ExternalAgentConfigsManager canEdit={canEdit} />
+          </div>
+        ),
       },
     ],
     [canEdit, isDeploymentMode],

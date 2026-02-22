@@ -1,7 +1,5 @@
 import json
-import os
 import tomllib
-from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -140,7 +138,6 @@ def build_codex_settings_file(
     payload: dict[str, Any] = {}
     if base_path is not None and base_path.exists():
         payload = _load_toml(base_path)
-    _bootstrap_codex_mcp_servers_from_user_config(payload, config)
     _set_codex_mcp_server(payload, mcp_url, auth_headers, agentic_headers)
     if _allow_managed_settings_update(config, base_path):
         _apply_codex_managed_settings(payload, config, allowlist)
@@ -466,116 +463,6 @@ def _set_codex_mcp_server(
         server_entry["http_headers"] = http_headers
     mcp_servers[SETTA_MCP_SERVER_ID] = server_entry
     payload["mcp_servers"] = mcp_servers
-
-
-def _bootstrap_codex_mcp_servers_from_user_config(
-    payload: dict[str, Any],
-    config: ExternalAgentConfig,
-) -> None:
-    if config.settingsMode == ExternalAgentSettingsMode.explicit_path:
-        return
-    existing_servers = _resolve_raw_codex_mcp_servers(payload)
-    if _has_non_setta_mcp_server(existing_servers):
-        payload["mcp_servers"] = existing_servers
-        return
-    imported_servers = _load_non_setta_codex_mcp_servers_from_user_config()
-    if not imported_servers:
-        payload["mcp_servers"] = existing_servers
-        return
-    for server_id, server_config in imported_servers.items():
-        if server_id in existing_servers:
-            continue
-        existing_servers[server_id] = server_config
-    payload["mcp_servers"] = existing_servers
-
-
-def _resolve_raw_codex_mcp_servers(payload: dict[str, Any]) -> dict[str, Any]:
-    merged: dict[str, Any] = {}
-    snake_case = payload.get("mcp_servers")
-    if isinstance(snake_case, dict):
-        for server_id, raw_entry in snake_case.items():
-            if not isinstance(server_id, str):
-                continue
-            if not isinstance(raw_entry, dict):
-                continue
-            merged[server_id] = deepcopy(raw_entry)
-    camel_case = payload.get("mcpServers")
-    if isinstance(camel_case, dict):
-        for server_id, raw_entry in camel_case.items():
-            if not isinstance(server_id, str):
-                continue
-            if not isinstance(raw_entry, dict):
-                continue
-            if server_id in merged:
-                continue
-            merged[server_id] = deepcopy(raw_entry)
-    return merged
-
-
-def _load_non_setta_codex_mcp_servers_from_user_config() -> dict[str, dict[str, Any]]:
-    for config_path in _iter_codex_config_paths():
-        if not config_path.is_file():
-            continue
-        try:
-            raw_payload = config_path.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        if not raw_payload.strip():
-            continue
-        try:
-            payload = tomllib.loads(raw_payload)
-        except tomllib.TOMLDecodeError:
-            continue
-        if not isinstance(payload, dict):
-            continue
-        raw_servers = _resolve_raw_codex_mcp_servers(payload)
-        if not raw_servers:
-            continue
-        parsed = _filter_non_setta_raw_mcp_servers(raw_servers)
-        if parsed:
-            return parsed
-    return {}
-
-
-def _iter_codex_config_paths() -> list[Path]:
-    candidates: list[Path] = []
-    codex_home = os.environ.get("CODEX_HOME")
-    if isinstance(codex_home, str) and codex_home.strip():
-        candidates.append(
-            (Path(codex_home).expanduser() / "config.toml").resolve(strict=False)
-        )
-    candidates.append((Path.home() / ".codex" / "config.toml").resolve(strict=False))
-    unique_candidates: list[Path] = []
-    seen: set[Path] = set()
-    for candidate in candidates:
-        if candidate in seen:
-            continue
-        seen.add(candidate)
-        unique_candidates.append(candidate)
-    return unique_candidates
-
-
-def _filter_non_setta_raw_mcp_servers(
-    raw_servers: dict[str, Any],
-) -> dict[str, dict[str, Any]]:
-    parsed: dict[str, dict[str, Any]] = {}
-    for raw_server_id, raw_server_entry in raw_servers.items():
-        if not isinstance(raw_server_id, str):
-            continue
-        server_id = raw_server_id.strip()
-        if not server_id or server_id == SETTA_MCP_SERVER_ID or "__" in server_id:
-            continue
-        if not isinstance(raw_server_entry, dict):
-            continue
-        parsed[server_id] = deepcopy(raw_server_entry)
-    return parsed
-
-
-def _has_non_setta_mcp_server(mcp_servers: dict[str, Any]) -> bool:
-    for server_id in mcp_servers.keys():
-        if server_id != SETTA_MCP_SERVER_ID:
-            return True
-    return False
 
 
 def _set_opencode_mcp_server(
