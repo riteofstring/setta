@@ -38,6 +38,7 @@ from setta.launch import (
 from setta.launcher_metadata import (
     LAUNCHER_WORKSPACE_BEHAVIOR,
     LauncherInstallMetadata,
+    LauncherInstallSource,
     LauncherMetadataError,
     LauncherOpenMode,
     LauncherWorkspaceBehavior,
@@ -114,6 +115,18 @@ _SESSION_SERVER_MODE_CHOICES = ("ide", "launcher")
 
 RemoteSessionSummary = ssh_common.RemoteSessionSummary
 SessionServerMode = Literal["ide", "launcher"]
+
+
+def _resolve_session_selection_server_mode(
+    *,
+    selector: Literal["status-connect", "status-list", "stop"],
+    requested_server_mode: SessionServerMode | None,
+) -> SessionServerMode | None:
+    if requested_server_mode is not None:
+        return requested_server_mode
+    if selector in {"status-connect", "stop"}:
+        return "ide"
+    return None
 
 
 def _resolve_cli_paths(
@@ -2063,8 +2076,9 @@ def _run_launcher_setup_subcommand(
     *,
     ctx: click.Context,
     json_output: bool,
-    channel: str,
-    open_mode: str,
+    channel: str | None,
+    install_source: str | None,
+    open_mode: str | None,
     workspace_behavior: str | None,
     install_artifacts: bool,
     artifact_option_specs: tuple[str, ...],
@@ -2097,11 +2111,23 @@ def _run_launcher_setup_subcommand(
                 exit_code=2,
             )
 
+    parsed_install_source: LauncherInstallSource | None = None
+    if install_source is not None:
+        parsed_install_source = cast(
+            "LauncherInstallSource",
+            install_source.strip().lower().replace("-", "_"),
+        )
+
+    parsed_open_mode: LauncherOpenMode | None = None
+    if open_mode is not None:
+        parsed_open_mode = cast("LauncherOpenMode", open_mode.strip().lower())
+
     try:
         setup_result = setup_launcher_installation(
             setta_home=launcher_setta_home,
             channel=channel,
-            open_mode=cast("LauncherOpenMode", open_mode.strip().lower()),
+            install_source=parsed_install_source,
+            open_mode=parsed_open_mode,
             workspace_behavior=parsed_workspace_behavior,
             install_artifacts=install_artifacts,
             artifact_options=parsed_artifact_options,
@@ -2150,12 +2176,19 @@ def _run_launcher_remove_subcommand(
 
 @launcher.command(name="setup")
 @click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
-@click.option("--channel", default="manual", show_default=True)
+@click.option("--channel", default=None)
+@click.option(
+    "--install-source",
+    type=click.Choice(
+        ["uv-tool", "installer-managed", "unsupported"], case_sensitive=False
+    ),
+    default=None,
+    help="Canonical launcher install source classification.",
+)
 @click.option(
     "--open-mode",
     type=click.Choice(["browser", "chrome-app"], case_sensitive=False),
-    default=_DEFAULT_LAUNCHER_OPEN_MODE,
-    show_default=True,
+    default=None,
 )
 @click.option(
     "--workspace-behavior",
@@ -2186,8 +2219,9 @@ def _run_launcher_remove_subcommand(
 def launcher_setup(
     ctx: click.Context,
     json_output: bool,
-    channel: str,
-    open_mode: str,
+    channel: str | None,
+    install_source: str | None,
+    open_mode: str | None,
     workspace_behavior: str | None,
     artifact_option_specs: tuple[str, ...],
     no_install_artifacts: bool,
@@ -2196,6 +2230,7 @@ def launcher_setup(
         ctx=ctx,
         json_output=json_output,
         channel=channel,
+        install_source=install_source,
         open_mode=open_mode,
         workspace_behavior=workspace_behavior,
         install_artifacts=not no_install_artifacts,
@@ -2435,7 +2470,7 @@ def app(
     "--server-mode",
     type=click.Choice(_SESSION_SERVER_MODE_CHOICES, case_sensitive=False),
     default=None,
-    help="Filter sessions by server mode for --list-sessions/--connect-info.",
+    help="Filter sessions by server mode (default: ide for --connect-info).",
 )
 @click.option(
     "--launcher-origin",
@@ -2471,6 +2506,10 @@ def status(
         )
 
     registry = _build_session_registry(resolved_workspace)
+    status_mode_filter = _resolve_session_selection_server_mode(
+        selector="status-connect" if connect_info else "status-list",
+        requested_server_mode=server_mode,
+    )
     if delete_session_id:
         sessions = registry.load_sessions(prune_stale=False)
         target = next(
@@ -2491,9 +2530,11 @@ def status(
             sessions = registry.load_sessions()
         else:
             sessions = registry.find_sessions_by_workspace(resolved_workspace)
-        if server_mode is not None:
+        if status_mode_filter is not None:
             sessions = [
-                session for session in sessions if session.serverMode == server_mode
+                session
+                for session in sessions
+                if session.serverMode == status_mode_filter
             ]
         payload = {
             "sessions": [
@@ -2524,9 +2565,9 @@ def status(
             sessions = registry.find_sessions_by_workspace(
                 resolved_workspace, prune_stale=False
             )
-    if server_mode is not None:
+    if status_mode_filter is not None:
         sessions = [
-            session for session in sessions if session.serverMode == server_mode
+            session for session in sessions if session.serverMode == status_mode_filter
         ]
 
     if not sessions:
@@ -2905,9 +2946,8 @@ def api(
 @click.option(
     "--server-mode",
     type=click.Choice(_SESSION_SERVER_MODE_CHOICES, case_sensitive=False),
-    default="ide",
-    show_default=True,
-    help="Filter stop targets by session mode.",
+    default=None,
+    help="Filter stop targets by session mode (default: ide).",
 )
 @click.option("--ssh-args", default=None)
 @click.option("--remote-cmd", default=None)
@@ -2919,7 +2959,7 @@ def stop(
     session_id: str | None,
     latest: bool,
     stop_all: bool,
-    server_mode: SessionServerMode,
+    server_mode: SessionServerMode | None,
     ssh_args: str | None,
     remote_cmd: str | None,
 ) -> None:
@@ -2928,6 +2968,12 @@ def stop(
     if stop_all and (session_id or latest):
         raise click.ClickException("Use --all by itself.")
     params = ctx.obj or {}
+    stop_mode_filter = _resolve_session_selection_server_mode(
+        selector="stop",
+        requested_server_mode=server_mode,
+    )
+    if stop_mode_filter is None:
+        raise click.ClickException("Failed to resolve stop server mode filter.")
 
     if ssh_target is None:
         resolved_paths = _resolve_cli_paths(
@@ -2944,7 +2990,7 @@ def stop(
         registry = SessionRegistry(sessions_root=resolved_paths.runtime_sessions_root)
         sessions = registry.find_sessions_by_workspace_and_mode(
             resolved_paths.workspace_root,
-            server_mode,
+            stop_mode_filter,
         )
         if not sessions:
             raise click.ClickException("No matching Setta sessions found.")
@@ -2978,7 +3024,7 @@ def stop(
         remote_workspace,
         setta_command,
         setta_path_args,
-        server_mode=server_mode,
+        server_mode=stop_mode_filter,
     )
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")

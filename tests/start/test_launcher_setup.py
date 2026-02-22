@@ -434,6 +434,24 @@ def test_setup_launcher_installation_defaults_to_chrome_app_mode() -> None:
     assert setup_result.metadata.installSource == "unsupported"
 
 
+def test_setup_launcher_installation_uses_explicit_install_source() -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+
+    setup_result = setup_launcher_installation(
+        setta_home=setta_home,
+        channel="native-installer",
+        open_mode="chrome-app",
+        workspace_behavior=None,
+        install_source="installer_managed",
+        install_artifacts=False,
+    )
+    status = collect_launcher_status(setta_home=setta_home)
+
+    assert setup_result.metadata.channel == "native-installer"
+    assert setup_result.metadata.installSource == "installer_managed"
+    assert status.update_capability == "installer_managed"
+
+
 def test_setup_launcher_installation_clears_artifact_options_when_empty() -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
     target = Path(sys.executable).resolve(strict=False)

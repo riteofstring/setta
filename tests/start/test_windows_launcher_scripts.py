@@ -13,6 +13,7 @@ def test_install_windows_launcher_script_is_thin_delegate() -> None:
     assert "setup" in script_content
     assert "--json" in script_content
     assert "--artifact-option" in script_content
+    assert "--install-source" in script_content
     assert "app_name=" in script_content
     assert "desktop_shortcut=true" in script_content
     assert "desktop_shortcut=false" in script_content

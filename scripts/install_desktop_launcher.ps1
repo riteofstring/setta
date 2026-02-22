@@ -2,6 +2,8 @@
 param(
   [string]$Package = "setta",
   [string]$Channel = "uv-tool-script",
+  [ValidateSet("uv-tool", "installer-managed", "unsupported")]
+  [string]$InstallSource = "uv-tool",
   [ValidateSet("browser", "chrome-app")]
   [string]$OpenMode = "chrome-app",
   [string]$SettaHome = ""
@@ -48,6 +50,8 @@ $launcherInstallArgs += @(
   "--json",
   "--channel",
   $Channel,
+  "--install-source",
+  $InstallSource,
   "--open-mode",
   $OpenMode
 )

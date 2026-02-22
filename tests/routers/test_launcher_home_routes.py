@@ -6,6 +6,7 @@ from urllib.parse import parse_qs, urlsplit
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from setta.launch import LaunchError
 from setta.launcher_workspace_store import resolve_recent_workspaces_path
 from setta.routers.launcher_home import router as launcher_home_router
 from setta.types.routes import Route
@@ -527,3 +528,80 @@ def test_open_launcher_workspace_ignores_metadata_update_os_errors(
     assert response.status_code == 200
     payload = response.json()
     assert payload["ok"] is True
+
+
+def test_open_launcher_workspace_profile_preserves_omitted_setta_files_location(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    allowed = tmp_path / "allowed"
+    workspace = allowed / "workspace"
+    allowed.mkdir(parents=True, exist_ok=True)
+    workspace.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed))
+    captured: dict[str, object] = {}
+
+    def fake_launch_workspace_session(**kwargs):
+        captured["setta_files_location"] = kwargs.get("setta_files_location")
+        raise LaunchError("Captured", "intentional capture")
+
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.launch_workspace_session",
+        fake_launch_workspace_session,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.OPEN_LAUNCHER_WORKSPACE.value}",
+            json={
+                "workspaceRoot": str(workspace),
+                "profile": "dev",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "Captured"
+    assert captured["setta_files_location"] is None
+
+
+def test_open_launcher_workspace_explicit_auto_overrides_profile(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    allowed = tmp_path / "allowed"
+    workspace = allowed / "workspace"
+    allowed.mkdir(parents=True, exist_ok=True)
+    workspace.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed))
+    captured: dict[str, object] = {}
+
+    def fake_launch_workspace_session(**kwargs):
+        captured["setta_files_location"] = kwargs.get("setta_files_location")
+        raise LaunchError("Captured", "intentional capture")
+
+    monkeypatch.setattr(
+        "setta.routers.launcher_home.launch_workspace_session",
+        fake_launch_workspace_session,
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.OPEN_LAUNCHER_WORKSPACE.value}",
+            json={
+                "workspaceRoot": str(workspace),
+                "profile": "dev",
+                "settaFilesLocation": "auto",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "Captured"
+    assert captured["setta_files_location"] == "auto"

@@ -9,7 +9,11 @@ from typing import Literal
 from fastapi import Body, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from setta.launcher_metadata import LauncherOpenMode, LauncherWorkspaceBehavior
+from setta.launcher_metadata import (
+    LauncherInstallSource,
+    LauncherOpenMode,
+    LauncherWorkspaceBehavior,
+)
 from setta.launcher_setup import (
     LauncherSetupError,
     LauncherStatusSnapshot,
@@ -101,6 +105,7 @@ class SetupLauncherRequest(LauncherRequestBase):
     model_config = ConfigDict(extra="forbid")
 
     channel: str = "manual"
+    installSource: Literal["uv-tool", "installer-managed", "unsupported"] | None = None
     openMode: LauncherOpenMode = "chrome-app"
     workspaceBehavior: Literal["last-used-or-prompt", "always-prompt"] | None = None
     installArtifacts: bool = True
@@ -233,6 +238,8 @@ def route_setup_launcher(x: SetupLauncherRequest) -> LauncherStatusResponse:
     workspace_behavior = _normalize_launcher_workspace_behavior_for_setup(
         raw_workspace_behavior
     )
+    raw_install_source = x.installSource if "installSource" in provided_fields else None
+    install_source = _normalize_launcher_install_source_for_setup(raw_install_source)
     channel = x.channel if "channel" in provided_fields else None
     open_mode = x.openMode if "openMode" in provided_fields else None
     install_artifacts = (
@@ -245,6 +252,7 @@ def route_setup_launcher(x: SetupLauncherRequest) -> LauncherStatusResponse:
         setup_launcher_installation(
             setta_home=setta_home,
             channel=channel,
+            install_source=install_source,
             open_mode=open_mode,
             workspace_behavior=workspace_behavior,
             install_artifacts=install_artifacts,
@@ -395,6 +403,18 @@ def _normalize_launcher_workspace_behavior_for_setup(
     if raw_behavior == "always-prompt":
         return "always_prompt"
     return "last_used_or_prompt"
+
+
+def _normalize_launcher_install_source_for_setup(
+    raw_install_source: Literal["uv-tool", "installer-managed", "unsupported"] | None,
+) -> LauncherInstallSource | None:
+    if raw_install_source is None:
+        return None
+    if raw_install_source == "uv-tool":
+        return "uv_tool"
+    if raw_install_source == "installer-managed":
+        return "installer_managed"
+    return "unsupported"
 
 
 def _launcher_error_response(exc: LauncherSetupError) -> LauncherStatusResponse:

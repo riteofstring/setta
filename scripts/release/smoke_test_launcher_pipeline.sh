@@ -129,6 +129,31 @@ if [[ ! -x "${setta_bin}" ]]; then
   exit 1
 fi
 
+stop_launcher_sessions() {
+  "${setta_bin}" --setta-home "${setta_home}" stop --workspace "${workspace_root}" --all --server-mode launcher >/dev/null
+}
+
+assert_no_launcher_sessions() {
+  local sessions_output
+  sessions_output="$("${setta_bin}" --setta-home "${setta_home}" status --list-sessions --json --server-mode launcher)"
+  python3 - "${sessions_output}" <<'PY'
+import base64
+import json
+import sys
+
+raw = sys.argv[1].strip()
+prefix = "__SETTA_JSON_B64__"
+if not raw.startswith(prefix):
+    raise SystemExit("status --list-sessions --json did not return prefixed base64 payload")
+decoded = base64.b64decode(raw[len(prefix):]).decode("utf-8")
+payload = json.loads(decoded)
+sessions = payload.get("sessions") or []
+if sessions:
+    raise SystemExit(f"launcher sessions remain after stop: {len(sessions)}")
+print("[launcher-smoke] launcher session cleanup OK")
+PY
+}
+
 echo "[launcher-smoke] Verifying clean launcher install..."
 status_json="$("${setta_bin}" --setta-home "${setta_home}" launcher status --json)"
 python3 - "${status_json}" <<'PY'
@@ -161,7 +186,8 @@ if payload.get("openWorkspaceSwitcher"):
     raise SystemExit("explicit workspace launch unexpectedly opened switcher")
 print("[launcher-smoke] launch flow OK")
 PY
-"${setta_bin}" --setta-home "${setta_home}" stop --workspace "${workspace_root}" --all >/dev/null 2>&1 || true
+stop_launcher_sessions
+assert_no_launcher_sessions
 
 echo "[launcher-smoke] Upgrading package and relaunching..."
 update_json="$("${setta_bin}" --setta-home "${setta_home}" launcher update --json --package "${package_spec}")"
@@ -189,7 +215,8 @@ if not payload.get("bootstrapUrl"):
     raise SystemExit("launcher relaunch missing bootstrapUrl")
 print("[launcher-smoke] relaunch flow OK")
 PY
-"${setta_bin}" --setta-home "${setta_home}" stop --workspace "${workspace_root}" --all >/dev/null 2>&1 || true
+stop_launcher_sessions
+assert_no_launcher_sessions
 
 echo "[launcher-smoke] Refreshing launcher status after update..."
 post_update_status_json="$("${setta_bin}" --setta-home "${setta_home}" launcher status --json)"

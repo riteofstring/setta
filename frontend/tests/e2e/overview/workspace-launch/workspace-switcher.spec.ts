@@ -265,7 +265,7 @@ test("workspace switcher can update Setta from launcher controls", async ({
   await updateButton.click();
 
   const request = await updateRequest;
-  expect(request.postDataJSON()).toEqual({});
+  expect(request.postDataJSON()).toEqual({ settaHome: null });
   await expect(modal.getByText("Setta updated: 1.0.0 -> 1.1.0")).toBeVisible();
 });
 
@@ -355,18 +355,18 @@ test("workspace launch URL handoff overrides stale sessionStorage", async ({
     );
   });
 
-  const encoded = await page.evaluate(async () => {
-    const { encodePendingWorkspaceLaunchForUrlHash } = await import(
+  const hash = await page.evaluate(async () => {
+    const { buildWorkspaceLaunchIntentHash } = await import(
       "/src/utils/workspaceSwitcherLaunch"
     );
-    return encodePendingWorkspaceLaunchForUrlHash({
-      request: { workspaceRoot: "/tmp/fresh" },
+    return buildWorkspaceLaunchIntentHash({
+      launchIntentToken: "fresh-intent-token",
       returnUrl: window.location.href,
       requestedAt: 222,
     });
   });
-  if (!encoded) {
-    throw new Error("Failed to encode pending workspace launch payload.");
+  if (!hash) {
+    throw new Error("Failed to encode pending workspace launch handoff hash.");
   }
 
   await page.route("**/api/launch", async (route) => {
@@ -387,15 +387,57 @@ test("workspace launch URL handoff overrides stale sessionStorage", async ({
 
   const nextUrl = new URL(page.url());
   nextUrl.pathname = "/launching";
-  nextUrl.hash = `#pl=${encoded}`;
+  nextUrl.hash = hash;
   await page.goto(nextUrl.toString(), { waitUntil: "domcontentloaded" });
 
   const requestBody = (await launchRequest).postDataJSON() as Record<
     string,
     unknown
   >;
-  expect(requestBody.workspaceRoot).toBe("/tmp/fresh");
-  expect(page.url()).not.toContain("pl=");
+  expect(requestBody.launchIntentToken).toBe("fresh-intent-token");
+  expect(page.url()).not.toContain("plt=");
+});
+
+test("workspace launch blocks legacy forged hash payloads", async ({ page }) => {
+  await ensureAppReady(page);
+
+  let launchRequestCount = 0;
+  await page.route("**/api/launch", async (route) => {
+    launchRequestCount += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: false,
+        error: { message: "Legacy forged payload should not execute." },
+      }),
+    });
+  });
+
+  const forgedPayload = await page.evaluate(() => {
+    const pending = {
+      request: { workspaceRoot: "/tmp/forged" },
+      returnUrl: window.location.href,
+      requestedAt: Date.now(),
+    };
+    const encoded = new TextEncoder().encode(JSON.stringify(pending));
+    let binary = "";
+    for (const byte of encoded) {
+      binary += String.fromCharCode(byte);
+    }
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  });
+  if (!forgedPayload) {
+    throw new Error("Failed to encode forged payload.");
+  }
+
+  const nextUrl = new URL(page.url());
+  nextUrl.pathname = "/launching";
+  nextUrl.hash = `pl=${forgedPayload}`;
+  await page.goto(nextUrl.toString(), { waitUntil: "domcontentloaded" });
+
+  await expect(page.getByText("Missing pending workspace launch request.")).toBeVisible();
+  expect(launchRequestCount).toBe(0);
 });
 
 test("workspace launch does not dedupe in-flight requests that only differ by profile and roots", async ({

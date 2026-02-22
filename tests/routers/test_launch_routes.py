@@ -14,7 +14,18 @@ from fastapi.testclient import TestClient
 
 from setta.launch import LaunchError
 from setta.launcher_metadata import LauncherMetadataError
-from setta.routers.launch import LaunchRequest, route_launch, router as launch_router
+from setta.routers.launch import (
+    CreateWorkspaceLaunchIntentRequest,
+    LaunchRequest,
+    _WORKSPACE_LAUNCH_INTENTS,
+    normalize_setta_files_location_for_launch,
+    route_create_workspace_launch_intent,
+    route_launch,
+    router as launch_router,
+)
+from setta.routers.launcher_home import (
+    normalize_setta_files_location_for_launch as normalize_setta_files_location_for_launcher_home,
+)
 from setta.ssh_common import RemoteSessionSummary
 from setta.ssh_connect import RemoteConnectResult
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
@@ -79,6 +90,197 @@ class TestLaunchRoutes:
         assert response.error is not None
         assert response.error.code == "Captured"
         assert captured["setta_files_location"] == "auto"
+
+    def test_launch_intent_roundtrip_uses_server_stored_request(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _WORKSPACE_LAUNCH_INTENTS.clear()
+        captured: dict[str, object] = {}
+
+        def fake_launch_workspace_session(**kwargs):
+            captured.update(kwargs)
+            raise LaunchError("Captured", "intentional capture")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+
+        create_response = route_create_workspace_launch_intent(
+            CreateWorkspaceLaunchIntentRequest(
+                launchRequest=LaunchRequest(
+                    workspaceRoot="/tmp/workspace",
+                    settaHome="/tmp/setta-home",
+                    settaFilesLocation="global",
+                ),
+                returnUrl="http://localhost/home",
+            )
+        )
+
+        assert create_response.ok is True
+        assert create_response.launchIntentToken is not None
+
+        response = route_launch(
+            LaunchRequest(launchIntentToken=create_response.launchIntentToken)
+        )
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "Captured"
+        assert captured["workspace_root"] == "/tmp/workspace"
+        assert captured["setta_files_location"] == "global"
+        assert create_response.launchIntentToken not in _WORKSPACE_LAUNCH_INTENTS
+
+    def test_launch_intent_rejects_tampered_token(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _WORKSPACE_LAUNCH_INTENTS.clear()
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        create_response = route_create_workspace_launch_intent(
+            CreateWorkspaceLaunchIntentRequest(
+                launchRequest=LaunchRequest(
+                    workspaceRoot="/tmp/workspace",
+                    settaHome="/tmp/setta-home",
+                ),
+                returnUrl="http://localhost/home",
+            )
+        )
+        assert create_response.ok is True
+        assert create_response.launchIntentToken is not None
+        token = create_response.launchIntentToken
+        tampered_suffix = "a" if token[-1] != "a" else "b"
+        tampered_token = f"{token[:-1]}{tampered_suffix}"
+
+        response = route_launch(LaunchRequest(launchIntentToken=tampered_token))
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "InvalidLaunchIntent"
+
+    def test_launch_intent_rejects_replay(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _WORKSPACE_LAUNCH_INTENTS.clear()
+
+        def fake_launch_workspace_session(**_kwargs):
+            raise LaunchError("Captured", "intentional capture")
+
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.launch_workspace_session",
+            fake_launch_workspace_session,
+        )
+        create_response = route_create_workspace_launch_intent(
+            CreateWorkspaceLaunchIntentRequest(
+                launchRequest=LaunchRequest(
+                    workspaceRoot="/tmp/workspace",
+                    settaHome="/tmp/setta-home",
+                ),
+                returnUrl="http://localhost/home",
+            )
+        )
+        assert create_response.ok is True
+        assert create_response.launchIntentToken is not None
+        token = create_response.launchIntentToken
+
+        first = route_launch(LaunchRequest(launchIntentToken=token))
+        second = route_launch(LaunchRequest(launchIntentToken=token))
+
+        assert first.ok is False
+        assert first.error is not None
+        assert first.error.code == "Captured"
+        assert second.ok is False
+        assert second.error is not None
+        assert second.error.code == "InvalidLaunchIntent"
+
+    def test_launch_intent_rejects_expired_token(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _WORKSPACE_LAUNCH_INTENTS.clear()
+        monkeypatch.setattr(
+            "setta.routers.launch.load_current_session_secret",
+            lambda: (SimpleNamespace(id="session-1"), b"secret"),
+        )
+        monkeypatch.setattr(
+            "setta.routers.launch.LAUNCH_INTENT_TOKEN_MANAGER.consume",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                ValueError("Token has expired")
+            ),
+        )
+
+        response = route_launch(LaunchRequest(launchIntentToken="expired-token"))
+
+        assert response.ok is False
+        assert response.error is not None
+        assert response.error.code == "InvalidLaunchIntent"
+        assert "expired" in response.error.message
+
+    def test_launch_and_launcher_home_share_setta_files_location_resolution(
+        self,
+    ) -> None:
+        shared_cases = [
+            {
+                "setta_files_location": None,
+                "setta_files_location_provided": False,
+                "setta_files_root": None,
+                "profile": None,
+                "expected": "auto",
+            },
+            {
+                "setta_files_location": None,
+                "setta_files_location_provided": False,
+                "setta_files_root": None,
+                "profile": "dev",
+                "expected": None,
+            },
+            {
+                "setta_files_location": "auto",
+                "setta_files_location_provided": True,
+                "setta_files_root": None,
+                "profile": "dev",
+                "expected": "auto",
+            },
+            {
+                "setta_files_location": "auto",
+                "setta_files_location_provided": True,
+                "setta_files_root": "/tmp/setta-files",
+                "profile": None,
+                "expected": None,
+            },
+            {
+                "setta_files_location": "global",
+                "setta_files_location_provided": True,
+                "setta_files_root": None,
+                "profile": None,
+                "expected": "global",
+            },
+        ]
+
+        for case in shared_cases:
+            launch_value = normalize_setta_files_location_for_launch(
+                setta_files_location=case["setta_files_location"],
+                setta_files_location_provided=case["setta_files_location_provided"],
+                setta_files_root=case["setta_files_root"],
+                profile=case["profile"],
+            )
+            launcher_home_value = normalize_setta_files_location_for_launcher_home(
+                setta_files_location=case["setta_files_location"],
+                setta_files_location_provided=case["setta_files_location_provided"],
+                setta_files_root=case["setta_files_root"],
+                profile=case["profile"],
+            )
+            assert launch_value == case["expected"]
+            assert launcher_home_value == case["expected"]
 
     def test_launch_local_profile_without_setta_home_uses_runtime_and_lookup_homes(
         self, monkeypatch: pytest.MonkeyPatch
@@ -500,6 +702,7 @@ class TestLaunchRoutes:
                     id="remote-session-id",
                     workspace_path="/remote/workspace",
                     workspace_path_canonical="/remote/workspace",
+                    server_mode="ide",
                     host="127.0.0.1",
                     port=61234,
                     pid=12345,
@@ -546,6 +749,7 @@ class TestLaunchRoutes:
                     id="remote-session-id",
                     workspace_path="/remote/workspace",
                     workspace_path_canonical="/remote/workspace",
+                    server_mode="ide",
                     host="127.0.0.1",
                     port=61234,
                     pid=12345,
@@ -791,6 +995,7 @@ class TestLaunchRoutes:
                     id="remote-session-id",
                     workspace_path="/remote/workspace",
                     workspace_path_canonical="/remote/workspace",
+                    server_mode="ide",
                     host="127.0.0.1",
                     port=61234,
                     pid=12345,

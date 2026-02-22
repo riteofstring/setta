@@ -476,7 +476,9 @@ test("launcher home rejects dot-segment project names", async ({ page }) => {
   expect(mocks.getLastOpenRequest()).toBeNull();
 });
 
-test("launcher mode resolves /launching handoff payloads", async ({ page }) => {
+test("launcher mode resolves /launching intent-token handoffs", async ({
+  page,
+}) => {
   await installLauncherHomeMocks(page);
 
   const capturedLaunchRequests: Array<Record<string, unknown>> = [];
@@ -508,39 +510,42 @@ test("launcher mode resolves /launching handoff payloads", async ({ page }) => {
     });
   });
 
-  const encodedPayload = await page.evaluate(() => {
-    const pending = {
-      request: { workspaceRoot: "/Users/demo/projects/from-handoff" },
-      returnUrl: window.location.href,
-      requestedAt: Date.now(),
-    };
-    const encoded = new TextEncoder().encode(JSON.stringify(pending));
+  const handoffHash = await page.evaluate((launchIntentToken: string) => {
+    const bytes = new TextEncoder().encode(window.location.href);
     let binary = "";
-    for (const byte of encoded) {
-      binary += String.fromCharCode(byte);
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      const chunk = bytes.slice(offset, offset + chunkSize);
+      binary += String.fromCharCode(...chunk);
     }
-    return btoa(binary)
+    const encodedReturnUrl = btoa(binary)
       .replace(/\+/g, "-")
       .replace(/\//g, "_")
-      .replace(/=+$/, "");
-  });
-  if (!encodedPayload) {
-    throw new Error("Failed to encode launcher handoff payload.");
+      .replace(/=+$/g, "");
+
+    const params = new URLSearchParams();
+    params.set("plt", launchIntentToken);
+    params.set("plr", encodedReturnUrl);
+    params.set("pla", String(Date.now()));
+    return params.toString();
+  }, "launcher-intent-token");
+  if (!handoffHash) {
+    throw new Error("Failed to encode launcher handoff hash.");
   }
 
   await page.goto(
-    `${new URL("/launching", FRONTEND_BASE_URL).toString()}#pl=${encodedPayload}`,
+    `${new URL("/launching", FRONTEND_BASE_URL).toString()}#${handoffHash}`,
     { waitUntil: "domcontentloaded" },
   );
   await expect.poll(() => capturedLaunchRequests.length).toBe(1);
-  expect(capturedLaunchRequests[0].workspaceRoot).toBe(
-    "/Users/demo/projects/from-handoff",
+  expect(capturedLaunchRequests[0].launchIntentToken).toBe(
+    "launcher-intent-token",
   );
   await expect(
     page.getByText("Intentional launcher handoff failure."),
   ).toBeVisible();
   expect(loadSettingsRequests).toBe(0);
-  expect(page.url()).not.toContain("pl=");
+  expect(page.url()).not.toContain("plt=");
 });
 
 test("launcher home forwards setta_home query to recent-workspaces request", async ({

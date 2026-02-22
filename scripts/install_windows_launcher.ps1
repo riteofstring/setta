@@ -55,6 +55,8 @@ $launcherSetupArgs += @(
   "--json",
   "--channel",
   $Channel,
+  "--install-source",
+  "installer-managed",
   "--open-mode",
   $OpenMode,
   "--artifact-option",

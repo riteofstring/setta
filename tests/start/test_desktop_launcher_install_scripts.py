@@ -94,7 +94,7 @@ JSON
     setta_call = setta_args_capture.read_text(encoding="utf-8")
     assert f"--setta-home {setta_home}" in setta_call
     assert (
-        "launcher setup --json --channel phase2-test --open-mode chrome-app"
+        "launcher setup --json --channel phase2-test --install-source uv-tool --open-mode chrome-app"
         in setta_call
     )
     assert not decoy_args_capture.exists()
@@ -133,6 +133,7 @@ def test_install_desktop_launcher_powershell_script_contains_phase2_contract() -
     assert "launcher" in script_content
     assert "setup" in script_content
     assert "--json" in script_content
+    assert "--install-source" in script_content
 
 
 def test_build_windows_installer_script_uses_fail_fast_native_wrapper() -> None:
@@ -155,7 +156,10 @@ def test_macos_installer_script_runs_postinstall_bootstrap() -> None:
 
     assert 'cat > "${installer_scripts_root}/postinstall"' in script_content
     assert "--scripts \"${installer_scripts_root}\"" in script_content
-    assert "--channel native-installer --open-mode chrome-app" in script_content
+    assert (
+        "--channel native-installer --install-source installer-managed --open-mode chrome-app"
+        in script_content
+    )
 
 
 def test_windows_installer_script_runs_custom_action_bootstrap() -> None:
@@ -165,7 +169,18 @@ def test_windows_installer_script_runs_custom_action_bootstrap() -> None:
     assert 'Id="RunDesktopBootstrap"' in script_content
     assert 'After="InstallFiles">NOT Installed</Custom>' in script_content
     assert "setta-install-desktop.ps1" in script_content
-    assert "-Channel native-installer -OpenMode chrome-app" in script_content
+    assert (
+        "-Channel native-installer -InstallSource installer-managed -OpenMode chrome-app"
+        in script_content
+    )
+
+
+def test_launcher_smoke_script_uses_explicit_launcher_mode_for_stop() -> None:
+    script_path = _repo_root() / "scripts" / "release" / "smoke_test_launcher_pipeline.sh"
+    script_content = script_path.read_text(encoding="utf-8")
+
+    assert "--server-mode launcher" in script_content
+    assert "status --list-sessions --json --server-mode launcher" in script_content
 
 
 def test_release_workflow_uses_single_installer_version_source() -> None:
@@ -186,12 +201,27 @@ def test_release_workflow_uses_single_installer_version_source() -> None:
     assert 'SETTA_DESKTOP_INSTALLER_RELEASE_MODE: "1"' in workflow_content
     assert "macos-installer-smoke:" in workflow_content
     assert "windows-installer-smoke:" in workflow_content
-    assert "attach-native-installers:" in workflow_content
+    assert "publish-release-assets:" in workflow_content
     assert "./scripts/release/smoke_test_native_installer_macos.sh --pkg" in workflow_content
     assert (
         "./scripts/release/smoke_test_native_installer_windows.ps1 -MsiPath $msiPath.FullName"
         in workflow_content
     )
+    assert "name: Publish release assets" in workflow_content
+
+
+def test_release_workflow_publishes_assets_only_after_all_smoke_gates() -> None:
+    workflow_path = (
+        _repo_root() / ".github" / "workflows" / "release-desktop-launcher.yml"
+    )
+    workflow_content = workflow_path.read_text(encoding="utf-8")
+
+    assert "publish-release-assets:" in workflow_content
+    assert "- launcher-smoke" in workflow_content
+    assert "- macos-installer-smoke" in workflow_content
+    assert "- windows-installer-smoke" in workflow_content
+    assert "- bootstrap-assets" in workflow_content
+    assert workflow_content.count("softprops/action-gh-release@v2") == 1
 
 
 def test_native_installer_smoke_scripts_assert_launcher_status() -> None:
@@ -307,6 +337,11 @@ JSON
   cat <<'JSON'
 {{"ok":true,"installed":false}}
 JSON
+  exit 0
+fi
+
+if [[ "${{1:-}}" == "status" && "${{2:-}}" == "--list-sessions" && "${{3:-}}" == "--json" ]]; then
+  echo "__SETTA_JSON_B64__eyJzZXNzaW9ucyI6W119"
   exit 0
 fi
 

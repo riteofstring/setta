@@ -51,6 +51,7 @@ class Route(str, Enum):
     PLUGINS_RESTART = "/plugins/restart"
     REVEAL_PATH_IN_OS_FILE_EXPLORER = "/revealPathInOsFileExplorer"
     LAUNCH = "/launch"
+    CREATE_WORKSPACE_LAUNCH_INTENT = "/createWorkspaceLaunchIntent"
     SAVE_SETTINGS_PROJECT = "/saveSettingsProject"
     LOAD_SETTINGS_PROJECT = "/loadSettingsProject"
     TERMINAL = "/{projectConfigId}/{sectionId}/{id}"

@@ -11,6 +11,9 @@ the installed Setta executable.
 Options:
   --package SPEC      Package spec passed to uv tool install (default: setta)
   --channel NAME      Launcher setup channel (default: uv-tool-script)
+  --install-source SOURCE
+                      Launcher install source: uv-tool | installer-managed | unsupported
+                      Default: uv-tool
   --open-mode MODE    Launcher open mode: browser | chrome-app
                       Default: chrome-app
   --setta-home PATH   Optional Setta home override forwarded to launcher setup
@@ -20,6 +23,7 @@ EOF
 
 package_spec="setta"
 channel="uv-tool-script"
+install_source="uv-tool"
 open_mode="chrome-app"
 setta_home=""
 
@@ -60,6 +64,19 @@ while [[ $# -gt 0 ]]; do
       open_mode="$2"
       shift 2
       ;;
+    --install-source)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --install-source." >&2
+        usage
+        exit 1
+      fi
+      install_source="$2"
+      shift 2
+      ;;
+    --install-source=*)
+      install_source="${1#*=}"
+      shift
+      ;;
     --open-mode=*)
       open_mode="${1#*=}"
       shift
@@ -95,6 +112,10 @@ if [[ -z "${package_spec}" ]]; then
 fi
 if [[ -z "${channel}" ]]; then
   echo "--channel must be non-empty." >&2
+  exit 1
+fi
+if [[ "${install_source}" != "uv-tool" && "${install_source}" != "installer-managed" && "${install_source}" != "unsupported" ]]; then
+  echo "--install-source must be one of: uv-tool, installer-managed, unsupported" >&2
   exit 1
 fi
 if [[ "${open_mode}" != "browser" && "${open_mode}" != "chrome-app" ]]; then
@@ -136,6 +157,8 @@ launcher_install_cmd+=(
   "--json"
   "--channel"
   "${channel}"
+  "--install-source"
+  "${install_source}"
   "--open-mode"
   "${open_mode}"
 )

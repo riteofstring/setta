@@ -136,8 +136,11 @@ def test_bootstrap_page_hydrates_workspace_history_and_launcher_origin(
     assert 'hashParams.get("lo")' in html
     assert 'hashParams.get("lop")' in html
     assert 'hashParams.get("osw")' in html
-    assert 'const openWorkspaceSwitcherOnLoadKey = "setta.openWorkspaceSwitcherOnLoad";' in html
-    assert 'sessionStorage.setItem(openWorkspaceSwitcherOnLoadKey, "1");' in html
+    assert (
+        'const openWorkspaceSwitcherQueryParam = "__setta_open_workspace_switcher";'
+        in html
+    )
+    assert 'redirect.searchParams.set(openWorkspaceSwitcherQueryParam, "1");' in html
     assert "consumeBody.launcherOrigin = launcherOriginHandoff.origin;" in html
     assert (
         "consumeBody.launcherOriginProof = launcherOriginHandoff.proof;" in html

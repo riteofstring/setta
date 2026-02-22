@@ -322,7 +322,7 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
         const redirectUrl = "__SETTA_REDIRECT_URL__";
         const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";
         const launcherOriginKey = "setta.launcherOrigin";
-        const openWorkspaceSwitcherOnLoadKey = "setta.openWorkspaceSwitcherOnLoad";
+        const openWorkspaceSwitcherQueryParam = "__setta_open_workspace_switcher";
         const launcherOriginStorage = __SETTA_LAUNCHER_ORIGIN_STORAGE__;
         const maxHandoffLength = 8192;
         const form = document.getElementById("bootstrap-form");
@@ -406,19 +406,16 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
           }
         }
 
-        function hydrateOpenWorkspaceSwitcherFromHash() {
+        function shouldOpenWorkspaceSwitcherFromHash() {
           try {
             const raw = hashParams.get("osw");
             if (!raw) {
-              return;
+              return false;
             }
             const normalized = raw.trim().toLowerCase();
-            if (normalized !== "1" && normalized !== "true") {
-              return;
-            }
-            sessionStorage.setItem(openWorkspaceSwitcherOnLoadKey, "1");
+            return normalized === "1" || normalized === "true";
           } catch {
-            /* ignore */
+            return false;
           }
         }
 
@@ -460,9 +457,18 @@ BOOTSTRAP_HTML_TEMPLATE = """<!DOCTYPE html>
               ? consumePayload.launcherOrigin
               : null,
           );
-          hydrateOpenWorkspaceSwitcherFromHash();
+          let nextRedirectUrl = redirectUrl;
+          if (shouldOpenWorkspaceSwitcherFromHash()) {
+            try {
+              const redirect = new URL(redirectUrl, window.location.href);
+              redirect.searchParams.set(openWorkspaceSwitcherQueryParam, "1");
+              nextRedirectUrl = redirect.toString();
+            } catch {
+              // Ignore invalid redirect URLs and continue with the configured value.
+            }
+          }
           history.replaceState({}, "", "/__setta__/bootstrap");
-          window.location.assign(redirectUrl);
+          window.location.assign(nextRedirectUrl);
         }
 
         form.addEventListener("submit", function (event) {

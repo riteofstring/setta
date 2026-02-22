@@ -236,6 +236,8 @@ launcher_setup_cmd+=(
   "--json"
   "--channel"
   "${channel}"
+  "--install-source"
+  "installer-managed"
   "--open-mode"
   "${open_mode}"
   "--artifact-option"

@@ -35,11 +35,6 @@ from setta.launcher_metadata import (
 
 LauncherUpdateCapability = Literal["in_app", "installer_managed", "unsupported"]
 
-_INSTALLER_MANAGED_CHANNELS = {
-    "linux-script",
-    "macos-script",
-    "windows-script",
-}
 _ARTIFACT_OWNERSHIP_MARKER_BASENAME = ".setta-launcher-owned"
 
 
@@ -264,6 +259,7 @@ def setup_launcher_installation(
     channel: str | None,
     open_mode: LauncherOpenMode | None,
     workspace_behavior: LauncherWorkspaceBehavior | None,
+    install_source: LauncherInstallSource | None = None,
     target_command: list[str] | None = None,
     install_artifacts: bool | None = True,
     artifact_options: dict[str, str] | None = None,
@@ -308,7 +304,13 @@ def setup_launcher_installation(
     else:
         resolved_target_command = target_command
 
-    install_source = _derive_install_source(resolved_channel)
+    resolved_install_source: LauncherInstallSource
+    if install_source is not None:
+        resolved_install_source = install_source
+    elif existing_metadata is not None:
+        resolved_install_source = existing_metadata.installSource
+    else:
+        resolved_install_source = "unsupported"
     resolved_install_artifacts: bool
     if install_artifacts is None:
         if existing_metadata is None:
@@ -414,7 +416,7 @@ def setup_launcher_installation(
         metadata = build_launcher_install_metadata(
             target_command=resolved_target_command,
             channel=resolved_channel,
-            install_source=install_source,
+            install_source=resolved_install_source,
             artifact_ownership_token=ownership_token,
             setta_version=__version__,
             open_mode=resolved_open_mode,
@@ -477,6 +479,7 @@ def repair_launcher_installation(
     setup_result = setup_launcher_installation(
         setta_home=setta_home,
         channel=metadata.channel,
+        install_source=metadata.installSource,
         open_mode=metadata.openMode,
         workspace_behavior=metadata.workspaceBehavior,
         install_artifacts=bool(metadata.managedArtifacts),
@@ -594,6 +597,7 @@ def update_launcher_installation(
 
     metadata = status.metadata
     workspace_behavior_cli = metadata.workspaceBehavior.replace("_", "-")
+    install_source_cli = metadata.installSource.replace("_", "-")
     setup_cmd = [
         str(setta_executable),
         "--setta-home",
@@ -603,6 +607,8 @@ def update_launcher_installation(
         "--json",
         "--channel",
         metadata.channel,
+        "--install-source",
+        install_source_cli,
         "--open-mode",
         metadata.openMode,
         "--workspace-behavior",
@@ -648,15 +654,6 @@ def update_launcher_installation(
         to_version=next_status.setta_version or metadata.settaVersion,
         status=next_status,
     )
-
-
-def _derive_install_source(channel: str) -> LauncherInstallSource:
-    normalized = channel.strip().lower()
-    if normalized in {"uv-tool", "uv-tool-script"}:
-        return "uv_tool"
-    if normalized.startswith("pip") or normalized in _INSTALLER_MANAGED_CHANNELS:
-        return "installer_managed"
-    return "unsupported"
 
 
 def _resolve_update_capability(

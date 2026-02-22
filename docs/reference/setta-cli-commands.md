@@ -303,6 +303,7 @@ Other options:
 - `--workspace PATH` (`-w` works too) filters sessions by workspace (default: all sessions).
 - `--session ID` selects a specific session.
 - `--latest` selects the newest session.
+- `--server-mode ide|launcher` filters by mode. For `--connect-info`, default mode is `ide` unless explicitly overridden.
 - `--json` emits a base64 JSON payload prefixed with `__SETTA_JSON_B64__`.
 - `--list-sessions` lists sessions (requires `--json`).
 - `--delete-session ID` stops and removes the session (local only).
@@ -467,8 +468,9 @@ Writes launcher metadata under `<setta_home>/launcher/launcher-install.json`.
 This is primarily installer-facing (scripts/package-manager hooks).
 
 Options:
-- `--channel NAME` install channel label (default: `manual`)
-- `--open-mode {browser,chrome-app}` default launcher mode (default: `chrome-app`)
+- `--channel NAME` install channel label (optional; omitted preserves existing metadata)
+- `--install-source {uv-tool,installer-managed,unsupported}` canonical install-source classification
+- `--open-mode {browser,chrome-app}` default launcher mode (optional; omitted preserves existing metadata)
 - `--workspace-behavior {last-used-or-prompt,always-prompt}` workspace fallback preference
 - `--artifact-option NAME=VALUE` configures platform artifact generation (for example `app_name`, `icon_path`, `desktop_shortcut`)
 - `--no-install-artifacts` updates launcher metadata only, without writing platform artifacts
@@ -591,6 +593,7 @@ Stops one or more Setta sessions, either locally (default) or on a remote host.
 Local stop:
 - `setta stop --workspace /path` (or `-w`) selects sessions by workspace.
 - Use `--session`, `--latest`, or `--all` to choose the target set.
+- `--server-mode ide|launcher` selects stop targets by mode (default: `ide`).
 
 Remote stop:
 - Provide an SSH target to stop remote sessions:

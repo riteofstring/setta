@@ -29,6 +29,7 @@ from setta.routers.launcher_scope import resolve_launcher_setta_home
 from setta.routers.setta_api_router import SettaAPIRouter
 from setta.ssh_common import normalize_optional_argument
 from setta.types.routes import Route
+from setta.utils.launch_request import normalize_setta_files_location_for_launch
 from setta.utils.launcher_origin_handoff import (
     append_launcher_origin_handoff_to_bootstrap_url,
     mint_launcher_origin_handoff_proof,
@@ -104,7 +105,7 @@ class LauncherOpenWorkspaceRequest(BaseModel):
     settaHome: str | None = None
     profile: str | None = None
     settaFilesRoot: str | None = None
-    settaFilesLocation: Literal["auto", "local", "global"] | None = "auto"
+    settaFilesLocation: Literal["auto", "local", "global"] | None = None
     runtimeRoot: str | None = None
     createIfMissing: bool = False
 
@@ -381,8 +382,9 @@ def route_open_launcher_workspace(
             ),
         )
 
-    normalized_setta_files_location = _normalize_setta_files_location_for_launch(
+    normalized_setta_files_location = normalize_setta_files_location_for_launch(
         setta_files_location=x.settaFilesLocation,
+        setta_files_location_provided="settaFilesLocation" in x.model_fields_set,
         setta_files_root=normalized_setta_files_root,
         profile=normalized_profile,
     )
@@ -460,21 +462,6 @@ def route_open_launcher_workspace(
         sessionId=result.session.id,
         startedNew=result.started_new,
     )
-
-
-def _normalize_setta_files_location_for_launch(
-    *,
-    setta_files_location: Literal["auto", "local", "global"] | None,
-    setta_files_root: str | None,
-    profile: str | None,
-) -> Literal["auto", "local", "global"] | None:
-    if setta_files_location is not None:
-        if setta_files_root is not None and setta_files_location == "auto":
-            return None
-        return setta_files_location
-    if setta_files_root is not None or profile is not None:
-        return None
-    return "auto"
 
 
 def _workspace_payloads(

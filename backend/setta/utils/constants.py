@@ -135,6 +135,7 @@ class C:
     AUTH_COOKIE_SAMESITE = "lax"
     AUTH_COOKIE_SECURE = False
     BOOTSTRAP_TOKEN_TTL_SECONDS = 60 * 10
+    LAUNCH_INTENT_TOKEN_TTL_SECONDS = 60 * 5
     SESSION_SECRET_BYTES = 32
 
     # WebSocket message types

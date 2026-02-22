@@ -384,6 +384,24 @@ def test_status_connect_info_latest_filters_by_server_mode(status_env) -> None:
     assert payload["session"]["serverMode"] == "ide"
 
 
+def test_status_connect_info_defaults_to_ide_server_mode(status_env) -> None:
+    now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    status_env.create_session(port=61234, started_at=now, server_mode="ide")
+    status_env.create_session(
+        port=61235,
+        started_at=now + timedelta(minutes=1),
+        server_mode="launcher",
+    )
+    runner = CliRunner()
+
+    result = runner.invoke(status, ["--connect-info", "--json", "--latest"])
+
+    assert result.exit_code == 0, result.output
+    payload = _decode_connect_info(result.output)
+    assert payload["session"]["port"] == 61234
+    assert payload["session"]["serverMode"] == "ide"
+
+
 def test_status_list_sessions_requires_json(status_env) -> None:
     status_env.create_session(port=61234)
     runner = CliRunner()
@@ -608,3 +626,23 @@ def test_stop_local_profile_uses_profile_runtime_sessions_root(
     assert f"Stopped session {profile_session.id}." in result.output
     assert (profile_sessions_root / profile_session.id).exists() is False
     assert (default_sessions_root / default_session.id).exists() is True
+
+
+def test_cli_docs_describe_status_and_stop_server_mode_semantics() -> None:
+    docs_path = (
+        Path(__file__).resolve().parents[2]
+        / "docs"
+        / "reference"
+        / "setta-cli-commands.md"
+    )
+    docs_content = docs_path.read_text(encoding="utf-8")
+
+    assert (
+        "--server-mode ide|launcher` filters by mode. For `--connect-info`, "
+        "default mode is `ide` unless explicitly overridden."
+        in docs_content
+    )
+    assert (
+        "--server-mode ide|launcher` selects stop targets by mode (default: `ide`)."
+        in docs_content
+    )

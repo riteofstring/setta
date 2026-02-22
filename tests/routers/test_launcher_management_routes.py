@@ -81,6 +81,7 @@ def test_setup_and_remove_launcher_routes_roundtrip() -> None:
             f"{Route.PREFIX.value}{Route.SETUP_LAUNCHER.value}",
             json={
                 "channel": "uv-tool",
+                "installSource": "uv-tool",
                 "openMode": "chrome-app",
                 "workspaceBehavior": "always-prompt",
                 "installArtifacts": False,

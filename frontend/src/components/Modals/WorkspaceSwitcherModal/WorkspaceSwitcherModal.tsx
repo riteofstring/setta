@@ -6,8 +6,12 @@ import { closeModal } from "state/actions/modal";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
-import { route_get_setta_home_info } from "utils/generatedEndpoints";
 import {
+  route_create_workspace_launch_intent,
+  route_get_setta_home_info,
+} from "utils/generatedEndpoints";
+import {
+  type CreateWorkspaceLaunchIntentRequestInput,
   type LaunchRequestInput,
   type SettaHomeInfoResponse,
 } from "utils/generatedTypes";
@@ -22,7 +26,7 @@ import {
   type WorkspaceHistoryEntry,
 } from "utils/workspaceHistory";
 import {
-  encodePendingWorkspaceLaunchForUrlHash,
+  buildWorkspaceLaunchIntentHash,
   readWorkspaceSwitcherDraft,
   writePendingWorkspaceLaunch,
   writeWorkspaceSwitcherDraft,
@@ -150,21 +154,41 @@ export function WorkspaceSwitcherModal() {
       typeof window !== "undefined" &&
       C_ADDRESSES.LAUNCHER_ORIGIN !== window.location.origin
     ) {
-      const encoded = encodePendingWorkspaceLaunchForUrlHash(pendingLaunch);
-      if (!encoded) {
+      const launchIntentRequest: CreateWorkspaceLaunchIntentRequestInput = {
+        launchRequest: request,
+        returnUrl: pendingLaunch.returnUrl,
+      };
+      const launchIntentResponse = await route_create_workspace_launch_intent(
+        launchIntentRequest,
+      );
+      if (
+        !res200(launchIntentResponse) ||
+        !launchIntentResponse.data ||
+        !launchIntentResponse.data.ok ||
+        !launchIntentResponse.data.launchIntentToken
+      ) {
         setIsLaunching(false);
-        setError("Failed to encode launch request.");
+        setError(
+          launchIntentResponse.data?.error?.message ??
+            "Failed to create launch intent.",
+        );
+        return;
+      }
+      const hash = buildWorkspaceLaunchIntentHash({
+        launchIntentToken: launchIntentResponse.data.launchIntentToken,
+        returnUrl: pendingLaunch.returnUrl,
+        requestedAt: launchIntentResponse.data.requestedAt ?? Date.now(),
+      });
+      if (!hash) {
+        setIsLaunching(false);
+        setError("Failed to encode launch intent.");
         return;
       }
       const url = new URL(
         WORKSPACE_LAUNCH_ROUTER_PATH,
         C_ADDRESSES.LAUNCHER_ORIGIN,
       );
-      const params = new URLSearchParams(
-        url.hash.startsWith("#") ? url.hash.slice(1) : url.hash,
-      );
-      params.set("pl", encoded);
-      url.hash = params.toString();
+      url.hash = hash;
       closeModal();
       window.location.assign(url.toString());
       return;

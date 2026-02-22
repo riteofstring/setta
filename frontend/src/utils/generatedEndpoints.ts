@@ -377,6 +377,12 @@ export async function route_emit_chat_stream_delta(
   return await post("/emitChatStreamDelta", x);
 }
 
+export async function route_create_workspace_launch_intent(
+  x: gt.CreateWorkspaceLaunchIntentRequestInput,
+): Promise<ResponseDataAndStatus<gt.CreateWorkspaceLaunchIntentResponse>> {
+  return await post("/createWorkspaceLaunchIntent", x);
+}
+
 export async function route_launch(
   x: gt.LaunchRequestInput,
 ): Promise<ResponseDataAndStatus<gt.LaunchResponse>> {

@@ -340,6 +340,8 @@ def test_launcher_setup_status_and_remove_roundtrip() -> None:
             "--json",
             "--channel",
             "uv-tool",
+            "--install-source",
+            "uv-tool",
             "--open-mode",
             "chrome-app",
             "--workspace-behavior",
@@ -372,6 +374,45 @@ def test_launcher_setup_status_and_remove_roundtrip() -> None:
     assert remove_payload["metadataRemoved"] is True
     assert remove_payload["removedPaths"] == []
     assert not resolve_launcher_metadata_path(setta_home=setta_home).exists()
+
+
+def test_launcher_setup_rerun_preserves_existing_identity_fields() -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    target = Path(sys.executable).resolve(strict=False)
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target), "-m", "setta"],
+        channel="uv-tool",
+        install_source="uv_tool",
+        artifact_ownership_token="preserve-identity-token",
+        setta_version="1.2.3",
+        open_mode="browser",
+        managed_artifacts={},
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    runner = CliRunner()
+    setup_result = runner.invoke(
+        cli,
+        [
+            "launcher",
+            "setup",
+            "--json",
+            "--no-install-artifacts",
+        ],
+    )
+
+    assert setup_result.exit_code == 0, setup_result.output
+    setup_payload = json.loads(setup_result.output)
+    assert setup_payload["ok"] is True
+    assert setup_payload["channel"] == "uv-tool"
+    assert setup_payload["openMode"] == "browser"
+
+    status_result = runner.invoke(cli, ["launcher", "status", "--json"])
+    assert status_result.exit_code == 0, status_result.output
+    status_payload = json.loads(status_result.output)
+    assert status_payload["ok"] is True
+    assert status_payload["channel"] == "uv-tool"
+    assert status_payload["updateCapability"] == "in_app"
 
 
 def test_launcher_setup_no_longer_accepts_managed_artifact_option(

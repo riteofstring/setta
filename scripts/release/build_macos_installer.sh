@@ -83,7 +83,7 @@ if [[ ! -x "${installer_bin}" ]]; then
   exit 1
 fi
 
-bootstrap_cmd="${installer_bin} --channel native-installer --open-mode chrome-app"
+bootstrap_cmd="${installer_bin} --channel native-installer --install-source installer-managed --open-mode chrome-app"
 target_user="${SUDO_USER:-}"
 if [[ -z "${target_user}" || "${target_user}" == "root" ]]; then
   target_user="$(/usr/bin/stat -f '%Su' /dev/console 2>/dev/null || true)"

@@ -74,6 +74,7 @@ def test_install_linux_launcher_script_delegates_to_launcher_setup(
     captured = args_capture_path.read_text(encoding="utf-8")
     assert "launcher setup --json" in captured
     assert "--channel linux-script" in captured
+    assert "--install-source installer-managed" in captured
     assert "--open-mode chrome-app" in captured
     assert (
         "--artifact-option "

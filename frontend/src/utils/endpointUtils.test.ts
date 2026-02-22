@@ -32,11 +32,11 @@ describe("endpointUtils URL routing", () => {
     vi.unstubAllGlobals();
   });
 
-  it("routes settaHomeInfo via backend origin", async () => {
+  it("routes settaHomeInfo via launcher origin", async () => {
     await get(RouteEnum.GET_SETTA_HOME_INFO);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe(
-      `${C_ADDRESSES.BACKEND}${RouteEnum.GET_SETTA_HOME_INFO}`,
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_SETTA_HOME_INFO}`,
     );
   });
 

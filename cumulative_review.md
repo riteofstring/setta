@@ -77,3 +77,14 @@
 - Aligned release automation with installer contract by adding native-installer smoke jobs on macOS/Windows and gating release asset attachment on smoke success.
 - Updated native installer docs to reflect bootstrap-on-install behavior and required `uv` precondition.
 - Added/updated backend pytest coverage for full-runtime route policy, launcher-mode blocking, stop mode filtering, and installer/workflow contract assertions; targeted suites passed.
+
+## 2026-02-25 21:58:02 PST
+
+- Replaced launcher handoff trust in raw hash payloads with signed one-time launch-intent tokens (`createWorkspaceLaunchIntent` + `/launch` token consume), including expiry and replay protection.
+- Removed legacy hash-payload acceptance in frontend launch parsing, switched cross-origin launcher handoff to tokenized hash fields, and blocked forged legacy `#pl` payload usage.
+- Fixed launcher-home/launch parity for Setta files location semantics by introducing a shared backend tri-state normalization helper and preserving omitted-field intent for profile/root-aware launches.
+- Made launcher install identity explicit end-to-end by adding `installSource` through CLI/API/scripts/native installer bootstrap paths and removing channel-derived install-source inference.
+- Corrected dev bootstrap `osw` behavior by propagating open-switcher intent via redirect query parameter instead of backend-origin sessionStorage side effects.
+- Aligned status/stop mode contracts (`status --connect-info` IDE default; `status --list-sessions` unfiltered default; `stop` explicit mode resolution) and updated CLI docs accordingly.
+- Refactored release workflow publishing into a single final gated asset-publish job and hardened launcher smoke cleanup/assertions with explicit launcher-mode stop/session checks.
+- Added and updated backend pytest, frontend Vitest, and Playwright coverage for the above contracts; targeted backend/Vitest suites passed and targeted Playwright specs passed.

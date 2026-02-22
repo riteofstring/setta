@@ -62,15 +62,6 @@ jobs:
           name: launcher-bootstrap-assets
           path: dist/launcher-bootstrap/*
 
-      - name: Attach bootstrap assets to release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/launcher-bootstrap/setta-install-desktop.sh
-            dist/launcher-bootstrap/setta-install-desktop.ps1
-            dist/launcher-bootstrap/checksums.sha256
-
   macos-installer:
     needs:
       - resolve_installer_version
@@ -159,30 +150,6 @@ jobs:
           }
           ./scripts/release/smoke_test_native_installer_windows.ps1 -MsiPath $msiPath.FullName
 
-  attach-native-installers:
-    if: github.event_name == 'release'
-    needs:
-      - macos-installer-smoke
-      - windows-installer-smoke
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: macos-installer-assets
-          path: dist/native-installers/macos
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: windows-installer-assets
-          path: dist/native-installers/windows
-
-      - name: Attach native installer assets to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/native-installers/macos/*
-            dist/native-installers/windows/*
-
   launcher-smoke:
     runs-on: ubuntu-latest
     needs:
@@ -217,3 +184,38 @@ jobs:
         run: |
           ./scripts/release/smoke_test_launcher_pipeline.sh \
             --package "${{ steps.package.outputs.value }}"
+
+  publish-release-assets:
+    if: github.event_name == 'release'
+    needs:
+      - resolve_installer_version
+      - bootstrap-assets
+      - launcher-smoke
+      - macos-installer-smoke
+      - windows-installer-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: launcher-bootstrap-assets
+          path: dist/launcher-bootstrap
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-installer-assets
+          path: dist/native-installers/macos
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-installer-assets
+          path: dist/native-installers/windows
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/launcher-bootstrap/setta-install-desktop.sh
+            dist/launcher-bootstrap/setta-install-desktop.ps1
+            dist/launcher-bootstrap/checksums.sha256
+            dist/native-installers/macos/*
+            dist/native-installers/windows/*

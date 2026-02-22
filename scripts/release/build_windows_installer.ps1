@@ -95,7 +95,7 @@ setta launcher remove --json @Args
     <CustomAction
       Id="RunDesktopBootstrap"
       Directory="SystemFolder"
-      ExeCommand='WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File "[INSTALLBIN]setta-install-desktop.ps1" -Channel native-installer -OpenMode chrome-app'
+      ExeCommand='WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File "[INSTALLBIN]setta-install-desktop.ps1" -Channel native-installer -InstallSource installer-managed -OpenMode chrome-app'
       Execute="deferred"
       Return="check"
       Impersonate="yes" />
