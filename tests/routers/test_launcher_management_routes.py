@@ -95,7 +95,9 @@ def test_setup_and_remove_launcher_routes_roundtrip() -> None:
         assert setup_payload["workspaceBehavior"] == "always_prompt"
         assert setup_payload["updateCapability"] == "in_app"
 
-        remove_response = client.post(f"{Route.PREFIX.value}{Route.REMOVE_LAUNCHER.value}")
+        remove_response = client.post(
+            f"{Route.PREFIX.value}{Route.REMOVE_LAUNCHER.value}"
+        )
         assert remove_response.status_code == 200
         remove_payload = remove_response.json()
         assert remove_payload["ok"] is True
@@ -161,6 +163,87 @@ def test_setup_launcher_route_preserves_existing_identity_when_fields_omitted(
     assert payload["updateCapability"] == "in_app"
 
 
+def test_setup_launcher_route_preserves_no_artifact_mode_when_install_flag_omitted(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    setta_home = (tmp_path / "scoped-setta-home").resolve(strict=False)
+    target = tmp_path / "python"
+    target.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    target.chmod(0o755)
+
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target), "-m", "setta"],
+        channel="uv-tool",
+        install_source="uv_tool",
+        artifact_ownership_token="route-setup-preserve-install-mode-token",
+        setta_version="1.2.3",
+        open_mode="browser",
+        managed_artifacts={},
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    monkeypatch.setattr(
+        "setta.launcher_setup.install_current_platform_artifacts",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            AssertionError(
+                "install_current_platform_artifacts should not run when installArtifacts is omitted for no-artifact installs."
+            )
+        ),
+    )
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.SETUP_LAUNCHER.value}",
+            json={
+                "settaHome": str(setta_home),
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert payload["managedArtifacts"] == {}
+
+
+def test_setup_launcher_route_clears_artifact_options_when_explicitly_empty(
+    tmp_path: Path,
+) -> None:
+    app = _build_app()
+    setta_home = (tmp_path / "scoped-setta-home").resolve(strict=False)
+    target = tmp_path / "python"
+    target.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    target.chmod(0o755)
+
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target), "-m", "setta"],
+        channel="uv-tool",
+        install_source="uv_tool",
+        artifact_ownership_token="route-setup-clear-artifact-options-token",
+        setta_version="1.2.3",
+        open_mode="browser",
+        workspace_behavior="always_prompt",
+        artifact_options={"app_name": "Setta Custom"},
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.SETUP_LAUNCHER.value}",
+            json={
+                "settaHome": str(setta_home),
+                "installArtifacts": False,
+                "artifactOptions": {},
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert payload["artifactOptions"] == {}
+
+
 def test_repair_launcher_route_rebinds_missing_target(tmp_path: Path) -> None:
     app = _build_app()
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
@@ -182,7 +265,9 @@ def test_repair_launcher_route_rebinds_missing_target(tmp_path: Path) -> None:
     payload = response.json()
     assert payload["ok"] is True
     assert payload["targetValid"] is True
-    assert payload["targetCommand"][0] == str(Path(sys.executable).resolve(strict=False))
+    assert payload["targetCommand"][0] == str(
+        Path(sys.executable).resolve(strict=False)
+    )
 
 
 def test_update_launcher_route_reports_installer_managed_channel(

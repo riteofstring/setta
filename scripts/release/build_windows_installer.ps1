@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
   [string]$OutputDir = "dist/native-installers/windows",
-  [string]$Version = "1.0.0"
+  [string]$Version = ""
 )
 
 Set-StrictMode -Version Latest
@@ -14,6 +14,13 @@ function Fail([string]$Message) {
 
 if ($env:SETTA_DESKTOP_INSTALLER_VERSION) {
   $Version = $env:SETTA_DESKTOP_INSTALLER_VERSION
+}
+
+if (-not $Version) {
+  if ($env:SETTA_DESKTOP_INSTALLER_RELEASE_MODE -eq "1") {
+    Fail "SETTA_DESKTOP_INSTALLER_VERSION is required when release mode is enabled."
+  }
+  $Version = "1.0.0"
 }
 
 if ($Version -notmatch '^\d+\.\d+\.\d+$') {

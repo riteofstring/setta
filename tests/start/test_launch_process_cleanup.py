@@ -5,6 +5,7 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -16,6 +17,17 @@ from setta.launch import (
 )
 from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.registry import SessionRegistry
+from tests.start.launch_test_helpers import require_localhost_bind_or_skip
+
+
+def _build_wait_paths() -> SimpleNamespace:
+    return SimpleNamespace(
+        profile_name=None,
+        setta_files_location=None,
+        setta_home=None,
+        setta_files_root=None,
+        runtime_root=None,
+    )
 
 
 def test_read_log_tail_reads_last_bytes(tmp_path: Path) -> None:
@@ -48,10 +60,11 @@ def test_wait_for_session_terminates_process_on_timeout(
         with pytest.raises(LaunchError) as excinfo:
             _wait_for_session(
                 registry,
-                tmp_path,
-                "ide",
-                proc,
-                log_path,
+                paths=_build_wait_paths(),
+                workspace_root=tmp_path,
+                server_mode="ide",
+                process=proc,
+                log_path=log_path,
                 timeout_seconds=0.1,
                 poll_interval_seconds=0.05,
             )
@@ -128,6 +141,8 @@ finally:
 def test_wait_for_session_uses_requested_server_mode(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    require_localhost_bind_or_skip()
+
     sessions_root = tmp_path / "sessions"
     workspace_root = tmp_path / "workspace"
     workspace_root.mkdir(parents=True, exist_ok=True)
@@ -166,10 +181,11 @@ def test_wait_for_session_uses_requested_server_mode(
     try:
         session = _wait_for_session(
             registry,
-            workspace_root,
-            "launcher",
-            proc,
-            log_path,
+            paths=_build_wait_paths(),
+            workspace_root=workspace_root,
+            server_mode="launcher",
+            process=proc,
+            log_path=log_path,
             timeout_seconds=1.0,
             poll_interval_seconds=0.05,
         )

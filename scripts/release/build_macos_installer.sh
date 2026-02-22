@@ -12,6 +12,7 @@ installs desktop bootstrap commands under /usr/local/bin:
 
 Optional environment variables:
   SETTA_DESKTOP_INSTALLER_VERSION   Installer version (default: 1.0.0)
+  SETTA_DESKTOP_INSTALLER_RELEASE_MODE  Set to 1 to require explicit installer version
   SETTA_MACOS_SIGN_IDENTITY         productsign identity for the .pkg
   SETTA_MACOS_NOTARY_PROFILE        xcrun notarytool keychain profile name
   SETTA_MACOS_BUILD_DMG             Set to 1 to wrap the .pkg in a .dmg
@@ -36,7 +37,19 @@ for required_bin in pkgbuild shasum; do
 done
 
 output_dir="${1:-dist/native-installers/macos}"
-version="${SETTA_DESKTOP_INSTALLER_VERSION:-1.0.0}"
+release_mode="${SETTA_DESKTOP_INSTALLER_RELEASE_MODE:-0}"
+version="${SETTA_DESKTOP_INSTALLER_VERSION:-}"
+if [[ -z "${version}" ]]; then
+  if [[ "${release_mode}" == "1" ]]; then
+    echo "SETTA_DESKTOP_INSTALLER_VERSION is required when release mode is enabled." >&2
+    exit 1
+  fi
+  version="1.0.0"
+fi
+if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Installer version must use major.minor.patch format (got '${version}')." >&2
+  exit 1
+fi
 identifier="dev.setta.desktop.bootstrap"
 base_name="SettaDesktop-${version}"
 unsigned_pkg_path="${output_dir}/${base_name}-unsigned.pkg"

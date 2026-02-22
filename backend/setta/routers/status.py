@@ -224,9 +224,7 @@ def route_setup_launcher(x: SetupLauncherRequest) -> LauncherStatusResponse:
     setta_home = resolve_launcher_setta_home(setta_home=x.settaHome)
     provided_fields = x.model_fields_set
     raw_workspace_behavior = (
-        x.workspaceBehavior
-        if "workspaceBehavior" in provided_fields
-        else None
+        x.workspaceBehavior if "workspaceBehavior" in provided_fields else None
     )
     workspace_behavior = _normalize_launcher_workspace_behavior_for_setup(
         raw_workspace_behavior
@@ -234,7 +232,7 @@ def route_setup_launcher(x: SetupLauncherRequest) -> LauncherStatusResponse:
     channel = x.channel if "channel" in provided_fields else None
     open_mode = x.openMode if "openMode" in provided_fields else None
     install_artifacts = (
-        x.installArtifacts if "installArtifacts" in provided_fields else True
+        x.installArtifacts if "installArtifacts" in provided_fields else None
     )
     artifact_options = (
         x.artifactOptions if "artifactOptions" in provided_fields else None

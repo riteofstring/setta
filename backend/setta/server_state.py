@@ -272,7 +272,7 @@ class SettaFastAPIState:
             setta_version=__version__,
             auto_rescan=False,
         )
-        if not self.deployment_mode:
+        if not self.deployment_mode and not self.launcher_mode:
             seed_llm_config_example_file(self.dbe)
             seed_agentic_config_files(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(
@@ -287,7 +287,7 @@ class SettaFastAPIState:
             None if self.deployment_mode else self.dbe,
         )
         self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
-        if self.deployment_mode:
+        if self.deployment_mode or self.launcher_mode:
             self.settings_file = self._defer_attr("settings_file")
             self.terminals = self._defer_attr("terminals")
         else:
@@ -384,6 +384,9 @@ class SettaFastAPIState:
         try:
             if self.deployment_mode:
                 await self._initialize_deployment_async(app)
+                return
+            if self.launcher_mode:
+                await self._initialize_launcher_async()
                 return
             from setta.project_state.project_manager_switcher import (
                 ProjectManagerSwitcher,
@@ -614,6 +617,13 @@ class SettaFastAPIState:
             self.init_status.record("Backend initialization failed")
             self.init_status.mark_error(str(exc))
             raise
+
+    async def _initialize_launcher_async(self) -> None:
+        self.init_status.record("Preparing launcher runtime")
+        await self._maybe_delay()
+        self._ready_event.set()
+        self.init_status.record("Launcher backend ready")
+        self.init_status.mark_ready()
 
     async def _initialize_deployment_async(self, app) -> None:
         from setta.websockets.msg_handlers.frontend_receiver import (

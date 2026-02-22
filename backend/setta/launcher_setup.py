@@ -265,7 +265,7 @@ def setup_launcher_installation(
     open_mode: LauncherOpenMode | None,
     workspace_behavior: LauncherWorkspaceBehavior | None,
     target_command: list[str] | None = None,
-    install_artifacts: bool = True,
+    install_artifacts: bool | None = True,
     artifact_options: dict[str, str] | None = None,
 ) -> LauncherSetupResult:
     resolved_setta_home = setta_home.resolve(strict=False)
@@ -309,13 +309,22 @@ def setup_launcher_installation(
         resolved_target_command = target_command
 
     install_source = _derive_install_source(resolved_channel)
+    resolved_install_artifacts: bool
+    if install_artifacts is None:
+        if existing_metadata is None:
+            resolved_install_artifacts = True
+        else:
+            resolved_install_artifacts = bool(existing_metadata.managedArtifacts)
+    else:
+        resolved_install_artifacts = install_artifacts
+
     normalized_artifact_options: dict[str, str]
-    if artifact_options:
+    if artifact_options is not None:
         try:
             normalized_artifact_options = normalize_artifact_options(artifact_options)
         except LauncherArtifactError as exc:
             raise LauncherSetupError("BadRequest", str(exc)) from exc
-    elif existing_metadata is not None and existing_metadata.artifactOptions:
+    elif existing_metadata is not None:
         normalized_artifact_options = dict(existing_metadata.artifactOptions)
     else:
         normalized_artifact_options = {}
@@ -341,7 +350,7 @@ def setup_launcher_installation(
         )
         merged_artifacts.update(previous_managed_artifacts)
 
-    if install_artifacts:
+    if resolved_install_artifacts:
         artifact_context = LauncherArtifactContext(
             target_command=resolved_target_command,
             channel=resolved_channel,
@@ -875,11 +884,7 @@ def _validate_unique_artifact_paths(
             path_to_keys[resolved_path] = []
         path_to_keys[resolved_path].append(key)
 
-    collisions = {
-        path: keys
-        for path, keys in path_to_keys.items()
-        if len(keys) > 1
-    }
+    collisions = {path: keys for path, keys in path_to_keys.items() if len(keys) > 1}
     if not collisions:
         return
 

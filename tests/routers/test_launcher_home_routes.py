@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
@@ -5,6 +6,7 @@ from urllib.parse import parse_qs, urlsplit
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from setta.launcher_workspace_store import resolve_recent_workspaces_path
 from setta.routers.launcher_home import router as launcher_home_router
 from setta.types.routes import Route
 
@@ -25,7 +27,9 @@ def test_get_launcher_app_mode_reports_current_state() -> None:
     app = _build_app(launcher_mode=True)
 
     with TestClient(app) as client:
-        response = client.get(f"{Route.PREFIX.value}{Route.GET_LAUNCHER_APP_MODE.value}")
+        response = client.get(
+            f"{Route.PREFIX.value}{Route.GET_LAUNCHER_APP_MODE.value}"
+        )
 
     assert response.status_code == 200
     payload = response.json()
@@ -168,6 +172,69 @@ def test_get_launcher_recent_workspaces_blank_scope_uses_backend_default_home(
     assert payload["workspaces"][0]["pinned"] is False
 
 
+def test_get_launcher_recent_workspaces_prunes_outside_allowed_roots(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    app = _build_app()
+    setta_home = (tmp_path / "setta-home-prune").resolve(strict=False)
+    allowed_root = (tmp_path / "allowed").resolve(strict=False)
+    allowed_workspace = (allowed_root / "workspace-ok").resolve(strict=False)
+    blocked_workspace = (tmp_path / "blocked" / "workspace-stale").resolve(strict=False)
+    allowed_workspace.mkdir(parents=True, exist_ok=True)
+    blocked_workspace.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("SETTA_LAUNCHER_ALLOWED_ROOTS", str(allowed_root))
+
+    recent_path = resolve_recent_workspaces_path(setta_home=setta_home)
+    recent_path.parent.mkdir(parents=True, exist_ok=True)
+    recent_path.write_text(
+        json.dumps(
+            [
+                {
+                    "workspaceRoot": str(blocked_workspace),
+                    "pinned": True,
+                    "lastUsedAt": 9,
+                },
+                {
+                    "workspaceRoot": str(allowed_workspace),
+                    "pinned": False,
+                    "lastUsedAt": 4,
+                },
+            ],
+            indent=2,
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+
+    with TestClient(app) as client:
+        get_response = client.get(
+            f"{Route.PREFIX.value}{Route.GET_LAUNCHER_RECENT_WORKSPACES.value}",
+            params={"setta_home": str(setta_home)},
+        )
+
+    assert get_response.status_code == 200
+    payload = get_response.json()
+    assert payload["ok"] is True
+    assert payload["workspaces"] == [
+        {
+            "workspaceRoot": str(allowed_workspace),
+            "pinned": False,
+            "lastUsedAt": 4,
+        }
+    ]
+
+    persisted_payload = json.loads(recent_path.read_text(encoding="utf-8"))
+    assert persisted_payload == [
+        {
+            "workspaceRoot": str(allowed_workspace),
+            "pinned": False,
+            "lastUsedAt": 4,
+        }
+    ]
+
+
 def test_launcher_directory_listing_rejects_outside_allowed_roots(
     tmp_path: Path,
     monkeypatch,
@@ -290,9 +357,9 @@ def test_open_launcher_workspace_returns_bootstrap_fragment(
     assert len(hash_params.get("lop", [""])) == 1
     assert hash_params["lop"][0]
     assert captured["server_mode"] == "ide"
-    assert Path(str(captured["workspace_root"])).resolve(strict=False) == workspace.resolve(
+    assert Path(str(captured["workspace_root"])).resolve(
         strict=False
-    )
+    ) == workspace.resolve(strict=False)
     assert workspace.exists()
 
 

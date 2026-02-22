@@ -28,6 +28,7 @@ type LauncherRequestBase = {
 };
 
 type LauncherSetupRequest = LauncherRequestBase & {
+  installArtifacts?: boolean | null;
   channel?: string | null;
   openMode?: "browser" | "chrome-app" | null;
   workspaceBehavior?: "last-used-or-prompt" | "always-prompt" | null;
@@ -271,6 +272,7 @@ async function installLauncherHomeMocks(page: Page): Promise<{
   await page.route(`${BACKEND_ORIGIN}/api/setupLauncher`, async (route) => {
     const payload = route.request().postDataJSON() as {
       settaHome?: string | null;
+      installArtifacts?: boolean | null;
       channel?: string | null;
       openMode?: "browser" | "chrome-app" | null;
       workspaceBehavior?: "last-used-or-prompt" | "always-prompt" | null;
@@ -278,6 +280,9 @@ async function installLauncherHomeMocks(page: Page): Promise<{
     const nextRequest: LauncherSetupRequest = {
       settaHome: payload.settaHome ?? null,
     };
+    if (Object.hasOwn(payload, "installArtifacts")) {
+      nextRequest.installArtifacts = payload.installArtifacts ?? null;
+    }
     if (Object.hasOwn(payload, "channel")) {
       nextRequest.channel = payload.channel ?? null;
     }
@@ -304,6 +309,7 @@ async function installLauncherHomeMocks(page: Page): Promise<{
       payload.workspaceBehavior === "always-prompt"
         ? "always_prompt"
         : "last_used_or_prompt";
+    const resolvedInstallArtifacts = payload.installArtifacts !== false;
 
     launcherStatusPayload = {
       ok: true,
@@ -313,6 +319,9 @@ async function installLauncherHomeMocks(page: Page): Promise<{
       channel: resolvedChannel,
       openMode: resolvedOpenMode,
       workspaceBehavior: resolvedWorkspaceBehavior,
+      managedArtifacts: resolvedInstallArtifacts
+        ? { desktopShortcut: "/Users/demo/Desktop/Setta" }
+        : {},
       fromVersion: "1.0.0",
       toVersion: "1.0.0",
     };
@@ -651,6 +660,7 @@ test("launcher setup rerun reuses existing launcher identity fields", async ({
 
   expect(mocks.getLastSetupRequest()).toEqual({
     settaHome: null,
+    installArtifacts: true,
     channel: "uv-tool",
     openMode: "chrome-app",
     workspaceBehavior: "last-used-or-prompt",

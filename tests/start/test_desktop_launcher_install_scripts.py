@@ -93,7 +93,10 @@ JSON
 
     setta_call = setta_args_capture.read_text(encoding="utf-8")
     assert f"--setta-home {setta_home}" in setta_call
-    assert "launcher setup --json --channel phase2-test --open-mode chrome-app" in setta_call
+    assert (
+        "launcher setup --json --channel phase2-test --open-mode chrome-app"
+        in setta_call
+    )
     assert not decoy_args_capture.exists()
 
 
@@ -133,9 +136,7 @@ def test_install_desktop_launcher_powershell_script_contains_phase2_contract() -
 
 
 def test_build_windows_installer_script_uses_powershell_splatting() -> None:
-    script_path = (
-        _repo_root() / "scripts" / "release" / "build_windows_installer.ps1"
-    )
+    script_path = _repo_root() / "scripts" / "release" / "build_windows_installer.ps1"
     script_content = script_path.read_text(encoding="utf-8")
 
     assert "& $candle.Source @candleArgs" in script_content
@@ -143,6 +144,47 @@ def test_build_windows_installer_script_uses_powershell_splatting() -> None:
     assert "& $env:SETTA_WINDOWS_SIGNTOOL_PATH sign @signArgs" in script_content
     assert "& $candle.Source \\" not in script_content
     assert "& $light.Source \\" not in script_content
+
+
+def test_release_workflow_uses_single_installer_version_source() -> None:
+    workflow_path = (
+        _repo_root() / ".github" / "workflows" / "release-desktop-launcher.yml"
+    )
+    workflow_content = workflow_path.read_text(encoding="utf-8")
+
+    assert "resolve_installer_version:" in workflow_content
+    assert (
+        "installer_version: ${{ steps.resolve.outputs.installer_version }}"
+        in workflow_content
+    )
+    assert (
+        "SETTA_DESKTOP_INSTALLER_VERSION: ${{ needs.resolve_installer_version.outputs.installer_version }}"
+        in workflow_content
+    )
+    assert 'SETTA_DESKTOP_INSTALLER_RELEASE_MODE: "1"' in workflow_content
+
+
+def test_macos_installer_script_release_mode_requires_explicit_version() -> None:
+    script_path = _repo_root() / "scripts" / "release" / "build_macos_installer.sh"
+    script_content = script_path.read_text(encoding="utf-8")
+
+    assert 'release_mode="${SETTA_DESKTOP_INSTALLER_RELEASE_MODE:-0}"' in script_content
+    assert (
+        "SETTA_DESKTOP_INSTALLER_VERSION is required when release mode is enabled."
+        in script_content
+    )
+    assert "Installer version must use major.minor.patch format" in script_content
+
+
+def test_windows_installer_script_release_mode_requires_explicit_version() -> None:
+    script_path = _repo_root() / "scripts" / "release" / "build_windows_installer.ps1"
+    script_content = script_path.read_text(encoding="utf-8")
+
+    assert '$env:SETTA_DESKTOP_INSTALLER_RELEASE_MODE -eq "1"' in script_content
+    assert (
+        "SETTA_DESKTOP_INSTALLER_VERSION is required when release mode is enabled."
+        in script_content
+    )
 
 
 def test_smoke_test_launcher_pipeline_breaks_post_update_artifact(

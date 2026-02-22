@@ -40,3 +40,12 @@
 - Added signed launcher-origin handoff (`lo` + `lop`) across launch and launcher-home bootstrap flows, validated server-side during bootstrap consume, and restricted frontend launcher-origin persistence to `sessionStorage`.
 - Tightened frontend endpoint-origin resolution by routing launcher-management/status/home-info/reveal-path traffic to backend origin while keeping launcher-home-specific endpoints plus `/launch` on launcher origin.
 - Expanded automated coverage with new and updated backend pytest, frontend Vitest, and Playwright tests for identity reuse, artifact lifecycle safety, launcher-origin proof validation, and routing/storage behavior; targeted suites passed.
+
+## 2026-02-25 17:50:32 PST
+
+- Canonicalized launcher setup intent end-to-end: backend setup now supports tri-state `installArtifacts` omission semantics (preserve existing mode), explicit empty `artifactOptions` now clears prior values, and frontend rerun payloads now always send explicit `installArtifacts` derived from current launcher status.
+- Closed recents-store policy gaps by enforcing allowed-root invariants at the persistence boundary (load/write/update), including atomic pruning of stale out-of-policy entries so returned recent workspaces remain actionable.
+- Isolated launcher runtime initialization from IDE bootstrap by adding a dedicated launcher-mode initialization path in `SettaFastAPIState` and skipping heavy IDE subsystems/plugins/LSP/MCP startup phases in launcher mode.
+- Eliminated release installer version drift by deriving installer version once in CI from tag/input and propagating it to macOS/Windows jobs, plus adding release-mode script guards that fail when installer version is missing/invalid.
+- Removed launch-test contract fragility by updating `_wait_for_session` tests to the keyword-only invocation contract, introducing a shared localhost-bind capability gate helper, and adding behavior-level timeout/termination coverage through `launch_workspace_session`.
+- Added/updated backend pytest, frontend Vitest, and Playwright coverage for setup intent, recents pruning, launcher-mode init boundaries, release workflow/script contracts, and launcher rerun payload semantics; targeted suites passed.

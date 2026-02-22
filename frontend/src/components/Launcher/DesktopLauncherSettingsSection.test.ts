@@ -106,6 +106,9 @@ describe("DesktopLauncherSettingsSection helpers", () => {
       channel: "uv-tool",
       openMode: "browser",
       workspaceBehavior: "always_prompt",
+      managedArtifacts: {
+        desktop: "/tmp/setta.desktop",
+      },
       artifactOptions: {
         app_name: "Setta",
       },
@@ -115,12 +118,28 @@ describe("DesktopLauncherSettingsSection helpers", () => {
 
     expect(payload).toMatchObject({
       settaHome: "/tmp/setta-home",
+      installArtifacts: true,
       channel: "uv-tool",
       openMode: "browser",
       workspaceBehavior: "always-prompt",
       artifactOptions: {
         app_name: "Setta",
       },
+    });
+  });
+
+  it("sets installArtifacts=false when launcher has no managed artifacts", () => {
+    const status = createLauncherStatusResponse({
+      ok: true,
+      installed: true,
+      managedArtifacts: {},
+    });
+
+    const payload = buildSetupLauncherRequest("/tmp/setta-home", status);
+
+    expect(payload).toMatchObject({
+      settaHome: "/tmp/setta-home",
+      installArtifacts: false,
     });
   });
 

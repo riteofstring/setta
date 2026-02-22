@@ -46,7 +46,15 @@ def resolve_recent_workspaces_lock_path(*, setta_home: Path) -> Path:
 
 def load_recent_workspaces(*, setta_home: Path) -> list[LauncherWorkspaceEntry]:
     path = resolve_recent_workspaces_path(setta_home=setta_home)
-    return _load_recent_workspaces_from_path(path)
+    lock_path = resolve_recent_workspaces_lock_path(setta_home=setta_home)
+    allowed_roots = launcher_allowed_roots()
+    with _acquire_recent_workspaces_lock(lock_path):
+        entries = _load_recent_workspaces_from_path(path)
+        return _enforce_allowed_root_closure(
+            path=path,
+            entries=entries,
+            allowed_roots=allowed_roots,
+        )
 
 
 def _load_recent_workspaces_from_path(path: Path) -> list[LauncherWorkspaceEntry]:
@@ -75,10 +83,15 @@ def write_recent_workspaces(
 ) -> Path:
     path = resolve_recent_workspaces_path(setta_home=setta_home)
     lock_path = resolve_recent_workspaces_lock_path(setta_home=setta_home)
+    allowed_roots = launcher_allowed_roots()
     sorted_entries = _sort_and_limit_entries(entries)
+    filtered_entries = _filter_entries_within_allowed_roots(
+        entries=sorted_entries,
+        allowed_roots=allowed_roots,
+    )
     try:
         with _acquire_recent_workspaces_lock(lock_path):
-            _write_recent_workspaces_atomic(path=path, entries=sorted_entries)
+            _write_recent_workspaces_atomic(path=path, entries=filtered_entries)
     except LauncherWorkspaceStoreError:
         raise
     return path
@@ -314,15 +327,54 @@ def _is_path_within_roots(*, path: Path, roots: list[Path]) -> bool:
 def _update_recent_workspaces(
     *,
     setta_home: Path,
-    apply_update: Callable[[list[LauncherWorkspaceEntry]], list[LauncherWorkspaceEntry]],
+    apply_update: Callable[
+        [list[LauncherWorkspaceEntry]], list[LauncherWorkspaceEntry]
+    ],
 ) -> list[LauncherWorkspaceEntry]:
     path = resolve_recent_workspaces_path(setta_home=setta_home)
     lock_path = resolve_recent_workspaces_lock_path(setta_home=setta_home)
+    allowed_roots = launcher_allowed_roots()
     with _acquire_recent_workspaces_lock(lock_path):
         entries = _load_recent_workspaces_from_path(path)
-        next_entries = _sort_and_limit_entries(apply_update(entries))
+        filtered_entries = _enforce_allowed_root_closure(
+            path=path,
+            entries=entries,
+            allowed_roots=allowed_roots,
+        )
+        next_entries = _sort_and_limit_entries(apply_update(filtered_entries))
+        next_entries = _filter_entries_within_allowed_roots(
+            entries=next_entries,
+            allowed_roots=allowed_roots,
+        )
         _write_recent_workspaces_atomic(path=path, entries=next_entries)
         return next_entries
+
+
+def _enforce_allowed_root_closure(
+    *,
+    path: Path,
+    entries: list[LauncherWorkspaceEntry],
+    allowed_roots: list[Path],
+) -> list[LauncherWorkspaceEntry]:
+    filtered_entries = _filter_entries_within_allowed_roots(
+        entries=entries,
+        allowed_roots=allowed_roots,
+    )
+    if len(filtered_entries) != len(entries):
+        _write_recent_workspaces_atomic(path=path, entries=filtered_entries)
+    return filtered_entries
+
+
+def _filter_entries_within_allowed_roots(
+    *,
+    entries: list[LauncherWorkspaceEntry],
+    allowed_roots: list[Path],
+) -> list[LauncherWorkspaceEntry]:
+    return [
+        entry
+        for entry in entries
+        if _is_path_within_roots(path=entry.workspace_root, roots=allowed_roots)
+    ]
 
 
 def _write_recent_workspaces_atomic(
@@ -333,8 +385,7 @@ def _write_recent_workspaces_atomic(
     payload = [entry.to_payload() for entry in entries]
     encoded_payload = json.dumps(payload, indent=2, sort_keys=True)
     temporary_path = (
-        path.parent
-        / f".{path.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp"
+        path.parent / f".{path.name}.{os.getpid()}.{secrets.token_hex(8)}.tmp"
     ).resolve(strict=False)
 
     try:

@@ -107,7 +107,9 @@ def test_setup_launcher_installation_validates_planned_paths_before_install(
     outside_artifact = (tmp_path / "outside" / "artifact").resolve(strict=False)
     install_called = False
 
-    def fake_plan_current_platform_artifact_paths(*, context: object) -> dict[str, Path]:
+    def fake_plan_current_platform_artifact_paths(
+        *, context: object
+    ) -> dict[str, Path]:
         assert context is not None
         return {"plannedArtifact": outside_artifact}
 
@@ -149,7 +151,9 @@ def test_setup_launcher_installation_rejects_duplicate_planned_artifact_paths(
     ).resolve(strict=False)
     install_called = False
 
-    def fake_plan_current_platform_artifact_paths(*, context: object) -> dict[str, Path]:
+    def fake_plan_current_platform_artifact_paths(
+        *, context: object
+    ) -> dict[str, Path]:
         assert context is not None
         return {
             "artifactA": duplicate_path,
@@ -190,12 +194,12 @@ def test_setup_launcher_installation_wraps_same_file_install_errors(
 ) -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
     planned_path = (
-        resolve_launcher_dir(setta_home=setta_home)
-        / "artifacts"
-        / "single-artifact"
+        resolve_launcher_dir(setta_home=setta_home) / "artifacts" / "single-artifact"
     ).resolve(strict=False)
 
-    def fake_plan_current_platform_artifact_paths(*, context: object) -> dict[str, Path]:
+    def fake_plan_current_platform_artifact_paths(
+        *, context: object
+    ) -> dict[str, Path]:
         assert context is not None
         return {"artifactA": planned_path}
 
@@ -236,7 +240,9 @@ def test_setup_launcher_installation_cleans_up_new_artifacts_when_metadata_write
         label="metadata-write-failure",
     )
 
-    def fake_plan_current_platform_artifact_paths(*, context: object) -> dict[str, Path]:
+    def fake_plan_current_platform_artifact_paths(
+        *, context: object
+    ) -> dict[str, Path]:
         assert context is not None
         return {artifact_key: artifact_path}
 
@@ -310,7 +316,9 @@ def test_setup_launcher_installation_rejects_shortcut_removal_without_owned_mark
 
     install_called = False
 
-    def fake_plan_current_platform_artifact_paths(*, context: object) -> dict[str, Path]:
+    def fake_plan_current_platform_artifact_paths(
+        *, context: object
+    ) -> dict[str, Path]:
         assert context is not None
         return {}
 
@@ -380,7 +388,9 @@ def test_setup_launcher_installation_removes_owned_shortcuts_when_disabled(
         ownership_token=ownership_token,
     )
 
-    def fake_plan_current_platform_artifact_paths(*, context: object) -> dict[str, Path]:
+    def fake_plan_current_platform_artifact_paths(
+        *, context: object
+    ) -> dict[str, Path]:
         assert context is not None
         return {}
 
@@ -424,7 +434,7 @@ def test_setup_launcher_installation_defaults_to_chrome_app_mode() -> None:
     assert setup_result.metadata.installSource == "unsupported"
 
 
-def test_setup_launcher_installation_preserves_existing_artifact_options() -> None:
+def test_setup_launcher_installation_clears_artifact_options_when_empty() -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
     target = Path(sys.executable).resolve(strict=False)
     metadata = build_launcher_install_metadata(
@@ -447,7 +457,68 @@ def test_setup_launcher_installation_preserves_existing_artifact_options() -> No
         artifact_options={},
     )
 
+    assert setup_result.metadata.artifactOptions == {}
+
+
+def test_setup_launcher_installation_preserves_artifact_options_when_omitted() -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    target = Path(sys.executable).resolve(strict=False)
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target), "-m", "setta"],
+        channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="preserve-artifact-options-token",
+        setta_version="1.2.3",
+        open_mode="browser",
+        artifact_options={"app_name": "Setta Custom"},
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    setup_result = setup_launcher_installation(
+        setta_home=setta_home,
+        channel=None,
+        open_mode=None,
+        workspace_behavior=None,
+        install_artifacts=False,
+    )
+
     assert setup_result.metadata.artifactOptions == {"app_name": "Setta Custom"}
+
+
+def test_setup_launcher_installation_preserves_no_artifact_mode_when_omitted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    target = Path(sys.executable).resolve(strict=False)
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target), "-m", "setta"],
+        channel="manual",
+        install_source="unsupported",
+        artifact_ownership_token="preserve-no-artifact-mode-token",
+        setta_version="1.2.3",
+        open_mode="browser",
+        managed_artifacts={},
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    monkeypatch.setattr(
+        "setta.launcher_setup.install_current_platform_artifacts",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            AssertionError(
+                "install_current_platform_artifacts should not run when install mode is preserved as disabled."
+            )
+        ),
+    )
+
+    setup_result = setup_launcher_installation(
+        setta_home=setta_home,
+        channel=None,
+        open_mode=None,
+        workspace_behavior=None,
+        install_artifacts=None,
+    )
+
+    assert setup_result.metadata.managedArtifacts == {}
 
 
 def test_collect_launcher_status_treats_manual_channel_as_unsupported_update() -> None:
@@ -485,7 +556,9 @@ def test_repair_launcher_installation_rebinds_missing_target(
     monkeypatch.setattr(
         "setta.launcher_setup.install_current_platform_artifacts",
         lambda **_kwargs: (_ for _ in ()).throw(
-            AssertionError("Repair should not reinstall artifacts when none are managed.")
+            AssertionError(
+                "Repair should not reinstall artifacts when none are managed."
+            )
         ),
     )
 
@@ -745,7 +818,9 @@ def test_update_launcher_installation_rejects_installer_managed_channel(
     except LauncherSetupError as exc:
         assert exc.code == "UpdateUnavailable"
     else:  # pragma: no cover
-        raise AssertionError("Expected LauncherSetupError for installer-managed channel.")
+        raise AssertionError(
+            "Expected LauncherSetupError for installer-managed channel."
+        )
 
 
 def test_update_launcher_installation_runs_uv_and_rebinds(

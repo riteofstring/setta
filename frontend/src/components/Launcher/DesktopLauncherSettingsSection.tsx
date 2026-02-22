@@ -71,6 +71,9 @@ export function buildSetupLauncherRequest(
     return request;
   }
 
+  request.installArtifacts =
+    Object.keys(launcherStatus.managedArtifacts ?? {}).length > 0;
+
   if (launcherStatus.channel) {
     request.channel = launcherStatus.channel;
   }
