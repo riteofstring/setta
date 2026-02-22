@@ -424,3 +424,32 @@
 10. DX after: contract failures are consistently classified as `422 InvalidToolArguments`, improving telemetry and triage boundaries.
 11. DX before: backend plugin UI-setting failures could return after committing schema-invalid state with unclear recovery.
 12. DX after: post-write invalid states trigger explicit rollback attempts and explicit error classes for rollback success/failure paths.
+
+## 2026-02-25 21:50:02 PST
+
+### Consolidated Findings
+1. Right-pane reveal activation and rollback still spanned tool-layer and manager-layer mutations, which left concurrency/ownership guarantees weaker than other serialized project-state mutations.
+2. Plugin config root validation behavior diverged by path: some read/mutation flows normalized non-object roots while others failed, producing inconsistent runtime/tool errors.
+3. Plugin missing-setting diagnostics were keyed only at plugin scope, so one invalid contributed setting could mask unknown IDs from the same plugin namespace.
+4. Required right-pane section/tab compatibility logic was duplicated between backend and frontend, creating drift risk.
+5. Frontend websocket identity handshake used ad-hoc message typing instead of a fully typed backend/frontend union contract.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Added manager-owned queued APIs for reveal activation and conditional rollback of `activeIds`, and routed UI-setting reveal tool flow through those APIs.
+2. Enforced strict plugin config object-root validation for runtime-state resolution and config-path compare-and-write, with consistent `PLUGIN_CONFIG_INVALID` semantics.
+3. Added setting-level plugin error indexing (`pluginId` + `localSettingId`) and updated missing-setting classification to return `setting_not_found` for unknown IDs not explicitly marked invalid.
+4. Introduced a shared canonical section/tab compatibility artifact (`section_ui_editor_tab_compatibility.json`) consumed by both backend and frontend, with coverage tests on both sides.
+5. Added typed `FrontendIdentity` websocket message models/enums, updated backend on-connect emission to typed payloads, regenerated unions/types, and removed frontend ad-hoc identity parsing.
+6. Added/updated backend unit/integration tests, frontend Vitest coverage, and Playwright reveal-routing coverage for all corrected paths.
+
+### UX/DX Before and After
+1. UX before: reveal activation/rollback behavior depended on mixed-layer sequencing and could be harder to reason about under concurrent updates.
+2. UX after: reveal activation/rollback now follows one serialized manager boundary with deterministic ownership checks.
+3. UX before: corrupt plugin config roots could surface as different error classes across read/write/runtime paths.
+4. UX after: corrupt roots fail fast with one consistent invalid-config contract.
+5. UX before: unknown plugin setting IDs could be reported as plugin-unavailable due to unrelated invalid contributions.
+6. UX after: only explicitly invalid contributed settings return plugin-unavailable; unrelated unknown IDs return setting-not-found.
+7. UX before: backend/frontend tab-compatibility drift could produce mismatched reveal behavior.
+8. UX after: both sides consume one compatibility source with parity tests.
+9. DX before: websocket identity handling required custom parsing paths and increased contract drift risk.
+10. DX after: typed union-based identity handling improves maintainability, type safety, and debugging clarity.

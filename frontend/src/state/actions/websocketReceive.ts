@@ -111,7 +111,6 @@ const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
 const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
 const SHARE_SESSION_RECOVERY_MAX_ATTEMPTS = 1;
 const REALTIME_BINARY_OVERSIZE_COOLDOWN_MS = 5000;
-const FRONTEND_IDENTITY_MESSAGE_TYPE = "FrontendIdentity";
 let authRecoveryTimer: number | null = null;
 let authRecoveryInFlight = false;
 let authRefreshTimer: number | null = null;
@@ -493,17 +492,11 @@ async function handleShareSessionRecovery() {
 }
 
 function receiveMessage(message: string, socketGeneration: number) {
-  const parsedMessage: unknown = JSON.parse(message);
-  if (isFrontendIdentityMessage(parsedMessage)) {
-    setFrontendWebsocketAffinityId(
-      parsedMessage.content.websocketId,
-      socketGeneration,
-    );
-    return;
-  }
-  const m: FrontendWebsocketMsgUnion =
-    parsedMessage as FrontendWebsocketMsgUnion;
+  const m = JSON.parse(message) as FrontendWebsocketMsgUnion;
   switch (m.messageType) {
+    case WebsocketMsgTypeForFrontendEnum.FrontendIdentity:
+      setFrontendWebsocketAffinityId(m.content.websocketId, socketGeneration);
+      return;
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       setWebsocketConnections(m.content);
       updateFrontendWebsocketAffinity({
@@ -567,31 +560,6 @@ function receiveMessage(message: string, socketGeneration: number) {
     default:
       return m satisfies never;
   }
-}
-
-type FrontendIdentityMessage = {
-  messageType: typeof FRONTEND_IDENTITY_MESSAGE_TYPE;
-  content: {
-    websocketId: string;
-  };
-};
-
-function isFrontendIdentityMessage(
-  message: unknown,
-): message is FrontendIdentityMessage {
-  if (!isRecord(message)) {
-    return false;
-  }
-  if (message.messageType !== FRONTEND_IDENTITY_MESSAGE_TYPE) {
-    return false;
-  }
-  if (!isRecord(message.content)) {
-    return false;
-  }
-  return (
-    typeof message.content.websocketId === "string" &&
-    message.content.websocketId.trim() !== ""
-  );
 }
 
 async function handleUISettingRevealMessage(content: unknown): Promise<void> {

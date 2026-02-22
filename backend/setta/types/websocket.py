@@ -45,6 +45,7 @@ from setta.types.prompt import PromptTemplateList
 
 class WebsocketMsgTypeForFrontend(str, Enum):
     AllConnections = "AllConnections"
+    FrontendIdentity = "FrontendIdentity"
     LSPDiagnostics = "LSPDiagnostics"
     NameValidationErrors = "NameValidationErrors"
     TerminalMetadata = "TerminalMetadata"
@@ -130,6 +131,17 @@ class WebsocketMsgAllConnections(FrontendWebsocketMsg):
     content: list[WebsocketConnectionInfo]
     messageType: Literal[WebsocketMsgTypeForFrontend.AllConnections] = (
         WebsocketMsgTypeForFrontend.AllConnections
+    )
+
+
+class FrontendIdentityContent(BaseModel):
+    websocketId: str
+
+
+class WebsocketMsgFrontendIdentity(FrontendWebsocketMsg):
+    content: FrontendIdentityContent
+    messageType: Literal[WebsocketMsgTypeForFrontend.FrontendIdentity] = (
+        WebsocketMsgTypeForFrontend.FrontendIdentity
     )
 
 

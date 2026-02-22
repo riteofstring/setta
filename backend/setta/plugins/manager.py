@@ -1318,19 +1318,11 @@ class PluginManager:
             plugin_id=entry.plugin_id,
             scope=entry.scope,
         )
-        raw_config = state_file.pluginConfigById.get(plugin_config_key)
-        if raw_config is not None and not isinstance(raw_config, dict):
-            raise PluginManagerError(
-                "PLUGIN_CONFIG_INVALID",
-                (
-                    f"Plugin {plugin_id} config path {'.'.join(config_path)} "
-                    "contains a non-object node at <root>."
-                ),
-            )
         current_config = self._read_plugin_config(
             plugins_state=state_file,
             plugin_id=entry.plugin_id,
             scope=entry.scope,
+            require_object_root=True,
         )
         observed_old_value = self._read_plugin_config_path_value_for_write(
             config=current_config,
@@ -6510,14 +6502,13 @@ class PluginManager:
             entry.restart_required = False
             return
 
-        config = self._read_plugin_config(
-            plugins_state=plugins_state,
-            plugin_id=entry.plugin_id,
-            scope=entry.scope,
-        )
-        if not isinstance(config, dict):
-            config = {}
         try:
+            config = self._read_plugin_config(
+                plugins_state=plugins_state,
+                plugin_id=entry.plugin_id,
+                scope=entry.scope,
+                require_object_root=True,
+            )
             self._validate_plugin_config(entry, config)
         except PluginManagerError as exc:
             entry.state = PluginRuntimeState.invalid
@@ -6674,9 +6665,8 @@ class PluginManager:
             plugins_state=plugins_state,
             plugin_id=entry.plugin_id,
             scope=entry.scope,
+            require_object_root=entry.state is not PluginRuntimeState.invalid,
         )
-        if not isinstance(current_config, dict):
-            current_config = {}
         has_schema, schema_json = self._build_config_schema_descriptor(entry)
         current_config_digest = self._compute_json_payload_digest(current_config)
         if not has_schema:
@@ -7455,14 +7445,23 @@ class PluginManager:
         plugins_state: PluginsStateFile,
         plugin_id: str,
         scope: PluginScope,
+        require_object_root: bool = False,
     ) -> dict[str, Any]:
-        config = plugins_state.pluginConfigById.get(
-            self._plugin_config_key(plugin_id=plugin_id, scope=scope),
-            {},
-        )
-        if not isinstance(config, dict):
+        config_key = self._plugin_config_key(plugin_id=plugin_id, scope=scope)
+        raw_config = plugins_state.pluginConfigById.get(config_key)
+        if raw_config is None:
             return {}
-        return config
+        if not isinstance(raw_config, dict):
+            if require_object_root:
+                raise PluginManagerError(
+                    "PLUGIN_CONFIG_INVALID",
+                    (
+                        f"Plugin {plugin_id} config path <root> "
+                        "contains a non-object node at <root>."
+                    ),
+                )
+            return {}
+        return raw_config
 
     def _read_plugin_config_path_value_for_write(
         self,

@@ -76,6 +76,12 @@ _REQUIRED_CORE_REVEAL_ACTIVATION_STEP_BY_SETTING_ID: dict[str, tuple[str, str]] 
 logger = logging.getLogger(__name__)
 
 
+class PluginUISettingErrorsByPluginId(dict[str, str]):
+    def __init__(self) -> None:
+        super().__init__()
+        self.by_plugin_and_local_setting_id: dict[tuple[str, str], str] = {}
+
+
 class UISettingValidationError(ValueError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
@@ -174,6 +180,7 @@ def resolve_plugin_runtime_availability(
 class UISettingRegistry:
     entriesById: dict[str, UISettingRuntimeEntry]
     pluginErrorsByPluginId: dict[str, str]
+    pluginErrorsByPluginAndLocalSettingId: dict[tuple[str, str], str]
 
     def get(self, setting_id: str) -> UISettingRuntimeEntry | None:
         return self.entriesById.get(setting_id)
@@ -229,6 +236,11 @@ def build_ui_settings_registry(
         ctx=ctx,
         project_config_id=project_config_id,
     )
+    plugin_errors_by_plugin_and_local_setting_id = getattr(
+        plugin_errors,
+        "by_plugin_and_local_setting_id",
+        {},
+    )
     for entry in plugin_entries:
         setting_id = entry.metadata.settingId
         if setting_id in entries_by_id:
@@ -242,6 +254,7 @@ def build_ui_settings_registry(
             _record_plugin_ui_setting_error(
                 plugin_errors,
                 plugin_id=plugin_id,
+                local_setting_id=local_setting_id,
                 message=_build_plugin_duplicate_ui_setting_message(
                     plugin_id=plugin_id,
                     local_setting_id=local_setting_id,
@@ -255,6 +268,9 @@ def build_ui_settings_registry(
     return UISettingRegistry(
         entriesById=entries_by_id,
         pluginErrorsByPluginId=plugin_errors,
+        pluginErrorsByPluginAndLocalSettingId=(
+            plugin_errors_by_plugin_and_local_setting_id
+        ),
     )
 
 
@@ -775,7 +791,7 @@ def _build_plugin_entries(
         return [], {}
     runtime_response = plugin_manager.get_runtime_response()
     entries: list[UISettingRuntimeEntry] = []
-    plugin_errors_by_plugin_id: dict[str, str] = {}
+    plugin_errors_by_plugin_id = PluginUISettingErrorsByPluginId()
     for plugin in runtime_response.list.plugins:
         availability = resolve_plugin_runtime_availability(
             runtime_response=runtime_response,
@@ -836,6 +852,7 @@ def _build_plugin_entries(
                         local_setting_id=local_setting_id,
                         sources={contribution.source for contribution in contributions},
                     ),
+                    local_setting_id=local_setting_id,
                 )
                 continue
             contribution = contributions[0]
@@ -874,6 +891,7 @@ def _build_plugin_entries(
                     plugin_errors_by_plugin_id,
                     plugin_id=plugin.pluginId,
                     message=str(exc),
+                    local_setting_id=local_setting_id,
                 )
     return entries, plugin_errors_by_plugin_id
 
@@ -922,19 +940,46 @@ def _record_plugin_ui_setting_error(
     *,
     plugin_id: str,
     message: str,
+    local_setting_id: str | None = None,
 ) -> None:
     logger.warning(
         "Skipping invalid UI-setting contribution from plugin %s: %s",
         plugin_id,
         message,
     )
+    plugin_errors_by_plugin_and_local_setting_id = getattr(
+        plugin_errors_by_plugin_id,
+        "by_plugin_and_local_setting_id",
+        None,
+    )
     existing = plugin_errors_by_plugin_id.get(plugin_id)
     if existing is None:
         plugin_errors_by_plugin_id[plugin_id] = message
+        if (
+            local_setting_id is not None
+            and plugin_errors_by_plugin_and_local_setting_id is not None
+        ):
+            plugin_errors_by_plugin_and_local_setting_id[
+                (plugin_id, local_setting_id)
+            ] = message
         return
     if message in existing:
+        if (
+            local_setting_id is not None
+            and plugin_errors_by_plugin_and_local_setting_id is not None
+        ):
+            key = (plugin_id, local_setting_id)
+            if key not in plugin_errors_by_plugin_and_local_setting_id:
+                plugin_errors_by_plugin_and_local_setting_id[key] = message
         return
     plugin_errors_by_plugin_id[plugin_id] = f"{existing}; {message}"
+    if (
+        local_setting_id is not None
+        and plugin_errors_by_plugin_and_local_setting_id is not None
+    ):
+        plugin_errors_by_plugin_and_local_setting_id[(plugin_id, local_setting_id)] = (
+            message
+        )
 
 
 def _validate_core_reveal_activation_steps(
@@ -1292,7 +1337,6 @@ def _parse_plugin_ui_setting_definitions(
         )
 
     definitions: list[_PluginUISettingDefinition] = []
-    seen_local_ids: set[str] = set()
     for index, raw_definition in enumerate(raw_definitions):
         if not isinstance(raw_definition, dict):
             raise ValueError(
@@ -1309,11 +1353,6 @@ def _parse_plugin_ui_setting_definitions(
             raise ValueError(
                 f"Plugin {plugin_id} settingId {local_setting_id} must not contain '::'."
             )
-        if local_setting_id in seen_local_ids:
-            raise ValueError(
-                f"Plugin {plugin_id} duplicated ui settingId: {local_setting_id}"
-            )
-        seen_local_ids.add(local_setting_id)
         title = _require_non_empty_string(
             raw_definition.get("title"),
             context=(

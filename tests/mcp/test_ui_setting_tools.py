@@ -702,6 +702,70 @@ async def test_ui_setting_tools_normalize_setting_id_whitespace() -> None:
 
 
 @pytest.mark.asyncio
+async def test_activate_section_for_reveal_uses_manager_atomic_mutation_api() -> None:
+    recorded_calls: list[tuple[ID, list[ID]]] = []
+
+    class _FakeManager:
+        async def set_active_ids_for_ui_setting_reveal(
+            self,
+            *,
+            project_config_id: ID,
+            active_ids: list[ID],
+        ) -> None:
+            recorded_calls.append((project_config_id, active_ids))
+
+    project_config_id = ID("project-1")
+    section_id = ID("section-1")
+    project_state = SimpleNamespace(
+        sections={section_id: object()},
+        projectConfig=SimpleNamespace(activeIds=[]),
+    )
+
+    # Section activation must delegate to the manager-owned serialized mutation API.
+    error = await ui_settings_tools_module._activate_section_for_reveal(
+        manager=_FakeManager(),
+        project_config_id=project_config_id,
+        project_state=project_state,
+        section_id_to_activate=section_id,
+    )
+    assert error is None
+    assert recorded_calls == [(project_config_id, [section_id])]
+
+
+@pytest.mark.asyncio
+async def test_reveal_rollback_uses_manager_atomic_conditional_mutation_api() -> None:
+    recorded_calls: list[tuple[ID, list[ID], list[ID]]] = []
+
+    class _FakeManager:
+        async def rollback_active_ids_for_ui_setting_reveal(
+            self,
+            *,
+            project_config_id: ID,
+            expected_active_ids: list[ID],
+            rollback_active_ids: list[ID],
+        ) -> bool:
+            recorded_calls.append(
+                (project_config_id, expected_active_ids, rollback_active_ids)
+            )
+            return True
+
+    project_config_id = ID("project-1")
+    previous_active_ids = [ID("section-old")]
+    owned_temporary_active_ids = [ID("section-temp")]
+
+    rolled_back = await ui_settings_tools_module._rollback_reveal_section_activation_if_owned(
+        manager=_FakeManager(),
+        project_config_id=project_config_id,
+        previous_active_ids=previous_active_ids,
+        owned_temporary_active_ids=owned_temporary_active_ids,
+    )
+    assert rolled_back is True
+    assert recorded_calls == [
+        (project_config_id, owned_temporary_active_ids, previous_active_ids)
+    ]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("tool_name", ["reveal", "get", "set"])
 async def test_ui_setting_tools_reject_whitespace_only_setting_id(
     tool_name: str,
@@ -4050,6 +4114,73 @@ async def test_plugin_set_ui_setting_value_rejects_persisted_corrupt_config_root
 
 
 @pytest.mark.asyncio
+async def test_plugin_get_and_set_ui_setting_value_share_same_corrupt_root_error(
+    tmp_path: Path,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        schema_path = plugin_root / "content" / "config" / "schema.json"
+        schema_payload = json.loads(schema_path.read_text(encoding="utf-8"))
+        schema_payload["required"] = []
+        schema_path.write_text(
+            json.dumps(schema_payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"label": "unset"},
+        )
+        config_key = plugin_manager._plugin_config_key(
+            plugin_id=plugin_id,
+            scope=PluginScope.workspace,
+        )
+        plugins_state = plugin_manager._load_plugins_state()
+        plugins_state.pluginConfigById[config_key] = "invalid-root"
+        plugin_manager._save_plugins_state(plugins_state)
+        plugin_manager.rescan()
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        # Read and write should surface the same fail-fast corruption diagnostics.
+        get_result = await get_ui_setting_value(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        set_result = await set_ui_setting_value(
+            settingId=plugin_setting_id,
+            value=True,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert get_result.error is not None
+        assert set_result.error is not None
+        assert get_result.error.code == "plugin_unavailable"
+        assert set_result.error.code == "plugin_unavailable"
+        assert get_result.error.message == set_result.error.message
+        assert "state=invalid" in get_result.error.message
+
+
+@pytest.mark.asyncio
 async def test_plugin_get_ui_setting_value_reports_corrupt_config_structure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -4821,6 +4952,78 @@ async def test_search_ui_settings_skips_plugins_with_duplicate_setting_ids(
         assert get_result.error is not None
         assert get_result.error.code == "plugin_unavailable"
         assert "duplicated ui settingId" in get_result.error.message
+
+
+@pytest.mark.asyncio
+async def test_plugin_unknown_setting_id_is_not_masked_by_other_invalid_contributions(
+    tmp_path: Path,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        schema_path = plugin_root / "content" / "config" / "schema.json"
+        schema_payload = json.loads(schema_path.read_text(encoding="utf-8"))
+        if not isinstance(schema_payload.get("x-setta-ui-settings"), list):
+            raise ValueError(
+                "Fixture plugin schema is missing x-setta-ui-settings list."
+            )
+        first_entry = dict(schema_payload["x-setta-ui-settings"][0])
+        schema_payload["x-setta-ui-settings"].append(first_entry)
+        schema_path.write_text(
+            json.dumps(schema_payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        known_invalid_setting_id = f"plugin::{plugin_id}::enabled"
+        unknown_setting_id = f"plugin::{plugin_id}::unknown_setting"
+
+        # Known-invalid contributions should keep plugin_unavailable diagnostics.
+        known_invalid_get_result = await get_ui_setting_value(
+            settingId=known_invalid_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert known_invalid_get_result.error is not None
+        assert known_invalid_get_result.error.code == "plugin_unavailable"
+
+        # Unknown setting ids in the same plugin namespace should still resolve as unknown.
+        unknown_get_result = await get_ui_setting_value(
+            settingId=unknown_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert unknown_get_result.error is not None
+        assert unknown_get_result.error.code == "setting_not_found"
+
+        unknown_set_result = await set_ui_setting_value(
+            settingId=unknown_setting_id,
+            value=True,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert unknown_set_result.error is not None
+        assert unknown_set_result.error.code == "setting_not_found"
 
 
 @pytest.mark.asyncio

@@ -4307,6 +4307,45 @@ class BaseProjectManager(ABC):
         ].activeIds = x.activeIds
 
     @enqueue_method
+    async def set_active_ids_for_ui_setting_reveal(
+        self,
+        *,
+        project_config_id: ID,
+        active_ids: list[ID],
+    ) -> None:
+        self.project_state_backend.projectConfigs[
+            project_config_id
+        ].activeIds = active_ids
+        project_state = self.get_single_config_state(project_config_id)
+        await self._update_and_broadcast_project_state_no_name_validation(
+            project_state,
+            updateFileWatcher=False,
+        )
+
+    @enqueue_method
+    async def rollback_active_ids_for_ui_setting_reveal(
+        self,
+        *,
+        project_config_id: ID,
+        expected_active_ids: list[ID],
+        rollback_active_ids: list[ID],
+    ) -> bool:
+        current_active_ids = self.project_state_backend.projectConfigs[
+            project_config_id
+        ].activeIds
+        if current_active_ids != expected_active_ids:
+            return False
+        self.project_state_backend.projectConfigs[
+            project_config_id
+        ].activeIds = rollback_active_ids
+        project_state = self.get_single_config_state(project_config_id)
+        await self._update_and_broadcast_project_state_no_name_validation(
+            project_state,
+            updateFileWatcher=False,
+        )
+        return True
+
+    @enqueue_method
     async def set_viewport(self, x: SetViewportRequest):
         """Update the stored viewport offsets/zoom for a project configuration.
 

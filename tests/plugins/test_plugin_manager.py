@@ -9609,6 +9609,53 @@ def test_plugin_config_path_compare_and_write_rejects_non_object_root_without_re
     assert reloaded_plugins_state.pluginConfigById[config_key] == "invalid-root"
 
 
+def test_plugin_rescan_marks_non_object_config_root_invalid_even_without_required_keys(
+    tmp_path: Path,
+) -> None:
+    manager = _make_manager(tmp_path)
+    plugin_root = _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="full",
+        scope=PluginScope.workspace,
+    )
+    schema_path = plugin_root / "content" / "config" / "schema.json"
+    schema_payload = json.loads(schema_path.read_text(encoding="utf-8"))
+    schema_payload["required"] = []
+    schema_path.write_text(
+        json.dumps(schema_payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    manager.rescan()
+    manager.write_plugin_config(
+        plugin_id="setta-fixture-full",
+        config={"label": "unset"},
+    )
+    config_key = manager._plugin_config_key(
+        plugin_id="setta-fixture-full",
+        scope=PluginScope.workspace,
+    )
+    plugins_state = manager._load_plugins_state()
+    plugins_state.pluginConfigById[config_key] = "invalid-root"
+    manager._save_plugins_state(plugins_state)
+
+    manager.rescan()
+
+    status_entry = next(
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == "setta-fixture-full"
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    )
+    assert status_entry.state == PluginRuntimeState.invalid
+    assert any(
+        error.code == "PLUGIN_CONFIG_INVALID"
+        and "non-object node at <root>" in error.message
+        for error in status_entry.errors
+    )
+
+
 def test_backend_ui_setting_registration_rejects_invalid_value_schema(
     tmp_path: Path,
 ) -> None:

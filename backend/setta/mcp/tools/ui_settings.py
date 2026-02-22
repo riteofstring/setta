@@ -21,7 +21,6 @@ from setta.mcp.ui_settings_context import (
     resolve_section_id_from_ctx,
     resolve_share_session_id_from_ctx,
 )
-from setta.project_state.project_manager_types import SetActiveIdsRequest
 from setta.types.chat_messages import JSONValue
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.id import ID
@@ -52,6 +51,9 @@ from setta.ui_settings.registry import (
 from setta.ui_settings.reveal_result_hub import (
     UISettingRevealResultContent,
     UISettingRevealResultStatus,
+)
+from setta.ui_settings.section_ui_editor_tab_compatibility import (
+    REQUIRED_UI_EDITOR_TABS_BY_SECTION_TYPE,
 )
 
 UISettingSourceFilterLiteral = Literal["core", "plugin", "all"]
@@ -101,51 +103,6 @@ class SetUISettingValueResult(BaseModel, extra="forbid"):
     changed: bool = False
     reveal: RevealUISettingResult | None = None
     error: UISettingToolError | None = None
-
-
-_REQUIRED_UI_EDITOR_TABS_BY_SECTION_TYPE: dict[SectionType, set[str]] = {
-    SectionType.Callable: {
-        "SectionConfig",
-        "UIConfig",
-        "QuickInfoConfig",
-        "SectionVariantsConfig",
-    },
-    SectionType.Dict: {
-        "SectionConfig",
-        "UIConfig",
-        "QuickInfoConfig",
-        "SectionVariantsConfig",
-    },
-    SectionType.GlobalVariables: {
-        "SectionConfig",
-        "UIConfig",
-        "QuickInfoConfig",
-        "SectionVariantsConfig",
-    },
-    SectionType.ListRoot: {"SectionConfig", "SectionVariantsConfig"},
-    SectionType.Code: {"SectionConfig", "SectionVariantsConfig"},
-    SectionType.GenPythonCode: {"SectionConfig"},
-    SectionType.GenPythonMetadata: {"SectionConfig"},
-    SectionType.TextBlock: {
-        "SectionConfig",
-        "InfoConfig",
-        "SectionVariantsConfig",
-    },
-    SectionType.Prompt: {"SectionConfig"},
-    SectionType.MetaControl: {"SectionConfig"},
-    SectionType.Social: {"SectionConfig"},
-    SectionType.Group: {"SectionConfig"},
-    SectionType.Terminal: {"SectionConfig"},
-    SectionType.Draw: {"SectionConfig"},
-    SectionType.Image: {"SectionConfig"},
-    SectionType.Chart: {"SectionConfig"},
-    SectionType.IFrame: set(),
-    SectionType.Chat: {"SectionConfig"},
-    SectionType.Browser: {"SectionConfig"},
-    SectionType.Plugin: {"SectionConfig"},
-    SectionType.TaskBoard: {"SectionConfig"},
-    SectionType.Spreadsheet: {"SectionConfig"},
-}
 
 
 @setta_tool
@@ -515,9 +472,16 @@ def _resolve_missing_setting_error(
             message=f"Unknown setting id: {setting_id}",
         )
 
-    plugin_id, _ = parsed_plugin_setting
+    plugin_id, local_setting_id = parsed_plugin_setting
     if registry is not None:
-        plugin_registry_error = registry.pluginErrorsByPluginId.get(plugin_id)
+        plugin_errors_by_plugin_and_local_setting_id = getattr(
+            registry,
+            "pluginErrorsByPluginAndLocalSettingId",
+            {},
+        )
+        plugin_registry_error = plugin_errors_by_plugin_and_local_setting_id.get(
+            (plugin_id, local_setting_id)
+        )
         if plugin_registry_error is not None:
             return UISettingToolError(
                 code="plugin_unavailable",
@@ -1023,18 +987,9 @@ async def _set_active_ids_for_reveal(
     project_config_id: ID,
     active_ids: list[ID],
 ) -> None:
-    await manager.set_active_ids(
-        SetActiveIdsRequest(
-            projectConfigId=project_config_id,
-            activeIds=active_ids,
-        )
-    )
-    refreshed_project_state = manager.get_single_config_state(project_config_id)
-    await manager.update_and_broadcast_project_state(
-        refreshed_project_state,
-        updateFileWatcher=False,
-        broadcast_name_validation_errors=False,
-        validate_name_rules=False,
+    await manager.set_active_ids_for_ui_setting_reveal(
+        project_config_id=project_config_id,
+        active_ids=active_ids,
     )
 
 
@@ -1045,15 +1000,11 @@ async def _rollback_reveal_section_activation_if_owned(
     previous_active_ids: list[ID],
     owned_temporary_active_ids: list[ID],
 ) -> bool:
-    refreshed_project_state = manager.get_single_config_state(project_config_id)
-    if refreshed_project_state.projectConfig.activeIds != owned_temporary_active_ids:
-        return False
-    await _set_active_ids_for_reveal(
-        manager=manager,
+    return await manager.rollback_active_ids_for_ui_setting_reveal(
         project_config_id=project_config_id,
-        active_ids=previous_active_ids,
+        expected_active_ids=owned_temporary_active_ids,
+        rollback_active_ids=previous_active_ids,
     )
-    return True
 
 
 def _resolve_right_pane_incompatible_tab_error(
@@ -1078,7 +1029,7 @@ def _resolve_right_pane_incompatible_tab_error(
         if isinstance(section_impl.type, SectionType)
         else str(section_impl.type)
     )
-    required_tabs = _REQUIRED_UI_EDITOR_TABS_BY_SECTION_TYPE.get(section_impl.type)
+    required_tabs = REQUIRED_UI_EDITOR_TABS_BY_SECTION_TYPE.get(section_impl.type)
     if required_tabs is None:
         return UISettingToolError(
             code="mutation_failed",

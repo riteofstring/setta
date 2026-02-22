@@ -23,6 +23,7 @@ from setta.types.websocket import (
     UISettingRevealTarget,
     WebsocketConnectionType,
     WebsocketMsgCurrentAddressUpdate,
+    WebsocketMsgFrontendIdentity,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgRealtimeUIChange,
 )
@@ -175,8 +176,9 @@ async def test_frontend_receiver_on_connect_sends_frontend_identity_message() ->
             sent_messages = _sent_text_messages(frontend_messages)
             assert len(sent_messages) == 1
             payload = json.loads(sent_messages[0])
-            assert payload.get("messageType") == "FrontendIdentity"
-            assert payload.get("content", {}).get("websocketId") == frontend_id
+            typed_payload = WebsocketMsgFrontendIdentity.model_validate(payload)
+            assert typed_payload.messageType == "FrontendIdentity"
+            assert typed_payload.content.websocketId == frontend_id
         finally:
             await frontend_socket.close()
 

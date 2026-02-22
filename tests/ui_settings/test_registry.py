@@ -69,7 +69,7 @@ def test_build_ui_settings_registry_isolates_plugin_id_collisions(
     def _fake_build_plugin_entries(*, ctx, project_config_id):
         assert ctx is not None
         assert isinstance(project_config_id, ID)
-        return duplicate_entries, {}
+        return duplicate_entries, ui_settings_registry.PluginUISettingErrorsByPluginId()
 
     monkeypatch.setattr(
         ui_settings_registry,
@@ -89,6 +89,7 @@ def test_build_ui_settings_registry_isolates_plugin_id_collisions(
     assert (
         "duplicated ui settingId: enabled" in registry.pluginErrorsByPluginId[plugin_id]
     )
+    assert (plugin_id, "enabled") in registry.pluginErrorsByPluginAndLocalSettingId
 
 
 def test_build_ui_settings_registry_rejects_writable_entries_without_precondition_arg(
@@ -214,6 +215,12 @@ def test_build_plugin_entries_reports_schema_backend_cross_source_duplicate() ->
     assert (
         "declared in both schema and backend registration" in plugin_errors[plugin_id]
     )
+    plugin_errors_by_setting = getattr(
+        plugin_errors,
+        "by_plugin_and_local_setting_id",
+        {},
+    )
+    assert (plugin_id, "enabled") in plugin_errors_by_setting
 
 
 def test_build_plugin_entries_accepts_pending_restart_status() -> None:
