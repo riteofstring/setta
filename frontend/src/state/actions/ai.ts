@@ -37,16 +37,12 @@ import {
 import type { AppGenerationMode } from "state/types/appGenerationMode";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  route_append_transcription_audio,
-  route_cancel_transcription_session,
   route_create_agent_profile,
   route_create_external_agent_config,
   route_create_prompt_template,
-  route_create_transcription_profile,
   route_delete_agent_profile,
   route_delete_external_agent_config,
   route_delete_prompt_template,
-  route_delete_transcription_profile,
   route_get_agent_profiles,
   route_get_agent_runs,
   route_get_engine_configs,
@@ -58,20 +54,18 @@ import {
   route_get_llm_config,
   route_get_llm_response,
   route_get_prompt_templates,
-  route_get_transcription_profiles,
   route_respond_external_agent_approval,
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
   route_set_chat_section_state,
-  route_start_transcription_session,
+  route_set_llm_config,
   route_stop_external_agent_run,
   route_stop_llm_chat,
-  route_stop_transcription_session,
+  route_transcribe_chat_audio,
   route_update_agent_profile,
   route_update_engine_config,
   route_update_external_agent_config,
   route_update_prompt_template,
-  route_update_transcription_profile,
 } from "utils/generatedEndpoints";
 import {
   AgentProfile,
@@ -93,11 +87,9 @@ import {
   createMessageTextContent,
   createMessageThinkingContent,
   CreatePromptTemplateRequestInput,
-  CreateTranscriptionProfileRequestInput,
   DeleteAgentProfileRequestInput,
   DeleteExternalAgentConfigRequestInput,
   DeletePromptTemplateRequestInput,
-  DeleteTranscriptionProfileRequestInput,
   EngineConfig,
   ExternalAgentConfig,
   ExternalAgentPreflightStatus,
@@ -111,20 +103,16 @@ import {
   PromptTemplate,
   SectionTypeEnum,
   SettaNotificationTypeEnum,
-  StartTranscriptionSessionResponse,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
   ToolCallDeltaEvent,
   ToolChatMessage,
   ToolResultEvent,
-  TranscriptionProfile,
-  TranscriptionSessionDeltaResponse,
   UpdateAgentProfileRequestInput,
   UpdateEngineConfigRequestInput,
   UpdateExternalAgentConfigRequestInput,
   UpdatePromptTemplateRequestInput,
-  UpdateTranscriptionProfileRequestInput,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
@@ -156,88 +144,52 @@ const DEFAULT_CHAT_EXECUTION_SETTINGS: ChatExecutionSettings = {
   searchEnabled: true,
 };
 
-function encodeArrayBufferBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  if (bytes.length === 0) {
-    return "";
+function resolveTranscriptionFileExtension(mimeType: string): string {
+  const normalized = mimeType.trim().toLowerCase();
+  if (normalized.includes("webm")) {
+    return "webm";
   }
-  const CHUNK_SIZE = 0x8000;
-  const binaryChunks: string[] = [];
-  for (let index = 0; index < bytes.length; index += CHUNK_SIZE) {
-    const chunk = bytes.subarray(index, index + CHUNK_SIZE);
-    binaryChunks.push(String.fromCharCode(...chunk));
+  if (normalized.includes("mpeg") || normalized.includes("mp3")) {
+    return "mp3";
   }
-  return btoa(binaryChunks.join(""));
+  if (normalized.includes("ogg")) {
+    return "ogg";
+  }
+  if (normalized.includes("wav")) {
+    return "wav";
+  }
+  if (
+    normalized.includes("mp4") ||
+    normalized.includes("m4a") ||
+    normalized.includes("aac")
+  ) {
+    return "m4a";
+  }
+  return "webm";
 }
 
-export async function startTranscriptionSession(
-  transcriptionProfileId: string,
-  language: string | null = null,
-  options: { suppressNotification?: boolean } = {},
-): Promise<StartTranscriptionSessionResponse | null> {
-  if (!transcriptionProfileId) {
+export async function transcribeChatAudio(
+  engineConfigId: string,
+  audioBlob: Blob,
+): Promise<string | null> {
+  if (!engineConfigId || audioBlob.size === 0) {
     return null;
   }
-  const res = await route_start_transcription_session({
-    transcriptionProfileId,
-    language,
-  });
-  if (!res200(res)) {
-    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
-    if (!options.suppressNotification) {
-      addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-    }
-    return null;
-  }
-  return res.data;
-}
-
-export async function appendTranscriptionAudio(
-  sessionId: string,
-  audioPcm16: ArrayBuffer,
-  sampleRateHz: number,
-  channels: number,
-): Promise<TranscriptionSessionDeltaResponse | null> {
-  if (!sessionId || audioPcm16.byteLength === 0) {
-    return null;
-  }
-  const res = await route_append_transcription_audio({
-    sessionId,
-    audioPcm16Base64: encodeArrayBufferBase64(audioPcm16),
-    sampleRateHz,
-    channels,
-  });
+  const form = new FormData();
+  form.set("engineConfigId", engineConfigId);
+  const extension = resolveTranscriptionFileExtension(audioBlob.type);
+  form.set("file", audioBlob, `dictation.${extension}`);
+  const res = await route_transcribe_chat_audio(form);
   if (!res200(res)) {
     const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
     addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
     return null;
   }
-  return res.data;
-}
-
-export async function stopTranscriptionSession(
-  sessionId: string,
-): Promise<TranscriptionSessionDeltaResponse | null> {
-  if (!sessionId) {
+  const text = res.data.text.trim();
+  if (!text) {
     return null;
   }
-  const res = await route_stop_transcription_session({ sessionId });
-  if (!res200(res)) {
-    const detail = getErrorDetail(res.data) ?? "Provider transcription failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
-    return null;
-  }
-  return res.data;
-}
-
-export async function cancelTranscriptionSession(
-  sessionId: string,
-): Promise<boolean> {
-  if (!sessionId) {
-    return true;
-  }
-  const res = await route_cancel_transcription_session({ sessionId });
-  return res200(res);
+  return text;
 }
 
 export async function loadLLMConfig() {
@@ -261,6 +213,21 @@ export async function loadLLMConfig() {
   } finally {
     llmConfigLoadPromise = null;
   }
+}
+
+export async function saveLLMConfig(
+  config: AllLLMConfigs,
+): Promise<AllLLMConfigs | null> {
+  const res = await route_set_llm_config(config);
+  if (!res200(res)) {
+    useAIStore.setState({
+      allLLMConfigsInitialLoadComplete: true,
+      allLLMConfigsLoadError: "Failed to save LLM config",
+    });
+    return null;
+  }
+  receiveLLMConfigUpdate(res.data);
+  return res.data;
 }
 
 export async function loadLLMApiKeys() {
@@ -488,38 +455,6 @@ export function receiveEngineConfigsUpdate(payload: Array<EngineConfig>) {
   });
 }
 
-export async function loadTranscriptionProfiles(force: boolean = false) {
-  const state = useAIStore.getState();
-  if (state.transcriptionProfilesLoading) {
-    return;
-  }
-  if (!force && state.transcriptionProfilesInitialLoadComplete) {
-    return;
-  }
-  useAIStore.setState({ transcriptionProfilesLoading: true });
-  const res = await route_get_transcription_profiles();
-  if (res200(res)) {
-    receiveTranscriptionProfilesUpdate(res.data);
-  } else {
-    useAIStore.setState({
-      transcriptionProfilesInitialLoadComplete: true,
-      transcriptionProfilesLoadError: "Failed to load transcription profiles",
-      transcriptionProfilesLoading: false,
-    });
-  }
-}
-
-export function receiveTranscriptionProfilesUpdate(
-  payload: Array<TranscriptionProfile>,
-) {
-  useAIStore.setState({
-    transcriptionProfiles: payload,
-    transcriptionProfilesInitialLoadComplete: true,
-    transcriptionProfilesLoadError: null,
-    transcriptionProfilesLoading: false,
-  });
-}
-
 type HasId = { id: string };
 
 function upsertById<T extends HasId>(items: Array<T>, entry: T): Array<T> {
@@ -609,69 +544,6 @@ export async function updateEngineConfig(
     engineConfigsLoadError: null,
   }));
   return config;
-}
-
-export async function createTranscriptionProfile(
-  payload: CreateTranscriptionProfileRequestInput,
-): Promise<TranscriptionProfile | null> {
-  const res = await route_create_transcription_profile(payload);
-  if (!res200(res)) {
-    useAIStore.setState({
-      transcriptionProfilesLoadError: "Failed to create transcription profile",
-    });
-    return null;
-  }
-  const profile = res.data;
-  useAIStore.setState((state) => ({
-    transcriptionProfiles: upsertById(state.transcriptionProfiles, profile),
-    transcriptionProfilesInitialLoadComplete: true,
-    transcriptionProfilesLoadError: null,
-  }));
-  return profile;
-}
-
-export async function updateTranscriptionProfile(
-  payload: UpdateTranscriptionProfileRequestInput,
-): Promise<TranscriptionProfile | null> {
-  const res = await route_update_transcription_profile(payload);
-  if (!res200(res)) {
-    useAIStore.setState({
-      transcriptionProfilesLoadError: "Failed to update transcription profile",
-    });
-    return null;
-  }
-  const profile = res.data;
-  useAIStore.setState((state) => ({
-    transcriptionProfiles: upsertById(state.transcriptionProfiles, profile),
-    transcriptionProfilesInitialLoadComplete: true,
-    transcriptionProfilesLoadError: null,
-  }));
-  return profile;
-}
-
-export async function deleteTranscriptionProfile(
-  payload: DeleteTranscriptionProfileRequestInput,
-): Promise<boolean> {
-  const res = await route_delete_transcription_profile(payload);
-  if (!res200(res)) {
-    useAIStore.setState({
-      transcriptionProfilesLoadError: "Failed to delete transcription profile",
-    });
-    return false;
-  }
-  useAIStore.setState((state) => ({
-    transcriptionProfiles: removeById(
-      state.transcriptionProfiles,
-      payload.profileId,
-    ),
-    transcriptionProfilesInitialLoadComplete: true,
-    transcriptionProfilesLoadError: null,
-    projectChatTranscriptionProfileId:
-      state.projectChatTranscriptionProfileId === payload.profileId
-        ? null
-        : state.projectChatTranscriptionProfileId,
-  }));
-  return true;
 }
 
 export async function createPromptTemplate(
@@ -795,13 +667,88 @@ export function getDefaultChatDetails(): ChatDetails {
     toolCallArguments: {},
     waitingForResponse: false,
     llmConfig: null,
+    contextUsage: null,
   };
 }
 
 type StopChatResponseSnapshot = {
   waitingForResponse: boolean;
   toolCallArguments: Record<string, string>;
+  latestAssistantMessageId: string | null;
 };
+
+function findLatestAssistantMessageId(
+  messages: Array<BaseChatMessageUnion>,
+): string | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role === ChatRoleEnum.assistant) {
+      return message.id;
+    }
+  }
+  return null;
+}
+
+function markInterruptedAssistantMessage(chatId: string, messageId: string) {
+  useAIStore.setState((state) => {
+    const existingByChat =
+      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
+    if (existingByChat[messageId]) {
+      return state;
+    }
+    return {
+      interruptedAssistantMessageIdsByChatId: {
+        ...state.interruptedAssistantMessageIdsByChatId,
+        [chatId]: {
+          ...existingByChat,
+          [messageId]: true,
+        },
+      },
+    };
+  });
+}
+
+function clearInterruptedAssistantMessages(
+  chatId: string,
+  messageIds: Array<string | null | undefined>,
+) {
+  const normalizedIds = messageIds.filter(
+    (messageId): messageId is string => typeof messageId === "string",
+  );
+  if (normalizedIds.length === 0) {
+    return;
+  }
+  useAIStore.setState((state) => {
+    const existingByChat =
+      state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
+    let changed = false;
+    const nextByChat = { ...existingByChat };
+    for (const messageId of normalizedIds) {
+      if (nextByChat[messageId]) {
+        changed = true;
+        delete nextByChat[messageId];
+      }
+    }
+    if (!changed) {
+      return state;
+    }
+    if (Object.keys(nextByChat).length === 0) {
+      const nextByChatId = {
+        ...state.interruptedAssistantMessageIdsByChatId,
+      };
+      delete nextByChatId[chatId];
+      return {
+        interruptedAssistantMessageIdsByChatId: nextByChatId,
+      };
+    }
+    return {
+      interruptedAssistantMessageIdsByChatId: {
+        ...state.interruptedAssistantMessageIdsByChatId,
+        [chatId]: nextByChat,
+      },
+    };
+  });
+}
 
 function getStopChatResponseSnapshot(
   chatId: string | null | undefined,
@@ -814,6 +761,9 @@ function getStopChatResponseSnapshot(
   return {
     waitingForResponse: currentDetails.waitingForResponse,
     toolCallArguments: { ...currentDetails.toolCallArguments },
+    latestAssistantMessageId: findLatestAssistantMessageId(
+      currentDetails.messages,
+    ),
   };
 }
 
@@ -843,6 +793,12 @@ function stopChatResponseLocally(
   });
   if (typeof chatId === "string") {
     updateChatDetails(chatId, stopDetails);
+    if (snapshot.waitingForResponse && snapshot.latestAssistantMessageId) {
+      markInterruptedAssistantMessage(
+        chatId,
+        snapshot.latestAssistantMessageId,
+      );
+    }
   } else {
     updatePendingChatDetails(stopDetails);
   }
@@ -1090,7 +1046,7 @@ export async function getLLMChat(
   const projectConfigId = getCurrProjectConfigId();
   const res = await route_get_llm_chat({ chatId, projectConfigId });
   if (res200(res)) {
-    const { messages, waitingForResponse, llmConfig } = res.data;
+    const { messages, waitingForResponse, llmConfig, contextUsage } = res.data;
     useAIStore.setState((state) => {
       const existingDetails = state.chatDetails[chatId];
       const preserveWaitingForResponse = isChatStreamActive(chatId);
@@ -1111,6 +1067,7 @@ export async function getLLMChat(
             messages: nextMessages,
             waitingForResponse: nextWaitingForResponse,
             llmConfig: llmConfig,
+            contextUsage: contextUsage ?? null,
           },
         },
       };
@@ -1144,7 +1101,8 @@ export async function getExternalAgentChat(
     projectConfigId,
   });
   if (res200(res)) {
-    const { messages, waitingForResponse, toolCallArguments } = res.data;
+    const { messages, waitingForResponse, toolCallArguments, contextUsage } =
+      res.data;
     useAIStore.setState((state) => {
       const existingDetails = state.chatDetails[chatId];
       const preserveWaitingForResponse = isChatStreamActive(chatId);
@@ -1166,6 +1124,7 @@ export async function getExternalAgentChat(
             waitingForResponse: nextWaitingForResponse,
             toolCallArguments,
             llmConfig: null,
+            contextUsage: contextUsage ?? null,
           },
         },
       };
@@ -1651,12 +1610,6 @@ function shouldIgnoreResponsePlaceholderChunk(
   if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
     return isResponsePlaceholderId(chunk.message.id);
   }
-  if (
-    chunk.type === StreamingEventTypeEnum.DELTA ||
-    chunk.type === StreamingEventTypeEnum.MESSAGE_STOP
-  ) {
-    return isResponsePlaceholderId(chunk.message_id);
-  }
   return false;
 }
 
@@ -1815,6 +1768,9 @@ export function persistChatSectionState({
 }
 
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
+  if (chunk.message.role === ChatRoleEnum.assistant) {
+    clearInterruptedAssistantMessages(chatId, [chunk.message.id]);
+  }
   updateChatDetails(chatId, (details) => ({
     ...details,
     messages: upsertMessage(details.messages, chunk.message),
@@ -1977,20 +1933,73 @@ function handleMessageFinalized(
   chunk: MessageFinalizedEvent,
   projectConfigId: string,
 ) {
-  const targetId = chunk.message.id;
+  let resolvedTargetId: string | null = chunk.message.id;
   updateChatDetails(chatId, (details) => {
+    const { message: messageToUpsert, targetId } =
+      chunk.message.role === ChatRoleEnum.assistant
+        ? resolveFinalizedAssistantMessageUpdate(
+            details.messages,
+            chunk.message as AssistantChatMessage,
+          )
+        : {
+            message: chunk.message,
+            targetId: chunk.message.id,
+          };
+    resolvedTargetId = targetId;
     return {
       ...details,
-      messages: upsertMessage(details.messages, chunk.message, targetId),
+      messages: upsertMessage(details.messages, messageToUpsert, targetId),
       waitingForResponse: false,
       toolCallArguments: {},
     };
   });
+  if (chunk.message.role === ChatRoleEnum.assistant) {
+    clearInterruptedAssistantMessages(chatId, [
+      resolvedTargetId,
+      chunk.message.id,
+    ]);
+  }
   const toolCallIds: string[] =
     chunk.message.role === "assistant"
       ? chunk.message.tool_calls?.map((toolCall) => toolCall.id) ?? []
       : [];
   clearToolArgumentPreviewByToolCallIds(projectConfigId, toolCallIds);
+}
+
+function resolveFinalizedAssistantMessageUpdate(
+  messages: Array<BaseChatMessageUnion>,
+  message: AssistantChatMessage,
+): { message: AssistantChatMessage; targetId: string } {
+  const existingAssistant = findAssistantMessageForFinalizedUpdate(
+    messages,
+    message,
+  );
+  const targetId = existingAssistant?.id ?? message.id;
+  return {
+    message: mergeFinalizedAssistantMessage(message, existingAssistant),
+    targetId,
+  };
+}
+
+function findAssistantMessageForFinalizedUpdate(
+  messages: Array<BaseChatMessageUnion>,
+  message: AssistantChatMessage,
+): AssistantChatMessage | null {
+  const sameId = messages.find((entry) => entry.id === message.id);
+  if (sameId?.role === ChatRoleEnum.assistant) {
+    return sameId;
+  }
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const candidate = messages[index];
+    if (candidate.role !== ChatRoleEnum.assistant) {
+      continue;
+    }
+    if (!isResponsePlaceholderId(candidate.id)) {
+      continue;
+    }
+    return candidate;
+  }
+  return null;
 }
 
 function handleToolArgumentPreviewDelta(
@@ -2773,14 +2782,17 @@ function applyStreamDeltaToChatSectionState(
       };
     }
     case StreamingEventTypeEnum.MESSAGE_FINALIZED: {
-      const messageToUpsert =
+      const { message: messageToUpsert, targetId } =
         chunk.message.role === ChatRoleEnum.assistant
-          ? mergeFinalizedAssistantMessage(
+          ? resolveFinalizedAssistantMessageUpdate(
               messages,
               chunk.message as AssistantChatMessage,
             )
-          : chunk.message;
-      messages = upsertMessage(messages, messageToUpsert);
+          : {
+              message: chunk.message,
+              targetId: chunk.message.id,
+            };
+      messages = upsertMessage(messages, messageToUpsert, targetId);
       waitingForResponse = false;
       toolCallArguments = {};
       const nextBranches = syncActiveBranchMessages(messages);
@@ -2809,23 +2821,38 @@ function applyStreamDeltaToChatSectionState(
 }
 
 function mergeFinalizedAssistantMessage(
-  messages: Array<BaseChatMessageUnion>,
   message: AssistantChatMessage,
+  existingAssistant: AssistantChatMessage | null,
 ): AssistantChatMessage {
-  if (message.content.length > 0) {
+  if (!existingAssistant) {
     return message;
   }
-  const existing = messages.find((entry) => entry.id === message.id);
-  if (!existing || existing.role !== ChatRoleEnum.assistant) {
-    return message;
-  }
-  const existingContent = existing.content ?? [];
-  if (existingContent.length === 0) {
+  const hasFinalizedContent = message.content.length > 0;
+  const mergedContent = hasFinalizedContent
+    ? message.content
+    : existingAssistant.content;
+  const finalizedToolCalls = message.tool_calls ?? [];
+  const existingToolCalls = existingAssistant.tool_calls ?? [];
+  const mergedToolCalls =
+    finalizedToolCalls.length > 0 ? finalizedToolCalls : existingToolCalls;
+  const finalizedAttachments = message.attachments ?? [];
+  const existingAttachments = existingAssistant.attachments ?? [];
+  const mergedAttachments =
+    finalizedAttachments.length > 0
+      ? finalizedAttachments
+      : existingAttachments;
+  if (
+    mergedContent === message.content &&
+    mergedToolCalls === message.tool_calls &&
+    mergedAttachments === message.attachments
+  ) {
     return message;
   }
   return {
     ...message,
-    content: [...existingContent],
+    content: mergedContent,
+    tool_calls: mergedToolCalls,
+    attachments: mergedAttachments,
   };
 }
 

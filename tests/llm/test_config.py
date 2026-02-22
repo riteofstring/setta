@@ -16,7 +16,6 @@ from setta.types.llm_config import (
     LLMConfig,
     MCPServerConfig,
 )
-from setta.utils import constants as constants_module
 
 DEFAULT_PROJECT_CONFIG_ID = ID("llm-config-tests-project")
 
@@ -271,21 +270,105 @@ class TestLLMConfigPersistence:
             payload = dbe.read_llm_config_example()
             assert "secondary" in payload["configs"]
 
-    def test_load_llm_config_uses_example_when_not_in_dev_mode(self, monkeypatch) -> None:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            dbe = DBE(Path(temp_dir))
-            seed_llm_config_example_file(dbe)
 
-            # Built mode leaves SETTA_DEV_MODE unset; fallback should still use example data.
-            monkeypatch.setattr(constants_module, "IS_DEV_MODE", None)
+class TestCodexMcpBootstrap:
+    def test_load_llm_config_bootstraps_codex_mcp_servers_when_only_setta(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.figma-desktop]
+transport = "streamable_http"
+url = "http://127.0.0.1:3845/mcp"
+
+[mcp_servers.pencil]
+command = "/Applications/Pencil.app/Contents/Resources/app.asar.unpacked/out/mcp-server-darwin-arm64"
+args = ["--app", "desktop"]
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        )
+                    }
+                ),
+                dbe,
+            )
 
             loaded = load_llm_config(dbe)
 
-            assert "claude-sonnet" in loaded.configs
-            assert "openai-whisper-1" in loaded.configs
+            assert "figma-desktop" in loaded.mcpServers
+            figma = loaded.mcpServers["figma-desktop"]
+            assert figma.transport == "streamable_http"
+            assert figma.url == "http://127.0.0.1:3845/mcp"
+
+            assert "pencil" in loaded.mcpServers
+            pencil = loaded.mcpServers["pencil"]
+            assert pencil.transport == "stdio"
+            assert (
+                pencil.command
+                == "/Applications/Pencil.app/Contents/Resources/app.asar.unpacked/out/mcp-server-darwin-arm64"
+            )
+            assert pencil.args == ["--app", "desktop"]
+
             persisted = dbe.read_llm_config()
-            assert "claude-sonnet" in persisted.get("configs", {})
-            assert "openai-whisper-1" in persisted.get("configs", {})
+            persisted_mcp = persisted.get("mcpServers", {})
+            assert "figma-desktop" in persisted_mcp
+            assert "pencil" in persisted_mcp
+
+    def test_load_llm_config_does_not_override_existing_non_setta_servers(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.figma-desktop]
+transport = "streamable_http"
+url = "http://127.0.0.1:3845/mcp"
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        ),
+                        "workspace-tools": MCPServerConfig(
+                            transport="streamable_http",
+                            url="http://127.0.0.1:9000/mcp",
+                        ),
+                    }
+                ),
+                dbe,
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "workspace-tools" in loaded.mcpServers
+            assert "figma-desktop" not in loaded.mcpServers
 
 
 class TestLLMConfigExampleSeeding:
@@ -298,9 +381,7 @@ class TestLLMConfigExampleSeeding:
             payload = dbe.read_llm_config_example()
             configs = payload.get("configs", {})
             assert "claude-sonnet" in configs
-            assert "openai-whisper-1" in configs
             assert "id" not in configs["claude-sonnet"]
-            assert "id" not in configs["openai-whisper-1"]
             assert "context7" not in payload.get("mcpServers", {})
 
     def test_seed_llm_config_example_file_preserves_existing_file(self) -> None:

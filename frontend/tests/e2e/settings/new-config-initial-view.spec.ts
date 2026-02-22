@@ -23,7 +23,7 @@ test("new config opens with initial section in view", async ({ page }) => {
   await ensureAppReady(page);
 
   await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "New Project" }).click();
+  await page.getByRole("button", { name: "New Config" }).click();
   await page.waitForSelector(READY_SELECTOR);
 
   const canvas = page.locator(CANVAS_SELECTOR);

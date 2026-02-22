@@ -47,23 +47,13 @@ function resolveBackendUrl(address: string): string {
   if (address.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
     return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
   }
+  if (address === RouteEnum.TOOLS_CALL) {
+    return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
+  }
   if (
     address === RouteEnum.LAUNCH ||
     address === RouteEnum.GET_SETTA_HOME_INFO ||
-    address === RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER ||
-    address === RouteEnum.GET_LAUNCHER_STATUS ||
-    address === RouteEnum.SETUP_LAUNCHER ||
-    address === RouteEnum.REPAIR_LAUNCHER ||
-    address === RouteEnum.REMOVE_LAUNCHER ||
-    address === RouteEnum.UPDATE_LAUNCHER ||
-    address === RouteEnum.GET_LAUNCHER_APP_MODE ||
-    address === RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES ||
-    address === RouteEnum.ADD_LAUNCHER_RECENT_WORKSPACE ||
-    address === RouteEnum.REMOVE_LAUNCHER_RECENT_WORKSPACE ||
-    address === RouteEnum.PIN_LAUNCHER_RECENT_WORKSPACE ||
-    address === RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS ||
-    address === RouteEnum.LIST_LAUNCHER_DIRECTORY ||
-    address === RouteEnum.OPEN_LAUNCHER_WORKSPACE
+    address === RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER
   ) {
     return `${C_ADDRESSES.LAUNCHER}${address}`;
   }
@@ -110,7 +100,7 @@ async function parseBinaryResponse(
 
 export function replaceAddressParams(
   address: string,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
+  addressParams?: Record<string, string | number | boolean>,
 ): string {
   if (!addressParams) return address;
 
@@ -122,47 +112,11 @@ export function replaceAddressParams(
   return output;
 }
 
-function buildAddressWithParams(
-  address: string,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
-): string {
-  if (!addressParams) {
-    return address;
-  }
-
-  const pathParamMatches = Array.from(address.matchAll(/\{([^}]+)\}/g));
-  const pathParamKeys = new Set(pathParamMatches.map((match) => match[1]));
-  const pathParams: Record<
-    string,
-    string | number | boolean | null | undefined
-  > = {};
-  const queryParams = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(addressParams)) {
-    if (pathParamKeys.has(key)) {
-      pathParams[key] = value;
-      continue;
-    }
-    if (value === null || value === undefined) {
-      continue;
-    }
-    queryParams.append(key, String(value));
-  }
-
-  const pathAddress = replaceAddressParams(address, pathParams);
-  const encodedQuery = queryParams.toString();
-  if (encodedQuery.length === 0) {
-    return pathAddress;
-  }
-  const joiner = pathAddress.includes("?") ? "&" : "?";
-  return `${pathAddress}${joiner}${encodedQuery}`;
-}
-
 export async function get<T>(
   address: string,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
+  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<T>> {
-  const fullAddress = buildAddressWithParams(address, addressParams);
+  const fullAddress = replaceAddressParams(address, addressParams);
   try {
     const shareHeaders = buildShareSessionHeaders();
     const response = await fetch(resolveBackendUrl(fullAddress), {
@@ -182,9 +136,9 @@ export async function get<T>(
 
 export async function getBinary(
   address: string,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
+  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<Uint8Array>> {
-  const fullAddress = buildAddressWithParams(address, addressParams);
+  const fullAddress = replaceAddressParams(address, addressParams);
   try {
     const shareHeaders = buildShareSessionHeaders();
     const response = await fetch(resolveBackendUrl(fullAddress), {
@@ -206,9 +160,9 @@ export async function getBinary(
 export async function post<T>(
   address: string,
   body: unknown | null = null,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
+  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<T>> {
-  const fullAddress = buildAddressWithParams(address, addressParams);
+  const fullAddress = replaceAddressParams(address, addressParams);
   try {
     const shareHeaders = buildShareSessionHeaders();
     const isFormData = body instanceof FormData;
