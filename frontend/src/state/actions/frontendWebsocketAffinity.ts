@@ -81,7 +81,9 @@ export function setFrontendWebsocketAffinityId(
   setAffinityId(normalizedWebsocketId);
 }
 
-export function clearFrontendWebsocketAffinity(socketGeneration?: number): void {
+export function clearFrontendWebsocketAffinity(
+  socketGeneration?: number,
+): void {
   if (isStaleGeneration(socketGeneration)) {
     return;
   }

@@ -1,17 +1,17 @@
-import logging
 import inspect
+import logging
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
 
-from setta.mcp.ui_settings_context import resolve_project_manager_from_ctx
 from setta.agentic.store import (
     list_prompt_templates,
     load_agent_profiles,
     load_external_agent_configs,
 )
 from setta.app.spec_store import default_app_spec_path
+from setta.mcp.ui_settings_context import resolve_project_manager_from_ctx
 from setta.plugins.errors import PluginManagerError
 from setta.plugins.models import (
     PluginListEntry,

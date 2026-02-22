@@ -2,8 +2,8 @@ import {
   receiveAgenticScopeViolationEdges,
   SCOPE_VIOLATION_TIMEOUT_MS,
 } from "state/actions/aiFollow";
-import { addTemporaryNotification } from "state/actions/notifications";
 import { getFrontendWebsocketAffinityId } from "state/actions/frontendWebsocketAffinity";
+import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,

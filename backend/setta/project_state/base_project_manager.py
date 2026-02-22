@@ -425,6 +425,7 @@ from setta.types.section_impls import (
     TerminalSectionImpl,
 )
 from setta.types.settings_state import RenameRefactorMode, RunSnapshotMode
+from setta.ui_settings.errors import UISettingExpectedOldValueMismatchError
 from setta.utils.async_debouncer import AsyncDebouncer
 from setta.utils.async_rw_lock import AsyncReadWriteLock
 from setta.utils.constants import C
@@ -443,7 +444,6 @@ from setta.utils.name_validation import (
 )
 from setta.utils.paths import get_setta_paths, normalize_workspace_path
 from setta.utils.utils import build_project_sections_dir
-from setta.ui_settings.errors import UISettingExpectedOldValueMismatchError
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 from setta.websockets.msg_handlers.python_script_sender import WMHPythonScriptSender
 

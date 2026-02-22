@@ -14,12 +14,10 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const invokePluginSettingRevealHandlerMock = vi.hoisted(() =>
-  vi.fn(
-    async (args: { pluginId: string }) => ({
-      ok: false,
-      message: `Plugin ${args.pluginId} has no setting reveal handlers.`,
-    }),
-  ),
+  vi.fn(async (args: { pluginId: string }) => ({
+    ok: false,
+    message: `Plugin ${args.pluginId} has no setting reveal handlers.`,
+  })),
 );
 
 vi.mock("plugins/runtime", async () => {
@@ -474,7 +472,9 @@ describe("receiveUISettingReveal", () => {
     ]);
     const state = useLocalStorage.getState();
     expect(
-      state.runInstructionsAccordionOpenValuesByProjectConfigId["project-request"],
+      state.runInstructionsAccordionOpenValuesByProjectConfigId[
+        "project-request"
+      ],
     ).toBeUndefined();
     expect(
       state.runInstructionsAccordionOpenValuesByProjectConfigId[

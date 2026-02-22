@@ -58,7 +58,9 @@ export async function receiveUISettingReveal(
   content: UISettingRevealContent,
 ): Promise<Array<UISettingRevealResultStatus>> {
   const requestedProjectConfigId = content.projectConfigId.trim();
-  const activeProjectConfigId = useProjectState.getState().projectConfig.id.trim();
+  const activeProjectConfigId = useProjectState
+    .getState()
+    .projectConfig.id.trim();
   if (requestedProjectConfigId !== activeProjectConfigId) {
     return buildProjectContextMismatchStatuses({
       reveals: content.reveals,

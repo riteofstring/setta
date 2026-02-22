@@ -17,8 +17,8 @@ import tomllib
 import zipfile
 from collections import OrderedDict
 from collections.abc import Callable, Iterator
-from copy import deepcopy
 from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import wraps
@@ -1212,10 +1212,7 @@ class PluginManager:
             read_handler_id=read_handler_id,
             project_config_id=project_config_id,
         )
-        if (
-            expected_old_value is not None
-            and expected_old_value != observed_old_value
-        ):
+        if expected_old_value is not None and expected_old_value != observed_old_value:
             raise PluginManagerError(
                 "PLUGIN_BACKEND_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
                 (
@@ -1292,10 +1289,7 @@ class PluginManager:
             default_value=default_value,
             plugin_id=plugin_id,
         )
-        if (
-            expected_old_value is not None
-            and expected_old_value != observed_old_value
-        ):
+        if expected_old_value is not None and expected_old_value != observed_old_value:
             raise PluginManagerError(
                 "PLUGIN_SCHEMA_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
                 (

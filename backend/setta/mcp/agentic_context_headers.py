@@ -22,10 +22,7 @@ def build_agentic_context_headers(
         headers[AGENTIC_CONTEXT_CHAT_ID_HEADER] = str(chat_id)
     if section_id is not None:
         headers[AGENTIC_CONTEXT_SECTION_ID_HEADER] = str(section_id)
-    if (
-        isinstance(frontend_websocket_id, str)
-        and frontend_websocket_id.strip() != ""
-    ):
+    if isinstance(frontend_websocket_id, str) and frontend_websocket_id.strip() != "":
         headers[AGENTIC_CONTEXT_FRONTEND_WEBSOCKET_ID_HEADER] = (
             frontend_websocket_id.strip()
         )
