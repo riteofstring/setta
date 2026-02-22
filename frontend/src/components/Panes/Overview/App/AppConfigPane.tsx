@@ -1537,7 +1537,10 @@ export function AppConfigPane() {
       )}
 
       <div className="grid gap-3 rounded-lg border border-setta-200 bg-white/70 p-4 dark:border-setta-700 dark:bg-setta-900/60">
-        <label className="flex flex-col gap-1 text-xs">
+        <label
+          className="flex flex-col gap-1 text-xs"
+          data-setting-anchor="core.app.catalog_id"
+        >
           Catalog ID
           <input
             className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
@@ -1545,7 +1548,10 @@ export function AppConfigPane() {
             onChange={(event) => setCatalogId(event.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs">
+        <label
+          className="flex flex-col gap-1 text-xs"
+          data-setting-anchor="core.app.spec_version"
+        >
           Spec version
           <input
             className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
@@ -1553,7 +1559,10 @@ export function AppConfigPane() {
             onChange={(event) => setSpecVersion(event.target.value)}
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs">
+        <label
+          className="flex flex-col gap-1 text-xs"
+          data-setting-anchor="core.app.theme_mode"
+        >
           Theme mode
           <select
             className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"
@@ -1571,7 +1580,10 @@ export function AppConfigPane() {
             republish.
           </span>
         </label>
-        <label className="flex flex-col gap-1 text-xs">
+        <label
+          className="flex flex-col gap-1 text-xs"
+          data-setting-anchor="core.app.spec_path"
+        >
           Spec path
           <input
             className="rounded-md border border-setta-200 bg-white px-3 py-2 text-sm text-setta-700 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-setta-700 dark:bg-setta-950 dark:text-setta-200"

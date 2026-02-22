@@ -69,7 +69,6 @@ def status_env(tmp_path):
         runtime_root: str | None = str(resolved_paths.runtime_root),
         setta_home: str | None = str(resolved_paths.setta_home),
         profile: str | None = resolved_paths.profile_name,
-        server_mode: str = "ide",
     ) -> SessionMetadata:
         return registry.create_session(
             workspace_path=workspace,
@@ -82,7 +81,6 @@ def status_env(tmp_path):
             runtime_root=runtime_root,
             setta_home=setta_home,
             profile=profile,
-            server_mode=server_mode,
         )
 
     env = SimpleNamespace(
@@ -171,7 +169,6 @@ def test_status_connect_info_json_emits_payload(status_env) -> None:
 
     session = payload["session"]
     assert session["port"] == 61234
-    assert session["serverMode"] == "ide"
     assert session["workspacePath"] == str(status_env.workspace.resolve())
     assert payload["bootstrapUrlPlain"] == "http://127.0.0.1:61234/__setta__/bootstrap"
     assert payload["bootstrapUrlFragment"].startswith(
@@ -342,46 +339,6 @@ def test_status_list_sessions_json_emits_payload(status_env) -> None:
     assert ports == {first.port, second.port}
     for session in sessions:
         assert session["workspacePath"] == str(status_env.workspace.resolve())
-        assert session["serverMode"] == "ide"
-
-
-def test_status_list_sessions_json_filters_by_server_mode(status_env) -> None:
-    status_env.create_session(port=61234, server_mode="ide")
-    status_env.create_session(port=61235, server_mode="launcher")
-    runner = CliRunner()
-
-    result = runner.invoke(
-        status,
-        ["--list-sessions", "--json", "--server-mode", "ide"],
-    )
-
-    assert result.exit_code == 0, result.output
-    payload = _decode_connect_info(result.output)
-    sessions = payload["sessions"]
-    assert len(sessions) == 1
-    assert sessions[0]["port"] == 61234
-    assert sessions[0]["serverMode"] == "ide"
-
-
-def test_status_connect_info_latest_filters_by_server_mode(status_env) -> None:
-    now = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-    status_env.create_session(port=61234, started_at=now, server_mode="ide")
-    status_env.create_session(
-        port=61235,
-        started_at=now + timedelta(minutes=1),
-        server_mode="launcher",
-    )
-    runner = CliRunner()
-
-    result = runner.invoke(
-        status,
-        ["--connect-info", "--json", "--latest", "--server-mode", "ide"],
-    )
-
-    assert result.exit_code == 0, result.output
-    payload = _decode_connect_info(result.output)
-    assert payload["session"]["port"] == 61234
-    assert payload["session"]["serverMode"] == "ide"
 
 
 def test_status_list_sessions_requires_json(status_env) -> None:
@@ -488,60 +445,6 @@ def test_stop_uses_workspace_from_other_cwd(status_workspace_env) -> None:
     assert result.exit_code == 0, result.output
     assert f"Stopped session {session.id}." in result.output
     assert not session_dir.exists()
-
-
-def test_stop_defaults_to_ide_sessions_only(
-    status_env,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ide_session = status_env.create_session(port=61234, server_mode="ide")
-    launcher_session = status_env.create_session(port=61235, server_mode="launcher")
-    ide_session_dir = status_env.sessions_root / ide_session.id
-    launcher_session_dir = status_env.sessions_root / launcher_session.id
-    monkeypatch.setattr("setta.start._stop_session_process", lambda _pid: None)
-
-    runner = CliRunner()
-    result = runner.invoke(
-        stop,
-        [
-            "--workspace",
-            str(status_env.workspace),
-            "--latest",
-        ],
-    )
-
-    assert result.exit_code == 0, result.output
-    assert f"Stopped session {ide_session.id}." in result.output
-    assert ide_session_dir.exists() is False
-    assert launcher_session_dir.exists() is True
-
-
-def test_stop_supports_launcher_server_mode_selection(
-    status_env,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ide_session = status_env.create_session(port=61234, server_mode="ide")
-    launcher_session = status_env.create_session(port=61235, server_mode="launcher")
-    ide_session_dir = status_env.sessions_root / ide_session.id
-    launcher_session_dir = status_env.sessions_root / launcher_session.id
-    monkeypatch.setattr("setta.start._stop_session_process", lambda _pid: None)
-
-    runner = CliRunner()
-    result = runner.invoke(
-        stop,
-        [
-            "--workspace",
-            str(status_env.workspace),
-            "--latest",
-            "--server-mode",
-            "launcher",
-        ],
-    )
-
-    assert result.exit_code == 0, result.output
-    assert f"Stopped session {launcher_session.id}." in result.output
-    assert launcher_session_dir.exists() is False
-    assert ide_session_dir.exists() is True
 
 
 def test_stop_local_profile_uses_profile_runtime_sessions_root(

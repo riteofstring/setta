@@ -8,7 +8,7 @@ import anyio
 import setta.project_state.base_project_manager  # noqa: F401
 from fastapi import FastAPI
 from mcp.client.session import ClientSession
-from mcp.types import Tool
+from mcp.types import CallToolResult, TextContent, Tool
 import pytest
 
 from setta.agentic.agentic_scope import AgenticContext, AgenticScope
@@ -124,7 +124,9 @@ class TestManagedActionExecutor:
 
             actions = await executor.apply(action)
 
-            emit_actions = [item for item in actions if isinstance(item, EmitChunkAction)]
+            emit_actions = [
+                item for item in actions if isinstance(item, EmitChunkAction)
+            ]
             assert len(emit_actions) == 1
             chunk = emit_actions[0].chunk
             assert isinstance(chunk, ToolResultEvent)
@@ -219,7 +221,9 @@ class TestManagedActionExecutor:
 
             actions = await executor.apply(action)
 
-            emit_actions = [item for item in actions if isinstance(item, EmitChunkAction)]
+            emit_actions = [
+                item for item in actions if isinstance(item, EmitChunkAction)
+            ]
             assert len(emit_actions) == 1
             chunk = emit_actions[0].chunk
             assert isinstance(chunk, ToolResultEvent)
@@ -275,13 +279,173 @@ class TestManagedActionExecutor:
 
             actions = await executor.apply(action)
 
-            emit_actions = [item for item in actions if isinstance(item, EmitChunkAction)]
+            emit_actions = [
+                item for item in actions if isinstance(item, EmitChunkAction)
+            ]
             assert len(emit_actions) == 1
             chunk = emit_actions[0].chunk
             assert isinstance(chunk, ToolResultEvent)
             tool_message = chunk.result
             assert tool_message.is_error
             assert "not allowed" in tool_message.content[0].text
+
+    async def test_setta_tool_meta_includes_frontend_websocket_id(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+            project_config_id = ID("project-1")
+            _seed_project_state(dbe, project_config_id)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager)
+            mcp_client = MultiMCPClient({})
+            history = ChatHistory(AgentRunChatStore(dbe))
+            executor = ManagedActionExecutor(
+                chat_history=history,
+                websocket_msg_handler=frontend_sender,
+                mcp_client=mcp_client,
+                dbe=dbe,
+                search_tool_name=build_namespaced_tool_name(
+                    SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
+                ),
+                logger=logging.getLogger(__name__),
+            )
+
+            tool_name = build_namespaced_tool_name(
+                SETTA_MCP_SERVER_ID,
+                "search_ui_settings",
+            )
+            mcp_client.routing[tool_name] = (SETTA_MCP_SERVER_ID, "search_ui_settings")
+            captured_meta: list[dict[str, object | None] | None] = []
+
+            async def _fake_call_tool(
+                requested_tool_name: str,
+                arguments: dict[str, object],
+                meta: dict[str, object | None] | None = None,
+            ) -> CallToolResult:
+                assert requested_tool_name == tool_name
+                assert arguments == {}
+                captured_meta.append(meta)
+                return CallToolResult(
+                    content=[TextContent(type="text", text="ok")],
+                    structuredContent={"ok": True},
+                    isError=False,
+                )
+
+            setattr(mcp_client, "call_tool", _fake_call_tool)
+            tool_call = ToolCall(
+                id="tool-call-1",
+                function=ToolCallFunction(
+                    name=tool_name,
+                    arguments={},
+                ),
+            )
+            action = ExecuteToolCallsAction(
+                project_config_id=project_config_id,
+                chat_id=ID("chat-1"),
+                tool_calls=[tool_call],
+                allowed_server_ids={SETTA_MCP_SERVER_ID},
+                share_session_id=None,
+                agentic_context=AgenticContext(
+                    project_config_id=project_config_id,
+                    chat_id=ID("chat-1"),
+                    section_id=ID("section-1"),
+                    frontend_websocket_id="frontend-1",
+                ),
+            )
+
+            actions = await executor.apply(action)
+
+            emit_actions = [
+                item for item in actions if isinstance(item, EmitChunkAction)
+            ]
+            assert len(emit_actions) == 1
+            assert captured_meta == [
+                {
+                    "projectConfigId": "project-1",
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "frontendWebsocketId": "frontend-1",
+                }
+            ]
+
+    async def test_setta_tool_meta_omits_frontend_websocket_id_in_share_scope(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            dbe = DBE(Path(temp_dir))
+            project_config_id = ID("project-1")
+            _seed_project_state(dbe, project_config_id)
+            websocket_manager = WebsocketManager()
+            frontend_sender = WMHFrontendSender(websocket_manager)
+            mcp_client = MultiMCPClient({})
+            history = ChatHistory(AgentRunChatStore(dbe))
+            executor = ManagedActionExecutor(
+                chat_history=history,
+                websocket_msg_handler=frontend_sender,
+                mcp_client=mcp_client,
+                dbe=dbe,
+                search_tool_name=build_namespaced_tool_name(
+                    SETTA_MCP_SERVER_ID, C.SEARCH_MCP_TOOLS_NAME
+                ),
+                logger=logging.getLogger(__name__),
+            )
+
+            tool_name = build_namespaced_tool_name(
+                SETTA_MCP_SERVER_ID,
+                "search_ui_settings",
+            )
+            mcp_client.routing[tool_name] = (SETTA_MCP_SERVER_ID, "search_ui_settings")
+            captured_meta: list[dict[str, object | None] | None] = []
+
+            async def _fake_call_tool(
+                requested_tool_name: str,
+                arguments: dict[str, object],
+                meta: dict[str, object | None] | None = None,
+            ) -> CallToolResult:
+                assert requested_tool_name == tool_name
+                assert arguments == {}
+                captured_meta.append(meta)
+                return CallToolResult(
+                    content=[TextContent(type="text", text="ok")],
+                    structuredContent={"ok": True},
+                    isError=False,
+                )
+
+            setattr(mcp_client, "call_tool", _fake_call_tool)
+            tool_call = ToolCall(
+                id="tool-call-1",
+                function=ToolCallFunction(
+                    name=tool_name,
+                    arguments={},
+                ),
+            )
+            action = ExecuteToolCallsAction(
+                project_config_id=project_config_id,
+                chat_id=ID("chat-1"),
+                tool_calls=[tool_call],
+                allowed_server_ids={SETTA_MCP_SERVER_ID},
+                share_session_id="share-session-1",
+                agentic_context=AgenticContext(
+                    project_config_id=project_config_id,
+                    chat_id=ID("chat-1"),
+                    section_id=ID("section-1"),
+                    frontend_websocket_id="frontend-1",
+                ),
+            )
+
+            actions = await executor.apply(action)
+
+            emit_actions = [
+                item for item in actions if isinstance(item, EmitChunkAction)
+            ]
+            assert len(emit_actions) == 1
+            assert captured_meta == [
+                {
+                    "projectConfigId": "project-1",
+                    "chatId": "chat-1",
+                    "sectionId": "section-1",
+                    "shareSessionId": "share-session-1",
+                }
+            ]
 
     async def test_scope_blocked_tool_emits_error_result(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -355,7 +519,9 @@ class TestManagedActionExecutor:
             def _get_manager(requested_project_config_id: ID, *, share_session_id=None):
                 del share_session_id
                 if requested_project_config_id != project_config_id:
-                    raise KeyError(f"Unexpected project config id: {requested_project_config_id}")
+                    raise KeyError(
+                        f"Unexpected project config id: {requested_project_config_id}"
+                    )
                 return manager
 
             state = SimpleNamespace(

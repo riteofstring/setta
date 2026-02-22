@@ -8,8 +8,6 @@ export type ResponseDataAndStatus<T> = {
   hasResponse: boolean;
 };
 
-type EndpointOriginPolicy = "backend" | "launcher" | "backend-origin";
-
 export function res200<T>(
   res: ResponseDataAndStatus<T>,
 ): res is ResponseDataAndStatus<T> & { data: T; status: number } {
@@ -45,51 +43,15 @@ export function getErrorDetail(value: unknown): string | null {
   return null;
 }
 
-export const ENDPOINT_ORIGIN_POLICY: Readonly<
-  Record<string, EndpointOriginPolicy>
-> = Object.freeze({
-  [RouteEnum.LAUNCH]: "launcher",
-  [RouteEnum.GET_LAUNCHER_APP_MODE]: "launcher",
-  [RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES]: "launcher",
-  [RouteEnum.ADD_LAUNCHER_RECENT_WORKSPACE]: "launcher",
-  [RouteEnum.REMOVE_LAUNCHER_RECENT_WORKSPACE]: "launcher",
-  [RouteEnum.PIN_LAUNCHER_RECENT_WORKSPACE]: "launcher",
-  [RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS]: "launcher",
-  [RouteEnum.LIST_LAUNCHER_DIRECTORY]: "launcher",
-  [RouteEnum.OPEN_LAUNCHER_WORKSPACE]: "launcher",
-});
-
-function stripQueryAndHash(address: string): string {
-  const hashIndex = address.indexOf("#");
-  let withoutHash = address;
-  if (hashIndex >= 0) {
-    withoutHash = address.slice(0, hashIndex);
-  }
-  const queryIndex = withoutHash.indexOf("?");
-  if (queryIndex >= 0) {
-    return withoutHash.slice(0, queryIndex);
-  }
-  return withoutHash;
-}
-
-export function resolveEndpointOrigin(address: string): EndpointOriginPolicy {
-  const normalizedAddress = stripQueryAndHash(address);
-  if (normalizedAddress.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
-    return "backend-origin";
-  }
-  const routePolicy = ENDPOINT_ORIGIN_POLICY[normalizedAddress];
-  if (routePolicy === "launcher") {
-    return "launcher";
-  }
-  return "backend";
-}
-
 function resolveBackendUrl(address: string): string {
-  const originPolicy = resolveEndpointOrigin(address);
-  if (originPolicy === "backend-origin") {
+  if (address.startsWith(RouteEnum.BOOTSTRAP_PAGE)) {
     return `${C_ADDRESSES.BACKEND_ORIGIN}${address}`;
   }
-  if (originPolicy === "launcher") {
+  if (
+    address === RouteEnum.LAUNCH ||
+    address === RouteEnum.GET_SETTA_HOME_INFO ||
+    address === RouteEnum.REVEAL_PATH_IN_OS_FILE_EXPLORER
+  ) {
     return `${C_ADDRESSES.LAUNCHER}${address}`;
   }
   return `${C_ADDRESSES.BACKEND}${address}`;
@@ -135,7 +97,7 @@ async function parseBinaryResponse(
 
 export function replaceAddressParams(
   address: string,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
+  addressParams?: Record<string, string | number | boolean>,
 ): string {
   if (!addressParams) return address;
 
@@ -147,47 +109,11 @@ export function replaceAddressParams(
   return output;
 }
 
-function buildAddressWithParams(
-  address: string,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
-): string {
-  if (!addressParams) {
-    return address;
-  }
-
-  const pathParamMatches = Array.from(address.matchAll(/\{([^}]+)\}/g));
-  const pathParamKeys = new Set(pathParamMatches.map((match) => match[1]));
-  const pathParams: Record<
-    string,
-    string | number | boolean | null | undefined
-  > = {};
-  const queryParams = new URLSearchParams();
-
-  for (const [key, value] of Object.entries(addressParams)) {
-    if (pathParamKeys.has(key)) {
-      pathParams[key] = value;
-      continue;
-    }
-    if (value === null || value === undefined) {
-      continue;
-    }
-    queryParams.append(key, String(value));
-  }
-
-  const pathAddress = replaceAddressParams(address, pathParams);
-  const encodedQuery = queryParams.toString();
-  if (encodedQuery.length === 0) {
-    return pathAddress;
-  }
-  const joiner = pathAddress.includes("?") ? "&" : "?";
-  return `${pathAddress}${joiner}${encodedQuery}`;
-}
-
 export async function get<T>(
   address: string,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
+  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<T>> {
-  const fullAddress = buildAddressWithParams(address, addressParams);
+  const fullAddress = replaceAddressParams(address, addressParams);
   try {
     const shareHeaders = buildShareSessionHeaders();
     const response = await fetch(resolveBackendUrl(fullAddress), {
@@ -207,9 +133,9 @@ export async function get<T>(
 
 export async function getBinary(
   address: string,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
+  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<Uint8Array>> {
-  const fullAddress = buildAddressWithParams(address, addressParams);
+  const fullAddress = replaceAddressParams(address, addressParams);
   try {
     const shareHeaders = buildShareSessionHeaders();
     const response = await fetch(resolveBackendUrl(fullAddress), {
@@ -231,9 +157,9 @@ export async function getBinary(
 export async function post<T>(
   address: string,
   body: unknown | null = null,
-  addressParams?: Record<string, string | number | boolean | null | undefined>,
+  addressParams?: Record<string, string | number | boolean>,
 ): Promise<ResponseDataAndStatus<T>> {
-  const fullAddress = buildAddressWithParams(address, addressParams);
+  const fullAddress = replaceAddressParams(address, addressParams);
   try {
     const shareHeaders = buildShareSessionHeaders();
     const isFormData = body instanceof FormData;
