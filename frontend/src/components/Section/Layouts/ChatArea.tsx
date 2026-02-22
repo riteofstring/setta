@@ -15,11 +15,9 @@ import {
   type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
-import { resolveAuthoritativeContextTelemetry } from "components/Chat/contextTelemetry";
 import { resolveProviderDictationAvailability } from "components/Chat/dictationMode";
 import {
   getChatPlaceholderText,
-  getExternalEngineIssueMessage,
   getExternalEngineStatus,
 } from "components/Chat/engineUtils";
 import {
@@ -28,6 +26,7 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
+import { useProviderTranscriptionSessionHandlers } from "components/Chat/useProviderTranscriptionSessionHandlers";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";
@@ -42,7 +41,6 @@ import {
   stopManagedSectionChatResponse,
   submitEditedMessage,
   submitMessage,
-  transcribeChatAudioWithProfile,
 } from "state/actions/ai";
 import { buildMessageBranchInfo } from "state/actions/aiBranches";
 import {
@@ -55,7 +53,6 @@ import {
   type ChatHistoryCompatibility,
   type ChatRunType,
 } from "state/actions/chatHistory";
-import { addPersistentNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
@@ -76,6 +73,7 @@ import {
 import {
   AgentRun,
   AgenticEdgeKindEnum,
+  ChatDictationMode,
   ChatFileAttachment,
   ChatRoleEnum,
   ChatSectionState,
@@ -84,7 +82,6 @@ import {
   EngineTypeEnum,
   LiteralDependencyValue,
   SectionTypeEnum,
-  SettaNotificationTypeEnum,
   createMessageTextContent,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
@@ -344,7 +341,7 @@ type ScriptableChatAreaProps = {
   isFrozen: boolean;
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
 };
 
 function ScriptableChatArea({
@@ -368,11 +365,20 @@ function ScriptableChatArea({
   const projectConfigId = getCurrProjectConfigId();
   const [draftInputText, setDraftInputText] = useState<string | null>(null);
   const {
-    contextWindowTokens,
-    contextUsedTokens,
-    contextUsageIsEstimated,
-    contextUsageUnavailable,
-  } = resolveAuthoritativeContextTelemetry(null);
+    onProviderTranscriptionSessionStart:
+      handleProviderTranscriptionSessionStart,
+    onProviderTranscriptionSessionAppend:
+      handleProviderTranscriptionSessionAppend,
+    onProviderTranscriptionSessionStop: handleProviderTranscriptionSessionStop,
+    onProviderTranscriptionSessionCancel:
+      handleProviderTranscriptionSessionCancel,
+  } = useProviderTranscriptionSessionHandlers({
+    transcriptionProfileId,
+    suppressStartNotification: dictationMode === "auto",
+  });
+  const providerDictationAvailable = Boolean(transcriptionProfileId);
+  const providerDictationUnavailableReason =
+    "Provider dictation requires a transcription profile.";
 
   const handleInputChange = useCallback(
     (value: string) => {
@@ -866,8 +872,7 @@ function ScriptableChatArea({
     ],
   );
 
-  const scrollClassName = isScrollable ? NO_WHEEL_CLASS_NAME : "";
-  const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
+  const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
   const effectiveInputText =
     effectiveState.waitingForResponse && draftInputText !== null
       ? draftInputText
@@ -885,37 +890,21 @@ function ScriptableChatArea({
     }),
     [executionControlHandlers.onPermissionModeChange, permissionMode],
   );
-  const providerDictationAvailable = Boolean(transcriptionProfileId);
-  const handleProviderDictationTranscribe = useCallback(
-    async (audioBlob: Blob) => {
-      if (!transcriptionProfileId) {
-        return null;
-      }
-      return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
-    },
-    [transcriptionProfileId],
-  );
 
   return (
-    <div
-      className={`${NO_PAN_CLASS_NAME} section-main-full-w flex min-h-0 flex-1 flex-col`}
-    >
+    <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
       <ChatMessageList
         messages={effectiveMessages}
         waitingForResponse={effectiveState.waitingForResponse}
         toolCallArguments={toolCallArguments}
         className={scrollClassName}
-        contentClassName={chatWidthShellClassName}
         scrollRef={ref}
         editDisabledReason={editDisabledReason}
         onEditMessage={handleEditMessage}
         onBranchSwitch={handleBranchSwitch}
         branchInfoByMessage={branchInfoByMessage}
       />
-      <div
-        className={`${chatWidthShellClassName} pb-1`}
-        data-chat-width-shell="true"
-      >
+      <div className="px-2.5 pb-1">
         <ChatInput
           placeholderText="Type a message..."
           waitingForResponse={effectiveState.waitingForResponse}
@@ -934,15 +923,20 @@ function ScriptableChatArea({
           }}
           dictationMode={dictationMode}
           dictationEnabledByProvider={providerDictationAvailable}
-          providerDictationLikelySupported={providerDictationAvailable}
-          contextWindowTokens={contextWindowTokens}
-          contextUsedTokens={contextUsedTokens}
-          contextUsageIsEstimated={contextUsageIsEstimated}
-          contextUsageUnavailable={contextUsageUnavailable}
-          onProviderDictationTranscribe={
-            providerDictationAvailable
-              ? handleProviderDictationTranscribe
-              : undefined
+          providerDictationUnavailableMessage={
+            providerDictationUnavailableReason
+          }
+          onProviderTranscriptionSessionStart={
+            handleProviderTranscriptionSessionStart
+          }
+          onProviderTranscriptionSessionAppend={
+            handleProviderTranscriptionSessionAppend
+          }
+          onProviderTranscriptionSessionStop={
+            handleProviderTranscriptionSessionStop
+          }
+          onProviderTranscriptionSessionCancel={
+            handleProviderTranscriptionSessionCancel
           }
         />
       </div>
@@ -1119,7 +1113,7 @@ type ManagedChatAreaProps = {
   thinking: boolean;
   permissionMode: ChatPermissionModeValue;
   searchEnabled: boolean;
-  dictationMode: "auto" | "browser" | "provider";
+  dictationMode: ChatDictationMode;
 };
 
 function ManagedChatArea({
@@ -1170,14 +1164,13 @@ function ManagedChatArea({
   });
   const [showHistory, setShowHistory] = useState(false);
   const lastChatIdRef = useRef<string | null>(null);
-  const notifiedExternalEngineIssueRef = useRef<string | null>(null);
   useEffect(() => {
     if (typeof chatId === "string") {
       lastChatIdRef.current = chatId;
     }
   }, [chatId]);
-  const { messages, toolCallArguments, waitingForResponse, contextUsage } =
-    useAIStore((state) => {
+  const { messages, toolCallArguments, waitingForResponse } = useAIStore(
+    (state) => {
       if (chatId === null) {
         return state.pendingChatDetails ?? getDefaultChatDetails();
       }
@@ -1185,7 +1178,9 @@ function ManagedChatArea({
         return getDefaultChatDetails();
       }
       return state.chatDetails[chatId] ?? getDefaultChatDetails();
-    }, shallow);
+    },
+    shallow,
+  );
   const branchIndex = useChatBranchIndex(typeof chatId === "string");
   const branchInfoByMessage = useMemo(() => {
     if (typeof chatId !== "string") {
@@ -1197,12 +1192,6 @@ function ManagedChatArea({
       branchIndex,
     });
   }, [branchIndex, chatId, messages]);
-  const interruptedAssistantMessageIds = useAIStore((state) => {
-    if (typeof chatId !== "string") {
-      return {};
-    }
-    return state.interruptedAssistantMessageIdsByChatId[chatId] ?? {};
-  }, shallow);
 
   const {
     apiKeys,
@@ -1276,12 +1265,6 @@ function ManagedChatArea({
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
-  const selectedLLMConfig = useMemo(() => {
-    if (!selectedLLMConfigId || !allLLMConfigs) {
-      return null;
-    }
-    return allLLMConfigs.configs[selectedLLMConfigId] ?? null;
-  }, [allLLMConfigs, selectedLLMConfigId]);
   const selectedTranscriptionProfile = useMemo(() => {
     if (!transcriptionProfileId) {
       return null;
@@ -1292,16 +1275,16 @@ function ManagedChatArea({
       ) ?? null
     );
   }, [transcriptionProfileId, transcriptionProfiles]);
-  const { providerDictationAvailable } = useMemo(
-    () =>
-      resolveProviderDictationAvailability({
-        selectedTranscriptionProfile,
-        allLLMConfigs,
-        apiKeys,
-      }),
-    [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
-  );
-  const providerDictationLikelySupported = providerDictationAvailable;
+  const { providerDictationAvailable, providerDictationUnavailableReason } =
+    useMemo(
+      () =>
+        resolveProviderDictationAvailability({
+          selectedTranscriptionProfile,
+          allLLMConfigs,
+          apiKeys,
+        }),
+      [allLLMConfigs, apiKeys, selectedTranscriptionProfile],
+    );
   const hasEngineConfig = Boolean(selectedEngineConfig);
   const hasLLMConfig = Boolean(selectedLLMConfigId);
   const externalEngineStatus = useMemo(
@@ -1330,15 +1313,6 @@ function ManagedChatArea({
       ) ?? null
     );
   }, [externalAgentConfigs, selectedEngineConfig]);
-  const {
-    contextWindowTokens,
-    contextUsedTokens,
-    contextUsageIsEstimated,
-    contextUsageUnavailable,
-  } = useMemo(
-    () => resolveAuthoritativeContextTelemetry(contextUsage),
-    [contextUsage],
-  );
   const showPlanModeBadge = shouldShowPlanModeBadge({
     engineType,
     externalAgentToolType: externalAgentConfig?.toolType ?? null,
@@ -1352,25 +1326,35 @@ function ManagedChatArea({
     hasLLMConfig,
     noLLMConfigsAvailable: noConfigsAvailable,
   });
-  const externalEngineIssueMessage = useMemo(
-    () => getExternalEngineIssueMessage(externalEngineStatus),
-    [externalEngineStatus],
-  );
-
-  useEffect(() => {
-    if (!externalEngineIssueMessage) {
-      notifiedExternalEngineIssueRef.current = null;
-      return;
+  const externalStatusMessage = useMemo(() => {
+    if (!externalEngineStatus) {
+      return null;
     }
-    if (notifiedExternalEngineIssueRef.current === externalEngineIssueMessage) {
-      return;
+    if (externalEngineStatus.status === "loading") {
+      return "Checking external engine status...";
     }
-    notifiedExternalEngineIssueRef.current = externalEngineIssueMessage;
-    addPersistentNotification(
-      externalEngineIssueMessage,
-      SettaNotificationTypeEnum.warning,
-    );
-  }, [externalEngineIssueMessage]);
+    if (externalEngineStatus.status === "available") {
+      return "External engine available";
+    }
+    if (externalEngineStatus.issues.length > 0) {
+      return `External engine unavailable: ${externalEngineStatus.issues.join(
+        "; ",
+      )}`;
+    }
+    return "External engine unavailable";
+  }, [externalEngineStatus]);
+  const externalStatusClassName = useMemo(() => {
+    if (!externalEngineStatus) {
+      return "";
+    }
+    if (externalEngineStatus.status === "available") {
+      return "text-emerald-600 dark:text-emerald-400";
+    }
+    if (externalEngineStatus.status === "loading") {
+      return "text-setta-500 dark:text-setta-400";
+    }
+    return "text-red-600 dark:text-red-400";
+  }, [externalEngineStatus]);
 
   useEffect(() => {
     if (typeof chatId !== "string") {
@@ -1710,8 +1694,7 @@ function ManagedChatArea({
     ],
   );
 
-  const scrollClassName = isScrollable ? NO_WHEEL_CLASS_NAME : "";
-  const chatWidthShellClassName = "mx-auto w-full max-w-[72rem] px-2";
+  const scrollClassName = `${isScrollable ? NO_WHEEL_CLASS_NAME : ""} px-4`;
   const isDisabled =
     !hasEngineConfig ||
     (!isExternalEngine && (!hasLLMConfig || noConfigsAvailable)) ||
@@ -1744,36 +1727,42 @@ function ManagedChatArea({
     }),
     [executionControlHandlers.onPermissionModeChange, permissionMode],
   );
-  const handleProviderDictationTranscribe = useCallback(
-    async (audioBlob: Blob) => {
-      if (isExternalEngine || !transcriptionProfileId) {
-        return null;
-      }
-      return transcribeChatAudioWithProfile(transcriptionProfileId, audioBlob);
-    },
-    [isExternalEngine, transcriptionProfileId],
-  );
+  const {
+    onProviderTranscriptionSessionStart:
+      handleProviderTranscriptionSessionStart,
+    onProviderTranscriptionSessionAppend:
+      handleProviderTranscriptionSessionAppend,
+    onProviderTranscriptionSessionStop: handleProviderTranscriptionSessionStop,
+    onProviderTranscriptionSessionCancel:
+      handleProviderTranscriptionSessionCancel,
+  } = useProviderTranscriptionSessionHandlers({
+    transcriptionProfileId,
+    suppressStartNotification: dictationMode === "auto",
+  });
 
   return (
-    <div
-      className={`${NO_PAN_CLASS_NAME} section-main-full-w flex min-h-0 flex-1 flex-col`}
-    >
-      {showPlanModeBadge ? (
-        <div
-          className={`${chatWidthShellClassName} flex items-center justify-end gap-2 pt-2`}
-        >
-          <PlanModeBadge />
+    <div className={`${NO_PAN_CLASS_NAME} section-main-full-w flex flex-col`}>
+      {externalStatusMessage || showPlanModeBadge ? (
+        <div className="flex items-center justify-between gap-2 px-4 pt-2">
+          {externalStatusMessage ? (
+            <p className={`text-xs ${externalStatusClassName}`}>
+              {externalStatusMessage}
+            </p>
+          ) : (
+            <span />
+          )}
+          {showPlanModeBadge ? <PlanModeBadge /> : null}
         </div>
       ) : null}
       {!hasAnyAgenticEdge ? (
-        <div className={`${chatWidthShellClassName} pt-2`}>
+        <div className="px-4 pt-2">
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200">
             No agentic edges. This chat has no project access. Add context/scope
             links or use Project Chat for full access.
           </div>
         </div>
       ) : !hasWriteScope ? (
-        <div className={`${chatWidthShellClassName} pt-2`}>
+        <div className="px-4 pt-2">
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200">
             No writable sections in scope. This chat cannot modify sections. Add
             a Chat → Section edge (Scope sections) or use Project Chat for full
@@ -1781,9 +1770,7 @@ function ManagedChatArea({
           </div>
         </div>
       ) : null}
-      <div
-        className={`${chatWidthShellClassName} flex items-center justify-end gap-2 pt-2`}
-      >
+      <div className="flex items-center justify-end gap-2 px-4 pt-2">
         <button
           type="button"
           className="rounded-md border border-setta-200 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-setta-600 transition-colors hover:border-setta-400 hover:text-setta-800 dark:border-setta-700 dark:text-setta-300 dark:hover:border-setta-500 dark:hover:text-setta-100"
@@ -1800,25 +1787,18 @@ function ManagedChatArea({
         </button>
       </div>
       {showHistory ? (
-        <div
-          className={`${chatWidthShellClassName} min-h-0 flex-1`}
-          data-chat-width-shell="true"
-        >
-          <ManagedChatHistoryPanel
-            sectionId={sectionId}
-            activeChatId={chatId}
-            historyCompatibility={historyCompatibility}
-            onSelect={handleSelectHistoryChat}
-          />
-        </div>
+        <ManagedChatHistoryPanel
+          sectionId={sectionId}
+          activeChatId={chatId}
+          historyCompatibility={historyCompatibility}
+          onSelect={handleSelectHistoryChat}
+        />
       ) : (
         <ChatMessageList
           messages={messages}
           waitingForResponse={waitingForResponse}
           toolCallArguments={toolCallArguments}
-          interruptedAssistantMessageIds={interruptedAssistantMessageIds}
           className={scrollClassName}
-          contentClassName={chatWidthShellClassName}
           scrollRef={ref}
           editDisabledReason={editDisabledReason}
           onEditMessage={handleEditMessage}
@@ -1826,10 +1806,7 @@ function ManagedChatArea({
           branchInfoByMessage={branchInfoByMessage}
         />
       )}
-      <div
-        className={`${chatWidthShellClassName} pb-1`}
-        data-chat-width-shell="true"
-      >
+      <div className="px-2.5 pb-1">
         <ChatInput
           placeholderText={placeholderText}
           waitingForResponse={waitingForResponse}
@@ -1846,15 +1823,20 @@ function ManagedChatArea({
           }}
           dictationMode={dictationMode}
           dictationEnabledByProvider={providerDictationAvailable}
-          providerDictationLikelySupported={providerDictationLikelySupported}
-          contextWindowTokens={contextWindowTokens}
-          contextUsedTokens={contextUsedTokens}
-          contextUsageIsEstimated={contextUsageIsEstimated}
-          contextUsageUnavailable={contextUsageUnavailable}
-          onProviderDictationTranscribe={
-            isExternalEngine || !providerDictationAvailable
-              ? undefined
-              : handleProviderDictationTranscribe
+          providerDictationUnavailableMessage={
+            providerDictationUnavailableReason
+          }
+          onProviderTranscriptionSessionStart={
+            handleProviderTranscriptionSessionStart
+          }
+          onProviderTranscriptionSessionAppend={
+            handleProviderTranscriptionSessionAppend
+          }
+          onProviderTranscriptionSessionStop={
+            handleProviderTranscriptionSessionStop
+          }
+          onProviderTranscriptionSessionCancel={
+            handleProviderTranscriptionSessionCancel
           }
         />
       </div>

@@ -1,7 +1,6 @@
 import base64
 import binascii
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Literal
 
 from fastapi import HTTPException, status
@@ -15,11 +14,6 @@ from setta.agentic.chat_view import (
     get_run_project_config_id,
     get_run_sort_key,
 )
-from setta.agentic.context_usage import (
-    ResolvedChatContextUsage,
-    resolve_external_run_context_usage,
-    resolve_internal_run_context_usage,
-)
 from setta.agentic.engine_resolver import resolve_engine_config
 from setta.agentic.external_agent_preflight import (
     build_external_agent_preflight_status,
@@ -30,15 +24,10 @@ from setta.agentic.store import (
     require_agent_profile,
 )
 from setta.agentic.transcription_profile_resolver import (
-    TranscriptionProfileNotFoundError,
     resolve_transcription_profile,
 )
 from setta.database.utils import create_new_id
-from setta.llm.transcription_sessions import (
-    TranscriptionAudioLimitExceededError,
-    TranscriptionSessionError,
-    TranscriptionSessionNotFoundError,
-)
+from setta.llm.transcription_sessions import TranscriptionAudioLimitExceededError
 from setta.llm.user_facing_errors import get_user_facing_llm_error_message
 from setta.logging.project_id_route import require_project_context
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
@@ -150,35 +139,6 @@ def _resolve_external_approval_policy_override(
     return None
 
 
-def _resolve_external_sandbox_policy_override(
-    permission_mode: ChatPermissionMode,
-    tool_type: ExternalAgentToolType,
-) -> str | None:
-    if permission_mode == ChatPermissionMode.config_toml_custom:
-        return None
-    if tool_type != ExternalAgentToolType.codex:
-        return None
-    if permission_mode == ChatPermissionMode.minimal:
-        return "workspace-write"
-    if permission_mode == ChatPermissionMode.yolo:
-        return "danger-full-access"
-    return None
-
-
-def _apply_external_reasoning_defaults(
-    *,
-    inputs: dict[str, object],
-    tool_type: ExternalAgentToolType,
-    thinking: bool,
-) -> None:
-    if tool_type != ExternalAgentToolType.codex:
-        return
-    if "effort" not in inputs:
-        inputs["effort"] = "high" if thinking else "low"
-    if "summary" not in inputs:
-        inputs["summary"] = "auto" if thinking else "none"
-
-
 def _get_llm_chat_runs(
     *,
     dbe,
@@ -211,18 +171,6 @@ def _select_latest_run(runs: list[AgentRun]) -> AgentRun | None:
     if not runs:
         return None
     return max(runs, key=get_run_sort_key)
-
-
-def _to_chat_context_usage(
-    usage: ResolvedChatContextUsage | None,
-) -> "ChatContextUsage | None":
-    if usage is None:
-        return None
-    return ChatContextUsage(
-        contextWindowTokens=usage.context_window_tokens,
-        contextUsedTokens=usage.context_used_tokens,
-        estimated=usage.estimated,
-    )
 
 
 def _ensure_external_chat_id_compatible(
@@ -350,18 +298,6 @@ def _get_run_input_messages(run: AgentRun | None) -> list[BaseChatMessageUnion]:
     if not inputs:
         return []
     raw_messages = inputs.get("messages")
-    if not isinstance(raw_messages, list):
-        return []
-    return [BaseChatMessageTypeAdapter.validate_python(raw) for raw in raw_messages]
-
-
-def _get_run_output_messages(run: AgentRun | None) -> list[BaseChatMessageUnion]:
-    if run is None:
-        return []
-    outputs = run.outputs
-    if not outputs:
-        return []
-    raw_messages = outputs.get("messages")
     if not isinstance(raw_messages, list):
         return []
     return [BaseChatMessageTypeAdapter.validate_python(raw) for raw in raw_messages]
@@ -541,6 +477,15 @@ def _normalize_reference_image_inputs(
     )
 
 
+def _normalize_frontend_websocket_id(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if normalized == "":
+        return None
+    return normalized
+
+
 class GetLLMResponseRequest(BaseModel):
     chatId: ID | None
     message: BaseChatMessageUnionWithDiscriminator
@@ -549,6 +494,7 @@ class GetLLMResponseRequest(BaseModel):
     thinking: bool
     projectConfigId: ID
     sectionId: ID | None = None
+    frontendWebsocketId: str | None = None
     allowUnscoped: bool = False
     branchParentChatId: ID | None = None
     branchFromMessageId: ID | None = None
@@ -615,32 +561,10 @@ class TranscriptionSessionDeltaResponse(BaseModel):
     isFinal: bool
 
 
-class TranscriptionErrorCode(str, Enum):
-    unsupported_model = "unsupported_model"
-    missing_api_key = "missing_api_key"
-    profile_not_found = "profile_not_found"
-    session_not_found = "session_not_found"
-    invalid_request = "invalid_request"
-    audio_payload_too_large = "audio_payload_too_large"
-    provider_failure = "provider_failure"
-
-
-class TranscriptionErrorDetail(BaseModel):
-    message: str
-    errorCode: TranscriptionErrorCode
-
-
-class ChatContextUsage(BaseModel):
-    contextWindowTokens: int | None = None
-    contextUsedTokens: int | None = None
-    estimated: bool = False
-
-
 class GetLLMChatRequestResponse(BaseModel):
     messages: list[BaseChatMessageUnionWithDiscriminator]
     waitingForResponse: bool
     llmConfig: LLMConfig
-    contextUsage: ChatContextUsage | None = None
 
 
 class GetExternalAgentChatRequest(BaseModel):
@@ -652,34 +576,14 @@ class GetExternalAgentChatResponse(BaseModel):
     messages: list[BaseChatMessageUnionWithDiscriminator]
     waitingForResponse: bool
     toolCallArguments: dict[str, str] = Field(default_factory=dict)
-    contextUsage: ChatContextUsage | None = None
 
 
 class StopLLMChatRequest(BaseModel):
     chatId: ID
 
 
-class StopLLMChatResponse(BaseModel):
-    alreadyStopped: bool
-    stoppedRunId: ID | None = None
-    stoppedMessageId: ID | None = None
-
-
 class GetAIFollowSnapshotRequest(BaseModel):
     projectConfigId: ID
-
-
-def _resolve_latest_assistant_message_id_from_run(run: AgentRun) -> ID | None:
-    input_ids = {message.id for message in _get_run_input_messages(run)}
-    for message in reversed(_get_run_output_messages(run)):
-        if message.role != "assistant":
-            continue
-        if message.id in input_ids:
-            continue
-        raw_message_id = getattr(message, "id", None)
-        if isinstance(raw_message_id, str) and raw_message_id:
-            return ID(raw_message_id)
-    return None
 
 
 def _normalize_transcription_language(value: str | None) -> str | None:
@@ -691,75 +595,52 @@ def _normalize_transcription_language(value: str | None) -> str | None:
     return stripped
 
 
-def _raise_transcription_http_error(
-    *,
-    status_code: int,
-    message: str,
-    error_code: TranscriptionErrorCode,
-) -> None:
-    raise HTTPException(
-        status_code=status_code,
-        detail=TranscriptionErrorDetail(
-            message=message,
-            errorCode=error_code,
-        ).model_dump(mode="json"),
-    )
-
-
 def _decode_pcm16_payload(audio_pcm16_base64: str) -> bytes:
     stripped_payload = audio_pcm16_base64.strip()
     if not stripped_payload:
-        _raise_transcription_http_error(
-            status_code=400,
-            message="Audio payload is empty.",
-            error_code=TranscriptionErrorCode.invalid_request,
-        )
+        raise HTTPException(status_code=400, detail="Audio payload is empty.")
     estimated_decoded_bytes = (len(stripped_payload) * 3) // 4
     if stripped_payload.endswith("=="):
         estimated_decoded_bytes -= 2
     elif stripped_payload.endswith("="):
         estimated_decoded_bytes -= 1
     if estimated_decoded_bytes > _TRANSCRIPTION_PCM_MAX_BYTES:
-        _raise_transcription_http_error(
+        raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            message=_build_audio_payload_too_large_detail(_TRANSCRIPTION_PCM_MAX_BYTES),
-            error_code=TranscriptionErrorCode.audio_payload_too_large,
+            detail=_build_audio_payload_too_large_detail(_TRANSCRIPTION_PCM_MAX_BYTES),
         )
     try:
         decoded = base64.b64decode(stripped_payload, validate=True)
-    except binascii.Error:
-        _raise_transcription_http_error(
-            status_code=400,
-            message="Audio payload is not valid base64.",
-            error_code=TranscriptionErrorCode.invalid_request,
-        )
+    except binascii.Error as exc:
+        raise HTTPException(
+            status_code=400, detail="Audio payload is not valid base64."
+        ) from exc
     if not decoded:
-        _raise_transcription_http_error(
-            status_code=400,
-            message="Audio payload is empty.",
-            error_code=TranscriptionErrorCode.invalid_request,
-        )
+        raise HTTPException(status_code=400, detail="Audio payload is empty.")
     if len(decoded) > _TRANSCRIPTION_PCM_MAX_BYTES:
-        _raise_transcription_http_error(
+        raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            message=_build_audio_payload_too_large_detail(_TRANSCRIPTION_PCM_MAX_BYTES),
-            error_code=TranscriptionErrorCode.audio_payload_too_large,
+            detail=_build_audio_payload_too_large_detail(_TRANSCRIPTION_PCM_MAX_BYTES),
         )
     if len(decoded) % 2 != 0:
-        _raise_transcription_http_error(
+        raise HTTPException(
             status_code=400,
-            message="Audio payload must be PCM16 with an even byte length.",
-            error_code=TranscriptionErrorCode.invalid_request,
+            detail="Audio payload must be PCM16 with an even byte length.",
         )
     return decoded
 
 
-def _resolve_transcription_session_error_code(
-    exc: TranscriptionSessionError,
-) -> TranscriptionErrorCode:
-    if exc.error_code == "unsupported_model":
-        return TranscriptionErrorCode.unsupported_model
-    return TranscriptionErrorCode.invalid_request
+def _raise_transcription_key_error(exc: KeyError) -> None:
+    detail = (
+        exc.args[0]
+        if exc.args and isinstance(exc.args[0], str)
+        else "Transcription session error."
+    )
+    if "Transcription profile" in detail and "not found" in detail:
+        raise HTTPException(status_code=404, detail=detail) from exc
+    if "Transcription session" in detail and "not found" in detail:
+        raise HTTPException(status_code=404, detail=detail) from exc
+    raise HTTPException(status_code=400, detail=detail) from exc
 
 
 @router.post(Route.GET_LLM_RESPONSE)
@@ -875,6 +756,11 @@ async def route_get_llm_response(
         x.permissionMode,
         x.searchEnabled,
     )
+    normalized_frontend_websocket_id = _normalize_frontend_websocket_id(
+        x.frontendWebsocketId
+    )
+    if ctx.share_session_id is not None:
+        normalized_frontend_websocket_id = None
     if resolved.engine_config.engineType == EngineType.setta_llm:
         if ctx.state.agent_runner.disabled:
             raise HTTPException(status_code=503, detail="Agent runner is not available")
@@ -924,6 +810,8 @@ async def route_get_llm_response(
             inputs["sectionId"] = str(x.sectionId)
         if x.allowUnscoped:
             inputs["allowUnscoped"] = True
+        if normalized_frontend_websocket_id is not None:
+            inputs["frontendWebsocketId"] = normalized_frontend_websocket_id
         ctx.state.agent_runner.start_run(profile, inputs)
         return chat_id
     if resolved.engine_config.engineType == EngineType.external_agent:
@@ -974,23 +862,12 @@ async def route_get_llm_response(
                 message.model_dump(mode="json") for message in combined_messages
             ],
         }
-        _apply_external_reasoning_defaults(
-            inputs=inputs,
-            tool_type=external_config.toolType,
-            thinking=x.thinking,
-        )
         approval_policy_override = _resolve_external_approval_policy_override(
             x.permissionMode,
             external_config.toolType,
         )
         if approval_policy_override is not None:
             inputs["approvalPolicy"] = approval_policy_override
-        sandbox_policy_override = _resolve_external_sandbox_policy_override(
-            x.permissionMode,
-            external_config.toolType,
-        )
-        if sandbox_policy_override is not None:
-            inputs["sandboxPolicy"] = sandbox_policy_override
         inputs["systemPrompt"] = _combine_prompt_sections(
             execution_policy_prompt,
             _REQUIRED_ERROR_CHECK_PROMPT,
@@ -1010,6 +887,8 @@ async def route_get_llm_response(
             inputs["sectionId"] = str(x.sectionId)
         if x.allowUnscoped:
             inputs["allowUnscoped"] = True
+        if normalized_frontend_websocket_id is not None:
+            inputs["frontendWebsocketId"] = normalized_frontend_websocket_id
         try:
             runner.start_run(x.engineConfigId, external_config, profile, inputs)
         except KeyError as exc:
@@ -1048,17 +927,8 @@ async def route_start_transcription_session(
             ctx.state.agent_runner.config,
             x.transcriptionProfileId,
         )
-    except TranscriptionProfileNotFoundError as exc:
-        detail = (
-            exc.args[0]
-            if exc.args and isinstance(exc.args[0], str)
-            else "Transcription profile not found."
-        )
-        _raise_transcription_http_error(
-            status_code=404,
-            message=detail,
-            error_code=TranscriptionErrorCode.profile_not_found,
-        )
+    except KeyError as exc:
+        _raise_transcription_key_error(exc)
     try:
         (
             session_id,
@@ -1077,33 +947,14 @@ async def route_start_transcription_session(
             if exc.args and isinstance(exc.args[0], str)
             else "Missing API key for transcription."
         )
-        _raise_transcription_http_error(
-            status_code=400,
-            message=detail,
-            error_code=TranscriptionErrorCode.missing_api_key,
-        )
-    except TranscriptionSessionError as exc:
-        _raise_transcription_http_error(
-            status_code=400,
-            message=str(exc),
-            error_code=_resolve_transcription_session_error_code(exc),
-        )
+        raise HTTPException(status_code=400, detail=detail) from exc
     except ValueError as exc:
-        detail = str(exc)
-        _raise_transcription_http_error(
-            status_code=400,
-            message=detail,
-            error_code=TranscriptionErrorCode.invalid_request,
-        )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         detail = (
             get_user_facing_llm_error_message(exc) or "Provider transcription failed."
         )
-        _raise_transcription_http_error(
-            status_code=502,
-            message=detail,
-            error_code=TranscriptionErrorCode.provider_failure,
-        )
+        raise HTTPException(status_code=502, detail=detail) from exc
     resolved_mode_literal: Literal["file", "realtime"] = (
         "realtime" if resolved_transport_mode == "realtime" else "file"
     )
@@ -1135,38 +986,20 @@ async def route_append_transcription_audio(
             sample_rate_hz=x.sampleRateHz,
             channels=x.channels,
         )
-    except TranscriptionSessionNotFoundError as exc:
-        detail = (
-            exc.args[0]
-            if exc.args and isinstance(exc.args[0], str)
-            else "Transcription session not found."
-        )
-        _raise_transcription_http_error(
-            status_code=404,
-            message=detail,
-            error_code=TranscriptionErrorCode.session_not_found,
-        )
+    except KeyError as exc:
+        _raise_transcription_key_error(exc)
     except TranscriptionAudioLimitExceededError as exc:
-        _raise_transcription_http_error(
+        raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            message=_build_audio_payload_too_large_detail(exc.max_bytes),
-            error_code=TranscriptionErrorCode.audio_payload_too_large,
-        )
+            detail=_build_audio_payload_too_large_detail(exc.max_bytes),
+        ) from exc
     except ValueError as exc:
-        _raise_transcription_http_error(
-            status_code=400,
-            message=str(exc),
-            error_code=TranscriptionErrorCode.invalid_request,
-        )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         detail = (
             get_user_facing_llm_error_message(exc) or "Provider transcription failed."
         )
-        _raise_transcription_http_error(
-            status_code=502,
-            message=detail,
-            error_code=TranscriptionErrorCode.provider_failure,
-        )
+        raise HTTPException(status_code=502, detail=detail) from exc
     return _to_transcription_delta_response(
         append_text=result.append_text,
         full_text=result.full_text,
@@ -1185,32 +1018,15 @@ async def route_stop_transcription_session(
             scope_id=ctx.session_id,
             session_id=x.sessionId,
         )
-    except TranscriptionSessionNotFoundError as exc:
-        detail = (
-            exc.args[0]
-            if exc.args and isinstance(exc.args[0], str)
-            else "Transcription session not found."
-        )
-        _raise_transcription_http_error(
-            status_code=404,
-            message=detail,
-            error_code=TranscriptionErrorCode.session_not_found,
-        )
+    except KeyError as exc:
+        _raise_transcription_key_error(exc)
     except ValueError as exc:
-        _raise_transcription_http_error(
-            status_code=400,
-            message=str(exc),
-            error_code=TranscriptionErrorCode.invalid_request,
-        )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         detail = (
             get_user_facing_llm_error_message(exc) or "Provider transcription failed."
         )
-        _raise_transcription_http_error(
-            status_code=502,
-            message=detail,
-            error_code=TranscriptionErrorCode.provider_failure,
-        )
+        raise HTTPException(status_code=502, detail=detail) from exc
     return _to_transcription_delta_response(
         append_text=result.append_text,
         full_text=result.full_text,
@@ -1238,21 +1054,15 @@ async def route_cancel_transcription_session(
 async def route_stop_llm_chat(
     x: StopLLMChatRequest,
     ctx: RuntimeContextFromRequest,
-) -> StopLLMChatResponse:
+) -> None:
     await ctx.enforce_llm_allowed()
     runs = _get_llm_chat_runs(dbe=ctx.state.dbe, chat_id=x.chatId)
     running_runs = [run for run in runs if run.status == AgentRunStatus.running]
     latest_run = _select_latest_run(running_runs)
     if latest_run is None:
-        return StopLLMChatResponse(alreadyStopped=True)
-    stopped_run = await ctx.state.agent_runner.stop_run(latest_run.id)
-    if stopped_run.status != AgentRunStatus.cancelled:
-        return StopLLMChatResponse(alreadyStopped=True)
-    return StopLLMChatResponse(
-        alreadyStopped=False,
-        stoppedRunId=stopped_run.id,
-        stoppedMessageId=_resolve_latest_assistant_message_id_from_run(stopped_run),
-    )
+        return None
+    await ctx.state.agent_runner.stop_run(latest_run.id)
+    return None
 
 
 @router.post(Route.GET_LLM_CHAT)
@@ -1276,29 +1086,18 @@ async def route_get_llm_chat(
             state = live_state
     engine_config_id = get_run_engine_config_id(latest_run)
     if not engine_config_id:
-        raise HTTPException(
-            status_code=409,
-            detail="Chat engine config is no longer available.",
-        )
+        raise HTTPException(status_code=500, detail="Chat engine config not found")
     resolved = resolve_engine_config(
         ctx.state.dbe, ctx.state.agent_runner.config, engine_config_id
     )
     if resolved.engine_config.engineType != EngineType.setta_llm:
-        raise HTTPException(
-            status_code=409,
-            detail="Chat engine mismatch; start a new chat.",
-        )
+        raise HTTPException(status_code=500, detail="Chat engine is not internal")
     if resolved.llm_config is None:
-        raise HTTPException(
-            status_code=409,
-            detail="Chat LLM config is no longer available.",
-        )
-    context_usage = resolve_internal_run_context_usage(latest_run)
+        raise HTTPException(status_code=500, detail="Chat LLM config not found")
     return GetLLMChatRequestResponse(
         messages=state.messages,
         waitingForResponse=state.waitingForResponse,
         llmConfig=resolved.llm_config,
-        contextUsage=_to_chat_context_usage(context_usage),
     )
 
 
@@ -1323,12 +1122,10 @@ async def route_get_external_agent_chat(
             live_state = runner.get_live_chat_state(latest_run.id)
             if live_state is not None:
                 state = live_state
-    context_usage = resolve_external_run_context_usage(latest_run)
     return GetExternalAgentChatResponse(
         messages=state.messages,
         waitingForResponse=state.waitingForResponse,
         toolCallArguments=state.toolCallArguments,
-        contextUsage=_to_chat_context_usage(context_usage),
     )
 
 

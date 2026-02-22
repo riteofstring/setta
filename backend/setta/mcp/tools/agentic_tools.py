@@ -9,6 +9,7 @@ from setta.agentic.completion_report import (
     build_completion_status_report,
 )
 from setta.agentic.store import load_agent_profiles
+from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.tool_metadata import ToolAccessMetadata, attach_tool_access
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
 from setta.types.agentic import AgentProfile, AgentProfileList, AgentRun
@@ -21,6 +22,7 @@ def set_agentic_context(
     projectConfigId: ID,
     chatId: ID | None = None,
     sectionId: ID | None = None,
+    frontendWebsocketId: str | None = None,
     allowUnscoped: bool = False,
     ctx: Context,
 ) -> dict[str, Any]:
@@ -31,18 +33,29 @@ def set_agentic_context(
         projectConfigId: Active project config id.
         chatId: Chat id for the agent run.
         sectionId: Chat section id (required unless allowUnscoped=true).
+        frontendWebsocketId: Frontend websocket id for reveal routing affinity.
         allowUnscoped: Allow an unscoped/project-level context (required when sectionId is omitted).
     """
     if sectionId is None and not allowUnscoped:
-        raise ValueError("sectionId is required unless allowUnscoped is true.")
+        raise InvalidToolArgumentsError(
+            "sectionId is required unless allowUnscoped is true."
+        )
     if sectionId is not None and allowUnscoped:
-        raise ValueError("allowUnscoped requires sectionId to be omitted.")
+        raise InvalidToolArgumentsError(
+            "allowUnscoped requires sectionId to be omitted."
+        )
     ctx.fastmcp.set_agentic_context_for_session(
         ctx,
         AgenticContext(
             project_config_id=projectConfigId,
             chat_id=chatId,
             section_id=sectionId,
+            frontend_websocket_id=(
+                frontendWebsocketId.strip()
+                if isinstance(frontendWebsocketId, str)
+                and frontendWebsocketId.strip() != ""
+                else None
+            ),
             allow_unscoped=allowUnscoped,
         ),
     )

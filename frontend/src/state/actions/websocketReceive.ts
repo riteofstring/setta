@@ -1,6 +1,13 @@
 import _ from "lodash";
 import { processAppProjectStateUpdateFromBackend } from "state/actions/appProjectState";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
+import {
+  buildFrontendAffinityCurrentAddress,
+  clearFrontendWebsocketAffinity,
+  setActiveFrontendWebsocketAffinityGeneration,
+  setFrontendWebsocketAffinityId,
+  updateFrontendWebsocketAffinity,
+} from "state/actions/frontendWebsocketAffinity";
 import { processLspDiagnostics } from "state/actions/lspDiagnostics";
 import { processNameValidationErrors } from "state/actions/nameValidation";
 import {
@@ -40,12 +47,15 @@ import {
   SectionDependencyKey,
   SectionParamDependencyKey,
   SettaNotificationTypeEnum,
+  UISettingRevealContent,
+  UISettingRevealContentSchema,
   WebsocketConnectionTypeEnum,
   WebsocketMsg,
   WebsocketMsgRealtimeDependencyEvent,
   WebsocketMsgRealtimeUIChange,
   WebsocketMsgTypeForBackendEnum,
   WebsocketMsgTypeForFrontendEnum,
+  WebsocketMsgUISettingRevealResult,
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
@@ -87,8 +97,12 @@ import {
   initializeShareSessionFromCurrentDeployment,
   resetShareSessionState,
 } from "./share";
+import {
+  receiveUISettingReveal,
+  type UISettingRevealExecutionContext,
+} from "./uiSettingReveal";
 
-let wss: WebSocket | null;
+let wss: WebSocket | null = null;
 let wasOpen = false;
 let authLost = false;
 const AUTH_CLOSE_CODE = 4401;
@@ -113,10 +127,44 @@ let lastPathname: string | null = null;
 let lastShareSessionId: string | null = null;
 let currentShareSessionId: string | null = null;
 let currentRoute: string | null = null;
+let activeWebsocketGeneration = 0;
 let shareHeartbeatTimer: number | null = null;
 let shareSessionRecoveryAttempts = 0;
 let shareSessionRecoveryInFlight = false;
 let lastRealtimeBinaryOversizeWarningAt = 0;
+type UISettingRevealResultStatusPayload = {
+  settingId: string;
+  status: "revealed" | "failed";
+  errorCode: string | null;
+  errorMessage: string | null;
+};
+type PendingUISettingRevealMessage = {
+  content: unknown;
+  socketGeneration: number;
+};
+const pendingUISettingRevealMessages: PendingUISettingRevealMessage[] = [];
+let uiSettingRevealQueueWorkerRunning = false;
+
+function beginWebsocketGeneration(): number {
+  const previousGeneration = activeWebsocketGeneration;
+  activeWebsocketGeneration += 1;
+  if (previousGeneration > 0) {
+    cancelPendingUISettingRevealMessages(previousGeneration);
+  }
+  setActiveFrontendWebsocketAffinityGeneration(activeWebsocketGeneration);
+  clearFrontendWebsocketAffinity(activeWebsocketGeneration);
+  return activeWebsocketGeneration;
+}
+
+function cancelPendingUISettingRevealMessages(socketGeneration: number): void {
+  for (let i = pendingUISettingRevealMessages.length - 1; i >= 0; i -= 1) {
+    if (
+      pendingUISettingRevealMessages[i]?.socketGeneration === socketGeneration
+    ) {
+      pendingUISettingRevealMessages.splice(i, 1);
+    }
+  }
+}
 
 export const openWebSocket = _.debounce(
   (pathname: string, shareSessionId: string | null = null) => {
@@ -138,19 +186,31 @@ export const openWebSocket = _.debounce(
         )}`
       : `${C_ADDRESSES.WEBSOCKET}${route}`;
     if (
+      wssReady(wss) &&
+      currentRoute === route &&
+      currentShareSessionId === shareSessionId
+    ) {
+      sendCurrentAddress(buildFrontendAffinityCurrentAddress(pathname));
+      return;
+    }
+    if (
       wss &&
       (currentRoute !== route || currentShareSessionId !== shareSessionId)
     ) {
-      closeWebSocket();
+      closeWebSocketForReplacement();
     }
     if (!wss) {
+      const socketGeneration = beginWebsocketGeneration();
       const socket = new WebSocket(targetUrl);
       wss = socket;
       const shareSessionIdForSocket = shareSessionId;
       currentShareSessionId = shareSessionId;
       currentRoute = route;
       wss.addEventListener("open", async () => {
-        sendCurrentAddress(pathname);
+        if (activeWebsocketGeneration !== socketGeneration || wss !== socket) {
+          return;
+        }
+        sendCurrentAddress(buildFrontendAffinityCurrentAddress(pathname));
         addTemporaryNotification("Connected to server");
         addWebsocketConnection(
           createWebsocketConnectionInfo({
@@ -191,15 +251,23 @@ export const openWebSocket = _.debounce(
       });
 
       wss.addEventListener("message", (event) => {
+        if (activeWebsocketGeneration !== socketGeneration || wss !== socket) {
+          return;
+        }
         if (typeof event.data !== "string") {
           return;
         }
-        receiveMessage(event.data);
+        receiveMessage(event.data, socketGeneration);
       });
 
-      wss.addEventListener("error", closeWebSocket);
+      wss.addEventListener("error", () => {
+        handleWebSocketTransportError(socket, socketGeneration);
+      });
 
       socket.addEventListener("close", (event: CloseEvent) => {
+        if (activeWebsocketGeneration !== socketGeneration) {
+          return;
+        }
         if (wss && wss !== socket) {
           return;
         }
@@ -214,6 +282,7 @@ export const openWebSocket = _.debounce(
         ) {
           wasOpen = false;
           clearAllWebsocketConnections();
+          clearFrontendWebsocketAffinity(socketGeneration);
           if (!shareSessionIdForSocket) {
             return;
           }
@@ -224,6 +293,7 @@ export const openWebSocket = _.debounce(
           authLost = true;
           wasOpen = false;
           clearAllWebsocketConnections();
+          clearFrontendWebsocketAffinity(socketGeneration);
           addTemporaryNotification(
             `Authentication required. Open ${BOOTSTRAP_URL} to continue.`,
           );
@@ -235,6 +305,7 @@ export const openWebSocket = _.debounce(
           wasOpen = false;
         }
         clearAllWebsocketConnections();
+        clearFrontendWebsocketAffinity(socketGeneration);
         // Attempt to reconnect
         setTimeout(() => {
           openWebSocket(lastPathname ?? pathname, lastShareSessionId);
@@ -285,13 +356,34 @@ async function attemptAuthRecovery(pathname: string) {
   scheduleAuthRecovery(pathname);
 }
 
-function closeWebSocket() {
+function closeWebSocketForReplacement() {
+  const socketGeneration = beginWebsocketGeneration();
   if (wss) {
     wss.close();
     wss = null;
   }
+  clearFrontendWebsocketAffinity(socketGeneration);
   stopAuthRefresh();
   stopShareHeartbeat();
+}
+
+function handleWebSocketTransportError(
+  socket: WebSocket,
+  socketGeneration: number,
+) {
+  if (activeWebsocketGeneration !== socketGeneration) {
+    return;
+  }
+  if (wss !== socket) {
+    return;
+  }
+  if (
+    socket.readyState === WebSocket.CLOSED ||
+    socket.readyState === WebSocket.CLOSING
+  ) {
+    return;
+  }
+  socket.close();
 }
 
 function wssReady(wss: WebSocket | null): wss is WebSocket {
@@ -308,7 +400,7 @@ function startShareHeartbeat() {
     if (!currentAddress) {
       return;
     }
-    sendCurrentAddress(currentAddress);
+    sendCurrentAddress(buildFrontendAffinityCurrentAddress(currentAddress));
   }, SHARE_HEARTBEAT_INTERVAL_MS);
 }
 
@@ -429,11 +521,23 @@ async function handleShareSessionRecovery() {
   shareSessionRecoveryAttempts = 0;
 }
 
-function receiveMessage(message: string) {
-  const m: FrontendWebsocketMsgUnion = JSON.parse(message);
+function receiveMessage(message: string, socketGeneration: number) {
+  const m = JSON.parse(message) as FrontendWebsocketMsgUnion;
   switch (m.messageType) {
+    case WebsocketMsgTypeForFrontendEnum.FrontendIdentity:
+      setFrontendWebsocketAffinityId(m.content.websocketId, socketGeneration);
+      return;
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
-      return setWebsocketConnections(m.content);
+      setWebsocketConnections(m.content);
+      updateFrontendWebsocketAffinity({
+        connections: m.content,
+        currentAddress: lastPathname
+          ? buildFrontendAffinityCurrentAddress(lastPathname)
+          : null,
+        shareSessionId: currentShareSessionId,
+        socketGeneration,
+      });
+      return;
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
       return receiveLLMResponseChunk(m.content);
     case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:
@@ -470,6 +574,12 @@ function receiveMessage(message: string) {
       return receiveAIFollowToolArgumentsUpdate(m.content);
     case WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate:
       return receiveAIFollowToolResultUpdate(m.content);
+    case WebsocketMsgTypeForFrontendEnum.UISettingReveal:
+      enqueueUISettingRevealMessage({
+        content: m.content,
+        socketGeneration,
+      });
+      return;
     case WebsocketMsgTypeForFrontendEnum.AgentProfilesUpdated:
       return receiveAgentProfilesUpdate(m.content.profiles);
     case WebsocketMsgTypeForFrontendEnum.PromptTemplatesUpdated:
@@ -483,6 +593,241 @@ function receiveMessage(message: string) {
     default:
       return m satisfies never;
   }
+}
+
+function enqueueUISettingRevealMessage(
+  message: PendingUISettingRevealMessage,
+): void {
+  pendingUISettingRevealMessages.push(message);
+  if (uiSettingRevealQueueWorkerRunning) {
+    return;
+  }
+  uiSettingRevealQueueWorkerRunning = true;
+  void processPendingUISettingRevealMessages();
+}
+
+async function processPendingUISettingRevealMessages(): Promise<void> {
+  try {
+    while (pendingUISettingRevealMessages.length > 0) {
+      const nextMessage = pendingUISettingRevealMessages.shift();
+      if (nextMessage === undefined) {
+        continue;
+      }
+      await handleUISettingRevealMessage(
+        nextMessage.content,
+        nextMessage.socketGeneration,
+      );
+    }
+  } finally {
+    uiSettingRevealQueueWorkerRunning = false;
+    if (pendingUISettingRevealMessages.length > 0) {
+      uiSettingRevealQueueWorkerRunning = true;
+      void processPendingUISettingRevealMessages();
+    }
+  }
+}
+
+async function handleUISettingRevealMessage(
+  content: unknown,
+  socketGeneration: number,
+): Promise<void> {
+  const fallbackProjectConfigId = getCurrProjectConfigId();
+  const projectConfigId = resolveRevealProjectConfigId(
+    content,
+    fallbackProjectConfigId,
+  );
+  const requestId = resolveRevealRequestId(content);
+  let statuses: UISettingRevealResultStatusPayload[] = [];
+  const parsedRevealContent = UISettingRevealContentSchema.safeParse(content);
+  if (!parsedRevealContent.success) {
+    statuses = buildMalformedRevealStatuses(
+      content,
+      "Invalid UISettingReveal payload.",
+    );
+    sendUISettingRevealResult({
+      projectConfigId,
+      requestId,
+      statuses,
+      socketGeneration,
+    });
+    return;
+  }
+  const revealContent: UISettingRevealContent = parsedRevealContent.data;
+  const revealExecutionContext: UISettingRevealExecutionContext = {
+    requestId: revealContent.requestId,
+    requestedProjectConfigId: revealContent.projectConfigId.trim(),
+    socketGeneration,
+    isSocketGenerationActive: () =>
+      isSocketGenerationCurrent(socketGeneration) && wssReady(wss),
+  };
+  try {
+    const revealStatuses = await receiveUISettingReveal(
+      revealContent,
+      revealExecutionContext,
+    );
+    statuses = Array.isArray(revealStatuses) ? revealStatuses : [];
+  } catch (error) {
+    const rawMessage =
+      error instanceof Error && error.message.trim() !== ""
+        ? error.message
+        : String(error);
+    const normalizedMessage = `Failed to process UI setting reveal: ${rawMessage}`;
+    statuses = revealContent.reveals.map((target) => ({
+      settingId: target.settingId,
+      status: "failed",
+      errorCode: "mutation_failed",
+      errorMessage: normalizedMessage,
+    }));
+  }
+  const ackContextMismatchStatuses = resolveAckContextMismatchStatuses({
+    content: revealContent,
+    executionContext: revealExecutionContext,
+  });
+  if (ackContextMismatchStatuses !== null) {
+    statuses = ackContextMismatchStatuses;
+  }
+  sendUISettingRevealResult({
+    projectConfigId: revealContent.projectConfigId,
+    requestId: revealContent.requestId,
+    statuses,
+    socketGeneration,
+  });
+}
+
+function sendUISettingRevealResult({
+  projectConfigId,
+  requestId,
+  statuses,
+  socketGeneration,
+}: {
+  projectConfigId: string;
+  requestId: string;
+  statuses: UISettingRevealResultStatusPayload[];
+  socketGeneration: number;
+}): void {
+  const revealResultMessage: WebsocketMsgUISettingRevealResult = {
+    id: null,
+    messageType: WebsocketMsgTypeForBackendEnum.UISettingRevealResult,
+    content: {
+      projectConfigId,
+      requestId,
+      statuses,
+    },
+  };
+  sendMessageForGeneration(revealResultMessage, socketGeneration);
+}
+
+function resolveRevealProjectConfigId(
+  content: unknown,
+  fallbackProjectConfigId: string,
+): string {
+  const fallbackNormalizedId =
+    typeof fallbackProjectConfigId === "string" &&
+    fallbackProjectConfigId.trim() !== ""
+      ? fallbackProjectConfigId
+      : NULL_PROJECT_CONFIG_ID;
+  if (!isRecord(content)) {
+    return fallbackNormalizedId;
+  }
+  const candidateProjectConfigId = content.projectConfigId;
+  if (
+    typeof candidateProjectConfigId === "string" &&
+    candidateProjectConfigId.trim() !== ""
+  ) {
+    return candidateProjectConfigId;
+  }
+  return fallbackNormalizedId;
+}
+
+function resolveRevealRequestId(content: unknown): string {
+  if (isRecord(content)) {
+    const candidateRequestId = content.requestId;
+    if (
+      typeof candidateRequestId === "string" &&
+      candidateRequestId.trim() !== ""
+    ) {
+      return candidateRequestId;
+    }
+  }
+  return createNewId();
+}
+
+function buildMalformedRevealStatuses(
+  content: unknown,
+  errorMessage: string,
+): UISettingRevealResultStatusPayload[] {
+  const settingIds = extractRevealSettingIds(content);
+  return settingIds.map((settingId) => ({
+    settingId,
+    status: "failed",
+    errorCode: "mutation_failed",
+    errorMessage,
+  }));
+}
+
+function extractRevealSettingIds(content: unknown): string[] {
+  if (!isRecord(content)) {
+    return [];
+  }
+  if (!Array.isArray(content.reveals)) {
+    return [];
+  }
+  const ids: string[] = [];
+  for (const reveal of content.reveals) {
+    if (!isRecord(reveal)) {
+      continue;
+    }
+    if (
+      typeof reveal.settingId !== "string" ||
+      reveal.settingId.trim() === ""
+    ) {
+      continue;
+    }
+    ids.push(reveal.settingId);
+  }
+  return ids;
+}
+
+function resolveAckContextMismatchStatuses({
+  content,
+  executionContext,
+}: {
+  content: UISettingRevealContent;
+  executionContext: UISettingRevealExecutionContext;
+}): UISettingRevealResultStatusPayload[] | null {
+  if (!executionContext.isSocketGenerationActive()) {
+    return buildExecutionContextMismatchStatuses(
+      content.reveals,
+      "UI setting reveal execution context mismatch: websocket generation changed " +
+        `before request ${executionContext.requestId} completed.`,
+    );
+  }
+  const activeProjectConfigId = getCurrProjectConfigId().trim();
+  const requestedProjectConfigId = executionContext.requestedProjectConfigId;
+  if (activeProjectConfigId === requestedProjectConfigId) {
+    return null;
+  }
+  return buildExecutionContextMismatchStatuses(
+    content.reveals,
+    "UI setting reveal execution context mismatch: requested project " +
+      `${requestedProjectConfigId} but active project is ${activeProjectConfigId}.`,
+  );
+}
+
+function buildExecutionContextMismatchStatuses(
+  reveals: Array<UISettingRevealContent["reveals"][number]>,
+  errorMessage: string,
+): UISettingRevealResultStatusPayload[] {
+  return reveals.map((target) => ({
+    settingId: target.settingId,
+    status: "failed",
+    errorCode: "mutation_failed",
+    errorMessage,
+  }));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function sendCurrentAddress(currentAddress: string) {
@@ -646,6 +991,20 @@ function sendMessage(message: WebsocketMsg) {
   if (wssReady(wss)) {
     wss.send(JSON.stringify(message));
   }
+}
+
+function sendMessageForGeneration(
+  message: WebsocketMsg,
+  socketGeneration: number,
+): void {
+  if (!isSocketGenerationCurrent(socketGeneration)) {
+    return;
+  }
+  sendMessage(message);
+}
+
+function isSocketGenerationCurrent(socketGeneration: number): boolean {
+  return activeWebsocketGeneration === socketGeneration;
 }
 
 function sendBinaryMessage(message: WebsocketMsg, payload: ArrayBuffer) {
