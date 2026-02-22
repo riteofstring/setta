@@ -1,4 +1,4 @@
-export type TranscriptionErrorCode =
+type TranscriptionErrorCode =
   | "unsupported_model"
   | "missing_api_key"
   | "profile_not_found"

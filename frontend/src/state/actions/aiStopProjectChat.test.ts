@@ -170,7 +170,9 @@ describe("stopProjectChatResponse", () => {
             createAssistantChatMessage({
               id: "assistant-prior",
               content: [
-                createMessageTextContent({ text: "Earlier completed response" }),
+                createMessageTextContent({
+                  text: "Earlier completed response",
+                }),
               ],
             }),
           ],

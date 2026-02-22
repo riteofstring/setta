@@ -6716,6 +6716,9 @@ const MCPServerConfigSchema = z.object({
   command: z.union([z.string(), z.null()]).default(null),
   args: z.array(z.string()).default(() => []),
   env: z.union([z.record(z.string(), z.string()), z.null()]).default(null),
+  http_headers: z
+    .union([z.record(z.string(), z.string()), z.null()])
+    .default(null),
   cwd: z.union([z.string(), z.null()]).default(null),
   encoding: z.string().default("utf-8" as const),
   encoding_error_handler: z
@@ -6728,6 +6731,7 @@ const AllLLMConfigsSchema = z.object({
   mcpServers: z.record(z.string(), MCPServerConfigSchema).default({}),
   defaultMcpServerIds: z.array(z.string()).default(() => []),
   default_config_id: z.union([z.string(), z.null()]).default(null),
+  codexMcpImportedAt: z.union([z.string(), z.null()]).default(null),
 });
 
 export type AllLLMConfigs = z.infer<typeof AllLLMConfigsSchema>;

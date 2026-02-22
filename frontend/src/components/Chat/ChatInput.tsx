@@ -1460,8 +1460,7 @@ export const ChatInput = memo(function ChatInput({
     if (showContextUnavailableBadge) {
       return getFloatingBoxHandlers({
         title: "Context unavailable",
-        content:
-          "Context usage telemetry is unavailable for this chat run.",
+        content: "Context usage telemetry is unavailable for this chat run.",
       });
     }
     return getFloatingBoxHandlers({

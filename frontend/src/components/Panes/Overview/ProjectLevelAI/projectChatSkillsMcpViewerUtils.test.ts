@@ -342,7 +342,8 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       },
       "broken-server": {
         state: "error",
-        quickInfo: "Error: missing env var OPENAI_API_KEY | command not found | 0 tools",
+        quickInfo:
+          "Error: missing env var OPENAI_API_KEY | command not found | 0 tools",
         registeredToolCount: 0,
         issue: "command not found",
         missingEnvVar: "OPENAI_API_KEY",

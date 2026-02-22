@@ -1148,7 +1148,10 @@ function stopChatResponseLocally(
   });
   if (typeof chatId === "string") {
     updateChatDetails(chatId, stopDetails);
-    if (snapshot.waitingForResponse && snapshot.stopEligibleAssistantMessageId) {
+    if (
+      snapshot.waitingForResponse &&
+      snapshot.stopEligibleAssistantMessageId
+    ) {
       markInterruptedAssistantMessage(
         chatId,
         snapshot.stopEligibleAssistantMessageId,

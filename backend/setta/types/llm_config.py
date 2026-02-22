@@ -39,9 +39,7 @@ class MCPServerConfig(BaseModel):
             if normalized_url:
                 raise ValueError("MCP stdio transport cannot declare a url")
             if self.http_headers:
-                raise ValueError(
-                    "MCP stdio transport cannot declare http_headers"
-                )
+                raise ValueError("MCP stdio transport cannot declare http_headers")
         return self
 
 

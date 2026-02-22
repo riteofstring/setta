@@ -5,6 +5,7 @@ import {
   route_stop_transcription_session,
 } from "utils/generatedEndpoints";
 import { SettaNotificationTypeEnum } from "utils/generatedTypes";
+import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   appendTranscriptionAudio,
@@ -13,7 +14,6 @@ import {
   stopTranscriptionSession,
 } from "./ai";
 import { addTemporaryNotification } from "./notifications";
-import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 
 vi.mock("utils/generatedEndpoints", async () => {
   const actual = await vi.importActual<
@@ -187,7 +187,8 @@ describe("transcription session actions", () => {
       hasResponse: true,
       data: {
         detail: {
-          message: "Realtime transcription is unavailable for this provider/model.",
+          message:
+            "Realtime transcription is unavailable for this provider/model.",
           errorCode: "unsupported_model",
         },
       },

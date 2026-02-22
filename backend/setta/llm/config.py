@@ -129,9 +129,7 @@ def _bootstrap_codex_mcp_servers_if_needed(
     updated = config.model_copy(
         update={
             "mcpServers": merged_servers,
-            "codexMcpImportedAt": datetime.now(UTC)
-            .isoformat()
-            .replace("+00:00", "Z"),
+            "codexMcpImportedAt": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
         }
     )
     if allow_write:

@@ -109,7 +109,8 @@ describe("endpointUtils URL routing", () => {
   it("extracts nested detail and error code payloads", () => {
     const payload = {
       detail: {
-        message: "Realtime transcription is unavailable for this provider/model.",
+        message:
+          "Realtime transcription is unavailable for this provider/model.",
         errorCode: "unsupported_model",
       },
     };

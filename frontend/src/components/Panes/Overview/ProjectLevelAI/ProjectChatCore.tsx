@@ -146,14 +146,16 @@ type ProjectChatContextUsage = ReturnType<
   typeof getDefaultChatDetails
 >["contextUsage"];
 
-export type ProjectChatContextTelemetry = {
+type ProjectChatContextTelemetry = {
   contextWindowTokens: number | null;
   contextUsedTokens: number | null;
   contextUsageIsEstimated: boolean;
   contextUsageUnavailable: boolean;
 };
 
-function normalizeContextTokenCount(value: number | null | undefined): number | null {
+function normalizeContextTokenCount(
+  value: number | null | undefined,
+): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return null;
   }
@@ -821,20 +823,16 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     nextPermissionMode: ChatPermissionModeValue,
   ) => void;
 }) {
-  const {
-    messages,
-    toolCallArguments,
-    waitingForResponse,
-    contextUsage,
-  } = useAIStore((state) => {
-    if (chatId === null) {
-      return state.pendingChatDetails ?? getDefaultChatDetails();
-    }
-    if (typeof chatId !== "string") {
-      return getDefaultChatDetails();
-    }
-    return state.chatDetails[chatId] ?? getDefaultChatDetails();
-  }, shallow);
+  const { messages, toolCallArguments, waitingForResponse, contextUsage } =
+    useAIStore((state) => {
+      if (chatId === null) {
+        return state.pendingChatDetails ?? getDefaultChatDetails();
+      }
+      if (typeof chatId !== "string") {
+        return getDefaultChatDetails();
+      }
+      return state.chatDetails[chatId] ?? getDefaultChatDetails();
+    }, shallow);
   const branchIndex = useChatBranchIndex(typeof chatId === "string");
   const branchInfoByMessage = useMemo(() => {
     if (typeof chatId !== "string") {
@@ -1111,12 +1109,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         hydrationStatusByKeyRef.current[cacheKey] = "failed";
       }
     };
-  }, [
-    chatId,
-    clearHydrationRetryTimer,
-    hydrationRunType,
-    waitingForResponse,
-  ]);
+  }, [chatId, clearHydrationRetryTimer, hydrationRunType, waitingForResponse]);
 
   const handleNewChatStart = useCallback(() => {
     onDraftThreadStart?.();
