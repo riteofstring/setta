@@ -495,7 +495,6 @@ class ListenerRunCodeRequestPayload(TypedDict):
 class ListenerRunMcpToolsRequestPayload(TypedDict):
     chatId: ID
     sectionId: ID
-    frontendWebsocketId: NotRequired[str | None]
     toolCalls: list[ToolCall]
 
 

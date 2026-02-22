@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: ./scripts/release/build_macos_installer.sh [output-dir]
+
+Builds an unsigned (or optionally signed/notarized) macOS .pkg installer that
+installs desktop bootstrap commands under /usr/local/bin:
+- setta-install-desktop
+- setta-remove-desktop
+
+Optional environment variables:
+  SETTA_DESKTOP_INSTALLER_VERSION   Installer version (default: 1.0.0)
+  SETTA_DESKTOP_INSTALLER_RELEASE_MODE  Set to 1 to require explicit installer version
+  SETTA_MACOS_SIGN_IDENTITY         productsign identity for the .pkg
+  SETTA_MACOS_NOTARY_PROFILE        xcrun notarytool keychain profile name
+  SETTA_MACOS_BUILD_DMG             Set to 1 to wrap the .pkg in a .dmg
+USAGE
+}
+
+if [[ "${1-}" == "-h" || "${1-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  echo "build_macos_installer.sh must run on macOS." >&2
+  exit 1
+fi
+
+for required_bin in pkgbuild shasum; do
+  if ! command -v "${required_bin}" >/dev/null 2>&1; then
+    echo "Missing required command: ${required_bin}" >&2
+    exit 1
+  fi
+done
+
+output_dir="${1:-dist/native-installers/macos}"
+release_mode="${SETTA_DESKTOP_INSTALLER_RELEASE_MODE:-0}"
+version="${SETTA_DESKTOP_INSTALLER_VERSION:-}"
+if [[ -z "${version}" ]]; then
+  if [[ "${release_mode}" == "1" ]]; then
+    echo "SETTA_DESKTOP_INSTALLER_VERSION is required when release mode is enabled." >&2
+    exit 1
+  fi
+  version="1.0.0"
+fi
+if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "Installer version must use major.minor.patch format (got '${version}')." >&2
+  exit 1
+fi
+identifier="dev.setta.desktop.bootstrap"
+base_name="SettaDesktop-${version}"
+unsigned_pkg_path="${output_dir}/${base_name}-unsigned.pkg"
+final_pkg_path="${output_dir}/${base_name}.pkg"
+
+mkdir -p "${output_dir}"
+
+payload_root="$(mktemp -d)"
+trap 'rm -rf "${payload_root}"' EXIT
+
+mkdir -p "${payload_root}/usr/local/bin"
+cp "scripts/install_desktop_launcher.sh" \
+  "${payload_root}/usr/local/bin/setta-install-desktop"
+cat > "${payload_root}/usr/local/bin/setta-remove-desktop" <<'REMOVE'
+#!/usr/bin/env bash
+set -euo pipefail
+exec setta launcher remove "$@"
+REMOVE
+chmod +x "${payload_root}/usr/local/bin/setta-install-desktop"
+chmod +x "${payload_root}/usr/local/bin/setta-remove-desktop"
+
+pkgbuild \
+  --root "${payload_root}" \
+  --identifier "${identifier}" \
+  --version "${version}" \
+  --install-location "/" \
+  "${unsigned_pkg_path}"
+
+if [[ -n "${SETTA_MACOS_SIGN_IDENTITY:-}" ]]; then
+  if ! command -v productsign >/dev/null 2>&1; then
+    echo "productsign is required when SETTA_MACOS_SIGN_IDENTITY is set." >&2
+    exit 1
+  fi
+  productsign \
+    --sign "${SETTA_MACOS_SIGN_IDENTITY}" \
+    "${unsigned_pkg_path}" \
+    "${final_pkg_path}"
+  rm -f "${unsigned_pkg_path}"
+else
+  mv "${unsigned_pkg_path}" "${final_pkg_path}"
+fi
+
+if [[ -n "${SETTA_MACOS_NOTARY_PROFILE:-}" ]]; then
+  if ! command -v xcrun >/dev/null 2>&1; then
+    echo "xcrun is required for notarization." >&2
+    exit 1
+  fi
+  xcrun notarytool submit "${final_pkg_path}" \
+    --keychain-profile "${SETTA_MACOS_NOTARY_PROFILE}" \
+    --wait
+  xcrun stapler staple "${final_pkg_path}"
+fi
+
+if [[ "${SETTA_MACOS_BUILD_DMG:-0}" == "1" ]]; then
+  if ! command -v hdiutil >/dev/null 2>&1; then
+    echo "hdiutil is required to build a .dmg." >&2
+    exit 1
+  fi
+  dmg_path="${output_dir}/${base_name}.dmg"
+  temp_dmg_root="$(mktemp -d)"
+  cp "${final_pkg_path}" "${temp_dmg_root}/"
+  hdiutil create \
+    -volname "Setta Desktop Installer" \
+    -srcfolder "${temp_dmg_root}" \
+    -ov \
+    -format UDZO \
+    "${dmg_path}"
+  rm -rf "${temp_dmg_root}"
+  shasum -a 256 "${dmg_path}" > "${dmg_path}.sha256"
+fi
+
+shasum -a 256 "${final_pkg_path}" > "${final_pkg_path}.sha256"
+
+echo "Built macOS installer: ${final_pkg_path}"

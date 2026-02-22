@@ -51,7 +51,6 @@ from setta.share.listener_runtime import ShareListenerRuntime
 from setta.share.session_store import MemorySessionStore, ShareSessionStore
 from setta.terminals.terminals import Terminals
 from setta.types.settings_state import RunSnapshotMode
-from setta.ui_settings.reveal_result_hub import UISettingRevealResultHub
 from setta.utils.constants import C
 from setta.utils.env_vars import RUNTIME_ROOT_ENV
 from setta.utils.init_status import BackendInitializationStatus
@@ -203,14 +202,18 @@ class SettaFastAPIState:
         *,
         share_mode: bool = False,
         app_mode: bool = False,
+        launcher_mode: bool = False,
         share_deployment_root: Path | None = None,
         enable_mcp_connections: bool = True,
         enable_language_server: bool = True,
     ):
         if share_mode and app_mode:
             raise ValueError("Server cannot enable both share_mode and app_mode.")
+        if launcher_mode and (share_mode or app_mode):
+            raise ValueError("Launcher mode cannot be combined with deployment modes.")
         self.app_mode = app_mode
         self.share_mode = share_mode
+        self.launcher_mode = launcher_mode
         self.deployment_mode = share_mode or app_mode
         # Register runtime state on the app before startup work begins so backend
         # plugin register-time host calls can resolve app.state.setta.
@@ -226,7 +229,6 @@ class SettaFastAPIState:
         )
         self.websocket_manager = WebsocketManager()
         self.listener_registry = ListenerRegistry()
-        self.ui_setting_reveal_result_hub = UISettingRevealResultHub()
         self.dbe = DBE(
             self.share_deployment_root
             if self.share_deployment_root is not None
@@ -270,7 +272,7 @@ class SettaFastAPIState:
             setta_version=__version__,
             auto_rescan=False,
         )
-        if not self.deployment_mode:
+        if not self.deployment_mode and not self.launcher_mode:
             seed_llm_config_example_file(self.dbe)
             seed_agentic_config_files(self.dbe)
         self.wmh_frontend_sender = WMHFrontendSender(
@@ -285,7 +287,7 @@ class SettaFastAPIState:
             None if self.deployment_mode else self.dbe,
         )
         self.realtime_event_hub = RealtimeEventHub(self.wmh_python_script_sender)
-        if self.deployment_mode:
+        if self.deployment_mode or self.launcher_mode:
             self.settings_file = self._defer_attr("settings_file")
             self.terminals = self._defer_attr("terminals")
         else:
@@ -355,7 +357,12 @@ class SettaFastAPIState:
         if self.app_mode:
             mode_label = "app"
         else:
-            mode_label = "share" if self.share_mode else "backend"
+            if self.share_mode:
+                mode_label = "share"
+            elif self.launcher_mode:
+                mode_label = "launcher"
+            else:
+                mode_label = "backend"
         self.init_status.record(f"Booting {mode_label} services")
         if C.BACKEND_INIT_DELAY_SECONDS > 0:
             self.init_status.record(
@@ -377,6 +384,9 @@ class SettaFastAPIState:
         try:
             if self.deployment_mode:
                 await self._initialize_deployment_async(app)
+                return
+            if self.launcher_mode:
+                await self._initialize_launcher_async()
                 return
             from setta.project_state.project_manager_switcher import (
                 ProjectManagerSwitcher,
@@ -466,7 +476,6 @@ class SettaFastAPIState:
                 self.websocket_manager,
                 project_manager,
                 self.realtime_event_hub,
-                ui_setting_reveal_result_hub=self.ui_setting_reveal_result_hub,
             )
             self.wmh_python_script_receiver = WMHPythonScriptReceiver(
                 self.websocket_manager,
@@ -609,6 +618,13 @@ class SettaFastAPIState:
             self.init_status.mark_error(str(exc))
             raise
 
+    async def _initialize_launcher_async(self) -> None:
+        self.init_status.record("Preparing launcher runtime")
+        await self._maybe_delay()
+        self._ready_event.set()
+        self.init_status.record("Launcher backend ready")
+        self.init_status.mark_ready()
+
     async def _initialize_deployment_async(self, app) -> None:
         from setta.websockets.msg_handlers.frontend_receiver import (
             WMHFrontendReceiver,
@@ -682,7 +698,6 @@ class SettaFastAPIState:
             self.websocket_manager,
             project_manager=None,
             realtime_event_hub=self.realtime_event_hub,
-            ui_setting_reveal_result_hub=self.ui_setting_reveal_result_hub,
             share_mode=True,
             share_runtime_state=self.share_runtime_state,
         )
@@ -799,6 +814,8 @@ class SettaFastAPIState:
             return "app"
         if self.share_mode:
             return "share"
+        if self.launcher_mode:
+            return "launcher"
         return "ide"
 
     def _defer_attr(self, name: str) -> _T:

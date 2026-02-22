@@ -3,13 +3,15 @@ import json
 import logging
 import os
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
 import webbrowser
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import click
 import requests
@@ -33,6 +35,24 @@ from setta.launch import (
     LaunchError,
     launch_workspace_session,
 )
+from setta.launcher_metadata import (
+    LAUNCHER_WORKSPACE_BEHAVIOR,
+    LauncherInstallMetadata,
+    LauncherMetadataError,
+    LauncherOpenMode,
+    LauncherWorkspaceBehavior,
+    launcher_target_validation_error,
+    load_launcher_install_metadata,
+    update_launcher_last_used_workspace_if_installed,
+)
+from setta.launcher_setup import (
+    LauncherSetupError,
+    collect_launcher_status,
+    remove_launcher_installation,
+    repair_launcher_installation,
+    setup_launcher_installation,
+    update_launcher_installation,
+)
 from setta.logging.config import configure_logging
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
 from setta.mcp.tool_registry import build_setta_tool_payloads
@@ -53,6 +73,10 @@ from setta.utils.env_vars import (
     RUNTIME_ROOT_ENV,
     SETTA_HOME_ENV,
     WORKSPACE_ROOT_ENV,
+)
+from setta.utils.launcher_origin_handoff import (
+    mint_launcher_origin_handoff_proof,
+    normalize_launcher_origin,
 )
 from setta.utils.network import (
     build_bootstrap_urls,
@@ -79,6 +103,13 @@ _MISSING_AUTH_MESSAGE = (
     "workspace)."
 )
 _DEFAULT_AUTH_COOKIE_NAME = C.AUTH_COOKIE_NAME
+_DEFAULT_LAUNCHER_OPEN_MODE: LauncherOpenMode = "chrome-app"
+_LAUNCHER_OPEN_SWITCHER_HASH_KEY = "osw"
+_LAUNCHER_METADATA_ARTIFACT_NAME_SEPARATOR = "="
+_LAUNCHER_WORKSPACE_BEHAVIOR_CHOICES = (
+    "last-used-or-prompt",
+    "always-prompt",
+)
 
 RemoteSessionSummary = ssh_common.RemoteSessionSummary
 
@@ -290,6 +321,8 @@ def _fetch_remote_sessions(
     workspace: str,
     setta_command: str,
     setta_files_args: str,
+    *,
+    server_mode: str | None = None,
 ) -> list[RemoteSessionSummary]:
     try:
         return ssh_common.fetch_remote_sessions(
@@ -300,6 +333,7 @@ def _fetch_remote_sessions(
             setta_command,
             setta_files_args,
             ssh_prefix=ssh_common.ssh_command_prefix(batch_mode=False),
+            server_mode=server_mode,
         )
     except LaunchError as exc:
         raise click.ClickException(str(exc)) from exc
@@ -325,6 +359,7 @@ def _fetch_remote_connect_info(
             workspace,
             setta_command,
             setta_files_args,
+            server_mode="ide",
         )
         if not sessions:
             raise click.ClickException("No matching Setta sessions found.")
@@ -413,6 +448,7 @@ def _wait_for_remote_session(
     runtime_root: str | None = None,
     timeout_seconds: float = 30.0,
     verbose: bool = False,
+    server_mode: str | None = None,
 ) -> RemoteSessionSummary:
     try:
         sessions = ssh_common.wait_for_remote_sessions(
@@ -427,6 +463,7 @@ def _wait_for_remote_session(
             setta_files_location=setta_files_location,
             setta_files_root=setta_files_root,
             runtime_root=runtime_root,
+            server_mode=server_mode,
         )
     except LaunchError as exc:
         if exc.code == "RemoteLaunchTimeout":
@@ -622,6 +659,193 @@ def _should_auto_open(no_open: bool) -> bool:
     if not _has_gui():
         return False
     return True
+
+
+def _append_url_fragment_param(url: str, *, key: str, value: str) -> str:
+    parsed = urlsplit(url)
+    fragment_pairs = parse_qsl(parsed.fragment, keep_blank_values=True)
+    next_pairs = [(k, v) for k, v in fragment_pairs if k != key]
+    next_pairs.append((key, value))
+    return urlunsplit(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.query,
+            urlencode(next_pairs),
+        )
+    )
+
+
+def _open_url_in_chrome_app(url: str) -> bool:
+    chrome_flag = f"--app={url}"
+    if sys.platform == "darwin":
+        for app_name in ("Google Chrome", "Chromium"):
+            result = subprocess.run(
+                ["open", "-a", app_name, "--args", chrome_flag],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if result.returncode == 0:
+                return True
+        return False
+
+    if os.name == "nt":
+        candidates: list[str] = []
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        program_files = os.environ.get("PROGRAMFILES")
+        program_files_x86 = os.environ.get("PROGRAMFILES(X86)")
+        for root in (local_app_data, program_files, program_files_x86):
+            if not root:
+                continue
+            chrome_path = (
+                Path(root) / "Google" / "Chrome" / "Application" / "chrome.exe"
+            )
+            if chrome_path.exists():
+                candidates.append(str(chrome_path))
+            edge_path = Path(root) / "Microsoft" / "Edge" / "Application" / "msedge.exe"
+            if edge_path.exists():
+                candidates.append(str(edge_path))
+        for executable_name in ("chrome", "chrome.exe", "msedge", "msedge.exe"):
+            located = shutil.which(executable_name)
+            if located:
+                candidates.append(located)
+        seen: set[str] = set()
+        deduped = [path for path in candidates if not (path in seen or seen.add(path))]
+        for executable in deduped:
+            try:
+                subprocess.Popen(
+                    [executable, chrome_flag],
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                )
+            except OSError:
+                continue
+            return True
+        return False
+
+    for executable_name in (
+        "google-chrome",
+        "google-chrome-stable",
+        "chromium",
+        "chromium-browser",
+        "microsoft-edge",
+    ):
+        located = shutil.which(executable_name)
+        if not located:
+            continue
+        try:
+            subprocess.Popen(
+                [located, chrome_flag],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except OSError:
+            continue
+        return True
+    return False
+
+
+def _open_url_with_launcher_mode(
+    url: str, open_mode: LauncherOpenMode
+) -> LauncherOpenMode:
+    if open_mode == "chrome-app" and _open_url_in_chrome_app(url):
+        return "chrome-app"
+    webbrowser.open(url, new=0)
+    return "browser"
+
+
+def _emit_launcher_error_and_exit(
+    *,
+    json_output: bool,
+    code: str,
+    message: str,
+    exit_code: int,
+) -> None:
+    if json_output:
+        _emit_json_output({"ok": False, "error": {"code": code, "message": message}})
+    else:
+        click.echo(f"Error: {message}", err=True)
+        if code == "LauncherTargetMissing":
+            click.echo(
+                "Remediation: reinstall launcher metadata with `setta launcher setup`.",
+                err=True,
+            )
+        if code == "LauncherMetadata":
+            click.echo(
+                "Remediation: fix or remove launcher metadata, then re-run `setta launcher setup`.",
+                err=True,
+            )
+    raise SystemExit(exit_code)
+
+
+def _parse_launcher_artifact_option_specs(
+    specs: tuple[str, ...],
+) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for raw_spec in specs:
+        spec = raw_spec.strip()
+        if not spec:
+            raise click.ClickException("Artifact option entries must be non-empty.")
+        if _LAUNCHER_METADATA_ARTIFACT_NAME_SEPARATOR not in spec:
+            raise click.ClickException(
+                "Artifact option entries must use NAME=VALUE format."
+            )
+        name, raw_value = spec.split(_LAUNCHER_METADATA_ARTIFACT_NAME_SEPARATOR, 1)
+        trimmed_name = name.strip()
+        if not trimmed_name:
+            raise click.ClickException("Artifact option names must be non-empty.")
+        trimmed_value = raw_value.strip()
+        if not trimmed_value:
+            raise click.ClickException("Artifact option values must be non-empty.")
+        parsed[trimmed_name] = trimmed_value
+    return parsed
+
+
+def _normalize_launcher_workspace_behavior_cli_value(
+    raw_value: str,
+) -> LauncherWorkspaceBehavior:
+    trimmed = raw_value.strip().lower().replace("-", "_")
+    if trimmed not in {"last_used_or_prompt", "always_prompt"}:
+        raise click.ClickException(
+            "workspace behavior must be either 'last-used-or-prompt' or 'always-prompt'."
+        )
+    return cast("LauncherWorkspaceBehavior", trimmed)
+
+
+def _resolve_launcher_workspace_root(
+    *,
+    explicit_workspace: Path | None,
+    installed_metadata: LauncherInstallMetadata | None,
+) -> tuple[Path, bool]:
+    if explicit_workspace is not None:
+        return explicit_workspace.resolve(strict=False), False
+
+    workspace_behavior = (
+        installed_metadata.workspaceBehavior
+        if installed_metadata is not None
+        else LAUNCHER_WORKSPACE_BEHAVIOR
+    )
+    if (
+        workspace_behavior != "always_prompt"
+        and installed_metadata is not None
+        and installed_metadata.lastUsedWorkspace is not None
+    ):
+        candidate = Path(installed_metadata.lastUsedWorkspace).resolve(strict=False)
+        if candidate.exists() and candidate.is_dir():
+            return candidate, False
+
+    fallback_workspace = Path.home().resolve(strict=False)
+    if not fallback_workspace.exists():
+        raise OSError(f"Home directory does not exist: {fallback_workspace}")
+    if not fallback_workspace.is_dir():
+        raise OSError(f"Home directory is not a directory: {fallback_workspace}")
+    return fallback_workspace, True
 
 
 def _format_bind_hint(host: str, port: int) -> str:
@@ -826,6 +1050,7 @@ def _format_session_payload(session: SessionMetadata) -> dict[str, Any]:
         "port": session.port,
         "pid": session.pid,
         "startedAt": session.startedAt.isoformat(),
+        "serverMode": session.serverMode,
     }
 
 
@@ -1357,6 +1582,7 @@ def share(
         )
     C.SHARE_MODE = True
     C.SHARE_DEPLOYMENT_ROOT = resolved_deployment_root
+    C.LAUNCHER_MODE = False
 
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
@@ -1559,6 +1785,545 @@ def launch(
     _emit_json_output(payload)
 
 
+def _run_launcher_command(
+    *,
+    ctx: click.Context,
+    json_output: bool,
+    workspace: Path | None,
+    open_mode: str | None,
+    no_open: bool,
+    timeout: float,
+) -> None:
+    ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
+    group_workspace = ctx_obj.get("workspace")
+    group_profile = ctx_obj.get("profile")
+    group_setta_home = ctx_obj.get("setta_home")
+    group_setta_files_root = ctx_obj.get("setta_files_root")
+    group_setta_files_location = ctx_obj.get("setta_files_location")
+    group_runtime_root = ctx_obj.get("runtime_root")
+    group_no_open = bool(ctx_obj.get("no_open", False))
+
+    if (
+        workspace is not None
+        and isinstance(group_workspace, Path)
+        and workspace.resolve(strict=False) != group_workspace.resolve(strict=False)
+    ):
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code="BadRequest",
+            message=(
+                "Conflicting --workspace provided at both the global CLI level "
+                "and the launcher subcommand."
+            ),
+            exit_code=2,
+        )
+
+    resolved_workspace_option = workspace
+    if resolved_workspace_option is None and isinstance(group_workspace, Path):
+        resolved_workspace_option = group_workspace
+
+    normalized_profile = _to_optional_string(group_profile)
+    normalized_setta_home = _to_optional_string(group_setta_home)
+    normalized_setta_files_root = _to_optional_string(group_setta_files_root)
+    normalized_runtime_root = _to_optional_string(group_runtime_root)
+    normalized_setta_files_location = _to_optional_string(group_setta_files_location)
+    if normalized_setta_files_location is not None:
+        normalized_setta_files_location = normalized_setta_files_location.lower()
+
+    if normalized_setta_files_location is not None:
+        if (
+            normalized_setta_files_root is not None
+            and normalized_setta_files_location == "auto"
+        ):
+            resolved_setta_files_location = None
+        else:
+            resolved_setta_files_location = normalized_setta_files_location
+    elif normalized_setta_files_root is not None or normalized_profile is not None:
+        resolved_setta_files_location = None
+    else:
+        resolved_setta_files_location = "auto"
+
+    profile_lookup_home: str | None = None
+    if normalized_setta_home is None:
+        try:
+            paths = get_setta_paths()
+        except ValueError as exc:
+            _emit_launcher_error_and_exit(
+                json_output=json_output,
+                code="BadRequest",
+                message=str(exc),
+                exit_code=2,
+            )
+        normalized_setta_home = str(paths.setta_home)
+        if normalized_profile is not None:
+            profile_lookup_home = str(paths.profile_lookup_home)
+    launcher_setta_home = Path(normalized_setta_home).resolve(strict=False)
+
+    try:
+        installed_metadata = load_launcher_install_metadata(
+            setta_home=launcher_setta_home
+        )
+    except LauncherMetadataError as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code="LauncherMetadata",
+            message=str(exc),
+            exit_code=2,
+        )
+
+    if installed_metadata is not None:
+        target_error = launcher_target_validation_error(installed_metadata)
+        if target_error:
+            _emit_launcher_error_and_exit(
+                json_output=json_output,
+                code="LauncherTargetMissing",
+                message=target_error,
+                exit_code=2,
+            )
+
+    try:
+        resolved_workspace_root, should_open_switcher = (
+            _resolve_launcher_workspace_root(
+                explicit_workspace=resolved_workspace_option,
+                installed_metadata=installed_metadata,
+            )
+        )
+    except OSError as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code="InvalidWorkspace",
+            message=f"Failed to initialize launcher workspace: {exc}",
+            exit_code=2,
+        )
+
+    if should_open_switcher and resolved_setta_files_location == "auto":
+        # Launcher fallback runs in a runtime context only to open the workspace switcher.
+        # Use global setta_files to avoid creating local metadata in that temporary context.
+        resolved_setta_files_location = "global"
+
+    requested_open_mode: LauncherOpenMode
+    if open_mode is not None:
+        requested_open_mode = cast("LauncherOpenMode", open_mode.strip().lower())
+    elif installed_metadata is not None:
+        requested_open_mode = installed_metadata.openMode
+    else:
+        requested_open_mode = _DEFAULT_LAUNCHER_OPEN_MODE
+
+    try:
+        launch_server_mode = "launcher" if should_open_switcher else "ide"
+        result = launch_workspace_session(
+            workspace_root=resolved_workspace_root,
+            profile=normalized_profile,
+            setta_home=normalized_setta_home,
+            profile_lookup_home=profile_lookup_home,
+            setta_files_root=normalized_setta_files_root,
+            setta_files_location=resolved_setta_files_location,
+            runtime_root=normalized_runtime_root,
+            allow_env_files_overrides=False,
+            allow_env_non_files_overrides=False,
+            server_mode=launch_server_mode,
+            timeout_seconds=timeout,
+        )
+    except LaunchError as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code=exc.code,
+            message=str(exc),
+            exit_code=2,
+        )
+
+    if not should_open_switcher:
+        try:
+            update_launcher_last_used_workspace_if_installed(
+                setta_home=result.paths.setta_home,
+                workspace_root=result.paths.workspace_root,
+            )
+        except (LauncherMetadataError, OSError) as exc:
+            logging.getLogger(__name__).warning(
+                "Failed to persist launcher last-used workspace: %s", exc
+            )
+
+    secret = result.registry.load_secret(result.session)
+    token = BOOTSTRAP_TOKEN_MANAGER.mint(result.session.id, secret)
+    bootstrap_url, _ = build_bootstrap_urls(
+        result.session.host, result.session.port, token
+    )
+    if should_open_switcher:
+        bootstrap_url = _append_url_fragment_param(
+            bootstrap_url,
+            key=_LAUNCHER_OPEN_SWITCHER_HASH_KEY,
+            value="1",
+        )
+
+    skip_open = json_output or no_open or group_no_open
+    actual_open_mode = requested_open_mode
+    if not skip_open:
+        actual_open_mode = _open_url_with_launcher_mode(
+            bootstrap_url, requested_open_mode
+        )
+
+    payload = {
+        "ok": True,
+        "bootstrapUrl": bootstrap_url,
+        "workspaceRoot": str(result.paths.workspace_root),
+        "sessionId": result.session.id,
+        "startedNew": result.started_new,
+        "reusedSession": not result.started_new,
+        "openMode": actual_open_mode,
+        "workspaceBehavior": (
+            installed_metadata.workspaceBehavior
+            if installed_metadata is not None
+            else LAUNCHER_WORKSPACE_BEHAVIOR
+        ),
+        "openWorkspaceSwitcher": should_open_switcher,
+        "settaHome": str(result.paths.setta_home),
+        "profile": result.paths.profile_name,
+    }
+    if json_output:
+        _emit_json_output(payload)
+        return
+
+    if skip_open:
+        click.echo(f"Bootstrap URL: {bootstrap_url}")
+        if should_open_switcher:
+            click.echo("Workspace switcher will open after bootstrap.")
+        return
+    click.echo(
+        f"Opened Setta ({actual_open_mode}) for workspace {result.paths.workspace_root}"
+    )
+
+
+@click.group(invoke_without_command=True)
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
+@click.option("-w", "--workspace", type=click.Path(path_type=Path))
+@click.option(
+    "--open-mode",
+    type=click.Choice(["browser", "chrome-app"], case_sensitive=False),
+    default=None,
+)
+@click.option("--no-open", is_flag=True, help="Skip opening browser or Chrome app")
+@click.option(
+    "--timeout",
+    type=float,
+    default=30.0,
+    show_default=True,
+    help="Seconds to wait for session startup.",
+)
+@click.pass_context
+def launcher(
+    ctx: click.Context,
+    json_output: bool,
+    workspace: Path | None,
+    open_mode: str | None,
+    no_open: bool,
+    timeout: float,
+) -> None:
+    if ctx.invoked_subcommand is not None:
+        return
+
+    if timeout <= 0:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code="BadRequest",
+            message="--timeout must be greater than 0.",
+            exit_code=2,
+        )
+
+    try:
+        _run_launcher_command(
+            ctx=ctx,
+            json_output=json_output,
+            workspace=workspace,
+            open_mode=open_mode,
+            no_open=no_open,
+            timeout=timeout,
+        )
+    except Exception:
+        logging.getLogger(__name__).exception("Unexpected launcher failure.")
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code="InternalError",
+            message="Unexpected launcher failure. Check logs for details.",
+            exit_code=1,
+        )
+
+
+def _resolve_launcher_setta_home_from_context(ctx: click.Context) -> Path:
+    ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
+    group_setta_home = ctx_obj.get("setta_home")
+    normalized_setta_home = _to_optional_string(group_setta_home)
+    if normalized_setta_home is None:
+        normalized_setta_home = str(get_setta_paths().setta_home)
+    return Path(normalized_setta_home).resolve(strict=False)
+
+
+def _run_launcher_setup_subcommand(
+    *,
+    ctx: click.Context,
+    json_output: bool,
+    channel: str,
+    open_mode: str,
+    workspace_behavior: str | None,
+    install_artifacts: bool,
+    artifact_option_specs: tuple[str, ...],
+) -> None:
+    launcher_setta_home = _resolve_launcher_setta_home_from_context(ctx)
+
+    try:
+        parsed_artifact_options = _parse_launcher_artifact_option_specs(
+            artifact_option_specs
+        )
+    except click.ClickException as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code="BadRequest",
+            message=str(exc),
+            exit_code=2,
+        )
+
+    parsed_workspace_behavior: LauncherWorkspaceBehavior | None = None
+    if workspace_behavior is not None:
+        try:
+            parsed_workspace_behavior = (
+                _normalize_launcher_workspace_behavior_cli_value(workspace_behavior)
+            )
+        except click.ClickException as exc:
+            _emit_launcher_error_and_exit(
+                json_output=json_output,
+                code="BadRequest",
+                message=str(exc),
+                exit_code=2,
+            )
+
+    try:
+        setup_result = setup_launcher_installation(
+            setta_home=launcher_setta_home,
+            channel=channel,
+            open_mode=cast("LauncherOpenMode", open_mode.strip().lower()),
+            workspace_behavior=parsed_workspace_behavior,
+            install_artifacts=install_artifacts,
+            artifact_options=parsed_artifact_options,
+        )
+    except LauncherSetupError as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code=exc.code,
+            message=str(exc),
+            exit_code=2,
+        )
+
+    payload = setup_result.to_payload()
+    if json_output:
+        _emit_json_output(payload)
+        return
+
+    click.echo(f"Launcher metadata written: {setup_result.metadata_path}")
+    click.echo(f"Target command: {shlex.join(setup_result.metadata.targetCommand)}")
+
+
+def _run_launcher_remove_subcommand(
+    *,
+    ctx: click.Context,
+    json_output: bool,
+) -> None:
+    launcher_setta_home = _resolve_launcher_setta_home_from_context(ctx)
+    try:
+        remove_result = remove_launcher_installation(setta_home=launcher_setta_home)
+    except LauncherSetupError as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code=exc.code,
+            message=str(exc),
+            exit_code=2,
+        )
+
+    payload = remove_result.to_payload()
+    if json_output:
+        _emit_json_output(payload)
+        return
+    click.echo(f"Launcher metadata removed: {remove_result.metadata_removed}")
+    for removed in remove_result.removed_paths:
+        click.echo(f"Removed: {removed}")
+
+
+@launcher.command(name="setup")
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
+@click.option("--channel", default="manual", show_default=True)
+@click.option(
+    "--open-mode",
+    type=click.Choice(["browser", "chrome-app"], case_sensitive=False),
+    default=_DEFAULT_LAUNCHER_OPEN_MODE,
+    show_default=True,
+)
+@click.option(
+    "--workspace-behavior",
+    type=click.Choice(_LAUNCHER_WORKSPACE_BEHAVIOR_CHOICES, case_sensitive=False),
+    default=None,
+    help=(
+        "Workspace resolution behavior when no explicit --workspace is provided: "
+        "'last-used-or-prompt' reuses last workspace when available; "
+        "'always-prompt' always opens the workspace switcher."
+    ),
+)
+@click.option(
+    "--artifact-option",
+    "artifact_option_specs",
+    multiple=True,
+    help=(
+        "Platform artifact option, as NAME=VALUE. "
+        "Examples: app_path=/path/to/Setta.app, "
+        "desktop_shortcut=true, wrapper_path=/path/to/wrapper."
+    ),
+)
+@click.option(
+    "--no-install-artifacts",
+    is_flag=True,
+    help="Skip creating platform desktop artifacts and only update metadata.",
+)
+@click.pass_context
+def launcher_setup(
+    ctx: click.Context,
+    json_output: bool,
+    channel: str,
+    open_mode: str,
+    workspace_behavior: str | None,
+    artifact_option_specs: tuple[str, ...],
+    no_install_artifacts: bool,
+) -> None:
+    _run_launcher_setup_subcommand(
+        ctx=ctx,
+        json_output=json_output,
+        channel=channel,
+        open_mode=open_mode,
+        workspace_behavior=workspace_behavior,
+        install_artifacts=not no_install_artifacts,
+        artifact_option_specs=artifact_option_specs,
+    )
+
+
+@launcher.command(name="status")
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
+@click.pass_context
+def launcher_status(
+    ctx: click.Context,
+    json_output: bool,
+) -> None:
+    launcher_setta_home = _resolve_launcher_setta_home_from_context(ctx)
+    try:
+        status = collect_launcher_status(setta_home=launcher_setta_home)
+    except LauncherSetupError as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code=exc.code,
+            message=str(exc),
+            exit_code=2,
+        )
+
+    payload = status.to_payload()
+    if json_output:
+        _emit_json_output(payload)
+        return
+
+    if not status.installed:
+        click.echo("Launcher status: not installed")
+        click.echo("Run `setta launcher setup` to install launcher metadata.")
+        return
+
+    click.echo("Launcher status: installed")
+    click.echo(f"Metadata: {status.metadata_path}")
+    click.echo(f"Target: {shlex.join(status.target_command or [])}")
+    click.echo(f"Channel: {status.channel}")
+    click.echo(f"Update capability: {status.update_capability}")
+    if status.update_guidance:
+        click.echo(f"Update guidance: {status.update_guidance}")
+    if status.target_error:
+        click.echo(f"Target error: {status.target_error}")
+    if status.missing_managed_artifacts:
+        click.echo("Missing managed artifacts:")
+        for path in status.missing_managed_artifacts:
+            click.echo(f"  - {path}")
+
+
+@launcher.command(name="repair")
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
+@click.pass_context
+def launcher_repair(
+    ctx: click.Context,
+    json_output: bool,
+) -> None:
+    launcher_setta_home = _resolve_launcher_setta_home_from_context(ctx)
+    try:
+        repair_result = repair_launcher_installation(setta_home=launcher_setta_home)
+    except LauncherSetupError as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code=exc.code,
+            message=str(exc),
+            exit_code=2,
+        )
+
+    payload = repair_result.to_payload()
+    if json_output:
+        _emit_json_output(payload)
+        return
+
+    click.echo(f"Launcher repaired: {repair_result.setup.metadata_path}")
+    if repair_result.status.missing_managed_artifacts:
+        click.echo("Missing managed artifacts remain:")
+        for path in repair_result.status.missing_managed_artifacts:
+            click.echo(f"  - {path}")
+
+
+@launcher.command(name="remove")
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
+@click.pass_context
+def launcher_remove(
+    ctx: click.Context,
+    json_output: bool,
+) -> None:
+    _run_launcher_remove_subcommand(ctx=ctx, json_output=json_output)
+
+
+@launcher.command(name="update")
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
+@click.option(
+    "--package",
+    "package_spec",
+    default="setta",
+    show_default=True,
+    help="Package spec passed to `uv tool install --upgrade`.",
+)
+@click.pass_context
+def launcher_update(
+    ctx: click.Context,
+    json_output: bool,
+    package_spec: str,
+) -> None:
+    launcher_setta_home = _resolve_launcher_setta_home_from_context(ctx)
+    try:
+        update_result = update_launcher_installation(
+            setta_home=launcher_setta_home,
+            package_spec=package_spec,
+        )
+    except LauncherSetupError as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code=exc.code,
+            message=str(exc),
+            exit_code=2,
+        )
+
+    payload = update_result.to_payload()
+    if json_output:
+        _emit_json_output(payload)
+        return
+
+    click.echo(
+        f"Updated Setta package {update_result.package_spec}: "
+        f"{update_result.from_version} -> {update_result.to_version}"
+    )
+
+
 @click.command()
 @click.option(
     "--deployment-root",
@@ -1619,6 +2384,7 @@ def app(
         )
     C.APP_MODE = True
     C.APP_DEPLOYMENT_ROOT = resolved_deployment_root
+    C.LAUNCHER_MODE = False
 
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
@@ -1663,6 +2429,17 @@ def app(
 @click.option("-w", "--workspace", type=click.Path(path_type=Path))
 @click.option("--session", "session_id", default=None)
 @click.option("--latest", is_flag=True)
+@click.option(
+    "--server-mode",
+    type=click.Choice(["ide", "launcher"], case_sensitive=False),
+    default=None,
+    help="Filter sessions by server mode for --list-sessions/--connect-info.",
+)
+@click.option(
+    "--launcher-origin",
+    default=None,
+    help="Optional launcher origin to bind and sign in connect-info JSON output.",
+)
 @click.pass_context
 def status(
     ctx: click.Context,
@@ -1673,6 +2450,8 @@ def status(
     workspace: Path | None,
     session_id: str | None,
     latest: bool,
+    server_mode: str | None,
+    launcher_origin: str | None,
 ) -> None:
     if session_id and latest:
         raise click.ClickException("Use either --session or --latest, not both.")
@@ -1710,6 +2489,10 @@ def status(
             sessions = registry.load_sessions()
         else:
             sessions = registry.find_sessions_by_workspace(resolved_workspace)
+        if server_mode is not None:
+            sessions = [
+                session for session in sessions if session.serverMode == server_mode
+            ]
         payload = {
             "sessions": [
                 {
@@ -1720,6 +2503,7 @@ def status(
                     "port": session.port,
                     "pid": session.pid,
                     "startedAt": session.startedAt.isoformat(),
+                    "serverMode": session.serverMode,
                 }
                 for session in sessions
             ]
@@ -1738,6 +2522,10 @@ def status(
             sessions = registry.find_sessions_by_workspace(
                 resolved_workspace, prune_stale=False
             )
+    if server_mode is not None:
+        sessions = [
+            session for session in sessions if session.serverMode == server_mode
+        ]
 
     if not sessions:
         raise click.ClickException("No matching Setta sessions found.")
@@ -1759,6 +2547,20 @@ def status(
     bootstrap_url_fragment, bootstrap_url_plain = build_bootstrap_urls(
         session.host, session.port, token
     )
+    normalized_launcher_origin: str | None = None
+    if launcher_origin is not None:
+        normalized_launcher_origin = normalize_launcher_origin(launcher_origin)
+        if normalized_launcher_origin is None:
+            raise click.ClickException(
+                "--launcher-origin must be an absolute http(s) origin."
+            )
+    launcher_origin_proof: str | None = None
+    if normalized_launcher_origin is not None:
+        launcher_origin_proof = mint_launcher_origin_handoff_proof(
+            session_id=session.id,
+            launcher_origin=normalized_launcher_origin,
+            secret=secret,
+        )
     ssh_tunnel_command = _build_ssh_tunnel_command(session.host, session.port)
 
     if json_output:
@@ -1768,6 +2570,9 @@ def status(
             "bootstrapUrlPlain": bootstrap_url_plain,
             "sshTunnelCommand": ssh_tunnel_command,
         }
+        if normalized_launcher_origin is not None and launcher_origin_proof is not None:
+            payload["launcherOrigin"] = normalized_launcher_origin
+            payload["launcherOriginProof"] = launcher_origin_proof
         payload.update(_session_connect_info_paths_payload(session))
         _emit_connect_info_json(payload)
         return
@@ -2247,6 +3052,7 @@ def connect(
         remote_workspace,
         setta_command,
         setta_path_args,
+        server_mode="ide",
     )
     if verbose:
         click.echo(f"Remote sessions found: {len(sessions)}")
@@ -2289,6 +3095,7 @@ def connect(
                         remote_workspace,
                         setta_command,
                         setta_path_args,
+                        server_mode="ide",
                     )
                     if not sessions:
                         break
@@ -2336,6 +3143,7 @@ def connect(
                 setta_files_root=setta_files_root,
                 runtime_root=runtime_root,
                 verbose=verbose,
+                server_mode="ide",
             )
         except click.ClickException as exc:
             if start_timed_out and str(exc).strip() == (
@@ -3077,6 +3885,7 @@ def cli(
             runtime_root=str(paths.runtime_root),
             setta_home=str(paths.setta_home),
             profile=paths.profile_name,
+            server_mode="launcher" if C.LAUNCHER_MODE else "ide",
         )
         os.environ[SESSION_ID_ENV_VAR] = session.id
         os.environ[SESSIONS_ROOT_ENV_VAR] = str(sessions_root)
@@ -3125,6 +3934,7 @@ cli.add_command(backups)
 cli.add_command(share)
 cli.add_command(app)
 cli.add_command(launch)
+cli.add_command(launcher)
 cli.add_command(status)
 cli.add_command(auth)
 cli.add_command(tools)
