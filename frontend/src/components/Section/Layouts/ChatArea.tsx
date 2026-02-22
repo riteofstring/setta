@@ -19,6 +19,7 @@ import {
   estimateChatHistoryTokens,
   resolveEstimatedContextWindowTokens,
 } from "components/Chat/contextWindow";
+import { resolveProviderDictationAvailability } from "components/Chat/dictationMode";
 import {
   getChatPlaceholderText,
   getExternalEngineIssueMessage,
@@ -30,7 +31,6 @@ import {
   pickDefaultConfigId,
 } from "components/Chat/llmConfigUtils";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
-import { resolveProviderDictationAvailability } from "components/Chat/dictationMode";
 import { useHydrateAgenticState } from "components/Panes/Overview/ProjectLevelAI/useHydrateAgenticState";
 import { useHydrateLLMState } from "components/Panes/Overview/ProjectLevelAI/useHydrateLLMState";
 import _ from "lodash";

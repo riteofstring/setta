@@ -19,7 +19,7 @@ export function requireTranscriptionSessionDelta(
   return response;
 }
 
-export function useProviderTranscriptionSessionHandlers({
+function useProviderTranscriptionSessionHandlers({
   transcriptionProfileId,
   suppressStartNotification,
 }: {

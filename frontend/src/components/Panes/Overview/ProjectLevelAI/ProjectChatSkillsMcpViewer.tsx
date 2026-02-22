@@ -652,7 +652,9 @@ export function ProjectChatSkillsMcpViewer({
       }
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
-        setMcpRuntimeStatusError(detail ?? "Failed to load MCP runtime status.");
+        setMcpRuntimeStatusError(
+          detail ?? "Failed to load MCP runtime status.",
+        );
         setMcpRuntimeStatusByServerId(null);
         setExternalRuntimeServers([]);
         setMcpConfigPath(null);

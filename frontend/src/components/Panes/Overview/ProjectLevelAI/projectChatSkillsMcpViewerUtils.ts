@@ -8,13 +8,13 @@ import {
 } from "components/Chat/llmConfigUtils";
 import {
   EngineTypeEnum,
+  ExternalAgentToolTypeEnum,
   type APIKeys,
   type AllLLMConfigs,
   type AppGenSkillEntry,
   type BaseChatMessageUnion,
   type EngineConfig,
   type ExternalAgentPreflightStatus,
-  ExternalAgentToolTypeEnum,
 } from "utils/generatedTypes";
 
 export function filterSkills(

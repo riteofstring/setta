@@ -313,9 +313,13 @@ export async function transcribeChatAudioWithProfile(
     );
     return null;
   }
-  const session = await startTranscriptionSession(transcriptionProfileId, null, {
-    suppressNotification: true,
-  });
+  const session = await startTranscriptionSession(
+    transcriptionProfileId,
+    null,
+    {
+      suppressNotification: true,
+    },
+  );
   if (!session) {
     return null;
   }

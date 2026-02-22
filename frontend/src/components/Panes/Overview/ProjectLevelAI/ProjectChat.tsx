@@ -1373,7 +1373,9 @@ export function ProjectChat() {
                     chatId={chatId}
                     engineConfigId={effectiveEngineId}
                     engineType={engineType}
-                    externalAgentToolType={externalAgentConfig?.toolType ?? null}
+                    externalAgentToolType={
+                      externalAgentConfig?.toolType ?? null
+                    }
                   />
                 </div>
               ) : (
