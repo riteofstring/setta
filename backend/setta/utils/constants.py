@@ -153,12 +153,6 @@ class C:
     REALTIME_BINARY_MAX_BYTES = int(
         os.environ.get("SETTA_REALTIME_BINARY_MAX_BYTES", str(10 * 1024 * 1024)) or 0
     )
-    TRANSCRIPTION_FILE_SESSION_MAX_BYTES = int(
-        os.environ.get(
-            "SETTA_TRANSCRIPTION_FILE_SESSION_MAX_BYTES", str(25 * 1024 * 1024)
-        )
-        or 0
-    )
 
     # Allowed artifact types
     ALLOWED_ARTIFACT_TYPES = {

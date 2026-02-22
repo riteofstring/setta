@@ -545,14 +545,10 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
             "projectConfigId": str(tmp_project_id),
             "chatId": str(tmp_chat_id),
             "sectionId": str(tmp_section_id),
-            "frontendWebsocketId": "frontend-test",
         },
         context=ctx,
     )
     assert init_result == {"status": "ok"}
-    resolved_agentic_context = mcp_server._resolve_agentic_context(ctx)
-    assert resolved_agentic_context is not None
-    assert resolved_agentic_context.frontend_websocket_id == "frontend-test"
 
     tool = mcp_server.get_tool("get_latest_project_state_summary")
     assert tool is not None
@@ -566,64 +562,3 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
     assert {entry.sectionId for entry in canonical.sections} == allowed_ids
     assert set(canonical.projectConfig.sectionVariantMap.keys()) == allowed_ids
     assert blocked_section_id not in canonical.parentSectionMap
-
-
-@pytest.mark.asyncio
-async def test_report_completion_status_allowed_in_scoped_chat_context(tmp_path) -> None:
-    dbe = DBE(tmp_path)
-    (
-        project_state,
-        project_config_id,
-        chat_section_id,
-        peer_chat_section_id,
-        allowed_section_id,
-        blocked_section_id,
-    ) = _build_project_state()
-    _seed_temporary_ids(
-        dbe,
-        [
-            project_config_id,
-            chat_section_id,
-            peer_chat_section_id,
-            allowed_section_id,
-            blocked_section_id,
-            ID("chat-1"),
-        ],
-    )
-
-    manager = _DummyProjectManager(project_state)
-    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
-    websocket_manager = WebsocketManager()
-    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
-    state = type("_State", (), {"project_manager_switcher": switcher, "dbe": dbe})()
-    app = FastAPI()
-    mcp_server = SettaFastMCP(
-        app,
-        state,
-        "/mcp-test",
-        "Test MCP Server",
-        frontend_sender,
-        dbe,
-    )
-
-    ctx = _build_context_with_meta(
-        mcp_server=mcp_server,
-        project_config_id=project_config_id,
-        chat_id=ID("chat-1"),
-        section_id=chat_section_id,
-    )
-    tool = mcp_server.get_tool("report_completion_status")
-    assert tool is not None
-    result = await tool.run(
-        {
-            "completionIntent": False,
-            "requiresVerification": False,
-            "taskId": "task-a",
-        },
-        context=ctx,
-    )
-
-    assert result.taskId == "task-a"
-    assert result.completionIntent is False
-    assert result.requiresVerification is False
-    assert result.verificationStatus.value == "passed"

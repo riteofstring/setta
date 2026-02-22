@@ -3,11 +3,6 @@ from typing import Any
 from mcp.server.fastmcp.server import Context
 
 from setta.agentic.agentic_scope import AgenticContext
-from setta.agentic.completion_report import (
-    CheckResult,
-    CompletionStatusReport,
-    build_completion_status_report,
-)
 from setta.agentic.store import load_agent_profiles
 from setta.mcp.tool_metadata import ToolAccessMetadata, attach_tool_access
 from setta.mcp.tool_setup import setta_init_tool, setta_tool
@@ -21,7 +16,6 @@ def set_agentic_context(
     projectConfigId: ID,
     chatId: ID | None = None,
     sectionId: ID | None = None,
-    frontendWebsocketId: str | None = None,
     allowUnscoped: bool = False,
     ctx: Context,
 ) -> dict[str, Any]:
@@ -32,7 +26,6 @@ def set_agentic_context(
         projectConfigId: Active project config id.
         chatId: Chat id for the agent run.
         sectionId: Chat section id (required unless allowUnscoped=true).
-        frontendWebsocketId: Frontend websocket id for reveal routing affinity.
         allowUnscoped: Allow an unscoped/project-level context (required when sectionId is omitted).
     """
     if sectionId is None and not allowUnscoped:
@@ -45,41 +38,10 @@ def set_agentic_context(
             project_config_id=projectConfigId,
             chat_id=chatId,
             section_id=sectionId,
-            frontend_websocket_id=(
-                frontendWebsocketId.strip()
-                if isinstance(frontendWebsocketId, str)
-                and frontendWebsocketId.strip() != ""
-                else None
-            ),
             allow_unscoped=allowUnscoped,
         ),
     )
     return {"status": "ok"}
-
-
-@setta_tool
-def report_completion_status(
-    *,
-    completionIntent: bool,
-    requiresVerification: bool,
-    checkResults: list[CheckResult] | None = None,
-    taskId: str | None = None,
-) -> CompletionStatusReport:
-    """
-    Report structured completion intent and verification evidence for the active task.
-    """
-    return build_completion_status_report(
-        task_id=taskId,
-        completion_intent=completionIntent,
-        requires_verification=requiresVerification,
-        check_results=list(checkResults or []),
-    )
-
-
-attach_tool_access(
-    report_completion_status,
-    ToolAccessMetadata(accessType="structural"),
-)
 
 
 @setta_tool

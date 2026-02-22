@@ -6,16 +6,12 @@ import pytest
 from setta.agentic.completion_guard import (
     FAILED_CHECKS_MESSAGE,
     MISSING_CHECKS_MESSAGE,
-    MISSING_REPORT_MESSAGE,
 )
 from setta.agentic.store import load_agent_run, save_agent_run, save_engine_configs
 from setta.database.db_objs import DBE
 from setta.llm.agent_runner import AgentRunner
 from setta.llm.chat_toolkit.managed.actions import EmitChunkAction
-from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.client import MultiMCPClient
-from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
-from setta.agentic.agentic_scope import AgenticScope
 from setta.types.agentic import (
     AgentProfile,
     AgentRun,
@@ -80,23 +76,8 @@ def _seed_engine_config(dbe: DBE, engine_config_id: ID, llm_config_id: str) -> N
     save_engine_configs(dbe, [engine_config])
 
 
-def _completion_report_tool_message(
-    *,
-    completion_intent: bool,
-    requires_verification: bool,
-    check_results: list[dict[str, object]] | None = None,
-) -> ToolChatMessage:
-    return ToolChatMessage(
-        tool_call_id="tool-report",
-        tool_name="setta__report_completion_status",
-        result={
-            "structuredContent": {
-                "completionIntent": completion_intent,
-                "requiresVerification": requires_verification,
-                "checkResults": list(check_results or []),
-            }
-        },
-    )
+def _tool_message(tool_call_id: str = "tool-1") -> ToolChatMessage:
+    return ToolChatMessage(tool_call_id=tool_call_id, tool_name="shell_command")
 
 
 class _StubAgentRunner(AgentRunner):
@@ -148,745 +129,340 @@ class TestAgentRunner:
             allowlist = runner._normalize_tool_allowlist(profile)
 
             assert allowlist is not None
-            assert allowlist.tool_names == {
-                "server-a__tool.alpha",
-                "setta__report_completion_status",
-            }
+            assert allowlist.tool_names == {"server-a__tool.alpha"}
             assert allowlist.tool_basenames == {"tool.beta"}
             assert allowlist.server_ids == {"server-a", "server-b"}
 
-    def test_allowlist_does_not_force_report_tool_when_guard_disabled(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=[SETTA_MCP_SERVER_ID],
-                    )
-                },
-                mcpServers={
-                    SETTA_MCP_SERVER_ID: MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8000/mcp",
-                    )
-                },
-            )
-            runner = _build_runner(dbe, config)
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            profile = AgentProfile(
-                name="Alpha",
-                engineConfigId=engine_config_id,
-                toolAllowlist=["setta__getProjectState"],
-            )
-
-            allowlist = runner._normalize_tool_allowlist(
-                profile,
-                completion_guard_enabled=False,
-            )
-
-            assert allowlist is not None
-            assert "setta__report_completion_status" not in allowlist.tool_names
-
-    def test_allowlist_does_not_allow_report_completion_status_on_other_servers(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=["other", SETTA_MCP_SERVER_ID],
-                    )
-                },
-                mcpServers={
-                    "other": MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8001/mcp",
-                    ),
-                    SETTA_MCP_SERVER_ID: MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8000/mcp",
-                    ),
-                },
-            )
-            runner = _build_runner(dbe, config)
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            profile = AgentProfile(
-                name="Alpha",
-                engineConfigId=engine_config_id,
-                toolAllowlist=["other__tool.alpha"],
-            )
-
-            allowlist = runner._normalize_tool_allowlist(profile)
-
-            assert allowlist is not None
-            assert allowlist.server_ids == {"other", SETTA_MCP_SERVER_ID}
-            assert runner._is_tool_allowed(
-                "setta__report_completion_status", allowlist
-            )
-            assert not runner._is_tool_allowed(
-                "other__report_completion_status", allowlist
-            )
-
-    def test_allowlist_none_still_blocks_non_setta_completion_status_when_guard_enabled(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=[],
-                    )
-                },
-                mcpServers={},
-            )
-            runner = _build_runner(dbe, config)
-
-            assert runner._is_tool_allowed(
-                "setta__report_completion_status",
-                None,
-                completion_guard_enabled=True,
-            )
-            assert not runner._is_tool_allowed(
-                "other__report_completion_status",
-                None,
-                completion_guard_enabled=True,
-            )
-            assert runner._is_tool_allowed(
-                "other__report_completion_status",
-                None,
-                completion_guard_enabled=False,
-            )
-
-    def test_tool_definitions_keep_setta_report_tool_when_allowlist_narrows_server_ids(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=["other", SETTA_MCP_SERVER_ID],
-                    )
-                },
-                mcpServers={
-                    "other": MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8001/mcp",
-                    ),
-                    SETTA_MCP_SERVER_ID: MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8000/mcp",
-                    ),
-                },
-            )
-            runner = _build_runner(dbe, config)
-            runner.mcp_client.disabled = False
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            profile = AgentProfile(
-                name="Alpha",
-                engineConfigId=engine_config_id,
-                toolAllowlist=["other__tool_alpha"],
-            )
-
-            def tool_definition(name: str) -> dict[str, object]:
-                return {
-                    "type": "function",
-                    "function": {
-                        "name": name,
-                        "description": "",
-                        "parameters": {},
-                    },
-                }
-
-            runner.mcp_client.discoverable_tool_definitions = {
-                "other__tool_alpha": tool_definition("other__tool_alpha"),
-                "setta__report_completion_status": tool_definition(
-                    "setta__report_completion_status"
-                ),
-            }
-            runner.mcp_client.routing = {
-                "other__tool_alpha": ("other", "tool_alpha"),
-                "setta__report_completion_status": (
-                    SETTA_MCP_SERVER_ID,
-                    "report_completion_status",
-                ),
-            }
-
-            allowlist = runner._normalize_tool_allowlist(
-                profile,
-                completion_guard_enabled=True,
-            )
-            if allowlist is None:
-                raise AssertionError("Expected allowlist to be normalized")
-            tools = runner._build_tool_definitions(
-                ["other", SETTA_MCP_SERVER_ID],
-                allowlist=allowlist,
-                use_tool_search=False,
-                agentic_scope=AgenticScope(),
-                completion_guard_enabled=True,
-            )
-
-            tool_names = {
-                tool["function"]["name"]
-                for tool in tools
-                if isinstance(tool.get("function"), dict)
-                and isinstance(tool["function"].get("name"), str)
-            }
-            assert "other__tool_alpha" in tool_names
-            assert "setta__report_completion_status" in tool_names
-
-    def test_tool_definitions_filter_non_setta_report_completion_status_without_allowlist(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=["other", SETTA_MCP_SERVER_ID],
-                    )
-                },
-                mcpServers={
-                    "other": MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8001/mcp",
-                    ),
-                    SETTA_MCP_SERVER_ID: MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8000/mcp",
-                    ),
-                },
-            )
-            runner = _build_runner(dbe, config)
-            runner.mcp_client.disabled = False
-
-            def tool_definition(name: str) -> dict[str, object]:
-                return {
-                    "type": "function",
-                    "function": {
-                        "name": name,
-                        "description": "",
-                        "parameters": {},
-                    },
-                }
-
-            runner.mcp_client.discoverable_tool_definitions = {
-                "other__report_completion_status": tool_definition(
-                    "other__report_completion_status"
-                ),
-                "other__tool_alpha": tool_definition("other__tool_alpha"),
-                "setta__report_completion_status": tool_definition(
-                    "setta__report_completion_status"
-                ),
-            }
-            runner.mcp_client.routing = {
-                "other__report_completion_status": ("other", "report_completion_status"),
-                "other__tool_alpha": ("other", "tool_alpha"),
-                "setta__report_completion_status": (
-                    SETTA_MCP_SERVER_ID,
-                    "report_completion_status",
-                ),
-            }
-
-            tools = runner._build_full_tool_definitions(
-                {"other", SETTA_MCP_SERVER_ID},
-                defer_loading=False,
-                include_search_tool=False,
-                allowlist=None,
-                agentic_scope=AgenticScope(),
-                completion_guard_enabled=True,
-            )
-
-            tool_names = {
-                tool["function"]["name"]
-                for tool in tools
-                if isinstance(tool.get("function"), dict)
-                and isinstance(tool["function"].get("name"), str)
-            }
-            assert "other__report_completion_status" not in tool_names
-            assert "setta__report_completion_status" in tool_names
-            assert "other__tool_alpha" in tool_names
-
-    def test_tool_definitions_allow_non_setta_report_completion_status_when_guard_disabled(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=["other", SETTA_MCP_SERVER_ID],
-                    )
-                },
-                mcpServers={
-                    "other": MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8001/mcp",
-                    ),
-                    SETTA_MCP_SERVER_ID: MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8000/mcp",
-                    ),
-                },
-            )
-            runner = _build_runner(dbe, config)
-            runner.mcp_client.disabled = False
-
-            def tool_definition(name: str) -> dict[str, object]:
-                return {
-                    "type": "function",
-                    "function": {
-                        "name": name,
-                        "description": "",
-                        "parameters": {},
-                    },
-                }
-
-            runner.mcp_client.discoverable_tool_definitions = {
-                "other__report_completion_status": tool_definition(
-                    "other__report_completion_status"
-                ),
-                "setta__report_completion_status": tool_definition(
-                    "setta__report_completion_status"
-                ),
-            }
-            runner.mcp_client.routing = {
-                "other__report_completion_status": ("other", "report_completion_status"),
-                "setta__report_completion_status": (
-                    SETTA_MCP_SERVER_ID,
-                    "report_completion_status",
-                ),
-            }
-
-            tools = runner._build_full_tool_definitions(
-                {"other", SETTA_MCP_SERVER_ID},
-                defer_loading=False,
-                include_search_tool=False,
-                allowlist=None,
-                agentic_scope=AgenticScope(structural_allowed=True),
-                completion_guard_enabled=False,
-            )
-
-            tool_names = {
-                tool["function"]["name"]
-                for tool in tools
-                if isinstance(tool.get("function"), dict)
-                and isinstance(tool["function"].get("name"), str)
-            }
-            assert "other__report_completion_status" in tool_names
-            assert "setta__report_completion_status" in tool_names
-
-    def test_allowlist_can_include_non_setta_report_completion_status_when_guard_disabled(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=["other"],
-                    )
-                },
-                mcpServers={
-                    "other": MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8001/mcp",
-                    )
-                },
-            )
-            runner = _build_runner(dbe, config)
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            profile = AgentProfile(
-                name="Alpha",
-                engineConfigId=engine_config_id,
-                toolAllowlist=["other__report_completion_status"],
-            )
-
-            allowlist = runner._normalize_tool_allowlist(
-                profile,
-                completion_guard_enabled=False,
-            )
-            if allowlist is None:
-                raise AssertionError("Expected allowlist to be normalized")
-            assert runner._is_tool_allowed(
-                "other__report_completion_status",
-                allowlist,
-                completion_guard_enabled=False,
-            )
-
-    def test_server_allowlist_allows_non_setta_report_completion_status_when_guard_disabled(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=["other"],
-                    )
-                },
-                mcpServers={
-                    "other": MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8001/mcp",
-                    )
-                },
-            )
-            runner = _build_runner(dbe, config)
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            profile = AgentProfile(
-                name="Alpha",
-                engineConfigId=engine_config_id,
-                toolAllowlist=["other"],
-            )
-
-            allowlist = runner._normalize_tool_allowlist(
-                profile,
-                completion_guard_enabled=False,
-            )
-            if allowlist is None:
-                raise AssertionError("Expected allowlist to be normalized")
-            assert runner._is_tool_allowed(
-                "other__report_completion_status",
-                allowlist,
-                completion_guard_enabled=False,
-            )
-
-    def test_scope_filter_keeps_required_completion_report_tool(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=[SETTA_MCP_SERVER_ID],
-                    )
-                },
-                mcpServers={
-                    SETTA_MCP_SERVER_ID: MCPServerConfig(
-                        transport="sse",
-                        url="http://localhost:8000/mcp",
-                    )
-                },
-            )
-            runner = _build_runner(dbe, config)
-            completion_tool_name = f"{SETTA_MCP_SERVER_ID}__report_completion_status"
-            runner.mcp_client.tool_annotations_by_name[completion_tool_name] = (
-                SettaToolAnnotations(
-                    settaToolType=SettaToolType.discoverable,
-                    accessType="structural",
-                )
-            )
-
-            filtered = runner._filter_tool_names_by_scope(
-                [completion_tool_name],
-                AgenticScope(),
-            )
-
-            assert filtered == [completion_tool_name]
-
-    def test_completion_guard_blocks_missing_report_when_enabled(self) -> None:
+    def test_completion_guard_rewrites_done_claim_when_checks_missing(self) -> None:
         prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Implement task A.")])
-        ]
-        assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="Task A is done.")]
-        )
-
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=True,
-        )
-
-        assert assistant_message.content[0].text == MISSING_REPORT_MESSAGE
-
-    def test_completion_guard_blocks_non_completion_text_when_report_missing(self) -> None:
-        prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Investigate bug B.")])
-        ]
-        assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="I need one clarification.")]
-        )
-
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=True,
-        )
-
-        assert assistant_message.content[0].text == MISSING_REPORT_MESSAGE
-
-    def test_completion_guard_allows_when_disabled(self) -> None:
-        prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Implement task A.")])
-        ]
-        assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="Task A is done.")]
-        )
-
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=False,
-        )
-
-        assert assistant_message.content[0].text == "Task A is done."
-
-    def test_completion_guard_blocks_failed_required_checks(self) -> None:
-        prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Implement task A.")]),
-            _completion_report_tool_message(
-                completion_intent=True,
-                requires_verification=True,
-                check_results=[
-                    {
-                        "checkName": "pytest",
-                        "required": True,
-                        "status": "failed",
-                    }
+            UserChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="Create a new project and scaffold all sections."
+                    )
                 ],
             ),
+            _tool_message(),
         ]
         assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="Task A is done.")]
+            content=[MessageTextContent(text="Done. Everything is complete.")]
         )
 
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=True,
-        )
-
-        assert assistant_message.content[0].text == FAILED_CHECKS_MESSAGE
-
-    def test_completion_guard_blocks_when_required_checks_not_run(self) -> None:
-        prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Implement task A.")]),
-            _completion_report_tool_message(
-                completion_intent=True,
-                requires_verification=True,
-                check_results=[
-                    {
-                        "checkName": "pytest",
-                        "required": True,
-                        "status": "not_run",
-                    }
-                ],
-            ),
-        ]
-        assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="Task A is done.")]
-        )
-
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=True,
-        )
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
 
         assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
 
-    def test_completion_guard_allows_when_required_checks_pass(self) -> None:
+    def test_completion_guard_requires_execution_activity(self) -> None:
         prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Implement task A.")]),
-            _completion_report_tool_message(
-                completion_intent=True,
-                requires_verification=True,
-                check_results=[
-                    {
-                        "checkName": "pytest",
-                        "required": True,
-                        "status": "passed",
-                    },
-                    {
-                        "checkName": "ruff",
-                        "required": True,
-                        "status": "passed",
-                    },
-                ],
-            ),
-        ]
-        assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="Task A is done.")]
-        )
-
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=True,
-        )
-
-        assert assistant_message.content[0].text == "Task A is done."
-
-    def test_completion_guard_allows_non_completion_intent_reports(self) -> None:
-        prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Investigate bug B.")]),
-            _completion_report_tool_message(
-                completion_intent=False,
-                requires_verification=False,
-            ),
-        ]
-        assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="Task A is done.")]
-        )
-
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=True,
-        )
-
-        assert assistant_message.content[0].text == "Task A is done."
-
-    def test_completion_guard_uses_same_turn_tool_results(self) -> None:
-        prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Implement task A.")])
-        ]
-        assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="Task A is done.")]
-        )
-        same_turn_tool_results = [
-            _completion_report_tool_message(
-                completion_intent=True,
-                requires_verification=True,
-                check_results=[
-                    {
-                        "checkName": "pytest",
-                        "required": True,
-                        "status": "passed",
-                    }
+            UserChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="Create a new project and scaffold all sections."
+                    )
                 ],
             )
         ]
-
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=True,
-            same_turn_tool_results=same_turn_tool_results,
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Everything is complete.")]
         )
 
-        assert assistant_message.content[0].text == "Task A is done."
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
 
-    def test_completion_guard_blocks_when_latest_task_scope_has_no_report(self) -> None:
+        assert assistant_message.content[0].text == "Done. Everything is complete."
+
+    def test_completion_guard_rewrites_done_claim_when_checks_failed(self) -> None:
         prior_messages = [
-            UserChatMessage(content=[MessageTextContent(text="Implement task A.")]),
-            _completion_report_tool_message(
-                completion_intent=True,
-                requires_verification=True,
-                check_results=[
-                    {
-                        "checkName": "pytest",
-                        "required": True,
-                        "status": "passed",
-                    }
-                ],
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
             ),
-            UserChatMessage(content=[MessageTextContent(text="Implement task B.")]),
+            _tool_message(),
+            AssistantChatMessage(
+                content=[MessageTextContent(text="I ran checks and tests failed.")]
+            ),
         ]
         assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text="Task B is done.")]
+            content=[MessageTextContent(text="All done.")]
         )
 
-        AgentRunner._apply_completion_guard(
-            prior_messages,
-            assistant_message,
-            completion_guard_enabled=True,
-        )
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
 
-        assert assistant_message.content[0].text == MISSING_REPORT_MESSAGE
+        assert assistant_message.content[0].text == FAILED_CHECKS_MESSAGE
 
-    def test_resolve_turn_completion_guard_enabled_requires_report_tool_in_payload(
+    def test_completion_guard_keeps_creation_flows_open_across_clarification_turns(
         self,
     ) -> None:
-        missing_tool_payload = {"model": "gpt-4o-mini", "tools": []}
-        wrong_tool_payload = {
-            "model": "gpt-4o-mini",
-            "tools": [
-                {
-                    "type": "function",
-                    "function": {"name": "other__report_completion_status"},
-                }
-            ],
-        }
-        valid_tool_payload = {
-            "model": "gpt-4o-mini",
-            "tools": [
-                {
-                    "type": "function",
-                    "function": {"name": "setta__report_completion_status"},
-                }
-            ],
-        }
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a new project scaffold.")]
+            ),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="Which language and framework should I use?"
+                    )
+                ]
+            ),
+            UserChatMessage(content=[MessageTextContent(text="Python + FastAPI.")]),
+            _tool_message(),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Ready to ship.")]
+        )
 
-        assert not AgentRunner._resolve_turn_completion_guard_enabled(
-            completion_guard_enabled=True,
-            payload=missing_tool_payload,
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
+    def test_completion_guard_keeps_creation_flow_open_for_question_clarifications(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a new project scaffold.")]
+            ),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="Which language and framework should I use?"
+                    )
+                ]
+            ),
+            UserChatMessage(
+                content=[
+                    MessageTextContent(text="How should we structure auth folders?")
+                ]
+            ),
+            _tool_message(),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Ready to ship.")]
         )
-        assert not AgentRunner._resolve_turn_completion_guard_enabled(
-            completion_guard_enabled=True,
-            payload=wrong_tool_payload,
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
+    def test_completion_guard_keeps_creation_flow_open_for_implement_followup(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a new project scaffold.")]
+            ),
+            UserChatMessage(
+                content=[MessageTextContent(text="Implement the remaining sections.")]
+            ),
+            _tool_message(),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Ready to ship.")]
         )
-        assert AgentRunner._resolve_turn_completion_guard_enabled(
-            completion_guard_enabled=True,
-            payload=valid_tool_payload,
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
+    def test_completion_guard_ignores_non_scaffolding_implement_app_requests(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="Implement app settings page and wire it to existing state."
+                    )
+                ]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Ready to ship.")]
         )
-        assert not AgentRunner._resolve_turn_completion_guard_enabled(
-            completion_guard_enabled=False,
-            payload=valid_tool_payload,
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "Done. Ready to ship."
+
+    def test_completion_guard_closes_scope_for_unrelated_question_pivot(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a new project scaffold.")]
+            ),
+            _tool_message(),
+            UserChatMessage(
+                content=[MessageTextContent(text="What time is it in Tokyo?")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Ready to ship.")]
         )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "Done. Ready to ship."
+
+    def test_completion_guard_closes_scope_for_tell_me_pivot(self) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a new project scaffold.")]
+            ),
+            _tool_message(),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(
+                        text="I ran tests and verification passed cleanly."
+                    )
+                ]
+            ),
+            UserChatMessage(
+                content=[MessageTextContent(text="Tell me the value of Setta.")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Ready to ship.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "Done. Ready to ship."
+
+    def test_completion_guard_allows_no_errors_found_pass_status(self) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            _tool_message(),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(text="Verification passed with no errors found.")
+                ]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="All done.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "All done."
+
+    def test_completion_guard_allows_zero_failed_and_zero_errors_pass_status(self) -> (
+        None
+    ):
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            _tool_message(),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(text="pytest: 5 passed, 0 failed in 1.2s")
+                ]
+            ),
+            AssistantChatMessage(
+                content=[MessageTextContent(text="Ran lint: zero errors found.")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="All done.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == "All done."
+
+    def test_completion_guard_keeps_creation_scope_for_verification_followup_question(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[
+                    MessageTextContent(text="Create a new project structure.")
+                ]
+            ),
+            UserChatMessage(
+                content=[MessageTextContent(text="What tests did you run?")]
+            ),
+            _tool_message(),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="All done.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
+    def test_completion_guard_requires_explicit_status_when_done_message_mentions_checks(
+        self,
+    ) -> None:
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            _tool_message(),
+            AssistantChatMessage(
+                content=[MessageTextContent(text="I ran checks and tests passed.")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[
+                MessageTextContent(
+                    text="Done. I referenced tests but have not rerun checks yet."
+                )
+            ]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
+
+    def test_completion_guard_ignores_non_verification_check_wording_in_done_message(
+        self,
+    ) -> None:
+        # Generic "check the docs" prose should not override a prior explicit pass result.
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            _tool_message(),
+            AssistantChatMessage(
+                content=[MessageTextContent(text="I ran checks and tests passed.")]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="Done. Check the docs for details.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert (
+            assistant_message.content[0].text == "Done. Check the docs for details."
+        )
+
+    def test_completion_guard_treats_checks_not_run_with_no_failures_as_missing(
+        self,
+    ) -> None:
+        # "no failures" must not pass verification when checks are explicitly not run.
+        prior_messages = [
+            UserChatMessage(
+                content=[MessageTextContent(text="Create a section from scratch.")]
+            ),
+            _tool_message(),
+            AssistantChatMessage(
+                content=[
+                    MessageTextContent(text="Checks were not run yet, no failures.")
+                ]
+            ),
+        ]
+        assistant_message = AssistantChatMessage(
+            content=[MessageTextContent(text="All done.")]
+        )
+
+        AgentRunner._apply_completion_guard(prior_messages, assistant_message)
+
+        assert assistant_message.content[0].text == MISSING_CHECKS_MESSAGE
 
     def test_allowlist_rejects_unknown_server(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -985,51 +561,6 @@ class TestAgentRunner:
             assert override_context.chat_id == ID("chat-1")
             assert override_context.section_id == chat_section_id
             assert override_context.thinking is True
-
-    def test_context_caches_completion_guard_toggle_for_run(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            dbe.write_json(
-                dbe.settings,
-                {
-                    "backend": {
-                        "completionGuardEnabled": False,
-                    }
-                },
-            )
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=[],
-                    )
-                },
-                mcpServers={},
-            )
-            runner = _build_runner(dbe, config)
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
-
-            context = runner._build_context(
-                profile,
-                inputs={"allowUnscoped": True},
-            )
-
-            dbe.write_json(
-                dbe.settings,
-                {
-                    "backend": {
-                        "completionGuardEnabled": True,
-                    }
-                },
-            )
-
-            assert context.completion_guard_enabled is False
 
     def test_context_validates_input_types(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1134,42 +665,6 @@ class TestAgentRunner:
             assert f"- name: {profile.name}" in prompt
             assert f"- description: {profile.description}" in prompt
             assert profile.systemPrompt in prompt
-
-    def test_system_prompt_omits_completion_contract_when_guard_disabled(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            project_config = ProjectConfig()
-            _write_project_state(dbe, [project_config])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=[],
-                    )
-                },
-                mcpServers={},
-            )
-            runner = _build_runner(dbe, config)
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            profile = AgentProfile(
-                name="Alpha",
-                description="Primary profile",
-                systemPrompt="You are alpha.",
-                engineConfigId=engine_config_id,
-            )
-
-            prompt = runner._build_system_prompt(
-                profile,
-                project_config.id,
-                completion_guard_enabled=False,
-            )
-
-            assert "## Completion Reporting Contract" not in prompt
-            assert "report_completion_status" not in prompt
 
     def test_build_outputs_returns_final_text(self) -> None:
         with TemporaryDirectory() as tmpdir:
@@ -1290,57 +785,6 @@ class TestAgentRunner:
             assert "projectConfigId" in snapshot_payload
             assert "projectState" in snapshot_payload
             assert "temporaryIdMap" in snapshot_payload
-
-    @pytest.mark.asyncio
-    async def test_run_agent_fails_closed_when_completion_guard_tool_is_missing(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            _write_project_state(dbe, [ProjectConfig()])
-            config = AllLLMConfigs(
-                configs={
-                    "primary": LLMConfig(
-                        id="primary",
-                        model="gpt-4o-mini",
-                        provider="openai",
-                        api_key_env="OPENAI_API_KEY",
-                        mcpServerIds=[],
-                    )
-                },
-                mcpServers={},
-            )
-            runner = _build_runner(dbe, config)
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            profile = AgentProfile(name="Alpha", engineConfigId=engine_config_id)
-            context = runner._build_context(
-                profile,
-                inputs={"allowUnscoped": True},
-                emit_stream=False,
-                emit_ai_follow=False,
-            )
-
-            await runner._run_agent(context)
-
-            assert context.run.status == AgentRunStatus.failed
-            outputs = context.run.outputs or {}
-            messages = outputs.get("messages")
-            assert isinstance(messages, list)
-            assistant_messages = [
-                message
-                for message in messages
-                if isinstance(message, dict) and message.get("role") == "assistant"
-            ]
-            assert assistant_messages
-            assistant_content = assistant_messages[-1].get("content")
-            assert isinstance(assistant_content, list)
-            text_block = assistant_content[0]
-            assert isinstance(text_block, dict)
-            text = text_block.get("text")
-            assert isinstance(text, str)
-            assert "Completion guard is enabled" in text
-            assert "report_completion_status" in text
 
 
 class TestAgentRunnerSubAgent:

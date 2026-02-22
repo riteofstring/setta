@@ -1,12 +1,9 @@
-import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from setta.agentic.external_adapters.codex_app_server import (
     CodexAppServerAdapter,
-    _MCP_STATUS_REQUEST_TIMEOUT_SECONDS,
-    _REQUEST_TIMEOUT_SECONDS,
     _CodexAppServerEventParser,
     _build_approval_payload,
     _build_turn_params,
@@ -683,6 +680,107 @@ class TestCodexAppServerAdapterParser:
         tool_call_ids = {call.id for call in tool_calls}
         assert "call-buffer-1" in tool_call_ids
 
+    def test_response_item_reasoning_emits_thinking_delta(self) -> None:
+        parser = _CodexAppServerEventParser()
+        events = parser.handle(
+            {
+                "type": "response_item",
+                "payload": {
+                    "id": "reason-response-1",
+                    "type": "reasoning",
+                    "summary": [{"text": "Plan"}],
+                    "content": [{"text": "Analyze constraints."}],
+                },
+            }
+        )
+
+        assert len(events) == 2
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
+        assert isinstance(events[1].stream_chunk, MessageDeltaEvent)
+        if isinstance(events[1].stream_chunk, MessageDeltaEvent):
+            delta = events[1].stream_chunk.content[0]
+            assert isinstance(delta, MessageThinkingDelta)
+            if isinstance(delta, MessageThinkingDelta):
+                assert delta.summary == "Plan"
+                assert delta.thinking == "Analyze constraints."
+
+    def test_response_item_reasoning_does_not_fallback_summary_to_text(self) -> None:
+        parser = _CodexAppServerEventParser()
+        events = parser.handle(
+            {
+                "type": "response_item",
+                "payload": {
+                    "id": "reason-response-no-summary",
+                    "type": "reasoning",
+                    "text": [{"text": "This is body text, not summary."}],
+                    "content": [{"text": "Detailed reasoning content."}],
+                },
+            }
+        )
+
+        assert len(events) == 2
+        assert isinstance(events[0].stream_chunk, MessageStartEvent)
+        assert isinstance(events[1].stream_chunk, MessageDeltaEvent)
+        if isinstance(events[1].stream_chunk, MessageDeltaEvent):
+            delta = events[1].stream_chunk.content[0]
+            assert isinstance(delta, MessageThinkingDelta)
+            if isinstance(delta, MessageThinkingDelta):
+                assert delta.summary == ""
+                assert delta.thinking == "Detailed reasoning content."
+
+    def test_response_item_message_with_reasoning_content_emits_thinking_and_text(
+        self,
+    ) -> None:
+        parser = _CodexAppServerEventParser()
+        state = build_chat_section_state(messages=[])
+
+        payload = {
+            "type": "response_item",
+            "payload": {
+                "id": "msg-response-with-reasoning",
+                "type": "message",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "reasoning",
+                        "summary": [{"text": "Plan"}],
+                        "content": [{"text": "Evaluate options."}],
+                    },
+                    {
+                        "type": "output_text",
+                        "text": "Build the navigator first.",
+                    },
+                ],
+            },
+        }
+
+        for event in parser.handle(payload):
+            if event.stream_chunk is None:
+                continue
+            state = apply_stream_delta(state=state, chunk=event.stream_chunk)
+
+        message = next(
+            (
+                entry
+                for entry in state.messages
+                if isinstance(entry, AssistantChatMessage)
+                and entry.id == "msg-response-with-reasoning"
+            ),
+            None,
+        )
+        assert message is not None
+        if isinstance(message, AssistantChatMessage):
+            assert len(message.content) == 2
+            first = message.content[0]
+            second = message.content[1]
+            assert first.type == "thinking"
+            if first.type == "thinking":
+                assert first.summary == "Plan"
+                assert first.thinking == "Evaluate options."
+            assert second.type == "text"
+            if second.type == "text":
+                assert second.text == "Build the navigator first."
+
     def test_mcp_tool_call_starts_message_without_prior_message(self) -> None:
         parser = _CodexAppServerEventParser()
         start_events = parser.handle(
@@ -1048,121 +1146,3 @@ class TestCodexAppServerAdapterMapping:
         assert params.get("summary") == "auto"
         assert params.get("outputSchema") == output_schema
         assert params.get("cwd") == str(context.working_dir)
-
-
-class TestCodexAppServerMcpStatusProbe:
-    @staticmethod
-    def _build_context() -> ExternalAgentRunContext:
-        config = ExternalAgentConfig(
-            id=ID("codex-config"),
-            name="Codex",
-            toolType=ExternalAgentToolType.codex,
-            runMode=ExternalAgentRunMode.app_server,
-        )
-        return ExternalAgentRunContext(
-            run=AgentRun(id=ID("run-1"), inputs={"messages": []}),
-            config=config,
-            profile=None,
-            project_config_id=ID("project-1"),
-            chat_id=ID("chat-1"),
-            section_id=None,
-            inputs={},
-            system_prompt="",
-            working_dir=Path("."),
-            env={},
-        )
-
-    @pytest.mark.asyncio
-    async def test_start_run_uses_short_timeout_for_mcp_status_probe(self) -> None:
-        adapter = CodexAppServerAdapter()
-        state = SimpleNamespace(
-            process=SimpleNamespace(),
-            lock=asyncio.Lock(),
-            stderr_lines=[],
-            thread_id=None,
-        )
-        sent_timeouts: dict[str, float] = {}
-
-        async def _ensure_process_state(_context: ExternalAgentRunContext):
-            return state
-
-        async def _initialize(_state) -> None:
-            return None
-
-        async def _send_request(
-            _state,
-            method: str,
-            _params,
-            *,
-            timeout_seconds: float = _REQUEST_TIMEOUT_SECONDS,
-        ):
-            sent_timeouts[method] = timeout_seconds
-            if method == "thread/start":
-                return {"threadId": "thread-1"}
-            if method == "turn/start":
-                return {}
-            if method == "mcpServerStatus/list":
-                return {"servers": [{"id": "setta", "connected": True}]}
-            raise AssertionError(f"Unexpected request method: {method}")
-
-        adapter._ensure_process_state = _ensure_process_state
-        adapter._initialize = _initialize
-        adapter._send_request = _send_request
-
-        handle = await adapter.start_run(self._build_context())
-
-        # Core run startup keeps the standard timeout, while optional MCP status
-        # probing is bounded tightly.
-        assert sent_timeouts.get("thread/start") == _REQUEST_TIMEOUT_SECONDS
-        assert sent_timeouts.get("turn/start") == _REQUEST_TIMEOUT_SECONDS
-        assert (
-            sent_timeouts.get("mcpServerStatus/list")
-            == _MCP_STATUS_REQUEST_TIMEOUT_SECONDS
-        )
-        assert handle.metadata.get("mcp_server_status_payload") == {
-            "servers": [{"id": "setta", "connected": True}]
-        }
-        state.lock.release()
-
-    @pytest.mark.asyncio
-    async def test_start_run_continues_when_mcp_status_probe_fails(self) -> None:
-        adapter = CodexAppServerAdapter()
-        state = SimpleNamespace(
-            process=SimpleNamespace(),
-            lock=asyncio.Lock(),
-            stderr_lines=[],
-            thread_id=None,
-        )
-
-        async def _ensure_process_state(_context: ExternalAgentRunContext):
-            return state
-
-        async def _initialize(_state) -> None:
-            return None
-
-        async def _send_request(
-            _state,
-            method: str,
-            _params,
-            *,
-            timeout_seconds: float = _REQUEST_TIMEOUT_SECONDS,
-        ):
-            if method == "thread/start":
-                return {"threadId": "thread-1"}
-            if method == "turn/start":
-                return {}
-            if method == "mcpServerStatus/list":
-                raise RuntimeError(
-                    f"probe timeout {timeout_seconds} for {method}"
-                )
-            raise AssertionError(f"Unexpected request method: {method}")
-
-        adapter._ensure_process_state = _ensure_process_state
-        adapter._initialize = _initialize
-        adapter._send_request = _send_request
-
-        handle = await adapter.start_run(self._build_context())
-
-        # Startup should succeed even when the optional status probe fails.
-        assert "mcp_server_status_payload" not in handle.metadata
-        state.lock.release()
