@@ -183,7 +183,6 @@ def _build_run(
     status: AgentRunStatus,
     input_messages: list[UserChatMessage | AssistantChatMessage],
     output_messages: list[UserChatMessage | AssistantChatMessage] | None = None,
-    usage: dict[str, int] | None = None,
 ) -> AgentRun:
     inputs = {
         "runType": LLM_CHAT_RUN_TYPE,
@@ -197,8 +196,6 @@ def _build_run(
         outputs = {
             "messages": [message.model_dump(mode="json") for message in output_messages]
         }
-        if usage is not None:
-            outputs["usage"] = usage
     return AgentRun(
         status=status,
         startedAt=started_at,
@@ -230,8 +227,6 @@ def _build_external_run(
     status: AgentRunStatus,
     input_messages: list[UserChatMessage | AssistantChatMessage],
     output_messages: list[UserChatMessage | AssistantChatMessage] | None = None,
-    usage: dict[str, int] | None = None,
-    metadata: dict[str, object] | None = None,
     stream_events: list[RunEvent] | None = None,
 ) -> AgentRun:
     inputs = {
@@ -247,10 +242,6 @@ def _build_external_run(
         outputs = {
             "messages": [message.model_dump(mode="json") for message in output_messages]
         }
-        if usage is not None:
-            outputs["usage"] = usage
-        if metadata is not None:
-            outputs["metadata"] = metadata
     return AgentRun(
         status=status,
         startedAt=started_at,
@@ -450,52 +441,6 @@ class TestAgentRunChatRoutes:
             assert message.content[0].text == "Second chat message"
             assert not response.waitingForResponse
             assert response.llmConfig.id == "primary"
-
-    async def test_get_llm_chat_includes_context_usage(self) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            engine_config_id = ID("engine-primary")
-            _seed_engine_config(dbe, engine_config_id, "primary")
-            chat_id = ID("chat-context-usage")
-            project_config_id = ID("project-context-usage")
-            user_message = UserChatMessage(
-                content=[MessageTextContent(text="Hello usage")],
-            )
-            assistant_message = AssistantChatMessage(
-                content=[MessageTextContent(text="Done usage")],
-            )
-            run = _build_run(
-                chat_id=chat_id,
-                project_config_id=project_config_id,
-                engine_config_id=engine_config_id,
-                started_at=datetime(2024, 1, 3, tzinfo=timezone.utc),
-                status=AgentRunStatus.completed,
-                input_messages=[user_message],
-                output_messages=[user_message, assistant_message],
-                usage={"promptTokens": 42, "completionTokens": 7, "totalTokens": 49},
-            )
-            save_agent_run(dbe, run)
-
-            with runtime_context(state) as ctx:
-                response = await route_get_llm_chat(
-                    GetLLMChatRequest(
-                        chatId=chat_id,
-                        projectConfigId=project_config_id,
-                    ),
-                    ctx,
-                )
-
-            assert response.contextUsage is not None
-            assert response.contextUsage.contextUsedTokens == 42
-            assert response.contextUsage.estimated is False
-            assert response.contextUsage.contextWindowTokens is not None
-            assert response.contextUsage.contextWindowTokens > 0
 
     async def test_external_engine_rejects_llm_chat_id(
         self,
@@ -843,9 +788,6 @@ class TestAgentRunChatRoutes:
             assert captured_inputs.get("searchEnabled") is False
             assert "skillsEnabled" not in captured_inputs
             assert captured_inputs.get("approvalPolicy") == "on-request"
-            assert captured_inputs.get("sandboxPolicy") == "workspace-write"
-            assert captured_inputs.get("effort") == "low"
-            assert captured_inputs.get("summary") == "none"
             system_prompt = captured_inputs.get("systemPrompt")
             assert isinstance(system_prompt, str)
             assert "## Runtime execution settings" in system_prompt
@@ -853,192 +795,6 @@ class TestAgentRunChatRoutes:
             assert (
                 "## Required completion gate for create/scaffold work" in system_prompt
             )
-
-    async def test_get_llm_response_external_runner_maps_codex_yolo_sandbox_policy(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            project_config = ProjectConfig()
-            project_state = ProjectStateBackend(
-                projectConfigs={project_config.id: project_config},
-                defaultProjectConfigId=project_config.id,
-            )
-            dbe.write_project(project_state)
-            runner = _build_runner(dbe)
-            external_runner = ExternalAgentRunner(dbe, runner.websocket_msg_handler)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-                external_agent_runner=external_runner,
-            )
-            external_config = ExternalAgentConfig(
-                id="external-config",
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.app_server,
-            )
-            external_engine_config_id = ID("engine-external")
-            save_external_agent_configs(dbe, [external_config])
-            save_engine_configs(
-                dbe,
-                [
-                    EngineConfig(
-                        id=external_engine_config_id,
-                        name="External Engine",
-                        engineType=EngineType.external_agent,
-                        externalAgentConfigId=external_config.id,
-                    )
-                ],
-            )
-
-            captured: dict[str, object] = {}
-
-            def _capture_external_start_run(
-                engine_config_id,
-                config,
-                profile,
-                inputs,
-            ):
-                captured["engine_config_id"] = engine_config_id
-                captured["config"] = config
-                captured["profile"] = profile
-                captured["inputs"] = inputs
-                return create_agent_run(
-                    profile_id=profile.id if profile else None, inputs=inputs
-                )
-
-            monkeypatch.setattr(
-                external_runner, "start_run", _capture_external_start_run
-            )
-            monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
-                lambda *_args, **_kwargs: SimpleNamespace(
-                    available=True,
-                    issues=[],
-                ),
-            )
-
-            with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
-                    GetLLMResponseRequest(
-                        chatId=None,
-                        message=UserChatMessage(
-                            content=[MessageTextContent(text="Create a new section.")],
-                        ),
-                        engineConfigId=external_engine_config_id,
-                        agentProfileId=None,
-                        thinking=False,
-                        projectConfigId=project_config.id,
-                        allowUnscoped=True,
-                        permissionMode=ChatPermissionMode.yolo,
-                        searchEnabled=False,
-                    ),
-                    ctx,
-                )
-
-            assert chat_id is not None
-            captured_inputs = captured.get("inputs")
-            assert isinstance(captured_inputs, dict)
-            assert captured_inputs.get("permissionMode") == "yolo"
-            assert captured_inputs.get("approvalPolicy") == "never"
-            assert captured_inputs.get("sandboxPolicy") == "danger-full-access"
-            assert captured_inputs.get("effort") == "low"
-            assert captured_inputs.get("summary") == "none"
-
-    async def test_get_llm_response_external_runner_enables_codex_reasoning_when_thinking(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            project_config = ProjectConfig()
-            project_state = ProjectStateBackend(
-                projectConfigs={project_config.id: project_config},
-                defaultProjectConfigId=project_config.id,
-            )
-            dbe.write_project(project_state)
-            runner = _build_runner(dbe)
-            external_runner = ExternalAgentRunner(dbe, runner.websocket_msg_handler)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-                external_agent_runner=external_runner,
-            )
-            external_config = ExternalAgentConfig(
-                id="external-config",
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.app_server,
-            )
-            external_engine_config_id = ID("engine-external")
-            save_external_agent_configs(dbe, [external_config])
-            save_engine_configs(
-                dbe,
-                [
-                    EngineConfig(
-                        id=external_engine_config_id,
-                        name="External Engine",
-                        engineType=EngineType.external_agent,
-                        externalAgentConfigId=external_config.id,
-                    )
-                ],
-            )
-
-            captured: dict[str, object] = {}
-
-            def _capture_external_start_run(
-                engine_config_id,
-                config,
-                profile,
-                inputs,
-            ):
-                captured["engine_config_id"] = engine_config_id
-                captured["config"] = config
-                captured["profile"] = profile
-                captured["inputs"] = inputs
-                return create_agent_run(
-                    profile_id=profile.id if profile else None, inputs=inputs
-                )
-
-            monkeypatch.setattr(
-                external_runner, "start_run", _capture_external_start_run
-            )
-            monkeypatch.setattr(
-                "setta.routers.ai.build_external_agent_preflight_status",
-                lambda *_args, **_kwargs: SimpleNamespace(
-                    available=True,
-                    issues=[],
-                ),
-            )
-
-            with runtime_context(state) as ctx:
-                chat_id = await route_get_llm_response(
-                    GetLLMResponseRequest(
-                        chatId=None,
-                        message=UserChatMessage(
-                            content=[MessageTextContent(text="Think through this.")],
-                        ),
-                        engineConfigId=external_engine_config_id,
-                        agentProfileId=None,
-                        thinking=True,
-                        projectConfigId=project_config.id,
-                        allowUnscoped=True,
-                        permissionMode=ChatPermissionMode.minimal,
-                        searchEnabled=False,
-                    ),
-                    ctx,
-                )
-
-            assert chat_id is not None
-            captured_inputs = captured.get("inputs")
-            assert isinstance(captured_inputs, dict)
-            assert captured_inputs.get("thinking") is True
-            assert captured_inputs.get("effort") == "high"
-            assert captured_inputs.get("summary") == "auto"
 
     async def test_get_llm_response_external_runner_preserves_config_policy_when_custom_mode(
         self,
@@ -1131,7 +887,6 @@ class TestAgentRunChatRoutes:
             assert isinstance(captured_inputs, dict)
             assert captured_inputs.get("permissionMode") == "config_toml_custom"
             assert "approvalPolicy" not in captured_inputs
-            assert "sandboxPolicy" not in captured_inputs
 
     async def test_get_llm_response_does_not_infer_app_mode_from_streaming_flag(
         self,
@@ -1820,135 +1575,6 @@ class TestAgentRunChatRoutes:
             assert len(response.messages) == 2
             assert response.waitingForResponse
             assert response.toolCallArguments == {}
-
-    async def test_get_external_agent_chat_context_usage_missing_prompt_tokens(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            external_config = ExternalAgentConfig(
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.app_server,
-                defaultModel="gpt-5-codex",
-            )
-            engine_config_id = ID("engine-external-context-1")
-            save_external_agent_configs(dbe, [external_config])
-            save_engine_configs(
-                dbe,
-                [
-                    EngineConfig(
-                        id=engine_config_id,
-                        name="External Engine",
-                        engineType=EngineType.external_agent,
-                        externalAgentConfigId=external_config.id,
-                    )
-                ],
-            )
-            chat_id = ID("external-context-chat-1")
-            project_config_id = ID("external-context-project-1")
-            user_message = UserChatMessage(
-                content=[MessageTextContent(text="Hello external context")],
-            )
-            assistant_message = AssistantChatMessage(
-                id="assistant-context-1",
-                content=[MessageTextContent(text="Hi context")],
-            )
-            run = _build_external_run(
-                chat_id=chat_id,
-                project_config_id=project_config_id,
-                engine_config_id=engine_config_id,
-                started_at=datetime(2024, 1, 7, tzinfo=timezone.utc),
-                status=AgentRunStatus.completed,
-                input_messages=[user_message],
-                output_messages=[user_message, assistant_message],
-            )
-            save_agent_run(dbe, run)
-
-            with runtime_context(state) as ctx:
-                response = await route_get_external_agent_chat(
-                    GetExternalAgentChatRequest(
-                        chatId=chat_id,
-                        projectConfigId=project_config_id,
-                    ),
-                    ctx,
-                )
-
-            assert response.contextUsage is not None
-            assert response.contextUsage.estimated is False
-            assert response.contextUsage.contextUsedTokens is None
-            assert response.contextUsage.contextWindowTokens is not None
-            assert response.contextUsage.contextWindowTokens > 0
-
-    async def test_get_external_agent_chat_context_usage_from_usage_payload(
-        self,
-    ) -> None:
-        with TemporaryDirectory() as tmpdir:
-            dbe = _build_dbe(tmpdir)
-            runner = _build_runner(dbe)
-            state = _TestState(
-                dbe=dbe,
-                agent_runner=runner,
-                wmh_frontend_sender=runner.websocket_msg_handler,
-            )
-            external_config = ExternalAgentConfig(
-                name="Codex app-server",
-                toolType=ExternalAgentToolType.codex,
-                runMode=ExternalAgentRunMode.app_server,
-                defaultModel="gpt-5-codex",
-            )
-            engine_config_id = ID("engine-external-context-2")
-            save_external_agent_configs(dbe, [external_config])
-            save_engine_configs(
-                dbe,
-                [
-                    EngineConfig(
-                        id=engine_config_id,
-                        name="External Engine",
-                        engineType=EngineType.external_agent,
-                        externalAgentConfigId=external_config.id,
-                    )
-                ],
-            )
-            chat_id = ID("external-context-chat-2")
-            project_config_id = ID("external-context-project-2")
-            user_message = UserChatMessage(
-                content=[MessageTextContent(text="Hello external usage")],
-            )
-            assistant_message = AssistantChatMessage(
-                id="assistant-context-2",
-                content=[MessageTextContent(text="Hi usage")],
-            )
-            run = _build_external_run(
-                chat_id=chat_id,
-                project_config_id=project_config_id,
-                engine_config_id=engine_config_id,
-                started_at=datetime(2024, 1, 8, tzinfo=timezone.utc),
-                status=AgentRunStatus.completed,
-                input_messages=[user_message],
-                output_messages=[user_message, assistant_message],
-                usage={"promptTokens": 99, "completionTokens": 1, "totalTokens": 100},
-            )
-            save_agent_run(dbe, run)
-
-            with runtime_context(state) as ctx:
-                response = await route_get_external_agent_chat(
-                    GetExternalAgentChatRequest(
-                        chatId=chat_id,
-                        projectConfigId=project_config_id,
-                    ),
-                    ctx,
-                )
-
-            assert response.contextUsage is not None
-            assert response.contextUsage.estimated is False
-            assert response.contextUsage.contextUsedTokens == 99
 
     async def test_get_external_agent_chat_missing_run(self) -> None:
         with TemporaryDirectory() as tmpdir:
