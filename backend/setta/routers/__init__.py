@@ -10,7 +10,6 @@ from .bootstrap import router as bootstrap_router
 from .code_info import router as code_info_router
 from .git import router as git_router
 from .launch import router as launch_router
-from .launcher_home import router as launcher_home_router
 from .listener import router as listener_router
 from .llm import router as llm_router
 from .lsp import router as lsp_router

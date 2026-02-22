@@ -239,39 +239,6 @@ def test_find_sessions_by_workspace_resolves_paths() -> None:
         assert Path(matches[0].workspacePathCanonical) == workspace.resolve()
 
 
-def test_find_sessions_by_workspace_and_mode_filters_server_mode() -> None:
-    with tempfile.TemporaryDirectory() as temp_dir:
-        root = Path(temp_dir)
-        sessions_root = root / "sessions"
-        workspace = root / "workspace"
-        workspace.mkdir()
-        registry = SessionRegistry(sessions_root=sessions_root)
-
-        registry.create_session(
-            workspace_path=workspace,
-            host="127.0.0.1",
-            port=61234,
-            pid=12345,
-            server_mode="ide",
-        )
-        launcher_session = registry.create_session(
-            workspace_path=workspace,
-            host="127.0.0.1",
-            port=61235,
-            pid=12346,
-            server_mode="launcher",
-        )
-
-        matches = registry.find_sessions_by_workspace_and_mode(
-            workspace,
-            server_mode="launcher",
-            prune_stale=False,
-        )
-        assert len(matches) == 1
-        assert matches[0].id == launcher_session.id
-        assert matches[0].serverMode == "launcher"
-
-
 def test_delete_session_removes_metadata() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         sessions_root = Path(temp_dir) / "sessions"

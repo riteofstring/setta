@@ -107,8 +107,6 @@ export const EngineTypeEnum = {
   external_agent: "external_agent",
 } as const;
 
-export type EngineType = ObjectValues<typeof EngineTypeEnum>;
-
 export const TranscriptionTransportModeEnum = {
   auto: "auto",
   file: "file",
@@ -367,10 +365,6 @@ export const ExternalAgentToolTypeEnum = {
   plugin: "plugin",
 } as const;
 
-export type ExternalAgentToolType = ObjectValues<
-  typeof ExternalAgentToolTypeEnum
->;
-
 export const ExternalAgentWorkingDirStrategyEnum = {
   project_root: "project_root",
   temp_dir: "temp_dir",
@@ -390,8 +384,6 @@ const ChatDictationModeEnum = {
   browser: "browser",
   provider: "provider",
 } as const;
-
-export type ChatDictationMode = ObjectValues<typeof ChatDictationModeEnum>;
 
 export const ChatPermissionModeEnum = {
   minimal: "minimal",
@@ -461,10 +453,6 @@ const MCPServerRuntimeStateEnum = {
   disabled: "disabled",
   unknown: "unknown",
 } as const;
-
-export type MCPServerRuntimeState = ObjectValues<
-  typeof MCPServerRuntimeStateEnum
->;
 
 const SettaBackendLogEventSeverityEnum = {
   critical: "critical",
@@ -545,19 +533,6 @@ export const RouteEnum = {
   GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
   GET_SERVER_MODE: "/serverMode",
   GET_SETTA_HOME_INFO: "/settaHomeInfo",
-  GET_LAUNCHER_STATUS: "/launcherStatus",
-  SETUP_LAUNCHER: "/setupLauncher",
-  REPAIR_LAUNCHER: "/repairLauncher",
-  REMOVE_LAUNCHER: "/removeLauncher",
-  UPDATE_LAUNCHER: "/updateLauncher",
-  GET_LAUNCHER_APP_MODE: "/launcherAppMode",
-  GET_LAUNCHER_RECENT_WORKSPACES: "/launcherRecentWorkspaces",
-  ADD_LAUNCHER_RECENT_WORKSPACE: "/addLauncherRecentWorkspace",
-  REMOVE_LAUNCHER_RECENT_WORKSPACE: "/removeLauncherRecentWorkspace",
-  PIN_LAUNCHER_RECENT_WORKSPACE: "/pinLauncherRecentWorkspace",
-  GET_LAUNCHER_FILESYSTEM_ROOTS: "/launcherFilesystemRoots",
-  LIST_LAUNCHER_DIRECTORY: "/listLauncherDirectory",
-  OPEN_LAUNCHER_WORKSPACE: "/openLauncherWorkspace",
   GET_MCP_SERVER_RUNTIME_STATUS: "/mcpServerRuntimeStatus",
   PLUGINS_RUNTIME: "/plugins/runtime",
   PLUGINS_INSTALL: "/plugins/install",
@@ -1288,6 +1263,14 @@ const ToolCallFunctionSchema = z.object({
   arguments: z.record(z.string(), z.any()).default({}),
 });
 
+type ToolCallFunction = z.infer<typeof ToolCallFunctionSchema>;
+
+export function createToolCallFunction(
+  options: Partial<ToolCallFunction> = {},
+): ToolCallFunction {
+  return ToolCallFunctionSchema.parse(options);
+}
+
 const ToolCallSchema = z.object({
   id: z.string().default(create_new_id),
   type: z.literal("function").default("function" as const),
@@ -1295,6 +1278,10 @@ const ToolCallSchema = z.object({
 });
 
 export type ToolCall = z.infer<typeof ToolCallSchema>;
+
+export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
+  return ToolCallSchema.parse(options);
+}
 
 const AssistantChatMessageSchema = z.object({
   id: z.string().default(create_new_id),
@@ -1334,6 +1321,14 @@ const UserChatMessageSchema = z.object({
     .default(() => []),
   attachments: z.array(ChatFileAttachmentSchema).default(() => []),
 });
+
+type UserChatMessage = z.infer<typeof UserChatMessageSchema>;
+
+export function createUserChatMessage(
+  options: Partial<UserChatMessage> = {},
+): UserChatMessage {
+  return UserChatMessageSchema.parse(options);
+}
 
 const AnnotationsSchema = z.object({
   audience: z
@@ -1426,6 +1421,12 @@ const ToolChatMessageSchema = z.object({
 });
 
 export type ToolChatMessage = z.infer<typeof ToolChatMessageSchema>;
+
+export function createToolChatMessage(
+  options: Partial<ToolChatMessage> = {},
+): ToolChatMessage {
+  return ToolChatMessageSchema.parse(options);
+}
 
 const BaseChatMessageUnionSchema = z.union([
   SystemChatMessageSchema,
@@ -6705,6 +6706,10 @@ const LLMConfigSchema = z.object({
 
 export type LLMConfig = z.infer<typeof LLMConfigSchema>;
 
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return LLMConfigSchema.parse(options);
+}
+
 const MCPServerConfigSchema = z.object({
   transport: z.literal(["sse", "streamable_http", "stdio"]),
   url: z.union([z.string(), z.null()]).default(null),
@@ -6728,6 +6733,12 @@ const AllLLMConfigsSchema = z.object({
 export type AllLLMConfigs = z.infer<typeof AllLLMConfigsSchema>;
 
 export type AllLLMConfigsInput = z.input<typeof AllLLMConfigsSchema>;
+
+export function createAllLLMConfigs(
+  options: Partial<AllLLMConfigs> = {},
+): AllLLMConfigs {
+  return AllLLMConfigsSchema.parse(options);
+}
 
 const WebsocketMsgLLMConfigUpdatedSchema = z.object({
   id: z.union([z.string(), z.null()]).default(null),
@@ -7700,6 +7711,12 @@ export type ExternalAgentPreflightStatus = z.infer<
   typeof ExternalAgentPreflightStatusSchema
 >;
 
+export function createExternalAgentPreflightStatus(
+  options: Partial<ExternalAgentPreflightStatus> = {},
+): ExternalAgentPreflightStatus {
+  return ExternalAgentPreflightStatusSchema.parse(options);
+}
+
 const BaseCanvasSectionImplSchema = z.object({
   type: z.any(),
   id: IDSchema.default(create_new_id),
@@ -8065,10 +8082,6 @@ const MCPServerRuntimeStatusSchema = z.object({
   toolCount: z.int().default(0),
 });
 
-export type MCPServerRuntimeStatus = z.infer<
-  typeof MCPServerRuntimeStatusSchema
->;
-
 const MCPServerRuntimeStatusResponseSchema = z.object({
   llmConfigPath: z.string(),
   activeSettaFilesLocation: z.union([z.string(), z.null()]),
@@ -8081,7 +8094,7 @@ export type MCPServerRuntimeStatusResponse = z.infer<
 >;
 
 const ServerModeResponseSchema = z.object({
-  mode: z.literal(["ide", "share", "app", "launcher"]),
+  mode: z.literal(["ide", "share", "app"]),
 });
 
 export type ServerModeResponse = z.infer<typeof ServerModeResponseSchema>;
@@ -8433,6 +8446,12 @@ export type CancelTranscriptionSessionResponse = z.infer<
   typeof CancelTranscriptionSessionResponseSchema
 >;
 
+const ChatContextUsageSchema = z.object({
+  contextWindowTokens: z.union([z.int(), z.null()]).default(null),
+  contextUsedTokens: z.union([z.int(), z.null()]).default(null),
+  estimated: z.boolean().default(false),
+});
+
 const GetAIFollowSnapshotRequestSchema = z.object({
   projectConfigId: IDSchema,
 });
@@ -8461,6 +8480,7 @@ const GetExternalAgentChatResponseSchema = z.object({
   ),
   waitingForResponse: z.boolean(),
   toolCallArguments: z.record(z.string(), z.string()).default({}),
+  contextUsage: z.union([ChatContextUsageSchema, z.null()]).default(null),
 });
 
 export type GetExternalAgentChatResponse = z.infer<
@@ -8485,6 +8505,7 @@ const GetLLMChatRequestResponseSchema = z.object({
   ),
   waitingForResponse: z.boolean(),
   llmConfig: LLMConfigSchema,
+  contextUsage: z.union([ChatContextUsageSchema, z.null()]).default(null),
 });
 
 export type GetLLMChatRequestResponse = z.infer<
@@ -8981,135 +9002,6 @@ const LaunchResponseSchema = z.object({
 
 export type LaunchResponse = z.infer<typeof LaunchResponseSchema>;
 
-const LauncherAppModeResponseSchema = z.object({
-  launcherMode: z.boolean(),
-});
-
-export type LauncherAppModeResponse = z.infer<
-  typeof LauncherAppModeResponseSchema
->;
-
-const LauncherDirectoryEntryPayloadSchema = z.object({
-  name: z.string(),
-  path: z.string(),
-  isDirectory: z.boolean(),
-  isSymlink: z.boolean(),
-});
-
-export type LauncherDirectoryEntryPayload = z.infer<
-  typeof LauncherDirectoryEntryPayloadSchema
->;
-
-const LauncherFilesystemRootsResponseSchema = z.object({
-  ok: z.boolean(),
-  roots: z.array(z.string()).default(() => []),
-});
-
-export type LauncherFilesystemRootsResponse = z.infer<
-  typeof LauncherFilesystemRootsResponseSchema
->;
-
-const LauncherHomeErrorPayloadSchema = z.object({
-  code: z.string(),
-  message: z.string(),
-});
-
-const LauncherListDirectoryRequestSchema = z.object({
-  path: z.union([z.string(), z.null()]).default(null),
-});
-
-export type LauncherListDirectoryRequestInput = z.input<
-  typeof LauncherListDirectoryRequestSchema
->;
-
-const LauncherListDirectoryResponseSchema = z.object({
-  ok: z.boolean(),
-  currentPath: z.union([z.string(), z.null()]).default(null),
-  parentPath: z.union([z.string(), z.null()]).default(null),
-  entries: z.array(LauncherDirectoryEntryPayloadSchema).default(() => []),
-  error: z.union([LauncherHomeErrorPayloadSchema, z.null()]).default(null),
-});
-
-export type LauncherListDirectoryResponse = z.infer<
-  typeof LauncherListDirectoryResponseSchema
->;
-
-const LauncherOpenWorkspaceRequestSchema = z.object({
-  workspaceRoot: z.string(),
-  settaHome: z.union([z.string(), z.null()]).default(null),
-  profile: z.union([z.string(), z.null()]).default(null),
-  settaFilesRoot: z.union([z.string(), z.null()]).default(null),
-  settaFilesLocation: z
-    .union([z.literal(["auto", "local", "global"]), z.null()])
-    .default("auto" as const),
-  runtimeRoot: z.union([z.string(), z.null()]).default(null),
-  createIfMissing: z.boolean().default(false),
-});
-
-export type LauncherOpenWorkspaceRequestInput = z.input<
-  typeof LauncherOpenWorkspaceRequestSchema
->;
-
-const LauncherOpenWorkspaceResponseSchema = z.object({
-  ok: z.boolean(),
-  bootstrapUrlFragment: z.union([z.string(), z.null()]).default(null),
-  workspaceRoot: z.union([z.string(), z.null()]).default(null),
-  settaFilesLocation: z
-    .union([z.literal(["local", "global"]), z.null()])
-    .default(null),
-  settaFilesRoot: z.union([z.string(), z.null()]).default(null),
-  runtimeRoot: z.union([z.string(), z.null()]).default(null),
-  settaHome: z.union([z.string(), z.null()]).default(null),
-  profile: z.union([z.string(), z.null()]).default(null),
-  sessionId: z.union([z.string(), z.null()]).default(null),
-  startedNew: z.union([z.boolean(), z.null()]).default(null),
-  error: z.union([LauncherHomeErrorPayloadSchema, z.null()]).default(null),
-});
-
-export type LauncherOpenWorkspaceResponse = z.infer<
-  typeof LauncherOpenWorkspaceResponseSchema
->;
-
-const LauncherRecentWorkspacePayloadSchema = z.object({
-  workspaceRoot: z.string(),
-  pinned: z.boolean(),
-  lastUsedAt: z.int(),
-});
-
-export type LauncherRecentWorkspacePayload = z.infer<
-  typeof LauncherRecentWorkspacePayloadSchema
->;
-
-const LauncherRecentWorkspaceRequestSchema = z.object({
-  settaHome: z.union([z.string(), z.null()]).default(null),
-  workspaceRoot: z.string(),
-  pinned: z.union([z.boolean(), z.null()]).default(null),
-});
-
-export type LauncherRecentWorkspaceRequestInput = z.input<
-  typeof LauncherRecentWorkspaceRequestSchema
->;
-
-const LauncherRecentWorkspacesResponseSchema = z.object({
-  ok: z.boolean(),
-  workspaces: z.array(LauncherRecentWorkspacePayloadSchema).default(() => []),
-  error: z.union([LauncherHomeErrorPayloadSchema, z.null()]).default(null),
-});
-
-export type LauncherRecentWorkspacesResponse = z.infer<
-  typeof LauncherRecentWorkspacesResponseSchema
->;
-
-const PinLauncherRecentWorkspaceRequestSchema = z.object({
-  settaHome: z.union([z.string(), z.null()]).default(null),
-  workspaceRoot: z.string(),
-  pinned: z.boolean(),
-});
-
-export type PinLauncherRecentWorkspaceRequestInput = z.input<
-  typeof PinLauncherRecentWorkspaceRequestSchema
->;
-
 const UpdateAPIKeysRequestSchema = z.object({
   apiKeys: z.record(z.string(), z.string()).default({}),
 });
@@ -9361,7 +9253,7 @@ export function createPluginListEntry(
 
 const PluginListResponseSchema = z.object({
   schemaVersion: z.int().default(1),
-  serverMode: z.literal(["ide", "share", "app", "launcher"]),
+  serverMode: z.literal(["ide", "share", "app"]),
   restartCapability: PluginRestartCapabilitySchema,
   plugins: z.array(PluginListEntrySchema),
 });
@@ -9449,7 +9341,7 @@ export function createPluginStatusEntry(
 
 const PluginStatusResponseSchema = z.object({
   schemaVersion: z.int().default(1),
-  serverMode: z.literal(["ide", "share", "app", "launcher"]),
+  serverMode: z.literal(["ide", "share", "app"]),
   restartCapability: PluginRestartCapabilitySchema,
   plugins: z.array(PluginStatusEntrySchema),
 });
@@ -9509,7 +9401,7 @@ export type PluginUpdateResponse = z.infer<typeof PluginUpdateResponseSchema>;
 
 const PluginsRescanResponseSchema = z.object({
   schemaVersion: z.int().default(1),
-  serverMode: z.literal(["ide", "share", "app", "launcher"]),
+  serverMode: z.literal(["ide", "share", "app"]),
   installedPlugins: z.int(),
   activePlugins: z.int(),
 });
@@ -11459,98 +11351,6 @@ export type BackendInitStatusResponse = z.infer<
   typeof BackendInitStatusResponseSchema
 >;
 
-const LauncherOperationErrorPayloadSchema = z.object({
-  code: z.string(),
-  message: z.string(),
-});
-
-const LauncherRequestBaseSchema = z.object({
-  settaHome: z.union([z.string(), z.null()]).default(null),
-});
-
-export type LauncherRequestBaseInput = z.input<
-  typeof LauncherRequestBaseSchema
->;
-
-const LauncherStatusResponseSchema = z.object({
-  ok: z.boolean(),
-  installed: z.union([z.boolean(), z.null()]).default(null),
-  settaHome: z.union([z.string(), z.null()]).default(null),
-  launcherDir: z.union([z.string(), z.null()]).default(null),
-  metadataPath: z.union([z.string(), z.null()]).default(null),
-  targetCommand: z.union([z.array(z.string()), z.null()]).default(null),
-  targetValid: z.union([z.boolean(), z.null()]).default(null),
-  targetError: z.union([z.string(), z.null()]).default(null),
-  channel: z.union([z.string(), z.null()]).default(null),
-  settaVersion: z.union([z.string(), z.null()]).default(null),
-  openMode: z
-    .union([z.literal(["browser", "chrome-app"]), z.null()])
-    .default(null),
-  workspaceBehavior: z
-    .union([z.literal(["last_used_or_prompt", "always_prompt"]), z.null()])
-    .default(null),
-  lastUsedWorkspace: z.union([z.string(), z.null()]).default(null),
-  managedArtifacts: z.record(z.string(), z.string()).default({}),
-  existingManagedArtifacts: z.array(z.string()).default(() => []),
-  missingManagedArtifacts: z.array(z.string()).default(() => []),
-  updateCapability: z
-    .union([
-      z.literal(["in_app", "installer_managed", "unsupported"]),
-      z.null(),
-    ])
-    .default(null),
-  updateGuidance: z.union([z.string(), z.null()]).default(null),
-  error: z.union([LauncherOperationErrorPayloadSchema, z.null()]).default(null),
-});
-
-export type LauncherStatusResponse = z.infer<
-  typeof LauncherStatusResponseSchema
->;
-
-export function createLauncherStatusResponse(
-  options: Partial<LauncherStatusResponse> = {},
-): LauncherStatusResponse {
-  return LauncherStatusResponseSchema.parse(options);
-}
-
-const LauncherUpdateResponseSchema = z.object({
-  ok: z.boolean(),
-  installed: z.union([z.boolean(), z.null()]).default(null),
-  settaHome: z.union([z.string(), z.null()]).default(null),
-  launcherDir: z.union([z.string(), z.null()]).default(null),
-  metadataPath: z.union([z.string(), z.null()]).default(null),
-  targetCommand: z.union([z.array(z.string()), z.null()]).default(null),
-  targetValid: z.union([z.boolean(), z.null()]).default(null),
-  targetError: z.union([z.string(), z.null()]).default(null),
-  channel: z.union([z.string(), z.null()]).default(null),
-  settaVersion: z.union([z.string(), z.null()]).default(null),
-  openMode: z
-    .union([z.literal(["browser", "chrome-app"]), z.null()])
-    .default(null),
-  workspaceBehavior: z
-    .union([z.literal(["last_used_or_prompt", "always_prompt"]), z.null()])
-    .default(null),
-  lastUsedWorkspace: z.union([z.string(), z.null()]).default(null),
-  managedArtifacts: z.record(z.string(), z.string()).default({}),
-  existingManagedArtifacts: z.array(z.string()).default(() => []),
-  missingManagedArtifacts: z.array(z.string()).default(() => []),
-  updateCapability: z
-    .union([
-      z.literal(["in_app", "installer_managed", "unsupported"]),
-      z.null(),
-    ])
-    .default(null),
-  updateGuidance: z.union([z.string(), z.null()]).default(null),
-  error: z.union([LauncherOperationErrorPayloadSchema, z.null()]).default(null),
-  packageSpec: z.union([z.string(), z.null()]).default(null),
-  fromVersion: z.union([z.string(), z.null()]).default(null),
-  toVersion: z.union([z.string(), z.null()]).default(null),
-});
-
-export type LauncherUpdateResponse = z.infer<
-  typeof LauncherUpdateResponseSchema
->;
-
 const RevealPathInOsFileExplorerRequestSchema = z.object({
   path: z.string(),
 });
@@ -11567,31 +11367,6 @@ const SettaHomeInfoResponseSchema = z.object({
 });
 
 export type SettaHomeInfoResponse = z.infer<typeof SettaHomeInfoResponseSchema>;
-
-const SetupLauncherRequestSchema = z.object({
-  settaHome: z.union([z.string(), z.null()]).default(null),
-  channel: z.string().default("manual" as const),
-  openMode: z.literal(["browser", "chrome-app"]).default("chrome-app" as const),
-  workspaceBehavior: z
-    .union([z.literal(["last-used-or-prompt", "always-prompt"]), z.null()])
-    .default(null),
-  installArtifacts: z.boolean().default(true),
-  artifactOptions: z.record(z.string(), z.string()).default({}),
-  managedArtifacts: z.record(z.string(), z.string()).default({}),
-});
-
-export type SetupLauncherRequestInput = z.input<
-  typeof SetupLauncherRequestSchema
->;
-
-const UpdateLauncherRequestSchema = z.object({
-  settaHome: z.union([z.string(), z.null()]).default(null),
-  packageSpec: z.string().default("setta" as const),
-});
-
-export type UpdateLauncherRequestInput = z.input<
-  typeof UpdateLauncherRequestSchema
->;
 
 const DeleteTerminalsRequestSchema = z.object({
   sectionIds: z.array(IDSchema),

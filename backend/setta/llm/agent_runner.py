@@ -260,6 +260,10 @@ class AgentRunner:
     def disabled(self) -> bool:
         return False
 
+    @property
+    def raw_env_vars(self) -> dict[str, str]:
+        return dict(self._raw_env_vars)
+
     def update_config(self, config: AllLLMConfigs) -> None:
         self.config = config
         self._sync_api_keys()

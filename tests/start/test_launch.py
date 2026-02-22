@@ -226,61 +226,6 @@ def test_launch_reuses_existing_session(tmp_path: Path, monkeypatch) -> None:
     assert payload["session"]["workspacePathCanonical"] == str(workspace.resolve())
 
 
-@pytest.mark.parametrize(
-    ("existing_mode", "requested_mode"),
-    [("ide", "launcher"), ("launcher", "ide")],
-)
-def test_launch_workspace_session_does_not_reuse_opposite_mode_session(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    existing_mode: str,
-    requested_mode: str,
-) -> None:
-    if not _can_bind_localhost():
-        pytest.skip("Socket binds are not permitted in this test environment.")
-
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    sessions_root = workspace / "setta_files" / "runtime" / "sessions"
-    sessions_root.mkdir(parents=True, exist_ok=True)
-
-    monkeypatch.setenv(IN_PROCESS_ENV_VAR, "1")
-
-    existing_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    existing_socket.bind(("127.0.0.1", 0))
-    existing_socket.listen(1)
-    port = existing_socket.getsockname()[1]
-
-    registry = SessionRegistry(sessions_root=sessions_root)
-    registry.create_session(
-        workspace_path=workspace,
-        host="127.0.0.1",
-        port=port,
-        pid=os.getpid(),
-        server_mode=existing_mode,
-    )
-
-    def fail_spawn(*_args, **_kwargs):
-        raise OSError("boom")
-
-    monkeypatch.setattr(subprocess, "Popen", fail_spawn)
-
-    try:
-        with pytest.raises(LaunchError) as excinfo:
-            launch_workspace_session(
-                workspace_root=workspace,
-                setta_files_location="local",
-                server_mode=requested_mode,
-                timeout_seconds=1.0,
-                poll_interval_seconds=0.1,
-            )
-    finally:
-        existing_socket.close()
-
-    # If mode filtering regresses, this call incorrectly reuses the opposite mode.
-    assert excinfo.value.code == "LaunchFailed"
-
-
 def test_launch_reuses_existing_session_with_global_state(
     tmp_path: Path, monkeypatch
 ) -> None:
