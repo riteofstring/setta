@@ -260,6 +260,10 @@ class AgentRunner:
     def disabled(self) -> bool:
         return False
 
+    @property
+    def raw_env_vars(self) -> dict[str, str]:
+        return dict(self._raw_env_vars)
+
     def update_config(self, config: AllLLMConfigs) -> None:
         self.config = config
         self._sync_api_keys()
@@ -884,15 +888,6 @@ class AgentRunner:
             raise ValueError("sectionId is required unless allowUnscoped is true.")
         if section_id is not None and allow_unscoped:
             raise ValueError("allowUnscoped requires sectionId to be omitted.")
-        frontend_websocket_id: str | None = None
-        if inputs and "frontendWebsocketId" in inputs:
-            raw_frontend_websocket_id = inputs["frontendWebsocketId"]
-            if raw_frontend_websocket_id is not None:
-                if not isinstance(raw_frontend_websocket_id, str):
-                    raise TypeError("frontendWebsocketId must be a string")
-                normalized_frontend_websocket_id = raw_frontend_websocket_id.strip()
-                if normalized_frontend_websocket_id:
-                    frontend_websocket_id = normalized_frontend_websocket_id
         thinking = False
         if inputs and "thinking" in inputs:
             raw_thinking = inputs["thinking"]
@@ -943,7 +938,6 @@ class AgentRunner:
             project_config_id=project_config_id,
             chat_id=resolved_chat_id,
             section_id=section_id,
-            frontend_websocket_id=frontend_websocket_id,
             allow_unscoped=allow_unscoped,
         )
         return AgentRunContext(

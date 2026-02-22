@@ -85,7 +85,6 @@ from setta.types.section_impls import SectionType
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.agentic_context_headers import (
     AGENTIC_CONTEXT_CHAT_ID_HEADER,
-    AGENTIC_CONTEXT_FRONTEND_WEBSOCKET_ID_HEADER,
     AGENTIC_CONTEXT_PROJECT_CONFIG_ID_HEADER,
     AGENTIC_CONTEXT_SECTION_ID_HEADER,
 )
@@ -306,10 +305,7 @@ class TestExternalAgentRunnerContext:
                 runner,
                 config,
                 engine_config_id=engine_config_id,
-                inputs={
-                    "sectionId": str(chat_section_id),
-                    "frontendWebsocketId": "frontend-codex",
-                },
+                inputs={"sectionId": str(chat_section_id)},
             )
 
             assert "## Agentic Context" in context.system_prompt
@@ -335,9 +331,6 @@ class TestExternalAgentRunnerContext:
             assert headers.get(AGENTIC_CONTEXT_CHAT_ID_HEADER) == str(context.chat_id)
             assert headers.get(AGENTIC_CONTEXT_SECTION_ID_HEADER) == str(
                 chat_section_id
-            )
-            assert headers.get(AGENTIC_CONTEXT_FRONTEND_WEBSOCKET_ID_HEADER) == (
-                "frontend-codex"
             )
 
     def test_context_injects_agentic_headers_for_codex(self) -> None:

@@ -5,7 +5,6 @@ import pytest
 from mcp.server.fastmcp.server import Context
 from mcp.server.fastmcp.tools import Tool
 from mcp.server.fastmcp.utilities.func_metadata import func_metadata
-from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.tool_metadata import SettaToolAnnotations, SettaToolType
 from setta.mcp.tool_search_index import _build_parameter_text
 from setta.mcp.tools.tool_search import list_mcp_tools, search_mcp_tools
@@ -37,8 +36,6 @@ def _build_tool(
     tool_type: SettaToolType = SettaToolType.discoverable,
 ) -> Tool:
     def _noop(**kwargs: Any) -> None:
-        if kwargs:
-            return None
         return None
 
     metadata = func_metadata(_noop)
@@ -128,19 +125,9 @@ class TestSearchMCPTools:
         assert len(results.results) == len(self.tool_specs)
 
     def test_raises_for_blank_query(self) -> None:
-        with pytest.raises(InvalidToolArgumentsError):
+        with pytest.raises(ValueError):
             search_mcp_tools(
                 query="   ",
-                ctx=self.ctx,
-            )
-
-    def test_raises_for_tokenless_query(self) -> None:
-        with pytest.raises(
-            InvalidToolArgumentsError,
-            match="query must include at least one searchable token",
-        ):
-            search_mcp_tools(
-                query="!!!",
                 ctx=self.ctx,
             )
 

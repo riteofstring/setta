@@ -201,16 +201,6 @@ class ManagedActionExecutor:
                                     if action.agentic_context.section_id is not None
                                     else None
                                 ),
-                                "frontendWebsocketId": (
-                                    action.agentic_context.frontend_websocket_id
-                                    if isinstance(
-                                        action.agentic_context.frontend_websocket_id,
-                                        str,
-                                    )
-                                    and action.agentic_context.frontend_websocket_id.strip()
-                                    != ""
-                                    else None
-                                ),
                             }
                             if action.agentic_context.allow_unscoped:
                                 meta_payload["allowUnscoped"] = True
