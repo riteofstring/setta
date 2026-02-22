@@ -8,6 +8,11 @@ import {
   addTemporaryNotification,
 } from "state/actions/notifications";
 import {
+  buildFrontendAffinityCurrentAddress,
+  clearFrontendWebsocketAffinity,
+  updateFrontendWebsocketAffinity,
+} from "state/actions/frontendWebsocketAffinity";
+import {
   addWebsocketConnection,
   clearAllWebsocketConnections,
   setWebsocketConnections,
@@ -153,7 +158,7 @@ export const openWebSocket = _.debounce(
       currentShareSessionId = shareSessionId;
       currentRoute = route;
       wss.addEventListener("open", async () => {
-        sendCurrentAddress(pathname);
+        sendCurrentAddress(buildFrontendAffinityCurrentAddress(pathname));
         addTemporaryNotification("Connected to server");
         addWebsocketConnection(
           createWebsocketConnectionInfo({
@@ -217,6 +222,7 @@ export const openWebSocket = _.debounce(
         ) {
           wasOpen = false;
           clearAllWebsocketConnections();
+          clearFrontendWebsocketAffinity();
           if (!shareSessionIdForSocket) {
             return;
           }
@@ -227,6 +233,7 @@ export const openWebSocket = _.debounce(
           authLost = true;
           wasOpen = false;
           clearAllWebsocketConnections();
+          clearFrontendWebsocketAffinity();
           addTemporaryNotification(
             `Authentication required. Open ${BOOTSTRAP_URL} to continue.`,
           );
@@ -238,6 +245,7 @@ export const openWebSocket = _.debounce(
           wasOpen = false;
         }
         clearAllWebsocketConnections();
+        clearFrontendWebsocketAffinity();
         // Attempt to reconnect
         setTimeout(() => {
           openWebSocket(lastPathname ?? pathname, lastShareSessionId);
@@ -311,7 +319,7 @@ function startShareHeartbeat() {
     if (!currentAddress) {
       return;
     }
-    sendCurrentAddress(currentAddress);
+    sendCurrentAddress(buildFrontendAffinityCurrentAddress(currentAddress));
   }, SHARE_HEARTBEAT_INTERVAL_MS);
 }
 
@@ -436,7 +444,15 @@ function receiveMessage(message: string) {
   const m: FrontendWebsocketMsgUnion = JSON.parse(message);
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
-      return setWebsocketConnections(m.content);
+      setWebsocketConnections(m.content);
+      updateFrontendWebsocketAffinity({
+        connections: m.content,
+        currentAddress: lastPathname
+          ? buildFrontendAffinityCurrentAddress(lastPathname)
+          : null,
+        shareSessionId: currentShareSessionId,
+      });
+      return;
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:
       return receiveLLMResponseChunk(m.content);
     case WebsocketMsgTypeForFrontendEnum.LSPDiagnostics:

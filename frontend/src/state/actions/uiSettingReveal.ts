@@ -49,9 +49,23 @@ type PluginRevealResult = {
   errorMessage: string | null;
 };
 
+type PluginRevealHandlerOutcome =
+  | { status: "handled"; message: null }
+  | { status: "retryable_failure"; message: string }
+  | { status: "terminal_failure"; message: string };
+
 export async function receiveUISettingReveal(
   content: UISettingRevealContent,
 ): Promise<Array<UISettingRevealResultStatus>> {
+  const requestedProjectConfigId = content.projectConfigId.trim();
+  const activeProjectConfigId = useProjectState.getState().projectConfig.id.trim();
+  if (requestedProjectConfigId !== activeProjectConfigId) {
+    return buildProjectContextMismatchStatuses({
+      reveals: content.reveals,
+      requestedProjectConfigId,
+      activeProjectConfigId,
+    });
+  }
   const durationMs = normalizeDurationMs(content.durationMs);
   const deadlineMs = Date.now() + durationMs;
   const statuses: Array<UISettingRevealResultStatus> = [];
@@ -238,14 +252,14 @@ async function revealWithPluginHandler(
         target,
         durationMs: remainingMs,
       });
-      if (handlerResult.ok) {
+      if (handlerResult.status === "handled") {
         return {
           ok: true,
           errorMessage: null,
         };
       }
       latestErrorMessage = handlerResult.message;
-      if (handlerResult.timedOut) {
+      if (handlerResult.status === "terminal_failure") {
         break;
       }
     }
@@ -410,6 +424,25 @@ async function waitForAnchorElement({
   return null;
 }
 
+function buildProjectContextMismatchStatuses({
+  reveals,
+  requestedProjectConfigId,
+  activeProjectConfigId,
+}: {
+  reveals: Array<UISettingRevealTarget>;
+  requestedProjectConfigId: string;
+  activeProjectConfigId: string;
+}): Array<UISettingRevealResultStatus> {
+  return reveals.map((target) => ({
+    settingId: target.settingId,
+    status: "failed",
+    errorCode: "mutation_failed",
+    errorMessage:
+      "UI setting reveal project mismatch: requested project " +
+      `${requestedProjectConfigId} but active project is ${activeProjectConfigId}.`,
+  }));
+}
+
 function buildRevealDeadlineExceededStatus(
   settingId: string,
 ): UISettingRevealResultStatus {
@@ -427,23 +460,14 @@ async function invokePluginRevealHandlerWithinDeadline({
 }: {
   target: UISettingRevealTarget;
   durationMs: number;
-}): Promise<{
-  ok: boolean;
-  timedOut: boolean;
-  message: string;
-}> {
+}): Promise<PluginRevealHandlerOutcome> {
   const abortController = new AbortController();
   let timeoutId: number | null = null;
-  const timeoutPromise = new Promise<{
-    ok: boolean;
-    timedOut: boolean;
-    message: string;
-  }>((resolve) => {
+  const timeoutPromise = new Promise<PluginRevealHandlerOutcome>((resolve) => {
     timeoutId = window.setTimeout(() => {
       abortController.abort();
       resolve({
-        ok: false,
-        timedOut: true,
+        status: "terminal_failure",
         message: `Plugin reveal handler timed out for ${target.settingId}.`,
       });
     }, durationMs);
@@ -456,14 +480,20 @@ async function invokePluginRevealHandlerWithinDeadline({
     durationMs,
     abortSignal: abortController.signal,
   })
-    .then((result) => ({
-      ok: result.ok,
-      timedOut: false,
-      message: result.message ?? "Plugin reveal handler failed.",
-    }))
+    .then((result) => {
+      if (result.ok) {
+        return {
+          status: "handled",
+          message: null,
+        } satisfies PluginRevealHandlerOutcome;
+      }
+      return {
+        status: "terminal_failure",
+        message: result.message ?? "Plugin reveal handler failed.",
+      } satisfies PluginRevealHandlerOutcome;
+    })
     .catch(() => ({
-      ok: false,
-      timedOut: false,
+      status: "terminal_failure",
       message: "Plugin reveal handler failed.",
     }));
   const result = await Promise.race([handlerPromise, timeoutPromise]);

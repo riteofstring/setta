@@ -3,6 +3,7 @@ import { resetProjectStores } from "state/utils";
 import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
+  WebsocketConnectionTypeEnum,
   WebsocketMsgTypeForFrontendEnum,
   createProjectConfig,
   createSettaLspDiagnosticsPayload,
@@ -88,16 +89,29 @@ class MockWebSocket {
 }
 
 describe("openWebSocket", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     resetProjectStores();
     MockWebSocket.instances = [];
     vi.useFakeTimers();
     (globalThis as unknown as { window?: typeof globalThis }).window =
       globalThis;
     globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    for (const socket of MockWebSocket.instances) {
+      await socket.emit("close", { code: 1000 });
+    }
+    vi.clearAllTimers();
+    MockWebSocket.instances = [];
     vi.useRealTimers();
     vi.clearAllMocks();
     resetProjectStores();
@@ -233,6 +247,44 @@ describe("openWebSocket", () => {
     );
 
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
+  });
+
+  it("updates frontend websocket affinity id from AllConnections payloads", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    const {
+      buildFrontendAffinityCurrentAddress,
+      getFrontendWebsocketAffinityId,
+    } = await import("state/actions/frontendWebsocketAffinity");
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "msg-affinity",
+        messageType: WebsocketMsgTypeForFrontendEnum.AllConnections,
+        content: [
+          {
+            id: "frontend-origin",
+            connectionType: WebsocketConnectionTypeEnum.FRONTEND,
+            currentAddress: buildFrontendAffinityCurrentAddress("/project"),
+            shareSessionId: null,
+          },
+        ],
+      }),
+    });
+
+    expect(getFrontendWebsocketAffinityId()).toBe("frontend-origin");
   });
 
   it("routes UISettingReveal websocket messages to the reveal action", async () => {

@@ -153,6 +153,7 @@ async def route_run_mcp_tools(
         project_config_id=project_config_id,
         chat_id=x.chatId,
         section_id=x.sectionId,
+        frontend_websocket_id=x.frontendWebsocketId,
     )
     return await runner.run(x.toolCalls)
 

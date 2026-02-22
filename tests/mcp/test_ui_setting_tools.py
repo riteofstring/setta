@@ -23,6 +23,7 @@ from setta.project_state.project_manager_types import (
 )
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
 from setta.plugins.manager import PluginManager
+from setta.plugins.models import PluginRuntimeState
 from setta.types.id import ID
 from setta.types.section_impls import SectionType
 from setta.ui_settings.reveal_result_hub import (
@@ -1431,6 +1432,181 @@ async def test_plugin_ui_settings_remain_discoverable_with_shadowed_scope_entrie
 
 
 @pytest.mark.asyncio
+async def test_plugin_ui_setting_flow_succeeds_with_pending_restart_runtime_state(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        manifest_path = plugin_root / "setta.plugin.json"
+        manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_payload.pop("backend", None)
+        manifest_path.write_text(
+            json.dumps(manifest_payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+        original_get_runtime_response = plugin_manager.get_runtime_response
+
+        def _runtime_response_with_pending_restart():
+            runtime_response = original_get_runtime_response()
+            for status_entry in runtime_response.status.plugins:
+                if status_entry.pluginId != plugin_id:
+                    continue
+                if status_entry.state == PluginRuntimeState.active:
+                    status_entry.state = PluginRuntimeState.pending_restart
+            return runtime_response
+
+        monkeypatch.setattr(
+            plugin_manager,
+            "get_runtime_response",
+            _runtime_response_with_pending_restart,
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        # pending_restart should remain operational for search/get/set/reveal.
+        search_result = search_ui_settings(
+            query="full fixture enabled",
+            sourceFilter="plugin",
+            limit=50,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert plugin_setting_id in [entry.settingId for entry in search_result.results]
+
+        get_result = await get_ui_setting_value(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert get_result.error is None
+        assert get_result.value is False
+
+        set_result = await set_ui_setting_value(
+            settingId=plugin_setting_id,
+            value=True,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is None
+        assert set_result.changed is True
+        assert set_result.newValue is True
+
+        reveal_result = await reveal_ui_setting(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert reveal_result.emittedRevealCount == 1
+        assert reveal_result.statuses[0].status == "revealed"
+        assert reveal_result.statuses[0].error is None
+
+
+@pytest.mark.asyncio
+async def test_plugin_ui_setting_flow_succeeds_when_shadowed_status_precedes_active(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, _ = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+        original_get_runtime_response = plugin_manager.get_runtime_response
+
+        def _runtime_response_with_shadowed_then_active():
+            runtime_response = original_get_runtime_response()
+            for index, status_entry in enumerate(runtime_response.status.plugins):
+                if status_entry.pluginId != plugin_id:
+                    continue
+                shadowed_entry = status_entry.model_copy(
+                    update={
+                        "state": PluginRuntimeState.shadowed,
+                        "shadowedBySourcePath": "/tmp/shadowed-plugin",
+                    }
+                )
+                runtime_response.status.plugins.insert(index, shadowed_entry)
+                break
+            return runtime_response
+
+        monkeypatch.setattr(
+            plugin_manager,
+            "get_runtime_response",
+            _runtime_response_with_shadowed_then_active,
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        # A leading shadowed row must not mask the active runtime row.
+        get_result = await get_ui_setting_value(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert get_result.error is None
+        assert get_result.value is False
+
+        set_result = await set_ui_setting_value(
+            settingId=plugin_setting_id,
+            value=True,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is None
+        assert set_result.newValue is True
+
+        reveal_result = await reveal_ui_setting(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert reveal_result.emittedRevealCount == 1
+        assert reveal_result.statuses[0].status == "revealed"
+        assert reveal_result.statuses[0].error is None
+
+
+@pytest.mark.asyncio
 async def test_plugin_ui_setting_flow_from_config_schema_metadata(
     tmp_path: Path,
 ) -> None:
@@ -1656,8 +1832,123 @@ async def test_plugin_set_ui_setting_value_rejects_corrupt_config_root_without_w
         )
         assert set_result.error is not None
         assert set_result.error.code == "mutation_failed"
-        assert "config root must be an object" in set_result.error.message
+        assert "non-object node at <root>" in set_result.error.message
         assert target_plugin.config.currentConfig == "invalid-root"
+
+
+@pytest.mark.asyncio
+async def test_plugin_get_ui_setting_value_reports_corrupt_config_structure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, _ = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+        original_get_runtime_response = plugin_manager.get_runtime_response
+
+        def _runtime_response_with_corrupt_config():
+            runtime_response = original_get_runtime_response()
+            for plugin_entry in runtime_response.list.plugins:
+                if plugin_entry.pluginId != plugin_id:
+                    continue
+                plugin_entry.config.currentConfig = "invalid-root"
+            return runtime_response
+
+        monkeypatch.setattr(
+            plugin_manager,
+            "get_runtime_response",
+            _runtime_response_with_corrupt_config,
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        # Corrupt structures should surface explicit failures instead of default fallback.
+        get_result = await get_ui_setting_value(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert get_result.error is not None
+        assert get_result.error.code == "mutation_failed"
+        assert "non-object node at <root>" in get_result.error.message
+
+
+@pytest.mark.asyncio
+async def test_plugin_get_ui_setting_value_returns_default_for_missing_leaf_key(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, _ = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+        original_get_runtime_response = plugin_manager.get_runtime_response
+
+        def _runtime_response_with_missing_leaf():
+            runtime_response = original_get_runtime_response()
+            for plugin_entry in runtime_response.list.plugins:
+                if plugin_entry.pluginId != plugin_id:
+                    continue
+                plugin_entry.config.currentConfig = {}
+            return runtime_response
+
+        monkeypatch.setattr(
+            plugin_manager,
+            "get_runtime_response",
+            _runtime_response_with_missing_leaf,
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        # Missing leaves should still resolve to schema defaults.
+        get_result = await get_ui_setting_value(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert get_result.error is None
+        assert get_result.value is False
 
 
 @pytest.mark.asyncio
@@ -1928,9 +2219,16 @@ async def test_plugin_ui_setting_returns_plugin_unavailable_when_disabled(
         real_settings_manager() as settings_fixture,
     ):
         plugin_manager = _build_plugin_manager(tmp_path)
-        plugin_id, _ = _copy_fixture_plugin_to_workspace(
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
             manager=plugin_manager,
             fixture_name="full",
+        )
+        manifest_path = plugin_root / "setta.plugin.json"
+        manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_payload.pop("backend", None)
+        manifest_path.write_text(
+            json.dumps(manifest_payload, indent=2) + "\n",
+            encoding="utf-8",
         )
         plugin_manager.rescan()
         plugin_manager.write_plugin_config(
@@ -2063,9 +2361,16 @@ async def test_search_ui_settings_source_filter_separates_core_and_plugin_entrie
         real_settings_manager() as settings_fixture,
     ):
         plugin_manager = _build_plugin_manager(tmp_path)
-        plugin_id, _ = _copy_fixture_plugin_to_workspace(
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
             manager=plugin_manager,
             fixture_name="full",
+        )
+        manifest_path = plugin_root / "setta.plugin.json"
+        manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_payload.pop("backend", None)
+        manifest_path.write_text(
+            json.dumps(manifest_payload, indent=2) + "\n",
+            encoding="utf-8",
         )
         plugin_manager.rescan()
         plugin_manager.write_plugin_config(
@@ -2113,9 +2418,16 @@ async def test_search_ui_settings_ignores_disabled_plugins(
         real_settings_manager() as settings_fixture,
     ):
         plugin_manager = _build_plugin_manager(tmp_path)
-        plugin_id, _ = _copy_fixture_plugin_to_workspace(
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
             manager=plugin_manager,
             fixture_name="full",
+        )
+        manifest_path = plugin_root / "setta.plugin.json"
+        manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_payload.pop("backend", None)
+        manifest_path.write_text(
+            json.dumps(manifest_payload, indent=2) + "\n",
+            encoding="utf-8",
         )
         plugin_manager.rescan()
         plugin_manager.write_plugin_config(

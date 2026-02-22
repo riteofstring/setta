@@ -1,7 +1,3 @@
-import {
-  invokePluginSettingRevealHandler,
-  usePluginRuntimeStore,
-} from "plugins/runtime";
 import { useLocalStorage, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import type {
@@ -17,25 +13,33 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-type PluginRevealInvokeArgs = Parameters<
-  typeof invokePluginSettingRevealHandler
->[0];
+const invokePluginSettingRevealHandlerMock = vi.hoisted(() =>
+  vi.fn(
+    async (args: { pluginId: string }) => ({
+      ok: false,
+      message: `Plugin ${args.pluginId} has no setting reveal handlers.`,
+    }),
+  ),
+);
 
 vi.mock("plugins/runtime", async () => {
   const actual =
     await vi.importActual<typeof import("plugins/runtime")>("plugins/runtime");
   return {
     ...actual,
-    invokePluginSettingRevealHandler: vi.fn(
-      async (args: PluginRevealInvokeArgs) => ({
-        ok: false,
-        message: `Plugin ${args.pluginId} has no setting reveal handlers.`,
-      }),
-    ),
+    invokePluginSettingRevealHandler: invokePluginSettingRevealHandlerMock,
   };
 });
 
-import { receiveUISettingReveal } from "./uiSettingReveal";
+import {
+  invokePluginSettingRevealHandler,
+  usePluginRuntimeStore,
+} from "plugins/runtime";
+
+type PluginRevealInvokeArgs = Parameters<
+  typeof invokePluginSettingRevealHandler
+>[0];
+let receiveUISettingReveal: typeof import("./uiSettingReveal").receiveUISettingReveal;
 
 function createRevealTarget(
   overrides: Partial<UISettingRevealTarget>,
@@ -152,8 +156,12 @@ function setActiveSectionType(sectionType: SectionType): void {
 
 describe("receiveUISettingReveal", () => {
   beforeEach(async () => {
+    ({ receiveUISettingReveal } = await import("./uiSettingReveal"));
     vi.useFakeTimers();
     resetProjectStores();
+    useProjectState.setState((state) => {
+      state.projectConfig.id = "project-1";
+    });
     usePluginRuntimeStore.setState({ sortedPaneTabs: [] });
     useLocalStorage.setState({
       overviewVis: false,
@@ -175,7 +183,7 @@ describe("receiveUISettingReveal", () => {
     docRef.document = {
       querySelector: vi.fn(() => null),
     };
-    vi.mocked(invokePluginSettingRevealHandler).mockImplementation(
+    invokePluginSettingRevealHandlerMock.mockImplementation(
       async (args: PluginRevealInvokeArgs) => ({
         ok: false,
         message: `Plugin ${args.pluginId} has no setting reveal handlers.`,
@@ -415,7 +423,7 @@ describe("receiveUISettingReveal", () => {
     ).toContain("run-instructions-codegen-targets");
   });
 
-  it("targets reveal activation writes to the request projectConfigId even when active project differs", async () => {
+  it("fails fast when requested reveal project does not match the active project", async () => {
     const anchorId = "core.run_instructions.python_codegen_enabled";
     const anchor = createFakeAnchor(anchorId);
     const paneRoot = createFakePaneRoot(anchor, anchorId);
@@ -455,18 +463,25 @@ describe("receiveUISettingReveal", () => {
       }),
     );
 
-    expect(statuses[0]?.status).toBe("revealed");
+    expect(statuses).toEqual([
+      {
+        settingId: anchorId,
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage:
+          "UI setting reveal project mismatch: requested project project-request but active project is project-active.",
+      },
+    ]);
     const state = useLocalStorage.getState();
     expect(
-      state.runInstructionsAccordionOpenValuesByProjectConfigId[
-        "project-request"
-      ],
-    ).toContain("run-instructions-codegen-targets");
+      state.runInstructionsAccordionOpenValuesByProjectConfigId["project-request"],
+    ).toBeUndefined();
     expect(
       state.runInstructionsAccordionOpenValuesByProjectConfigId[
         "project-active"
       ],
     ).toBeUndefined();
+    expect(docRef.document.querySelector).not.toHaveBeenCalled();
   });
 
   it("fails fast when right-pane tab is unsupported for the active section type", async () => {
@@ -474,6 +489,7 @@ describe("receiveUISettingReveal", () => {
 
     const statuses = await receiveUISettingReveal(
       createRevealContent({
+        projectConfigId: "project-active",
         reveals: [
           createRevealTarget({
             settingId: "core.project.show_param_display_names",
@@ -650,6 +666,49 @@ describe("receiveUISettingReveal", () => {
       errorMessage:
         "Plugin plugin-a has no setting reveal handlers. No fallback anchorId is available.",
     });
+  });
+
+  it("does not retry terminal plugin handler failures once the tab is available", async () => {
+    usePluginRuntimeStore.setState({
+      sortedPaneTabs: [
+        {
+          tabKey: "PluginPane:plugin-a:pane-1",
+          pluginId: "plugin-a",
+          paneId: "pane-1",
+          title: "Plugin Pane",
+          description: "Plugin pane description",
+        },
+      ],
+    });
+    const startMs = Date.now();
+    const statusesPromise = receiveUISettingReveal(
+      createRevealContent({
+        durationMs: 8000,
+        reveals: [
+          createRevealTarget({
+            settingId: "plugin::plugin-a::label",
+            side: "left",
+            overviewTabKey: "PluginPane:plugin-a:pane-1",
+            strategy: "plugin_handler",
+            pluginId: "plugin-a",
+            paneId: "pane-1",
+            pluginRevealKey: "pane-reveal",
+            anchorId: null,
+          }),
+        ],
+      }),
+    );
+    await vi.runAllTimersAsync();
+    const statuses = await statusesPromise;
+
+    expect(statuses[0]).toEqual({
+      settingId: "plugin::plugin-a::label",
+      status: "failed",
+      errorCode: "mutation_failed",
+      errorMessage:
+        "Plugin plugin-a has no setting reveal handlers. No fallback anchorId is available.",
+    });
+    expect(Date.now() - startMs).toBeLessThan(1000);
   });
 
   it("enforces one reveal deadline across all targets in a batch", async () => {

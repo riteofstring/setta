@@ -7634,6 +7634,7 @@ export type GetChatRequestInput = z.input<typeof GetChatRequestSchema>;
 const RunMcpToolsRequestSchema = z.object({
   chatId: IDSchema,
   sectionId: IDSchema,
+  frontendWebsocketId: z.union([z.string(), z.null()]).default(null),
   toolCalls: z.array(ToolCallSchema),
 });
 
@@ -8564,6 +8565,7 @@ const GetLLMResponseRequestSchema = z.object({
   thinking: z.boolean(),
   projectConfigId: IDSchema,
   sectionId: z.union([IDSchema, z.null()]).default(null),
+  frontendWebsocketId: z.union([z.string(), z.null()]).default(null),
   allowUnscoped: z.boolean().default(false),
   branchParentChatId: z.union([IDSchema, z.null()]).default(null),
   branchFromMessageId: z.union([IDSchema, z.null()]).default(null),

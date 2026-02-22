@@ -378,6 +378,45 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
   }
 });
 
+test("core reveal_ui_setting fails when requested project does not match active project", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  let firstProjectContext: Awaited<
+    ReturnType<typeof openIsolatedProject>
+  > | null = null;
+  let secondProjectContext: Awaited<
+    ReturnType<typeof openIsolatedProject>
+  > | null = null;
+
+  try {
+    firstProjectContext = await openIsolatedProject(page);
+    secondProjectContext = await openIsolatedProject(page);
+
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      firstProjectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        durationMs: 5000,
+      },
+    );
+    expect(revealResult.emittedRevealCount).toBe(0);
+    expect(revealResult.statuses[0]?.status).toBe("failed");
+    expect(revealResult.statuses[0]?.error?.code).toBe("mutation_failed");
+    expect(revealResult.statuses[0]?.error?.message).toContain(
+      `requested project ${firstProjectContext.projectConfigId} but active project is ${secondProjectContext.projectConfigId}`,
+    );
+    await expect(page.locator(".setta-ui-setting-reveal-highlight")).toHaveCount(
+      0,
+    );
+  } finally {
+    await cleanupIsolatedProject(page, secondProjectContext);
+    await cleanupIsolatedProject(page, firstProjectContext);
+  }
+});
+
 test("core UI-setting tools normalize whitespace-padded setting ids", async ({
   page,
 }) => {

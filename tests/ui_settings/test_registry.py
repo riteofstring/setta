@@ -164,6 +164,114 @@ def test_build_plugin_entries_reports_schema_backend_cross_source_duplicate() ->
     )
 
 
+def test_build_plugin_entries_accepts_pending_restart_status() -> None:
+    plugin_id = "plugin-a"
+    schema_json = {
+        "type": "object",
+        "x-setta-ui-settings": [
+            {
+                "settingId": "enabled",
+                "title": "Enabled",
+                "description": "Enable plugin behavior.",
+                "paneId": "pane",
+                "revealKey": "reveal",
+                "configPath": ["enabled"],
+                "valueSchema": {"type": "boolean"},
+                "defaultValue": False,
+            }
+        ],
+    }
+    runtime_response = SimpleNamespace(
+        status=SimpleNamespace(
+            plugins=[
+                SimpleNamespace(
+                    pluginId=plugin_id,
+                    state=SimpleNamespace(value="pending_restart"),
+                )
+            ]
+        ),
+        list=SimpleNamespace(
+            plugins=[
+                SimpleNamespace(
+                    pluginId=plugin_id,
+                    effectiveCapabilities=["registerPane"],
+                    config=SimpleNamespace(
+                        schemaJson=schema_json,
+                        currentConfig={"enabled": True},
+                    ),
+                )
+            ]
+        ),
+    )
+
+    class _FakePluginManager:
+        def get_runtime_response(self):
+            return runtime_response
+
+        def get_backend_ui_settings(self, *, plugin_id: str):
+            assert plugin_id == "plugin-a"
+            return []
+
+    ctx = SimpleNamespace(
+        fastmcp=SimpleNamespace(
+            state=SimpleNamespace(plugin_manager=_FakePluginManager())
+        )
+    )
+
+    # pending_restart is operational and should stay visible/readable in registry paths.
+    entries, plugin_errors = ui_settings_registry._build_plugin_entries(
+        ctx=ctx,
+        project_config_id=ID("project-1"),
+    )
+    assert len(entries) == 1
+    assert plugin_errors == {}
+    assert entries[0].metadata.settingId == f"plugin::{plugin_id}::enabled"
+    assert entries[0].readValue(ctx, ID("project-1")) is True
+
+
+def test_require_active_plugin_runtime_entry_accepts_shadowed_then_active_state_order() -> (
+    None
+):
+    plugin_id = "plugin-a"
+    plugin_entry = SimpleNamespace(
+        pluginId=plugin_id,
+        effectiveCapabilities=["registerPane"],
+        config=SimpleNamespace(currentConfig={"enabled": True}),
+    )
+    runtime_response = SimpleNamespace(
+        status=SimpleNamespace(
+            plugins=[
+                SimpleNamespace(
+                    pluginId=plugin_id,
+                    state=SimpleNamespace(value="shadowed"),
+                ),
+                SimpleNamespace(
+                    pluginId=plugin_id,
+                    state=SimpleNamespace(value="active"),
+                ),
+            ]
+        ),
+        list=SimpleNamespace(plugins=[plugin_entry]),
+    )
+
+    class _FakePluginManager:
+        def get_runtime_response(self):
+            return runtime_response
+
+    ctx = SimpleNamespace(
+        fastmcp=SimpleNamespace(
+            state=SimpleNamespace(plugin_manager=_FakePluginManager())
+        )
+    )
+
+    # Mixed shadowed+active rows should resolve to the active runtime entry.
+    resolved = ui_settings_registry._require_active_plugin_runtime_entry(
+        ctx=ctx,
+        plugin_id=plugin_id,
+    )
+    assert resolved is plugin_entry
+
+
 def test_core_entries_include_required_reveal_activation_metadata() -> None:
     entries = ui_settings_registry._build_core_entries()
     entries_by_setting_id = {entry.metadata.settingId: entry for entry in entries}
@@ -186,6 +294,28 @@ def test_core_entries_include_required_reveal_activation_metadata() -> None:
             step.type == expected_step_type and step.itemValue == expected_item_value
             for step in activation_steps
         )
+
+
+def test_read_plugin_config_path_value_raises_on_non_object_intermediate_node() -> None:
+    with pytest.raises(ui_settings_registry.UISettingValidationError) as exc:
+        ui_settings_registry._read_plugin_config_path_value(
+            config={"settings": "invalid"},
+            config_path=["settings", "enabled"],
+            default_value=False,
+            plugin_id="plugin-a",
+        )
+    assert exc.value.code == "mutation_failed"
+    assert "non-object node at settings" in str(exc.value)
+
+
+def test_read_plugin_config_path_value_returns_default_for_missing_leaf() -> None:
+    value = ui_settings_registry._read_plugin_config_path_value(
+        config={"settings": {}},
+        config_path=["settings", "enabled"],
+        default_value=False,
+        plugin_id="plugin-a",
+    )
+    assert value is False
 
 
 @pytest.mark.asyncio

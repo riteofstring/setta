@@ -11,7 +11,11 @@ from setta.agentic.store import (
 )
 from setta.app.spec_store import default_app_spec_path
 from setta.plugins.errors import PluginManagerError
-from setta.plugins.models import PluginRegisteredUISetting
+from setta.plugins.models import (
+    PluginListEntry,
+    PluginRegisteredUISetting,
+    PluginRuntimeResponse,
+)
 from setta.project_state.project_manager_types import (
     GetAppDefinitionRequest,
     SetAppDefinitionRequest,
@@ -46,6 +50,7 @@ if TYPE_CHECKING:
 UISettingSourceFilter = Literal["core", "plugin", "all"]
 PLUGIN_SETTING_ID_PREFIX = "plugin::"
 PLUGIN_UI_SETTINGS_SCHEMA_KEY = "x-setta-ui-settings"
+PLUGIN_RUNTIME_OPERATIONAL_STATES = frozenset({"active", "pending_restart"})
 _JS_ENCODE_URI_COMPONENT_SAFE_CHARS = "-_.!~*'()"
 _DEFAULT_MINIMAL_APP_SPEC: dict[str, JSONValue] = {
     "key": "root",
@@ -106,6 +111,13 @@ class _PluginUISettingContribution:
     registration: PluginRegisteredUISetting | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class PluginRuntimeAvailability:
+    pluginEntry: PluginListEntry | None
+    observedStates: tuple[str, ...]
+    hasOperationalState: bool
+
+
 def build_plugin_setting_id(*, plugin_id: str, local_setting_id: str) -> str:
     return f"{PLUGIN_SETTING_ID_PREFIX}{plugin_id}::{local_setting_id}"
 
@@ -123,6 +135,46 @@ def parse_plugin_setting_id(setting_id: str) -> tuple[str, str] | None:
     if plugin_id == "" or local_setting_id == "":
         return None
     return plugin_id, local_setting_id
+
+
+def is_plugin_runtime_operational_state(*, state: str) -> bool:
+    return state in PLUGIN_RUNTIME_OPERATIONAL_STATES
+
+
+def describe_plugin_runtime_states(*, observed_states: tuple[str, ...]) -> str | None:
+    if len(observed_states) == 0:
+        return None
+    if len(observed_states) == 1:
+        return observed_states[0]
+    return ",".join(observed_states)
+
+
+def resolve_plugin_runtime_availability(
+    *,
+    runtime_response: PluginRuntimeResponse,
+    plugin_id: str,
+) -> PluginRuntimeAvailability:
+    observed_states_set: set[str] = set()
+    for status_entry in runtime_response.status.plugins:
+        if status_entry.pluginId != plugin_id:
+            continue
+        observed_states_set.add(status_entry.state.value)
+    observed_states = tuple(sorted(observed_states_set))
+
+    plugin_entry: PluginListEntry | None = None
+    for candidate in runtime_response.list.plugins:
+        if candidate.pluginId == plugin_id:
+            plugin_entry = candidate
+            break
+
+    return PluginRuntimeAvailability(
+        pluginEntry=plugin_entry,
+        observedStates=observed_states,
+        hasOperationalState=any(
+            is_plugin_runtime_operational_state(state=state)
+            for state in observed_states
+        ),
+    )
 
 
 @dataclass(slots=True)
@@ -700,15 +752,14 @@ def _build_plugin_entries(
     if plugin_manager is None:
         return [], {}
     runtime_response = plugin_manager.get_runtime_response()
-    active_plugin_ids = {
-        status_entry.pluginId
-        for status_entry in runtime_response.status.plugins
-        if status_entry.state.value == "active"
-    }
     entries: list[UISettingRuntimeEntry] = []
     plugin_errors_by_plugin_id: dict[str, str] = {}
     for plugin in runtime_response.list.plugins:
-        if plugin.pluginId not in active_plugin_ids:
+        availability = resolve_plugin_runtime_availability(
+            runtime_response=runtime_response,
+            plugin_id=plugin.pluginId,
+        )
+        if not availability.hasOperationalState:
             continue
         if "registerPane" not in plugin.effectiveCapabilities:
             continue
@@ -1020,6 +1071,7 @@ def _build_plugin_read_value(
             config=plugin_entry.config.currentConfig,
             config_path=config_path,
             default_value=default_value,
+            plugin_id=plugin_id,
         )
 
     return _read_plugin_value
@@ -1518,29 +1570,35 @@ def _require_active_plugin_runtime_entry(
             "Plugin manager is unavailable for plugin UI setting access.",
         )
     runtime_response = plugin_manager.get_runtime_response()
-    plugin_state: str | None = None
-    for status_entry in runtime_response.status.plugins:
-        if status_entry.pluginId != plugin_id:
-            continue
-        plugin_state = status_entry.state.value
-        break
-    if plugin_state != "active":
-        if plugin_state is None:
+    availability = resolve_plugin_runtime_availability(
+        runtime_response=runtime_response,
+        plugin_id=plugin_id,
+    )
+    if not availability.hasOperationalState:
+        observed_state = describe_plugin_runtime_states(
+            observed_states=availability.observedStates
+        )
+        if observed_state is None:
             raise UISettingValidationError(
                 "plugin_unavailable",
                 f"Plugin {plugin_id} is unavailable.",
             )
         raise UISettingValidationError(
             "plugin_unavailable",
-            f"Plugin {plugin_id} is unavailable (state={plugin_state}).",
+            f"Plugin {plugin_id} is unavailable (state={observed_state}).",
         )
-
-    for plugin in runtime_response.list.plugins:
-        if plugin.pluginId == plugin_id:
-            return plugin
+    if availability.pluginEntry is not None:
+        return availability.pluginEntry
+    observed_state = (
+        describe_plugin_runtime_states(observed_states=availability.observedStates)
+        or "unknown"
+    )
     raise UISettingValidationError(
         "plugin_unavailable",
-        f"Plugin {plugin_id} is unavailable (state=active, runtime entry missing).",
+        (
+            f"Plugin {plugin_id} is unavailable "
+            f"(state={observed_state}, runtime entry missing)."
+        ),
     )
 
 
@@ -1549,15 +1607,14 @@ def _read_plugin_config_path_value(
     config: Any,
     config_path: list[str],
     default_value: JSONValue,
+    plugin_id: str,
 ) -> JSONValue:
-    current_value: Any = config
-    for segment in config_path:
-        if not isinstance(current_value, dict):
-            return default_value
-        if segment not in current_value:
-            return default_value
-        current_value = current_value[segment]
-    return current_value
+    return _read_plugin_config_path_value_for_write(
+        config=config,
+        config_path=config_path,
+        default_value=default_value,
+        plugin_id=plugin_id,
+    )
 
 
 def _read_plugin_config_path_value_for_write(

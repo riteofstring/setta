@@ -35,7 +35,9 @@ from setta.ui_settings.registry import (
     UISettingRegistry,
     UISettingValidationError,
     build_ui_settings_registry,
+    describe_plugin_runtime_states,
     parse_plugin_setting_id,
+    resolve_plugin_runtime_availability,
     validate_ui_setting_value,
 )
 from setta.ui_settings.reveal_result_hub import (
@@ -914,32 +916,36 @@ def _resolve_plugin_runtime_support_error(
         )
 
     runtime_response = plugin_manager.get_runtime_response()
-    plugin_state: str | None = None
-    for status_entry in runtime_response.status.plugins:
-        if status_entry.pluginId != plugin_id:
-            continue
-        plugin_state = status_entry.state.value
-        break
-    if plugin_state != "active":
-        if plugin_state is None:
+    availability = resolve_plugin_runtime_availability(
+        runtime_response=runtime_response,
+        plugin_id=plugin_id,
+    )
+    if not availability.hasOperationalState:
+        observed_state = describe_plugin_runtime_states(
+            observed_states=availability.observedStates
+        )
+        if observed_state is None:
             return UISettingToolError(
                 code="plugin_unavailable",
                 message=f"Plugin {plugin_id} is unavailable.",
             )
         return UISettingToolError(
             code="plugin_unavailable",
-            message=f"Plugin {plugin_id} is unavailable (state={plugin_state}).",
+            message=f"Plugin {plugin_id} is unavailable (state={observed_state}).",
         )
 
-    plugin_entry = None
-    for candidate in runtime_response.list.plugins:
-        if candidate.pluginId == plugin_id:
-            plugin_entry = candidate
-            break
+    plugin_entry = availability.pluginEntry
     if plugin_entry is None:
+        observed_state = (
+            describe_plugin_runtime_states(observed_states=availability.observedStates)
+            or "unknown"
+        )
         return UISettingToolError(
             code="plugin_unavailable",
-            message=f"Plugin {plugin_id} is unavailable (active runtime entry missing).",
+            message=(
+                f"Plugin {plugin_id} is unavailable "
+                f"(state={observed_state}, runtime entry missing)."
+            ),
         )
     if "registerPane" not in plugin_entry.effectiveCapabilities:
         return UISettingToolError(

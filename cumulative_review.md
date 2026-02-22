@@ -178,3 +178,35 @@
 10. DX after: malformed handler returns are surfaced immediately with explicit contract failures.
 11. DX before: set-path old-value drift could create snapshot inconsistency during debugging.
 12. DX after: old/new mutation semantics are enforced against a single validated pre-write snapshot.
+
+## 2026-02-25 14:53:43 PST
+
+### Consolidated Findings
+1. Plugin operational-state handling was inconsistent across UI-setting discovery/read/write/reveal paths (`pending_restart` and mixed `shadowed`+`active` status ordering).
+2. Plugin config read traversal still failed open on structural corruption while write traversal failed closed.
+3. Reveal acknowledgements could be produced against the wrong project context because frontend reveal execution did not gate on requested `projectConfigId`.
+4. Frontend plugin reveal loops retried terminal handler failures until timeout, creating duplicate side-effect risk.
+5. Multi-frontend websocket affinity was enforced at reveal-time but not fully sourced at managed/external chat and `runMcpTools` ingress.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Added shared plugin runtime availability/state helpers and operational-state predicate; applied them to registry build/runtime checks and MCP reveal support checks.
+2. Updated runtime plugin checks to resolve across all status rows and accept operational states (`active`, `pending_restart`), including mixed `shadowed`+`active` ordering.
+3. Unified plugin config read traversal with strict write-style validation so structural mismatches return explicit `mutation_failed` errors while missing leaf keys still return defaults.
+4. Added frontend fail-fast reveal project-context gate; mismatched `projectConfigId` now returns structured failed statuses and performs no pane/DOM mutation.
+5. Changed plugin reveal handler loop semantics to stop on terminal failures once tab availability is confirmed.
+6. Added frontend websocket affinity state/actions and propagated `frontendWebsocketId` through managed/external chat ingress, `AgentRunner` context construction, generated request types, and listener `runMcpTools` routing.
+7. Added/updated backend pytest, frontend Vitest, and Playwright tests covering all corrected behaviors.
+
+### UX/DX Before and After
+1. UX before: plugin settings could disappear or be marked unavailable during `pending_restart` or mixed status-row ordering.
+2. UX after: plugin settings remain operationally available whenever runtime state is operational and an active runtime entry exists.
+3. UX before: corrupted plugin config shape could appear valid on read, then fail later on write/reveal.
+4. UX after: structural corruption is surfaced immediately and consistently during reads/writes.
+5. UX before: reveal could report success/failure for the wrong project after fast project switching.
+6. UX after: cross-project reveal mismatch fails explicitly with deterministic, per-target failure statuses.
+7. UX before: persistent plugin reveal failures could retrigger handler execution repeatedly until deadline.
+8. UX after: terminal plugin reveal failures return once, reducing repeated side effects and noisy retries.
+9. UX before: multi-frontend reveal flows could fail due to missing origin websocket affinity at ingress.
+10. UX after: origin websocket affinity is propagated end-to-end, enabling deterministic routing in multi-frontend sessions.
+11. DX before: plugin/runtime availability logic was duplicated and order-dependent across modules.
+12. DX after: shared availability helpers provide one semantics path across registry and MCP tool layers.
