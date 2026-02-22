@@ -151,7 +151,9 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
       return null;
     }
     const params = new URLSearchParams(hash);
-    const launchIntentToken = params.get(PENDING_LAUNCH_INTENT_HASH_KEY)?.trim();
+    const launchIntentToken = params
+      .get(PENDING_LAUNCH_INTENT_HASH_KEY)
+      ?.trim();
     const hasLegacyPayload = params.has(LEGACY_PENDING_LAUNCH_HASH_KEY);
     if (!launchIntentToken) {
       if (hasLegacyPayload) {
@@ -166,8 +168,9 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
         launchIntentToken,
       } as LaunchRequestInput,
       returnUrl:
-        decodeReturnUrlFromHash(params.get(PENDING_LAUNCH_RETURN_URL_HASH_KEY)) ??
-        window.location.href,
+        decodeReturnUrlFromHash(
+          params.get(PENDING_LAUNCH_RETURN_URL_HASH_KEY),
+        ) ?? window.location.href,
       requestedAt: parseRequestedAt(
         params.get(PENDING_LAUNCH_REQUESTED_AT_HASH_KEY),
       ),

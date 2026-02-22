@@ -158,9 +158,8 @@ export function WorkspaceSwitcherModal() {
         launchRequest: request,
         returnUrl: pendingLaunch.returnUrl,
       };
-      const launchIntentResponse = await route_create_workspace_launch_intent(
-        launchIntentRequest,
-      );
+      const launchIntentResponse =
+        await route_create_workspace_launch_intent(launchIntentRequest);
       if (
         !res200(launchIntentResponse) ||
         !launchIntentResponse.data ||

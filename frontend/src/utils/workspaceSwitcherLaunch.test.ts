@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { LaunchRequestInput } from "./generatedTypes";
 import { encodeBase64Url } from "./base64Url";
+import type { LaunchRequestInput } from "./generatedTypes";
 import {
   buildWorkspaceLaunchIntentHash,
   consumeOpenWorkspaceSwitcherRequest,
