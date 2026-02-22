@@ -655,7 +655,6 @@ class TestAgentRunChatRoutes:
                         thinking=False,
                         projectConfigId=ID("project-policy"),
                         allowUnscoped=True,
-                        frontendWebsocketId="  frontend-managed  ",
                         permissionMode=ChatPermissionMode.yolo,
                         searchEnabled=False,
                         appGenerationMode="json_render",
@@ -680,7 +679,6 @@ class TestAgentRunChatRoutes:
             assert isinstance(captured_inputs, dict)
             assert captured_inputs.get("permissionMode") == "yolo"
             assert captured_inputs.get("searchEnabled") is False
-            assert captured_inputs.get("frontendWebsocketId") == "frontend-managed"
             assert "skillsEnabled" not in captured_inputs
 
     async def test_get_llm_response_includes_execution_policy_for_external_runner(
@@ -777,7 +775,6 @@ class TestAgentRunChatRoutes:
                         thinking=False,
                         projectConfigId=project_config.id,
                         allowUnscoped=True,
-                        frontendWebsocketId="  frontend-external  ",
                         permissionMode=ChatPermissionMode.minimal,
                         searchEnabled=False,
                     ),
@@ -789,7 +786,6 @@ class TestAgentRunChatRoutes:
             assert isinstance(captured_inputs, dict)
             assert captured_inputs.get("permissionMode") == "minimal"
             assert captured_inputs.get("searchEnabled") is False
-            assert captured_inputs.get("frontendWebsocketId") == "frontend-external"
             assert "skillsEnabled" not in captured_inputs
             assert captured_inputs.get("approvalPolicy") == "on-request"
             system_prompt = captured_inputs.get("systemPrompt")
