@@ -797,6 +797,29 @@ def _parse_launcher_managed_artifact_specs(
     return parsed
 
 
+def _parse_launcher_artifact_option_specs(
+    specs: tuple[str, ...],
+) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for raw_spec in specs:
+        spec = raw_spec.strip()
+        if not spec:
+            raise click.ClickException("Artifact option entries must be non-empty.")
+        if _LAUNCHER_METADATA_ARTIFACT_NAME_SEPARATOR not in spec:
+            raise click.ClickException(
+                "Artifact option entries must use NAME=VALUE format."
+            )
+        name, raw_value = spec.split(_LAUNCHER_METADATA_ARTIFACT_NAME_SEPARATOR, 1)
+        trimmed_name = name.strip()
+        if not trimmed_name:
+            raise click.ClickException("Artifact option names must be non-empty.")
+        trimmed_value = raw_value.strip()
+        if not trimmed_value:
+            raise click.ClickException("Artifact option values must be non-empty.")
+        parsed[trimmed_name] = trimmed_value
+    return parsed
+
+
 def _normalize_launcher_workspace_behavior_cli_value(
     raw_value: str,
 ) -> LauncherWorkspaceBehavior:
@@ -1571,6 +1594,7 @@ def share(
         )
     C.SHARE_MODE = True
     C.SHARE_DEPLOYMENT_ROOT = resolved_deployment_root
+    C.LAUNCHER_MODE = False
 
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
@@ -1898,6 +1922,7 @@ def _run_launcher_command(
         requested_open_mode = _DEFAULT_LAUNCHER_OPEN_MODE
 
     try:
+        launch_server_mode = "launcher" if should_open_switcher else "ide"
         result = launch_workspace_session(
             workspace_root=resolved_workspace_root,
             profile=normalized_profile,
@@ -1908,6 +1933,7 @@ def _run_launcher_command(
             runtime_root=normalized_runtime_root,
             allow_env_files_overrides=False,
             allow_env_non_files_overrides=False,
+            server_mode=launch_server_mode,
             timeout_seconds=timeout,
         )
     except LaunchError as exc:
@@ -2050,12 +2076,26 @@ def _run_launcher_setup_subcommand(
     channel: str,
     open_mode: str,
     workspace_behavior: str | None,
+    install_artifacts: bool,
+    artifact_option_specs: tuple[str, ...],
     managed_artifact_specs: tuple[str, ...],
 ) -> None:
     launcher_setta_home = _resolve_launcher_setta_home_from_context(ctx)
     try:
         parsed_artifacts = _parse_launcher_managed_artifact_specs(
             managed_artifact_specs
+        )
+    except click.ClickException as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code="BadRequest",
+            message=str(exc),
+            exit_code=2,
+        )
+
+    try:
+        parsed_artifact_options = _parse_launcher_artifact_option_specs(
+            artifact_option_specs
         )
     except click.ClickException as exc:
         _emit_launcher_error_and_exit(
@@ -2085,6 +2125,8 @@ def _run_launcher_setup_subcommand(
             channel=channel,
             open_mode=cast("LauncherOpenMode", open_mode.strip().lower()),
             workspace_behavior=parsed_workspace_behavior,
+            install_artifacts=install_artifacts,
+            artifact_options=parsed_artifact_options,
             managed_artifacts=parsed_artifacts,
         )
     except LauncherSetupError as exc:
@@ -2154,6 +2196,21 @@ def _run_launcher_remove_subcommand(
     multiple=True,
     help="Artifact to manage, as NAME=PATH.",
 )
+@click.option(
+    "--artifact-option",
+    "artifact_option_specs",
+    multiple=True,
+    help=(
+        "Platform artifact option, as NAME=VALUE. "
+        "Examples: app_path=/path/to/Setta.app, "
+        "desktop_shortcut=true, wrapper_path=/path/to/wrapper."
+    ),
+)
+@click.option(
+    "--no-install-artifacts",
+    is_flag=True,
+    help="Skip creating platform desktop artifacts and only update metadata.",
+)
 @click.pass_context
 def launcher_setup(
     ctx: click.Context,
@@ -2161,6 +2218,8 @@ def launcher_setup(
     channel: str,
     open_mode: str,
     workspace_behavior: str | None,
+    artifact_option_specs: tuple[str, ...],
+    no_install_artifacts: bool,
     managed_artifact_specs: tuple[str, ...],
 ) -> None:
     _run_launcher_setup_subcommand(
@@ -2169,6 +2228,8 @@ def launcher_setup(
         channel=channel,
         open_mode=open_mode,
         workspace_behavior=workspace_behavior,
+        install_artifacts=not no_install_artifacts,
+        artifact_option_specs=artifact_option_specs,
         managed_artifact_specs=managed_artifact_specs,
     )
 
@@ -2356,6 +2417,7 @@ def app(
         )
     C.APP_MODE = True
     C.APP_DEPLOYMENT_ROOT = resolved_deployment_root
+    C.LAUNCHER_MODE = False
 
     resolved_log_level = configure_logging(level_override=log_level)
     uvicorn_log_level = logging.getLevelName(resolved_log_level).lower()
@@ -3814,6 +3876,7 @@ def cli(
             runtime_root=str(paths.runtime_root),
             setta_home=str(paths.setta_home),
             profile=paths.profile_name,
+            server_mode="launcher" if C.LAUNCHER_MODE else "ide",
         )
         os.environ[SESSION_ID_ENV_VAR] = session.id
         os.environ[SESSIONS_ROOT_ENV_VAR] = str(sessions_root)

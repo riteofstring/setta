@@ -38,6 +38,7 @@ def test_setup_launcher_installation_merges_managed_artifacts(tmp_path: Path) ->
         channel="manual",
         open_mode="browser",
         workspace_behavior=None,
+        install_artifacts=False,
         managed_artifacts={"a": artifact_a},
     )
     second_setup = setup_launcher_installation(
@@ -45,6 +46,7 @@ def test_setup_launcher_installation_merges_managed_artifacts(tmp_path: Path) ->
         channel="manual",
         open_mode="browser",
         workspace_behavior=None,
+        install_artifacts=False,
         managed_artifacts={"b": artifact_b},
     )
 
@@ -73,6 +75,58 @@ def test_repair_launcher_installation_rebinds_missing_target(tmp_path: Path) -> 
     )
     assert repair_result.status.target_valid is True
     assert repair_result.status.target_error is None
+
+
+def test_repair_launcher_installation_preserves_preferences_and_non_platform_artifacts(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    target = tmp_path / "python"
+    target.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    target.chmod(0o755)
+    previous_workspace = tmp_path / "workspace-prev"
+    previous_workspace.mkdir(parents=True, exist_ok=True)
+    custom_artifact = tmp_path / "custom-artifact"
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target), "-m", "setta"],
+        channel="manual",
+        setta_version="1.2.3",
+        open_mode="chrome-app",
+        workspace_behavior="always_prompt",
+        last_used_workspace=previous_workspace,
+        managed_artifacts={
+            "linuxWrapper": str((tmp_path / "old-wrapper").resolve(strict=False)),
+            "custom": str(custom_artifact.resolve(strict=False)),
+        },
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    new_wrapper = str((tmp_path / "new-wrapper").resolve(strict=False))
+    def fake_install_current_platform_artifacts(*, context: object) -> dict[str, str]:
+        assert context is not None
+        return {"linuxWrapper": new_wrapper}
+
+    monkeypatch.setattr(
+        "setta.launcher_setup.install_current_platform_artifacts",
+        fake_install_current_platform_artifacts,
+    )
+    monkeypatch.setattr(
+        "setta.launcher_setup.current_platform_artifact_keys",
+        lambda: {"linuxWrapper"},
+    )
+
+    repair_result = repair_launcher_installation(setta_home=setta_home)
+
+    assert repair_result.setup.metadata.openMode == "chrome-app"
+    assert repair_result.setup.metadata.workspaceBehavior == "always_prompt"
+    assert repair_result.setup.metadata.lastUsedWorkspace == str(
+        previous_workspace.resolve(strict=False)
+    )
+    assert repair_result.setup.metadata.managedArtifacts["linuxWrapper"] == new_wrapper
+    assert repair_result.setup.metadata.managedArtifacts["custom"] == str(
+        custom_artifact.resolve(strict=False)
+    )
 
 
 def test_remove_launcher_installation_removes_metadata_and_artifacts(

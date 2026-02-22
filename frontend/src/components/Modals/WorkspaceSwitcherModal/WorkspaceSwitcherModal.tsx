@@ -1,26 +1,15 @@
 import * as Dialog from "@radix-ui/react-dialog";
+import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLauncherSettingsSection";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
 import { C_ADDRESSES } from "utils/c_addresses";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
-import {
-  route_get_launcher_status,
-  route_get_setta_home_info,
-  route_remove_launcher,
-  route_repair_launcher,
-  route_setup_launcher,
-  route_update_launcher,
-} from "utils/generatedEndpoints";
+import { route_get_setta_home_info } from "utils/generatedEndpoints";
 import {
   type LaunchRequestInput,
-  type LauncherRequestBaseInput,
-  type LauncherStatusResponse,
-  type LauncherUpdateResponse,
   type SettaHomeInfoResponse,
-  type SetupLauncherRequestInput,
-  type UpdateLauncherRequestInput,
 } from "utils/generatedTypes";
 import {
   normalizeSettaFilesLocation,
@@ -39,37 +28,6 @@ import {
   writeWorkspaceSwitcherDraft,
 } from "utils/workspaceSwitcherLaunch";
 
-type LauncherActionState =
-  | "refresh"
-  | "setup"
-  | "repair"
-  | "remove"
-  | "update"
-  | null;
-
-const DEFAULT_LAUNCHER_REQUEST: LauncherRequestBaseInput = {};
-const DEFAULT_SETUP_LAUNCHER_REQUEST: SetupLauncherRequestInput = {};
-const DEFAULT_UPDATE_LAUNCHER_REQUEST: UpdateLauncherRequestInput = {};
-
-function resolveLauncherErrorMessage(
-  payload: LauncherStatusResponse | LauncherUpdateResponse | null | undefined,
-  fallback: string,
-): string {
-  if (payload?.error?.message) {
-    return payload.error.message;
-  }
-  return fallback;
-}
-
-function formatLauncherTargetCommand(
-  targetCommand: Array<string> | null | undefined,
-): string | null {
-  if (!targetCommand || targetCommand.length === 0) {
-    return null;
-  }
-  return targetCommand.join(" ");
-}
-
 export function WorkspaceSwitcherModal() {
   const navigate = useNavigate();
   const [workspaceRoot, setWorkspaceRoot] = useState("");
@@ -78,51 +36,12 @@ export function WorkspaceSwitcherModal() {
     useState<SettaFilesLocation>("auto");
   const [launcherSettaHomeInfo, setLauncherSettaHomeInfo] =
     useState<SettaHomeInfoResponse | null>(null);
-  const [launcherStatus, setLauncherStatus] =
-    useState<LauncherStatusResponse | null>(null);
-  const [launcherStatusError, setLauncherStatusError] = useState<string | null>(
-    null,
-  );
-  const [launcherActionMessage, setLauncherActionMessage] = useState<
-    string | null
-  >(null);
-  const [launcherActionError, setLauncherActionError] = useState<string | null>(
-    null,
-  );
-  const [launcherActionInFlight, setLauncherActionInFlight] =
-    useState<LauncherActionState>(null);
   const [sshArgs, setSshArgs] = useState("");
   const [remoteCmd, setRemoteCmd] = useState("");
   const [localPort, setLocalPort] = useState("");
   const [history, setHistory] = useState<WorkspaceHistoryEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLaunching, setIsLaunching] = useState(false);
-
-  async function refreshLauncherStatus() {
-    setLauncherActionInFlight("refresh");
-    setLauncherActionError(null);
-    try {
-      const response = await route_get_launcher_status();
-      if (!res200(response) || !response.data) {
-        setLauncherStatusError("Failed to load launcher status.");
-        return;
-      }
-      const payload = response.data;
-      setLauncherStatus(payload);
-      if (!payload.ok) {
-        setLauncherStatusError(
-          resolveLauncherErrorMessage(
-            payload,
-            "Launcher status request failed.",
-          ),
-        );
-        return;
-      }
-      setLauncherStatusError(null);
-    } finally {
-      setLauncherActionInFlight(null);
-    }
-  }
 
   useEffect(() => {
     let isMounted = true;
@@ -151,7 +70,6 @@ export function WorkspaceSwitcherModal() {
     }
 
     void hydrateLauncherSettaHomeInfo();
-    void refreshLauncherStatus();
 
     return () => {
       isMounted = false;
@@ -170,19 +88,6 @@ export function WorkspaceSwitcherModal() {
     globalBaseLabel = launcherSettaHomeInfo.globalSettaFilesBase;
   }
   const canLaunch = trimmedWorkspace.length > 0 && !isLaunching;
-  const launcherActionsDisabled = launcherActionInFlight !== null;
-  const launcherInstalled = launcherStatus?.installed === true;
-  const launcherTarget = formatLauncherTargetCommand(
-    launcherStatus?.targetCommand,
-  );
-  const canUpdateInApp =
-    launcherInstalled && launcherStatus?.updateCapability === "in_app";
-  let launcherSetupButtonLabel = "Setup Desktop App";
-  if (launcherActionInFlight === "setup") {
-    launcherSetupButtonLabel = "Setting up...";
-  } else if (launcherInstalled) {
-    launcherSetupButtonLabel = "Re-run Setup";
-  }
 
   const orderedHistory = useMemo(() => {
     return [...history].sort((a, b) => b.lastUsedAt - a.lastUsedAt);
@@ -201,100 +106,6 @@ export function WorkspaceSwitcherModal() {
   function clearHistory() {
     setHistory([]);
     saveWorkspaceHistory([]);
-  }
-
-  async function handleLauncherSetup() {
-    setLauncherActionInFlight("setup");
-    setLauncherActionError(null);
-    setLauncherActionMessage(null);
-    const response = await route_setup_launcher(DEFAULT_SETUP_LAUNCHER_REQUEST);
-    setLauncherActionInFlight(null);
-    if (!res200(response) || !response.data) {
-      setLauncherActionError("Launcher setup request failed.");
-      return;
-    }
-    const payload = response.data;
-    setLauncherStatus(payload);
-    if (!payload.ok) {
-      setLauncherActionError(
-        resolveLauncherErrorMessage(payload, "Launcher setup failed."),
-      );
-      return;
-    }
-    setLauncherStatusError(null);
-    setLauncherActionMessage("Launcher setup is complete.");
-  }
-
-  async function handleLauncherRepair() {
-    setLauncherActionInFlight("repair");
-    setLauncherActionError(null);
-    setLauncherActionMessage(null);
-    const response = await route_repair_launcher(DEFAULT_LAUNCHER_REQUEST);
-    setLauncherActionInFlight(null);
-    if (!res200(response) || !response.data) {
-      setLauncherActionError("Launcher repair request failed.");
-      return;
-    }
-    const payload = response.data;
-    setLauncherStatus(payload);
-    if (!payload.ok) {
-      setLauncherActionError(
-        resolveLauncherErrorMessage(payload, "Launcher repair failed."),
-      );
-      return;
-    }
-    setLauncherStatusError(null);
-    setLauncherActionMessage("Launcher repair is complete.");
-  }
-
-  async function handleLauncherRemove() {
-    setLauncherActionInFlight("remove");
-    setLauncherActionError(null);
-    setLauncherActionMessage(null);
-    const response = await route_remove_launcher(DEFAULT_LAUNCHER_REQUEST);
-    setLauncherActionInFlight(null);
-    if (!res200(response) || !response.data) {
-      setLauncherActionError("Launcher removal request failed.");
-      return;
-    }
-    const payload = response.data;
-    setLauncherStatus(payload);
-    if (!payload.ok) {
-      setLauncherActionError(
-        resolveLauncherErrorMessage(payload, "Launcher removal failed."),
-      );
-      return;
-    }
-    setLauncherStatusError(null);
-    setLauncherActionMessage(
-      "Launcher metadata and managed artifacts were removed.",
-    );
-  }
-
-  async function handleLauncherUpdate() {
-    setLauncherActionInFlight("update");
-    setLauncherActionError(null);
-    setLauncherActionMessage(null);
-    const response = await route_update_launcher(
-      DEFAULT_UPDATE_LAUNCHER_REQUEST,
-    );
-    setLauncherActionInFlight(null);
-    if (!res200(response) || !response.data) {
-      setLauncherActionError("Setta update request failed.");
-      return;
-    }
-    const payload = response.data;
-    setLauncherStatus(payload);
-    if (!payload.ok) {
-      setLauncherActionError(
-        resolveLauncherErrorMessage(payload, "Setta update failed."),
-      );
-      return;
-    }
-    setLauncherStatusError(null);
-    const fromVersion = payload.fromVersion ?? "unknown";
-    const toVersion = payload.toVersion ?? "unknown";
-    setLauncherActionMessage(`Setta updated: ${fromVersion} -> ${toVersion}`);
   }
 
   async function handleLaunch() {
@@ -483,135 +294,7 @@ export function WorkspaceSwitcherModal() {
             </p>
           </div>
 
-          <section
-            className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-setta-50 p-3 dark:border-setta-700 dark:bg-setta-900/50"
-            data-testid="workspace-switcher-launcher-section"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-setta-400">
-                Desktop Launcher
-              </span>
-              <button
-                className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-                onClick={refreshLauncherStatus}
-                disabled={launcherActionsDisabled}
-              >
-                {launcherActionInFlight === "refresh"
-                  ? "Refreshing..."
-                  : "Refresh"}
-              </button>
-            </div>
-            <p className="text-xs text-setta-500 dark:text-setta-400">
-              Install, repair, update, or remove launcher bindings directly from
-              Setta.
-            </p>
-            {launcherStatus && (
-              <div className="grid gap-1 text-xs text-setta-600 dark:text-setta-300">
-                <span>
-                  Status:{" "}
-                  <span className="font-semibold">
-                    {launcherInstalled ? "installed" : "not installed"}
-                  </span>
-                </span>
-                {launcherStatus.channel && (
-                  <span>
-                    Channel:{" "}
-                    <span className="font-semibold">
-                      {launcherStatus.channel}
-                    </span>
-                  </span>
-                )}
-                {launcherStatus.updateCapability && (
-                  <span>
-                    Update capability:{" "}
-                    <span className="font-semibold">
-                      {launcherStatus.updateCapability}
-                    </span>
-                  </span>
-                )}
-                {launcherTarget && (
-                  <span className="break-all">
-                    Target:{" "}
-                    <span className="font-semibold">{launcherTarget}</span>
-                  </span>
-                )}
-                {launcherStatus.targetError && (
-                  <span className="text-red-700 dark:text-red-300">
-                    Target error: {launcherStatus.targetError}
-                  </span>
-                )}
-              </div>
-            )}
-            {launcherStatus?.missingManagedArtifacts &&
-              launcherStatus.missingManagedArtifacts.length > 0 && (
-                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-900/30 dark:text-amber-200">
-                  Missing managed artifacts:
-                  <ul className="mt-1 list-disc pl-4">
-                    {launcherStatus.missingManagedArtifacts.map((path) => (
-                      <li key={path} className="break-all">
-                        {path}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            {launcherStatus?.updateGuidance && (
-              <div className="rounded-md border border-setta-200 bg-white px-3 py-2 text-xs text-setta-700 dark:border-setta-700 dark:bg-setta-800 dark:text-setta-200">
-                {launcherStatus.updateGuidance}
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <button
-                className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-                onClick={handleLauncherSetup}
-                disabled={launcherActionsDisabled}
-              >
-                {launcherSetupButtonLabel}
-              </button>
-              <button
-                className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-                onClick={handleLauncherRepair}
-                disabled={launcherActionsDisabled || !launcherInstalled}
-              >
-                {launcherActionInFlight === "repair"
-                  ? "Repairing..."
-                  : "Repair Desktop App"}
-              </button>
-              <button
-                className="rounded-full border border-setta-300 px-3 py-1 text-xs font-semibold text-setta-700 transition-colors hover:bg-setta-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-300 dark:hover:bg-setta-800"
-                onClick={handleLauncherUpdate}
-                disabled={launcherActionsDisabled || !canUpdateInApp}
-              >
-                {launcherActionInFlight === "update"
-                  ? "Updating..."
-                  : "Update Setta"}
-              </button>
-              <button
-                className="rounded-full border border-red-300 px-3 py-1 text-xs font-semibold text-red-700 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
-                onClick={handleLauncherRemove}
-                disabled={launcherActionsDisabled || !launcherInstalled}
-              >
-                {launcherActionInFlight === "remove"
-                  ? "Removing..."
-                  : "Remove Desktop App"}
-              </button>
-            </div>
-            {launcherStatusError && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-200">
-                {launcherStatusError}
-              </div>
-            )}
-            {launcherActionError && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-800/60 dark:bg-red-900/30 dark:text-red-200">
-                {launcherActionError}
-              </div>
-            )}
-            {launcherActionMessage && (
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-900/30 dark:text-emerald-200">
-                {launcherActionMessage}
-              </div>
-            )}
-          </section>
+          <DesktopLauncherSettingsSection />
 
           {orderedHistory.length > 0 && (
             <div className="flex flex-col gap-3 rounded-lg border border-setta-200 bg-setta-50 p-3 dark:border-setta-700 dark:bg-setta-900/50">

@@ -45,6 +45,7 @@ def test_setup_and_remove_launcher_routes_roundtrip(tmp_path: Path) -> None:
                 "channel": "uv-tool",
                 "openMode": "chrome-app",
                 "workspaceBehavior": "always-prompt",
+                "installArtifacts": False,
                 "managedArtifacts": {"macosApp": str(artifact_path)},
             },
         )

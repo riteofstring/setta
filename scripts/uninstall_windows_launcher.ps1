@@ -1,80 +1,60 @@
 [CmdletBinding()]
 param(
-  [string]$AppName = "Setta",
   [string]$SettaBin = "",
-  [string]$SettaHome = "",
-  [string]$WrapperPath = ""
+  [string]$SettaHome = ""
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-function Resolve-AbsolutePath([string]$PathValue) {
-  return [System.IO.Path]::GetFullPath($PathValue)
-}
-
-if ([string]::IsNullOrWhiteSpace($AppName)) {
-  Write-Error "--AppName must be non-empty."
+function Fail([string]$Message) {
+  Write-Error $Message
   exit 1
 }
 
-$programsDir = [Environment]::GetFolderPath("Programs")
-$desktopDir = [Environment]::GetFolderPath("DesktopDirectory")
-$localAppData = $env:LOCALAPPDATA
-if (-not $localAppData) {
-  $localAppData = Join-Path $HOME "AppData\\Local"
-}
-
-$startMenuShortcutPath = Resolve-AbsolutePath (Join-Path $programsDir "$AppName.lnk")
-$desktopShortcutPath = Resolve-AbsolutePath (Join-Path $desktopDir "$AppName.lnk")
-$wrapperPathResolved = if ($WrapperPath) {
-  Resolve-AbsolutePath $WrapperPath
-} else {
-  Resolve-AbsolutePath (Join-Path $localAppData "Setta\\Launcher\\setta-launcher.cmd")
+function Resolve-AbsolutePath([string]$PathValue) {
+  return [System.IO.Path]::GetFullPath($PathValue)
 }
 
 $settaExecutable = ""
 if ($SettaBin) {
   $settaCandidate = Resolve-AbsolutePath $SettaBin
-  if (Test-Path -LiteralPath $settaCandidate -PathType Leaf) {
-    $settaExecutable = $settaCandidate
+  if (-not (Test-Path -LiteralPath $settaCandidate -PathType Leaf)) {
+    Fail "Setta executable does not exist: $settaCandidate"
   }
+  $settaExecutable = $settaCandidate
 } else {
   $resolvedSetta = Get-Command setta -ErrorAction SilentlyContinue
-  if ($resolvedSetta) {
-    $settaExecutable = $resolvedSetta.Source
+  if (-not $resolvedSetta) {
+    Fail "Could not find setta executable. Use -SettaBin PATH."
   }
+  $settaExecutable = $resolvedSetta.Source
 }
 
-if ($settaExecutable) {
-  $launcherUninstallArgs = @()
-  if ($SettaHome) {
-    $launcherUninstallArgs += @("--setta-home", $SettaHome)
-  }
-  $launcherUninstallArgs += @("launcher", "remove", "--json")
-  $null = & $settaExecutable @launcherUninstallArgs
+$launcherRemoveArgs = @()
+if ($SettaHome) {
+  $launcherRemoveArgs += @("--setta-home", $SettaHome)
+}
+$launcherRemoveArgs += @("launcher", "remove", "--json")
+
+$removeJson = & $settaExecutable @launcherRemoveArgs
+if ($LASTEXITCODE -ne 0) {
+  exit $LASTEXITCODE
 }
 
-$pathsToRemove = @(
-  $startMenuShortcutPath,
-  $desktopShortcutPath,
-  $wrapperPathResolved
-)
-foreach ($path in $pathsToRemove) {
-  if (Test-Path -LiteralPath $path) {
-    Remove-Item -LiteralPath $path -Force -Recurse
-  }
+$payload = $removeJson | ConvertFrom-Json
+if (-not $payload.ok) {
+  Fail "setta launcher remove did not return a successful JSON payload."
 }
 
-$wrapperDir = Split-Path -Parent $wrapperPathResolved
-if ($wrapperDir -and (Test-Path -LiteralPath $wrapperDir -PathType Container)) {
-  $remaining = @(Get-ChildItem -LiteralPath $wrapperDir -Force)
-  if ($remaining.Count -eq 0) {
-    Remove-Item -LiteralPath $wrapperDir -Force
+Write-Output "Launcher metadata removed: $($payload.metadataRemoved)"
+if ($payload.removedPaths) {
+  foreach ($path in $payload.removedPaths) {
+    Write-Output "Removed: $path"
   }
 }
-
-Write-Output "Removed Windows launcher artifacts:"
-Write-Output "  $startMenuShortcutPath"
-Write-Output "  $desktopShortcutPath"
-Write-Output "  $wrapperPathResolved"
+if ($payload.missingPaths) {
+  foreach ($path in $payload.missingPaths) {
+    Write-Output "Missing: $path"
+  }
+}

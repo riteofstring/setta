@@ -935,6 +935,14 @@ export const RouteEnum = {
   REPAIR_LAUNCHER: "/repairLauncher",
   REMOVE_LAUNCHER: "/removeLauncher",
   UPDATE_LAUNCHER: "/updateLauncher",
+  GET_LAUNCHER_APP_MODE: "/launcherAppMode",
+  GET_LAUNCHER_RECENT_WORKSPACES: "/launcherRecentWorkspaces",
+  ADD_LAUNCHER_RECENT_WORKSPACE: "/addLauncherRecentWorkspace",
+  REMOVE_LAUNCHER_RECENT_WORKSPACE: "/removeLauncherRecentWorkspace",
+  PIN_LAUNCHER_RECENT_WORKSPACE: "/pinLauncherRecentWorkspace",
+  GET_LAUNCHER_FILESYSTEM_ROOTS: "/launcherFilesystemRoots",
+  LIST_LAUNCHER_DIRECTORY: "/listLauncherDirectory",
+  OPEN_LAUNCHER_WORKSPACE: "/openLauncherWorkspace",
   GET_MCP_SERVER_RUNTIME_STATUS: "/mcpServerRuntimeStatus",
   PLUGINS_RUNTIME: "/plugins/runtime",
   PLUGINS_INSTALL: "/plugins/install",
@@ -15775,7 +15783,7 @@ export function createBrowserAreaItem(
 }
 
 export const ServerModeResponseSchema = z.object({
-  mode: z.literal(["ide", "share", "app"]),
+  mode: z.literal(["ide", "share", "app", "launcher"]),
 });
 
 export type ServerModeResponse = z.infer<typeof ServerModeResponseSchema>;
@@ -17637,6 +17645,259 @@ export function createLaunchResponse(
   return LaunchResponseSchema.parse(options);
 }
 
+export const LauncherAppModeResponseSchema = z.object({
+  launcherMode: z.boolean(),
+});
+
+export type LauncherAppModeResponse = z.infer<
+  typeof LauncherAppModeResponseSchema
+>;
+
+export type LauncherAppModeResponseInput = z.input<
+  typeof LauncherAppModeResponseSchema
+>;
+
+export function createLauncherAppModeResponse(
+  options: Partial<LauncherAppModeResponse> = {},
+): LauncherAppModeResponse {
+  return LauncherAppModeResponseSchema.parse(options);
+}
+
+export const LauncherDirectoryEntryPayloadSchema = z.object({
+  name: z.string(),
+  path: z.string(),
+  isDirectory: z.boolean(),
+  isSymlink: z.boolean(),
+});
+
+export type LauncherDirectoryEntryPayload = z.infer<
+  typeof LauncherDirectoryEntryPayloadSchema
+>;
+
+export type LauncherDirectoryEntryPayloadInput = z.input<
+  typeof LauncherDirectoryEntryPayloadSchema
+>;
+
+export function createLauncherDirectoryEntryPayload(
+  options: Partial<LauncherDirectoryEntryPayload> = {},
+): LauncherDirectoryEntryPayload {
+  return LauncherDirectoryEntryPayloadSchema.parse(options);
+}
+
+export const LauncherFilesystemRootsResponseSchema = z.object({
+  ok: z.boolean(),
+  roots: z.array(z.string()).default(() => []),
+});
+
+export type LauncherFilesystemRootsResponse = z.infer<
+  typeof LauncherFilesystemRootsResponseSchema
+>;
+
+export type LauncherFilesystemRootsResponseInput = z.input<
+  typeof LauncherFilesystemRootsResponseSchema
+>;
+
+export function createLauncherFilesystemRootsResponse(
+  options: Partial<LauncherFilesystemRootsResponse> = {},
+): LauncherFilesystemRootsResponse {
+  return LauncherFilesystemRootsResponseSchema.parse(options);
+}
+
+export const LauncherHomeErrorPayloadSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+});
+
+export type LauncherHomeErrorPayload = z.infer<
+  typeof LauncherHomeErrorPayloadSchema
+>;
+
+export type LauncherHomeErrorPayloadInput = z.input<
+  typeof LauncherHomeErrorPayloadSchema
+>;
+
+export function createLauncherHomeErrorPayload(
+  options: Partial<LauncherHomeErrorPayload> = {},
+): LauncherHomeErrorPayload {
+  return LauncherHomeErrorPayloadSchema.parse(options);
+}
+
+export const LauncherListDirectoryRequestSchema = z.object({
+  path: z.union([z.string(), z.null()]).default(null),
+});
+
+export type LauncherListDirectoryRequest = z.infer<
+  typeof LauncherListDirectoryRequestSchema
+>;
+
+export type LauncherListDirectoryRequestInput = z.input<
+  typeof LauncherListDirectoryRequestSchema
+>;
+
+export function createLauncherListDirectoryRequest(
+  options: Partial<LauncherListDirectoryRequest> = {},
+): LauncherListDirectoryRequest {
+  return LauncherListDirectoryRequestSchema.parse(options);
+}
+
+export const LauncherListDirectoryResponseSchema = z.object({
+  ok: z.boolean(),
+  currentPath: z.union([z.string(), z.null()]).default(null),
+  parentPath: z.union([z.string(), z.null()]).default(null),
+  entries: z.array(LauncherDirectoryEntryPayloadSchema).default(() => []),
+  error: z.union([LauncherHomeErrorPayloadSchema, z.null()]).default(null),
+});
+
+export type LauncherListDirectoryResponse = z.infer<
+  typeof LauncherListDirectoryResponseSchema
+>;
+
+export type LauncherListDirectoryResponseInput = z.input<
+  typeof LauncherListDirectoryResponseSchema
+>;
+
+export function createLauncherListDirectoryResponse(
+  options: Partial<LauncherListDirectoryResponse> = {},
+): LauncherListDirectoryResponse {
+  return LauncherListDirectoryResponseSchema.parse(options);
+}
+
+export const LauncherOpenWorkspaceRequestSchema = z.object({
+  workspaceRoot: z.string(),
+  settaHome: z.union([z.string(), z.null()]).default(null),
+  profile: z.union([z.string(), z.null()]).default(null),
+  settaFilesRoot: z.union([z.string(), z.null()]).default(null),
+  settaFilesLocation: z
+    .union([z.literal(["auto", "local", "global"]), z.null()])
+    .default("auto" as const),
+  runtimeRoot: z.union([z.string(), z.null()]).default(null),
+  createIfMissing: z.boolean().default(false),
+});
+
+export type LauncherOpenWorkspaceRequest = z.infer<
+  typeof LauncherOpenWorkspaceRequestSchema
+>;
+
+export type LauncherOpenWorkspaceRequestInput = z.input<
+  typeof LauncherOpenWorkspaceRequestSchema
+>;
+
+export function createLauncherOpenWorkspaceRequest(
+  options: Partial<LauncherOpenWorkspaceRequest> = {},
+): LauncherOpenWorkspaceRequest {
+  return LauncherOpenWorkspaceRequestSchema.parse(options);
+}
+
+export const LauncherOpenWorkspaceResponseSchema = z.object({
+  ok: z.boolean(),
+  bootstrapUrlFragment: z.union([z.string(), z.null()]).default(null),
+  workspaceRoot: z.union([z.string(), z.null()]).default(null),
+  settaFilesLocation: z
+    .union([z.literal(["local", "global"]), z.null()])
+    .default(null),
+  settaFilesRoot: z.union([z.string(), z.null()]).default(null),
+  runtimeRoot: z.union([z.string(), z.null()]).default(null),
+  settaHome: z.union([z.string(), z.null()]).default(null),
+  profile: z.union([z.string(), z.null()]).default(null),
+  sessionId: z.union([z.string(), z.null()]).default(null),
+  startedNew: z.union([z.boolean(), z.null()]).default(null),
+  error: z.union([LauncherHomeErrorPayloadSchema, z.null()]).default(null),
+});
+
+export type LauncherOpenWorkspaceResponse = z.infer<
+  typeof LauncherOpenWorkspaceResponseSchema
+>;
+
+export type LauncherOpenWorkspaceResponseInput = z.input<
+  typeof LauncherOpenWorkspaceResponseSchema
+>;
+
+export function createLauncherOpenWorkspaceResponse(
+  options: Partial<LauncherOpenWorkspaceResponse> = {},
+): LauncherOpenWorkspaceResponse {
+  return LauncherOpenWorkspaceResponseSchema.parse(options);
+}
+
+export const LauncherRecentWorkspacePayloadSchema = z.object({
+  workspaceRoot: z.string(),
+  pinned: z.boolean(),
+  lastUsedAt: z.int(),
+});
+
+export type LauncherRecentWorkspacePayload = z.infer<
+  typeof LauncherRecentWorkspacePayloadSchema
+>;
+
+export type LauncherRecentWorkspacePayloadInput = z.input<
+  typeof LauncherRecentWorkspacePayloadSchema
+>;
+
+export function createLauncherRecentWorkspacePayload(
+  options: Partial<LauncherRecentWorkspacePayload> = {},
+): LauncherRecentWorkspacePayload {
+  return LauncherRecentWorkspacePayloadSchema.parse(options);
+}
+
+export const LauncherRecentWorkspaceRequestSchema = z.object({
+  settaHome: z.union([z.string(), z.null()]).default(null),
+  workspaceRoot: z.string(),
+  pinned: z.union([z.boolean(), z.null()]).default(null),
+});
+
+export type LauncherRecentWorkspaceRequest = z.infer<
+  typeof LauncherRecentWorkspaceRequestSchema
+>;
+
+export type LauncherRecentWorkspaceRequestInput = z.input<
+  typeof LauncherRecentWorkspaceRequestSchema
+>;
+
+export function createLauncherRecentWorkspaceRequest(
+  options: Partial<LauncherRecentWorkspaceRequest> = {},
+): LauncherRecentWorkspaceRequest {
+  return LauncherRecentWorkspaceRequestSchema.parse(options);
+}
+
+export const LauncherRecentWorkspacesResponseSchema = z.object({
+  ok: z.boolean(),
+  workspaces: z.array(LauncherRecentWorkspacePayloadSchema).default(() => []),
+  error: z.union([LauncherHomeErrorPayloadSchema, z.null()]).default(null),
+});
+
+export type LauncherRecentWorkspacesResponse = z.infer<
+  typeof LauncherRecentWorkspacesResponseSchema
+>;
+
+export type LauncherRecentWorkspacesResponseInput = z.input<
+  typeof LauncherRecentWorkspacesResponseSchema
+>;
+
+export function createLauncherRecentWorkspacesResponse(
+  options: Partial<LauncherRecentWorkspacesResponse> = {},
+): LauncherRecentWorkspacesResponse {
+  return LauncherRecentWorkspacesResponseSchema.parse(options);
+}
+
+export const PinLauncherRecentWorkspaceRequestSchema = z.object({
+  settaHome: z.union([z.string(), z.null()]).default(null),
+  workspaceRoot: z.string(),
+  pinned: z.boolean(),
+});
+
+export type PinLauncherRecentWorkspaceRequest = z.infer<
+  typeof PinLauncherRecentWorkspaceRequestSchema
+>;
+
+export type PinLauncherRecentWorkspaceRequestInput = z.input<
+  typeof PinLauncherRecentWorkspaceRequestSchema
+>;
+
+export function createPinLauncherRecentWorkspaceRequest(
+  options: Partial<PinLauncherRecentWorkspaceRequest> = {},
+): PinLauncherRecentWorkspaceRequest {
+  return PinLauncherRecentWorkspaceRequestSchema.parse(options);
+}
+
 export const UpdateAPIKeysRequestSchema = z.object({
   apiKeys: z.record(z.string(), z.string()).default({}),
 });
@@ -18216,7 +18477,7 @@ export function createPluginListEntry(
 
 export const PluginListResponseSchema = z.object({
   schemaVersion: z.int().default(1),
-  serverMode: z.literal(["ide", "share", "app"]),
+  serverMode: z.literal(["ide", "share", "app", "launcher"]),
   restartCapability: PluginRestartCapabilitySchema,
   plugins: z.array(PluginListEntrySchema),
 });
@@ -18366,7 +18627,7 @@ export function createPluginStatusEntry(
 
 export const PluginStatusResponseSchema = z.object({
   schemaVersion: z.int().default(1),
-  serverMode: z.literal(["ide", "share", "app"]),
+  serverMode: z.literal(["ide", "share", "app", "launcher"]),
   restartCapability: PluginRestartCapabilitySchema,
   plugins: z.array(PluginStatusEntrySchema),
 });
@@ -18484,7 +18745,7 @@ export function createPluginUpdateResponse(
 
 export const PluginsRescanResponseSchema = z.object({
   schemaVersion: z.int().default(1),
-  serverMode: z.literal(["ide", "share", "app"]),
+  serverMode: z.literal(["ide", "share", "app", "launcher"]),
   installedPlugins: z.int(),
   activePlugins: z.int(),
 });
@@ -22232,6 +22493,8 @@ export const SetupLauncherRequestSchema = z.object({
   workspaceBehavior: z
     .union([z.literal(["last-used-or-prompt", "always-prompt"]), z.null()])
     .default(null),
+  installArtifacts: z.boolean().default(true),
+  artifactOptions: z.record(z.string(), z.string()).default({}),
   managedArtifacts: z.record(z.string(), z.string()).default({}),
 });
 
@@ -22460,6 +22723,26 @@ export function createBinaryStore(
   options: Partial<BinaryStore> = {},
 ): BinaryStore {
   return BinaryStoreSchema.parse(options);
+}
+
+export const LauncherWorkspaceEntrySchema = z.object({
+  workspace_root: z.string(),
+  pinned: z.boolean(),
+  last_used_at: z.int(),
+});
+
+export type LauncherWorkspaceEntry = z.infer<
+  typeof LauncherWorkspaceEntrySchema
+>;
+
+export type LauncherWorkspaceEntryInput = z.input<
+  typeof LauncherWorkspaceEntrySchema
+>;
+
+export function createLauncherWorkspaceEntry(
+  options: Partial<LauncherWorkspaceEntry> = {},
+): LauncherWorkspaceEntry {
+  return LauncherWorkspaceEntrySchema.parse(options);
 }
 
 export const MetaSchema = z.object({

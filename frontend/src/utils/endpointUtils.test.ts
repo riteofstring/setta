@@ -67,6 +67,34 @@ describe("endpointUtils URL routing", () => {
     );
   });
 
+  it("routes launcher-home APIs via launcher origin", async () => {
+    await get(RouteEnum.GET_LAUNCHER_APP_MODE);
+    await get(RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES);
+    await get(RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS);
+    await post(RouteEnum.LIST_LAUNCHER_DIRECTORY, { path: null });
+    await post(RouteEnum.OPEN_LAUNCHER_WORKSPACE, {
+      workspaceRoot: "/tmp/example",
+      createIfMissing: false,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_APP_MODE}`,
+    );
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_RECENT_WORKSPACES}`,
+    );
+    expect(fetchMock.mock.calls[2]?.[0]).toBe(
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.GET_LAUNCHER_FILESYSTEM_ROOTS}`,
+    );
+    expect(fetchMock.mock.calls[3]?.[0]).toBe(
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.LIST_LAUNCHER_DIRECTORY}`,
+    );
+    expect(fetchMock.mock.calls[4]?.[0]).toBe(
+      `${C_ADDRESSES.LAUNCHER}${RouteEnum.OPEN_LAUNCHER_WORKSPACE}`,
+    );
+  });
+
   it("keeps streamAppSpec on backend origin", async () => {
     await post(RouteEnum.STREAM_APP_SPEC, { prompt: "Generate app" });
     expect(fetchMock).toHaveBeenCalledTimes(1);

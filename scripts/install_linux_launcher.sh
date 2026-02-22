@@ -2,30 +2,26 @@
 set -euo pipefail
 
 usage() {
-  cat <<'EOF'
+  cat <<'USAGE'
 Usage: ./scripts/install_linux_launcher.sh [options]
 
-Install Linux desktop launcher artifacts for Setta.
+Thin wrapper that delegates launcher installation to `setta launcher setup`.
 
 Options:
   --setta-bin PATH           Absolute or PATH-resolved Setta executable to bind.
                              Default: first "setta" on PATH
   --setta-home PATH          Optional Setta home override forwarded to launcher setup
-  --applications-dir PATH    Desktop entry directory
-                             Default: ~/.local/share/applications
+  --applications-dir PATH    Desktop entry directory (default: ~/.local/share/applications)
   --desktop-entry-name NAME  Desktop entry file name (default: setta.desktop)
-  --wrapper-path PATH        Wrapper command path
-                             Default: ~/.local/share/setta/launcher/setta-launcher
+  --wrapper-path PATH        Wrapper command path (default: ~/.local/share/setta/launcher/setta-launcher)
   --desktop-shortcut         Also create a desktop shortcut file
-  --desktop-shortcut-path    Desktop shortcut path
-                             Default: ~/Desktop/<desktop-entry-name>
+  --desktop-shortcut-path    Desktop shortcut path (default: ~/Desktop/<desktop-entry-name>)
   --app-name NAME            Desktop entry Name value (default: Setta)
   --icon-path PATH           Optional icon path written to desktop entry
-  --channel NAME             Launcher install channel (default: linux-script)
-  --open-mode MODE           Launcher default open mode: browser | chrome-app
-                             Default: browser
+  --channel NAME             Launcher setup channel (default: linux-script)
+  --open-mode MODE           Launcher open mode: browser | chrome-app (default: browser)
   -h, --help                 Show this help message.
-EOF
+USAGE
 }
 
 if command -v python3 >/dev/null 2>&1; then
@@ -216,28 +212,27 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -z "${setta_bin}" ]]; then
+  setta_bin="$(command -v setta || true)"
+fi
+if [[ -z "${setta_bin}" ]]; then
+  echo "Could not find setta executable. Use --setta-bin PATH." >&2
+  exit 1
+fi
 if [[ -z "${desktop_entry_name}" ]]; then
   echo "--desktop-entry-name must be non-empty." >&2
-  exit 1
-fi
-if [[ "${open_mode}" != "browser" && "${open_mode}" != "chrome-app" ]]; then
-  echo "--open-mode must be one of: browser, chrome-app" >&2
-  exit 1
-fi
-if [[ -z "${channel}" ]]; then
-  echo "--channel must be non-empty." >&2
   exit 1
 fi
 if [[ -z "${app_name}" ]]; then
   echo "--app-name must be non-empty." >&2
   exit 1
 fi
-
-if [[ -z "${setta_bin}" ]]; then
-  setta_bin="$(command -v setta || true)"
+if [[ -z "${channel}" ]]; then
+  echo "--channel must be non-empty." >&2
+  exit 1
 fi
-if [[ -z "${setta_bin}" ]]; then
-  echo "Could not find setta executable. Use --setta-bin PATH." >&2
+if [[ "${open_mode}" != "browser" && "${open_mode}" != "chrome-app" ]]; then
+  echo "--open-mode must be one of: browser, chrome-app" >&2
   exit 1
 fi
 
@@ -246,10 +241,17 @@ if [[ ! -x "${setta_bin_abs}" ]]; then
   echo "Setta executable is not runnable: ${setta_bin_abs}" >&2
   exit 1
 fi
-
 applications_dir_abs="$(resolve_abs_path "${applications_dir}")"
-desktop_entry_path_abs="$(resolve_abs_path "${applications_dir_abs}/${desktop_entry_name}")"
 wrapper_path_abs="$(resolve_abs_path "${wrapper_path}")"
+
+icon_path_abs=""
+if [[ -n "${icon_path}" ]]; then
+  icon_path_abs="$(resolve_abs_path "${icon_path}")"
+  if [[ ! -f "${icon_path_abs}" ]]; then
+    echo "Icon file does not exist: ${icon_path_abs}" >&2
+    exit 1
+  fi
+fi
 
 desktop_shortcut_path_abs=""
 if [[ "${create_desktop_shortcut}" == "1" ]]; then
@@ -259,16 +261,11 @@ if [[ "${create_desktop_shortcut}" == "1" ]]; then
   desktop_shortcut_path_abs="$(resolve_abs_path "${desktop_shortcut_path}")"
 fi
 
-icon_path_abs=""
-if [[ -n "${icon_path}" ]]; then
-  icon_path_abs="$(resolve_abs_path "${icon_path}")"
-fi
-
-launcher_install_cmd=("${setta_bin_abs}")
+launcher_setup_cmd=("${setta_bin_abs}")
 if [[ -n "${setta_home}" ]]; then
-  launcher_install_cmd+=("--setta-home" "${setta_home}")
+  launcher_setup_cmd+=("--setta-home" "${setta_home}")
 fi
-launcher_install_cmd+=(
+launcher_setup_cmd+=(
   "launcher"
   "setup"
   "--json"
@@ -276,138 +273,56 @@ launcher_install_cmd+=(
   "${channel}"
   "--open-mode"
   "${open_mode}"
-  "--managed-artifact"
-  "linuxDesktopEntry=${desktop_entry_path_abs}"
-  "--managed-artifact"
-  "linuxWrapper=${wrapper_path_abs}"
+  "--artifact-option"
+  "applications_dir=${applications_dir_abs}"
+  "--artifact-option"
+  "desktop_entry_name=${desktop_entry_name}"
+  "--artifact-option"
+  "wrapper_path=${wrapper_path_abs}"
+  "--artifact-option"
+  "app_name=${app_name}"
 )
+if [[ -n "${icon_path_abs}" ]]; then
+  launcher_setup_cmd+=("--artifact-option" "icon_path=${icon_path_abs}")
+fi
 if [[ "${create_desktop_shortcut}" == "1" ]]; then
-  launcher_install_cmd+=(
-    "--managed-artifact"
-    "linuxDesktopShortcut=${desktop_shortcut_path_abs}"
+  launcher_setup_cmd+=(
+    "--artifact-option"
+    "desktop_shortcut=true"
+    "--artifact-option"
+    "desktop_shortcut_path=${desktop_shortcut_path_abs}"
   )
+else
+  launcher_setup_cmd+=("--artifact-option" "desktop_shortcut=false")
 fi
 
-install_json="$("${launcher_install_cmd[@]}")"
+install_json="$("${launcher_setup_cmd[@]}")"
 
-target_command_shell="$(
-  "${PYTHON_BIN}" - "${install_json}" <<'PY'
+"${PYTHON_BIN}" - "${install_json}" <<'PY'
 import json
 import shlex
 import sys
 
-raw = sys.argv[1]
-payload = json.loads(raw)
+payload = json.loads(sys.argv[1])
 if not isinstance(payload, dict) or payload.get("ok") is not True:
     raise SystemExit("setta launcher setup did not return a successful JSON payload.")
-raw_command = payload.get("targetCommand")
-if not isinstance(raw_command, list) or not raw_command:
-    raise SystemExit("setta launcher setup payload is missing targetCommand.")
-parts: list[str] = []
-for part in raw_command:
-    if not isinstance(part, str) or not part.strip():
-        raise SystemExit("targetCommand entries must be non-empty strings.")
-    parts.append(shlex.quote(part))
-print(" ".join(parts))
+metadata_path = payload.get("metadataPath")
+target_command = payload.get("targetCommand")
+managed_artifacts = payload.get("managedArtifacts")
+if not isinstance(metadata_path, str) or not metadata_path.strip():
+    raise SystemExit("launcher setup payload is missing metadataPath.")
+if not isinstance(target_command, list) or not target_command:
+    raise SystemExit("launcher setup payload is missing targetCommand.")
+print(f"Launcher metadata written: {metadata_path}")
+print(f"Bound launcher target: {shlex.join(target_command)}")
+if isinstance(managed_artifacts, dict):
+    desktop_entry = managed_artifacts.get("linuxDesktopEntry")
+    wrapper = managed_artifacts.get("linuxWrapper")
+    desktop_shortcut = managed_artifacts.get("linuxDesktopShortcut")
+    if isinstance(desktop_entry, str) and desktop_entry.strip():
+        print(f"Managed desktop entry: {desktop_entry}")
+    if isinstance(wrapper, str) and wrapper.strip():
+        print(f"Managed wrapper: {wrapper}")
+    if isinstance(desktop_shortcut, str) and desktop_shortcut.strip():
+        print(f"Managed desktop shortcut: {desktop_shortcut}")
 PY
-)"
-
-wrapper_dir="$(dirname "${wrapper_path_abs}")"
-mkdir -p "${wrapper_dir}" "${applications_dir_abs}"
-
-cat > "${wrapper_path_abs}" <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
-
-show_failure_dialog() {
-  local message="\${1-}"
-  if command -v zenity >/dev/null 2>&1; then
-    zenity --error --title="Setta Launch Failed" --text="\${message}" --width=460 >/dev/null 2>&1 || true
-    return
-  fi
-  if command -v kdialog >/dev/null 2>&1; then
-    kdialog --error "\${message}" --title "Setta Launch Failed" >/dev/null 2>&1 || true
-  fi
-}
-
-run_launcher() {
-  local workspace_arg="\${1-}"
-  local cmd="${target_command_shell} launcher"
-  if [[ -n "\${workspace_arg}" ]]; then
-    cmd="\${cmd} --workspace \$(printf '%q' "\${workspace_arg}")"
-  fi
-
-  local output=""
-  if output="\$(eval "\${cmd}" 2>&1)"; then
-    return 0
-  fi
-
-  local exit_code=\$?
-  local guidance
-  guidance="Setta could not start.\n\n\${output}\n\nRepair launcher metadata with:\n${target_command_shell} launcher repair\n\nOr rerun setup with:\n${target_command_shell} launcher setup --channel ${channel}"
-  printf '%b\n' "\${guidance}" >&2
-  show_failure_dialog "Setta could not start. Open a terminal and run 'setta launcher repair'."
-  return "\${exit_code}"
-}
-
-if [[ \$# -gt 0 ]]; then
-  first_path="\$1"
-  if [[ -d "\${first_path}" ]]; then
-    run_launcher "\${first_path}"
-    exit \$?
-  fi
-  if [[ -e "\${first_path}" ]]; then
-    run_launcher "\$(dirname "\${first_path}")"
-    exit \$?
-  fi
-fi
-
-run_launcher
-exit \$?
-EOF
-chmod 755 "${wrapper_path_abs}"
-
-wrapper_exec="$(
-  "${PYTHON_BIN}" - "${wrapper_path_abs}" <<'PY'
-import shlex
-import sys
-
-print(f"{shlex.quote(sys.argv[1])} %F")
-PY
-)"
-
-icon_line=""
-if [[ -n "${icon_path_abs}" ]]; then
-  icon_line="Icon=${icon_path_abs}"
-fi
-
-cat > "${desktop_entry_path_abs}" <<EOF
-[Desktop Entry]
-Type=Application
-Version=1.0
-Name=${app_name}
-Comment=Launch Setta
-Exec=${wrapper_exec}
-${icon_line}
-Terminal=false
-Categories=Development;IDE;
-StartupNotify=true
-EOF
-chmod 644 "${desktop_entry_path_abs}"
-
-if [[ "${create_desktop_shortcut}" == "1" ]]; then
-  desktop_shortcut_dir="$(dirname "${desktop_shortcut_path_abs}")"
-  mkdir -p "${desktop_shortcut_dir}"
-  cp "${desktop_entry_path_abs}" "${desktop_shortcut_path_abs}"
-  chmod 755 "${desktop_shortcut_path_abs}"
-fi
-
-if command -v update-desktop-database >/dev/null 2>&1; then
-  update-desktop-database "${applications_dir_abs}" >/dev/null 2>&1 || true
-fi
-
-echo "Installed Linux desktop entry: ${desktop_entry_path_abs}"
-echo "Installed launcher wrapper: ${wrapper_path_abs}"
-if [[ "${create_desktop_shortcut}" == "1" ]]; then
-  echo "Installed desktop shortcut: ${desktop_shortcut_path_abs}"
-fi

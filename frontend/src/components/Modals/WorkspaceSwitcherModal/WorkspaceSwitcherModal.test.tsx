@@ -24,7 +24,6 @@ describe("WorkspaceSwitcherModal", () => {
     expect(markup).toContain("Desktop Launcher");
     expect(markup).toContain("Setup Desktop App");
     expect(markup).toContain("Repair Desktop App");
-    expect(markup).toContain("Update Setta");
     expect(markup).toContain("Remove Desktop App");
   });
 });

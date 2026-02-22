@@ -55,6 +55,7 @@ def test_launcher_json_uses_home_fallback_workspace_and_requests_switcher(
         workspace_root = kwargs["workspace_root"]
         captured["workspace_root"] = workspace_root
         captured["setta_files_location"] = kwargs["setta_files_location"]
+        captured["server_mode"] = kwargs["server_mode"]
         return _fake_launch_result(
             workspace_root=workspace_root,
             setta_home=setta_home,
@@ -83,6 +84,7 @@ def test_launcher_json_uses_home_fallback_workspace_and_requests_switcher(
     assert payload["workspaceRoot"] == str(expected_workspace)
     assert Path(str(captured["workspace_root"])).resolve(strict=False) == expected_workspace
     assert captured["setta_files_location"] == "global"
+    assert captured["server_mode"] == "launcher"
 
 
 def test_launcher_json_prefers_last_used_workspace_from_metadata(
@@ -104,8 +106,11 @@ def test_launcher_json_prefers_last_used_workspace_from_metadata(
     )
     write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
 
+    captured: dict[str, object] = {}
+
     def fake_launch_workspace_session(**kwargs):
         workspace_root = kwargs["workspace_root"]
+        captured["server_mode"] = kwargs["server_mode"]
         return _fake_launch_result(
             workspace_root=workspace_root,
             setta_home=setta_home,
@@ -130,6 +135,7 @@ def test_launcher_json_prefers_last_used_workspace_from_metadata(
     assert payload["openWorkspaceSwitcher"] is False
     assert payload["workspaceRoot"] == str(last_used_workspace.resolve(strict=False))
     assert payload["openMode"] == "chrome-app"
+    assert captured["server_mode"] == "ide"
 
 
 def test_launcher_json_honors_always_prompt_workspace_behavior(
@@ -157,6 +163,7 @@ def test_launcher_json_honors_always_prompt_workspace_behavior(
     def fake_launch_workspace_session(**kwargs):
         workspace_root = kwargs["workspace_root"]
         captured["setta_files_location"] = kwargs["setta_files_location"]
+        captured["server_mode"] = kwargs["server_mode"]
         return _fake_launch_result(
             workspace_root=workspace_root,
             setta_home=setta_home,
@@ -182,6 +189,7 @@ def test_launcher_json_honors_always_prompt_workspace_behavior(
     assert payload["openWorkspaceSwitcher"] is True
     assert payload["workspaceRoot"] == str(Path.home().resolve(strict=False))
     assert captured["setta_files_location"] == "global"
+    assert captured["server_mode"] == "launcher"
 
 
 def test_launcher_json_reports_missing_bound_target(
@@ -289,6 +297,7 @@ def test_launcher_setup_status_and_remove_roundtrip(tmp_path: Path) -> None:
             "chrome-app",
             "--workspace-behavior",
             "always-prompt",
+            "--no-install-artifacts",
             "--managed-artifact",
             f"macosApp={artifact_path}",
         ],

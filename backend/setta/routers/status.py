@@ -95,6 +95,8 @@ class SetupLauncherRequest(LauncherRequestBase):
     channel: str = "manual"
     openMode: LauncherOpenMode = "browser"
     workspaceBehavior: Literal["last-used-or-prompt", "always-prompt"] | None = None
+    installArtifacts: bool = True
+    artifactOptions: dict[str, str] = Field(default_factory=dict)
     managedArtifacts: dict[str, str] = Field(default_factory=dict)
 
 
@@ -186,6 +188,8 @@ def route_get_server_mode(state: AppStateFromRequest) -> ServerModeResponse:
         return ServerModeResponse(mode="app")
     if state.share_mode:
         return ServerModeResponse(mode="share")
+    if state.launcher_mode:
+        return ServerModeResponse(mode="launcher")
     return ServerModeResponse(mode="ide")
 
 
@@ -224,6 +228,8 @@ def route_setup_launcher(x: SetupLauncherRequest) -> LauncherStatusResponse:
             channel=x.channel,
             open_mode=x.openMode,
             workspace_behavior=workspace_behavior,
+            install_artifacts=x.installArtifacts,
+            artifact_options=x.artifactOptions,
             managed_artifacts=x.managedArtifacts,
         )
         status = collect_launcher_status(setta_home=setta_home)

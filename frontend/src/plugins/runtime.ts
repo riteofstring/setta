@@ -54,7 +54,7 @@ export const PluginSectionFallbackReasonEnum = {
 type PluginSectionFallbackReason =
   (typeof PluginSectionFallbackReasonEnum)[keyof typeof PluginSectionFallbackReasonEnum];
 
-type PluginServerMode = "ide" | "share" | "app";
+type PluginServerMode = "ide" | "share" | "app" | "launcher";
 
 type PluginSectionProps = {
   sectionId: string;

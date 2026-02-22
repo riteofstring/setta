@@ -8,6 +8,13 @@ from pathlib import Path
 from typing import Literal
 
 from setta import __version__
+from setta.launcher_artifacts import (
+    LauncherArtifactContext,
+    LauncherArtifactError,
+    current_platform_artifact_keys,
+    install_current_platform_artifacts,
+    normalize_artifact_options,
+)
 from setta.launcher_metadata import (
     LAUNCHER_WORKSPACE_BEHAVIOR,
     LauncherInstallMetadata,
@@ -243,6 +250,8 @@ def setup_launcher_installation(
     workspace_behavior: LauncherWorkspaceBehavior | None,
     managed_artifacts: dict[str, str | Path] | None = None,
     target_command: list[str] | None = None,
+    install_artifacts: bool = True,
+    artifact_options: dict[str, str] | None = None,
 ) -> LauncherSetupResult:
     resolved_setta_home = setta_home.resolve(strict=False)
 
@@ -279,6 +288,33 @@ def setup_launcher_installation(
         resolved_target_command = resolve_launcher_target_command()
     else:
         resolved_target_command = target_command
+
+    normalized_artifact_options: dict[str, str] = {}
+    if artifact_options:
+        try:
+            normalized_artifact_options = normalize_artifact_options(artifact_options)
+        except LauncherArtifactError as exc:
+            raise LauncherSetupError("BadRequest", str(exc)) from exc
+
+    if install_artifacts:
+        normalized_existing_artifacts = {
+            name: str(Path(path).expanduser().resolve(strict=False))
+            for name, path in merged_artifacts.items()
+        }
+        try:
+            installed_artifacts = install_current_platform_artifacts(
+                context=LauncherArtifactContext(
+                    target_command=resolved_target_command,
+                    channel=channel,
+                    existing_managed_artifacts=normalized_existing_artifacts,
+                    options=normalized_artifact_options,
+                )
+            )
+        except LauncherArtifactError as exc:
+            raise LauncherSetupError("ArtifactInstallFailed", str(exc)) from exc
+        for key in current_platform_artifact_keys():
+            merged_artifacts.pop(key, None)
+        merged_artifacts.update(installed_artifacts)
 
     try:
         metadata = build_launcher_install_metadata(
@@ -324,7 +360,9 @@ def repair_launcher_installation(
         channel=metadata.channel,
         open_mode=metadata.openMode,
         workspace_behavior=metadata.workspaceBehavior,
-        managed_artifacts=metadata.managedArtifacts,
+        managed_artifacts=_non_platform_managed_artifacts(metadata.managedArtifacts),
+        install_artifacts=True,
+        artifact_options=None,
     )
     repaired_status = collect_launcher_status(setta_home=setta_home)
     return LauncherRepairResult(setup=setup_result, status=repaired_status)
@@ -453,7 +491,9 @@ def update_launcher_installation(
         "--workspace-behavior",
         workspace_behavior_cli,
     ]
-    for name, path in metadata.managedArtifacts.items():
+    for name, path in _non_platform_managed_artifacts(
+        metadata.managedArtifacts
+    ).items():
         setup_cmd.extend(["--managed-artifact", f"{name}={path}"])
 
     setup_result = subprocess.run(
@@ -538,3 +578,14 @@ def _resolve_setta_executable(uv_tool_bin_dir: Path) -> Path | None:
         if candidate.exists() and candidate.is_file():
             return candidate.resolve(strict=False)
     return None
+
+
+def _non_platform_managed_artifacts(
+    managed_artifacts: dict[str, str],
+) -> dict[str, str]:
+    platform_keys = current_platform_artifact_keys()
+    return {
+        name: value
+        for name, value in managed_artifacts.items()
+        if name not in platform_keys
+    }

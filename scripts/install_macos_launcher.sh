@@ -2,21 +2,21 @@
 set -euo pipefail
 
 usage() {
-  cat <<'EOF'
+  cat <<'USAGE'
 Usage: ./scripts/install_macos_launcher.sh [options]
 
-Install Setta.app into the user's Applications folder and bind it to an
-explicit Setta launcher target.
+Thin wrapper that delegates launcher installation to `setta launcher setup`.
 
 Options:
-  --app-path PATH    App bundle destination (default: ~/Applications/Setta.app)
   --setta-bin PATH   Absolute or PATH-resolved Setta executable to bind.
                      Default: first "setta" on PATH
-  --icon-path PATH   Optional .icns file copied into Setta.app resources
-  --open-mode MODE   Launcher default open mode: browser | chrome-app
-                     Default: browser
+  --setta-home PATH  Optional Setta home override forwarded to launcher setup
+  --app-path PATH    App bundle destination (default: ~/Applications/Setta.app)
+  --icon-path PATH   Optional .icns icon copied into Setta.app resources
+  --channel NAME     Launcher setup channel (default: macos-script)
+  --open-mode MODE   Launcher open mode: browser | chrome-app (default: browser)
   -h, --help         Show this help message.
-EOF
+USAGE
 }
 
 resolve_abs_path() {
@@ -38,26 +38,15 @@ print(str(Path(os.path.expandvars(os.path.expanduser(raw))).resolve(strict=False
 PY
 }
 
-app_path="${HOME}/Applications/Setta.app"
 setta_bin=""
+setta_home=""
+app_path="${HOME}/Applications/Setta.app"
 icon_path=""
+channel="macos-script"
 open_mode="browser"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --app-path)
-      if [[ $# -lt 2 ]]; then
-        echo "Missing value for --app-path." >&2
-        usage
-        exit 1
-      fi
-      app_path="$2"
-      shift 2
-      ;;
-    --app-path=*)
-      app_path="${1#*=}"
-      shift
-      ;;
     --setta-bin)
       if [[ $# -lt 2 ]]; then
         echo "Missing value for --setta-bin." >&2
@@ -71,6 +60,32 @@ while [[ $# -gt 0 ]]; do
       setta_bin="${1#*=}"
       shift
       ;;
+    --setta-home)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --setta-home." >&2
+        usage
+        exit 1
+      fi
+      setta_home="$2"
+      shift 2
+      ;;
+    --setta-home=*)
+      setta_home="${1#*=}"
+      shift
+      ;;
+    --app-path)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --app-path." >&2
+        usage
+        exit 1
+      fi
+      app_path="$2"
+      shift 2
+      ;;
+    --app-path=*)
+      app_path="${1#*=}"
+      shift
+      ;;
     --icon-path)
       if [[ $# -lt 2 ]]; then
         echo "Missing value for --icon-path." >&2
@@ -82,6 +97,19 @@ while [[ $# -gt 0 ]]; do
       ;;
     --icon-path=*)
       icon_path="${1#*=}"
+      shift
+      ;;
+    --channel)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --channel." >&2
+        usage
+        exit 1
+      fi
+      channel="$2"
+      shift 2
+      ;;
+    --channel=*)
+      channel="${1#*=}"
       shift
       ;;
     --open-mode)
@@ -109,16 +137,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "${open_mode}" != "browser" && "${open_mode}" != "chrome-app" ]]; then
-  echo "--open-mode must be one of: browser, chrome-app" >&2
-  exit 1
-fi
-
 if [[ -z "${setta_bin}" ]]; then
   setta_bin="$(command -v setta || true)"
 fi
 if [[ -z "${setta_bin}" ]]; then
   echo "Could not find setta executable. Use --setta-bin PATH." >&2
+  exit 1
+fi
+if [[ -z "${channel}" ]]; then
+  echo "--channel must be non-empty." >&2
+  exit 1
+fi
+if [[ "${open_mode}" != "browser" && "${open_mode}" != "chrome-app" ]]; then
+  echo "--open-mode must be one of: browser, chrome-app" >&2
   exit 1
 fi
 
@@ -127,138 +158,61 @@ if [[ ! -x "${setta_bin_abs}" ]]; then
   echo "Setta executable is not runnable: ${setta_bin_abs}" >&2
   exit 1
 fi
-
 app_path_abs="$(resolve_abs_path "${app_path}")"
-app_contents_dir="${app_path_abs}/Contents"
-app_macos_dir="${app_contents_dir}/MacOS"
-app_resources_dir="${app_contents_dir}/Resources"
-launcher_binary_path="${app_macos_dir}/setta-launcher"
-info_plist_path="${app_contents_dir}/Info.plist"
-icon_path_abs=""
-icon_file_name=""
 
+icon_path_abs=""
 if [[ -n "${icon_path}" ]]; then
   icon_path_abs="$(resolve_abs_path "${icon_path}")"
   if [[ ! -f "${icon_path_abs}" ]]; then
     echo "Icon file does not exist: ${icon_path_abs}" >&2
     exit 1
   fi
-  icon_file_name="$(basename "${icon_path_abs}")"
-  if [[ "${icon_file_name##*.}" != "icns" ]]; then
+  if [[ "${icon_path_abs##*.}" != "icns" ]]; then
     echo "--icon-path must point to a .icns file." >&2
     exit 1
   fi
 fi
 
-install_json="$(
-  "${setta_bin_abs}" launcher setup \
-    --json \
-    --channel macos-script \
-    --open-mode "${open_mode}" \
-    --managed-artifact "macosApp=${app_path_abs}"
-)"
+launcher_setup_cmd=("${setta_bin_abs}")
+if [[ -n "${setta_home}" ]]; then
+  launcher_setup_cmd+=("--setta-home" "${setta_home}")
+fi
+launcher_setup_cmd+=(
+  "launcher"
+  "setup"
+  "--json"
+  "--channel"
+  "${channel}"
+  "--open-mode"
+  "${open_mode}"
+  "--artifact-option"
+  "app_path=${app_path_abs}"
+)
+if [[ -n "${icon_path_abs}" ]]; then
+  launcher_setup_cmd+=("--artifact-option" "icon_path=${icon_path_abs}")
+fi
 
-target_command_shell="$(
-  python3 - "${install_json}" <<'PY'
+install_json="$("${launcher_setup_cmd[@]}")"
+
+python3 - "${install_json}" <<'PY'
 import json
 import shlex
 import sys
 
-raw = sys.argv[1]
-payload = json.loads(raw)
+payload = json.loads(sys.argv[1])
 if not isinstance(payload, dict) or payload.get("ok") is not True:
     raise SystemExit("setta launcher setup did not return a successful JSON payload.")
-raw_command = payload.get("targetCommand")
-if not isinstance(raw_command, list) or not raw_command:
-    raise SystemExit("setta launcher setup payload is missing targetCommand.")
-parts: list[str] = []
-for part in raw_command:
-    if not isinstance(part, str) or not part.strip():
-        raise SystemExit("targetCommand entries must be non-empty strings.")
-    parts.append(shlex.quote(part))
-print(" ".join(parts))
+metadata_path = payload.get("metadataPath")
+target_command = payload.get("targetCommand")
+managed_artifacts = payload.get("managedArtifacts")
+if not isinstance(metadata_path, str) or not metadata_path.strip():
+    raise SystemExit("launcher setup payload is missing metadataPath.")
+if not isinstance(target_command, list) or not target_command:
+    raise SystemExit("launcher setup payload is missing targetCommand.")
+print(f"Launcher metadata written: {metadata_path}")
+print(f"Bound launcher target: {shlex.join(target_command)}")
+if isinstance(managed_artifacts, dict):
+    app_path = managed_artifacts.get("macosApp")
+    if isinstance(app_path, str) and app_path.strip():
+        print(f"Managed macOS app: {app_path}")
 PY
-)"
-
-mkdir -p "${app_macos_dir}" "${app_resources_dir}"
-icon_plist_block=""
-if [[ -n "${icon_path_abs}" ]]; then
-  cp "${icon_path_abs}" "${app_resources_dir}/${icon_file_name}"
-  icon_plist_block=$'  <key>CFBundleIconFile</key>\n  <string>'"${icon_file_name}"'</string>'
-fi
-
-cat > "${launcher_binary_path}" <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
-
-run_launcher() {
-  local workspace_arg="\${1-}"
-  local cmd="${target_command_shell} launcher"
-  if [[ -n "\${workspace_arg}" ]]; then
-    cmd="\${cmd} --workspace \$(printf '%q' "\${workspace_arg}")"
-  fi
-
-  local output=""
-  if output="\$(eval "\${cmd}" 2>&1)"; then
-    return 0
-  fi
-
-  local exit_code=\$?
-  local guidance
-  guidance="Setta could not start.\n\n\${output}\n\nRepair launcher metadata with:\n${target_command_shell} launcher repair\n\nOr rerun setup with:\n${target_command_shell} launcher setup --channel macos-script"
-
-  printf '%b\n' "\${guidance}" >&2
-  if command -v osascript >/dev/null 2>&1; then
-    osascript -e "display alert \\"Setta Launch Failed\\" message \\"Open Terminal and run 'setta launcher repair'.\\" as critical buttons {\\"OK\\"} default button \\"OK\\"" >/dev/null 2>&1 || true
-  fi
-  return "\${exit_code}"
-}
-
-if [[ \$# -gt 0 ]]; then
-  first_path="\$1"
-  if [[ -d "\${first_path}" ]]; then
-    run_launcher "\${first_path}"
-    exit \$?
-  fi
-  if [[ -e "\${first_path}" ]]; then
-    run_launcher "\$(dirname "\${first_path}")"
-    exit \$?
-  fi
-fi
-
-run_launcher
-exit \$?
-EOF
-chmod 755 "${launcher_binary_path}"
-
-cat > "${info_plist_path}" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleDisplayName</key>
-  <string>Setta</string>
-  <key>CFBundleExecutable</key>
-  <string>setta-launcher</string>
-  <key>CFBundleIdentifier</key>
-  <string>dev.setta.desktop</string>
-  <key>CFBundleName</key>
-  <string>Setta</string>
-${icon_plist_block}
-  <key>CFBundlePackageType</key>
-  <string>APPL</string>
-  <key>CFBundleShortVersionString</key>
-  <string>1.0</string>
-  <key>CFBundleVersion</key>
-  <string>1</string>
-  <key>LSMinimumSystemVersion</key>
-  <string>11.0</string>
-</dict>
-</plist>
-EOF
-
-echo "Installed macOS launcher: ${app_path_abs}"
-if [[ -n "${icon_path_abs}" ]]; then
-  echo "Installed macOS icon: ${app_resources_dir}/${icon_file_name}"
-fi
-echo "Launch with Finder, Launchpad, or Spotlight: Setta"

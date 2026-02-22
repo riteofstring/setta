@@ -383,6 +383,54 @@ export async function route_launch(
   return await post("/launch", x);
 }
 
+export async function route_get_launcher_app_mode(): Promise<
+  ResponseDataAndStatus<gt.LauncherAppModeResponse>
+> {
+  return await get("/launcherAppMode");
+}
+
+export async function route_get_launcher_recent_workspaces(
+  setta_home: string | null,
+): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+  return await get("/launcherRecentWorkspaces", { setta_home });
+}
+
+export async function route_add_launcher_recent_workspace(
+  x: gt.LauncherRecentWorkspaceRequestInput,
+): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+  return await post("/addLauncherRecentWorkspace", x);
+}
+
+export async function route_remove_launcher_recent_workspace(
+  x: gt.LauncherRecentWorkspaceRequestInput,
+): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+  return await post("/removeLauncherRecentWorkspace", x);
+}
+
+export async function route_pin_launcher_recent_workspace(
+  x: gt.PinLauncherRecentWorkspaceRequestInput,
+): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+  return await post("/pinLauncherRecentWorkspace", x);
+}
+
+export async function route_get_launcher_filesystem_roots(): Promise<
+  ResponseDataAndStatus<gt.LauncherFilesystemRootsResponse>
+> {
+  return await get("/launcherFilesystemRoots");
+}
+
+export async function route_list_launcher_directory(
+  x: gt.LauncherListDirectoryRequestInput,
+): Promise<ResponseDataAndStatus<gt.LauncherListDirectoryResponse>> {
+  return await post("/listLauncherDirectory", x);
+}
+
+export async function route_open_launcher_workspace(
+  x: gt.LauncherOpenWorkspaceRequestInput,
+): Promise<ResponseDataAndStatus<gt.LauncherOpenWorkspaceResponse>> {
+  return await post("/openLauncherWorkspace", x);
+}
+
 export async function route_restart_language_server(): Promise<
   ResponseDataAndStatus<null>
 > {
