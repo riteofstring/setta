@@ -78,6 +78,7 @@ def test_launcher_json_uses_home_fallback_workspace_and_requests_switcher(
     payload = json.loads(result.output)
     assert payload["ok"] is True
     assert payload["openWorkspaceSwitcher"] is True
+    assert payload["sessionServerMode"] == "launcher"
     assert payload["openMode"] == "chrome-app"
     assert payload["bootstrapUrl"].endswith("#token=tok&osw=1")
 
@@ -136,6 +137,7 @@ def test_launcher_json_prefers_last_used_workspace_from_metadata(
     payload = json.loads(result.output)
     assert payload["ok"] is True
     assert payload["openWorkspaceSwitcher"] is False
+    assert payload["sessionServerMode"] == "ide"
     assert payload["workspaceRoot"] == str(last_used_workspace.resolve(strict=False))
     assert payload["openMode"] == "chrome-app"
     assert captured["server_mode"] == "ide"
@@ -192,6 +194,7 @@ def test_launcher_json_honors_always_prompt_workspace_behavior(
     assert payload["ok"] is True
     assert payload["workspaceBehavior"] == "always_prompt"
     assert payload["openWorkspaceSwitcher"] is True
+    assert payload["sessionServerMode"] == "launcher"
     assert payload["workspaceRoot"] == str(Path.home().resolve(strict=False))
     assert captured["setta_files_location"] == "global"
     assert captured["server_mode"] == "launcher"

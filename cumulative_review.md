@@ -97,3 +97,11 @@
 - Fixed endpoint origin policy drift by routing `createWorkspaceLaunchIntent` to launcher origin alongside `/launch`.
 - Enforced full-runtime policy consistency by moving `llm` and `agentic` routers onto `SettaFullRuntimeAPIRouter`, ensuring launcher mode fails fast with deterministic `403` instead of deferred-runtime `500`s.
 - Added/updated backend unit and integration tests, frontend Vitest coverage, and Playwright workspace-launch coverage for intent-store concurrency, return-url validation, hash tampering, endpoint routing, and launcher-mode runtime guards.
+
+## 2026-02-25 23:12:41 PST
+
+- Added an explicit non-launcher runtime boundary (`require_not_launcher_mode`) with shared router wrappers and migrated launcher-unsafe routers (`artifact`, `attachments`, `terminals` HTTP/WS, `project_manager`) to fail fast with deterministic `403` in launcher mode while preserving share/app behavior.
+- Closed launcher/IDE split-origin CORS drift by extending backend CORS policy with launcher-mode loopback origin regex support and optional extra trusted frontend origins (`SETTA_FRONTEND_ORIGINS`), then wiring this policy into server middleware.
+- Made launcher session mode an explicit CLI JSON contract (`sessionServerMode`) and updated release smoke logic to derive stop/status mode from that contract instead of hardcoded assumptions.
+- Hardened release update validation by requiring `startedNew == true` on post-update relaunch and asserting no stale sessions remain in the expected mode before relaunch.
+- Added/updated pytest coverage for router policy enforcement, launcher-mode guards on representative endpoints, launcher CORS preflight behavior (trusted vs untrusted origins), launcher CLI payload contract, and smoke script mode/freshness contracts.

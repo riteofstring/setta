@@ -129,19 +129,38 @@ if [[ ! -x "${setta_bin}" ]]; then
   exit 1
 fi
 
-stop_launcher_sessions() {
-  "${setta_bin}" --setta-home "${setta_home}" stop --workspace "${workspace_root}" --all --server-mode launcher >/dev/null
+extract_launch_server_mode() {
+  local launch_payload="$1"
+  python3 - "${launch_payload}" <<'PY'
+import json
+import sys
+
+payload = json.loads(sys.argv[1])
+server_mode = payload.get("sessionServerMode")
+if server_mode not in {"ide", "launcher"}:
+    raise SystemExit(
+        "launcher --json payload missing valid sessionServerMode (expected 'ide' or 'launcher')"
+    )
+print(server_mode)
+PY
 }
 
-assert_no_launcher_sessions() {
+stop_sessions_for_mode() {
+  local server_mode="$1"
+  "${setta_bin}" --setta-home "${setta_home}" stop --workspace "${workspace_root}" --all --server-mode "${server_mode}" >/dev/null
+}
+
+assert_no_sessions_for_mode() {
+  local server_mode="$1"
   local sessions_output
-  sessions_output="$("${setta_bin}" --setta-home "${setta_home}" status --list-sessions --json --server-mode launcher)"
-  python3 - "${sessions_output}" <<'PY'
+  sessions_output="$("${setta_bin}" --setta-home "${setta_home}" status --list-sessions --json --server-mode "${server_mode}")"
+  python3 - "${sessions_output}" "${server_mode}" <<'PY'
 import base64
 import json
 import sys
 
 raw = sys.argv[1].strip()
+server_mode = sys.argv[2]
 prefix = "__SETTA_JSON_B64__"
 if not raw.startswith(prefix):
     raise SystemExit("status --list-sessions --json did not return prefixed base64 payload")
@@ -149,8 +168,8 @@ decoded = base64.b64decode(raw[len(prefix):]).decode("utf-8")
 payload = json.loads(decoded)
 sessions = payload.get("sessions") or []
 if sessions:
-    raise SystemExit(f"launcher sessions remain after stop: {len(sessions)}")
-print("[launcher-smoke] launcher session cleanup OK")
+    raise SystemExit(f"{server_mode} sessions remain after stop: {len(sessions)}")
+print(f"[launcher-smoke] {server_mode} session cleanup OK")
 PY
 }
 
@@ -186,8 +205,13 @@ if payload.get("openWorkspaceSwitcher"):
     raise SystemExit("explicit workspace launch unexpectedly opened switcher")
 print("[launcher-smoke] launch flow OK")
 PY
-stop_launcher_sessions
-assert_no_launcher_sessions
+launch_server_mode="$(extract_launch_server_mode "${launch_json}")"
+if [[ "${launch_server_mode}" != "ide" ]]; then
+  echo "launcher open with explicit workspace must use ide server mode, got: ${launch_server_mode}" >&2
+  exit 1
+fi
+stop_sessions_for_mode "${launch_server_mode}"
+assert_no_sessions_for_mode "${launch_server_mode}"
 
 echo "[launcher-smoke] Upgrading package and relaunching..."
 update_json="$("${setta_bin}" --setta-home "${setta_home}" launcher update --json --package "${package_spec}")"
@@ -203,6 +227,7 @@ if status.get("installed") is not True:
     raise SystemExit("launcher update returned non-installed status")
 print("[launcher-smoke] update flow OK")
 PY
+assert_no_sessions_for_mode "${launch_server_mode}"
 relaunch_json="$("${setta_bin}" --setta-home "${setta_home}" launcher --json --workspace "${workspace_root}" --no-open)"
 python3 - "${relaunch_json}" <<'PY'
 import json
@@ -213,10 +238,17 @@ if payload.get("ok") is not True:
     raise SystemExit("launcher relaunch failed after update")
 if not payload.get("bootstrapUrl"):
     raise SystemExit("launcher relaunch missing bootstrapUrl")
+if payload.get("startedNew") is not True:
+    raise SystemExit("launcher relaunch reused a stale session after update")
 print("[launcher-smoke] relaunch flow OK")
 PY
-stop_launcher_sessions
-assert_no_launcher_sessions
+relaunch_server_mode="$(extract_launch_server_mode "${relaunch_json}")"
+if [[ "${relaunch_server_mode}" != "${launch_server_mode}" ]]; then
+  echo "launcher relaunch server mode drifted: expected ${launch_server_mode}, got ${relaunch_server_mode}" >&2
+  exit 1
+fi
+stop_sessions_for_mode "${relaunch_server_mode}"
+assert_no_sessions_for_mode "${relaunch_server_mode}"
 
 echo "[launcher-smoke] Refreshing launcher status after update..."
 post_update_status_json="$("${setta_bin}" --setta-home "${setta_home}" launcher status --json)"

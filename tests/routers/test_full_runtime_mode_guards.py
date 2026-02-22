@@ -5,9 +5,13 @@ from fastapi.testclient import TestClient
 
 from setta.routers.app_spec_streaming import router as app_spec_streaming_router
 from setta.routers.agentic import router as agentic_router
+from setta.routers.artifact import router as artifact_router
+from setta.routers.attachments import router as attachments_router
 from setta.routers.llm import router as llm_router
 from setta.routers.lsp import router as lsp_router
 from setta.routers.mcp_tools import router as mcp_tools_router
+from setta.routers.project_manager import router as project_manager_router
+from setta.routers.terminals import terminals_http_router
 from setta.types.routes import Route
 
 
@@ -129,6 +133,74 @@ def test_external_agent_health_is_blocked_in_launcher_mode() -> None:
     with TestClient(app) as client:
         response = client.get(
             f"{Route.PREFIX.value}{Route.GET_EXTERNAL_AGENT_HEALTH.value}"
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Launcher mode does not allow this endpoint."
+
+
+def test_update_artifacts_is_blocked_in_launcher_mode() -> None:
+    app = FastAPI()
+    app.state.setta = _build_launcher_mode_state(
+        artifacts=_DeferredRuntimeField("artifacts"),
+    )
+    app.include_router(artifact_router, prefix=Route.PREFIX.value)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.UPDATE_ARTIFACTS.value}",
+            json={"artifacts": [], "uploadScope": "generic"},
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Launcher mode does not allow this endpoint."
+
+
+def test_get_attachment_download_url_is_blocked_in_launcher_mode() -> None:
+    app = FastAPI()
+    app.state.setta = _build_launcher_mode_state(
+        artifacts=_DeferredRuntimeField("artifacts"),
+    )
+    app.include_router(attachments_router, prefix=Route.PREFIX.value)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.GET_ATTACHMENT_DOWNLOAD_URL.value}",
+            json={"artifactId": "artifacts/x"},
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Launcher mode does not allow this endpoint."
+
+
+def test_delete_terminals_is_blocked_in_launcher_mode() -> None:
+    app = FastAPI()
+    app.state.setta = _build_launcher_mode_state(
+        terminals=_DeferredRuntimeField("terminals"),
+    )
+    app.include_router(terminals_http_router, prefix=Route.PREFIX.value)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.DELETE_TERMINALS.value}",
+            json={"sectionIds": []},
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Launcher mode does not allow this endpoint."
+
+
+def test_get_latest_project_state_is_blocked_in_launcher_mode() -> None:
+    app = FastAPI()
+    app.state.setta = _build_launcher_mode_state(
+        project_manager_switcher=_DeferredRuntimeField("project_manager_switcher"),
+    )
+    app.include_router(project_manager_router, prefix=Route.PREFIX.value)
+
+    with TestClient(app) as client:
+        response = client.post(
+            f"{Route.PREFIX.value}{Route.GET_LATEST_PROJECT_STATE.value}",
+            json={"projectConfigId": "project-1"},
         )
 
     assert response.status_code == 403

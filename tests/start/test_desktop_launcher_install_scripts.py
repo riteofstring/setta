@@ -175,12 +175,14 @@ def test_windows_installer_script_runs_custom_action_bootstrap() -> None:
     )
 
 
-def test_launcher_smoke_script_uses_explicit_launcher_mode_for_stop() -> None:
+def test_launcher_smoke_script_derives_mode_from_launcher_payload() -> None:
     script_path = _repo_root() / "scripts" / "release" / "smoke_test_launcher_pipeline.sh"
     script_content = script_path.read_text(encoding="utf-8")
 
-    assert "--server-mode launcher" in script_content
-    assert "status --list-sessions --json --server-mode launcher" in script_content
+    assert "extract_launch_server_mode" in script_content
+    assert "openWorkspaceSwitcher" in script_content
+    assert "--server-mode \"${server_mode}\"" in script_content
+    assert "startedNew" in script_content
 
 
 def test_release_workflow_uses_single_installer_version_source() -> None:
@@ -347,7 +349,7 @@ fi
 
 if [[ "${{1:-}}" == "launcher" && "${{2:-}}" == "--json" ]]; then
   cat <<'JSON'
-{{"ok":true,"bootstrapUrl":"http://127.0.0.1:61234/__setta__/bootstrap#token=tok","openWorkspaceSwitcher":false}}
+{{"ok":true,"bootstrapUrl":"http://127.0.0.1:61234/__setta__/bootstrap#token=tok","openWorkspaceSwitcher":false,"sessionServerMode":"ide","startedNew":true}}
 JSON
   exit 0
 fi
@@ -414,3 +416,129 @@ exit 1
 
     setta_invocations = setta_calls.read_text(encoding="utf-8")
     assert setta_invocations.count("launcher status --json") >= 3
+    assert "status --list-sessions --json --server-mode ide" in setta_invocations
+    assert "stop --workspace" in setta_invocations
+    assert "--server-mode ide" in setta_invocations
+
+
+def test_smoke_test_launcher_pipeline_fails_when_relaunch_reuses_session(
+    tmp_path: Path,
+) -> None:
+    script_path = (
+        _repo_root() / "scripts" / "release" / "smoke_test_launcher_pipeline.sh"
+    )
+    bootstrap_script = tmp_path / "bootstrap.sh"
+    bootstrap_script.write_text(
+        "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
+        encoding="utf-8",
+    )
+    bootstrap_script.chmod(0o755)
+
+    stub_bin_dir = tmp_path / "stub-bin"
+    uv_tool_bin_dir = tmp_path / "uv-tool-bin"
+    stub_bin_dir.mkdir(parents=True, exist_ok=True)
+    uv_tool_bin_dir.mkdir(parents=True, exist_ok=True)
+
+    launch_counter = tmp_path / "launch-counter.txt"
+    launch_counter.write_text("0\n", encoding="utf-8")
+    setta_calls = tmp_path / "setta-calls.txt"
+
+    uv_stub = stub_bin_dir / "uv"
+    uv_stub.write_text(
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "tool" && "$2" == "install" ]]; then
+  exit 0
+fi
+if [[ "$1" == "tool" && "$2" == "dir" && "$3" == "--bin" ]]; then
+  echo "{uv_tool_bin_dir}"
+  exit 0
+fi
+echo "Unexpected uv invocation: $*" >&2
+exit 1
+""",
+        encoding="utf-8",
+    )
+    uv_stub.chmod(0o755)
+
+    setta_stub = uv_tool_bin_dir / "setta"
+    setta_stub.write_text(
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" >> "{setta_calls}"
+
+if [[ "${{1:-}}" == "--setta-home" ]]; then
+  shift 2
+fi
+
+if [[ "${{1:-}}" == "launcher" && "${{2:-}}" == "status" && "${{3:-}}" == "--json" ]]; then
+  cat <<'JSON'
+{{"ok":true,"installed":true,"managedArtifacts":{{"artifact":"/tmp/artifact"}}}}
+JSON
+  exit 0
+fi
+
+if [[ "${{1:-}}" == "status" && "${{2:-}}" == "--list-sessions" && "${{3:-}}" == "--json" ]]; then
+  echo "__SETTA_JSON_B64__eyJzZXNzaW9ucyI6W119"
+  exit 0
+fi
+
+if [[ "${{1:-}}" == "launcher" && "${{2:-}}" == "--json" ]]; then
+  count="$(cat "{launch_counter}")"
+  if [[ "$count" == "0" ]]; then
+    cat <<'JSON'
+{{"ok":true,"bootstrapUrl":"http://127.0.0.1:61234/__setta__/bootstrap#token=tok","openWorkspaceSwitcher":false,"sessionServerMode":"ide","startedNew":true}}
+JSON
+    echo "1" > "{launch_counter}"
+    exit 0
+  fi
+  cat <<'JSON'
+{{"ok":true,"bootstrapUrl":"http://127.0.0.1:61234/__setta__/bootstrap#token=tok","openWorkspaceSwitcher":false,"sessionServerMode":"ide","startedNew":false}}
+JSON
+  exit 0
+fi
+
+if [[ "${{1:-}}" == "launcher" && "${{2:-}}" == "update" && "${{3:-}}" == "--json" ]]; then
+  cat <<'JSON'
+{{"ok":true,"status":{{"installed":true}}}}
+JSON
+  exit 0
+fi
+
+if [[ "${{1:-}}" == "stop" ]]; then
+  exit 0
+fi
+
+echo "Unexpected setta invocation: $*" >&2
+exit 1
+""",
+        encoding="utf-8",
+    )
+    setta_stub.chmod(0o755)
+
+    setta_home = tmp_path / "setta-home"
+    workspace_root = tmp_path / "workspace"
+
+    env = os.environ.copy()
+    env["PATH"] = f"{stub_bin_dir}:{env.get('PATH', '')}"
+
+    result = subprocess.run(
+        [
+            "/bin/bash",
+            str(script_path),
+            "--bootstrap-script",
+            str(bootstrap_script),
+            "--setta-home",
+            str(setta_home),
+            "--workspace",
+            str(workspace_root),
+        ],
+        cwd=_repo_root(),
+        env=env,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "reused a stale session after update" in result.stderr

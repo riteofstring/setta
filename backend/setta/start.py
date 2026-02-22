@@ -1984,6 +1984,7 @@ def _run_launcher_command(
         "sessionId": result.session.id,
         "startedNew": result.started_new,
         "reusedSession": not result.started_new,
+        "sessionServerMode": launch_server_mode,
         "openMode": actual_open_mode,
         "workspaceBehavior": (
             installed_metadata.workspaceBehavior

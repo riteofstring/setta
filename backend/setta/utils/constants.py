@@ -12,6 +12,7 @@ BACKEND_INIT_DELAY_SECONDS = float(os.environ.get("SETTA_INIT_DELAY_SECONDS", "0
 
 _HTTP_TOKEN_SEPARATORS = set("()<>@,;:/[]?={} \t")
 _HTTP_TOKEN_SEPARATORS.update({"\\", '"'})
+_LOOPBACK_ORIGIN_REGEX = r"^https?://(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$"
 
 
 def normalize_cookie_name(raw: str | None, *, default: str = "setta_auth") -> str:
@@ -29,6 +30,21 @@ def normalize_cookie_name(raw: str | None, *, default: str = "setta_auth") -> st
 
     sanitized = "".join(ch if is_token_char(ch) else "_" for ch in trimmed)
     return sanitized or default
+
+
+def _normalize_origin(raw_origin: str) -> str:
+    return raw_origin.strip().rstrip("/")
+
+
+def _dedupe_preserving_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    output: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        output.append(value)
+    return output
 
 
 class classproperty:
@@ -215,7 +231,19 @@ class C:
             output: list[str] = [cls.BACKEND]
         if cls.HOST == "127.0.0.1":
             output.append(output[0].replace("127.0.0.1", "localhost"))
-        return output
+        raw_extra_origins = os.environ.get("SETTA_FRONTEND_ORIGINS", "")
+        for raw_origin in raw_extra_origins.split(","):
+            normalized_origin = _normalize_origin(raw_origin)
+            if not normalized_origin:
+                continue
+            output.append(normalized_origin)
+        return _dedupe_preserving_order(output)
+
+    @classproperty
+    def FRONTEND_ORIGIN_REGEX(cls):
+        if cls.LAUNCHER_MODE and not IS_DEV_MODE:
+            return _LOOPBACK_ORIGIN_REGEX
+        return None
 
     @classproperty
     def BACKEND(cls):

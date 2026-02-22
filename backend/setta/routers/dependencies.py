@@ -79,6 +79,16 @@ def require_full_ide_runtime(
         )
 
 
+def require_not_launcher_mode(
+    state: SettaFastAPIState = Depends(get_app_state_from_request),
+) -> None:
+    if getattr(state, "launcher_mode", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Launcher mode does not allow this endpoint.",
+        )
+
+
 def require_launcher_mode(
     state: SettaFastAPIState = Depends(get_app_state_from_request),
 ) -> None:
