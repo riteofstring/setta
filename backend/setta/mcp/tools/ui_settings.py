@@ -19,6 +19,7 @@ from setta.types.websocket import UISettingRevealContent, UISettingRevealTarget
 from setta.ui_settings.models import (
     UISettingEntry,
     UISettingLocation,
+    UISettingRuntimeEntry,
     UISettingToolError,
     UISettingValueSchema,
 )
@@ -292,6 +293,7 @@ async def set_ui_setting_value(
             setting_id=settingId,
             section_id_to_activate=None,
             duration_ms=durationMs,
+            runtime_entry=runtime_entry,
         )
 
     return SetUISettingValueResult(
@@ -411,17 +413,20 @@ async def _reveal_settings(
     setting_id: str,
     section_id_to_activate: ID | None,
     duration_ms: int,
+    runtime_entry: UISettingRuntimeEntry | None = None,
 ) -> RevealUISettingResult:
     bounded_duration_ms = _bound_duration(duration_ms)
-    registry = build_ui_settings_registry(
-        ctx=ctx,
-        project_config_id=project_config_id,
-    )
     manager = ctx.fastmcp.state.project_manager_switcher.get(project_config_id)
     project_state = manager.get_single_config_state(project_config_id)
     request_id = uuid4().hex
-    runtime_entry = registry.get(setting_id)
-    if runtime_entry is None:
+    resolved_runtime_entry = runtime_entry
+    if resolved_runtime_entry is None:
+        registry = build_ui_settings_registry(
+            ctx=ctx,
+            project_config_id=project_config_id,
+        )
+        resolved_runtime_entry = registry.get(setting_id)
+    if resolved_runtime_entry is None:
         return RevealUISettingResult(
             requestId=request_id,
             projectConfigId=project_config_id,
@@ -439,8 +444,8 @@ async def _reveal_settings(
             ],
         )
 
-    location = runtime_entry.metadata.location
-    plugin_id = runtime_entry.metadata.pluginId
+    location = resolved_runtime_entry.metadata.location
+    plugin_id = resolved_runtime_entry.metadata.pluginId
     if plugin_id is not None:
         plugin_error = _resolve_plugin_runtime_support_error(
             ctx=ctx,
@@ -507,20 +512,49 @@ async def _reveal_settings(
             )
 
     target = UISettingRevealTarget(
-        settingId=runtime_entry.metadata.settingId,
+        settingId=resolved_runtime_entry.metadata.settingId,
         side=location.side,
         overviewTabKey=location.overviewTabKey,
         uiEditorTabName=location.uiEditorTabName,
         pluginId=location.pluginId,
         paneId=location.paneId,
-        strategy=runtime_entry.metadata.highlight.strategy,
-        anchorId=runtime_entry.metadata.highlight.anchorId,
-        pluginRevealKey=runtime_entry.metadata.highlight.pluginRevealKey,
+        strategy=resolved_runtime_entry.metadata.highlight.strategy,
+        anchorId=resolved_runtime_entry.metadata.highlight.anchorId,
+        pluginRevealKey=resolved_runtime_entry.metadata.highlight.pluginRevealKey,
     )
+    share_session_id = _resolve_share_session_id(ctx)
+    frontend_sender = ctx.fastmcp.state.wmh_frontend_sender
+    target_websocket_id = (
+        frontend_sender.select_frontend_websocket_for_ui_setting_reveal(
+            share_session_id=share_session_id,
+        )
+    )
+    if target_websocket_id is None:
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=0,
+            statuses=[
+                RevealUISettingStatus(
+                    settingId=setting_id,
+                    status="failed",
+                    error=UISettingToolError(
+                        code="mutation_failed",
+                        message=(
+                            "No connected frontend is available for UI setting reveal."
+                        ),
+                    ),
+                )
+            ],
+        )
     reveal_result_hub = getattr(ctx.fastmcp.state, "ui_setting_reveal_result_hub", None)
     if reveal_result_hub is not None:
-        reveal_result_hub.register_request(request_id)
-    await ctx.fastmcp.state.wmh_frontend_sender.broadcast_ui_setting_reveal(
+        reveal_result_hub.register_request(
+            request_id,
+            expected_websocket_id=target_websocket_id,
+        )
+    await frontend_sender.broadcast_ui_setting_reveal(
         UISettingRevealContent(
             projectConfigId=project_config_id,
             chatId=_resolve_chat_id(ctx),
@@ -528,7 +562,8 @@ async def _reveal_settings(
             durationMs=bounded_duration_ms,
             requestId=request_id,
         ),
-        share_session_id=_resolve_share_session_id(ctx),
+        share_session_id=share_session_id,
+        target_websocket_id=target_websocket_id,
     )
 
     if reveal_result_hub is None:
@@ -645,10 +680,7 @@ def _resolve_plugin_runtime_support_error(
     for status_entry in runtime_response.status.plugins:
         if status_entry.pluginId != plugin_id:
             continue
-        state_value = status_entry.state
-        plugin_state = (
-            state_value.value if hasattr(state_value, "value") else str(state_value)
-        )
+        plugin_state = status_entry.state.value
         break
     if plugin_state != "active":
         if plugin_state is None:

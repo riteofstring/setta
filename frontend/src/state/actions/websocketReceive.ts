@@ -47,6 +47,7 @@ import {
   WebsocketMsgRealtimeUIChange,
   WebsocketMsgTypeForBackendEnum,
   WebsocketMsgTypeForFrontendEnum,
+  WebsocketMsgUISettingRevealResult,
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
 } from "utils/generatedTypes";
@@ -495,15 +496,16 @@ async function handleUISettingRevealMessage(
 ): Promise<void> {
   const revealStatuses = await receiveUISettingReveal(content);
   const statuses = Array.isArray(revealStatuses) ? revealStatuses : [];
-  sendMessage({
+  const revealResultMessage: WebsocketMsgUISettingRevealResult = {
     id: null,
-    messageType: "UISettingRevealResult",
+    messageType: WebsocketMsgTypeForBackendEnum.UISettingRevealResult,
     content: {
       projectConfigId: content.projectConfigId,
       requestId: content.requestId,
       statuses,
     },
-  });
+  };
+  sendMessage(revealResultMessage);
 }
 
 function sendCurrentAddress(currentAddress: string) {

@@ -73,6 +73,7 @@ class WebsocketMsgTypeForBackend(str, Enum):
     CurrentAddressUpdate = "CurrentAddressUpdate"
     RealtimeUIChange = "RealtimeUIChange"
     RealtimeDependencyEvent = "RealtimeDependencyEvent"
+    UISettingRevealResult = "UISettingRevealResult"
 
 
 class WebsocketMsgTypeForPythonScript(str, Enum):
@@ -322,6 +323,26 @@ class WebsocketMsgUISettingReveal(FrontendWebsocketMsg):
     content: UISettingRevealContent
     messageType: Literal[WebsocketMsgTypeForFrontend.UISettingReveal] = (
         WebsocketMsgTypeForFrontend.UISettingReveal
+    )
+
+
+class UISettingRevealResultStatus(BaseModel):
+    settingId: str
+    status: Literal["revealed", "failed"]
+    errorCode: str | None = None
+    errorMessage: str | None = None
+
+
+class UISettingRevealResultContent(BaseModel):
+    projectConfigId: ID
+    requestId: str
+    statuses: list[UISettingRevealResultStatus]
+
+
+class WebsocketMsgUISettingRevealResult(BackendWebsocketMsg):
+    content: UISettingRevealResultContent
+    messageType: Literal[WebsocketMsgTypeForBackend.UISettingRevealResult] = (
+        WebsocketMsgTypeForBackend.UISettingRevealResult
     )
 
 

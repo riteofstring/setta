@@ -1,41 +1,33 @@
 import asyncio
-from typing import Literal
+from dataclasses import dataclass
 
-from pydantic import BaseModel
-
-from setta.types.id import ID
-
-
-class UISettingRevealResultStatus(BaseModel, extra="forbid"):
-    settingId: str
-    status: Literal["revealed", "failed"]
-    errorCode: str | None = None
-    errorMessage: str | None = None
+from setta.types.websocket import (
+    UISettingRevealResultContent,
+    UISettingRevealResultStatus as _UISettingRevealResultStatus,
+    WebsocketMsgUISettingRevealResult,
+)
 
 
-class UISettingRevealResultContent(BaseModel, extra="forbid"):
-    projectConfigId: ID
-    requestId: str
-    statuses: list[UISettingRevealResultStatus]
-
-
-class UISettingRevealResultMessage(BaseModel, extra="forbid"):
-    id: str | None = None
-    messageType: Literal["UISettingRevealResult"]
-    content: UISettingRevealResultContent
+@dataclass
+class _RevealResultWaiter:
+    future: asyncio.Future[UISettingRevealResultContent]
+    expected_websocket_id: str | None
 
 
 class UISettingRevealResultHub:
     def __init__(self) -> None:
-        self._waiters_by_request_id: dict[
-            str, asyncio.Future[UISettingRevealResultContent]
-        ] = {}
+        self._waiters_by_request_id: dict[str, _RevealResultWaiter] = {}
 
-    def register_request(self, request_id: str) -> None:
+    def register_request(
+        self, request_id: str, *, expected_websocket_id: str | None = None
+    ) -> None:
         if request_id in self._waiters_by_request_id:
             raise KeyError(f"Duplicate reveal request id: {request_id}")
         loop = asyncio.get_running_loop()
-        self._waiters_by_request_id[request_id] = loop.create_future()
+        self._waiters_by_request_id[request_id] = _RevealResultWaiter(
+            future=loop.create_future(),
+            expected_websocket_id=expected_websocket_id,
+        )
 
     async def wait_for_result(
         self,
@@ -43,9 +35,10 @@ class UISettingRevealResultHub:
         request_id: str,
         timeout_seconds: float,
     ) -> UISettingRevealResultContent | None:
-        waiter = self._waiters_by_request_id.get(request_id)
-        if waiter is None:
+        waiter_record = self._waiters_by_request_id.get(request_id)
+        if waiter_record is None:
             raise KeyError(f"Reveal request id is not registered: {request_id}")
+        waiter = waiter_record.future
         try:
             return await asyncio.wait_for(waiter, timeout=timeout_seconds)
         except TimeoutError:
@@ -53,9 +46,27 @@ class UISettingRevealResultHub:
         finally:
             self._waiters_by_request_id.pop(request_id, None)
 
-    def resolve(self, content: UISettingRevealResultContent) -> bool:
-        waiter = self._waiters_by_request_id.get(content.requestId)
-        if waiter is None or waiter.done():
+    def resolve(
+        self,
+        content: UISettingRevealResultContent,
+        *,
+        from_websocket_id: str,
+    ) -> bool:
+        waiter_record = self._waiters_by_request_id.get(content.requestId)
+        if waiter_record is None:
+            return False
+        waiter = waiter_record.future
+        if waiter.done():
+            return False
+        expected_websocket_id = waiter_record.expected_websocket_id
+        if (
+            expected_websocket_id is not None
+            and expected_websocket_id != from_websocket_id
+        ):
             return False
         waiter.set_result(content)
         return True
+
+
+UISettingRevealResultMessage = WebsocketMsgUISettingRevealResult
+UISettingRevealResultStatus = _UISettingRevealResultStatus

@@ -932,6 +932,7 @@ export const WebsocketMsgTypeForBackendEnum = {
   CurrentAddressUpdate: "CurrentAddressUpdate",
   RealtimeUIChange: "RealtimeUIChange",
   RealtimeDependencyEvent: "RealtimeDependencyEvent",
+  UISettingRevealResult: "UISettingRevealResult",
 } as const;
 
 export const WebsocketMsgTypeForFrontendEnum = {
@@ -4205,6 +4206,31 @@ const SpreadsheetSectionImplArgsSchema = z.object({
 
 type SpreadsheetSectionImplArgs = z.infer<
   typeof SpreadsheetSectionImplArgsSchema
+>;
+
+const UISettingRevealResultStatusSchema = z.object({
+  settingId: z.string(),
+  status: z.literal(["revealed", "failed"]),
+  errorCode: z.union([z.string(), z.null()]).default(null),
+  errorMessage: z.union([z.string(), z.null()]).default(null),
+});
+
+const UISettingRevealResultContentSchema = z.object({
+  projectConfigId: IDSchema,
+  requestId: z.string(),
+  statuses: z.array(UISettingRevealResultStatusSchema),
+});
+
+const WebsocketMsgUISettingRevealResultSchema = z.object({
+  id: z.union([z.string(), z.null()]).default(null),
+  content: UISettingRevealResultContentSchema,
+  messageType: z
+    .literal("UISettingRevealResult")
+    .default(WebsocketMsgTypeForBackendEnum.UISettingRevealResult),
+});
+
+export type WebsocketMsgUISettingRevealResult = z.infer<
+  typeof WebsocketMsgUISettingRevealResultSchema
 >;
 
 const RealtimeUIChangeContentSchema = z.object({

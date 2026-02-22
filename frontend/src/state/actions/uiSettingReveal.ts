@@ -41,6 +41,11 @@ type OpenPaneResult =
       errorMessage: string;
     };
 
+type PluginRevealResult = {
+  ok: boolean;
+  errorMessage: string | null;
+};
+
 export async function receiveUISettingReveal(
   content: UISettingRevealContent,
 ): Promise<Array<UISettingRevealResultStatus>> {
@@ -74,10 +79,13 @@ async function revealSingleSetting({
     };
   }
 
-  let pluginHandlerFailed = false;
+  let pluginRevealErrorMessage: string | null = null;
   if (target.strategy === "plugin_handler") {
-    const pluginRevealOk = await revealWithPluginHandler(target, durationMs);
-    if (pluginRevealOk) {
+    const pluginRevealResult = await revealWithPluginHandler(
+      target,
+      durationMs,
+    );
+    if (pluginRevealResult.ok) {
       return {
         settingId: target.settingId,
         status: "revealed",
@@ -85,7 +93,7 @@ async function revealSingleSetting({
         errorMessage: null,
       };
     }
-    pluginHandlerFailed = true;
+    pluginRevealErrorMessage = pluginRevealResult.errorMessage;
   }
 
   if (target.anchorId === null || target.anchorId === undefined) {
@@ -93,8 +101,8 @@ async function revealSingleSetting({
       settingId: target.settingId,
       status: "failed",
       errorCode: "mutation_failed",
-      errorMessage: pluginHandlerFailed
-        ? "Plugin reveal handler failed and no fallback anchorId is available."
+      errorMessage: pluginRevealErrorMessage
+        ? `${pluginRevealErrorMessage} No fallback anchorId is available.`
         : `Setting ${target.settingId} is missing a reveal anchorId.`,
     };
   }
@@ -108,8 +116,8 @@ async function revealSingleSetting({
       settingId: target.settingId,
       status: "failed",
       errorCode: "mutation_failed",
-      errorMessage: pluginHandlerFailed
-        ? "Plugin reveal handler failed and fallback anchor was not found."
+      errorMessage: pluginRevealErrorMessage
+        ? `${pluginRevealErrorMessage} Fallback anchor was not found.`
         : `Could not find anchor ${target.anchorId} for ${target.settingId}.`,
     };
   }
@@ -172,15 +180,21 @@ function openPaneForRevealTarget(
 async function revealWithPluginHandler(
   target: UISettingRevealTarget,
   durationMs: number,
-): Promise<boolean> {
+): Promise<PluginRevealResult> {
   if (!target.pluginId || !target.pluginRevealKey) {
-    return false;
+    return {
+      ok: false,
+      errorMessage: null,
+    };
   }
   const tabExists = usePluginRuntimeStore
     .getState()
     .sortedPaneTabs.some((tab) => tab.tabKey === target.overviewTabKey);
   if (!tabExists) {
-    return false;
+    return {
+      ok: false,
+      errorMessage: null,
+    };
   }
   try {
     const result = await invokePluginSettingRevealHandler({
@@ -190,9 +204,17 @@ async function revealWithPluginHandler(
       paneId: target.paneId ?? null,
       durationMs,
     });
-    return result.ok;
+    return {
+      ok: result.ok,
+      errorMessage: result.ok
+        ? null
+        : result.message ?? "Plugin reveal handler failed.",
+    };
   } catch {
-    return false;
+    return {
+      ok: false,
+      errorMessage: "Plugin reveal handler failed.",
+    };
   }
 }
 
@@ -253,15 +275,21 @@ function findSettingAnchor(
   root: ParentNode,
   anchorId: string,
 ): HTMLElement | null {
-  const candidates = root.querySelectorAll<HTMLElement>(
-    "[data-setting-anchor]",
+  const escapedAnchorId = escapeForAttributeSelector(anchorId);
+  const candidate = root.querySelector<HTMLElement>(
+    `[data-setting-anchor="${escapedAnchorId}"]`,
   );
-  for (const candidate of candidates) {
-    if (candidate.dataset.settingAnchor === anchorId) {
-      return candidate;
-    }
+  if (candidate && candidate.dataset.settingAnchor === anchorId) {
+    return candidate;
   }
   return null;
+}
+
+function escapeForAttributeSelector(value: string): string {
+  if (typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+    return CSS.escape(value);
+  }
+  return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
 function scrollIntoView(target: HTMLElement): void {

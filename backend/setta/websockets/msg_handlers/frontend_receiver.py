@@ -17,10 +17,10 @@ from setta.types.websocket import (
     WebsocketMsgCurrentAddressUpdate,
     WebsocketMsgRealtimeDependencyEvent,
     WebsocketMsgRealtimeUIChange,
+    WebsocketMsgUISettingRevealResult,
 )
 from setta.ui_settings.reveal_result_hub import (
     UISettingRevealResultHub,
-    UISettingRevealResultMessage,
 )
 from setta.utils.constants import C
 from setta.websockets.binary_frames import decode_binary_frame
@@ -56,27 +56,25 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
 
     async def process_json_str(self, json_str: str, fromWebsocketId: str):
         raw_message = json.loads(json_str)
-        if (
-            isinstance(raw_message, dict)
-            and raw_message.get("messageType") == "UISettingRevealResult"
-        ):
-            reveal_result_message = UISettingRevealResultMessage.model_validate(
-                raw_message
+        m: BackendWebsocketMsgUnion = BackendWebsocketMsgTypeAdapter.validate_python(
+            raw_message
+        )
+
+        if isinstance(m, WebsocketMsgUISettingRevealResult):
+            share_session_id = (
+                self.require_share_session_id(fromWebsocketId)
+                if self.share_mode
+                else None
             )
             self._require_share_project_config(
-                reveal_result_message.content.projectConfigId,
-                share_session_id=(
-                    self.require_share_session_id(fromWebsocketId)
-                    if self.share_mode
-                    else None
-                ),
+                m.content.projectConfigId,
+                share_session_id=share_session_id,
             )
-            self.ui_setting_reveal_result_hub.resolve(reveal_result_message.content)
+            self.ui_setting_reveal_result_hub.resolve(
+                m.content,
+                from_websocket_id=fromWebsocketId,
+            )
             return
-
-        m: BackendWebsocketMsgUnion = BackendWebsocketMsgTypeAdapter.validate_json(
-            json_str
-        )
 
         if isinstance(m, WebsocketMsgCurrentAddressUpdate):
             self.websocket_manager.update_current_address(m.content, fromWebsocketId)

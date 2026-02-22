@@ -43,13 +43,31 @@ class _RecordingFrontendSender:
             reveal_result_hub if reveal_result_hub is not None else UISettingRevealResultHub()
         )
         self.forced_status_by_setting_id: dict[str, UISettingRevealResultStatus] = {}
+        self.reveal_target_websocket_id: str | None = "frontend-test"
+
+    def select_frontend_websocket_for_ui_setting_reveal(
+        self,
+        *,
+        share_session_id: str | None = None,  # noqa: ARG002 - signature parity
+    ) -> str | None:
+        return self.reveal_target_websocket_id
 
     async def broadcast_ui_setting_reveal(
         self,
         content,
         *,
         share_session_id: str | None = None,
-    ) -> None:
+        target_websocket_id: str | None = None,
+    ) -> str | None:
+        resolved_target_websocket_id = target_websocket_id
+        if resolved_target_websocket_id is None:
+            resolved_target_websocket_id = (
+                self.select_frontend_websocket_for_ui_setting_reveal(
+                    share_session_id=share_session_id
+                )
+            )
+        if resolved_target_websocket_id is None:
+            return None
         self.reveal_messages.append((content, share_session_id))
         statuses: list[UISettingRevealResultStatus] = []
         for target in content.reveals:
@@ -70,8 +88,10 @@ class _RecordingFrontendSender:
                 projectConfigId=content.projectConfigId,
                 requestId=content.requestId,
                 statuses=statuses,
-            )
+            ),
+            from_websocket_id=resolved_target_websocket_id,
         )
+        return resolved_target_websocket_id
 
 
 class _RequestMetaModel(BaseModel):
@@ -612,6 +632,35 @@ async def test_reveal_ui_setting_returns_frontend_failure_status() -> None:
         assert result.statuses[0].error is not None
         assert result.statuses[0].error.code == "mutation_failed"
         assert "Anchor not found" in result.statuses[0].error.message
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_returns_failure_when_no_frontend_is_connected() -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.reveal_target_websocket_id = None
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        # Reveal requires at least one connected frontend target websocket.
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert len(result.statuses) == 1
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert result.statuses[0].error.code == "mutation_failed"
+        assert "No connected frontend" in result.statuses[0].error.message
+        assert frontend_sender.reveal_messages == []
 
 
 @pytest.mark.asyncio

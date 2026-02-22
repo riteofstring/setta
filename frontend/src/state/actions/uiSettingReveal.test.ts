@@ -1,3 +1,4 @@
+import { usePluginRuntimeStore } from "plugins/runtime";
 import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import type {
@@ -78,7 +79,12 @@ function createFakeAnchor(anchorId: string): HTMLElement {
 
 function createFakePaneRoot(anchor: HTMLElement): HTMLElement {
   return {
-    querySelectorAll: vi.fn(() => [anchor]),
+    querySelector: vi.fn((selector: string) => {
+      if (selector === '[data-setting-anchor="core.watch_code.enabled"]') {
+        return anchor;
+      }
+      return null;
+    }),
   } as unknown as HTMLElement;
 }
 
@@ -86,6 +92,7 @@ describe("receiveUISettingReveal", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     resetProjectStores();
+    usePluginRuntimeStore.setState({ sortedPaneTabs: [] });
     useLocalStorage.setState({
       overviewVis: false,
       overviewTab: "Overview",
@@ -101,17 +108,16 @@ describe("receiveUISettingReveal", () => {
     const docRef = globalThis as unknown as {
       document: {
         querySelector: (selector: string) => HTMLElement | null;
-        querySelectorAll: (selector: string) => Array<HTMLElement>;
       };
     };
     docRef.document = {
       querySelector: vi.fn(() => null),
-      querySelectorAll: vi.fn(() => []),
     };
   });
 
   afterEach(() => {
     resetProjectStores();
+    usePluginRuntimeStore.setState({ sortedPaneTabs: [] });
     vi.clearAllMocks();
     vi.useRealTimers();
   });
@@ -122,7 +128,6 @@ describe("receiveUISettingReveal", () => {
     const docRef = globalThis as unknown as {
       document: {
         querySelector: (selector: string) => HTMLElement | null;
-        querySelectorAll: (selector: string) => Array<HTMLElement>;
       };
     };
     docRef.document = {
@@ -132,7 +137,6 @@ describe("receiveUISettingReveal", () => {
         }
         return null;
       }),
-      querySelectorAll: vi.fn(() => []),
     };
 
     const statuses = await receiveUISettingReveal(createRevealContent({}));
@@ -182,16 +186,21 @@ describe("receiveUISettingReveal", () => {
   });
 
   it("limits anchor lookup to the active pane root", async () => {
-    const globalAnchor = createFakeAnchor("core.watch_code.enabled");
+    const paneRoot = {
+      querySelector: vi.fn(() => null),
+    } as unknown as HTMLElement;
     const docRef = globalThis as unknown as {
       document: {
         querySelector: (selector: string) => HTMLElement | null;
-        querySelectorAll: (selector: string) => Array<HTMLElement>;
       };
     };
     docRef.document = {
-      querySelector: vi.fn(() => null),
-      querySelectorAll: vi.fn(() => [globalAnchor]),
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
+          return paneRoot;
+        }
+        return null;
+      }),
     };
 
     const statusesPromise = receiveUISettingReveal(createRevealContent({}));
@@ -204,6 +213,45 @@ describe("receiveUISettingReveal", () => {
       errorCode: "mutation_failed",
       errorMessage:
         "Could not find anchor core.watch_code.enabled for core.watch_code.enabled.",
+    });
+    expect(paneRoot.querySelector).toHaveBeenCalled();
+  });
+
+  it("surfaces plugin reveal handler failures when no fallback anchor is available", async () => {
+    usePluginRuntimeStore.setState({
+      sortedPaneTabs: [
+        {
+          tabKey: "PluginPane:plugin-a:pane-1",
+          pluginId: "plugin-a",
+          paneId: "pane-1",
+          title: "Plugin Pane",
+          description: "Plugin pane description",
+        },
+      ],
+    });
+
+    const statuses = await receiveUISettingReveal(
+      createRevealContent({
+        reveals: [
+          createRevealTarget({
+            settingId: "plugin::plugin-a::label",
+            side: "left",
+            overviewTabKey: "PluginPane:plugin-a:pane-1",
+            strategy: "plugin_handler",
+            pluginId: "plugin-a",
+            pluginRevealKey: "pane-reveal",
+            anchorId: null,
+          }),
+        ],
+      }),
+    );
+
+    expect(statuses[0]).toEqual({
+      settingId: "plugin::plugin-a::label",
+      status: "failed",
+      errorCode: "mutation_failed",
+      errorMessage:
+        "Plugin plugin-a has no setting reveal handlers. No fallback anchorId is available.",
     });
   });
 });

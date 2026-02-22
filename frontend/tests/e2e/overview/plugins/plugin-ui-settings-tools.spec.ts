@@ -279,3 +279,68 @@ test("plugin UI settings tools return plugin_unavailable when plugin is disabled
     fs.rmSync(preparedFixture.tempRoot, { recursive: true, force: true });
   }
 });
+
+test("plugin reveal_ui_setting surfaces plugin handler failure details", async ({
+  page,
+}) => {
+  const preparedFixture = prepareFrontendOnlyFullFixture();
+
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: preparedFixture.pluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/config", {
+      pluginId: PLUGIN_ID,
+      config: {
+        enabled: true,
+        label: "fixture-default",
+      },
+    });
+    await postBackend(page, "/plugins/rescan", {});
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const pluginPaneTab = page.locator(PLUGIN_PANE_TAB_SELECTOR);
+    await expect(pluginPaneTab).toBeVisible({ timeout: 30000 });
+    await pluginPaneTab.click();
+
+    const labelSettingNode = page.locator(
+      `[data-fixture-full-setting="${LABEL_SETTING_ID}"]`,
+    );
+    await expect(labelSettingNode).toBeVisible();
+
+    await labelSettingNode.evaluate((node) => {
+      node.removeAttribute("data-fixture-full-setting");
+    });
+
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: LABEL_SETTING_ID,
+      },
+    );
+    expect(revealResult.emittedRevealCount).toBe(0);
+    expect(revealResult.statuses[0]?.status).toBe("failed");
+    expect(revealResult.statuses[0]?.error?.code).toBe("mutation_failed");
+    expect(revealResult.statuses[0]?.error?.message).toContain(
+      "did not handle setting reveal",
+    );
+  } finally {
+    await postBackend(page, "/plugins/uninstall", {
+      pluginId: PLUGIN_ID,
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/rescan", {}).catch(() => null);
+    await cleanupIsolatedProject(page, projectContext);
+    fs.rmSync(preparedFixture.tempRoot, { recursive: true, force: true });
+  }
+});

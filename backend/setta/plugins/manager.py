@@ -1172,7 +1172,7 @@ class PluginManager:
         project_config_id: str,
         value: Any,
     ) -> None:
-        _ = self._invoke_backend_ui_setting_handler(
+        self._invoke_backend_ui_setting_handler(
             plugin_id=plugin_id,
             handler_id=write_handler_id,
             operation="write",
