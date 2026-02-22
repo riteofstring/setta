@@ -600,14 +600,8 @@ def _build_plugin_entries(
     if plugin_manager is None:
         return []
     runtime_response = plugin_manager.get_runtime_response()
-    plugin_state_by_id: dict[str, str] = {}
-    for status_entry in runtime_response.status.plugins:
-        plugin_state_by_id[status_entry.pluginId] = status_entry.state.value
     entries: list[UISettingRuntimeEntry] = []
     for plugin in runtime_response.list.plugins:
-        plugin_state = plugin_state_by_id.get(plugin.pluginId)
-        if plugin_state != "active":
-            continue
         if "registerPane" not in plugin.effectiveCapabilities:
             continue
         schema_json = plugin.config.schemaJson

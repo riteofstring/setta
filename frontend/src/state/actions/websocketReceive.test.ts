@@ -318,4 +318,81 @@ describe("openWebSocket", () => {
       },
     ]);
   });
+
+  it("sends structured reveal failure statuses when reveal handling throws", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { receiveUISettingReveal } = await import(
+      "state/actions/uiSettingReveal"
+    );
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+    vi.mocked(receiveUISettingReveal).mockRejectedValue(
+      new Error("reveal crashed"),
+    );
+
+    openWebSocket("/project", "share-session-reveal-error");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "msg-2",
+        messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
+        content: {
+          projectConfigId: "project-1",
+          chatId: null,
+          requestId: "request-2",
+          durationMs: 1500,
+          reveals: [
+            {
+              settingId: "core.watch_code.enabled",
+              side: "left",
+              overviewTabKey: "WatchCode",
+              uiEditorTabName: null,
+              pluginId: null,
+              paneId: null,
+              strategy: "dom_anchor",
+              anchorId: "core.watch_code.enabled",
+              pluginRevealKey: null,
+            },
+          ],
+        },
+      }),
+    });
+    await Promise.resolve();
+
+    const revealResultPayload = socket.send.mock.calls
+      .map((call) => call[0])
+      .filter((payload): payload is string => typeof payload === "string")
+      .map((payload) => {
+        try {
+          return JSON.parse(payload) as {
+            messageType?: string;
+            content?: { requestId?: string; statuses?: unknown };
+          };
+        } catch {
+          return null;
+        }
+      })
+      .find(
+        (payload) =>
+          payload?.messageType === "UISettingRevealResult" &&
+          payload.content?.requestId === "request-2",
+      );
+    expect(revealResultPayload?.content?.statuses).toEqual([
+      {
+        settingId: "core.watch_code.enabled",
+        status: "failed",
+        errorCode: "mutation_failed",
+        errorMessage: "Failed to process UI setting reveal: reveal crashed",
+      },
+    ]);
+  });
 });

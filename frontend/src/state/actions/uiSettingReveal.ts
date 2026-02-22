@@ -16,8 +16,8 @@ import type {
 
 const DEFAULT_DURATION_MS = 3000;
 const MAX_DURATION_MS = 10000;
-const FIND_TARGET_ATTEMPTS = 40;
 const FIND_TARGET_INTERVAL_MS = 50;
+const MAX_PLUGIN_RETRY_WINDOW_MS = 2000;
 const HIGHLIGHT_CLASS_NAME = "setta-ui-setting-reveal-highlight";
 
 const highlightTimeoutByElement = new WeakMap<HTMLElement, number>();
@@ -110,6 +110,7 @@ async function revealSingleSetting({
   const anchorElement = await waitForAnchorElement({
     side: target.side,
     anchorId: target.anchorId,
+    durationMs,
   });
   if (!anchorElement) {
     return {
@@ -187,35 +188,42 @@ async function revealWithPluginHandler(
       errorMessage: null,
     };
   }
-  const tabExists = usePluginRuntimeStore
-    .getState()
-    .sortedPaneTabs.some((tab) => tab.tabKey === target.overviewTabKey);
-  if (!tabExists) {
-    return {
-      ok: false,
-      errorMessage: null,
-    };
+  const retryWindowMs = Math.min(durationMs, MAX_PLUGIN_RETRY_WINDOW_MS);
+  const deadlineMs = Date.now() + retryWindowMs;
+  let latestErrorMessage: string | null = null;
+  while (Date.now() <= deadlineMs) {
+    const tabExists = usePluginRuntimeStore
+      .getState()
+      .sortedPaneTabs.some((tab) => tab.tabKey === target.overviewTabKey);
+    if (tabExists) {
+      try {
+        const result = await invokePluginSettingRevealHandler({
+          pluginId: target.pluginId,
+          revealKey: target.pluginRevealKey,
+          settingId: target.settingId,
+          paneId: target.paneId ?? null,
+          durationMs,
+        });
+        if (result.ok) {
+          return {
+            ok: true,
+            errorMessage: null,
+          };
+        }
+        latestErrorMessage = result.message ?? "Plugin reveal handler failed.";
+      } catch {
+        latestErrorMessage = "Plugin reveal handler failed.";
+      }
+    }
+    if (Date.now() >= deadlineMs) {
+      break;
+    }
+    await sleep(FIND_TARGET_INTERVAL_MS);
   }
-  try {
-    const result = await invokePluginSettingRevealHandler({
-      pluginId: target.pluginId,
-      revealKey: target.pluginRevealKey,
-      settingId: target.settingId,
-      paneId: target.paneId ?? null,
-      durationMs,
-    });
-    return {
-      ok: result.ok,
-      errorMessage: result.ok
-        ? null
-        : result.message ?? "Plugin reveal handler failed.",
-    };
-  } catch {
-    return {
-      ok: false,
-      errorMessage: "Plugin reveal handler failed.",
-    };
-  }
+  return {
+    ok: false,
+    errorMessage: latestErrorMessage,
+  };
 }
 
 function getActiveSectionType(): string | null {
@@ -243,17 +251,23 @@ function getActiveSectionType(): string | null {
 async function waitForAnchorElement({
   side,
   anchorId,
+  durationMs,
 }: {
   side: "left" | "right";
   anchorId: string;
+  durationMs: number;
 }): Promise<HTMLElement | null> {
-  for (let attempt = 0; attempt < FIND_TARGET_ATTEMPTS; attempt += 1) {
+  const deadlineMs = Date.now() + durationMs;
+  while (Date.now() <= deadlineMs) {
     const paneRoot = getPaneRoot(side);
     if (paneRoot) {
       const anchor = findSettingAnchor(paneRoot, anchorId);
       if (anchor) {
         return anchor;
       }
+    }
+    if (Date.now() >= deadlineMs) {
+      break;
     }
     await sleep(FIND_TARGET_INTERVAL_MS);
   }

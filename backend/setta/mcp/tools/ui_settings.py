@@ -548,12 +548,11 @@ async def _reveal_settings(
                 )
             ],
         )
-    reveal_result_hub = getattr(ctx.fastmcp.state, "ui_setting_reveal_result_hub", None)
-    if reveal_result_hub is not None:
-        reveal_result_hub.register_request(
-            request_id,
-            expected_websocket_id=target_websocket_id,
-        )
+    reveal_result_hub = ctx.fastmcp.state.ui_setting_reveal_result_hub
+    reveal_result_hub.register_request(
+        request_id,
+        expected_websocket_id=target_websocket_id,
+    )
     await frontend_sender.broadcast_ui_setting_reveal(
         UISettingRevealContent(
             projectConfigId=project_config_id,
@@ -565,21 +564,6 @@ async def _reveal_settings(
         share_session_id=share_session_id,
         target_websocket_id=target_websocket_id,
     )
-
-    if reveal_result_hub is None:
-        return RevealUISettingResult(
-            requestId=request_id,
-            projectConfigId=project_config_id,
-            durationMs=bounded_duration_ms,
-            emittedRevealCount=1,
-            statuses=[
-                RevealUISettingStatus(
-                    settingId=setting_id,
-                    status="revealed",
-                    target=target,
-                )
-            ],
-        )
 
     frontend_reveal_result = await reveal_result_hub.wait_for_result(
         request_id=request_id,

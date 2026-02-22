@@ -494,8 +494,28 @@ function receiveMessage(message: string) {
 async function handleUISettingRevealMessage(
   content: UISettingRevealContent,
 ): Promise<void> {
-  const revealStatuses = await receiveUISettingReveal(content);
-  const statuses = Array.isArray(revealStatuses) ? revealStatuses : [];
+  let statuses: Array<{
+    settingId: string;
+    status: "revealed" | "failed";
+    errorCode: string | null;
+    errorMessage: string | null;
+  }> = [];
+  try {
+    const revealStatuses = await receiveUISettingReveal(content);
+    statuses = Array.isArray(revealStatuses) ? revealStatuses : [];
+  } catch (error) {
+    const rawMessage =
+      error instanceof Error && error.message.trim() !== ""
+        ? error.message
+        : String(error);
+    const normalizedMessage = `Failed to process UI setting reveal: ${rawMessage}`;
+    statuses = content.reveals.map((target) => ({
+      settingId: target.settingId,
+      status: "failed",
+      errorCode: "mutation_failed",
+      errorMessage: normalizedMessage,
+    }));
+  }
   const revealResultMessage: WebsocketMsgUISettingRevealResult = {
     id: null,
     messageType: WebsocketMsgTypeForBackendEnum.UISettingRevealResult,

@@ -684,9 +684,9 @@ class _WorkerState:
                     f"{local_id}"
                 ),
             )
-        self.ui_setting_read_handlers[local_id] = read_handler
 
         write_handler_id: str | None = None
+        write_handler: Callable[..., Any] | None = None
         if mutability == "writable":
             raw_write_handler = setting.get("write")
             if not callable(raw_write_handler):
@@ -705,7 +705,7 @@ class _WorkerState:
                         f"write handler id: {local_id}"
                     ),
                 )
-            self.ui_setting_write_handlers[local_id] = raw_write_handler
+            write_handler = raw_write_handler
             write_handler_id = local_id
         elif setting.get("write") is not None:
             raise WorkerError(
@@ -733,6 +733,9 @@ class _WorkerState:
                 }
             },
         )
+        self.ui_setting_read_handlers[local_id] = read_handler
+        if write_handler is not None:
+            self.ui_setting_write_handlers[local_id] = write_handler
 
     def _build_route_call_kwargs(
         self,

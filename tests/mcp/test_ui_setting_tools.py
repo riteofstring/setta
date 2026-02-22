@@ -169,6 +169,22 @@ def _copy_fixture_plugin_to_workspace(
     return plugin_id, destination_root
 
 
+def _copy_fixture_plugin_to_setta_files(
+    *,
+    manager: PluginManager,
+    fixture_name: str,
+) -> tuple[str, Path]:
+    source_root = FIXTURE_PLUGIN_ROOT / fixture_name
+    manifest_path = source_root / "setta.plugin.json"
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    plugin_id = manifest_payload["id"]
+    destination_root = manager.setta_files_root / "plugins" / plugin_id
+    destination_root.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source_root, destination_root)
+    _prepare_fixture_frontend_dist(destination_root)
+    return plugin_id, destination_root
+
+
 def _prepare_fixture_frontend_dist(plugin_root: Path) -> None:
     frontend_root = plugin_root / "frontend"
     source_entrypoint = frontend_root / "src" / "index.js"
@@ -661,6 +677,97 @@ async def test_reveal_ui_setting_returns_failure_when_no_frontend_is_connected()
         assert result.statuses[0].error.code == "mutation_failed"
         assert "No connected frontend" in result.statuses[0].error.message
         assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_fails_fast_when_reveal_result_hub_is_missing() -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        frontend_sender = _RecordingFrontendSender()
+        switcher = ProjectManagerSwitcher(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+        )
+        state = SimpleNamespace(
+            project_manager_switcher=switcher,
+            wmh_frontend_sender=frontend_sender,
+            plugin_manager=None,
+            dbe=None,
+            agent_runner=None,
+        )
+        ctx = Context(fastmcp=SimpleNamespace(state=state))
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        # Reveal should never report success when the confirmation hub is missing.
+        with pytest.raises((AttributeError, KeyError)):
+            await reveal_ui_setting(
+                settingId="core.watch_code.enabled",
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+
+
+@pytest.mark.asyncio
+async def test_plugin_ui_settings_remain_discoverable_with_shadowed_scope_entries(
+    tmp_path: Path,
+) -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, _ = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        shadowed_plugin_id, _ = _copy_fixture_plugin_to_setta_files(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        assert shadowed_plugin_id == plugin_id
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": True, "label": "shadowed"},
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        # Active plugin settings should stay discoverable even when lower scopes are shadowed.
+        runtime_response = plugin_manager.get_runtime_response()
+        states = [
+            entry.state.value
+            for entry in runtime_response.status.plugins
+            if entry.pluginId == plugin_id
+        ]
+        assert "active" in states
+        assert "shadowed" in states
+
+        search_result = search_ui_settings(
+            query="full fixture enabled",
+            sourceFilter="plugin",
+            limit=50,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        result_ids = [entry.settingId for entry in search_result.results]
+        assert plugin_setting_id in result_ids
+
+        get_result = await get_ui_setting_value(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert get_result.error is None
+        assert get_result.value is True
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,21 @@ import type {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("plugins/runtime", async () => {
+  const actual = await vi.importActual<typeof import("plugins/runtime")>(
+    "plugins/runtime",
+  );
+  return {
+    ...actual,
+    invokePluginSettingRevealHandler: vi.fn(
+      async (args: { pluginId: string }) => ({
+        ok: false,
+        message: `Plugin ${args.pluginId} has no setting reveal handlers.`,
+      }),
+    ),
+  };
+});
+
 import { receiveUISettingReveal } from "./uiSettingReveal";
 
 function createRevealTarget(
@@ -89,7 +104,7 @@ function createFakePaneRoot(anchor: HTMLElement): HTMLElement {
 }
 
 describe("receiveUISettingReveal", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.useFakeTimers();
     resetProjectStores();
     usePluginRuntimeStore.setState({ sortedPaneTabs: [] });
@@ -113,6 +128,13 @@ describe("receiveUISettingReveal", () => {
     docRef.document = {
       querySelector: vi.fn(() => null),
     };
+    const pluginRuntimeModule = await import("plugins/runtime");
+    vi.mocked(
+      pluginRuntimeModule.invokePluginSettingRevealHandler,
+    ).mockImplementation(async (args: { pluginId: string }) => ({
+      ok: false,
+      message: `Plugin ${args.pluginId} has no setting reveal handlers.`,
+    }));
   });
 
   afterEach(() => {
@@ -217,6 +239,94 @@ describe("receiveUISettingReveal", () => {
     expect(paneRoot.querySelector).toHaveBeenCalled();
   });
 
+  it("waits up to durationMs for a delayed anchor before failing", async () => {
+    const anchor = createFakeAnchor("core.watch_code.enabled");
+    const paneRoot = {
+      querySelector: vi.fn((selector: string) => {
+        if (
+          selector === '[data-setting-anchor="core.watch_code.enabled"]' &&
+          Date.now() >= 2500
+        ) {
+          return anchor;
+        }
+        return null;
+      }),
+    } as unknown as HTMLElement;
+    const docRef = globalThis as unknown as {
+      document: {
+        querySelector: (selector: string) => HTMLElement | null;
+      };
+    };
+    docRef.document = {
+      querySelector: vi.fn((selector: string) => {
+        if (selector === '[data-testid="overview-tab-content-shell"]') {
+          return paneRoot;
+        }
+        return null;
+      }),
+    };
+
+    const statusesPromise = receiveUISettingReveal(
+      createRevealContent({
+        durationMs: 4000,
+      }),
+    );
+    await vi.runAllTimersAsync();
+    const statuses = await statusesPromise;
+
+    expect(statuses[0]).toEqual({
+      settingId: "core.watch_code.enabled",
+      status: "revealed",
+      errorCode: null,
+      errorMessage: null,
+    });
+    expect(anchor.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("retries plugin reveal until the plugin tab becomes available", async () => {
+    window.setTimeout(() => {
+      usePluginRuntimeStore.setState({
+        sortedPaneTabs: [
+          {
+            tabKey: "PluginPane:plugin-a:pane-1",
+            pluginId: "plugin-a",
+            paneId: "pane-1",
+            title: "Plugin Pane",
+            description: "Plugin pane description",
+          },
+        ],
+      });
+    }, 150);
+
+    const statusesPromise = receiveUISettingReveal(
+      createRevealContent({
+        durationMs: 1200,
+        reveals: [
+          createRevealTarget({
+            settingId: "plugin::plugin-a::label",
+            side: "left",
+            overviewTabKey: "PluginPane:plugin-a:pane-1",
+            strategy: "plugin_handler",
+            pluginId: "plugin-a",
+            paneId: "pane-1",
+            pluginRevealKey: "pane-reveal",
+            anchorId: null,
+          }),
+        ],
+      }),
+    );
+    await vi.runAllTimersAsync();
+    const statuses = await statusesPromise;
+
+    expect(statuses[0]).toEqual({
+      settingId: "plugin::plugin-a::label",
+      status: "failed",
+      errorCode: "mutation_failed",
+      errorMessage:
+        "Plugin plugin-a has no setting reveal handlers. No fallback anchorId is available.",
+    });
+  });
+
   it("surfaces plugin reveal handler failures when no fallback anchor is available", async () => {
     usePluginRuntimeStore.setState({
       sortedPaneTabs: [
@@ -230,7 +340,7 @@ describe("receiveUISettingReveal", () => {
       ],
     });
 
-    const statuses = await receiveUISettingReveal(
+    const statusesPromise = receiveUISettingReveal(
       createRevealContent({
         reveals: [
           createRevealTarget({
@@ -245,6 +355,8 @@ describe("receiveUISettingReveal", () => {
         ],
       }),
     );
+    await vi.runAllTimersAsync();
+    const statuses = await statusesPromise;
 
     expect(statuses[0]).toEqual({
       settingId: "plugin::plugin-a::label",

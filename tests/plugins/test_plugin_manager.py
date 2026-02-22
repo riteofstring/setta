@@ -9200,6 +9200,77 @@ def test_backend_ui_setting_registration_and_handler_invocation(
     assert updated_value is True
 
 
+def test_backend_ui_setting_registration_rejects_invalid_value_schema(
+    tmp_path: Path,
+) -> None:
+    # Invalid backend UI setting schemas should fail registration immediately.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "backend-ui-setting-invalid-schema"
+    backend_root = plugin_root / "backend"
+    backend_root.mkdir(parents=True, exist_ok=True)
+    plugin_id = "setta-fixture-backend-ui-setting-invalid-schema"
+    (plugin_root / "setta.plugin.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "id": plugin_id,
+                "name": "Backend UI Setting Invalid Schema Fixture",
+                "version": "0.1.0",
+                "enabledByDefault": True,
+                "capabilities": ["registerPane"],
+                "backend": {
+                    "entrypoint": "backend/entrypoint.py",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (backend_root / "entrypoint.py").write_text(
+        "def _read_enabled(*, project_config_id: str):\n"
+        "    return False\n\n"
+        "def _write_enabled(*, project_config_id: str, value):\n"
+        "    return {'ok': True, 'value': value}\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend behavior.',\n"
+        "            'paneId': 'backend-pane',\n"
+        "            'revealKey': 'backend-pane',\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'totally_invalid'},\n"
+        "            'read': _read_enabled,\n"
+        "            'write': _write_enabled,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.load_backend_plugins(app=FastAPI())
+
+    status_entry = next(
+        entry
+        for entry in manager.get_status_response().plugins
+        if entry.pluginId == plugin_id
+        and entry.sourceScope == PluginScope.workspace
+        and entry.shadowedBySourcePath is None
+    )
+    assert status_entry.state == PluginRuntimeState.invalid
+    assert any(
+        error.code == "PLUGIN_BACKEND_REGISTER_FAILED"
+        and "valueSchema is invalid" in error.message
+        for error in status_entry.errors
+    )
+    assert manager.get_backend_ui_settings(plugin_id=plugin_id) == []
+
+
 def test_stderr_pipe_reader_keeps_bounded_tail(tmp_path: Path) -> None:
     # Stderr reader buffering should keep only a bounded tail of lines.
     manager = _make_manager(tmp_path)
