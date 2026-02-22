@@ -67,7 +67,6 @@ from setta.auth.cookies import auth_cookie_name
 from setta.auth.manager import AUTH_COOKIE_MANAGER
 from setta.auth.session import load_current_session_secret
 from setta.database.db_objs import DBE
-from setta.llm.api_keys import read_managed_api_keys
 from setta.llm.chat_toolkit.managed.ai_follow import (
     build_tool_call_follow_ids,
     canonicalize_ai_follow_ids_by_type,
@@ -556,6 +555,15 @@ class ExternalAgentRunner:
             inputs, project_state.defaultProjectConfigId, project_state.projectConfigs
         )
         section_id = self._resolve_id_input(inputs, "sectionId")
+        frontend_websocket_id: str | None = None
+        if inputs and "frontendWebsocketId" in inputs:
+            raw_frontend_websocket_id = inputs["frontendWebsocketId"]
+            if raw_frontend_websocket_id is not None:
+                if not isinstance(raw_frontend_websocket_id, str):
+                    raise TypeError("frontendWebsocketId must be a string")
+                normalized_frontend_websocket_id = raw_frontend_websocket_id.strip()
+                if normalized_frontend_websocket_id:
+                    frontend_websocket_id = normalized_frontend_websocket_id
         allow_unscoped = False
         if inputs and "allowUnscoped" in inputs:
             raw_allow_unscoped = inputs["allowUnscoped"]
@@ -616,6 +624,7 @@ class ExternalAgentRunner:
             project_config_id=project_config_id,
             chat_id=chat_id,
             section_id=section_id,
+            frontend_websocket_id=frontend_websocket_id,
             allow_unscoped=allow_unscoped,
         )
         system_prompt = self._build_system_prompt(
@@ -920,32 +929,6 @@ class ExternalAgentRunner:
             return raw
         return None
 
-    @classmethod
-    def _resolve_runtime_model(
-        cls,
-        config: ExternalAgentConfig,
-        inputs: dict[str, Any] | None,
-    ) -> str | None:
-        explicit_model = cls._extract_input_string(inputs, "model")
-        if explicit_model:
-            return explicit_model
-        managed = config.settingsManagedBlock
-        if (
-            config.toolType == ExternalAgentToolType.codex
-            and managed is not None
-            and managed.codex is not None
-            and managed.codex.model
-        ):
-            return managed.codex.model
-        if (
-            config.toolType == ExternalAgentToolType.opencode
-            and managed is not None
-            and managed.opencode is not None
-            and managed.opencode.model
-        ):
-            return managed.opencode.model
-        return config.defaultModel
-
     def _init_chat_state(self, run: AgentRun) -> None:
         self._chat_states[run.id] = build_chat_state_from_run(run)
 
@@ -991,9 +974,8 @@ class ExternalAgentRunner:
             metadata["externalAgentConfigId"] = str(config.id)
             metadata["toolType"] = config.toolType.value
             metadata["runMode"] = config.runMode.value
-            runtime_model = self._resolve_runtime_model(config, run.inputs)
-            if runtime_model:
-                metadata["model"] = runtime_model
+            if config.defaultModel:
+                metadata["model"] = config.defaultModel
             if config.approvalPolicy:
                 metadata["approvalPolicy"] = config.approvalPolicy
             if config.sandboxPolicy:
@@ -1371,14 +1353,11 @@ class ExternalAgentRunner:
         if not allowed:
             return env
         dot_env = self.dbe.read_dot_env()
-        managed_api_keys = read_managed_api_keys(self.dbe)
         for key in allowed:
             if key in os.environ:
                 env[key] = os.environ[key]
             if key in dot_env:
                 env[key] = dot_env[key]
-            if key in managed_api_keys:
-                env[key] = managed_api_keys[key]
         return env
 
     def _cleanup_context(self, context: ExternalAgentRunContext) -> None:
