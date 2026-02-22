@@ -412,6 +412,19 @@ Desktop-launch entrypoint for OS launchers (`Setta.app`, desktop shortcuts).
 It can run directly (`setta launcher`) or manage launcher metadata via
 subcommands (`setta launcher install` / `setta launcher uninstall`).
 
+Desktop distribution defaults:
+- Recommended global install path: `uv tool install setta`
+- Upgrade path: `uv tool upgrade setta`
+- Uninstall path: `uv tool uninstall setta`
+- Convenience installer entrypoints:
+  - macOS/Linux shell: `./scripts/install_desktop_launcher.sh`
+  - Windows PowerShell: `./scripts/install_desktop_launcher.ps1`
+
+Advanced `pip install` path remains supported.
+When binding launcher metadata from a specific virtual environment, invoke
+that environment's `setta` executable explicitly (for example
+`/path/to/venv/bin/setta launcher install --channel pip-venv`).
+
 ### `setta launcher` (run)
 
 Starts or reuses a Setta session and optionally opens it.
