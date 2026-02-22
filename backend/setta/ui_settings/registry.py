@@ -1,4 +1,5 @@
 import logging
+import inspect
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -258,9 +259,38 @@ def build_ui_settings_registry(
             )
             continue
         entries_by_id[setting_id] = entry
+    for entry in entries_by_id.values():
+        _validate_runtime_entry_write_signature(entry)
     return UISettingRegistry(
         entriesById=entries_by_id,
         pluginErrorsByPluginId=plugin_errors,
+    )
+
+
+def _validate_runtime_entry_write_signature(entry: UISettingRuntimeEntry) -> None:
+    if entry.metadata.mutability == "readOnly":
+        if entry.writeValue is None:
+            return
+        raise ValueError(
+            f"Read-only UI setting {entry.metadata.settingId} must not define writeValue."
+        )
+    if entry.writeValue is None:
+        raise ValueError(
+            f"Writable UI setting {entry.metadata.settingId} is missing writeValue."
+        )
+    try:
+        signature = inspect.signature(entry.writeValue)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Writable UI setting {entry.metadata.settingId} has invalid writeValue."
+        ) from exc
+    if "expected_old_value" in signature.parameters:
+        return
+    raise ValueError(
+        (
+            f"Writable UI setting {entry.metadata.settingId} writeValue must accept "
+            "expected_old_value."
+        )
     )
 
 
@@ -963,6 +993,7 @@ def _build_plugin_runtime_entry(
         None
         if definition.mutability == "readOnly"
         else _build_plugin_write_value(
+            setting_id=setting_id,
             plugin_id=plugin_id,
             config_path=definition.configPath,
             default_value=definition.defaultValue,
@@ -1018,6 +1049,7 @@ def _build_backend_plugin_runtime_entry(
         None
         if registration.mutability == "readOnly" or registration.writeHandlerId is None
         else _build_plugin_backend_write_value(
+            setting_id=setting_id,
             plugin_id=plugin_id,
             read_handler_id=registration.readHandlerId,
             write_handler_id=registration.writeHandlerId,
@@ -1080,6 +1112,7 @@ def _build_plugin_read_value(
 
 def _build_plugin_write_value(
     *,
+    setting_id: str,
     plugin_id: str,
     config_path: list[str],
     default_value: JSONValue,
@@ -1106,10 +1139,7 @@ def _build_plugin_write_value(
             plugin_id=plugin_id,
         )
         _assert_expected_old_value_matches(
-            setting_id=build_plugin_setting_id(
-                plugin_id=plugin_id,
-                local_setting_id=config_path[-1],
-            ),
+            setting_id=setting_id,
             expected_old_value=expected_old_value,
             observed_old_value=old_value,
         )
@@ -1180,6 +1210,7 @@ def _build_plugin_backend_read_value(
 
 def _build_plugin_backend_write_value(
     *,
+    setting_id: str,
     plugin_id: str,
     read_handler_id: str,
     write_handler_id: str,
@@ -1203,10 +1234,7 @@ def _build_plugin_backend_write_value(
                 project_config_id=project_config_id,
             )
             _assert_expected_old_value_matches(
-                setting_id=build_plugin_setting_id(
-                    plugin_id=plugin_id,
-                    local_setting_id=read_handler_id,
-                ),
+                setting_id=setting_id,
                 expected_old_value=expected_old_value,
                 observed_old_value=old_value,
             )

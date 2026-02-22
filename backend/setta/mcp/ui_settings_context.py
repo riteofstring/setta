@@ -49,11 +49,22 @@ def resolve_project_config_id_from_ctx(
     ctx: Context,
     project_config_id: ID | None,
 ) -> ID:
-    if project_config_id is not None:
-        return project_config_id
     agentic_context = _resolve_agentic_context(ctx)
     if agentic_context is not None:
+        if (
+            project_config_id is not None
+            and project_config_id != agentic_context.project_config_id
+        ):
+            raise ValueError(
+                (
+                    f"projectConfigId argument {project_config_id} does not match "
+                    "agentic context projectConfigId "
+                    f"{agentic_context.project_config_id}."
+                )
+            )
         return agentic_context.project_config_id
+    if project_config_id is not None:
+        return project_config_id
     meta = resolve_request_meta(ctx)
     normalized_meta_project_config_id = _normalize_non_empty_string(
         meta.get("projectConfigId")

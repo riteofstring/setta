@@ -2,6 +2,8 @@ import {
   buildFrontendAffinityCurrentAddress,
   clearFrontendWebsocketAffinity,
   getFrontendWebsocketAffinityId,
+  setActiveFrontendWebsocketAffinityGeneration,
+  setFrontendWebsocketAffinityId,
   updateFrontendWebsocketAffinity,
 } from "state/actions/frontendWebsocketAffinity";
 import {
@@ -12,6 +14,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 describe("frontendWebsocketAffinity", () => {
   beforeEach(() => {
+    setActiveFrontendWebsocketAffinityGeneration(0);
     clearFrontendWebsocketAffinity();
   });
 
@@ -65,5 +68,48 @@ describe("frontendWebsocketAffinity", () => {
     });
 
     expect(getFrontendWebsocketAffinityId()).toBeNull();
+  });
+
+  it("ignores stale generation updates", () => {
+    const currentAddress = buildFrontendAffinityCurrentAddress("/project-a");
+    setActiveFrontendWebsocketAffinityGeneration(2);
+    setFrontendWebsocketAffinityId("frontend-stale", 1);
+    updateFrontendWebsocketAffinity({
+      connections: [
+        createWebsocketConnectionInfo({
+          id: "frontend-stale",
+          connectionType: WebsocketConnectionTypeEnum.FRONTEND,
+          currentAddress,
+          shareSessionId: null,
+        }),
+      ],
+      currentAddress,
+      shareSessionId: null,
+      socketGeneration: 1,
+    });
+
+    expect(getFrontendWebsocketAffinityId()).toBeNull();
+  });
+
+  it("repopulates affinity when active generation receives a valid snapshot", () => {
+    const currentAddress = buildFrontendAffinityCurrentAddress("/project-a");
+    setActiveFrontendWebsocketAffinityGeneration(1);
+    setFrontendWebsocketAffinityId("frontend-old", 1);
+    setActiveFrontendWebsocketAffinityGeneration(2);
+    updateFrontendWebsocketAffinity({
+      connections: [
+        createWebsocketConnectionInfo({
+          id: "frontend-new",
+          connectionType: WebsocketConnectionTypeEnum.FRONTEND,
+          currentAddress,
+          shareSessionId: null,
+        }),
+      ],
+      currentAddress,
+      shareSessionId: null,
+      socketGeneration: 2,
+    });
+
+    expect(getFrontendWebsocketAffinityId()).toBe("frontend-new");
   });
 });

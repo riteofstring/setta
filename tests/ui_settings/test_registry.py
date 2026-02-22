@@ -9,6 +9,7 @@ from setta.ui_settings.models import (
     UISettingEntry,
     UISettingHighlight,
     UISettingLocation,
+    UISettingMutationResult,
     UISettingRuntimeEntry,
     UISettingValueSchema,
 )
@@ -40,7 +41,9 @@ def _build_plugin_runtime_entry(
             valueSchema=UISettingValueSchema(type="boolean"),
         ),
         readValue=lambda _ctx, _project_config_id: False,
-        writeValue=lambda _ctx, _project_config_id, _value: None,
+        writeValue=lambda _ctx, _project_config_id, _value, expected_old_value=None: (
+            expected_old_value
+        ),
     )
 
 
@@ -85,6 +88,56 @@ def test_build_ui_settings_registry_isolates_plugin_id_collisions(
     assert plugin_id in registry.pluginErrorsByPluginId
     assert (
         "duplicated ui settingId: enabled" in registry.pluginErrorsByPluginId[plugin_id]
+    )
+
+
+def test_build_ui_settings_registry_rejects_writable_entries_without_precondition_arg(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invalid_entry = UISettingRuntimeEntry(
+        metadata=UISettingEntry(
+            settingId="core.invalid_writer",
+            title="Invalid Writer",
+            description="Should require expected_old_value.",
+            location=UISettingLocation(side="left", overviewTabKey="Overview"),
+            highlight=UISettingHighlight(
+                strategy="dom_anchor",
+                anchorId="core.invalid_writer",
+            ),
+            source="core",
+            mutability="writable",
+            valueSchema=UISettingValueSchema(type="boolean"),
+        ),
+        readValue=lambda _ctx, _project_config_id: False,
+        writeValue=lambda _ctx, _project_config_id, _value: UISettingMutationResult(
+            oldValue=False,
+            newValue=bool(_value),
+            normalizedValue=bool(_value),
+            changed=True,
+        ),
+    )
+
+    monkeypatch.setattr(ui_settings_registry, "_build_core_entries", lambda: [])
+
+    def _fake_build_plugin_entries(*, ctx, project_config_id):
+        assert ctx is not None
+        assert isinstance(project_config_id, ID)
+        return [invalid_entry], {}
+
+    monkeypatch.setattr(
+        ui_settings_registry,
+        "_build_plugin_entries",
+        _fake_build_plugin_entries,
+    )
+
+    with pytest.raises(ValueError) as exc:
+        ui_settings_registry.build_ui_settings_registry(
+            ctx=SimpleNamespace(),
+            project_config_id=ID("project-1"),
+        )
+    assert (
+        "core.invalid_writer writeValue must accept expected_old_value."
+        in str(exc.value)
     )
 
 
@@ -357,6 +410,7 @@ async def test_plugin_write_value_validates_old_value_before_write() -> None:
         fastmcp=SimpleNamespace(state=SimpleNamespace(plugin_manager=plugin_manager))
     )
     write_value = ui_settings_registry._build_plugin_write_value(
+        setting_id="plugin::plugin-a::enabled",
         plugin_id="plugin-a",
         config_path=["enabled"],
         default_value=False,
@@ -427,6 +481,7 @@ async def test_plugin_backend_write_value_validates_old_value_before_write() -> 
         fastmcp=SimpleNamespace(state=SimpleNamespace(plugin_manager=plugin_manager))
     )
     write_value = ui_settings_registry._build_plugin_backend_write_value(
+        setting_id="plugin::plugin-a::enabled",
         plugin_id="plugin-a",
         read_handler_id="read-enabled",
         write_handler_id="write-enabled",
@@ -478,6 +533,7 @@ async def test_plugin_write_value_rejects_non_object_root_without_mutation() -> 
         fastmcp=SimpleNamespace(state=SimpleNamespace(plugin_manager=plugin_manager))
     )
     write_value = ui_settings_registry._build_plugin_write_value(
+        setting_id="plugin::plugin-a::enabled",
         plugin_id="plugin-a",
         config_path=["enabled"],
         default_value=False,
@@ -534,6 +590,7 @@ async def test_plugin_write_value_rejects_non_object_intermediate_path_without_m
         fastmcp=SimpleNamespace(state=SimpleNamespace(plugin_manager=plugin_manager))
     )
     write_value = ui_settings_registry._build_plugin_write_value(
+        setting_id="plugin::plugin-a::enabled",
         plugin_id="plugin-a",
         config_path=["settings", "enabled"],
         default_value=False,
@@ -550,3 +607,139 @@ async def test_plugin_write_value_rejects_non_object_intermediate_path_without_m
         plugin_manager.runtime_response.list.plugins[0].config.currentConfig["settings"]
         == "invalid-node"
     )
+
+
+@pytest.mark.asyncio
+async def test_plugin_schema_write_drift_errors_reference_canonical_setting_id() -> (
+    None
+):
+    class PluginManagerState:
+        def __init__(self) -> None:
+            self.write_invocation_count = 0
+            self.runtime_response = SimpleNamespace(
+                status=SimpleNamespace(
+                    plugins=[
+                        SimpleNamespace(
+                            pluginId="plugin-a",
+                            state=SimpleNamespace(value="active"),
+                        )
+                    ]
+                ),
+                list=SimpleNamespace(
+                    plugins=[
+                        SimpleNamespace(
+                            pluginId="plugin-a",
+                            config=SimpleNamespace(
+                                currentConfig={"settings": {"enabled": True}}
+                            ),
+                        )
+                    ]
+                ),
+            )
+
+        def get_runtime_response(self):
+            return self.runtime_response
+
+        def write_plugin_config(self, *, plugin_id: str, config: dict[str, object]) -> None:
+            assert plugin_id == "plugin-a"
+            self.write_invocation_count += 1
+            self.runtime_response.list.plugins[0].config.currentConfig = config
+
+    plugin_manager = PluginManagerState()
+    ctx = SimpleNamespace(
+        fastmcp=SimpleNamespace(state=SimpleNamespace(plugin_manager=plugin_manager))
+    )
+    write_value = ui_settings_registry._build_plugin_write_value(
+        setting_id="plugin::plugin-a::public_name",
+        plugin_id="plugin-a",
+        config_path=["settings", "enabled"],
+        default_value=False,
+        value_schema=UISettingValueSchema(type="boolean"),
+    )
+
+    with pytest.raises(ui_settings_registry.UISettingValidationError) as exc:
+        await write_value(
+            ctx,
+            ID("project-1"),
+            True,
+            expected_old_value=False,
+        )
+    assert exc.value.code == "mutation_failed"
+    assert "UI setting plugin::plugin-a::public_name changed" in str(exc.value)
+    assert "enabled changed since pre-write validation" not in str(exc.value)
+    assert plugin_manager.write_invocation_count == 0
+
+
+@pytest.mark.asyncio
+async def test_plugin_backend_write_drift_errors_reference_canonical_setting_id() -> (
+    None
+):
+    class PluginManagerState:
+        def __init__(self) -> None:
+            self.write_invocation_count = 0
+            self.backend_value = True
+            self.runtime_response = SimpleNamespace(
+                status=SimpleNamespace(
+                    plugins=[
+                        SimpleNamespace(
+                            pluginId="plugin-a",
+                            state=SimpleNamespace(value="active"),
+                        )
+                    ]
+                ),
+                list=SimpleNamespace(plugins=[SimpleNamespace(pluginId="plugin-a")]),
+            )
+
+        def get_runtime_response(self):
+            return self.runtime_response
+
+        def read_backend_ui_setting_value(
+            self,
+            *,
+            plugin_id: str,
+            read_handler_id: str,
+            project_config_id: ID,
+        ) -> object:
+            assert plugin_id == "plugin-a"
+            assert read_handler_id == "read-enabled"
+            assert project_config_id == ID("project-1")
+            return self.backend_value
+
+        def write_backend_ui_setting_value(
+            self,
+            *,
+            plugin_id: str,
+            write_handler_id: str,
+            project_config_id: ID,
+            value: object,
+        ) -> None:
+            assert plugin_id == "plugin-a"
+            assert write_handler_id == "write-enabled"
+            assert project_config_id == ID("project-1")
+            self.write_invocation_count += 1
+            self.backend_value = value
+
+    plugin_manager = PluginManagerState()
+    ctx = SimpleNamespace(
+        fastmcp=SimpleNamespace(state=SimpleNamespace(plugin_manager=plugin_manager))
+    )
+    write_value = ui_settings_registry._build_plugin_backend_write_value(
+        setting_id="plugin::plugin-a::public_name",
+        plugin_id="plugin-a",
+        read_handler_id="read-enabled",
+        write_handler_id="write-enabled",
+        plugin_manager=plugin_manager,
+        value_schema=UISettingValueSchema(type="boolean"),
+    )
+
+    with pytest.raises(ui_settings_registry.UISettingValidationError) as exc:
+        await write_value(
+            ctx,
+            ID("project-1"),
+            False,
+            expected_old_value=False,
+        )
+    assert exc.value.code == "mutation_failed"
+    assert "UI setting plugin::plugin-a::public_name changed" in str(exc.value)
+    assert "read-enabled changed since pre-write validation" not in str(exc.value)
+    assert plugin_manager.write_invocation_count == 0

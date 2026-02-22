@@ -325,6 +325,106 @@ describe("openWebSocket", () => {
     expect(getFrontendWebsocketAffinityId()).toBe("frontend-handshake");
   });
 
+  it("clears affinity immediately on socket replacement and ignores stale socket identity events", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    const { getFrontendWebsocketAffinityId } = await import(
+      "state/actions/frontendWebsocketAffinity"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const firstSocket = MockWebSocket.instances[0];
+    await firstSocket.emit("open");
+    await firstSocket.emit("message", {
+      data: JSON.stringify({
+        id: "msg-first-identity",
+        messageType: "FrontendIdentity",
+        content: { websocketId: "frontend-first" },
+      }),
+    });
+    expect(getFrontendWebsocketAffinityId()).toBe("frontend-first");
+
+    openWebSocket("/project", "share-session-replacement");
+    vi.advanceTimersByTime(1000);
+
+    const secondSocket = MockWebSocket.instances[1];
+    expect(secondSocket).toBeDefined();
+    expect(getFrontendWebsocketAffinityId()).toBeNull();
+
+    await firstSocket.emit("message", {
+      data: JSON.stringify({
+        id: "msg-stale-identity",
+        messageType: "FrontendIdentity",
+        content: { websocketId: "frontend-stale" },
+      }),
+    });
+    expect(getFrontendWebsocketAffinityId()).toBeNull();
+
+    await secondSocket.emit("open");
+    expect(getFrontendWebsocketAffinityId()).toBeNull();
+  });
+
+  it("repopulates affinity from active-socket AllConnections after replacement clear", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    const {
+      buildFrontendAffinityCurrentAddress,
+      getFrontendWebsocketAffinityId,
+    } = await import("state/actions/frontendWebsocketAffinity");
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const firstSocket = MockWebSocket.instances[0];
+    await firstSocket.emit("open");
+    await firstSocket.emit("message", {
+      data: JSON.stringify({
+        id: "msg-first-identity",
+        messageType: "FrontendIdentity",
+        content: { websocketId: "frontend-first" },
+      }),
+    });
+    expect(getFrontendWebsocketAffinityId()).toBe("frontend-first");
+
+    openWebSocket("/project", "share-session-replacement");
+    vi.advanceTimersByTime(1000);
+
+    const secondSocket = MockWebSocket.instances[1];
+    await secondSocket.emit("open");
+
+    await secondSocket.emit("message", {
+      data: JSON.stringify({
+        id: "msg-second-all-connections",
+        messageType: WebsocketMsgTypeForFrontendEnum.AllConnections,
+        content: [
+          {
+            id: "frontend-second",
+            connectionType: WebsocketConnectionTypeEnum.FRONTEND,
+            currentAddress: buildFrontendAffinityCurrentAddress("/project"),
+            shareSessionId: "share-session-replacement",
+          },
+        ],
+      }),
+    });
+    expect(getFrontendWebsocketAffinityId()).toBe("frontend-second");
+  });
+
   it("sends current address updates when pathname changes on an open socket", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(

@@ -475,6 +475,91 @@ async def test_set_ui_setting_value_rejects_writer_old_value_drift(
 
 
 @pytest.mark.asyncio
+async def test_set_ui_setting_value_rejects_writer_missing_expected_old_value_before_invocation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    state = {"current": False}
+    write_invocation_count = 0
+
+    async def _read_value(_ctx: Context, _project_config_id: ID) -> bool:
+        return bool(state["current"])
+
+    async def _write_value_without_precondition(
+        _ctx: Context,
+        _project_config_id: ID,
+        _value: bool,
+    ) -> UISettingMutationResult:
+        nonlocal write_invocation_count
+        write_invocation_count += 1
+        old_value = bool(state["current"])
+        state["current"] = _value
+        return UISettingMutationResult(
+            oldValue=old_value,
+            newValue=_value,
+            normalizedValue=_value,
+            changed=old_value != _value,
+        )
+
+    runtime_entry = UISettingRuntimeEntry(
+        metadata=UISettingEntry(
+            settingId="core.test.flag_without_precondition",
+            title="Test Flag Without Precondition",
+            description="Validates strict expected_old_value contract.",
+            source="core",
+            mutability="writable",
+            location=UISettingLocation(side="left", overviewTabKey="Overview"),
+            highlight=UISettingHighlight(
+                strategy="dom_anchor",
+                anchorId="core.test.flag_without_precondition",
+            ),
+            valueSchema=UISettingValueSchema(type="boolean"),
+        ),
+        readValue=_read_value,
+        writeValue=_write_value_without_precondition,
+    )
+
+    class _FakeRegistry:
+        def __init__(self) -> None:
+            self.pluginErrorsByPluginId: dict[str, str] = {}
+
+        def get(self, setting_id: str) -> UISettingRuntimeEntry | None:
+            if setting_id == "core.test.flag_without_precondition":
+                return runtime_entry
+            return None
+
+    def _build_fake_registry(
+        *,
+        ctx: Context,
+        project_config_id: ID,
+    ) -> _FakeRegistry:
+        assert ctx is not None
+        assert isinstance(project_config_id, str)
+        return _FakeRegistry()
+
+    monkeypatch.setattr(
+        ui_settings_tools_module,
+        "build_ui_settings_registry",
+        _build_fake_registry,
+    )
+
+    result = await set_ui_setting_value(
+        settingId="core.test.flag_without_precondition",
+        value=True,
+        projectConfigId=ID("project-1"),
+        ctx=Context(
+            fastmcp=SimpleNamespace(
+                state=SimpleNamespace(project_manager_switcher=SimpleNamespace(main=None))
+            )
+        ),
+    )
+    assert result.error is not None
+    assert result.error.code == "mutation_failed"
+    assert "writeValue must accept expected_old_value" in result.error.message
+    assert write_invocation_count == 0
+    assert state["current"] is False
+
+
+@pytest.mark.asyncio
 async def test_ui_setting_tools_normalize_setting_id_whitespace() -> None:
     async with (
         real_project_manager() as project_fixture,
@@ -989,6 +1074,58 @@ async def test_reveal_right_pane_incompatible_tab_does_not_mutate_active_section
 
 
 @pytest.mark.asyncio
+async def test_reveal_right_pane_no_frontend_does_not_mutate_active_section() -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = []
+        frontend_sender.reveal_target_websocket_id = None
+        manager = project_fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+
+        create_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        section_id = create_result.sectionId
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id,
+                activeIds=[],
+            )
+        )
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.project.show_param_display_names",
+            sectionIdToActivate=section_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert result.statuses[0].error.code == "mutation_failed"
+        assert "No connected frontend" in result.statuses[0].error.message
+        updated_state = manager.get_single_config_state(project_config_id)
+        assert updated_state.projectConfig.activeIds == []
+        assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
 async def test_set_ui_setting_value_reveal_after_set_uses_request_meta_section_id() -> (
     None
 ):
@@ -1112,6 +1249,70 @@ async def test_set_ui_setting_value_reveal_after_set_fails_without_section_conte
         assert set_result.reveal.statuses[0].error.code == "mutation_failed"
         assert "sectionIdToActivate" in set_result.reveal.statuses[0].error.message
         assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_reveal_after_set_no_frontend_does_not_activate_section() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = []
+        frontend_sender.reveal_target_websocket_id = None
+        manager = project_fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        create_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        section_id = create_result.sectionId
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id,
+                activeIds=[],
+            )
+        )
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta=_RequestMetaModel(
+                projectConfigId=project_config_id,
+                sectionId=section_id,
+            ),
+        )
+        current_value_result = await get_ui_setting_value(
+            settingId="core.project.show_param_display_names",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert current_value_result.error is None
+        assert isinstance(current_value_result.value, bool)
+        set_result = await set_ui_setting_value(
+            settingId="core.project.show_param_display_names",
+            value=not current_value_result.value,
+            revealAfterSet=True,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is None
+        assert set_result.reveal is not None
+        assert set_result.reveal.emittedRevealCount == 0
+        assert set_result.reveal.statuses[0].status == "failed"
+        assert set_result.reveal.statuses[0].error is not None
+        assert "No connected frontend" in set_result.reveal.statuses[0].error.message
+        updated_state = manager.get_single_config_state(project_config_id)
+        assert updated_state.projectConfig.activeIds == []
 
 
 @pytest.mark.asyncio
@@ -1258,6 +1459,156 @@ async def test_reveal_right_pane_uses_agentic_context_project_and_section() -> N
 
         updated_state = manager.get_single_config_state(target_project_config_id)
         assert updated_state.projectConfig.activeIds == [section_id]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool_name", ["search", "get", "set", "reveal"])
+async def test_ui_setting_tools_reject_project_argument_mismatching_agentic_context(
+    tool_name: str,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        manager = project_fixture.manager
+        project_config_id_a = ID(manager.project_state_backend.defaultProjectConfigId)
+        existing_project_config_ids = set(
+            manager.project_state_backend.projectConfigs.keys()
+        )
+        await manager.create_project_config("bg-orange-500/60 dark:bg-orange-600/30")
+        project_config_ids_after_create = set(
+            manager.project_state_backend.projectConfigs.keys()
+        )
+        new_project_config_ids = (
+            project_config_ids_after_create - existing_project_config_ids
+        )
+        assert len(new_project_config_ids) == 1
+        project_config_id_b = ID(next(iter(new_project_config_ids)))
+
+        value_a_before = manager.get_single_config_state(
+            project_config_id_a
+        ).projectConfig.watchCodeEnabled
+        value_b_before = manager.get_single_config_state(
+            project_config_id_b
+        ).projectConfig.watchCodeEnabled
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            agentic_context=AgenticContext(
+                project_config_id=project_config_id_a,
+                chat_id=ID("chat-agentic"),
+                section_id=None,
+                frontend_websocket_id=None,
+                allow_unscoped=True,
+            ),
+        )
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "projectConfigId argument .* does not match agentic context "
+                "projectConfigId"
+            ),
+        ):
+            if tool_name == "search":
+                search_ui_settings(
+                    query="watch code",
+                    projectConfigId=project_config_id_b,
+                    ctx=ctx,
+                )
+            elif tool_name == "get":
+                await get_ui_setting_value(
+                    settingId="core.watch_code.enabled",
+                    projectConfigId=project_config_id_b,
+                    ctx=ctx,
+                )
+            elif tool_name == "set":
+                await set_ui_setting_value(
+                    settingId="core.watch_code.enabled",
+                    value=True,
+                    projectConfigId=project_config_id_b,
+                    ctx=ctx,
+                )
+            elif tool_name == "reveal":
+                await reveal_ui_setting(
+                    settingId="core.watch_code.enabled",
+                    projectConfigId=project_config_id_b,
+                    ctx=ctx,
+                )
+            else:
+                raise ValueError(f"Unsupported tool in parameterized test: {tool_name}")
+
+        value_a_after = manager.get_single_config_state(
+            project_config_id_a
+        ).projectConfig.watchCodeEnabled
+        value_b_after = manager.get_single_config_state(
+            project_config_id_b
+        ).projectConfig.watchCodeEnabled
+        assert value_a_after == value_a_before
+        assert value_b_after == value_b_before
+
+
+@pytest.mark.asyncio
+async def test_ui_setting_tools_reject_project_argument_mismatch_in_share_mode() -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        manager = project_fixture.manager
+        settings_manager = settings_fixture.manager
+        project_config_id_a = ID(manager.project_state_backend.defaultProjectConfigId)
+        existing_project_config_ids = set(
+            manager.project_state_backend.projectConfigs.keys()
+        )
+        await manager.create_project_config("bg-pink-500/60 dark:bg-pink-600/30")
+        project_config_ids_after_create = set(
+            manager.project_state_backend.projectConfigs.keys()
+        )
+        new_project_config_ids = (
+            project_config_ids_after_create - existing_project_config_ids
+        )
+        assert len(new_project_config_ids) == 1
+        project_config_id_b = ID(next(iter(new_project_config_ids)))
+        share_session_id = "share-session-mismatch"
+        strict_switcher = _ShareSessionStrictProjectManagerSwitcher(
+            ProjectManagerSwitcher(
+                main_manager=manager,
+                settings_manager=settings_manager,
+            ),
+            required_share_session_id=share_session_id,
+        )
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_manager,
+            frontend_sender=frontend_sender,
+            project_manager_switcher=strict_switcher,
+            agentic_context=AgenticContext(
+                project_config_id=project_config_id_a,
+                chat_id=ID("chat-agentic"),
+                section_id=None,
+                frontend_websocket_id=None,
+                allow_unscoped=True,
+            ),
+            resolved_share_session_id=share_session_id,
+        )
+
+        with pytest.raises(
+            ValueError,
+            match=(
+                "projectConfigId argument .* does not match agentic context "
+                "projectConfigId"
+            ),
+        ):
+            await get_ui_setting_value(
+                settingId="core.watch_code.enabled",
+                projectConfigId=project_config_id_b,
+                ctx=ctx,
+            )
+
+        assert strict_switcher.calls == []
 
 
 @pytest.mark.asyncio

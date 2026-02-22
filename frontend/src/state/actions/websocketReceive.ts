@@ -10,6 +10,7 @@ import {
 import {
   buildFrontendAffinityCurrentAddress,
   clearFrontendWebsocketAffinity,
+  setActiveFrontendWebsocketAffinityGeneration,
   setFrontendWebsocketAffinityId,
   updateFrontendWebsocketAffinity,
 } from "state/actions/frontendWebsocketAffinity";
@@ -123,10 +124,18 @@ let lastPathname: string | null = null;
 let lastShareSessionId: string | null = null;
 let currentShareSessionId: string | null = null;
 let currentRoute: string | null = null;
+let activeWebsocketGeneration = 0;
 let shareHeartbeatTimer: number | null = null;
 let shareSessionRecoveryAttempts = 0;
 let shareSessionRecoveryInFlight = false;
 let lastRealtimeBinaryOversizeWarningAt = 0;
+
+function beginWebsocketGeneration(): number {
+  activeWebsocketGeneration += 1;
+  setActiveFrontendWebsocketAffinityGeneration(activeWebsocketGeneration);
+  clearFrontendWebsocketAffinity(activeWebsocketGeneration);
+  return activeWebsocketGeneration;
+}
 
 export const openWebSocket = _.debounce(
   (pathname: string, shareSessionId: string | null = null) => {
@@ -162,12 +171,16 @@ export const openWebSocket = _.debounce(
       closeWebSocket();
     }
     if (!wss) {
+      const socketGeneration = beginWebsocketGeneration();
       const socket = new WebSocket(targetUrl);
       wss = socket;
       const shareSessionIdForSocket = shareSessionId;
       currentShareSessionId = shareSessionId;
       currentRoute = route;
       wss.addEventListener("open", async () => {
+        if (activeWebsocketGeneration !== socketGeneration || wss !== socket) {
+          return;
+        }
         sendCurrentAddress(buildFrontendAffinityCurrentAddress(pathname));
         addTemporaryNotification("Connected to server");
         addWebsocketConnection(
@@ -209,15 +222,21 @@ export const openWebSocket = _.debounce(
       });
 
       wss.addEventListener("message", (event) => {
+        if (activeWebsocketGeneration !== socketGeneration || wss !== socket) {
+          return;
+        }
         if (typeof event.data !== "string") {
           return;
         }
-        receiveMessage(event.data);
+        receiveMessage(event.data, socketGeneration);
       });
 
       wss.addEventListener("error", closeWebSocket);
 
       socket.addEventListener("close", (event: CloseEvent) => {
+        if (activeWebsocketGeneration !== socketGeneration) {
+          return;
+        }
         if (wss && wss !== socket) {
           return;
         }
@@ -232,7 +251,7 @@ export const openWebSocket = _.debounce(
         ) {
           wasOpen = false;
           clearAllWebsocketConnections();
-          clearFrontendWebsocketAffinity();
+          clearFrontendWebsocketAffinity(socketGeneration);
           if (!shareSessionIdForSocket) {
             return;
           }
@@ -243,7 +262,7 @@ export const openWebSocket = _.debounce(
           authLost = true;
           wasOpen = false;
           clearAllWebsocketConnections();
-          clearFrontendWebsocketAffinity();
+          clearFrontendWebsocketAffinity(socketGeneration);
           addTemporaryNotification(
             `Authentication required. Open ${BOOTSTRAP_URL} to continue.`,
           );
@@ -255,7 +274,7 @@ export const openWebSocket = _.debounce(
           wasOpen = false;
         }
         clearAllWebsocketConnections();
-        clearFrontendWebsocketAffinity();
+        clearFrontendWebsocketAffinity(socketGeneration);
         // Attempt to reconnect
         setTimeout(() => {
           openWebSocket(lastPathname ?? pathname, lastShareSessionId);
@@ -307,10 +326,12 @@ async function attemptAuthRecovery(pathname: string) {
 }
 
 function closeWebSocket() {
+  const socketGeneration = beginWebsocketGeneration();
   if (wss) {
     wss.close();
     wss = null;
   }
+  clearFrontendWebsocketAffinity(socketGeneration);
   stopAuthRefresh();
   stopShareHeartbeat();
 }
@@ -450,10 +471,13 @@ async function handleShareSessionRecovery() {
   shareSessionRecoveryAttempts = 0;
 }
 
-function receiveMessage(message: string) {
+function receiveMessage(message: string, socketGeneration: number) {
   const parsedMessage: unknown = JSON.parse(message);
   if (isFrontendIdentityMessage(parsedMessage)) {
-    setFrontendWebsocketAffinityId(parsedMessage.content.websocketId);
+    setFrontendWebsocketAffinityId(
+      parsedMessage.content.websocketId,
+      socketGeneration,
+    );
     return;
   }
   const m: FrontendWebsocketMsgUnion = parsedMessage as FrontendWebsocketMsgUnion;
@@ -466,6 +490,7 @@ function receiveMessage(message: string) {
           ? buildFrontendAffinityCurrentAddress(lastPathname)
           : null,
         shareSessionId: currentShareSessionId,
+        socketGeneration,
       });
       return;
     case WebsocketMsgTypeForFrontendEnum.LLMStreamingResponse:

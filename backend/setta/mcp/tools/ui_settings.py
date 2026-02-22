@@ -620,50 +620,16 @@ async def _reveal_settings(
                 ],
             )
 
+    section_id_pending_activation: ID | None = None
     if location.side == "right" and location.requiresSectionSelection:
+        active_section_id: ID | None = None
         if section_id_to_activate is not None:
-            incompatible_tab_error = _resolve_right_pane_incompatible_tab_error(
-                project_state=project_state,
-                section_id=section_id_to_activate,
-                ui_editor_tab_name=location.uiEditorTabName,
-            )
-            if incompatible_tab_error is not None:
-                return RevealUISettingResult(
-                    requestId=request_id,
-                    projectConfigId=project_config_id,
-                    durationMs=bounded_duration_ms,
-                    emittedRevealCount=0,
-                    statuses=[
-                        RevealUISettingStatus(
-                            settingId=setting_id,
-                            status="failed",
-                            error=incompatible_tab_error,
-                        )
-                    ],
-                )
-            section_error = await _activate_section_for_reveal(
-                manager=manager,
-                project_config_id=project_config_id,
-                project_state=project_state,
-                section_id_to_activate=section_id_to_activate,
-            )
-            if section_error is not None:
-                return RevealUISettingResult(
-                    requestId=request_id,
-                    projectConfigId=project_config_id,
-                    durationMs=bounded_duration_ms,
-                    emittedRevealCount=0,
-                    statuses=[
-                        RevealUISettingStatus(
-                            settingId=setting_id,
-                            status="failed",
-                            error=section_error,
-                        )
-                    ],
-                )
-            project_state = manager.get_single_config_state(project_config_id)
+            active_section_id = section_id_to_activate
+            section_id_pending_activation = section_id_to_activate
+        elif project_state.projectConfig.activeIds:
+            active_section_id = project_state.projectConfig.activeIds[0]
 
-        if not project_state.projectConfig.activeIds:
+        if active_section_id is None:
             return RevealUISettingResult(
                 requestId=request_id,
                 projectConfigId=project_config_id,
@@ -683,7 +649,6 @@ async def _reveal_settings(
                     )
                 ],
             )
-        active_section_id = project_state.projectConfig.activeIds[0]
         incompatible_tab_error = _resolve_right_pane_incompatible_tab_error(
             project_state=project_state,
             section_id=active_section_id,
@@ -781,6 +746,28 @@ async def _reveal_settings(
                 )
             ],
         )
+    if section_id_pending_activation is not None:
+        refreshed_project_state = manager.get_single_config_state(project_config_id)
+        section_error = await _activate_section_for_reveal(
+            manager=manager,
+            project_config_id=project_config_id,
+            project_state=refreshed_project_state,
+            section_id_to_activate=section_id_pending_activation,
+        )
+        if section_error is not None:
+            return RevealUISettingResult(
+                requestId=request_id,
+                projectConfigId=project_config_id,
+                durationMs=bounded_duration_ms,
+                emittedRevealCount=0,
+                statuses=[
+                    RevealUISettingStatus(
+                        settingId=setting_id,
+                        status="failed",
+                        error=section_error,
+                    )
+                ],
+            )
     reveal_result_hub = ctx.fastmcp.state.ui_setting_reveal_result_hub
     reveal_result_hub.register_request(
         request_id,
@@ -1102,19 +1089,19 @@ async def _call_write_value_with_precondition(
     normalized_value: JSONValue,
     expected_old_value: JSONValue,
 ):
-    if _write_value_accepts_expected_old_value(write_value):
-        return await _call_maybe_async(
-            write_value(
-                ctx,
-                project_config_id,
-                normalized_value,
-                expected_old_value=expected_old_value,
-            )
+    if not _write_value_accepts_expected_old_value(write_value):
+        raise UISettingValidationError(
+            "mutation_failed",
+            (
+                "UI setting writer is misconfigured: writeValue must accept "
+                "expected_old_value."
+            ),
         )
     return await _call_maybe_async(
         write_value(
             ctx,
             project_config_id,
             normalized_value,
+            expected_old_value=expected_old_value,
         )
     )

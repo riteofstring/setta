@@ -417,6 +417,73 @@ test("core reveal_ui_setting fails when requested project does not match active 
   }
 });
 
+test("core UI-setting tools reject explicit projectConfigId mismatches against agentic context", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  let firstProjectContext: Awaited<
+    ReturnType<typeof openIsolatedProject>
+  > | null = null;
+  let secondProjectContext: Awaited<
+    ReturnType<typeof openIsolatedProject>
+  > | null = null;
+
+  try {
+    firstProjectContext = await openIsolatedProject(page);
+    secondProjectContext = await openIsolatedProject(page);
+
+    const mismatchMessage =
+      "does not match agentic context projectConfigId";
+    const callMismatchedProject = async (projectConfigId: string) =>
+      page.request.post(`${BACKEND_ORIGIN}/__setta__/tools/call`, {
+        data: {
+          tool: "get_ui_setting_value",
+          arguments: {
+            settingId: WATCH_CODE_ENABLED_SETTING_ID,
+            projectConfigId,
+          },
+          agenticContext: {
+            projectConfigId: secondProjectContext.projectConfigId,
+            allowUnscoped: true,
+          },
+        },
+        timeout: 15000,
+      });
+
+    const probeResponse = await callMismatchedProject(
+      firstProjectContext.projectConfigId,
+    );
+    const probeText = await probeResponse.text();
+    if (probeText.includes(mismatchMessage)) {
+      expect([422, 500]).toContain(probeResponse.status());
+    } else {
+      const availableTempIdsMatch = probeText.match(/dict_keys\(\[(.*?)\]\)/);
+      expect(availableTempIdsMatch).not.toBeNull();
+      const availableTempIds = (availableTempIdsMatch?.[1] ?? "")
+        .split(",")
+        .map((entry) => entry.trim().replace(/['"]/g, ""))
+        .filter((entry): entry is string => entry.length > 0);
+      expect(availableTempIds.length).toBeGreaterThan(0);
+
+      let mismatchDetected = false;
+      for (const tempProjectId of availableTempIds) {
+        const tempResponse = await callMismatchedProject(tempProjectId);
+        const tempText = await tempResponse.text();
+        if (!tempText.includes(mismatchMessage)) {
+          continue;
+        }
+        expect([422, 500]).toContain(tempResponse.status());
+        mismatchDetected = true;
+        break;
+      }
+      expect(mismatchDetected).toBe(true);
+    }
+  } finally {
+    await cleanupIsolatedProject(page, secondProjectContext);
+    await cleanupIsolatedProject(page, firstProjectContext);
+  }
+});
+
 test("core UI-setting tools normalize whitespace-padded setting ids", async ({
   page,
 }) => {

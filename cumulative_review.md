@@ -237,3 +237,32 @@
 6. UX after: precondition checks reject stale writes before mutation, keeping failure semantics aligned with persisted state.
 7. DX before: debugging required tracing multiple context/fallback paths with timing-dependent behavior.
 8. DX after: one canonical context path plus explicit websocket identity significantly reduces ambiguity and triage time.
+
+## 2026-02-25 16:13:47 PST
+
+### Consolidated Findings
+1. UI-setting project resolution still allowed explicit `projectConfigId` arguments to diverge from active agentic context project scope.
+2. Right-pane `reveal_ui_setting` could mutate `activeIds` before frontend routability preconditions were satisfied.
+3. Frontend websocket affinity was not socket-lifecycle scoped, so stale `frontendWebsocketId` values could leak across socket replacement/session switches.
+4. Write precondition enforcement still had a non-strict path for writers missing `expected_old_value`, allowing mutation-before-failure semantics.
+5. Plugin drift/precondition diagnostics could surface non-canonical internal IDs instead of canonical `settingId` values.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Enforced agentic context as canonical project scope source for UI-setting tools and fail-fast mismatch rejection when explicit `projectConfigId` conflicts.
+2. Added explicit `/__setta__/tools/call` invalid-argument mapping for these contract violations, including direct and wrapped mismatch failures.
+3. Refactored reveal ordering to complete section/tab compatibility checks and websocket routing preflight before section activation writes; activation now occurs only after routability is confirmed.
+4. Removed writer fallback behavior in tool execution: missing `expected_old_value` support now fails before invocation.
+5. Added registry-time signature enforcement for writable UI-setting entries so misconfigured writers are rejected at build/registration time.
+6. Threaded canonical `settingId` through plugin schema/backend writer precondition checks and drift error paths.
+7. Reworked frontend websocket affinity lifecycle to be generation-scoped, with immediate clear on replacement, stale-generation event rejection, and active-generation-only repopulation.
+8. Added/updated backend pytest, frontend Vitest, and Playwright coverage for mismatch guards, reveal side-effect safety, strict precondition semantics, canonical diagnostics, and websocket-affinity lifecycle behavior.
+
+### UX/DX Before and After
+1. UX before: a scoped agent could be checked against one project while reads/writes/reveals targeted another.
+2. UX after: UI-setting tools resolve to one canonical project scope and reject divergent explicit project targets.
+3. UX before: failed right-pane reveal attempts could still change active section focus.
+4. UX after: reveal failures before dispatch are side-effect free for section activation state.
+5. UX before: reconnect/session-switch windows could emit stale websocket affinity and fail routing intermittently.
+6. UX after: outbound requests use current-generation affinity or null fallback; stale-id windows are removed.
+7. DX before: mutation failures could mask side effects and drift errors could reference internal handler/path IDs.
+8. DX after: failure semantics are deterministic, side-effect boundaries are explicit, and diagnostics consistently reference canonical `settingId`.
