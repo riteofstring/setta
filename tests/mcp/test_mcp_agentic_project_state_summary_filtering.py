@@ -545,14 +545,10 @@ async def test_set_agentic_context_allows_session_scoped_tool_calls(tmp_path) ->
             "projectConfigId": str(tmp_project_id),
             "chatId": str(tmp_chat_id),
             "sectionId": str(tmp_section_id),
-            "frontendWebsocketId": "frontend-test",
         },
         context=ctx,
     )
     assert init_result == {"status": "ok"}
-    resolved_agentic_context = mcp_server._resolve_agentic_context(ctx)
-    assert resolved_agentic_context is not None
-    assert resolved_agentic_context.frontend_websocket_id == "frontend-test"
 
     tool = mcp_server.get_tool("get_latest_project_state_summary")
     assert tool is not None

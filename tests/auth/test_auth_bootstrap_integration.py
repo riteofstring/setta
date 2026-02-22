@@ -94,6 +94,9 @@ def test_bootstrap_page_hydrates_workspace_history_and_launcher_origin(
         or "const launcherOriginStorage = sessionStorage;" in html
     )
     assert 'hashParams.get("lo")' in html
+    assert 'hashParams.get("osw")' in html
+    assert 'const openWorkspaceSwitcherOnLoadKey = "setta.openWorkspaceSwitcherOnLoad";' in html
+    assert 'sessionStorage.setItem(openWorkspaceSwitcherOnLoadKey, "1");' in html
     assert 'url.protocol !== "http:"' in html
     assert 'url.protocol !== "https:"' in html
     assert "launcherOriginStorage.setItem(launcherOriginKey, url.origin);" in html
@@ -106,7 +109,7 @@ def test_tools_call_unauthorized_returns_json(bootstrap_client) -> None:
     assert response.json() == {"detail": "Unauthorized"}
 
 
-def test_bootstrap_page_dev_redirect_forces_http_scheme(monkeypatch, tmp_path) -> None:
+def test_bootstrap_page_dev_redirect_forces_http_scheme(monkeypatch) -> None:
     from setta.routers import bootstrap as bootstrap_module
 
     monkeypatch.setattr(bootstrap_module, "IS_DEV_MODE", "1")

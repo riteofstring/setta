@@ -3,7 +3,6 @@ import {
   SCOPE_VIOLATION_TIMEOUT_MS,
 } from "state/actions/aiFollow";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { getFrontendWebsocketAffinityId } from "state/actions/frontendWebsocketAffinity";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -1232,7 +1231,6 @@ export async function submitMessage(
 
   try {
     const projectConfigId = getCurrProjectConfigId();
-    const frontendWebsocketId = getFrontendWebsocketAffinityId();
     const appGenerationMode = appGeneration?.mode ?? null;
     const appSpecStreamingEnabledForSubmit =
       appGenerationMode === null
@@ -1251,7 +1249,6 @@ export async function submitMessage(
         appGeneration?.referenceImageNotes ?? null,
       projectConfigId,
       sectionId: options.sectionId ?? null,
-      frontendWebsocketId,
       allowUnscoped: options.sectionId == null,
       permissionMode: resolvedExecutionSettings.permissionMode,
       searchEnabled: resolvedExecutionSettings.searchEnabled,
@@ -1370,7 +1367,6 @@ export async function submitEditedMessage({
   }
 
   try {
-    const frontendWebsocketId = getFrontendWebsocketAffinityId();
     const res = await route_get_llm_response({
       message: editedMessage,
       thinking,
@@ -1379,7 +1375,6 @@ export async function submitEditedMessage({
       agentProfileId: agentProfileId ?? null,
       projectConfigId,
       sectionId: sectionId ?? null,
-      frontendWebsocketId,
       allowUnscoped: sectionId == null,
       branchParentChatId: parentChatId,
       branchFromMessageId: messageId,

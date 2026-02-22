@@ -3,7 +3,6 @@ from typing import Any
 
 from mcp.server.fastmcp.server import Context
 
-from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.tool_setup import setta_init_tool
 from setta.utils.paths import ensure_within_workspace_root, get_setta_paths
 
@@ -22,14 +21,12 @@ def read_file_range(
     if not file_path.exists():
         raise FileNotFoundError(f"File not found: {file_path}")
     if not file_path.is_file():
-        raise InvalidToolArgumentsError(f"Path is not a file: {file_path}")
+        raise ValueError(f"Path is not a file: {file_path}")
 
     resolved_start = _normalize_start_line(start_line)
     resolved_end = _normalize_end_line(end_line)
     if resolved_end is not None and resolved_end < resolved_start:
-        raise InvalidToolArgumentsError(
-            "end_line must be greater than or equal to start_line"
-        )
+        raise ValueError("end_line must be greater than or equal to start_line")
 
     snippet_lines: list[str] = []
     realized_end_line = resolved_start - 1
@@ -37,9 +34,7 @@ def read_file_range(
     try:
         handle = file_path.open("r", encoding="utf-8")
     except UnicodeDecodeError as exc:
-        raise InvalidToolArgumentsError(
-            f"File is not UTF-8 encoded: {file_path}"
-        ) from exc
+        raise ValueError(f"File is not UTF-8 encoded: {file_path}") from exc
 
     with handle:
         for line_number, raw_line in enumerate(handle, start=1):
@@ -68,7 +63,7 @@ def _normalize_start_line(start_line: int | None) -> int:
     if start_line is None:
         return 1
     if start_line < 1:
-        raise InvalidToolArgumentsError("start_line must be at least 1")
+        raise ValueError("start_line must be at least 1")
     return start_line
 
 
@@ -76,7 +71,7 @@ def _normalize_end_line(end_line: int | None) -> int | None:
     if end_line is None:
         return None
     if end_line < 1:
-        raise InvalidToolArgumentsError("end_line must be at least 1")
+        raise ValueError("end_line must be at least 1")
     return end_line
 
 
