@@ -89,23 +89,16 @@ def load_codex_mcp_server_payloads_from_config() -> dict[str, dict[str, Any]]:
 def parse_codex_mcp_servers(raw_servers: dict[str, Any]) -> dict[str, MCPServerConfig]:
     parsed: dict[str, MCPServerConfig] = {}
     for raw_server_id, raw_entry in raw_servers.items():
-        if not isinstance(raw_server_id, str):
-            continue
-        server_id = raw_server_id.strip()
-        if not server_id or server_id == SETTA_MCP_SERVER_ID or "__" in server_id:
-            continue
+        server_label = _format_server_label(raw_server_id)
         try:
-            server_config = _parse_codex_mcp_server_entry(
-                raw_entry, server_id=server_id
-            )
+            server_id = _validate_codex_server_id(raw_server_id)
+            server_config = _parse_codex_mcp_server_entry(raw_entry, server_id=server_id)
         except ValueError as exc:
             logger.warning(
                 "Skipping Codex MCP server '%s': %s",
-                server_id,
+                server_label,
                 exc,
             )
-            continue
-        if server_config is None:
             continue
         parsed[server_id] = server_config
     return parsed
@@ -115,9 +108,9 @@ def _parse_codex_mcp_server_entry(
     raw_entry: Any,
     *,
     server_id: str,
-) -> MCPServerConfig | None:
+) -> MCPServerConfig:
     if not isinstance(raw_entry, dict):
-        return None
+        raise ValueError(f"server '{server_id}' entry must be an object")
     unknown_fields = sorted(set(raw_entry.keys()) - _SUPPORTED_FIELDS)
     if unknown_fields:
         raise ValueError(
@@ -148,7 +141,9 @@ def _parse_codex_mcp_server_entry(
         elif url:
             resolved_transport = "streamable_http"
         else:
-            return None
+            raise ValueError(
+                f"server '{server_id}' must declare either command or url"
+            )
 
     if resolved_transport == "stdio":
         if url is not None:
@@ -259,6 +254,25 @@ def _normalize_nonempty_string(value: Any) -> str | None:
     if not normalized:
         return None
     return normalized
+
+
+def _validate_codex_server_id(raw_server_id: Any) -> str:
+    if not isinstance(raw_server_id, str):
+        raise ValueError("server id must be a string")
+    server_id = raw_server_id.strip()
+    if not server_id:
+        raise ValueError("server id is empty")
+    if server_id == SETTA_MCP_SERVER_ID:
+        raise ValueError("server id is reserved for setta")
+    if "__" in server_id:
+        raise ValueError("server id cannot contain '__'")
+    return server_id
+
+
+def _format_server_label(raw_server_id: Any) -> str:
+    if isinstance(raw_server_id, str):
+        return raw_server_id
+    return repr(raw_server_id)
 
 
 def _serialize_mcp_server_config_for_codex(

@@ -55,6 +55,12 @@ class UnsupportedTranscriptionModelError(TranscriptionSessionError):
         )
 
 
+class TranscriptionSessionNotFoundError(KeyError):
+    def __init__(self, session_id: ID) -> None:
+        self.session_id = session_id
+        super().__init__(f"Transcription session {session_id} not found")
+
+
 class BaseTranscriptionEngine:
     async def append_audio(
         self,
@@ -509,9 +515,9 @@ class TranscriptionSessionManager:
         async with self._lock:
             session = self._sessions.get(session_id)
             if session is None:
-                raise KeyError(f"Transcription session {session_id} not found")
+                raise TranscriptionSessionNotFoundError(session_id)
             if session.scope_id != scope_id:
-                raise KeyError(f"Transcription session {session_id} not found")
+                raise TranscriptionSessionNotFoundError(session_id)
             session.last_activity_monotonic = now
             session.in_flight_operations += 1
             return session
@@ -545,9 +551,9 @@ class TranscriptionSessionManager:
         async with self._lock:
             session = self._sessions.get(session_id)
             if session is None:
-                raise KeyError(f"Transcription session {session_id} not found")
+                raise TranscriptionSessionNotFoundError(session_id)
             if session.scope_id != scope_id:
-                raise KeyError(f"Transcription session {session_id} not found")
+                raise TranscriptionSessionNotFoundError(session_id)
             return self._sessions.pop(session_id)
 
     async def _close_expired_sessions(self, now: float) -> None:

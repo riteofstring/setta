@@ -15,10 +15,7 @@ import {
   type ManagedChatExecutionSettings,
 } from "components/Chat/chatComposerControls";
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
-import {
-  estimateChatHistoryTokens,
-  resolveEstimatedContextWindowTokens,
-} from "components/Chat/contextWindow";
+import { resolveAuthoritativeContextTelemetry } from "components/Chat/contextTelemetry";
 import { resolveProviderDictationAvailability } from "components/Chat/dictationMode";
 import {
   getChatPlaceholderText,
@@ -254,29 +251,6 @@ function resolveManagedChatRunType(
   return null;
 }
 
-function resolveExternalAgentModelForContext(
-  defaultModel: string | null | undefined,
-  toolType: string | null | undefined,
-  settingsManagedBlock:
-    | {
-        codex: { model: string | null } | null;
-        opencode: { model: string | null } | null;
-      }
-    | null
-    | undefined,
-): string | null {
-  if (toolType === "codex" && settingsManagedBlock?.codex?.model?.trim()) {
-    return settingsManagedBlock.codex.model.trim();
-  }
-  if (
-    toolType === "opencode" &&
-    settingsManagedBlock?.opencode?.model?.trim()
-  ) {
-    return settingsManagedBlock.opencode.model.trim();
-  }
-  return defaultModel?.trim() ?? null;
-}
-
 export function ChatArea({ sectionId }: { sectionId: string }) {
   const {
     managed,
@@ -393,7 +367,12 @@ function ScriptableChatArea({
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = getCurrProjectConfigId();
   const [draftInputText, setDraftInputText] = useState<string | null>(null);
-  const contextWindowTokens = resolveEstimatedContextWindowTokens(null);
+  const {
+    contextWindowTokens,
+    contextUsedTokens,
+    contextUsageIsEstimated,
+    contextUsageUnavailable,
+  } = resolveAuthoritativeContextTelemetry(null);
 
   const handleInputChange = useCallback(
     (value: string) => {
@@ -517,11 +496,6 @@ function ScriptableChatArea({
   const effectiveMessages = effectiveState.messages ?? [];
   const effectiveBranches = effectiveState.branches ?? {};
   const effectiveBranchId = effectiveState.activeBranchId ?? null;
-  const contextUsedTokens = useMemo(
-    () => estimateChatHistoryTokens(effectiveMessages),
-    [effectiveMessages],
-  );
-  const contextUsageIsEstimated = true;
 
   useEffect(() => {
     if (!branchState.didInitialize) {
@@ -964,6 +938,7 @@ function ScriptableChatArea({
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
+          contextUsageUnavailable={contextUsageUnavailable}
           onProviderDictationTranscribe={
             providerDictationAvailable
               ? handleProviderDictationTranscribe
@@ -1206,7 +1181,6 @@ function ManagedChatArea({
     toolCallArguments,
     waitingForResponse,
     contextUsage,
-    llmConfig,
   } = useAIStore((state) => {
     if (chatId === null) {
       return state.pendingChatDetails ?? getDefaultChatDetails();
@@ -1360,66 +1334,15 @@ function ManagedChatArea({
       ) ?? null
     );
   }, [externalAgentConfigs, selectedEngineConfig]);
-  const backendContextWindowTokens = useMemo(() => {
-    const backendWindow = contextUsage?.contextWindowTokens;
-    if (typeof backendWindow === "number" && Number.isFinite(backendWindow)) {
-      return Math.max(0, Math.floor(backendWindow));
-    }
-    return null;
-  }, [contextUsage?.contextWindowTokens]);
-  const backendContextUsedTokens = useMemo(() => {
-    const backendUsed = contextUsage?.contextUsedTokens;
-    if (typeof backendUsed === "number" && Number.isFinite(backendUsed)) {
-      return Math.max(0, Math.floor(backendUsed));
-    }
-    return null;
-  }, [contextUsage?.contextUsedTokens]);
-  const fallbackContextModel = useMemo(() => {
-    if (engineType === EngineTypeEnum.setta_llm) {
-      return selectedLLMConfig?.model ?? null;
-    }
-    if (engineType === EngineTypeEnum.external_agent) {
-      return resolveExternalAgentModelForContext(
-        externalAgentConfig?.defaultModel,
-        externalAgentConfig?.toolType,
-        externalAgentConfig?.settingsManagedBlock,
-      );
-    }
-    return null;
-  }, [
-    engineType,
-    externalAgentConfig?.defaultModel,
-    externalAgentConfig?.settingsManagedBlock,
-    externalAgentConfig?.toolType,
-    selectedLLMConfig?.model,
-  ]);
-  const resolvedContextModel = useMemo(() => {
-    const llmModel = llmConfig?.model?.trim();
-    if (llmModel) {
-      return llmModel;
-    }
-    const fallbackModel = fallbackContextModel?.trim();
-    if (fallbackModel) {
-      return fallbackModel;
-    }
-    return null;
-  }, [fallbackContextModel, llmConfig?.model]);
-  const estimatedContextWindowTokens = useMemo(
-    () => resolveEstimatedContextWindowTokens(resolvedContextModel),
-    [resolvedContextModel],
+  const {
+    contextWindowTokens,
+    contextUsedTokens,
+    contextUsageIsEstimated,
+    contextUsageUnavailable,
+  } = useMemo(
+    () => resolveAuthoritativeContextTelemetry(contextUsage),
+    [contextUsage],
   );
-  const estimatedContextUsedTokens = useMemo(
-    () => estimateChatHistoryTokens(messages),
-    [messages],
-  );
-  const contextWindowTokens =
-    backendContextWindowTokens ?? estimatedContextWindowTokens;
-  const contextUsedTokens =
-    backendContextUsedTokens ?? estimatedContextUsedTokens;
-  const contextUsageIsEstimated =
-    Boolean(contextUsage?.estimated) ||
-    backendContextWindowTokens === null ||
-    backendContextUsedTokens === null;
   const showPlanModeBadge = shouldShowPlanModeBadge({
     engineType,
     externalAgentToolType: externalAgentConfig?.toolType ?? null,
@@ -1931,6 +1854,7 @@ function ManagedChatArea({
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
+          contextUsageUnavailable={contextUsageUnavailable}
           onProviderDictationTranscribe={
             isExternalEngine || !providerDictationAvailable
               ? undefined

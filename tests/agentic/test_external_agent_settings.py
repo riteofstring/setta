@@ -8,6 +8,7 @@ import pytest
 from setta.agentic.external_agent_settings import (
     build_codex_settings_file,
     build_opencode_settings_file,
+    resolve_codex_settings_path,
     write_claude_settings_file,
 )
 from setta.database.db_objs import DBE
@@ -348,6 +349,135 @@ args = ["mcp"]
             assert (
                 output_mcp_servers.get("setta", {}).get("url")
                 == "http://localhost:8000/mcp"
+            )
+
+    def test_build_codex_settings_file_runtime_output_persists_bootstrap_to_canonical_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            codex_home = Path(tmpdir) / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.figma-desktop]
+command = "figma"
+args = ["mcp"]
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            config = ExternalAgentConfig(
+                id="codex-runtime-bootstrap",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            canonical_path = resolve_codex_settings_path(dbe, config)
+            if canonical_path is None:
+                raise AssertionError("Expected canonical Codex config path")
+            runtime_output_dir = canonical_path.parent / "sessions" / "chat-1"
+
+            output_dir = build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp/streamable/",
+                auth_headers=None,
+                agentic_headers={"x-setta-chat-id": "chat-1"},
+                system_prompt=None,
+                output_dir=runtime_output_dir,
+            )
+
+            assert output_dir == runtime_output_dir
+            assert canonical_path.exists()
+            canonical_payload = tomllib.loads(canonical_path.read_text(encoding="utf-8"))
+            marker = canonical_payload.get("codexMcpImportedAt")
+            assert isinstance(marker, str)
+            canonical_servers = canonical_payload.get("mcp_servers")
+            assert isinstance(canonical_servers, dict)
+            if not isinstance(canonical_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert "figma-desktop" in canonical_servers
+            runtime_payload = tomllib.loads(
+                (output_dir / "config.toml").read_text(encoding="utf-8")
+            )
+            runtime_servers = runtime_payload.get("mcp_servers")
+            assert isinstance(runtime_servers, dict)
+            if isinstance(runtime_servers, dict):
+                assert runtime_servers.get("setta", {}).get("url") == (
+                    "http://localhost:8000/mcp/streamable/"
+                )
+
+    def test_build_codex_settings_file_runtime_output_keeps_user_removed_servers_removed(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            codex_home = Path(tmpdir) / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers.figma-desktop]
+command = "figma"
+args = ["mcp"]
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            config = ExternalAgentConfig(
+                id="codex-runtime-removed-server",
+                name="Codex",
+                toolType=ExternalAgentToolType.codex,
+                runMode=ExternalAgentRunMode.app_server,
+            )
+            canonical_path = resolve_codex_settings_path(dbe, config)
+            if canonical_path is None:
+                raise AssertionError("Expected canonical Codex config path")
+            runtime_output_dir_1 = canonical_path.parent / "sessions" / "chat-1"
+            runtime_output_dir_2 = canonical_path.parent / "sessions" / "chat-2"
+
+            build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp/streamable/",
+                auth_headers=None,
+                agentic_headers={"x-setta-chat-id": "chat-1"},
+                system_prompt=None,
+                output_dir=runtime_output_dir_1,
+            )
+            canonical_payload = tomllib.loads(canonical_path.read_text(encoding="utf-8"))
+            marker = canonical_payload.get("codexMcpImportedAt")
+            assert isinstance(marker, str)
+            canonical_path.write_text(
+                f'codexMcpImportedAt = "{marker}"\n',
+                encoding="utf-8",
+            )
+
+            build_codex_settings_file(
+                dbe,
+                config,
+                allowlist=None,
+                mcp_url="http://localhost:8000/mcp/streamable/",
+                auth_headers=None,
+                agentic_headers={"x-setta-chat-id": "chat-2"},
+                system_prompt=None,
+                output_dir=runtime_output_dir_2,
+            )
+
+            second_runtime_payload = tomllib.loads(
+                (runtime_output_dir_2 / "config.toml").read_text(encoding="utf-8")
+            )
+            runtime_servers = second_runtime_payload.get("mcp_servers")
+            assert isinstance(runtime_servers, dict)
+            if not isinstance(runtime_servers, dict):
+                raise AssertionError("Expected mcp_servers table")
+            assert "figma-desktop" not in runtime_servers
+            assert runtime_servers.get("setta", {}).get("url") == (
+                "http://localhost:8000/mcp/streamable/"
             )
 
     def test_build_codex_settings_file_does_not_override_existing_non_setta_servers(

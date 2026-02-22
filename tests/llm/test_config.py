@@ -609,6 +609,72 @@ args = ["server.js"]
                 for message in warning_messages
             )
 
+    def test_load_llm_config_reports_invalid_codex_server_ids_and_non_object_entries(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            dbe = DBE(root / "setta_files")
+            codex_home = root / "codex-home"
+            codex_home.mkdir(parents=True, exist_ok=True)
+            (codex_home / "config.toml").write_text(
+                """
+[mcp_servers]
+invalid-shape = "not-an-object"
+
+[mcp_servers.valid-http]
+transport = "streamable_http"
+url = "http://127.0.0.1:3845/mcp"
+
+[mcp_servers.bad__id]
+command = "node"
+args = ["server.js"]
+""".strip()
+                + "\n",
+                encoding="utf-8",
+            )
+            monkeypatch.setenv("CODEX_HOME", str(codex_home))
+            warning_messages: list[str] = []
+
+            def _capture_warning(
+                message: str, *args: object, **_kwargs: object
+            ) -> None:
+                if args:
+                    warning_messages.append(message % args)
+                    return
+                warning_messages.append(message)
+
+            monkeypatch.setattr(codex_config_module.logger, "warning", _capture_warning)
+
+            save_llm_config(
+                AllLLMConfigs(
+                    mcpServers={
+                        SETTA_MCP_SERVER_ID: MCPServerConfig(
+                            transport="sse",
+                            url="http://127.0.0.1:8000/mcp",
+                        )
+                    }
+                ),
+                dbe,
+            )
+
+            loaded = load_llm_config(dbe)
+
+            assert "valid-http" in loaded.mcpServers
+            assert "bad__id" not in loaded.mcpServers
+            assert "invalid-shape" not in loaded.mcpServers
+            assert any(
+                "Skipping Codex MCP server 'bad__id': server id cannot contain '__'"
+                in message
+                for message in warning_messages
+            )
+            assert any(
+                "Skipping Codex MCP server 'invalid-shape': server 'invalid-shape' entry must be an object"
+                in message
+                for message in warning_messages
+            )
+
 
 class TestLLMConfigExampleSeeding:
     def test_seed_llm_config_example_file_writes_default_payload(self) -> None:

@@ -15,6 +15,10 @@ import {
 } from "components/Chat/ChatInput";
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import {
+  resolveAuthoritativeContextTelemetry,
+  type ChatContextTelemetry,
+} from "components/Chat/contextTelemetry";
+import {
   Dispatch,
   SetStateAction,
   memo,
@@ -168,38 +172,12 @@ type ProjectChatContextUsage = ReturnType<
   typeof getDefaultChatDetails
 >["contextUsage"];
 
-type ProjectChatContextTelemetry = {
-  contextWindowTokens: number | null;
-  contextUsedTokens: number | null;
-  contextUsageIsEstimated: boolean;
-  contextUsageUnavailable: boolean;
-};
-
-function normalizeContextTokenCount(
-  value: number | null | undefined,
-): number | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return null;
-  }
-  return Math.max(0, Math.floor(value));
-}
+type ProjectChatContextTelemetry = ChatContextTelemetry;
 
 export function resolveProjectChatContextTelemetry(
   contextUsage: ProjectChatContextUsage,
 ): ProjectChatContextTelemetry {
-  const contextWindowTokens = normalizeContextTokenCount(
-    contextUsage?.contextWindowTokens,
-  );
-  const contextUsedTokens = normalizeContextTokenCount(
-    contextUsage?.contextUsedTokens,
-  );
-  return {
-    contextWindowTokens,
-    contextUsedTokens,
-    contextUsageIsEstimated: Boolean(contextUsage?.estimated),
-    contextUsageUnavailable:
-      contextWindowTokens === null || contextUsedTokens === null,
-  };
+  return resolveAuthoritativeContextTelemetry(contextUsage);
 }
 
 export function resolveWorkspaceRootPollDelayMs(

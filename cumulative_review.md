@@ -120,3 +120,38 @@
 - Backend targeted pytest set: 9 passed.
 - Playwright targeted checks (`project-ai-chat-hydration-provenance.spec.ts`, `project-ai-chat-restore.spec.ts`): 4 passed.
 - CDP visual verification: `Restore Delete` visible in Project AI chat threads panel and no `Cmd/Ctrl+Z` recovery text present.
+
+## 2026-02-25 21:46:46 PST
+
+### Consolidated Findings
+- Managed and scriptable section chat context badges still fell back to frontend token/window estimates when backend telemetry was missing/partial.
+- Stop outcome for managed chat could derive `stoppedMessageId` from merged history and re-mark historical assistant messages.
+- Provider dictation pipeline uploaded one-shot PCM and forwarded source sample rates directly, violating realtime 24kHz/chunk transport contracts.
+- Transcription router error-code mapping still depended on `KeyError` message text.
+- Codex MCP parsing silently dropped invalid IDs/non-object entries without diagnostics.
+- Runtime Codex settings bootstrap stored import migration marker only in session output instead of canonical config.
+
+### Implemented Fixes (No Backward Compatibility Layer)
+- Added shared authoritative context telemetry resolver and removed section-chat estimate fallbacks; missing/partial backend telemetry now renders explicit unavailable state.
+- Made stop message resolution run-scoped to assistant messages produced by active run outputs only; frontend stop reconciliation now ignores backend IDs when no local stop-eligible assistant exists.
+- Reworked provider dictation flow to transport-aware chunked append with realtime resampling to 24kHz mono PCM16 and payload-bounded chunk sizing.
+- Introduced typed transcription missing-resource exceptions and routed error codes by exception type (`profile_not_found`, `session_not_found`) with no message parsing.
+- Hardened Codex MCP parser to explicitly reject/log invalid IDs and non-object entries; removed silent-drop paths.
+- Persisted Codex bootstrap migration state to canonical config before writing runtime session overlays, and fail fast if canonical persistence cannot complete.
+
+### UX/DX Before -> After
+- Context badge trust: estimated-looking numbers shown without backend telemetry -> explicit authoritative values or `CONTEXT UNAVAILABLE`.
+- Stop labeling: immediate stop could mark old replies interrupted -> interruption labels stay bound to active run messages only.
+- Provider dictation reliability: realtime mode could fail from sample-rate mismatch; long recordings hit one-shot payload limits -> deterministic realtime/file transport behavior with chunked uploads.
+- Error-code stability: copy edits could change API error classification -> stable type-driven contract.
+- MCP import diagnosability: invalid servers vanished silently -> explicit warning reasons per rejected server.
+- Codex bootstrap durability: removed imported servers could reappear on later runtime sessions -> canonical migration marker preserves user intent across sessions.
+
+### Verification
+- Backend targeted pytest set (`tests/routers/test_ai_agent_run_chats.py -k "stop_llm_chat or transcription"`): 15 passed.
+- Backend targeted pytest set (`tests/agentic/test_external_agent_settings.py -k "codex"`): 10 passed.
+- Backend targeted pytest set (`tests/agentic/test_external_agent_runner.py -k "codex_home_config_is_written or codex_runtime_home_respects_canonical_bootstrap_marker"`): 2 passed.
+- Backend targeted pytest set (`tests/llm/test_config.py -k "codex"`): 6 passed.
+- Frontend targeted Vitest set: 53 passed.
+- Playwright targeted checks (`chat-composer-controls.spec.ts`, context badge scenarios): 3 passed.
+- CDP visual verification: project chat composer renders `CONTEXT UNAVAILABLE` for missing telemetry.

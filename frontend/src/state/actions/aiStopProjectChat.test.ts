@@ -194,6 +194,44 @@ describe("stopProjectChatResponse", () => {
     ).toBeUndefined();
   });
 
+  it("ignores backend stoppedMessageId when no local stop-eligible message exists", async () => {
+    const chatId = "chat-stop-no-local-eligible";
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          messages: [
+            createAssistantChatMessage({
+              id: "assistant-prior",
+              content: [
+                createMessageTextContent({
+                  text: "Earlier completed response",
+                }),
+              ],
+            }),
+          ],
+          waitingForResponse: true,
+        },
+      },
+    });
+    mockedRouteStopLlmChat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        alreadyStopped: false,
+        stoppedRunId: "run-1",
+        stoppedMessageId: "assistant-backend",
+      },
+    });
+
+    const stopped = await stopProjectChatResponse(chatId, false);
+
+    expect(stopped).toBe(true);
+    expect(
+      useAIStore.getState().interruptedAssistantMessageIdsByChatId[chatId],
+    ).toBeUndefined();
+  });
+
   it("restores optimistic interruption markers when stop reports already stopped", async () => {
     const chatId = "chat-stop-already-stopped";
     useAIStore.setState({

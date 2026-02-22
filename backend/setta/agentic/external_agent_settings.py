@@ -142,7 +142,15 @@ def build_codex_settings_file(
     payload: dict[str, Any] = {}
     if base_path is not None and base_path.exists():
         payload = _load_toml(base_path)
-    _bootstrap_codex_mcp_servers_from_user_config(payload, config)
+    bootstrap_applied = _bootstrap_codex_mcp_servers_from_user_config(payload, config)
+    if output_dir is not None and bootstrap_applied:
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            settings_path.write_text(_dump_toml(payload), encoding="utf-8")
+        except OSError as exc:
+            raise RuntimeError(
+                f"Failed to persist Codex bootstrap marker to canonical config: {settings_path}"
+            ) from exc
     _set_codex_mcp_server(payload, mcp_url, auth_headers, agentic_headers)
     if _allow_managed_settings_update(config, base_path):
         _apply_codex_managed_settings(payload, config, allowlist)
@@ -473,12 +481,12 @@ def _set_codex_mcp_server(
 def _bootstrap_codex_mcp_servers_from_user_config(
     payload: dict[str, Any],
     config: ExternalAgentConfig,
-) -> None:
+) -> bool:
     if config.settingsMode == ExternalAgentSettingsMode.explicit_path:
-        return
+        return False
     if _get_codex_mcp_imported_at(payload):
         payload["mcp_servers"] = _resolve_raw_codex_mcp_servers(payload)
-        return
+        return False
     existing_servers = _resolve_raw_codex_mcp_servers(payload)
     if not _has_non_setta_mcp_server(existing_servers):
         imported_servers = load_codex_mcp_server_payloads_from_config()
@@ -490,6 +498,7 @@ def _bootstrap_codex_mcp_servers_from_user_config(
     payload[_CODEX_MCP_IMPORTED_AT_KEY] = (
         datetime.now(UTC).isoformat().replace("+00:00", "Z")
     )
+    return True
 
 
 def _get_codex_mcp_imported_at(payload: dict[str, Any]) -> str | None:

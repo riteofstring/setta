@@ -31,11 +31,13 @@ from setta.agentic.store import (
 )
 from setta.agentic.transcription_profile_resolver import (
     resolve_transcription_profile,
+    TranscriptionProfileNotFoundError,
 )
 from setta.database.utils import create_new_id
 from setta.llm.transcription_sessions import (
     TranscriptionAudioLimitExceededError,
     TranscriptionSessionError,
+    TranscriptionSessionNotFoundError,
 )
 from setta.llm.user_facing_errors import get_user_facing_llm_error_message
 from setta.logging.project_id_route import require_project_context
@@ -400,6 +402,18 @@ def _get_run_input_messages(run: AgentRun | None) -> list[BaseChatMessageUnion]:
     return [BaseChatMessageTypeAdapter.validate_python(raw) for raw in raw_messages]
 
 
+def _get_run_output_messages(run: AgentRun | None) -> list[BaseChatMessageUnion]:
+    if run is None:
+        return []
+    outputs = run.outputs
+    if not outputs:
+        return []
+    raw_messages = outputs.get("messages")
+    if not isinstance(raw_messages, list):
+        return []
+    return [BaseChatMessageTypeAdapter.validate_python(raw) for raw in raw_messages]
+
+
 def _resolve_branch_root_chat_id(
     *,
     parent_run: AgentRun | None,
@@ -703,9 +717,11 @@ class GetAIFollowSnapshotRequest(BaseModel):
 
 
 def _resolve_latest_assistant_message_id_from_run(run: AgentRun) -> ID | None:
-    state = build_chat_state_from_run(run)
-    for message in reversed(state.messages):
+    input_ids = {message.id for message in _get_run_input_messages(run)}
+    for message in reversed(_get_run_output_messages(run)):
         if message.role != "assistant":
+            continue
+        if message.id in input_ids:
             continue
         raw_message_id = getattr(message, "id", None)
         if isinstance(raw_message_id, str) and raw_message_id:
@@ -783,31 +799,6 @@ def _decode_pcm16_payload(audio_pcm16_base64: str) -> bytes:
             error_code=TranscriptionErrorCode.invalid_request,
         )
     return decoded
-
-
-def _raise_transcription_key_error(exc: KeyError) -> None:
-    detail = (
-        exc.args[0]
-        if exc.args and isinstance(exc.args[0], str)
-        else "Transcription session error."
-    )
-    if "Transcription profile" in detail and "not found" in detail:
-        _raise_transcription_http_error(
-            status_code=404,
-            message=detail,
-            error_code=TranscriptionErrorCode.profile_not_found,
-        )
-    if "Transcription session" in detail and "not found" in detail:
-        _raise_transcription_http_error(
-            status_code=404,
-            message=detail,
-            error_code=TranscriptionErrorCode.session_not_found,
-        )
-    _raise_transcription_http_error(
-        status_code=400,
-        message=detail,
-        error_code=TranscriptionErrorCode.invalid_request,
-    )
 
 
 def _resolve_transcription_session_error_code(
@@ -1104,8 +1095,17 @@ async def route_start_transcription_session(
             ctx.state.agent_runner.config,
             x.transcriptionProfileId,
         )
-    except KeyError as exc:
-        _raise_transcription_key_error(exc)
+    except TranscriptionProfileNotFoundError as exc:
+        detail = (
+            exc.args[0]
+            if exc.args and isinstance(exc.args[0], str)
+            else "Transcription profile not found."
+        )
+        _raise_transcription_http_error(
+            status_code=404,
+            message=detail,
+            error_code=TranscriptionErrorCode.profile_not_found,
+        )
     try:
         (
             session_id,
@@ -1182,8 +1182,17 @@ async def route_append_transcription_audio(
             sample_rate_hz=x.sampleRateHz,
             channels=x.channels,
         )
-    except KeyError as exc:
-        _raise_transcription_key_error(exc)
+    except TranscriptionSessionNotFoundError as exc:
+        detail = (
+            exc.args[0]
+            if exc.args and isinstance(exc.args[0], str)
+            else "Transcription session not found."
+        )
+        _raise_transcription_http_error(
+            status_code=404,
+            message=detail,
+            error_code=TranscriptionErrorCode.session_not_found,
+        )
     except TranscriptionAudioLimitExceededError as exc:
         _raise_transcription_http_error(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
@@ -1223,8 +1232,17 @@ async def route_stop_transcription_session(
             scope_id=ctx.session_id,
             session_id=x.sessionId,
         )
-    except KeyError as exc:
-        _raise_transcription_key_error(exc)
+    except TranscriptionSessionNotFoundError as exc:
+        detail = (
+            exc.args[0]
+            if exc.args and isinstance(exc.args[0], str)
+            else "Transcription session not found."
+        )
+        _raise_transcription_http_error(
+            status_code=404,
+            message=detail,
+            error_code=TranscriptionErrorCode.session_not_found,
+        )
     except ValueError as exc:
         _raise_transcription_http_error(
             status_code=400,

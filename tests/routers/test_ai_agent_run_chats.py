@@ -14,6 +14,9 @@ from setta.agentic.context_usage import ResolvedChatContextUsage
 from setta.agentic.chat_view import EXTERNAL_AGENT_RUN_TYPE, LLM_CHAT_RUN_TYPE
 from setta.agentic.external_agent_preflight import ExternalAgentPreflightStatus
 from setta.agentic.external_agent_runner import ExternalAgentRunner
+from setta.agentic.transcription_profile_resolver import (
+    TranscriptionProfileNotFoundError,
+)
 from setta.agentic.store import (
     create_agent_run,
     load_agent_run,
@@ -28,6 +31,7 @@ from setta.llm.transcription_sessions import (
     TranscriptionAudioLimitExceededError,
     TranscriptionSessionError,
     TranscriptionSessionManager,
+    TranscriptionSessionNotFoundError,
 )
 from setta.mcp.client import MultiMCPClient
 from setta.routers.ai import (
@@ -1414,6 +1418,51 @@ class TestAgentRunChatRoutes:
                 error_code="audio_payload_too_large",
             )
 
+    async def test_append_transcription_audio_maps_session_not_found_by_exception_type(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+
+            async def _raise_session_not_found(**_kwargs):
+                exc = TranscriptionSessionNotFoundError(ID("session-1"))
+                exc.args = ("Session lookup failed with custom wording.",)
+                raise exc
+
+            monkeypatch.setattr(
+                state.transcription_session_manager,
+                "append_audio",
+                _raise_session_not_found,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_append_transcription_audio(
+                        AppendTranscriptionAudioRequest(
+                            sessionId=ID("session-1"),
+                            audioPcm16Base64=base64.b64encode(b"\x00\x00").decode(
+                                "ascii"
+                            ),
+                            sampleRateHz=24_000,
+                            channels=1,
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 404
+            _assert_transcription_http_error(
+                exc.value,
+                message="Session lookup failed with custom wording.",
+                error_code="session_not_found",
+            )
+
     async def test_start_transcription_session_auto_falls_back_to_file(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -1571,6 +1620,46 @@ class TestAgentRunChatRoutes:
                 error_code="profile_not_found",
             )
 
+    async def test_start_transcription_session_maps_profile_not_found_by_exception_type(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+
+            def _raise_profile_not_found(*_args, **_kwargs):
+                exc = TranscriptionProfileNotFoundError(ID("missing-profile"))
+                exc.args = ("Profile lookup failed with custom wording.",)
+                raise exc
+
+            monkeypatch.setattr(
+                ai_module,
+                "resolve_transcription_profile",
+                _raise_profile_not_found,
+            )
+
+            with runtime_context(state) as ctx:
+                with pytest.raises(HTTPException) as exc:
+                    await route_start_transcription_session(
+                        StartTranscriptionSessionRequest(
+                            transcriptionProfileId=ID("missing-profile"),
+                        ),
+                        ctx,
+                    )
+
+            assert exc.value.status_code == 404
+            _assert_transcription_http_error(
+                exc.value,
+                message="Profile lookup failed with custom wording.",
+                error_code="profile_not_found",
+            )
+
     async def test_transcription_session_scope_mismatch_does_not_remove_owner_session(
         self,
     ) -> None:
@@ -1602,7 +1691,7 @@ class TestAgentRunChatRoutes:
         assert resolved_transport_mode == "file"
         assert chunk_ms == 0
 
-        with pytest.raises(KeyError):
+        with pytest.raises(TranscriptionSessionNotFoundError):
             await manager.stop_session(scope_id="scope-other", session_id=session_id)
 
         result = await manager.stop_session(
@@ -2411,6 +2500,46 @@ class TestAgentRunChatRoutes:
 
             assert response.alreadyStopped is True
             assert response.stoppedRunId is None
+            assert response.stoppedMessageId is None
+
+    async def test_stop_llm_chat_does_not_mark_historical_assistant_from_inputs(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as tmpdir:
+            dbe = _build_dbe(tmpdir)
+            runner = _build_runner(dbe)
+            state = _TestState(
+                dbe=dbe,
+                agent_runner=runner,
+                wmh_frontend_sender=runner.websocket_msg_handler,
+            )
+            engine_config_id = ID("engine-primary")
+            _seed_engine_config(dbe, engine_config_id, "primary")
+            project_config_id = ID("project-stop-historical")
+            running_chat_id = ID("chat-stop-historical")
+            prior_assistant = AssistantChatMessage(
+                id="assistant-old",
+                content=[MessageTextContent(text="Completed historical reply")],
+            )
+            running_run = _build_run(
+                chat_id=running_chat_id,
+                project_config_id=project_config_id,
+                engine_config_id=engine_config_id,
+                started_at=datetime(2024, 1, 10, tzinfo=timezone.utc),
+                status=AgentRunStatus.running,
+                input_messages=[prior_assistant],
+                output_messages=None,
+            )
+            save_agent_run(dbe, running_run)
+
+            with runtime_context(state) as ctx:
+                response = await route_stop_llm_chat(
+                    StopLLMChatRequest(chatId=running_chat_id),
+                    ctx,
+                )
+
+            assert response.alreadyStopped is False
+            assert response.stoppedRunId == running_run.id
             assert response.stoppedMessageId is None
 
     def test_branch_messages_replace_and_truncate(self) -> None:

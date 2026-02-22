@@ -328,9 +328,11 @@ test.describe.serial("chat composer controls", () => {
         managed: true,
         engineConfigId: managedEngineId,
         agentProfileId: null,
+        transcriptionProfileId: null,
         thinking: false,
         permissionMode: "minimal",
         searchEnabled: true,
+        dictationMode: "auto",
       });
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
@@ -356,7 +358,7 @@ test.describe.serial("chat composer controls", () => {
     }
   });
 
-  test("managed chat section shows estimated context badge when usage payload is missing", async ({
+  test("managed chat section shows context unavailable badge when usage payload is missing", async ({
     page,
   }) => {
     await ensureAppReady(page);
@@ -429,17 +431,117 @@ test.describe.serial("chat composer controls", () => {
         managed: true,
         engineConfigId: managedEngineId,
         agentProfileId: null,
+        transcriptionProfileId: null,
         thinking: false,
         permissionMode: "minimal",
         searchEnabled: true,
+        dictationMode: "auto",
       });
       const section = findSectionByName(page, sectionName);
       await expect(section).toBeVisible();
       await expect(section.locator("textarea").first()).toBeVisible();
       await expect(
+        section.getByLabel(/context unavailable/i),
+      ).toBeVisible();
+      await expect(
         section.getByRole("button", {
           name: /^est\. context(?: left)?/i,
         }),
+      ).toHaveCount(0);
+    } finally {
+      await engineCleanup();
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("managed chat section shows context unavailable badge when usage payload is partial", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
+    await page.route("**/api/getLLMResponse", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify("pw-context-chat-partial-usage"),
+      });
+    });
+    await page.route("**/api/getExternalAgentChat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          toolCallArguments: {},
+          contextUsage: null,
+        }),
+      });
+    });
+    await page.route("**/api/getLLMChat", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          messages: [],
+          waitingForResponse: false,
+          llmConfig: {
+            id: "pw-context-config",
+            model: "gpt-5-codex",
+            provider: "openai",
+            base_url: null,
+            api_key_env: null,
+            other_params: null,
+            mcpServerIds: null,
+            temporary: false,
+          },
+          contextUsage: {
+            contextWindowTokens: 200,
+            contextUsedTokens: null,
+            estimated: false,
+          },
+        }),
+      });
+    });
+
+    try {
+      const { sectionId, sectionName } = await createChatSection(
+        page,
+        projectContext.projectConfigId,
+        "__pw_context_badge_partial_usage__",
+      );
+      const backendOrigin =
+        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const managedEngineId =
+        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
+        null;
+      if (!managedEngineId) {
+        throw new Error("Missing managed LLM engine config.");
+      }
+      await postBackend(page, "/setChatSectionSettings", {
+        projectConfigId: projectContext.projectConfigId,
+        sectionId,
+        managed: true,
+        engineConfigId: managedEngineId,
+        agentProfileId: null,
+        transcriptionProfileId: null,
+        thinking: false,
+        permissionMode: "minimal",
+        searchEnabled: true,
+        dictationMode: "auto",
+      });
+      const section = findSectionByName(page, sectionName);
+      await expect(section).toBeVisible();
+      await expect(section.locator("textarea").first()).toBeVisible();
+      await expect(
+        section.getByLabel(/context unavailable/i),
       ).toBeVisible();
     } finally {
       await engineCleanup();
