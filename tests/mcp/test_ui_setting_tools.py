@@ -70,6 +70,7 @@ class _RecordingFrontendSender:
         self.forced_status_by_setting_id: dict[str, UISettingRevealResultStatus] = {}
         self.reveal_target_websocket_id: str | None = "frontend-test"
         self.connected_frontend_websocket_ids: list[str] = ["frontend-test"]
+        self.undeliverable_target_websocket_ids: set[str] = set()
         self.resolved_target_websocket_ids: list[str] = []
 
     def select_frontend_websocket_for_ui_setting_reveal(
@@ -110,6 +111,11 @@ class _RecordingFrontendSender:
                 )
             )
         if resolved_target_websocket_id is None:
+            return None
+        if (
+            resolved_target_websocket_id
+            in self.undeliverable_target_websocket_ids
+        ):
             return None
         self.resolved_target_websocket_ids.append(resolved_target_websocket_id)
         self.reveal_messages.append((content, share_session_id))
@@ -2104,6 +2110,49 @@ async def test_reveal_ui_setting_fails_when_preferred_frontend_websocket_is_miss
         assert result.statuses[0].error.code == "mutation_failed"
         assert "frontend-missing" in result.statuses[0].error.message
         assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_fails_immediately_when_selected_frontend_becomes_undeliverable() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.reveal_target_websocket_id = "frontend-a"
+        frontend_sender.undeliverable_target_websocket_ids = {"frontend-a"}
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "frontendWebsocketId": "frontend-a",
+            },
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert result.statuses[0].error.code == "mutation_failed"
+        assert "before reveal dispatch" in result.statuses[0].error.message
+        assert "Timed out waiting for frontend reveal confirmation" not in (
+            result.statuses[0].error.message
+        )
+        assert frontend_sender.reveal_messages == []
+        reveal_result_hub = ctx.fastmcp.state.ui_setting_reveal_result_hub
+        assert reveal_result_hub._waiters_by_request_id == {}
 
 
 @pytest.mark.asyncio

@@ -1147,6 +1147,19 @@ class PluginManager:
         read_handler_id: str,
         project_config_id: str,
     ) -> Any:
+        return self._read_backend_ui_setting_value_unlocked(
+            plugin_id=plugin_id,
+            read_handler_id=read_handler_id,
+            project_config_id=project_config_id,
+        )
+
+    def _read_backend_ui_setting_value_unlocked(
+        self,
+        *,
+        plugin_id: str,
+        read_handler_id: str,
+        project_config_id: str,
+    ) -> Any:
         response_payload = self._invoke_backend_ui_setting_handler(
             plugin_id=plugin_id,
             handler_id=read_handler_id,
@@ -1180,6 +1193,48 @@ class PluginManager:
             project_config_id=project_config_id,
             value=value,
         )
+
+    @_mutation_locked
+    def compare_and_write_backend_ui_setting_value(
+        self,
+        *,
+        plugin_id: str,
+        setting_id: str,
+        read_handler_id: str,
+        write_handler_id: str,
+        project_config_id: str,
+        value: Any,
+        expected_old_value: Any | None = None,
+    ) -> tuple[Any, Any]:
+        observed_old_value = self._read_backend_ui_setting_value_unlocked(
+            plugin_id=plugin_id,
+            read_handler_id=read_handler_id,
+            project_config_id=project_config_id,
+        )
+        if (
+            expected_old_value is not None
+            and expected_old_value != observed_old_value
+        ):
+            raise PluginManagerError(
+                "PLUGIN_BACKEND_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
+                (
+                    f"UI setting {setting_id} changed since pre-write validation. "
+                    "Retry with a fresh read before writing."
+                ),
+            )
+        self._invoke_backend_ui_setting_handler(
+            plugin_id=plugin_id,
+            handler_id=write_handler_id,
+            operation="write",
+            project_config_id=project_config_id,
+            value=value,
+        )
+        observed_new_value = self._read_backend_ui_setting_value_unlocked(
+            plugin_id=plugin_id,
+            read_handler_id=read_handler_id,
+            project_config_id=project_config_id,
+        )
+        return observed_old_value, observed_new_value
 
     def _invoke_backend_ui_setting_handler(
         self,

@@ -281,6 +281,53 @@ async def test_share_sender_routes_ui_setting_reveal_to_single_frontend() -> Non
 
 
 @pytest.mark.asyncio
+async def test_share_sender_returns_none_when_reveal_target_disconnects_before_delivery() -> (
+    None
+):
+    websocket_manager = WebsocketManager()
+    sender = WMHFrontendSender(websocket_manager, share_mode=True)
+
+    messages: list[Message] = []
+    websocket = await _build_websocket(messages)
+    websocket_id = await websocket_manager.on_connect(
+        websocket,
+        WebsocketConnectionType.FRONTEND,
+        id="frontend-a",
+        shareSessionId="session-a",
+        broadcast_connections=False,
+    )
+    await websocket.close()
+
+    selected_websocket_id = await sender.broadcast_ui_setting_reveal(
+        UISettingRevealContent(
+            projectConfigId=ID("share-project"),
+            chatId=None,
+            requestId="request-disconnected",
+            durationMs=800,
+            reveals=[
+                UISettingRevealTarget(
+                    settingId="core.watch_code.enabled",
+                    side="left",
+                    overviewTabKey="WatchCode",
+                    uiEditorTabName=None,
+                    pluginId=None,
+                    paneId=None,
+                    strategy="dom_anchor",
+                    anchorId="core.watch_code.enabled",
+                    pluginRevealKey=None,
+                )
+            ],
+        ),
+        share_session_id="session-a",
+        target_websocket_id=websocket_id,
+    )
+
+    assert selected_websocket_id is None
+    assert websocket_id not in websocket_manager.sockets
+    assert _sent_text_messages(messages) == []
+
+
+@pytest.mark.asyncio
 async def test_share_sender_prefers_requested_frontend_websocket_for_reveal() -> None:
     websocket_manager = WebsocketManager()
     sender = WMHFrontendSender(websocket_manager, share_mode=True)

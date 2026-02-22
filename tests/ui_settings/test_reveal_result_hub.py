@@ -76,3 +76,25 @@ async def test_reveal_result_hub_accepts_any_websocket_without_target_binding() 
     result = await hub.wait_for_result(request_id="request-2", timeout_seconds=0.2)
     assert result is not None
     assert result.requestId == "request-2"
+
+
+@pytest.mark.asyncio
+async def test_reveal_result_hub_cancel_request_drops_waiter() -> None:
+    hub = UISettingRevealResultHub()
+    hub.register_request("request-3", expected_websocket_id="frontend-a")
+
+    cancelled = hub.cancel_request("request-3")
+    assert cancelled is True
+    assert hub.cancel_request("request-3") is False
+
+    resolved = hub.resolve(
+        _build_reveal_result_content(
+            request_id="request-3",
+            status="revealed",
+        ),
+        from_websocket_id="frontend-a",
+    )
+    assert resolved is False
+
+    with pytest.raises(KeyError):
+        await hub.wait_for_result(request_id="request-3", timeout_seconds=0.2)

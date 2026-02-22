@@ -163,7 +163,9 @@ test("reveal_ui_setting targets the initiating frontend in multi-tab sessions", 
   await setOverviewTab(page, "Overview");
   await installFrontendIdentityCapture(page);
   const projectContext = await openIsolatedProject(page);
-  const revealHighlightsOne = page.locator(".setta-ui-setting-reveal-highlight");
+  const revealHighlightsOne = page.locator(
+    ".setta-ui-setting-reveal-highlight",
+  );
   const pageOneUrl = page.url();
   const frontendIdOne = await waitForFrontendIdentity(page);
 
@@ -195,9 +197,11 @@ test("reveal_ui_setting targets the initiating frontend in multi-tab sessions", 
       .poll(async () => revealHighlightsOne.count())
       .toBeGreaterThan(0);
     await expect.poll(async () => revealHighlightsTwo.count()).toBe(0);
-    await expect.poll(async () => revealHighlightsOne.count(), {
-      timeout: 5000,
-    }).toBe(0);
+    await expect
+      .poll(async () => revealHighlightsOne.count(), {
+        timeout: 5000,
+      })
+      .toBe(0);
 
     const secondReveal = await callMcpTool<RevealUISettingResult>(
       secondPage,
@@ -218,5 +222,41 @@ test("reveal_ui_setting targets the initiating frontend in multi-tab sessions", 
   } finally {
     await cleanupIsolatedProject(page, projectContext.projectConfigId);
     await secondPage.close();
+  }
+});
+
+test("reveal_ui_setting fails fast when frontend websocket id is unavailable", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const requestedFrontendId = "frontend-missing-e2e";
+    const startedAt = Date.now();
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: WATCH_CODE_ENABLED_SETTING_ID,
+        durationMs: 8000,
+      },
+      requestedFrontendId,
+    );
+    const elapsedMs = Date.now() - startedAt;
+
+    expect(elapsedMs).toBeLessThan(5000);
+    expect(revealResult.emittedRevealCount).toBe(0);
+    expect(revealResult.statuses[0]?.status).toBe("failed");
+    expect(revealResult.statuses[0]?.error?.code).toBe("mutation_failed");
+    expect(revealResult.statuses[0]?.error?.message).toContain(
+      requestedFrontendId,
+    );
+    expect(revealResult.statuses[0]?.error?.message).not.toContain(
+      "Timed out waiting for frontend reveal confirmation",
+    );
+  } finally {
+    await cleanupIsolatedProject(page, projectContext.projectConfigId);
   }
 });

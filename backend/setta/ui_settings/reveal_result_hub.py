@@ -31,6 +31,16 @@ class UISettingRevealResultHub:
             expected_websocket_id=expected_websocket_id,
         )
 
+    def cancel_request(self, request_id: str) -> bool:
+        waiter_record = self._waiters_by_request_id.pop(request_id, None)
+        if waiter_record is None:
+            return False
+        waiter = waiter_record.future
+        if waiter.done():
+            return False
+        waiter.cancel()
+        return True
+
     async def wait_for_result(
         self,
         *,

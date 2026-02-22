@@ -5,6 +5,7 @@ from uuid import uuid4
 from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
+from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.tool_metadata import (
     ToolAccessMetadata,
     attach_tool_access,
@@ -443,7 +444,7 @@ def _build_result_summary(entry: UISettingEntry) -> UISettingResultSummary:
 def _normalize_setting_id(setting_id: str) -> str:
     normalized_setting_id = setting_id.strip()
     if normalized_setting_id == "":
-        raise ValueError("settingId must not be empty.")
+        raise InvalidToolArgumentsError("settingId must not be empty.")
     return normalized_setting_id
 
 
@@ -773,7 +774,7 @@ async def _reveal_settings(
         request_id,
         expected_websocket_id=target_websocket_id,
     )
-    await frontend_sender.broadcast_ui_setting_reveal(
+    delivered_websocket_id = await frontend_sender.broadcast_ui_setting_reveal(
         UISettingRevealContent(
             projectConfigId=project_config_id,
             chatId=_resolve_chat_id(ctx),
@@ -784,6 +785,33 @@ async def _reveal_settings(
         share_session_id=share_session_id,
         target_websocket_id=target_websocket_id,
     )
+    if delivered_websocket_id is None:
+        reveal_result_hub.cancel_request(request_id)
+        dispatch_failure_message = (
+            "Selected frontend websocket became unavailable before reveal dispatch: "
+            f"{target_websocket_id}"
+        )
+        if preferred_frontend_websocket_id is not None:
+            dispatch_failure_message = (
+                "Requested frontend websocket id became unavailable before reveal "
+                f"dispatch: {preferred_frontend_websocket_id}"
+            )
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=0,
+            statuses=[
+                RevealUISettingStatus(
+                    settingId=setting_id,
+                    status="failed",
+                    error=UISettingToolError(
+                        code="mutation_failed",
+                        message=dispatch_failure_message,
+                    ),
+                )
+            ],
+        )
 
     frontend_reveal_result = await reveal_result_hub.wait_for_result(
         request_id=request_id,

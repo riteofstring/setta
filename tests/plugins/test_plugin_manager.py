@@ -9200,6 +9200,108 @@ def test_backend_ui_setting_registration_and_handler_invocation(
     assert updated_value is True
 
 
+def test_backend_ui_setting_compare_and_write_rejects_stale_expected_old_value(
+    tmp_path: Path,
+) -> None:
+    # Compare-and-write must reject stale expected values before mutation.
+    manager = _make_manager(tmp_path)
+    plugin_root = tmp_path / "backend-ui-setting-cas-fixture"
+    backend_root = plugin_root / "backend"
+    backend_root.mkdir(parents=True, exist_ok=True)
+    (plugin_root / "setta.plugin.json").write_text(
+        json.dumps(
+            {
+                "schemaVersion": 1,
+                "id": "setta-fixture-backend-ui-setting-cas",
+                "name": "Backend UI Setting CAS Fixture",
+                "version": "0.1.0",
+                "enabledByDefault": True,
+                "capabilities": ["registerPane"],
+                "backend": {
+                    "entrypoint": "backend/entrypoint.py",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (backend_root / "entrypoint.py").write_text(
+        "_STATE = {'enabled': False}\n\n"
+        "def _read_enabled(*, project_config_id: str):\n"
+        "    return _STATE['enabled']\n\n"
+        "def _write_enabled(*, project_config_id: str, value):\n"
+        "    _STATE['enabled'] = bool(value)\n"
+        "    return {'ok': True}\n\n"
+        "def register(plugin):\n"
+        "    plugin.register_ui_setting(\n"
+        "        {\n"
+        "            'id': 'backend_enabled',\n"
+        "            'title': 'Backend Enabled',\n"
+        "            'description': 'Enable backend behavior.',\n"
+        "            'paneId': 'backend-pane',\n"
+        "            'revealKey': 'backend-pane',\n"
+        "            'synonyms': ['backend enabled'],\n"
+        "            'mutability': 'writable',\n"
+        "            'valueSchema': {'type': 'boolean'},\n"
+        "            'read': _read_enabled,\n"
+        "            'write': _write_enabled,\n"
+        "        }\n"
+        "    )\n",
+        encoding="utf-8",
+    )
+
+    manager.link_plugin(
+        local_plugin_root=str(plugin_root),
+        scope=PluginScope.workspace,
+        enable=True,
+        force=False,
+    )
+    manager.load_backend_plugins(app=FastAPI())
+    registrations = manager.get_backend_ui_settings(
+        plugin_id="setta-fixture-backend-ui-setting-cas"
+    )
+    assert len(registrations) == 1
+    registration = registrations[0]
+    write_handler_id = registration.writeHandlerId
+    assert write_handler_id is not None
+
+    with pytest.raises(PluginManagerError) as stale_write_error:
+        manager.compare_and_write_backend_ui_setting_value(
+            plugin_id="setta-fixture-backend-ui-setting-cas",
+            setting_id="plugin.setta-fixture-backend-ui-setting-cas.backend_enabled",
+            read_handler_id=registration.readHandlerId,
+            write_handler_id=write_handler_id,
+            project_config_id="project-1",
+            value=True,
+            expected_old_value=True,
+        )
+    assert (
+        stale_write_error.value.code
+        == "PLUGIN_BACKEND_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH"
+    )
+    assert "changed since pre-write validation" in stale_write_error.value.message
+
+    unchanged_value = manager.read_backend_ui_setting_value(
+        plugin_id="setta-fixture-backend-ui-setting-cas",
+        read_handler_id=registration.readHandlerId,
+        project_config_id="project-1",
+    )
+    assert unchanged_value is False
+
+    observed_old_value, observed_new_value = (
+        manager.compare_and_write_backend_ui_setting_value(
+            plugin_id="setta-fixture-backend-ui-setting-cas",
+            setting_id="plugin.setta-fixture-backend-ui-setting-cas.backend_enabled",
+            read_handler_id=registration.readHandlerId,
+            write_handler_id=write_handler_id,
+            project_config_id="project-1",
+            value=True,
+            expected_old_value=False,
+        )
+    )
+    assert observed_old_value is False
+    assert observed_new_value is True
+
+
 def test_backend_ui_setting_registration_rejects_invalid_value_schema(
     tmp_path: Path,
 ) -> None:

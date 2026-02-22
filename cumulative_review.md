@@ -287,3 +287,31 @@
 2. UX after: precedence behavior is now asserted with focused matrix and acceptance tests, making regressions fail fast in backend CI.
 3. DX before: context behavior required cross-file reasoning and was easy to change accidentally.
 4. DX after: canonical precedence contracts are encoded in dedicated tests with explicit scenarios.
+
+## 2026-02-25 17:08:49 PST
+
+### Consolidated Findings
+1. Frontend websocket error handling still mixed replacement and transport-failure semantics, allowing `error -> close` reconnect suppression when generation advanced too early.
+2. UI-setting reveal dispatch was not delivery-aware, so disconnected/undeliverable targets could degrade into timeout-class failures instead of immediate transport failures.
+3. Backend plugin UI-setting writes still had a compare/check/write race window because precondition checking and mutation were not atomic under one lock.
+4. `/__setta__/tools/call` still over-classified broad `ValueError` paths as `422 InvalidToolArguments`, obscuring backend invariant/runtime failures.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Split frontend websocket shutdown semantics into replacement-close vs transport-error paths; `error` now closes only the active originating socket without generation pre-bump so active close handlers own reconnect.
+2. Made websocket send operations return delivery status and wired UI-setting reveal dispatch to treat non-delivery as immediate failure.
+3. Added reveal waiter cancellation on dispatch failure and fail-fast reveal result mapping for undeliverable selected websocket targets.
+4. Added atomic `compare_and_write_backend_ui_setting_value` in `PluginManager` and routed backend plugin UI-setting writes through that API.
+5. Added explicit plugin stale-precondition error code mapping to canonical `mutation_failed` UI-setting errors.
+6. Introduced `InvalidToolArgumentsError` and narrowed `422` mapping to explicit argument-contract failures (plus schema validation); plain/unexpected `ValueError` paths now surface as `500`.
+7. Updated MCP tool argument guards to raise the explicit argument-contract exception where applicable.
+8. Added/updated backend pytest coverage, frontend Vitest coverage, and Playwright E2E coverage for reconnect behavior, reveal delivery semantics, atomic backend writes, and tools-call status classification.
+
+### UX/DX Before and After
+1. UX before: transient websocket transport errors could leave the client disconnected with no reconnect attempt.
+2. UX after: transport errors trigger deterministic reconnect flow via the active socket close path.
+3. UX before: reveal requests targeting stale/disconnected frontends often returned slow timeout failures.
+4. UX after: undeliverable reveal targets fail immediately with transport-accurate error context.
+5. UX before: concurrent backend plugin writers could pass stale precondition checks and still mutate.
+6. UX after: stale writes fail atomically before mutation under one lock.
+7. DX before: internal invariant/runtime `ValueError` failures were mislabeled as caller argument errors.
+8. DX after: 4xx/5xx boundaries align with fault domain, improving observability and triage.

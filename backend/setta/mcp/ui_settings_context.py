@@ -4,6 +4,7 @@ from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
 from setta.agentic.agentic_scope import AgenticContext
+from setta.mcp.errors import InvalidToolArgumentsError
 from setta.types.id import ID
 
 
@@ -55,7 +56,7 @@ def resolve_project_config_id_from_ctx(
             project_config_id is not None
             and project_config_id != agentic_context.project_config_id
         ):
-            raise ValueError(
+            raise InvalidToolArgumentsError(
                 (
                     f"projectConfigId argument {project_config_id} does not match "
                     "agentic context projectConfigId "

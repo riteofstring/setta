@@ -1,12 +1,6 @@
 import _ from "lodash";
 import { processAppProjectStateUpdateFromBackend } from "state/actions/appProjectState";
 import { addBackendLogEvent } from "state/actions/backendLogEvents";
-import { processLspDiagnostics } from "state/actions/lspDiagnostics";
-import { processNameValidationErrors } from "state/actions/nameValidation";
-import {
-  addNotificationFromWebsocketMsg,
-  addTemporaryNotification,
-} from "state/actions/notifications";
 import {
   buildFrontendAffinityCurrentAddress,
   clearFrontendWebsocketAffinity,
@@ -14,6 +8,12 @@ import {
   setFrontendWebsocketAffinityId,
   updateFrontendWebsocketAffinity,
 } from "state/actions/frontendWebsocketAffinity";
+import { processLspDiagnostics } from "state/actions/lspDiagnostics";
+import { processNameValidationErrors } from "state/actions/nameValidation";
+import {
+  addNotificationFromWebsocketMsg,
+  addTemporaryNotification,
+} from "state/actions/notifications";
 import {
   addWebsocketConnection,
   clearAllWebsocketConnections,
@@ -168,7 +168,7 @@ export const openWebSocket = _.debounce(
       wss &&
       (currentRoute !== route || currentShareSessionId !== shareSessionId)
     ) {
-      closeWebSocket();
+      closeWebSocketForReplacement();
     }
     if (!wss) {
       const socketGeneration = beginWebsocketGeneration();
@@ -231,7 +231,9 @@ export const openWebSocket = _.debounce(
         receiveMessage(event.data, socketGeneration);
       });
 
-      wss.addEventListener("error", closeWebSocket);
+      wss.addEventListener("error", () => {
+        handleWebSocketTransportError(socket, socketGeneration);
+      });
 
       socket.addEventListener("close", (event: CloseEvent) => {
         if (activeWebsocketGeneration !== socketGeneration) {
@@ -325,7 +327,7 @@ async function attemptAuthRecovery(pathname: string) {
   scheduleAuthRecovery(pathname);
 }
 
-function closeWebSocket() {
+function closeWebSocketForReplacement() {
   const socketGeneration = beginWebsocketGeneration();
   if (wss) {
     wss.close();
@@ -334,6 +336,25 @@ function closeWebSocket() {
   clearFrontendWebsocketAffinity(socketGeneration);
   stopAuthRefresh();
   stopShareHeartbeat();
+}
+
+function handleWebSocketTransportError(
+  socket: WebSocket,
+  socketGeneration: number,
+) {
+  if (activeWebsocketGeneration !== socketGeneration) {
+    return;
+  }
+  if (wss !== socket) {
+    return;
+  }
+  if (
+    socket.readyState === WebSocket.CLOSED ||
+    socket.readyState === WebSocket.CLOSING
+  ) {
+    return;
+  }
+  socket.close();
 }
 
 function wssReady(wss: WebSocket | null): wss is WebSocket {
@@ -480,7 +501,8 @@ function receiveMessage(message: string, socketGeneration: number) {
     );
     return;
   }
-  const m: FrontendWebsocketMsgUnion = parsedMessage as FrontendWebsocketMsgUnion;
+  const m: FrontendWebsocketMsgUnion =
+    parsedMessage as FrontendWebsocketMsgUnion;
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       setWebsocketConnections(m.content);

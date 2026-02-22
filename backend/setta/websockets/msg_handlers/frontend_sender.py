@@ -557,8 +557,10 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             )
         if resolved_target_websocket_id is None:
             return None
-        await self.websocket_manager.send_message(
+        delivered = await self.websocket_manager.send_message(
             WebsocketMsgUISettingReveal(content=content),
             resolved_target_websocket_id,
         )
+        if not delivered:
+            return None
         return resolved_target_websocket_id

@@ -425,6 +425,93 @@ describe("openWebSocket", () => {
     expect(getFrontendWebsocketAffinityId()).toBe("frontend-second");
   });
 
+  it("reconnects once after an active-socket transport error followed by close", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    await socket.emit("error");
+    expect(socket.close).toHaveBeenCalledTimes(1);
+
+    await socket.emit("close", { code: 1006 });
+    const reconnectTimeoutCalls = setTimeoutSpy.mock.calls.filter(
+      (call) => call[1] === 3000,
+    );
+    expect(reconnectTimeoutCalls).toHaveLength(1);
+
+    vi.advanceTimersByTime(3000);
+    expect(MockWebSocket.instances).toHaveLength(2);
+    vi.advanceTimersByTime(1000);
+  });
+
+  it("ignores stale-socket transport errors after socket replacement", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+    const firstSocket = MockWebSocket.instances[0];
+    await firstSocket.emit("open");
+
+    openWebSocket("/project", "share-session-replacement-error");
+    vi.advanceTimersByTime(1000);
+    const secondSocket = MockWebSocket.instances[1];
+
+    expect(firstSocket.close).toHaveBeenCalledTimes(1);
+    expect(secondSocket.close).toHaveBeenCalledTimes(0);
+
+    await firstSocket.emit("error");
+
+    expect(firstSocket.close).toHaveBeenCalledTimes(1);
+    expect(secondSocket.close).toHaveBeenCalledTimes(0);
+  });
+
+  it("does not schedule reconnect from stale close events during socket replacement", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+    const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+    const firstSocket = MockWebSocket.instances[0];
+    await firstSocket.emit("open");
+
+    openWebSocket("/project", "share-session-replacement-close");
+    vi.advanceTimersByTime(1000);
+
+    await firstSocket.emit("close", { code: 1006 });
+    const reconnectTimeoutCalls = setTimeoutSpy.mock.calls.filter(
+      (call) => call[1] === 3000,
+    );
+    expect(reconnectTimeoutCalls).toHaveLength(0);
+  });
+
   it("sends current address updates when pathname changes on an open socket", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(

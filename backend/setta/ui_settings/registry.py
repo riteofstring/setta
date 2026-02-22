@@ -1054,7 +1054,6 @@ def _build_backend_plugin_runtime_entry(
             read_handler_id=registration.readHandlerId,
             write_handler_id=registration.writeHandlerId,
             plugin_manager=plugin_manager,
-            value_schema=value_schema,
         )
     )
     return UISettingRuntimeEntry(
@@ -1215,7 +1214,6 @@ def _build_plugin_backend_write_value(
     read_handler_id: str,
     write_handler_id: str,
     plugin_manager,
-    value_schema: UISettingValueSchema,
 ):
     async def _write_plugin_backend_value(
         ctx: "Context",
@@ -1228,27 +1226,14 @@ def _build_plugin_backend_write_value(
             plugin_id=plugin_id,
         )
         try:
-            old_value = plugin_manager.read_backend_ui_setting_value(
+            old_value, new_value = plugin_manager.compare_and_write_backend_ui_setting_value(
                 plugin_id=plugin_id,
-                read_handler_id=read_handler_id,
-                project_config_id=project_config_id,
-            )
-            _assert_expected_old_value_matches(
                 setting_id=setting_id,
-                expected_old_value=expected_old_value,
-                observed_old_value=old_value,
-            )
-            validate_ui_setting_value(value_schema, old_value)
-            plugin_manager.write_backend_ui_setting_value(
-                plugin_id=plugin_id,
+                read_handler_id=read_handler_id,
                 write_handler_id=write_handler_id,
                 project_config_id=project_config_id,
                 value=value,
-            )
-            new_value = plugin_manager.read_backend_ui_setting_value(
-                plugin_id=plugin_id,
-                read_handler_id=read_handler_id,
-                project_config_id=project_config_id,
+                expected_old_value=expected_old_value,
             )
         except PluginManagerError as exc:
             raise _convert_plugin_manager_error_for_ui_setting(
@@ -1272,6 +1257,11 @@ def _convert_plugin_manager_error_for_ui_setting(
     plugin_id: str,
     operation: str,
 ) -> UISettingValidationError:
+    if exc.code == "PLUGIN_BACKEND_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH":
+        return UISettingValidationError(
+            "mutation_failed",
+            exc.message,
+        )
     if exc.code == "PLUGIN_BACKEND_WORKER_TRANSPORT_ERROR":
         return UISettingValidationError(
             "plugin_unavailable",

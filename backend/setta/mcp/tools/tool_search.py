@@ -1,6 +1,7 @@
 from mcp.server.fastmcp.server import Context
 from pydantic import BaseModel
 
+from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.namespacing import SETTA_MCP_SERVER_ID
 from setta.mcp.tool_metadata import SettaToolType
 from setta.mcp.tool_search_index import (
@@ -59,7 +60,7 @@ def search_mcp_tools(
 
     normalized_query = query.strip()
     if normalized_query == "":
-        raise ValueError("query must not be empty")
+        raise InvalidToolArgumentsError("query must not be empty")
 
     filtered_server_ids = _normalize_server_ids(serverIds)
     if filtered_server_ids and SETTA_MCP_SERVER_ID not in filtered_server_ids:
@@ -94,10 +95,10 @@ def _normalize_server_ids(server_ids: list[str] | None) -> list[str]:
     filtered: list[str] = []
     for server_id in server_ids:
         if not isinstance(server_id, str):
-            raise ValueError("serverIds must be strings.")
+            raise InvalidToolArgumentsError("serverIds must be strings.")
         normalized = server_id.strip()
         if not normalized:
-            raise ValueError("serverIds must be non-empty strings.")
+            raise InvalidToolArgumentsError("serverIds must be non-empty strings.")
         filtered.append(normalized)
     return filtered
 
