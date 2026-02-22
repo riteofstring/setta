@@ -74,5 +74,5 @@ class LLMConfigWatcher:
             self.agent_runner.config
         )
         await self.websocket_msg_handler.broadcast_llm_api_keys_update(
-            self.agent_runner.raw_env_vars
+            self.agent_runner.api_keys
         )
