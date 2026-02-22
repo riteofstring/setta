@@ -400,10 +400,37 @@ async def test_plugin_write_value_validates_old_value_before_write() -> None:
         def get_runtime_response(self):
             return self.runtime_response
 
-        def write_plugin_config(self, *, plugin_id: str, config: dict[str, object]) -> None:
+        def compare_and_write_plugin_config_path_value(
+            self,
+            *,
+            plugin_id: str,
+            setting_id: str,
+            config_path: list[str],
+            default_value: object,
+            value: object,
+            expected_old_value: object | None = None,
+            validate_old_value=None,
+        ) -> tuple[object, object]:
             assert plugin_id == "plugin-a"
+            assert setting_id == "plugin::plugin-a::enabled"
+            assert config_path == ["enabled"]
+            current_config = self.runtime_response.list.plugins[0].config.currentConfig
+            old_value = current_config.get("enabled", default_value)
+            if expected_old_value is not None and expected_old_value != old_value:
+                raise ui_settings_registry.PluginManagerError(
+                    "PLUGIN_SCHEMA_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
+                    (
+                        f"UI setting {setting_id} changed since pre-write validation. "
+                        "Retry with a fresh read before writing."
+                    ),
+                )
+            if validate_old_value is not None:
+                validate_old_value(old_value)
             self.write_invocation_count += 1
-            self.runtime_response.list.plugins[0].config.currentConfig = config
+            next_config = dict(current_config)
+            next_config["enabled"] = value
+            self.runtime_response.list.plugins[0].config.currentConfig = next_config
+            return old_value, next_config.get("enabled", default_value)
 
     plugin_manager = PluginManagerState()
     ctx = SimpleNamespace(
@@ -523,10 +550,42 @@ async def test_plugin_write_value_rejects_non_object_root_without_mutation() -> 
         def get_runtime_response(self):
             return self.runtime_response
 
-        def write_plugin_config(self, *, plugin_id: str, config: dict[str, object]) -> None:
+        def compare_and_write_plugin_config_path_value(
+            self,
+            *,
+            plugin_id: str,
+            setting_id: str,
+            config_path: list[str],
+            default_value: object,
+            value: object,
+            expected_old_value: object | None = None,
+            validate_old_value=None,
+        ) -> tuple[object, object]:
             assert plugin_id == "plugin-a"
+            assert setting_id == "plugin::plugin-a::enabled"
+            assert config_path == ["enabled"]
+            current_config = self.runtime_response.list.plugins[0].config.currentConfig
+            if not isinstance(current_config, dict):
+                raise ui_settings_registry.UISettingValidationError(
+                    "mutation_failed",
+                    f"Plugin {plugin_id} config root must be an object.",
+                )
+            old_value = current_config.get("enabled", default_value)
+            if expected_old_value is not None and expected_old_value != old_value:
+                raise ui_settings_registry.PluginManagerError(
+                    "PLUGIN_SCHEMA_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
+                    (
+                        f"UI setting {setting_id} changed since pre-write validation. "
+                        "Retry with a fresh read before writing."
+                    ),
+                )
+            if validate_old_value is not None:
+                validate_old_value(old_value)
             self.write_invocation_count += 1
-            self.runtime_response.list.plugins[0].config.currentConfig = config
+            next_config = dict(current_config)
+            next_config["enabled"] = value
+            self.runtime_response.list.plugins[0].config.currentConfig = next_config
+            return old_value, next_config.get("enabled", default_value)
 
     plugin_manager = PluginManagerState()
     ctx = SimpleNamespace(
@@ -580,10 +639,73 @@ async def test_plugin_write_value_rejects_non_object_intermediate_path_without_m
         def get_runtime_response(self):
             return self.runtime_response
 
-        def write_plugin_config(self, *, plugin_id: str, config: dict[str, object]) -> None:
+        def compare_and_write_plugin_config_path_value(
+            self,
+            *,
+            plugin_id: str,
+            setting_id: str,
+            config_path: list[str],
+            default_value: object,
+            value: object,
+            expected_old_value: object | None = None,
+            validate_old_value=None,
+        ) -> tuple[object, object]:
             assert plugin_id == "plugin-a"
+            assert setting_id == "plugin::plugin-a::enabled"
+            assert config_path == ["settings", "enabled"]
+            current_config = self.runtime_response.list.plugins[0].config.currentConfig
+            old_value_raw = current_config
+            traversed_segments: list[str] = []
+            for segment in config_path:
+                if not isinstance(old_value_raw, dict):
+                    mismatch_path = (
+                        ".".join(traversed_segments)
+                        if len(traversed_segments) > 0
+                        else "<root>"
+                    )
+                    raise ui_settings_registry.UISettingValidationError(
+                        "mutation_failed",
+                        (
+                            f"Plugin {plugin_id} config path {'.'.join(config_path)} "
+                            f"contains a non-object node at {mismatch_path}."
+                        ),
+                    )
+                if segment not in old_value_raw:
+                    old_value_raw = default_value
+                    break
+                traversed_segments.append(segment)
+                old_value_raw = old_value_raw[segment]
+            old_value = old_value_raw
+            if expected_old_value is not None and expected_old_value != old_value:
+                raise ui_settings_registry.PluginManagerError(
+                    "PLUGIN_SCHEMA_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
+                    (
+                        f"UI setting {setting_id} changed since pre-write validation. "
+                        "Retry with a fresh read before writing."
+                    ),
+                )
+            if validate_old_value is not None:
+                validate_old_value(old_value)
             self.write_invocation_count += 1
-            self.runtime_response.list.plugins[0].config.currentConfig = config
+            next_config = dict(current_config)
+            nested_raw_value = next_config.get("settings")
+            if nested_raw_value is None:
+                nested_value: dict[str, object] = {}
+                next_config["settings"] = nested_value
+            elif not isinstance(nested_raw_value, dict):
+                raise ui_settings_registry.UISettingValidationError(
+                    "mutation_failed",
+                    (
+                        f"Plugin {plugin_id} config path {'.'.join(config_path)} "
+                        "contains a non-object node at settings."
+                    ),
+                )
+            else:
+                nested_value = dict(nested_raw_value)
+                next_config["settings"] = nested_value
+            nested_value["enabled"] = value
+            self.runtime_response.list.plugins[0].config.currentConfig = next_config
+            return old_value, nested_value["enabled"]
 
     plugin_manager = PluginManagerState()
     ctx = SimpleNamespace(
@@ -640,10 +762,44 @@ async def test_plugin_schema_write_drift_errors_reference_canonical_setting_id()
         def get_runtime_response(self):
             return self.runtime_response
 
-        def write_plugin_config(self, *, plugin_id: str, config: dict[str, object]) -> None:
+        def compare_and_write_plugin_config_path_value(
+            self,
+            *,
+            plugin_id: str,
+            setting_id: str,
+            config_path: list[str],
+            default_value: object,
+            value: object,
+            expected_old_value: object | None = None,
+            validate_old_value=None,
+        ) -> tuple[object, object]:
             assert plugin_id == "plugin-a"
+            assert setting_id == "plugin::plugin-a::public_name"
+            assert config_path == ["settings", "enabled"]
+            current_config = self.runtime_response.list.plugins[0].config.currentConfig
+            settings = current_config.get("settings", {})
+            old_value = (
+                settings.get("enabled", default_value)
+                if isinstance(settings, dict)
+                else default_value
+            )
+            if expected_old_value is not None and expected_old_value != old_value:
+                raise ui_settings_registry.PluginManagerError(
+                    "PLUGIN_SCHEMA_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
+                    (
+                        f"UI setting {setting_id} changed since pre-write validation. "
+                        "Retry with a fresh read before writing."
+                    ),
+                )
+            if validate_old_value is not None:
+                validate_old_value(old_value)
             self.write_invocation_count += 1
-            self.runtime_response.list.plugins[0].config.currentConfig = config
+            next_config = dict(current_config)
+            next_settings = dict(settings) if isinstance(settings, dict) else {}
+            next_settings["enabled"] = value
+            next_config["settings"] = next_settings
+            self.runtime_response.list.plugins[0].config.currentConfig = next_config
+            return old_value, next_settings["enabled"]
 
     plugin_manager = PluginManagerState()
     ctx = SimpleNamespace(

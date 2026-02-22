@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 import setta.mcp.tools.ui_settings as ui_settings_tools_module
 from setta.agentic.agentic_scope import AgenticContext
+from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.tools.ui_settings import (
     get_ui_setting_value,
     reveal_ui_setting,
@@ -347,6 +348,31 @@ async def test_ui_setting_tools_core_flow() -> None:
         reveal_content, reveal_share_session_id = frontend_sender.reveal_messages[0]
         assert reveal_share_session_id is None
         assert reveal_content.reveals[0].settingId == "core.watch_code.enabled"
+
+
+@pytest.mark.asyncio
+async def test_search_ui_settings_rejects_blank_query() -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        # Blank search input should be reported as caller-invalid arguments.
+        with pytest.raises(InvalidToolArgumentsError, match="query must not be empty"):
+            search_ui_settings(
+                query="   ",
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
 
 
 @pytest.mark.asyncio
@@ -2156,6 +2182,131 @@ async def test_reveal_ui_setting_fails_immediately_when_selected_frontend_become
 
 
 @pytest.mark.asyncio
+async def test_reveal_right_pane_rolls_back_section_activation_when_dispatch_is_undeliverable() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.reveal_target_websocket_id = "frontend-a"
+        frontend_sender.undeliverable_target_websocket_ids = {"frontend-a"}
+        manager = project_fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        create_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        section_id = create_result.sectionId
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id,
+                activeIds=[],
+            )
+        )
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "frontendWebsocketId": "frontend-a",
+            },
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.project.show_param_display_names",
+            sectionIdToActivate=section_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert "before reveal dispatch" in result.statuses[0].error.message
+        updated_state = manager.get_single_config_state(project_config_id)
+        assert updated_state.projectConfig.activeIds == []
+        assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_reveal_after_set_rolls_back_section_on_undeliverable_dispatch() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.reveal_target_websocket_id = "frontend-a"
+        frontend_sender.undeliverable_target_websocket_ids = {"frontend-a"}
+        manager = project_fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        create_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        section_id = create_result.sectionId
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id,
+                activeIds=[],
+            )
+        )
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta=_RequestMetaModel(
+                projectConfigId=project_config_id,
+                sectionId=section_id,
+                frontendWebsocketId="frontend-a",
+            ),
+        )
+        current_value_result = await get_ui_setting_value(
+            settingId="core.project.show_param_display_names",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert current_value_result.error is None
+        assert isinstance(current_value_result.value, bool)
+
+        set_result = await set_ui_setting_value(
+            settingId="core.project.show_param_display_names",
+            value=not current_value_result.value,
+            revealAfterSet=True,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is None
+        assert set_result.reveal is not None
+        assert set_result.reveal.emittedRevealCount == 0
+        assert set_result.reveal.statuses[0].status == "failed"
+        assert set_result.reveal.statuses[0].error is not None
+        assert "before reveal dispatch" in set_result.reveal.statuses[0].error.message
+        updated_state = manager.get_single_config_state(project_config_id)
+        assert updated_state.projectConfig.activeIds == []
+        assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
 async def test_reveal_ui_setting_fails_fast_when_reveal_result_hub_is_missing() -> None:
     async with (
         real_project_manager() as project_fixture,
@@ -2514,6 +2665,92 @@ async def test_plugin_ui_setting_flow_from_config_schema_metadata(
             target.overviewTabKey == "PluginPane:setta-fixture-full:full-settings-pane"
         )
         assert frontend_sender.reveal_messages
+
+
+@pytest.mark.asyncio
+async def test_plugin_schema_set_rejects_stale_precondition_without_clobbering_newer_value(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, _ = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+
+        original_compare_and_write = (
+            plugin_manager.compare_and_write_plugin_config_path_value
+        )
+
+        def _simulate_concurrent_writer(
+            *,
+            plugin_id: str,
+            setting_id: str,
+            config_path: list[str],
+            default_value: object,
+            value: object,
+            expected_old_value: object | None = None,
+            validate_old_value=None,
+        ) -> tuple[object, object]:
+            plugin_manager.write_plugin_config(
+                plugin_id=plugin_id,
+                config={"enabled": True, "label": "updated-by-other-writer"},
+            )
+            return original_compare_and_write(
+                plugin_id=plugin_id,
+                setting_id=setting_id,
+                config_path=config_path,
+                default_value=default_value,
+                value=value,
+                expected_old_value=expected_old_value,
+                validate_old_value=validate_old_value,
+            )
+
+        monkeypatch.setattr(
+            plugin_manager,
+            "compare_and_write_plugin_config_path_value",
+            _simulate_concurrent_writer,
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        # A stale precondition must fail without overwriting the latest committed config.
+        set_result = await set_ui_setting_value(
+            settingId=plugin_setting_id,
+            value=False,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is not None
+        assert set_result.error.code == "mutation_failed"
+        assert "changed since pre-write validation" in set_result.error.message
+
+        plugin_entry = next(
+            entry
+            for entry in plugin_manager.get_runtime_response().list.plugins
+            if entry.pluginId == plugin_id
+        )
+        assert plugin_entry.config.currentConfig["enabled"] is True
+        assert plugin_entry.config.currentConfig["label"] == "updated-by-other-writer"
 
 
 @pytest.mark.asyncio

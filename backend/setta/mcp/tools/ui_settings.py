@@ -159,6 +159,10 @@ def search_ui_settings(
 ) -> SearchUISettingsResult:
     """Search canonical UI settings by natural-language query."""
 
+    normalized_query = query.strip()
+    if normalized_query == "":
+        raise InvalidToolArgumentsError("query must not be empty")
+
     project_config_id = _resolve_project_config_id(
         ctx=ctx,
         project_config_id=projectConfigId,
@@ -168,7 +172,7 @@ def search_ui_settings(
         project_config_id=project_config_id,
     )
     results = registry.search(
-        query=query,
+        query=normalized_query,
         limit=limit,
         source_filter=sourceFilter,
     )
@@ -747,8 +751,14 @@ async def _reveal_settings(
                 )
             ],
         )
+    previous_active_ids_for_rollback: list[ID] | None = None
     if section_id_pending_activation is not None:
         refreshed_project_state = manager.get_single_config_state(project_config_id)
+        target_active_ids = [section_id_pending_activation]
+        if refreshed_project_state.projectConfig.activeIds != target_active_ids:
+            previous_active_ids_for_rollback = list(
+                refreshed_project_state.projectConfig.activeIds
+            )
         section_error = await _activate_section_for_reveal(
             manager=manager,
             project_config_id=project_config_id,
@@ -787,6 +797,12 @@ async def _reveal_settings(
     )
     if delivered_websocket_id is None:
         reveal_result_hub.cancel_request(request_id)
+        if previous_active_ids_for_rollback is not None:
+            await _set_active_ids_for_reveal(
+                manager=manager,
+                project_config_id=project_config_id,
+                active_ids=previous_active_ids_for_rollback,
+            )
         dispatch_failure_message = (
             "Selected frontend websocket became unavailable before reveal dispatch: "
             f"{target_websocket_id}"
@@ -977,10 +993,24 @@ async def _activate_section_for_reveal(
     if project_state.projectConfig.activeIds == target_active_ids:
         return None
 
+    await _set_active_ids_for_reveal(
+        manager=manager,
+        project_config_id=project_config_id,
+        active_ids=target_active_ids,
+    )
+    return None
+
+
+async def _set_active_ids_for_reveal(
+    *,
+    manager,
+    project_config_id: ID,
+    active_ids: list[ID],
+) -> None:
     await manager.set_active_ids(
         SetActiveIdsRequest(
             projectConfigId=project_config_id,
-            activeIds=target_active_ids,
+            activeIds=active_ids,
         )
     )
     refreshed_project_state = manager.get_single_config_state(project_config_id)
@@ -990,7 +1020,6 @@ async def _activate_section_for_reveal(
         broadcast_name_validation_errors=False,
         validate_name_rules=False,
     )
-    return None
 
 
 def _resolve_right_pane_incompatible_tab_error(

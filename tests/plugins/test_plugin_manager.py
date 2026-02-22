@@ -9302,6 +9302,70 @@ def test_backend_ui_setting_compare_and_write_rejects_stale_expected_old_value(
     assert observed_new_value is True
 
 
+def test_plugin_config_path_compare_and_write_enforces_precondition_and_preserves_keys(
+    tmp_path: Path,
+) -> None:
+    # Schema-backed compare-and-write should reject stale expected values and avoid key loss.
+    manager = _make_manager(tmp_path)
+    _copy_fixture_to_scope(
+        manager=manager,
+        fixture_name="full",
+        scope=PluginScope.workspace,
+    )
+    manager.rescan()
+    manager.write_plugin_config(
+        plugin_id="setta-fixture-full",
+        config={"enabled": False, "label": "unset"},
+    )
+
+    with pytest.raises(PluginManagerError) as stale_write_error:
+        manager.compare_and_write_plugin_config_path_value(
+            plugin_id="setta-fixture-full",
+            setting_id="plugin::setta-fixture-full::enabled",
+            config_path=["enabled"],
+            default_value=False,
+            value=True,
+            expected_old_value=True,
+        )
+    assert (
+        stale_write_error.value.code
+        == "PLUGIN_SCHEMA_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH"
+    )
+    assert "changed since pre-write validation" in stale_write_error.value.message
+
+    first_old_value, first_new_value = manager.compare_and_write_plugin_config_path_value(
+        plugin_id="setta-fixture-full",
+        setting_id="plugin::setta-fixture-full::enabled",
+        config_path=["enabled"],
+        default_value=False,
+        value=True,
+        expected_old_value=False,
+    )
+    assert first_old_value is False
+    assert first_new_value is True
+
+    second_old_value, second_new_value = (
+        manager.compare_and_write_plugin_config_path_value(
+            plugin_id="setta-fixture-full",
+            setting_id="plugin::setta-fixture-full::label",
+            config_path=["label"],
+            default_value="",
+            value="updated",
+            expected_old_value="unset",
+        )
+    )
+    assert second_old_value == "unset"
+    assert second_new_value == "updated"
+
+    plugin_entry = next(
+        plugin
+        for plugin in manager.get_runtime_response().list.plugins
+        if plugin.pluginId == "setta-fixture-full"
+    )
+    assert plugin_entry.config.currentConfig["enabled"] is True
+    assert plugin_entry.config.currentConfig["label"] == "updated"
+
+
 def test_backend_ui_setting_registration_rejects_invalid_value_schema(
     tmp_path: Path,
 ) -> None:

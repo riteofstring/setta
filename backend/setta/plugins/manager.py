@@ -17,6 +17,7 @@ import tomllib
 import zipfile
 from collections import OrderedDict
 from collections.abc import Callable, Iterator
+from copy import deepcopy
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -1233,6 +1234,83 @@ class PluginManager:
             plugin_id=plugin_id,
             read_handler_id=read_handler_id,
             project_config_id=project_config_id,
+        )
+        return observed_old_value, observed_new_value
+
+    @_mutation_locked
+    def compare_and_write_plugin_config_path_value(
+        self,
+        *,
+        plugin_id: str,
+        setting_id: str,
+        config_path: list[str],
+        default_value: Any,
+        value: Any,
+        expected_old_value: Any | None = None,
+        validate_old_value: Callable[[Any], None] | None = None,
+    ) -> tuple[Any, Any]:
+        entry = self._find_highest_precedence_entry(plugin_id)
+        if entry is None:
+            raise PluginManagerError(
+                "PLUGIN_NOT_FOUND",
+                f"Plugin not found: {plugin_id}",
+                status_code=404,
+            )
+        if entry.manifest is None:
+            raise PluginManagerError(
+                "PLUGIN_CONFIG_INVALID",
+                f"Plugin manifest missing for plugin: {plugin_id}",
+            )
+        if len(config_path) == 0:
+            raise PluginManagerError(
+                "PLUGIN_CONFIG_INVALID",
+                f"Plugin config path is required for UI setting {setting_id}.",
+            )
+
+        state_file = self._load_plugins_state()
+        current_config = self._read_plugin_config(
+            plugins_state=state_file,
+            plugin_id=entry.plugin_id,
+            scope=entry.scope,
+        )
+        observed_old_value = self._read_plugin_config_path_value_for_write(
+            config=current_config,
+            config_path=config_path,
+            default_value=default_value,
+            plugin_id=plugin_id,
+        )
+        if (
+            expected_old_value is not None
+            and expected_old_value != observed_old_value
+        ):
+            raise PluginManagerError(
+                "PLUGIN_SCHEMA_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
+                (
+                    f"UI setting {setting_id} changed since pre-write validation. "
+                    "Retry with a fresh read before writing."
+                ),
+            )
+        if validate_old_value is not None:
+            validate_old_value(observed_old_value)
+
+        next_config = self._write_plugin_config_path_value(
+            config=current_config,
+            config_path=config_path,
+            value=value,
+            plugin_id=plugin_id,
+        )
+        self._validate_plugin_config(entry, next_config)
+        state_file.pluginConfigById[
+            self._plugin_config_key(plugin_id=entry.plugin_id, scope=entry.scope)
+        ] = next_config
+        self._save_plugins_state(state_file)
+        self.rescan()
+
+        observed_new_value = self._read_plugin_config_path_value_for_write(
+            config=next_config,
+            config_path=config_path,
+            default_value=default_value,
+            plugin_id=plugin_id,
         )
         return observed_old_value, observed_new_value
 
@@ -7331,6 +7409,65 @@ class PluginManager:
         if not isinstance(config, dict):
             return {}
         return config
+
+    def _read_plugin_config_path_value_for_write(
+        self,
+        *,
+        config: dict[str, Any],
+        config_path: list[str],
+        default_value: Any,
+        plugin_id: str,
+    ) -> Any:
+        current_value: Any = config
+        traversed_segments: list[str] = []
+        for segment in config_path:
+            if not isinstance(current_value, dict):
+                mismatch_path = (
+                    ".".join(traversed_segments)
+                    if len(traversed_segments) > 0
+                    else "<root>"
+                )
+                raise PluginManagerError(
+                    "PLUGIN_CONFIG_INVALID",
+                    (
+                        f"Plugin {plugin_id} config path {'.'.join(config_path)} "
+                        f"contains a non-object node at {mismatch_path}."
+                    ),
+                )
+            if segment not in current_value:
+                return default_value
+            traversed_segments.append(segment)
+            current_value = current_value[segment]
+        return current_value
+
+    def _write_plugin_config_path_value(
+        self,
+        *,
+        config: dict[str, Any],
+        config_path: list[str],
+        value: Any,
+        plugin_id: str,
+    ) -> dict[str, Any]:
+        output = deepcopy(config)
+        current_value: dict[str, Any] = output
+        for segment in config_path[:-1]:
+            if segment not in current_value:
+                nested_value: dict[str, Any] = {}
+                current_value[segment] = nested_value
+                current_value = nested_value
+                continue
+            nested_raw_value = current_value[segment]
+            if not isinstance(nested_raw_value, dict):
+                raise PluginManagerError(
+                    "PLUGIN_CONFIG_INVALID",
+                    (
+                        f"Plugin {plugin_id} config path {'.'.join(config_path)} "
+                        f"contains a non-object node at {segment}."
+                    ),
+                )
+            current_value = nested_raw_value
+        current_value[config_path[-1]] = value
+        return output
 
     def _metadata_key(self, plugin_id: str, scope: PluginScope) -> str:
         return f"{scope.value}:{plugin_id}"

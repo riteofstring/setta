@@ -315,3 +315,30 @@
 6. UX after: stale writes fail atomically before mutation under one lock.
 7. DX before: internal invariant/runtime `ValueError` failures were mislabeled as caller argument errors.
 8. DX after: 4xx/5xx boundaries align with fault domain, improving observability and triage.
+
+## 2026-02-25 17:57:54 PST
+
+### Consolidated Findings
+1. Schema-backed plugin UI-setting writes still checked `expected_old_value` outside the final persisted mutation lock, leaving a stale-write clobber window.
+2. UI-setting right-pane reveal activation could mutate `activeIds` before delivery was confirmed, so dispatch failures were not side-effect free.
+3. Tool argument classification still leaked caller-contract failures as `500` in multiple paths (`search_ui_settings` blank queries, `search_mcp_tools` tokenless queries, and `read_file_range` out-of-root paths).
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Added atomic schema config-path compare-and-write in `PluginManager` under one mutation lock, including precondition check, path mutation, schema validation, persistence, and `(old,new)` return.
+2. Routed schema-backed UI-setting writers through the new manager compare-and-write API and mapped stale precondition failures to canonical UI-setting mutation errors.
+3. Added reveal rollback behavior: snapshot prior `activeIds`, activate only for the reveal attempt, and restore/broadcast prior `activeIds` when dispatch is undeliverable.
+4. Enforced explicit invalid-argument boundaries:
+   - `search_ui_settings` now rejects blank queries with `InvalidToolArgumentsError`.
+   - `search_mcp_tools` maps tokenization `ValueError` to `InvalidToolArgumentsError`.
+   - `read_file_range` maps workspace-boundary `ValueError` to `InvalidToolArgumentsError`.
+5. Added/updated backend unit and integration tests covering atomic schema compare-and-write behavior, stale precondition handling, reveal rollback semantics, and `/__setta__/tools/call` 422 contract responses.
+
+### UX/DX Before and After
+1. UX before: concurrent schema-backed writes could silently overwrite newer values despite precondition intent.
+2. UX after: stale schema-backed writes fail deterministically before mutation.
+3. UX before: failed right-pane reveal dispatch could still change active section focus.
+4. UX after: undeliverable reveal dispatch restores prior section focus, keeping failure paths side-effect free.
+5. UX before: user-fixable input mistakes intermittently surfaced as server failures.
+6. UX after: caller mistakes consistently return actionable `422 InvalidToolArguments`.
+7. DX before: conflict and error telemetry mixed caller errors and server faults, and reveal failures were harder to reason about.
+8. DX after: atomic write invariants and clear 4xx/5xx boundaries improve observability, retries, and triage.

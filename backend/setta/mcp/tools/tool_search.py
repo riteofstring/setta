@@ -76,8 +76,13 @@ def search_mcp_tools(
     if index is None:
         return MCPToolSearchResults(results=[])
 
+    try:
+        search_results = index.search(normalized_query, limit)
+    except ValueError as exc:
+        raise InvalidToolArgumentsError(str(exc)) from exc
+
     ranked_results: list[MCPToolSearchResult] = []
-    for result in index.search(normalized_query, limit):
+    for result in search_results:
         ranked_results.append(
             MCPToolSearchResult(
                 name=result.name,

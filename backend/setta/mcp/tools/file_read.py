@@ -93,7 +93,10 @@ def _resolve_path(path: str, workspace_root: str | Path | None) -> Path:
         resolved = candidate.resolve()
     else:
         resolved = (base / candidate).resolve()
-    return ensure_within_workspace_root(resolved, label="path", workspace_root=base)
+    try:
+        return ensure_within_workspace_root(resolved, label="path", workspace_root=base)
+    except ValueError as exc:
+        raise InvalidToolArgumentsError(str(exc)) from exc
 
 
 def _relative_to_workspace(file_path: Path, workspace_root: Path) -> str:

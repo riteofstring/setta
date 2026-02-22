@@ -1123,50 +1123,31 @@ def _build_plugin_write_value(
         value: JSONValue,
         expected_old_value: JSONValue | None = None,
     ) -> UISettingMutationResult:
-        plugin_entry = _require_active_plugin_runtime_entry(
+        _require_active_plugin_runtime_entry(
             ctx=ctx,
             plugin_id=plugin_id,
         )
-        old_config = _clone_plugin_config_object(
-            plugin_entry.config.currentConfig,
-            plugin_id=plugin_id,
-        )
-        old_value = _read_plugin_config_path_value_for_write(
-            config=old_config,
-            config_path=config_path,
-            default_value=default_value,
-            plugin_id=plugin_id,
-        )
-        _assert_expected_old_value_matches(
-            setting_id=setting_id,
-            expected_old_value=expected_old_value,
-            observed_old_value=old_value,
-        )
-        validate_ui_setting_value(value_schema, old_value)
-        next_config = _write_plugin_config_path_value(
-            config=old_config,
-            config_path=config_path,
-            value=value,
-            plugin_id=plugin_id,
-        )
-        ctx.fastmcp.state.plugin_manager.write_plugin_config(
-            plugin_id=plugin_id,
-            config=next_config,
-        )
-        refreshed_entry = _require_active_plugin_runtime_entry(
-            ctx=ctx,
-            plugin_id=plugin_id,
-        )
-        refreshed_config = _clone_plugin_config_object(
-            refreshed_entry.config.currentConfig,
-            plugin_id=plugin_id,
-        )
-        new_value = _read_plugin_config_path_value_for_write(
-            config=refreshed_config,
-            config_path=config_path,
-            default_value=default_value,
-            plugin_id=plugin_id,
-        )
+        plugin_manager = ctx.fastmcp.state.plugin_manager
+
+        def _validate_old_value(observed_old_value: JSONValue) -> None:
+            validate_ui_setting_value(value_schema, observed_old_value)
+
+        try:
+            old_value, new_value = plugin_manager.compare_and_write_plugin_config_path_value(
+                plugin_id=plugin_id,
+                setting_id=setting_id,
+                config_path=config_path,
+                default_value=default_value,
+                value=value,
+                expected_old_value=expected_old_value,
+                validate_old_value=_validate_old_value,
+            )
+        except PluginManagerError as exc:
+            raise _convert_plugin_manager_error_for_ui_setting(
+                exc,
+                plugin_id=plugin_id,
+                operation="write",
+            ) from exc
         return UISettingMutationResult(
             oldValue=old_value,
             newValue=new_value,
@@ -1257,7 +1238,10 @@ def _convert_plugin_manager_error_for_ui_setting(
     plugin_id: str,
     operation: str,
 ) -> UISettingValidationError:
-    if exc.code == "PLUGIN_BACKEND_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH":
+    if exc.code in {
+        "PLUGIN_BACKEND_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
+        "PLUGIN_SCHEMA_UI_SETTING_EXPECTED_OLD_VALUE_MISMATCH",
+    }:
         return UISettingValidationError(
             "mutation_failed",
             exc.message,

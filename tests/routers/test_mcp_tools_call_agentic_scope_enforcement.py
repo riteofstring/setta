@@ -582,3 +582,109 @@ async def test_tools_call_returns_500_for_internal_tool_value_error(
     payload = response.json()
     assert payload["detail"]["error"] == "ToolError"
     assert "internal tool failure" in payload["detail"]["message"]
+
+
+@pytest.mark.asyncio
+async def test_tools_call_returns_422_for_invalid_tool_arguments(tmp_path) -> None:
+    dbe = DBE(tmp_path)
+    (
+        project_state,
+        project_config_id,
+        chat_section_id,
+        peer_chat_section_id,
+        allowed_section_id,
+        blocked_section_id,
+    ) = _build_project_state()
+
+    temporary_to_canonical, canonical_to_temporary = dbe.read_temporary_id_map()
+    _ = convert_canonical_ids_to_temporary(
+        [
+            project_config_id,
+            chat_section_id,
+            peer_chat_section_id,
+            allowed_section_id,
+            blocked_section_id,
+        ],
+        canonical_to_temporary,
+        temporary_to_canonical,
+    )
+    dbe.write_temporary_id_map(canonical_to_temporary)
+    tmp_project_id = canonical_to_temporary[project_config_id]
+
+    manager = _DummyProjectManager(project_state)
+    switcher = _StrictProjectManagerSwitcher(project_config_id, manager)
+    websocket_manager = WebsocketManager()
+    frontend_sender = WMHFrontendSender(websocket_manager, share_mode=False)
+
+    state = type(
+        "_State",
+        (),
+        {
+            "project_manager_switcher": switcher,
+            "dbe": dbe,
+            "share_mode": False,
+            "deployment_mode": False,
+            "wait_until_ready": _noop_wait_until_ready,
+        },
+    )()
+    app = FastAPI()
+    mcp_server = SettaFastMCP(
+        app,
+        state,
+        "/mcp-test",
+        "Test MCP Server",
+        frontend_sender,
+        dbe,
+    )
+    state.mcp_server = mcp_server
+    app.state.setta = state
+    app.include_router(mcp_tools_router)
+
+    agentic_context = {
+        "projectConfigId": str(tmp_project_id),
+        "allowUnscoped": True,
+    }
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        blank_query_response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "search_ui_settings",
+                "arguments": {
+                    "query": "   ",
+                    "projectConfigId": str(tmp_project_id),
+                },
+                "agenticContext": agentic_context,
+            },
+        )
+        tokenless_query_response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "search_mcp_tools",
+                "arguments": {"query": "!!!"},
+                "agenticContext": agentic_context,
+            },
+        )
+        outside_workspace_response = await client.post(
+            "/__setta__/tools/call",
+            json={
+                "tool": "read_file_range",
+                "arguments": {"path": "../outside.txt"},
+                "agenticContext": agentic_context,
+            },
+        )
+
+    assert blank_query_response.status_code == 422
+    blank_payload = blank_query_response.json()
+    assert blank_payload["detail"]["error"] == "InvalidToolArguments"
+    assert "query must not be empty" in blank_payload["detail"]["message"]
+
+    assert tokenless_query_response.status_code == 422
+    tokenless_payload = tokenless_query_response.json()
+    assert tokenless_payload["detail"]["error"] == "InvalidToolArguments"
+    assert "searchable token" in tokenless_payload["detail"]["message"]
+
+    assert outside_workspace_response.status_code == 422
+    outside_payload = outside_workspace_response.json()
+    assert outside_payload["detail"]["error"] == "InvalidToolArguments"
+    assert "within the project root" in outside_payload["detail"]["message"]
