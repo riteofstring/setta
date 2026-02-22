@@ -69,8 +69,11 @@ JSON
 
     wrapper_content = wrapper_path.read_text(encoding="utf-8")
     assert str(target_python) in wrapper_content
-    assert "launcher --workspace" in wrapper_content
-    assert "exec" in wrapper_content
+    assert "--workspace" in wrapper_content
+    assert "show_failure_dialog()" in wrapper_content
+    assert "Setta Launch Failed" in wrapper_content
+    assert "install_linux_launcher.sh" in wrapper_content
+    assert "eval" in wrapper_content
 
     desktop_entry_content = desktop_entry_path.read_text(encoding="utf-8")
     assert "Name=Setta Test" in desktop_entry_content

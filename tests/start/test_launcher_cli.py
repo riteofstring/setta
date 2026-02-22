@@ -44,7 +44,7 @@ def _fake_launch_result(*, workspace_root: Path, setta_home: Path) -> SimpleName
     )
 
 
-def test_launcher_json_uses_fallback_workspace_and_requests_switcher(
+def test_launcher_json_uses_home_fallback_workspace_and_requests_switcher(
     monkeypatch,
 ) -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
@@ -53,6 +53,7 @@ def test_launcher_json_uses_fallback_workspace_and_requests_switcher(
     def fake_launch_workspace_session(**kwargs):
         workspace_root = kwargs["workspace_root"]
         captured["workspace_root"] = workspace_root
+        captured["setta_files_location"] = kwargs["setta_files_location"]
         return _fake_launch_result(
             workspace_root=workspace_root,
             setta_home=setta_home,
@@ -77,9 +78,10 @@ def test_launcher_json_uses_fallback_workspace_and_requests_switcher(
     assert payload["openWorkspaceSwitcher"] is True
     assert payload["bootstrapUrl"].endswith("#token=tok&osw=1")
 
-    expected_workspace = (setta_home / "launcher" / "workspace").resolve(strict=False)
+    expected_workspace = Path.home().resolve(strict=False)
     assert payload["workspaceRoot"] == str(expected_workspace)
     assert Path(str(captured["workspace_root"])).resolve(strict=False) == expected_workspace
+    assert captured["setta_files_location"] == "global"
 
 
 def test_launcher_json_prefers_last_used_workspace_from_metadata(
@@ -129,6 +131,58 @@ def test_launcher_json_prefers_last_used_workspace_from_metadata(
     assert payload["openMode"] == "chrome-app"
 
 
+def test_launcher_json_honors_always_prompt_workspace_behavior(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    target_executable = tmp_path / "python"
+    target_executable.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    target_executable.chmod(0o755)
+    last_used_workspace = tmp_path / "workspace-a"
+    last_used_workspace.mkdir(parents=True, exist_ok=True)
+    metadata = build_launcher_install_metadata(
+        target_command=[str(target_executable), "-m", "setta"],
+        channel="manual",
+        setta_version="1.2.3",
+        open_mode="browser",
+        workspace_behavior="always_prompt",
+        last_used_workspace=last_used_workspace,
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    captured: dict[str, object] = {}
+
+    def fake_launch_workspace_session(**kwargs):
+        workspace_root = kwargs["workspace_root"]
+        captured["setta_files_location"] = kwargs["setta_files_location"]
+        return _fake_launch_result(
+            workspace_root=workspace_root,
+            setta_home=setta_home,
+        )
+
+    monkeypatch.setattr("setta.start.launch_workspace_session", fake_launch_workspace_session)
+    monkeypatch.setattr("setta.start.BOOTSTRAP_TOKEN_MANAGER.mint", lambda *_a, **_k: "tok")
+    monkeypatch.setattr(
+        "setta.start.build_bootstrap_urls",
+        lambda host, port, token: (
+            f"http://{host}:{port}/__setta__/bootstrap#token={token}",
+            f"http://{host}:{port}/__setta__/bootstrap",
+        ),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["launcher", "--json"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["ok"] is True
+    assert payload["workspaceBehavior"] == "always_prompt"
+    assert payload["openWorkspaceSwitcher"] is True
+    assert payload["workspaceRoot"] == str(Path.home().resolve(strict=False))
+    assert captured["setta_files_location"] == "global"
+
+
 def test_launcher_json_reports_missing_bound_target(
     tmp_path: Path,
 ) -> None:
@@ -165,6 +219,8 @@ def test_launcher_install_and_uninstall_roundtrip(tmp_path: Path) -> None:
             "uv-tool",
             "--open-mode",
             "chrome-app",
+            "--workspace-behavior",
+            "always-prompt",
             "--managed-artifact",
             f"macosApp={artifact_path}",
         ],
@@ -174,6 +230,7 @@ def test_launcher_install_and_uninstall_roundtrip(tmp_path: Path) -> None:
     install_payload = json.loads(install_result.output)
     assert install_payload["ok"] is True
     assert install_payload["openMode"] == "chrome-app"
+    assert install_payload["workspaceBehavior"] == "always_prompt"
     metadata_path = resolve_launcher_metadata_path(setta_home=setta_home)
     assert metadata_path.exists()
 

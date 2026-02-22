@@ -156,17 +156,43 @@ cat > "${launcher_binary_path}" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 
+run_launcher() {
+  local workspace_arg="\${1-}"
+  local cmd="${target_command_shell} launcher"
+  if [[ -n "\${workspace_arg}" ]]; then
+    cmd="\${cmd} --workspace \$(printf '%q' "\${workspace_arg}")"
+  fi
+
+  local output=""
+  if output="\$(eval "\${cmd}" 2>&1)"; then
+    return 0
+  fi
+
+  local exit_code=\$?
+  local guidance
+  guidance="Setta could not start.\n\n\${output}\n\nReinstall launcher metadata with:\n${target_command_shell} launcher install --channel macos-script\n\nOr rerun:\n./scripts/install_macos_launcher.sh"
+
+  printf '%b\n' "\${guidance}" >&2
+  if command -v osascript >/dev/null 2>&1; then
+    osascript -e "display alert \\"Setta Launch Failed\\" message \\"Open Terminal and run ./scripts/install_macos_launcher.sh to repair the launcher.\\" as critical buttons {\\"OK\\"} default button \\"OK\\"" >/dev/null 2>&1 || true
+  fi
+  return "\${exit_code}"
+}
+
 if [[ \$# -gt 0 ]]; then
   first_path="\$1"
   if [[ -d "\${first_path}" ]]; then
-    exec ${target_command_shell} launcher --workspace "\${first_path}"
+    run_launcher "\${first_path}"
+    exit \$?
   fi
   if [[ -e "\${first_path}" ]]; then
-    exec ${target_command_shell} launcher --workspace "\$(dirname "\${first_path}")"
+    run_launcher "\$(dirname "\${first_path}")"
+    exit \$?
   fi
 fi
 
-exec ${target_command_shell} launcher
+run_launcher
+exit \$?
 EOF
 chmod 755 "${launcher_binary_path}"
 

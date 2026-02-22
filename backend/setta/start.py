@@ -36,16 +36,17 @@ from setta.launch import (
     launch_workspace_session,
 )
 from setta.launcher_metadata import (
+    LAUNCHER_WORKSPACE_BEHAVIOR,
     LauncherMetadataError,
     LauncherInstallMetadata,
     LauncherOpenMode,
+    LauncherWorkspaceBehavior,
     build_launcher_install_metadata,
     launcher_target_validation_error,
     load_launcher_install_metadata,
     remove_launcher_install_metadata,
     resolve_launcher_dir,
     resolve_launcher_metadata_path,
-    resolve_launcher_runtime_workspace,
     update_launcher_last_used_workspace_if_installed,
     write_launcher_install_metadata,
 )
@@ -98,6 +99,10 @@ _DEFAULT_AUTH_COOKIE_NAME = C.AUTH_COOKIE_NAME
 _DEFAULT_LAUNCHER_OPEN_MODE: LauncherOpenMode = "browser"
 _LAUNCHER_OPEN_SWITCHER_HASH_KEY = "osw"
 _LAUNCHER_METADATA_ARTIFACT_NAME_SEPARATOR = "="
+_LAUNCHER_WORKSPACE_BEHAVIOR_CHOICES = (
+    "last-used-or-prompt",
+    "always-prompt",
+)
 
 RemoteSessionSummary = ssh_common.RemoteSessionSummary
 
@@ -751,6 +756,16 @@ def _emit_launcher_error_and_exit(
         _emit_json_output({"ok": False, "error": {"code": code, "message": message}})
     else:
         click.echo(f"Error: {message}", err=True)
+        if code == "LauncherTargetMissing":
+            click.echo(
+                "Remediation: reinstall launcher metadata with `setta launcher install`.",
+                err=True,
+            )
+        if code == "LauncherMetadata":
+            click.echo(
+                "Remediation: fix or remove launcher metadata, then re-run `setta launcher install`.",
+                err=True,
+            )
     raise SystemExit(exit_code)
 
 
@@ -779,27 +794,44 @@ def _parse_launcher_managed_artifact_specs(
     return parsed
 
 
+def _normalize_launcher_workspace_behavior_cli_value(
+    raw_value: str,
+) -> LauncherWorkspaceBehavior:
+    trimmed = raw_value.strip().lower().replace("-", "_")
+    if trimmed not in {"last_used_or_prompt", "always_prompt"}:
+        raise click.ClickException(
+            "workspace behavior must be either 'last-used-or-prompt' or 'always-prompt'."
+        )
+    return cast("LauncherWorkspaceBehavior", trimmed)
+
+
 def _resolve_launcher_workspace_root(
     *,
     explicit_workspace: Path | None,
     installed_metadata: LauncherInstallMetadata | None,
-    setta_home: Path,
 ) -> tuple[Path, bool]:
     if explicit_workspace is not None:
         return explicit_workspace.resolve(strict=False), False
 
+    workspace_behavior = (
+        installed_metadata.workspaceBehavior
+        if installed_metadata is not None
+        else LAUNCHER_WORKSPACE_BEHAVIOR
+    )
     if (
-        installed_metadata is not None
+        workspace_behavior != "always_prompt"
+        and installed_metadata is not None
         and installed_metadata.lastUsedWorkspace is not None
     ):
         candidate = Path(installed_metadata.lastUsedWorkspace).resolve(strict=False)
         if candidate.exists() and candidate.is_dir():
             return candidate, False
 
-    fallback_workspace = resolve_launcher_runtime_workspace(
-        setta_home=setta_home
-    ).resolve(strict=False)
-    fallback_workspace.mkdir(parents=True, exist_ok=True)
+    fallback_workspace = Path.home().resolve(strict=False)
+    if not fallback_workspace.exists():
+        raise OSError(f"Home directory does not exist: {fallback_workspace}")
+    if not fallback_workspace.is_dir():
+        raise OSError(f"Home directory is not a directory: {fallback_workspace}")
     return fallback_workspace, True
 
 
@@ -1863,7 +1895,6 @@ def launcher(
         resolved_workspace_root, should_open_switcher = _resolve_launcher_workspace_root(
             explicit_workspace=resolved_workspace_option,
             installed_metadata=installed_metadata,
-            setta_home=launcher_setta_home,
         )
     except OSError as exc:
         _emit_launcher_error_and_exit(
@@ -1872,6 +1903,11 @@ def launcher(
             message=f"Failed to initialize launcher workspace: {exc}",
             exit_code=2,
         )
+
+    if should_open_switcher and resolved_setta_files_location == "auto":
+        # Launcher fallback runs in a runtime context only to open the workspace switcher.
+        # Use global setta_files to avoid creating local metadata in that temporary context.
+        resolved_setta_files_location = "global"
 
     requested_open_mode: LauncherOpenMode
     if open_mode is not None:
@@ -1936,6 +1972,11 @@ def launcher(
         "startedNew": result.started_new,
         "reusedSession": not result.started_new,
         "openMode": actual_open_mode,
+        "workspaceBehavior": (
+            installed_metadata.workspaceBehavior
+            if installed_metadata is not None
+            else LAUNCHER_WORKSPACE_BEHAVIOR
+        ),
         "openWorkspaceSwitcher": should_open_switcher,
         "settaHome": str(result.paths.setta_home),
         "profile": result.paths.profile_name,
@@ -1962,6 +2003,16 @@ def launcher(
     show_default=True,
 )
 @click.option(
+    "--workspace-behavior",
+    type=click.Choice(_LAUNCHER_WORKSPACE_BEHAVIOR_CHOICES, case_sensitive=False),
+    default=None,
+    help=(
+        "Workspace resolution behavior when no explicit --workspace is provided: "
+        "'last-used-or-prompt' reuses last workspace when available; "
+        "'always-prompt' always opens the workspace switcher."
+    ),
+)
+@click.option(
     "--managed-artifact",
     "managed_artifact_specs",
     multiple=True,
@@ -1973,6 +2024,7 @@ def launcher_install(
     json_output: bool,
     channel: str,
     open_mode: str,
+    workspace_behavior: str | None,
     managed_artifact_specs: tuple[str, ...],
 ) -> None:
     ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
@@ -2008,12 +2060,31 @@ def launcher_install(
     for name, path in parsed_artifacts.items():
         managed_artifacts[name] = str(path)
 
+    requested_workspace_behavior: LauncherWorkspaceBehavior
+    if workspace_behavior is not None:
+        try:
+            requested_workspace_behavior = (
+                _normalize_launcher_workspace_behavior_cli_value(workspace_behavior)
+            )
+        except click.ClickException as exc:
+            _emit_launcher_error_and_exit(
+                json_output=json_output,
+                code="BadRequest",
+                message=str(exc),
+                exit_code=2,
+            )
+    elif existing_metadata is not None:
+        requested_workspace_behavior = existing_metadata.workspaceBehavior
+    else:
+        requested_workspace_behavior = LAUNCHER_WORKSPACE_BEHAVIOR
+
     try:
         metadata = build_launcher_install_metadata(
             target_command=[str(Path(sys.executable).resolve(strict=False)), "-m", "setta"],
             channel=channel,
             setta_version=__version__,
             open_mode=cast("LauncherOpenMode", open_mode.strip().lower()),
+            workspace_behavior=requested_workspace_behavior,
             last_used_workspace=existing_metadata.lastUsedWorkspace
             if existing_metadata is not None
             else None,
@@ -2037,6 +2108,7 @@ def launcher_install(
         "launcherDir": str(resolve_launcher_dir(setta_home=launcher_setta_home)),
         "targetCommand": metadata.targetCommand,
         "openMode": metadata.openMode,
+        "workspaceBehavior": metadata.workspaceBehavior,
         "channel": metadata.channel,
         "settaVersion": metadata.settaVersion,
         "lastUsedWorkspace": metadata.lastUsedWorkspace,

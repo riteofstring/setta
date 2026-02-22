@@ -137,23 +137,53 @@ if (-not [string]::IsNullOrWhiteSpace($wrapperDir)) {
 $wrapperContent = @"
 @echo off
 setlocal
+set "setta_launcher_log=%TEMP%\setta-launcher-error-%RANDOM%%RANDOM%.log"
+
 if not "%~1"=="" (
   set "first_path=%~1"
   if exist "%first_path%\*" (
-    $targetCommandForCmd launcher --workspace "%first_path%"
+    call :launch_with_workspace "%first_path%"
     exit /b %ERRORLEVEL%
   )
   if exist "%first_path%" (
     for %%I in ("%first_path%") do set "first_dir=%%~dpI"
     if defined first_dir (
       if "%first_dir:~-1%"=="\" set "first_dir=%first_dir:~0,-1%"
-      $targetCommandForCmd launcher --workspace "%first_dir%"
+      call :launch_with_workspace "%first_dir%"
       exit /b %ERRORLEVEL%
     )
   )
 )
-$targetCommandForCmd launcher
+call :launch_default
 exit /b %ERRORLEVEL%
+
+:launch_with_workspace
+$targetCommandForCmd launcher --workspace %1 > "%setta_launcher_log%" 2>&1
+set "setta_launcher_exit=%ERRORLEVEL%"
+if "%setta_launcher_exit%"=="0" (
+  if exist "%setta_launcher_log%" del /q "%setta_launcher_log%" >nul 2>&1
+  exit /b 0
+)
+call :show_failure
+exit /b %setta_launcher_exit%
+
+:launch_default
+$targetCommandForCmd launcher > "%setta_launcher_log%" 2>&1
+set "setta_launcher_exit=%ERRORLEVEL%"
+if "%setta_launcher_exit%"=="0" (
+  if exist "%setta_launcher_log%" del /q "%setta_launcher_log%" >nul 2>&1
+  exit /b 0
+)
+call :show_failure
+exit /b %setta_launcher_exit%
+
+:show_failure
+echo Setta could not start.>&2
+if exist "%setta_launcher_log%" (
+  type "%setta_launcher_log%" >&2
+)
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg='Setta could not start. Open PowerShell and rerun scripts\install_windows_launcher.ps1 to repair the launcher.'; try { Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($msg,'Setta Launch Failed','OK','Error') | Out-Null } catch { }"
+exit /b 0
 "@
 Set-Content -LiteralPath $wrapperPathResolved -Value $wrapperContent -Encoding ascii
 

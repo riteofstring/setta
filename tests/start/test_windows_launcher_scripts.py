@@ -16,6 +16,8 @@ def test_install_windows_launcher_script_contains_shortcut_and_wrapper_wiring() 
     assert "windowsStartMenuShortcut=" in script_content
     assert "setta-launcher.cmd" in script_content
     assert "CreateShortcut" in script_content
+    assert "Setta Launch Failed" in script_content
+    assert "MessageBox" in script_content
     assert ".lnk" in script_content
 
 

@@ -436,7 +436,7 @@ Starts or reuses a Setta session and optionally opens it.
 Workspace resolution order:
 - Explicit `--workspace`
 - Saved launcher `lastUsedWorkspace`
-- Fallback launcher workspace at `<setta_home>/launcher/workspace` (and requests workspace switcher UI)
+- Fallback launcher runtime context at the user's home directory (and requests workspace switcher UI)
 
 Run options:
 - `--workspace PATH` chooses the workspace.
@@ -448,7 +448,7 @@ Run options:
 Success JSON includes:
 - `ok`, `bootstrapUrl`, `workspaceRoot`, `sessionId`
 - `startedNew`, `reusedSession`
-- `openMode`, `openWorkspaceSwitcher`
+- `openMode`, `workspaceBehavior`, `openWorkspaceSwitcher`
 
 Error JSON includes:
 - `ok: false`
@@ -467,6 +467,7 @@ This is primarily installer-facing (scripts/package-manager hooks).
 Options:
 - `--channel NAME` install channel label (default: `manual`)
 - `--open-mode {browser,chrome-app}` default launcher mode
+- `--workspace-behavior {last-used-or-prompt,always-prompt}` workspace fallback preference
 - `--managed-artifact NAME=PATH` records artifact paths to remove during uninstall
 - `--json` emits machine-readable payload
 

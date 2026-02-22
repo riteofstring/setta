@@ -60,8 +60,11 @@ JSON
 
     launcher_content = launcher_binary.read_text(encoding="utf-8")
     assert str(target_python) in launcher_content
-    assert "launcher --workspace" in launcher_content
-    assert "exec" in launcher_content
+    assert "--workspace" in launcher_content
+    assert "run_launcher()" in launcher_content
+    assert "Setta Launch Failed" in launcher_content
+    assert "install_macos_launcher.sh" in launcher_content
+    assert "eval" in launcher_content
 
     captured = args_capture_path.read_text(encoding="utf-8")
     assert "launcher install --json" in captured

@@ -95,3 +95,24 @@ def test_load_launcher_metadata_rejects_non_object_payload(tmp_path: Path) -> No
         assert "JSON object" in str(exc)
     else:  # pragma: no cover
         raise AssertionError("Expected LauncherMetadataError for invalid metadata payload.")
+
+
+def test_build_launcher_metadata_rejects_invalid_workspace_behavior(
+    tmp_path: Path,
+) -> None:
+    target_executable = tmp_path / "python"
+    target_executable.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    target_executable.chmod(0o755)
+
+    try:
+        build_launcher_install_metadata(
+            target_command=[str(target_executable), "-m", "setta"],
+            channel="manual",
+            setta_version="1.2.3",
+            open_mode="browser",
+            workspace_behavior="unexpected_behavior",
+        )
+    except LauncherMetadataError as exc:
+        assert "workspaceBehavior" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Expected LauncherMetadataError for invalid workspace behavior.")

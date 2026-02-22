@@ -319,17 +319,51 @@ cat > "${wrapper_path_abs}" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
 
+show_failure_dialog() {
+  local message="\${1-}"
+  if command -v zenity >/dev/null 2>&1; then
+    zenity --error --title="Setta Launch Failed" --text="\${message}" --width=460 >/dev/null 2>&1 || true
+    return
+  fi
+  if command -v kdialog >/dev/null 2>&1; then
+    kdialog --error "\${message}" --title "Setta Launch Failed" >/dev/null 2>&1 || true
+  fi
+}
+
+run_launcher() {
+  local workspace_arg="\${1-}"
+  local cmd="${target_command_shell} launcher"
+  if [[ -n "\${workspace_arg}" ]]; then
+    cmd="\${cmd} --workspace \$(printf '%q' "\${workspace_arg}")"
+  fi
+
+  local output=""
+  if output="\$(eval "\${cmd}" 2>&1)"; then
+    return 0
+  fi
+
+  local exit_code=\$?
+  local guidance
+  guidance="Setta could not start.\n\n\${output}\n\nReinstall launcher metadata with:\n${target_command_shell} launcher install --channel ${channel}\n\nOr rerun:\n./scripts/install_linux_launcher.sh"
+  printf '%b\n' "\${guidance}" >&2
+  show_failure_dialog "Setta could not start. Open a terminal and run ./scripts/install_linux_launcher.sh to repair the launcher."
+  return "\${exit_code}"
+}
+
 if [[ \$# -gt 0 ]]; then
   first_path="\$1"
   if [[ -d "\${first_path}" ]]; then
-    exec ${target_command_shell} launcher --workspace "\${first_path}"
+    run_launcher "\${first_path}"
+    exit \$?
   fi
   if [[ -e "\${first_path}" ]]; then
-    exec ${target_command_shell} launcher --workspace "\$(dirname "\${first_path}")"
+    run_launcher "\$(dirname "\${first_path}")"
+    exit \$?
   fi
 fi
 
-exec ${target_command_shell} launcher
+run_launcher
+exit \$?
 EOF
 chmod 755 "${wrapper_path_abs}"
 

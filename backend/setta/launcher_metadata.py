@@ -5,9 +5,10 @@ from pathlib import Path
 from typing import Literal, cast
 
 LauncherOpenMode = Literal["browser", "chrome-app"]
+LauncherWorkspaceBehavior = Literal["last_used_or_prompt", "always_prompt"]
 
 LAUNCHER_METADATA_SCHEMA_VERSION = 1
-LAUNCHER_WORKSPACE_BEHAVIOR = "last_used_or_prompt"
+LAUNCHER_WORKSPACE_BEHAVIOR: LauncherWorkspaceBehavior = "last_used_or_prompt"
 LAUNCHER_METADATA_FILE_NAME = "launcher-install.json"
 
 
@@ -22,7 +23,7 @@ class LauncherInstallMetadata:
     channel: str
     settaVersion: str
     openMode: LauncherOpenMode
-    workspaceBehavior: str
+    workspaceBehavior: LauncherWorkspaceBehavior
     lastUsedWorkspace: str | None
     managedArtifacts: dict[str, str]
 
@@ -63,7 +64,7 @@ def build_launcher_install_metadata(
     channel: str,
     setta_version: str,
     open_mode: LauncherOpenMode,
-    workspace_behavior: str = LAUNCHER_WORKSPACE_BEHAVIOR,
+    workspace_behavior: LauncherWorkspaceBehavior = LAUNCHER_WORKSPACE_BEHAVIOR,
     last_used_workspace: str | Path | None = None,
     managed_artifacts: dict[str, str | Path] | None = None,
 ) -> LauncherInstallMetadata:
@@ -72,9 +73,7 @@ def build_launcher_install_metadata(
     normalized_version = _normalize_required_string(
         setta_version, label="settaVersion"
     )
-    normalized_workspace_behavior = _normalize_required_string(
-        workspace_behavior, label="workspaceBehavior"
-    )
+    normalized_workspace_behavior = _normalize_workspace_behavior(workspace_behavior)
     normalized_last_used_workspace = _normalize_optional_workspace(last_used_workspace)
     normalized_artifacts = _normalize_managed_artifacts(managed_artifacts or {})
 
@@ -191,9 +190,8 @@ def _parse_launcher_metadata(
         raw_payload.get("settaVersion"), label="settaVersion"
     )
     open_mode = _normalize_open_mode(raw_payload.get("openMode"))
-    workspace_behavior = _normalize_required_string(
-        raw_payload.get("workspaceBehavior"),
-        label="workspaceBehavior",
+    workspace_behavior = _normalize_workspace_behavior(
+        raw_payload.get("workspaceBehavior")
     )
     last_used_workspace = _normalize_optional_workspace(
         raw_payload.get("lastUsedWorkspace")
@@ -253,6 +251,17 @@ def _normalize_open_mode(raw_value: object) -> LauncherOpenMode:
     if trimmed not in {"browser", "chrome-app"}:
         raise LauncherMetadataError("openMode must be either 'browser' or 'chrome-app'.")
     return cast("LauncherOpenMode", trimmed)
+
+
+def _normalize_workspace_behavior(raw_value: object) -> LauncherWorkspaceBehavior:
+    if not isinstance(raw_value, str):
+        raise LauncherMetadataError("workspaceBehavior must be a string.")
+    trimmed = raw_value.strip().lower().replace("-", "_")
+    if trimmed not in {"last_used_or_prompt", "always_prompt"}:
+        raise LauncherMetadataError(
+            "workspaceBehavior must be either 'last_used_or_prompt' or 'always_prompt'."
+        )
+    return cast("LauncherWorkspaceBehavior", trimmed)
 
 
 def _normalize_optional_workspace(raw_value: object) -> str | None:
