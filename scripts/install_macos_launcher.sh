@@ -151,7 +151,7 @@ if [[ -n "${icon_path}" ]]; then
 fi
 
 install_json="$(
-  "${setta_bin_abs}" launcher install \
+  "${setta_bin_abs}" launcher setup \
     --json \
     --channel macos-script \
     --open-mode "${open_mode}" \
@@ -167,10 +167,10 @@ import sys
 raw = sys.argv[1]
 payload = json.loads(raw)
 if not isinstance(payload, dict) or payload.get("ok") is not True:
-    raise SystemExit("setta launcher install did not return a successful JSON payload.")
+    raise SystemExit("setta launcher setup did not return a successful JSON payload.")
 raw_command = payload.get("targetCommand")
 if not isinstance(raw_command, list) or not raw_command:
-    raise SystemExit("setta launcher install payload is missing targetCommand.")
+    raise SystemExit("setta launcher setup payload is missing targetCommand.")
 parts: list[str] = []
 for part in raw_command:
     if not isinstance(part, str) or not part.strip():
@@ -205,11 +205,11 @@ run_launcher() {
 
   local exit_code=\$?
   local guidance
-  guidance="Setta could not start.\n\n\${output}\n\nReinstall launcher metadata with:\n${target_command_shell} launcher install --channel macos-script\n\nOr rerun:\n./scripts/install_macos_launcher.sh"
+  guidance="Setta could not start.\n\n\${output}\n\nRepair launcher metadata with:\n${target_command_shell} launcher repair\n\nOr rerun setup with:\n${target_command_shell} launcher setup --channel macos-script"
 
   printf '%b\n' "\${guidance}" >&2
   if command -v osascript >/dev/null 2>&1; then
-    osascript -e "display alert \\"Setta Launch Failed\\" message \\"Open Terminal and run ./scripts/install_macos_launcher.sh to repair the launcher.\\" as critical buttons {\\"OK\\"} default button \\"OK\\"" >/dev/null 2>&1 || true
+    osascript -e "display alert \\"Setta Launch Failed\\" message \\"Open Terminal and run 'setta launcher repair'.\\" as critical buttons {\\"OK\\"} default button \\"OK\\"" >/dev/null 2>&1 || true
   fi
   return "\${exit_code}"
 }

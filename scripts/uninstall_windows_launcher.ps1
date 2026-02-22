@@ -51,7 +51,7 @@ if ($settaExecutable) {
   if ($SettaHome) {
     $launcherUninstallArgs += @("--setta-home", $SettaHome)
   }
-  $launcherUninstallArgs += @("launcher", "uninstall", "--json")
+  $launcherUninstallArgs += @("launcher", "remove", "--json")
   $null = & $settaExecutable @launcherUninstallArgs
 }
 

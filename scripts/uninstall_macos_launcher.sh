@@ -9,7 +9,7 @@ Remove Setta.app and launcher metadata/artifacts tracked by Setta.
 
 Options:
   --app-path PATH    App bundle destination (default: ~/Applications/Setta.app)
-  --setta-bin PATH   Setta executable used for metadata uninstall.
+  --setta-bin PATH   Setta executable used for metadata removal.
                      Default: first "setta" on PATH, when available
   -h, --help         Show this help message.
 EOF
@@ -84,7 +84,7 @@ fi
 if [[ -n "${setta_bin}" ]]; then
   setta_bin_abs="$(resolve_abs_path "${setta_bin}")"
   if [[ -x "${setta_bin_abs}" ]]; then
-    "${setta_bin_abs}" launcher uninstall --json >/dev/null
+    "${setta_bin_abs}" launcher remove --json >/dev/null
   fi
 fi
 

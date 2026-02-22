@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -238,46 +239,15 @@ def test_launcher_json_reports_internal_error_for_unexpected_failures(
     assert payload["error"]["message"] == "Unexpected launcher failure. Check logs for details."
 
 
-def test_launcher_install_and_uninstall_roundtrip(tmp_path: Path) -> None:
-    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
-    artifact_path = tmp_path / "Applications" / "Setta.app"
-
+def test_launcher_legacy_install_and_uninstall_commands_are_removed() -> None:
     runner = CliRunner()
-    install_result = runner.invoke(
-        cli,
-        [
-            "launcher",
-            "install",
-            "--json",
-            "--channel",
-            "uv-tool",
-            "--open-mode",
-            "chrome-app",
-            "--workspace-behavior",
-            "always-prompt",
-            "--managed-artifact",
-            f"macosApp={artifact_path}",
-        ],
-    )
+    install_result = runner.invoke(cli, ["launcher", "install", "--json"])
+    remove_result = runner.invoke(cli, ["launcher", "uninstall", "--json"])
 
-    assert install_result.exit_code == 0, install_result.output
-    install_payload = json.loads(install_result.output)
-    assert install_payload["ok"] is True
-    assert install_payload["openMode"] == "chrome-app"
-    assert install_payload["workspaceBehavior"] == "always_prompt"
-    metadata_path = resolve_launcher_metadata_path(setta_home=setta_home)
-    assert metadata_path.exists()
-
-    artifact_path.mkdir(parents=True, exist_ok=True)
-    uninstall_result = runner.invoke(cli, ["launcher", "uninstall", "--json"])
-
-    assert uninstall_result.exit_code == 0, uninstall_result.output
-    uninstall_payload = json.loads(uninstall_result.output)
-    assert uninstall_payload["ok"] is True
-    assert uninstall_payload["metadataRemoved"] is True
-    assert str(artifact_path.resolve(strict=False)) in uninstall_payload["removedPaths"]
-    assert not metadata_path.exists()
-    assert not artifact_path.exists()
+    assert install_result.exit_code != 0
+    assert "No such command 'install'" in install_result.output
+    assert remove_result.exit_code != 0
+    assert "No such command 'uninstall'" in remove_result.output
 
 
 def test_open_url_with_launcher_mode_falls_back_to_browser(monkeypatch) -> None:
@@ -300,3 +270,84 @@ def test_open_url_with_launcher_mode_falls_back_to_browser(monkeypatch) -> None:
 
     assert resolved_mode == "browser"
     assert opened_urls == ["http://127.0.0.1:61234/__setta__/bootstrap#token=tok"]
+
+
+def test_launcher_setup_status_and_remove_roundtrip(tmp_path: Path) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    artifact_path = tmp_path / "Applications" / "Setta.app"
+
+    runner = CliRunner()
+    setup_result = runner.invoke(
+        cli,
+        [
+            "launcher",
+            "setup",
+            "--json",
+            "--channel",
+            "uv-tool",
+            "--open-mode",
+            "chrome-app",
+            "--workspace-behavior",
+            "always-prompt",
+            "--managed-artifact",
+            f"macosApp={artifact_path}",
+        ],
+    )
+
+    assert setup_result.exit_code == 0, setup_result.output
+    setup_payload = json.loads(setup_result.output)
+    assert setup_payload["ok"] is True
+    assert setup_payload["openMode"] == "chrome-app"
+    assert setup_payload["workspaceBehavior"] == "always_prompt"
+
+    status_result = runner.invoke(cli, ["launcher", "status", "--json"])
+    assert status_result.exit_code == 0, status_result.output
+    status_payload = json.loads(status_result.output)
+    assert status_payload["ok"] is True
+    assert status_payload["installed"] is True
+    assert status_payload["metadataPath"] == str(
+        resolve_launcher_metadata_path(setta_home=setta_home)
+    )
+    assert status_payload["channel"] == "uv-tool"
+    assert status_payload["updateCapability"] == "in_app"
+
+    artifact_path.mkdir(parents=True, exist_ok=True)
+    remove_result = runner.invoke(cli, ["launcher", "remove", "--json"])
+    assert remove_result.exit_code == 0, remove_result.output
+    remove_payload = json.loads(remove_result.output)
+    assert remove_payload["ok"] is True
+    assert remove_payload["metadataRemoved"] is True
+    assert str(artifact_path.resolve(strict=False)) in remove_payload["removedPaths"]
+    assert not resolve_launcher_metadata_path(setta_home=setta_home).exists()
+
+
+def test_launcher_update_reports_not_installed() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["launcher", "update", "--json"])
+
+    assert result.exit_code == 2
+    payload = json.loads(result.output)
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "LauncherNotInstalled"
+
+
+def test_launcher_repair_rebinds_missing_target(tmp_path: Path) -> None:
+    setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
+    metadata = build_launcher_install_metadata(
+        target_command=[str(tmp_path / "missing-python"), "-m", "setta"],
+        channel="manual",
+        setta_version="1.2.3",
+        open_mode="browser",
+    )
+    write_launcher_install_metadata(setta_home=setta_home, metadata=metadata)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["launcher", "repair", "--json"])
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["ok"] is True
+    status = payload["status"]
+    assert status["ok"] is True
+    assert status["targetValid"] is True
+    assert status["targetCommand"][0] == str(Path(sys.executable).resolve(strict=False))

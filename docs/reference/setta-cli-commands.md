@@ -410,7 +410,7 @@ Error payload:
 
 Desktop-launch entrypoint for OS launchers (`Setta.app`, desktop shortcuts).
 It can run directly (`setta launcher`) or manage launcher metadata via
-subcommands (`setta launcher install` / `setta launcher uninstall`).
+subcommands (`setta launcher setup|status|repair|remove|update`).
 
 Desktop distribution defaults:
 - Recommended global install path: `uv tool install setta`
@@ -428,7 +428,7 @@ Desktop distribution defaults:
 Advanced `pip install` path remains supported.
 When binding launcher metadata from a specific virtual environment, invoke
 that environment's `setta` executable explicitly (for example
-`/path/to/venv/bin/setta launcher install --channel pip-venv`).
+`/path/to/venv/bin/setta launcher setup --channel pip-venv`).
 
 ### `setta launcher` (run)
 
@@ -460,7 +460,7 @@ Exit codes:
 - `2` user-fixable/configuration errors
 - `1` unexpected/internal errors
 
-### `setta launcher install`
+### `setta launcher setup`
 
 Writes launcher metadata under `<setta_home>/launcher/launcher-install.json`.
 This is primarily installer-facing (scripts/package-manager hooks).
@@ -480,11 +480,39 @@ The metadata stores:
 - last used workspace
 - managed artifact paths
 
-### `setta launcher uninstall`
+### `setta launcher status`
+
+Reports launcher metadata and health:
+- installation state
+- target command validity
+- managed artifacts present/missing
+- update capability (`in_app`, `installer_managed`, `unsupported`)
+
+Options:
+- `--json` emits machine-readable payload
+
+### `setta launcher repair`
+
+Rebinds launcher metadata to the current Setta target and preserves launcher
+preferences (`openMode`, `workspaceBehavior`, `lastUsedWorkspace`).
+
+Options:
+- `--json` emits machine-readable payload
+
+### `setta launcher remove`
 
 Removes launcher metadata and managed artifacts registered in the metadata file.
 
 Options:
+- `--json` emits machine-readable payload
+
+### `setta launcher update`
+
+Performs an in-app Setta upgrade for supported channels (`uv`-managed installs),
+then re-runs launcher setup against the upgraded executable.
+
+Options:
+- `--package SPEC` package spec passed to `uv tool install --upgrade` (default: `setta`)
 - `--json` emits machine-readable payload
 
 ## `setta tools`

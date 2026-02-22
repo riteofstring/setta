@@ -93,7 +93,7 @@ JSON
 
     setta_call = setta_args_capture.read_text(encoding="utf-8")
     assert f"--setta-home {setta_home}" in setta_call
-    assert "launcher install --json --channel phase2-test --open-mode chrome-app" in setta_call
+    assert "launcher setup --json --channel phase2-test --open-mode chrome-app" in setta_call
     assert not decoy_args_capture.exists()
 
 
@@ -128,5 +128,5 @@ def test_install_desktop_launcher_powershell_script_contains_phase2_contract() -
     assert "tool install --upgrade" in script_content
     assert "tool dir --bin" in script_content
     assert "launcher" in script_content
-    assert "install" in script_content
+    assert "setup" in script_content
     assert "--json" in script_content

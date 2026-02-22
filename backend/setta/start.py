@@ -2,8 +2,8 @@ import base64
 import json
 import logging
 import os
-import shutil
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -37,18 +37,21 @@ from setta.launch import (
 )
 from setta.launcher_metadata import (
     LAUNCHER_WORKSPACE_BEHAVIOR,
-    LauncherMetadataError,
     LauncherInstallMetadata,
+    LauncherMetadataError,
     LauncherOpenMode,
     LauncherWorkspaceBehavior,
-    build_launcher_install_metadata,
     launcher_target_validation_error,
     load_launcher_install_metadata,
-    remove_launcher_install_metadata,
-    resolve_launcher_dir,
-    resolve_launcher_metadata_path,
     update_launcher_last_used_workspace_if_installed,
-    write_launcher_install_metadata,
+)
+from setta.launcher_setup import (
+    LauncherSetupError,
+    collect_launcher_status,
+    remove_launcher_installation,
+    repair_launcher_installation,
+    setup_launcher_installation,
+    update_launcher_installation,
 )
 from setta.logging.config import configure_logging
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
@@ -686,12 +689,12 @@ def _open_url_in_chrome_app(url: str) -> bool:
         for root in (local_app_data, program_files, program_files_x86):
             if not root:
                 continue
-            chrome_path = Path(root) / "Google" / "Chrome" / "Application" / "chrome.exe"
+            chrome_path = (
+                Path(root) / "Google" / "Chrome" / "Application" / "chrome.exe"
+            )
             if chrome_path.exists():
                 candidates.append(str(chrome_path))
-            edge_path = (
-                Path(root) / "Microsoft" / "Edge" / "Application" / "msedge.exe"
-            )
+            edge_path = Path(root) / "Microsoft" / "Edge" / "Application" / "msedge.exe"
             if edge_path.exists():
                 candidates.append(str(edge_path))
         for executable_name in ("chrome", "chrome.exe", "msedge", "msedge.exe"):
@@ -738,7 +741,9 @@ def _open_url_in_chrome_app(url: str) -> bool:
     return False
 
 
-def _open_url_with_launcher_mode(url: str, open_mode: LauncherOpenMode) -> LauncherOpenMode:
+def _open_url_with_launcher_mode(
+    url: str, open_mode: LauncherOpenMode
+) -> LauncherOpenMode:
     if open_mode == "chrome-app" and _open_url_in_chrome_app(url):
         return "chrome-app"
     webbrowser.open(url, new=0)
@@ -758,12 +763,12 @@ def _emit_launcher_error_and_exit(
         click.echo(f"Error: {message}", err=True)
         if code == "LauncherTargetMissing":
             click.echo(
-                "Remediation: reinstall launcher metadata with `setta launcher install`.",
+                "Remediation: reinstall launcher metadata with `setta launcher setup`.",
                 err=True,
             )
         if code == "LauncherMetadata":
             click.echo(
-                "Remediation: fix or remove launcher metadata, then re-run `setta launcher install`.",
+                "Remediation: fix or remove launcher metadata, then re-run `setta launcher setup`.",
                 err=True,
             )
     raise SystemExit(exit_code)
@@ -787,9 +792,7 @@ def _parse_launcher_managed_artifact_specs(
             raise click.ClickException("Managed artifact names must be non-empty.")
         trimmed_path = raw_path.strip()
         if not trimmed_path:
-            raise click.ClickException(
-                "Managed artifact paths must be non-empty."
-            )
+            raise click.ClickException("Managed artifact paths must be non-empty.")
         parsed[trimmed_name] = Path(trimmed_path).expanduser().resolve(strict=False)
     return parsed
 
@@ -1845,7 +1848,9 @@ def _run_launcher_command(
     launcher_setta_home = Path(normalized_setta_home).resolve(strict=False)
 
     try:
-        installed_metadata = load_launcher_install_metadata(setta_home=launcher_setta_home)
+        installed_metadata = load_launcher_install_metadata(
+            setta_home=launcher_setta_home
+        )
     except LauncherMetadataError as exc:
         _emit_launcher_error_and_exit(
             json_output=json_output,
@@ -1865,9 +1870,11 @@ def _run_launcher_command(
             )
 
     try:
-        resolved_workspace_root, should_open_switcher = _resolve_launcher_workspace_root(
-            explicit_workspace=resolved_workspace_option,
-            installed_metadata=installed_metadata,
+        resolved_workspace_root, should_open_switcher = (
+            _resolve_launcher_workspace_root(
+                explicit_workspace=resolved_workspace_option,
+                installed_metadata=installed_metadata,
+            )
         )
     except OSError as exc:
         _emit_launcher_error_and_exit(
@@ -1924,7 +1931,9 @@ def _run_launcher_command(
 
     secret = result.registry.load_secret(result.session)
     token = BOOTSTRAP_TOKEN_MANAGER.mint(result.session.id, secret)
-    bootstrap_url, _ = build_bootstrap_urls(result.session.host, result.session.port, token)
+    bootstrap_url, _ = build_bootstrap_urls(
+        result.session.host, result.session.port, token
+    )
     if should_open_switcher:
         bootstrap_url = _append_url_fragment_param(
             bootstrap_url,
@@ -1935,7 +1944,9 @@ def _run_launcher_command(
     skip_open = json_output or no_open or group_no_open
     actual_open_mode = requested_open_mode
     if not skip_open:
-        actual_open_mode = _open_url_with_launcher_mode(bootstrap_url, requested_open_mode)
+        actual_open_mode = _open_url_with_launcher_mode(
+            bootstrap_url, requested_open_mode
+        )
 
     payload = {
         "ok": True,
@@ -1963,7 +1974,9 @@ def _run_launcher_command(
         if should_open_switcher:
             click.echo("Workspace switcher will open after bootstrap.")
         return
-    click.echo(f"Opened Setta ({actual_open_mode}) for workspace {result.paths.workspace_root}")
+    click.echo(
+        f"Opened Setta ({actual_open_mode}) for workspace {result.paths.workspace_root}"
+    )
 
 
 @click.group(invoke_without_command=True)
@@ -2021,7 +2034,102 @@ def launcher(
         )
 
 
-@launcher.command(name="install")
+def _resolve_launcher_setta_home_from_context(ctx: click.Context) -> Path:
+    ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
+    group_setta_home = ctx_obj.get("setta_home")
+    normalized_setta_home = _to_optional_string(group_setta_home)
+    if normalized_setta_home is None:
+        normalized_setta_home = str(get_setta_paths().setta_home)
+    return Path(normalized_setta_home).resolve(strict=False)
+
+
+def _run_launcher_setup_subcommand(
+    *,
+    ctx: click.Context,
+    json_output: bool,
+    channel: str,
+    open_mode: str,
+    workspace_behavior: str | None,
+    managed_artifact_specs: tuple[str, ...],
+) -> None:
+    launcher_setta_home = _resolve_launcher_setta_home_from_context(ctx)
+    try:
+        parsed_artifacts = _parse_launcher_managed_artifact_specs(
+            managed_artifact_specs
+        )
+    except click.ClickException as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code="BadRequest",
+            message=str(exc),
+            exit_code=2,
+        )
+
+    parsed_workspace_behavior: LauncherWorkspaceBehavior | None = None
+    if workspace_behavior is not None:
+        try:
+            parsed_workspace_behavior = (
+                _normalize_launcher_workspace_behavior_cli_value(workspace_behavior)
+            )
+        except click.ClickException as exc:
+            _emit_launcher_error_and_exit(
+                json_output=json_output,
+                code="BadRequest",
+                message=str(exc),
+                exit_code=2,
+            )
+
+    try:
+        setup_result = setup_launcher_installation(
+            setta_home=launcher_setta_home,
+            channel=channel,
+            open_mode=cast("LauncherOpenMode", open_mode.strip().lower()),
+            workspace_behavior=parsed_workspace_behavior,
+            managed_artifacts=parsed_artifacts,
+        )
+    except LauncherSetupError as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code=exc.code,
+            message=str(exc),
+            exit_code=2,
+        )
+
+    payload = setup_result.to_payload()
+    if json_output:
+        _emit_json_output(payload)
+        return
+
+    click.echo(f"Launcher metadata written: {setup_result.metadata_path}")
+    click.echo(f"Target command: {shlex.join(setup_result.metadata.targetCommand)}")
+
+
+def _run_launcher_remove_subcommand(
+    *,
+    ctx: click.Context,
+    json_output: bool,
+) -> None:
+    launcher_setta_home = _resolve_launcher_setta_home_from_context(ctx)
+    try:
+        remove_result = remove_launcher_installation(setta_home=launcher_setta_home)
+    except LauncherSetupError as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code=exc.code,
+            message=str(exc),
+            exit_code=2,
+        )
+
+    payload = remove_result.to_payload()
+    if json_output:
+        _emit_json_output(payload)
+        return
+    click.echo(f"Launcher metadata removed: {remove_result.metadata_removed}")
+    for removed in remove_result.removed_paths:
+        click.echo(f"Removed: {removed}")
+
+
+@launcher.command(name="setup")
 @click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
 @click.option("--channel", default="manual", show_default=True)
 @click.option(
@@ -2044,10 +2152,10 @@ def launcher(
     "--managed-artifact",
     "managed_artifact_specs",
     multiple=True,
-    help="Artifact to remove on uninstall, as NAME=PATH.",
+    help="Artifact to manage, as NAME=PATH.",
 )
 @click.pass_context
-def launcher_install(
+def launcher_setup(
     ctx: click.Context,
     json_output: bool,
     channel: str,
@@ -2055,174 +2163,137 @@ def launcher_install(
     workspace_behavior: str | None,
     managed_artifact_specs: tuple[str, ...],
 ) -> None:
-    ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
-    group_setta_home = ctx_obj.get("setta_home")
-    normalized_setta_home = _to_optional_string(group_setta_home)
-    if normalized_setta_home is None:
-        normalized_setta_home = str(get_setta_paths().setta_home)
-    launcher_setta_home = Path(normalized_setta_home).resolve(strict=False)
-
-    try:
-        existing_metadata = load_launcher_install_metadata(setta_home=launcher_setta_home)
-    except LauncherMetadataError as exc:
-        _emit_launcher_error_and_exit(
-            json_output=json_output,
-            code="LauncherMetadata",
-            message=str(exc),
-            exit_code=2,
-        )
-
-    try:
-        parsed_artifacts = _parse_launcher_managed_artifact_specs(managed_artifact_specs)
-    except click.ClickException as exc:
-        _emit_launcher_error_and_exit(
-            json_output=json_output,
-            code="BadRequest",
-            message=str(exc),
-            exit_code=2,
-        )
-
-    managed_artifacts: dict[str, str] = {}
-    if existing_metadata is not None:
-        managed_artifacts.update(existing_metadata.managedArtifacts)
-    for name, path in parsed_artifacts.items():
-        managed_artifacts[name] = str(path)
-
-    requested_workspace_behavior: LauncherWorkspaceBehavior
-    if workspace_behavior is not None:
-        try:
-            requested_workspace_behavior = (
-                _normalize_launcher_workspace_behavior_cli_value(workspace_behavior)
-            )
-        except click.ClickException as exc:
-            _emit_launcher_error_and_exit(
-                json_output=json_output,
-                code="BadRequest",
-                message=str(exc),
-                exit_code=2,
-            )
-    elif existing_metadata is not None:
-        requested_workspace_behavior = existing_metadata.workspaceBehavior
-    else:
-        requested_workspace_behavior = LAUNCHER_WORKSPACE_BEHAVIOR
-
-    try:
-        metadata = build_launcher_install_metadata(
-            target_command=[str(Path(sys.executable).resolve(strict=False)), "-m", "setta"],
-            channel=channel,
-            setta_version=__version__,
-            open_mode=cast("LauncherOpenMode", open_mode.strip().lower()),
-            workspace_behavior=requested_workspace_behavior,
-            last_used_workspace=existing_metadata.lastUsedWorkspace
-            if existing_metadata is not None
-            else None,
-            managed_artifacts=managed_artifacts,
-        )
-        metadata_path = write_launcher_install_metadata(
-            setta_home=launcher_setta_home,
-            metadata=metadata,
-        )
-    except LauncherMetadataError as exc:
-        _emit_launcher_error_and_exit(
-            json_output=json_output,
-            code="BadRequest",
-            message=str(exc),
-            exit_code=2,
-        )
-
-    payload = {
-        "ok": True,
-        "metadataPath": str(metadata_path),
-        "launcherDir": str(resolve_launcher_dir(setta_home=launcher_setta_home)),
-        "targetCommand": metadata.targetCommand,
-        "openMode": metadata.openMode,
-        "workspaceBehavior": metadata.workspaceBehavior,
-        "channel": metadata.channel,
-        "settaVersion": metadata.settaVersion,
-        "lastUsedWorkspace": metadata.lastUsedWorkspace,
-        "managedArtifacts": metadata.managedArtifacts,
-    }
-    if json_output:
-        _emit_json_output(payload)
-        return
-
-    click.echo(f"Launcher metadata written: {metadata_path}")
-    click.echo(f"Target command: {shlex.join(metadata.targetCommand)}")
+    _run_launcher_setup_subcommand(
+        ctx=ctx,
+        json_output=json_output,
+        channel=channel,
+        open_mode=open_mode,
+        workspace_behavior=workspace_behavior,
+        managed_artifact_specs=managed_artifact_specs,
+    )
 
 
-@launcher.command(name="uninstall")
+@launcher.command(name="status")
 @click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
 @click.pass_context
-def launcher_uninstall(
+def launcher_status(
     ctx: click.Context,
     json_output: bool,
 ) -> None:
-    ctx_obj = ctx.obj if isinstance(ctx.obj, dict) else {}
-    group_setta_home = ctx_obj.get("setta_home")
-    normalized_setta_home = _to_optional_string(group_setta_home)
-    if normalized_setta_home is None:
-        normalized_setta_home = str(get_setta_paths().setta_home)
-    launcher_setta_home = Path(normalized_setta_home).resolve(strict=False)
-
+    launcher_setta_home = _resolve_launcher_setta_home_from_context(ctx)
     try:
-        metadata = load_launcher_install_metadata(setta_home=launcher_setta_home)
-    except LauncherMetadataError as exc:
+        status = collect_launcher_status(setta_home=launcher_setta_home)
+    except LauncherSetupError as exc:
         _emit_launcher_error_and_exit(
             json_output=json_output,
-            code="LauncherMetadata",
+            code=exc.code,
             message=str(exc),
             exit_code=2,
         )
 
-    removed_paths: list[str] = []
-    missing_paths: list[str] = []
-    removal_errors: list[str] = []
-    if metadata is not None:
-        for path_string in metadata.managedArtifacts.values():
-            path = Path(path_string).resolve(strict=False)
-            if not path.exists():
-                missing_paths.append(str(path))
-                continue
-            try:
-                if path.is_dir() and not path.is_symlink():
-                    shutil.rmtree(path)
-                else:
-                    path.unlink()
-            except OSError as exc:
-                removal_errors.append(f"{path}: {exc}")
-                continue
-            removed_paths.append(str(path))
-
-    metadata_path = resolve_launcher_metadata_path(setta_home=launcher_setta_home)
-    metadata_removed = remove_launcher_install_metadata(setta_home=launcher_setta_home)
-    launcher_dir = resolve_launcher_dir(setta_home=launcher_setta_home)
-    if launcher_dir.exists():
-        try:
-            launcher_dir.rmdir()
-        except OSError:
-            pass
-
-    if removal_errors:
-        _emit_launcher_error_and_exit(
-            json_output=json_output,
-            code="ArtifactRemovalFailed",
-            message="; ".join(removal_errors),
-            exit_code=2,
-        )
-
-    payload = {
-        "ok": True,
-        "metadataPath": str(metadata_path),
-        "metadataRemoved": metadata_removed,
-        "removedPaths": removed_paths,
-        "missingPaths": missing_paths,
-    }
+    payload = status.to_payload()
     if json_output:
         _emit_json_output(payload)
         return
-    click.echo(f"Launcher metadata removed: {metadata_removed}")
-    for removed in removed_paths:
-        click.echo(f"Removed: {removed}")
+
+    if not status.installed:
+        click.echo("Launcher status: not installed")
+        click.echo("Run `setta launcher setup` to install launcher metadata.")
+        return
+
+    click.echo("Launcher status: installed")
+    click.echo(f"Metadata: {status.metadata_path}")
+    click.echo(f"Target: {shlex.join(status.target_command or [])}")
+    click.echo(f"Channel: {status.channel}")
+    click.echo(f"Update capability: {status.update_capability}")
+    if status.update_guidance:
+        click.echo(f"Update guidance: {status.update_guidance}")
+    if status.target_error:
+        click.echo(f"Target error: {status.target_error}")
+    if status.missing_managed_artifacts:
+        click.echo("Missing managed artifacts:")
+        for path in status.missing_managed_artifacts:
+            click.echo(f"  - {path}")
+
+
+@launcher.command(name="repair")
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
+@click.pass_context
+def launcher_repair(
+    ctx: click.Context,
+    json_output: bool,
+) -> None:
+    launcher_setta_home = _resolve_launcher_setta_home_from_context(ctx)
+    try:
+        repair_result = repair_launcher_installation(setta_home=launcher_setta_home)
+    except LauncherSetupError as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code=exc.code,
+            message=str(exc),
+            exit_code=2,
+        )
+
+    payload = repair_result.to_payload()
+    if json_output:
+        _emit_json_output(payload)
+        return
+
+    click.echo(f"Launcher repaired: {repair_result.setup.metadata_path}")
+    if repair_result.status.missing_managed_artifacts:
+        click.echo("Missing managed artifacts remain:")
+        for path in repair_result.status.missing_managed_artifacts:
+            click.echo(f"  - {path}")
+
+
+@launcher.command(name="remove")
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
+@click.pass_context
+def launcher_remove(
+    ctx: click.Context,
+    json_output: bool,
+) -> None:
+    _run_launcher_remove_subcommand(ctx=ctx, json_output=json_output)
+
+
+@launcher.command(name="update")
+@click.option("--json", "json_output", is_flag=True, help="Emit JSON payload only")
+@click.option(
+    "--package",
+    "package_spec",
+    default="setta",
+    show_default=True,
+    help="Package spec passed to `uv tool install --upgrade`.",
+)
+@click.pass_context
+def launcher_update(
+    ctx: click.Context,
+    json_output: bool,
+    package_spec: str,
+) -> None:
+    launcher_setta_home = _resolve_launcher_setta_home_from_context(ctx)
+    try:
+        update_result = update_launcher_installation(
+            setta_home=launcher_setta_home,
+            package_spec=package_spec,
+        )
+    except LauncherSetupError as exc:
+        _emit_launcher_error_and_exit(
+            json_output=json_output,
+            code=exc.code,
+            message=str(exc),
+            exit_code=2,
+        )
+
+    payload = update_result.to_payload()
+    if json_output:
+        _emit_json_output(payload)
+        return
+
+    click.echo(
+        f"Updated Setta package {update_result.package_spec}: "
+        f"{update_result.from_version} -> {update_result.to_version}"
+    )
 
 
 @click.command()

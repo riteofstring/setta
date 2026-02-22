@@ -63,11 +63,11 @@ JSON
     assert "--workspace" in launcher_content
     assert "run_launcher()" in launcher_content
     assert "Setta Launch Failed" in launcher_content
-    assert "install_macos_launcher.sh" in launcher_content
+    assert "setta launcher repair" in launcher_content
     assert "eval" in launcher_content
 
     captured = args_capture_path.read_text(encoding="utf-8")
-    assert "launcher install --json" in captured
+    assert "launcher setup --json" in captured
     assert (
         f"--managed-artifact macosApp={app_path.resolve(strict=False)}" in captured
     )
@@ -175,4 +175,4 @@ JSON
     assert result.returncode == 0, result.stderr
     assert not app_path.exists()
     captured = args_capture_path.read_text(encoding="utf-8")
-    assert "launcher uninstall --json" in captured
+    assert "launcher remove --json" in captured

@@ -72,7 +72,7 @@ JSON
     assert "--workspace" in wrapper_content
     assert "show_failure_dialog()" in wrapper_content
     assert "Setta Launch Failed" in wrapper_content
-    assert "install_linux_launcher.sh" in wrapper_content
+    assert "setta launcher repair" in wrapper_content
     assert "eval" in wrapper_content
 
     desktop_entry_content = desktop_entry_path.read_text(encoding="utf-8")
@@ -80,7 +80,7 @@ JSON
     assert f"Exec={wrapper_path}" in desktop_entry_content
 
     captured = args_capture_path.read_text(encoding="utf-8")
-    assert "launcher install --json" in captured
+    assert "launcher setup --json" in captured
     assert (
         f"--managed-artifact linuxDesktopEntry={desktop_entry_path.resolve(strict=False)}"
         in captured
@@ -152,4 +152,4 @@ JSON
     assert not desktop_shortcut_path.exists()
 
     captured = args_capture_path.read_text(encoding="utf-8")
-    assert "launcher uninstall --json" in captured
+    assert "launcher remove --json" in captured

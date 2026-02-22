@@ -14,3 +14,5 @@ BaseChartSettingsUnionWithDiscriminator = Annotated[
 ]
 
 BaseChartSettingsTypeAdapter = TypeAdapter(BaseChartSettingsUnionWithDiscriminator)
+
+BaseChartSettingsTypeSet = set(["line", "scatter"])

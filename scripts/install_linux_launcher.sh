@@ -10,7 +10,7 @@ Install Linux desktop launcher artifacts for Setta.
 Options:
   --setta-bin PATH           Absolute or PATH-resolved Setta executable to bind.
                              Default: first "setta" on PATH
-  --setta-home PATH          Optional Setta home override forwarded to launcher install
+  --setta-home PATH          Optional Setta home override forwarded to launcher setup
   --applications-dir PATH    Desktop entry directory
                              Default: ~/.local/share/applications
   --desktop-entry-name NAME  Desktop entry file name (default: setta.desktop)
@@ -270,7 +270,7 @@ if [[ -n "${setta_home}" ]]; then
 fi
 launcher_install_cmd+=(
   "launcher"
-  "install"
+  "setup"
   "--json"
   "--channel"
   "${channel}"
@@ -299,10 +299,10 @@ import sys
 raw = sys.argv[1]
 payload = json.loads(raw)
 if not isinstance(payload, dict) or payload.get("ok") is not True:
-    raise SystemExit("setta launcher install did not return a successful JSON payload.")
+    raise SystemExit("setta launcher setup did not return a successful JSON payload.")
 raw_command = payload.get("targetCommand")
 if not isinstance(raw_command, list) or not raw_command:
-    raise SystemExit("setta launcher install payload is missing targetCommand.")
+    raise SystemExit("setta launcher setup payload is missing targetCommand.")
 parts: list[str] = []
 for part in raw_command:
     if not isinstance(part, str) or not part.strip():
@@ -344,9 +344,9 @@ run_launcher() {
 
   local exit_code=\$?
   local guidance
-  guidance="Setta could not start.\n\n\${output}\n\nReinstall launcher metadata with:\n${target_command_shell} launcher install --channel ${channel}\n\nOr rerun:\n./scripts/install_linux_launcher.sh"
+  guidance="Setta could not start.\n\n\${output}\n\nRepair launcher metadata with:\n${target_command_shell} launcher repair\n\nOr rerun setup with:\n${target_command_shell} launcher setup --channel ${channel}"
   printf '%b\n' "\${guidance}" >&2
-  show_failure_dialog "Setta could not start. Open a terminal and run ./scripts/install_linux_launcher.sh to repair the launcher."
+  show_failure_dialog "Setta could not start. Open a terminal and run 'setta launcher repair'."
   return "\${exit_code}"
 }
 

@@ -44,7 +44,7 @@ if ($SettaHome) {
 }
 $launcherInstallArgs += @(
   "launcher",
-  "install",
+  "setup",
   "--json",
   "--channel",
   $Channel,
@@ -59,13 +59,13 @@ if ($LASTEXITCODE -ne 0) {
 
 $payload = $installJson | ConvertFrom-Json
 if (-not $payload.ok) {
-  Fail "setta launcher install did not return a successful JSON payload."
+  Fail "setta launcher setup did not return a successful JSON payload."
 }
 if (-not $payload.metadataPath) {
-  Fail "launcher install payload is missing metadataPath."
+  Fail "launcher setup payload is missing metadataPath."
 }
 if (-not $payload.targetCommand) {
-  Fail "launcher install payload is missing targetCommand."
+  Fail "launcher setup payload is missing targetCommand."
 }
 
 $targetCommand = ($payload.targetCommand | ForEach-Object { "$_" }) -join " "

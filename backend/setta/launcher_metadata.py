@@ -70,9 +70,7 @@ def build_launcher_install_metadata(
 ) -> LauncherInstallMetadata:
     normalized_command = _normalize_target_command(target_command)
     normalized_channel = _normalize_required_string(channel, label="channel")
-    normalized_version = _normalize_required_string(
-        setta_version, label="settaVersion"
-    )
+    normalized_version = _normalize_required_string(setta_version, label="settaVersion")
     normalized_workspace_behavior = _normalize_workspace_behavior(workspace_behavior)
     normalized_last_used_workspace = _normalize_optional_workspace(last_used_workspace)
     normalized_artifacts = _normalize_managed_artifacts(managed_artifacts or {})
@@ -162,12 +160,12 @@ def launcher_target_validation_error(
     if not executable_path.exists():
         return (
             f"Configured launcher target is missing: {executable_path}. "
-            "Re-run `setta launcher install`."
+            "Re-run `setta launcher setup`."
         )
     if executable_path.is_dir():
         return (
             f"Configured launcher target is not an executable file: {executable_path}. "
-            "Re-run `setta launcher install`."
+            "Re-run `setta launcher setup`."
         )
     return None
 
@@ -196,7 +194,9 @@ def _parse_launcher_metadata(
     last_used_workspace = _normalize_optional_workspace(
         raw_payload.get("lastUsedWorkspace")
     )
-    managed_artifacts = _normalize_managed_artifacts(raw_payload.get("managedArtifacts"))
+    managed_artifacts = _normalize_managed_artifacts(
+        raw_payload.get("managedArtifacts")
+    )
 
     return LauncherInstallMetadata(
         schemaVersion=LAUNCHER_METADATA_SCHEMA_VERSION,
@@ -249,7 +249,9 @@ def _normalize_open_mode(raw_value: object) -> LauncherOpenMode:
         raise LauncherMetadataError("openMode must be a string.")
     trimmed = raw_value.strip().lower()
     if trimmed not in {"browser", "chrome-app"}:
-        raise LauncherMetadataError("openMode must be either 'browser' or 'chrome-app'.")
+        raise LauncherMetadataError(
+            "openMode must be either 'browser' or 'chrome-app'."
+        )
     return cast("LauncherOpenMode", trimmed)
 
 
@@ -297,8 +299,6 @@ def _normalize_managed_artifacts(raw_value: object) -> dict[str, str]:
                 )
             path_value = Path(trimmed).expanduser()
         else:
-            raise LauncherMetadataError(
-                "managedArtifacts values must be string paths."
-            )
+            raise LauncherMetadataError("managedArtifacts values must be string paths.")
         normalized[name] = str(path_value.resolve(strict=False))
     return normalized

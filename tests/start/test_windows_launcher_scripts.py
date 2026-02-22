@@ -10,7 +10,7 @@ def test_install_windows_launcher_script_contains_shortcut_and_wrapper_wiring() 
     script_content = script_path.read_text(encoding="utf-8")
 
     assert "launcher" in script_content
-    assert "install" in script_content
+    assert "setup" in script_content
     assert "--json" in script_content
     assert "windowsWrapper=" in script_content
     assert "windowsStartMenuShortcut=" in script_content
@@ -26,7 +26,7 @@ def test_uninstall_windows_launcher_script_contains_uninstall_and_artifact_remov
     script_content = script_path.read_text(encoding="utf-8")
 
     assert "launcher" in script_content
-    assert "uninstall" in script_content
+    assert "remove" in script_content
     assert "--json" in script_content
     assert "Remove-Item" in script_content
     assert "setta-launcher.cmd" in script_content

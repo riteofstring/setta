@@ -10,10 +10,10 @@ the installed Setta executable.
 
 Options:
   --package SPEC      Package spec passed to uv tool install (default: setta)
-  --channel NAME      Launcher install channel (default: uv-tool-script)
+  --channel NAME      Launcher setup channel (default: uv-tool-script)
   --open-mode MODE    Launcher open mode: browser | chrome-app
                       Default: browser
-  --setta-home PATH   Optional Setta home override forwarded to launcher install
+  --setta-home PATH   Optional Setta home override forwarded to launcher setup
   -h, --help          Show this help message.
 EOF
 }
@@ -132,7 +132,7 @@ if [[ -n "${setta_home}" ]]; then
 fi
 launcher_install_cmd+=(
   "launcher"
-  "install"
+  "setup"
   "--json"
   "--channel"
   "${channel}"
@@ -151,13 +151,13 @@ import sys
 raw = sys.argv[1]
 payload = json.loads(raw)
 if not isinstance(payload, dict) or payload.get("ok") is not True:
-    raise SystemExit("setta launcher install did not return a successful JSON payload.")
+    raise SystemExit("setta launcher setup did not return a successful JSON payload.")
 metadata_path = payload.get("metadataPath")
 target_command = payload.get("targetCommand")
 if not isinstance(metadata_path, str) or not metadata_path.strip():
-    raise SystemExit("launcher install payload is missing metadataPath.")
+    raise SystemExit("launcher setup payload is missing metadataPath.")
 if not isinstance(target_command, list) or not target_command:
-    raise SystemExit("launcher install payload is missing targetCommand.")
+    raise SystemExit("launcher setup payload is missing targetCommand.")
 print(f"Launcher metadata written: {metadata_path}")
 print(f"Bound launcher target: {shlex.join(target_command)}")
 PY

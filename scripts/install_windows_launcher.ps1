@@ -88,7 +88,7 @@ if ($SettaHome) {
 }
 $launcherInstallArgs += @(
   "launcher",
-  "install",
+  "setup",
   "--json",
   "--channel",
   $Channel,
@@ -113,10 +113,10 @@ if ($LASTEXITCODE -ne 0) {
 
 $payload = $installJson | ConvertFrom-Json
 if (-not $payload -or -not $payload.ok) {
-  Fail "setta launcher install did not return a successful JSON payload."
+  Fail "setta launcher setup did not return a successful JSON payload."
 }
 if (-not $payload.targetCommand) {
-  Fail "launcher install payload is missing targetCommand."
+  Fail "launcher setup payload is missing targetCommand."
 }
 
 $targetCommandParts = @()
@@ -182,7 +182,7 @@ echo Setta could not start.>&2
 if exist "%setta_launcher_log%" (
   type "%setta_launcher_log%" >&2
 )
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg='Setta could not start. Open PowerShell and rerun scripts\install_windows_launcher.ps1 to repair the launcher.'; try { Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($msg,'Setta Launch Failed','OK','Error') | Out-Null } catch { }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$msg='Setta could not start. Open PowerShell and run setta launcher repair.'; try { Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($msg,'Setta Launch Failed','OK','Error') | Out-Null } catch { }"
 exit /b 0
 "@
 Set-Content -LiteralPath $wrapperPathResolved -Value $wrapperContent -Encoding ascii

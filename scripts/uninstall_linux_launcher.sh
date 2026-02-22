@@ -8,9 +8,9 @@ Usage: ./scripts/uninstall_linux_launcher.sh [options]
 Remove Linux desktop launcher artifacts for Setta.
 
 Options:
-  --setta-bin PATH           Setta executable used for metadata uninstall
+  --setta-bin PATH           Setta executable used for metadata removal
                              Default: first "setta" on PATH, when available
-  --setta-home PATH          Optional Setta home override forwarded to launcher uninstall
+  --setta-home PATH          Optional Setta home override forwarded to launcher remove
   --applications-dir PATH    Desktop entry directory
                              Default: ~/.local/share/applications
   --desktop-entry-name NAME  Desktop entry file name (default: setta.desktop)
@@ -173,9 +173,9 @@ if [[ -n "${setta_bin}" ]]; then
     if [[ -n "${setta_home}" ]]; then
       launcher_uninstall_cmd+=("--setta-home" "${setta_home}")
     fi
-    launcher_uninstall_cmd+=("launcher" "uninstall" "--json")
+    launcher_uninstall_cmd+=("launcher" "remove" "--json")
     if ! "${launcher_uninstall_cmd[@]}" >/dev/null; then
-      echo "Warning: setta launcher uninstall returned a non-zero exit code." >&2
+      echo "Warning: setta launcher remove returned a non-zero exit code." >&2
     fi
   fi
 fi
