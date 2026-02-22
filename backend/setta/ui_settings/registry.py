@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
 
+from setta.mcp.ui_settings_context import resolve_project_manager_from_ctx
 from setta.agentic.store import (
     list_prompt_templates,
     load_agent_profiles,
@@ -1088,6 +1089,7 @@ def _build_plugin_write_value(
         ctx: "Context",
         project_config_id: ID,  # noqa: ARG001 - plugin settings are project-global
         value: JSONValue,
+        expected_old_value: JSONValue | None = None,
     ) -> UISettingMutationResult:
         plugin_entry = _require_active_plugin_runtime_entry(
             ctx=ctx,
@@ -1102,6 +1104,14 @@ def _build_plugin_write_value(
             config_path=config_path,
             default_value=default_value,
             plugin_id=plugin_id,
+        )
+        _assert_expected_old_value_matches(
+            setting_id=build_plugin_setting_id(
+                plugin_id=plugin_id,
+                local_setting_id=config_path[-1],
+            ),
+            expected_old_value=expected_old_value,
+            observed_old_value=old_value,
         )
         validate_ui_setting_value(value_schema, old_value)
         next_config = _write_plugin_config_path_value(
@@ -1180,6 +1190,7 @@ def _build_plugin_backend_write_value(
         ctx: "Context",
         project_config_id: ID,
         value: JSONValue,
+        expected_old_value: JSONValue | None = None,
     ) -> UISettingMutationResult:
         _require_active_plugin_runtime_entry(
             ctx=ctx,
@@ -1190,6 +1201,14 @@ def _build_plugin_backend_write_value(
                 plugin_id=plugin_id,
                 read_handler_id=read_handler_id,
                 project_config_id=project_config_id,
+            )
+            _assert_expected_old_value_matches(
+                setting_id=build_plugin_setting_id(
+                    plugin_id=plugin_id,
+                    local_setting_id=read_handler_id,
+                ),
+                expected_old_value=expected_old_value,
+                observed_old_value=old_value,
             )
             validate_ui_setting_value(value_schema, old_value)
             plugin_manager.write_backend_ui_setting_value(
@@ -1677,8 +1696,30 @@ def _write_plugin_config_path_value(
     return output
 
 
+def _assert_expected_old_value_matches(
+    *,
+    setting_id: str,
+    expected_old_value: JSONValue | None,
+    observed_old_value: JSONValue,
+) -> None:
+    if expected_old_value is None:
+        return
+    if expected_old_value == observed_old_value:
+        return
+    raise UISettingValidationError(
+        "mutation_failed",
+        (
+            f"UI setting {setting_id} changed since pre-write validation. "
+            "Retry with a fresh read before writing."
+        ),
+    )
+
+
 def _get_project_manager(ctx: "Context", project_config_id: ID):
-    return ctx.fastmcp.state.project_manager_switcher.get(project_config_id)
+    return resolve_project_manager_from_ctx(
+        ctx=ctx,
+        project_config_id=project_config_id,
+    )
 
 
 def _read_watch_code_enabled(ctx: "Context", project_config_id: ID) -> JSONValue:
@@ -1691,12 +1732,18 @@ async def _write_watch_code_enabled(
     ctx: "Context",
     project_config_id: ID,
     value: JSONValue,
+    expected_old_value: JSONValue | None = None,
 ) -> UISettingMutationResult:
     if not isinstance(value, bool):
         raise UISettingValidationError(
             "invalid_value_type", "Expected a boolean value."
         )
     old_value = _read_watch_code_enabled(ctx, project_config_id)
+    _assert_expected_old_value_matches(
+        setting_id="core.watch_code.enabled",
+        expected_old_value=expected_old_value,
+        observed_old_value=old_value,
+    )
     manager = _get_project_manager(ctx, project_config_id)
     await manager.set_watch_code_enabled(
         SetWatchCodeEnabledRequest(
@@ -1741,11 +1788,17 @@ async def _write_watch_code_folders(
     ctx: "Context",
     project_config_id: ID,
     value: JSONValue,
+    expected_old_value: JSONValue | None = None,
 ) -> UISettingMutationResult:
     if not isinstance(value, list):
         raise UISettingValidationError("invalid_value_type", "Expected an array value.")
     folders = [WatchCodeFolder.model_validate(entry) for entry in value]
     old_value = _read_watch_code_folders(ctx, project_config_id)
+    _assert_expected_old_value_matches(
+        setting_id="core.watch_code.folders",
+        expected_old_value=expected_old_value,
+        observed_old_value=old_value,
+    )
     manager = _get_project_manager(ctx, project_config_id)
     project_state = manager.get_single_config_state(project_config_id)
     await manager.set_watch_code_inputs(
@@ -1768,6 +1821,7 @@ async def _write_watch_code_files(
     ctx: "Context",
     project_config_id: ID,
     value: JSONValue,
+    expected_old_value: JSONValue | None = None,
 ) -> UISettingMutationResult:
     if not isinstance(value, list) or any(
         not isinstance(entry, str) for entry in value
@@ -1777,6 +1831,11 @@ async def _write_watch_code_files(
             "Expected an array of strings.",
         )
     old_value = _read_watch_code_files(ctx, project_config_id)
+    _assert_expected_old_value_matches(
+        setting_id="core.watch_code.files",
+        expected_old_value=expected_old_value,
+        observed_old_value=old_value,
+    )
     manager = _get_project_manager(ctx, project_config_id)
     project_state = manager.get_single_config_state(project_config_id)
     await manager.set_watch_code_inputs(
@@ -1854,6 +1913,7 @@ async def _write_project_name(
     ctx: "Context",
     project_config_id: ID,
     value: JSONValue,
+    expected_old_value: JSONValue | None = None,
 ) -> UISettingMutationResult:
     if not isinstance(value, str):
         raise UISettingValidationError("invalid_value_type", "Expected a string value.")
@@ -1864,6 +1924,11 @@ async def _write_project_name(
             "Project name must not be empty.",
         )
     old_value = _read_project_name(ctx, project_config_id)
+    _assert_expected_old_value_matches(
+        setting_id="core.project.name",
+        expected_old_value=expected_old_value,
+        observed_old_value=old_value,
+    )
     manager = _get_project_manager(ctx, project_config_id)
     await manager.set_project_config_name(project_config_id, normalized_name)
     new_value = _read_project_name(ctx, project_config_id)
@@ -1888,12 +1953,18 @@ async def _write_python_codegen_enabled(
     ctx: "Context",
     project_config_id: ID,
     value: JSONValue,
+    expected_old_value: JSONValue | None = None,
 ) -> UISettingMutationResult:
     if not isinstance(value, bool):
         raise UISettingValidationError(
             "invalid_value_type", "Expected a boolean value."
         )
     old_value = _read_python_codegen_enabled(ctx, project_config_id)
+    _assert_expected_old_value_matches(
+        setting_id="core.run_instructions.python_codegen_enabled",
+        expected_old_value=expected_old_value,
+        observed_old_value=old_value,
+    )
     manager = _get_project_manager(ctx, project_config_id)
     project_state = manager.get_single_config_state(project_config_id)
     plugin_targets: list[ProjectCodegenPluginTarget] = []
@@ -1942,12 +2013,18 @@ async def _write_show_param_display_names(
     ctx: "Context",
     project_config_id: ID,
     value: JSONValue,
+    expected_old_value: JSONValue | None = None,
 ) -> UISettingMutationResult:
     if not isinstance(value, bool):
         raise UISettingValidationError(
             "invalid_value_type", "Expected a boolean value."
         )
     old_value = _read_show_param_display_names(ctx, project_config_id)
+    _assert_expected_old_value_matches(
+        setting_id="core.project.show_param_display_names",
+        expected_old_value=expected_old_value,
+        observed_old_value=old_value,
+    )
     manager = _get_project_manager(ctx, project_config_id)
     await manager.set_show_param_display_names(
         SetShowParamDisplayNamesRequest(
@@ -2004,6 +2081,7 @@ async def _write_app_catalog_id(
     ctx: "Context",
     project_config_id: ID,
     value: JSONValue,
+    expected_old_value: JSONValue | None = None,
 ) -> UISettingMutationResult:
     if not isinstance(value, str) or value.strip() == "":
         raise UISettingValidationError(
@@ -2011,6 +2089,11 @@ async def _write_app_catalog_id(
             "Expected a non-empty string value.",
         )
     old_value = await _read_app_catalog_id(ctx, project_config_id)
+    _assert_expected_old_value_matches(
+        setting_id="core.app.catalog_id",
+        expected_old_value=expected_old_value,
+        observed_old_value=old_value,
+    )
     await _set_app_definition_field(
         ctx,
         project_config_id,
@@ -2034,6 +2117,7 @@ async def _write_app_spec_version(
     ctx: "Context",
     project_config_id: ID,
     value: JSONValue,
+    expected_old_value: JSONValue | None = None,
 ) -> UISettingMutationResult:
     if not isinstance(value, str) or value.strip() == "":
         raise UISettingValidationError(
@@ -2041,6 +2125,11 @@ async def _write_app_spec_version(
             "Expected a non-empty string value.",
         )
     old_value = await _read_app_spec_version(ctx, project_config_id)
+    _assert_expected_old_value_matches(
+        setting_id="core.app.spec_version",
+        expected_old_value=expected_old_value,
+        observed_old_value=old_value,
+    )
     await _set_app_definition_field(
         ctx,
         project_config_id,
@@ -2066,6 +2155,7 @@ async def _write_app_spec_path(
     ctx: "Context",
     project_config_id: ID,
     value: JSONValue,
+    expected_old_value: JSONValue | None = None,
 ) -> UISettingMutationResult:
     if not isinstance(value, str) or value.strip() == "":
         raise UISettingValidationError(
@@ -2073,6 +2163,11 @@ async def _write_app_spec_path(
             "Expected a non-empty string value.",
         )
     old_value = await _read_app_spec_path(ctx, project_config_id)
+    _assert_expected_old_value_matches(
+        setting_id="core.app.spec_path",
+        expected_old_value=expected_old_value,
+        observed_old_value=old_value,
+    )
     await _set_app_definition_field(
         ctx,
         project_config_id,
@@ -2101,6 +2196,7 @@ async def _write_app_theme_mode(
     ctx: "Context",
     project_config_id: ID,
     value: JSONValue,
+    expected_old_value: JSONValue | None = None,
 ) -> UISettingMutationResult:
     if value not in {"auto", "dark", "light"}:
         raise UISettingValidationError(
@@ -2108,6 +2204,11 @@ async def _write_app_theme_mode(
             "Theme mode must be one of: auto, dark, light.",
         )
     old_value = await _read_app_theme_mode(ctx, project_config_id)
+    _assert_expected_old_value_matches(
+        setting_id="core.app.theme_mode",
+        expected_old_value=expected_old_value,
+        observed_old_value=old_value,
+    )
     definition = await _get_app_definition(ctx, project_config_id)
     theme_payload: dict[str, JSONValue]
     if isinstance(definition.theme, dict):

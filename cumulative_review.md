@@ -210,3 +210,30 @@
 10. UX after: origin websocket affinity is propagated end-to-end, enabling deterministic routing in multi-frontend sessions.
 11. DX before: plugin/runtime availability logic was duplicated and order-dependent across modules.
 12. DX after: shared availability helpers provide one semantics path across registry and MCP tool layers.
+
+## 2026-02-25 15:35:24 PST
+
+### Consolidated Findings
+1. Frontend websocket affinity still depended on `AllConnections` snapshot timing and address matching, leaving multi-frontend reveal routing nondeterministic for newly connected tabs.
+2. UI-setting tool execution context was not resolved from one canonical source, so project/section/share/frontend scoping could diverge between request metadata and session agentic context.
+3. In share-scoped paths, project-manager lookup was not consistently session-scoped, allowing hard `Missing share session id` failures at runtime.
+4. `set_ui_setting_value` could still report drift-related failures after side effects when writer logic did not enforce pre-write old-value preconditions.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Added explicit frontend websocket identity handshake (`FrontendIdentity`) on connect and frontend-side identity storage as the primary affinity source.
+2. Added IDE-mode `AllConnections` rebroadcast immediately after `CurrentAddressUpdate` and pathname-change current-address updates for already-open sockets.
+3. Added shared canonical UI-setting context resolver (`projectConfigId`, `sectionId`, `chatId`, `shareSessionId`, `frontendWebsocketId`) and applied it across UI-setting tool paths.
+4. Unified project-manager resolution through a shared context-aware resolver that always threads `share_session_id` when present.
+5. Added structured reveal failure behavior when manager resolution fails in share-scoped contexts.
+6. Added preconditioned write support (`expected_old_value`) and enforced pre-write drift guards in core/plugin UI-setting writers before mutation.
+7. Added/updated backend websocket tests, MCP/UI-setting tests, Vitest websocket-affinity tests, and Playwright multi-frontend reveal-routing E2E coverage.
+
+### UX/DX Before and After
+1. UX before: valid tabs in multi-frontend sessions could fail reveal due to ambiguous routing or unresolved affinity.
+2. UX after: each tab receives deterministic websocket identity early and reveal requests route to the initiating frontend reliably.
+3. UX before: share-scoped UI-setting operations could fail deep in manager lookup with missing-session errors.
+4. UX after: context and manager selection are session-aware and consistent across read/write/reveal.
+5. UX before: stale-snapshot drift handling could surface failure responses after state mutation.
+6. UX after: precondition checks reject stale writes before mutation, keeping failure semantics aligned with persisted state.
+7. DX before: debugging required tracing multiple context/fallback paths with timing-dependent behavior.
+8. DX after: one canonical context path plus explicit websocket identity significantly reduces ambiguity and triage time.

@@ -12,6 +12,14 @@ from setta.mcp.tool_metadata import (
     attach_tool_search_tags,
 )
 from setta.mcp.tool_setup import setta_tool
+from setta.mcp.ui_settings_context import (
+    resolve_chat_id_from_ctx,
+    resolve_frontend_websocket_id_from_ctx,
+    resolve_project_config_id_from_ctx,
+    resolve_project_manager_from_ctx,
+    resolve_section_id_from_ctx,
+    resolve_share_session_id_from_ctx,
+)
 from setta.project_state.project_manager_types import SetActiveIdsRequest
 from setta.types.chat_messages import JSONValue
 from setta.types.helpers_lvl1 import get_curr_effective_section_impl
@@ -345,8 +353,12 @@ async def set_ui_setting_value(
             value=current_value,
             operation="pre-write oldValue read",
         )
-        mutation_result = await _call_maybe_async(
-            runtime_entry.writeValue(ctx, project_config_id, normalized_value)
+        mutation_result = await _call_write_value_with_precondition(
+            write_value=runtime_entry.writeValue,
+            ctx=ctx,
+            project_config_id=project_config_id,
+            normalized_value=normalized_value,
+            expected_old_value=current_value,
         )
         _validate_runtime_value_against_schema(
             setting_id=normalized_setting_id,
@@ -451,87 +463,27 @@ def _validate_runtime_value_against_schema(
         ) from exc
 
 
-def _resolve_request_meta(ctx: Context) -> dict[str, Any]:
-    try:
-        request_context = ctx.request_context
-    except ValueError:
-        return {}
-    meta = request_context.meta
-    if isinstance(meta, dict):
-        return meta
-    if isinstance(meta, BaseModel):
-        dumped = meta.model_dump()
-        if isinstance(dumped, dict):
-            return dumped
-    return {}
-
-
 def _resolve_project_config_id(
     *,
     ctx: Context,
     project_config_id: ID | None,
 ) -> ID:
-    if project_config_id is not None:
-        return project_config_id
-    meta = _resolve_request_meta(ctx)
-    raw_project_config_id = meta.get("projectConfigId")
-    if isinstance(raw_project_config_id, str) and raw_project_config_id.strip() != "":
-        return ID(raw_project_config_id.strip())
-    manager = ctx.fastmcp.state.project_manager_switcher.main
-    if manager is None:
-        raise KeyError("Missing main project manager.")
-    default_project_config_id = manager.project_state_backend.defaultProjectConfigId
-    if default_project_config_id is None:
-        raise KeyError("No default project config id is available.")
-    return default_project_config_id
+    return resolve_project_config_id_from_ctx(
+        ctx=ctx,
+        project_config_id=project_config_id,
+    )
 
 
 def _resolve_chat_id(ctx: Context) -> ID | None:
-    meta = _resolve_request_meta(ctx)
-    raw_chat_id = meta.get("chatId")
-    if isinstance(raw_chat_id, str) and raw_chat_id.strip() != "":
-        return ID(raw_chat_id.strip())
-    return None
+    return resolve_chat_id_from_ctx(ctx)
 
 
 def _resolve_share_session_id(ctx: Context) -> str | None:
-    meta = _resolve_request_meta(ctx)
-    raw_share_session_id = meta.get("shareSessionId")
-    if isinstance(raw_share_session_id, str) and raw_share_session_id.strip() != "":
-        return raw_share_session_id.strip()
-    return None
+    return resolve_share_session_id_from_ctx(ctx)
 
 
 def _resolve_frontend_websocket_id(ctx: Context) -> str | None:
-    meta = _resolve_request_meta(ctx)
-    raw_frontend_websocket_id = meta.get("frontendWebsocketId")
-    if (
-        isinstance(raw_frontend_websocket_id, str)
-        and raw_frontend_websocket_id.strip() != ""
-    ):
-        return raw_frontend_websocket_id.strip()
-    fastmcp = getattr(ctx, "fastmcp", None)
-    if fastmcp is None:
-        return None
-    resolve_agentic_context = getattr(fastmcp, "_resolve_agentic_context", None)
-    if not callable(resolve_agentic_context):
-        return None
-    try:
-        agentic_context = resolve_agentic_context(ctx)
-    except ValueError:
-        return None
-    frontend_websocket_id = getattr(agentic_context, "frontend_websocket_id", None)
-    if isinstance(frontend_websocket_id, str) and frontend_websocket_id.strip() != "":
-        return frontend_websocket_id.strip()
-    return None
-
-
-def _resolve_section_id_from_request_meta(ctx: Context) -> ID | None:
-    meta = _resolve_request_meta(ctx)
-    raw_section_id = meta.get("sectionId")
-    if isinstance(raw_section_id, str) and raw_section_id.strip() != "":
-        return ID(raw_section_id.strip())
-    return None
+    return resolve_frontend_websocket_id_from_ctx(ctx)
 
 
 def _resolve_section_id_for_reveal(
@@ -539,9 +491,10 @@ def _resolve_section_id_for_reveal(
     ctx: Context,
     explicit_section_id: ID | None,
 ) -> ID | None:
-    if explicit_section_id is not None:
-        return explicit_section_id
-    return _resolve_section_id_from_request_meta(ctx)
+    return resolve_section_id_from_ctx(
+        ctx=ctx,
+        explicit_section_id=explicit_section_id,
+    )
 
 
 def _resolve_missing_setting_error(
@@ -591,9 +544,33 @@ async def _reveal_settings(
     runtime_entry: UISettingRuntimeEntry | None = None,
 ) -> RevealUISettingResult:
     bounded_duration_ms = _bound_duration(duration_ms)
-    manager = ctx.fastmcp.state.project_manager_switcher.get(project_config_id)
-    project_state = manager.get_single_config_state(project_config_id)
     request_id = uuid4().hex
+    try:
+        manager = resolve_project_manager_from_ctx(
+            ctx=ctx,
+            project_config_id=project_config_id,
+        )
+        project_state = manager.get_single_config_state(project_config_id)
+    except KeyError as exc:
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=0,
+            statuses=[
+                RevealUISettingStatus(
+                    settingId=setting_id,
+                    status="failed",
+                    error=UISettingToolError(
+                        code="mutation_failed",
+                        message=(
+                            "Failed to resolve project manager for UI setting reveal: "
+                            f"{exc}"
+                        ),
+                    ),
+                )
+            ],
+        )
     resolved_runtime_entry = runtime_entry
     registry: UISettingRegistry | None = None
     if resolved_runtime_entry is None:
@@ -1107,3 +1084,37 @@ async def _call_maybe_async(value: Any) -> Any:
     if inspect.isawaitable(value):
         return await value
     return value
+
+
+def _write_value_accepts_expected_old_value(write_value: Any) -> bool:
+    try:
+        signature = inspect.signature(write_value)
+    except (TypeError, ValueError):
+        return False
+    return "expected_old_value" in signature.parameters
+
+
+async def _call_write_value_with_precondition(
+    *,
+    write_value,
+    ctx: Context,
+    project_config_id: ID,
+    normalized_value: JSONValue,
+    expected_old_value: JSONValue,
+):
+    if _write_value_accepts_expected_old_value(write_value):
+        return await _call_maybe_async(
+            write_value(
+                ctx,
+                project_config_id,
+                normalized_value,
+                expected_old_value=expected_old_value,
+            )
+        )
+    return await _call_maybe_async(
+        write_value(
+            ctx,
+            project_config_id,
+            normalized_value,
+        )
+    )

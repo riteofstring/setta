@@ -14,6 +14,7 @@ from setta.types.listener import (
     RealtimeUIChangeContent,
 )
 from setta.types.websocket import (
+    WebsocketMsg,
     WebsocketMsgCurrentAddressUpdate,
     WebsocketMsgRealtimeDependencyEvent,
     WebsocketMsgRealtimeUIChange,
@@ -32,6 +33,8 @@ from setta.websockets.websocket_manager import WebsocketManager
 
 if TYPE_CHECKING:
     from setta.project_state.share_runtime_state import ShareRuntimeState
+
+_FRONTEND_IDENTITY_MESSAGE_TYPE = "FrontendIdentity"
 
 
 class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
@@ -78,6 +81,8 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
 
         if isinstance(m, WebsocketMsgCurrentAddressUpdate):
             self.websocket_manager.update_current_address(m.content, fromWebsocketId)
+            if not self.share_mode:
+                await self.websocket_manager.broadcast_connections()
             return
 
         if isinstance(m, WebsocketMsgRealtimeUIChange):
@@ -139,6 +144,14 @@ class WMHFrontendReceiver(BaseWebsocketMsgReceiver):
     async def on_connect(self, _websocket_id: str):
         if self.share_mode:
             self.require_share_session_id(_websocket_id)
+        await self.websocket_manager.send_message(
+            WebsocketMsg(
+                content={"websocketId": _websocket_id},
+                messageType=_FRONTEND_IDENTITY_MESSAGE_TYPE,
+            ),
+            _websocket_id,
+        )
+        if self.share_mode:
             return
         if self.project_manager is None:
             return

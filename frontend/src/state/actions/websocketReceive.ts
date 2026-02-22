@@ -10,6 +10,7 @@ import {
 import {
   buildFrontendAffinityCurrentAddress,
   clearFrontendWebsocketAffinity,
+  setFrontendWebsocketAffinityId,
   updateFrontendWebsocketAffinity,
 } from "state/actions/frontendWebsocketAffinity";
 import {
@@ -96,7 +97,7 @@ import {
 } from "./share";
 import { receiveUISettingReveal } from "./uiSettingReveal";
 
-let wss: WebSocket | null;
+let wss: WebSocket | null = null;
 let wasOpen = false;
 let authLost = false;
 const AUTH_CLOSE_CODE = 4401;
@@ -109,6 +110,7 @@ const DEFAULT_AUTH_REFRESH_WINDOW_SECONDS =
 const SHARE_HEARTBEAT_INTERVAL_MS = 30000;
 const SHARE_SESSION_RECOVERY_MAX_ATTEMPTS = 1;
 const REALTIME_BINARY_OVERSIZE_COOLDOWN_MS = 5000;
+const FRONTEND_IDENTITY_MESSAGE_TYPE = "FrontendIdentity";
 let authRecoveryTimer: number | null = null;
 let authRecoveryInFlight = false;
 let authRefreshTimer: number | null = null;
@@ -145,6 +147,14 @@ export const openWebSocket = _.debounce(
           shareSessionId ?? "",
         )}`
       : `${C_ADDRESSES.WEBSOCKET}${route}`;
+    if (
+      wssReady(wss) &&
+      currentRoute === route &&
+      currentShareSessionId === shareSessionId
+    ) {
+      sendCurrentAddress(buildFrontendAffinityCurrentAddress(pathname));
+      return;
+    }
     if (
       wss &&
       (currentRoute !== route || currentShareSessionId !== shareSessionId)
@@ -441,7 +451,12 @@ async function handleShareSessionRecovery() {
 }
 
 function receiveMessage(message: string) {
-  const m: FrontendWebsocketMsgUnion = JSON.parse(message);
+  const parsedMessage: unknown = JSON.parse(message);
+  if (isFrontendIdentityMessage(parsedMessage)) {
+    setFrontendWebsocketAffinityId(parsedMessage.content.websocketId);
+    return;
+  }
+  const m: FrontendWebsocketMsgUnion = parsedMessage as FrontendWebsocketMsgUnion;
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.AllConnections:
       setWebsocketConnections(m.content);
@@ -505,6 +520,31 @@ function receiveMessage(message: string) {
     default:
       return m satisfies never;
   }
+}
+
+type FrontendIdentityMessage = {
+  messageType: typeof FRONTEND_IDENTITY_MESSAGE_TYPE;
+  content: {
+    websocketId: string;
+  };
+};
+
+function isFrontendIdentityMessage(
+  message: unknown,
+): message is FrontendIdentityMessage {
+  if (!isRecord(message)) {
+    return false;
+  }
+  if (message.messageType !== FRONTEND_IDENTITY_MESSAGE_TYPE) {
+    return false;
+  }
+  if (!isRecord(message.content)) {
+    return false;
+  }
+  return (
+    typeof message.content.websocketId === "string" &&
+    message.content.websocketId.trim() !== ""
+  );
 }
 
 async function handleUISettingRevealMessage(content: unknown): Promise<void> {

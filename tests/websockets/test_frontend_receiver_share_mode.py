@@ -22,6 +22,7 @@ from setta.types.websocket import (
     UISettingRevealContent,
     UISettingRevealTarget,
     WebsocketConnectionType,
+    WebsocketMsgCurrentAddressUpdate,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgRealtimeUIChange,
 )
@@ -137,6 +138,91 @@ async def test_share_receiver_requires_session_id() -> None:
             await receiver.on_connect(websocket_id)
 
         await websocket.close()
+
+
+@pytest.mark.asyncio
+async def test_frontend_receiver_on_connect_sends_frontend_identity_message() -> None:
+    with TemporaryDirectory() as tmpdir:
+        websocket_manager = WebsocketManager()
+        listener_registry = ListenerRegistry()
+        sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+        event_hub = RealtimeEventHub(sender)
+        share_runtime_state = _build_share_runtime_state(
+            tmpdir,
+            websocket_manager,
+            ID("share-project"),
+            "Share Project",
+        )
+        receiver = WMHFrontendReceiver(
+            websocket_manager,
+            project_manager=None,
+            realtime_event_hub=event_hub,
+            ui_setting_reveal_result_hub=UISettingRevealResultHub(),
+            share_mode=True,
+            share_runtime_state=share_runtime_state,
+        )
+        frontend_messages: list[Message] = []
+        frontend_socket = await _build_websocket(frontend_messages)
+        frontend_id = await websocket_manager.on_connect(
+            frontend_socket,
+            WebsocketConnectionType.FRONTEND,
+            id="frontend-share-identity",
+            shareSessionId="session-a",
+            broadcast_connections=False,
+        )
+        try:
+            await receiver.on_connect(frontend_id)
+            sent_messages = _sent_text_messages(frontend_messages)
+            assert len(sent_messages) == 1
+            payload = json.loads(sent_messages[0])
+            assert payload.get("messageType") == "FrontendIdentity"
+            assert payload.get("content", {}).get("websocketId") == frontend_id
+        finally:
+            await frontend_socket.close()
+
+
+@pytest.mark.asyncio
+async def test_frontend_receiver_rebroadcasts_connections_after_current_address_update(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    websocket_manager = WebsocketManager()
+    listener_registry = ListenerRegistry()
+    sender = WMHPythonScriptSender(websocket_manager, listener_registry)
+    event_hub = RealtimeEventHub(sender)
+    receiver = WMHFrontendReceiver(
+        websocket_manager,
+        project_manager=None,
+        realtime_event_hub=event_hub,
+        ui_setting_reveal_result_hub=UISettingRevealResultHub(),
+        share_mode=False,
+    )
+    frontend_messages: list[Message] = []
+    frontend_socket = await _build_websocket(frontend_messages)
+    frontend_id = await websocket_manager.on_connect(
+        frontend_socket,
+        WebsocketConnectionType.FRONTEND,
+        id="frontend-ide-address",
+        shareSessionId=None,
+        broadcast_connections=False,
+    )
+    broadcast_calls = 0
+
+    async def _fake_broadcast_connections() -> None:
+        nonlocal broadcast_calls
+        broadcast_calls += 1
+
+    monkeypatch.setattr(
+        websocket_manager,
+        "broadcast_connections",
+        _fake_broadcast_connections,
+    )
+    try:
+        message = WebsocketMsgCurrentAddressUpdate(content="/updated-path")
+        await receiver.process_json_str(message.model_dump_json(), frontend_id)
+        assert websocket_manager.sockets[frontend_id].currentAddress == "/updated-path"
+        assert broadcast_calls == 1
+    finally:
+        await frontend_socket.close()
 
 
 @pytest.mark.asyncio

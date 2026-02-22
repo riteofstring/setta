@@ -22,6 +22,9 @@ export function updateFrontendWebsocketAffinity({
   currentAddress: string | null;
   shareSessionId: string | null;
 }): void {
+  if (frontendWebsocketId !== null) {
+    return;
+  }
   if (!currentAddress) {
     frontendWebsocketId = null;
     return;
@@ -40,6 +43,15 @@ export function updateFrontendWebsocketAffinity({
     return;
   }
   frontendWebsocketId = matchingFrontendConnections[0]?.id ?? null;
+}
+
+export function setFrontendWebsocketAffinityId(websocketId: string): void {
+  const normalizedWebsocketId = websocketId.trim();
+  if (normalizedWebsocketId === "") {
+    frontendWebsocketId = null;
+    return;
+  }
+  frontendWebsocketId = normalizedWebsocketId;
 }
 
 export function clearFrontendWebsocketAffinity(): void {

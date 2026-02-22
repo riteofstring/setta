@@ -100,7 +100,7 @@ class UISettingRuntimeEntry:
     readValue: Callable[["Context", ID], Awaitable[JSONValue] | JSONValue]
     writeValue: (
         Callable[
-            ["Context", ID, JSONValue],
+            ["Context", ID, JSONValue, JSONValue | None],
             Awaitable[UISettingMutationResult] | UISettingMutationResult,
         ]
         | None

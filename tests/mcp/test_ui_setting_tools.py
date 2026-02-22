@@ -10,6 +10,7 @@ from mcp.shared.context import RequestContext
 from pydantic import BaseModel
 
 import setta.mcp.tools.ui_settings as ui_settings_tools_module
+from setta.agentic.agentic_scope import AgenticContext
 from setta.mcp.tools.ui_settings import (
     get_ui_setting_value,
     reveal_ui_setting,
@@ -148,17 +149,22 @@ def _build_ctx(
     main_manager,
     settings_manager,
     frontend_sender: _RecordingFrontendSender,
+    project_manager_switcher=None,
     plugin_manager: PluginManager | None = None,
     dbe=None,
     agent_runner=None,
     request_meta: BaseModel | dict[str, object] | None = None,
+    agentic_context: AgenticContext | None = None,
+    resolved_share_session_id: str | None = None,
 ) -> Context:
     reveal_result_hub = UISettingRevealResultHub()
     frontend_sender.reveal_result_hub = reveal_result_hub
-    switcher = ProjectManagerSwitcher(
-        main_manager=main_manager,
-        settings_manager=settings_manager,
-    )
+    switcher = project_manager_switcher
+    if switcher is None:
+        switcher = ProjectManagerSwitcher(
+            main_manager=main_manager,
+            settings_manager=settings_manager,
+        )
     state = SimpleNamespace(
         project_manager_switcher=switcher,
         wmh_frontend_sender=frontend_sender,
@@ -167,8 +173,13 @@ def _build_ctx(
         dbe=dbe,
         agent_runner=agent_runner,
     )
+    fastmcp = SimpleNamespace(state=state)
+    if agentic_context is not None:
+        fastmcp._resolve_agentic_context = lambda _ctx: agentic_context
+    if resolved_share_session_id is not None:
+        fastmcp._resolve_share_session_id = lambda _ctx: resolved_share_session_id
     if request_meta is None:
-        return Context(fastmcp=SimpleNamespace(state=state))
+        return Context(fastmcp=fastmcp)
     request_context = RequestContext(
         request_id="test-request-id",
         meta=request_meta,
@@ -177,9 +188,33 @@ def _build_ctx(
         request=None,
     )
     return Context(
-        fastmcp=SimpleNamespace(state=state),
+        fastmcp=fastmcp,
         request_context=request_context,
     )
+
+
+class _ShareSessionStrictProjectManagerSwitcher:
+    def __init__(
+        self,
+        delegate: ProjectManagerSwitcher,
+        *,
+        required_share_session_id: str,
+    ) -> None:
+        self._delegate = delegate
+        self._required_share_session_id = required_share_session_id
+        self.calls: list[tuple[str | object, str | None]] = []
+        self.main = delegate.main
+
+    def get(
+        self,
+        project_identifier,
+        *,
+        share_session_id: str | None = None,
+    ):
+        self.calls.append((project_identifier, share_session_id))
+        if share_session_id != self._required_share_session_id:
+            raise KeyError("Missing share session id")
+        return self._delegate.get(project_identifier)
 
 
 def _build_plugin_manager(tmp_path: Path) -> PluginManager:
@@ -339,18 +374,37 @@ async def test_set_ui_setting_value_returns_structured_validation_error() -> Non
 async def test_set_ui_setting_value_rejects_writer_old_value_drift(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    read_calls = 0
+    observed_expected_old_value: object | None = None
+    state = {"current": True, "write_count": 0}
+
     async def _read_value(_ctx: Context, _project_config_id: ID) -> bool:
-        return False
+        nonlocal read_calls
+        read_calls += 1
+        if read_calls == 1:
+            # Simulate a stale pre-write snapshot.
+            return False
+        return bool(state["current"])
 
     async def _write_value(
         _ctx: Context,
         _project_config_id: ID,
         _value: bool,
+        expected_old_value: object | None = None,
     ) -> UISettingMutationResult:
+        nonlocal observed_expected_old_value
+        observed_expected_old_value = expected_old_value
+        if expected_old_value != state["current"]:
+            raise ui_settings_tools_module.UISettingValidationError(
+                "mutation_failed",
+                "UI setting core.test.flag changed since pre-write validation. Retry with a fresh read before writing.",
+            )
+        state["write_count"] += 1
+        state["current"] = _value
         return UISettingMutationResult(
-            oldValue=True,
-            newValue=True,
-            normalizedValue=True,
+            oldValue=not _value,
+            newValue=_value,
+            normalizedValue=_value,
             changed=True,
         )
 
@@ -381,10 +435,19 @@ async def test_set_ui_setting_value_rejects_writer_old_value_drift(
                 return runtime_entry
             return None
 
+    def _build_fake_registry(
+        *,
+        ctx: Context,
+        project_config_id: ID,
+    ) -> _FakeRegistry:
+        assert ctx is not None
+        assert isinstance(project_config_id, str)
+        return _FakeRegistry()
+
     monkeypatch.setattr(
         ui_settings_tools_module,
         "build_ui_settings_registry",
-        lambda *, ctx, project_config_id: _FakeRegistry(),
+        _build_fake_registry,
     )
 
     # Writer responses must match the validated pre-write snapshot.
@@ -401,9 +464,12 @@ async def test_set_ui_setting_value_rejects_writer_old_value_drift(
 
     assert result.error is not None
     assert result.error.code == "mutation_failed"
-    assert "oldValue that does not match the validated pre-write snapshot" in (
+    assert "changed since pre-write validation" in (
         result.error.message
     )
+    assert observed_expected_old_value is False
+    assert state["write_count"] == 0
+    assert state["current"] is True
     assert result.newValue is None
     assert result.changed is False
 
@@ -1118,6 +1184,178 @@ async def test_reveal_right_pane_uses_model_request_meta_project_config_id() -> 
 
         updated_state = manager.get_single_config_state(target_project_config_id)
         assert updated_state.projectConfig.activeIds == [section_id]
+
+
+@pytest.mark.asyncio
+async def test_reveal_right_pane_uses_agentic_context_project_and_section() -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        manager = project_fixture.manager
+        old_default_project_config_id = ID(
+            manager.project_state_backend.defaultProjectConfigId
+        )
+        existing_project_config_ids = set(
+            manager.project_state_backend.projectConfigs.keys()
+        )
+        await manager.create_project_config("bg-blue-500/60 dark:bg-blue-600/30")
+        project_config_ids_after_create = set(
+            manager.project_state_backend.projectConfigs.keys()
+        )
+        new_project_config_ids = (
+            project_config_ids_after_create - existing_project_config_ids
+        )
+        assert len(new_project_config_ids) == 1
+        created_project_config_id = ID(next(iter(new_project_config_ids)))
+        current_default_project_config_id = ID(
+            manager.project_state_backend.defaultProjectConfigId
+        )
+        target_project_config_id = (
+            old_default_project_config_id
+            if current_default_project_config_id == created_project_config_id
+            else created_project_config_id
+        )
+
+        create_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=target_project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        section_id = create_result.sectionId
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=target_project_config_id,
+                activeIds=[],
+            )
+        )
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            agentic_context=AgenticContext(
+                project_config_id=target_project_config_id,
+                chat_id=ID("chat-agentic"),
+                section_id=section_id,
+                frontend_websocket_id=None,
+                allow_unscoped=True,
+            ),
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.project.show_param_display_names",
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 1
+        assert result.statuses[0].status == "revealed"
+
+        updated_state = manager.get_single_config_state(target_project_config_id)
+        assert updated_state.projectConfig.activeIds == [section_id]
+
+
+@pytest.mark.asyncio
+async def test_ui_setting_tools_pass_share_session_id_to_project_manager_lookup() -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        manager = project_fixture.manager
+        settings_manager = settings_fixture.manager
+        required_share_session_id = "share-session-test"
+        strict_switcher = _ShareSessionStrictProjectManagerSwitcher(
+            ProjectManagerSwitcher(
+                main_manager=manager,
+                settings_manager=settings_manager,
+            ),
+            required_share_session_id=required_share_session_id,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_manager,
+            frontend_sender=frontend_sender,
+            project_manager_switcher=strict_switcher,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "shareSessionId": required_share_session_id,
+            },
+        )
+
+        read_result = await get_ui_setting_value(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert read_result.error is None
+        assert isinstance(read_result.value, bool)
+
+        set_result = await set_ui_setting_value(
+            settingId="core.watch_code.enabled",
+            value=not read_result.value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is None
+
+        reveal_result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert reveal_result.emittedRevealCount == 1
+        assert reveal_result.statuses[0].status == "revealed"
+
+        assert strict_switcher.calls
+        for _, share_session_id in strict_switcher.calls:
+            assert share_session_id == required_share_session_id
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_returns_structured_error_when_share_session_id_is_missing() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        manager = project_fixture.manager
+        settings_manager = settings_fixture.manager
+        strict_switcher = _ShareSessionStrictProjectManagerSwitcher(
+            ProjectManagerSwitcher(
+                main_manager=manager,
+                settings_manager=settings_manager,
+            ),
+            required_share_session_id="required-share-session",
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_manager,
+            frontend_sender=frontend_sender,
+            project_manager_switcher=strict_switcher,
+            request_meta={"projectConfigId": project_config_id},
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert result.statuses[0].error.code == "mutation_failed"
+        assert "Failed to resolve project manager" in result.statuses[0].error.message
+        assert "Missing share session id" in result.statuses[0].error.message
 
 
 @pytest.mark.asyncio

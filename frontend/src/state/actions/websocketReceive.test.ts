@@ -287,6 +287,97 @@ describe("openWebSocket", () => {
     expect(getFrontendWebsocketAffinityId()).toBe("frontend-origin");
   });
 
+  it("updates frontend websocket affinity from FrontendIdentity and keeps it stable", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    const { getFrontendWebsocketAffinityId } = await import(
+      "state/actions/frontendWebsocketAffinity"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "msg-affinity-identity",
+        messageType: "FrontendIdentity",
+        content: { websocketId: "frontend-handshake" },
+      }),
+    });
+    expect(getFrontendWebsocketAffinityId()).toBe("frontend-handshake");
+
+    await socket.emit("message", {
+      data: JSON.stringify({
+        id: "msg-affinity-stale-snapshot",
+        messageType: WebsocketMsgTypeForFrontendEnum.AllConnections,
+        content: [],
+      }),
+    });
+    expect(getFrontendWebsocketAffinityId()).toBe("frontend-handshake");
+  });
+
+  it("sends current address updates when pathname changes on an open socket", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    const { buildFrontendAffinityCurrentAddress } = await import(
+      "state/actions/frontendWebsocketAffinity"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
+      status: 200,
+      data: { authCookieRefreshWindowSeconds: 120 },
+      hasResponse: true,
+    });
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    const sendCountAfterOpen = socket.send.mock.calls.length;
+
+    openWebSocket("/project-updated");
+    vi.advanceTimersByTime(1000);
+
+    expect(MockWebSocket.instances).toHaveLength(1);
+    expect(socket.send.mock.calls.length).toBeGreaterThan(sendCountAfterOpen);
+
+    const currentAddressPayloads = socket.send.mock.calls
+      .map((call) => call[0])
+      .filter((payload): payload is string => typeof payload === "string")
+      .map((payload) => {
+        try {
+          return JSON.parse(payload) as {
+            messageType?: string;
+            content?: unknown;
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter(
+        (payload): payload is { messageType?: string; content?: unknown } =>
+          payload !== null,
+      )
+      .filter((payload) => payload.messageType === "CurrentAddressUpdate");
+
+    const latestCurrentAddressPayload =
+      currentAddressPayloads[currentAddressPayloads.length - 1];
+    expect(latestCurrentAddressPayload?.content).toBe(
+      buildFrontendAffinityCurrentAddress("/project-updated"),
+    );
+  });
+
   it("routes UISettingReveal websocket messages to the reveal action", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { receiveUISettingReveal } = await import(
