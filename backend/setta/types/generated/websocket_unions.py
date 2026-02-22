@@ -16,12 +16,10 @@ from setta.types.websocket import (
     WebsocketMsgListenerRouterEndpointResult,
     WebsocketMsgRealtimeDependencyEvent,
     WebsocketMsgRealtimeUIChange,
-    WebsocketMsgUISettingRevealResult,
 )
 
 BackendWebsocketMsgUnion = (
-    WebsocketMsgUISettingRevealResult
-    | WebsocketMsgRealtimeUIChange
+    WebsocketMsgRealtimeUIChange
     | WebsocketMsgRealtimeDependencyEvent
     | WebsocketMsgCurrentAddressUpdate
 )

@@ -6,7 +6,6 @@ from pydantic import BaseModel
 from setta.app.catalog import APP_CATALOG
 from setta.app.catalog import list_app_components as list_catalog_components
 from setta.app.spec_patch_stream import apply_patch_ops, parse_patch_lines
-from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.tool_metadata import (
     ToolAccessMetadata,
     ToolArgumentPreviewKind,
@@ -79,7 +78,7 @@ async def stream_app_definition(
     )
 
     if not patches.strip():
-        raise InvalidToolArgumentsError("patches must be non-empty.")
+        raise ValueError("patches must be non-empty.")
 
     ops = parse_patch_lines(patches)
 
@@ -94,9 +93,7 @@ async def stream_app_definition(
             initial_spec = current.appSpec
     else:
         if not isinstance(baseAppSpec, dict):
-            raise InvalidToolArgumentsError(
-                "baseAppSpec must be a JSON object (or omitted)."
-            )
+            raise ValueError("baseAppSpec must be a JSON object (or omitted).")
         initial_spec = baseAppSpec
 
     app_spec = apply_patch_ops(ops, initial_spec=initial_spec)

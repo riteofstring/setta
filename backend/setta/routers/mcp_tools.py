@@ -9,7 +9,6 @@ from mcp.shared.exceptions import UrlElicitationRequiredError
 from mcp.types import CallToolResult
 from pydantic import BaseModel, ValidationError
 
-from setta.mcp.errors import InvalidToolArgumentsError
 from setta.mcp.namespacing import MCP_TOOL_NAME_SEPARATOR
 from setta.routers.dependencies import RuntimeContextFromRequest, require_ide_mode
 from setta.routers.setta_api_router import SettaAPIRouter
@@ -36,7 +35,6 @@ class MCPToolCallAgenticContext(BaseModel):
     projectConfigId: ID
     chatId: ID | None = None
     sectionId: ID | None = None
-    frontendWebsocketId: str | None = None
     allowUnscoped: bool = False
     shareSessionId: str | None = None
 
@@ -92,33 +90,12 @@ async def route_call_mcp_tool(
             status_code=status.HTTP_409_CONFLICT,
             detail=exc.error.model_dump(by_alias=True, exclude_none=True),
         ) from exc
-    except InvalidToolArgumentsError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "InvalidToolArguments",
-                "message": str(exc),
-            },
-        ) from exc
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": "ToolError", "message": str(exc)},
-        ) from exc
     except ToolError as exc:
         cause = exc.__cause__
         if isinstance(cause, ValidationError):
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=cause.errors(),
-            ) from exc
-        if isinstance(cause, InvalidToolArgumentsError):
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={
-                    "error": "InvalidToolArguments",
-                    "message": str(cause),
-                },
             ) from exc
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

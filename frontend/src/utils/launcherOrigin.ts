@@ -1,11 +1,11 @@
 import { isLocalHostname } from "utils/hostnames";
 import { normalizeOrigin } from "utils/origin";
-import { safeLocalStorage, safeSessionStorage } from "utils/storage";
+import { safeSessionStorage } from "utils/storage";
 
 const LAUNCHER_ORIGIN_STORAGE_KEY = "setta.launcherOrigin";
 
 function launcherOriginStorage(): Storage | undefined {
-  return import.meta.env?.DEV ? safeSessionStorage() : safeLocalStorage();
+  return safeSessionStorage();
 }
 
 function isLauncherOriginAllowed(
@@ -112,6 +112,9 @@ export function appendLauncherOriginToBootstrapUrlFragment(
   }
   const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
   const params = new URLSearchParams(hash);
+  if (params.get("lo") && params.get("lop")) {
+    return url.toString();
+  }
   params.set("lo", normalized);
   url.hash = params.toString();
   return url.toString();
