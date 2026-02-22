@@ -64,6 +64,10 @@ test("All Settings pan keeps param DOM stable in dense param layouts", async ({
   expect(baselineMetrics.totalParamRowCount).toBeGreaterThan(500);
   expect(baselineMetrics.visibleParamRowCount).toBeGreaterThan(120);
 
+  const iconDisplayCounts = await readNodeIconDisplayCounts(page);
+  expect(iconDisplayCounts.total).toBeGreaterThan(200);
+  expect(iconDisplayCounts.hidden).toBe(iconDisplayCounts.total);
+
   await startPanMutationObserver(page);
   await dragPaneForPan(page);
   const panMutationMetrics = await stopPanMutationObserver(page);
@@ -83,6 +87,13 @@ test("All Settings pan keeps param DOM stable in dense param layouts", async ({
   expect(afterPanMetrics.totalParamRowCount).toBe(
     baselineMetrics.totalParamRowCount,
   );
+
+  // Icon removal should remain stable through pan interactions.
+  const iconDisplayCountsAfterPan = await readNodeIconDisplayCounts(page);
+  expect(iconDisplayCountsAfterPan.total).toBe(iconDisplayCounts.total);
+  expect(iconDisplayCountsAfterPan.hidden).toBe(
+    iconDisplayCountsAfterPan.total,
+  );
 });
 
 async function readParamsPerfDebugMetrics(
@@ -99,10 +110,31 @@ async function readParamsPerfDebugMetrics(
   });
 }
 
+async function readNodeIconDisplayCounts(
+  page: Page,
+): Promise<{ total: number; hidden: number }> {
+  return await page.evaluate(() => {
+    const icons = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".react-flow__node i[class^='gg-'], .react-flow__node i[class*=' gg-'], .react-flow__node svg",
+      ),
+    );
+    let hidden = 0;
+    for (const icon of icons) {
+      if (window.getComputedStyle(icon).display === "none") {
+        hidden += 1;
+      }
+    }
+    return { total: icons.length, hidden };
+  });
+}
+
 async function startPanMutationObserver(page: Page): Promise<void> {
   await page.evaluate(() => {
     const perfWindow = window as WindowWithPerfDebug;
-    const viewport = document.querySelector<HTMLElement>(".react-flow__viewport");
+    const viewport = document.querySelector<HTMLElement>(
+      ".react-flow__viewport",
+    );
     if (!viewport) {
       throw new Error("Missing .react-flow__viewport.");
     }
@@ -131,11 +163,11 @@ async function startPanMutationObserver(page: Page): Promise<void> {
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.type === "attributes") {
-          if (mutation.attributeName !== "style") {
-            continue;
-          }
           const targetElement = mutation.target;
           if (!(targetElement instanceof Element)) {
+            continue;
+          }
+          if (mutation.attributeName !== "style") {
             continue;
           }
           if (targetElement === viewport) {
@@ -177,7 +209,9 @@ async function startPanMutationObserver(page: Page): Promise<void> {
   });
 }
 
-async function stopPanMutationObserver(page: Page): Promise<PanMutationMetrics> {
+async function stopPanMutationObserver(
+  page: Page,
+): Promise<PanMutationMetrics> {
   return await page.evaluate(() => {
     const perfWindow = window as WindowWithPerfDebug;
     const stop = perfWindow.__settaPanPerfObserverStop;

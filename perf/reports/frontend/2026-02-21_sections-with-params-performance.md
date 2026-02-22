@@ -186,3 +186,95 @@ Comparison against previous latest reference in this file:
 Additional artifacts:
 - `perf/artifacts/frontend/2026-02-22-settings-all-settings-switch-thumb-will-change-removal-v1.png`
 - `perf/artifacts/frontend/2026-02-22-settings-all-settings-switch-thumb-will-change-removal-v1.trace.json`
+
+## Follow-up (Low-Zoom Icon LOD + Pan Style Downgrade, 2026-02-22)
+
+Targeted optimizations:
+- Added a lightweight store subscription that writes perf-mode flags to the root canvas container:
+  - `data-low-zoom-icons` is enabled when zoom is at/below `0.25`.
+  - `data-pane-dragging` mirrors `paneDragging` during pan start/end.
+- Added low-detail CSS behavior in project flow styles:
+  - hide css.gg icon glyphs in nodes when `data-low-zoom-icons="true"` (layout preserved via `visibility: hidden`).
+  - while `data-pane-dragging="true"`, disable transition/animation/shadow/filter on common param/button surfaces.
+- Kept behavior and DOM structure unchanged; this is a style/detail-level runtime mode change only.
+
+Touched code paths:
+- `frontend/src/forks/xyflow/core/container/flowPerformanceMode.ts`
+- `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`
+- `frontend/src/components/Pages/Project/react-flow-css.css`
+- `frontend/tests/e2e/settings/settings-all-settings-pan-perf.spec.ts`
+
+Verification rerun:
+- Vitest:
+  - `frontend/src/forks/xyflow/core/container/flowPerformanceMode.test.ts` pass
+  - `frontend/src/forks/xyflow/core/container/flowPerformanceMode.integration.test.ts` pass
+- Playwright:
+  - `frontend/tests/e2e/settings/settings-all-settings-pan-perf.spec.ts` pass (now also asserts low-zoom icon hiding and pane-dragging flag toggles)
+
+CDP same-scenario measurement (`All Settings`, dense fit-view transform `translate(659.9px, -77.9px) scale(0.1)`, 160-frame scripted viewport sweep, no throttling):
+- Pre-change reference from immediate prior profiling pass in this branch:
+  - avg frame time: `~14.90ms`
+  - p95 frame time: `~16.70ms`
+- Post-change density/flags snapshot:
+  - `totalParamRowCount: 697`
+  - `visibleParamRowCount: 636`
+  - `i.gg* iconCount: 426`
+  - hidden `i.gg*` icons at low zoom: `426`
+  - `data-low-zoom-icons: true`
+- Runs:
+  - Run 1: avg `9.61ms` (`104.06 FPS`), p95 `13.40ms` (`74.63 FPS`)
+  - Run 2: avg `9.23ms` (`108.31 FPS`), p95 `11.40ms` (`87.72 FPS`)
+  - Run 3: avg `9.21ms` (`108.59 FPS`), p95 `11.00ms` (`90.91 FPS`)
+- Aggregate:
+  - avg frame time: `9.35ms` (`106.95 FPS`)
+  - median p95 frame time: `11.40ms` (`87.72 FPS`)
+
+Comparison against pre-change reference:
+- Avg frame time improved from `~14.90ms` to `9.35ms` (`-5.55ms`, ~`37.2%` faster).
+- p95 frame time improved from `~16.70ms` to `11.40ms` (`-5.30ms`, ~`31.7%` faster).
+
+Additional artifacts:
+- `perf/artifacts/frontend/2026-02-22-settings-all-settings-icon-lod-and-pan-style-v1.png`
+
+## Follow-up (No-Icons Experiment, 2026-02-22)
+
+Experiment goal:
+- Remove icon rendering from section nodes entirely (no pan/zoom-based behavior).
+
+Implementation:
+- Removed flow-performance data-attribute subscription path and its tests:
+  - deleted `frontend/src/forks/xyflow/core/container/flowPerformanceMode.ts`
+  - deleted `frontend/src/forks/xyflow/core/container/flowPerformanceMode.test.ts`
+  - deleted `frontend/src/forks/xyflow/core/container/flowPerformanceMode.integration.test.ts`
+  - removed subscription wiring from `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`
+- Switched to unconditional node-icon suppression in CSS:
+  - `frontend/src/components/Pages/Project/react-flow-css.css`
+  - `.react-flow .react-flow__node i.gg*` and `.react-flow .react-flow__node svg` now `display: none !important`.
+- Updated pan perf guardrail test to assert static icon removal (instead of low-zoom/pan flag toggles):
+  - `frontend/tests/e2e/settings/settings-all-settings-pan-perf.spec.ts`
+
+Verification rerun:
+- Playwright:
+  - `frontend/tests/e2e/settings/settings-all-settings-pan-perf.spec.ts` pass
+
+CDP same-scenario measurement (`All Settings`, dense transform `translate(659.9px, -77.9px) scale(0.1)`, 160-frame scripted viewport sweep, no throttling):
+- Density/icon snapshot:
+  - `totalParamRowCount: 697`
+  - `visibleParamRowCount: 636`
+  - node icon elements (`i.gg*` + `svg`): `502`
+  - hidden via CSS (`display:none`): `502`
+- Runs:
+  - Run 1: avg `8.81ms` (`113.48 FPS`), p95 `10.60ms` (`94.34 FPS`)
+  - Run 2: avg `8.73ms` (`114.52 FPS`), p95 `10.20ms` (`98.04 FPS`)
+  - Run 3: avg `8.77ms` (`114.03 FPS`), p95 `10.20ms` (`98.04 FPS`)
+- Aggregate:
+  - avg frame time: `8.77ms` (`114.01 FPS`)
+  - median p95 frame time: `10.20ms` (`98.04 FPS`)
+
+Comparison against previous section (low-zoom icon LOD + pan style downgrade):
+- Previous aggregate avg: `9.35ms`
+- New aggregate avg: `8.77ms`
+- Additional improvement: `-0.58ms` (~`6.2%` faster average frame time)
+
+Additional artifact:
+- `perf/artifacts/frontend/2026-02-22-settings-all-settings-no-icons-v1.png`

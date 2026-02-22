@@ -43,3 +43,9 @@ html.dark .react-flow__minimap {
   pointer-events: auto;
   overflow: visible;
 }
+
+.react-flow .react-flow__node i[class^="gg-"],
+.react-flow .react-flow__node i[class*=" gg-"],
+.react-flow .react-flow__node svg {
+  display: none !important;
+}
