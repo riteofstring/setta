@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Any, Literal
 
 from fastapi import WebSocket
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from setta.mcp.tool_metadata import FollowIdType
 from setta.project_state.project_manager_types import (
@@ -299,6 +299,14 @@ class WebsocketMsgAIFollowToolResultUpdate(FrontendWebsocketMsg):
     )
 
 
+class UISettingRevealActivationStep(BaseModel):
+    type: Literal[
+        "project_ai_settings_accordion_item",
+        "run_instructions_accordion_item",
+    ]
+    itemValue: str
+
+
 class UISettingRevealTarget(BaseModel):
     settingId: str
     side: Literal["left", "right"]
@@ -309,6 +317,9 @@ class UISettingRevealTarget(BaseModel):
     strategy: Literal["dom_anchor", "plugin_handler"]
     anchorId: str | None = None
     pluginRevealKey: str | None = None
+    revealActivationSteps: list[UISettingRevealActivationStep] = Field(
+        default_factory=list
+    )
 
 
 class UISettingRevealContent(BaseModel):

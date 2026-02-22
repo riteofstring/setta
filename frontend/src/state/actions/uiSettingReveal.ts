@@ -1,8 +1,18 @@
 import {
+  normalizeProjectAISettingsAccordionOpenValues,
+} from "components/Panes/Overview/ProjectLevelAI/projectAISettingsAccordionState";
+import {
+  normalizeRunInstructionsAccordionOpenValues,
+} from "components/Panes/Overview/runInstructionsAccordionState";
+import {
   invokePluginSettingRevealHandler,
   usePluginRuntimeStore,
 } from "plugins/runtime";
-import { useLocalStorage, useProjectState } from "state/definitions";
+import {
+  NULL_PROJECT_CONFIG_ID,
+  useLocalStorage,
+  useProjectState,
+} from "state/definitions";
 import {
   isOverviewTabKey,
   type OverviewTabKey,
@@ -17,7 +27,6 @@ import type {
 const DEFAULT_DURATION_MS = 3000;
 const MAX_DURATION_MS = 10000;
 const FIND_TARGET_INTERVAL_MS = 50;
-const MAX_PLUGIN_RETRY_WINDOW_MS = 2000;
 const HIGHLIGHT_CLASS_NAME = "setta-ui-setting-reveal-highlight";
 
 const highlightTimeoutByElement = new WeakMap<HTMLElement, number>();
@@ -46,6 +55,17 @@ type PluginRevealResult = {
   errorMessage: string | null;
 };
 
+type UISettingRevealActivationStep = {
+  type:
+    | "project_ai_settings_accordion_item"
+    | "run_instructions_accordion_item";
+  itemValue: string;
+};
+
+type UISettingRevealTargetWithActivationSteps = UISettingRevealTarget & {
+  revealActivationSteps?: Array<UISettingRevealActivationStep> | null;
+};
+
 export async function receiveUISettingReveal(
   content: UISettingRevealContent,
 ): Promise<Array<UISettingRevealResultStatus>> {
@@ -56,6 +76,7 @@ export async function receiveUISettingReveal(
       await revealSingleSetting({
         target: revealTarget,
         durationMs,
+        fallbackProjectConfigId: content.projectConfigId,
       }),
     );
   }
@@ -65,9 +86,11 @@ export async function receiveUISettingReveal(
 async function revealSingleSetting({
   target,
   durationMs,
+  fallbackProjectConfigId,
 }: {
   target: UISettingRevealTarget;
   durationMs: number;
+  fallbackProjectConfigId: string;
 }): Promise<UISettingRevealResultStatus> {
   const opened = openPaneForRevealTarget(target);
   if (!opened.ok) {
@@ -78,6 +101,10 @@ async function revealSingleSetting({
       errorMessage: opened.errorMessage,
     };
   }
+  applyRevealActivationSteps({
+    target: target as UISettingRevealTargetWithActivationSteps,
+    fallbackProjectConfigId,
+  });
 
   let pluginRevealErrorMessage: string | null = null;
   if (target.strategy === "plugin_handler") {
@@ -188,8 +215,7 @@ async function revealWithPluginHandler(
       errorMessage: null,
     };
   }
-  const retryWindowMs = Math.min(durationMs, MAX_PLUGIN_RETRY_WINDOW_MS);
-  const deadlineMs = Date.now() + retryWindowMs;
+  const deadlineMs = Date.now() + durationMs;
   let latestErrorMessage: string | null = null;
   while (Date.now() <= deadlineMs) {
     const tabExists = usePluginRuntimeStore
@@ -220,10 +246,113 @@ async function revealWithPluginHandler(
     }
     await sleep(FIND_TARGET_INTERVAL_MS);
   }
+  if (latestErrorMessage === null) {
+    latestErrorMessage = `Plugin pane for ${target.settingId} did not become available before reveal timeout.`;
+  }
   return {
     ok: false,
     errorMessage: latestErrorMessage,
   };
+}
+
+function applyRevealActivationSteps({
+  target,
+  fallbackProjectConfigId,
+}: {
+  target: UISettingRevealTargetWithActivationSteps;
+  fallbackProjectConfigId: string;
+}): void {
+  const activationSteps = target.revealActivationSteps;
+  if (!Array.isArray(activationSteps) || activationSteps.length === 0) {
+    return;
+  }
+  const projectConfigId = resolveProjectConfigIdForActivation(
+    fallbackProjectConfigId,
+  );
+  useLocalStorage.setState((state) => {
+    let nextRunInstructionsOpenValues =
+      state.runInstructionsAccordionOpenValuesByProjectConfigId[
+        projectConfigId
+      ] ?? [];
+    let nextProjectAiOpenValues =
+      state.projectAiSettingsAccordionOpenValuesByProjectConfigId[
+        projectConfigId
+      ] ?? [];
+    let runInstructionsChanged = false;
+    let projectAiChanged = false;
+
+    for (const step of activationSteps) {
+      if (step.type === "run_instructions_accordion_item") {
+        const normalizedOpenValues = normalizeRunInstructionsAccordionOpenValues(
+          [...nextRunInstructionsOpenValues, step.itemValue],
+        );
+        if (
+          !areStringArraysEqual(
+            normalizedOpenValues,
+            nextRunInstructionsOpenValues,
+          )
+        ) {
+          nextRunInstructionsOpenValues = normalizedOpenValues;
+          runInstructionsChanged = true;
+        }
+        continue;
+      }
+      if (step.type === "project_ai_settings_accordion_item") {
+        const normalizedOpenValues =
+          normalizeProjectAISettingsAccordionOpenValues([
+            ...nextProjectAiOpenValues,
+            step.itemValue,
+          ]);
+        if (!areStringArraysEqual(normalizedOpenValues, nextProjectAiOpenValues)) {
+          nextProjectAiOpenValues = normalizedOpenValues;
+          projectAiChanged = true;
+        }
+      }
+    }
+
+    if (!runInstructionsChanged && !projectAiChanged) {
+      return state;
+    }
+
+    const nextState: Partial<typeof state> = {};
+    if (runInstructionsChanged) {
+      nextState.runInstructionsAccordionOpenValuesByProjectConfigId = {
+        ...state.runInstructionsAccordionOpenValuesByProjectConfigId,
+        [projectConfigId]: nextRunInstructionsOpenValues,
+      };
+    }
+    if (projectAiChanged) {
+      nextState.projectAiSettingsAccordionOpenValuesByProjectConfigId = {
+        ...state.projectAiSettingsAccordionOpenValuesByProjectConfigId,
+        [projectConfigId]: nextProjectAiOpenValues,
+      };
+    }
+    return nextState;
+  });
+}
+
+function resolveProjectConfigIdForActivation(
+  fallbackProjectConfigId: string,
+): string {
+  const activeProjectConfigId = useProjectState.getState().projectConfig.id;
+  if (
+    typeof activeProjectConfigId === "string" &&
+    activeProjectConfigId.trim() !== "" &&
+    activeProjectConfigId !== NULL_PROJECT_CONFIG_ID
+  ) {
+    return activeProjectConfigId;
+  }
+  return fallbackProjectConfigId;
+}
+
+function areStringArraysEqual(
+  left: Array<string>,
+  right: Array<string>,
+): boolean {
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((value, index) => value === right[index]);
 }
 
 function getActiveSectionType(): string | null {

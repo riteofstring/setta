@@ -10,6 +10,9 @@ const BACKEND_ORIGIN =
 const WATCH_CODE_ENABLED_SETTING_ID = "core.watch_code.enabled";
 const PROJECT_AI_PROMPT_TEMPLATES_SETTING_ID =
   "core.project_ai_settings.prompt_templates";
+const PROJECT_AI_EXTERNAL_AGENTS_SETTING_ID =
+  "core.project_ai_settings.external_agents";
+const PYTHON_CODEGEN_SETTING_ID = "core.run_instructions.python_codegen_enabled";
 
 type ToolError = {
   code: string;
@@ -222,6 +225,71 @@ test("core UI-setting tools support search/get/set/reveal and validation errors"
       },
     );
     expect(projectAiSetResult.error?.code).toBe("setting_read_only");
+
+    const projectAiPromptTemplatesContent = page.getByTestId(
+      "project-ai-settings-accordion-prompt-templates-content",
+    );
+    const projectAiExternalAgentsContent = page.getByTestId(
+      "project-ai-settings-accordion-external-agents-content",
+    );
+    const runInstructionsCodegenTargetsContent = page.getByTestId(
+      "run-instructions-accordion-codegen-targets-content",
+    );
+    await expect(projectAiPromptTemplatesContent).toHaveCount(0);
+    await expect(projectAiExternalAgentsContent).toHaveCount(0);
+    await expect(runInstructionsCodegenTargetsContent).toHaveCount(0);
+
+    const promptTemplatesReveal = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: PROJECT_AI_PROMPT_TEMPLATES_SETTING_ID,
+        durationMs: 8000,
+      },
+    );
+    expect(promptTemplatesReveal.emittedRevealCount).toBe(1);
+    expect(promptTemplatesReveal.statuses[0]?.status).toBe("revealed");
+    await expect(projectAiPromptTemplatesContent).toBeVisible();
+    await expect(
+      page.locator(
+        '[data-setting-anchor="core.project_ai_settings.prompt_templates"]',
+      ),
+    ).toBeVisible();
+
+    const externalAgentsReveal = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: PROJECT_AI_EXTERNAL_AGENTS_SETTING_ID,
+        durationMs: 8000,
+      },
+    );
+    expect(externalAgentsReveal.emittedRevealCount).toBe(1);
+    expect(externalAgentsReveal.statuses[0]?.status).toBe("revealed");
+    await expect(projectAiExternalAgentsContent).toBeVisible();
+    await expect(
+      page.locator(
+        '[data-setting-anchor="core.project_ai_settings.external_agents"]',
+      ),
+    ).toBeVisible();
+
+    const pythonCodegenReveal = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: PYTHON_CODEGEN_SETTING_ID,
+        durationMs: 8000,
+      },
+    );
+    expect(pythonCodegenReveal.emittedRevealCount).toBe(1);
+    expect(pythonCodegenReveal.statuses[0]?.status).toBe("revealed");
+    await expect(runInstructionsCodegenTargetsContent).toBeVisible();
+    await expect(
+      page.locator('[data-setting-anchor="core.run_instructions.python_codegen_enabled"]'),
+    ).toBeVisible();
 
   } finally {
     await cleanupIsolatedProject(page, projectContext);

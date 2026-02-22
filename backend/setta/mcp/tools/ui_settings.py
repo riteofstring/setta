@@ -15,7 +15,11 @@ from setta.mcp.tool_setup import setta_tool
 from setta.project_state.project_manager_types import SetActiveIdsRequest
 from setta.types.chat_messages import JSONValue
 from setta.types.id import ID
-from setta.types.websocket import UISettingRevealContent, UISettingRevealTarget
+from setta.types.websocket import (
+    UISettingRevealActivationStep as WebsocketUISettingRevealActivationStep,
+    UISettingRevealContent,
+    UISettingRevealTarget,
+)
 from setta.ui_settings.models import (
     UISettingEntry,
     UISettingLocation,
@@ -24,6 +28,7 @@ from setta.ui_settings.models import (
     UISettingValueSchema,
 )
 from setta.ui_settings.registry import (
+    UISettingRegistry,
     UISettingValidationError,
     build_ui_settings_registry,
     parse_plugin_setting_id,
@@ -186,11 +191,18 @@ async def get_ui_setting_value(
             error=_resolve_missing_setting_error(
                 ctx=ctx,
                 setting_id=settingId,
+                registry=registry,
             )
         )
 
     try:
         value = await _call_maybe_async(runtime_entry.readValue(ctx, project_config_id))
+        _validate_runtime_value_against_schema(
+            setting_id=settingId,
+            schema=runtime_entry.metadata.valueSchema,
+            value=value,
+            operation="read",
+        )
     except UISettingValidationError as exc:
         return GetUISettingValueResult(
             setting=_build_result_summary(runtime_entry.metadata),
@@ -246,6 +258,7 @@ async def set_ui_setting_value(
             error=_resolve_missing_setting_error(
                 ctx=ctx,
                 setting_id=settingId,
+                registry=registry,
             )
         )
     if runtime_entry.writeValue is None:
@@ -270,6 +283,18 @@ async def set_ui_setting_value(
     try:
         mutation_result = await _call_maybe_async(
             runtime_entry.writeValue(ctx, project_config_id, normalized_value)
+        )
+        _validate_runtime_value_against_schema(
+            setting_id=settingId,
+            schema=runtime_entry.metadata.valueSchema,
+            value=mutation_result.oldValue,
+            operation="post-write oldValue read",
+        )
+        _validate_runtime_value_against_schema(
+            setting_id=settingId,
+            schema=runtime_entry.metadata.valueSchema,
+            value=mutation_result.newValue,
+            operation="post-write newValue read",
         )
     except UISettingValidationError as exc:
         return SetUISettingValueResult(
@@ -329,6 +354,22 @@ def _build_result_summary(entry: UISettingEntry) -> UISettingResultSummary:
     )
 
 
+def _validate_runtime_value_against_schema(
+    *,
+    setting_id: str,
+    schema: UISettingValueSchema,
+    value: JSONValue,
+    operation: str,
+) -> None:
+    try:
+        validate_ui_setting_value(schema, value)
+    except UISettingValidationError as exc:
+        raise UISettingValidationError(
+            exc.code,
+            f"UI setting {setting_id} {operation} returned an invalid value: {exc}",
+        ) from exc
+
+
 def _resolve_request_meta(ctx: Context) -> dict[str, Any]:
     try:
         request_context = ctx.request_context
@@ -380,10 +421,22 @@ def _resolve_share_session_id(ctx: Context) -> str | None:
     return None
 
 
+def _resolve_frontend_websocket_id(ctx: Context) -> str | None:
+    meta = _resolve_request_meta(ctx)
+    raw_frontend_websocket_id = meta.get("frontendWebsocketId")
+    if (
+        isinstance(raw_frontend_websocket_id, str)
+        and raw_frontend_websocket_id.strip() != ""
+    ):
+        return raw_frontend_websocket_id.strip()
+    return None
+
+
 def _resolve_missing_setting_error(
     *,
     ctx: Context,
     setting_id: str,
+    registry: UISettingRegistry | None = None,
 ) -> UISettingToolError:
     parsed_plugin_setting = parse_plugin_setting_id(setting_id)
     if parsed_plugin_setting is None:
@@ -393,6 +446,16 @@ def _resolve_missing_setting_error(
         )
 
     plugin_id, _ = parsed_plugin_setting
+    if registry is not None:
+        plugin_registry_error = registry.pluginErrorsByPluginId.get(plugin_id)
+        if plugin_registry_error is not None:
+            return UISettingToolError(
+                code="plugin_unavailable",
+                message=(
+                    f"Plugin {plugin_id} ui setting metadata is invalid: "
+                    f"{plugin_registry_error}"
+                ),
+            )
     plugin_error = _resolve_plugin_runtime_support_error(
         ctx=ctx,
         plugin_id=plugin_id,
@@ -420,6 +483,7 @@ async def _reveal_settings(
     project_state = manager.get_single_config_state(project_config_id)
     request_id = uuid4().hex
     resolved_runtime_entry = runtime_entry
+    registry: UISettingRegistry | None = None
     if resolved_runtime_entry is None:
         registry = build_ui_settings_registry(
             ctx=ctx,
@@ -439,6 +503,7 @@ async def _reveal_settings(
                     error=_resolve_missing_setting_error(
                         ctx=ctx,
                         setting_id=setting_id,
+                        registry=registry,
                     ),
                 )
             ],
@@ -521,15 +586,29 @@ async def _reveal_settings(
         strategy=resolved_runtime_entry.metadata.highlight.strategy,
         anchorId=resolved_runtime_entry.metadata.highlight.anchorId,
         pluginRevealKey=resolved_runtime_entry.metadata.highlight.pluginRevealKey,
+        revealActivationSteps=[
+            WebsocketUISettingRevealActivationStep.model_validate(
+                step.model_dump()
+            )
+            for step in resolved_runtime_entry.metadata.revealActivationSteps
+        ],
     )
     share_session_id = _resolve_share_session_id(ctx)
+    preferred_frontend_websocket_id = _resolve_frontend_websocket_id(ctx)
     frontend_sender = ctx.fastmcp.state.wmh_frontend_sender
     target_websocket_id = (
         frontend_sender.select_frontend_websocket_for_ui_setting_reveal(
             share_session_id=share_session_id,
+            preferred_websocket_id=preferred_frontend_websocket_id,
         )
     )
     if target_websocket_id is None:
+        no_frontend_message = "No connected frontend is available for UI setting reveal."
+        if preferred_frontend_websocket_id is not None:
+            no_frontend_message = (
+                "Requested frontend websocket id is unavailable for UI setting reveal: "
+                f"{preferred_frontend_websocket_id}"
+            )
         return RevealUISettingResult(
             requestId=request_id,
             projectConfigId=project_config_id,
@@ -541,9 +620,7 @@ async def _reveal_settings(
                     status="failed",
                     error=UISettingToolError(
                         code="mutation_failed",
-                        message=(
-                            "No connected frontend is available for UI setting reveal."
-                        ),
+                        message=no_frontend_message,
                     ),
                 )
             ],

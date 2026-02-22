@@ -17,6 +17,7 @@ from setta.mcp.tools.ui_settings import (
 )
 from setta.project_state.project_manager_types import (
     CreateTopLevelSectionRequest,
+    GetAppDefinitionRequest,
     SetActiveIdsRequest,
 )
 from setta.project_state.project_manager_switcher import ProjectManagerSwitcher
@@ -28,10 +29,18 @@ from setta.ui_settings.reveal_result_hub import (
     UISettingRevealResultHub,
     UISettingRevealResultStatus,
 )
+from setta.ui_settings.registry import _build_plugin_pane_overview_tab_key
 
 from tests.utils.manager_fixture import real_project_manager, real_settings_manager
 
 FIXTURE_PLUGIN_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "plugins"
+
+
+def test_plugin_pane_overview_tab_key_matches_encode_uri_component_rules() -> None:
+    assert _build_plugin_pane_overview_tab_key(
+        plugin_id="plugin!~*'() /",
+        pane_id="pane!~*'() :?",
+    ) == "PluginPane:plugin!~*'()%20%2F:pane!~*'()%20%3A%3F"
 
 
 class _RecordingFrontendSender:
@@ -44,13 +53,24 @@ class _RecordingFrontendSender:
         )
         self.forced_status_by_setting_id: dict[str, UISettingRevealResultStatus] = {}
         self.reveal_target_websocket_id: str | None = "frontend-test"
+        self.connected_frontend_websocket_ids: list[str] = ["frontend-test"]
+        self.resolved_target_websocket_ids: list[str] = []
 
     def select_frontend_websocket_for_ui_setting_reveal(
         self,
         *,
         share_session_id: str | None = None,  # noqa: ARG002 - signature parity
+        preferred_websocket_id: str | None = None,
     ) -> str | None:
-        return self.reveal_target_websocket_id
+        if preferred_websocket_id is not None:
+            if preferred_websocket_id in self.connected_frontend_websocket_ids:
+                return preferred_websocket_id
+            return None
+        if self.reveal_target_websocket_id is not None:
+            return self.reveal_target_websocket_id
+        if not self.connected_frontend_websocket_ids:
+            return None
+        return sorted(self.connected_frontend_websocket_ids)[0]
 
     async def broadcast_ui_setting_reveal(
         self,
@@ -68,6 +88,7 @@ class _RecordingFrontendSender:
             )
         if resolved_target_websocket_id is None:
             return None
+        self.resolved_target_websocket_ids.append(resolved_target_websocket_id)
         self.reveal_messages.append((content, share_session_id))
         statuses: list[UISettingRevealResultStatus] = []
         for target in content.reveals:
@@ -96,6 +117,7 @@ class _RecordingFrontendSender:
 
 class _RequestMetaModel(BaseModel):
     projectConfigId: ID
+    frontendWebsocketId: str | None = None
 
 
 def _build_ctx(
@@ -303,6 +325,16 @@ async def test_project_ai_settings_are_discoverable_revealable_and_read_only() -
             ("core.project_ai_settings.prompt_templates", "prompt templates"),
             ("core.project_ai_settings.external_agents", "external agents"),
         ]
+        expected_activation_step_by_setting_id = {
+            "core.project_ai_settings.prompt_templates": (
+                "project_ai_settings_accordion_item",
+                "project-ai-settings-prompt-templates",
+            ),
+            "core.project_ai_settings.external_agents": (
+                "project_ai_settings_accordion_item",
+                "project-ai-settings-external-agents",
+            ),
+        }
 
         for setting_id, query in entries:
             search_result = search_ui_settings(
@@ -341,7 +373,19 @@ async def test_project_ai_settings_are_discoverable_revealable_and_read_only() -
             assert len(reveal_result.statuses) == 1
             assert reveal_result.statuses[0].status == "revealed"
             assert reveal_result.statuses[0].target is not None
-            assert reveal_result.statuses[0].target.overviewTabKey == "ProjectAISettings"
+            target = reveal_result.statuses[0].target
+            assert target is not None
+            assert target.overviewTabKey == "ProjectAISettings"
+            expected_activation = expected_activation_step_by_setting_id.get(setting_id)
+            if expected_activation is None:
+                assert target.revealActivationSteps == []
+            else:
+                assert len(target.revealActivationSteps) == 1
+                assert target.revealActivationSteps[0].type == expected_activation[0]
+                assert (
+                    target.revealActivationSteps[0].itemValue
+                    == expected_activation[1]
+                )
 
 
 @pytest.mark.asyncio
@@ -428,6 +472,26 @@ async def test_python_codegen_enabled_setting_round_trip() -> None:
         assert updated_result.error is None
         assert updated_result.value == target_value
 
+        reveal_result = await reveal_ui_setting(
+            settingId="core.run_instructions.python_codegen_enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert reveal_result.emittedRevealCount == 1
+        assert reveal_result.statuses[0].status == "revealed"
+        target = reveal_result.statuses[0].target
+        assert target is not None
+        assert target.overviewTabKey == "RunInstructions"
+        assert len(target.revealActivationSteps) == 1
+        assert (
+            target.revealActivationSteps[0].type
+            == "run_instructions_accordion_item"
+        )
+        assert (
+            target.revealActivationSteps[0].itemValue
+            == "run-instructions-codegen-targets"
+        )
+
         revert_result = await set_ui_setting_value(
             settingId="core.run_instructions.python_codegen_enabled",
             value=original_value,
@@ -436,6 +500,51 @@ async def test_python_codegen_enabled_setting_round_trip() -> None:
         )
         assert revert_result.error is None
         assert revert_result.newValue == original_value
+
+
+@pytest.mark.asyncio
+async def test_app_spec_path_read_and_write_are_schema_consistent_on_fresh_project() -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        frontend_sender = _RecordingFrontendSender()
+        manager = project_fixture.manager
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+
+        initial_get_result = await get_ui_setting_value(
+            settingId="core.app.spec_path",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert initial_get_result.error is None
+        assert isinstance(initial_get_result.value, str)
+        assert initial_get_result.value.strip() != ""
+
+        next_spec_path = "app_specs/ui-settings-test-app.json"
+        set_result = await set_ui_setting_value(
+            settingId="core.app.spec_path",
+            value=next_spec_path,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is None
+        assert set_result.newValue == next_spec_path
+
+        updated_get_result = await get_ui_setting_value(
+            settingId="core.app.spec_path",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert updated_get_result.error is None
+        assert updated_get_result.value == next_spec_path
+
+        app_definition_response = await manager.get_app_definition(GetAppDefinitionRequest())
+        assert isinstance(app_definition_response.appSpec, dict)
+        assert app_definition_response.appDefinition is not None
+        assert app_definition_response.appDefinition.appSpecPath == next_spec_path
 
 
 @pytest.mark.asyncio
@@ -655,6 +764,7 @@ async def test_reveal_ui_setting_returns_failure_when_no_frontend_is_connected()
     async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
         frontend_sender = _RecordingFrontendSender()
         frontend_sender.reveal_target_websocket_id = None
+        frontend_sender.connected_frontend_websocket_ids = []
         ctx = _build_ctx(
             main_manager=project_fixture.manager,
             settings_manager=settings_fixture.manager,
@@ -676,6 +786,70 @@ async def test_reveal_ui_setting_returns_failure_when_no_frontend_is_connected()
         assert result.statuses[0].error is not None
         assert result.statuses[0].error.code == "mutation_failed"
         assert "No connected frontend" in result.statuses[0].error.message
+        assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_prefers_frontend_websocket_id_from_request_meta() -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = [
+            "frontend-a",
+            "frontend-b",
+        ]
+        frontend_sender.reveal_target_websocket_id = "frontend-a"
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "frontendWebsocketId": "frontend-b",
+            },
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 1
+        assert result.statuses[0].status == "revealed"
+        assert frontend_sender.resolved_target_websocket_ids[-1] == "frontend-b"
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_fails_when_preferred_frontend_websocket_is_missing() -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = ["frontend-a"]
+        frontend_sender.reveal_target_websocket_id = "frontend-a"
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "frontendWebsocketId": "frontend-missing",
+            },
+        )
+
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert result.statuses[0].error.code == "mutation_failed"
+        assert "frontend-missing" in result.statuses[0].error.message
         assert frontend_sender.reveal_messages == []
 
 
@@ -853,6 +1027,75 @@ async def test_plugin_ui_setting_flow_from_config_schema_metadata(
 
 
 @pytest.mark.asyncio
+async def test_plugin_schema_ui_setting_errors_do_not_break_core_settings(
+    tmp_path: Path,
+) -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        schema_path = plugin_root / "content" / "config" / "schema.json"
+        schema_payload = json.loads(schema_path.read_text(encoding="utf-8"))
+        if not isinstance(schema_payload.get("x-setta-ui-settings"), list):
+            raise ValueError("Fixture plugin schema is missing x-setta-ui-settings list.")
+        first_entry = schema_payload["x-setta-ui-settings"][0]
+        if not isinstance(first_entry, dict):
+            raise ValueError("Fixture plugin schema has non-object setting definition.")
+        first_entry["defaultValue"] = "not-a-boolean-default"
+        schema_path.write_text(
+            json.dumps(schema_payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        core_results = search_ui_settings(
+            query="watch code enabled",
+            sourceFilter="core",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert any(
+            entry.settingId == "core.watch_code.enabled"
+            for entry in core_results.results
+        )
+
+        plugin_results = search_ui_settings(
+            query="full fixture enabled",
+            sourceFilter="plugin",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert plugin_results.results == []
+
+        get_result = await get_ui_setting_value(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert get_result.error is not None
+        assert get_result.error.code == "plugin_unavailable"
+        assert "defaultValue is invalid" in get_result.error.message
+
+
+@pytest.mark.asyncio
 async def test_plugin_ui_setting_flow_from_backend_registered_handlers(
     tmp_path: Path,
 ) -> None:
@@ -962,6 +1205,71 @@ async def test_plugin_ui_setting_flow_from_backend_registered_handlers(
                 == "PluginPane:setta-fixture-full:full-settings-pane"
             )
             assert frontend_sender.reveal_messages
+        finally:
+            plugin_manager.shutdown_backend_plugins()
+
+
+@pytest.mark.asyncio
+async def test_plugin_backend_ui_setting_read_type_mismatch_returns_structured_error(
+    tmp_path: Path,
+) -> None:
+    async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, plugin_root = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        (plugin_root / "backend" / "entrypoint.py").write_text(
+            "def _read_backend_enabled(*, project_config_id: str):\n"
+            "    return 'invalid-string'\n\n"
+            "def _write_backend_enabled(*, project_config_id: str, value):\n"
+            "    return {'ok': True, 'projectConfigId': project_config_id, 'value': value}\n\n"
+            "def register(plugin):\n"
+            "    plugin.register_ui_setting(\n"
+            "        {\n"
+            "            'id': 'backend_enabled',\n"
+            "            'title': 'Backend Enabled',\n"
+            "            'description': 'Enable backend-provided fixture behavior.',\n"
+            "            'paneId': 'full-settings-pane',\n"
+            "            'revealKey': 'full-settings',\n"
+            "            'synonyms': ['backend enabled'],\n"
+            "            'mutability': 'writable',\n"
+            "            'valueSchema': {'type': 'boolean'},\n"
+            "            'read': _read_backend_enabled,\n"
+            "            'write': _write_backend_enabled,\n"
+            "        }\n"
+            "    )\n",
+            encoding="utf-8",
+        )
+
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+        plugin_manager.load_backend_plugins(app=FastAPI())
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::backend_enabled"
+
+        try:
+            get_result = await get_ui_setting_value(
+                settingId=plugin_setting_id,
+                projectConfigId=project_config_id,
+                ctx=ctx,
+            )
+            assert get_result.error is not None
+            assert get_result.error.code == "invalid_value_type"
+            assert "returned an invalid value" in get_result.error.message
         finally:
             plugin_manager.shutdown_backend_plugins()
 
@@ -1180,7 +1488,7 @@ async def test_search_ui_settings_ignores_disabled_plugins(
 
 
 @pytest.mark.asyncio
-async def test_search_ui_settings_rejects_duplicate_plugin_setting_ids(
+async def test_search_ui_settings_skips_plugins_with_duplicate_setting_ids(
     tmp_path: Path,
 ) -> None:
     async with real_project_manager() as project_fixture, real_settings_manager() as settings_fixture:
@@ -1215,11 +1523,32 @@ async def test_search_ui_settings_rejects_duplicate_plugin_setting_ids(
         project_config_id = ID(
             project_fixture.manager.project_state_backend.defaultProjectConfigId
         )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
 
-        with pytest.raises(ValueError, match="duplicated ui settingId"):
-            search_ui_settings(
-                query="full fixture enabled",
-                sourceFilter="plugin",
-                projectConfigId=project_config_id,
-                ctx=ctx,
-            )
+        core_results = search_ui_settings(
+            query="watch code enabled",
+            sourceFilter="core",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert any(
+            entry.settingId == "core.watch_code.enabled"
+            for entry in core_results.results
+        )
+
+        plugin_results = search_ui_settings(
+            query="full fixture enabled",
+            sourceFilter="plugin",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert plugin_results.results == []
+
+        get_result = await get_ui_setting_value(
+            settingId=plugin_setting_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert get_result.error is not None
+        assert get_result.error.code == "plugin_unavailable"
+        assert "duplicated ui settingId" in get_result.error.message

@@ -14,6 +14,10 @@ UISettingSource = Literal["core", "plugin"]
 UISettingMutability = Literal["readOnly", "writable"]
 UISettingSide = Literal["left", "right"]
 UISettingHighlightStrategy = Literal["dom_anchor", "plugin_handler"]
+UISettingRevealActivationType = Literal[
+    "project_ai_settings_accordion_item",
+    "run_instructions_accordion_item",
+]
 UISettingValueType = Literal[
     "boolean",
     "string",
@@ -48,6 +52,11 @@ class UISettingHighlight(BaseModel, extra="forbid"):
     pluginRevealKey: str | None = None
 
 
+class UISettingRevealActivationStep(BaseModel, extra="forbid"):
+    type: UISettingRevealActivationType
+    itemValue: str
+
+
 class UISettingValueSchema(BaseModel, extra="forbid"):
     type: UISettingValueType
     enumValues: list[JSONValue] | None = None
@@ -68,6 +77,9 @@ class UISettingEntry(BaseModel, extra="forbid"):
     pluginId: str | None = None
     mutability: UISettingMutability
     valueSchema: UISettingValueSchema
+    revealActivationSteps: list[UISettingRevealActivationStep] = Field(
+        default_factory=list
+    )
 
 
 class UISettingMutationResult(BaseModel, extra="forbid"):

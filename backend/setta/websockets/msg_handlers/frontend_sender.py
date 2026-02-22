@@ -142,10 +142,15 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
         self,
         *,
         share_session_id: str | None = None,
+        preferred_websocket_id: str | None = None,
     ) -> str | None:
         websocket_ids = self._list_frontend_websocket_ids(
             share_session_id=share_session_id
         )
+        if preferred_websocket_id is not None:
+            if preferred_websocket_id in websocket_ids:
+                return preferred_websocket_id
+            return None
         if not websocket_ids:
             return None
         return websocket_ids[0]

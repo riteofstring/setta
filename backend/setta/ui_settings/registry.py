@@ -1,5 +1,6 @@
 from copy import deepcopy
 from dataclasses import dataclass
+import logging
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import quote
 
@@ -8,6 +9,7 @@ from setta.agentic.store import (
     load_agent_profiles,
     load_external_agent_configs,
 )
+from setta.app.spec_store import default_app_spec_path
 from setta.plugins.errors import PluginManagerError
 from setta.plugins.models import PluginRegisteredUISetting
 from setta.project_state.project_manager_types import (
@@ -33,6 +35,7 @@ from setta.ui_settings.models import (
     UISettingHighlight,
     UISettingLocation,
     UISettingMutationResult,
+    UISettingRevealActivationStep,
     UISettingRuntimeEntry,
     UISettingValueSchema,
 )
@@ -43,6 +46,14 @@ if TYPE_CHECKING:
 UISettingSourceFilter = Literal["core", "plugin", "all"]
 PLUGIN_SETTING_ID_PREFIX = "plugin::"
 PLUGIN_UI_SETTINGS_SCHEMA_KEY = "x-setta-ui-settings"
+_JS_ENCODE_URI_COMPONENT_SAFE_CHARS = "-_.!~*'()"
+_DEFAULT_MINIMAL_APP_SPEC: dict[str, JSONValue] = {
+    "key": "root",
+    "type": "Stack",
+    "props": {},
+    "children": [],
+}
+logger = logging.getLogger(__name__)
 
 
 class UISettingValidationError(ValueError):
@@ -87,6 +98,7 @@ def parse_plugin_setting_id(setting_id: str) -> tuple[str, str] | None:
 @dataclass(slots=True)
 class UISettingRegistry:
     entriesById: dict[str, UISettingRuntimeEntry]
+    pluginErrorsByPluginId: dict[str, str]
 
     def get(self, setting_id: str) -> UISettingRuntimeEntry | None:
         return self.entriesById.get(setting_id)
@@ -135,12 +147,19 @@ def build_ui_settings_registry(
     entries_by_id: dict[str, UISettingRuntimeEntry] = {}
     for entry in _build_core_entries():
         entries_by_id[entry.metadata.settingId] = entry
-    for entry in _build_plugin_entries(ctx=ctx, project_config_id=project_config_id):
+    plugin_entries, plugin_errors = _build_plugin_entries(
+        ctx=ctx,
+        project_config_id=project_config_id,
+    )
+    for entry in plugin_entries:
         setting_id = entry.metadata.settingId
         if setting_id in entries_by_id:
             raise ValueError(f"Duplicate UI setting id: {setting_id}")
         entries_by_id[setting_id] = entry
-    return UISettingRegistry(entriesById=entries_by_id)
+    return UISettingRegistry(
+        entriesById=entries_by_id,
+        pluginErrorsByPluginId=plugin_errors,
+    )
 
 
 def validate_ui_setting_value(
@@ -427,6 +446,12 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
                 source="core",
                 mutability="readOnly",
                 valueSchema=UISettingValueSchema(type="integer", minimum=0),
+                revealActivationSteps=[
+                    UISettingRevealActivationStep(
+                        type="project_ai_settings_accordion_item",
+                        itemValue="project-ai-settings-prompt-templates",
+                    )
+                ],
             ),
             readValue=_read_project_ai_prompt_templates_count,
         ),
@@ -451,6 +476,12 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
                 source="core",
                 mutability="readOnly",
                 valueSchema=UISettingValueSchema(type="integer", minimum=0),
+                revealActivationSteps=[
+                    UISettingRevealActivationStep(
+                        type="project_ai_settings_accordion_item",
+                        itemValue="project-ai-settings-external-agents",
+                    )
+                ],
             ),
             readValue=_read_project_ai_external_agents_count,
         ),
@@ -475,6 +506,12 @@ def _build_core_entries() -> list[UISettingRuntimeEntry]:
                 source="core",
                 mutability="writable",
                 valueSchema=UISettingValueSchema(type="boolean"),
+                revealActivationSteps=[
+                    UISettingRevealActivationStep(
+                        type="run_instructions_accordion_item",
+                        itemValue="run-instructions-codegen-targets",
+                    )
+                ],
             ),
             readValue=_read_python_codegen_enabled,
             writeValue=_write_python_codegen_enabled,
@@ -595,21 +632,37 @@ def _build_plugin_entries(
     *,
     ctx: "Context",
     project_config_id: ID,  # noqa: ARG001 - reserved for future plugin state scoping
-) -> list[UISettingRuntimeEntry]:
+) -> tuple[list[UISettingRuntimeEntry], dict[str, str]]:
     plugin_manager = getattr(ctx.fastmcp.state, "plugin_manager", None)
     if plugin_manager is None:
-        return []
+        return [], {}
     runtime_response = plugin_manager.get_runtime_response()
+    active_plugin_ids = {
+        status_entry.pluginId
+        for status_entry in runtime_response.status.plugins
+        if status_entry.state.value == "active"
+    }
     entries: list[UISettingRuntimeEntry] = []
+    plugin_errors_by_plugin_id: dict[str, str] = {}
     for plugin in runtime_response.list.plugins:
+        if plugin.pluginId not in active_plugin_ids:
+            continue
         if "registerPane" not in plugin.effectiveCapabilities:
             continue
         schema_json = plugin.config.schemaJson
         if isinstance(schema_json, dict):
-            definitions = _parse_plugin_ui_setting_definitions(
-                schema_json=schema_json,
-                plugin_id=plugin.pluginId,
-            )
+            try:
+                definitions = _parse_plugin_ui_setting_definitions(
+                    schema_json=schema_json,
+                    plugin_id=plugin.pluginId,
+                )
+            except Exception as exc:
+                _record_plugin_ui_setting_error(
+                    plugin_errors_by_plugin_id,
+                    plugin_id=plugin.pluginId,
+                    message=str(exc),
+                )
+                definitions = []
             for definition in definitions:
                 entries.append(
                     _build_plugin_runtime_entry(
@@ -621,14 +674,41 @@ def _build_plugin_entries(
             plugin_id=plugin.pluginId,
         )
         for registration in backend_registrations:
-            entries.append(
-                _build_backend_plugin_runtime_entry(
-                    plugin_id=plugin.pluginId,
-                    registration=registration,
-                    plugin_manager=plugin_manager,
+            try:
+                entries.append(
+                    _build_backend_plugin_runtime_entry(
+                        plugin_id=plugin.pluginId,
+                        registration=registration,
+                        plugin_manager=plugin_manager,
+                    )
                 )
-            )
-    return entries
+            except Exception as exc:
+                _record_plugin_ui_setting_error(
+                    plugin_errors_by_plugin_id,
+                    plugin_id=plugin.pluginId,
+                    message=str(exc),
+                )
+    return entries, plugin_errors_by_plugin_id
+
+
+def _record_plugin_ui_setting_error(
+    plugin_errors_by_plugin_id: dict[str, str],
+    *,
+    plugin_id: str,
+    message: str,
+) -> None:
+    logger.warning(
+        "Skipping invalid UI-setting contribution from plugin %s: %s",
+        plugin_id,
+        message,
+    )
+    existing = plugin_errors_by_plugin_id.get(plugin_id)
+    if existing is None:
+        plugin_errors_by_plugin_id[plugin_id] = message
+        return
+    if message in existing:
+        return
+    plugin_errors_by_plugin_id[plugin_id] = f"{existing}; {message}"
 
 
 def _build_plugin_runtime_entry(
@@ -1001,7 +1081,19 @@ def _parse_plugin_ui_setting_definitions(
             plugin_id=plugin_id,
             local_setting_id=local_setting_id,
         )
-        default_value = raw_definition.get("defaultValue")
+        if "defaultValue" not in raw_definition:
+            raise ValueError(
+                (
+                    f"Plugin {plugin_id} setting {local_setting_id} must define "
+                    "defaultValue."
+                )
+            )
+        default_value = _validate_plugin_default_value(
+            plugin_id=plugin_id,
+            local_setting_id=local_setting_id,
+            value_schema=value_schema,
+            value=raw_definition.get("defaultValue"),
+        )
         definitions.append(
             _PluginUISettingDefinition(
                 localSettingId=local_setting_id,
@@ -1112,6 +1204,25 @@ def _resolve_plugin_value_schema(
     )
 
 
+def _validate_plugin_default_value(
+    *,
+    plugin_id: str,
+    local_setting_id: str,
+    value_schema: UISettingValueSchema,
+    value: JSONValue,
+) -> JSONValue:
+    try:
+        validate_ui_setting_value(value_schema, value)
+    except UISettingValidationError as exc:
+        raise ValueError(
+            (
+                f"Plugin {plugin_id} setting {local_setting_id} defaultValue "
+                f"is invalid: {exc}"
+            )
+        ) from exc
+    return value
+
+
 def _infer_plugin_value_schema_from_config_schema(
     *,
     schema_json: dict[str, Any],
@@ -1183,7 +1294,11 @@ def _as_int(value: Any) -> int | None:
 
 
 def _build_plugin_pane_overview_tab_key(*, plugin_id: str, pane_id: str) -> str:
-    return f"PluginPane:{quote(plugin_id, safe='')}:{quote(pane_id, safe='')}"
+    return (
+        "PluginPane:"
+        f"{quote(plugin_id, safe=_JS_ENCODE_URI_COMPONENT_SAFE_CHARS)}:"
+        f"{quote(pane_id, safe=_JS_ENCODE_URI_COMPONENT_SAFE_CHARS)}"
+    )
 
 
 def _require_active_plugin_runtime_entry(
@@ -1563,14 +1678,12 @@ async def _set_app_definition_field(
 ) -> None:
     manager = _get_project_manager(ctx, project_config_id)
     current = await manager.get_app_definition(GetAppDefinitionRequest())
-    if not isinstance(current.appSpec, dict):
-        raise UISettingValidationError(
-            "mutation_failed",
-            "Cannot update app definition settings before an app spec exists.",
-        )
+    app_spec = current.appSpec
+    if not isinstance(app_spec, dict):
+        app_spec = deepcopy(_DEFAULT_MINIMAL_APP_SPEC)
     await manager.set_app_definition(
         SetAppDefinitionRequest(
-            appSpec=current.appSpec,
+            appSpec=app_spec,
             appSpecVersion=app_spec_version,
             catalogId=catalog_id,
             appSpecPath=app_spec_path,
@@ -1641,7 +1754,9 @@ async def _write_app_spec_version(
 
 async def _read_app_spec_path(ctx: "Context", project_config_id: ID) -> JSONValue:
     definition = await _get_app_definition(ctx, project_config_id)
-    return definition.appSpecPath
+    if isinstance(definition.appSpecPath, str) and definition.appSpecPath.strip() != "":
+        return definition.appSpecPath
+    return default_app_spec_path()
 
 
 async def _write_app_spec_path(

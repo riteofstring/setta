@@ -262,6 +262,75 @@ test("plugin reveal_ui_setting succeeds when plugin tab starts closed", async ({
   }
 });
 
+test("plugin reveal_ui_setting respects durationMs when plugin runtime loads after 2s", async ({
+  page,
+}) => {
+  const preparedFixture = prepareFrontendOnlyFullFixture();
+  let delayedRuntimeRequestCount = 0;
+
+  await page.route("**/api/plugins/runtime", async (route) => {
+    const response = await route.fetch();
+    if (delayedRuntimeRequestCount === 0) {
+      delayedRuntimeRequestCount += 1;
+      await new Promise((resolve) => {
+        setTimeout(resolve, 3200);
+      });
+    }
+    await route.fulfill({ response });
+  });
+
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: preparedFixture.pluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/config", {
+      pluginId: PLUGIN_ID,
+      config: {
+        enabled: true,
+        label: "fixture-default",
+      },
+    });
+    await postBackend(page, "/plugins/rescan", {});
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: LABEL_SETTING_ID,
+        durationMs: 8000,
+      },
+    );
+    expect(revealResult.emittedRevealCount).toBe(1);
+    expect(revealResult.statuses[0]?.status).toBe("revealed");
+    expect(revealResult.statuses[0]?.error).toBeNull();
+
+    const labelSettingNode = page.locator(
+      `[data-fixture-full-setting="${LABEL_SETTING_ID}"]`,
+    );
+    await expect(labelSettingNode).toBeVisible();
+    await expect(labelSettingNode).toHaveClass(/setta-fixture-full-reveal/);
+  } finally {
+    await page.unroute("**/api/plugins/runtime").catch(() => null);
+    await postBackend(page, "/plugins/uninstall", {
+      pluginId: PLUGIN_ID,
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/rescan", {}).catch(() => null);
+    await cleanupIsolatedProject(page, projectContext);
+    fs.rmSync(preparedFixture.tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("plugin UI settings tools return plugin_unavailable when plugin is disabled", async ({
   page,
 }) => {

@@ -54,3 +54,38 @@
 8. UX after: reveal reliability improves under delayed mount/render conditions.
 9. DX before: fallback branches and partial worker side effects obscured root causes.
 10. DX after: fail-fast validation and atomic registration simplify debugging and retries.
+
+## 2026-02-25 10:10:25 PST
+
+### Consolidated Findings
+1. Reveal targets nested behind collapsed accordions/tabs were not deterministic from tools.
+2. UI-setting read/write paths did not enforce runtime `valueSchema` on returned values.
+3. `core.app.spec_path` could violate declared schema and app-setting writes failed before app spec creation.
+4. Malformed plugin UI-setting metadata could poison global registry/load behavior.
+5. Plugin tab key encoding mismatched frontend `encodeURIComponent` handling for punctuation-safe characters.
+6. Reveal routing in multi-frontend sessions lacked explicit origin websocket preference.
+7. Plugin reveal timeout behavior had a hard 2s retry cap that ignored requested duration.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Added reveal activation-step metadata end-to-end; frontend now applies activation steps before anchor reveal.
+2. Enforced runtime schema validation for get/set values and mutation old/new payloads with structured error codes.
+3. Made app spec-path reads schema-consistent and materialized a minimal app spec on first app-setting write.
+4. Isolated malformed plugin metadata per plugin and skipped only invalid contributions; added plugin `defaultValue` schema validation.
+5. Aligned backend plugin tab key encoding with frontend/JS URI encoding-safe behavior.
+6. Added optional preferred websocket id in agentic context and deterministic sender selection with explicit missing-id errors.
+7. Removed plugin reveal hard 2s cap so retries honor full `durationMs`.
+8. Added/updated backend unit+integration tests, frontend unit tests, and Playwright E2E coverage for these paths.
+
+### UX/DX Before and After
+1. UX before: reveal could fail or hang when targets were inside collapsed Project AI/Run Instructions sections.
+2. UX after: reveal opens required containers first and consistently lands on the target setting.
+3. UX before: users could read/write values that violated declared setting schemas.
+4. UX after: invalid runtime values return structured validation failures immediately.
+5. UX before: app setting flows could fail on clean projects before an app spec existed.
+6. UX after: app-setting workflows operate from fresh state without manual bootstrapping.
+7. UX before: one malformed plugin schema could hide unrelated settings/tools.
+8. UX after: only the bad plugin contribution is isolated; core and healthy plugin settings remain available.
+9. UX before: plugin reveal could timeout early despite longer requested duration.
+10. UX after: reveal waits for the full requested deadline.
+11. DX before: multi-frontend reveal attribution and plugin failure triage were ambiguous.
+12. DX after: deterministic websocket targeting and structured plugin/validation errors simplify debugging and automation.
