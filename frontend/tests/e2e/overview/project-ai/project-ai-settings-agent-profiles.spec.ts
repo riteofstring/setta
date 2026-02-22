@@ -8,6 +8,59 @@ import {
 } from "../../helpers";
 
 test.describe.serial("project ai settings accordion layout", () => {
+  test("llm api keys supports adding custom key/value entries", async ({
+    page,
+  }) => {
+    await setOverviewTab(page, "ProjectAISettings");
+    const projectContext = await openIsolatedProject(page);
+    const customKey = "E2E_CUSTOM_LLM_API_KEY";
+    const customValue = "e2e-custom-secret-value";
+    const backendOrigin = process.env.SETTA_BACKEND_ORIGIN;
+    if (!backendOrigin) {
+      throw new Error("SETTA_BACKEND_ORIGIN is required for this test.");
+    }
+
+    try {
+      const llmKeysTrigger = page.getByTestId(
+        "project-ai-settings-accordion-llm-api-keys",
+      );
+      if ((await llmKeysTrigger.getAttribute("aria-expanded")) !== "true") {
+        await llmKeysTrigger.click();
+      }
+
+      await page
+        .getByTestId("project-llm-settings-new-api-key-name")
+        .fill(customKey);
+      await page.locator("#project-llm-settings-new-api-key-value").fill(
+        customValue,
+      );
+      await page.getByTestId("project-llm-settings-add-api-key").click();
+
+      await expect(
+        page.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
+      ).toContainText(customKey);
+
+      // The backend should persist arbitrary key/value entries.
+      await expect
+        .poll(async () => {
+          const res = await page.request.get(`${backendOrigin}/api/llm/apiKeys`);
+          if (!res.ok()) {
+            return null;
+          }
+          const payload = (await res.json()) as Record<string, string>;
+          return payload[customKey] ?? null;
+        })
+        .toBe(customValue);
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await expect(
+        page.getByTestId("project-ai-settings-accordion-llm-api-keys-content"),
+      ).toContainText(customKey);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
   test("defaults to essentials open and persists accordion state", async ({
     page,
   }) => {

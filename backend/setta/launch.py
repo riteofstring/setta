@@ -7,7 +7,6 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
 
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.utils.env_vars import (
@@ -16,7 +15,6 @@ from setta.utils.env_vars import (
     PROFILE_ENV,
     PROFILE_LOOKUP_HOME_ENV,
     RUNTIME_ROOT_ENV,
-    SERVER_MODE_ENV,
     SETTA_HOME_ENV,
     WORKSPACE_ROOT_ENV,
 )
@@ -91,7 +89,6 @@ def launch_workspace_session(
     runtime_root: Path | str | None = None,
     allow_env_files_overrides: bool = True,
     allow_env_non_files_overrides: bool = True,
-    server_mode: Literal["ide", "launcher"] = "ide",
     timeout_seconds: float = DEFAULT_LAUNCH_TIMEOUT_SECONDS,
     poll_interval_seconds: float = DEFAULT_LAUNCH_POLL_INTERVAL_SECONDS,
 ) -> LaunchResult:
@@ -139,10 +136,7 @@ def launch_workspace_session(
             raise LaunchError(code, message)
 
     registry = SessionRegistry(sessions_root=paths.runtime_sessions_root)
-    sessions = registry.find_sessions_by_workspace_and_mode(
-        paths.workspace_root,
-        server_mode=server_mode,
-    )
+    sessions = registry.find_sessions_by_workspace(paths.workspace_root)
     if sessions:
         sessions.sort(key=lambda entry: entry.startedAt, reverse=True)
         for session in sessions:
@@ -168,11 +162,10 @@ def launch_workspace_session(
                 )
             time.sleep(min(poll_interval_seconds, 0.2))
 
-    process = _start_setta_process(paths, server_mode=server_mode)
+    process = _start_setta_process(paths)
     session = _wait_for_session(
         registry,
         paths.workspace_root,
-        server_mode,
         process.process,
         process.log_path,
         timeout_seconds=timeout_seconds,
@@ -192,9 +185,7 @@ class _LaunchProcess:
     log_path: Path
 
 
-def _start_setta_process(
-    paths: SettaPaths, *, server_mode: Literal["ide", "launcher"]
-) -> _LaunchProcess:
+def _start_setta_process(paths: SettaPaths) -> _LaunchProcess:
     cmd = [
         sys.executable,
         "-m",
@@ -247,7 +238,6 @@ def _start_setta_process(
             PROFILE_ENV,
             FILES_ROOT_ENV,
             FILES_LOCATION_ENV,
-            SERVER_MODE_ENV,
         ):
             env.pop(key, None)
         if paths.profile_name:
@@ -259,8 +249,6 @@ def _start_setta_process(
             env["SETTA_AUTH_COOKIE_NAME"] = paths.auth_cookie_name
         else:
             env.pop("SETTA_AUTH_COOKIE_NAME", None)
-        if server_mode == "launcher":
-            env[SERVER_MODE_ENV] = "launcher"
         popen_kwargs["env"] = env
         if os.name == "posix":
             popen_kwargs["start_new_session"] = True
@@ -295,7 +283,6 @@ def _start_setta_process(
 def _wait_for_session(
     registry: SessionRegistry,
     workspace_root: Path,
-    server_mode: Literal["ide", "launcher"],
     process: subprocess.Popen[str],
     log_path: Path,
     *,
@@ -304,10 +291,7 @@ def _wait_for_session(
 ) -> SessionMetadata:
     deadline = time.monotonic() + timeout_seconds
     while True:
-        sessions = registry.find_sessions_by_workspace_and_mode(
-            workspace_root,
-            server_mode=server_mode,
-        )
+        sessions = registry.find_sessions_by_workspace(workspace_root)
         if sessions:
             # A Setta session registers itself before uvicorn starts listening, so
             # ensure the backend port is reachable before returning a bootstrap URL.

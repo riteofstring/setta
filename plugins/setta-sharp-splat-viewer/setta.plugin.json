@@ -1,0 +1,13 @@
+{
+  "capabilities": ["registerSectionKinds"],
+  "enabledByDefault": true,
+  "frontend": {
+    "entrypoint": "frontend/dist/index.js",
+    "style": "frontend/dist/index.css"
+  },
+  "id": "setta-sharp-splat-viewer",
+  "name": "Setta Sharp Splat Viewer",
+  "schemaVersion": 1,
+  "settaVersionRange": ">=0.0.0",
+  "version": "0.1.0"
+}
