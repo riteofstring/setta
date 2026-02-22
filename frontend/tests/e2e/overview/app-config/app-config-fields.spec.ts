@@ -22,18 +22,6 @@ test("app config pane persists catalog, version, and spec path", async ({
   const catalogInput = page.getByLabel("Catalog ID");
   const versionInput = page.getByLabel("Spec version");
   const pathInput = page.getByLabel("Spec path");
-  await expect(
-    page.locator('[data-setting-anchor="core.app.catalog_id"]'),
-  ).toBeVisible();
-  await expect(
-    page.locator('[data-setting-anchor="core.app.spec_version"]'),
-  ).toBeVisible();
-  await expect(
-    page.locator('[data-setting-anchor="core.app.theme_mode"]'),
-  ).toBeVisible();
-  await expect(
-    page.locator('[data-setting-anchor="core.app.spec_path"]'),
-  ).toBeVisible();
 
   const defaultCatalogId = await catalogInput.inputValue();
   await catalogInput.fill(defaultCatalogId);

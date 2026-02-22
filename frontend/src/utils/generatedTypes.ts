@@ -952,7 +952,6 @@ export const WebsocketMsgTypeForFrontendEnum = {
   LLMApiKeysUpdated: "LLMApiKeysUpdated",
   AIFollowToolArgumentsUpdate: "AIFollowToolArgumentsUpdate",
   AIFollowToolResultUpdate: "AIFollowToolResultUpdate",
-  UISettingReveal: "UISettingReveal",
   AgentProfilesUpdated: "AgentProfilesUpdated",
   PromptTemplatesUpdated: "PromptTemplatesUpdated",
   ExternalAgentConfigsUpdated: "ExternalAgentConfigsUpdated",
@@ -6970,40 +6969,6 @@ const WebsocketMsgAIFollowToolResultUpdateSchema = z.object({
     .default(WebsocketMsgTypeForFrontendEnum.AIFollowToolResultUpdate),
 });
 
-const UISettingRevealTargetSchema = z.object({
-  settingId: z.string(),
-  side: z.literal(["left", "right"]),
-  overviewTabKey: z.union([z.string(), z.null()]).default(null),
-  uiEditorTabName: z.union([z.string(), z.null()]).default(null),
-  pluginId: z.union([z.string(), z.null()]).default(null),
-  paneId: z.union([z.string(), z.null()]).default(null),
-  strategy: z.literal(["dom_anchor", "plugin_handler"]),
-  anchorId: z.union([z.string(), z.null()]).default(null),
-  pluginRevealKey: z.union([z.string(), z.null()]).default(null),
-});
-
-export type UISettingRevealTarget = z.infer<typeof UISettingRevealTargetSchema>;
-
-const UISettingRevealContentSchema = z.object({
-  projectConfigId: IDSchema,
-  chatId: z.union([IDSchema, z.null()]).default(null),
-  reveals: z.array(UISettingRevealTargetSchema),
-  durationMs: z.int().default(3000),
-  requestId: z.string(),
-});
-
-export type UISettingRevealContent = z.infer<
-  typeof UISettingRevealContentSchema
->;
-
-const WebsocketMsgUISettingRevealSchema = z.object({
-  id: z.union([z.string(), z.null()]).default(null),
-  content: UISettingRevealContentSchema,
-  messageType: z
-    .literal("UISettingReveal")
-    .default(WebsocketMsgTypeForFrontendEnum.UISettingReveal),
-});
-
 const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgAllConnectionsSchema,
   WebsocketMsgNotificationSchema,
@@ -7027,7 +6992,6 @@ const FrontendWebsocketMsgUnionSchema = z.union([
   WebsocketMsgTranscriptionProfilesUpdatedSchema,
   WebsocketMsgAIFollowToolArgumentsUpdateSchema,
   WebsocketMsgAIFollowToolResultUpdateSchema,
-  WebsocketMsgUISettingRevealSchema,
 ]);
 
 export type FrontendWebsocketMsgUnion = z.infer<
