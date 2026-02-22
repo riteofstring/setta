@@ -266,3 +266,24 @@
 6. UX after: outbound requests use current-generation affinity or null fallback; stale-id windows are removed.
 7. DX before: mutation failures could mask side effects and drift errors could reference internal handler/path IDs.
 8. DX after: failure semantics are deterministic, side-effect boundaries are explicit, and diagnostics consistently reference canonical `settingId`.
+
+## 2026-02-25 16:26:44 PST
+
+### Consolidated Findings
+1. Regressions were recurring in the same UI-setting contract surfaces because precedence and side-effect invariants were spread across modules/tests rather than asserted in one matrix.
+2. Context precedence (agentic vs explicit vs request meta vs defaults) needed direct, parameterized coverage to prevent accidental inversions.
+3. Tool-level acceptance coverage was missing for key precedence ties: frontend websocket affinity, share-session resolver precedence, and explicit section override precedence.
+
+### Proposed Fixes Implemented
+1. Added a dedicated backend matrix test module for UI-setting context resolution precedence and fallback behavior (`projectConfigId`, `sectionId`, `frontendWebsocketId`, `shareSessionId`, and project-manager lookup scoping).
+2. Added MCP UI-setting acceptance tests asserting:
+   - explicit right-pane section override wins over agentic/request-meta section context,
+   - resolved share-session id wins over request-meta share-session id and is propagated to reveal dispatch,
+   - agentic `frontend_websocket_id` wins over request-meta websocket affinity.
+3. Ran Ruff and targeted backend pytest for the new matrix and acceptance tests.
+
+### UX/DX Before and After
+1. UX before: subtle precedence regressions could silently reintroduce wrong-target reveal routing or wrong-scope context use.
+2. UX after: precedence behavior is now asserted with focused matrix and acceptance tests, making regressions fail fast in backend CI.
+3. DX before: context behavior required cross-file reasoning and was easy to change accidentally.
+4. DX after: canonical precedence contracts are encoded in dedicated tests with explicit scenarios.

@@ -1017,6 +1017,79 @@ async def test_reveal_right_pane_setting_activates_section_from_argument() -> No
 
 
 @pytest.mark.asyncio
+async def test_reveal_right_pane_prefers_explicit_section_over_agentic_and_request_meta() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        manager = project_fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+
+        explicit_section_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        explicit_section_id = explicit_section_result.sectionId
+        non_explicit_section_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Dict,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        non_explicit_section_id = non_explicit_section_result.sectionId
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id,
+                activeIds=[],
+            )
+        )
+
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "sectionId": non_explicit_section_id,
+            },
+            agentic_context=AgenticContext(
+                project_config_id=project_config_id,
+                chat_id=ID("chat-agentic"),
+                section_id=non_explicit_section_id,
+                frontend_websocket_id=None,
+                allow_unscoped=True,
+            ),
+        )
+
+        # Explicit sectionIdToActivate must win over agentic + request-meta section context.
+        result = await reveal_ui_setting(
+            settingId="core.project.show_param_display_names",
+            sectionIdToActivate=explicit_section_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 1
+        assert result.statuses[0].status == "revealed"
+        updated_state = manager.get_single_config_state(project_config_id)
+        assert updated_state.projectConfig.activeIds == [explicit_section_id]
+
+
+@pytest.mark.asyncio
 async def test_reveal_right_pane_incompatible_tab_does_not_mutate_active_section() -> (
     None
 ):
@@ -1670,6 +1743,71 @@ async def test_ui_setting_tools_pass_share_session_id_to_project_manager_lookup(
 
 
 @pytest.mark.asyncio
+async def test_ui_setting_tools_prefer_resolved_share_session_id_over_request_meta() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        manager = project_fixture.manager
+        settings_manager = settings_fixture.manager
+        resolved_share_session_id = "share-session-resolved"
+        strict_switcher = _ShareSessionStrictProjectManagerSwitcher(
+            ProjectManagerSwitcher(
+                main_manager=manager,
+                settings_manager=settings_manager,
+            ),
+            required_share_session_id=resolved_share_session_id,
+        )
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_manager,
+            frontend_sender=frontend_sender,
+            project_manager_switcher=strict_switcher,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "shareSessionId": "share-session-meta",
+            },
+            resolved_share_session_id=resolved_share_session_id,
+        )
+
+        # Resolver-derived share-session scope must override request-meta shareSessionId.
+        read_result = await get_ui_setting_value(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert read_result.error is None
+        assert isinstance(read_result.value, bool)
+
+        set_result = await set_ui_setting_value(
+            settingId="core.watch_code.enabled",
+            value=not read_result.value,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is None
+        assert set_result.newValue == (not read_result.value)
+
+        reveal_result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert reveal_result.emittedRevealCount == 1
+        assert reveal_result.statuses[0].status == "revealed"
+        assert strict_switcher.calls
+        for _, share_session_id in strict_switcher.calls:
+            assert share_session_id == resolved_share_session_id
+        assert frontend_sender.reveal_messages
+        _, reveal_share_session_id = frontend_sender.reveal_messages[0]
+        assert reveal_share_session_id == resolved_share_session_id
+
+
+@pytest.mark.asyncio
 async def test_reveal_ui_setting_returns_structured_error_when_share_session_id_is_missing() -> (
     None
 ):
@@ -1884,6 +2022,51 @@ async def test_reveal_ui_setting_prefers_frontend_websocket_id_from_request_meta
         assert result.emittedRevealCount == 1
         assert result.statuses[0].status == "revealed"
         assert frontend_sender.resolved_target_websocket_ids[-1] == "frontend-b"
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_prefers_frontend_websocket_id_from_agentic_context_over_request_meta() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = [
+            "frontend-a",
+            "frontend-b",
+        ]
+        frontend_sender.reveal_target_websocket_id = "frontend-b"
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            request_meta={
+                "projectConfigId": project_config_id,
+                "frontendWebsocketId": "frontend-b",
+            },
+            agentic_context=AgenticContext(
+                project_config_id=project_config_id,
+                chat_id=ID("chat-agentic"),
+                section_id=None,
+                frontend_websocket_id="frontend-a",
+                allow_unscoped=True,
+            ),
+        )
+
+        # Agentic websocket affinity is canonical and must override request-meta fallback.
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 1
+        assert result.statuses[0].status == "revealed"
+        assert frontend_sender.resolved_target_websocket_ids[-1] == "frontend-a"
 
 
 @pytest.mark.asyncio
