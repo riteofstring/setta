@@ -9,6 +9,7 @@ from mcp.server.fastmcp.server import Context
 from mcp.shared.context import RequestContext
 from pydantic import BaseModel
 
+import setta.mcp.tools.ui_settings as ui_settings_tools_module
 from setta.mcp.tools.ui_settings import (
     get_ui_setting_value,
     reveal_ui_setting,
@@ -28,6 +29,14 @@ from setta.ui_settings.reveal_result_hub import (
     UISettingRevealResultContent,
     UISettingRevealResultHub,
     UISettingRevealResultStatus,
+)
+from setta.ui_settings.models import (
+    UISettingEntry,
+    UISettingHighlight,
+    UISettingLocation,
+    UISettingMutationResult,
+    UISettingRuntimeEntry,
+    UISettingValueSchema,
 )
 from setta.ui_settings.registry import _build_plugin_pane_overview_tab_key
 
@@ -76,6 +85,13 @@ class _RecordingFrontendSender:
         if not self.connected_frontend_websocket_ids:
             return None
         return sorted(self.connected_frontend_websocket_ids)[0]
+
+    def list_frontend_websocket_ids_for_ui_setting_reveal(
+        self,
+        *,
+        share_session_id: str | None = None,  # noqa: ARG002 - signature parity
+    ) -> list[str]:
+        return sorted(self.connected_frontend_websocket_ids)
 
     async def broadcast_ui_setting_reveal(
         self,
@@ -316,6 +332,79 @@ async def test_set_ui_setting_value_returns_structured_validation_error() -> Non
         assert result.error is not None
         assert result.error.code == "invalid_value_type"
         assert result.changed is False
+
+
+@pytest.mark.asyncio
+async def test_set_ui_setting_value_rejects_writer_old_value_drift(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def _read_value(_ctx: Context, _project_config_id: ID) -> bool:
+        return False
+
+    async def _write_value(
+        _ctx: Context,
+        _project_config_id: ID,
+        _value: bool,
+    ) -> UISettingMutationResult:
+        return UISettingMutationResult(
+            oldValue=True,
+            newValue=True,
+            normalizedValue=True,
+            changed=True,
+        )
+
+    runtime_entry = UISettingRuntimeEntry(
+        metadata=UISettingEntry(
+            settingId="core.test.flag",
+            title="Test Flag",
+            description="Validates old-value drift handling.",
+            source="core",
+            mutability="writable",
+            location=UISettingLocation(side="left", overviewTabKey="Overview"),
+            highlight=UISettingHighlight(
+                strategy="dom_anchor",
+                anchorId="core.test.flag",
+            ),
+            valueSchema=UISettingValueSchema(type="boolean"),
+        ),
+        readValue=_read_value,
+        writeValue=_write_value,
+    )
+
+    class _FakeRegistry:
+        def __init__(self) -> None:
+            self.pluginErrorsByPluginId: dict[str, str] = {}
+
+        def get(self, setting_id: str) -> UISettingRuntimeEntry | None:
+            if setting_id == "core.test.flag":
+                return runtime_entry
+            return None
+
+    monkeypatch.setattr(
+        ui_settings_tools_module,
+        "build_ui_settings_registry",
+        lambda *, ctx, project_config_id: _FakeRegistry(),
+    )
+
+    # Writer responses must match the validated pre-write snapshot.
+    result = await set_ui_setting_value(
+        settingId="core.test.flag",
+        value=True,
+        projectConfigId=ID("project-1"),
+        ctx=Context(
+            fastmcp=SimpleNamespace(
+                state=SimpleNamespace(project_manager_switcher=SimpleNamespace(main=None))
+            )
+        ),
+    )
+
+    assert result.error is not None
+    assert result.error.code == "mutation_failed"
+    assert "oldValue that does not match the validated pre-write snapshot" in (
+        result.error.message
+    )
+    assert result.newValue is None
+    assert result.changed is False
 
 
 @pytest.mark.asyncio
@@ -776,6 +865,63 @@ async def test_reveal_right_pane_setting_activates_section_from_argument() -> No
 
 
 @pytest.mark.asyncio
+async def test_reveal_right_pane_incompatible_tab_does_not_mutate_active_section() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        manager = project_fixture.manager
+        project_config_id = ID(manager.project_state_backend.defaultProjectConfigId)
+
+        create_result = await manager.create_top_level_section(
+            CreateTopLevelSectionRequest(
+                projectConfigId=project_config_id,
+                implType=SectionType.Code,
+                controlCodeObjType=None,
+                implOverrides=None,
+                position=None,
+                topLevelSections=None,
+                viewportBounds=None,
+            )
+        )
+        incompatible_section_id = create_result.sectionId
+        await manager.set_active_ids(
+            SetActiveIdsRequest(
+                projectConfigId=project_config_id,
+                activeIds=[],
+            )
+        )
+        ctx = _build_ctx(
+            main_manager=manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+
+        # Incompatible right-pane tabs must fail before section activation.
+        result = await reveal_ui_setting(
+            settingId="core.project.show_param_display_names",
+            sectionIdToActivate=incompatible_section_id,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert result.statuses[0].error.code == "mutation_failed"
+        assert (
+            "Section type Code does not support tab QuickInfoConfig."
+            in result.statuses[0].error.message
+        )
+        updated_state = manager.get_single_config_state(project_config_id)
+        assert updated_state.projectConfig.activeIds == []
+        assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
 async def test_set_ui_setting_value_reveal_after_set_uses_request_meta_section_id() -> (
     None
 ):
@@ -1074,6 +1220,42 @@ async def test_reveal_ui_setting_returns_failure_when_no_frontend_is_connected()
         assert result.statuses[0].error is not None
         assert result.statuses[0].error.code == "mutation_failed"
         assert "No connected frontend" in result.statuses[0].error.message
+        assert frontend_sender.reveal_messages == []
+
+
+@pytest.mark.asyncio
+async def test_reveal_ui_setting_fails_when_multiple_frontends_exist_without_origin() -> (
+    None
+):
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        frontend_sender = _RecordingFrontendSender()
+        frontend_sender.connected_frontend_websocket_ids = [
+            "frontend-a",
+            "frontend-b",
+        ]
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+
+        # Multi-frontend reveal requests must provide explicit origin routing metadata.
+        result = await reveal_ui_setting(
+            settingId="core.watch_code.enabled",
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert result.emittedRevealCount == 0
+        assert result.statuses[0].status == "failed"
+        assert result.statuses[0].error is not None
+        assert result.statuses[0].error.code == "mutation_failed"
+        assert "multiple frontends are connected" in result.statuses[0].error.message
         assert frontend_sender.reveal_messages == []
 
 
@@ -1416,6 +1598,66 @@ async def test_plugin_backend_set_fails_before_write_when_existing_value_is_inva
             assert get_result.error.code == "invalid_value_type"
         finally:
             plugin_manager.shutdown_backend_plugins()
+
+
+@pytest.mark.asyncio
+async def test_plugin_set_ui_setting_value_rejects_corrupt_config_root_without_write(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async with (
+        real_project_manager() as project_fixture,
+        real_settings_manager() as settings_fixture,
+    ):
+        plugin_manager = _build_plugin_manager(tmp_path)
+        plugin_id, _ = _copy_fixture_plugin_to_workspace(
+            manager=plugin_manager,
+            fixture_name="full",
+        )
+        plugin_manager.rescan()
+        plugin_manager.write_plugin_config(
+            plugin_id=plugin_id,
+            config={"enabled": False, "label": "unset"},
+        )
+
+        runtime_response = plugin_manager.get_runtime_response()
+        target_plugin = None
+        for plugin_entry in runtime_response.list.plugins:
+            if plugin_entry.pluginId == plugin_id:
+                target_plugin = plugin_entry
+                break
+        if target_plugin is None:
+            raise AssertionError("Expected runtime entry for full fixture plugin.")
+        target_plugin.config.currentConfig = "invalid-root"
+        monkeypatch.setattr(
+            plugin_manager,
+            "get_runtime_response",
+            lambda: runtime_response,
+        )
+
+        frontend_sender = _RecordingFrontendSender()
+        ctx = _build_ctx(
+            main_manager=project_fixture.manager,
+            settings_manager=settings_fixture.manager,
+            frontend_sender=frontend_sender,
+            plugin_manager=plugin_manager,
+        )
+        project_config_id = ID(
+            project_fixture.manager.project_state_backend.defaultProjectConfigId
+        )
+        plugin_setting_id = f"plugin::{plugin_id}::enabled"
+
+        # Tool-level writes must fail on corrupt config roots without mutating config.
+        set_result = await set_ui_setting_value(
+            settingId=plugin_setting_id,
+            value=True,
+            projectConfigId=project_config_id,
+            ctx=ctx,
+        )
+        assert set_result.error is not None
+        assert set_result.error.code == "mutation_failed"
+        assert "config root must be an object" in set_result.error.message
+        assert target_plugin.config.currentConfig == "invalid-root"
 
 
 @pytest.mark.asyncio

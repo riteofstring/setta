@@ -432,6 +432,7 @@ async function invokePluginRevealHandlerWithinDeadline({
   timedOut: boolean;
   message: string;
 }> {
+  const abortController = new AbortController();
   let timeoutId: number | null = null;
   const timeoutPromise = new Promise<{
     ok: boolean;
@@ -439,6 +440,7 @@ async function invokePluginRevealHandlerWithinDeadline({
     message: string;
   }>((resolve) => {
     timeoutId = window.setTimeout(() => {
+      abortController.abort();
       resolve({
         ok: false,
         timedOut: true,
@@ -452,6 +454,7 @@ async function invokePluginRevealHandlerWithinDeadline({
     settingId: target.settingId,
     paneId: target.paneId ?? null,
     durationMs,
+    abortSignal: abortController.signal,
   })
     .then((result) => ({
       ok: result.ok,

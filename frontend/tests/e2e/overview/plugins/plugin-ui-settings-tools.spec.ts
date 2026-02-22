@@ -276,7 +276,16 @@ test("plugin reveal_ui_setting respects durationMs when plugin runtime loads aft
         setTimeout(resolve, 3200);
       });
     }
-    await route.fulfill({ response });
+    try {
+      await route.fulfill({ response });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      // Concurrent runtime polls can settle this route before delayed fulfill resumes.
+      if (message.includes("Route is already handled")) {
+        return;
+      }
+      throw error;
+    }
   });
 
   await setOverviewTab(page, "Overview");
@@ -462,6 +471,85 @@ test("plugin reveal_ui_setting surfaces plugin handler failure details", async (
     expect(revealResult.statuses[0]?.error?.code).toBe("mutation_failed");
     expect(revealResult.statuses[0]?.error?.message).toContain(
       "did not handle setting reveal",
+    );
+  } finally {
+    await postBackend(page, "/plugins/uninstall", {
+      pluginId: PLUGIN_ID,
+      scope: "workspace",
+    }).catch(() => null);
+    await postBackend(page, "/plugins/rescan", {}).catch(() => null);
+    await cleanupIsolatedProject(page, projectContext);
+    fs.rmSync(preparedFixture.tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("plugin reveal_ui_setting rejects non-boolean plugin handler results", async ({
+  page,
+}) => {
+  const preparedFixture = prepareFrontendOnlyFullFixture();
+  const frontendEntrypoints = [
+    path.join(preparedFixture.pluginRoot, "frontend", "src", "index.js"),
+    path.join(preparedFixture.pluginRoot, "frontend", "dist", "index.js"),
+  ];
+  let patchedEntrypointCount = 0;
+  for (const frontendEntrypoint of frontendEntrypoints) {
+    if (!fs.existsSync(frontendEntrypoint)) {
+      continue;
+    }
+    const originalSource = fs.readFileSync(frontendEntrypoint, "utf-8");
+    const patchedSource = originalSource.replace(
+      "      ({ settingId, durationMs }) => {\n        return revealFullSetting(settingId, durationMs);\n      },",
+      "      ({ settingId }) => {\n        if (settingId) {\n          return JSON.parse('\"non-boolean\"');\n        }\n        return JSON.parse('\"non-boolean\"');\n      },",
+    );
+    if (patchedSource === originalSource) {
+      continue;
+    }
+    fs.writeFileSync(frontendEntrypoint, patchedSource, "utf-8");
+    patchedEntrypointCount += 1;
+  }
+  if (patchedEntrypointCount === 0) {
+    throw new Error("Failed to patch fixture reveal handler source.");
+  }
+
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    await postBackend(page, "/plugins/link", {
+      localPluginRoot: preparedFixture.pluginRoot,
+      scope: "workspace",
+      enable: true,
+      force: true,
+    });
+    await postBackend(page, "/plugins/config", {
+      pluginId: PLUGIN_ID,
+      config: {
+        enabled: true,
+        label: "fixture-default",
+      },
+    });
+    await postBackend(page, "/plugins/rescan", {});
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(".react-flow__pane");
+
+    const pluginPaneTab = page.locator(PLUGIN_PANE_TAB_SELECTOR);
+    await expect(pluginPaneTab).toBeVisible({ timeout: 30000 });
+    await pluginPaneTab.click();
+
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: LABEL_SETTING_ID,
+      },
+    );
+    expect(revealResult.emittedRevealCount).toBe(0);
+    expect(revealResult.statuses[0]?.status).toBe("failed");
+    expect(revealResult.statuses[0]?.error?.code).toBe("mutation_failed");
+    expect(revealResult.statuses[0]?.error?.message).toContain(
+      "returned a non-boolean value",
     );
   } finally {
     await postBackend(page, "/plugins/uninstall", {

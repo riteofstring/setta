@@ -17,13 +17,17 @@ import {
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+type PluginRevealInvokeArgs = Parameters<
+  typeof invokePluginSettingRevealHandler
+>[0];
+
 vi.mock("plugins/runtime", async () => {
   const actual =
     await vi.importActual<typeof import("plugins/runtime")>("plugins/runtime");
   return {
     ...actual,
     invokePluginSettingRevealHandler: vi.fn(
-      async (args: { pluginId: string }) => ({
+      async (args: PluginRevealInvokeArgs) => ({
         ok: false,
         message: `Plugin ${args.pluginId} has no setting reveal handlers.`,
       }),
@@ -172,7 +176,7 @@ describe("receiveUISettingReveal", () => {
       querySelector: vi.fn(() => null),
     };
     vi.mocked(invokePluginSettingRevealHandler).mockImplementation(
-      async (args: { pluginId: string }) => ({
+      async (args: PluginRevealInvokeArgs) => ({
         ok: false,
         message: `Plugin ${args.pluginId} has no setting reveal handlers.`,
       }),

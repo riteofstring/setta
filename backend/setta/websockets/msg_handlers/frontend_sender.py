@@ -155,6 +155,13 @@ class WMHFrontendSender(BaseWebsocketMsgSender):
             return None
         return websocket_ids[0]
 
+    def list_frontend_websocket_ids_for_ui_setting_reveal(
+        self,
+        *,
+        share_session_id: str | None = None,
+    ) -> list[str]:
+        return self._list_frontend_websocket_ids(share_session_id=share_session_id)
+
     async def _broadcast_frontend(
         self,
         message,

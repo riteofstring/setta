@@ -145,3 +145,36 @@
 8. UX after: incompatible tab/section-type combinations fail immediately with explicit error context.
 9. DX before: malformed reveal payloads could obscure root cause behind timeout symptoms.
 10. DX after: malformed payloads produce deterministic failed ACKs, improving observability and debugging.
+
+## 2026-02-25 13:42:04 PST
+
+### Consolidated Findings
+1. Reveal origin context was not canonicalized across agentic entrypoints, so multi-frontend reveal requests could route to the wrong websocket.
+2. Reveal timeout handling for plugin handlers did not provide cancellation, so timed-out requests could still produce late side effects.
+3. Plugin config write traversal still failed open on structural corruption by coercing invalid shapes.
+4. Right-pane reveal could mutate active section state before section/tab compatibility was validated.
+5. `set_ui_setting_value` lacked an explicit guard for writer old-value drift against the validated pre-write snapshot.
+6. Plugin reveal handler success was fail-open for non-boolean truthy returns.
+
+### Proposed Fixes Implemented (No Backward-Compatibility Workarounds)
+1. Added `frontend_websocket_id` as a first-class agentic context field and propagated it through session context, MCP headers/meta, tool runner, managed executor, and external agent runner.
+2. Added reveal routing fail-fast behavior when multiple frontend sockets are connected and no origin websocket id is present.
+3. Added backend right-pane section/tab compatibility validation before section activation so incompatible requests fail without mutating active selection.
+4. Replaced permissive plugin config write traversal with strict root/intermediate type validation and removed silent structure repair.
+5. Added a `set_ui_setting_value` postcondition guard that rejects mutations when writer `oldValue` does not match the validated pre-write value.
+6. Added `AbortSignal` to plugin reveal handlers, abort-on-timeout behavior, and strict boolean success semantics (`handled === true` only).
+7. Added/updated backend unit+integration tests, frontend unit tests, and Playwright coverage for routing, compatibility validation, strict write semantics, and plugin reveal contract enforcement.
+
+### UX/DX Before and After
+1. UX before: reveal requests in multi-frontend sessions could target the wrong tab/window.
+2. UX after: reveal targets are deterministic to origin websocket or fail fast with an explicit routing error.
+3. UX before: plugin reveal operations could still complete visually after timeout/error responses.
+4. UX after: timed-out plugin reveals are aborted and treated as failed without late-success behavior.
+5. UX before: corrupt plugin config structures could be silently rewritten during writes.
+6. UX after: corrupt structures return explicit errors and writes are side-effect free.
+7. UX before: incompatible right-pane reveal requests could still change active section focus.
+8. UX after: incompatible requests fail immediately without changing `activeIds`.
+9. DX before: truthy non-boolean plugin reveal returns masked contract violations.
+10. DX after: malformed handler returns are surfaced immediately with explicit contract failures.
+11. DX before: set-path old-value drift could create snapshot inconsistency during debugging.
+12. DX after: old/new mutation semantics are enforced against a single validated pre-write snapshot.

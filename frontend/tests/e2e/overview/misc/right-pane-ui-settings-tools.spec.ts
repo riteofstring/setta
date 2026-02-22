@@ -254,3 +254,81 @@ test("right-pane reveal_ui_setting activates section from sectionIdToActivate", 
     await cleanupIsolatedProject(page, projectContext);
   }
 });
+
+test("right-pane reveal_ui_setting rejects incompatible sectionIdToActivate without mutating activeIds", async ({
+  page,
+}) => {
+  await setOverviewTab(page, "Overview");
+  const projectContext = await openIsolatedProject(page);
+  const sectionName = `right-pane-incompatible-${Date.now()}`;
+
+  try {
+    const createdCodeSection = await postBackend<{
+      sectionId?: string;
+    }>(page, "/createTopLevelSection", {
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Code",
+    });
+    if (!createdCodeSection?.sectionId) {
+      throw new Error("Missing sectionId when creating Code section.");
+    }
+    await postBackend(page, "/setSectionName", {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId: createdCodeSection.sectionId,
+      name: sectionName,
+    });
+    await postBackend(page, "/setActiveIds", {
+      projectConfigId: projectContext.projectConfigId,
+      activeIds: [],
+    });
+    const seedResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: RIGHT_PANE_SETTING_ID,
+      },
+    );
+    if (typeof seedResult.projectConfigId !== "string") {
+      throw new Error(
+        `Expected temporary projectConfigId in seed result: ${JSON.stringify(seedResult)}`,
+      );
+    }
+    const temporarySectionId = await resolveTemporarySectionIdFromSummary(
+      page,
+      projectContext.projectConfigId,
+      seedResult.projectConfigId,
+      sectionName,
+    );
+
+    const revealResult = await callMcpTool<RevealUISettingResult>(
+      page,
+      projectContext.projectConfigId,
+      "reveal_ui_setting",
+      {
+        settingId: RIGHT_PANE_SETTING_ID,
+        sectionIdToActivate: temporarySectionId,
+        durationMs: 3000,
+      },
+    );
+    expect(revealResult.emittedRevealCount).toBe(0);
+    expect(revealResult.statuses[0]?.status).toBe("failed");
+    expect(revealResult.statuses[0]?.error?.code).toBe("mutation_failed");
+    expect(revealResult.statuses[0]?.error?.message).toContain(
+      "Section type Code does not support tab QuickInfoConfig.",
+    );
+
+    const latestProjectState = await postBackend<{
+      projectState?: {
+        projectConfig?: { activeIds?: string[] };
+      };
+    }>(page, "/getLatestProjectState", {
+      projectConfigId: projectContext.projectConfigId,
+    });
+    expect(latestProjectState?.projectState?.projectConfig?.activeIds).toEqual(
+      [],
+    );
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});

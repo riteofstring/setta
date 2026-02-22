@@ -14,7 +14,9 @@ from setta.mcp.tool_metadata import (
 from setta.mcp.tool_setup import setta_tool
 from setta.project_state.project_manager_types import SetActiveIdsRequest
 from setta.types.chat_messages import JSONValue
+from setta.types.helpers_lvl1 import get_curr_effective_section_impl
 from setta.types.id import ID
+from setta.types.section_impls import SectionType
 from setta.types.websocket import (
     UISettingRevealActivationStep as WebsocketUISettingRevealActivationStep,
 )
@@ -88,6 +90,51 @@ class SetUISettingValueResult(BaseModel, extra="forbid"):
     changed: bool = False
     reveal: RevealUISettingResult | None = None
     error: UISettingToolError | None = None
+
+
+_REQUIRED_UI_EDITOR_TABS_BY_SECTION_TYPE: dict[SectionType, set[str]] = {
+    SectionType.Callable: {
+        "SectionConfig",
+        "UIConfig",
+        "QuickInfoConfig",
+        "SectionVariantsConfig",
+    },
+    SectionType.Dict: {
+        "SectionConfig",
+        "UIConfig",
+        "QuickInfoConfig",
+        "SectionVariantsConfig",
+    },
+    SectionType.GlobalVariables: {
+        "SectionConfig",
+        "UIConfig",
+        "QuickInfoConfig",
+        "SectionVariantsConfig",
+    },
+    SectionType.ListRoot: {"SectionConfig", "SectionVariantsConfig"},
+    SectionType.Code: {"SectionConfig", "SectionVariantsConfig"},
+    SectionType.GenPythonCode: {"SectionConfig"},
+    SectionType.GenPythonMetadata: {"SectionConfig"},
+    SectionType.TextBlock: {
+        "SectionConfig",
+        "InfoConfig",
+        "SectionVariantsConfig",
+    },
+    SectionType.Prompt: {"SectionConfig"},
+    SectionType.MetaControl: {"SectionConfig"},
+    SectionType.Social: {"SectionConfig"},
+    SectionType.Group: {"SectionConfig"},
+    SectionType.Terminal: {"SectionConfig"},
+    SectionType.Draw: {"SectionConfig"},
+    SectionType.Image: {"SectionConfig"},
+    SectionType.Chart: {"SectionConfig"},
+    SectionType.IFrame: set(),
+    SectionType.Chat: {"SectionConfig"},
+    SectionType.Browser: {"SectionConfig"},
+    SectionType.Plugin: {"SectionConfig"},
+    SectionType.TaskBoard: {"SectionConfig"},
+    SectionType.Spreadsheet: {"SectionConfig"},
+}
 
 
 @setta_tool
@@ -305,6 +352,18 @@ async def set_ui_setting_value(
             value=mutation_result.newValue,
             operation="post-write newValue read",
         )
+        if mutation_result.oldValue != current_value:
+            return SetUISettingValueResult(
+                setting=_build_result_summary(runtime_entry.metadata),
+                error=UISettingToolError(
+                    code="mutation_failed",
+                    message=(
+                        f"Failed to set {normalized_setting_id}: write operation "
+                        "returned an oldValue that does not match the validated "
+                        "pre-write snapshot."
+                    ),
+                ),
+            )
     except UISettingValidationError as exc:
         return SetUISettingValueResult(
             setting=_build_result_summary(runtime_entry.metadata),
@@ -449,6 +508,19 @@ def _resolve_frontend_websocket_id(ctx: Context) -> str | None:
         and raw_frontend_websocket_id.strip() != ""
     ):
         return raw_frontend_websocket_id.strip()
+    fastmcp = getattr(ctx, "fastmcp", None)
+    if fastmcp is None:
+        return None
+    resolve_agentic_context = getattr(fastmcp, "_resolve_agentic_context", None)
+    if not callable(resolve_agentic_context):
+        return None
+    try:
+        agentic_context = resolve_agentic_context(ctx)
+    except ValueError:
+        return None
+    frontend_websocket_id = getattr(agentic_context, "frontend_websocket_id", None)
+    if isinstance(frontend_websocket_id, str) and frontend_websocket_id.strip() != "":
+        return frontend_websocket_id.strip()
     return None
 
 
@@ -571,6 +643,25 @@ async def _reveal_settings(
 
     if location.side == "right" and location.requiresSectionSelection:
         if section_id_to_activate is not None:
+            incompatible_tab_error = _resolve_right_pane_incompatible_tab_error(
+                project_state=project_state,
+                section_id=section_id_to_activate,
+                ui_editor_tab_name=location.uiEditorTabName,
+            )
+            if incompatible_tab_error is not None:
+                return RevealUISettingResult(
+                    requestId=request_id,
+                    projectConfigId=project_config_id,
+                    durationMs=bounded_duration_ms,
+                    emittedRevealCount=0,
+                    statuses=[
+                        RevealUISettingStatus(
+                            settingId=setting_id,
+                            status="failed",
+                            error=incompatible_tab_error,
+                        )
+                    ],
+                )
             section_error = await _activate_section_for_reveal(
                 manager=manager,
                 project_config_id=project_config_id,
@@ -613,6 +704,26 @@ async def _reveal_settings(
                     )
                 ],
             )
+        active_section_id = project_state.projectConfig.activeIds[0]
+        incompatible_tab_error = _resolve_right_pane_incompatible_tab_error(
+            project_state=project_state,
+            section_id=active_section_id,
+            ui_editor_tab_name=location.uiEditorTabName,
+        )
+        if incompatible_tab_error is not None:
+            return RevealUISettingResult(
+                requestId=request_id,
+                projectConfigId=project_config_id,
+                durationMs=bounded_duration_ms,
+                emittedRevealCount=0,
+                statuses=[
+                    RevealUISettingStatus(
+                        settingId=setting_id,
+                        status="failed",
+                        error=incompatible_tab_error,
+                    )
+                ],
+            )
 
     target = UISettingRevealTarget(
         settingId=resolved_runtime_entry.metadata.settingId,
@@ -632,6 +743,34 @@ async def _reveal_settings(
     share_session_id = _resolve_share_session_id(ctx)
     preferred_frontend_websocket_id = _resolve_frontend_websocket_id(ctx)
     frontend_sender = ctx.fastmcp.state.wmh_frontend_sender
+    available_frontend_websocket_ids = (
+        frontend_sender.list_frontend_websocket_ids_for_ui_setting_reveal(
+            share_session_id=share_session_id
+        )
+    )
+    if (
+        preferred_frontend_websocket_id is None
+        and len(available_frontend_websocket_ids) > 1
+    ):
+        return RevealUISettingResult(
+            requestId=request_id,
+            projectConfigId=project_config_id,
+            durationMs=bounded_duration_ms,
+            emittedRevealCount=0,
+            statuses=[
+                RevealUISettingStatus(
+                    settingId=setting_id,
+                    status="failed",
+                    error=UISettingToolError(
+                        code="mutation_failed",
+                        message=(
+                            "Reveal routing is ambiguous because multiple frontends "
+                            "are connected and no frontendWebsocketId was provided."
+                        ),
+                    ),
+                )
+            ],
+        )
     target_websocket_id = (
         frontend_sender.select_frontend_websocket_for_ui_setting_reveal(
             share_session_id=share_session_id,
@@ -853,6 +992,48 @@ async def _activate_section_for_reveal(
         broadcast_name_validation_errors=False,
         validate_name_rules=False,
     )
+    return None
+
+
+def _resolve_right_pane_incompatible_tab_error(
+    *,
+    project_state,
+    section_id: ID,
+    ui_editor_tab_name: str | None,
+) -> UISettingToolError | None:
+    if section_id not in project_state.sections:
+        return UISettingToolError(
+            code="mutation_failed",
+            message=f"Unknown section id: {section_id}",
+        )
+    if not isinstance(ui_editor_tab_name, str) or ui_editor_tab_name.strip() == "":
+        return UISettingToolError(
+            code="mutation_failed",
+            message="Right-pane reveal is missing uiEditorTabName metadata.",
+        )
+    section_impl = get_curr_effective_section_impl(project_state, section_id)
+    section_type_name = (
+        section_impl.type.value
+        if isinstance(section_impl.type, SectionType)
+        else str(section_impl.type)
+    )
+    required_tabs = _REQUIRED_UI_EDITOR_TABS_BY_SECTION_TYPE.get(section_impl.type)
+    if required_tabs is None:
+        return UISettingToolError(
+            code="mutation_failed",
+            message=(
+                f"Section type {section_type_name} does not support tab "
+                f"{ui_editor_tab_name}."
+            ),
+        )
+    if ui_editor_tab_name not in required_tabs:
+        return UISettingToolError(
+            code="mutation_failed",
+            message=(
+                f"Section type {section_type_name} does not support tab "
+                f"{ui_editor_tab_name}."
+            ),
+        )
     return None
 
 

@@ -309,3 +309,114 @@ async def test_plugin_backend_write_value_validates_old_value_before_write() -> 
     assert exc.value.code == "invalid_value_type"
     assert plugin_manager.backend_write_invocation_count == 0
     assert plugin_manager.backend_enabled == "invalid-old-value"
+
+
+@pytest.mark.asyncio
+async def test_plugin_write_value_rejects_non_object_root_without_mutation() -> None:
+    class PluginManagerState:
+        def __init__(self) -> None:
+            self.write_invocation_count = 0
+            self.runtime_response = SimpleNamespace(
+                status=SimpleNamespace(
+                    plugins=[
+                        SimpleNamespace(
+                            pluginId="plugin-a",
+                            state=SimpleNamespace(value="active"),
+                        )
+                    ]
+                ),
+                list=SimpleNamespace(
+                    plugins=[
+                        SimpleNamespace(
+                            pluginId="plugin-a",
+                            config=SimpleNamespace(currentConfig="invalid-root"),
+                        )
+                    ]
+                ),
+            )
+
+        def get_runtime_response(self):
+            return self.runtime_response
+
+        def write_plugin_config(self, *, plugin_id: str, config: dict[str, object]) -> None:
+            assert plugin_id == "plugin-a"
+            self.write_invocation_count += 1
+            self.runtime_response.list.plugins[0].config.currentConfig = config
+
+    plugin_manager = PluginManagerState()
+    ctx = SimpleNamespace(
+        fastmcp=SimpleNamespace(state=SimpleNamespace(plugin_manager=plugin_manager))
+    )
+    write_value = ui_settings_registry._build_plugin_write_value(
+        plugin_id="plugin-a",
+        config_path=["enabled"],
+        default_value=False,
+        value_schema=UISettingValueSchema(type="boolean"),
+    )
+
+    # Corrupt persisted config roots must fail fast and never write a repaired shape.
+    with pytest.raises(ui_settings_registry.UISettingValidationError) as exc:
+        await write_value(ctx, ID("project-1"), True)
+    assert exc.value.code == "mutation_failed"
+    assert "config root must be an object" in str(exc.value)
+    assert plugin_manager.write_invocation_count == 0
+    assert plugin_manager.runtime_response.list.plugins[0].config.currentConfig == "invalid-root"
+
+
+@pytest.mark.asyncio
+async def test_plugin_write_value_rejects_non_object_intermediate_path_without_mutation() -> (
+    None
+):
+    class PluginManagerState:
+        def __init__(self) -> None:
+            self.write_invocation_count = 0
+            self.runtime_response = SimpleNamespace(
+                status=SimpleNamespace(
+                    plugins=[
+                        SimpleNamespace(
+                            pluginId="plugin-a",
+                            state=SimpleNamespace(value="active"),
+                        )
+                    ]
+                ),
+                list=SimpleNamespace(
+                    plugins=[
+                        SimpleNamespace(
+                            pluginId="plugin-a",
+                            config=SimpleNamespace(
+                                currentConfig={"settings": "invalid-node"}
+                            ),
+                        )
+                    ]
+                ),
+            )
+
+        def get_runtime_response(self):
+            return self.runtime_response
+
+        def write_plugin_config(self, *, plugin_id: str, config: dict[str, object]) -> None:
+            assert plugin_id == "plugin-a"
+            self.write_invocation_count += 1
+            self.runtime_response.list.plugins[0].config.currentConfig = config
+
+    plugin_manager = PluginManagerState()
+    ctx = SimpleNamespace(
+        fastmcp=SimpleNamespace(state=SimpleNamespace(plugin_manager=plugin_manager))
+    )
+    write_value = ui_settings_registry._build_plugin_write_value(
+        plugin_id="plugin-a",
+        config_path=["settings", "enabled"],
+        default_value=False,
+        value_schema=UISettingValueSchema(type="boolean"),
+    )
+
+    # Invalid intermediate nodes must fail without replacing nodes with implicit dicts.
+    with pytest.raises(ui_settings_registry.UISettingValidationError) as exc:
+        await write_value(ctx, ID("project-1"), True)
+    assert exc.value.code == "mutation_failed"
+    assert "non-object node at settings" in str(exc.value)
+    assert plugin_manager.write_invocation_count == 0
+    assert (
+        plugin_manager.runtime_response.list.plugins[0].config.currentConfig["settings"]
+        == "invalid-node"
+    )

@@ -94,6 +94,7 @@ type PluginSettingRevealHandlerContext = {
   settingId: string;
   paneId: string | null;
   durationMs: number;
+  abortSignal: AbortSignal;
 };
 
 type PluginSettingRevealHandler = (
@@ -2511,12 +2512,14 @@ export async function invokePluginSettingRevealHandler({
   settingId,
   paneId,
   durationMs,
+  abortSignal,
 }: {
   pluginId: string;
   revealKey: string;
   settingId: string;
   paneId: string | null;
   durationMs: number;
+  abortSignal: AbortSignal;
 }): Promise<{ ok: boolean; message: string | null }> {
   const handlersByKey = settingRevealHandlersByPluginId.get(pluginId);
   if (!handlersByKey) {
@@ -2532,20 +2535,45 @@ export async function invokePluginSettingRevealHandler({
       message: `Plugin ${pluginId} has no setting reveal handler for ${revealKey}.`,
     };
   }
+  if (abortSignal.aborted) {
+    return {
+      ok: false,
+      message: `Plugin ${pluginId} reveal handler ${revealKey} was aborted before invocation.`,
+    };
+  }
   try {
     const handled = await handler({
       settingId,
       paneId,
       durationMs,
+      abortSignal,
     });
-    if (!handled) {
+    if (abortSignal.aborted) {
+      return {
+        ok: false,
+        message: `Plugin ${pluginId} reveal handler ${revealKey} timed out.`,
+      };
+    }
+    if (handled === true) {
+      return { ok: true, message: null };
+    }
+    if (handled === false) {
       return {
         ok: false,
         message: `Plugin ${pluginId} did not handle setting reveal ${revealKey}.`,
       };
     }
-    return { ok: true, message: null };
+    return {
+      ok: false,
+      message: `Plugin ${pluginId} reveal handler ${revealKey} returned a non-boolean value.`,
+    };
   } catch (error) {
+    if (abortSignal.aborted) {
+      return {
+        ok: false,
+        message: `Plugin ${pluginId} reveal handler ${revealKey} timed out.`,
+      };
+    }
     const message =
       error instanceof Error && error.message.trim()
         ? error.message
@@ -2660,6 +2688,7 @@ export const pluginRuntimeTestApi = {
   cloneProjectStateSnapshot,
   indexSectionKindKeysByPluginId,
   loadPluginFrontendModule,
+  registerPluginSettingRevealHandler,
   normalizePluginPath,
   runWithConcurrencyLimit,
   shouldLoadPluginFrontend,

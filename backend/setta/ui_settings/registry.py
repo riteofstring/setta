@@ -1041,17 +1041,22 @@ def _build_plugin_write_value(
             ctx=ctx,
             plugin_id=plugin_id,
         )
-        old_config = _clone_json_object(plugin_entry.config.currentConfig)
-        old_value = _read_plugin_config_path_value(
+        old_config = _clone_plugin_config_object(
+            plugin_entry.config.currentConfig,
+            plugin_id=plugin_id,
+        )
+        old_value = _read_plugin_config_path_value_for_write(
             config=old_config,
             config_path=config_path,
             default_value=default_value,
+            plugin_id=plugin_id,
         )
         validate_ui_setting_value(value_schema, old_value)
         next_config = _write_plugin_config_path_value(
             config=old_config,
             config_path=config_path,
             value=value,
+            plugin_id=plugin_id,
         )
         ctx.fastmcp.state.plugin_manager.write_plugin_config(
             plugin_id=plugin_id,
@@ -1061,10 +1066,15 @@ def _build_plugin_write_value(
             ctx=ctx,
             plugin_id=plugin_id,
         )
-        new_value = _read_plugin_config_path_value(
-            config=refreshed_entry.config.currentConfig,
+        refreshed_config = _clone_plugin_config_object(
+            refreshed_entry.config.currentConfig,
+            plugin_id=plugin_id,
+        )
+        new_value = _read_plugin_config_path_value_for_write(
+            config=refreshed_config,
             config_path=config_path,
             default_value=default_value,
+            plugin_id=plugin_id,
         )
         return UISettingMutationResult(
             oldValue=old_value,
@@ -1177,9 +1187,16 @@ def _convert_plugin_manager_error_for_ui_setting(
     )
 
 
-def _clone_json_object(value: Any) -> dict[str, Any]:
+def _clone_plugin_config_object(
+    value: Any,
+    *,
+    plugin_id: str,
+) -> dict[str, Any]:
     if not isinstance(value, dict):
-        return {}
+        raise UISettingValidationError(
+            "mutation_failed",
+            f"Plugin {plugin_id} config root must be an object.",
+        )
     return deepcopy(value)
 
 
@@ -1543,20 +1560,61 @@ def _read_plugin_config_path_value(
     return current_value
 
 
+def _read_plugin_config_path_value_for_write(
+    *,
+    config: dict[str, Any],
+    config_path: list[str],
+    default_value: JSONValue,
+    plugin_id: str,
+) -> JSONValue:
+    current_value: Any = config
+    traversed_segments: list[str] = []
+    for segment in config_path:
+        if not isinstance(current_value, dict):
+            mismatch_path = (
+                ".".join(traversed_segments)
+                if len(traversed_segments) > 0
+                else "<root>"
+            )
+            raise UISettingValidationError(
+                "mutation_failed",
+                (
+                    f"Plugin {plugin_id} config path {'.'.join(config_path)} "
+                    f"contains a non-object node at {mismatch_path}."
+                ),
+            )
+        if segment not in current_value:
+            return default_value
+        traversed_segments.append(segment)
+        current_value = current_value[segment]
+    return current_value
+
+
 def _write_plugin_config_path_value(
     *,
     config: dict[str, Any],
     config_path: list[str],
     value: JSONValue,
+    plugin_id: str,
 ) -> dict[str, Any]:
     output = deepcopy(config)
     current_value: dict[str, Any] = output
     for segment in config_path[:-1]:
-        if segment in current_value and isinstance(current_value[segment], dict):
-            nested_value = current_value[segment]
-        else:
-            nested_value = {}
+        if segment not in current_value:
+            nested_value: dict[str, Any] = {}
             current_value[segment] = nested_value
+            current_value = nested_value
+            continue
+        nested_raw_value = current_value[segment]
+        if not isinstance(nested_raw_value, dict):
+            raise UISettingValidationError(
+                "mutation_failed",
+                (
+                    f"Plugin {plugin_id} config path {'.'.join(config_path)} "
+                    f"contains a non-object node at {segment}."
+                ),
+            )
+        nested_value = nested_raw_value
         current_value = nested_value
     current_value[config_path[-1]] = value
     return output
